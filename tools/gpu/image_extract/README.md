@@ -1,6 +1,6 @@
-# Image Tagging
+# Image Extract
 
-This service runs local image understanding through a `llama-server` instance.
+This service runs local image extraction through a `llama-server` instance.
 
 The default launcher path does three things for you:
 
@@ -44,12 +44,12 @@ executable `llama-server` path.
 From the repo root:
 
 ```bash
-./tools/gpu/image_tagging/run.sh
+./tools/gpu/image_extract/run.sh
 ```
 
 That command will:
 
-1. create or reuse `tools/gpu/image_tagging/.venv`
+1. create or reuse `tools/gpu/image_extract/.venv`
 2. install the Python wrapper and embedding dependencies
 3. download the configured model files if they are missing
 4. ensure `llama-server` exists
@@ -108,7 +108,7 @@ Default llama-server runtime flags:
 Run on a different external API port:
 
 ```bash
-IMAGE_TAGGING_PORT=9001 ./tools/gpu/image_tagging/run.sh
+IMAGE_TAGGING_PORT=9001 ./tools/gpu/image_extract/run.sh
 ```
 
 Point the service at an already-running external `llama-server` and skip local
@@ -117,27 +117,27 @@ model/binary management:
 ```bash
 IMAGE_TAGGING_MANAGE_LLAMA_SERVER=0 \
 IMAGE_TAGGING_LLAMA_SERVER_URL=http://127.0.0.1:18080 \
-./tools/gpu/image_tagging/run.sh
+./tools/gpu/image_extract/run.sh
 ```
 
 Use a different GGUF within the default repo:
 
 ```bash
-IMAGE_TAGGING_MODEL_FILE=Qwen3.5-9B-Q6_K.gguf ./tools/gpu/image_tagging/run.sh
+IMAGE_TAGGING_MODEL_FILE=Qwen3.5-9B-Q6_K.gguf ./tools/gpu/image_extract/run.sh
 ```
 
 Run a different Hugging Face repo/file:
 
 ```bash
 IMAGE_TAGGING_LLAMA_EXTRA_ARGS='--chat-template-kwargs {"enable_thinking":false}' \
-./tools/gpu/image_tagging/run.sh \
+./tools/gpu/image_extract/run.sh \
   unsloth/gemma-4-26B-A4B-it-GGUF:gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf
 ```
 
 Pass extra flags straight through to `llama-server`:
 
 ```bash
-IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/gpu/image_tagging/run.sh
+IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/gpu/image_extract/run.sh
 ```
 
 ## Endpoints

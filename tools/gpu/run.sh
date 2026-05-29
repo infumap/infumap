@@ -22,9 +22,9 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly RESTART_DELAY_SECS="${GPU_RESTART_DELAY_SECS:-5}"
 readonly SERVICES=(
     "gateway"
-    "image_tagging"
-    "text_embedding"
-    "text_extraction"
+    "image_extract"
+    "text_embed"
+    "pdf_extract"
 )
 
 supervisor_pids=()

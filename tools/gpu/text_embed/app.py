@@ -27,7 +27,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 MODEL_ID = "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0"
-LOGGER = logging.getLogger("infumap.text_embedding")
+LOGGER = logging.getLogger("infumap.text_embed")
 
 
 def env_float(name: str, default: float) -> float:

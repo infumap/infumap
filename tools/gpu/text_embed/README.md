@@ -1,4 +1,4 @@
-# Text Embedding
+# Text Embed
 
 This service exposes Infumap's public text embedding API and uses a private
 `llama-server` process for the actual embedding work.
@@ -23,7 +23,7 @@ Requirements:
 From the repo root:
 
 ```bash
-./tools/gpu/text_embedding/run.sh
+./tools/gpu/text_embed/run.sh
 ```
 
 By default:

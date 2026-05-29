@@ -25,9 +25,9 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # suppression once the upstream package releases a fix.
 readonly REQUIREMENTS_FILES=(
   "gateway:tools/gpu/gateway/requirements.txt"
-  "text_embedding:tools/gpu/text_embedding/requirements.txt"
-  "text_embedding (fastembed CPU):tools/gpu/text_embedding/requirements-fastembed.txt"
-  "image_tagging:tools/gpu/image_tagging/requirements.txt"
+  "text_embed:tools/gpu/text_embed/requirements.txt"
+  "text_embed (fastembed CPU):tools/gpu/text_embed/requirements-fastembed.txt"
+  "image_extract:tools/gpu/image_extract/requirements.txt"
   # CVE-2026-25990 (pillow >=10.3.0,<12.1.1, CVSS 8.9): out-of-bounds write loading
   #   PSD images. Low risk here — PDFs rarely embed PSD files.
   # CVE-2025-68616 (weasyprint <68.0, CVSS 7.5): SSRF bypass via HTTP redirects.
@@ -35,7 +35,7 @@ readonly REQUIREMENTS_FILES=(
   #   this service were exposed to untrusted document sources.
   # Both are unfixable while marker-pdf 1.10.2 pins Pillow<11.0.0 and weasyprint<64.0.
   # Remove suppressions once marker-pdf depends on pillow>=12.1.1 and weasyprint>=68.0.
-  "text_extraction:tools/gpu/text_extraction/requirements.txt:--ignore-vuln CVE-2026-25990 --ignore-vuln CVE-2025-68616"
+  "pdf_extract:tools/gpu/pdf_extract/requirements.txt:--ignore-vuln CVE-2026-25990 --ignore-vuln CVE-2025-68616"
 )
 
 print_usage() {
@@ -134,7 +134,7 @@ for entry in "${REQUIREMENTS_FILES[@]}"; do
   if [[ -n "$extra_args" ]]; then
     suppressed="$(echo "$extra_args" | grep -o 'CVE-[0-9-]*' | tr '\n' ' ' | sed 's/ $//' || true)"
     echo "  NOTE: suppressed vulnerabilities (unfixable upstream conflicts): $suppressed"
-    echo "        See tools/gpu/text_extraction/requirements.txt for details."
+    echo "        See tools/gpu/pdf_extract/requirements.txt for details."
   fi
   # shellcheck disable=SC2086
   if ! $PIP_AUDIT_CMD -r "$req_path" $extra_args; then

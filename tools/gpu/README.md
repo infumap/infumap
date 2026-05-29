@@ -3,11 +3,11 @@
 This folder contains the three HTTP tools plus a shared HTTP gateway:
 
 - `gateway`
-- `image_tagging`
-- `text_embedding`
-- `text_extraction`
+- `image_extract`
+- `text_embed`
+- `pdf_extract`
 
-The `image_tagging`, `text_embedding`, `text_extraction`, and `gateway`
+The `image_extract`, `text_embed`, `pdf_extract`, and `gateway`
 launchers require Python 3.10 through 3.13 because the pinned API and ML
 dependencies do not install reliably on Python 3.9 or 3.14. By default they
 reuse a valid service `.venv`, then try common versioned `python3.x`
@@ -23,9 +23,9 @@ To start all three together from the repo root:
 
 By default the gateway listens on `127.0.0.1:8787` and forwards:
 
-- `/image-extract` to the image tagging service
-- `/text-embed` to the text embedding service
-- `/pdf-extract` to the text extraction service
+- `/image-extract` to the image extract service
+- `/text-embed` to the text embed service
+- `/pdf-extract` to the PDF extract service
 - `/pdf-extract/jobs` as the gateway-owned async PDF extraction job API
 
 The gateway also keeps legacy aliases for existing callers:
@@ -36,22 +36,22 @@ The gateway also keeps legacy aliases for existing callers:
 
 The child services keep their own defaults:
 
-- `image_tagging`: `127.0.0.1:8788`
-- `text_embedding`: `127.0.0.1:8789`
-- `text_extraction`: `127.0.0.1:8790`
+- `image_extract`: `127.0.0.1:8788`
+- `text_embed`: `127.0.0.1:8789`
+- `pdf_extract`: `127.0.0.1:8790`
 
 Hugging Face, llama.cpp, PyTorch, Transformers, and Marker downloads use their
 standard library cache locations, such as `~/.cache/huggingface` and
 `~/.cache/torch`.
 
-`image_tagging` defaults to
+`image_extract` defaults to
 `unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf`. Set
 `IMAGE_TAGGING_MODEL=<huggingface-repo>:<gguf-file>` or pass that selector as
-the first `image_tagging/run.sh` argument to select another model. You can also
+the first `image_extract/run.sh` argument to select another model. You can also
 use `IMAGE_TAGGING_MODEL_REPO`, `IMAGE_TAGGING_MODEL_FILE`, and
 `IMAGE_TAGGING_MMPROJ_FILE` for separate fields.
 
-Note: `tools/gpu/text_embedding` defaults to
+Note: `tools/gpu/text_embed` defaults to
 `Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` with `llama-server --embedding`. It
 requests GPU layers on NVIDIA and macOS hosts by default. Set
 `TEXT_EMBEDDING_LLAMA_NGL=0` to force CPU execution.
@@ -75,12 +75,12 @@ The combined launcher keeps each service independent:
 - the gateway also exposes async PDF extraction jobs for web-background use:
   `POST /pdf-extract/jobs`, `GET /pdf-extract/jobs/{job_id}`, and
   `GET /pdf-extract/jobs/{job_id}/result`; the gateway holds the global GPU lock
-  while each async job calls the text extraction service, and uses a separate
+  while each async job calls the PDF extract service, and uses a separate
   async-job upstream timeout defaulting to 24 hours
-- child image-tagging and text-extraction services also bound their internal
+- child image extract and PDF extract services also bound their internal
   worker-slot waits with `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS` and
   `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
-- text extraction has a per-PDF conversion watchdog
+- PDF extract has a per-PDF conversion watchdog
   (`TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`, default 1 hour); a timed-out PDF is
   treated as a terminal document failure and the supervised service process
   restarts to clear stuck native worker state
@@ -96,9 +96,9 @@ Optional environment variables:
 - `GPU_GATEWAY_LOCK_LEASE_SECS`
 - `GPU_GATEWAY_PDF_EXTRACT_JOB_UPSTREAM_TIMEOUT_SECS`
 - `GPU_GATEWAY_PDF_EXTRACT_JOB_RESULT_RETENTION_SECS`
-- `GPU_IMAGE_TAGGING_UPSTREAM_URL`
-- `GPU_TEXT_EMBEDDING_UPSTREAM_URL`
-- `GPU_TEXT_EXTRACTION_UPSTREAM_URL`
+- `GPU_IMAGE_EXTRACT_UPSTREAM_URL` (`GPU_IMAGE_TAGGING_UPSTREAM_URL` is also accepted)
+- `GPU_TEXT_EMBED_UPSTREAM_URL` (`GPU_TEXT_EMBEDDING_UPSTREAM_URL` is also accepted)
+- `GPU_PDF_EXTRACT_UPSTREAM_URL` (`GPU_TEXT_EXTRACTION_UPSTREAM_URL` is also accepted)
 - `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`

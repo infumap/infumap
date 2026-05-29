@@ -258,30 +258,43 @@ def describe_gpu_lock_holder(lease: GpuLockLease | None) -> str:
     )
 
 
-def upstream_base_url(name: str, default_host: str, default_port: int) -> str:
-    configured = os.environ.get(name, "").strip()
-    if configured:
-        return configured.rstrip("/")
+def upstream_base_url(names: tuple[str, ...], default_host: str, default_port: int) -> str:
+    for name in names:
+        configured = os.environ.get(name, "").strip()
+        if configured:
+            return configured.rstrip("/")
     return f"http://{default_host}:{default_port}"
 
 
 def service_registry() -> dict[str, ServiceProxy]:
     services = [
         ServiceProxy(
-            service_name="image_tagging",
+            service_name="image_extract",
             public_paths=("/image-extract", "/tag"),
-            upstream_base_url=upstream_base_url("GPU_IMAGE_TAGGING_UPSTREAM_URL", "127.0.0.1", 8788),
+            upstream_base_url=upstream_base_url(
+                ("GPU_IMAGE_EXTRACT_UPSTREAM_URL", "GPU_IMAGE_TAGGING_UPSTREAM_URL"),
+                "127.0.0.1",
+                8788,
+            ),
         ),
         ServiceProxy(
-            service_name="text_embedding",
+            service_name="text_embed",
             public_paths=("/text-embed", "/embed"),
-            upstream_base_url=upstream_base_url("GPU_TEXT_EMBEDDING_UPSTREAM_URL", "127.0.0.1", 8789),
+            upstream_base_url=upstream_base_url(
+                ("GPU_TEXT_EMBED_UPSTREAM_URL", "GPU_TEXT_EMBEDDING_UPSTREAM_URL"),
+                "127.0.0.1",
+                8789,
+            ),
             uses_global_gpu_lock=False,
         ),
         ServiceProxy(
-            service_name="text_extraction",
+            service_name="pdf_extract",
             public_paths=("/pdf-extract", "/convert"),
-            upstream_base_url=upstream_base_url("GPU_TEXT_EXTRACTION_UPSTREAM_URL", "127.0.0.1", 8790),
+            upstream_base_url=upstream_base_url(
+                ("GPU_PDF_EXTRACT_UPSTREAM_URL", "GPU_TEXT_EXTRACTION_UPSTREAM_URL"),
+                "127.0.0.1",
+                8790,
+            ),
             upstream_read_write_timeout_secs=PDF_EXTRACT_UPSTREAM_READ_WRITE_TIMEOUT_SECS,
         ),
     ]
@@ -322,7 +335,7 @@ def build_upstream_url(service: ServiceProxy, request_path: str, query: str) -> 
 
 def should_buffer_request_body_before_gpu_lock(service: ServiceProxy, request_path: str, method: str) -> bool:
     return (
-        service.service_name == "image_tagging"
+        service.service_name == "image_extract"
         and request_path in {"/image-extract", "/tag"}
         and method.upper() in {"POST", "PUT", "PATCH"}
     )
@@ -490,7 +503,7 @@ async def update_pdf_extract_job(request: Request, job_id: str, **updates: Any) 
 
 
 async def run_pdf_extract_job(request: Request, job_id: str) -> None:
-    service = SERVICES["text_extraction"]
+    service = SERVICES["pdf_extract"]
     lock = gpu_lock(request)
     client = proxy_client_for_service(request, service)
     async with pdf_extract_jobs_lock(request):
@@ -566,7 +579,7 @@ async def run_pdf_extract_job(request: Request, job_id: str) -> None:
             job_id,
             status="failed",
             http_status=503,
-            error=f"Upstream GPU service 'text_extraction' is unavailable: {exc}",
+            error=f"Upstream GPU service 'pdf_extract' is unavailable: {exc}",
             request_body=b"",
         )
     except Exception as exc:
@@ -582,7 +595,7 @@ async def run_pdf_extract_job(request: Request, job_id: str) -> None:
     finally:
         if lock_lease is not None:
             if await lock.release(lock_lease):
-                LOGGER.info("GPU gateway released global lock: service=text_extraction path=/pdf-extract job_id=%s", job_id)
+                LOGGER.info("GPU gateway released global lock: service=pdf_extract path=/pdf-extract job_id=%s", job_id)
             else:
                 LOGGER.warning(
                     "GPU gateway async PDF job finished after its global lock lease was no longer current: %s",

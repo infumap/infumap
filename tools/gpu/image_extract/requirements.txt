@@ -1,4 +1,4 @@
-# Direct requirements for image_tagging service.
+# Direct requirements for image_extract service.
 # Common packages are pinned; heavy ML packages (torch, transformers) are
 # intentionally left unpinned here because they vary by platform and CUDA version.
 #
