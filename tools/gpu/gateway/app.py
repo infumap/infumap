@@ -270,7 +270,7 @@ def service_registry() -> dict[str, ServiceProxy]:
     services = [
         ServiceProxy(
             service_name="image_extract",
-            public_paths=("/image-extract", "/tag"),
+            public_paths=("/image-extract",),
             upstream_base_url=upstream_base_url(
                 ("GPU_IMAGE_EXTRACT_UPSTREAM_URL", "GPU_IMAGE_TAGGING_UPSTREAM_URL"),
                 "127.0.0.1",
@@ -336,7 +336,7 @@ def build_upstream_url(service: ServiceProxy, request_path: str, query: str) -> 
 def should_buffer_request_body_before_gpu_lock(service: ServiceProxy, request_path: str, method: str) -> bool:
     return (
         service.service_name == "image_extract"
-        and request_path in {"/image-extract", "/tag"}
+        and request_path == "/image-extract"
         and method.upper() in {"POST", "PUT", "PATCH"}
     )
 

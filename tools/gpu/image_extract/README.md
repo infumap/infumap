@@ -146,7 +146,6 @@ IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/gpu/ima
 - `GET /healthz`
 - `POST /image-extract`
 - `POST /image-extract/caption`
-- `POST /tag` legacy alias
 
 Interactive docs remain available at `http://127.0.0.1:8788/docs`.
 

@@ -30,7 +30,6 @@ By default the gateway listens on `127.0.0.1:8787` and forwards:
 
 The gateway also keeps legacy aliases for existing callers:
 
-- `/tag`
 - `/embed`
 - `/convert`
 

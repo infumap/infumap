@@ -1175,7 +1175,6 @@ async def root(request: Request) -> dict[str, str]:
         "health": rooted_path(request, "/healthz"),
         "image_extract": rooted_path(request, "/image-extract"),
         "image_extract_caption": rooted_path(request, "/image-extract/caption"),
-        "tag": rooted_path(request, "/tag"),
     }
 
 
@@ -1217,7 +1216,6 @@ TAG_UPLOAD_OPENAPI_EXTRA = {
 
 
 @app.post("/image-extract", response_model=ImageTagResponse, openapi_extra=TAG_UPLOAD_OPENAPI_EXTRA)
-@app.post("/tag", response_model=ImageTagResponse, openapi_extra=TAG_UPLOAD_OPENAPI_EXTRA)
 async def tag_upload(request: Request) -> ImageTagResponse:
     request_started_at = time.perf_counter()
     file_name = "upload"
