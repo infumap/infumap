@@ -24,6 +24,7 @@ To start all three together from the repo root:
 By default the gateway listens on `127.0.0.1:8787` and forwards:
 
 - `/image-extract` to the image extract service
+- `/image-extract-caption-only` to the image extract service
 - `/text-embed` to the text embed service
 - `/pdf-extract` to the PDF extract service
 - `/pdf-extract/jobs` as the gateway-owned async PDF extraction job API

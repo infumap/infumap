@@ -1174,7 +1174,7 @@ async def root(request: Request) -> dict[str, str]:
         "docs": rooted_path(request, "/docs"),
         "health": rooted_path(request, "/healthz"),
         "image_extract": rooted_path(request, "/image-extract"),
-        "image_extract_caption": rooted_path(request, "/image-extract/caption"),
+        "image_extract_caption_only": rooted_path(request, "/image-extract-caption-only"),
     }
 
 
@@ -1330,7 +1330,7 @@ async def tag_upload(request: Request) -> ImageTagResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/image-extract/caption", response_model=ImageCaptionResponse, openapi_extra=TAG_UPLOAD_OPENAPI_EXTRA)
+@app.post("/image-extract-caption-only", response_model=ImageCaptionResponse, openapi_extra=TAG_UPLOAD_OPENAPI_EXTRA)
 async def caption_upload(request: Request) -> ImageCaptionResponse:
     request_started_at = time.perf_counter()
     file_name = "upload"
