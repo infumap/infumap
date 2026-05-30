@@ -19,7 +19,7 @@
 import { ArrangeAlgorithm } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { isEmptyVeid, VeFns, VisualElement } from "../../layout/visual-element";
+import { isEmptyVeid, VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { isArrowKey } from "../../input/key";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -28,6 +28,8 @@ import { cloneBoundingBox } from "../../util/geometry";
 import { isPage, asPageItem } from "../../items/page-item";
 import { isSearch } from "../../items/search-item";
 import { POPUP_LINK_UID } from "../../util/uid";
+import { VesCache } from "../../layout/ves-cache";
+import { arrangeNow } from "../../layout/arrange";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
 const AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE = "repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px)";
@@ -162,11 +164,61 @@ export const createPageTitleEditHandlers = (
   };
 }
 
-export const handleLineItemTitleKeyDown = (store: StoreContextModel, ev: KeyboardEvent): boolean => {
+function selectEditedPageLineItemMaybe(
+  store: StoreContextModel,
+  visualElementMaybe?: VisualElement,
+): string | null {
+  const textEditInfo = store.overlay.textEditInfo();
+  const itemPath = visualElementMaybe ? VeFns.veToPath(visualElementMaybe) : textEditInfo?.itemPath;
+  if (!itemPath) { return null; }
+
+  const lineItemVe = visualElementMaybe ?? VesCache.current.readNode(itemPath);
+  if (!lineItemVe ||
+    !(lineItemVe.flags & VisualElementFlags.LineItem) ||
+    !isPage(lineItemVe.displayItem)) {
+    return null;
+  }
+
+  const parentPath = lineItemVe.parentPath ?? VeFns.parentPath(itemPath);
+  if (!parentPath) { return null; }
+
+  const parentVe = VesCache.current.readNode(parentPath);
+  if (!parentVe ||
+    (parentVe.flags & VisualElementFlags.DockItem) ||
+    !isPage(parentVe.displayItem) ||
+    asPageItem(parentVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
+    return null;
+  }
+
+  store.perItem.setSelectedListPageItem(
+    VeFns.actualVeidFromVe(parentVe),
+    VeFns.veidFromVe(lineItemVe),
+  );
+  return parentPath;
+}
+
+function focusSelectedInnerPageMaybe(store: StoreContextModel, listPagePath: string | null): void {
+  if (listPagePath == null) { return; }
+
+  const selectedVe = VesCache.current.readSelected(listPagePath);
+  if (!selectedVe || !isPage(selectedVe.displayItem)) { return; }
+
+  store.history.setFocus(VeFns.veToPath(selectedVe));
+  arrangeNow(store, "line-item-enter-focus-selected-page");
+}
+
+export const handleLineItemTitleKeyDown = (
+  store: StoreContextModel,
+  ev: KeyboardEvent,
+  visualElementMaybe?: VisualElement,
+): boolean => {
   if (ev.key == "Enter") {
     ev.preventDefault();
     ev.stopPropagation();
-    commitActiveTextEdit(store, false, "line-item-enter-exit-edit");
+    const listPagePath = selectEditedPageLineItemMaybe(store, visualElementMaybe);
+    if (commitActiveTextEdit(store, false, "line-item-enter-exit-edit")) {
+      focusSelectedInnerPageMaybe(store, listPagePath);
+    }
     return true;
   }
 

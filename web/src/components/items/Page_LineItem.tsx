@@ -203,7 +203,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
-    handleLineItemTitleKeyDown(store, ev);
+    handleLineItemTitleKeyDown(store, ev, props.visualElement);
   }
 
   const renderText = () =>
