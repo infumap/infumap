@@ -269,7 +269,8 @@ export const Toolbar: Component = () => {
     </Show>;
 
   const rightToolbarSection = () =>
-    <div class="border-l border-b pl-[4px] flex flex-row"
+    <div id="toolbarRightSectionDiv"
+      class="border-l border-b pl-[4px] flex flex-row"
       style={`border-color: ${rightMostTitleSpec().borderColor}; background-color: #fafafa; ` +
         `border-left-width: ${rightMostTitleSpec().borderWidthPx}px; border-bottom-width: ${rightMostTitleSpec().borderWidthPx}px; ` +
         `align-items: baseline;`}>

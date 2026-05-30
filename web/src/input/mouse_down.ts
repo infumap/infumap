@@ -72,6 +72,24 @@ function dragOffsetBoundsRelativeToDesktopPx(store: StoreContextModel, visualEle
 }
 
 
+function isInsideElementClientBounds(elementId: string): boolean {
+  const element = document.getElementById(elementId);
+  if (!element) { return false; }
+
+  const bounds = boundingBoxFromDOMRect(element.getBoundingClientRect());
+  return !!bounds && isInside(CursorEventState.getLatestClientPx(), bounds);
+}
+
+
+/**
+ * Whether or not the mouse cursor is inside the non-title part of the toolbar.
+ */
+function isInsideToolbarControlArea(): boolean {
+  return isInsideElementClientBounds("toolbarRightSectionDiv") ||
+    isInsideElementClientBounds("toolbarItemOptionsDiv");
+}
+
+
 export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number): Promise<MouseEventActionFlags> {
   let defaultResult = MouseEventActionFlags.PreventDefault;
 
@@ -190,7 +208,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   // Editing text using a content editable div (variety of item types).
   if (store.overlay.textEditInfo()) {
-    if (isInsideItemOptionsToolbarArea()) { return MouseEventActionFlags.PreventDefault; }
+    if (isInsideToolbarControlArea()) { return MouseEventActionFlags.PreventDefault; }
 
     if (store.user.getUserMaybe() == null || store.history.getFocusItem().ownerId != store.user.getUser().userId) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -309,17 +327,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     }
   }
 
-  /**
-   * whether or not the mouse cursor is inside the item specific part of the toolbar.
-   */
-  function isInsideItemOptionsToolbarArea(): boolean {
-    const toolboxDiv = document.getElementById("toolbarItemOptionsDiv")!;
-    if (!toolboxDiv) { return false; }
-    const bounds = toolboxDiv.getBoundingClientRect();
-    const boundsPx: BoundingBox = { x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height };
-    return isInside(CursorEventState.getLatestClientPx(), boundsPx);
-  }
-
   function leftClickShouldOnlyFocusPopupPageAfterTextEdit(): boolean {
     if (buttonNumber != MOUSE_LEFT || store.history.currentPopupSpec() == null) {
       return false;
@@ -339,9 +346,13 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     ));
   }
 
+  if (isInsideToolbarControlArea()) {
+    return MouseEventActionFlags.None;
+  }
+
   if (isLink(store.history.getFocusItem()) ||
     isRating(store.history.getFocusItem())) {
-    if (buttonNumber != MOUSE_LEFT || !isInsideItemOptionsToolbarArea()) {
+    if (buttonNumber != MOUSE_LEFT) {
       store.history.setFocus(store.history.currentPagePath()!);
     }
     defaultResult = MouseEventActionFlags.None;
@@ -367,11 +378,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       return defaultResult;
     }
   }
-
-  if (isInsideItemOptionsToolbarArea()) {
-    return MouseEventActionFlags.None;
-  }
-
 
   // Desktop handlers.
 
