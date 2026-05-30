@@ -38,7 +38,7 @@ import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
-import { EMPTY_VEID, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath } from "./popup";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
@@ -132,7 +132,7 @@ export function arrange_list_page(
 
   let focusedChildItemMaybe = null;
   if (store.history.currentPopupSpec() == null &&
-    selectedVeid != EMPTY_VEID && selectedVeid.itemId !== "") {
+    !isEmptyVeid(selectedVeid)) {
     const selectedItem = itemState.get(selectedVeid.itemId);
     if (selectedItem && isPage(selectedItem) && VeFns.itemIdFromPath(focusPath) === selectedVeid.itemId) {
       focusedChildItemMaybe = selectedItem;
@@ -364,7 +364,7 @@ export function arrange_list_page(
 
   pageRelationships.childrenPaths = listChildPaths;
 
-  if (selectedVeid.itemId != "") {
+  if (!isEmptyVeid(selectedVeid)) {
     const boundsPx = {
       x: listWidthPx,
       y: 0,

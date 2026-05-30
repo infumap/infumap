@@ -39,7 +39,7 @@ import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, EMPTY_VEID, isVeTranslucentPage } from "../layout/visual-element";
+import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, isEmptyVeid, isVeTranslucentPage } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
@@ -86,7 +86,7 @@ function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, sh
 
   const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
   const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-  if (selectedVeid == EMPTY_VEID) {
+  if (isEmptyVeid(selectedVeid)) {
     PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageActualVeid);
   }
 

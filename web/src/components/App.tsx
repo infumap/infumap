@@ -22,7 +22,7 @@ import { Login } from './Login';
 import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
 import { switchToNonPage, switchToPage } from '../layout/navigation';
-import { VeFns } from '../layout/visual-element';
+import { isEmptyVeid, VeFns } from '../layout/visual-element';
 import { ArrangeAlgorithm, asPageItem, isPage } from '../items/page-item';
 import { isUid, POPUP_LINK_UID } from '../util/uid';
 import { arrangeNow } from '../layout/arrange';
@@ -65,7 +65,7 @@ const App: Component = () => {
     }
 
     const selectedVeid = store.perItem.getSelectedListPageItem(currentPageVeid);
-    if (!selectedVeid.itemId) {
+    if (isEmptyVeid(selectedVeid)) {
       return currentPagePath;
     }
 

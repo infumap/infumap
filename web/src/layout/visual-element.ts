@@ -61,6 +61,10 @@ export const EMPTY_VEID: Veid = {
   linkIdMaybe: null
 };
 
+export function isEmptyVeid(veid: Veid | null | undefined): boolean {
+  return veid == null || veid.itemId == "" || veid.itemId == EMPTY_UID;
+}
+
 
 export enum VisualElementFlags {
   None = 0x000000,

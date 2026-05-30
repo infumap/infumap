@@ -28,7 +28,7 @@ import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { navigateToContainingPageOfItem, navigateToSearches, switchToPage } from "../layout/navigation";
-import { EMPTY_VEID, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
+import { isEmptyVeid, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
 
 
 import { StoreContextModel } from "../store/StoreProvider";
@@ -161,7 +161,7 @@ function getActiveSearchWorkspace(store: StoreContextModel): ActiveSearchWorkspa
   }
 
   const selectedVeid = store.perItem.getSelectedListPageItem(listPageVeid);
-  if (!selectedVeid.itemId) {
+  if (isEmptyVeid(selectedVeid)) {
     return null;
   }
 
@@ -858,10 +858,10 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
         }
       }
       let selectedVeid = store.perItem.getSelectedListPageItem(pageVeid);
-      if (selectedVeid == EMPTY_VEID && pageItem.computed_children.length > 0) {
+      if (isEmptyVeid(selectedVeid) && pageItem.computed_children.length > 0) {
         selectedVeid = VeFns.veidFromId(pageItem.computed_children[0]);
       }
-      if (selectedVeid != EMPTY_VEID && selectedVeid.itemId !== "") {
+      if (!isEmptyVeid(selectedVeid)) {
         store.history.setFocus(VeFns.addVeidToPath(selectedVeid, focusPath));
         arrangeNow(store, "key-enter-focus-list-child");
         return true;
@@ -928,7 +928,7 @@ function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean
   const focusPageVeid = VeFns.veidFromVe(focusPageVe);
   const focusPageActualVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
   const selectedVeid = store.perItem.getSelectedListPageItem(focusPageActualVeid);
-  const selectedItem = itemState.get(selectedVeid.itemId);
+  const selectedItem = isEmptyVeid(selectedVeid) ? null : itemState.get(selectedVeid.itemId);
   const selectedVeSignal = VesCache.render.getSelected(focusPagePath)();
   const selectedVe = selectedVeSignal?.get() ?? null;
   if (selectedItem && isSearch(selectedItem)) {
@@ -947,7 +947,7 @@ function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean
     if (isPage(selectedVe.displayItem)) {
       const selectedPageActualVeid = VeFns.veidFromItems(selectedVe.displayItem, selectedVe.actualLinkItemMaybe);
       const nextSelectedVeid = store.perItem.getSelectedListPageItem(selectedPageActualVeid);
-      if (nextSelectedVeid == EMPTY_VEID) {
+      if (isEmptyVeid(nextSelectedVeid)) {
         PageFns.setDefaultListPageSelectedItemMaybe(store, selectedPageActualVeid);
       }
     }
@@ -980,7 +980,7 @@ function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean
           const nextFocusPageVe = VesCache.current.readNode(nextFocusPagePath)!;
           const nextFocusPageActualVeid = VeFns.veidFromItems(nextFocusPageVe.displayItem, nextFocusPageVe.actualLinkItemMaybe);
           const nextSelectedVeid = store.perItem.getSelectedListPageItem(nextFocusPageActualVeid);
-          if (nextSelectedVeid == EMPTY_VEID) {
+          if (isEmptyVeid(nextSelectedVeid)) {
             PageFns.setDefaultListPageSelectedItemMaybe(store, nextFocusPageActualVeid);
           }
         }
@@ -1720,7 +1720,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     const focusPageVe = VesCache.current.readNode(focusPagePath)!;
     const focusPageVeid = VeFns.veidFromItems(focusPageVe.displayItem, focusPageVe.actualLinkItemMaybe);
     const selectedVeid = store.perItem.getSelectedListPageItem(focusPageVeid);
-    if (selectedVeid == EMPTY_VEID) {
+    if (isEmptyVeid(selectedVeid)) {
       PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageVeid);
       arrangeNow(store, "key-list-page-set-default-selection");
       return true;

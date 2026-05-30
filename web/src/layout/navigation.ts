@@ -26,7 +26,7 @@ import { assert, panic } from "../util/lang";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { arrangeNow } from "./arrange";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe, InitiateLoadResult } from "./load";
-import { VeFns, Veid, VisualElementPath } from "./visual-element";
+import { isEmptyVeid, VeFns, Veid, VisualElementPath } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
 
 
@@ -38,7 +38,7 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
 function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): string {
   const currentVeid = store.history.currentPageVeid();
   const itemId = overrideItemId ?? currentVeid?.itemId;
-  if (!itemId) {
+  if (!itemId || itemId == EMPTY_UID) {
     return "/";
   }
 
@@ -148,6 +148,11 @@ export async function navigateToContainingPageOfItem(store: StoreContextModel, i
 }
 
 export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, replace: boolean, focusPath?: VisualElementPath) {
+  if (isEmptyVeid(pageVeid)) {
+    console.warn("switchToPage: ignored empty page veid.", { pageVeid, focusPath });
+    return;
+  }
+
   if (clearHistory) {
     store.history.setHistoryToSinglePage(pageVeid, focusPath);
   } else {

@@ -19,7 +19,7 @@
 import { ArrangeAlgorithm } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { VeFns, VisualElement } from "../../layout/visual-element";
+import { isEmptyVeid, VeFns, VisualElement } from "../../layout/visual-element";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { isArrowKey } from "../../input/key";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -76,7 +76,7 @@ export const shouldShowFocusRingForVisualElement = (
     const currentPage = itemState.get(VeFns.itemIdFromPath(currentPagePath));
     if (currentPage && isPage(currentPage) && asPageItem(currentPage).arrangeAlgorithm == ArrangeAlgorithm.List) {
       const selectedVeid = store.perItem.getSelectedListPageItem(VeFns.veidFromPath(currentPagePath));
-      const selectedItem = selectedVeid.itemId ? itemState.get(selectedVeid.itemId) : null;
+      const selectedItem = isEmptyVeid(selectedVeid) ? null : itemState.get(selectedVeid.itemId);
       if (selectedItem && isSearch(selectedItem)) {
         return false;
       }

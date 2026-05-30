@@ -31,7 +31,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from './base/item-common-fns';
@@ -146,7 +146,7 @@ function getListPageChildVeidMaybe(childId: Uid | null | undefined): Veid | null
 }
 
 function isRenderableListPageSelectedVeid(veid: Veid): boolean {
-  if (veid.itemId == "") { return false; }
+  if (isEmptyVeid(veid)) { return false; }
   if (itemState.get(veid.itemId) == null) { return false; }
   if (veid.linkIdMaybe != null && itemState.get(veid.linkIdMaybe) == null) { return false; }
   return true;
@@ -209,17 +209,17 @@ function findSelectableListPageChildVeidFromOrdering(
     const cmp = compareOrderings(child.ordering, ordering);
     if (cmp < 0) {
       prevVeid = veid;
-    } else if (cmp > 0 && nextVeid.itemId == "") {
+    } else if (cmp > 0 && isEmptyVeid(nextVeid)) {
       nextVeid = veid;
     }
   }
 
-  if (prevVeid.itemId != "") { return prevVeid; }
+  if (!isEmptyVeid(prevVeid)) { return prevVeid; }
   return nextVeid;
 }
 
 function addUniqueVeid(candidates: Veid[], candidate: Veid | null) {
-  if (!candidate || candidate.itemId == "") { return; }
+  if (candidate == null || isEmptyVeid(candidate)) { return; }
   if (candidates.some(existing => VeFns.compareVeids(existing, candidate) === 0)) { return; }
   candidates.push(candidate);
 }
@@ -380,7 +380,7 @@ export const PageFns = {
         const savedFocusedVeid = store.perItem.getFocusedListPageItem(targetVeid);
         let targetFocusVeid: Veid | null = null;
 
-        if (savedFocusedVeid && savedFocusedVeid !== EMPTY_VEID && savedFocusedVeid.itemId !== "") {
+        if (!isEmptyVeid(savedFocusedVeid)) {
           // Use the saved focused page (user navigated away and is returning)
           targetFocusVeid = savedFocusedVeid;
           // Clear the saved focus after using it
@@ -1324,6 +1324,7 @@ export const PageFns = {
   handleShiftLeftClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const parentVeid = VeFns.actualVeidFromPath(visualElement.parentPath!);
     const selectedVeid = store.perItem.getSelectedListPageItem(parentVeid);
+    if (isEmptyVeid(selectedVeid)) { return; }
 
     // Check if we're in a popup context by traversing up the parent chain
     let currentPath = visualElement.parentPath;
@@ -1581,13 +1582,13 @@ export const PageFns = {
 
     if (excludedChildOriginalOrderingMaybe != null) {
       const orderedVeid = findSelectableListPageChildVeidFromOrdering(page, excludedChildOriginalOrderingMaybe, excludedChildIdMaybe);
-      if (orderedVeid.itemId != "") {
+      if (!isEmptyVeid(orderedVeid)) {
         return orderedVeid;
       }
     }
 
     const prevVeid = findSelectableListPageChildVeidFromIndex(page, selectedIdx - 1, -1, excludedChildIdMaybe);
-    if (prevVeid.itemId != "") {
+    if (!isEmptyVeid(prevVeid)) {
       return prevVeid;
     }
 
@@ -1608,7 +1609,7 @@ export const PageFns = {
     const targetPageVeids: Veid[] = [];
     for (const pageVeid of pageVeids) {
       const selectedVeid = store.perItem.getSelectedListPageItem(pageVeid);
-      if (selectChildWhenOnlyChild && selectedVeid.itemId == "" && page.computed_children.length == 1 && page.computed_children[0] == childId) {
+      if (selectChildWhenOnlyChild && isEmptyVeid(selectedVeid) && page.computed_children.length == 1 && page.computed_children[0] == childId) {
         store.perItem.setSelectedListPageItem(pageVeid, childVeid);
       } else if (VeFns.compareVeids(selectedVeid, childVeid) == 0) {
         addUniqueVeid(targetPageVeids, pageVeid);
@@ -1626,13 +1627,13 @@ export const PageFns = {
   },
 
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {
-    if (store.perItem.getSelectedListPageItem(itemVeid) != EMPTY_VEID) { return; }
+    if (!isEmptyVeid(store.perItem.getSelectedListPageItem(itemVeid))) { return; }
     const item = itemState.get(itemVeid.itemId)!;
     if (isPage(item)) {
       const page = asPageItem(item);
       if (page.arrangeAlgorithm == ArrangeAlgorithm.List) {
         const veid = findFirstSelectableListPageChildVeid(page);
-        if (veid.itemId != "") {
+        if (!isEmptyVeid(veid)) {
           store.perItem.setSelectedListPageItem(itemVeid, veid);
         }
       }
