@@ -244,7 +244,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         if (buttonNumber != MOUSE_LEFT) { return defaultResult; }
         defaultResult = MouseEventActionFlags.None;
       } else {
-        const newText = editingDomEl.innerText;
+        const newText = editingDomEl instanceof HTMLInputElement ? editingDomEl.value : editingDomEl.innerText;
         const item = itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!;
 
         if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {

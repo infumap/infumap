@@ -26,7 +26,7 @@ import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
-import { closestCaretPositionToClientPx, setCaretPosition } from "../../util/caret";
+import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
 import { server } from "../../server";
@@ -61,8 +61,6 @@ import { materializeSearchResults } from "../../layout/search_materialize";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../items/page-item";
 
-
-const EMPTY_SEARCH_EDIT_TEXT = "\u200B";
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
 const SEARCH_WORKSPACE_ARRANGE_OPTIONS = [
@@ -73,8 +71,7 @@ const SEARCH_WORKSPACE_ARRANGE_OPTIONS = [
 
 export const Search_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
-  const [pendingCaretIdx, setPendingCaretIdx] = createSignal<number | null>(null);
-  const [pendingSelectAll, setPendingSelectAll] = createSignal(false);
+  const [pendingInputFocus, setPendingInputFocus] = createSignal<{ caretIdx: number, selectAll: boolean } | null>(null);
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
@@ -97,7 +94,6 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       : ArrangeAlgorithm.Catalog;
   const isEditing = () => canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
-  const editableQueryText = () => queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText();
   const clearSearchResultSelection = () => {
     store.perItem.setSearchSelectedResultIndex(searchItem().id, -1);
     store.perItem.setSearchFocusedResultIndex(searchItem().id, -1);
@@ -109,11 +105,13 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
 
     const editingEl = editingElMaybe ?? document.getElementById(editingDomId());
     setForceNonEditing(true);
-    setPendingCaretIdx(null);
-    setPendingSelectAll(false);
+    setPendingInputFocus(null);
     store.overlay.autoFocusSearchInput.set(false);
     if (editingEl instanceof HTMLElement) {
       editingEl.contentEditable = "false";
+      if (editingEl instanceof HTMLInputElement) {
+        editingEl.value = queryText();
+      }
     }
     blurEditingDomMaybe(editingEl instanceof HTMLElement ? editingEl : null);
     store.overlay.setTextEditInfo(store.history, null, true);
@@ -121,6 +119,9 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   };
   const readQueryTextFromDom = (elMaybe?: HTMLElement | null) => {
     const el = elMaybe ?? document.getElementById(editingDomId());
+    if (el instanceof HTMLInputElement) {
+      return normalizeSearchText(el.value);
+    }
     if (!(el instanceof HTMLElement)) {
       return queryText();
     }
@@ -147,13 +148,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     exitEditMode(editingEl instanceof HTMLElement ? editingEl : null);
     return nextQuery;
   };
-  const requestEditMode = (caretIdx: number, selectAll: boolean = false) => {
+  const requestEditMode = (caretIdx: number, selectAll: boolean = false, focusInput: boolean = true) => {
     if (!canEdit()) {
       return;
     }
     setForceNonEditing(false);
-    setPendingCaretIdx(caretIdx);
-    setPendingSelectAll(selectAll);
+    setPendingInputFocus(focusInput ? { caretIdx, selectAll } : null);
     clearSearchResultSelection();
     if (!isEditing()) {
       store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
@@ -293,18 +293,15 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     }
   };
 
-  const placeQueryCaretFromMouse = (ev: MouseEvent) => {
-    const el = document.getElementById(editingDomId());
-    if (!(el instanceof HTMLElement)) {
-      return false;
-    }
-    const closestIdx = closestCaretPositionToClientPx(el, { x: ev.clientX, y: ev.clientY });
-    el.focus();
-    setCaretPosition(el, closestIdx);
-    return true;
-  };
-
   const selectQueryTextElement = (el: HTMLElement) => {
+    if (el instanceof HTMLInputElement) {
+      if (normalizeSearchText(el.value) == "") {
+        return false;
+      }
+      el.focus();
+      el.select();
+      return true;
+    }
     if (normalizeSearchText(el.innerText) == "") {
       return false;
     }
@@ -345,32 +342,19 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       arrangeNow(store, "search-focus-only");
       return;
     }
-    if (isEditing()) {
-      if (ev.detail >= 3) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        selectQueryText();
-        return;
-      }
-      const editingEl = document.getElementById(editingDomId());
-      const target = ev.target;
-      if (editingEl instanceof HTMLElement && target instanceof Node && editingEl.contains(target)) {
-        ev.stopPropagation();
-        return;
-      }
+    ev.stopPropagation();
+    if (ev.detail >= 3) {
       ev.preventDefault();
-      ev.stopPropagation();
-      placeQueryCaretFromMouse(ev);
+      if (isEditing()) {
+        selectQueryText();
+      } else {
+        requestEditMode(queryText().length, true);
+      }
       return;
     }
-
-    ev.preventDefault();
-    ev.stopPropagation();
-    const el = document.getElementById(editingDomId());
-    const closestIdx = el instanceof HTMLElement
-      ? closestCaretPositionToClientPx(el, { x: ev.clientX, y: ev.clientY })
-      : queryText().length;
-    requestEditMode(closestIdx);
+    if (!isEditing()) {
+      requestEditMode(queryText().length, false, !(ev.target instanceof HTMLInputElement));
+    }
   };
 
   const inputListener = (_ev: InputEvent) => {
@@ -395,25 +379,30 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   };
 
   createEffect(() => {
-    if (!isListPageMainRoot() || pendingCaretIdx() == null || !isEditing()) {
+    if (!isListPageMainRoot() || pendingInputFocus() == null || !isEditing()) {
       return;
     }
-    const caretIdx = pendingCaretIdx()!;
-    const selectAll = pendingSelectAll();
+    const pendingFocus = pendingInputFocus()!;
     const raf = requestAnimationFrame(() => {
       const freshEl = document.getElementById(editingDomId());
-      if (freshEl instanceof HTMLElement) {
+      if (freshEl instanceof HTMLInputElement) {
         freshEl.focus();
-        if (selectAll && normalizeSearchText(freshEl.innerText) != "") {
+        if (pendingFocus.selectAll && normalizeSearchText(freshEl.value) != "") {
           selectQueryTextAfterFocus(freshEl);
         } else {
-          setCaretPosition(freshEl, caretIdx);
+          freshEl.setSelectionRange(pendingFocus.caretIdx, pendingFocus.caretIdx);
+        }
+      } else if (freshEl instanceof HTMLElement) {
+        freshEl.focus();
+        if (pendingFocus.selectAll && normalizeSearchText(freshEl.innerText) != "") {
+          selectQueryTextAfterFocus(freshEl);
+        } else {
+          setCaretPosition(freshEl, pendingFocus.caretIdx);
         }
       } else {
         console.warn("Could not enter search edit mode because the text element no longer exists", { itemPath: vePath() });
       }
-      setPendingCaretIdx(null);
-      setPendingSelectAll(false);
+      setPendingInputFocus(null);
       store.overlay.autoFocusSearchInput.set(false);
     });
     onCleanup(() => cancelAnimationFrame(raf));
@@ -426,7 +415,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     if (!store.overlay.autoFocusSearchInput.get()) {
       return;
     }
-    if (pendingCaretIdx() != null) {
+    if (pendingInputFocus() != null) {
       return;
     }
     if (forceNonEditing()) {
@@ -497,20 +486,16 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                 onMouseDown={queryInputMouseDown}>
                 <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
                   style="font-size: 16px;">
-                  <Show when={!isEditing() && queryText() == ""}>
-                    <div class="absolute inset-y-0 left-[10px] flex items-center text-slate-500 pointer-events-none">
-                      Search...
-                    </div>
-                  </Show>
-                    <span id={editingDomId()}
-                    class={`outline-hidden ${!isEditing() && queryText() == "" ? "text-transparent" : "text-black"}`}
-                    style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px; user-select: text;"
-                    contentEditable={canEdit() && isEditing() ? true : undefined}
+                  <input id={editingDomId()}
+                    class="block h-full w-full border-0 bg-transparent p-0 text-black outline-hidden"
+                    style="font-size: 16px; user-select: text;"
+                    value={queryText()}
+                    placeholder="Search..."
+                    readOnly={!canEdit() || !isEditing()}
                     spellcheck={canEdit() && isEditing()}
+                    onMouseDown={queryInputMouseDown}
                     onKeyDown={keyDownHandler}
-                    onInput={inputListener}>
-                    {isEditing() ? editableQueryText() : (queryText() == "" ? EMPTY_SEARCH_EDIT_TEXT : queryText())}<span></span>
-                  </span>
+                    onInput={inputListener} />
                 </div>
               </div>
               <button
