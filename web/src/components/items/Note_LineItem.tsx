@@ -23,7 +23,7 @@ import { asNoteItem, NoteFns } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { MOUSE_LEFT } from "../../input/mouse_down";
@@ -167,17 +167,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
-    switch (ev.key) {
-      case "Enter":
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-      case "Escape":
-        ev.preventDefault();
-        ev.stopPropagation();
-        store.overlay.setTextEditInfo(store.history, null, true);
-        return;
-    }
+    handleLineItemTitleKeyDown(store, ev);
   }
 
   const renderText = () =>

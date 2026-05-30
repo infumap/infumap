@@ -102,6 +102,74 @@ function persistCurrentEditTarget(store: StoreContextModel) {
   serverOrRemote.updateItem(item, store.general.networkStatus);
 }
 
+export function commitActiveTextEdit(
+  store: StoreContextModel,
+  preserveFocus: boolean = false,
+  arrangeReason: string = "text-edit-commit",
+): boolean {
+  const textEditInfo = store.overlay.textEditInfo();
+  if (textEditInfo == null) { return false; }
+
+  const editingItemPath = textEditInfo.itemPath;
+  const editingDomId = textEditInfo.colNum != null
+    ? editingItemPath + ":col" + textEditInfo.colNum
+    : editingItemPath + ":title";
+  const editingDomEl = document.getElementById(editingDomId);
+  const item = itemState.get(VeFns.veidFromPath(editingItemPath).itemId);
+
+  if (editingDomEl && item != null) {
+    const newText = editingDomEl instanceof HTMLInputElement ? editingDomEl.value : editingDomEl.innerText;
+
+    if (textEditInfo.itemType == ItemType.Table) {
+      if (textEditInfo.colNum == null) {
+        asTableItem(item).title = trimNewline(newText);
+      } else {
+        asTableItem(item).tableColumns[textEditInfo.colNum].name = trimNewline(newText);
+      }
+    }
+    else if (textEditInfo.itemType == ItemType.Page) {
+      asPageItem(item).title = trimNewline(newText);
+    }
+    else if (textEditInfo.itemType == ItemType.Note) {
+      editingDomEl.parentElement!.scrollLeft = 0;
+      const noteItem = asNoteItem(item);
+      noteItem.title = trimNewline(newText);
+      if (isUrl(noteItem.title) && noteItem.url == "") {
+        noteItem.url = noteItem.title;
+      }
+    }
+    else if (textEditInfo.itemType == ItemType.File) {
+      editingDomEl.parentElement!.scrollLeft = 0;
+      asFileItem(item).title = trimNewline(newText);
+    }
+    else if (textEditInfo.itemType == ItemType.Password) {
+      editingDomEl.parentElement!.scrollLeft = 0;
+      asPasswordItem(item).text = trimNewline(newText);
+    }
+    else if (textEditInfo.itemType == ItemType.Image) {
+      asImageItem(item).title = trimNewline(newText);
+    }
+    else if (textEditInfo.itemType == ItemType.Search) {
+      store.perItem.setSearchQuery(item.id, trimNewline(newText).replace(/\u200B/g, ""));
+    }
+
+    itemState.sortParentChildrenIfTitleOrdered(item);
+    if (textEditInfo.itemType != ItemType.Search) {
+      serverOrRemote.updateItem(item, store.general.networkStatus);
+    }
+  }
+
+  store.overlay.toolbarPopupInfoMaybe.set(null);
+  store.overlay.setTextEditInfo(store.history, null, preserveFocus);
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  const selection = window.getSelection();
+  if (selection != null) { selection.removeAllRanges(); }
+  arrangeNow(store, arrangeReason);
+  return true;
+}
+
 function editableItemType(ve: VisualElement): ItemType | null {
   if (isNote(ve.displayItem)) { return ItemType.Note; }
   if (isFile(ve.displayItem)) { return ItemType.File; }

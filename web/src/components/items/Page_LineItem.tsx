@@ -22,7 +22,7 @@ import { useStore } from "../../store/StoreProvider";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { asPageItem } from "../../items/page-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -203,17 +203,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
-    switch (ev.key) {
-      case "Enter":
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-      case "Escape":
-        ev.preventDefault();
-        ev.stopPropagation();
-        store.overlay.setTextEditInfo(store.history, null, true);
-        return;
-    }
+    handleLineItemTitleKeyDown(store, ev);
   }
 
   const renderText = () =>

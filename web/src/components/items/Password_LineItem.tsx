@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -132,17 +132,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
-    switch (ev.key) {
-      case "Enter":
-        ev.preventDefault();
-        ev.stopPropagation();
-        return;
-      case "Escape":
-        ev.preventDefault();
-        ev.stopPropagation();
-        store.overlay.setTextEditInfo(store.history, null, true);
-        return;
-    }
+    handleLineItemTitleKeyDown(store, ev);
   }
 
   const renderText = () =>
