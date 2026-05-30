@@ -21,7 +21,7 @@ import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from ".
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
-import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
+import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -244,13 +244,20 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       </div>
     </Show>;
 
-  const renderFindHighlightedMaybe = () =>
-    <Show when={isEmbeddedInteractive() && (props.visualElement.flags & VisualElementFlags.FindHighlighted)}>
+  const renderHighlightMaybe = () =>
+    <Show when={isEmbeddedInteractive() &&
+      ((props.visualElement.flags & VisualElementFlags.FindHighlighted) ||
+        (props.visualElement.flags & VisualElementFlags.SelectionHighlighted))}>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
-          `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
-          `z-index: 4;`} />
+          `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+          `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+      <div class="absolute pointer-events-none rounded-xs"
+        style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
+          `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+          `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+          `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const backgroundDoubleClickHandler = (ev: MouseEvent) => {
@@ -396,7 +403,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         {renderIsLinkMaybe()}
         {renderEmbeddedInteractiveForeground()}
         {renderEmbeddedInteractiveTitleMaybe()}
-        {renderFindHighlightedMaybe()}
+        {renderHighlightMaybe()}
         {renderFocusRingMaybe()}
         <Show when={store.perVe.getAutoMovedIntoView(pageFns().vePath())}>
           <div class="absolute pointer-events-none rounded-xs"
