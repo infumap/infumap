@@ -1731,6 +1731,22 @@ function handleSelectionMouseUp(store: StoreContextModel) {
 
   const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
   const selectedSet = new Set<string>();
+  const addVisualElementToSelection = (ve: VisualElement) => {
+    const itemId = ve.displayItem.id;
+    const linkIdMaybe = ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null;
+    const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");
+    if (!selectedSet.has(key)) { selected.push({ itemId, linkIdMaybe }); selectedSet.add(key); }
+  };
+  const intersectsSelection = (ve: VisualElement) => {
+    if (ve.flags & VisualElementFlags.LineItem) { return false; }
+    const veBox = VeFns.veViewportBoundsRelativeToDesktopPx(store, ve);
+    if (veBox.w <= 0 || veBox.h <= 0) { return false; }
+    const ix = Math.max(selectionRect.x, veBox.x);
+    const iy = Math.max(selectionRect.y, veBox.y);
+    const ax = Math.min(selectionRect.x + selectionRect.w, veBox.x + veBox.w);
+    const ay = Math.min(selectionRect.y + selectionRect.h, veBox.y + veBox.h);
+    return ix < ax && iy < ay;
+  };
   const rootPath = MouseActionState.getSelectionRootPath()!;
   const stack: string[] = [rootPath];
   while (stack.length > 0) {
@@ -1738,33 +1754,28 @@ function handleSelectionMouseUp(store: StoreContextModel) {
     const ves = MouseActionState.getVisualElementSignal(path);
     if (!ves) { continue; }
     const ve = ves.get();
+    // A marquee that starts outside an embedded interactive page selects that page as a boundary.
+    if (path != rootPath && (ve.flags & VisualElementFlags.EmbeddedInteractiveRoot)) {
+      if (intersectsSelection(ve)) {
+        const parentVe = ve.parentPath ? MouseActionState.readVisualElement(ve.parentPath) : null;
+        addVisualElementToSelection(parentVe && isComposite(parentVe.displayItem) ? parentVe : ve);
+      }
+      continue;
+    }
     if (ve.parentPath && !(ve.flags & VisualElementFlags.LineItem)) {
-      const veBox = VeFns.veViewportBoundsRelativeToDesktopPx(store, ve);
-      if (veBox.w > 0 && veBox.h > 0) {
-        const ix = Math.max(selectionRect.x, veBox.x);
-        const iy = Math.max(selectionRect.y, veBox.y);
-        const ax = Math.min(selectionRect.x + selectionRect.w, veBox.x + veBox.w);
-        const ay = Math.min(selectionRect.y + selectionRect.h, veBox.y + veBox.h);
-        if (ix < ax && iy < ay) {
-          // If inside a composite, select the composite parent instead of the child
-          if (ve.flags & VisualElementFlags.InsideCompositeOrDoc) {
-            const parentVe = MouseActionState.readVisualElement(ve.parentPath)!;
-            if (isComposite(parentVe.displayItem)) {
-              const itemId = parentVe.displayItem.id;
-              const linkIdMaybe = parentVe.actualLinkItemMaybe ? parentVe.actualLinkItemMaybe.id : null;
-              const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");
-              if (!selectedSet.has(key)) { selected.push({ itemId, linkIdMaybe }); selectedSet.add(key); }
-              continue;
-            }
+      if (intersectsSelection(ve)) {
+        // If inside a composite, select the composite parent instead of the child
+        if (ve.flags & VisualElementFlags.InsideCompositeOrDoc) {
+          const parentVe = MouseActionState.readVisualElement(ve.parentPath)!;
+          if (isComposite(parentVe.displayItem)) {
+            addVisualElementToSelection(parentVe);
+            continue;
           }
+        }
 
-          const isSelectableContainer = isTable(ve.displayItem);
-          if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer || isVeTranslucentPage(ve)) && !(ve.flags & VisualElementFlags.Popup)) {
-            const itemId = ve.displayItem.id;
-            const linkIdMaybe = ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null;
-            const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");
-            if (!selectedSet.has(key)) { selected.push({ itemId, linkIdMaybe }); selectedSet.add(key); }
-          }
+        const isSelectableContainer = isTable(ve.displayItem);
+        if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer || isVeTranslucentPage(ve)) && !(ve.flags & VisualElementFlags.Popup)) {
+          addVisualElementToSelection(ve);
         }
       }
     }
