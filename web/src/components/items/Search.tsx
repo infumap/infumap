@@ -74,6 +74,7 @@ const SEARCH_WORKSPACE_ARRANGE_OPTIONS = [
 export const Search_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
   const [pendingCaretIdx, setPendingCaretIdx] = createSignal<number | null>(null);
+  const [pendingSelectAll, setPendingSelectAll] = createSignal(false);
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
@@ -109,6 +110,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const editingEl = editingElMaybe ?? document.getElementById(editingDomId());
     setForceNonEditing(true);
     setPendingCaretIdx(null);
+    setPendingSelectAll(false);
     store.overlay.autoFocusSearchInput.set(false);
     if (editingEl instanceof HTMLElement) {
       editingEl.contentEditable = "false";
@@ -145,12 +147,13 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     exitEditMode(editingEl instanceof HTMLElement ? editingEl : null);
     return nextQuery;
   };
-  const requestEditMode = (caretIdx: number) => {
+  const requestEditMode = (caretIdx: number, selectAll: boolean = false) => {
     if (!canEdit()) {
       return;
     }
     setForceNonEditing(false);
     setPendingCaretIdx(caretIdx);
+    setPendingSelectAll(selectAll);
     clearSearchResultSelection();
     if (!isEditing()) {
       store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
@@ -380,15 +383,21 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       return;
     }
     const caretIdx = pendingCaretIdx()!;
+    const selectAll = pendingSelectAll();
     const raf = requestAnimationFrame(() => {
       const freshEl = document.getElementById(editingDomId());
       if (freshEl instanceof HTMLElement) {
         freshEl.focus();
-        setCaretPosition(freshEl, caretIdx);
+        if (selectAll && queryText() != "") {
+          selectQueryText();
+        } else {
+          setCaretPosition(freshEl, caretIdx);
+        }
       } else {
         console.warn("Could not enter search edit mode because the text element no longer exists", { itemPath: vePath() });
       }
       setPendingCaretIdx(null);
+      setPendingSelectAll(false);
       store.overlay.autoFocusSearchInput.set(false);
     });
     onCleanup(() => cancelAnimationFrame(raf));
@@ -407,7 +416,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     if (forceNonEditing()) {
       setForceNonEditing(false);
     }
-    requestEditMode(queryText().length);
+    requestEditMode(queryText().length, true);
   });
 
   createEffect(() => {
