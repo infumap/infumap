@@ -14,6 +14,7 @@ pub mod search_status;
 pub mod text_embedding;
 pub mod text_extraction;
 pub mod title_indexing;
+pub mod upload_quiet_period;
 pub mod vector_db;
 
 pub(crate) fn user_id_for_log(user_id: &str) -> String {

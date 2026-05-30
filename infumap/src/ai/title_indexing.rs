@@ -16,6 +16,7 @@ use crate::ai::lexical_index::{
   open_user_item_title_lexical_index, remove_item_title_lexical_index_dirs,
 };
 use crate::ai::metrics::{METRIC_AI_TITLE_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_TITLE_INDEX_REBUILDS_TOTAL};
+use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::ai::vector_db::ensure_user_index_dir;
 use crate::storage::db::Db;
@@ -143,6 +144,7 @@ async fn run_item_title_indexing_loop(
     let mut user_ids = queued_user_ids.drain().collect::<Vec<_>>();
     user_ids.sort();
     for user_id in user_ids {
+      wait_for_object_store_upload_quiet_period("item title lexical indexing").await;
       if let Err(e) = reconcile_user_item_title_lexical_index(&data_dir, db.clone(), &user_id).await {
         error!("Item title lexical index reconciliation failed for user '{}': {}", user_id_for_log(&user_id), e);
       }

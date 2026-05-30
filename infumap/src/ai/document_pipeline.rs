@@ -23,6 +23,7 @@ use crate::ai::gpu_tools::{
 };
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
+use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -225,6 +226,7 @@ async fn run_document_fragment_loop(
       continue;
     };
 
+    wait_for_object_store_upload_quiet_period("document fragment processing").await;
     match reconcile_document_fragment_item(&config, db.clone(), &candidate).await {
       Ok(DocumentFragmentReconcileOutcome::Changed(user_id)) => {
         record_document_fragment_processed("success");

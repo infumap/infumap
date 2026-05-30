@@ -13,6 +13,7 @@ use tokio::time::{Instant as TokioInstant, sleep};
 use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::indexing::{EmbedRebuildSummary, LoadedFragmentIndexItem, reconcile_fragment_indexes_for_loaded_items};
 use crate::ai::metrics::{METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL};
+use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::{user_id_for_log, user_ids_for_log};
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -157,6 +158,7 @@ async fn run_fragment_indexing_loop(
 
   loop {
     if should_rebuild_dirty_users(state.clone()).await {
+      wait_for_object_store_upload_quiet_period("fragment index reconciliation").await;
       rebuild_fragment_indexes_for_dirty_users(&config, db.clone(), state.clone()).await;
     }
     sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;

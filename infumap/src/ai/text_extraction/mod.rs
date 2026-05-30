@@ -35,6 +35,7 @@ use crate::ai::gpu_tools::{
   GPU_TOOL_PDF_EXTRACT, GPU_TOOL_PDF_EXTRACT_JOBS, gpu_tools_url_from_config, resolve_gpu_tool_url,
 };
 use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
+use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_GPU_TOOLS_URL};
 use crate::storage::db::Db;
@@ -709,6 +710,13 @@ async fn advance_pdf_prefetch_to_process(
       }
     };
 
+    let item_id = loaded.candidate.item_id.clone();
+    let user_id = loaded.candidate.user_id.clone();
+    let progress_summary = {
+      let progress = progress.lock().await;
+      progress.summary()
+    };
+    wait_for_object_store_upload_quiet_period("PDF text extraction").await;
     *next_prefetch = Some(spawn_pdf_prefetch(
       data_dir.clone(),
       endpoint.clone(),
@@ -717,13 +725,6 @@ async fn advance_pdf_prefetch_to_process(
       state.clone(),
       progress.clone(),
     ));
-
-    let item_id = loaded.candidate.item_id.clone();
-    let user_id = loaded.candidate.user_id.clone();
-    let progress_summary = {
-      let progress = progress.lock().await;
-      progress.summary()
-    };
     debug!(
       "Starting text extraction for PDF '{}' (user {}). Pending queue: {}. Progress: {}",
       item_id,
@@ -746,6 +747,7 @@ async fn prefetch_next_pdf_extraction(
 ) -> (LoadedPdfExtraction, usize) {
   loop {
     let (candidate, queue_remaining) = wait_for_next_pdf_candidate(state.clone()).await;
+    wait_for_object_store_upload_quiet_period("PDF text extraction prefetch").await;
     match manifest_check(&data_dir, &candidate).await {
       Ok(ManifestCheckResult::NeedsExtraction) => {}
       Ok(ManifestCheckResult::AlreadySucceeded) => {

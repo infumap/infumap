@@ -26,6 +26,7 @@ use crate::ai::image_tagging::{
   prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
 };
 use crate::ai::metrics::{METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH};
+use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -250,6 +251,7 @@ async fn run_source_image_loop(
 
   loop {
     if next_prefetch.is_none() {
+      wait_for_object_store_upload_quiet_period("image source extraction").await;
       next_prefetch = start_next_source_image_prefetch(&config, db.clone(), object_store.clone(), state.clone()).await;
       if next_prefetch.is_none() {
         sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
@@ -264,6 +266,7 @@ async fn run_source_image_loop(
       continue;
     };
 
+    wait_for_object_store_upload_quiet_period("image source extraction").await;
     next_prefetch = start_next_source_image_prefetch(&config, db.clone(), object_store.clone(), state.clone()).await;
 
     match process_prefetched_source_image_item(&config, db.clone(), &candidate, loaded).await {
@@ -544,6 +547,7 @@ async fn run_image_fragment_loop(
       continue;
     };
 
+    wait_for_object_store_upload_quiet_period("image fragment processing").await;
     match reconcile_image_fragment_item(&config, db.clone(), &candidate).await {
       Ok(Some(user_id)) => {
         enqueue_fragment_index_rebuild_for_user(&user_id);

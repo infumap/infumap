@@ -75,6 +75,7 @@ use crate::ai::text_embedding::{
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
+use crate::ai::upload_quiet_period::record_object_store_backed_item_upload;
 use crate::ai::vector_db::{
   FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,
 };
@@ -1897,6 +1898,9 @@ pub async fn add_item_for_user(
     let sync_ack = build_sync_ack(&db, &queued_item.owner_id, &touched_container_ids);
     debug!("Executed 'add-item' command for item '{}'.", item_id);
     drop(db);
+    if is_data_item_type(queued_item.item_type) {
+      record_object_store_backed_item_upload(&queued_item.id);
+    }
     enqueue_item_title_index_reconcile_for_user(&queued_item.owner_id);
     if should_tag_image_item(&queued_item) {
       enqueue_image_semantic_pipeline_item_if_active(&queued_item);
