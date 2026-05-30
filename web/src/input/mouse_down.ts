@@ -279,12 +279,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           store.perItem.setSearchQuery(item.id, trimNewline(newText).replace(/\u200B/g, ""));
         }
 
-        if (item.relationshipToParent == RelationshipToParent.Child) {
-          const parentItem = itemState.get(item.parentId);
-          if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
-            itemState.sortChildren(item.parentId);
-          }
-        }
+        itemState.sortParentChildrenIfTitleOrdered(item);
 
         if (editingItemType != ItemType.Search) {
           serverOrRemote.updateItem(item, store.general.networkStatus);

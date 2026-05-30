@@ -19,8 +19,6 @@
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { asPageItem, isPage } from "../items/page-item";
 import type { PageItem } from "../items/page-item";
-import { asTableItem, isTable } from "../items/table-item";
-import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VeFns } from "../layout/visual-element";
 import { serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
@@ -64,12 +62,7 @@ export function commitActiveToolbarTitleEdit(store: StoreContextModel): boolean 
   }
 
   pageItem.title = activeElement.innerText;
-  if (pageItem.relationshipToParent == RelationshipToParent.Child) {
-    const parentItem = itemState.get(pageItem.parentId);
-    if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
-      itemState.sortChildren(pageItem.parentId);
-    }
-  }
+  itemState.sortParentChildrenIfTitleOrdered(pageItem);
   serverOrRemote.updateItem(pageItem, store.general.networkStatus);
   return true;
 }

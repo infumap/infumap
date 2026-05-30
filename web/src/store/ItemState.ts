@@ -241,6 +241,18 @@ export const itemState = {
     }
   },
 
+  sortParentChildrenIfTitleOrdered: (item: Item): void => {
+    if (item.relationshipToParent != RelationshipToParent.Child) { return; }
+
+    const parentItem = itemState.get(item.parentId);
+    if (!parentItem || !isContainer(parentItem)) { return; }
+
+    const parentContainer = asContainerItem(parentItem);
+    if (parentContainer.orderChildrenBy == "title[ASC]") {
+      itemState.sortChildren(parentContainer.id);
+    }
+  },
+
   sortAttachments: (parentId: Uid): void => {
     const container = asAttachmentsItem(itemState.get(parentId)!);
     container.computed_attachments.sort((a, b) => {

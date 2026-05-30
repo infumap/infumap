@@ -98,12 +98,7 @@ function persistCurrentEditTarget(store: StoreContextModel) {
   const item = editInfo == null
     ? store.history.getFocusItem()
     : itemState.get(VeFns.veidFromPath(editInfo.itemPath).itemId) ?? store.history.getFocusItem();
-  if (item.relationshipToParent == RelationshipToParent.Child) {
-    const parentItem = itemState.get(item.parentId);
-    if (parentItem && isTable(parentItem) && asTableItem(parentItem).orderChildrenBy != "") {
-      itemState.sortChildren(item.parentId);
-    }
-  }
+  itemState.sortParentChildrenIfTitleOrdered(item);
   serverOrRemote.updateItem(item, store.general.networkStatus);
 }
 
