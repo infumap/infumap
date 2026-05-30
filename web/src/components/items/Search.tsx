@@ -304,9 +304,8 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     return true;
   };
 
-  const selectQueryText = () => {
-    const el = document.getElementById(editingDomId());
-    if (!(el instanceof HTMLElement)) {
+  const selectQueryTextElement = (el: HTMLElement) => {
+    if (normalizeSearchText(el.innerText) == "") {
       return false;
     }
     el.focus();
@@ -319,6 +318,23 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     selection.removeAllRanges();
     selection.addRange(range);
     return true;
+  };
+  const selectQueryText = () => {
+    const el = document.getElementById(editingDomId());
+    if (!(el instanceof HTMLElement)) {
+      return false;
+    }
+    return selectQueryTextElement(el);
+  };
+  const selectQueryTextAfterFocus = (el: HTMLElement) => {
+    const select = () => {
+      if (el.isConnected) {
+        selectQueryTextElement(el);
+      }
+    };
+    select();
+    requestAnimationFrame(select);
+    window.setTimeout(select, 0);
   };
 
   const queryInputMouseDown = (ev: MouseEvent) => {
@@ -388,8 +404,8 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       const freshEl = document.getElementById(editingDomId());
       if (freshEl instanceof HTMLElement) {
         freshEl.focus();
-        if (selectAll && queryText() != "") {
-          selectQueryText();
+        if (selectAll && normalizeSearchText(freshEl.innerText) != "") {
+          selectQueryTextAfterFocus(freshEl);
         } else {
           setCaretPosition(freshEl, caretIdx);
         }
@@ -488,7 +504,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                   </Show>
                     <span id={editingDomId()}
                     class={`outline-hidden ${!isEditing() && queryText() == "" ? "text-transparent" : "text-black"}`}
-                    style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px;"
+                    style="display: inline-block; min-width: 1px; white-space: nowrap; font-size: 16px; user-select: text;"
                     contentEditable={canEdit() && isEditing() ? true : undefined}
                     spellcheck={canEdit() && isEditing()}
                     onKeyDown={keyDownHandler}
