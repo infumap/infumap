@@ -106,6 +106,29 @@ function calculatePagePositionGr(pageVe: VisualElement, desktopPosPx: Vector): V
   };
 }
 
+function focusedListPageCreateTarget(store: StoreContextModel, desktopPosPx: Vector): VisualElement | null {
+  const focusPath = store.history.getFocusPathMaybe();
+  const focusVe = focusPath ? VesCache.current.readNode(focusPath) : null;
+  if (!focusVe || !isPage(focusVe.displayItem) || !(focusVe.flags & VisualElementFlags.ShowChildren)) {
+    return null;
+  }
+
+  const page = asPageItem(focusVe.displayItem);
+  if (page.arrangeAlgorithm != ArrangeAlgorithm.List || !focusVe.viewportBoundsPx || !focusVe.listViewportBoundsPx) {
+    return null;
+  }
+
+  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, focusVe);
+  const listViewportBoundsPx = {
+    x: viewportBoundsPx.x + focusVe.listViewportBoundsPx.x - focusVe.viewportBoundsPx.x,
+    y: viewportBoundsPx.y + focusVe.listViewportBoundsPx.y - focusVe.viewportBoundsPx.y,
+    w: focusVe.listViewportBoundsPx.w,
+    h: focusVe.listViewportBoundsPx.h,
+  };
+
+  return isInside(desktopPosPx, listViewportBoundsPx) ? focusVe : null;
+}
+
 function findPlaceholderDescendantAtDesktopPos(
   store: StoreContextModel,
   visualElement: VisualElement,
@@ -248,6 +271,7 @@ function createItemInPage(
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
   const overElementVe = findPlaceholderAtDesktopPos(store, hitInfo, desktopPosPx) ?? HitInfoFns.getHitVe(hitInfo);
+  const focusedListPageVe = focusedListPageCreateTarget(store, desktopPosPx);
 
   let newItem;
   let newItemPath;
@@ -272,13 +296,14 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   else if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
+    const targetPageVe = focusedListPageVe ?? overElementVe;
     ({ newItem, newItemPath } = createItemInPage(
       store,
       type,
-      overElementVe,
+      targetPageVe,
       desktopPosPx,
-      "create-in-page",
-      hitInfo.overPositionGr,
+      focusedListPageVe ? "create-in-focused-list-page" : "create-in-page",
+      focusedListPageVe ? null : hitInfo.overPositionGr,
     ));
   }
 
@@ -384,7 +409,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   }
 
   else {
-    const containingPageVe = resolvePageCreateContext(store, hitInfo);
+    const containingPageVe = focusedListPageVe ?? resolvePageCreateContext(store, hitInfo);
     if (!containingPageVe) {
       console.warn("cannot create item in context here", { type, hitInfo: HitInfoFns.toDebugString(hitInfo) });
       return;
