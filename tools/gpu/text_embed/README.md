@@ -116,7 +116,6 @@ Gateway:
 - `GET /healthz`
 - `GET /gpu-tools`
 - `POST /text-embed`
-- `POST /embed` legacy alias
 
 ## Notes
 

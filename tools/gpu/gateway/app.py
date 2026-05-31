@@ -279,7 +279,7 @@ def service_registry() -> dict[str, ServiceProxy]:
         ),
         ServiceProxy(
             service_name="text_embed",
-            public_paths=("/text-embed", "/embed"),
+            public_paths=("/text-embed",),
             upstream_base_url=upstream_base_url(
                 ("GPU_TEXT_EMBED_UPSTREAM_URL", "GPU_TEXT_EMBEDDING_UPSTREAM_URL"),
                 "127.0.0.1",
@@ -289,7 +289,7 @@ def service_registry() -> dict[str, ServiceProxy]:
         ),
         ServiceProxy(
             service_name="pdf_extract",
-            public_paths=("/pdf-extract", "/convert"),
+            public_paths=("/pdf-extract",),
             upstream_base_url=upstream_base_url(
                 ("GPU_PDF_EXTRACT_UPSTREAM_URL", "GPU_TEXT_EXTRACTION_UPSTREAM_URL"),
                 "127.0.0.1",

@@ -31,11 +31,6 @@ By default the gateway listens on `127.0.0.1:8787` and forwards:
 - `/pdf-extract` to the PDF extract service
 - `/pdf-extract/jobs` as the gateway-owned async PDF extraction job API
 
-The gateway also keeps legacy aliases for existing callers:
-
-- `/embed`
-- `/convert`
-
 The child services keep their own defaults:
 
 - `image_extract`: `127.0.0.1:8788`
@@ -73,7 +68,7 @@ The combined launcher keeps each service independent:
   `GPU_GATEWAY_LOCK_LEASE_SECS` (default 1 hour), a later request may take over
   instead of letting one stale request block all GPU work indefinitely
 - gateway upstream read/write timeouts are 30 minutes by default, with a 4 hour
-  read/write timeout for `/pdf-extract` and its legacy `/convert` alias
+  read/write timeout for `/pdf-extract`
 - the gateway also exposes async PDF extraction jobs for web-background use:
   `POST /pdf-extract/jobs`, `GET /pdf-extract/jobs/{job_id}`, and
   `GET /pdf-extract/jobs/{job_id}/result`; the gateway holds the global GPU lock
