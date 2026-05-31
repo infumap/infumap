@@ -234,6 +234,7 @@ const inProgressReadCommands: Array<ServerCommand> = [];
 const MUTATION_COMMANDS = new Set<string>([COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH]);
 let pendingMutationCommands = 0;
 let nextNetworkRequestId = 1;
+let activeContainerSyncStore: StoreContextModel | null = null;
 
 const isMutationCommand = (command: string): boolean => MUTATION_COMMANDS.has(command);
 const isParallelReadCommand = (command: string): boolean => PARALLEL_READ_COMMANDS.has(command);
@@ -319,6 +320,14 @@ function serveWaiting(networkStatus: NumberSignal) {
   // Start as many leading read commands as possible; keep ordering otherwise.
   while (commandQueue.length > 0) {
     const next = commandQueue[0];
+
+    if (next.command == COMMAND_SYNC_CONTAINERS && textEditInProgressForContainerSync(activeContainerSyncStore)) {
+      const command = commandQueue.shift() as ServerCommand;
+      command.resolve({ updates: [] });
+      syncBaseNetworkStatus(networkStatus);
+      syncGlobalRequestTracker();
+      continue;
+    }
 
     // Non-read commands (mutations, searches, etc.) run strictly one at a time.
     if (!isParallelReadCommand(next.command)) {
@@ -789,16 +798,31 @@ let containerSyncRetryTimeoutId: number | null = null;
 let containerSyncInFlight = false;
 let containerSyncRerunRequested = false;
 let containerSyncVisibilityHandler: (() => void) | null = null;
-let activeContainerSyncStore: StoreContextModel | null = null;
+
+function textEditInProgressForContainerSync(store: StoreContextModel | null | undefined): boolean {
+  return store?.overlay.textEditInfo() != null;
+}
+
+function clearContainerSyncRetryTimeout(): void {
+  if (containerSyncRetryTimeoutId == null) {
+    return;
+  }
+  window.clearTimeout(containerSyncRetryTimeoutId);
+  containerSyncRetryTimeoutId = null;
+}
 
 export function requestContainerSyncSoon(store?: StoreContextModel): void {
   const targetStore = store ?? activeContainerSyncStore;
   if (!targetStore) {
     return;
   }
-  if (containerSyncRetryTimeoutId != null) {
-    window.clearTimeout(containerSyncRetryTimeoutId);
+
+  if (textEditInProgressForContainerSync(targetStore)) {
+    clearContainerSyncRetryTimeout();
+    return;
   }
+
+  clearContainerSyncRetryTimeout();
   containerSyncRetryTimeoutId = window.setTimeout(() => {
     containerSyncRetryTimeoutId = null;
     void performContainerSync(targetStore);
@@ -806,6 +830,9 @@ export function requestContainerSyncSoon(store?: StoreContextModel): void {
 }
 
 function scheduleContainerSyncRetry(store: StoreContextModel, delayMs: number): void {
+  if (textEditInProgressForContainerSync(store)) {
+    return;
+  }
   if (containerSyncRetryTimeoutId != null) {
     return;
   }
@@ -815,11 +842,15 @@ function scheduleContainerSyncRetry(store: StoreContextModel, delayMs: number): 
   }, delayMs);
 }
 
-function shouldPauseContainerSync(store: StoreContextModel): boolean {
-  return document.hidden || mutationsInFlight() || !MouseActionState.empty() || store.overlay.textEditInfo() != null;
+function shouldRetryContainerSyncLater(): boolean {
+  return document.hidden || mutationsInFlight() || !MouseActionState.empty();
 }
 
 async function performContainerSync(store: StoreContextModel): Promise<void> {
+  if (textEditInProgressForContainerSync(store)) {
+    return;
+  }
+
   const subscriptions = getTrackedLocalContainerSubscriptions();
   if (subscriptions.length === 0) {
     return;
@@ -830,7 +861,7 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
     return;
   }
 
-  if (shouldPauseContainerSync(store)) {
+  if (shouldRetryContainerSyncLater()) {
     scheduleContainerSyncRetry(store, 250);
     return;
   }
@@ -838,7 +869,10 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
   containerSyncInFlight = true;
   try {
     const updates = await server.syncContainers(subscriptions, store.general.networkStatus);
-    if (shouldPauseContainerSync(store)) {
+    if (textEditInProgressForContainerSync(store)) {
+      return;
+    }
+    if (shouldRetryContainerSyncLater()) {
       containerSyncRerunRequested = true;
       return;
     }
@@ -859,7 +893,9 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
     containerSyncInFlight = false;
     if (containerSyncRerunRequested) {
       containerSyncRerunRequested = false;
-      requestContainerSyncSoon(store);
+      if (!textEditInProgressForContainerSync(store)) {
+        requestContainerSyncSoon(store);
+      }
     }
   }
 }
