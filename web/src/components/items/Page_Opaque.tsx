@@ -46,7 +46,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const renderBoxTitle = () =>
     <div id={VeFns.veToPath(props.visualElement) + ":title"}
-      class={`absolute flex font-bold text-white`}
+      class={`absolute flex font-bold text-white ${titleEditHandlers.isEditingTitle() ? "select-text cursor-text" : ""}`}
       style={`left: 0px; ` +
         `top: 0px; ` +
         `width: ${pageFns().boundsPx().w}px; ` +

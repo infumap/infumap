@@ -230,7 +230,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       <div class={`absolute`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; z-index: 4;`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
-          class="absolute font-bold"
+          class={`absolute font-bold ${titleEditHandlers.isEditingTitle() ? "select-text cursor-text" : ""}`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale()}px; ` +
             `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
             `overflow-wrap: break-word;` +

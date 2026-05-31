@@ -71,7 +71,7 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
         `top: ${PAGE_DOCUMENT_TOP_MARGIN_PX * documentScale()}px; ` +
         `width: ${documentBlockWidthPx()}px; height: ${titleHeightPx()}px;`}>
       <span id={VeFns.veToPath(props.visualElement) + ":title"}
-        class={`absolute block font-bold cursor-text ${titleStyle().alignClass}`}
+        class={`absolute block font-bold cursor-text select-text ${titleStyle().alignClass}`}
         style={`left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
           `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
           `width: ${naturalTextWidthPx()}px; ` +

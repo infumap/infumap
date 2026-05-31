@@ -228,6 +228,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         buttonNumber == MOUSE_LEFT) {
         const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
         if (!(hitInfo.hitboxType & HitboxFlags.Resize)) {
+          store.anItemIsMoving.set(false);
+          store.anItemIsResizing.set(false);
+          MouseActionState.set(null);
           return MouseEventActionFlags.None;
         }
       }

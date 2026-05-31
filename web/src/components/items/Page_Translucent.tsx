@@ -110,10 +110,14 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const translucentTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("lg"));
   const isCalendarTranslucentPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar;
-  const translucentTitleClass = () =>
-    isCalendarTranslucentPage()
-      ? "absolute flex text-white pointer-events-none"
-      : "absolute flex font-bold text-white pointer-events-none";
+  const translucentTitleClass = () => {
+    const pointerClass = titleEditHandlers.isEditingTitle()
+      ? "pointer-events-auto select-text cursor-text"
+      : "pointer-events-none";
+    return isCalendarTranslucentPage()
+      ? `absolute flex text-white ${pointerClass}`
+      : `absolute flex font-bold text-white ${pointerClass}`;
+  };
 
   const calendarTitleStyle = (): string => {
     const fontSizePx = isCalendarTranslucentPage()
