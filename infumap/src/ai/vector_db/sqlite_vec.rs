@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
@@ -12,10 +13,11 @@ use zerocopy::IntoBytes;
 
 use super::{
   EmbeddedFragment, FragmentVectorDb, FragmentVectorDbFragmentKey, FragmentVectorDbRebuildMetadata,
-  FragmentVectorDbRebuildStatus, FragmentVectorHit,
+  FragmentVectorDbRebuildStatus, FragmentVectorHit, fragment_vector_db_operation_lock,
 };
 
 pub const SQLITE_VEC_INDEX_SCHEMA_VERSION: i64 = 1;
+const SQLITE_VEC_BUSY_TIMEOUT: Duration = Duration::from_secs(30);
 pub const INDEX_METADATA_TABLE_NAME: &str = "fragment_index_metadata";
 pub const FRAGMENTS_TABLE_NAME: &str = "fragments";
 pub const FRAGMENT_EMBEDDINGS_TABLE_NAME: &str = "fragment_embeddings";
@@ -170,8 +172,12 @@ impl SqliteVecFragmentVectorDb {
 
   fn open_connection(&self) -> InfuResult<Connection> {
     register_sqlite_vec_extension()?;
-    Connection::open(&self.db_path)
-      .map_err(|e| format!("Could not open sqlite-vec database '{}': {}", self.db_path.display(), e).into())
+    let conn = Connection::open(&self.db_path)
+      .map_err(|e| format!("Could not open sqlite-vec database '{}': {}", self.db_path.display(), e))?;
+    conn
+      .busy_timeout(SQLITE_VEC_BUSY_TIMEOUT)
+      .map_err(|e| format!("Could not configure sqlite-vec busy timeout '{}': {}", self.db_path.display(), e))?;
+    Ok(conn)
   }
 
   fn read_rebuild_status(&self, conn: &Connection) -> InfuResult<Option<FragmentVectorDbRebuildStatus>> {
@@ -354,6 +360,8 @@ fn embedding_from_bytes(bytes: &[u8], expected_dimensions: usize) -> InfuResult<
 #[async_trait]
 impl FragmentVectorDb for SqliteVecFragmentVectorDb {
   async fn rebuild_status(&self) -> InfuResult<Option<FragmentVectorDbRebuildStatus>> {
+    let operation_lock = fragment_vector_db_operation_lock(&self.db_path);
+    let _operation_guard = operation_lock.lock().await;
     if !self.db_path.exists() {
       return Ok(None);
     }
@@ -366,6 +374,9 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
     metadata: &FragmentVectorDbRebuildMetadata,
     resume: bool,
   ) -> InfuResult<FragmentVectorDbRebuildStatus> {
+    let operation_lock = fragment_vector_db_operation_lock(&self.db_path);
+    let _operation_guard = operation_lock.lock().await;
+
     if metadata.expected_fragment_count == 0 {
       return Err("Cannot create a sqlite-vec fragment index with zero fragments.".into());
     }
@@ -423,6 +434,8 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
   }
 
   async fn embedded_fragment_keys(&self) -> InfuResult<HashSet<FragmentVectorDbFragmentKey>> {
+    let operation_lock = fragment_vector_db_operation_lock(&self.db_path);
+    let _operation_guard = operation_lock.lock().await;
     if !self.db_path.exists() {
       return Ok(HashSet::new());
     }
@@ -462,6 +475,8 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
     &self,
     keys: &HashSet<FragmentVectorDbFragmentKey>,
   ) -> InfuResult<Vec<EmbeddedFragment>> {
+    let operation_lock = fragment_vector_db_operation_lock(&self.db_path);
+    let _operation_guard = operation_lock.lock().await;
     if keys.is_empty() || !self.db_path.exists() {
       return Ok(Vec::new());
     }
@@ -533,6 +548,8 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
   }
 
   async fn insert_embedded_fragments(&self, fragments: &[EmbeddedFragment]) -> InfuResult<()> {
+    let operation_lock = fragment_vector_db_operation_lock(&self.db_path);
+    let _operation_guard = operation_lock.lock().await;
     if fragments.is_empty() {
       return Ok(());
     }
@@ -596,6 +613,8 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
   }
 
   async fn delete_item_fragments(&self, item_id: &str) -> InfuResult<usize> {
+    let operation_lock = fragment_vector_db_operation_lock(&self.db_path);
+    let _operation_guard = operation_lock.lock().await;
     if item_id.trim().is_empty() || !self.db_path.exists() {
       return Ok(0);
     }
@@ -648,6 +667,8 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
     &self,
     metadata: &FragmentVectorDbRebuildMetadata,
   ) -> InfuResult<FragmentVectorDbRebuildStatus> {
+    let operation_lock = fragment_vector_db_operation_lock(&self.db_path);
+    let _operation_guard = operation_lock.lock().await;
     let conn = self.open_connection()?;
     let status = self
       .read_rebuild_status(&conn)?
@@ -684,6 +705,8 @@ impl FragmentVectorDb for SqliteVecFragmentVectorDb {
   }
 
   async fn search(&self, query_embedding: &[f32], limit: usize) -> InfuResult<Vec<FragmentVectorHit>> {
+    let operation_lock = fragment_vector_db_operation_lock(&self.db_path);
+    let _operation_guard = operation_lock.lock().await;
     if limit == 0 || !self.db_path.exists() {
       return Ok(Vec::new());
     }

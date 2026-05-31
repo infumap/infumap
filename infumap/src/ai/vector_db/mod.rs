@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
@@ -102,6 +103,19 @@ pub fn open_fragment_vector_db(backend: FragmentVectorDbBackend, db_path: PathBu
   match backend {
     FragmentVectorDbBackend::SqliteVec => Box::new(sqlite_vec::SqliteVecFragmentVectorDb::new(db_path)),
   }
+}
+
+// sqlite-vec operations use short-lived connections, so serialize same-process access per DB path.
+static FRAGMENT_VECTOR_DB_OPERATION_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<tokio::sync::Mutex<()>>>>> =
+  OnceLock::new();
+
+pub fn fragment_vector_db_operation_lock(db_path: &Path) -> Arc<tokio::sync::Mutex<()>> {
+  let locks = FRAGMENT_VECTOR_DB_OPERATION_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+  let mut locks = match locks.lock() {
+    Ok(locks) => locks,
+    Err(poisoned) => poisoned.into_inner(),
+  };
+  locks.entry(db_path.to_path_buf()).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
 }
 
 pub fn user_index_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {

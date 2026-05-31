@@ -53,6 +53,7 @@ use crate::ai::fragment::{
   ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_lexical_search_source_kind,
   is_markdown_document_source_kind,
 };
+use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::geo::delete_item_geo_artifacts;
 use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, resolve_configured_gpu_tool_url};
 use crate::ai::image_pipeline::{
@@ -2132,6 +2133,7 @@ async fn handle_delete_item<'a>(
   debug!("Deleted item '{}' from database.", request.id);
   drop(db);
   enqueue_item_title_index_reconcile_for_user(&owner_id);
+  enqueue_fragment_index_rebuild_for_user(&owner_id);
 
   json_with_sync_ack(sync_ack, None)
 }
@@ -2178,6 +2180,7 @@ async fn handle_empty_trash<'a>(
   let user_id = session.user_id.clone();
   drop(db);
   enqueue_item_title_index_reconcile_for_user(&user_id);
+  enqueue_fragment_index_rebuild_for_user(&user_id);
 
   let mut result = serde_json::Map::new();
   result.insert("itemCount".to_owned(), Value::Number(count.into()));

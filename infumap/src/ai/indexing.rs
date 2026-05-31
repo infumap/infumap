@@ -31,8 +31,8 @@ use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::user_id_for_log;
 use crate::ai::vector_db::{
   EmbeddedFragment, FragmentVectorDb, FragmentVectorDbBackend, FragmentVectorDbFragmentKey,
-  FragmentVectorDbRebuildMetadata, ensure_user_index_dir, fragment_vector_db_path, fragment_vector_db_temp_path,
-  open_fragment_vector_db, open_user_fragment_vector_db, user_fragment_vector_db_exists,
+  FragmentVectorDbRebuildMetadata, ensure_user_index_dir, fragment_vector_db_operation_lock, fragment_vector_db_path,
+  fragment_vector_db_temp_path, open_fragment_vector_db, open_user_fragment_vector_db, user_fragment_vector_db_exists,
 };
 use crate::storage::db::Db;
 use crate::storage::db::item_db::ItemAndUserId;
@@ -878,14 +878,20 @@ async fn rebuild_user_vector_fragment_index(
     format!("User {} has {} image-semantic fragment(s), but no embeddings were produced.", user_id, fragments.len())
   })?;
   let finished = temp_db.finish_rebuild(&metadata).await?;
-  fs::rename(&temp_path, &final_path).await.map_err(|e| {
-    format!(
-      "Could not atomically replace image semantic index DB '{}' with '{}': {}",
-      final_path.display(),
-      temp_path.display(),
-      e
-    )
-  })?;
+  {
+    let final_operation_lock = fragment_vector_db_operation_lock(&final_path);
+    let _final_operation_guard = final_operation_lock.lock().await;
+    let temp_operation_lock = fragment_vector_db_operation_lock(&temp_path);
+    let _temp_operation_guard = temp_operation_lock.lock().await;
+    fs::rename(&temp_path, &final_path).await.map_err(|e| {
+      format!(
+        "Could not atomically replace image semantic index DB '{}' with '{}': {}",
+        final_path.display(),
+        temp_path.display(),
+        e
+      )
+    })?;
+  }
 
   let final_db = open_fragment_vector_db(FragmentVectorDbBackend::SqliteVec, final_path);
   let final_status = final_db.rebuild_status().await?.ok_or("Final image semantic index DB is missing metadata.")?;
@@ -1120,6 +1126,11 @@ fn validate_unique_fragment_ordinals(user_id: &str, fragments: &[FragmentRecordF
 }
 
 async fn remove_stale_empty_index_files(final_path: &Path, temp_path: &Path) -> InfuResult<usize> {
+  let final_operation_lock = fragment_vector_db_operation_lock(final_path);
+  let _final_operation_guard = final_operation_lock.lock().await;
+  let temp_operation_lock = fragment_vector_db_operation_lock(temp_path);
+  let _temp_operation_guard = temp_operation_lock.lock().await;
+
   let mut removed = 0;
   if remove_file_if_exists(temp_path).await? {
     removed += 1;
