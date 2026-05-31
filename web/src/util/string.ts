@@ -17,7 +17,7 @@
 */
 
 
-export const EMPTY_CONTENT_EDITABLE_PLACEHOLDER = "\u200B";
+export const EMPTY_CONTENT_EDITABLE_PLACEHOLDER = "\u00A0";
 
 
 /**
