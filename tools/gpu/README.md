@@ -48,9 +48,10 @@ the first `image_extract/run.sh` argument to select another model. You can also
 use `IMAGE_TAGGING_MODEL_REPO`, `IMAGE_TAGGING_MODEL_FILE`, and
 `IMAGE_TAGGING_MMPROJ_FILE` for separate fields.
 
-Note: `tools/gpu/text_embed` defaults to
-`Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` with `llama-server --embedding`. It
-requests GPU layers on NVIDIA and macOS hosts by default. Set
+Note: `tools/gpu/text_embed` uses the fixed
+`Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` model with `llama-server --embedding`.
+There is no environment variable or launcher argument to change this model.
+It requests GPU layers on NVIDIA and macOS hosts by default. Set
 `TEXT_EMBEDDING_LLAMA_NGL=0` to force CPU execution.
 
 The combined launcher keeps each service independent:
@@ -103,4 +104,4 @@ Optional environment variables:
 - `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
-- all service-specific `IMAGE_TAGGING_*`, `TEXT_EMBEDDING_*`, and `TEXT_EXTRACTION_*` variables
+- all documented service-specific `IMAGE_TAGGING_*`, `TEXT_EMBEDDING_*`, and `TEXT_EXTRACTION_*` variables.

@@ -9,8 +9,9 @@ The model is intentionally fixed to the Q8 GGUF build of Qwen3 Embedding 0.6B:
 Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0
 ```
 
-There is no launcher option to change the model. Requests may omit `model`; if
-they include it, it must match the fixed model above.
+There is no environment variable or launcher option to change this model.
+Requests may omit `model`; if they include it, it must match the fixed model
+above.
 
 ## Start The Service
 
@@ -64,6 +65,9 @@ Managed llama-server:
 - `TEXT_EMBEDDING_LLAMA_POOLING`
 - `TEXT_EMBEDDING_LLAMA_NGL`
 - `TEXT_EMBEDDING_STARTUP_TIMEOUT_SECS`
+
+These variables tune the wrapper and managed `llama-server` process. None of
+them changes the fixed embedding model.
 
 Defaults:
 
