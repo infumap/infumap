@@ -485,6 +485,9 @@ export const itemState = {
 
     const prevParentId = item.parentId;
     const prevRelationshipToParent = item.relationshipToParent;
+    if (newRelationshipToParent != RelationshipToParent.Child || prevParentId != moveToParentId) {
+      item.groupId = null;
+    }
     if (ordering) {
       item.ordering = ordering;
     } else {

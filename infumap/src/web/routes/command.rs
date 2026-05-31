@@ -643,6 +643,21 @@ fn maybe_container_id_for_child_item(item: &Item) -> Option<Uid> {
   if item.relationship_to_parent == RelationshipToParent::Child { item.parent_id.clone() } else { None }
 }
 
+fn validate_group_id_for_item(db: &MutexGuard<'_, Db>, item: &Item) -> InfuResult<()> {
+  if item.group_id.is_none() {
+    return Ok(());
+  }
+  if item.relationship_to_parent != RelationshipToParent::Child {
+    return Err(format!("Item '{}' has a groupId, but is not a child item.", item.id).into());
+  }
+  let parent_id = item.parent_id.as_ref().ok_or(format!("Item '{}' has a groupId, but no parentId.", item.id))?;
+  let parent_item = db.item.get(parent_id)?;
+  if parent_item.item_type != ItemType::Page {
+    return Err(format!("Item '{}' has a groupId, but its parent '{}' is not a page.", item.id, parent_id).into());
+  }
+  Ok(())
+}
+
 fn maybe_container_id_for_attachment_parent(db: &MutexGuard<'_, Db>, parent_id: &Uid) -> InfuResult<Option<Uid>> {
   let parent_item = db.item.get(parent_id)?;
   if parent_item.relationship_to_parent == RelationshipToParent::Child {
@@ -1712,6 +1727,7 @@ pub async fn add_item_for_user(
         return Err(format!("Attempt was made by user '{}' to add a root level page.", &session_user_id).into());
       }
     };
+    validate_group_id_for_item(&db, &item)?;
 
     if is_empty_uid(&item.id) {
       return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", &session_user_id).into());
@@ -1942,6 +1958,7 @@ async fn handle_update_item(
       .into(),
     );
   }
+  validate_group_id_for_item(&db, &item)?;
 
   db.item.update(&item).await?;
   let mut deltas_by_container = HashMap::new();

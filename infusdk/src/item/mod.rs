@@ -406,13 +406,14 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 51] = [
+const ALL_JSON_FIELDS: [&'static str; 52] = [
   "__recordType",
   "itemType",
   "ownerId",
   "id",
   "parentId",
   "relationshipToParent",
+  "groupId",
   "creationDate",
   "lastModifiedDate",
   "dateTime",
@@ -477,6 +478,7 @@ pub struct Item {
   pub id: Uid,
   pub parent_id: Option<Uid>,
   pub relationship_to_parent: RelationshipToParent,
+  pub group_id: Option<Uid>,
   pub creation_date: i64,
   pub last_modified_date: i64,
   pub datetime: i64,
@@ -573,6 +575,7 @@ impl Clone for Item {
       id: self.id.clone(),
       parent_id: self.parent_id.clone(),
       relationship_to_parent: self.relationship_to_parent.clone(),
+      group_id: self.group_id.clone(),
       creation_date: self.creation_date.clone(),
       last_modified_date: self.last_modified_date.clone(),
       datetime: self.datetime.clone(),
@@ -689,6 +692,15 @@ impl JsonLogSerializable<Item> for Item {
     if old.relationship_to_parent != new.relationship_to_parent {
       result
         .insert(String::from("relationshipToParent"), Value::String(String::from(new.relationship_to_parent.as_str())));
+    }
+    match (&old.group_id, &new.group_id) {
+      (Some(_), None) => {
+        result.insert(String::from("groupId"), Value::Null);
+      }
+      (old_group_id, Some(new_group_id)) if old_group_id.as_ref() != Some(new_group_id) => {
+        result.insert(String::from("groupId"), Value::String(new_group_id.clone()));
+      }
+      _ => {}
     }
     if old.creation_date != new.creation_date {
       cannot_modify_err("creationDate", &old.id)?;
@@ -1304,6 +1316,24 @@ impl JsonLogSerializable<Item> for Item {
     if let Some(u) = json::get_string_field(map, "relationshipToParent")? {
       self.relationship_to_parent = RelationshipToParent::from_str(&u)?;
     }
+    if map.contains_key("groupId") {
+      let group_id_maybe = json::get_string_field(map, "groupId")?;
+      if let Some(group_id) = &group_id_maybe {
+        if !is_uid(group_id) {
+          return Err(
+            format!(
+              "An attempt was made to apply an update with invalid groupId '{}' to item '{}'.",
+              group_id, &self.id
+            )
+            .into(),
+          );
+        }
+      }
+      self.group_id = group_id_maybe;
+    }
+    if self.group_id.is_some() && self.relationship_to_parent != RelationshipToParent::Child {
+      return Err(format!("Item '{}' has groupId set, but its relationshipToParent is not 'child'.", self.id).into());
+    }
     if json::get_integer_field(map, "creationDate")?.is_some() {
       cannot_update_err("creationDate", &self.id)?;
     }
@@ -1781,6 +1811,9 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   };
   result
     .insert(String::from("relationshipToParent"), Value::String(String::from(item.relationship_to_parent.as_str())));
+  if let Some(group_id) = &item.group_id {
+    result.insert(String::from("groupId"), Value::String(group_id.clone()));
+  }
   result.insert(String::from("creationDate"), Value::Number(item.creation_date.into()));
   result.insert(String::from("lastModifiedDate"), Value::Number(item.last_modified_date.into()));
   result.insert(String::from("dateTime"), Value::Number(item.datetime.into()));
@@ -2152,15 +2185,26 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }
     _ => return Err("'parentId' field was not of type 'string'.".into()),
   };
+  let relationship_to_parent = RelationshipToParent::from_str(
+    &json::get_string_field(map, "relationshipToParent")?.ok_or("'relationshipToParent' field is missing.")?,
+  )?;
+  let group_id = json::get_string_field(map, "groupId")?;
+  if let Some(group_id) = &group_id {
+    if !is_uid(group_id) {
+      return Err(format!("Item '{}' has invalid groupId '{}'.", id, group_id).into());
+    }
+    if relationship_to_parent != RelationshipToParent::Child {
+      return Err(format!("Item '{}' has groupId set, but its relationshipToParent is not 'child'.", id).into());
+    }
+  }
 
   let r = Item {
     item_type: item_type.clone(),
     id: id.clone(),
     owner_id: json::get_string_field(map, "ownerId")?.ok_or("'owner_id' field was missing.")?,
     parent_id,
-    relationship_to_parent: RelationshipToParent::from_str(
-      &json::get_string_field(map, "relationshipToParent")?.ok_or("'relationshipToParent' field is missing.")?,
-    )?,
+    relationship_to_parent,
+    group_id,
     creation_date: json::get_integer_field(map, "creationDate")?.ok_or("'creationDate' field was missing.")?,
     last_modified_date: json::get_integer_field(map, "lastModifiedDate")?
       .ok_or("'lastModifiedDate' field was missing.")?,
@@ -2857,6 +2901,7 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
+      group_id: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -2920,6 +2965,7 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
+      group_id: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -2987,6 +3033,7 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
+      group_id: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3042,6 +3089,7 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: RelationshipToParent::Attachment,
+      group_id: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3103,6 +3151,7 @@ impl Item {
       id: new_uid(),
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
+      group_id: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3187,6 +3236,7 @@ impl Item {
       id: new_uid(),
       parent_id: parent_id.map(|id| id.to_owned()),
       relationship_to_parent: relationship,
+      group_id: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3250,6 +3300,9 @@ impl Item {
       hashes.push(hash_string_to_uid("00000000000000000000000000000000"));
     }
     hashes.push(hash_string_to_uid(self.relationship_to_parent.as_str()));
+    if let Some(group_id) = &self.group_id {
+      hashes.push(hash_string_to_uid(group_id));
+    }
     hashes.push(hash_i64_to_uid(self.creation_date));
     hashes.push(hash_i64_to_uid(self.last_modified_date));
     hashes.push(hash_i64_to_uid(self.datetime));
