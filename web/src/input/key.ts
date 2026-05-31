@@ -36,7 +36,7 @@ import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { calculateCalendarWindowForPage } from "../util/calendar-layout";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { CursorEventState, MouseActionState } from "./state";
+import { CursorEventState } from "./state";
 import { newItemInContext } from "./create";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
@@ -74,10 +74,6 @@ export function isArrowKey(key: string) {
   return false;
 }
 
-function isShiftKey(code: string): boolean {
-  return code == "ShiftLeft" || code == "ShiftRight";
-}
-
 function isReservedTabKey(ev: KeyboardEvent): boolean {
   return ev.code == "Tab" && !ev.ctrlKey && !ev.metaKey && !ev.altKey;
 }
@@ -95,33 +91,6 @@ function pageEmbeddedInteractiveStatusAppliesForEnter(ve: VisualElement): boolea
   return isPage(ve.displayItem) &&
     !(ve.flags & VisualElementFlags.InsideTable) &&
     !!(asPageItem(ve.displayItem).flags & PageFlags.EmbeddedInteractive);
-}
-
-let shiftNavigationGesture = {
-  pending: false,
-  cancelled: false,
-};
-
-function beginShiftNavigationGesture(ev: KeyboardEvent): void {
-  if (ev.repeat) { return; }
-
-  // Treat a bare Shift tap as the keyboard equivalent of right-click/back-up,
-  // but cancel it as soon as Shift becomes part of another gesture.
-  shiftNavigationGesture = {
-    pending: true,
-    cancelled: ev.ctrlKey || ev.metaKey || ev.altKey || !MouseActionState.empty(),
-  };
-}
-
-function consumeShiftNavigationGesture(): boolean {
-  const shouldNavigate = shiftNavigationGesture.pending && !shiftNavigationGesture.cancelled;
-  shiftNavigationGesture = { pending: false, cancelled: false };
-  return shouldNavigate;
-}
-
-export function cancelShiftNavigationGesture(): void {
-  if (!shiftNavigationGesture.pending) { return; }
-  shiftNavigationGesture.cancelled = true;
 }
 
 interface ActiveSearchWorkspace {
@@ -530,13 +499,6 @@ function handleSearchWorkspaceEscapeMaybe(store: StoreContextModel): boolean {
  * Top level handler for keydown events.
  */
 export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): void {
-  if (isShiftKey(ev.code)) {
-    beginShiftNavigationGesture(ev);
-    return;
-  }
-
-  cancelShiftNavigationGesture();
-
   // Item-local editors may already have handled this key (for example Escape to
   // exit edit mode while preserving item focus). In that case, don't let the
   // document-level handler reinterpret the same key as navigation.
@@ -1256,13 +1218,7 @@ function handleTableRootPageHorizontalNavigationMaybe(store: StoreContextModel, 
   return false;
 }
 
-export async function keyUpHandler(store: StoreContextModel, ev: KeyboardEvent): Promise<void> {
-  if (!isShiftKey(ev.code)) { return; }
-  if (ev.shiftKey) { return; }
-  if (!consumeShiftNavigationGesture()) { return; }
-
-  ev.preventDefault();
-  await mouseDownHandler(store, MOUSE_RIGHT);
+export async function keyUpHandler(_store: StoreContextModel, _ev: KeyboardEvent): Promise<void> {
 }
 
 

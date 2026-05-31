@@ -43,7 +43,7 @@ import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler, clearMouseOverState } from "../input/mouse_move";
 import { CursorEventState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
-import { cancelShiftNavigationGesture, keyDownHandler, keyUpHandler } from "../input/key";
+import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
@@ -407,7 +407,6 @@ export const Main: Component = () => {
   };
 
   const mouseDownListener = async (ev: MouseEvent) => {
-    cancelShiftNavigationGesture();
     if (shouldIgnoreCompatibilityMouseDown()) {
       preventDefaultIfCancelable(ev);
       return;
@@ -420,8 +419,6 @@ export const Main: Component = () => {
   };
 
   const touchStartListener = (ev: TouchEvent) => {
-    cancelShiftNavigationGesture();
-
     const touchInfo = setCursorFromTouches(ev.touches);
     if (touchInfo == null) {
       return;
