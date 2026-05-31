@@ -519,13 +519,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-    const xAdj = (inElementVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) ||
-      (inElementVe.flags & VisualElementFlags.Popup)
-      ? store.getCurrentDockWidthPx()
-      : 0.0;
-    const xOffsetPx = desktopPosPx.x - (inElementVe.viewportBoundsPx!.x + xAdj);
-    const yOffsetPx = desktopPosPx.y - inElementVe.viewportBoundsPx!.y;
-    const veid = VeFns.veidFromVe(inElementVe);
+    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
+    const xOffsetPx = desktopPosPx.x - viewportBoundsPx.x;
+    const yOffsetPx = desktopPosPx.y - viewportBoundsPx.y;
+    const veid = VeFns.actualVeidFromVe(inElementVe);
     const scrollYPx = store.perItem.getPageScrollYProp(veid)
       * (inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
     const scrollXPx = store.perItem.getPageScrollXProp(veid)
@@ -902,15 +899,12 @@ function calculateJustifiedMoveOverIndex(store: StoreContextModel, inElementVe: 
   const pageItem = asPageItem(inElementVe.displayItem);
   const containerItem = asContainerItem(inElementVe.displayItem);
 
-  const xAdj = (inElementVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) ||
-    (inElementVe.flags & VisualElementFlags.Popup)
-    ? store.getCurrentDockWidthPx()
-    : 0.0;
-  const xOffsetPx = desktopPosPx.x - (inElementVe.viewportBoundsPx!.x + xAdj);
-  const yOffsetPx = desktopPosPx.y - inElementVe.viewportBoundsPx!.y;
+  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
+  const xOffsetPx = desktopPosPx.x - viewportBoundsPx.x;
+  const yOffsetPx = desktopPosPx.y - viewportBoundsPx.y;
 
   // Account for scroll position
-  const veid = VeFns.veidFromVe(inElementVe);
+  const veid = VeFns.actualVeidFromVe(inElementVe);
   const scrollYPx = store.perItem.getPageScrollYProp(veid)
     * (inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
   const scrollXPx = store.perItem.getPageScrollXProp(veid)

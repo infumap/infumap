@@ -17,9 +17,9 @@
 */
 
 import { LINE_HEIGHT_PX } from "../../constants";
-import { CursorEventState, MouseActionState } from "../../input/state";
+import { MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
-import { Item, ItemType } from "../../items/base/item";
+import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
@@ -32,13 +32,13 @@ import {
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { calcJustifiedPagePaddingPx } from "./justified_metrics";
+import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
 
@@ -289,42 +289,22 @@ function arrangeMovingItemInGrid(
 
   const actualMovingItemLinkItemMaybe = isLink(movingItem) ? asLinkItem(movingItem) : null;
 
-  let scrollPropY;
-  let scrollPropX;
-  if (flags & ArrangeItemFlags.IsPopupRoot) {
-    const popupSpec = store.history.currentPopupSpec();
-    assert(itemState.get(popupSpec!.actualVeid.itemId)!.itemType == ItemType.Page, "popup spec does not have type page.");
-    scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
-    scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
-  } else {
-    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
-    scrollPropY = store.perItem.getPageScrollYProp(veid);
-    scrollPropX = store.perItem.getPageScrollXProp(veid);
-  }
-
-  const umbrellaVisualElement = store.umbrellaVisualElement.get();
-  const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
-  const desktopSizePx = store.desktopBoundsPx();
-  const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
-  const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
-
-  const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
-  const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
   const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-  const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-  const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
-  // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
-  const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
-  const cellBoundsPx = {
-    x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
-    y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
-    w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
-    h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
-  };
-
-  const mouseActionState = MouseActionState.get();
-  cellBoundsPx.x -= mouseActionState.clickOffsetProp!.x * cellBoundsPx.w;
-  cellBoundsPx.y -= mouseActionState.clickOffsetProp!.y * cellBoundsPx.h;
+  const scrollVeid = flags & ArrangeItemFlags.IsPopupRoot
+    ? store.history.currentPopupSpec()!.actualVeid
+    : VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+  const cellBoundsPx = movingItemCellBoundsInPagePx(
+    store,
+    pageWithChildrenVePath,
+    geometry,
+    childAreaBoundsPx,
+    scrollVeid,
+    {
+      w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
+      h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
+    },
+    flags,
+  );
 
   const cellGeometry = ItemFns.calcGeometry_InCell(
     movingItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup),
