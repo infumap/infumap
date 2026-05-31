@@ -42,6 +42,7 @@ import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStac
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isSearch } from "../../items/search-item";
 import { MouseAction, MouseActionState } from "../../input/state";
+import { PageGroupBoxes } from "./PageGroupBoxes";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -183,6 +184,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           <div class="absolute"
             style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
               `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
+            <PageGroupBoxes childVes={pageFns().lineChildren()} childAreaBoundsPx={props.visualElement.listChildAreaBoundsPx!} pageItemId={props.visualElement.displayItem.id} />
             <For each={pageFns().lineChildren()}>{childVe =>
               <VisualElement_LineItem visualElement={childVe.get()} />
             }</For>
@@ -217,6 +219,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         <div class="absolute"
           style={`left: ${0}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+          <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           {pageFns().renderSearchSelectionMaybe()}
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
 

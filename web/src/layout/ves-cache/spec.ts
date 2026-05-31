@@ -27,9 +27,10 @@ export function prepareVisualElementSpec(spec: VisualElementSpec): VisualElement
   if (spec.displayItemFingerprint) {
     panic("displayItemFingerprint is already set.");
   }
+  const treeItemGroupId = spec.linkItemMaybe?.groupId ?? spec.displayItem.groupId ?? "";
   return {
     ...spec,
-    displayItemFingerprint: ItemFns.getFingerprint(spec.displayItem),
+    displayItemFingerprint: `${ItemFns.getFingerprint(spec.displayItem)}|group:${treeItemGroupId}`,
   };
 }
 

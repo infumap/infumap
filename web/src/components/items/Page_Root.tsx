@@ -48,6 +48,7 @@ import { desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldSho
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
 import { MouseAction, MouseActionState } from "../../input/state";
+import { PageGroupBoxes } from "./PageGroupBoxes";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -316,6 +317,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
               `border-right-width: ${focusedChildBorderWidthPx()}px;` +
               `${focusedChildBorderColor()}`}>
+            <PageGroupBoxes childVes={pageFns().lineChildren()} childAreaBoundsPx={props.visualElement.listChildAreaBoundsPx!} pageItemId={props.visualElement.displayItem.id} />
             <For each={pageFns().lineChildren()}>{childVe =>
               <VisualElement_LineItem visualElement={childVe.get()} />
             }</For>
@@ -642,6 +644,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           }}</For>
 
           {/* Render child items arranged in calendar grid */}
+          <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes => {
             const childVe = () => childVes.get();
             return (
@@ -725,6 +728,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
+        <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>

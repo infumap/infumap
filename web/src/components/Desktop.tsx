@@ -33,6 +33,7 @@ import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { SELECTION_HIGHLIGHT_COLOR } from "../style";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../constants";
 import { MovingItemsOverlay } from "./MovingItemsOverlay";
+import { SelectionGroupAction } from "./overlay/SelectionGroupAction";
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -123,6 +124,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
 
       <Page_Desktop visualElement={props.visualElement} />
       <MovingItemsOverlay />
+      <SelectionGroupAction />
 
       {/* desktop overlays */}
       <Show when={store.overlay.editUserSettingsInfo.get() != null}>

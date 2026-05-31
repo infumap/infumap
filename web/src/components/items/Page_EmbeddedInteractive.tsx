@@ -36,6 +36,7 @@ import { switchToPage } from "../../layout/navigation";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { VisualElementSignal } from "../../util/signals";
 import { appendNewlineIfEmpty } from "../../util/string";
+import { PageGroupBoxes } from "./PageGroupBoxes";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -323,6 +324,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
             `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}
           ondblclick={backgroundDoubleClickHandler}>
+          <PageGroupBoxes childVes={pageFns().lineChildren()} childAreaBoundsPx={props.visualElement.listChildAreaBoundsPx!} pageItemId={props.visualElement.displayItem.id} />
           <For each={pageFns().lineChildren()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
@@ -359,6 +361,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         onKeyDown={keyDownHandler}
         onInput={inputListener}
         ondblclick={backgroundDoubleClickHandler}>
+        <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
