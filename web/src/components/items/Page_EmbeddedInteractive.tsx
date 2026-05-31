@@ -35,6 +35,7 @@ import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStac
 import { switchToPage } from "../../layout/navigation";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { VisualElementSignal } from "../../util/signals";
+import { appendNewlineIfEmpty } from "../../util/string";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -239,7 +240,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           onKeyDown={titleEditHandlers.titleKeyDownHandler}
           onKeyUp={titleEditHandlers.titleKeyUpHandler}
           onInput={titleEditHandlers.titleInputListener}>
-          {pageFns().pageItem().title}
+          {appendNewlineIfEmpty(pageFns().pageItem().title)}
         </div>
       </div>
     </Show>;

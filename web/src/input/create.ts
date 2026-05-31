@@ -35,6 +35,7 @@ import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-eleme
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { setCaretPosition } from "../util/caret";
 import { isInside, Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
@@ -267,7 +268,13 @@ function createItemInPage(
   };
 }
 
-
+function focusNewItemTitleForEditing(el: HTMLElement): void {
+  if ((el.textContent ?? "").length == 0) {
+    el.textContent = "\n";
+  }
+  el.focus();
+  setCaretPosition(el, 0);
+}
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
   const overElementVe = findPlaceholderAtDesktopPos(store, hitInfo, desktopPosPx) ?? HitInfoFns.getHitVe(hitInfo);
@@ -432,8 +439,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     const elId = newItemPath + ":title";
     const el = document.getElementById(elId);
     if (el instanceof HTMLElement) {
-      el.innerText = "\n";
-      el.focus();
+      focusNewItemTitleForEditing(el);
     } else {
       console.warn("could not edit newly created item because its title element was not found", { type, newItemPath });
       store.overlay.setTextEditInfo(store.history, null, true);

@@ -37,6 +37,7 @@ import { Item } from "../../items/base/item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
+import { appendNewlineIfEmpty } from "../../util/string";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isSearch } from "../../items/search-item";
@@ -236,7 +237,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         onKeyDown={titleEditHandlers.titleKeyDownHandler}
         onKeyUp={titleEditHandlers.titleKeyUpHandler}
         onInput={titleEditHandlers.titleInputListener}>
-        {pageFns().pageItem().title}
+        {appendNewlineIfEmpty(pageFns().pageItem().title)}
       </div>
     </Show>;
 

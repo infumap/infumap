@@ -22,6 +22,7 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { PageFns } from "../../items/page-item";
 import { VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
+import { appendNewlineIfEmpty } from "../../util/string";
 import { PageVisualElementProps } from "./Page";
 import { createPageTitleEditHandlers } from "./helper";
 
@@ -85,7 +86,7 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
         onKeyDown={allowEditing() ? titleEditHandlers.titleKeyDownHandler : undefined}
         onKeyUp={allowEditing() ? titleEditHandlers.titleKeyUpHandler : undefined}
         onInput={allowEditing() ? titleEditHandlers.titleInputListener : undefined}>
-        {pageFns().pageItem().title}
+        {appendNewlineIfEmpty(pageFns().pageItem().title)}
       </span>
     </div>
   );
