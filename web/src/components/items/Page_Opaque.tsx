@@ -46,13 +46,14 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const renderBoxTitle = () =>
     <div id={VeFns.veToPath(props.visualElement) + ":title"}
-      class={`absolute flex font-bold text-white ${titleEditHandlers.isEditingTitle() ? "select-text cursor-text" : ""}`}
+      class={`absolute flex font-bold text-white ${titleEditHandlers.isEditingTitle() ? "pointer-events-auto select-text cursor-text" : ""}`}
       style={`left: 0px; ` +
         `top: 0px; ` +
         `width: ${pageFns().boundsPx().w}px; ` +
         `height: ${pageFns().boundsPx().h}px;` +
         `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
         `justify-content: center; align-items: center; text-align: center;` +
+        `z-index: ${titleEditHandlers.isEditingTitle() ? Z_INDEX_LOCAL_HIGHLIGHT : 1};` +
         `outline: 0px solid transparent;`}
       contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
       spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
@@ -66,12 +67,12 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
       <>
         <Show when={!pageFns().isInComposite() && pageFns().clickBoundsPx() != null}>
-          <div class={`absolute rounded-xs`}
+          <div class={`absolute rounded-xs pointer-events-none`}
             style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
               `background-color: #ffffff33;`} />
         </Show>
         <Show when={pageFns().hasPopupClickBoundsPx()}>
-          <div class={`absolute rounded-xs`}
+          <div class={`absolute rounded-xs pointer-events-none`}
             style={`left: ${pageFns().popupClickBoundsPx()!.x}px; top: ${pageFns().popupClickBoundsPx()!.y}px; width: ${pageFns().popupClickBoundsPx()!.w}px; height: ${pageFns().popupClickBoundsPx()!.h}px; ` +
               `background-color: ${pageFns().isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
         </Show>
@@ -80,7 +81,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const renderMovingOverMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOver(pageFns().vePath()) && pageFns().clickBoundsPx() != null}>
-      <div class={'absolute rounded-xs'}
+      <div class={'absolute rounded-xs pointer-events-none'}
         style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
           'background-color: #ffffff33;'} />
     </Show>;
@@ -88,20 +89,20 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const renderMovingOverAttachMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOverAttach(pageFns().vePath()) &&
       store.perVe.getMoveOverAttachmentIndex(pageFns().vePath()) >= 0}>
-      <div class={'absolute bg-black'}
+      <div class={'absolute bg-black pointer-events-none'}
         style={`left: ${pageFns().attachInsertBarPx().x}px; top: ${pageFns().attachInsertBarPx().y}px; ` +
           `width: ${pageFns().attachInsertBarPx().w}px; height: ${pageFns().attachInsertBarPx().h}px;`} />
     </Show>;
 
   const renderMovingOverAttachCompositeMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOverAttachComposite(pageFns().vePath())}>
-      <div class={`absolute border border-black`}
+      <div class={`absolute border border-black pointer-events-none`}
         style={`left: ${pageFns().attachCompositeBoundsPx().x}px; top: ${pageFns().attachCompositeBoundsPx().y}px; width: ${pageFns().attachCompositeBoundsPx().w}px; height: ${pageFns().attachCompositeBoundsPx().h}px;`} />
     </Show>;
 
   const renderPopupSelectedOverlayMaybe = () =>
     <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || pageFns().isPoppedUp()}>
-      <div class='absolute'
+      <div class='absolute pointer-events-none'
         style={`left: ${pageFns().innerBoundsPx().x}px; top: ${pageFns().innerBoundsPx().y}px; width: ${pageFns().innerBoundsPx().w}px; height: ${pageFns().innerBoundsPx().h}px; ` +
           'background-color: #dddddd88;'} />
     </Show>;
