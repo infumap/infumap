@@ -17,14 +17,18 @@
 */
 
 
+export const EMPTY_CONTENT_EDITABLE_PLACEHOLDER = "\u200B";
+
+
 /**
- * If text ends with a newline, trim it.
+ * If text contains an empty-contenteditable placeholder or ends with a newline, trim it.
  */
 export function trimNewline(text: string): string {
-  if (text.endsWith("\n")) {
-    return text.substring(0, text.length-1);
+  let result = text.replaceAll(EMPTY_CONTENT_EDITABLE_PLACEHOLDER, "");
+  if (result.endsWith("\n")) {
+    return result.substring(0, result.length-1);
   }
-  return text;
+  return result;
 }
 
 
@@ -32,12 +36,19 @@ export function trimNewline(text: string): string {
  * Used to force creation of a TEXT_NODE inside the note span element
  * which is required to make contenteditable behave as desired.
  *
- * the \n should be detected and removed prior to persistence of the
- * note item text.
+ * The placeholder should be detected and removed prior to persistence of the
+ * item text.
  */
 export function appendNewlineIfEmpty(text: string): string {
-  if (text == "") { return "\n"; }
+  if (text == "") { return EMPTY_CONTENT_EDITABLE_PLACEHOLDER; }
   return text;
+}
+
+export function restoreContentEditablePlaceholderIfEmpty(el: HTMLElement): boolean {
+  if (trimNewline(el.innerText) != "") { return false; }
+  if (el.textContent == EMPTY_CONTENT_EDITABLE_PLACEHOLDER) { return false; }
+  el.textContent = EMPTY_CONTENT_EDITABLE_PLACEHOLDER;
+  return true;
 }
 
 

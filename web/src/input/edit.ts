@@ -18,7 +18,7 @@
 
 import { server, serverOrRemote } from "../server";
 import { NoteFns, asNoteItem, isNote } from "../items/note-item";
-import { trimNewline, isUrl } from "../util/string";
+import { trimNewline, isUrl, restoreContentEditablePlaceholderIfEmpty } from "../util/string";
 import { arrangeNow } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -865,34 +865,37 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
         : focusItemPath + ":col" + colNum;
       const el = document.getElementById(focusItemDomId);
       if (!(el instanceof HTMLElement)) { return; }
-      const newText = el!.innerText;
+      const newText = trimNewline(el!.innerText);
       if (!store.overlay.toolbarPopupInfoMaybe.get()) {
         if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
           let item = asNoteItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-          item.title = trimNewline(newText);
+          item.title = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
           let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-          item.title = trimNewline(newText);
+          item.title = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
           let item = asPasswordItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-          item.text = trimNewline(newText);
+          item.text = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
           let item = asPageItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-          item.title = trimNewline(newText);
+          item.title = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Image) {
           let item = asImageItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
-          item.title = trimNewline(newText);
+          item.title = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
           let item = asTableItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
           if (colNum == null) {
-            item.title = trimNewline(newText);
+            item.title = newText;
           } else {
-            item.tableColumns[colNum].name = trimNewline(newText);
+            item.tableColumns[colNum].name = newText;
           }
         } else {
           console.warn("input handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
         }
-        const caretPosition = getCaretPosition(el!);
+        if (newText == "") {
+          restoreContentEditablePlaceholderIfEmpty(el);
+        }
+        const caretPosition = newText == "" ? 0 : getCaretPosition(el!);
         arrangeNow(store, "text-edit-input-preserve-caret");
         const el_ = document.getElementById(focusItemDomId);
         if (el_ instanceof HTMLElement) {

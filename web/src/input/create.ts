@@ -38,6 +38,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { setCaretPosition } from "../util/caret";
 import { isInside, Vector } from "../util/geometry";
 import { panic } from "../util/lang";
+import { restoreContentEditablePlaceholderIfEmpty } from "../util/string";
 import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
 
@@ -269,9 +270,7 @@ function createItemInPage(
 }
 
 function focusNewItemTitleForEditing(el: HTMLElement): void {
-  if ((el.textContent ?? "").length == 0) {
-    el.textContent = "\n";
-  }
+  restoreContentEditablePlaceholderIfEmpty(el);
   el.focus();
   setCaretPosition(el, 0);
 }
