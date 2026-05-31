@@ -258,11 +258,10 @@ def describe_gpu_lock_holder(lease: GpuLockLease | None) -> str:
     )
 
 
-def upstream_base_url(names: tuple[str, ...], default_host: str, default_port: int) -> str:
-    for name in names:
-        configured = os.environ.get(name, "").strip()
-        if configured:
-            return configured.rstrip("/")
+def upstream_base_url(name: str, default_host: str, default_port: int) -> str:
+    configured = os.environ.get(name, "").strip()
+    if configured:
+        return configured.rstrip("/")
     return f"http://{default_host}:{default_port}"
 
 
@@ -272,7 +271,7 @@ def service_registry() -> dict[str, ServiceProxy]:
             service_name="image_extract",
             public_paths=("/image-extract", "/image-extract-caption-only", "/pdf-extract-caption-only"),
             upstream_base_url=upstream_base_url(
-                ("GPU_IMAGE_EXTRACT_UPSTREAM_URL", "GPU_IMAGE_TAGGING_UPSTREAM_URL"),
+                "GPU_IMAGE_EXTRACT_UPSTREAM_URL",
                 "127.0.0.1",
                 8788,
             ),
@@ -281,7 +280,7 @@ def service_registry() -> dict[str, ServiceProxy]:
             service_name="text_embed",
             public_paths=("/text-embed",),
             upstream_base_url=upstream_base_url(
-                ("GPU_TEXT_EMBED_UPSTREAM_URL", "GPU_TEXT_EMBEDDING_UPSTREAM_URL"),
+                "GPU_TEXT_EMBED_UPSTREAM_URL",
                 "127.0.0.1",
                 8789,
             ),
@@ -291,7 +290,7 @@ def service_registry() -> dict[str, ServiceProxy]:
             service_name="pdf_extract",
             public_paths=("/pdf-extract",),
             upstream_base_url=upstream_base_url(
-                ("GPU_PDF_EXTRACT_UPSTREAM_URL", "GPU_TEXT_EXTRACTION_UPSTREAM_URL"),
+                "GPU_PDF_EXTRACT_UPSTREAM_URL",
                 "127.0.0.1",
                 8790,
             ),
