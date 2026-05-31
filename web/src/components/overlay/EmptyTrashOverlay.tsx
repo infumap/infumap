@@ -22,11 +22,21 @@ import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 
 export const EmptyTrashOverlay: Component = () => {
     const store = useStore();
+    const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); };
+    const eatTouchEvent = (ev: TouchEvent) => { ev.stopPropagation(); };
 
     return (
         <Show when={store.overlay.emptyTrashInProgress.get()}>
             <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
-                style={`background-color: #00000040; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY}; display: flex; align-items: center; justify-content: center;`}>
+                style={`background-color: #00000040; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
+                onMouseDown={eatMouseEvent}
+                onMouseUp={eatMouseEvent}
+                onMouseMove={eatMouseEvent}
+                onDblClick={eatMouseEvent}
+                onTouchStart={eatTouchEvent}
+                onTouchEnd={eatTouchEvent}
+                onTouchMove={eatTouchEvent}
+                onTouchCancel={eatTouchEvent}>
                 <div class="border border-slate-700 rounded-md bg-white shadow-lg"
                     style={`width: 280px; height: 80px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);`}>
                     <div class="px-4 py-3 h-full flex flex-col justify-center items-center">
