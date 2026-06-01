@@ -725,6 +725,7 @@ function hitPagePopupRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
+  if (hitMaybe) { return result; }
   if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }
@@ -789,6 +790,7 @@ function hitPageSelectedRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
+  if (hitMaybe) { return result; }
   if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }
