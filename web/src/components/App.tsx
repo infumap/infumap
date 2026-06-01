@@ -22,7 +22,7 @@ import { Login } from './Login';
 import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
 import { switchToNonPage, switchToPage } from '../layout/navigation';
-import { isEmptyVeid, VeFns } from '../layout/visual-element';
+import { isEmptyVeid, VeFns, type Veid } from '../layout/visual-element';
 import { ArrangeAlgorithm, asPageItem, isPage } from '../items/page-item';
 import { isUid, POPUP_LINK_UID } from '../util/uid';
 import { arrangeNow } from '../layout/arrange';
@@ -33,7 +33,21 @@ import { requestContainerSyncSoon } from '../server';
 const App: Component = () => {
   const store = useStore();
 
-  const resolveFocusAfterPageBack = (focusPath: string | null): string | null => {
+  const pathContainsItem = (path: string | null, itemId: string): boolean => {
+    let currentPath: string | null = path;
+    while (currentPath) {
+      if (VeFns.itemIdFromPath(currentPath) === itemId) {
+        return true;
+      }
+      currentPath = VeFns.parentPath(currentPath);
+      if (currentPath === "") {
+        break;
+      }
+    }
+    return false;
+  };
+
+  const resolveFocusAfterPageBack = (focusPath: string | null, poppedPageVeid?: Veid | null): string | null => {
     const currentPageVeid = store.history.currentPageVeid();
     const currentPagePath = store.history.currentPagePath();
     if (!focusPath || !currentPageVeid || !currentPagePath) {
@@ -41,6 +55,10 @@ const App: Component = () => {
     }
 
     if (focusPath === currentPagePath) {
+      return currentPagePath;
+    }
+
+    if (poppedPageVeid != null && pathContainsItem(focusPath, poppedPageVeid.itemId)) {
       return currentPagePath;
     }
 
@@ -74,15 +92,8 @@ const App: Component = () => {
       return currentPagePath;
     }
 
-    let currentPath: string | null = focusPath;
-    while (currentPath) {
-      if (VeFns.itemIdFromPath(currentPath) === selectedVeid.itemId) {
-        return currentPath;
-      }
-      currentPath = VeFns.parentPath(currentPath);
-      if (currentPath === "") {
-        break;
-      }
+    if (pathContainsItem(focusPath, selectedVeid.itemId)) {
+      return focusPath;
     }
 
     return currentPagePath;
@@ -143,16 +154,18 @@ const App: Component = () => {
         e.preventDefault();
         if (currentUrlPageIdMaybe != null && prevHistoryVeid.itemId == currentUrlPageIdMaybe) {
           if (debug) { console.debug("window popstate handler: prevHistoryVeid and currentUrlUid match, moving back in history."); }
+          const poppedPageVeid = store.history.currentPageVeid();
           store.history.popPageVeid();
           const focusCandidate =
             store.history.getFocusPathMaybe() ??
             store.history.currentPopupSpec()?.vePath ??
             store.history.currentPagePath();
-          const restoredFocusPath = resolveFocusAfterPageBack(focusCandidate);
+          const restoredFocusPath = resolveFocusAfterPageBack(focusCandidate, poppedPageVeid);
           if (restoredFocusPath != null) {
             store.history.setFocus(restoredFocusPath);
           }
           arrangeNow(store, "popstate-back-in-history");
+          store.currentUrlPath.set(p);
           requestContainerSyncSoon(store);
         } else {
           if (currentUrlPageIdMaybe && itemState.get(currentUrlPageIdMaybe)) {
