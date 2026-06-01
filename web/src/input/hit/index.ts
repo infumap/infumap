@@ -34,6 +34,7 @@ import { HitInfo, RootInfo } from "./types";
 import { HitBuilder } from "./builder";
 import { HitHandlers } from "./handlers";
 import { findAttachmentHit, isIgnored, isInsideBoundsOrAllowedHitbox, scanHitboxes, toChildBoundsLocalFromViewport, toInnerAttachmentLocalInComposite } from "./utils";
+import { hitboxFlagsDebugSummary, hitInfoDebugSummary, popupHitDebugLog, popupHitDebugVerboseEnabled, visualElementDebugSummary } from "../debug_popup_hit";
 
 export type { HitInfo } from "./types";
 
@@ -274,6 +275,14 @@ function ancestorPageOpenPopupHitMaybe(
 ): HitInfo | null {
   if (!openPopupOverrideAllowsHit(hitInfo.hitboxType)) { return null; }
 
+  const debugVerbose = popupHitDebugVerboseEnabled();
+  if (debugVerbose) {
+    popupHitDebugLog("ancestor-override-start", {
+      posOnDesktopPx,
+      hitInfo: hitInfoDebugSummary(hitInfo),
+    });
+  }
+
   let candidatePath: string | null = VeFns.veToPath(HitInfoFns.getHitVe(hitInfo));
   while (candidatePath != null) {
     const ancestorVe = VesCache.current.readNode(candidatePath);
@@ -286,17 +295,38 @@ function ancestorPageOpenPopupHitMaybe(
         getBoundingBoxTopLeft(viewportBoundsPx),
       );
       const { flags: hitboxType, meta } = scanHitboxes(ancestorVe, posRelativeToAncestorViewportPx);
+      if (debugVerbose) {
+        popupHitDebugLog("ancestor-override-candidate", {
+          candidate: visualElementDebugSummary(ancestorVe),
+          viewportBoundsPx,
+          posRelativeToAncestorViewportPx,
+          scannedHitboxType: hitboxFlagsDebugSummary(hitboxType),
+          meta,
+        });
+      }
       if (hitboxType & HitboxFlags.OpenPopup) {
         const ancestorVes = VesCache.render.getNode(candidatePath);
         if (!ancestorVes) { return null; }
-        return {
+        const result = {
           ...hitInfo,
           overVes: ancestorVes,
           hitboxType: openPopupOnlyHitboxType(hitboxType),
           overElementMeta: meta,
           debugCreatedAt: "ancestor-page-open-popup " + hitInfo.debugCreatedAt,
         };
+        if (debugVerbose) {
+          popupHitDebugLog("ancestor-override-applied", {
+            result: hitInfoDebugSummary(result),
+          });
+        }
+        return result;
       }
+    } else if (debugVerbose) {
+      popupHitDebugLog("ancestor-override-skip-candidate", {
+        candidate: visualElementDebugSummary(ancestorVe),
+        ignored: isIgnored(ancestorVe.displayItem.id, ignoreItems),
+        isOverrideCandidate: ancestorOpenPopupOverrideCandidate(ancestorVe),
+      });
     }
 
     candidatePath = ancestorVe.parentPath;

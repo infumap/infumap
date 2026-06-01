@@ -54,6 +54,7 @@ import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
+import { hitboxFlagsDebugSummary, popupHitDebugEnabled, popupHitDebugLog, visualElementDebugSummary } from "./debug_popup_hit";
 
 
 interface MovePersistOperation {
@@ -842,6 +843,19 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           }
         }
       }
+      if (popupHitDebugEnabled()) {
+        popupHitDebugLog("mouse-up-ambiguous-start", {
+          latestDesktopPx: CursorEventState.getLatestDesktopPx(store),
+          activeElementPath: MouseActionState.getActiveElementPath(),
+          activeRoot: MouseActionState.get().activeRoot,
+          selectionRoot: MouseActionState.get().selectionRoot,
+          hitboxTypeOnMouseDown: hitboxFlagsDebugSummary(MouseActionState.getHitboxTypeOnMouseDown()),
+          hitMeta: MouseActionState.getHitMeta(),
+          clickStateLinkWasClicked: ClickState.getLinkWasClicked(),
+          activeVisualElement: visualElementDebugSummary(activeVisualElement),
+          activeVisualElementSignal: visualElementDebugSummary(activeVisualElementSignal.get()),
+        });
+      }
 
       if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorChild)) {
         DoubleClickState.preventDoubleClick();
@@ -893,6 +907,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         arrangeNow(store, "mouse-up-focus-link");
 
       } else if (ClickState.getLinkWasClicked()) {
+        popupHitDebugLog("mouse-up-branch", {
+          branch: "link-click",
+          activeVisualElement: visualElementDebugSummary(activeVisualElement),
+          hitboxTypeOnMouseDown: hitboxFlagsDebugSummary(MouseActionState.getHitboxTypeOnMouseDown()),
+        });
         if (isPage(activeVisualElement.displayItem) ||
           isNote(activeVisualElement.displayItem) ||
           isImage(activeVisualElement.displayItem) ||
@@ -925,6 +944,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         arrangeNow(store, "mouse-up-toggle-expand");
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenPopup)) {
+        popupHitDebugLog("mouse-up-branch", {
+          branch: "open-popup",
+          activeVisualElement: visualElementDebugSummary(activeVisualElement),
+          hitboxTypeOnMouseDown: hitboxFlagsDebugSummary(MouseActionState.getHitboxTypeOnMouseDown()),
+        });
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store, false, MouseActionState.getStartPx()!);
 
@@ -937,6 +961,12 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         PageFns.handleCalendarOverflowClick(activeVisualElement, store, MouseActionState.getHitMeta());
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Click)) {
+        popupHitDebugLog("mouse-up-branch", {
+          branch: "click",
+          activeVisualElement: visualElementDebugSummary(activeVisualElement),
+          hitboxTypeOnMouseDown: hitboxFlagsDebugSummary(MouseActionState.getHitboxTypeOnMouseDown()),
+          hitMeta: MouseActionState.getHitMeta(),
+        });
         DoubleClickState.preventDoubleClick();
         const popupTitleTargetSignal = popupTitleTargetSignalMaybe();
         ItemFns.handleClick(popupTitleTargetSignal ?? activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
@@ -964,6 +994,13 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         ((VeFns.veidFromVe(activeRootVe).itemId != store.history.currentPageVeid()!.itemId) ||
           (VeFns.veidFromVe(activeRootVe).linkIdMaybe != store.history.currentPageVeid()!.linkIdMaybe)) &&
         (CursorEventState.getLatestDesktopPx(store).y > 0)) {
+          popupHitDebugLog("mouse-up-branch", {
+            branch: "focus-noncurrent-root",
+            activeRootVe: visualElementDebugSummary(activeRootVe),
+            activeVisualElement: visualElementDebugSummary(activeVisualElement),
+            shouldSwitchRoot: !(isPage(activeVisualElement.displayItem) && (activeVisualElement.flags & VisualElementFlags.ListPageRoot)),
+            currentPageVeid: store.history.currentPageVeid(),
+          });
           DoubleClickState.preventDoubleClick();
           store.history.setFocus(MouseActionState.getActiveElementPath()!);
           updateFocusPageSelectionAndMaybeSwitchRoot(
@@ -979,6 +1016,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           arrangeNow(store, "mouse-up-edit-document-row-from-background");
 
         } else if (activeVisualElementSignal.get().flags & VisualElementFlags.Popup) {
+          popupHitDebugLog("mouse-up-branch", {
+            branch: "click-popup",
+            activeVisualElement: visualElementDebugSummary(activeVisualElement),
+          });
           DoubleClickState.preventDoubleClick();
           ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
           arrangeNow(store, "mouse-up-click-popup");
@@ -991,6 +1032,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
             // noop.
 
           } else {
+            popupHitDebugLog("mouse-up-branch", {
+              branch: "focus-item",
+              activeVisualElement: visualElementDebugSummary(activeVisualElement),
+            });
             store.history.setFocus(MouseActionState.getActiveElementPath()!);
             updateFocusPageSelectionAndMaybeSwitchRoot(store, true);
 
