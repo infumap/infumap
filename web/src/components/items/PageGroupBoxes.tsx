@@ -36,7 +36,7 @@ interface PageGroupBox {
   boundsPx: BoundingBox;
 }
 
-const GROUP_BOX_PADDING_PX = 6;
+const GROUP_BOX_PADDING_PX = 4;
 const GROUP_BOX_BACKGROUND = "rgba(57, 81, 118, 0.045)";
 const GROUP_BOX_BORDER = "rgba(57, 81, 118, 0.15)";
 

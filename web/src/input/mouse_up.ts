@@ -1731,7 +1731,14 @@ function handleSelectionMouseUp(store: StoreContextModel) {
 
   const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
   const selectedSet = new Set<string>();
+  const selectionRootItemId = selectionRootVe.displayItem.id;
   const addVisualElementToSelection = (ve: VisualElement) => {
+    const treeItem = ve.actualLinkItemMaybe ?? ve.displayItem;
+    if (treeItem.relationshipToParent != RelationshipToParent.Child ||
+      treeItem.parentId != selectionRootItemId) {
+      return;
+    }
+
     const itemId = ve.displayItem.id;
     const linkIdMaybe = ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null;
     const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");
