@@ -134,7 +134,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return { w: wPx, h: hPx };
   }
 
-  const imageFitStyle = (fit: "contain" | "cover", fillBorderBox: boolean = false) =>
+  const imageFitStyle = (fit: "contain" | "cover" | "fill", fillBorderBox: boolean = false) =>
     (fillBorderBox
       ? `left: -${BORDER_WIDTH_PX}px; top: -${BORDER_WIDTH_PX}px; ` +
         `width: calc(100% + ${BORDER_WIDTH_PX * 2}px); height: calc(100% + ${BORDER_WIDTH_PX * 2}px); `
@@ -142,10 +142,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     `object-fit: ${fit}; object-position: center center;`;
 
   const thumbnailFitStyle = () =>
-    imageFitStyle(
-      imageItem().flags & ImageFlags.NoCrop ? "contain" : "cover",
-      !!(imageItem().flags & ImageFlags.NoCrop),
-    );
+    popupNoCropFrameFollowsImage()
+      ? imageFitStyle("fill", true)
+      : imageFitStyle(imageItem().flags & ImageFlags.NoCrop ? "contain" : "cover");
 
   const noCropPaddingTopPx = (lockToResizingFromBounds: boolean): number => {
     const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
@@ -499,7 +498,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderNoCropImage = (): JSX.Element =>
     <img src={imgSrcSignal.get()}
       class="max-w-none absolute pointer-events-none"
-      style={imageFitStyle("contain", true)} />;
+      style={popupNoCropFrameFollowsImage() ? imageFitStyle("fill", true) : imageFitStyle("contain")} />;
 
   return (
     <div class={positionClass()}
