@@ -209,6 +209,50 @@ function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Set<Uid>): Hi
   return null;
 }
 
+function selectedListRootOpenPopupHitMaybe(
+  parentRootVe: VisualElement | null,
+  rootVes: VisualElementSignal,
+  posRelativeToRootVeViewportPx: Vector,
+  canHitEmbeddedInteractive: boolean,
+): HitInfo | null {
+  const rootVe = rootVes.get();
+  if (!(rootVe.flags & VisualElementFlags.ListPageRoot) || !isListPageVe(rootVe)) { return null; }
+  if (hasPopupAncestor(rootVe)) { return null; }
+
+  const { flags: hitboxType, meta } = scanHitboxes(rootVe, posRelativeToRootVeViewportPx);
+  if (!(hitboxType & HitboxFlags.OpenPopup)) { return null; }
+
+  return new HitBuilder(parentRootVe, rootVes)
+    .over(rootVes)
+    .hitboxes(hitboxType, HitboxFlags.None)
+    .meta(meta)
+    .pos(posRelativeToRootVeViewportPx)
+    .allowEmbeddedInteractive(canHitEmbeddedInteractive)
+    .createdAt("selected-list-root-open-popup")
+    .build();
+}
+
+function selectedListRootOpenPopupOverridesChild(hitboxType: HitboxFlags): boolean {
+  return !(hitboxType & (
+    HitboxFlags.OpenPopup |
+    HitboxFlags.OpenAttachment |
+    HitboxFlags.Resize |
+    HitboxFlags.HorizontalResize |
+    HitboxFlags.VerticalResize |
+    HitboxFlags.Attach |
+    HitboxFlags.AttachComposite |
+    HitboxFlags.AnchorChild |
+    HitboxFlags.AnchorDefault |
+    HitboxFlags.ShiftLeft |
+    HitboxFlags.Settings |
+    HitboxFlags.TriangleLinkSettings |
+    HitboxFlags.ContentEditable |
+    HitboxFlags.Expand |
+    HitboxFlags.TableColumnContextMenu |
+    HitboxFlags.CalendarOverflow
+  ));
+}
+
 
 export function getHitInfo(
   store: StoreContextModel,
@@ -264,6 +308,12 @@ function getHitInfoUnderRoot(
 ): HitInfo {
   const { parentRootVe, rootVes, rootVe } = rootInfo;
   let { posRelativeToRootVeViewportPx } = rootInfo;
+  const rootOpenPopupHitMaybe = selectedListRootOpenPopupHitMaybe(
+    parentRootVe,
+    rootVes,
+    posRelativeToRootVeViewportPx,
+    canHitEmbeddedInteractive,
+  );
 
   // For list pages in popups/nested contexts, add the scroll offset to convert from viewport position to child area position
   // This is necessary because list children have their boundsPx in child area coordinates (not scroll-adjusted)
@@ -305,13 +355,24 @@ function getHitInfoUnderRoot(
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
-    if (hitMaybe) { return hitMaybe; }
+    if (hitMaybe) {
+      if (rootOpenPopupHitMaybe && selectedListRootOpenPopupOverridesChild(hitMaybe.hitboxType)) {
+        return rootOpenPopupHitMaybe;
+      }
+      return hitMaybe;
+    }
   }
   const selectedVes = VesCache.render.getSelected(VeFns.veToPath(rootVe))();
   if (selectedVes) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, selectedVes, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
-    if (hitMaybe) { return hitMaybe; }
+    if (hitMaybe) {
+      if (rootOpenPopupHitMaybe && selectedListRootOpenPopupOverridesChild(hitMaybe.hitboxType)) {
+        return rootOpenPopupHitMaybe;
+      }
+      return hitMaybe;
+    }
   }
+  if (rootOpenPopupHitMaybe) { return rootOpenPopupHitMaybe; }
   return new HitBuilder(parentRootVe, rootVes).over(rootVes).hitboxes(HitboxFlags.None, HitboxFlags.None).meta(null).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("getHitInfoUnderRoot").build();
 }
 
