@@ -24,7 +24,7 @@ import { isContainer } from "../../items/base/container-item";
 import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
 import { getDockScrollYPx } from "../../layout/arrange/dock";
 import { VesCache } from "../../layout/ves-cache";
-import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
+import { isVeTranslucentPage, VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, vectorAdd, vectorSubtract } from "../../util/geometry";
 import { assert, panic } from "../../util/lang";
@@ -224,7 +224,7 @@ function selectedListRootOpenPopupHitMaybe(
 
   return new HitBuilder(parentRootVe, rootVes)
     .over(rootVes)
-    .hitboxes(hitboxType, HitboxFlags.None)
+    .hitboxes(openPopupOnlyHitboxType(hitboxType), HitboxFlags.None)
     .meta(meta)
     .pos(posRelativeToRootVeViewportPx)
     .allowEmbeddedInteractive(canHitEmbeddedInteractive)
@@ -232,7 +232,11 @@ function selectedListRootOpenPopupHitMaybe(
     .build();
 }
 
-function selectedListRootOpenPopupOverridesChild(hitboxType: HitboxFlags): boolean {
+function openPopupOnlyHitboxType(hitboxType: HitboxFlags): HitboxFlags {
+  return (HitboxFlags.OpenPopup | (hitboxType & HitboxFlags.ShowPointer)) as HitboxFlags;
+}
+
+function openPopupOverrideAllowsHit(hitboxType: HitboxFlags): boolean {
   return !(hitboxType & (
     HitboxFlags.OpenPopup |
     HitboxFlags.OpenAttachment |
@@ -253,6 +257,63 @@ function selectedListRootOpenPopupOverridesChild(hitboxType: HitboxFlags): boole
   ));
 }
 
+function selectedListRootOpenPopupOverridesChild(hitboxType: HitboxFlags): boolean {
+  return openPopupOverrideAllowsHit(hitboxType);
+}
+
+function ancestorOpenPopupOverrideCandidate(ve: VisualElement): boolean {
+  if (isVeTranslucentPage(ve)) { return true; }
+  return !!(ve.flags & VisualElementFlags.ListPageRoot) && isListPageVe(ve) && !hasPopupAncestor(ve);
+}
+
+function ancestorPageOpenPopupHitMaybe(
+  store: StoreContextModel,
+  posOnDesktopPx: Vector,
+  ignoreItems: Set<Uid>,
+  hitInfo: HitInfo,
+): HitInfo | null {
+  if (!openPopupOverrideAllowsHit(hitInfo.hitboxType)) { return null; }
+
+  let candidatePath: string | null = VeFns.veToPath(HitInfoFns.getHitVe(hitInfo));
+  while (candidatePath != null) {
+    const ancestorVe = VesCache.current.readNode(candidatePath);
+    if (!ancestorVe) { return null; }
+
+    if (!isIgnored(ancestorVe.displayItem.id, ignoreItems) && ancestorOpenPopupOverrideCandidate(ancestorVe)) {
+      const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, ancestorVe);
+      const posRelativeToAncestorViewportPx = vectorSubtract(
+        posOnDesktopPx,
+        getBoundingBoxTopLeft(viewportBoundsPx),
+      );
+      const { flags: hitboxType, meta } = scanHitboxes(ancestorVe, posRelativeToAncestorViewportPx);
+      if (hitboxType & HitboxFlags.OpenPopup) {
+        const ancestorVes = VesCache.render.getNode(candidatePath);
+        if (!ancestorVes) { return null; }
+        return {
+          ...hitInfo,
+          overVes: ancestorVes,
+          hitboxType: openPopupOnlyHitboxType(hitboxType),
+          overElementMeta: meta,
+          debugCreatedAt: "ancestor-page-open-popup " + hitInfo.debugCreatedAt,
+        };
+      }
+    }
+
+    candidatePath = ancestorVe.parentPath;
+  }
+
+  return null;
+}
+
+function withAncestorPageOpenPopupOverride(
+  store: StoreContextModel,
+  posOnDesktopPx: Vector,
+  ignoreItems: Set<Uid>,
+  hitInfo: HitInfo,
+): HitInfo {
+  return ancestorPageOpenPopupHitMaybe(store, posOnDesktopPx, ignoreItems, hitInfo) ?? hitInfo;
+}
+
 
 export function getHitInfo(
   store: StoreContextModel,
@@ -265,7 +326,7 @@ export function getHitInfo(
   assert(VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
   let rootInfo = determineTopLevelRoot(store, umbrellaVe, posOnDesktopPx);
   const hitTop = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-  if (hitTop) { return hitTop; }
+  if (hitTop) { return withAncestorPageOpenPopupOverride(store, posOnDesktopPx, ignoreItems, hitTop); }
   type RootResolver = (info: RootInfo) => RootInfo;
   const resolvers: Array<RootResolver> = [
     (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
@@ -285,7 +346,7 @@ export function getHitInfo(
       const previousRootPath = VeFns.veToPath(rootInfo.rootVe);
       rootInfo = resolve(rootInfo);
       const hit = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-      if (hit) { return hit; }
+      if (hit) { return withAncestorPageOpenPopupOverride(store, posOnDesktopPx, ignoreItems, hit); }
       if (VeFns.veToPath(rootInfo.rootVe) != previousRootPath) {
         rootChanged = true;
       }
@@ -294,7 +355,12 @@ export function getHitInfo(
     if (!rootChanged) { break; }
   }
 
-  return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo, allowOutsideBoundsHitboxes);
+  return withAncestorPageOpenPopupOverride(
+    store,
+    posOnDesktopPx,
+    ignoreItems,
+    getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo, allowOutsideBoundsHitboxes),
+  );
 }
 
 
