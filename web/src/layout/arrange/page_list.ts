@@ -25,7 +25,7 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { isComposite } from "../../items/composite-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, isPage } from "../../items/page-item";
 import { isSearch } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -446,11 +446,7 @@ export function arrangeSelectedListItem(
       ];
     }
     const rendersAsTranslucentPage = isPage(item) && !renderAsListPageRoot;
-    const rendersAsNestedListPageRoot =
-      isPage(item) &&
-      renderAsListPageRoot &&
-      asPageItem(item).arrangeAlgorithm == ArrangeAlgorithm.List;
-    if (rendersAsTranslucentPage || rendersAsNestedListPageRoot) {
+    if (rendersAsTranslucentPage) {
       const popupClickBoundsPx = insidePopup
         ? zeroBoundingBoxTopLeft(boundsPx)
         : {

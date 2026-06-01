@@ -50,7 +50,6 @@ import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { asPasswordItem, isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
-import { hitInfoDebugSummary, popupHitDebugEnabled, popupHitDebugLog, visualElementDebugSummary } from "./debug_popup_hit";
 
 
 export const MOUSE_LEFT = 0;
@@ -429,12 +428,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   }
 
   const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
-  if (popupHitDebugEnabled()) {
-    popupHitDebugLog("mouse-down-hit", {
-      desktopPosPx,
-      hitInfo: hitInfoDebugSummary(hitInfo),
-    });
-  }
 
   const startPosBl = null;
   const startWidthBl = null;
@@ -599,17 +592,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     onePxSizeBl,
     hitMeta: hitInfo.overElementMeta,
   });
-  if (popupHitDebugEnabled()) {
-    popupHitDebugLog("mouse-down-state", {
-      desktopPosPx,
-      activeElementPath,
-      activeHitVe: visualElementDebugSummary(hitVe),
-      activeRoot: MouseActionState.get().activeRoot,
-      selectionRoot: MouseActionState.get().selectionRoot,
-      hitInfo: hitInfoDebugSummary(hitInfo),
-      hitInfoFiltered: hitInfoDebugSummary(hitInfoFiltered),
-    });
-  }
 
   // Clear selection set when clicking away from current selection
   try {

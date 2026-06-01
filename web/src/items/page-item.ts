@@ -47,7 +47,6 @@ import { RelationshipToParent } from '../layout/relationship-to-parent';
 import { compareOrderings, newOrdering, newOrderingAfter } from '../util/ordering';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState, MouseActionState } from '../input/state';
-import { hitboxFlagsDebugSummary, popupHitDebugLog, visualElementDebugSummary } from '../input/debug_popup_hit';
 import { TabularItem, TabularMixin } from './base/tabular-item';
 import { ColorableMixin } from './base/colorable-item';
 import { AspectItem, AspectMixin } from './base/aspect-item';
@@ -1158,12 +1157,6 @@ export const PageFns = {
 
   handleOpenPopupClick: (visualElement: VisualElement, store: StoreContextModel, isFromAttachment?: boolean): void => {
     const parentVe = VesCache.current.readNode(visualElement.parentPath!)!;
-    popupHitDebugLog("page-handle-open-popup-start", {
-      visualElement: visualElementDebugSummary(visualElement),
-      parentVe: visualElementDebugSummary(parentVe),
-      isFromAttachment,
-      mouseDownHitboxType: hitboxFlagsDebugSummary(MouseActionState.get()?.hitboxTypeOnMouseDown ?? HitboxFlags.None),
-    });
 
     // Calculate source position for attachment popups in the current page coordinate system.
     let sourcePositionGr: { x: number, y: number } | null = null;
@@ -1196,10 +1189,6 @@ export const PageFns = {
       isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
       const hitboxType = MouseActionState.get()?.hitboxTypeOnMouseDown ?? 0;
       if ((hitboxType & HitboxFlags.Click) && !(hitboxType & HitboxFlags.OpenPopup)) {
-        popupHitDebugLog("page-handle-open-popup-line-item-click-fallback", {
-          visualElement: visualElementDebugSummary(visualElement),
-          hitboxType: hitboxFlagsDebugSummary(hitboxType),
-        });
         handleListPageLineItemClickMaybe(visualElement, store);
         return;
       }
@@ -1210,16 +1199,8 @@ export const PageFns = {
         sourcePositionGr
       };
       if (isInsidePopupHierarchy(visualElement)) {
-        popupHitDebugLog("page-handle-open-popup-line-item-push-popup", {
-          popupSpec,
-          visualElement: visualElementDebugSummary(visualElement),
-        });
         store.history.pushPopup(popupSpec);
       } else {
-        popupHitDebugLog("page-handle-open-popup-line-item-replace-popup", {
-          popupSpec,
-          visualElement: visualElementDebugSummary(visualElement),
-        });
         store.history.replacePopup(popupSpec);
       }
       requestArrange(store, "page-popup-open");

@@ -24,7 +24,7 @@ import { isContainer } from "../../items/base/container-item";
 import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
 import { getDockScrollYPx } from "../../layout/arrange/dock";
 import { VesCache } from "../../layout/ves-cache";
-import { isVeTranslucentPage, VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, vectorAdd, vectorSubtract } from "../../util/geometry";
 import { assert, panic } from "../../util/lang";
@@ -34,7 +34,6 @@ import { HitInfo, RootInfo } from "./types";
 import { HitBuilder } from "./builder";
 import { HitHandlers } from "./handlers";
 import { findAttachmentHit, isIgnored, isInsideBoundsOrAllowedHitbox, scanHitboxes, toChildBoundsLocalFromViewport, toInnerAttachmentLocalInComposite } from "./utils";
-import { hitboxFlagsDebugSummary, hitInfoDebugSummary, popupHitDebugLog, popupHitDebugVerboseEnabled, visualElementDebugSummary } from "../debug_popup_hit";
 
 export type { HitInfo } from "./types";
 
@@ -210,140 +209,6 @@ function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Set<Uid>): Hi
   return null;
 }
 
-function selectedListRootOpenPopupHitMaybe(
-  parentRootVe: VisualElement | null,
-  rootVes: VisualElementSignal,
-  posRelativeToRootVeViewportPx: Vector,
-  canHitEmbeddedInteractive: boolean,
-): HitInfo | null {
-  const rootVe = rootVes.get();
-  if (!(rootVe.flags & VisualElementFlags.ListPageRoot) || !isListPageVe(rootVe)) { return null; }
-  if (hasPopupAncestor(rootVe)) { return null; }
-
-  const { flags: hitboxType, meta } = scanHitboxes(rootVe, posRelativeToRootVeViewportPx);
-  if (!(hitboxType & HitboxFlags.OpenPopup)) { return null; }
-
-  return new HitBuilder(parentRootVe, rootVes)
-    .over(rootVes)
-    .hitboxes(openPopupOnlyHitboxType(hitboxType), HitboxFlags.None)
-    .meta(meta)
-    .pos(posRelativeToRootVeViewportPx)
-    .allowEmbeddedInteractive(canHitEmbeddedInteractive)
-    .createdAt("selected-list-root-open-popup")
-    .build();
-}
-
-function openPopupOnlyHitboxType(hitboxType: HitboxFlags): HitboxFlags {
-  return (HitboxFlags.OpenPopup | (hitboxType & HitboxFlags.ShowPointer)) as HitboxFlags;
-}
-
-function openPopupOverrideAllowsHit(hitboxType: HitboxFlags): boolean {
-  return !(hitboxType & (
-    HitboxFlags.OpenPopup |
-    HitboxFlags.OpenAttachment |
-    HitboxFlags.Resize |
-    HitboxFlags.HorizontalResize |
-    HitboxFlags.VerticalResize |
-    HitboxFlags.Attach |
-    HitboxFlags.AttachComposite |
-    HitboxFlags.AnchorChild |
-    HitboxFlags.AnchorDefault |
-    HitboxFlags.ShiftLeft |
-    HitboxFlags.Settings |
-    HitboxFlags.TriangleLinkSettings |
-    HitboxFlags.ContentEditable |
-    HitboxFlags.Expand |
-    HitboxFlags.TableColumnContextMenu |
-    HitboxFlags.CalendarOverflow
-  ));
-}
-
-function selectedListRootOpenPopupOverridesChild(hitboxType: HitboxFlags): boolean {
-  return openPopupOverrideAllowsHit(hitboxType);
-}
-
-function ancestorOpenPopupOverrideCandidate(ve: VisualElement): boolean {
-  if (isVeTranslucentPage(ve)) { return true; }
-  return !!(ve.flags & VisualElementFlags.ListPageRoot) && isListPageVe(ve) && !hasPopupAncestor(ve);
-}
-
-function ancestorPageOpenPopupHitMaybe(
-  store: StoreContextModel,
-  posOnDesktopPx: Vector,
-  ignoreItems: Set<Uid>,
-  hitInfo: HitInfo,
-): HitInfo | null {
-  if (!openPopupOverrideAllowsHit(hitInfo.hitboxType)) { return null; }
-
-  const debugVerbose = popupHitDebugVerboseEnabled();
-  if (debugVerbose) {
-    popupHitDebugLog("ancestor-override-start", {
-      posOnDesktopPx,
-      hitInfo: hitInfoDebugSummary(hitInfo),
-    });
-  }
-
-  let candidatePath: string | null = VeFns.veToPath(HitInfoFns.getHitVe(hitInfo));
-  while (candidatePath != null) {
-    const ancestorVe = VesCache.current.readNode(candidatePath);
-    if (!ancestorVe) { return null; }
-
-    if (!isIgnored(ancestorVe.displayItem.id, ignoreItems) && ancestorOpenPopupOverrideCandidate(ancestorVe)) {
-      const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, ancestorVe);
-      const posRelativeToAncestorViewportPx = vectorSubtract(
-        posOnDesktopPx,
-        getBoundingBoxTopLeft(viewportBoundsPx),
-      );
-      const { flags: hitboxType, meta } = scanHitboxes(ancestorVe, posRelativeToAncestorViewportPx);
-      if (debugVerbose) {
-        popupHitDebugLog("ancestor-override-candidate", {
-          candidate: visualElementDebugSummary(ancestorVe),
-          viewportBoundsPx,
-          posRelativeToAncestorViewportPx,
-          scannedHitboxType: hitboxFlagsDebugSummary(hitboxType),
-          meta,
-        });
-      }
-      if (hitboxType & HitboxFlags.OpenPopup) {
-        const ancestorVes = VesCache.render.getNode(candidatePath);
-        if (!ancestorVes) { return null; }
-        const result = {
-          ...hitInfo,
-          overVes: ancestorVes,
-          hitboxType: openPopupOnlyHitboxType(hitboxType),
-          overElementMeta: meta,
-          debugCreatedAt: "ancestor-page-open-popup " + hitInfo.debugCreatedAt,
-        };
-        if (debugVerbose) {
-          popupHitDebugLog("ancestor-override-applied", {
-            result: hitInfoDebugSummary(result),
-          });
-        }
-        return result;
-      }
-    } else if (debugVerbose) {
-      popupHitDebugLog("ancestor-override-skip-candidate", {
-        candidate: visualElementDebugSummary(ancestorVe),
-        ignored: isIgnored(ancestorVe.displayItem.id, ignoreItems),
-        isOverrideCandidate: ancestorOpenPopupOverrideCandidate(ancestorVe),
-      });
-    }
-
-    candidatePath = ancestorVe.parentPath;
-  }
-
-  return null;
-}
-
-function withAncestorPageOpenPopupOverride(
-  store: StoreContextModel,
-  posOnDesktopPx: Vector,
-  ignoreItems: Set<Uid>,
-  hitInfo: HitInfo,
-): HitInfo {
-  return ancestorPageOpenPopupHitMaybe(store, posOnDesktopPx, ignoreItems, hitInfo) ?? hitInfo;
-}
-
 
 export function getHitInfo(
   store: StoreContextModel,
@@ -356,7 +221,7 @@ export function getHitInfo(
   assert(VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
   let rootInfo = determineTopLevelRoot(store, umbrellaVe, posOnDesktopPx);
   const hitTop = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-  if (hitTop) { return withAncestorPageOpenPopupOverride(store, posOnDesktopPx, ignoreItems, hitTop); }
+  if (hitTop) { return hitTop; }
   type RootResolver = (info: RootInfo) => RootInfo;
   const resolvers: Array<RootResolver> = [
     (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
@@ -376,7 +241,7 @@ export function getHitInfo(
       const previousRootPath = VeFns.veToPath(rootInfo.rootVe);
       rootInfo = resolve(rootInfo);
       const hit = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
-      if (hit) { return withAncestorPageOpenPopupOverride(store, posOnDesktopPx, ignoreItems, hit); }
+      if (hit) { return hit; }
       if (VeFns.veToPath(rootInfo.rootVe) != previousRootPath) {
         rootChanged = true;
       }
@@ -385,12 +250,7 @@ export function getHitInfo(
     if (!rootChanged) { break; }
   }
 
-  return withAncestorPageOpenPopupOverride(
-    store,
-    posOnDesktopPx,
-    ignoreItems,
-    getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo, allowOutsideBoundsHitboxes),
-  );
+  return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo, allowOutsideBoundsHitboxes);
 }
 
 
@@ -404,12 +264,6 @@ function getHitInfoUnderRoot(
 ): HitInfo {
   const { parentRootVe, rootVes, rootVe } = rootInfo;
   let { posRelativeToRootVeViewportPx } = rootInfo;
-  const rootOpenPopupHitMaybe = selectedListRootOpenPopupHitMaybe(
-    parentRootVe,
-    rootVes,
-    posRelativeToRootVeViewportPx,
-    canHitEmbeddedInteractive,
-  );
 
   // For list pages in popups/nested contexts, add the scroll offset to convert from viewport position to child area position
   // This is necessary because list children have their boundsPx in child area coordinates (not scroll-adjusted)
@@ -451,24 +305,13 @@ function getHitInfoUnderRoot(
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
-    if (hitMaybe) {
-      if (rootOpenPopupHitMaybe && selectedListRootOpenPopupOverridesChild(hitMaybe.hitboxType)) {
-        return rootOpenPopupHitMaybe;
-      }
-      return hitMaybe;
-    }
+    if (hitMaybe) { return hitMaybe; }
   }
   const selectedVes = VesCache.render.getSelected(VeFns.veToPath(rootVe))();
   if (selectedVes) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, selectedVes, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
-    if (hitMaybe) {
-      if (rootOpenPopupHitMaybe && selectedListRootOpenPopupOverridesChild(hitMaybe.hitboxType)) {
-        return rootOpenPopupHitMaybe;
-      }
-      return hitMaybe;
-    }
+    if (hitMaybe) { return hitMaybe; }
   }
-  if (rootOpenPopupHitMaybe) { return rootOpenPopupHitMaybe; }
   return new HitBuilder(parentRootVe, rootVes).over(rootVes).hitboxes(HitboxFlags.None, HitboxFlags.None).meta(null).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("getHitInfoUnderRoot").build();
 }
 
@@ -882,7 +725,6 @@ function hitPagePopupRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
-  if (hitMaybe) { return result; }
   if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }
@@ -947,7 +789,6 @@ function hitPageSelectedRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
-  if (hitMaybe) { return result; }
   if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
   return result;
 }
