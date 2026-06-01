@@ -133,7 +133,8 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   };
 
   const renderShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+    <Show when={!props.suppressLocalShadow &&
+      !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs overflow-hidden shadow-xl`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
@@ -159,7 +160,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <div class="absolute"
       style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      <div class={`absolute border border-[#555] rounded-xs hover:shadow-md`}
+      <div class={`absolute border border-[#555] rounded-xs ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
         style={`left: 0px; ` +
           `top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; ` +
@@ -174,7 +175,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           {renderMovingOverAttachCompositeMaybe()}
           {renderPopupSelectedOverlayMaybe()}
           <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
-            <VisualElement_Desktop visualElement={attachmentVe.get()} />
+            <VisualElement_Desktop visualElement={attachmentVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
           }</For>
           <Show when={pageFns().showMoveOutOfCompositeArea()}>
             <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} />

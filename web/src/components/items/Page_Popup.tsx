@@ -27,6 +27,7 @@ import { useStore } from "../../store/StoreProvider";
 import { BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient } from "../../style";
 import { hexToRGBA } from "../../util/color";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
+import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { PageVisualElementProps } from "./Page";
 import { getMonthInfo } from "../../util/time";
@@ -362,8 +363,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>
+      <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
       <For each={pageFns().desktopChildren()}>{childVe =>
-        <VisualElement_Desktop visualElement={childVe.get()} />
+        <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
       }</For>
       <Show when={selectedRootVeMaybe()}>
         {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
@@ -392,9 +394,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} />
         </Show>
         {pageFns().renderSearchSelectionMaybe()}
+        <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
-
-          <VisualElement_Desktop visualElement={childVe.get()} />
+          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderSearchHoverMaybe()}

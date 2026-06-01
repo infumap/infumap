@@ -21,6 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { Veid, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
+import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
@@ -324,8 +325,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             {pageFns().renderMoveOverAnnotationMaybe()}
           </div>
         </div>
+        <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
         <For each={pageFns().desktopChildren()}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} />
+          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
         }</For>
         {renderSelectedRootMaybe()}
         {renderSelectedPageFocusRingMaybe()}
@@ -733,9 +735,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
         {pageFns().renderSearchSelectionMaybe()}
+        <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
-
-          <VisualElement_Desktop visualElement={childVes.get()} />
+          <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderSearchHoverMaybe()}

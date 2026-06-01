@@ -23,6 +23,7 @@ import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
 import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
+import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
@@ -331,8 +332,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>
+      <VisualElement_DesktopShadowLayer visualElementSignals={visibleDesktopChildren()} />
       <For each={visibleDesktopChildren()}>{childVe =>
-        <VisualElement_Desktop visualElement={childVe.get()} />
+        <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
       }</For>
       {renderSelectedRootMaybe()}
       {renderPopupRootMaybe()}
@@ -366,8 +368,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
         {pageFns().renderSearchSelectionMaybe()}
+        <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
-          <VisualElement_Desktop visualElement={childVes.get()} />
+          <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderSearchHoverMaybe()}

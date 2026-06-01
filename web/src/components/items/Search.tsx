@@ -31,6 +31,7 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
 import { server } from "../../server";
 import { VisualElement_Desktop } from "../VisualElement";
+import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { VesCache } from "../../layout/ves-cache";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
@@ -517,8 +518,9 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
             </div>
           </div>
         </div>
+        <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(vePath())()} />
         <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} />
+          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
         }</For>
         <div class="absolute flex items-center gap-[4px]"
           style={`right: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>

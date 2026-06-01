@@ -55,7 +55,8 @@ import { isSearch } from "../items/search-item";
 
 
 export interface VisualElementProps {
-  visualElement: VisualElement
+  visualElement: VisualElement,
+  suppressLocalShadow?: boolean,
 }
 
 export const VisualElement_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {

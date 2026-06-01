@@ -289,7 +289,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const renderShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.Popup) &&
+    <Show when={!props.suppressLocalShadow &&
+      !(props.visualElement.flags & VisualElementFlags.Popup) &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
       !(props.visualElement.flags & VisualElementFlags.DockItem) &&
       (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()) || isFocused())}>
@@ -324,7 +325,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderFrameMaybe = (): JSX.Element => {
     const frameBoundsPx = visualFrameBoundsPx();
     const frameInnerBoundsPx = { x: 0, y: 0, w: frameBoundsPx.w, h: frameBoundsPx.h };
-    return <div class={`absolute overflow-hidden border pointer-events-none rounded-xs ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
+    return <div class={`absolute overflow-hidden border pointer-events-none rounded-xs ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
         (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
         style={`${boundsStylePx(frameBoundsPx)} z-index: 1;`}>
         <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX}>
@@ -376,7 +377,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class="absolute pointer-events-none"
         style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; z-index: 2;`}>
         <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
-          <VisualElement_Desktop visualElement={attachment.get()} />
+          <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />

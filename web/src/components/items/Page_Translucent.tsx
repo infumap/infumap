@@ -21,6 +21,7 @@ import { VeFns, VisualElementFlags, type VisualElement } from "../../layout/visu
 
 
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
+import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { BORDER_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
@@ -194,8 +195,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       <div ref={translucentDiv}
         class={`absolute`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
+        <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
         <For each={pageFns().desktopChildren()}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} />
+          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
         }</For>
       </div>
     </div>;
@@ -221,9 +223,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           {pageFns().renderSearchSelectionMaybe()}
+          <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
-
-            <VisualElement_Desktop visualElement={childVes.get()} />
+            <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
           }</For>
           {pageFns().renderSearchResultsFooterHostMaybe()}
           {pageFns().renderGridLinesMaybe()}
@@ -464,10 +466,11 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const borderClass = () => useFlatWorkspaceChrome()
     ? ''
-    : 'border border-[#777] hover:shadow-md';
+    : `border border-[#777] ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
 
   const renderShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
+    <Show when={!props.suppressLocalShadow &&
+      !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs ${shadowClass()} overflow-hidden`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
@@ -552,7 +555,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
                 `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
           </Show>
           <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
-            <VisualElement_Desktop visualElement={attachmentVe.get()} />
+            <VisualElement_Desktop visualElement={attachmentVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
           }</For>
           <Show when={pageFns().showMoveOutOfCompositeArea()}>
             <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} />

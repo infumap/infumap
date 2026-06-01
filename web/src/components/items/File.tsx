@@ -289,12 +289,13 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return `rounded-xs`;
     } else {
-      return `border border-[#999] rounded-xs bg-white hover:shadow-md`;
+      return `border border-[#999] rounded-xs bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
     }
   };
 
   const renderShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
+    <Show when={!props.suppressLocalShadow &&
+      !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
       !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <div class={`${shadowOuterClass()}`}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 0;`} />
@@ -379,7 +380,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
         </Match>
       </Switch>
       <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
-        <VisualElement_Desktop visualElement={attachment.get()} />
+        <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />

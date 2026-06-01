@@ -86,7 +86,8 @@ const catalogDetailLineHeightPx = (fontSizePx: number): number =>
 
 export interface PageVisualElementProps {
   visualElement: VisualElement,
-  pageFns: any
+  pageFns: any,
+  suppressLocalShadow?: boolean,
 }
 
 export const Page_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -891,30 +892,30 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
   return (
     <Switch>
       <Match when={props.visualElement.flags & VisualElementFlags.UmbrellaPage}>
-        <Page_Umbrella visualElement={props.visualElement} pageFns={pageFns} />
+        <Page_Umbrella visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsDock}>
-        <Page_Dock visualElement={props.visualElement} pageFns={pageFns} />
+        <Page_Dock visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.IsTrash}>
-        <Page_Trash visualElement={props.visualElement} pageFns={pageFns} />
+        <Page_Trash visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Popup}>
-        <Page_Popup visualElement={props.visualElement} pageFns={pageFns} />
+        <Page_Popup visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
         props.visualElement.flags & VisualElementFlags.ListPageRoot}>
-        <Page_Root visualElement={props.visualElement} pageFns={pageFns} />
+        <Page_Root visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot}>
-        <Page_EmbeddedInteractive visualElement={props.visualElement} pageFns={pageFns} />
+        <Page_EmbeddedInteractive visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
         !(props.visualElement.flags & VisualElementFlags.ShowChildren)}>
-        <Page_Opaque visualElement={props.visualElement} pageFns={pageFns} />
+        <Page_Opaque visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
       </Match>
       <Match when={true}>
-        <Page_Translucent visualElement={props.visualElement} pageFns={pageFns} />
+        <Page_Translucent visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
       </Match>
     </Switch>
   );

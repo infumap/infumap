@@ -89,7 +89,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   };
 
   const renderShadowMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
+    <Show when={!props.suppressLocalShadow &&
+      !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
       <div class={shadowClass()}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 0;`} />
     </Show>;
@@ -121,7 +122,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       <div class={`absolute border ` +
         `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
         `rounded-xs ` +
-        `bg-white  hover:shadow-md`}
+        `bg-white  ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
           `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
           `outline: 0px solid transparent; `}
@@ -138,7 +139,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         </Show>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
           <>
-            <VisualElement_Desktop visualElement={childVe.get()} />
+            <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
             <Show when={activeChildPath() === VeFns.veToPath(childVe.get()) && shouldShowFocusRingForVisualElement(store, () => childVe.get())}>
               {(() => {
                 const focusBoundsPx = childFocusBoundsPx(childVe.get().boundsPx, isPage(childVe.get().displayItem));

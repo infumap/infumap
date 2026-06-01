@@ -210,8 +210,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     <Show when={!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
       !(props.visualElement.flags & VisualElementFlags.DockItem)}>
       <>
-        <div class={`${shadowClass()}`}
-          style={`left: 0px; top: ${blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; z-index: 0;`} />
+        <Show when={!props.suppressLocalShadow}>
+          <div class={`${shadowClass()}`}
+            style={`left: 0px; top: ${blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; z-index: 0;`} />
+        </Show>
         <div class="absolute bg-white pointer-events-none"
           style={`left: 0px; top: ${blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; z-index: 0;`} />
       </>
@@ -225,7 +227,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderNotDetailed = () =>
-    <div class="absolute border border-[#999] rounded-xs bg-white hover:shadow-md"
+    <div class={`absolute border border-[#999] rounded-xs bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
       style={`left: 0px; top: ${blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; z-index: 1;`} />;
 
   const renderDetailed = () =>
@@ -245,7 +247,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
       <TableChildArea visualElement={props.visualElement} />
-      <div class={`absolute pointer-events-none ${store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
+      <div class={`absolute pointer-events-none ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 2;`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
           class={`absolute font-bold`}
@@ -268,7 +270,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
 
         <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
-          <VisualElement_Desktop visualElement={attachmentVe.get()} />
+          <VisualElement_Desktop visualElement={attachmentVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
