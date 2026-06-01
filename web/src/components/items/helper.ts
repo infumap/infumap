@@ -144,6 +144,13 @@ export const createPageTitleEditHandlers = (
   return {
     isEditingTitle: () => itemCanEdit(veFn().displayItem) && store.overlay.textEditInfo()?.itemPath == vePath(),
     titleKeyDownHandler: (ev: KeyboardEvent) => {
+      if (ev.key == "Enter") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        commitActiveTextEdit(store, false, "page-title-enter-commit");
+        return;
+      }
+
       if (ev.key == "Escape") {
         ev.preventDefault();
         ev.stopPropagation();
