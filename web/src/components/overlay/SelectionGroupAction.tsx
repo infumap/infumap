@@ -33,6 +33,7 @@ import { LIGHT_BORDER_COLOR } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { Uid, newUid } from "../../util/uid";
 import { arrangeNow } from "../../layout/arrange";
+import { MouseAction, MouseActionState } from "../../input/state";
 
 
 type SelectionGroupActionKind = "group" | "ungroup";
@@ -88,10 +89,11 @@ function unionBounds(bounds: Array<BoundingBox>): BoundingBox | null {
 }
 
 function selectedVisualElement(veid: Veid): VisualElement | null {
-  const candidates = VesCache.current.findNodes(veid);
+  const candidates = VesCache.render.find(veid).map(ves => ves.get());
   if (candidates.length == 0) { return null; }
 
-  return candidates.find(ve => !!(ve.flags & VisualElementFlags.SelectionHighlighted)) ??
+  return candidates.find(ve => !!(ve.flags & VisualElementFlags.Moving)) ??
+    candidates.find(ve => !!(ve.flags & VisualElementFlags.SelectionHighlighted)) ??
     candidates.find(ve => !(ve.flags & VisualElementFlags.Popup)) ??
     candidates[0];
 }
@@ -214,6 +216,7 @@ export const SelectionGroupAction: Component = () => {
       `border: 1px solid ${LIGHT_BORDER_COLOR}; ` +
       `border-radius: 5px; ` +
       `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); ` +
+      `pointer-events: ${store.anItemIsMoving.get() && MouseActionState.isAction(MouseAction.Moving) ? "none" : "auto"}; ` +
       `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`;
   };
 
