@@ -906,6 +906,19 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         store.history.setFocus(linkFocusPath);
         arrangeNow(store, "mouse-up-focus-link");
 
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenPopup)) {
+        popupHitDebugLog("mouse-up-branch", {
+          branch: "open-popup",
+          activeVisualElement: visualElementDebugSummary(activeVisualElement),
+          hitboxTypeOnMouseDown: hitboxFlagsDebugSummary(MouseActionState.getHitboxTypeOnMouseDown()),
+        });
+        DoubleClickState.preventDoubleClick();
+        ItemFns.handleOpenPopupClick(activeVisualElement, store, false, MouseActionState.getStartPx()!);
+
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenAttachment)) {
+        DoubleClickState.preventDoubleClick();
+        ItemFns.handleOpenPopupClick(activeVisualElement, store, true, MouseActionState.getStartPx()!);
+
       } else if (ClickState.getLinkWasClicked()) {
         popupHitDebugLog("mouse-up-branch", {
           branch: "link-click",
@@ -942,19 +955,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           !store.perVe.getIsExpanded(MouseActionState.getActiveElementPath()!)
         );
         arrangeNow(store, "mouse-up-toggle-expand");
-
-      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenPopup)) {
-        popupHitDebugLog("mouse-up-branch", {
-          branch: "open-popup",
-          activeVisualElement: visualElementDebugSummary(activeVisualElement),
-          hitboxTypeOnMouseDown: hitboxFlagsDebugSummary(MouseActionState.getHitboxTypeOnMouseDown()),
-        });
-        DoubleClickState.preventDoubleClick();
-        ItemFns.handleOpenPopupClick(activeVisualElement, store, false, MouseActionState.getStartPx()!);
-
-      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenAttachment)) {
-        DoubleClickState.preventDoubleClick();
-        ItemFns.handleOpenPopupClick(activeVisualElement, store, true, MouseActionState.getStartPx()!);
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.CalendarOverflow)) {
         DoubleClickState.preventDoubleClick();

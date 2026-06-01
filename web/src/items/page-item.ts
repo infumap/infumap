@@ -1194,9 +1194,8 @@ export const PageFns = {
     if ((visualElement.flags & VisualElementFlags.LineItem) &&
       !(parentVe.flags & VisualElementFlags.DockItem) &&
       isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-      // If Click hitbox was also hit (click on title area), select the item instead of popping up
       const hitboxType = MouseActionState.get()?.hitboxTypeOnMouseDown ?? 0;
-      if (hitboxType & HitboxFlags.Click) {
+      if ((hitboxType & HitboxFlags.Click) && !(hitboxType & HitboxFlags.OpenPopup)) {
         popupHitDebugLog("page-handle-open-popup-line-item-click-fallback", {
           visualElement: visualElementDebugSummary(visualElement),
           hitboxType: hitboxFlagsDebugSummary(hitboxType),
