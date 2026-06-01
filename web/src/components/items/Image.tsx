@@ -90,6 +90,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
 
   const imgSrcSignal = createInfuSignal<string | undefined>(undefined);
+  const BORDER_WIDTH_PX = 1;
 
   const moveOutOfCompositeBox = (): BoundingBox => {
     return ({
@@ -133,11 +134,18 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return { w: wPx, h: hPx };
   }
 
-  const imageFitStyle = (fit: "contain" | "cover") =>
-    `width: 100%; height: 100%; object-fit: ${fit}; object-position: center center;`;
+  const imageFitStyle = (fit: "contain" | "cover", fillBorderBox: boolean = false) =>
+    (fillBorderBox
+      ? `left: -${BORDER_WIDTH_PX}px; top: -${BORDER_WIDTH_PX}px; ` +
+        `width: calc(100% + ${BORDER_WIDTH_PX * 2}px); height: calc(100% + ${BORDER_WIDTH_PX * 2}px); `
+      : `width: 100%; height: 100%; `) +
+    `object-fit: ${fit}; object-position: center center;`;
 
   const thumbnailFitStyle = () =>
-    imageFitStyle(imageItem().flags & ImageFlags.NoCrop ? "contain" : "cover");
+    imageFitStyle(
+      imageItem().flags & ImageFlags.NoCrop ? "contain" : "cover",
+      !!(imageItem().flags & ImageFlags.NoCrop),
+    );
 
   const noCropPaddingTopPx = (lockToResizingFromBounds: boolean): number => {
     const boundsPx = (resizingFromBoundsPx() == null || !lockToResizingFromBounds) ? quantizedBoundsPx() : resizingFromBoundsPx()!;
@@ -196,9 +204,6 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   // Note: The image requested has the same size as the div. Since the div has a border of
   // width 1px, the image is 2px wider or higher than necessary (assuming there are no
   // rounding errors, which there may be, so this adds the perfect degree of safety).
-
-  const BORDER_WIDTH_PX = 1;
-
 
   let isDetailed_OnLoad = isDetailed();
   let currentImgSrc = "";
@@ -494,7 +499,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderNoCropImage = (): JSX.Element =>
     <img src={imgSrcSignal.get()}
       class="max-w-none absolute pointer-events-none"
-      style={imageFitStyle("contain")} />;
+      style={imageFitStyle("contain", true)} />;
 
   return (
     <div class={positionClass()}
