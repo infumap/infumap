@@ -47,6 +47,22 @@ const App: Component = () => {
     return false;
   };
 
+  const pathContainsPopupTarget = (path: string, popupVeid: Veid): boolean => {
+    let currentPath: string | null = path;
+    while (currentPath) {
+      const veid = VeFns.veidFromPath(currentPath);
+      if (veid.itemId === popupVeid.itemId &&
+        (veid.linkIdMaybe === popupVeid.linkIdMaybe || veid.linkIdMaybe === POPUP_LINK_UID)) {
+        return true;
+      }
+      currentPath = VeFns.parentPath(currentPath);
+      if (currentPath === "") {
+        break;
+      }
+    }
+    return false;
+  };
+
   const resolveFocusAfterPageBack = (focusPath: string | null, poppedPageVeid?: Veid | null): string | null => {
     const currentPageVeid = store.history.currentPageVeid();
     const currentPagePath = store.history.currentPagePath();
@@ -58,18 +74,13 @@ const App: Component = () => {
       return currentPagePath;
     }
 
-    if (poppedPageVeid != null && pathContainsItem(focusPath, poppedPageVeid.itemId)) {
-      return currentPagePath;
+    const popupSpec = store.history.currentPopupSpec();
+    if (popupSpec != null && pathContainsPopupTarget(focusPath, popupSpec.actualVeid)) {
+      return focusPath;
     }
 
-    const popupSpec = store.history.currentPopupSpec();
-    if (popupSpec != null) {
-      const focusVeid = VeFns.veidFromPath(focusPath);
-      if (focusVeid.itemId === popupSpec.actualVeid.itemId &&
-        (focusVeid.linkIdMaybe === popupSpec.actualVeid.linkIdMaybe ||
-          focusVeid.linkIdMaybe === POPUP_LINK_UID)) {
-        return focusPath;
-      }
+    if (poppedPageVeid != null && pathContainsItem(focusPath, poppedPageVeid.itemId)) {
+      return currentPagePath;
     }
 
     const currentPageItem = itemState.get(currentPageVeid.itemId);
