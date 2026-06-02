@@ -170,29 +170,32 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     }
   }
 
+  const publicBorderSuppressedByAncestor = () => {
+    let parentPath = props.visualElement.parentPath;
+    while (parentPath && parentPath !== UMBRELLA_PAGE_UID) {
+      const parentVe = VesCache.current.readNode(parentPath) ?? VesCache.render.getNode(parentPath)?.get() ?? null;
+      if (!parentVe) {
+        break;
+      }
+      if ((parentVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) || isVeTranslucentPage(parentVe)) {
+        return true;
+      }
+      parentPath = parentVe.parentPath;
+    }
+    return false;
+  };
+
   const renderBorderOverlay = () => {
-    if (!pageFns().isPublic() || store.user.getUserMaybe() == null) {
+    if (!pageFns().isPublic() ||
+      store.user.getUserMaybe() == null ||
+      publicBorderSuppressedByAncestor()) {
       return null;
     }
 
     const borderWidth = 3;
-    const bounds = pageFns().viewportBoundsPx();
-    // Accumulate x offsets from parent ListPageRoot items (nested list page selections)
-    let accumulatedX = pageFns().boundsPx().x;
-    let parentPath = props.visualElement.parentPath;
-    while (parentPath && parentPath !== UMBRELLA_PAGE_UID) {
-      const parentVes = VesCache.render.getNode(parentPath);
-      if (!parentVes) break;
-      const parentVe = parentVes.get();
-      // Only add offset from parents that are ListPageRoot (selected items in a list page)
-      if (parentVe.flags & VisualElementFlags.ListPageRoot) {
-        accumulatedX += parentVe.boundsPx.x;
-      }
-      parentPath = parentVe.parentPath;
-    }
-
-    const leftOffset = accumulatedX;
-    const topOffset = store.topToolbarHeightPx() + (pageFns().boundsPx().h - bounds.h);
+    const bounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, props.visualElement);
+    const leftOffset = bounds.x;
+    const topOffset = store.topToolbarHeightPx() + bounds.y;
 
     return (
       <>
