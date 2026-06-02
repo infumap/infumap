@@ -43,6 +43,28 @@ import { sanitizeOriginalCreationDate } from "./util/time";
 
 const EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD = 10;
 const MAX_EXTERNAL_UPLOAD_FILES = 100;
+const TEXT_UPLOAD_MIME_TYPES = new Set(["text/plain", "text/markdown", "text/x-markdown"]);
+const TEXT_UPLOAD_EXTENSIONS = new Set(["txt", "md", "markdown"]);
+
+function normalizedUploadMimeType(file: File): string {
+  return file.type.trim().toLowerCase().split(";")[0];
+}
+
+function uploadExtension(file: File): string {
+  const idx = file.name.lastIndexOf(".");
+  return idx < 0 ? "" : file.name.substring(idx + 1).trim().toLowerCase();
+}
+
+function uploadItemTypeForFile(file: File): ItemType {
+  const mimeType = normalizedUploadMimeType(file);
+  if (mimeType == "image/jpeg" || mimeType == "image/png") {
+    return ItemType.Image;
+  }
+  if (TEXT_UPLOAD_MIME_TYPES.has(mimeType) || TEXT_UPLOAD_EXTENSIONS.has(uploadExtension(file))) {
+    return ItemType.Text;
+  }
+  return ItemType.File;
+}
 
 type UploadTarget =
   | { kind: "page-background", parent: PageItem }
@@ -600,8 +622,8 @@ async function uploadFilesToTarget(
     });
 
     const base64Data = base64ArrayBuffer(await file.arrayBuffer());
-    const isImageUpload = file.type == "image/jpeg" || file.type == "image/png";
-    const itemType = isImageUpload ? ItemType.Image : ItemType.File;
+    const itemType = uploadItemTypeForFile(file);
+    const isImageUpload = itemType == ItemType.Image;
     const defaultWidthGr = isImageUpload ? 4.0 * GRID_SIZE : 8.0 * GRID_SIZE;
     const spatialWidthGr = spatialWidthGrForUpload(
       placement.pageParentMaybe,
@@ -614,7 +636,7 @@ async function uploadFilesToTarget(
     try {
       const returnedItem = await server.addItemFromPartialObject(partialObject, base64Data, store.general.networkStatus);
       itemState.add(ItemFns.fromObject(returnedItem, null));
-      requestArrange(store, isImageUpload ? "upload-image" : "upload-file");
+      requestArrange(store, isImageUpload ? "upload-image" : itemType == ItemType.Text ? "upload-text" : "upload-file");
     } catch (error) {
       console.warn(`Failed to add ${file.name}:`, error);
     }

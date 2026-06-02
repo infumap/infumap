@@ -255,6 +255,7 @@ pub enum ItemType {
   Composite,
   Note,
   File,
+  Text,
   Password,
   Image,
   Rating,
@@ -271,6 +272,7 @@ impl ItemType {
       ItemType::Composite => "composite",
       ItemType::Note => "note",
       ItemType::File => "file",
+      ItemType::Text => "text",
       ItemType::Password => "password",
       ItemType::Image => "image",
       ItemType::Rating => "rating",
@@ -287,6 +289,7 @@ impl ItemType {
       "composite" => Ok(ItemType::Composite),
       "note" => Ok(ItemType::Note),
       "file" => Ok(ItemType::File),
+      "text" => Ok(ItemType::Text),
       "password" => Ok(ItemType::Password),
       "image" => Ok(ItemType::Image),
       "rating" => Ok(ItemType::Rating),
@@ -310,6 +313,7 @@ pub fn is_positionable_type(item_type: ItemType) -> bool {
 
 pub fn is_attachments_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File
+    || item_type == ItemType::Text
     || item_type == ItemType::Note
     || item_type == ItemType::Page
     || item_type == ItemType::Table
@@ -322,11 +326,12 @@ pub fn is_container_item_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_data_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::File || item_type == ItemType::Image
+  item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Image
 }
 
 pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File
+    || item_type == ItemType::Text
     || item_type == ItemType::Note
     || item_type == ItemType::Page
     || item_type == ItemType::Table
@@ -342,6 +347,7 @@ pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
 
 pub fn is_titled_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::File
+    || item_type == ItemType::Text
     || item_type == ItemType::Note
     || item_type == ItemType::Page
     || item_type == ItemType::Table
@@ -384,6 +390,7 @@ pub fn is_flags_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Table
     || item_type == ItemType::Note
     || item_type == ItemType::File
+    || item_type == ItemType::Text
     || item_type == ItemType::Password
     || item_type == ItemType::Composite
     || item_type == ItemType::Page
@@ -395,7 +402,7 @@ pub fn is_format_item_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_icon_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Password
+  item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password
 }
 
 pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
@@ -1121,13 +1128,21 @@ impl JsonLogSerializable<Item> for Item {
     }
     match (&old.emoji, &new.emoji) {
       (Some(_), None) => {
-        if old.item_type != ItemType::Note && old.item_type != ItemType::File && old.item_type != ItemType::Password {
+        if old.item_type != ItemType::Note
+          && old.item_type != ItemType::File
+          && old.item_type != ItemType::Text
+          && old.item_type != ItemType::Password
+        {
           cannot_modify_err("emoji", &old.id)?;
         }
         result.insert(String::from("emoji"), Value::Null);
       }
       (o, n @ Some(_)) if o != n => {
-        if old.item_type != ItemType::Note && old.item_type != ItemType::File && old.item_type != ItemType::Password {
+        if old.item_type != ItemType::Note
+          && old.item_type != ItemType::File
+          && old.item_type != ItemType::Text
+          && old.item_type != ItemType::Password
+        {
           cannot_modify_err("emoji", &old.id)?;
         }
         result.insert(String::from("emoji"), Value::String(n.as_ref().unwrap().clone()));
@@ -1594,7 +1609,11 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
     if map.contains_key("emoji") {
-      if self.item_type != ItemType::Note && self.item_type != ItemType::File && self.item_type != ItemType::Password {
+      if self.item_type != ItemType::Note
+        && self.item_type != ItemType::File
+        && self.item_type != ItemType::Text
+        && self.item_type != ItemType::Password
+      {
         not_applicable_err("emoji", self.item_type, &self.id)?;
       }
       self.emoji = json::get_string_field(map, "emoji")?;
@@ -2059,7 +2078,11 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     result.insert(String::from("url"), Value::String(url.clone()));
   }
   if let Some(emoji) = &item.emoji {
-    if item.item_type != ItemType::Note && item.item_type != ItemType::File && item.item_type != ItemType::Password {
+    if item.item_type != ItemType::Note
+      && item.item_type != ItemType::File
+      && item.item_type != ItemType::Text
+      && item.item_type != ItemType::Password
+    {
       unexpected_field_err("emoji", &item.id, item.item_type)?
     }
     result.insert(String::from("emoji"), Value::String(emoji.clone()));
@@ -2414,7 +2437,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
       None => {
-        if item_type == ItemType::File || item_type == ItemType::Password {
+        if item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password {
           Ok(Some(0))
         } else if is_flags_item_type(item_type) {
           Err(expected_for_err("flags", item_type, &id))
@@ -2721,7 +2744,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
     emoji: match json::get_string_field(map, "emoji")? {
       Some(v) => {
-        if item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Password {
+        if item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password {
           Ok(Some(v))
         } else {
           Err(not_applicable_err("emoji", item_type, &id))
@@ -3476,7 +3499,7 @@ impl Item {
     }
 
     // Note/File/Password icon properties
-    if self.item_type == ItemType::Note || self.item_type == ItemType::File || self.item_type == ItemType::Password {
+    if self.item_type == ItemType::Note || self.item_type == ItemType::File || self.item_type == ItemType::Text || self.item_type == ItemType::Password {
       if let Some(icon_mode) = &self.icon_mode {
         hashes.push(hash_string_to_uid(icon_mode.as_str()));
       }

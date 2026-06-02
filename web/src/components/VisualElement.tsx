@@ -18,6 +18,7 @@
 
 import { Component, Match, Switch } from "solid-js";
 import { isFile } from "../items/file-item";
+import { isText } from "../items/text-item";
 import { isImage } from "../items/image-item";
 import { isNote } from "../items/note-item";
 import { isPage } from "../items/page-item";
@@ -29,6 +30,7 @@ import { Rating_Desktop } from "./items/Rating";
 import { Table_Desktop } from "./items/Table";
 import { Image_Desktop } from "./items/Image";
 import { File } from "./items/File";
+import { Text } from "./items/Text";
 import { VisualElement } from "../layout/visual-element";
 import { Placeholder_Desktop } from "./items/Placeholder";
 import { Page_LineItem } from "./items/Page_LineItem";
@@ -48,6 +50,7 @@ import { Note_LineItem } from "./items/Note_LineItem";
 import { LinkDefault_LineItem } from "./items/LinkDefault_LineItem";
 import { Image_LineItem } from "./items/Image_LineItem";
 import { FileLineItem } from "./items/File_LineItem";
+import { TextLineItem } from "./items/Text_LineItem";
 import { Composite_LineItem } from "./items/Composite_LineItem";
 import { Search_Desktop } from "./items/Search";
 import { Search_LineItem } from "./items/Search_LineItem";
@@ -70,6 +73,7 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
       <Match when={isTable(props.visualElement.displayItem)}><Table_Desktop {...props} /></Match>
       <Match when={isImage(props.visualElement.displayItem)}><Image_Desktop {...props} /></Match>
       <Match when={isFile(props.visualElement.displayItem)}><File {...props} /></Match>
+      <Match when={isText(props.visualElement.displayItem)}><Text {...props} /></Match>
       <Match when={isPassword(props.visualElement.displayItem)}><Password {...props} /></Match>
       <Match when={isRating(props.visualElement.displayItem)}><Rating_Desktop {...props} /></Match>
       <Match when={isSearch(props.visualElement.displayItem)}><Search_Desktop {...props} /></Match>
@@ -89,6 +93,7 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
       <Match when={isNote(props.visualElement.displayItem)}><Note_LineItem {...props} /></Match>
       <Match when={isImage(props.visualElement.displayItem)}><Image_LineItem {...props} /></Match>
       <Match when={isFile(props.visualElement.displayItem)}><FileLineItem {...props} /></Match>
+      <Match when={isText(props.visualElement.displayItem)}><TextLineItem {...props} /></Match>
       <Match when={isPassword(props.visualElement.displayItem)}><PasswordLineItem {...props} /></Match>
       <Match when={isRating(props.visualElement.displayItem)}><Rating_LineItem {...props} /></Match>
       <Match when={isSearch(props.visualElement.displayItem)}><Search_LineItem {...props} /></Match>

@@ -42,9 +42,13 @@ impl FragmentTargetKind {
     match self {
       FragmentTargetKind::Image => should_tag_image_item(item),
       FragmentTargetKind::Markdown => {
-        item.item_type == ItemType::File && item.mime_type.as_deref() == Some(MARKDOWN_MIME_TYPE)
+        (item.item_type == ItemType::File || item.item_type == ItemType::Text)
+          && item.mime_type.as_deref() == Some(MARKDOWN_MIME_TYPE)
       }
-      FragmentTargetKind::Text => item.item_type == ItemType::File && item.mime_type.as_deref() == Some(TEXT_MIME_TYPE),
+      FragmentTargetKind::Text => {
+        (item.item_type == ItemType::File || item.item_type == ItemType::Text)
+          && item.mime_type.as_deref() == Some(TEXT_MIME_TYPE)
+      }
       FragmentTargetKind::Pdf => item.item_type == ItemType::File && item.mime_type.as_deref() == Some(PDF_MIME_TYPE),
     }
   }

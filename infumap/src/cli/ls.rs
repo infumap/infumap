@@ -148,6 +148,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       ItemType::Composite => "C",
       ItemType::Note => "N",
       ItemType::File => "F",
+      ItemType::Text => "X",
       ItemType::Password => "W",
       ItemType::Rating => "R",
       ItemType::Link => "L",

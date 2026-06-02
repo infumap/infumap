@@ -21,6 +21,7 @@ import { GRID_SIZE, MIN_IMAGE_WIDTH_PX } from "../constants";
 import { CompositeFlags, ImageFlags, NoteFlags } from "../items/base/flags-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { isFile } from "../items/file-item";
+import { isText } from "../items/text-item";
 import { asImageItem, isImage } from "../items/image-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
@@ -143,6 +144,11 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
     }
 
     if (isFile(props.visualElement.displayItem)) {
+      return <div class="absolute pointer-events-none border border-[#999] rounded-xs shadow-xl"
+        style={shadowStyle(boundsPx())} />;
+    }
+
+    if (isText(props.visualElement.displayItem)) {
       return <div class="absolute pointer-events-none border border-[#999] rounded-xs shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }

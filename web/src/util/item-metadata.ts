@@ -18,6 +18,7 @@
 
 import { ContainerItem } from "../items/base/container-item";
 import { asFileItem, isFile } from "../items/file-item";
+import { asTextItem, isText } from "../items/text-item";
 import { asImageItem, isImage } from "../items/image-item";
 import { itemState } from "../store/ItemState";
 
@@ -43,6 +44,9 @@ export function calculateChildrenStats(containerItem: ContainerItem): ContainerC
       } else if (isFile(child)) {
         imageFileChildren++;
         totalBytes += asFileItem(child).fileSizeBytes || 0;
+      } else if (isText(child)) {
+        imageFileChildren++;
+        totalBytes += asTextItem(child).fileSizeBytes || 0;
       }
     }
   });

@@ -53,6 +53,7 @@ import { itemPathSegmentsFromItem, resolvedPathTargetItemForItem } from "../../u
 import { Item, ItemType } from "../../items/base/item";
 import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asFileItem, isFile } from "../../items/file-item";
+import { asTextItem, isText } from "../../items/text-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { calculateChildrenStats, formatBytes, type ContainerChildrenStats } from "../../util/item-metadata";
@@ -126,7 +127,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const catalogChildrenStatsMetadataLines = (stats: ContainerChildrenStats): Array<string> => [
     `Children: ${stats.totalChildren}`,
-    `Images & Files: ${stats.imageFileChildren}`,
+    `Images, Text & Files: ${stats.imageFileChildren}`,
     `Total Size: ${formatBytes(stats.totalBytes)}`,
   ];
 
@@ -142,6 +143,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
     if (isFile(targetItem)) {
       return [`Size: ${formatBytes(asFileItem(targetItem).fileSizeBytes || 0)}`];
+    }
+    if (isText(targetItem)) {
+      return [`Size: ${formatBytes(asTextItem(targetItem).fileSizeBytes || 0)}`];
     }
     if (isContainer(targetItem)) {
       return catalogChildrenStatsMetadataLines(calculateChildrenStats(asContainerItem(targetItem)));
@@ -169,6 +173,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Match when={itemType == ItemType.Table}><i class="fa fa-table" /></Match>
         <Match when={itemType == ItemType.Note}><i class="fa fa-sticky-note" /></Match>
         <Match when={itemType == ItemType.File}><i class="fa fa-file" /></Match>
+        <Match when={itemType == ItemType.Text}><i class="fa fa-font" /></Match>
         <Match when={itemType == ItemType.Image}><i class="fa fa-image" /></Match>
         <Match when={itemType == ItemType.Link}><i class="fa fa-link" /></Match>
         <Match when={itemType == ItemType.Search}><i class="fa fa-search" /></Match>

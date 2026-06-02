@@ -45,6 +45,8 @@ import { isImage } from '../../items/image-item';
 import { Toolbar_Image } from './item/Toolbar_Image';
 import { isFile } from '../../items/file-item';
 import { Toolbar_File } from './item/Toolbar_File';
+import { isText } from '../../items/text-item';
+import { Toolbar_Text } from './item/Toolbar_Text';
 import { isLink } from '../../items/link-item';
 import { Toolbar_Link } from './item/Toolbar_Link';
 import { isComposite } from '../../items/composite-item';
@@ -299,6 +301,9 @@ export const Toolbar: Component = () => {
           </Match>
           <Match when={isFile(toolbarFocusItem())}>
             <Toolbar_File />
+          </Match>
+          <Match when={isText(toolbarFocusItem())}>
+            <Toolbar_Text />
           </Match>
           <Match when={isLink(toolbarFocusItem())}>
             <Toolbar_Link />

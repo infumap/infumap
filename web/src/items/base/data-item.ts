@@ -20,7 +20,7 @@ import { panic } from "../../util/lang";
 import { Item, ItemTypeMixin, ItemType } from "./item";
 
 
-const ITEM_TYPES = [ItemType.Image, ItemType.File];
+const ITEM_TYPES = [ItemType.Image, ItemType.File, ItemType.Text];
 
 export interface DataMixin {
   originalCreationDate: number,

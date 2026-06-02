@@ -51,6 +51,11 @@ export enum FileFlags {
   Unused = 0x001,
 }
 
+export enum TextFlags {
+  None = 0x000,
+  Unused = 0x001,
+}
+
 export enum PasswordFlags {
   None = 0x000,
   Unused = 0x001,
@@ -109,7 +114,7 @@ export enum ImageFlags {
   NoCrop = 0x002,
 }
 
-const ITEM_TYPES = [ItemType.Note, ItemType.File, ItemType.Password, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image];
+const ITEM_TYPES = [ItemType.Note, ItemType.File, ItemType.Text, ItemType.Password, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image];
 
 
 export interface FlagsMixin {

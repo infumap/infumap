@@ -23,6 +23,7 @@ import { StoreContextModel } from '../../store/StoreProvider';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { VisualElement } from '../../layout/visual-element';
 import { asFileItem, isFile, FileFns } from '../file-item';
+import { asTextItem, isText, TextFns } from '../text-item';
 import { asImageItem, isImage, ImageFns } from '../image-item';
 import { asLinkItem, isLink, LinkFns } from '../link-item';
 import { asNoteItem, isNote, NoteFns } from '../note-item';
@@ -57,6 +58,7 @@ export const ItemFns = {
     if (isNote(measurable)) { return NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(measurable)); }
     if (isImage(measurable)) { return ImageFns.calcSpatialDimensionsBl(ImageFns.asImageMeasurable(measurable)); }
     if (isFile(measurable)) { return FileFns.calcSpatialDimensionsBl(FileFns.asFileMeasurable(measurable)); }
+    if (isText(measurable)) { return TextFns.calcSpatialDimensionsBl(TextFns.asTextMeasurable(measurable)); }
     if (isPassword(measurable)) { return PasswordFns.calcSpatialDimensionsBl(PasswordFns.asPasswordMeasurable(measurable)); }
     if (isRating(measurable)) { return RatingFns.calcSpatialDimensionsBl(RatingFns.asRatingMeasurable(measurable)); }
     if (isSearch(measurable)) { return SearchFns.calcSpatialDimensionsBl(SearchFns.asSearchMeasurable(measurable)); }
@@ -82,6 +84,7 @@ export const ItemFns = {
     if (isNote(measurable)) { return NoteFns.calcGeometry_Spatial(NoteFns.asNoteMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup); }
     if (isImage(measurable)) { return ImageFns.calcGeometry_Spatial(ImageFns.asImageMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasChildChanges, hasDefaultChanges); }
     if (isFile(measurable)) { return FileFns.calcGeometry_Spatial(FileFns.asFileMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
+    if (isText(measurable)) { return TextFns.calcGeometry_Spatial(TextFns.asTextMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Spatial(PasswordFns.asPasswordMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_Spatial(RatingFns.asRatingMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isSearch(measurable)) { return SearchFns.calcGeometry_Spatial(SearchFns.asSearchMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
@@ -102,6 +105,7 @@ export const ItemFns = {
     if (isNote(measurable)) { return NoteFns.calcGeometry_Attachment(NoteFns.asNoteMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isImage(measurable)) { return ImageFns.calcGeometry_Attachment(ImageFns.asImageMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isFile(measurable)) { return FileFns.calcGeometry_Attachment(FileFns.asFileMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
+    if (isText(measurable)) { return TextFns.calcGeometry_Attachment(TextFns.asTextMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Attachment(PasswordFns.asPasswordMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_Attachment(RatingFns.asRatingMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isSearch(measurable)) { return SearchFns.calcGeometry_Attachment(SearchFns.asSearchMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
@@ -127,6 +131,7 @@ export const ItemFns = {
     if (isNote(measurable)) { return NoteFns.calcGeometry_ListItem(NoteFns.asNoteMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
     if (isImage(measurable)) { return ImageFns.calcGeometry_ListItem(ImageFns.asImageMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
     if (isFile(measurable)) { return FileFns.calcGeometry_ListItem(FileFns.asFileMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
+    if (isText(measurable)) { return TextFns.calcGeometry_ListItem(TextFns.asTextMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_ListItem(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_ListItem(RatingFns.asRatingMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isSearch(measurable)) { return SearchFns.calcGeometry_ListItem(SearchFns.asSearchMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
@@ -153,6 +158,7 @@ export const ItemFns = {
     if (isNote(measurable)) { return NoteFns.calcGeometry_InCell(NoteFns.asNoteMeasurable(measurable), cellBoundsPx, maximize); }
     if (isImage(measurable)) { return ImageFns.calcGeometry_InCell(ImageFns.asImageMeasurable(measurable), cellBoundsPx, isPopup, hasChildChanges, hasDefaultChanges, maximize); }
     if (isFile(measurable)) { return FileFns.calcGeometry_InCell(FileFns.asFileMeasurable(measurable), cellBoundsPx, maximize); }
+    if (isText(measurable)) { return TextFns.calcGeometry_InCell(TextFns.asTextMeasurable(measurable), cellBoundsPx, maximize); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InCell(PasswordFns.asPasswordMeasurable(measurable), cellBoundsPx, maximize); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InCell(RatingFns.asRatingMeasurable(measurable), cellBoundsPx, maximize); }
     if (isSearch(measurable)) { return SearchFns.calcGeometry_InCell(SearchFns.asSearchMeasurable(measurable), cellBoundsPx, maximize); }
@@ -194,6 +200,7 @@ export const ItemFns = {
     if (isNote(measurable)) { return NoteFns.calcGeometry_InComposite(NoteFns.asNoteMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isImage(measurable)) { return ImageFns.calcGeometry_InComposite(ImageFns.asImageMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isFile(measurable)) { return FileFns.calcGeometry_InComposite(FileFns.asFileMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
+    if (isText(measurable)) { return TextFns.calcGeometry_InComposite(TextFns.asTextMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InComposite(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InComposite(RatingFns.asRatingMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isSearch(measurable)) { return SearchFns.calcGeometry_InComposite(SearchFns.asSearchMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
@@ -214,6 +221,7 @@ export const ItemFns = {
     if (isNote(item)) { return NoteFns.getFingerprint(asNoteItem(item)); }
     if (isImage(item)) { return ImageFns.getFingerprint(asImageItem(item)); }
     if (isFile(item)) { return FileFns.getFingerprint(asFileItem(item)); }
+    if (isText(item)) { return TextFns.getFingerprint(asTextItem(item)); }
     if (isPassword(item)) { return PasswordFns.getFingerprint(asPasswordItem(item)); }
     if (isRating(item)) { return RatingFns.getFingerprint(asRatingItem(item)); }
     if (isSearch(item)) { return SearchFns.getFingerprint(asSearchItem(item)); }
@@ -229,6 +237,7 @@ export const ItemFns = {
     if (isNote(o)) { return NoteFns.fromObject(o, origin); }
     if (isImage(o)) { return ImageFns.fromObject(o, origin); }
     if (isFile(o)) { return FileFns.fromObject(o, origin); }
+    if (isText(o)) { return TextFns.fromObject(o, origin); }
     if (isPassword(o)) { return PasswordFns.fromObject(o, origin); }
     if (isRating(o)) { return RatingFns.fromObject(o, origin); }
     if (isLink(o)) { return LinkFns.fromObject(o, origin); }
@@ -244,6 +253,7 @@ export const ItemFns = {
     if (isNote(item)) { return NoteFns.toObject(asNoteItem(item)); }
     if (isImage(item)) { return ImageFns.toObject(asImageItem(item)); }
     if (isFile(item)) { return FileFns.toObject(asFileItem(item)); }
+    if (isText(item)) { return TextFns.toObject(asTextItem(item)); }
     if (isPassword(item)) { return PasswordFns.toObject(asPasswordItem(item)); }
     if (isRating(item)) { return RatingFns.toObject(asRatingItem(item)); }
     if (isLink(item)) { return LinkFns.toObject(asLinkItem(item)); }
@@ -282,6 +292,7 @@ export const ItemFns = {
     else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), store); }
     else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
+    else if (isText(item)) { TextFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal, hitboxMeta); }
     else if (isSearch(item)) { SearchFns.handleClick(visualElementSignal.get(), store); }
@@ -298,6 +309,7 @@ export const ItemFns = {
     else if (isNote(item)) { NoteFns.handleLinkClick(visualElement); }
     else if (isImage(item)) { ImageFns.handleLinkClick(visualElement, store); }
     else if (isFile(item)) { FileFns.handleLinkClick(visualElement); }
+    else if (isText(item)) { TextFns.handleLinkClick(visualElement); }
     else if (isPassword(item)) { panic("handleLinkClick: password"); }
     else if (isRating(item)) { panic("handleLinkClick: rating"); }
     else if (isLink(item)) { panic("handleLinkClick: link"); }
@@ -345,6 +357,7 @@ export const ItemFns = {
     else if (isNote(measurable)) { return NoteFns.cloneMeasurableFields(NoteFns.asNoteMeasurable(measurable)); }
     else if (isImage(measurable)) { return ImageFns.cloneMeasurableFields(ImageFns.asImageMeasurable(measurable)); }
     else if (isFile(measurable)) { return FileFns.cloneMeasurableFields(FileFns.asFileMeasurable(measurable)); }
+    else if (isText(measurable)) { return TextFns.cloneMeasurableFields(TextFns.asTextMeasurable(measurable)); }
     else if (isPassword(measurable)) { return PasswordFns.cloneMeasurableFields(PasswordFns.asPasswordMeasurable(measurable)); }
     else if (isRating(measurable)) { return RatingFns.cloneMeasurableFields(RatingFns.asRatingMeasurable(measurable)); }
     else if (isSearch(measurable)) { return SearchFns.cloneMeasurableFields(SearchFns.asSearchMeasurable(measurable)); }
@@ -360,6 +373,7 @@ export const ItemFns = {
     if (isComposite(item)) { return CompositeFns.debugSummary(asCompositeItem(item)); }
     if (isNote(item)) { return NoteFns.debugSummary(asNoteItem(item)); }
     if (isFile(item)) { return FileFns.debugSummary(asFileItem(item)); }
+    if (isText(item)) { return TextFns.debugSummary(asTextItem(item)); }
     if (isPassword(item)) { return PasswordFns.debugSummary(asPasswordItem(item)); }
     if (isRating(item)) { return RatingFns.debugSummary(asRatingItem(item)); }
     if (isSearch(item)) { return SearchFns.debugSummary(asSearchItem(item)); }

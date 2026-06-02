@@ -18,6 +18,7 @@
 
 import { LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../constants";
 import { isFile } from "../items/file-item";
+import { isText } from "../items/text-item";
 import { isNote } from "../items/note-item";
 import { isPassword } from "../items/password-item";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -26,7 +27,7 @@ import { VeFns, VisualElement } from "./visual-element";
 
 
 function stackedChildVisibleVerticalBoundsPx(childVe: VisualElement, boundsPx: BoundingBox): { top: number, bottom: number } {
-  if (isNote(childVe.displayItem) || isFile(childVe.displayItem) || isPassword(childVe.displayItem)) {
+  if (isNote(childVe.displayItem) || isFile(childVe.displayItem) || isText(childVe.displayItem) || isPassword(childVe.displayItem)) {
     const scale = childVe.blockSizePx ? childVe.blockSizePx.h / LINE_HEIGHT_PX : 1;
     return {
       top: boundsPx.y + (NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * scale,

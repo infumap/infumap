@@ -48,6 +48,7 @@ import { asContainerItem } from "../items/base/container-item";
 import { MOUSE_RIGHT, mouseDownHandler } from "./mouse_down";
 import { isComposite } from "../items/composite-item";
 import { FileFns, isFile } from "../items/file-item";
+import { TextFns, isText } from "../items/text-item";
 import { NoteFns, isNote } from "../items/note-item";
 import { PasswordFns, isPassword } from "../items/password-item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -974,6 +975,10 @@ function openPopupForFocusedItemMaybe(store: StoreContextModel, focusVe: VisualE
     openUsingPopupHotspot();
     return true;
   }
+  if (isText(focusVe.displayItem)) {
+    openUsingPopupHotspot();
+    return true;
+  }
   if (isPassword(focusVe.displayItem)) {
     openUsingPopupHotspot();
     return true;
@@ -1000,6 +1005,10 @@ function editFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement):
   }
   if (isFile(focusVe.displayItem)) {
     FileFns.handleClick(focusVe, store, true, true);
+    return true;
+  }
+  if (isText(focusVe.displayItem)) {
+    TextFns.handleClick(focusVe, store, true, true);
     return true;
   }
   if (isPassword(focusVe.displayItem)) {

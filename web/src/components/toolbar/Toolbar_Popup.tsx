@@ -43,6 +43,7 @@ import {
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 import { isSearch } from "../../items/search-item";
 import { FileFns, asFileItem, isFile } from "../../items/file-item";
+import { TextFns, asTextItem, isText } from "../../items/text-item";
 import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-item";
 import { isImage } from "../../items/image-item";
 import { asContainerItem } from "../../items/base/container-item";
@@ -158,6 +159,7 @@ const EMOJI_CATEGORIES = [
 ];
 const DEFAULT_NOTE_ICON_TEXT = "\uf249";
 const DEFAULT_FILE_ICON_TEXT = "\uf15b";
+const DEFAULT_TEXT_ICON_TEXT = "\uf031";
 const DEFAULT_PASSWORD_ICON_TEXT = "\uf070";
 
 
@@ -257,6 +259,7 @@ export const Toolbar_Popup: Component = () => {
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const noteItem = () => asNoteItem(getToolbarFocusItem(store));
   const fileItem = () => asFileItem(getToolbarFocusItem(store));
+  const textItem = () => asTextItem(getToolbarFocusItem(store));
   const passwordItem = () => asPasswordItem(getToolbarFocusItem(store));
   const tableItem = () => asTableItem(getToolbarFocusItem(store));
   const ratingItem = () => asRatingItem(getToolbarFocusItem(store));
@@ -283,18 +286,22 @@ export const Toolbar_Popup: Component = () => {
       ? noteItem().iconMode == ItemIconMode.Symbol || noteItem().iconMode == ItemIconMode.Favicon
       : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(getToolbarFocusItem(store))
         ? fileItem().iconMode == ItemIconMode.Symbol
-        : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(getToolbarFocusItem(store))
-          ? passwordItem().iconMode == ItemIconMode.Symbol
-          : false
+        : overlayTypeConst == ToolbarPopupType.ItemIcon && isText(getToolbarFocusItem(store))
+          ? textItem().iconMode == ItemIconMode.Symbol
+          : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(getToolbarFocusItem(store))
+            ? passwordItem().iconMode == ItemIconMode.Symbol
+            : false
   );
   const [selectedEmojiValue, setSelectedEmojiValue] = createSignal<string | null>(
     overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(getToolbarFocusItem(store))
       ? NoteFns.emoji(noteItem())
       : overlayTypeConst == ToolbarPopupType.ItemIcon && isFile(getToolbarFocusItem(store))
         ? FileFns.emoji(fileItem())
-        : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(getToolbarFocusItem(store))
-          ? PasswordFns.emoji(passwordItem())
-          : null
+        : overlayTypeConst == ToolbarPopupType.ItemIcon && isText(getToolbarFocusItem(store))
+          ? TextFns.emoji(textItem())
+          : overlayTypeConst == ToolbarPopupType.ItemIcon && isPassword(getToolbarFocusItem(store))
+            ? PasswordFns.emoji(passwordItem())
+            : null
   );
   const [customEmojiInputFocused, setCustomEmojiInputFocused] = createSignal(false);
 
@@ -434,21 +441,25 @@ export const Toolbar_Popup: Component = () => {
     `font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;`;
   const defaultItemIconText = (): string =>
     isFile(getToolbarFocusItem(store)) ? DEFAULT_FILE_ICON_TEXT :
-      isPassword(getToolbarFocusItem(store)) ? DEFAULT_PASSWORD_ICON_TEXT :
-        DEFAULT_NOTE_ICON_TEXT;
+      isText(getToolbarFocusItem(store)) ? DEFAULT_TEXT_ICON_TEXT :
+        isPassword(getToolbarFocusItem(store)) ? DEFAULT_PASSWORD_ICON_TEXT :
+          DEFAULT_NOTE_ICON_TEXT;
   const defaultItemIconClass = (): string =>
     isFile(getToolbarFocusItem(store)) ? "fas fa-file" :
-      isPassword(getToolbarFocusItem(store)) ? "fas fa-eye-slash" :
-        "fas fa-sticky-note";
+      isText(getToolbarFocusItem(store)) ? "fas fa-font" :
+        isPassword(getToolbarFocusItem(store)) ? "fas fa-eye-slash" :
+          "fas fa-sticky-note";
   const itemIconLabel = (): string =>
     isFile(getToolbarFocusItem(store)) ? "file" :
-      isPassword(getToolbarFocusItem(store)) ? "password" :
-        "note";
+      isText(getToolbarFocusItem(store)) ? "text" :
+        isPassword(getToolbarFocusItem(store)) ? "password" :
+          "note";
   const iconMode = (): ItemIconMode | null =>
     isNote(getToolbarFocusItem(store)) ? noteItem().iconMode :
       isFile(getToolbarFocusItem(store)) ? fileItem().iconMode :
-        isPassword(getToolbarFocusItem(store)) ? passwordItem().iconMode :
-          null;
+        isText(getToolbarFocusItem(store)) ? textItem().iconMode :
+          isPassword(getToolbarFocusItem(store)) ? passwordItem().iconMode :
+            null;
   const itemIconIsAuto = (): boolean => iconMode() == ItemIconMode.Auto;
   const itemIconIsNone = (): boolean => iconMode() == ItemIconMode.None;
   const itemIconIsSymbol = (): boolean => iconMode() == ItemIconMode.Symbol;
@@ -526,6 +537,9 @@ export const Toolbar_Popup: Component = () => {
       } else if (isFile(focusItem)) {
         fileItem().emoji = emoji;
         fileItem().iconMode = ItemIconMode.Symbol;
+      } else if (isText(focusItem)) {
+        textItem().emoji = emoji;
+        textItem().iconMode = ItemIconMode.Symbol;
       } else if (isPassword(focusItem)) {
         passwordItem().emoji = emoji;
         passwordItem().iconMode = ItemIconMode.Symbol;
@@ -537,6 +551,9 @@ export const Toolbar_Popup: Component = () => {
       } else if (isFile(focusItem)) {
         fileItem().emoji = null;
         fileItem().iconMode = ItemIconMode.None;
+      } else if (isText(focusItem)) {
+        textItem().emoji = null;
+        textItem().iconMode = ItemIconMode.None;
       } else if (isPassword(focusItem)) {
         passwordItem().emoji = null;
         passwordItem().iconMode = ItemIconMode.None;
@@ -553,7 +570,7 @@ export const Toolbar_Popup: Component = () => {
   };
   const chooseAutoIcon = (closePopup: boolean = true): void => {
     const focusItem = getToolbarFocusItem(store);
-    if (!isNote(focusItem) && !isFile(focusItem) && !isPassword(focusItem)) { return; }
+    if (!isNote(focusItem) && !isFile(focusItem) && !isText(focusItem) && !isPassword(focusItem)) { return; }
     setItemIconVisible(false);
     setSelectedEmojiValue(null);
     if (emojiInputElement != null) {
@@ -565,6 +582,9 @@ export const Toolbar_Popup: Component = () => {
     } else if (isFile(focusItem)) {
       fileItem().emoji = null;
       fileItem().iconMode = ItemIconMode.Auto;
+    } else if (isText(focusItem)) {
+      textItem().emoji = null;
+      textItem().iconMode = ItemIconMode.Auto;
     } else if (isPassword(focusItem)) {
       passwordItem().emoji = null;
       passwordItem().iconMode = ItemIconMode.Auto;
@@ -669,17 +689,17 @@ export const Toolbar_Popup: Component = () => {
 
   const isDebugSupportedItem = () => {
     const currentItem = getToolbarFocusItem(store);
-    return isFile(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
+    return isFile(currentItem) || isText(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
   };
 
   const showExtractedTextDebugLink = () => {
     const currentItem = getToolbarFocusItem(store);
-    return isFile(currentItem) || isImage(currentItem);
+    return isFile(currentItem) || isText(currentItem) || isImage(currentItem);
   };
 
   const showFragmentsDebugLink = () => {
     const currentItem = getToolbarFocusItem(store);
-    return isFile(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
+    return isFile(currentItem) || isText(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
   };
 
   const renderDebugLinks = () => {

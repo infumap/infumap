@@ -27,6 +27,7 @@ export const ItemType = {
   Composite: "composite",
   Note: "note",
   File: "file",
+  Text: "text",
   Password: "password",
   Image: "image",
   Rating: "rating",

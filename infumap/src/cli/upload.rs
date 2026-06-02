@@ -40,8 +40,13 @@ use tokio::io::AsyncReadExt;
 use crate::util::fs::expand_tilde;
 use crate::util::image::adjust_image_for_exif_orientation;
 use crate::util::image::get_exif_orientation;
+use crate::util::mime::mime_type_from_title_extension;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
+
+fn is_text_or_markdown_filename(filename: &str) -> bool {
+  matches!(mime_type_from_title_extension(filename).as_deref(), Some("text/plain" | "text/markdown"))
+}
 use crate::web::routes::command::GetItemsMode;
 use crate::web::routes::command::GetItemsRequest;
 
@@ -278,10 +283,12 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
           std::io::stdout().flush()?;
         }
         Err(_e) => {
-          item.insert("itemType".to_owned(), Value::String(ItemType::File.as_str().to_owned()));
+          let item_type = if is_text_or_markdown_filename(filename) { ItemType::Text } else { ItemType::File };
+          item.insert("itemType".to_owned(), Value::String(item_type.as_str().to_owned()));
           print!(
-            "Could not interpret file '{}' as an image, adding as an item of type file {}/{}... ",
+            "Could not interpret file '{}' as an image, adding as an item of type {} {}/{}... ",
             filename,
+            item_type,
             i,
             local_filenames.len()
           );
@@ -289,8 +296,9 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
         }
       }
     } else {
-      item.insert("itemType".to_owned(), Value::String(ItemType::File.as_str().to_owned()));
-      print!("Adding file '{}' {}/{}... ", filename, i + 1, local_filenames.len());
+      let item_type = if is_text_or_markdown_filename(filename) { ItemType::Text } else { ItemType::File };
+      item.insert("itemType".to_owned(), Value::String(item_type.as_str().to_owned()));
+      print!("Adding {} '{}' {}/{}... ", item_type, filename, i + 1, local_filenames.len());
       std::io::stdout().flush()?;
     }
 

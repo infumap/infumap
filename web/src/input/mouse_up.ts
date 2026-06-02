@@ -26,6 +26,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
+import { asTextItem, isText } from "../items/text-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
@@ -385,6 +386,8 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
       asNoteItem(item).flags = entry.rollbackFlags;
     } else if (entry.rollbackFlags != null && isFile(item)) {
       asFileItem(item).flags = entry.rollbackFlags;
+    } else if (entry.rollbackFlags != null && isText(item)) {
+      asTextItem(item).flags = entry.rollbackFlags;
     } else if (entry.rollbackFlags != null && isPassword(item)) {
       asPasswordItem(item).flags = entry.rollbackFlags;
     }
@@ -964,7 +967,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         if (isPage(activeVisualElement.displayItem) ||
           isNote(activeVisualElement.displayItem) ||
           isImage(activeVisualElement.displayItem) ||
-          isFile(activeVisualElement.displayItem)) {
+          isFile(activeVisualElement.displayItem) ||
+          isText(activeVisualElement.displayItem)) {
           ItemFns.handleLinkClick(activeVisualElement, store);
         } else {
           ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);

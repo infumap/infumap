@@ -2046,7 +2046,7 @@ pub fn migrate_record_v28_to_v29(
       let item_id = json::get_string_field(&result, "id")?.ok_or("Entry record is missing id.")?;
       let item_type =
         json::get_string_field(&result, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
-      let is_data_item = item_type == "file" || item_type == "image";
+      let is_data_item = item_type == "file" || item_type == "text" || item_type == "image";
       if is_data_item {
         maybe_fix_mime_type_from_title(&mut result, None, None, stats, "entry")?;
       }

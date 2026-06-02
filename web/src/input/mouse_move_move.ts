@@ -25,6 +25,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { isComposite } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
+import { asTextItem, isText } from "../items/text-item";
 import { LinkFns, isLink } from "../items/link-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
@@ -90,9 +91,11 @@ function captureMoveRollbackSnapshot(store: StoreContextModel, activeVisualEleme
         ? asNoteItem(item).flags
         : isFile(item)
           ? asFileItem(item).flags
-          : isPassword(item)
-            ? asPasswordItem(item).flags
-            : null,
+          : isText(item)
+            ? asTextItem(item).flags
+            : isPassword(item)
+              ? asPasswordItem(item).flags
+              : null,
     }));
 
   MouseActionState.setMoveRollback(snapshot);

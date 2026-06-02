@@ -24,6 +24,7 @@ import { VesCache } from "../layout/ves-cache";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { assert, panic } from "../util/lang";
 import { asFileItem, isFile } from "../items/file-item";
+import { asTextItem, isText } from "../items/text-item";
 import { ItemType } from "../items/base/item";
 import { asPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem } from "../items/base/x-sizeable-item";
@@ -142,6 +143,10 @@ export function commitActiveTextEdit(
       editingDomEl.parentElement!.scrollLeft = 0;
       asFileItem(item).title = trimNewline(newText);
     }
+    else if (textEditInfo.itemType == ItemType.Text) {
+      editingDomEl.parentElement!.scrollLeft = 0;
+      asTextItem(item).title = trimNewline(newText);
+    }
     else if (textEditInfo.itemType == ItemType.Password) {
       editingDomEl.parentElement!.scrollLeft = 0;
       asPasswordItem(item).text = trimNewline(newText);
@@ -173,6 +178,7 @@ export function commitActiveTextEdit(
 function editableItemType(ve: VisualElement): ItemType | null {
   if (isNote(ve.displayItem)) { return ItemType.Note; }
   if (isFile(ve.displayItem)) { return ItemType.File; }
+  if (isText(ve.displayItem)) { return ItemType.Text; }
   if (isPassword(ve.displayItem)) { return ItemType.Password; }
   if (isPage(ve.displayItem)) { return ItemType.Page; }
   if (isTable(ve.displayItem)) { return ItemType.Table; }
@@ -288,7 +294,7 @@ function supportsLinearSelectionDeletePath(
   }
 
   const item = itemState.get(VeFns.veidFromPath(path).itemId);
-  return !!item && (isNote(item) || isFile(item));
+  return !!item && (isNote(item) || isFile(item) || isText(item));
 }
 
 function textForLinearSelectionDeletePath(context: LinearEditContext, path: string): string | null {
@@ -298,7 +304,7 @@ function textForLinearSelectionDeletePath(context: LinearEditContext, path: stri
   }
 
   const item = itemState.get(VeFns.veidFromPath(path).itemId);
-  if (item == null || (!isNote(item) && !isFile(item))) { return null; }
+  if (item == null || (!isNote(item) && !isFile(item) && !isText(item))) { return null; }
   return asTitledItem(item).title;
 }
 
@@ -311,7 +317,7 @@ function setTextForLinearSelectionDeletePath(context: LinearEditContext, path: s
   }
 
   const item = itemState.get(VeFns.veidFromPath(path).itemId);
-  if (item == null || (!isNote(item) && !isFile(item))) { return false; }
+  if (item == null || (!isNote(item) && !isFile(item) && !isText(item))) { return false; }
   asTitledItem(item).title = text;
   return true;
 }
@@ -811,7 +817,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualE
   const upVeid = VeFns.veidFromPath(upPath);
   const upFocusItem = asTitledItem(itemState.get(upVeid.itemId)!);
 
-  if (!isNote(upFocusItem) && !isFile(upFocusItem)) { return; }
+  if (!isNote(upFocusItem) && !isFile(upFocusItem) && !isText(upFocusItem)) { return; }
   const upTextLength = upFocusItem.title.length;
   upFocusItem.title = upFocusItem.title + asTitledItem(context.editingVe.displayItem).title;
 
@@ -862,7 +868,7 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
 
   const noteVeid = VeFns.veidFromPath(context.editingPath);
   const item = itemState.get(noteVeid.itemId)!;
-  if (!isNote(item) && !isFile(item)) { return; }
+  if (!isNote(item) && !isFile(item) && !isText(item)) { return; }
   const titledItem = asTitledItem(item);
 
   const editingDomId = context.editingPath + ":title";
@@ -913,6 +919,9 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
           item.title = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
           let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+          item.title = newText;
+        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Text) {
+          let item = asTextItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
           item.title = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
           let item = asPasswordItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);

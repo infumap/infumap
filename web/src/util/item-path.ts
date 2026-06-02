@@ -35,6 +35,7 @@ function fallbackTitleForItem(item: Item): string {
     case ItemType.Composite: return "[composite]";
     case ItemType.Note: return "[note]";
     case ItemType.File: return "[file]";
+    case ItemType.Text: return "[text]";
     case ItemType.Password: return "[password]";
     case ItemType.Image: return "[image]";
     case ItemType.Rating: return "[rating]";

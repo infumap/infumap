@@ -46,6 +46,7 @@ import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
 import { asNoteItem, isNote, NoteFns } from "../items/note-item";
 import { asFileItem, FileFns, isFile } from "../items/file-item";
+import { asTextItem, TextFns, isText } from "../items/text-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { asPasswordItem, isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
@@ -246,6 +247,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         buttonNumber != MOUSE_LEFT &&
         (editingItemType == ItemType.Note ||
           editingItemType == ItemType.File ||
+          editingItemType == ItemType.Text ||
           editingItemType == ItemType.Password ||
           editingItemType == ItemType.Table ||
           editingPageIsEmbeddedInteractive);
@@ -291,6 +293,10 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
           editingDomEl.parentElement!.scrollLeft = 0;
           asFileItem(item).title = trimNewline(newText);
+        }
+        else if (store.overlay.textEditInfo()!.itemType == ItemType.Text) {
+          editingDomEl.parentElement!.scrollLeft = 0;
+          asTextItem(item).title = trimNewline(newText);
         }
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
           editingDomEl.parentElement!.scrollLeft = 0;
@@ -374,7 +380,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       currentPagePath != null &&
       focusPath !== currentPagePath;
 
-    if (isNote(focusItem) || isFile(focusItem) || isTable(focusItem) || isPassword(focusItem) ||
+    if (isNote(focusItem) || isFile(focusItem) || isText(focusItem) || isTable(focusItem) || isPassword(focusItem) ||
         shouldClearEmbeddedInteractiveFocus) {
       store.history.setFocus(store.history.currentPagePath()!);
       arrangeNow(store, "mouse-right-clear-item-focus");
@@ -561,6 +567,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     } else if (isFile(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
       FileFns.handleClick(hitVe, store, true);
+      MouseActionState.set(null);
+    } else if (isText(overDisplayItem)) {
+      ClickState.setLinkWasClicked(false);
+      TextFns.handleClick(hitVe, store, true);
       MouseActionState.set(null);
     } else if (isPassword(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
