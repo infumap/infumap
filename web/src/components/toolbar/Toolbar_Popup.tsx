@@ -183,10 +183,6 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   return 30;
 }
 
-function documentArrangeEnabled(store: StoreContextModel): boolean {
-  return store.general.installationState()?.enableExperimental ?? false;
-}
-
 export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   const popupType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const compositeItemMaybe = () => {
@@ -223,7 +219,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96,
-      h: documentArrangeEnabled(store) ? 190 : 164
+      h: 190
     }
   } else if (popupType == ToolbarPopupType.PageCalendarDisplayMode) {
     return {
@@ -333,7 +329,9 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.NoteFormat) {
       formatItem().format = textElement!.value;
     } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
-      pageItem().docWidthBl = Math.round(parseFloat(textElement!.value));
+      const docWidthBl = Math.round(parseFloat(textElement!.value));
+      if (!Number.isFinite(docWidthBl)) { return; }
+      pageItem().docWidthBl = Math.max(1, docWidthBl);
     } else if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
       panic("unexpected overlay type in handleTextChange: " + overlayTypeConst);
     }
@@ -414,11 +412,11 @@ export const Toolbar_Popup: Component = () => {
 
   const tooltip = (): string | null => {
     if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0, 1,000, 1,000.00 or empty"; }
-    if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
+    if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the height of one line of normal sized text."; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "The aspect ratio (width / height) of one row of items."; }
-    if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the hight of one line of normal sized text."; }
+    if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the height of one line of normal sized text."; }
     return null;
   }
 
@@ -736,6 +734,12 @@ export const Toolbar_Popup: Component = () => {
   const aaListClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.List); }
   const aaDocumentClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Document); }
   const aaCalendarClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Calendar); }
+  const pageArrangeAlgorithm = () => {
+    const focusItem = getToolbarFocusItem(store);
+    return isPage(focusItem) ? asPageItem(focusItem).arrangeAlgorithm : ArrangeAlgorithm.None;
+  };
+  const pageArrangeAlgorithmChoiceClass = (arrangeAlgorithm: ArrangeAlgorithm): string =>
+    `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${pageArrangeAlgorithm() == arrangeAlgorithm ? "font-bold text-slate-900" : ""}`;
   const calendarDisplayMode = () => getPageCalendarDisplayMode(pageItem());
   const handleCalendarDisplayModeChange = (displayMode: PageCalendarDisplayMode) => {
     const focusItem = getToolbarFocusItem(store);
@@ -781,7 +785,6 @@ export const Toolbar_Popup: Component = () => {
     store.touchToolbar();
     arrangeNow(store, "toolbar-popup-search-arrange-algorithm");
   }
-  const showDocumentArrange = () => documentArrangeEnabled(store);
   const handleRatingTypeChange = (newRatingType: "Star" | "Number" | "HorizontalBar" | "VerticalBar") => {
     ratingItem().ratingType = newRatingType;
     store.touchToolbar();
@@ -848,29 +851,27 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={aaSpatialClick}>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.SpatialStretch) + " mt-[3px]"} onClick={aaSpatialClick}>
               Spatial
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaGridClick}>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Grid)} onClick={aaGridClick}>
               Grid
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCatalogClick}>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Catalog)} onClick={aaCatalogClick}>
               Catalog
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaJustifiedClick}>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Justified)} onClick={aaJustifiedClick}>
               Justified
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaListClick}>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.List)} onClick={aaListClick}>
               List
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaCalendarClick}>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Document)} onClick={aaDocumentClick}>
+              Document
+            </div>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Calendar)} onClick={aaCalendarClick}>
               Calendar
             </div>
-            <Show when={showDocumentArrange()}>
-              <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={aaDocumentClick}>
-                Document
-              </div>
-            </Show>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageCalendarDisplayMode}>
