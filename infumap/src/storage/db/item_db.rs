@@ -41,7 +41,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 32;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 33;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -2263,4 +2263,49 @@ pub fn migrate_records_v31_to_v32(
   let mut migrated_descriptor = updated_descriptor.clone();
   migrated_descriptor.insert(String::from("epoch"), Value::Number(Number::from(epoch)));
   Ok((migrated_descriptor, migrated_records))
+}
+
+pub fn migrate_record_v32_to_v33(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 32),
+
+    "entry" => {
+      let mut result = kvs.clone();
+      if is_legacy_text_file_entry(&result)? {
+        result.insert(String::from("itemType"), Value::String(String::from("text")));
+      }
+      Ok(result)
+    }
+
+    "update" | "delete" | "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
+fn is_legacy_text_file_entry(kvs: &Map<String, Value>) -> InfuResult<bool> {
+  let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+  if item_type != "file" {
+    return Ok(false);
+  }
+
+  let mime_type_matches = json::get_string_field(kvs, "mimeType")?
+    .map(|mime_type| is_text_item_mime_type(&normalized_mime_type(&mime_type)))
+    .unwrap_or(false);
+  if mime_type_matches {
+    return Ok(true);
+  }
+
+  Ok(
+    json::get_string_field(kvs, "title")?
+      .as_deref()
+      .and_then(mime_type_from_title_extension)
+      .map(|mime_type| is_text_item_mime_type(&mime_type))
+      .unwrap_or(false),
+  )
+}
+
+fn is_text_item_mime_type(mime_type: &str) -> bool {
+  matches!(mime_type, "text/plain" | "text/markdown" | "text/x-markdown")
 }
