@@ -95,6 +95,66 @@ function updateFocusPageSelectionAndMaybeSwitchRoot(store: StoreContextModel, sh
   }
 }
 
+function isListPageVisualElement(visualElement: VisualElement): boolean {
+  return isPage(visualElement.displayItem) &&
+    (visualElement.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(visualElement.displayItem).arrangeAlgorithm) == ArrangeAlgorithm.List;
+}
+
+function popupListRootAncestorMaybe(visualElement: VisualElement): VisualElement | null {
+  let currentVe: VisualElement | null = visualElement;
+  while (currentVe != null) {
+    if ((currentVe.flags & VisualElementFlags.Popup) && isListPageVisualElement(currentVe)) {
+      return currentVe;
+    }
+    currentVe = currentVe.parentPath ? VesCache.current.readNode(currentVe.parentPath) ?? null : null;
+  }
+  return null;
+}
+
+function switchToPopupListRoot(store: StoreContextModel, popupListRoot: VisualElement): void {
+  const popupListVeid = VeFns.actualVeidFromVe(popupListRoot);
+  const currentVeid = store.history.currentPageVeid();
+  if (currentVeid != null &&
+    popupListVeid.itemId == currentVeid.itemId &&
+    popupListVeid.linkIdMaybe == currentVeid.linkIdMaybe) {
+    store.history.popAllPopups();
+    arrangeNow(store, "mouse-up-popup-list-background-root");
+    return;
+  }
+
+  switchToPage(store, popupListVeid, true, false, false);
+}
+
+function switchPopupListToRootFromBackgroundClickMaybe(store: StoreContextModel, visualElement: VisualElement): boolean {
+  if (store.history.currentPopupSpec() == null) { return false; }
+  if (MouseActionState.getHitboxTypeOnMouseDown() != HitboxFlags.None) { return false; }
+
+  const popupListRoot = popupListRootAncestorMaybe(visualElement);
+  if (popupListRoot == null) { return false; }
+
+  switchToPopupListRoot(store, popupListRoot);
+  return true;
+}
+
+function switchPopupListToRootFromNestedListAreaClickMaybe(store: StoreContextModel, visualElement: VisualElement): boolean {
+  if (store.history.currentPopupSpec() == null) { return false; }
+  if (!(visualElement.flags & VisualElementFlags.LineItem)) { return false; }
+  if (!visualElement.parentPath) { return false; }
+
+  const parentVe = VesCache.current.readNode(visualElement.parentPath);
+  if (parentVe == null ||
+    (parentVe.flags & VisualElementFlags.Popup) ||
+    !isListPageVisualElement(parentVe)) {
+    return false;
+  }
+
+  const popupListRoot = popupListRootAncestorMaybe(parentVe);
+  if (popupListRoot == null) { return false; }
+
+  switchToPopupListRoot(store, popupListRoot);
+  return true;
+}
+
 function maybeEditDocumentPageRowFromBackgroundClick(
   store: StoreContextModel,
   pageVe: VisualElement,
@@ -938,10 +998,12 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Click)) {
         DoubleClickState.preventDoubleClick();
-        const popupTitleTargetSignal = popupTitleTargetSignalMaybe();
-        ItemFns.handleClick(popupTitleTargetSignal ?? activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
-        if (popupTitleTargetSignal != null) {
-          arrangeNow(store, "mouse-up-popup-list-title-click");
+        if (!switchPopupListToRootFromNestedListAreaClickMaybe(store, activeVisualElement)) {
+          const popupTitleTargetSignal = popupTitleTargetSignalMaybe();
+          ItemFns.handleClick(popupTitleTargetSignal ?? activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
+          if (popupTitleTargetSignal != null) {
+            arrangeNow(store, "mouse-up-popup-list-title-click");
+          }
         }
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.ShiftLeft)) {
@@ -951,7 +1013,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else {
         const activeRootVe = MouseActionState.readActiveRoot()!;
 
-        if (focusSearchItemFromResultsBackgroundClickMaybe(store, activeVisualElement)) {
+        if (switchPopupListToRootFromBackgroundClickMaybe(store, activeVisualElement)) {
+          DoubleClickState.preventDoubleClick();
+
+        } else if (focusSearchItemFromResultsBackgroundClickMaybe(store, activeVisualElement)) {
           DoubleClickState.preventDoubleClick();
 
         } else if (veFlagIsRoot(activeRootVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
