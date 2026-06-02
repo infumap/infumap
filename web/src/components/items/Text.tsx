@@ -350,7 +350,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
               `text-indent: ${popupTextIndentPx()}px; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
               href={""}
-              class={`text-green-800 hover:text-green-700`}
+              class={`text-purple-800 hover:text-purple-700`}
               style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
               onClick={aHrefClick}
               onMouseDown={aHrefMouseDown}
@@ -361,7 +361,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={"text-left"}
+            class={"text-left text-purple-800"}
             style={`position: absolute; ` +
               `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
               `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +

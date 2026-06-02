@@ -166,7 +166,7 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
         <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
           <a id={VeFns.veToPath(props.visualElement) + ":title"}
             href={""}
-            class={`text-green-800`}
+            class={`text-purple-800`}
             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
             onClick={aHrefClick}
             onMouseDown={aHrefMouseDown}
@@ -176,6 +176,7 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
+            class="text-purple-800"
             style={`outline: 0px solid transparent;`}
             contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={canEdit() && store.overlay.textEditInfo() != null}
