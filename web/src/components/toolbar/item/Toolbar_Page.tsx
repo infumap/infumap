@@ -33,6 +33,7 @@ import { getPageCalendarDisplayMode, PageCalendarDisplayMode, PageFlags } from "
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
+import { isVirtualTextDocumentPage, materializeVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions } from "../../../items/text-document";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
@@ -193,6 +194,16 @@ export const Toolbar_Page: Component = () => {
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document;
   }
 
+  const showCreateDocumentFromTextButton = () => {
+    store.touchToolbarDependency();
+    return isVirtualTextDocumentPage(pageItem().id);
+  }
+
+  const showVirtualDocumentButtons = () => {
+    store.touchToolbarDependency();
+    return isVirtualTextDocumentPage(pageItem().id) && pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document;
+  }
+
   const showInnerBlockWidthButton = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
@@ -308,7 +319,11 @@ export const Toolbar_Page: Component = () => {
       pageItem().flags |= PageFlags.HideDocumentTitle;
     }
     requestArrange(store, "toolbar-page-toggle-document-title");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    if (isVirtualTextDocumentPage(pageItem().id)) {
+      persistVirtualTextDocumentPageOptions(store, pageItem());
+    } else {
+      serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    }
     store.touchToolbar();
   }
 
@@ -441,6 +456,28 @@ export const Toolbar_Page: Component = () => {
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
+  const handleCreateDocumentFromText = () => {
+    void materializeVirtualTextDocumentPage(store, pageItem().id);
+  }
+
+  const documentControls = () => (
+    <>
+      <div class="inline-block ml-[10px]">
+        <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} />
+      </div>
+      <div ref={docWidthDiv}
+        class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+        style={`font-size: 13px;`}
+        onClick={handleDocWidthBlClick}
+        onMouseDown={handlePageDocWidthDown}>
+        <i class="bi-arrows ml-[4px]" />
+        <div class="inline-block w-[30px] pl-[6px] text-right">
+          {docWidthBlText()}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0;">
@@ -450,6 +487,14 @@ export const Toolbar_Page: Component = () => {
           onClick={emptyTrashHandler}>
           empty trash
         </div>
+      </Show>
+      <Show when={showCreateDocumentFromTextButton()}>
+        <div class="inline-block ml-[10px]">
+          <InfuIconButton icon="fa fa-clone" highlighted={false} clickHandler={handleCreateDocumentFromText} title="Create document page" />
+        </div>
+      </Show>
+      <Show when={showVirtualDocumentButtons()}>
+        {documentControls()}
       </Show>
       <Show when={canEdit()}>
         <Show when={showInnerBlockWidthButton()}>
@@ -529,19 +574,7 @@ export const Toolbar_Page: Component = () => {
           </div>
         </Show>
         <Show when={showDocumentButtons()}>
-          <div class="inline-block ml-[10px]">
-            <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} />
-          </div>
-          <div ref={docWidthDiv}
-            class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-            style={`font-size: 13px;`}
-            onClick={handleDocWidthBlClick}
-            onMouseDown={handlePageDocWidthDown}>
-            <i class="bi-arrows ml-[4px]" />
-            <div class="inline-block w-[30px] pl-[6px] text-right">
-              {docWidthBlText()}
-            </div>
-          </div>
+          {documentControls()}
         </Show>
         <Show when={showOrderByButton()}>
           <div class="inline-block ml-[10px]">

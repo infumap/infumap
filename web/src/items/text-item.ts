@@ -40,10 +40,13 @@ import { VesCache } from '../layout/ves-cache';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
-import { downloadRemoteFile } from '../util/remoteFile';
+import { openTextDocumentProjection } from './text-document';
 
 
-export interface TextItem extends TextMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem { }
+export interface TextItem extends TextMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
+  documentWidthBl: number | null,
+  documentShowTitle: boolean | null,
+}
 
 export interface TextMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin, IconMixin { }
 
@@ -76,13 +79,17 @@ export const TextFns = {
       originalCreationDate: o.originalCreationDate,
       mimeType: o.mimeType,
       fileSizeBytes: o.fileSizeBytes,
+      documentWidthBl: typeof o.documentWidthBl == "number" && Number.isFinite(o.documentWidthBl)
+        ? Math.max(1, Math.round(o.documentWidthBl))
+        : null,
+      documentShowTitle: typeof o.documentShowTitle == "boolean" ? o.documentShowTitle : null,
 
       computed_attachments: [],
     });
   },
 
   toObject: (f: TextItem): object => {
-    return ({
+    const result: any = {
       itemType: f.itemType,
       ownerId: f.ownerId,
       id: f.id,
@@ -105,7 +112,14 @@ export const TextFns = {
       originalCreationDate: f.originalCreationDate,
       mimeType: f.mimeType,
       fileSizeBytes: f.fileSizeBytes,
-    });
+    };
+    if (f.documentWidthBl != null) {
+      result.documentWidthBl = f.documentWidthBl;
+    }
+    if (f.documentShowTitle != null) {
+      result.documentShowTitle = f.documentShowTitle;
+    }
+    return result;
   },
 
   calcSpatialDimensionsBl: (text: TextMeasurable, iconContext: ItemIconRenderContext = ItemIconRenderContext.Spatial): Dimensions => {
@@ -273,19 +287,16 @@ export const TextFns = {
     panic("not text measurable.");
   },
 
-  handleLinkClick: (visualElement: VisualElement): void => {
+  handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const textItem = asTextItem(visualElement.displayItem);
-    if (textItem.origin == null) {
-      window.open('/files/' + textItem.id, '_blank');
-      return;
-    }
-    void downloadRemoteFile(textItem.origin, textItem.id, textItem.title)
-      .catch((e) => {
-        console.error(`Could not download remote text '${textItem.id}' from '${textItem.origin}':`, e);
-      });
+    void openTextDocumentProjection(store, textItem);
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
+    if (!forceEdit) {
+      void openTextDocumentProjection(store, asTextItem(visualElement.displayItem));
+      return;
+    }
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
@@ -337,7 +348,9 @@ export const TextFns = {
   },
 
   getFingerprint: (textItem: TextItem): string => {
-    return textItem.title + "~~~!@#~~~" + (textItem.emoji || "") + "~~~!@#~~~" + textItem.iconMode;
+    return textItem.title + "~~~!@#~~~" + (textItem.emoji || "") + "~~~!@#~~~" + textItem.iconMode +
+      "~~~!@#~~~" + (textItem.documentWidthBl ?? "") +
+      "~~~!@#~~~" + (textItem.documentShowTitle == null ? "" : textItem.documentShowTitle ? "1" : "0");
   },
 
   iconRenderContextFromVisualElement,

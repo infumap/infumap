@@ -43,6 +43,11 @@ async function fetchRemoteFileBlob(host: string, itemId: string): Promise<Blob> 
   return response.blob();
 }
 
+export async function fetchRemoteFileText(host: string, itemId: string): Promise<string> {
+  const blob = await fetchRemoteFileBlob(host, itemId);
+  return blob.text();
+}
+
 function cleanupObjectUrl(url: string): void {
   window.setTimeout(() => {
     URL.revokeObjectURL(url);

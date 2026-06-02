@@ -51,6 +51,7 @@ import { getToolbarFocusItem } from "./toolbarFocus";
 import { getPageCalendarDisplayMode, PageCalendarDisplayMode, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
+import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions } from "../../items/text-document";
 
 
 const EMOJI_CATEGORIES = [
@@ -339,6 +340,9 @@ export const Toolbar_Popup: Component = () => {
       const docWidthBl = Math.round(parseFloat(textElement!.value));
       if (!Number.isFinite(docWidthBl)) { return; }
       pageItem().docWidthBl = Math.max(1, docWidthBl);
+      if (isVirtualTextDocumentPage(pageItem().id)) {
+        persistVirtualTextDocumentPageOptions(store, pageItem());
+      }
     } else if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
       panic("unexpected overlay type in handleTextChange: " + overlayTypeConst);
     }

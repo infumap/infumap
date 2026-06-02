@@ -309,7 +309,7 @@ export const ItemFns = {
     else if (isNote(item)) { NoteFns.handleLinkClick(visualElement); }
     else if (isImage(item)) { ImageFns.handleLinkClick(visualElement, store); }
     else if (isFile(item)) { FileFns.handleLinkClick(visualElement); }
-    else if (isText(item)) { TextFns.handleLinkClick(visualElement); }
+    else if (isText(item)) { TextFns.handleLinkClick(visualElement, store); }
     else if (isPassword(item)) { panic("handleLinkClick: password"); }
     else if (isRating(item)) { panic("handleLinkClick: rating"); }
     else if (isLink(item)) { panic("handleLinkClick: link"); }

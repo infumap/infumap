@@ -413,7 +413,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 52] = [
+const ALL_JSON_FIELDS: [&'static str; 54] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -461,6 +461,8 @@ const ALL_JSON_FIELDS: [&'static str; 52] = [
   "flags",
   "permissionFlags",
   "format",
+  "documentWidthBl",
+  "documentShowTitle",
   "docWidthBl",
   "gridCellAspect",
   "justifiedRowAspect",
@@ -510,6 +512,10 @@ pub struct Item {
   pub original_creation_date: Option<i64>,
   pub mime_type: Option<String>,
   pub file_size_bytes: Option<i64>,
+
+  // text document view
+  pub document_width_bl: Option<i64>,
+  pub document_show_title: Option<bool>,
 
   // tabular
   pub table_columns: Option<Vec<TableColumn>>,
@@ -595,6 +601,8 @@ impl Clone for Item {
       original_creation_date: self.original_creation_date.clone(),
       mime_type: self.mime_type.clone(),
       file_size_bytes: self.file_size_bytes.clone(),
+      document_width_bl: self.document_width_bl.clone(),
+      document_show_title: self.document_show_title.clone(),
       flags: self.flags.clone(),
       permission_flags: self.permission_flags.clone(),
       inner_spatial_width_gr: self.inner_spatial_width_gr.clone(),
@@ -814,6 +822,30 @@ impl JsonLogSerializable<Item> for Item {
         None => true,
       } {
         cannot_modify_err("fileSizeBytes", &old.id)?;
+      }
+    }
+
+    // text document view
+    if let Some(new_document_width_bl) = new.document_width_bl {
+      if match old.document_width_bl {
+        Some(o) => o != new_document_width_bl,
+        None => true,
+      } {
+        if old.item_type != ItemType::Text {
+          cannot_modify_err("documentWidthBl", &old.id)?;
+        }
+        result.insert(String::from("documentWidthBl"), Value::Number(new_document_width_bl.into()));
+      }
+    }
+    if let Some(new_document_show_title) = new.document_show_title {
+      if match old.document_show_title {
+        Some(o) => o != new_document_show_title,
+        None => true,
+      } {
+        if old.item_type != ItemType::Text {
+          cannot_modify_err("documentShowTitle", &old.id)?;
+        }
+        result.insert(String::from("documentShowTitle"), Value::Bool(new_document_show_title));
       }
     }
 
@@ -1458,6 +1490,20 @@ impl JsonLogSerializable<Item> for Item {
       cannot_update_err("fileSizeBytes", &self.id)?;
     }
 
+    // text document view
+    if let Some(v) = json::get_integer_field(map, "documentWidthBl")? {
+      if self.item_type != ItemType::Text {
+        not_applicable_err("documentWidthBl", self.item_type, &self.id)?;
+      }
+      self.document_width_bl = Some(v);
+    }
+    if let Some(v) = get_bool_field(map, "documentShowTitle")? {
+      if self.item_type != ItemType::Text {
+        not_applicable_err("documentShowTitle", self.item_type, &self.id)?;
+      }
+      self.document_show_title = Some(v);
+    }
+
     // tabular
     if let Some(v) = json::get_table_columns_field(map, "tableColumns")? {
       if !is_tabular_item_type(self.item_type) {
@@ -1899,6 +1945,20 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
       unexpected_field_err("fileSizeBytes", &item.id, item.item_type)?
     }
     result.insert(String::from("fileSizeBytes"), Value::Number(file_size_bytes.into()));
+  }
+
+  // text document view
+  if let Some(document_width_bl) = item.document_width_bl {
+    if item.item_type != ItemType::Text {
+      unexpected_field_err("documentWidthBl", &item.id, item.item_type)?
+    }
+    result.insert(String::from("documentWidthBl"), Value::Number(document_width_bl.into()));
+  }
+  if let Some(document_show_title) = item.document_show_title {
+    if item.item_type != ItemType::Text {
+      unexpected_field_err("documentShowTitle", &item.id, item.item_type)?
+    }
+    result.insert(String::from("documentShowTitle"), Value::Bool(document_show_title));
   }
 
   // tabular
@@ -2391,6 +2451,28 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
           Ok(None)
         }
       }
+    }?,
+
+    // text document view
+    document_width_bl: match json::get_integer_field(map, "documentWidthBl")? {
+      Some(v) => {
+        if item_type == ItemType::Text {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("documentWidthBl", item_type, &id))
+        }
+      }
+      None => Ok(None),
+    }?,
+    document_show_title: match get_bool_field(map, "documentShowTitle")? {
+      Some(v) => {
+        if item_type == ItemType::Text {
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("documentShowTitle", item_type, &id))
+        }
+      }
+      None => Ok(None),
     }?,
 
     // tabular
@@ -2947,6 +3029,8 @@ impl Item {
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
+      document_width_bl: None,
+      document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
       natural_aspect: None,
@@ -3011,6 +3095,8 @@ impl Item {
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
+      document_width_bl: None,
+      document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
       natural_aspect: None,
@@ -3079,6 +3165,8 @@ impl Item {
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
+      document_width_bl: None,
+      document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
       natural_aspect: None,
@@ -3135,6 +3223,8 @@ impl Item {
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
+      document_width_bl: None,
+      document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
       natural_aspect: None,
@@ -3197,6 +3287,8 @@ impl Item {
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
+      document_width_bl: None,
+      document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
       natural_aspect: None,
@@ -3295,6 +3387,8 @@ impl Item {
       original_creation_date: None,
       mime_type: None,
       file_size_bytes: None,
+      document_width_bl: None,
+      document_show_title: None,
       popup_position_gr: None,
       popup_width_gr: None,
       default_cell_popup_position_norm: None,
@@ -3383,6 +3477,16 @@ impl Item {
       }
       if let Some(file_size_bytes) = self.file_size_bytes {
         hashes.push(hash_i64_to_uid(file_size_bytes));
+      }
+    }
+
+    // Text document view properties
+    if self.item_type == ItemType::Text {
+      if let Some(document_width_bl) = self.document_width_bl {
+        hashes.push(hash_i64_to_uid(document_width_bl));
+      }
+      if let Some(document_show_title) = self.document_show_title {
+        hashes.push(hash_i64_to_uid(if document_show_title { 1 } else { 0 }));
       }
     }
 
