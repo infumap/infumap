@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE } from "../constants";
+import { GRID_SIZE, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -27,7 +27,8 @@ import { PasswordFns } from "../items/password-item";
 import { calculateCalendarDateTime } from "../util/calendar-layout";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
-import { TableFns, isTable } from "../items/table-item";
+import { TableFns, asTableItem, isTable } from "../items/table-item";
+import { TableFlags } from "../items/base/flags-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -275,6 +276,186 @@ function focusNewItemTitleForEditing(el: HTMLElement): void {
   setCaretPosition(el, 0);
 }
 
+function scrollTableToIncludeRow(store: StoreContextModel, tableVe: VisualElement, rowNumber: number): void {
+  if (!tableVe.blockSizePx || tableVe.blockSizePx.h <= 0) { return; }
+
+  const tableItem = asTableItem(tableVe.displayItem);
+  const headerRowsBl = TABLE_TITLE_HEADER_HEIGHT_BL;
+  const colHeaderRowsBl = (tableItem.flags & TableFlags.ShowColHeader) ? TABLE_COL_HEADER_HEIGHT_BL : 0;
+  const visibleRows = Math.max(1, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - headerRowsBl - colHeaderRowsBl));
+  const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
+  const firstVisibleRow = Math.floor(scrollYPos);
+  const lastVisibleRow = firstVisibleRow + visibleRows - 1;
+
+  let nextScrollYPos = scrollYPos;
+  if (rowNumber < firstVisibleRow) {
+    nextScrollYPos = rowNumber;
+  } else if (rowNumber > lastVisibleRow) {
+    nextScrollYPos = rowNumber - (visibleRows - 1);
+  }
+
+  const maxFirstVisibleRow = Math.max(0, TableFns.tableVisibleRowCount(store, tableVe) - visibleRows);
+  nextScrollYPos = Math.max(0, Math.min(nextScrollYPos, maxFirstVisibleRow));
+
+  if (nextScrollYPos != scrollYPos) {
+    store.perItem.setTableScrollYPos(VeFns.veidFromVe(tableVe), nextScrollYPos);
+  }
+}
+
+type RenderedNewItemCandidate = {
+  itemPath: string,
+  visualElement: VisualElement | null,
+  titleElement: HTMLElement | null,
+};
+
+function titleElementsForPath(itemPath: string): Array<HTMLElement> {
+  const titleId = itemPath + ":title";
+  const result: Array<HTMLElement> = [];
+  const byId = document.getElementById(titleId);
+  if (byId instanceof HTMLElement) {
+    result.push(byId);
+  }
+
+  const escapedTitleId = titleId.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+  const matchingElements = document.querySelectorAll(`[id="${escapedTitleId}"]`);
+  for (let i = 0; i < matchingElements.length; ++i) {
+    const el = matchingElements[i];
+    if (!(el instanceof HTMLElement)) { continue; }
+    if (result.indexOf(el) >= 0) { continue; }
+    result.push(el);
+  }
+
+  return result;
+}
+
+function titleElementForPath(itemPath: string, requireEditable: boolean): HTMLElement | null {
+  const elements = titleElementsForPath(itemPath);
+  for (let i = 0; i < elements.length; ++i) {
+    if (elements[i].isContentEditable) {
+      return elements[i];
+    }
+  }
+  if (requireEditable) {
+    return null;
+  }
+  for (let i = 0; i < elements.length; ++i) {
+    if (!elements[i].isContentEditable) {
+      return elements[i];
+    }
+  }
+  return null;
+}
+
+function candidateScore(candidate: RenderedNewItemCandidate, preferredPath: string): number {
+  let score = 0;
+  if (candidate.titleElement?.isContentEditable) { score += 1000; }
+  if (candidate.visualElement?.flags & VisualElementFlags.LineItem) { score += 100; }
+  if (candidate.visualElement?.flags & VisualElementFlags.InsideTable) { score += 50; }
+  if (candidate.titleElement != null) { score += 10; }
+  if (candidate.itemPath == preferredPath) { score += 1; }
+  return score;
+}
+
+function addRenderedCandidate(
+  candidates: Array<RenderedNewItemCandidate>,
+  itemPath: string,
+  visualElement: VisualElement | null,
+): void {
+  const existing = candidates.find(candidate => candidate.itemPath == itemPath);
+  if (existing != null) {
+    if (existing.visualElement == null) {
+      existing.visualElement = visualElement;
+    }
+    return;
+  }
+
+  candidates.push({
+    itemPath,
+    visualElement,
+    titleElement: titleElementForPath(itemPath, false),
+  });
+}
+
+function findRenderedCandidatesForItem(
+  newItem: PositionalItem,
+  preferredPath: string,
+): Array<RenderedNewItemCandidate> {
+  const candidates: Array<RenderedNewItemCandidate> = [];
+  addRenderedCandidate(candidates, preferredPath, VesCache.current.readNode(preferredPath) ?? null);
+
+  const matchingVes = VesCache.render.find({ itemId: newItem.id, linkIdMaybe: null });
+  for (let i = 0; i < matchingVes.length; ++i) {
+    const candidateVe = matchingVes[i].get();
+    addRenderedCandidate(candidates, VeFns.veToPath(candidateVe), candidateVe);
+  }
+
+  return candidates.sort((a, b) => candidateScore(b, preferredPath) - candidateScore(a, preferredPath));
+}
+
+function findEditableTitleElement(itemPath: string): HTMLElement | null {
+  return titleElementForPath(itemPath, true);
+}
+
+function makeTitleElementEditableForNewItem(el: HTMLElement, type: string): void {
+  if (!el.isContentEditable) {
+    el.contentEditable = "true";
+  }
+  el.spellcheck = type != ItemType.Password;
+}
+
+function focusNewItemForEditing(
+  store: StoreContextModel,
+  type: string,
+  newItem: PositionalItem,
+  newItemPath: string,
+  attempt: number = 0,
+): void {
+  const renderedCandidates = findRenderedCandidatesForItem(newItem, newItemPath);
+  const renderedPath = renderedCandidates[0]?.itemPath ?? null;
+  const editableCandidate = renderedCandidates.find(candidate => candidate.titleElement?.isContentEditable);
+  if (editableCandidate != null) {
+    store.overlay.setTextEditInfo(store.history, { itemPath: editableCandidate.itemPath, itemType: type });
+    focusNewItemTitleForEditing(editableCandidate.titleElement!);
+    return;
+  }
+
+  if (renderedPath != null) {
+    store.overlay.setTextEditInfo(store.history, { itemPath: renderedPath, itemType: type });
+    const titleElement = findEditableTitleElement(renderedPath) ?? titleElementForPath(renderedPath, false);
+    if (titleElement != null) {
+      makeTitleElementEditableForNewItem(titleElement, type);
+      focusNewItemTitleForEditing(titleElement);
+      return;
+    }
+  }
+
+  if (attempt < 3) {
+    requestAnimationFrame(() => {
+      arrangeNow(store, "create-retry-find-new-editor");
+      focusNewItemForEditing(store, type, newItem, newItemPath, attempt + 1);
+    });
+    return;
+  }
+
+  if (renderedPath != null) {
+    console.warn("could not edit newly created item because no editable title element was rendered", {
+      type,
+      newItemPath,
+      renderedPath,
+      renderedPaths: renderedCandidates.map(candidate => ({
+        itemPath: candidate.itemPath,
+        flags: candidate.visualElement?.flags ?? null,
+        hasTitleElement: candidate.titleElement != null,
+        titleElementIsEditable: candidate.titleElement?.isContentEditable ?? false,
+      })),
+    });
+    return;
+  }
+
+  console.warn("could not edit newly created item because its title element was not found", { type, newItemPath });
+  store.overlay.setTextEditInfo(store.history, null, true);
+}
+
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
   const overElementVe = findPlaceholderAtDesktopPos(store, hitInfo, desktopPosPx) ?? HitInfoFns.getHitVe(hitInfo);
   const focusedListPageVe = focusedListPageCreateTarget(store, desktopPosPx);
@@ -331,6 +512,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         server.addItem(newItem, null, store.general.networkStatus);
         itemState.add(newItem);
         store.overlay.contextMenuInfo.set(null);
+        scrollTableToIncludeRow(store, overElementVe, insertRow);
         arrangeNow(store, "create-in-table-end");
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 
@@ -434,15 +616,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       type == ItemType.Note ||
       type == ItemType.Password ||
       type == ItemType.Table) {
-    store.overlay.setTextEditInfo(store.history, { itemPath: newItemPath, itemType: type });
-    const elId = newItemPath + ":title";
-    const el = document.getElementById(elId);
-    if (el instanceof HTMLElement) {
-      focusNewItemTitleForEditing(el);
-    } else {
-      console.warn("could not edit newly created item because its title element was not found", { type, newItemPath });
-      store.overlay.setTextEditInfo(store.history, null, true);
-    }
+    focusNewItemForEditing(store, type, newItem, newItemPath);
   } else if (type == ItemType.Link) {
     store.history.setFocus(newItemPath);
   } else if (type == ItemType.Rating) {

@@ -31,7 +31,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from './base/item-common-fns';
@@ -1067,7 +1067,7 @@ export const PageFns = {
     } else if (isRenderedEmbeddedInteractive) {
       return;
     } else {
-      if (maybeEditDocumentPageRowFromClick(visualElement, store)) {
+      if (!isVeTranslucentPage(visualElement) && maybeEditDocumentPageRowFromClick(visualElement, store)) {
         return;
       }
 

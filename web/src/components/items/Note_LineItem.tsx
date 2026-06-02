@@ -92,6 +92,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
+  const isTextEditTarget = () => store.overlay.textEditInfo()?.itemPath == vePath();
 
   const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
 
@@ -171,16 +172,16 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   }
 
   const renderText = () =>
-    <Show when={textWidthPx() > 0}>
+    <Show when={textWidthPx() > 0 || isTextEditTarget()}>
       <div class={`absolute overflow-hidden whitespace-nowrap ` +
-        ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) || isInCalendarPage() ? '' : `text-ellipsis `) +
+        (isTextEditTarget() || isInCalendarPage() ? '' : `text-ellipsis `) +
         `${infuTextStyle().alignClass} `}
         style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
           `width: ${textWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
           `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; padding-right: ${textPaddingRightCssPx()}px;`}>
         <Switch>
           <Match when={NoteFns.hasUrl(noteItem()) &&
-            (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
+            !isTextEditTarget()}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
               href={noteItem().url}
               class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
@@ -192,26 +193,26 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
               {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
             </a>
           </Match>
-          <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
+          <Match when={isTextEditTarget()}>
             {/* when editing, don't apply text formatting. */}
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
               class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
               style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent;`}
-              contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
-              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+              contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+              spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
               onInput={inputListener}>
               {appendNewlineIfEmpty(noteItem().title)}<span></span>
             </span>
           </Match>
-          <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
+          <Match when={!NoteFns.hasUrl(noteItem()) || isTextEditTarget()}>
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
               class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
               style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent;`}
-              contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
-              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+              contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+              spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
               onInput={inputListener}>
               {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>

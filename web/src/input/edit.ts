@@ -571,6 +571,39 @@ function focusItemInLinearContainer(
   }, caretPosition);
 }
 
+export function splitDocumentTitleToFirstNote(
+  store: StoreContextModel,
+  documentPageVe: VisualElement,
+  titleElement: HTMLElement,
+): boolean {
+  if (!isPage(documentPageVe.displayItem)) { return false; }
+  const page = asPageItem(documentPageVe.displayItem);
+  if (page.arrangeAlgorithm != ArrangeAlgorithm.Document || (page.flags & PageFlags.HideDocumentTitle)) {
+    return false;
+  }
+
+  const titleText = trimNewline(titleElement.innerText);
+  const caretPosition = Math.min(getCaretPosition(titleElement), titleText.length);
+  const beforeText = titleText.substring(0, caretPosition);
+  const afterText = titleText.substring(caretPosition);
+
+  page.title = beforeText;
+  serverOrRemote.updateItem(page, store.general.networkStatus);
+
+  const note = NoteFns.create(
+    page.ownerId,
+    page.id,
+    RelationshipToParent.Child,
+    afterText,
+    itemState.newOrderingAtBeginningOfChildren(page.id),
+  );
+  itemState.add(note);
+  server.addItem(note, null, store.general.networkStatus);
+  arrangeNow(store, "document-title-enter-create-first-note");
+  focusItemInLinearContainer(store, VeFns.veToPath(documentPageVe), note.id, 0);
+  return true;
+}
+
 function maybeBuildLinearBoundaryNavigation(
   store: StoreContextModel,
   key: string,
@@ -818,6 +851,14 @@ const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualE
 const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement) => {
   const context = currentLinearEditContext(store);
   if (context == null) { return; }
+
+  if (context.editingPath == context.containerPath) {
+    const titleElement = document.getElementById(context.editingPath + ":title");
+    if (titleElement instanceof HTMLElement &&
+      splitDocumentTitleToFirstNote(store, context.containerVe, titleElement)) {
+      return;
+    }
+  }
 
   const noteVeid = VeFns.veidFromPath(context.editingPath);
   const item = itemState.get(noteVeid.itemId)!;

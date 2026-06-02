@@ -23,13 +23,16 @@ import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
+import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
+import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { arrangeTable } from "./table";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
 
@@ -115,8 +118,13 @@ export function arrange_document_page(
 
   const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
   for (const child of childArrangeData) {
-    childrenPaths.push(arrangeItemPath(
-      store, pageWithChildrenVePath, ArrangeAlgorithm.Document, child.childItem, child.actualLinkItemMaybe, child.geometry,
+    childrenPaths.push(arrangeDocumentChildItemPath(
+      store,
+      pageWithChildrenVePath,
+      child.childItem,
+      child.actualLinkItemMaybe,
+      child.geometry,
+      totalWidthBl - totalMarginBl,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       ArrangeItemFlags.InsideCompositeOrDoc |
       (child.childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
@@ -187,6 +195,42 @@ export function arrange_document_page(
   };
 
   return { spec: pageSpec, relationships: pageRelationships };
+}
+
+function arrangeDocumentChildItemPath(
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  childItem: Item,
+  actualLinkItemMaybe: LinkItem | null,
+  geometry: ItemGeometry,
+  documentContentWidthBl: number,
+  flags: ArrangeItemFlags): VisualElementPath {
+
+  const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+  const shouldRenderTableChildren =
+    childItem.parentId == store.history.currentPageVeid()?.itemId ||
+    !!(flags & ArrangeItemFlags.RenderChildrenAsFull);
+  if (isTable(displayItem) && shouldRenderTableChildren) {
+    initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+    return VeFns.veToPath(arrangeTable(
+      store,
+      parentPath,
+      asTableItem(displayItem),
+      linkItemMaybe,
+      actualLinkItemMaybe,
+      geometry,
+      flags,
+      documentContentWidthBl).get());
+  }
+
+  return arrangeItemPath(
+    store,
+    parentPath,
+    ArrangeAlgorithm.Document,
+    childItem,
+    actualLinkItemMaybe,
+    geometry,
+    flags);
 }
 
 function arrangeMovingItemInDocument(

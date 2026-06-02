@@ -346,6 +346,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isInCompositeOrDocument = () =>
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
+  const isTextEditTarget = () =>
+    store.overlay.textEditInfo()?.itemPath == vePath();
+
   const renderShadowMaybe = () =>
     <Show when={!props.suppressLocalShadow &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
@@ -428,8 +431,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `text-indent: ${popupTextIndentPx()}px; ` +
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent;`}
-              contentEditable={canEdit() && !isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
-              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+              contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+              spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
               onInput={inputListener}>
               {appendNewlineIfEmpty(noteItem().title)}<span></span>
@@ -451,8 +454,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent; ` +
                 `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}
-              contentEditable={canEdit() && !isInCompositeOrDocument() && store.overlay.textEditInfo() != null ? true : undefined}
-              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+              contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+              spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
               onInput={inputListener}>
               {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>

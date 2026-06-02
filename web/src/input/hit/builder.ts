@@ -23,7 +23,7 @@ import { isTable } from "../../items/table-item";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElementSignal } from "../../util/signals";
 import { Vector } from "../../util/geometry";
-import { VisualElement, VisualElementFlags } from "../../layout/visual-element";
+import { VisualElement, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { GRID_SIZE } from "../../constants";
 import { HitInfo } from "./types";
 import { panic } from "../../util/lang";
@@ -76,8 +76,12 @@ export class HitBuilder {
   }
 
   build(): HitInfo {
+    const overVe = this._overVes!.get();
+    const hitboxType = isVeTranslucentPage(overVe)
+      ? (this._hitboxType & ~HitboxFlags.ContentEditable) as HitboxFlags
+      : this._hitboxType;
     return finalize(
-      this._hitboxType,
+      hitboxType,
       this._containerHitboxType,
       this._parentRootVe,
       this._rootVes,

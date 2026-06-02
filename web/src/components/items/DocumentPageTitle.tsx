@@ -18,6 +18,7 @@
 
 import { Component } from "solid-js";
 import { LINE_HEIGHT_PX, NOTE_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { splitDocumentTitleToFirstNote } from "../../input/edit";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { PageFns } from "../../items/page-item";
 import { VeFns } from "../../layout/visual-element";
@@ -65,6 +66,17 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
     PageFns.handleEditTitleClick(props.visualElement, store, { x: ev.clientX, y: ev.clientY });
   };
 
+  const handleTitleKeyDown = (ev: KeyboardEvent) => {
+    if (ev.key == "Enter" && titleEditHandlers.isEditingTitle()) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      splitDocumentTitleToFirstNote(store, props.visualElement, ev.currentTarget as HTMLElement);
+      return;
+    }
+
+    titleEditHandlers.titleKeyDownHandler(ev);
+  };
+
   return (
     <div class="absolute"
       style={`left: ${documentTextColumnLeftPx()}px; ` +
@@ -83,7 +95,7 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
         spellcheck={allowEditing() && titleEditHandlers.isEditingTitle()}
         contentEditable={allowEditing() && titleEditHandlers.isEditingTitle()}
         onClick={allowEditing() ? handleTitleClick : undefined}
-        onKeyDown={allowEditing() ? titleEditHandlers.titleKeyDownHandler : undefined}
+        onKeyDown={allowEditing() ? handleTitleKeyDown : undefined}
         onKeyUp={allowEditing() ? titleEditHandlers.titleKeyUpHandler : undefined}
         onInput={allowEditing() ? titleEditHandlers.titleInputListener : undefined}>
         {appendNewlineIfEmpty(pageFns().pageItem().title)}
