@@ -119,12 +119,13 @@ export function getMovingTreeItemInParentMaybe(parentId: string): Item | null {
     return null;
   }
 
-  const activeVisualElement = MouseActionState.getActiveVisualElement();
-  const movingItem = activeVisualElement
-    ? VeFns.treeItem(activeVisualElement)
-    : (MouseActionState.getActiveElementPath() != null
-      ? VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!)
-      : null);
+  const activeElementPath = MouseActionState.getActiveElementPath();
+  const movingItem = activeElementPath != null
+    ? VeFns.treeItemFromPath(activeElementPath)
+    : (() => {
+      const activeVisualElement = MouseActionState.getActiveVisualElement();
+      return activeVisualElement ? VeFns.treeItem(activeVisualElement) : null;
+    })();
 
   if (movingItem == null || movingItem.parentId != parentId) {
     return null;

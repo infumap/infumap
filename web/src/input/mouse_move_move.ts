@@ -19,6 +19,7 @@
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
 import { asAttachmentsItem, calcSpatialAttachmentInsertIndex } from "../items/base/attachments-item";
 import { itemCanMove } from "../items/base/capabilities-item";
+import type { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -418,6 +419,20 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
 
   store.anItemIsMoving.set(true);
   MouseActionState.setAction(MouseAction.Moving);
+  if (shouldArrangeDocumentPageMoveOutOnStart(parentItem, activeVisualElement)) {
+    const activeElementPath = MouseActionState.getActiveElementPath();
+    arrangeNow(store, "moving-init-document-page-move-out");
+    if (activeElementPath != null) {
+      MouseActionState.setActiveElementPath(activeElementPath);
+    }
+  }
+}
+
+function shouldArrangeDocumentPageMoveOutOnStart(parentItem: Item, activeVisualElement: VisualElement): boolean {
+  return isPage(activeVisualElement.displayItem) &&
+    isPage(parentItem) &&
+    asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+    MouseActionState.hitboxTypeIncludes(HitboxFlags.Move);
 }
 
 function spatialStartPosBlFromRenderedVe(visualElement: VisualElement): Vector | null {

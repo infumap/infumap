@@ -72,6 +72,17 @@ function dragOffsetBoundsRelativeToDesktopPx(store: StoreContextModel, visualEle
   };
 }
 
+function isPageInDocumentArrangedPage(visualElement: VisualElement): boolean {
+  if (!isPage(visualElement.displayItem) || visualElement.parentPath == null) {
+    return false;
+  }
+
+  const parent = VesCache.current.readNode(visualElement.parentPath);
+  return parent != null &&
+    isPage(parent.displayItem) &&
+    asPageItem(parent.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+}
+
 
 function isInsideElementClientBounds(elementId: string): boolean {
   const element = document.getElementById(elementId);
@@ -516,13 +527,21 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     x: (startPx.x - boundsOnTopLevelPagePx.x) / boundsOnTopLevelPagePx.w,
     y: (startPx.y - boundsOnTopLevelPagePx.y) / boundsOnTopLevelPagePx.h
   };
-  if (hitInfo.overElementMeta?.compositeMoveOut) {
+  const documentPageMoveOut =
+    isPageInDocumentArrangedPage(hitVe) &&
+    !!(hitInfo.hitboxType & HitboxFlags.Move) &&
+    clickOffsetProp.x > 1;
+  if (hitInfo.overElementMeta?.compositeMoveOut || documentPageMoveOut) {
     // Composite move-out can start from a synthetic gutter outside the item's visible bounds.
-    // Anchor the drag to the nearest point on the real item box so the dragged item stays near the cursor.
-    clickOffsetProp = {
+    const clampOffsetProp = {
       x: Math.max(0, Math.min(1, clickOffsetProp.x)),
       y: Math.max(0, Math.min(1, clickOffsetProp.y)),
     };
+    // Document page handles are aligned to the document column, not necessarily the page box.
+    // Center the page under the cursor when it is picked up from that synthetic handle.
+    clickOffsetProp = documentPageMoveOut
+      ? { x: 0.5, y: clampOffsetProp.y }
+      : clampOffsetProp;
   }
   const startAttachmentsItem = calcStartTableAttachmentsItemMaybe(activeItem);
   const startCompositeItem = calcStartCompositeItemMaybe(activeItem);

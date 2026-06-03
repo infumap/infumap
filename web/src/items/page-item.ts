@@ -930,14 +930,14 @@ export const PageFns = {
       h: sizeBl.h * blockSizePx.h
     };
     let innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
-    const compositeWidthPx = compositeWidthBl * blockSizePx.w;
+    const moveAreaRightPx = (leftMarginBl + compositeWidthBl) * blockSizePx.w;
     const popupClickBoundsPx =
     {
       x: innerBoundsPx.w / 3.0, y: innerBoundsPx.h / 3.0,
       w: innerBoundsPx.w / 3.0, h: innerBoundsPx.h / 3.0
     };
     const moveAreaBoundsPx = {
-      x: compositeWidthPx
+      x: moveAreaRightPx
         - boundsPx.x
         - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
         - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
@@ -955,7 +955,7 @@ export const PageFns = {
         viewportBoundsPx: boundsPx,
         hitboxes: [
           HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-          HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true }),
+          HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true, allowOutsideBounds: true }),
           HitboxFns.create(
             HitboxFlags.Attach,
             calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, measurable.computed_attachments.length),
@@ -990,7 +990,7 @@ export const PageFns = {
       viewportBoundsPx,
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true }),
+        HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true, allowOutsideBounds: true }),
         HitboxFns.create(
           HitboxFlags.Attach,
           calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, measurable.computed_attachments.length),

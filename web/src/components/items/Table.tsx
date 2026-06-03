@@ -173,15 +173,15 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }));
   });
 
-  const isInComposite = () =>
-    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+  const isInCompositeOrDocument = () =>
+    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.textEditInfo() == null &&
-    isInComposite();
+    isInCompositeOrDocument();
 
   const keyDownHandler = (ev: KeyboardEvent) => {
     if (ev.key === "Escape") {

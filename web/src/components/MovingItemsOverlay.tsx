@@ -32,8 +32,8 @@ function movingOverlayBoundsPx(store: StoreContextModel, visualElement: VisualEl
   if (!(visualElement.flags & VisualElementFlags.LineItem) && isPage(visualElement.displayItem) && visualElement.viewportBoundsPx) {
     const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, visualElement);
     return {
-      x: viewportBoundsPx.x - visualElement.viewportBoundsPx.x,
-      y: viewportBoundsPx.y - visualElement.viewportBoundsPx.y,
+      x: viewportBoundsPx.x - (visualElement.viewportBoundsPx.x - visualElement.boundsPx.x),
+      y: viewportBoundsPx.y - (visualElement.viewportBoundsPx.y - visualElement.boundsPx.y),
       w: visualElement.boundsPx.w,
       h: visualElement.boundsPx.h,
     };

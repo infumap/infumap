@@ -283,7 +283,6 @@ function finalizePageWithChildren(
   }
   if ((overVe.flags & VisualElementFlags.InsideCompositeOrDoc) && isComposite(VesCache.current.readNode(overVe.parentPath!)!.displayItem)) {
     const parentCompositeVe = parentVe(overVe);
-    const compositeParentPageVe = parentVe(parentCompositeVe);
     return {
       overVes,
       rootVes,
@@ -312,7 +311,6 @@ function finalizePageWithChildren(
     debugCreatedAt: "finalize/pageChildren " + debugCreatedAt,
   };
 }
-
 
 function finalizeInsideCompositeParent(
   hitboxType: HitboxFlags,

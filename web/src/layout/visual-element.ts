@@ -200,6 +200,17 @@ function pageAncestorScrollOffsetPx(
   };
 }
 
+function documentPageContentLeftPx(pageVe: VisualElement): number {
+  if (!isPage(pageVe.displayItem) ||
+    asPageItem(pageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Document ||
+    !pageVe.viewportBoundsPx ||
+    !pageVe.childAreaBoundsPx) {
+    return 0;
+  }
+
+  return Math.max((pageVe.viewportBoundsPx.w - pageVe.childAreaBoundsPx.w) / 2, 0);
+}
+
 /**
  * Specifies a visual element, corresponding to a rendered item in the visual tree.
  */
@@ -765,6 +776,7 @@ export const VeFns = {
         const blockHeightPx = ve.boundsPx.h / fullHeightBl;
         r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
       } else if (isPage(ve.displayItem)) {
+        r.x += documentPageContentLeftPx(ve);
         const scrollOffsetPx = pageAncestorScrollOffsetPx(store, ve, visualElement, "veBoundsRelativeToDesktopPx");
         r.x -= scrollOffsetPx.x;
         r.y -= scrollOffsetPx.y;
@@ -953,6 +965,7 @@ export const VeFns = {
         const blockHeightPx = visualElement.boundsPx.h / fullHeightBl;
         r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
       } else if (isPage(ve.displayItem)) {
+        r.x += documentPageContentLeftPx(ve);
         const scrollOffsetPx = pageAncestorScrollOffsetPx(store, ve, visualElement, "veViewportBoundsRelativeToDesktopPx");
         r.x -= scrollOffsetPx.x;
         r.y -= scrollOffsetPx.y;

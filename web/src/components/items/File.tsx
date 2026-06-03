@@ -266,7 +266,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.textEditInfo() == null &&
-    isInComposite();
+    isInCompositeOrDocument();
 
   const isInCompositeOrDocument = () =>
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;

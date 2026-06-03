@@ -20,8 +20,6 @@ import { Component, Show } from "solid-js";
 import { VisualElementProps } from "../VisualElement";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
-import { isComposite } from "../../items/composite-item";
-import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX } from "../../constants";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
@@ -67,15 +65,12 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
     }
   };
 
-  const isInComposite = () =>
-    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
-
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.textEditInfo() == null &&
-    isInComposite();
+    InsideCompositeOrDoc();
 
   const loginRequired = () => !!props.visualElement.linkItemMaybe?.linkRequiresRemoteLogin;
   const backgroundStyle = () => {

@@ -32,7 +32,7 @@ import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
 import { HitboxFlags } from "../../layout/hitbox";
 import { useStore } from "../../store/StoreProvider";
-import { CompositeFns, isComposite } from "../../items/composite-item";
+import { CompositeFns } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { appendNewlineIfEmpty, isUrl, trimNewline } from "../../util/string";
@@ -333,15 +333,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
-  const isInComposite = () =>
-    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
-
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.textEditInfo() == null &&
-    isInComposite();
+    isInCompositeOrDocument();
 
   const isInCompositeOrDocument = () =>
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;

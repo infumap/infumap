@@ -25,8 +25,6 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
-import { isComposite } from "../../items/composite-item";
-import { itemState } from "../../store/ItemState";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
@@ -58,15 +56,12 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
     });
   };
 
-  const isInComposite = () =>
-    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
-
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.textEditInfo() == null &&
-    isInComposite();
+    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
 
   // TODO (LOW): perhaps different rendering for non-detailed element, or no rendering at all.

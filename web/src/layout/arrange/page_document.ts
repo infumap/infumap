@@ -17,7 +17,6 @@
 */
 
 import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
-import { CursorEventState, MouseActionState } from "../../input/state";
 import { PageFlags } from "../../items/base/flags-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -32,6 +31,7 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeTable } from "./table";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
@@ -250,32 +250,22 @@ function arrangeMovingItemInDocument(
   const pageVeid = flags & ArrangeItemFlags.IsPopupRoot
     ? store.history.currentPopupSpec()!.actualVeid
     : VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
-  const scrollPropY = store.perItem.getPageScrollYProp(pageVeid);
-  const scrollPropX = store.perItem.getPageScrollXProp(pageVeid);
 
-  const umbrellaVisualElement = store.umbrellaVisualElement.get();
-  const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
-  const desktopSizePx = store.desktopBoundsPx();
-  const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
-  const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
-
-  const yOffsetPx = scrollPropY * Math.max(0, childAreaBoundsPx.h - geometry.boundsPx.h);
-  const xOffsetPx = scrollPropX * Math.max(0, childAreaBoundsPx.w - geometry.boundsPx.w);
   const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-  const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-  const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
-  const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
   const documentContentLeftPx = Math.max((geometry.viewportBoundsPx!.w - childAreaBoundsPx.w) / 2, 0);
-  const cellBoundsPx = {
-    x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx - documentContentLeftPx,
-    y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
-    w: dimensionsBl.w * blockSizePx.w,
-    h: dimensionsBl.h * blockSizePx.h,
-  };
-
-  const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
-  cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
-  cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
+  const cellBoundsPx = movingItemCellBoundsInPagePx(
+    store,
+    pageWithChildrenVePath,
+    geometry,
+    childAreaBoundsPx,
+    pageVeid,
+    {
+      w: dimensionsBl.w * blockSizePx.w,
+      h: dimensionsBl.h * blockSizePx.h,
+    },
+    flags,
+    documentContentLeftPx,
+  );
 
   const cellGeometry = ItemFns.calcGeometry_InCell(
     movingItem,
@@ -298,6 +288,7 @@ function arrangeMovingItemInDocument(
     movingItem,
     actualMovingItemLinkItemMaybe,
     cellGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None),
+    ArrangeItemFlags.RenderChildrenAsFull |
+    (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None),
   );
 }

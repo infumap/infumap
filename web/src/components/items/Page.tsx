@@ -270,13 +270,24 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     },
 
     moveOutOfCompositeBox: (): BoundingBox => {
-      const parentCompositeWidthPx = pageFns.isInComposite()
-        ? props.visualElement.blockSizePx
-          ? asCompositeItem(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId)!).spatialWidthGr / GRID_SIZE * props.visualElement.blockSizePx.w
-          : pageFns.boundsPx().w
-        : pageFns.boundsPx().w;
+      const moveAreaRightPx = (() => {
+        if (!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || props.visualElement.blockSizePx == null) {
+          return pageFns.boundsPx().w;
+        }
+        const parentItem = itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId);
+        if (parentItem == null) {
+          return pageFns.boundsPx().w;
+        }
+        if (isComposite(parentItem)) {
+          return asCompositeItem(parentItem).spatialWidthGr / GRID_SIZE * props.visualElement.blockSizePx.w;
+        }
+        if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
+          return (PAGE_DOCUMENT_LEFT_MARGIN_BL + asPageItem(parentItem).docWidthBl) * props.visualElement.blockSizePx.w;
+        }
+        return pageFns.boundsPx().w;
+      })();
       return ({
-        x: parentCompositeWidthPx
+        x: moveAreaRightPx
           - pageFns.boundsPx().x
           - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
           - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
@@ -368,7 +379,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       store.perVe.getMouseIsOver(pageFns.vePath()) &&
       !store.anItemIsMoving.get() &&
       store.overlay.textEditInfo() == null &&
-      pageFns.isInComposite(),
+      (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0,
 
     lineChildren: () => VesCache.render.getLineChildren(VeFns.veToPath(props.visualElement))(),
 

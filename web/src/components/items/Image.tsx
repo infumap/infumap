@@ -280,7 +280,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.perVe.getMouseIsOver(vePath()) &&
     !store.anItemIsMoving.get() &&
     store.overlay.textEditInfo() == null &&
-    isInComposite();
+    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
   // Check if this image is currently focused (via focusPath)
   const isFocused = () => {
