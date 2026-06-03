@@ -53,6 +53,8 @@ import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { asPageItem, isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
 import { isAttachmentsItem } from "../items/base/attachments-item";
+import { asTextItem, isText } from "../items/text-item";
+import { openTextDocumentProjection } from "../items/text-document";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
@@ -178,7 +180,11 @@ export const Main: Component = () => {
       }
 
       try {
-        switchToPage(store, isPage(item) ? { itemId, linkIdMaybe: null } : { itemId: SOLO_ITEM_HOLDER_PAGE_UID, linkIdMaybe: null }, false, false, false);
+        if (isText(item)) {
+          await openTextDocumentProjection(store, asTextItem(item));
+        } else {
+          switchToPage(store, isPage(item) ? { itemId, linkIdMaybe: null } : { itemId: SOLO_ITEM_HOLDER_PAGE_UID, linkIdMaybe: null }, false, false, false);
+        }
       } catch (e: any) {
         console.error(`Main.onMount switchToPage ${itemId} failed`, e);
         throw e;

@@ -28,6 +28,8 @@ import { isUid, POPUP_LINK_UID } from '../util/uid';
 import { arrangeNow } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { requestContainerSyncSoon } from '../server';
+import { asTextItem, isText } from '../items/text-item';
+import { openTextDocumentProjection } from '../items/text-document';
 
 
 const App: Component = () => {
@@ -121,6 +123,17 @@ const App: Component = () => {
     window.removeEventListener('popstate', windowPopStateListener);
   });
 
+  const switchToUrlItem = (itemId: string): boolean => {
+    const item = itemState.get(itemId);
+    if (item == null) { return false; }
+    if (isText(item)) {
+      void openTextDocumentProjection(store, asTextItem(item));
+      return true;
+    }
+    switchToPage(store, { itemId, linkIdMaybe: null }, false, false, false);
+    return true;
+  }
+
   const windowPopStateListener = (e: PopStateEvent) => {
     const debug = false;
     if (debug) { console.debug("window popstate handler: called."); }
@@ -151,7 +164,7 @@ const App: Component = () => {
                 : "window popstate handler: no prevHistoryVeid, switching to page."
             );
           }
-          switchToPage(store, { itemId: currentUrlPageIdMaybe, linkIdMaybe: null }, false, false, false);
+          switchToUrlItem(currentUrlPageIdMaybe);
         } else {
           if (debug) {
             console.debug(
@@ -189,7 +202,7 @@ const App: Component = () => {
                 currentUrlUidMaybe
               );
             }
-            switchToPage(store, { itemId: currentUrlPageIdMaybe, linkIdMaybe: null }, false, false, false);
+            switchToUrlItem(currentUrlPageIdMaybe);
           } else {
             if (debug) {
               console.debug(

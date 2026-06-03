@@ -29,7 +29,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { server, serverOrRemote } from "../server";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
-import { EMPTY_UID, Uid, isUid } from "../util/uid";
+import { EMPTY_UID, Uid } from "../util/uid";
 import { fetchRemoteFileText, openRemoteFileInNewTab } from "../util/remoteFile";
 
 type TextBlockKind = "paragraph" | "heading";
@@ -79,16 +79,19 @@ function sourceKey(textItem: TextItem): string {
   return `${textItem.origin ?? ""}|${textItem.id}`;
 }
 
-function currentResolvablePageUrl(store: StoreContextModel): string {
-  const currentUrl = store.currentUrlPath.get() || window.location.pathname;
-  const parts = currentUrl.split("/");
-  const lastPart = parts[parts.length - 1] ?? "";
-  if (lastPart == "" || isUid(lastPart) || (parts.length >= 4 && parts[1] == "remote" && isUid(parts[3]))) {
-    return currentUrl;
+function textDocumentUrl(textItem: TextItem): string {
+  if (textItem.origin == null) {
+    return `/${textItem.id}`;
   }
+  return `/remote/${encodeURIComponent(textItem.origin)}/${textItem.id}`;
+}
 
-  const currentPageVeid = store.history.currentPageVeid();
-  return currentPageVeid == null ? currentUrl : `/${currentPageVeid.itemId}`;
+function pushTextDocumentUrlIfNeeded(store: StoreContextModel, textItem: TextItem): void {
+  const url = textDocumentUrl(textItem);
+  if (window.location.pathname != url) {
+    window.history.pushState(null, "", url);
+  }
+  store.currentUrlPath.set(url);
 }
 
 async function fetchLocalFileText(itemId: string): Promise<string> {
@@ -351,12 +354,11 @@ export async function openTextDocumentProjection(store: StoreContextModel, textI
     const text = await fetchTextItemContent(textItem);
     const page = upsertVirtualProjection(textItem, parseTextDocumentBlocks(text));
     const pageVeid = { itemId: page.id, linkIdMaybe: null };
-    const currentUrl = currentResolvablePageUrl(store);
     if (store.history.currentPageVeid()?.itemId != page.id) {
-      window.history.pushState(null, "", currentUrl);
-      store.currentUrlPath.set(currentUrl);
+      pushTextDocumentUrlIfNeeded(store, textItem);
       store.history.pushPageVeid(pageVeid);
     } else {
+      pushTextDocumentUrlIfNeeded(store, textItem);
       store.history.setFocus(store.history.currentPagePath()!);
     }
     store.overlay.setTextEditInfo(store.history, null, true);
