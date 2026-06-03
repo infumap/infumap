@@ -35,6 +35,7 @@ import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
+import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -45,7 +46,12 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
+  const childVes = () => VesCache.render.getChildren(vePath())();
   const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
+  const linearTextEditIsActive = () => {
+    const itemPath = store.overlay.textEditInfo()?.itemPath;
+    return itemPath != null && VeFns.parentPath(itemPath) == vePath();
+  };
 
   const attachCompositeBoundsPx = (): BoundingBox => {
     return {
@@ -126,7 +132,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
           `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
           `outline: 0px solid transparent; `}
-        contentEditable={store.overlay.textEditInfo() != null}
+        contentEditable={linearTextEditIsActive()}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
@@ -137,23 +143,33 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
               `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
-        <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
-          <>
-            <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
-            <Show when={activeChildPath() === VeFns.veToPath(childVe.get()) && shouldShowFocusRingForVisualElement(store, () => childVe.get())}>
-              {(() => {
-                const focusBoundsPx = childFocusBoundsPx(childVe.get().boundsPx, isPage(childVe.get().displayItem));
-                return (
-              <div class="absolute pointer-events-none select-none"
-                contentEditable={false}
-                style={`left: ${focusBoundsPx.x}px; top: ${focusBoundsPx.y}px; ` +
-                  `width: ${focusBoundsPx.w}px; height: ${focusBoundsPx.h}px; ` +
-                  `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT + 1};`} />
-                );
-              })()}
-            </Show>
-          </>
-        }</For>
+        <For each={childVes()}>{(childVe, index) => {
+          const gapAfterBoundsPx = () => linearSelectionGapAfterBoundsPx(
+            childVe.get().boundsPx,
+            childVes()[index() + 1]?.get().boundsPx ?? null,
+            boundsPx().w,
+          );
+          return (
+            <>
+              <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
+              <Show when={activeChildPath() === VeFns.veToPath(childVe.get()) && shouldShowFocusRingForVisualElement(store, () => childVe.get())}>
+                {(() => {
+                  const focusBoundsPx = childFocusBoundsPx(childVe.get().boundsPx, isPage(childVe.get().displayItem));
+                  return (
+                    <div class="absolute pointer-events-none select-none"
+                      contentEditable={false}
+                      style={`left: ${focusBoundsPx.x}px; top: ${focusBoundsPx.y}px; ` +
+                        `width: ${focusBoundsPx.w}px; height: ${focusBoundsPx.h}px; ` +
+                        `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT + 1};`} />
+                  );
+                })()}
+              </Show>
+              <LinearSelectionGapCover
+                enabled={linearTextEditIsActive}
+                boundsPx={gapAfterBoundsPx} />
+            </>
+          );
+        }}</For>
         <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
           <div class={`absolute border border-black`}
             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />

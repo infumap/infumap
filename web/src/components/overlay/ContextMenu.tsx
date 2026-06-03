@@ -42,7 +42,7 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
   const newPasswordInContext = () => newItemInContext(store, "password", props.hitInfo, props.desktopPosPx);
 
   return (
-    <div class="border rounded w-[115px] h-[212px] bg-slate-50 mb-1 shadow-lg">
+    <div class="border rounded w-[115px] h-[238px] bg-slate-50 mb-1 shadow-lg">
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newNoteInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-sticky-note" /></div> Note
       </div>
@@ -63,6 +63,9 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
       </div>
       <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
         <div class="inline-block text-center w-[18px]"><i class="fa fa-image" /></div> Image
+      </div>
+      <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
+        <div class="inline-block text-center w-[18px]"><i class="fa fa-font" /></div> Text
       </div>
       <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
         <div class="inline-block text-center w-[18px]"><i class="fa fa-file" /></div> File

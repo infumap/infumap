@@ -50,6 +50,7 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
+import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -70,6 +71,14 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
+  const pageChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
+  const documentTextEditIsActive = () => {
+    if (!canEditPage() || !pageFns().isDocumentPage()) { return false; }
+    const itemPath = store.overlay.textEditInfo()?.itemPath;
+    if (itemPath == null) { return false; }
+    const pagePath = pageFns().vePath();
+    return itemPath == pagePath || VeFns.parentPath(itemPath) == pagePath;
+  };
 
   const getScrollVeid = (): Veid | null => {
     let veid = store.history.currentPageVeid();
@@ -551,7 +560,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             `width: ${pageFns().childAreaBoundsPx().w}px; ` +
             `height: ${pageFns().childAreaBoundsPx().h}px;` +
             `outline: 0px solid transparent; `}
-          contentEditable={canEditPage() && store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+          contentEditable={documentTextEditIsActive()}
           onKeyUp={keyUpHandler}
           onKeyDown={keyDownHandler}
           onInput={inputListener}>
@@ -729,7 +738,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;` +
           `outline: 0px solid transparent; `}
-        contentEditable={canEditPage() && store.overlay.textEditInfo() != null && pageFns().isDocumentPage()}
+        contentEditable={documentTextEditIsActive()}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
@@ -738,10 +747,22 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
         {pageFns().renderSearchSelectionMaybe()}
-        <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
-        <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
-          <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
-        }</For>
+        <VisualElement_DesktopShadowLayer visualElementSignals={pageChildren()} />
+        <For each={pageChildren()}>{(childVes, index) => {
+          const gapAfterBoundsPx = () => linearSelectionGapAfterBoundsPx(
+            childVes.get().boundsPx,
+            pageChildren()[index() + 1]?.get().boundsPx ?? null,
+            pageFns().childAreaBoundsPx().w,
+          );
+          return (
+            <>
+              <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
+              <LinearSelectionGapCover
+                enabled={documentTextEditIsActive}
+                boundsPx={gapAfterBoundsPx} />
+            </>
+          );
+        }}</For>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderSearchHoverMaybe()}
         {pageFns().renderCatalogMetadataMaybe()}
