@@ -280,7 +280,7 @@ export const TableFns = {
       h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
     };
     const resizeHb = result.hitboxes.pop()!;
-    result.hitboxes.push(HitboxFns.create(HitboxFlags.Move, compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx), { compositeMoveOut: true }));
+    result.hitboxes.push(HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0), { compositeMoveOut: true }));
     result.hitboxes.push(
       HitboxFns.create(HitboxFlags.AttachComposite, {
         x: 0,

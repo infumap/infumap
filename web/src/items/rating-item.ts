@@ -166,7 +166,7 @@ export const RatingFns = {
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
     };
-    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
+    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0);
     const leftFocusBoundsPx = {
       x: innerBoundsPx.x,
       y: innerBoundsPx.y,
@@ -181,7 +181,7 @@ export const RatingFns = {
     };
     const hitboxes = [
       HitboxFns.create(HitboxFlags.Click, valueClickBoundsPx),
-      HitboxFns.create(HitboxFlags.Move, moveBoundsPx, { compositeMoveOut: true }),
+      HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, moveBoundsPx, { compositeMoveOut: true }),
       HitboxFns.create(HitboxFlags.AttachComposite, {
         x: 0,
         y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,

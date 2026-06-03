@@ -125,11 +125,13 @@ function filteredHitboxType(ve: VisualElement, type: HitboxFlags): HitboxFlags {
 
   if ((result & HitboxFlags.Move) && ve.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM) {
     result = (result & ~HitboxFlags.Move) as HitboxFlags;
+    if (result == HitboxFlags.ShowPointer) { result = HitboxFlags.None; }
   }
 
   // Capabilities apply to the draggable tree item, not the rendered display target.
   if ((result & HitboxFlags.Move) && !itemCanMove(VeFns.treeItem(ve))) {
     result = (result & ~HitboxFlags.Move) as HitboxFlags;
+    if (result == HitboxFlags.ShowPointer) { result = HitboxFlags.None; }
   }
 
   return result;
