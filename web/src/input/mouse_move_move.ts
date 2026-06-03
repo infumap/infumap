@@ -511,15 +511,27 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const moveTargetIsDocumentPage =
     isPage(hitMoveTargetVe.displayItem) &&
     asPageItem(hitMoveTargetVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  const tableContainerIsIgnored =
+    tableContainerVeMaybe != null &&
+    (ignoreIds.includes(tableContainerVeMaybe.displayItem.id) ||
+      (tableContainerVeMaybe.linkItemMaybe != null && ignoreIds.includes(tableContainerVeMaybe.linkItemMaybe.id)));
+  const tableMoveTargetPath =
+    tableContainerVeMaybe != null &&
+      !tableContainerIsIgnored &&
+      (!isOverTableRootAttach || shouldTreatTableHeaderAsFirstRow)
+      ? VeFns.veToPath(tableContainerVeMaybe)
+      : null;
   const isTextDocumentMaterializeMove = MouseActionState.getTextDocumentMaterializeMove() != null;
 
   if (!hasValidMoveTarget) {
     clearMoveOverTargetState(store);
   } else {
     // update move over element state.
-    const moveOverContainerPath = moveTargetIsDocumentPage
-      ? hitMoveTargetPath
-      : resolvedMoveTarget.hoverContainerPath;
+    const moveOverContainerPath = tableMoveTargetPath != null
+      ? tableMoveTargetPath
+      : moveTargetIsDocumentPage
+        ? hitMoveTargetPath
+        : resolvedMoveTarget.hoverContainerPath;
     if (MouseActionState.getMoveOverContainerPath() == null ||
       MouseActionState.getMoveOverContainerPath()! != moveOverContainerPath) {
       clearMoveOverContainerState(store);
@@ -564,21 +576,26 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       }
     }
 
+    if (tableMoveTargetPath != null) {
+      moving_handleOverTable(store, tableContainerVeMaybe!, desktopPosPx, tableChildContainerDropTargetPath);
+    } else {
+      clearTableChildContainerDropTarget(store, tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null);
+    }
+
     if (!dockListPageIconMoveTarget &&
       !hoveredPageInsideTable &&
       pageCanHostLiveMovingItem(hitMoveTargetVe) &&
       MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
-      clearTableChildContainerDropTarget(store, moveOverContainerPath);
+      if (tableMoveTargetPath == null) {
+        clearTableChildContainerDropTarget(store, moveOverContainerPath);
+      }
       if (moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false)) {
         arrangeNow(store, "moving-enter-new-container");
       }
       return;
     }
 
-    if (!moveTargetIsDocumentPage && tableContainerVeMaybe && (!isOverTableRootAttach || shouldTreatTableHeaderAsFirstRow)) {
-      moving_handleOverTable(store, tableContainerVeMaybe, desktopPosPx, tableChildContainerDropTargetPath);
-    } else {
-      clearTableChildContainerDropTarget(store, tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null);
+    if (tableMoveTargetPath == null) {
       const moveOverContainerVe = MouseActionState.readMoveOverContainer()!;
       if (!moveTargetIsDocumentPage && isComposite(moveOverContainerVe.displayItem)) {
         if (
