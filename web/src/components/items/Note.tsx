@@ -36,7 +36,7 @@ import { CompositeFns } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { appendNewlineIfEmpty, isUrl, trimNewline } from "../../util/string";
-import { asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { VesCache } from "../../layout/ves-cache";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -343,6 +343,17 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isInCompositeOrDocument = () =>
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
+  const isInDocumentPage = () => {
+    if (!isInCompositeOrDocument() || props.visualElement.parentPath == null) {
+      return false;
+    }
+
+    const parentItem = itemState.get(VeFns.veidFromPath(props.visualElement.parentPath).itemId);
+    return parentItem != null &&
+      isPage(parentItem) &&
+      asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  };
+
   const isTextEditTarget = () =>
     store.overlay.textEditInfo()?.itemPath == vePath();
 
@@ -388,6 +399,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         </Show>
         <Switch>
           <Match when={NoteFns.hasUrl(noteItem()) &&
+            !isInDocumentPage() &&
             (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
             <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
               style={`position: absolute; ` +
@@ -412,33 +424,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               </a>
             </div>
           </Match>
-          <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()!.itemPath == vePath()}>
-            {/* when editing, don't apply text formatting. */}
+          <Match when={!NoteFns.hasUrl(noteItem()) || isTextEditTarget() || isInDocumentPage()}>
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
               class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-                `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
-              style={`position: absolute; ` +
-                `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-                `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
-                `width: ${naturalWidthPx()}px; ` +
-                `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
-                `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                `font-size: ${infuTextStyle().fontSize}px; ` +
-                `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                `text-indent: ${popupTextIndentPx()}px; ` +
-                `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                `outline: 0px solid transparent;`}
-              contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
-              spellcheck={canEdit() && isTextEditTarget()}
-              onKeyDown={keyDownHandler}
-              onInput={inputListener}>
-              {appendNewlineIfEmpty(noteItem().title)}<span></span>
-            </span>
-          </Match>
-          <Match when={!NoteFns.hasUrl(noteItem()) || store.overlay.textEditInfo() != null}>
-            <span id={VeFns.veToPath(props.visualElement) + ":title"}
-              class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-                `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}`}
+                `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}${isTextEditTarget() ? ' select-text cursor-text' : ''}`}
               style={`position: absolute; ` +
                 `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
                 `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
@@ -450,12 +439,14 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `text-indent: ${popupTextIndentPx()}px; ` +
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent; ` +
-                `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}
+                (isTextEditTarget()
+                  ? `user-select: text; -webkit-user-select: text; `
+                  : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
               contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
               spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
               onInput={inputListener}>
-              {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
+              {appendNewlineIfEmpty(isTextEditTarget() ? noteItem().title : NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
             </span>
           </Match>
         </Switch>

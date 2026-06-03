@@ -83,6 +83,34 @@ function isPageInDocumentArrangedPage(visualElement: VisualElement): boolean {
     asPageItem(parent.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
 }
 
+function isNoteInDocumentArrangedPage(visualElement: VisualElement): boolean {
+  if (!isNote(visualElement.displayItem) || visualElement.parentPath == null) {
+    return false;
+  }
+
+  const parent = VesCache.current.readNode(visualElement.parentPath);
+  return parent != null &&
+    isPage(parent.displayItem) &&
+    asPageItem(parent.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+}
+
+function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  if (!isNoteInDocumentArrangedPage(hitVe)) {
+    return false;
+  }
+
+  const blockedHitboxes =
+    HitboxFlags.Move |
+    HitboxFlags.Resize |
+    HitboxFlags.Attach |
+    HitboxFlags.AttachComposite |
+    HitboxFlags.OpenPopup |
+    HitboxFlags.OpenAttachment;
+
+  return !!(hitInfo.hitboxType & HitboxFlags.Click) &&
+    !(hitInfo.hitboxType & blockedHitboxes);
+}
+
 
 function isInsideElementClientBounds(elementId: string): boolean {
   const element = document.getElementById(elementId);
@@ -451,6 +479,16 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const startHeightBl = null;
   const startPx = desktopPosPx;
   let hitVe = HitInfoFns.getHitVe(hitInfo);
+
+  if (shouldEditDocumentNoteOnMouseDown(hitVe, hitInfo)) {
+    ClickState.setLinkWasClicked(false);
+    if (store.overlay.selectedVeids.get()?.length) {
+      store.overlay.selectedVeids.set([]);
+    }
+    NoteFns.handleClick(hitVe, store, true);
+    return MouseEventActionFlags.None;
+  }
+
   // If clicking a child inside a composite and that composite is in the current selection,
   // treat this as hitting the composite to preserve selection during drag (tables unchanged).
   if ((hitVe.flags & VisualElementFlags.InsideCompositeOrDoc) && !isTable(hitVe.displayItem)) {
