@@ -77,7 +77,7 @@ export const Toolbar_File: Component = () => {
       <div class="inline-block">
         <Show when={canEdit()}>
           <div ref={iconDiv} class="inline-block pl-[2px]" onMouseDown={handleIconDown}>
-            <InfuIconButton icon="fa fa-file" highlighted={iconVisible()} clickHandler={iconButtonHandler} />
+            <InfuIconButton icon="fa fa-icons" highlighted={iconVisible()} clickHandler={iconButtonHandler} title="Item icon" />
           </div>
         </Show>
 

@@ -229,7 +229,7 @@ export const Toolbar_Note: Component = () => {
         </Show>
         <div ref={popupIconDiv} class="inline-block"
           onMouseDown={handlePopupIconDown}>
-          <InfuIconButton icon="fa fa-sticky-note" highlighted={popupIconVisible()} clickHandler={popupIconButtonHandler} />
+          <InfuIconButton icon="fa fa-icons" highlighted={popupIconVisible()} clickHandler={popupIconButtonHandler} title="Item icon" />
         </div>
         <Show when={!isInTable()}>
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
