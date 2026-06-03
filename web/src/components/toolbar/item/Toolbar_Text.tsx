@@ -26,12 +26,14 @@ import { TextFns, asTextItem } from "../../../items/text-item";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem } from "../toolbarFocus";
+import { openTextItemFileInNewTab } from "../../../items/text-document";
 
 
 export const Toolbar_Text: Component = () => {
   const store = useStore();
 
   let qrDiv: HTMLDivElement | undefined;
+  let openFileDiv: HTMLDivElement | undefined;
   let iconDiv: HTMLDivElement | undefined;
 
   const textItem = () => asTextItem(getToolbarFocusItem(store));
@@ -65,6 +67,13 @@ export const Toolbar_Text: Component = () => {
     ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
   };
 
+  const handleOpenFile = () => {
+    openTextItemFileInNewTab(store, textItem());
+  }
+  const handleOpenFileDown = () => {
+    ClickState.setButtonClickBoundsPx(openFileDiv!.getBoundingClientRect());
+  };
+
   const handleCopyId = () => {
     navigator.clipboard.writeText(textItem().id);
     store.overlay.toolbarTransientMessage.set({ text: "text id → clipboard", type: TransientMessageType.Info });
@@ -84,9 +93,12 @@ export const Toolbar_Text: Component = () => {
         <Toolbar_ItemOrdering />
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 175px; top: 7px;"></div>
 
-        <div ref={qrDiv} class="inline-block pl-[18px]" onMouseDown={handleQrDown}>
+        <div ref={openFileDiv} class="inline-block pl-[18px]" onMouseDown={handleOpenFileDown}>
+          <InfuIconButton icon="fa fa-download" highlighted={false} clickHandler={handleOpenFile} title="Open text file" />
+        </div>
+        <div ref={qrDiv} class="inline-block" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
         </div>
         <div class="inline-block">

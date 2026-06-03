@@ -33,7 +33,7 @@ import { getPageCalendarDisplayMode, PageCalendarDisplayMode, PageFlags } from "
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
-import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions } from "../../../items/text-document";
+import { isVirtualTextDocumentPage, openTextItemFileInNewTab, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../../items/text-document";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
@@ -54,6 +54,7 @@ export const Toolbar_Page: Component = () => {
   let justifiedRowAspectDiv: HTMLDivElement | undefined;
   let numColsDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
+  let openTextFileDiv: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(pageItem());
@@ -444,6 +445,19 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
   };
 
+  const handleOpenTextFile = () => {
+    const sourceTextItem = sourceTextItemForVirtualTextDocumentPage(pageItem().id);
+    if (sourceTextItem == null) {
+      store.overlay.toolbarTransientMessage.set({ text: "could not open text file", type: TransientMessageType.Error });
+      setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1500);
+      return;
+    }
+    openTextItemFileInNewTab(store, sourceTextItem);
+  }
+  const handleOpenTextFileDown = () => {
+    ClickState.setButtonClickBoundsPx(openTextFileDiv!.getBoundingClientRect());
+  };
+
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(pageItem().id);
@@ -468,6 +482,8 @@ export const Toolbar_Page: Component = () => {
       </div>
     </>
   );
+
+  const infoDividerRightPx = () => showVirtualDocumentButtons() ? 175 : 151;
 
   return (
     <div id="toolbarItemOptionsDiv"
@@ -591,9 +607,14 @@ export const Toolbar_Page: Component = () => {
       <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+      <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${infoDividerRightPx()}px; top: 7px;`}></div>
 
-      <div ref={qrDiv} class="inline-block pl-[16px]" onMouseDown={handleQrDown}>
+      <Show when={showVirtualDocumentButtons()}>
+        <div ref={openTextFileDiv} class="inline-block pl-[16px]" onMouseDown={handleOpenTextFileDown}>
+          <InfuIconButton icon="fa fa-download" highlighted={false} clickHandler={handleOpenTextFile} title="Open text file" />
+        </div>
+      </Show>
+      <div ref={qrDiv} class={showVirtualDocumentButtons() ? "inline-block" : "inline-block pl-[16px]"} onMouseDown={handleQrDown}>
         <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
       </div>
       <div class="inline-block">

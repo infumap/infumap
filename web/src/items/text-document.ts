@@ -30,7 +30,7 @@ import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { server, serverOrRemote } from "../server";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, isUid } from "../util/uid";
-import { fetchRemoteFileText } from "../util/remoteFile";
+import { fetchRemoteFileText, openRemoteFileInNewTab } from "../util/remoteFile";
 
 type TextBlockKind = "paragraph" | "heading";
 
@@ -314,12 +314,24 @@ export function isVirtualTextDocumentPage(pageId: Uid): boolean {
   return virtualSourceTextIdByPageId.has(pageId);
 }
 
-function sourceTextItemForVirtualTextDocumentPage(pageId: Uid): TextItem | null {
+export function sourceTextItemForVirtualTextDocumentPage(pageId: Uid): TextItem | null {
   const sourceTextId = virtualSourceTextIdByPageId.get(pageId);
   if (sourceTextId == null) { return null; }
   const source = itemState.get(sourceTextId);
   if (source == null || source.itemType != ItemType.Text) { return null; }
   return source as TextItem;
+}
+
+export function openTextItemFileInNewTab(store: StoreContextModel, textItem: TextItem): void {
+  if (textItem.origin == null) {
+    window.open('/files/' + textItem.id, '_blank', 'noopener');
+    return;
+  }
+  void openRemoteFileInNewTab(textItem.origin, textItem.id)
+    .catch((e) => {
+      console.error(`Could not open remote text file '${textItem.id}' from '${textItem.origin}':`, e);
+      setTransientMessage(store, "could not open text file", TransientMessageType.Error);
+    });
 }
 
 export function persistVirtualTextDocumentPageOptions(store: StoreContextModel, page: PageItem): void {
