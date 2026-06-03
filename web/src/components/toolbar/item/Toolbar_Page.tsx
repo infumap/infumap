@@ -460,8 +460,10 @@ export const Toolbar_Page: Component = () => {
 
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(pageItem().id);
-    store.overlay.toolbarTransientMessage.set({ text: "page id → clipboard", type: TransientMessageType.Info });
+    const sourceTextItem = sourceTextItemForVirtualTextDocumentPage(pageItem().id);
+    const itemForId = sourceTextItem ?? pageItem();
+    navigator.clipboard.writeText(itemForId.id);
+    store.overlay.toolbarTransientMessage.set({ text: itemForId.itemType + " id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 

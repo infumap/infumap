@@ -46,12 +46,13 @@ import { FileFns, asFileItem, isFile } from "../../items/file-item";
 import { TextFns, asTextItem, isText } from "../../items/text-item";
 import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-item";
 import { isImage } from "../../items/image-item";
+import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { getToolbarFocusItem } from "./toolbarFocus";
 import { getPageCalendarDisplayMode, PageCalendarDisplayMode, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
-import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions } from "../../items/text-document";
+import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../items/text-document";
 
 
 const EMOJI_CATEGORIES = [
@@ -650,11 +651,12 @@ export const Toolbar_Popup: Component = () => {
   const handleCustomEmojiKeyUp = (ev: KeyboardEvent): void => { ev.stopPropagation(); };
   const handleCustomEmojiKeyPress = (ev: KeyboardEvent): void => { ev.stopPropagation(); };
 
-  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(getToolbarFocusItem(store).id); }
+  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(qrInfoItem().id); }
   const linkItemIdClickHandler = (): void => {
-    navigator.clipboard.writeText(window.location.origin + "/" + getToolbarFocusItem(store)!.id);
+    const item = qrInfoItem();
+    navigator.clipboard.writeText(window.location.origin + "/" + item.id);
     store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.toolbarTransientMessage.set({ text: getToolbarFocusItem(store).itemType + " id → clipboard", type: TransientMessageType.Info });
+    store.overlay.toolbarTransientMessage.set({ text: item.itemType + " id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
@@ -675,7 +677,7 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const openGeneratedItemClickHandler = (suffix: "text" | "fragments", artifactLabel: string): void => {
-    const currentItem = getToolbarFocusItem(store);
+    const currentItem = qrInfoItem();
     store.overlay.toolbarPopupInfoMaybe.set(null);
     if (currentItem.origin != null) {
       const openPromise = suffix == "text"
@@ -691,18 +693,26 @@ export const Toolbar_Popup: Component = () => {
     window.open(`/files/${currentItem.id}/${suffix}`, "_blank", "noopener");
   }
 
-  const isDebugSupportedItem = () => {
+  const qrInfoItem = () => {
     const currentItem = getToolbarFocusItem(store);
+    if (isPage(currentItem) && isVirtualTextDocumentPage(currentItem.id)) {
+      return sourceTextItemForVirtualTextDocumentPage(currentItem.id) ?? currentItem;
+    }
+    return currentItem;
+  };
+
+  const isDebugSupportedItem = () => {
+    const currentItem = qrInfoItem();
     return isFile(currentItem) || isText(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
   };
 
   const showExtractedTextDebugLink = () => {
-    const currentItem = getToolbarFocusItem(store);
+    const currentItem = qrInfoItem();
     return isFile(currentItem) || isText(currentItem) || isImage(currentItem);
   };
 
   const showFragmentsDebugLink = () => {
-    const currentItem = getToolbarFocusItem(store);
+    const currentItem = qrInfoItem();
     return isFile(currentItem) || isText(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
   };
 
@@ -827,7 +837,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayTypeConst != ToolbarPopupType.QrLink) { return; }
     const canvas = document.getElementById('qrcanvas');
     if (canvas == null) { return; }
-    const url = window.location.origin + "/" + getToolbarFocusItem(store)!.id;
+    const url = window.location.origin + "/" + qrInfoItem().id;
     QRCode.toCanvas(canvas, url, { scale: 7 });
   });
 
@@ -972,8 +982,8 @@ export const Toolbar_Popup: Component = () => {
               <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
             </Show>
             <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
-              <span class="font-mono text-slate-400">{getToolbarFocusItem(store).itemType[0].toUpperCase() + getToolbarFocusItem(store).itemType.substring(1)} Id:</span><br />
-              <span class="font-mono text-slate-400">{`${getToolbarFocusItem(store).id}`}</span>
+              <span class="font-mono text-slate-400">{qrInfoItem().itemType[0].toUpperCase() + qrInfoItem().itemType.substring(1)} Id:</span><br />
+              <span class="font-mono text-slate-400">{`${qrInfoItem().id}`}</span>
               <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyItemIdClickHandler} />
             </div>
             <Show when={showSeparateCompositeSection()}>
@@ -989,15 +999,20 @@ export const Toolbar_Popup: Component = () => {
                 {renderDebugLinks()}
               </div>
             </Show>
-            <Show when={isPage(getToolbarFocusItem(store)) || isTable(getToolbarFocusItem(store))}>
+            <Show when={isDataItem(qrInfoItem())}>
+              <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
+                <span class="font-mono text-slate-400">Size: {formatBytes(asDataItem(qrInfoItem()).fileSizeBytes || 0)}</span>
+              </div>
+            </Show>
+            <Show when={isPage(qrInfoItem()) || isTable(qrInfoItem())}>
               <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
                 {(() => {
-                  const currentItem = getToolbarFocusItem(store);
+                  const currentItem = qrInfoItem();
                   const stats = calculateChildrenStats(asContainerItem(currentItem));
                   return (
                     <>
                       <span class="font-mono text-slate-400">Children: {stats.totalChildren}</span><br />
-                      <span class="font-mono text-slate-400">Images & Files: {stats.imageFileChildren}</span><br />
+                      <span class="font-mono text-slate-400">Data Items: {stats.imageFileChildren}</span><br />
                       <span class="font-mono text-slate-400">Total Size: {formatBytes(stats.totalBytes)}</span>
                     </>
                   );
