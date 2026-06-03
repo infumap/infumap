@@ -205,10 +205,10 @@ function applyTextItemDocumentOptions(page: PageItem, textItem: TextItem): void 
   if (textItem.documentWidthBl != null) {
     page.docWidthBl = textItem.documentWidthBl;
   }
-  if (textItem.documentShowTitle === false) {
-    page.flags |= PageFlags.HideDocumentTitle;
-  } else {
+  if (textItem.documentShowTitle === true) {
     page.flags &= ~PageFlags.HideDocumentTitle;
+  } else {
+    page.flags |= PageFlags.HideDocumentTitle;
   }
 }
 
