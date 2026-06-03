@@ -176,7 +176,6 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class="text-purple-800"
             style={`outline: 0px solid transparent;`}
             contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={canEdit() && store.overlay.textEditInfo() != null}

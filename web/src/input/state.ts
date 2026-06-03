@@ -30,6 +30,7 @@ import { VisualElementSignal } from "../util/signals";
 import { Item } from "../items/base/item";
 import { HitInfo, HitInfoFns } from "./hit";
 import type { CalendarMonthResize } from "../util/calendar-layout";
+import type { TextItem } from "../items/text-item";
 
 
 // ### MouseAction State
@@ -56,6 +57,11 @@ export interface MoveRollbackSnapshotEntry {
   spatialPositionGr: Vector,
   dateTime: number,
   rollbackFlags?: number | null,
+}
+
+export interface TextDocumentMaterializeMoveState {
+  sourceTextItem: TextItem,
+  pendingPageId: string,
 }
 
 
@@ -96,6 +102,7 @@ export interface MouseActionStateType {
   onePxSizeBl: Vector,
   newPlaceholderItem: PlaceholderItem | null,
   moveRollback: Array<MoveRollbackSnapshotEntry> | null,
+  textDocumentMaterializeMove: TextDocumentMaterializeMoveState | null,
 
   hitEmbeddedInteractive: boolean,
 
@@ -111,8 +118,9 @@ type MouseActionStateInit = Omit<
   "linkCreatedOnMoveStart" |
   "newPlaceholderItem" |
   "startCalendarMonthResize" |
-  "moveRollback"
-> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize" | "moveRollback">>;
+  "moveRollback" |
+  "textDocumentMaterializeMove"
+> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize" | "moveRollback" | "textDocumentMaterializeMove">>;
 
 type MouseActionStateFromHitInit = Omit<
   MouseActionStateInit,
@@ -331,6 +339,7 @@ export let MouseActionState = {
       newPlaceholderItem: init.newPlaceholderItem ?? null,
       startCalendarMonthResize: init.startCalendarMonthResize ?? null,
       moveRollback: init.moveRollback ?? null,
+      textDocumentMaterializeMove: init.textDocumentMaterializeMove ?? null,
     });
   },
 
@@ -555,6 +564,15 @@ export let MouseActionState = {
   setMoveRollback: (moveRollback: Array<MoveRollbackSnapshotEntry> | null): void => {
     if (mouseActionState == null) { return; }
     mouseActionState.moveRollback = moveRollback;
+  },
+
+  getTextDocumentMaterializeMove: (): TextDocumentMaterializeMoveState | null => {
+    return mouseActionState?.textDocumentMaterializeMove ?? null;
+  },
+
+  setTextDocumentMaterializeMove: (textDocumentMaterializeMove: TextDocumentMaterializeMoveState | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.textDocumentMaterializeMove = textDocumentMaterializeMove;
   },
 
   usesEmbeddedInteractiveHitTesting: (): boolean => {

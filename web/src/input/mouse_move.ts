@@ -37,6 +37,7 @@ import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucent
 import { HitInfoFns } from "./hit";
 import { asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
+import { isText } from "../items/text-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
 import { arrangeNow } from "../layout/arrange";
@@ -576,7 +577,8 @@ function changeMouseActionStateMaybe(
       activeVisualElement = newActiveSignal.get();
       activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
     }
-    if (!itemCanMove(VeFns.treeItem(activeVisualElement))) {
+    const shiftTextMaterializeMove = CursorEventState.get().shiftDown && isText(activeVisualElement.displayItem);
+    if (!itemCanMove(VeFns.treeItem(activeVisualElement)) && !shiftTextMaterializeMove) {
       store.anItemIsMoving.set(false);
       return;
     }

@@ -361,7 +361,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={"text-left text-purple-800"}
+            class={"text-left"}
             style={`position: absolute; ` +
               `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
               `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +

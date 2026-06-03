@@ -25,7 +25,8 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { isComposite } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
-import { asTextItem, isText } from "../items/text-item";
+import { asTextItem, isText, type TextItem } from "../items/text-item";
+import { createPendingTextDocumentPage } from "../items/text-document";
 import { LinkFns, isLink } from "../items/link-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
@@ -166,14 +167,91 @@ function preserveListSelectionWhenMovingSelectedChild(
   );
 }
 
+function textDocumentMaterializeMoveRequested(activeVisualElement: VisualElement): boolean {
+  return CursorEventState.get().shiftDown && isText(activeVisualElement.displayItem);
+}
+
+function orderingForPendingTextDocumentPage(startPageId: string, activeItem: PositionalItem): Uint8Array {
+  if (activeItem.parentId == startPageId && activeItem.relationshipToParent == RelationshipToParent.Child) {
+    return itemState.newOrderingDirectlyAfterChild(startPageId, activeItem.id);
+  }
+  return itemState.newOrderingAtEndOfChildren(startPageId);
+}
+
+function initiateTextDocumentMaterializeMove(
+  store: StoreContextModel,
+  sourceTextItem: TextItem,
+  activeItem: PositionalItem,
+  activeVisualElement: VisualElement,
+  desktopPosPx: Vector,
+): boolean {
+  const user = store.user.getUserMaybe();
+  if (user == null) {
+    return false;
+  }
+
+  const startPageVe = resolveMoveTargetPageVe(activeVisualElement);
+  if (!pageCanHostLiveMovingItem(startPageVe)) {
+    return false;
+  }
+
+  const startPage = asPageItem(startPageVe.displayItem);
+  const pendingPage = createPendingTextDocumentPage(
+    sourceTextItem,
+    user.userId,
+    startPage.id,
+    orderingForPendingTextDocumentPage(startPage.id, activeItem),
+  );
+  pendingPage.spatialPositionGr = activeItem.parentId == startPage.id && activeItem.relationshipToParent == RelationshipToParent.Child
+    ? { ...activeItem.spatialPositionGr }
+    : { x: 0.0, y: 0.0 };
+  pendingPage.spatialWidthGr = sourceTextItem.spatialWidthGr;
+  itemState.add(pendingPage);
+
+  const { activePosGr, startPosBl, moveToPageInnerSizeBl } = calculateMoveToPagePositionGr(
+    store,
+    startPageVe,
+    desktopPosPx,
+    pendingPage,
+    RelationshipToParent.Child,
+    MouseActionState.getClickOffsetProp(),
+  );
+  pendingPage.spatialPositionGr = activePosGr;
+
+  const startPagePath = VeFns.veToPath(startPageVe);
+  MouseActionState.setMoveRollback([]);
+  MouseActionState.setTextDocumentMaterializeMove({ sourceTextItem, pendingPageId: pendingPage.id });
+  MouseActionState.setGroupMoveItems(undefined);
+  MouseActionState.setStartPx(desktopPosPx);
+  MouseActionState.setStartPosBl(startPosBl);
+  MouseActionState.setOnePxSizeBl({
+    x: moveToPageInnerSizeBl.w / startPageVe.childAreaBoundsPx!.w,
+    y: moveToPageInnerSizeBl.h / startPageVe.childAreaBoundsPx!.h,
+  });
+  MouseActionState.setScaleDefiningElementPath(startPagePath);
+  MouseActionState.setActiveElementPath(VeFns.addVeidToPath(VeFns.veidFromId(pendingPage.id), startPagePath));
+  MouseActionState.setLinkCreatedOnMoveStart(false);
+  store.anItemIsMoving.set(true);
+  MouseActionState.setAction(MouseAction.Moving);
+  arrangeNow(store, "moving-init-text-document-materialize");
+  return true;
+}
+
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
   activeVisualElement = normalizeMovingListPageSelectedMainVe(store, activeVisualElement, desktopPosPx);
   activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
-  if (!itemCanMove(activeItem)) {
+  const materializeTextDocument = textDocumentMaterializeMoveRequested(activeVisualElement);
+  if (!itemCanMove(activeItem) && !materializeTextDocument) {
     return;
   }
   captureMoveRollbackSnapshot(store, activeVisualElement, activeItem);
+  if (materializeTextDocument) {
+    if (!initiateTextDocumentMaterializeMove(store, asTextItem(activeVisualElement.displayItem), activeItem, activeVisualElement, desktopPosPx)) {
+      MouseActionState.setMoveRollback(null);
+    }
+    return;
+  }
   const isActiveLinkItem = isLink(activeItem);
   const shiftWantsClone = CursorEventState.get().shiftDown && !isDataItem(activeVisualElement.displayItem);
   const shouldCreateLink = CursorEventState.get().ctrlDown || (shiftWantsClone && isActiveLinkItem);
@@ -418,6 +496,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const moveTargetIsDocumentPage =
     isPage(hitMoveTargetVe.displayItem) &&
     asPageItem(hitMoveTargetVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  const isTextDocumentMaterializeMove = MouseActionState.getTextDocumentMaterializeMove() != null;
 
   if (!hasValidMoveTarget) {
     clearMoveOverTargetState(store);
@@ -436,7 +515,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
     // update move over attach state.
     clearMoveOverAttachState(store);
-    if ((hitInfo.hitboxType & HitboxFlags.Attach) && !shouldTreatTableHeaderAsFirstRow) {
+    if (!isTextDocumentMaterializeMove && (hitInfo.hitboxType & HitboxFlags.Attach) && !shouldTreatTableHeaderAsFirstRow) {
       const attachVe = hitInfo.overVes!.get();
       const attachVePath = VeFns.veToPath(attachVe);
       store.perVe.setMovingItemIsOverAttach(attachVePath, true);
@@ -458,7 +537,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
     // update move over attach composite state.
     clearMoveOverAttachCompositeState(store);
-    if (!moveTargetIsDocumentPage && (hitInfo.hitboxType & HitboxFlags.AttachComposite)) {
+    if (!isTextDocumentMaterializeMove && !moveTargetIsDocumentPage && (hitInfo.hitboxType & HitboxFlags.AttachComposite)) {
       const attachCompositeVe = hitInfo.overVes!.get();
       const attachCompositeTargetIsAlreadyInComposite =
         attachCompositeVe.displayItem.parentId != null &&

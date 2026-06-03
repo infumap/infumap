@@ -293,10 +293,6 @@ export const TextFns = {
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
-    if (!forceEdit) {
-      void openTextDocumentProjection(store, asTextItem(visualElement.displayItem));
-      return;
-    }
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);

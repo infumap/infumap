@@ -209,13 +209,22 @@ function applyTextItemDocumentOptions(page: PageItem, textItem: TextItem): void 
   }
 }
 
-function createTextDocumentPage(textItem: TextItem, virtual: boolean): PageItem {
+function createTextDocumentPage(
+  textItem: TextItem,
+  virtual: boolean,
+  overrides: {
+    ownerId?: Uid,
+    parentId?: Uid,
+    relationshipToParent?: string,
+    ordering?: Uint8Array,
+  } = {},
+): PageItem {
   const page = PageFns.create(
-    textItem.ownerId,
-    textItem.parentId ?? EMPTY_UID,
-    textItem.relationshipToParent,
+    overrides.ownerId ?? textItem.ownerId,
+    overrides.parentId ?? textItem.parentId ?? EMPTY_UID,
+    overrides.relationshipToParent ?? textItem.relationshipToParent,
     textItem.title,
-    virtual ? textItem.ordering : newOrdering(),
+    overrides.ordering ?? (virtual ? textItem.ordering : newOrdering()),
   );
   page.id = virtual
     ? stableUid(`text-document-page:${textItem.id}`)
@@ -231,8 +240,15 @@ function createTextDocumentPage(textItem: TextItem, virtual: boolean): PageItem 
   return page;
 }
 
-function createNoteForBlock(textItem: TextItem, pageId: Uid, block: TextDocumentBlock, ordering: Uint8Array, virtual: boolean): NoteItem {
-  const note = NoteFns.create(textItem.ownerId, pageId, RelationshipToParent.Child, block.title, ordering);
+function createNoteForBlock(
+  textItem: TextItem,
+  ownerId: Uid,
+  pageId: Uid,
+  block: TextDocumentBlock,
+  ordering: Uint8Array,
+  virtual: boolean,
+): NoteItem {
+  const note = NoteFns.create(ownerId, pageId, RelationshipToParent.Child, block.title, ordering);
   if (virtual) {
     note.id = stableUid(`text-document-block:${textItem.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
     note.capabilities = readonlyCapabilities;
@@ -255,11 +271,43 @@ function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentB
   for (const block of blocks) {
     const ordering = newOrderingAtEnd(orderings);
     orderings.push(ordering);
-    notes.push(createNoteForBlock(textItem, storedPage.id, block, ordering, true));
+    notes.push(createNoteForBlock(textItem, textItem.ownerId, storedPage.id, block, ordering, true));
   }
   itemState.applyContainerSnapshotFromServerObjects(storedPage.id, notes, {}, null);
   storedPage.childrenLoaded = true;
   return storedPage;
+}
+
+export function createPendingTextDocumentPage(
+  textItem: TextItem,
+  ownerId: Uid,
+  parentId: Uid,
+  ordering: Uint8Array,
+): PageItem {
+  const page = createTextDocumentPage(textItem, false, {
+    ownerId,
+    parentId,
+    relationshipToParent: RelationshipToParent.Child,
+    ordering,
+  });
+  page.capabilities = null;
+  page.childrenLoaded = true;
+  page.computed_children = [];
+  page.computed_attachments = [];
+  return page;
+}
+
+export async function createMaterializedTextDocumentNotes(textItem: TextItem, page: PageItem): Promise<Array<NoteItem>> {
+  const text = await fetchTextItemContent(textItem);
+  const blocks = parseTextDocumentBlocks(text);
+  const notes: Array<NoteItem> = [];
+  const orderings: Array<Uint8Array> = [];
+  for (const block of blocks) {
+    const noteOrdering = newOrderingAtEnd(orderings);
+    orderings.push(noteOrdering);
+    notes.push(createNoteForBlock(textItem, page.ownerId, page.id, block, noteOrdering, false));
+  }
+  return notes;
 }
 
 export function isVirtualTextDocumentPage(pageId: Uid): boolean {
@@ -308,9 +356,6 @@ export async function openTextDocumentProjection(store: StoreContextModel, textI
 }
 
 export async function materializeTextDocumentPage(store: StoreContextModel, textItem: TextItem): Promise<Uid | null> {
-  const text = await fetchTextItemContent(textItem);
-  const blocks = parseTextDocumentBlocks(text);
-
   const ordering = textItem.relationshipToParent == RelationshipToParent.Child
     ? itemState.newOrderingDirectlyAfterChild(textItem.parentId, textItem.id)
     : textItem.relationshipToParent == RelationshipToParent.Attachment
@@ -323,13 +368,8 @@ export async function materializeTextDocumentPage(store: StoreContextModel, text
   page.capabilities = null;
 
   itemState.add(page);
-  const notes: Array<NoteItem> = [];
-  const orderings: Array<Uint8Array> = [];
-  for (const block of blocks) {
-    const noteOrdering = newOrderingAtEnd(orderings);
-    orderings.push(noteOrdering);
-    const note = createNoteForBlock(textItem, page.id, block, noteOrdering, false);
-    notes.push(note);
+  const notes = await createMaterializedTextDocumentNotes(textItem, page);
+  for (const note of notes) {
     itemState.add(note);
   }
   requestArrange(store, "text-document-materialize-local");

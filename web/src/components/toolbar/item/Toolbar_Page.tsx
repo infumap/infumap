@@ -33,7 +33,7 @@ import { getPageCalendarDisplayMode, PageCalendarDisplayMode, PageFlags } from "
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
-import { isVirtualTextDocumentPage, materializeVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions } from "../../../items/text-document";
+import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions } from "../../../items/text-document";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
@@ -192,11 +192,6 @@ export const Toolbar_Page: Component = () => {
   const showDocumentButtons = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document;
-  }
-
-  const showCreateDocumentFromTextButton = () => {
-    store.touchToolbarDependency();
-    return isVirtualTextDocumentPage(pageItem().id);
   }
 
   const showVirtualDocumentButtons = () => {
@@ -456,10 +451,6 @@ export const Toolbar_Page: Component = () => {
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
-  const handleCreateDocumentFromText = () => {
-    void materializeVirtualTextDocumentPage(store, pageItem().id);
-  }
-
   const documentControls = () => (
     <>
       <div class="inline-block ml-[10px]">
@@ -486,11 +477,6 @@ export const Toolbar_Page: Component = () => {
           style={`font-size: 13px;`}
           onClick={emptyTrashHandler}>
           empty trash
-        </div>
-      </Show>
-      <Show when={showCreateDocumentFromTextButton()}>
-        <div class="inline-block ml-[10px]">
-          <InfuIconButton icon="fa fa-clone" highlighted={false} clickHandler={handleCreateDocumentFromText} title="Create document page" />
         </div>
       </Show>
       <Show when={showVirtualDocumentButtons()}>

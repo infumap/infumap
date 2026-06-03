@@ -23,7 +23,6 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { TextFns, asTextItem } from "../../../items/text-item";
-import { materializeTextDocumentPageAndOpen } from "../../../items/text-document";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem } from "../toolbarFocus";
@@ -72,10 +71,6 @@ export const Toolbar_Text: Component = () => {
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
-  const handleCreateDocumentPage = () => {
-    void materializeTextDocumentPageAndOpen(store, textItem());
-  };
-
   return (
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
@@ -87,10 +82,6 @@ export const Toolbar_Text: Component = () => {
         </Show>
 
         <Toolbar_ItemOrdering />
-
-        <div class="inline-block pl-[2px]">
-          <InfuIconButton icon="fa fa-clone" highlighted={false} clickHandler={handleCreateDocumentPage} title="Create document page" />
-        </div>
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
         <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>

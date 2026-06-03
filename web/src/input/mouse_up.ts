@@ -18,6 +18,7 @@
 
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
+import { itemCanEdit } from "../items/base/capabilities-item";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -55,6 +56,7 @@ import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
+import { createMaterializedTextDocumentNotes } from "../items/text-document";
 
 
 interface MovePersistOperation {
@@ -273,6 +275,58 @@ function cloneItemSnapshot<T extends Item>(item: T): T {
   return ItemFns.fromObject(ItemFns.toObject(item), item.origin ?? null) as T;
 }
 
+function enqueueTextDocumentMaterializationIfPending(
+  ops: Array<MovePersistOperation>,
+  store: StoreContextModel,
+  item: Item,
+): boolean {
+  const pending = MouseActionState.getTextDocumentMaterializeMove();
+  if (pending == null || pending.pendingPageId != item.id || !isPage(item)) {
+    return false;
+  }
+
+  const pageSnapshot = asPageItem(cloneItemSnapshot(item));
+  const localNoteIds: Array<string> = [];
+  const serverAddedIds: Array<string> = [];
+
+  const cleanup = async () => {
+    for (let i = localNoteIds.length - 1; i >= 0; --i) {
+      if (itemState.get(localNoteIds[i]) != null) {
+        itemState.delete(localNoteIds[i]);
+      }
+    }
+    for (let i = serverAddedIds.length - 1; i >= 0; --i) {
+      try {
+        await server.deleteItem(serverAddedIds[i], store.general.networkStatus, false);
+      } catch (error) {
+        console.error("Text document materialization cleanup failed.", error);
+      }
+    }
+  };
+
+  ops.push({
+    apply: async () => {
+      try {
+        await server.addItem(pageSnapshot, null, store.general.networkStatus);
+        serverAddedIds.push(pageSnapshot.id);
+
+        const notes = await createMaterializedTextDocumentNotes(pending.sourceTextItem, pageSnapshot);
+        for (const note of notes) {
+          itemState.add(note);
+          localNoteIds.push(note.id);
+          await server.addItem(note, null, store.general.networkStatus);
+          serverAddedIds.push(note.id);
+        }
+      } catch (error) {
+        await cleanup();
+        throw error;
+      }
+    },
+    rollback: cleanup,
+  });
+  return true;
+}
+
 function enqueueUpdateItem(
   ops: Array<MovePersistOperation>,
   store: StoreContextModel,
@@ -280,6 +334,10 @@ function enqueueUpdateItem(
   rollbackSnapshot?: Item | null,
   _iconMoveDestinationVe?: VisualElement | null,
 ): void {
+  if (enqueueTextDocumentMaterializationIfPending(ops, store, item)) {
+    return;
+  }
+
   const snapshot = cloneItemSnapshot(item);
   ops.push({
     apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false),
@@ -474,7 +532,7 @@ function placeholderRollbackSnapshotMaybe(placeholder: Item): Item | null {
 
 function rollbackInvalidMove(store: StoreContextModel): void {
   clearMoveOverState(store);
-  rollbackMove(store, captureMoveRollbackContext());
+  rollbackMove(store, captureMoveRollbackContext(), MouseActionState.getTextDocumentMaterializeMove() == null);
   MouseActionState.setNewPlaceholderItem(null);
   MouseActionState.setStartAttachmentsItem(null);
   MouseActionState.setMoveRollback(null);
@@ -737,6 +795,11 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
     return false;
   }
 
+  if (MouseActionState.getTextDocumentMaterializeMove() != null &&
+    (MouseActionState.getMoveOverAttachHitboxPath() != null || MouseActionState.getMoveOverAttachCompositePath() != null)) {
+    return true;
+  }
+
   const ignoreIds = movingIgnoreIds(activeVisualElement);
   const hitInfo = HitInfoFns.hit(
     store,
@@ -745,7 +808,18 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
     MouseActionState.usesEmbeddedInteractiveHitTesting(),
     false,
   );
-  return resolveInternalMoveTarget(hitInfo, ignoreIds).validity != "valid";
+  const resolvedTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
+  if (resolvedTarget.validity != "valid") {
+    return true;
+  }
+
+  if (MouseActionState.getTextDocumentMaterializeMove() != null) {
+    return resolvedTarget.hoverContainerVe.displayItem.origin != null ||
+      !isContainer(resolvedTarget.hoverContainerVe.displayItem) ||
+      !itemCanEdit(resolvedTarget.hoverContainerVe.displayItem);
+  }
+
+  return false;
 }
 
 
@@ -1189,7 +1263,8 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       return;
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
       const startPosBl = MouseActionState.getStartPosBl()!;
-      if (startPosBl.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
+      if (MouseActionState.getTextDocumentMaterializeMove()?.pendingPageId == activeItem.id ||
+        startPosBl.x * GRID_SIZE != activeItem.spatialPositionGr.x ||
         startPosBl.y * GRID_SIZE != activeItem.spatialPositionGr.y) {
         enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
       }
@@ -1211,7 +1286,8 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       const currentDate = new Date(activeItem.dateTime * 1000);
       const newDate = new Date(selectedYear, targetMonth - 1, targetDay, currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
       const newDateTime = Math.floor(newDate.getTime() / 1000);
-      if (activeItem.dateTime !== newDateTime) {
+      if (MouseActionState.getTextDocumentMaterializeMove()?.pendingPageId == activeItem.id ||
+        activeItem.dateTime !== newDateTime) {
         activeItem.dateTime = newDateTime;
         enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
       }
