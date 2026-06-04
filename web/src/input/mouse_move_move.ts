@@ -522,6 +522,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       ? VeFns.veToPath(tableContainerVeMaybe)
       : null;
   const isTextDocumentMaterializeMove = MouseActionState.getTextDocumentMaterializeMove() != null;
+  let attachmentDropTargetIsActive = false;
 
   if (!hasValidMoveTarget) {
     clearMoveOverTargetState(store);
@@ -574,6 +575,13 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
         store.perVe.setMovingItemIsOverAttachComposite(VeFns.veToPath(attachCompositeVe), true);
         MouseActionState.setMoveOverAttachCompositePath(VeFns.veToPath(attachCompositeVe));
       }
+    }
+
+    attachmentDropTargetIsActive =
+      MouseActionState.getMoveOverAttachHitboxPath() != null ||
+      MouseActionState.getMoveOverAttachCompositePath() != null;
+    if (attachmentDropTargetIsActive && moveTargetIsDocumentPage) {
+      store.perVe.setMoveOverIndex(hitMoveTargetPath, -1);
     }
 
     if (tableMoveTargetPath != null) {
@@ -681,10 +689,15 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Document) {
-    const documentChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))()
-      .map(childVe => childVe.get());
-    const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, documentChildren, desktopPosPx);
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
+    const inElementPath = VeFns.veToPath(inElementVe);
+    if (attachmentDropTargetIsActive) {
+      store.perVe.setMoveOverIndex(inElementPath, -1);
+    } else {
+      const documentChildren = VesCache.render.getNonMovingChildren(inElementPath)()
+        .map(childVe => childVe.get());
+      const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, documentChildren, desktopPosPx);
+      store.perVe.setMoveOverIndex(inElementPath, moveOverIndex);
+    }
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
