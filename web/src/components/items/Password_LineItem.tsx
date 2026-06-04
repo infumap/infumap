@@ -144,7 +144,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
         <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
             class="text-slate-800"
-            style={`margin-left: ${oneBlockWidthPx() * PADDING_PROP}px; outline: 0px solid transparent;`}
+            style={`margin-left: ${oneBlockWidthPx() * PADDING_PROP}px; display: inline-block; white-space: pre; outline: 0px solid transparent;`}
             contentEditable={canEdit() ? true : undefined}
             spellcheck={false}
             onKeyDown={keyDownHandler}

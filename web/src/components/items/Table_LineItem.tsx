@@ -119,7 +119,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
         `width: ${(boundsPx().w - oneBlockWidthPx()) / scale()}px; height: ${boundsPx().h / scale()}px; ` +
         `transform: scale(${scale()}); transform-origin: top left;`}>
       <span id={VeFns.veToPath(props.visualElement) + ":title"}
-        style={`outline: 0px solid transparent;`}
+        style={`display: inline-block; white-space: pre; outline: 0px solid transparent;`}
         class=""
         contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
         spellcheck={canEdit() && store.overlay.textEditInfo() != null}

@@ -233,7 +233,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
             class={store.overlay.textEditInfo()?.itemPath == vePath() ? "select-text cursor-text" : ""}
-            style={"outline: 0px solid transparent;"}
+            style={"display: inline-block; white-space: pre; outline: 0px solid transparent;"}
             contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}

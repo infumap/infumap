@@ -198,7 +198,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
               class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
               style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                `outline: 0px solid transparent;`}
+                `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
               contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
               spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
@@ -210,7 +210,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
               class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
               style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                `outline: 0px solid transparent;`}
+                `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
               contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
               spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
