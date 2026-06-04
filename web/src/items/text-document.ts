@@ -22,8 +22,9 @@ import { GRID_SIZE } from "../constants";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { PageFlags, NoteFlags, TableFlags } from "./base/flags-item";
 import { Item, ItemType } from "./base/item";
+import { ItemFns } from "./base/item-polymorphism";
 import { PlaceholderFns } from "./placeholder-item";
-import { NoteFns, NoteItem } from "./note-item";
+import { NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, normalizeNoteInlineMarks } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { TableFns } from "./table-item";
 import type { TextItem } from "./text-item";
@@ -35,9 +36,15 @@ import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { fetchRemoteFileText, openRemoteFileInNewTab } from "../util/remoteFile";
 
+type TextDocumentInlineText = {
+  title: string,
+  inlineMarks: Array<NoteInlineMark>,
+};
+
 type TextDocumentTextBlock = {
   kind: "paragraph" | "heading",
   title: string,
+  inlineMarks: Array<NoteInlineMark>,
   headingLevel: number | null,
   start: number,
   end: number,
@@ -45,7 +52,7 @@ type TextDocumentTextBlock = {
 };
 
 type TextDocumentTableRow = {
-  cells: Array<string>,
+  cells: Array<TextDocumentInlineText>,
   start: number,
   end: number,
   ordinal: number,
@@ -80,6 +87,19 @@ const readonlyCapabilities = { edit: false, move: false };
 const virtualSourceTextIdByPageId = new Map<Uid, Uid>();
 const textContentPromises = new Map<string, Promise<string>>();
 const MAX_GENERATED_TABLE_HEIGHT_BL = 12;
+
+type RawInlineMarkSpan = {
+  start: number,
+  end: number,
+  flags: number,
+};
+
+type InlineDelimiter = {
+  marker: string,
+  len: number,
+  flags: number,
+  outputStart: number,
+};
 
 function setTransientMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
   store.overlay.toolbarTransientMessage.set({ text, type });
@@ -180,6 +200,137 @@ function noteFlagsForHeadingLevel(level: number | null): NoteFlags {
   return NoteFlags.None;
 }
 
+function isAsciiAlnum(c: string | undefined): boolean {
+  return c != null && /^[A-Za-z0-9]$/.test(c);
+}
+
+function markdownDelimiterInfo(text: string, pos: number): { marker: string, len: number, flags: number } | null {
+  const marker = text[pos];
+  if (marker != "*" && marker != "_") { return null; }
+  if (marker == "_" && isAsciiAlnum(text[pos - 1]) && isAsciiAlnum(text[pos + 1])) {
+    return null;
+  }
+
+  let runLen = 0;
+  while (text[pos + runLen] == marker) {
+    runLen += 1;
+  }
+
+  const len = runLen >= 3 ? 3 : runLen >= 2 ? 2 : 1;
+  const flags = len == 3
+    ? NoteInlineMarkFlags.Bold | NoteInlineMarkFlags.Italic
+    : len == 2
+      ? NoteInlineMarkFlags.Bold
+      : NoteInlineMarkFlags.Italic;
+  return { marker, len, flags };
+}
+
+function matchingInlineDelimiterIndex(stack: Array<InlineDelimiter>, marker: string, len: number): number {
+  for (let i = stack.length - 1; i >= 0; --i) {
+    if (stack[i].marker == marker && stack[i].len == len) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function flattenedInlineMarks(rawSpans: Array<RawInlineMarkSpan>, text: string): Array<NoteInlineMark> {
+  if (rawSpans.length == 0 || text == "") { return []; }
+
+  const boundaries = new Set<number>([0, text.length]);
+  for (const span of rawSpans) {
+    if (span.start < span.end) {
+      boundaries.add(span.start);
+      boundaries.add(span.end);
+    }
+  }
+
+  const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
+  const result: Array<NoteInlineMark> = [];
+  for (let i = 0; i < sortedBoundaries.length - 1; ++i) {
+    const start = sortedBoundaries[i];
+    const end = sortedBoundaries[i + 1];
+    if (start == end) { continue; }
+
+    let flags = 0;
+    for (const span of rawSpans) {
+      if (span.start <= start && span.end >= end) {
+        flags |= span.flags;
+      }
+    }
+    if (flags != 0) {
+      result.push({ start, end, flags });
+    }
+  }
+
+  return normalizeNoteInlineMarks(result, text);
+}
+
+function copyMarkdownCodeSpan(text: string, pos: number, output: Array<string>): number {
+  let tickLen = 0;
+  while (text[pos + tickLen] == "`") {
+    tickLen += 1;
+  }
+
+  const marker = "`".repeat(tickLen);
+  const end = text.indexOf(marker, pos + tickLen);
+  if (end < 0) {
+    output.push(text[pos]);
+    return pos + 1;
+  }
+
+  output.push(text.substring(pos + tickLen, end));
+  return end + tickLen;
+}
+
+function parseMarkdownInline(text: string): TextDocumentInlineText {
+  const output: Array<string> = [];
+  const stack: Array<InlineDelimiter> = [];
+  const rawSpans: Array<RawInlineMarkSpan> = [];
+
+  for (let i = 0; i < text.length;) {
+    const c = text[i];
+
+    if (c == "\\" && i + 1 < text.length && "*_`\\".includes(text[i + 1])) {
+      output.push(text[i + 1]);
+      i += 2;
+      continue;
+    }
+
+    if (c == "`") {
+      i = copyMarkdownCodeSpan(text, i, output);
+      continue;
+    }
+
+    const delimiter = markdownDelimiterInfo(text, i);
+    if (delimiter != null) {
+      const matchingIndex = matchingInlineDelimiterIndex(stack, delimiter.marker, delimiter.len);
+      if (matchingIndex >= 0) {
+        const opener = stack.splice(matchingIndex, 1)[0];
+        const start = opener.outputStart;
+        const end = output.join("").length;
+        if (start < end) {
+          rawSpans.push({ start, end, flags: opener.flags });
+        }
+      } else {
+        stack.push({ ...delimiter, outputStart: output.join("").length });
+      }
+      i += delimiter.len;
+      continue;
+    }
+
+    output.push(c);
+    i += 1;
+  }
+
+  if (stack.length != 0) {
+    return { title: text, inlineMarks: [] };
+  }
+
+  const title = output.join("");
+  return { title, inlineMarks: flattenedInlineMarks(rawSpans, title) };
+}
+
 function splitMarkdownTableRow(line: string): Array<string> | null {
   let body = line.trim();
   if (body == "") { return null; }
@@ -231,6 +382,10 @@ function normalizeMarkdownTableCells(cells: Array<string>, columnCount: number):
   return result;
 }
 
+function normalizeMarkdownTableInlineCells(cells: Array<string>, columnCount: number): Array<TextDocumentInlineText> {
+  return normalizeMarkdownTableCells(cells, columnCount).map(parseMarkdownInline);
+}
+
 function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocumentTableBlock | null {
   if (index + 1 >= lines.length) { return null; }
 
@@ -247,7 +402,7 @@ function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocume
     const rowCells = splitMarkdownTableRow(lines[rowIndex].text);
     if (rowCells == null || isMarkdownTableSeparatorRow(rowCells)) { break; }
     rows.push({
-      cells: normalizeMarkdownTableCells(rowCells, columnCount),
+      cells: normalizeMarkdownTableInlineCells(rowCells, columnCount),
       start: lines[rowIndex].start,
       end: lines[rowIndex].end,
       ordinal: rows.length,
@@ -258,7 +413,7 @@ function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocume
 
   return {
     kind: "table",
-    columns: normalizeMarkdownTableCells(headerCells, columnCount),
+    columns: normalizeMarkdownTableCells(headerCells, columnCount).map(cell => parseMarkdownInline(cell).title),
     rows,
     start: lines[index].start,
     end,
@@ -275,18 +430,50 @@ function isMarkdownTextItem(textItem: TextItem): boolean {
     title.endsWith(".markdown");
 }
 
-function parseTextDocumentBlocks(text: string, parseMarkdownTables: boolean): Array<TextDocumentBlock> {
+function markdownInlineForParagraphLines(lines: Array<TextLine>): TextDocumentInlineText {
+  const titleParts: Array<string> = [];
+  const inlineMarks: Array<NoteInlineMark> = [];
+  let offset = 0;
+
+  for (const line of lines) {
+    const trimmed = line.text.trim();
+    if (trimmed == "") { continue; }
+    const parsed = parseMarkdownInline(trimmed);
+    if (titleParts.length > 0) {
+      titleParts.push(" ");
+      offset += 1;
+    }
+    titleParts.push(parsed.title);
+    inlineMarks.push(...parsed.inlineMarks.map(mark => ({
+      start: mark.start + offset,
+      end: mark.end + offset,
+      flags: mark.flags,
+    })));
+    offset += parsed.title.length;
+  }
+
+  const title = titleParts.join("");
+  return { title, inlineMarks: normalizeNoteInlineMarks(inlineMarks, title) };
+}
+
+function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<TextDocumentBlock> {
   const lines = linesWithOffsets(text);
   const blocks: Array<TextDocumentBlock> = [];
   let paragraphLines: Array<TextLine> = [];
 
   const flushParagraph = () => {
     if (paragraphLines.length == 0) { return; }
-    const title = paragraphLines.map(line => line.text.trim()).filter(line => line != "").join(" ");
-    if (title != "") {
+    const parsed = parseMarkdown
+      ? markdownInlineForParagraphLines(paragraphLines)
+      : {
+        title: paragraphLines.map(line => line.text.trim()).filter(line => line != "").join(" "),
+        inlineMarks: [],
+      };
+    if (parsed.title != "") {
       blocks.push({
         kind: "paragraph",
-        title,
+        title: parsed.title,
+        inlineMarks: parsed.inlineMarks,
         headingLevel: null,
         start: paragraphLines[0].start,
         end: paragraphLines[paragraphLines.length - 1].end,
@@ -303,7 +490,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdownTables: boolean): Ar
       continue;
     }
 
-    const table = parseMarkdownTables ? parseMarkdownTableAt(lines, i) : null;
+    const table = parseMarkdown ? parseMarkdownTableAt(lines, i) : null;
     if (table != null) {
       flushParagraph();
       table.ordinal = blocks.length;
@@ -315,9 +502,13 @@ function parseTextDocumentBlocks(text: string, parseMarkdownTables: boolean): Ar
     const heading = headingInfo(line.text);
     if (heading != null) {
       flushParagraph();
+      const parsed = parseMarkdown
+        ? parseMarkdownInline(heading.title)
+        : { title: heading.title, inlineMarks: [] };
       blocks.push({
         kind: "heading",
-        title: heading.title,
+        title: parsed.title,
+        inlineMarks: parsed.inlineMarks,
         headingLevel: heading.level,
         start: line.start,
         end: line.end,
@@ -384,6 +575,7 @@ function createNoteForBlock(
   virtual: boolean,
 ): NoteItem {
   const note = NoteFns.create(ownerId, pageId, RelationshipToParent.Child, block.title, ordering);
+  note.inlineMarks = block.inlineMarks;
   if (virtual) {
     note.id = stableUid(`text-document-block:${textItem.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
     note.capabilities = readonlyCapabilities;
@@ -401,7 +593,9 @@ function createNoteForTableRow(
   ordering: Uint8Array,
   virtual: boolean,
 ): NoteItem {
-  const note = NoteFns.create(ownerId, tableId, RelationshipToParent.Child, row.cells[0] ?? "", ordering);
+  const firstCell = row.cells[0] ?? { title: "", inlineMarks: [] };
+  const note = NoteFns.create(ownerId, tableId, RelationshipToParent.Child, firstCell.title, ordering);
+  note.inlineMarks = firstCell.inlineMarks;
   if (virtual) {
     note.id = stableUid(`text-document-table-row:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}`);
     note.capabilities = readonlyCapabilities;
@@ -416,11 +610,12 @@ function createNoteForTableCell(
   block: TextDocumentTableBlock,
   row: TextDocumentTableRow,
   cellIndex: number,
-  title: string,
+  cell: TextDocumentInlineText,
   ordering: Uint8Array,
   virtual: boolean,
 ): NoteItem {
-  const note = NoteFns.create(ownerId, rowId, RelationshipToParent.Attachment, title, ordering);
+  const note = NoteFns.create(ownerId, rowId, RelationshipToParent.Attachment, cell.title, ordering);
+  note.inlineMarks = cell.inlineMarks;
   if (virtual) {
     note.id = stableUid(`text-document-table-cell:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
     note.capabilities = readonlyCapabilities;
@@ -448,7 +643,7 @@ function createPlaceholderForTableCell(
 
 function lastNonEmptyAttachmentCellIndex(row: TextDocumentTableRow): number {
   for (let i = row.cells.length - 1; i >= 1; --i) {
-    if (row.cells[i].trim() != "") { return i; }
+    if (row.cells[i].title.trim() != "") { return i; }
   }
   return 0;
 }
@@ -524,10 +719,10 @@ function createTextDocumentItems(
       for (let cellIndex = 1; cellIndex <= lastCellIndex; ++cellIndex) {
         const attachmentOrdering = newOrderingAtEnd(attachmentOrderings);
         attachmentOrderings.push(attachmentOrdering);
-        const cellText = row.cells[cellIndex] ?? "";
-        const attachment = cellText.trim() == ""
+        const cell = row.cells[cellIndex] ?? { title: "", inlineMarks: [] };
+        const attachment = cell.title.trim() == ""
           ? createPlaceholderForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, attachmentOrdering, virtual)
-          : createNoteForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, cellText, attachmentOrdering, virtual);
+          : createNoteForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, cell, attachmentOrdering, virtual);
         attachmentItems.push(attachment);
         result.allItems.push(attachment);
       }
@@ -536,9 +731,29 @@ function createTextDocumentItems(
   return result;
 }
 
+function toVirtualServerObject(item: Item): object {
+  const result = ItemFns.toObject(item) as any;
+  if (item.capabilities != null) {
+    result.capabilities = item.capabilities;
+  }
+  return result;
+}
+
+function toVirtualServerObjects(items: Array<Item>): Array<object> {
+  return items.map(toVirtualServerObject);
+}
+
+function toVirtualServerObjectMap(itemsByParentId: { [id: string]: Array<Item> }): { [id: string]: Array<object> } {
+  const result: { [id: string]: Array<object> } = {};
+  for (const parentId of Object.keys(itemsByParentId)) {
+    result[parentId] = toVirtualServerObjects(itemsByParentId[parentId]);
+  }
+  return result;
+}
+
 function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentBlock>): PageItem {
   const page = createTextDocumentPage(textItem, true);
-  const storedPage = asPageItem(itemState.upsertItemFromServerObject(page, null));
+  const storedPage = asPageItem(itemState.upsertItemFromServerObject(toVirtualServerObject(page), null));
   storedPage.childrenLoaded = true;
   storedPage.computed_children = [];
   storedPage.computed_attachments = [];
@@ -546,12 +761,13 @@ function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentB
   virtualSourceTextIdByPageId.set(storedPage.id, textItem.id);
 
   const generated = createTextDocumentItems(textItem, textItem.ownerId, storedPage, blocks, true);
-  itemState.applyContainerSnapshotFromServerObjects(storedPage.id, generated.rootChildren, {}, null);
+  const attachmentServerObjectsByParentId = toVirtualServerObjectMap(generated.attachmentsByParentId);
+  itemState.applyContainerSnapshotFromServerObjects(storedPage.id, toVirtualServerObjects(generated.rootChildren), {}, null);
   for (const tableId of Object.keys(generated.tableChildrenByTableId)) {
     itemState.applyContainerSnapshotFromServerObjects(
       tableId,
-      generated.tableChildrenByTableId[tableId],
-      generated.attachmentsByParentId,
+      toVirtualServerObjects(generated.tableChildrenByTableId[tableId]),
+      attachmentServerObjectsByParentId,
       null,
     );
     const table = itemState.getAsContainerItem(tableId);
