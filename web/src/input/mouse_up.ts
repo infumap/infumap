@@ -56,7 +56,7 @@ import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
-import { createMaterializedTextDocumentNotes } from "../items/text-document";
+import { createMaterializedTextDocumentItems } from "../items/text-document";
 
 
 interface MovePersistOperation {
@@ -286,13 +286,13 @@ function enqueueTextDocumentMaterializationIfPending(
   }
 
   const pageSnapshot = asPageItem(cloneItemSnapshot(item));
-  const localNoteIds: Array<string> = [];
+  const localItemIds: Array<string> = [];
   const serverAddedIds: Array<string> = [];
 
   const cleanup = async () => {
-    for (let i = localNoteIds.length - 1; i >= 0; --i) {
-      if (itemState.get(localNoteIds[i]) != null) {
-        itemState.delete(localNoteIds[i]);
+    for (let i = localItemIds.length - 1; i >= 0; --i) {
+      if (itemState.get(localItemIds[i]) != null) {
+        itemState.delete(localItemIds[i]);
       }
     }
     for (let i = serverAddedIds.length - 1; i >= 0; --i) {
@@ -310,12 +310,12 @@ function enqueueTextDocumentMaterializationIfPending(
         await server.addItem(pageSnapshot, null, store.general.networkStatus);
         serverAddedIds.push(pageSnapshot.id);
 
-        const notes = await createMaterializedTextDocumentNotes(pending.sourceTextItem, pageSnapshot);
-        for (const note of notes) {
-          itemState.add(note);
-          localNoteIds.push(note.id);
-          await server.addItem(note, null, store.general.networkStatus);
-          serverAddedIds.push(note.id);
+        const generatedItems = await createMaterializedTextDocumentItems(pending.sourceTextItem, pageSnapshot);
+        for (const item of generatedItems) {
+          itemState.add(item);
+          localItemIds.push(item.id);
+          await server.addItem(item, null, store.general.networkStatus);
+          serverAddedIds.push(item.id);
         }
       } catch (error) {
         await cleanup();

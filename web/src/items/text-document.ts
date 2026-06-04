@@ -18,11 +18,14 @@
 
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
+import { GRID_SIZE } from "../constants";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { PageFlags, NoteFlags } from "./base/flags-item";
-import { ItemType } from "./base/item";
+import { PageFlags, NoteFlags, TableFlags } from "./base/flags-item";
+import { Item, ItemType } from "./base/item";
+import { PlaceholderFns } from "./placeholder-item";
 import { NoteFns, NoteItem } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
+import { TableFns } from "./table-item";
 import type { TextItem } from "./text-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -32,16 +35,32 @@ import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid } from "../util/uid";
 import { fetchRemoteFileText, openRemoteFileInNewTab } from "../util/remoteFile";
 
-type TextBlockKind = "paragraph" | "heading";
-
-type TextDocumentBlock = {
-  kind: TextBlockKind,
+type TextDocumentTextBlock = {
+  kind: "paragraph" | "heading",
   title: string,
   headingLevel: number | null,
   start: number,
   end: number,
   ordinal: number,
 };
+
+type TextDocumentTableRow = {
+  cells: Array<string>,
+  start: number,
+  end: number,
+  ordinal: number,
+};
+
+type TextDocumentTableBlock = {
+  kind: "table",
+  columns: Array<string>,
+  rows: Array<TextDocumentTableRow>,
+  start: number,
+  end: number,
+  ordinal: number,
+};
+
+type TextDocumentBlock = TextDocumentTextBlock | TextDocumentTableBlock;
 
 type TextLine = {
   text: string,
@@ -50,9 +69,17 @@ type TextLine = {
   nextStart: number,
 };
 
+type TextDocumentGeneratedItems = {
+  rootChildren: Array<Item>,
+  tableChildrenByTableId: { [id: string]: Array<Item> },
+  attachmentsByParentId: { [id: string]: Array<Item> },
+  allItems: Array<Item>,
+};
+
 const readonlyCapabilities = { edit: false, move: false };
 const virtualSourceTextIdByPageId = new Map<Uid, Uid>();
 const textContentPromises = new Map<string, Promise<string>>();
+const MAX_GENERATED_TABLE_HEIGHT_BL = 12;
 
 function setTransientMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
   store.overlay.toolbarTransientMessage.set({ text, type });
@@ -153,7 +180,102 @@ function noteFlagsForHeadingLevel(level: number | null): NoteFlags {
   return NoteFlags.None;
 }
 
-function parseTextDocumentBlocks(text: string): Array<TextDocumentBlock> {
+function splitMarkdownTableRow(line: string): Array<string> | null {
+  let body = line.trim();
+  if (body == "") { return null; }
+
+  if (body.startsWith("|")) {
+    body = body.substring(1);
+  }
+  if (body.endsWith("|") && (body.length < 2 || body[body.length - 2] != "\\")) {
+    body = body.substring(0, body.length - 1);
+  }
+
+  const cells: Array<string> = [];
+  let cell = "";
+  let sawSeparator = false;
+  for (let i = 0; i < body.length; ++i) {
+    const c = body[i];
+    if (c == "\\" && body[i + 1] == "|") {
+      cell += "|";
+      i += 1;
+      continue;
+    }
+    if (c == "|") {
+      cells.push(cell.trim());
+      cell = "";
+      sawSeparator = true;
+      continue;
+    }
+    cell += c;
+  }
+  cells.push(cell.trim());
+
+  if (!sawSeparator || cells.length < 2) { return null; }
+  return cells;
+}
+
+function isMarkdownTableSeparatorCell(cell: string): boolean {
+  return /^:?-{3,}:?$/.test(cell.trim());
+}
+
+function isMarkdownTableSeparatorRow(cells: Array<string>): boolean {
+  return cells.length >= 2 && cells.every(isMarkdownTableSeparatorCell);
+}
+
+function normalizeMarkdownTableCells(cells: Array<string>, columnCount: number): Array<string> {
+  const result = cells.slice(0, columnCount);
+  while (result.length < columnCount) {
+    result.push("");
+  }
+  return result;
+}
+
+function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocumentTableBlock | null {
+  if (index + 1 >= lines.length) { return null; }
+
+  const headerCells = splitMarkdownTableRow(lines[index].text);
+  const separatorCells = splitMarkdownTableRow(lines[index + 1].text);
+  if (headerCells == null || separatorCells == null) { return null; }
+  if (separatorCells.length < headerCells.length || !isMarkdownTableSeparatorRow(separatorCells)) { return null; }
+
+  const columnCount = headerCells.length;
+  const rows: Array<TextDocumentTableRow> = [];
+  let end = lines[index + 1].end;
+  let rowIndex = index + 2;
+  while (rowIndex < lines.length) {
+    const rowCells = splitMarkdownTableRow(lines[rowIndex].text);
+    if (rowCells == null || isMarkdownTableSeparatorRow(rowCells)) { break; }
+    rows.push({
+      cells: normalizeMarkdownTableCells(rowCells, columnCount),
+      start: lines[rowIndex].start,
+      end: lines[rowIndex].end,
+      ordinal: rows.length,
+    });
+    end = lines[rowIndex].end;
+    rowIndex += 1;
+  }
+
+  return {
+    kind: "table",
+    columns: normalizeMarkdownTableCells(headerCells, columnCount),
+    rows,
+    start: lines[index].start,
+    end,
+    ordinal: 0,
+  };
+}
+
+function isMarkdownTextItem(textItem: TextItem): boolean {
+  const mimeType = (textItem.mimeType ?? "").toLowerCase();
+  const title = textItem.title.toLowerCase();
+  return mimeType == "text/markdown" ||
+    mimeType == "text/x-markdown" ||
+    title.endsWith(".md") ||
+    title.endsWith(".markdown");
+}
+
+function parseTextDocumentBlocks(text: string, parseMarkdownTables: boolean): Array<TextDocumentBlock> {
   const lines = linesWithOffsets(text);
   const blocks: Array<TextDocumentBlock> = [];
   let paragraphLines: Array<TextLine> = [];
@@ -174,9 +296,19 @@ function parseTextDocumentBlocks(text: string): Array<TextDocumentBlock> {
     paragraphLines = [];
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; ++i) {
+    const line = lines[i];
     if (line.text.trim() == "") {
       flushParagraph();
+      continue;
+    }
+
+    const table = parseMarkdownTables ? parseMarkdownTableAt(lines, i) : null;
+    if (table != null) {
+      flushParagraph();
+      table.ordinal = blocks.length;
+      blocks.push(table);
+      i += table.rows.length + 1;
       continue;
     }
 
@@ -247,7 +379,7 @@ function createNoteForBlock(
   textItem: TextItem,
   ownerId: Uid,
   pageId: Uid,
-  block: TextDocumentBlock,
+  block: TextDocumentTextBlock,
   ordering: Uint8Array,
   virtual: boolean,
 ): NoteItem {
@@ -260,6 +392,150 @@ function createNoteForBlock(
   return note;
 }
 
+function createNoteForTableRow(
+  textItem: TextItem,
+  ownerId: Uid,
+  tableId: Uid,
+  block: TextDocumentTableBlock,
+  row: TextDocumentTableRow,
+  ordering: Uint8Array,
+  virtual: boolean,
+): NoteItem {
+  const note = NoteFns.create(ownerId, tableId, RelationshipToParent.Child, row.cells[0] ?? "", ordering);
+  if (virtual) {
+    note.id = stableUid(`text-document-table-row:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}`);
+    note.capabilities = readonlyCapabilities;
+  }
+  return note;
+}
+
+function createNoteForTableCell(
+  textItem: TextItem,
+  ownerId: Uid,
+  rowId: Uid,
+  block: TextDocumentTableBlock,
+  row: TextDocumentTableRow,
+  cellIndex: number,
+  title: string,
+  ordering: Uint8Array,
+  virtual: boolean,
+): NoteItem {
+  const note = NoteFns.create(ownerId, rowId, RelationshipToParent.Attachment, title, ordering);
+  if (virtual) {
+    note.id = stableUid(`text-document-table-cell:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
+    note.capabilities = readonlyCapabilities;
+  }
+  return note;
+}
+
+function createPlaceholderForTableCell(
+  textItem: TextItem,
+  ownerId: Uid,
+  rowId: Uid,
+  block: TextDocumentTableBlock,
+  row: TextDocumentTableRow,
+  cellIndex: number,
+  ordering: Uint8Array,
+  virtual: boolean,
+): Item {
+  const placeholder = PlaceholderFns.create(ownerId, rowId, RelationshipToParent.Attachment, ordering);
+  if (virtual) {
+    placeholder.id = stableUid(`text-document-table-cell-placeholder:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
+    placeholder.capabilities = readonlyCapabilities;
+  }
+  return placeholder;
+}
+
+function lastNonEmptyAttachmentCellIndex(row: TextDocumentTableRow): number {
+  for (let i = row.cells.length - 1; i >= 1; --i) {
+    if (row.cells[i].trim() != "") { return i; }
+  }
+  return 0;
+}
+
+function createTableForBlock(
+  textItem: TextItem,
+  ownerId: Uid,
+  pageId: Uid,
+  pageWidthBl: number,
+  block: TextDocumentTableBlock,
+  ordering: Uint8Array,
+  virtual: boolean,
+): Item {
+  const table = TableFns.create(ownerId, pageId, RelationshipToParent.Child, "", ordering);
+  if (virtual) {
+    table.id = stableUid(`text-document-table:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
+    table.capabilities = readonlyCapabilities;
+  }
+  const tableWidthGr = Math.max(1, pageWidthBl) * GRID_SIZE;
+  const columnWidthGr = tableWidthGr / block.columns.length;
+  table.tableColumns = block.columns.map(name => ({ name, widthGr: columnWidthGr }));
+  table.numberOfVisibleColumns = table.tableColumns.length;
+  table.flags |= TableFlags.ShowColHeader;
+  table.spatialWidthGr = tableWidthGr;
+  table.spatialHeightGr = Math.max(3, Math.min(block.rows.length + 2, MAX_GENERATED_TABLE_HEIGHT_BL)) * GRID_SIZE;
+  table.childrenLoaded = true;
+  return table;
+}
+
+function createTextDocumentItems(
+  textItem: TextItem,
+  ownerId: Uid,
+  page: PageItem,
+  blocks: Array<TextDocumentBlock>,
+  virtual: boolean,
+): TextDocumentGeneratedItems {
+  const result: TextDocumentGeneratedItems = {
+    rootChildren: [],
+    tableChildrenByTableId: {},
+    attachmentsByParentId: {},
+    allItems: [],
+  };
+  const rootOrderings: Array<Uint8Array> = [];
+  for (const block of blocks) {
+    const ordering = newOrderingAtEnd(rootOrderings);
+    rootOrderings.push(ordering);
+
+    if (block.kind != "table") {
+      const note = createNoteForBlock(textItem, ownerId, page.id, block, ordering, virtual);
+      result.rootChildren.push(note);
+      result.allItems.push(note);
+      continue;
+    }
+
+    const table = createTableForBlock(textItem, ownerId, page.id, page.docWidthBl, block, ordering, virtual);
+    result.rootChildren.push(table);
+    result.allItems.push(table);
+
+    const tableChildren: Array<Item> = [];
+    result.tableChildrenByTableId[table.id] = tableChildren;
+    const rowOrderings: Array<Uint8Array> = [];
+    for (const row of block.rows) {
+      const rowOrdering = newOrderingAtEnd(rowOrderings);
+      rowOrderings.push(rowOrdering);
+      const rowNote = createNoteForTableRow(textItem, ownerId, table.id, block, row, rowOrdering, virtual);
+      tableChildren.push(rowNote);
+      result.allItems.push(rowNote);
+
+      const attachmentItems: Array<Item> = [];
+      result.attachmentsByParentId[rowNote.id] = attachmentItems;
+      const attachmentOrderings: Array<Uint8Array> = [];
+      const lastCellIndex = lastNonEmptyAttachmentCellIndex(row);
+      for (let cellIndex = 1; cellIndex <= lastCellIndex; ++cellIndex) {
+        const attachmentOrdering = newOrderingAtEnd(attachmentOrderings);
+        attachmentOrderings.push(attachmentOrdering);
+        const cellText = row.cells[cellIndex] ?? "";
+        const attachment = cellText.trim() == ""
+          ? createPlaceholderForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, attachmentOrdering, virtual)
+          : createNoteForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, cellText, attachmentOrdering, virtual);
+        attachmentItems.push(attachment);
+        result.allItems.push(attachment);
+      }
+    }
+  }
+  return result;
+}
+
 function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentBlock>): PageItem {
   const page = createTextDocumentPage(textItem, true);
   const storedPage = asPageItem(itemState.upsertItemFromServerObject(page, null));
@@ -269,14 +545,20 @@ function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentB
   storedPage.capabilities = readonlyCapabilities;
   virtualSourceTextIdByPageId.set(storedPage.id, textItem.id);
 
-  const notes: Array<NoteItem> = [];
-  const orderings: Array<Uint8Array> = [];
-  for (const block of blocks) {
-    const ordering = newOrderingAtEnd(orderings);
-    orderings.push(ordering);
-    notes.push(createNoteForBlock(textItem, textItem.ownerId, storedPage.id, block, ordering, true));
+  const generated = createTextDocumentItems(textItem, textItem.ownerId, storedPage, blocks, true);
+  itemState.applyContainerSnapshotFromServerObjects(storedPage.id, generated.rootChildren, {}, null);
+  for (const tableId of Object.keys(generated.tableChildrenByTableId)) {
+    itemState.applyContainerSnapshotFromServerObjects(
+      tableId,
+      generated.tableChildrenByTableId[tableId],
+      generated.attachmentsByParentId,
+      null,
+    );
+    const table = itemState.getAsContainerItem(tableId);
+    if (table != null) {
+      table.childrenLoaded = true;
+    }
   }
-  itemState.applyContainerSnapshotFromServerObjects(storedPage.id, notes, {}, null);
   storedPage.childrenLoaded = true;
   return storedPage;
 }
@@ -300,17 +582,10 @@ export function createPendingTextDocumentPage(
   return page;
 }
 
-export async function createMaterializedTextDocumentNotes(textItem: TextItem, page: PageItem): Promise<Array<NoteItem>> {
+export async function createMaterializedTextDocumentItems(textItem: TextItem, page: PageItem): Promise<Array<Item>> {
   const text = await fetchTextItemContent(textItem);
-  const blocks = parseTextDocumentBlocks(text);
-  const notes: Array<NoteItem> = [];
-  const orderings: Array<Uint8Array> = [];
-  for (const block of blocks) {
-    const noteOrdering = newOrderingAtEnd(orderings);
-    orderings.push(noteOrdering);
-    notes.push(createNoteForBlock(textItem, page.ownerId, page.id, block, noteOrdering, false));
-  }
-  return notes;
+  const blocks = parseTextDocumentBlocks(text, isMarkdownTextItem(textItem));
+  return createTextDocumentItems(textItem, page.ownerId, page, blocks, false).allItems;
 }
 
 export function isVirtualTextDocumentPage(pageId: Uid): boolean {
@@ -352,7 +627,7 @@ export function persistVirtualTextDocumentPageOptions(store: StoreContextModel, 
 export async function openTextDocumentProjection(store: StoreContextModel, textItem: TextItem): Promise<void> {
   try {
     const text = await fetchTextItemContent(textItem);
-    const page = upsertVirtualProjection(textItem, parseTextDocumentBlocks(text));
+    const page = upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
     const pageVeid = { itemId: page.id, linkIdMaybe: null };
     if (store.history.currentPageVeid()?.itemId != page.id) {
       pushTextDocumentUrlIfNeeded(store, textItem);
@@ -382,23 +657,23 @@ export async function materializeTextDocumentPage(store: StoreContextModel, text
   page.capabilities = null;
 
   itemState.add(page);
-  const notes = await createMaterializedTextDocumentNotes(textItem, page);
-  for (const note of notes) {
-    itemState.add(note);
+  const generatedItems = await createMaterializedTextDocumentItems(textItem, page);
+  for (const item of generatedItems) {
+    itemState.add(item);
   }
   requestArrange(store, "text-document-materialize-local");
 
   try {
     await server.addItem(page, null, store.general.networkStatus);
-    for (const note of notes) {
-      await server.addItem(note, null, store.general.networkStatus);
+    for (const item of generatedItems) {
+      await server.addItem(item, null, store.general.networkStatus);
     }
     requestArrange(store, "text-document-materialize-complete");
     return page.id;
   } catch (e) {
     console.error("Failed to materialize text document:", e);
-    for (const note of notes.reverse()) {
-      itemState.delete(note.id);
+    for (const item of generatedItems.reverse()) {
+      itemState.delete(item.id);
     }
     itemState.delete(page.id);
     requestArrange(store, "text-document-materialize-rollback");
