@@ -29,7 +29,17 @@ import { itemState } from "../../store/ItemState";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { NoteFlags } from "../../items/base/flags-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
-import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
+import {
+  desktopPopupIconTextIndentPx,
+  getTextStyleForNote,
+  noteBulletMarkerLeftPx,
+  noteHasBullet,
+  NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER,
+  NOTE_BULLET_MARKER_TEXT,
+  NOTE_BULLET_TEXT_INSET_PX,
+  noteTextBlockPaddingLeftPx,
+  noteTextBlockTextIndentPx,
+} from "../../layout/text";
 import { HitboxFlags } from "../../layout/hitbox";
 import { useStore } from "../../store/StoreProvider";
 import { CompositeFns } from "../../items/composite-item";
@@ -125,6 +135,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (!reservePopupIconSpace()) { return 0; }
     return desktopPopupIconTextIndentPx(sizeBl().w);
   };
+  const hasBullet = () => noteHasBullet(noteItem().flags);
+  const titlePaddingLeftPx = () => noteTextBlockPaddingLeftPx(noteItem().flags, popupTextIndentPx());
+  const titleTextIndentPx = () => noteTextBlockTextIndentPx(noteItem().flags, popupTextIndentPx());
+  const bulletMarkerLeftPx = () => noteBulletMarkerLeftPx(noteItem().flags, popupTextIndentPx());
 
   const blockSize = () => {
     return {
@@ -353,6 +367,20 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderedInlineMarks = () =>
     renderedTitle() == noteItem().title ? noteItem().inlineMarks : [];
 
+  const renderBulletMaybe = () =>
+    <Show when={hasBullet()}>
+      <span class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
+        style={`left: ${(NOTE_PADDING_PX + bulletMarkerLeftPx()) * textBlockScale()}px; ` +
+          `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+          `width: ${NOTE_BULLET_TEXT_INSET_PX}px; ` +
+          `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+          `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+          `font-size: ${infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER}px; ` +
+          `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+        {NOTE_BULLET_MARKER_TEXT}
+      </span>
+    </Show>;
+
   const renderShadowMaybe = () =>
     <Show when={!props.suppressLocalShadow &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
@@ -393,6 +421,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             <NoteIconGlyph note={noteItem} iconContext={iconContext} highPriority={isPopup} />
           </div>
         </Show>
+        {renderBulletMaybe()}
         <Switch>
           <Match when={NoteFns.hasUrl(noteItem()) &&
             !isInDocumentPage() &&
@@ -406,7 +435,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                 `font-size: ${infuTextStyle().fontSize}px; ` +
                 `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                `text-indent: ${popupTextIndentPx()}px; ` +
+                `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
+                `text-indent: ${titleTextIndentPx()}px; ` +
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}>
               <a id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -432,7 +462,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
                 `font-size: ${infuTextStyle().fontSize}px; ` +
                 `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                `text-indent: ${popupTextIndentPx()}px; ` +
+                `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
+                `text-indent: ${titleTextIndentPx()}px; ` +
                 `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
                 `outline: 0px solid transparent; ` +
                 (isTextEditTarget()

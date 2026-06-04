@@ -219,6 +219,7 @@ export const Toolbar_Note: Component = () => {
     if (style == NoteTextStyle.Heading2) { return "h2"; }
     if (style == NoteTextStyle.Heading3) { return "h3"; }
     if (style == NoteTextStyle.Heading4) { return "h4"; }
+    if (style == NoteTextStyle.Bullet) { return "bullet"; }
     if (style == NoteTextStyle.Code) { return "code"; }
     return "text";
   };

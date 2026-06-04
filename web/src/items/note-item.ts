@@ -77,6 +77,7 @@ export const NoteTextStyle = {
   Heading2: "h2",
   Heading3: "h3",
   Heading4: "h4",
+  Bullet: "bullet",
   Code: "code",
 } as const;
 
@@ -725,6 +726,7 @@ export const NoteFns = {
       !(flagsItem.flags & NoteFlags.Heading2) &&
       !(flagsItem.flags & NoteFlags.Heading3) &&
       !(flagsItem.flags & NoteFlags.Heading4) &&
+      !(flagsItem.flags & NoteFlags.Bullet1) &&
       !(flagsItem.flags & NoteFlags.Code)
     );
   },
@@ -734,6 +736,7 @@ export const NoteFns = {
     if (flagsItem.flags & NoteFlags.Heading2) { return NoteTextStyle.Heading2; }
     if (flagsItem.flags & NoteFlags.Heading3) { return NoteTextStyle.Heading3; }
     if (flagsItem.flags & NoteFlags.Heading4) { return NoteTextStyle.Heading4; }
+    if (flagsItem.flags & NoteFlags.Bullet1) { return NoteTextStyle.Bullet; }
     if (flagsItem.flags & NoteFlags.Code) { return NoteTextStyle.Code; }
     return NoteTextStyle.Normal;
   },
@@ -748,6 +751,8 @@ export const NoteFns = {
       flagsItem.flags |= NoteFlags.Heading3;
     } else if (textStyle == NoteTextStyle.Heading4) {
       flagsItem.flags |= NoteFlags.Heading4;
+    } else if (textStyle == NoteTextStyle.Bullet) {
+      flagsItem.flags |= NoteFlags.Bullet1;
     } else if (textStyle == NoteTextStyle.Code) {
       flagsItem.flags |= NoteFlags.Code;
     }

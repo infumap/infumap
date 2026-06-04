@@ -31,7 +31,15 @@ import { ClickState } from "../../input/state";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { getTextStyleForNote } from "../../layout/text";
+import {
+  getTextStyleForNote,
+  noteBulletMarkerLeftPx,
+  noteHasBullet,
+  NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER,
+  NOTE_BULLET_MARKER_TEXT,
+  NOTE_BULLET_TEXT_INSET_PX,
+  noteTextBlockPaddingLeftPx,
+} from "../../layout/text";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { NoteIconGlyph } from "./NoteIconGlyph";
@@ -93,6 +101,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
+  const hasBullet = () => noteHasBullet(noteItem().flags);
+  const bulletMarkerLeftPx = () => noteBulletMarkerLeftPx(noteItem().flags);
+  const textPaddingLeftPx = () => noteTextBlockPaddingLeftPx(noteItem().flags);
   const isTextEditTarget = () => store.overlay.textEditInfo()?.itemPath == vePath();
   const renderedTitle = () =>
     isTextEditTarget() ? noteItem().title : NoteFns.noteFormatMaybe(noteItem().title, noteItem().format);
@@ -180,57 +191,73 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     handleLineItemTitleKeyDown(store, ev);
   }
 
-  const renderText = () =>
-    <Show when={textWidthPx() > 0 || isTextEditTarget()}>
-      <div class={`absolute overflow-hidden whitespace-nowrap ` +
-        (isTextEditTarget() || isInCalendarPage() ? '' : `text-ellipsis `) +
-        `${infuTextStyle().alignClass} `}
-        style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-          `width: ${textWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
-          `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; padding-right: ${textPaddingRightCssPx()}px;`}>
-        <Switch>
-          <Match when={NoteFns.hasUrl(noteItem()) &&
-            !isTextEditTarget()}>
-            <a id={VeFns.veToPath(props.visualElement) + ":title"}
-              href={noteItem().url}
-              class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
-              style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
-                `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
-              onClick={aHrefClick}
-              onMouseDown={aHrefMouseDown}
-              onMouseUp={aHrefMouseUp}>
-              <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} />
-            </a>
-          </Match>
-          <Match when={isTextEditTarget()}>
-            <span id={VeFns.veToPath(props.visualElement) + ":title"}
-              class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-              style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
-              contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
-              spellcheck={canEdit() && isTextEditTarget()}
-              onKeyDown={keyDownHandler}
-              onBeforeInput={beforeInputListener}
-              onInput={inputListener}>
-              <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={true} />
-            </span>
-          </Match>
-          <Match when={!NoteFns.hasUrl(noteItem()) || isTextEditTarget()}>
-            <span id={VeFns.veToPath(props.visualElement) + ":title"}
-              class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-              style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
-              contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
-              spellcheck={canEdit() && isTextEditTarget()}
-              onKeyDown={keyDownHandler}
-              onBeforeInput={beforeInputListener}
-              onInput={inputListener}>
-              <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={isTextEditTarget()} />
-            </span>
-          </Match>
-        </Switch>
+  const renderBulletMaybe = () =>
+    <Show when={hasBullet() && (textWidthPx() > 0 || isTextEditTarget())}>
+      <div class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
+        style={`left: ${leftPx() + bulletMarkerLeftPx()}px; top: ${boundsPx().y}px; ` +
+          `width: ${NOTE_BULLET_TEXT_INSET_PX}px; height: ${boundsPx().h / scale()}px; ` +
+          `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
+          `font-size: ${infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER}px; line-height: ${LINE_HEIGHT_PX * infuTextStyle().lineHeightMultiplier}px; ` +
+          `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
+        {NOTE_BULLET_MARKER_TEXT}
       </div>
     </Show>;
+
+  const renderText = () =>
+    <>
+      {renderBulletMaybe()}
+      <Show when={textWidthPx() > 0 || isTextEditTarget()}>
+        <div class={`absolute overflow-hidden whitespace-nowrap ` +
+          (isTextEditTarget() || isInCalendarPage() ? '' : `text-ellipsis `) +
+          `${infuTextStyle().alignClass} `}
+          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
+            `width: ${textWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+            `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
+            `padding-left: ${textPaddingLeftPx()}px; padding-right: ${textPaddingRightCssPx()}px;`}>
+          <Switch>
+            <Match when={NoteFns.hasUrl(noteItem()) &&
+              !isTextEditTarget()}>
+              <a id={VeFns.veToPath(props.visualElement) + ":title"}
+                href={noteItem().url}
+                class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
+                  `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
+                onClick={aHrefClick}
+                onMouseDown={aHrefMouseDown}
+                onMouseUp={aHrefMouseUp}>
+                <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} />
+              </a>
+            </Match>
+            <Match when={isTextEditTarget()}>
+              <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                  `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
+                contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+                spellcheck={canEdit() && isTextEditTarget()}
+                onKeyDown={keyDownHandler}
+                onBeforeInput={beforeInputListener}
+                onInput={inputListener}>
+                <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={true} />
+              </span>
+            </Match>
+            <Match when={!NoteFns.hasUrl(noteItem()) || isTextEditTarget()}>
+              <span id={VeFns.veToPath(props.visualElement) + ":title"}
+                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+                  `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
+                contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+                spellcheck={canEdit() && isTextEditTarget()}
+                onKeyDown={keyDownHandler}
+                onBeforeInput={beforeInputListener}
+                onInput={inputListener}>
+                <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={isTextEditTarget()} />
+              </span>
+            </Match>
+          </Switch>
+        </div>
+      </Show>
+    </>;
 
   const renderCopyIconMaybe = () =>
     <Show when={showCopyIcon()}>

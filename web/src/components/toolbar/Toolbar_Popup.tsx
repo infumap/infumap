@@ -178,7 +178,7 @@ const NOTE_TEXT_STYLE_OPTIONS: Array<NoteTextStyleOption> = [
   { textStyle: NoteTextStyle.Heading2, label: "H2", icon: "bi-type-h2", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading2 },
   { textStyle: NoteTextStyle.Heading3, label: "H3", icon: "bi-type-h3", selectedTextStyle: NoteTextStyle.Heading3 },
   { textStyle: NoteTextStyle.Heading4, label: "H4", icon: "bi-type-h4", selectedTextStyle: NoteTextStyle.Heading4 },
-  { textStyle: NoteTextStyle.Normal, label: "Bullet", icon: "fa fa-list", hideInTable: true, selectedTextStyle: null },
+  { textStyle: NoteTextStyle.Bullet, label: "Bullet", icon: "fa fa-list", hideInTable: true, selectedTextStyle: NoteTextStyle.Bullet },
   { textStyle: NoteTextStyle.Normal, label: "Numbered", icon: "fa fa-list-ol", hideInTable: true, selectedTextStyle: null },
   { textStyle: NoteTextStyle.Code, label: "Code", icon: "fa fa-code", selectedTextStyle: NoteTextStyle.Code },
 ];

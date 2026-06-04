@@ -21,6 +21,26 @@ import { NoteFlags } from "../items/base/flags-item";
 
 
 const lineCountCache = new Map<String, number>();
+export const NOTE_BULLET_MARKER_TEXT = "\u25CF";
+export const NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER = 0.50;
+export const NOTE_BULLET_MARKER_OFFSET_PX = 3;
+export const NOTE_BULLET_TEXT_INSET_PX = 18;
+
+export function noteHasBullet(flags: NoteFlags): boolean {
+  return (flags & NoteFlags.Bullet1) != 0;
+}
+
+export function noteTextBlockPaddingLeftPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
+  return noteHasBullet(flags) ? leadingInsetPx + NOTE_BULLET_TEXT_INSET_PX : 0;
+}
+
+export function noteTextBlockTextIndentPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
+  return noteHasBullet(flags) ? 0 : leadingInsetPx;
+}
+
+export function noteBulletMarkerLeftPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
+  return noteHasBullet(flags) ? leadingInsetPx + NOTE_BULLET_MARKER_OFFSET_PX : 0;
+}
 
 export function desktopPopupIconTextIndentPx(widthBl: number): number {
   if (widthBl <= 0) { return 0; }
@@ -38,17 +58,20 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags, t
   }
   const div = document.createElement("div");
   const style = getTextStyleForNote(flags);
+  const paddingLeftPx = noteTextBlockPaddingLeftPx(flags, textIndentPx);
+  const actualTextIndentPx = noteTextBlockTextIndentPx(flags, textIndentPx);
   div.setAttribute("class", `${style.alignClass} ${style.isCode ? ' font-mono' : '' }`);
   div.setAttribute("style",
     `left: ${NOTE_PADDING_PX}px; ` +
     `top: ${NOTE_PADDING_PX - LINE_HEIGHT_PX/4}px; ` +
     `right: ${widthBl*LINE_HEIGHT_PX - NOTE_PADDING_PX}px; ` +
     `width: ${widthBl*LINE_HEIGHT_PX - NOTE_PADDING_PX*2}px; ` +
+    `box-sizing: border-box; padding-left: ${paddingLeftPx}px; ` +
     `${style.isBold ? 'font-weight: bold; ' : ""}` +
     `font-size: ${style.fontSize}px; ` +
     `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
     `overflow-wrap: break-word; white-space: pre-wrap; ` +
-    `text-indent: ${textIndentPx}px;`);
+    `text-indent: ${actualTextIndentPx}px;`);
   const txt = document.createTextNode(s);
   div.appendChild(txt);
   document.body.appendChild(div);

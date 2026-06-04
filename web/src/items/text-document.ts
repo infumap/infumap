@@ -47,6 +47,7 @@ type TextDocumentTextBlock = {
   title: string,
   inlineMarks: Array<NoteInlineMark>,
   headingLevel: number | null,
+  noteFlags: NoteFlags,
   start: number,
   end: number,
   ordinal: number,
@@ -198,6 +199,14 @@ function headingInfo(line: string): { level: number, title: string } | null {
     level: Math.min(match[1].length, 4),
     title: match[2].trim(),
   };
+}
+
+function markdownBulletInfo(line: string): { title: string } | null {
+  const match = /^(?: {0,3})[-+*][ \t]+(.*)$/.exec(line);
+  if (!match) { return null; }
+  const title = match[1].trim();
+  if (title == "") { return null; }
+  return { title };
 }
 
 function noteFlagsForHeadingLevel(level: number | null): NoteFlags {
@@ -490,6 +499,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
         headingLevel: null,
+        noteFlags: NoteFlags.None,
         start: paragraphLines[0].start,
         end: paragraphLines[paragraphLines.length - 1].end,
         ordinal: blocks.length,
@@ -536,6 +546,24 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
         headingLevel: heading.level,
+        noteFlags: noteFlagsForHeadingLevel(heading.level),
+        start: line.start,
+        end: line.end,
+        ordinal: blocks.length,
+      });
+      continue;
+    }
+
+    const bullet = parseMarkdown ? markdownBulletInfo(line.text) : null;
+    if (bullet != null) {
+      flushParagraph();
+      const parsed = parseMarkdownInline(bullet.title);
+      blocks.push({
+        kind: "paragraph",
+        title: parsed.title,
+        inlineMarks: parsed.inlineMarks,
+        headingLevel: null,
+        noteFlags: NoteFlags.Bullet1,
         start: line.start,
         end: line.end,
         ordinal: blocks.length,
@@ -606,7 +634,7 @@ function createNoteForBlock(
     note.id = stableUid(`text-document-block:${textItem.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
     note.capabilities = readonlyCapabilities;
   }
-  note.flags = noteFlagsForHeadingLevel(block.headingLevel);
+  note.flags = block.noteFlags;
   return note;
 }
 
