@@ -34,6 +34,7 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRi
 
 const DIVIDER_COLOR = "#64748b";
 const DIVIDER_HOVER_BG = "#0044ff0a";
+const DIVIDER_LINE_WIDTH_PX = 1;
 
 export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
@@ -64,12 +65,12 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
       when={isHorizontal()}
       fallback={
         <div class="absolute pointer-events-none"
-          style={`left: ${Math.max(0, boundsPx().w / 2 - 1)}px; top: 2px; ` +
-            `width: 2px; height: ${Math.max(0, boundsPx().h - 4)}px; background-color: ${DIVIDER_COLOR};`} />
+          style={`left: ${Math.max(0, boundsPx().w / 2 - DIVIDER_LINE_WIDTH_PX / 2)}px; top: 2px; ` +
+            `width: ${DIVIDER_LINE_WIDTH_PX}px; height: ${Math.max(0, boundsPx().h - 4)}px; background-color: ${DIVIDER_COLOR};`} />
       }>
       <div class="absolute pointer-events-none"
-        style={`left: 2px; top: ${Math.max(0, boundsPx().h / 2 - 1)}px; ` +
-          `width: ${Math.max(0, boundsPx().w - 4)}px; height: 2px; background-color: ${DIVIDER_COLOR};`} />
+        style={`left: 2px; top: ${Math.max(0, boundsPx().h / 2 - DIVIDER_LINE_WIDTH_PX / 2)}px; ` +
+          `width: ${Math.max(0, boundsPx().w - 4)}px; height: ${DIVIDER_LINE_WIDTH_PX}px; background-color: ${DIVIDER_COLOR};`} />
     </Show>;
 
   const renderBoundsHighlightMaybe = () =>
@@ -106,7 +107,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
         showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={canEdit() && showTriangleDetail()}>
+      <Show when={canEdit() && showTriangleDetail() && store.perVe.getMouseIsOver(vePath())}>
         <InfuResizeTriangle />
       </Show>
       {renderFocusRingMaybe()}
