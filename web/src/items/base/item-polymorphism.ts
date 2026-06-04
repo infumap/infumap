@@ -167,7 +167,7 @@ export const ItemFns = {
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InCell(PasswordFns.asPasswordMeasurable(measurable), cellBoundsPx, maximize); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InCell(RatingFns.asRatingMeasurable(measurable), cellBoundsPx, maximize); }
     if (isSearch(measurable)) { return SearchFns.calcGeometry_InCell(SearchFns.asSearchMeasurable(measurable), cellBoundsPx, maximize); }
-    if (isDivider(measurable)) { return DividerFns.calcGeometry_InCell(DividerFns.asDividerMeasurable(measurable), cellBoundsPx); }
+    if (isDivider(measurable)) { return DividerFns.calcGeometry_InCell(DividerFns.asDividerMeasurable(measurable), cellBoundsPx, parentIsDock); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasChildChanges, hasDefaultChanges, maximize, ignoreCellHeight, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InCell(PlaceholderFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
     panic(`Unknown item type: ${measurable.itemType}`);

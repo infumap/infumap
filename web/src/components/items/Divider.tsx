@@ -20,6 +20,7 @@ import { Component, Show } from "solid-js";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { asDividerItem } from "../../items/divider-item";
 import { COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
+import { HitboxFlags } from "../../layout/hitbox";
 import { VisualElementProps } from "../VisualElement";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -30,6 +31,8 @@ import { FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW, SELECTION_HIGHLIGHT_COLOR 
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { itemState } from "../../store/ItemState";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 
 
 const DIVIDER_COLOR = "#64748b";
@@ -44,7 +47,15 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
   const boundsPx = () => props.visualElement.boundsPx;
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
   const canEdit = () => itemCanEdit(dividerItem());
-  const isHorizontal = () => dividerItem().dividerDirection == "horizontal";
+  const isInDocumentPage = () => {
+    if (!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || props.visualElement.parentPath == null) {
+      return false;
+    }
+    const parentItem = itemState.get(VeFns.veidFromPath(props.visualElement.parentPath).itemId);
+    return parentItem != null && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  };
+  const isHorizontal = () => isInDocumentPage() || dividerItem().dividerDirection == "horizontal";
+  const hasResizeHitbox = () => props.visualElement.hitboxes.some(hitbox => (hitbox.type & HitboxFlags.Resize) != 0);
 
   const moveOutOfCompositeBox = (): BoundingBox => ({
     x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
@@ -107,7 +118,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
         showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>
-      <Show when={canEdit() && showTriangleDetail() && store.perVe.getMouseIsOver(vePath())}>
+      <Show when={canEdit() && showTriangleDetail() && hasResizeHitbox() && store.perVe.getMouseIsOver(vePath())}>
         <InfuResizeTriangle />
       </Show>
       {renderFocusRingMaybe()}

@@ -21,12 +21,12 @@ import { HitboxFlags, HitboxFns } from "../layout/hitbox";
 import { ItemGeometry } from "../layout/item-geometry";
 import { VisualElement, VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometry";
+import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { normalizeItemCapabilities } from "./base/capabilities-item";
-import { handleListPageLineItemClickMaybe } from "./base/item-common-fns";
+import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { Item, ItemType, ItemTypeMixin } from "./base/item";
 import { PositionalMixin } from "./base/positional-item";
 import { XSizableMixin } from "./base/x-sizeable-item";
@@ -238,20 +238,30 @@ export const DividerFns = {
     };
   },
 
-  calcGeometry_InCell: (_divider: DividerMeasurable, cellBoundsPx: BoundingBox): ItemGeometry => {
-    const boundsPx = { ...cellBoundsPx };
+  calcGeometry_InCell: (divider: DividerMeasurable, cellBoundsPx: BoundingBox, parentIsDock: boolean): ItemGeometry => {
+    const sizeBl = DividerFns.calcSpatialDimensionsBl(divider);
+    const boundsPx = calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+    ];
+    if (parentIsDock) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.Resize, {
+        x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX,
+        y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX,
+        w: RESIZE_BOX_SIZE_PX,
+        h: RESIZE_BOX_SIZE_PX,
+      }));
+    }
     return {
-      boundsPx,
+      boundsPx: cloneBoundingBox(boundsPx)!,
       viewportBoundsPx: null,
       blockSizePx: {
-        w: cellBoundsPx.w,
-        h: cellBoundsPx.h,
+        w: boundsPx.w / sizeBl.w,
+        h: boundsPx.h / sizeBl.h,
       },
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-      ],
+      hitboxes,
     };
   },
 

@@ -19,13 +19,16 @@
 import { Component, Show } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { asDividerItem, DividerDirection } from "../../../items/divider-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
 import { requestArrange } from "../../../layout/arrange";
+import { VeFns } from "../../../layout/visual-element";
+import { VesCache } from "../../../layout/ves-cache";
 import { serverOrRemote } from "../../../server";
 import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { useStore } from "../../../store/StoreProvider";
 import { ClickState } from "../../../input/state";
 import { InfuIconButton } from "../../library/InfuIconButton";
-import { getToolbarFocusItem } from "../toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 
 
@@ -36,6 +39,16 @@ export const Toolbar_Divider: Component = () => {
 
   const dividerItem = () => asDividerItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(dividerItem());
+  const isInDocumentPage = () => {
+    const focusPath = getToolbarFocusPathMaybe(store);
+    if (focusPath == null) { return false; }
+    const parentPath = VeFns.parentPath(focusPath);
+    if (parentPath == null || parentPath == "") { return false; }
+    const parentVe = VesCache.current.readNode(parentPath);
+    return parentVe != null &&
+      isPage(parentVe.displayItem) &&
+      asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  };
 
   const setDirection = (direction: DividerDirection) => {
     const item = dividerItem();
@@ -72,7 +85,7 @@ export const Toolbar_Divider: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <Show when={canEdit()}>
+        <Show when={canEdit() && !isInDocumentPage()}>
           <div class="inline-block ml-[10px] mr-[4px] align-middle">
             <InfuIconButton
               icon="fa fa-arrows-h"

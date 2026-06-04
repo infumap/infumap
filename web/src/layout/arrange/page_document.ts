@@ -20,6 +20,7 @@ import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_M
 import { PageFlags } from "../../items/base/flags-item";
 import { Item, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
+import { DividerFns, isDivider } from "../../items/divider-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
@@ -102,6 +103,10 @@ export function arrange_document_page(
       topPx,
       store.smallScreenMode());
     if (isPage(displayItem_childItem)) {
+      geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
+    }
+    if (isDivider(displayItem_childItem)) {
+      geometry.hitboxes = geometry.hitboxes.filter(hitbox => !(hitbox.type & HitboxFlags.Resize));
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
     if (isTable(displayItem_childItem)) {
@@ -235,6 +240,19 @@ function documentChildMeasurableForGeometry(
   linkItemMaybe: LinkItem | null,
   displayWidthBl: number,
 ): Measurable {
+  if (isDivider(displayItem)) {
+    if (linkItemMaybe != null) {
+      const clonedLink: LinkItem = {
+        ...linkItemMaybe,
+        spatialHeightGr: GRID_SIZE,
+      };
+      return clonedLink;
+    }
+    const clonedDivider = DividerFns.asDividerMeasurable(ItemFns.cloneMeasurableFields(displayItem));
+    clonedDivider.spatialHeightGr = GRID_SIZE;
+    return clonedDivider;
+  }
+
   if (!isTable(displayItem)) {
     return linkItemMaybe ? linkItemMaybe : displayItem;
   }
