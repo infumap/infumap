@@ -53,6 +53,18 @@ export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 
 export { ItemIconMode, ItemIconRenderContext };
 
+export const NoteTextStyle = {
+  Normal: "normal",
+  Heading1: "h1",
+  Heading2: "h2",
+  Heading3: "h3",
+  Heading4: "h4",
+  Bullet1: "bullet1",
+  Code: "code",
+} as const;
+
+export type NoteTextStyle = typeof NoteTextStyle[keyof typeof NoteTextStyle];
+
 function noteHasFaviconUrl(note: NoteItem): boolean {
   return !!note.url?.trim();
 }
@@ -403,6 +415,33 @@ export const NoteFns = {
       !(flagsItem.flags & NoteFlags.Bullet1) &&
       !(flagsItem.flags & NoteFlags.Code)
     );
+  },
+
+  textStyle: (flagsItem: FlagsItem): NoteTextStyle => {
+    if (flagsItem.flags & NoteFlags.Heading1) { return NoteTextStyle.Heading1; }
+    if (flagsItem.flags & NoteFlags.Heading2) { return NoteTextStyle.Heading2; }
+    if (flagsItem.flags & NoteFlags.Heading3) { return NoteTextStyle.Heading3; }
+    if (flagsItem.flags & NoteFlags.Heading4) { return NoteTextStyle.Heading4; }
+    if (flagsItem.flags & NoteFlags.Bullet1) { return NoteTextStyle.Bullet1; }
+    if (flagsItem.flags & NoteFlags.Code) { return NoteTextStyle.Code; }
+    return NoteTextStyle.Normal;
+  },
+
+  setTextStyle: (flagsItem: FlagsItem, textStyle: NoteTextStyle): void => {
+    NoteFns.clearTextStyleFlags(flagsItem);
+    if (textStyle == NoteTextStyle.Heading1) {
+      flagsItem.flags |= NoteFlags.Heading1;
+    } else if (textStyle == NoteTextStyle.Heading2) {
+      flagsItem.flags |= NoteFlags.Heading2;
+    } else if (textStyle == NoteTextStyle.Heading3) {
+      flagsItem.flags |= NoteFlags.Heading3;
+    } else if (textStyle == NoteTextStyle.Heading4) {
+      flagsItem.flags |= NoteFlags.Heading4;
+    } else if (textStyle == NoteTextStyle.Bullet1) {
+      flagsItem.flags |= NoteFlags.Bullet1;
+    } else if (textStyle == NoteTextStyle.Code) {
+      flagsItem.flags |= NoteFlags.Code;
+    }
   },
 
   isAlignedLeft: (flagsItem: FlagsItem): boolean => {

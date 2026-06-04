@@ -19,7 +19,7 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
-import { NoteFns, asNoteItem } from "../../../items/note-item";
+import { NoteFns, NoteTextStyle, asNoteItem } from "../../../items/note-item";
 import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
 import { useStore } from "../../../store/StoreProvider";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
@@ -37,6 +37,7 @@ import { getToolbarFocusItem } from "../toolbarFocus";
 export const Toolbar_Note: Component = () => {
   const store = useStore();
 
+  let textStyleDiv: HTMLDivElement | undefined;
   let beforeFormatElement: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
   let formatDiv: HTMLDivElement | undefined;
@@ -69,14 +70,6 @@ export const Toolbar_Note: Component = () => {
     }
     return false;
   };
-
-  const selectNormalText = () => { NoteFns.clearTextStyleFlags(noteItem()); requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
-  const selectHeading1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading1; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
-  const selectHeading2 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading2; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
-  const selectHeading3 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading3; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
-  const selectHeading4 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Heading4; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
-  const selectBullet1 = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Bullet1; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
-  const selectCode = () => { NoteFns.clearTextStyleFlags(noteItem()); noteItem().flags |= NoteFlags.Code; requestArrange(store, "toolbar-note-text-style"); touchToolbar(); };
 
   const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
   const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
@@ -196,21 +189,46 @@ export const Toolbar_Note: Component = () => {
     ClickState.setButtonClickBoundsPx(formatDiv!.getBoundingClientRect());
   };
 
+  const textStyleButtonHandler = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteTextStyle) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: textStyleDiv!.getBoundingClientRect().x, y: textStyleDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.NoteTextStyle });
+  };
+  const handleTextStyleDown = () => {
+    ClickState.setButtonClickBoundsPx(textStyleDiv!.getBoundingClientRect());
+  };
+
+  const textStyleText = () => {
+    store.touchToolbarDependency();
+    const style = NoteFns.textStyle(noteItem());
+    if (style == NoteTextStyle.Heading1) { return "h1"; }
+    if (style == NoteTextStyle.Heading2) { return "h2"; }
+    if (style == NoteTextStyle.Heading3) { return "h3"; }
+    if (style == NoteTextStyle.Heading4) { return "h4"; }
+    if (style == NoteTextStyle.Bullet1) { return "list"; }
+    if (style == NoteTextStyle.Code) { return "code"; }
+    return "text";
+  };
+
+  const renderTextStyleSelector = () =>
+    <div ref={textStyleDiv}
+      class="inline-block w-[70px] border border-slate-400 rounded-md ml-[3px] cursor-pointer"
+      style={`font-size: 13px;`}>
+      <div class="inline-block w-[68px] pl-[6px] hover:bg-slate-300"
+        onClick={textStyleButtonHandler}
+        onMouseDown={handleTextStyleDown}>
+        {textStyleText()}
+      </div>
+    </div>;
+
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
       <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
-        <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
-        <Show when={!isInTable()}>
-          <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-          <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
-        </Show>
-        <InfuIconButton icon="bi-type-h3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-        <InfuIconButton icon="bi-type-h4" highlighted={(noteItem().flags & NoteFlags.Heading4) ? true : false} clickHandler={selectHeading4} />
-        <Show when={!isInTable()}>
-          <InfuIconButton icon="fa fa-list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
-        </Show>
-        <InfuIconButton icon="fa fa-code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
-        <div class="inline-block ml-[20px]"></div>
+        {renderTextStyleSelector()}
+        <div class="inline-block ml-[12px]"></div>
         <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
         <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
         <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
@@ -254,14 +272,8 @@ export const Toolbar_Note: Component = () => {
   const renderCompositeToolbox = () =>
     <div class="inline-block">
       <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
-        <InfuIconButton icon="fa fa-font" highlighted={NoteFns.isStyleNormalText(noteItem())} clickHandler={selectNormalText} />
-        <InfuIconButton icon="bi-type-h1" highlighted={(noteItem().flags & NoteFlags.Heading1) ? true : false} clickHandler={selectHeading1} />
-        <InfuIconButton icon="bi-type-h2" highlighted={(noteItem().flags & NoteFlags.Heading2) ? true : false} clickHandler={selectHeading2} />
-        <InfuIconButton icon="bi-type-h3" highlighted={(noteItem().flags & NoteFlags.Heading3) ? true : false} clickHandler={selectHeading3} />
-        <InfuIconButton icon="bi-type-h4" highlighted={(noteItem().flags & NoteFlags.Heading4) ? true : false} clickHandler={selectHeading4} />
-        <InfuIconButton icon="fa fa-list" highlighted={(noteItem().flags & NoteFlags.Bullet1) ? true : false} clickHandler={selectBullet1} />
-        <InfuIconButton icon="fa fa-code" highlighted={(noteItem().flags & NoteFlags.Code) ? true : false} clickHandler={selectCode} />
-        <div class="inline-block ml-[20px]"></div>
+        {renderTextStyleSelector()}
+        <div class="inline-block ml-[12px]"></div>
         <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
         <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
         <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />

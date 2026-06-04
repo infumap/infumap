@@ -26,7 +26,7 @@ import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { itemState } from "../../store/ItemState";
 import { ItemIconMode } from "../../items/base/icon-item";
-import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
+import { NoteFns, NoteTextStyle, asNoteItem, isNote } from "../../items/note-item";
 import { NoteFaviconLoadStatus, clearNoteFaviconStatus, noteFaviconStatus } from "../../items/note-favicon-state";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
@@ -164,6 +164,34 @@ const DEFAULT_FILE_ICON_TEXT = "\uf15b";
 const DEFAULT_TEXT_ICON_TEXT = "\uf031";
 const DEFAULT_PASSWORD_ICON_TEXT = "\uf070";
 
+const NOTE_TEXT_STYLE_OPTIONS = [
+  { textStyle: NoteTextStyle.Normal, label: "Text" },
+  { textStyle: NoteTextStyle.Heading1, label: "H1", hideInTable: true },
+  { textStyle: NoteTextStyle.Heading2, label: "H2", hideInTable: true },
+  { textStyle: NoteTextStyle.Heading3, label: "H3" },
+  { textStyle: NoteTextStyle.Heading4, label: "H4" },
+  { textStyle: NoteTextStyle.Bullet1, label: "List", hideInTable: true },
+  { textStyle: NoteTextStyle.Code, label: "Code" },
+];
+
+function noteIsInTable(note: ReturnType<typeof asNoteItem>): boolean {
+  let parentId = note.parentId;
+  while (parentId) {
+    const parentItem = itemState.get(parentId);
+    if (!parentItem) { return false; }
+    if (isTable(parentItem)) { return true; }
+    if (parentItem.parentId == null || parentItem.parentId === parentId) { return false; }
+    parentId = parentItem.parentId;
+  }
+  return false;
+}
+
+function visibleNoteTextStyleOptions(store: StoreContextModel): Array<{ textStyle: NoteTextStyle, label: string, hideInTable?: boolean }> {
+  const focusItem = getToolbarFocusItem(store);
+  const inTable = isNote(focusItem) && noteIsInTable(asNoteItem(focusItem));
+  return NOTE_TEXT_STYLE_OPTIONS.filter(option => !option.hideInTable || !inTable);
+}
+
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
   if (overlayType == ToolbarPopupType.NoteFormat) { return 105; }
@@ -198,6 +226,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     compositeItemMaybe() != null && compositeItemMaybe()!.id != getToolbarFocusItem(store).id;
 
   if (popupType != ToolbarPopupType.PageColor &&
+    popupType != ToolbarPopupType.NoteTextStyle &&
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
     popupType != ToolbarPopupType.PageCalendarDisplayMode &&
     popupType != ToolbarPopupType.SearchArrangeAlgorithm &&
@@ -217,6 +246,13 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96, h: 56
+    }
+  } else if (popupType == ToolbarPopupType.NoteTextStyle) {
+    return {
+      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
+      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      w: 112,
+      h: visibleNoteTextStyleOptions(store).length * 25 + 15
     }
   } else if (popupType == ToolbarPopupType.PageArrangeAlgorithm) {
     return {
@@ -373,6 +409,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() != ToolbarPopupType.PageColor &&
       overlayType() != ToolbarPopupType.ItemIcon &&
       overlayType() != ToolbarPopupType.QrLink &&
+      overlayType() != ToolbarPopupType.NoteTextStyle &&
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
       overlayType() != ToolbarPopupType.SearchArrangeAlgorithm &&
@@ -761,6 +798,23 @@ export const Toolbar_Popup: Component = () => {
     finalizeAAChange(targetPage);
   };
 
+  const handleNoteTextStyleChange = (textStyle: NoteTextStyle) => {
+    const focusItem = getToolbarFocusItem(store);
+    if (!isNote(focusItem)) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    NoteFns.setTextStyle(asNoteItem(focusItem), textStyle);
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.touchToolbar();
+    requestArrange(store, "toolbar-popup-note-text-style");
+  };
+  const noteTextStyle = () => {
+    const focusItem = getToolbarFocusItem(store);
+    return isNote(focusItem) ? NoteFns.textStyle(asNoteItem(focusItem)) : NoteTextStyle.Normal;
+  };
+  const noteTextStyleChoiceClass = (textStyle: NoteTextStyle): string =>
+    `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${noteTextStyle() == textStyle ? "font-bold text-slate-900" : ""}`;
   const aaSpatialClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.SpatialStretch); }
   const aaGridClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Grid); }
   const aaCatalogClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Catalog); }
@@ -878,6 +932,19 @@ export const Toolbar_Popup: Component = () => {
               <div class="inline-block pl-[2px]"><InfuColorButton col={6} onClick={handleColorClick} /></div>
               <div class="inline-block pl-[2px]"><InfuColorButton col={7} onClick={handleColorClick} /></div>
             </div>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.NoteTextStyle}>
+          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <For each={visibleNoteTextStyleOptions(store)}>{(option, index) =>
+              <div class={noteTextStyleChoiceClass(option.textStyle) + (index() == 0 ? " mt-[3px]" : "")}
+                onClick={() => { handleNoteTextStyleChange(option.textStyle); }}>
+                {option.label}
+              </div>
+            }</For>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageArrangeAlgorithm}>
