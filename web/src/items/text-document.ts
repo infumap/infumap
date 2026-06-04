@@ -471,9 +471,9 @@ function createTableForBlock(
   const columnWidthGr = tableWidthGr / block.columns.length;
   table.tableColumns = block.columns.map(name => ({ name, widthGr: columnWidthGr }));
   table.numberOfVisibleColumns = table.tableColumns.length;
-  table.flags |= TableFlags.ShowColHeader;
+  table.flags |= TableFlags.ShowColHeader | TableFlags.HideTitle;
   table.spatialWidthGr = tableWidthGr;
-  table.spatialHeightGr = Math.max(3, Math.min(block.rows.length + 2, MAX_GENERATED_TABLE_HEIGHT_BL)) * GRID_SIZE;
+  table.spatialHeightGr = Math.max(3, Math.min(block.rows.length + 1, MAX_GENERATED_TABLE_HEIGHT_BL)) * GRID_SIZE;
   table.childrenLoaded = true;
   return table;
 }
