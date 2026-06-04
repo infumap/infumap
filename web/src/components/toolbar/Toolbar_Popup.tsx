@@ -164,14 +164,23 @@ const DEFAULT_FILE_ICON_TEXT = "\uf15b";
 const DEFAULT_TEXT_ICON_TEXT = "\uf031";
 const DEFAULT_PASSWORD_ICON_TEXT = "\uf070";
 
-const NOTE_TEXT_STYLE_OPTIONS = [
-  { textStyle: NoteTextStyle.Normal, label: "Text" },
-  { textStyle: NoteTextStyle.Heading1, label: "H1", hideInTable: true },
-  { textStyle: NoteTextStyle.Heading2, label: "H2", hideInTable: true },
-  { textStyle: NoteTextStyle.Heading3, label: "H3" },
-  { textStyle: NoteTextStyle.Heading4, label: "H4" },
-  { textStyle: NoteTextStyle.Bullet1, label: "List", hideInTable: true },
-  { textStyle: NoteTextStyle.Code, label: "Code" },
+type NoteTextStyleOption = {
+  textStyle: NoteTextStyle,
+  label: string,
+  icon: string,
+  hideInTable?: boolean,
+  selectedTextStyle?: NoteTextStyle | null,
+};
+
+const NOTE_TEXT_STYLE_OPTIONS: Array<NoteTextStyleOption> = [
+  { textStyle: NoteTextStyle.Normal, label: "Text", icon: "fa fa-font", selectedTextStyle: NoteTextStyle.Normal },
+  { textStyle: NoteTextStyle.Heading1, label: "H1", icon: "bi-type-h1", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading1 },
+  { textStyle: NoteTextStyle.Heading2, label: "H2", icon: "bi-type-h2", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading2 },
+  { textStyle: NoteTextStyle.Heading3, label: "H3", icon: "bi-type-h3", selectedTextStyle: NoteTextStyle.Heading3 },
+  { textStyle: NoteTextStyle.Heading4, label: "H4", icon: "bi-type-h4", selectedTextStyle: NoteTextStyle.Heading4 },
+  { textStyle: NoteTextStyle.Normal, label: "Bullet", icon: "fa fa-list", hideInTable: true, selectedTextStyle: null },
+  { textStyle: NoteTextStyle.Normal, label: "Numbered", icon: "fa fa-list-ol", hideInTable: true, selectedTextStyle: null },
+  { textStyle: NoteTextStyle.Code, label: "Code", icon: "fa fa-code", selectedTextStyle: NoteTextStyle.Code },
 ];
 
 function noteIsInTable(note: ReturnType<typeof asNoteItem>): boolean {
@@ -186,7 +195,7 @@ function noteIsInTable(note: ReturnType<typeof asNoteItem>): boolean {
   return false;
 }
 
-function visibleNoteTextStyleOptions(store: StoreContextModel): Array<{ textStyle: NoteTextStyle, label: string, hideInTable?: boolean }> {
+function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextStyleOption> {
   const focusItem = getToolbarFocusItem(store);
   const inTable = isNote(focusItem) && noteIsInTable(asNoteItem(focusItem));
   return NOTE_TEXT_STYLE_OPTIONS.filter(option => !option.hideInTable || !inTable);
@@ -251,7 +260,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     return {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
-      w: 112,
+      w: 136,
       h: visibleNoteTextStyleOptions(store).length * 25 + 15
     }
   } else if (popupType == ToolbarPopupType.PageArrangeAlgorithm) {
@@ -813,8 +822,10 @@ export const Toolbar_Popup: Component = () => {
     const focusItem = getToolbarFocusItem(store);
     return isNote(focusItem) ? NoteFns.textStyle(asNoteItem(focusItem)) : NoteTextStyle.Normal;
   };
-  const noteTextStyleChoiceClass = (textStyle: NoteTextStyle): string =>
-    `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${noteTextStyle() == textStyle ? "font-bold text-slate-900" : ""}`;
+  const noteTextStyleChoiceClass = (option: NoteTextStyleOption): string => {
+    const selected = option.selectedTextStyle != null && noteTextStyle() == option.selectedTextStyle;
+    return `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${selected ? "font-bold text-slate-900" : ""}`;
+  };
   const aaSpatialClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.SpatialStretch); }
   const aaGridClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Grid); }
   const aaCatalogClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Catalog); }
@@ -940,8 +951,9 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <For each={visibleNoteTextStyleOptions(store)}>{(option, index) =>
-              <div class={noteTextStyleChoiceClass(option.textStyle) + (index() == 0 ? " mt-[3px]" : "")}
+              <div class={noteTextStyleChoiceClass(option) + (index() == 0 ? " mt-[3px]" : "")}
                 onClick={() => { handleNoteTextStyleChange(option.textStyle); }}>
+                <i class={`${option.icon} inline-block w-[20px] text-center mr-[7px]`} />
                 {option.label}
               </div>
             }</For>
