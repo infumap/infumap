@@ -32,6 +32,7 @@ import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { movingItemCellBoundsInPagePx } from "./moving";
+import { arrangeCellPopupPath } from "./popup";
 import { arrangeTable } from "./table";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
@@ -193,6 +194,13 @@ export function arrange_document_page(
   const pageRelationships: VisualElementRelationships = {
     childrenPaths,
   };
+
+  if (flags & ArrangeItemFlags.IsTopRoot) {
+    const currentPopupSpec = store.history.currentPopupSpec();
+    if (currentPopupSpec != null) {
+      pageRelationships.popupPath = arrangeCellPopupPath(store);
+    }
+  }
 
   return { spec: pageSpec, relationships: pageRelationships };
 }
