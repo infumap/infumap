@@ -101,6 +101,13 @@ function createTextRange(root: HTMLElement, startPosition: number, endPosition: 
   return range;
 }
 
+export function setTextSelection(el: HTMLElement, startPosition: number, endPosition: number): void {
+  const range = createTextRange(el, startPosition, endPosition);
+  const sel = window.getSelection()!;
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 
 /**
  * Get the caret position in contentEditable @param el.
@@ -137,50 +144,58 @@ export const getCaretLineRect = (el: HTMLElement, targetPosition: number): DOMRe
 
 
 /**
- * Determine the closest caret position in element el (note: the first child node must be
- * of type TEXT_NODE) to the specified clientPx position.
+ * Determine the closest caret position in element el to the specified clientPx position.
  */
 export const closestCaretPositionToClientPx = (el: HTMLElement, clientPx: Vector): number => {
-  let textNode = null
-  for (let i=0; i<el.childNodes.length; ++i) {
-    if (el.childNodes[i].nodeType == Node.TEXT_NODE) {
-      textNode = el.childNodes[i];
-      break;
-    }
-    if (el.childNodes[i].nodeName != "BR") {
-      panic("closestCaretPositionToClientPx: expecting node of type TEXT_NODE or BR element");
-    }
-  }
-  if (!textNode) { return 0; }
   const range = document.createRange();
   let closestDistSq = 10000000.0;
   let closestPos = 0;
   let foundSameLine = false;
-  for (let i=0; i<=textNode.textContent!.length; ++i) {
-    range.setStart(textNode, i);
-    if (i == textNode.textContent!.length) {
-      range.setEnd(textNode, i);
-    } else {
-      range.setEnd(textNode, i+1);
-    }
-    const bounds = range.getBoundingClientRect();
-    const centerPx = { x: bounds.left, y: bounds.top + bounds.height / 2.0 };
-    const distSq =
-      (clientPx.x - centerPx.x) * (clientPx.x - centerPx.x) +
-      (clientPx.y - centerPx.y) * (clientPx.y - centerPx.y);
-    const isSameLine = clientPx.y > bounds.top && clientPx.y < bounds.bottom;
-    if (distSq < closestDistSq && isSameLine && !foundSameLine) {
-      closestDistSq = distSq;
-      closestPos = i;
-      foundSameLine = true;
-    } else if (isSameLine) {
-      if (!foundSameLine || distSq < closestDistSq) {
-        closestDistSq = distSq;
-        closestPos = i;
+  let globalOffset = 0;
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode;
+    const textLength = textNode.textContent?.length ?? 0;
+    for (let i=0; i<=textLength; ++i) {
+      range.setStart(textNode, i);
+      if (i == textLength) {
+        range.setEnd(textNode, i);
+      } else {
+        range.setEnd(textNode, i+1);
       }
-      foundSameLine = true;
+      const bounds = range.getBoundingClientRect();
+      const centerPx = { x: bounds.left, y: bounds.top + bounds.height / 2.0 };
+      const distSq =
+        (clientPx.x - centerPx.x) * (clientPx.x - centerPx.x) +
+        (clientPx.y - centerPx.y) * (clientPx.y - centerPx.y);
+      const isSameLine = clientPx.y > bounds.top && clientPx.y < bounds.bottom;
+      if (distSq < closestDistSq && isSameLine && !foundSameLine) {
+        closestDistSq = distSq;
+        closestPos = globalOffset + i;
+        foundSameLine = true;
+      } else if (isSameLine) {
+        if (!foundSameLine || distSq < closestDistSq) {
+          closestDistSq = distSq;
+          closestPos = globalOffset + i;
+        }
+        foundSameLine = true;
+      } else if (!foundSameLine && distSq < closestDistSq) {
+        closestDistSq = distSq;
+        closestPos = globalOffset + i;
+      }
+    }
+    globalOffset += textLength;
+  }
+
+  if (globalOffset == 0) {
+    for (let i=0; i<el.childNodes.length; ++i) {
+      if (el.childNodes[i].nodeName != "BR") {
+        panic("closestCaretPositionToClientPx: expecting text-containing descendants or BR element");
+      }
     }
   }
+
   return closestPos;
 }
 

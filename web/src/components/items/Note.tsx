@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
-import { NoteFns, asNoteItem } from "../../items/note-item";
+import { NoteFns, asNoteItem, splitNoteInlineMarks } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
@@ -35,7 +35,7 @@ import { useStore } from "../../store/StoreProvider";
 import { CompositeFns } from "../../items/composite-item";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
-import { appendNewlineIfEmpty, isUrl, trimNewline } from "../../util/string";
+import { isUrl } from "../../util/string";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { VesCache } from "../../layout/ves-cache";
@@ -55,6 +55,8 @@ import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
+import { NoteInlineText } from "./NoteInlineText";
+import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -217,27 +219,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const aHrefClickListener = (ev: MouseEvent) => { ev.preventDefault(); };
   const aHrefMouseUpListener = (ev: MouseEvent) => { ev.preventDefault(); };
 
-  const inputListener = (_ev: InputEvent) => {
-    setTimeout(() => {
-      if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-        const editingItemPath = store.overlay.textEditInfo()!.itemPath;
-        let editingDomId = editingItemPath + ":title";
-        let el = document.getElementById(editingDomId);
-        if (!(el instanceof HTMLElement)) { return; }
-        let newText = el!.innerText;
-        let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-        item.title = trimNewline(newText);
-        const caretPosition = getCaretPosition(el!);
-        arrangeNow(store, "note-input-preserve-caret");
-        const freshEl = document.getElementById(editingDomId);
-        if (freshEl instanceof HTMLElement) {
-          if (document.activeElement !== freshEl) {
-            freshEl.focus();
-          }
-          setCaretPosition(freshEl, caretPosition);
-        }
-      }
-    }, 0);
+  const beforeInputListener = (ev: InputEvent) => {
+    edit_beforeInputHandler(store, ev);
+  }
+
+  const inputListener = (ev: InputEvent) => {
+    edit_inputListener(store, ev);
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
@@ -272,6 +259,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     const beforeText = textElement!.innerText.substring(0, caretPosition);
     const afterText = textElement!.innerText.substring(caretPosition);
+    const splitMarks = splitNoteInlineMarks(asNoteItem(ve.displayItem).inlineMarks, asNoteItem(ve.displayItem).title, caretPosition);
 
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
@@ -286,11 +274,13 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       server.addItem(composite, null, store.general.networkStatus);
       itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
       asNoteItem(ve.displayItem).title = beforeText;
+      asNoteItem(ve.displayItem).inlineMarks = splitMarks[0];
       serverOrRemote.updateItem(ve.displayItem, store.general.networkStatus);
 
       const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
       const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
       note.title = afterText;
+      note.inlineMarks = splitMarks[1];
       itemState.add(note);
       server.addItem(note, null, store.general.networkStatus);
 
@@ -357,6 +347,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isTextEditTarget = () =>
     store.overlay.textEditInfo()?.itemPath == vePath();
 
+  const renderedTitle = () =>
+    isTextEditTarget() ? noteItem().title : NoteFns.noteFormatMaybe(noteItem().title, noteItem().format);
+
+  const renderedInlineMarks = () =>
+    renderedTitle() == noteItem().title ? noteItem().inlineMarks : [];
+
   const renderShadowMaybe = () =>
     <Show when={!props.suppressLocalShadow &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
@@ -417,10 +413,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 href={noteItem().url}
                 class={`text-blue-800 hover:text-blue-600`}
                 style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-                onClick={aHrefClickListener}
-                onMouseDown={aHrefMouseDownListener}
-                onMouseUp={aHrefMouseUpListener}>
-                {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
+              onClick={aHrefClickListener}
+              onMouseDown={aHrefMouseDownListener}
+              onMouseUp={aHrefMouseUpListener}>
+                <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} />
               </a>
             </div>
           </Match>
@@ -445,8 +441,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
               spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
+              onBeforeInput={beforeInputListener}
               onInput={inputListener}>
-              {appendNewlineIfEmpty(isTextEditTarget() ? noteItem().title : NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
+              <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={isTextEditTarget()} />
             </span>
           </Match>
         </Switch>

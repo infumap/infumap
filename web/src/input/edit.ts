@@ -17,7 +17,18 @@
 */
 
 import { server, serverOrRemote } from "../server";
-import { NoteFns, asNoteItem, isNote } from "../items/note-item";
+import {
+  NoteFns,
+  asNoteItem,
+  concatNoteInlineMarks,
+  isNote,
+  noteInlineFlagsAtPosition,
+  noteInlineFlagsForRange,
+  NoteInlineMarkFlags,
+  splitNoteInlineMarks,
+  toggleNoteInlineMarkFlag,
+  updateNoteInlineMarksForTextChange,
+} from "../items/note-item";
 import { trimNewline, isUrl, restoreContentEditablePlaceholderIfEmpty } from "../util/string";
 import { arrangeNow } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
@@ -31,7 +42,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
-import { currentCaretElement, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition } from "../util/caret";
+import { currentCaretElement, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setTextSelection } from "../util/caret";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -44,6 +55,7 @@ import { PageFlags } from "../items/base/flags-item";
 
 let arrowKeyDown_caretPosition: number | null = null;
 let arrowKeyDown_element: HTMLElement | null = null;
+let beforeInputNoteTypingFlags: { itemPath: string, flags: number } | null = null;
 type PendingBoundaryNavigation = { targetPath: string, targetCaretPosition: number };
 type LinearEditContext = {
   containerVe: VisualElement,
@@ -94,6 +106,101 @@ function selectionDebugInfo(): Record<string, unknown> {
   };
 }
 
+function activeNoteTextEditTarget(store: StoreContextModel): { itemPath: string, element: HTMLElement } | null {
+  const textEditInfo = store.overlay.textEditInfo();
+  if (textEditInfo == null || textEditInfo.itemType != ItemType.Note || textEditInfo.colNum != null) {
+    return null;
+  }
+
+  const element = document.getElementById(textEditInfo.itemPath + ":title");
+  if (!(element instanceof HTMLElement)) {
+    return null;
+  }
+
+  return { itemPath: textEditInfo.itemPath, element };
+}
+
+function nodeIsInsideElement(element: HTMLElement, node: Node): boolean {
+  return node == element || element.contains(node);
+}
+
+function updateNoteTextSelectionInfoFromDom(store: StoreContextModel, preserveCollapsedTypingFlags: boolean): boolean {
+  const target = activeNoteTextEditTarget(store);
+  if (target == null) {
+    store.overlay.noteTextSelectionInfo.set(null);
+    return false;
+  }
+
+  const item = itemState.get(VeFns.veidFromPath(target.itemPath).itemId);
+  if (item == null || !isNote(item)) {
+    store.overlay.noteTextSelectionInfo.set(null);
+    return false;
+  }
+
+  const selection = window.getSelection();
+  if (selection == null || selection.rangeCount == 0) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  if (!nodeIsInsideElement(target.element, range.startContainer) || !nodeIsInsideElement(target.element, range.endContainer)) {
+    return false;
+  }
+
+  const note = asNoteItem(item);
+  const start = Math.max(0, Math.min(getTextOffsetWithinElement(target.element, range.startContainer, range.startOffset), note.title.length));
+  const end = Math.max(0, Math.min(getTextOffsetWithinElement(target.element, range.endContainer, range.endOffset), note.title.length));
+  const orderedStart = Math.min(start, end);
+  const orderedEnd = Math.max(start, end);
+  const previous = store.overlay.noteTextSelectionInfo.get();
+  let typingFlags = orderedStart == orderedEnd
+    ? noteInlineFlagsAtPosition(note.inlineMarks, note.title, orderedStart)
+    : noteInlineFlagsForRange(note.inlineMarks, note.title, orderedStart, orderedEnd);
+
+  if (
+    preserveCollapsedTypingFlags &&
+    orderedStart == orderedEnd &&
+    previous != null &&
+    previous.itemPath == target.itemPath &&
+    previous.start == orderedStart &&
+    previous.end == orderedEnd
+  ) {
+    typingFlags = previous.typingFlags;
+  }
+
+  store.overlay.noteTextSelectionInfo.set({
+    itemPath: target.itemPath,
+    start: orderedStart,
+    end: orderedEnd,
+    typingFlags,
+  });
+  store.touchToolbar();
+  return true;
+}
+
+function noteInputTypingFlags(store: StoreContextModel, itemPath: string): number {
+  if (beforeInputNoteTypingFlags != null && beforeInputNoteTypingFlags.itemPath == itemPath) {
+    return beforeInputNoteTypingFlags.flags;
+  }
+
+  const selectionInfo = store.overlay.noteTextSelectionInfo.get();
+  if (selectionInfo != null && selectionInfo.itemPath == itemPath) {
+    return selectionInfo.typingFlags;
+  }
+
+  return 0;
+}
+
+function restoreNoteTextSelection(store: StoreContextModel, itemPath: string, start: number, end: number, preserveCollapsedTypingFlags: boolean): void {
+  const element = document.getElementById(itemPath + ":title");
+  if (!(element instanceof HTMLElement)) { return; }
+  if (document.activeElement !== element) {
+    element.focus();
+  }
+  setTextSelection(element, start, end);
+  updateNoteTextSelectionInfoFromDom(store, preserveCollapsedTypingFlags);
+}
+
 function persistCurrentEditTarget(store: StoreContextModel) {
   const editInfo = store.overlay.textEditInfo();
   const item = editInfo == null
@@ -136,7 +243,7 @@ export function commitActiveTextEdit(
       const noteItem = asNoteItem(item);
       const nextTitle = trimNewline(newText);
       if (noteItem.title != nextTitle) {
-        noteItem.inlineMarks = [];
+        noteItem.inlineMarks = updateNoteInlineMarksForTextChange(noteItem.inlineMarks, noteItem.title, nextTitle, 0);
       }
       noteItem.title = nextTitle;
       if (isUrl(noteItem.title) && noteItem.url == "") {
@@ -220,6 +327,9 @@ function focusTextEditPathInfo(store: StoreContextModel, pathInfo: EditPathInfo,
 
   setCaretPosition(editingTextElement, caretPosition);
   editingTextElement.focus();
+  if (nextTextEditInfo.itemType == ItemType.Note) {
+    updateNoteTextSelectionInfoFromDom(store, false);
+  }
   return true;
 }
 
@@ -675,7 +785,7 @@ function applyLinearBoundaryNavigation(store: StoreContextModel, navigation: Pen
   return didFocus;
 }
 
-export function textEditSelectionChangeListener() {
+export function textEditSelectionChangeListener(store: StoreContextModel) {
   if (arrowKeyDown_pendingBoundaryNavigation != null) {
     logLinearEdit("selectionchange-skip-restore-during-boundary-navigation", {
       targetPath: arrowKeyDown_pendingBoundaryNavigation.targetPath,
@@ -697,6 +807,53 @@ export function textEditSelectionChangeListener() {
       setCaretPosition(arrowKeyDown_element!, arrowKeyDown_caretPosition!);
     }
   }
+
+  updateNoteTextSelectionInfoFromDom(store, true);
+}
+
+export const edit_beforeInputHandler = (store: StoreContextModel, _ev: InputEvent) => {
+  const target = activeNoteTextEditTarget(store);
+  if (target == null) {
+    beforeInputNoteTypingFlags = null;
+    return;
+  }
+
+  updateNoteTextSelectionInfoFromDom(store, true);
+  beforeInputNoteTypingFlags = {
+    itemPath: target.itemPath,
+    flags: store.overlay.noteTextSelectionInfo.get()?.typingFlags ?? 0,
+  };
+}
+
+export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteInlineMarkFlags): void {
+  const target = activeNoteTextEditTarget(store);
+  if (target == null) { return; }
+
+  let selectionInfo = store.overlay.noteTextSelectionInfo.get();
+  if (selectionInfo == null || selectionInfo.itemPath != target.itemPath) {
+    updateNoteTextSelectionInfoFromDom(store, true);
+    selectionInfo = store.overlay.noteTextSelectionInfo.get();
+  }
+  if (selectionInfo == null || selectionInfo.itemPath != target.itemPath) { return; }
+
+  const item = itemState.get(VeFns.veidFromPath(target.itemPath).itemId);
+  if (item == null || !isNote(item)) { return; }
+  const note = asNoteItem(item);
+
+  if (selectionInfo.start == selectionInfo.end) {
+    const typingFlags = selectionInfo.typingFlags ^ flag;
+    store.overlay.noteTextSelectionInfo.set({ ...selectionInfo, typingFlags });
+    restoreNoteTextSelection(store, target.itemPath, selectionInfo.start, selectionInfo.end, true);
+    store.touchToolbar();
+    return;
+  }
+
+  note.inlineMarks = toggleNoteInlineMarkFlag(note.inlineMarks, note.title, selectionInfo.start, selectionInfo.end, flag);
+  const typingFlags = noteInlineFlagsForRange(note.inlineMarks, note.title, selectionInfo.start, selectionInfo.end);
+  store.overlay.noteTextSelectionInfo.set({ ...selectionInfo, typingFlags });
+  serverOrRemote.updateItem(note, store.general.networkStatus);
+  arrangeNow(store, "toolbar-note-inline-mark");
+  restoreNoteTextSelection(store, target.itemPath, selectionInfo.start, selectionInfo.end, false);
 }
 
 export const edit_keyUpHandler = (store: StoreContextModel, ev: KeyboardEvent) => {
@@ -823,6 +980,14 @@ const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualE
 
   if (!isNote(upFocusItem) && !isFile(upFocusItem) && !isText(upFocusItem)) { return; }
   const upTextLength = upFocusItem.title.length;
+  if (isNote(upFocusItem)) {
+    asNoteItem(upFocusItem).inlineMarks = concatNoteInlineMarks(
+      asNoteItem(upFocusItem).inlineMarks,
+      upFocusItem.title,
+      asNoteItem(initialEditingItem).inlineMarks,
+      asTitledItem(context.editingVe.displayItem).title,
+    );
+  }
   upFocusItem.title = upFocusItem.title + asTitledItem(context.editingVe.displayItem).title;
 
   store.history.setFocus(upPath);
@@ -881,6 +1046,12 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
 
   const beforeText = textElement!.innerText.substring(0, caretPosition);
   const afterText = textElement!.innerText.substring(caretPosition);
+  let afterInlineMarks = null;
+  if (isNote(item)) {
+    const splitMarks = splitNoteInlineMarks(asNoteItem(item).inlineMarks, titledItem.title, caretPosition);
+    asNoteItem(item).inlineMarks = splitMarks[0];
+    afterInlineMarks = splitMarks[1];
+  }
 
   // Set URL if the title is a URL (for notes)
   if (isNote(item)) {
@@ -899,6 +1070,9 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
   const ordering = itemState.newOrderingDirectlyAfterChild(context.containerVe.displayItem.id, VeFns.treeItemFromVeid(noteVeid)!.id);
   const note = NoteFns.create(titledItem.ownerId, context.containerVe.displayItem.id, RelationshipToParent.Child, "", ordering);
   note.title = afterText;
+  if (afterInlineMarks != null) {
+    note.inlineMarks = afterInlineMarks;
+  }
   itemState.add(note);
   server.addItem(note, null, store.general.networkStatus);
   arrangeNow(store, "enter-key-create-note");
@@ -907,6 +1081,7 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
 }
 
 export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) => {
+  const capturedBeforeInputNoteTypingFlags = beforeInputNoteTypingFlags;
   setTimeout(() => {
     if (store.overlay.textEditInfo()) {
       const colNum = store.overlay.textEditInfo()!.colNum;
@@ -920,6 +1095,13 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
       if (!store.overlay.toolbarPopupInfoMaybe.get()) {
         if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
           let item = asNoteItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+          const oldTitle = item.title;
+          const typingFlags = capturedBeforeInputNoteTypingFlags != null && capturedBeforeInputNoteTypingFlags.itemPath == focusItemPath
+            ? capturedBeforeInputNoteTypingFlags.flags
+            : noteInputTypingFlags(store, focusItemPath);
+          if (oldTitle != newText) {
+            item.inlineMarks = updateNoteInlineMarksForTextChange(item.inlineMarks, oldTitle, newText, typingFlags);
+          }
           item.title = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
           let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
@@ -957,7 +1139,11 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
             el_.focus();
           }
           setCaretPosition(el_, caretPosition);
+          if (store.overlay.textEditInfo()?.itemType == ItemType.Note) {
+            updateNoteTextSelectionInfoFromDom(store, false);
+          }
         }
+        beforeInputNoteTypingFlags = null;
       }
     }
   }, 0);

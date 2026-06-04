@@ -19,7 +19,7 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
-import { NoteFns, NoteTextStyle, asNoteItem } from "../../../items/note-item";
+import { NoteFns, NoteInlineMarkFlags, NoteTextStyle, asNoteItem } from "../../../items/note-item";
 import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
 import { useStore } from "../../../store/StoreProvider";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
@@ -32,6 +32,7 @@ import { itemState } from "../../../store/ItemState";
 import { isTable } from "../../../items/table-item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem } from "../toolbarFocus";
+import { toggleActiveNoteInlineMark } from "../../../input/edit";
 
 
 export const Toolbar_Note: Component = () => {
@@ -75,6 +76,16 @@ export const Toolbar_Note: Component = () => {
   const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
   const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
   const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
+  const toggleBold = () => { toggleActiveNoteInlineMark(store, NoteInlineMarkFlags.Bold); };
+  const toggleItalic = () => { toggleActiveNoteInlineMark(store, NoteInlineMarkFlags.Italic); };
+  const inlineMarkHighlighted = (flag: NoteInlineMarkFlags): boolean => {
+    const textEditInfo = store.overlay.textEditInfo();
+    const selectionInfo = store.overlay.noteTextSelectionInfo.get();
+    return textEditInfo != null &&
+      selectionInfo != null &&
+      textEditInfo.itemPath == selectionInfo.itemPath &&
+      !!(selectionInfo.typingFlags & flag);
+  };
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -228,6 +239,9 @@ export const Toolbar_Note: Component = () => {
       <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
         {renderTextStyleSelector()}
         <div class="inline-block ml-[12px]"></div>
+        <InfuIconButton icon="fa fa-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
+        <InfuIconButton icon="fa fa-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />
+        <div class="inline-block ml-[12px]"></div>
         <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
         <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
         <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
@@ -272,6 +286,9 @@ export const Toolbar_Note: Component = () => {
     <div class="inline-block">
       <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
         {renderTextStyleSelector()}
+        <div class="inline-block ml-[12px]"></div>
+        <InfuIconButton icon="fa fa-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
+        <InfuIconButton icon="fa fa-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />
         <div class="inline-block ml-[12px]"></div>
         <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
         <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />

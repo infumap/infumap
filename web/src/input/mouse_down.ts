@@ -44,7 +44,7 @@ import { isUrl, trimNewline } from "../util/string";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
-import { asNoteItem, isNote, NoteFns } from "../items/note-item";
+import { asNoteItem, isNote, NoteFns, updateNoteInlineMarksForTextChange } from "../items/note-item";
 import { asFileItem, FileFns, isFile } from "../items/file-item";
 import { asTextItem, TextFns, isText } from "../items/text-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
@@ -340,7 +340,11 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
           editingDomEl.parentElement!.scrollLeft = 0;
           const noteItem = asNoteItem(item);
-          noteItem.title = trimNewline(newText);
+          const nextTitle = trimNewline(newText);
+          if (noteItem.title != nextTitle) {
+            noteItem.inlineMarks = updateNoteInlineMarksForTextChange(noteItem.inlineMarks, noteItem.title, nextTitle, 0);
+          }
+          noteItem.title = nextTitle;
           if (isUrl(noteItem.title)) {
             if (noteItem.url == "") {
               noteItem.url = noteItem.title;

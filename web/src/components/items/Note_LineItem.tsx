@@ -28,7 +28,6 @@ import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGH
 import { cloneBoundingBox } from "../../util/geometry";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
-import { appendNewlineIfEmpty } from "../../util/string";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
@@ -37,6 +36,8 @@ import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
+import { NoteInlineText } from "./NoteInlineText";
+import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
 
 
 export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -93,6 +94,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
   const isTextEditTarget = () => store.overlay.textEditInfo()?.itemPath == vePath();
+  const renderedTitle = () =>
+    isTextEditTarget() ? noteItem().title : NoteFns.noteFormatMaybe(noteItem().title, noteItem().format);
+  const renderedInlineMarks = () =>
+    renderedTitle() == noteItem().title ? noteItem().inlineMarks : [];
 
   const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
 
@@ -163,8 +168,12 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       </div>
     </Show>;
 
-  const inputListener = (_ev: InputEvent) => {
-    // fullArrange is not required in the line item case, because the ve geometry does not change.
+  const beforeInputListener = (ev: InputEvent) => {
+    edit_beforeInputHandler(store, ev);
+  }
+
+  const inputListener = (ev: InputEvent) => {
+    edit_inputListener(store, ev);
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
@@ -190,11 +199,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
               onClick={aHrefClick}
               onMouseDown={aHrefMouseDown}
               onMouseUp={aHrefMouseUp}>
-              {NoteFns.noteFormatMaybe(noteItem().title, noteItem().format)}
+              <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} />
             </a>
           </Match>
           <Match when={isTextEditTarget()}>
-            {/* when editing, don't apply text formatting. */}
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
               class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
               style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
@@ -202,8 +210,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
               contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
               spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
+              onBeforeInput={beforeInputListener}
               onInput={inputListener}>
-              {appendNewlineIfEmpty(noteItem().title)}<span></span>
+              <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={true} />
             </span>
           </Match>
           <Match when={!NoteFns.hasUrl(noteItem()) || isTextEditTarget()}>
@@ -214,8 +223,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
               contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
               spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
+              onBeforeInput={beforeInputListener}
               onInput={inputListener}>
-              {appendNewlineIfEmpty(NoteFns.noteFormatMaybe(noteItem().title, noteItem().format))}<span></span>
+              <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={isTextEditTarget()} />
             </span>
           </Match>
         </Switch>

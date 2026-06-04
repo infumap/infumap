@@ -66,6 +66,11 @@ export interface NoteInlineMark {
   flags: number,
 }
 
+export interface NoteInlineTextSegment {
+  text: string,
+  flags: number,
+}
+
 export const NoteTextStyle = {
   Normal: "normal",
   Heading1: "h1",
@@ -77,9 +82,9 @@ export const NoteTextStyle = {
 
 export type NoteTextStyle = typeof NoteTextStyle[keyof typeof NoteTextStyle];
 
-const NOTE_INLINE_MARK_ALLOWED_FLAGS = NoteInlineMarkFlags.Bold | NoteInlineMarkFlags.Italic;
+export const NOTE_INLINE_MARK_ALLOWED_FLAGS = NoteInlineMarkFlags.Bold | NoteInlineMarkFlags.Italic;
 
-function normalizeNoteInlineMarks(inlineMarks: Array<NoteInlineMark>, text: string): Array<NoteInlineMark> {
+export function normalizeNoteInlineMarks(inlineMarks: Array<NoteInlineMark>, text: string): Array<NoteInlineMark> {
   const textLen = text.length;
   const normalized = inlineMarks
     .map(mark => ({
@@ -126,6 +131,237 @@ function unpackNoteInlineMarks(value: unknown, text: string): Array<NoteInlineMa
 
 function packNoteInlineMarks(inlineMarks: Array<NoteInlineMark>, text: string): Array<number> {
   return normalizeNoteInlineMarks(inlineMarks, text).flatMap(mark => [mark.start, mark.end, mark.flags]);
+}
+
+function clampTextOffset(text: string, offset: number): number {
+  return Math.max(0, Math.min(Math.trunc(offset), text.length));
+}
+
+function flagsForInlineMarkInterval(inlineMarks: Array<NoteInlineMark>, start: number, end: number): number {
+  for (const mark of inlineMarks) {
+    if (mark.start <= start && mark.end >= end) {
+      return mark.flags;
+    }
+    if (mark.start > start) {
+      return 0;
+    }
+  }
+  return 0;
+}
+
+export function noteInlineFlagsAtPosition(inlineMarks: Array<NoteInlineMark>, text: string, position: number): number {
+  const normalized = normalizeNoteInlineMarks(inlineMarks, text);
+  const pos = clampTextOffset(text, position);
+
+  for (const mark of normalized) {
+    if (mark.start <= pos && pos < mark.end) {
+      return mark.flags;
+    }
+  }
+
+  if (pos > 0) {
+    for (const mark of normalized) {
+      if (mark.start < pos && pos <= mark.end) {
+        return mark.flags;
+      }
+    }
+  }
+
+  return 0;
+}
+
+export function noteInlineFlagsForRange(
+  inlineMarks: Array<NoteInlineMark>,
+  text: string,
+  start: number,
+  end: number,
+): number {
+  const normalized = normalizeNoteInlineMarks(inlineMarks, text);
+  const rangeStart = clampTextOffset(text, Math.min(start, end));
+  const rangeEnd = clampTextOffset(text, Math.max(start, end));
+  if (rangeStart == rangeEnd) {
+    return noteInlineFlagsAtPosition(normalized, text, rangeStart);
+  }
+
+  let result = NOTE_INLINE_MARK_ALLOWED_FLAGS;
+  let pos = rangeStart;
+  while (pos < rangeEnd) {
+    const coveringMark = normalized.find(mark => mark.start <= pos && pos < mark.end);
+    if (coveringMark == null) {
+      return 0;
+    }
+    result &= coveringMark.flags;
+    if (result == 0) {
+      return 0;
+    }
+    pos = Math.min(rangeEnd, coveringMark.end);
+  }
+  return result;
+}
+
+export function setNoteInlineMarkFlag(
+  inlineMarks: Array<NoteInlineMark>,
+  text: string,
+  start: number,
+  end: number,
+  flag: NoteInlineMarkFlags,
+  enabled: boolean,
+): Array<NoteInlineMark> {
+  if ((flag & NOTE_INLINE_MARK_ALLOWED_FLAGS) == 0) {
+    return normalizeNoteInlineMarks(inlineMarks, text);
+  }
+
+  const normalized = normalizeNoteInlineMarks(inlineMarks, text);
+  const rangeStart = clampTextOffset(text, Math.min(start, end));
+  const rangeEnd = clampTextOffset(text, Math.max(start, end));
+  if (rangeStart == rangeEnd) {
+    return normalized;
+  }
+
+  const boundaries = new Set<number>([0, text.length, rangeStart, rangeEnd]);
+  for (const mark of normalized) {
+    boundaries.add(mark.start);
+    boundaries.add(mark.end);
+  }
+  const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
+
+  const result: Array<NoteInlineMark> = [];
+  for (let i = 0; i < sortedBoundaries.length - 1; ++i) {
+    const intervalStart = sortedBoundaries[i];
+    const intervalEnd = sortedBoundaries[i + 1];
+    if (intervalStart == intervalEnd) { continue; }
+
+    let flags = flagsForInlineMarkInterval(normalized, intervalStart, intervalEnd);
+    if (intervalStart >= rangeStart && intervalEnd <= rangeEnd) {
+      flags = enabled ? flags | flag : flags & ~flag;
+    }
+    if (flags != 0) {
+      result.push({ start: intervalStart, end: intervalEnd, flags });
+    }
+  }
+
+  return normalizeNoteInlineMarks(result, text);
+}
+
+export function toggleNoteInlineMarkFlag(
+  inlineMarks: Array<NoteInlineMark>,
+  text: string,
+  start: number,
+  end: number,
+  flag: NoteInlineMarkFlags,
+): Array<NoteInlineMark> {
+  const rangeFlags = noteInlineFlagsForRange(inlineMarks, text, start, end);
+  return setNoteInlineMarkFlag(inlineMarks, text, start, end, flag, (rangeFlags & flag) == 0);
+}
+
+export function updateNoteInlineMarksForTextChange(
+  inlineMarks: Array<NoteInlineMark>,
+  oldText: string,
+  newText: string,
+  insertedFlags: number,
+): Array<NoteInlineMark> {
+  const normalized = normalizeNoteInlineMarks(inlineMarks, oldText);
+
+  let prefixLength = 0;
+  while (
+    prefixLength < oldText.length &&
+    prefixLength < newText.length &&
+    oldText[prefixLength] == newText[prefixLength]
+  ) {
+    ++prefixLength;
+  }
+
+  let oldSuffixStart = oldText.length;
+  let newSuffixStart = newText.length;
+  while (
+    oldSuffixStart > prefixLength &&
+    newSuffixStart > prefixLength &&
+    oldText[oldSuffixStart - 1] == newText[newSuffixStart - 1]
+  ) {
+    --oldSuffixStart;
+    --newSuffixStart;
+  }
+
+  const oldRangeStart = prefixLength;
+  const oldRangeEnd = oldSuffixStart;
+  const newRangeStart = prefixLength;
+  const newRangeEnd = newSuffixStart;
+  const delta = (newRangeEnd - newRangeStart) - (oldRangeEnd - oldRangeStart);
+
+  const result: Array<NoteInlineMark> = [];
+  for (const mark of normalized) {
+    if (mark.end <= oldRangeStart) {
+      result.push({ ...mark });
+    } else if (mark.start >= oldRangeEnd) {
+      result.push({ start: mark.start + delta, end: mark.end + delta, flags: mark.flags });
+    } else {
+      if (mark.start < oldRangeStart) {
+        result.push({ start: mark.start, end: oldRangeStart, flags: mark.flags });
+      }
+      if (mark.end > oldRangeEnd) {
+        result.push({ start: newRangeEnd, end: mark.end + delta, flags: mark.flags });
+      }
+    }
+  }
+
+  const insertedLength = newRangeEnd - newRangeStart;
+  const appliedInsertedFlags = insertedFlags & NOTE_INLINE_MARK_ALLOWED_FLAGS;
+  if (insertedLength > 0 && appliedInsertedFlags != 0) {
+    result.push({ start: newRangeStart, end: newRangeEnd, flags: appliedInsertedFlags });
+  }
+
+  return normalizeNoteInlineMarks(result, newText);
+}
+
+export function splitNoteInlineMarks(
+  inlineMarks: Array<NoteInlineMark>,
+  text: string,
+  splitOffset: number,
+): [Array<NoteInlineMark>, Array<NoteInlineMark>] {
+  const split = clampTextOffset(text, splitOffset);
+  const left: Array<NoteInlineMark> = [];
+  const right: Array<NoteInlineMark> = [];
+  for (const mark of normalizeNoteInlineMarks(inlineMarks, text)) {
+    if (mark.end <= split) {
+      left.push({ ...mark });
+    } else if (mark.start >= split) {
+      right.push({ start: mark.start - split, end: mark.end - split, flags: mark.flags });
+    } else {
+      left.push({ start: mark.start, end: split, flags: mark.flags });
+      right.push({ start: 0, end: mark.end - split, flags: mark.flags });
+    }
+  }
+  return [
+    normalizeNoteInlineMarks(left, text.substring(0, split)),
+    normalizeNoteInlineMarks(right, text.substring(split)),
+  ];
+}
+
+export function concatNoteInlineMarks(
+  leftMarks: Array<NoteInlineMark>,
+  leftText: string,
+  rightMarks: Array<NoteInlineMark>,
+  rightText: string,
+): Array<NoteInlineMark> {
+  const shiftedRightMarks = normalizeNoteInlineMarks(rightMarks, rightText)
+    .map(mark => ({ start: mark.start + leftText.length, end: mark.end + leftText.length, flags: mark.flags }));
+  return normalizeNoteInlineMarks([...normalizeNoteInlineMarks(leftMarks, leftText), ...shiftedRightMarks], leftText + rightText);
+}
+
+export function noteInlineTextSegments(inlineMarks: Array<NoteInlineMark>, text: string): Array<NoteInlineTextSegment> {
+  const segments: Array<NoteInlineTextSegment> = [];
+  let pos = 0;
+  for (const mark of normalizeNoteInlineMarks(inlineMarks, text)) {
+    if (mark.start > pos) {
+      segments.push({ text: text.substring(pos, mark.start), flags: 0 });
+    }
+    segments.push({ text: text.substring(mark.start, mark.end), flags: mark.flags });
+    pos = mark.end;
+  }
+  if (pos < text.length) {
+    segments.push({ text: text.substring(pos), flags: 0 });
+  }
+  return segments;
 }
 
 function noteHasFaviconUrl(note: NoteItem): boolean {
@@ -427,11 +663,20 @@ export const NoteFns = {
     const closestIdx = el instanceof HTMLElement
       ? (caretAtEnd ? el.innerText.length : closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx()))
       : 0;
+    const clampedClosestIdx = Math.max(0, Math.min(closestIdx, asNoteItem(visualElement.displayItem).title.length));
     arrangeNow(store, "note-enter-edit-mode");
     const freshEl = document.getElementById(editingDomId);
     if (freshEl instanceof HTMLElement) {
       freshEl.focus();
-      setCaretPosition(freshEl, caretAtEnd ? freshEl.innerText.length : closestIdx);
+      const caretPosition = caretAtEnd ? asNoteItem(visualElement.displayItem).title.length : clampedClosestIdx;
+      setCaretPosition(freshEl, caretPosition);
+      store.overlay.noteTextSelectionInfo.set({
+        itemPath,
+        start: caretPosition,
+        end: caretPosition,
+        typingFlags: noteInlineFlagsAtPosition(asNoteItem(visualElement.displayItem).inlineMarks, asNoteItem(visualElement.displayItem).title, caretPosition),
+      });
+      store.touchToolbar();
     } else {
       console.warn("Could not enter note edit mode because the text element no longer exists", { itemPath });
       store.overlay.setTextEditInfo(store.history, null);

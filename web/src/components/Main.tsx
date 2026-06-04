@@ -236,7 +236,7 @@ export const Main: Component = () => {
   });
 
   const selectionChangeListener = () => {
-    textEditSelectionChangeListener();
+    textEditSelectionChangeListener(store);
   }
 
   const cancelExternalFileDragLeaveClear = () => {

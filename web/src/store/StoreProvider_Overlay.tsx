@@ -57,6 +57,13 @@ export interface TextEditInfo {
   endBl?: number | null,
 }
 
+export interface NoteTextSelectionInfo {
+  itemPath: VisualElementPath,
+  start: number,
+  end: number,
+  typingFlags: number,
+}
+
 export interface ContextMenuInfo {
   posPx: Vector,
   hitInfo: HitInfo
@@ -114,6 +121,7 @@ export interface OverlayStoreContextModel {
 
   textEditInfo: () => TextEditInfo | null,
   setTextEditInfo: (historyStore: HistoryStoreContextModel, info: TextEditInfo | null, preserveFocus?: boolean) => void,
+  noteTextSelectionInfo: InfuSignal<NoteTextSelectionInfo | null>,
 
   isPanicked: InfuSignal<boolean>,
 
@@ -125,6 +133,7 @@ export interface OverlayStoreContextModel {
 
 export function makeOverlayStore(): OverlayStoreContextModel {
   const textEditInfo_ = createInfuSignal<TextEditInfo | null>(null);
+  const noteTextSelectionInfo = createInfuSignal<NoteTextSelectionInfo | null>(null);
 
   const editUserSettingsInfo = createInfuSignal<EditUserSettingsInfo | null>(null);
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
@@ -143,6 +152,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
 
   function clear() {
     textEditInfo_.set(null);
+    noteTextSelectionInfo.set(null);
     toolbarPopupInfoMaybe.set(null);
     toolbarTransientMessage.set(null);
     editUserSettingsInfo.set(null);
@@ -188,12 +198,16 @@ export function makeOverlayStore(): OverlayStoreContextModel {
     else {
       historyStore.setFocus(info.itemPath);
     }
+    if (info == null || info.itemType != "note") {
+      noteTextSelectionInfo.set(null);
+    }
     textEditInfo_.set(info);
   }
 
   return ({
     textEditInfo,
     setTextEditInfo,
+    noteTextSelectionInfo,
 
     editUserSettingsInfo,
     contextMenuInfo,
