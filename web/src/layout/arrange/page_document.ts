@@ -27,6 +27,7 @@ import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { compositeMoveOutHitboxBoundsPx } from "../composite-move-out";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
@@ -100,6 +101,9 @@ export function arrange_document_page(
       PAGE_DOCUMENT_LEFT_MARGIN_BL,
       topPx,
       store.smallScreenMode());
+    if (isPage(displayItem_childItem)) {
+      geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
+    }
     if (isTable(displayItem_childItem)) {
       alignTableDocumentMoveOutHitbox(geometry, blockSizePx, documentContentWidthBl);
     }
