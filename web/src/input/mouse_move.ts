@@ -79,6 +79,23 @@ function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
 }
 
 
+function maxInsideCompositeOrDocumentWidthBl(activeVisualElement: VisualElement): number | null {
+  if (!(activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc)) {
+    return null;
+  }
+
+  const parentPath = activeVisualElement.parentPath!;
+  const parentVe = MouseActionState.readVisualElement(parentPath)!;
+  if (isComposite(parentVe.displayItem)) {
+    return asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
+  }
+  if (isPage(parentVe.displayItem)) {
+    return asPageItem(parentVe.displayItem).docWidthBl;
+  }
+  panic("unexpected item type: " + parentVe.displayItem.itemType);
+}
+
+
 export function mouseMoveHandler(store: StoreContextModel) {
   if (store.history.currentPageVeid() == null) { return; }
 
@@ -495,23 +512,6 @@ function changeMouseActionStateMaybe(
       MouseActionState.setAction(MouseAction.ResizingPopup);
     } else {
       MouseActionState.setStartWidthBl(isLink(activeItem) ? asLinkItem(activeItem).spatialWidthGr / GRID_SIZE : asXSizableItem(activeItem).spatialWidthGr / GRID_SIZE);
-      if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-        const parentPath = activeVisualElement.parentPath!;
-        const parentVe = MouseActionState.readVisualElement(parentPath)!;
-        if (isComposite(parentVe.displayItem)) {
-          const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
-          if (compositeWidthBl < MouseActionState.getStartWidthBl()!) {
-            MouseActionState.setStartWidthBl(compositeWidthBl);
-          }
-        } else if (isPage(parentVe.displayItem)) {
-          const docWidthBl = asPageItem(parentVe.displayItem).docWidthBl;
-          if (docWidthBl < MouseActionState.getStartWidthBl()!) {
-            MouseActionState.setStartWidthBl(docWidthBl);
-          }
-        } else {
-          panic("unexpected item type: " + parentVe.displayItem.itemType);
-        }
-      }
 
       if (isYSizableItem(activeItem)) {
         MouseActionState.setStartHeightBl(asYSizableItem(activeItem).spatialHeightGr / GRID_SIZE);
@@ -776,7 +776,10 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     y: deltaPx.y * onePxSizeBl.y
   };
 
-  let newWidthBl = MouseActionState.getStartWidthBl()! + deltaBl.x;
+  const maxWidthBl = maxInsideCompositeOrDocumentWidthBl(activeVisualElement);
+  const startWidthBl = MouseActionState.getStartWidthBl()!;
+  const resizeStartWidthBl = maxWidthBl == null ? startWidthBl : Math.min(startWidthBl, maxWidthBl);
+  let newWidthBl = resizeStartWidthBl + deltaBl.x;
   if (isLink(activeItem)) {
     if (isLink(activeVisualElement.displayItem)) {
       newWidthBl = Math.round(newWidthBl);
@@ -788,23 +791,8 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   }
   if (newWidthBl < 1) { newWidthBl = 1.0; }
 
-  if (activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-    const parentPath = activeVisualElement.parentPath!;
-    const parentVe = MouseActionState.readVisualElement(parentPath)!;
-
-    if (isComposite(parentVe.displayItem)) {
-      const compositeWidthBl = asCompositeItem(parentVe.displayItem).spatialWidthGr / GRID_SIZE;
-      if (compositeWidthBl < newWidthBl) {
-        MouseActionState.setStartWidthBl(compositeWidthBl);
-      }
-    } else if (isPage(parentVe.displayItem)) {
-      const docWidthBl = asPageItem(parentVe.displayItem).docWidthBl;
-      if (docWidthBl < newWidthBl) {
-        MouseActionState.setStartWidthBl(docWidthBl);
-      }
-    } else {
-      panic("unexpected item type: " + parentVe.displayItem.itemType);
-    }
+  if (maxWidthBl != null && newWidthBl > maxWidthBl) {
+    newWidthBl = maxWidthBl;
   }
 
   const newWidthGr = newWidthBl * GRID_SIZE;

@@ -460,7 +460,8 @@ export const TableFns = {
     if (desktopPx.y >= viewportDesktopPx.y) { return false; }
 
     const tableItem = asTableItem(tableVe.displayItem);
-    const attachmentBlockSizePx = tableDesktopBoundsPx.w / (tableItem.spatialWidthGr / GRID_SIZE);
+    const tableDimensionsBl = tableVisualDimensionsBl(tableVe);
+    const attachmentBlockSizePx = tableVe.blockSizePx?.w ?? tableDesktopBoundsPx.w / tableDimensionsBl.w;
     const attachmentStripWidthPx = calcSpatialAttachmentStripWidthPx(
       tableDesktopBoundsPx.w,
       attachmentBlockSizePx,
@@ -498,14 +499,7 @@ export const TableFns = {
   tableModifiableColRow(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number } {
     desktopPx = TableFns.normalizeMoveOverDesktopPx(store, tableVe, desktopPx);
     const tableItem = asTableItem(tableVe.displayItem);
-    const tableDimensionsBl: Dimensions = {
-      w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
-      h: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE
-    };
-    const tableParentVe = VesCache.current.readNode(tableVe.parentPath!)!;
-    if (isComposite(tableParentVe.displayItem)) {
-      tableDimensionsBl.w = asCompositeItem(tableParentVe.displayItem).spatialWidthGr / GRID_SIZE;
-    }
+    const tableDimensionsBl = tableVisualDimensionsBl(tableVe);
 
     const tableBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
 
@@ -639,6 +633,27 @@ export function asTableItem(item: ItemTypeMixin): TableItem {
   const item_any: any = item;
   const id = item_any["id"] ? item_any["id"] : "[unknown]";
   panic(`item (id: ${id}) is a '${item.itemType}', not a table.`);
+}
+
+
+function tableVisualDimensionsBl(tableVe: VisualElement): Dimensions {
+  if (tableVe.blockSizePx != null && tableVe.blockSizePx.w > 0 && tableVe.blockSizePx.h > 0) {
+    return {
+      w: tableVe.boundsPx.w / tableVe.blockSizePx.w,
+      h: tableVe.boundsPx.h / tableVe.blockSizePx.h,
+    };
+  }
+
+  const tableItem = asTableItem(tableVe.displayItem);
+  const dimensionsBl: Dimensions = {
+    w: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialWidthGr : tableItem.spatialWidthGr) / GRID_SIZE,
+    h: (tableVe.linkItemMaybe ? tableVe.linkItemMaybe.spatialHeightGr : tableItem.spatialHeightGr) / GRID_SIZE,
+  };
+  const tableParentVe = tableVe.parentPath == null ? null : VesCache.current.readNode(tableVe.parentPath);
+  if (tableParentVe != null && isComposite(tableParentVe.displayItem)) {
+    dimensionsBl.w = asCompositeItem(tableParentVe.displayItem).spatialWidthGr / GRID_SIZE;
+  }
+  return dimensionsBl;
 }
 
 

@@ -76,9 +76,13 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return tableItem().spatialHeightGr;
   }
   const blockSizePx = () => {
+    if (props.visualElement.blockSizePx != null) {
+      return props.visualElement.blockSizePx;
+    }
     const sizeBl = { w: spatialWidthGr() / GRID_SIZE, h: spatialHeightGr() / GRID_SIZE };
     return { w: boundsPx().w / sizeBl.w, h: boundsPx().h / sizeBl.h };
   }
+  const displayWidthBl = () => boundsPx().w / blockSizePx().w;
   const rootTopPx = () => boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0);
   const viewportBoundsLocalPx = (): BoundingBox => ({
     x: viewportBoundsPx().x - boundsPx().x,
@@ -91,10 +95,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const headerHeightPx = () => blockSizePx().h * TABLE_TITLE_HEADER_HEIGHT_BL;
   const scale = () => blockSizePx().h / LINE_HEIGHT_PX;
   const overPosRowPx = (): number => {
-    const heightBl = spatialHeightGr() / GRID_SIZE;
-    const rowHeightPx = boundsPx().h / heightBl;
     const rowNumber = store.perVe.getMoveOverRowNumber(vePath()) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + TABLE_TITLE_HEADER_HEIGHT_BL + (showColHeader() ? TABLE_COL_HEADER_HEIGHT_BL : 0);
-    const rowPx = rowNumber * rowHeightPx;
+    const rowPx = rowNumber * blockSizePx().h;
     return rowPx;
   };
   const insertBoundsPx = (): BoundingBox => {
@@ -103,6 +105,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     for (let i = 0; i <= colNum; ++i) {
       offsetBl += tableItem().tableColumns[i].widthGr / GRID_SIZE;
     }
+    offsetBl = Math.min(offsetBl, displayWidthBl());
     return {
       x: blockSizePx().w * offsetBl,
       y: overPosRowPx(),
@@ -120,7 +123,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   }
   const attachInsertBarPx = (): BoundingBox => {
     const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
-    const attachmentBlockSizePx = boundsPx().w / (tableItem().spatialWidthGr / GRID_SIZE);
+    const attachmentBlockSizePx = blockSizePx().w;
     const xOffset = insertIndex === 0 ? -4 : -2;
     return {
       x: boundsPx().w - insertIndex * attachmentBlockSizePx + xOffset,
@@ -155,14 +158,21 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     // TODO (LOW): I believe this would be more optimized if this calc was done at arrange time.
     const specsBl = [];
     let accumBl = 0;
+    const tableWidthBl = displayWidthBl();
     for (let i = 0; i < tableItem().numberOfVisibleColumns; ++i) {
+      if (accumBl >= tableWidthBl) {
+        break;
+      }
       let tc = tableItem().tableColumns[i];
       const prevAccumBl = accumBl;
       accumBl += tc.widthGr / GRID_SIZE;
-      if (accumBl >= spatialWidthGr() / GRID_SIZE) {
-        break;
-      }
-      specsBl.push({ idx: i, prevAccumBl, accumBl, name: tc.name, isLast: i == tableItem().numberOfVisibleColumns - 1 });
+      specsBl.push({
+        idx: i,
+        prevAccumBl,
+        accumBl: Math.min(accumBl, tableWidthBl),
+        name: tc.name,
+        isLast: i == tableItem().numberOfVisibleColumns - 1 || accumBl >= tableWidthBl,
+      });
     }
     return specsBl.map(s => ({
       idx: s.idx,

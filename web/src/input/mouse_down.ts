@@ -36,7 +36,7 @@ import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PageFlags } from "../items/base/flags-item";
-import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
+import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { getToolbarFocusItem } from "../components/toolbar/toolbarFocus";
 import { serverOrRemote } from "../server";
@@ -109,6 +109,24 @@ function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: Return
 
   return !!(hitInfo.hitboxType & HitboxFlags.Click) &&
     !(hitInfo.hitboxType & blockedHitboxes);
+}
+
+
+function onePxSizeBlForPageChild(parentPage: ReturnType<typeof asPageItem>, parentVe: VisualElement) {
+  if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.Document && parentVe.childAreaBoundsPx != null) {
+    const totalWidthBl = parentPage.docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
+    const scale = parentVe.childAreaBoundsPx.w / (totalWidthBl * NATURAL_BLOCK_SIZE_PX.w);
+    return {
+      x: 1.0 / (NATURAL_BLOCK_SIZE_PX.w * scale),
+      y: 1.0 / (NATURAL_BLOCK_SIZE_PX.h * scale),
+    };
+  }
+
+  const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
+  return {
+    x: containerInnerDimBl.w / parentVe.childAreaBoundsPx!.w,
+    y: containerInnerDimBl.h / parentVe.childAreaBoundsPx!.h
+  };
 }
 
 
@@ -536,11 +554,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       const parentVe = VesCache.current.readNode(compositeVe.parentPath!)!;
       if (isPage(parentVe.displayItem)) {
         let parentPage = asPageItem(parentVe.displayItem);
-        const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
-        onePxSizeBl = {
-          x: containerInnerDimBl.w / parentVe.childAreaBoundsPx!.w,
-          y: containerInnerDimBl.h / parentVe.childAreaBoundsPx!.h
-        };
+        onePxSizeBl = onePxSizeBlForPageChild(parentPage, parentVe);
       }
     } else {
       if ((hitInfo.hitboxType & HitboxFlags.HorizontalResize) &&
@@ -551,11 +565,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         let parent = VesCache.current.readNode(hitVe.parentPath!)!;
         if (isPage(parent.displayItem) && VeFns.treeItem(hitVe).relationshipToParent == RelationshipToParent.Child) {
           let parentPage = asPageItem(parent.displayItem);
-          const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
-          onePxSizeBl = {
-            x: containerInnerDimBl.w / parent.childAreaBoundsPx!.w,
-            y: containerInnerDimBl.h / parent.childAreaBoundsPx!.h
-          };
+          onePxSizeBl = onePxSizeBlForPageChild(parentPage, parent);
         }
       }
     }

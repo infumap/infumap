@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
-import { Item } from "../../items/base/item";
+import { Item, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
@@ -71,6 +71,7 @@ export function arrange_document_page(
     childItem: Item,
     actualLinkItemMaybe: LinkItem | null,
     geometry: ItemGeometry,
+    displayWidthBl: number,
     childItemIsEmbeddedInteractive: boolean,
   }> = [];
 
@@ -89,10 +90,12 @@ export function arrange_document_page(
 
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
 
+    const documentContentWidthBl = totalWidthBl - totalMarginBl;
+    const displayWidthBl = documentChildDisplayWidthBl(displayItem_childItem, linkItemMaybe_childItem, documentContentWidthBl);
     const geometry = ItemFns.calcGeometry_InComposite(
-      linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
+      documentChildMeasurableForGeometry(displayItem_childItem, linkItemMaybe_childItem, displayWidthBl),
       blockSizePx,
-      totalWidthBl - totalMarginBl,
+      displayWidthBl,
       PAGE_DOCUMENT_LEFT_MARGIN_BL,
       topPx,
       store.smallScreenMode());
@@ -108,6 +111,7 @@ export function arrange_document_page(
       childItem,
       actualLinkItemMaybe,
       geometry: documentChildGeometry,
+      displayWidthBl,
       childItemIsEmbeddedInteractive,
     });
 
@@ -125,7 +129,7 @@ export function arrange_document_page(
       child.childItem,
       child.actualLinkItemMaybe,
       child.geometry,
-      totalWidthBl - totalMarginBl,
+      child.displayWidthBl,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       ArrangeItemFlags.InsideCompositeOrDoc |
       (child.childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
@@ -205,13 +209,48 @@ export function arrange_document_page(
   return { spec: pageSpec, relationships: pageRelationships };
 }
 
+function documentChildDisplayWidthBl(
+  displayItem: Item,
+  linkItemMaybe: LinkItem | null,
+  documentContentWidthBl: number,
+): number {
+  if (!isTable(displayItem)) {
+    return documentContentWidthBl;
+  }
+
+  const persistedWidthBl = (linkItemMaybe?.spatialWidthGr ?? asTableItem(displayItem).spatialWidthGr) / GRID_SIZE;
+  return Math.max(1, Math.min(persistedWidthBl, documentContentWidthBl));
+}
+
+function documentChildMeasurableForGeometry(
+  displayItem: Item,
+  linkItemMaybe: LinkItem | null,
+  displayWidthBl: number,
+): Measurable {
+  if (!isTable(displayItem)) {
+    return linkItemMaybe ? linkItemMaybe : displayItem;
+  }
+
+  const spatialWidthGr = displayWidthBl * GRID_SIZE;
+  if (linkItemMaybe != null) {
+    return {
+      ...linkItemMaybe,
+      spatialWidthGr,
+    };
+  }
+
+  const clonedTable = asTableItem(ItemFns.cloneMeasurableFields(asTableItem(displayItem)));
+  clonedTable.spatialWidthGr = spatialWidthGr;
+  return clonedTable;
+}
+
 function arrangeDocumentChildItemPath(
   store: StoreContextModel,
   parentPath: VisualElementPath,
   childItem: Item,
   actualLinkItemMaybe: LinkItem | null,
   geometry: ItemGeometry,
-  documentContentWidthBl: number,
+  displayWidthBl: number,
   flags: ArrangeItemFlags): VisualElementPath {
 
   const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
@@ -228,7 +267,7 @@ function arrangeDocumentChildItemPath(
       actualLinkItemMaybe,
       geometry,
       flags,
-      documentContentWidthBl).get());
+      displayWidthBl).get());
   }
 
   return arrangeItemPath(
