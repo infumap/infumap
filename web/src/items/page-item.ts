@@ -121,7 +121,14 @@ function pageHeaderHeightBl(page: PageMeasurable, isPopup: boolean): number {
   if (page.arrangeAlgorithm == ArrangeAlgorithm.Document) {
     return isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : 0;
   }
-  return isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+  if (isPopup) {
+    return PAGE_POPUP_TITLE_HEIGHT_BL;
+  }
+  return pageEmbeddedInteractiveTitleHeightBl(page);
+}
+
+function pageEmbeddedInteractiveTitleHeightBl(page: PageMeasurable): number {
+  return page.flags & PageFlags.HideEmbeddedInteractiveTitle ? 0 : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
 }
 
 function getListPageChildVeidMaybe(childId: Uid | null | undefined): Veid | null {
@@ -646,6 +653,14 @@ export const PageFns = {
 
   showDocumentTitleInDocument: (page: PageMeasurable): boolean => {
     return page.arrangeAlgorithm == ArrangeAlgorithm.Document && !(page.flags & PageFlags.HideDocumentTitle);
+  },
+
+  showEmbeddedInteractiveTitle: (page: PageMeasurable): boolean => {
+    return page.arrangeAlgorithm != ArrangeAlgorithm.Document && !(page.flags & PageFlags.HideEmbeddedInteractiveTitle);
+  },
+
+  embeddedInteractiveTitleHeightBl: (page: PageMeasurable): number => {
+    return pageEmbeddedInteractiveTitleHeightBl(page);
   },
 
   calcDocumentTitleHeightBl: (page: PageItem): number => {

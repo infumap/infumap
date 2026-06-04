@@ -127,7 +127,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     edit_inputListener(store, ev);
   }
 
-  const titleScale = () => (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / LINE_HEIGHT_PX;
+  const embeddedInteractiveTitleHeightPx = () => pageFns().boundsPx().h - pageFns().viewportBoundsPx().h;
+  const titleScale = () => embeddedInteractiveTitleHeightPx() / LINE_HEIGHT_PX;
 
   const vePath = () => VeFns.veToPath(props.visualElement);
   const titleEditHandlers = createPageTitleEditHandlers(
@@ -237,12 +238,12 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </Show>;
 
   const renderEmbeddedInteractiveTitleMaybe = () =>
-    <Show when={isEmbeddedInteractive() && !isMinimalDocumentPage()}>
+    <Show when={isEmbeddedInteractive() && PageFns.showEmbeddedInteractiveTitle(pageFns().pageItem())}>
       <div class={`absolute`}
-        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; z-index: 4;`}>
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${embeddedInteractiveTitleHeightPx()}px; z-index: 4;`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
           class={`absolute font-bold ${titleEditHandlers.isEditingTitle() ? "select-text cursor-text" : ""}`}
-          style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${(pageFns().boundsPx().h - pageFns().viewportBoundsPx().h) / titleScale()}px; ` +
+          style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${embeddedInteractiveTitleHeightPx() / titleScale()}px; ` +
             `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
             `overflow-wrap: break-word;` +
             `outline: 0px solid transparent;`}
@@ -260,13 +261,15 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     <Show when={isEmbeddedInteractive() &&
       ((props.visualElement.flags & VisualElementFlags.FindHighlighted) ||
         (props.visualElement.flags & VisualElementFlags.SelectionHighlighted))}>
+      <Show when={PageFns.showEmbeddedInteractiveTitle(pageFns().pageItem())}>
+        <div class="absolute pointer-events-none rounded-xs"
+          style={`left: 0px; top: 0px; ` +
+            `width: ${pageFns().boundsPx().w}px; height: ${embeddedInteractiveTitleHeightPx()}px; ` +
+            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+      </Show>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: 0px; top: 0px; ` +
-          `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
-          `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
-          `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
-      <div class="absolute pointer-events-none rounded-xs"
-        style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
+        style={`left: 0px; top: ${embeddedInteractiveTitleHeightPx()}px; ` +
           `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
           `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />

@@ -237,6 +237,11 @@ export const Toolbar_Page: Component = () => {
     return !(pageItem().flags & PageFlags.HideDocumentTitle);
   }
 
+  const showTitleInEmbeddedInteractive = () => {
+    store.touchToolbarDependency();
+    return !(pageItem().flags & PageFlags.HideEmbeddedInteractiveTitle);
+  }
+
   const aspectText = () => {
     store.touchToolbarDependency();
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
@@ -320,6 +325,22 @@ export const Toolbar_Page: Component = () => {
     } else {
       serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     }
+    store.touchToolbar();
+  }
+
+  const handleToggleEmbeddedInteractiveTitle = () => {
+    if (!(pageItem().flags & PageFlags.HideEmbeddedInteractiveTitle) &&
+      store.overlay.textEditInfo()?.itemType == ItemType.Page &&
+      store.overlay.textEditInfo()?.itemPath == store.history.getFocusPathMaybe()) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
+    if (pageItem().flags & PageFlags.HideEmbeddedInteractiveTitle) {
+      pageItem().flags &= ~PageFlags.HideEmbeddedInteractiveTitle;
+    } else {
+      pageItem().flags |= PageFlags.HideEmbeddedInteractiveTitle;
+    }
+    requestArrange(store, "toolbar-page-toggle-embedded-interactive-title");
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
 
@@ -602,6 +623,13 @@ export const Toolbar_Page: Component = () => {
           <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
         </Show>
         <Show when={showInteractiveButton()}>
+          <Show when={isInteractive() && pageItem().arrangeAlgorithm != ArrangeAlgorithm.Document}>
+            <InfuIconButton
+              icon="bi-type"
+              highlighted={showTitleInEmbeddedInteractive()}
+              clickHandler={handleToggleEmbeddedInteractiveTitle}
+              title="Show embedded title" />
+          </Show>
           <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
         </Show>
       </Show>

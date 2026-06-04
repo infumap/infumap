@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
@@ -37,7 +37,7 @@ import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-eleme
 import { StoreContextModel } from '../store/StoreProvider';
 import { VesCache } from '../layout/ves-cache';
 import { requestArrange } from '../layout/arrange';
-import { asPageItem, isPage } from './page-item';
+import { PageFns, asPageItem, isPage } from './page-item';
 import { asImageItem, isImage } from './image-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 
@@ -153,8 +153,7 @@ export const CompositeFns = {
       }
       const sizeBl = ItemFns.calcSpatialDimensionsBl(cloned);
       if (isPage(cloned) && (asPageItem(cloned).flags & PageFlags.EmbeddedInteractive)) {
-        // TODO (LOW): encapsulate / abstract this.
-        sizeBl.h += PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
+        sizeBl.h += PageFns.embeddedInteractiveTitleHeightBl(asPageItem(cloned));
       }
       bh += sizeBl.h + COMPOSITE_ITEM_GAP_BL;
     }

@@ -72,6 +72,7 @@ export enum PageFlags {
   EmbeddedInteractive = 0x001,
   HideDocumentTitle = 0x002,
   CalendarIndependentRows = 0x004,
+  HideEmbeddedInteractiveTitle = 0x040,
 };
 
 export const PageCalendarDisplayMode = {
