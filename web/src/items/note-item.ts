@@ -49,9 +49,22 @@ export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, At
   url: string,
 }
 
-export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin, AttachmentsMixin, IconMixin { }
+export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin, AttachmentsMixin, IconMixin {
+  inlineMarks: Array<NoteInlineMark>,
+}
 
 export { ItemIconMode, ItemIconRenderContext };
+
+export enum NoteInlineMarkFlags {
+  Bold = 0x001,
+  Italic = 0x002,
+}
+
+export interface NoteInlineMark {
+  start: number,
+  end: number,
+  flags: number,
+}
 
 export const NoteTextStyle = {
   Normal: "normal",
@@ -63,6 +76,57 @@ export const NoteTextStyle = {
 } as const;
 
 export type NoteTextStyle = typeof NoteTextStyle[keyof typeof NoteTextStyle];
+
+const NOTE_INLINE_MARK_ALLOWED_FLAGS = NoteInlineMarkFlags.Bold | NoteInlineMarkFlags.Italic;
+
+function normalizeNoteInlineMarks(inlineMarks: Array<NoteInlineMark>, text: string): Array<NoteInlineMark> {
+  const textLen = text.length;
+  const normalized = inlineMarks
+    .map(mark => ({
+      start: Math.trunc(mark.start),
+      end: Math.trunc(mark.end),
+      flags: Math.trunc(mark.flags),
+    }))
+    .filter(mark =>
+      Number.isFinite(mark.start) &&
+      Number.isFinite(mark.end) &&
+      Number.isFinite(mark.flags) &&
+      mark.start >= 0 &&
+      mark.start < mark.end &&
+      mark.end <= textLen &&
+      mark.flags != 0 &&
+      (mark.flags & ~NOTE_INLINE_MARK_ALLOWED_FLAGS) == 0)
+    .sort((a, b) => a.start - b.start || a.end - b.end || a.flags - b.flags);
+
+  const result: Array<NoteInlineMark> = [];
+  for (const mark of normalized) {
+    const last = result[result.length - 1];
+    if (last && mark.start < last.end) { continue; }
+    if (last && mark.start == last.end && mark.flags == last.flags) {
+      last.end = mark.end;
+    } else {
+      result.push(mark);
+    }
+  }
+  return result;
+}
+
+function unpackNoteInlineMarks(value: unknown, text: string): Array<NoteInlineMark> {
+  if (!Array.isArray(value) || value.length % 3 != 0) { return []; }
+  const marks: Array<NoteInlineMark> = [];
+  for (let i = 0; i < value.length; i += 3) {
+    const start = value[i];
+    const end = value[i + 1];
+    const flags = value[i + 2];
+    if (typeof start != "number" || typeof end != "number" || typeof flags != "number") { return []; }
+    marks.push({ start, end, flags });
+  }
+  return normalizeNoteInlineMarks(marks, text);
+}
+
+function packNoteInlineMarks(inlineMarks: Array<NoteInlineMark>, text: string): Array<number> {
+  return normalizeNoteInlineMarks(inlineMarks, text).flatMap(mark => [mark.start, mark.end, mark.flags]);
+}
 
 function noteHasFaviconUrl(note: NoteItem): boolean {
   return !!note.url?.trim();
@@ -105,6 +169,7 @@ export const NoteFns = {
       url: "",
       emoji: null,
       iconMode: ItemIconMode.Auto,
+      inlineMarks: [],
 
       computed_attachments: [],
     };
@@ -137,6 +202,7 @@ export const NoteFns = {
       url: o.url ?? "",
       emoji: o.emoji || null,
       iconMode: itemIconModeFromObject(o, true),
+      inlineMarks: unpackNoteInlineMarks(o.inlineMarks ?? [], o.title),
       format: o.format,
 
       computed_attachments: [],
@@ -166,6 +232,7 @@ export const NoteFns = {
       url: n.url,
       emoji: n.emoji,
       iconMode: n.iconMode,
+      inlineMarks: packNoteInlineMarks(n.inlineMarks, n.title),
       format: n.format,
     });
   },
@@ -391,6 +458,7 @@ export const NoteFns = {
       computed_attachments: note.computed_attachments,
       flags: note.flags,
       format: note.format,
+      inlineMarks: normalizeNoteInlineMarks(note.inlineMarks, note.title),
       emoji: note.emoji,
       iconMode: note.iconMode,
     });
@@ -402,6 +470,7 @@ export const NoteFns = {
 
   getFingerprint: (noteItem: NoteItem): string => {
     return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags + "~~~!@#~~~" + noteItem.format +
+      "~~~!@#~~~" + packNoteInlineMarks(noteItem.inlineMarks, noteItem.title).join(",") +
       "~~~!@#~~~" + (noteItem.emoji || "") + "~~~!@#~~~" + noteItem.iconMode;
   },
 

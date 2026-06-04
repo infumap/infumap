@@ -414,7 +414,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 54] = [
+const ALL_JSON_FIELDS: [&'static str; 55] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -462,6 +462,7 @@ const ALL_JSON_FIELDS: [&'static str; 54] = [
   "flags",
   "permissionFlags",
   "format",
+  "inlineMarks",
   "documentWidthBl",
   "documentShowTitle",
   "docWidthBl",
@@ -558,6 +559,7 @@ pub struct Item {
   pub url: Option<String>,
   pub emoji: Option<String>,
   pub icon_mode: Option<ItemIconMode>,
+  pub inline_marks: Option<Vec<i64>>,
 
   // file
 
@@ -626,6 +628,7 @@ impl Clone for Item {
       url: self.url.clone(),
       emoji: self.emoji.clone(),
       icon_mode: self.icon_mode.clone(),
+      inline_marks: self.inline_marks.clone(),
       format: self.format.clone(),
       table_columns: self.table_columns.clone(),
       number_of_visible_columns: self.number_of_visible_columns.clone(),
@@ -639,6 +642,66 @@ impl Clone for Item {
       text: self.text.clone(),
     }
   }
+}
+
+const NOTE_INLINE_MARK_ALLOWED_FLAGS: i64 = 0x003;
+
+fn get_note_inline_marks_field(
+  map: &serde_json::Map<String, serde_json::Value>,
+  field: &str,
+) -> InfuResult<Option<Vec<i64>>> {
+  let Some(value) = map.get(field) else {
+    return Ok(None);
+  };
+  let values = value.as_array().ok_or(format!("'{}' field was not of type 'array'.", field))?;
+  let mut result = Vec::with_capacity(values.len());
+  for value in values {
+    let value = value.as_i64().ok_or(format!("'{}' field contained a non-integer value.", field))?;
+    result.push(value);
+  }
+  Ok(Some(result))
+}
+
+fn validate_note_inline_marks(inline_marks: &[i64], title: &str, item_id: &str) -> InfuResult<()> {
+  if inline_marks.len() % 3 != 0 {
+    return Err(format!("'inlineMarks' field for note '{}' must contain triples of start, end, flags.", item_id).into());
+  }
+
+  let title_len_utf16 = title.encode_utf16().count() as i64;
+  let mut previous_end = 0i64;
+  let mut previous_flags = None::<i64>;
+
+  for (index, mark) in inline_marks.chunks_exact(3).enumerate() {
+    let start = mark[0];
+    let end = mark[1];
+    let flags = mark[2];
+    if start < 0 || end < 0 || flags < 0 {
+      return Err(format!("'inlineMarks' field for note '{}' contains a negative value.", item_id).into());
+    }
+    if start >= end {
+      return Err(format!("'inlineMarks' field for note '{}' contains an empty or reversed range.", item_id).into());
+    }
+    if end > title_len_utf16 {
+      return Err(format!("'inlineMarks' field for note '{}' contains a range past the note title.", item_id).into());
+    }
+    if flags == 0 || (flags & !NOTE_INLINE_MARK_ALLOWED_FLAGS) != 0 {
+      return Err(format!("'inlineMarks' field for note '{}' contains invalid mark flags '{}'.", item_id, flags).into());
+    }
+    if index > 0 && start < previous_end {
+      return Err(format!("'inlineMarks' field for note '{}' contains overlapping or unsorted ranges.", item_id).into());
+    }
+    if index > 0 && start == previous_end && previous_flags == Some(flags) {
+      return Err(format!("'inlineMarks' field for note '{}' contains adjacent ranges with identical flags.", item_id).into());
+    }
+    previous_end = end;
+    previous_flags = Some(flags);
+  }
+
+  Ok(())
+}
+
+fn note_inline_marks_to_array(inline_marks: &[i64]) -> Value {
+  Value::Array(inline_marks.iter().map(|value| Value::Number((*value).into())).collect::<Vec<_>>())
 }
 
 impl WebApiJsonSerializable<Item> for Item {
@@ -1198,6 +1261,18 @@ impl JsonLogSerializable<Item> for Item {
       }
       _ => {}
     }
+    if let Some(new_inline_marks) = &new.inline_marks {
+      if match &old.inline_marks {
+        Some(o) => o != new_inline_marks,
+        None => true,
+      } {
+        if old.item_type != ItemType::Note {
+          cannot_modify_err("inlineMarks", &old.id)?;
+        }
+        validate_note_inline_marks(new_inline_marks, new.title.as_deref().unwrap_or(""), &old.id)?;
+        result.insert(String::from("inlineMarks"), note_inline_marks_to_array(new_inline_marks));
+      }
+    }
 
     // file
 
@@ -1673,6 +1748,15 @@ impl JsonLogSerializable<Item> for Item {
         Some(v) => Some(validate_item_icon_mode(self.item_type, ItemIconMode::from_str(&v)?, &self.id)?),
         None => None,
       };
+    }
+    if map.contains_key("inlineMarks") {
+      if self.item_type != ItemType::Note {
+        not_applicable_err("inlineMarks", self.item_type, &self.id)?;
+      }
+      let inline_marks = get_note_inline_marks_field(map, "inlineMarks")?
+        .ok_or("'inlineMarks' field was missing after presence check.")?;
+      validate_note_inline_marks(&inline_marks, self.title.as_deref().unwrap_or(""), &self.id)?;
+      self.inline_marks = Some(inline_marks);
     }
 
     // file
@@ -2156,6 +2240,13 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
       String::from("iconMode"),
       Value::String(validate_item_icon_mode(item.item_type, *icon_mode, &item.id)?.as_str().to_owned()),
     );
+  }
+  if let Some(inline_marks) = &item.inline_marks {
+    if item.item_type != ItemType::Note {
+      unexpected_field_err("inlineMarks", &item.id, item.item_type)?
+    }
+    validate_note_inline_marks(inline_marks, item.title.as_deref().unwrap_or(""), &item.id)?;
+    result.insert(String::from("inlineMarks"), note_inline_marks_to_array(inline_marks));
   }
 
   // file
@@ -2851,6 +2942,24 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
     }?,
+    inline_marks: match get_note_inline_marks_field(map, "inlineMarks")? {
+      Some(v) => {
+        if item_type == ItemType::Note {
+          let title = json::get_string_field(map, "title")?.ok_or("'title' field was missing.")?;
+          validate_note_inline_marks(&v, &title, &id)?;
+          Ok(Some(v))
+        } else {
+          Err(not_applicable_err("inlineMarks", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Note {
+          Err(expected_for_err("inlineMarks", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
+    }?,
 
     // file
 
@@ -3019,6 +3128,7 @@ impl Item {
       url,
       emoji: None,
       icon_mode: Some(ItemIconMode::Auto),
+      inline_marks: Some(vec![]),
       format: Some(fmt.to_owned()),
       order_children_by: None,
       spatial_height_gr: None,
@@ -3085,6 +3195,7 @@ impl Item {
       url: None,
       emoji: None,
       icon_mode: None,
+      inline_marks: None,
       format: None,
       order_children_by: None,
       spatial_height_gr: Some(spatial_height_gr),
@@ -3157,6 +3268,7 @@ impl Item {
       url: None,
       emoji: None,
       icon_mode: None,
+      inline_marks: None,
       format: None,
       link_to: None,
       catalog_path_override: None,
@@ -3215,6 +3327,7 @@ impl Item {
       url: None,
       emoji: None,
       icon_mode: None,
+      inline_marks: None,
       format: None,
       link_to: None,
       catalog_path_override: None,
@@ -3279,6 +3392,7 @@ impl Item {
       url: None,
       emoji: None,
       icon_mode: None,
+      inline_marks: None,
       format: None,
       link_to: None,
       catalog_path_override: None,
@@ -3381,6 +3495,7 @@ impl Item {
       url: None,
       emoji: None,
       icon_mode: None,
+      inline_marks: None,
       format: None,
       link_to: None,
       catalog_path_override: None,
@@ -3599,6 +3714,11 @@ impl Item {
       if let Some(url) = &self.url {
         if !url.is_empty() {
           hashes.push(hash_string_to_uid(url));
+        }
+      }
+      if let Some(inline_marks) = &self.inline_marks {
+        for value in inline_marks {
+          hashes.push(hash_i64_to_uid(*value));
         }
       }
     }

@@ -41,7 +41,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 33;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 34;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -2274,6 +2274,29 @@ pub fn migrate_record_v32_to_v33(kvs: &Map<String, Value>) -> InfuResult<Map<Str
       let mut result = kvs.clone();
       if is_legacy_text_file_entry(&result)? {
         result.insert(String::from("itemType"), Value::String(String::from("text")));
+      }
+      Ok(result)
+    }
+
+    "update" | "delete" | "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
+pub fn migrate_record_v33_to_v34(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 33),
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "note" {
+        let existing = result.insert(String::from("inlineMarks"), Value::Array(vec![]));
+        if existing.is_some() {
+          return Err("inlineMarks field already exists.".into());
+        }
       }
       Ok(result)
     }

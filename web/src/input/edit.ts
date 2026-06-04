@@ -134,7 +134,11 @@ export function commitActiveTextEdit(
     else if (textEditInfo.itemType == ItemType.Note) {
       editingDomEl.parentElement!.scrollLeft = 0;
       const noteItem = asNoteItem(item);
-      noteItem.title = trimNewline(newText);
+      const nextTitle = trimNewline(newText);
+      if (noteItem.title != nextTitle) {
+        noteItem.inlineMarks = [];
+      }
+      noteItem.title = nextTitle;
       if (isUrl(noteItem.title) && noteItem.url == "") {
         noteItem.url = noteItem.title;
       }
