@@ -179,6 +179,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Match when={itemType == ItemType.Search}><i class="fa fa-search" /></Match>
         <Match when={itemType == ItemType.Password}><i class="fa fa-eye-slash" /></Match>
         <Match when={itemType == ItemType.Rating}><i class="fa fa-star" /></Match>
+        <Match when={itemType == ItemType.Divider}><i class="fa fa-arrows-h" /></Match>
       </Switch>
     );
   };

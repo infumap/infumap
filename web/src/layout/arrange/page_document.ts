@@ -241,10 +241,11 @@ function documentChildMeasurableForGeometry(
 
   const spatialWidthGr = displayWidthBl * GRID_SIZE;
   if (linkItemMaybe != null) {
-    return {
+    const clonedLink: LinkItem = {
       ...linkItemMaybe,
       spatialWidthGr,
     };
+    return clonedLink;
   }
 
   const clonedTable = asTableItem(ItemFns.cloneMeasurableFields(asTableItem(displayItem)));
@@ -275,7 +276,7 @@ function alignTableDocumentMoveOutHitbox(
     h: geometry.boundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
   };
 
-  moveHitbox.boundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, PAGE_DOCUMENT_LEFT_MARGIN_BL == 0 ? 2 : 0);
+  moveHitbox.boundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, Number(PAGE_DOCUMENT_LEFT_MARGIN_BL) == 0 ? 2 : 0);
   moveHitbox.meta = {
     ...(moveHitbox.meta ?? {}),
     compositeMoveOut: true,

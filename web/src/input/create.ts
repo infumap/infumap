@@ -24,6 +24,7 @@ import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
 import { PageFns, asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
 import { PasswordFns } from "../items/password-item";
+import { DividerFns } from "../items/divider-item";
 import { calculateCalendarDateTime } from "../util/calendar-layout";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
@@ -63,6 +64,8 @@ function createNewItem(
     newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "password")  {
     newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
+  } else if (type == "divider")  {
+    newItem = DividerFns.create(store.user.getUser().userId, parentId, relationship, ordering);
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
   }
@@ -346,8 +349,8 @@ function titleElementForPath(itemPath: string, requireEditable: boolean): HTMLEl
 function candidateScore(candidate: RenderedNewItemCandidate, preferredPath: string): number {
   let score = 0;
   if (candidate.titleElement?.isContentEditable) { score += 1000; }
-  if (candidate.visualElement?.flags & VisualElementFlags.LineItem) { score += 100; }
-  if (candidate.visualElement?.flags & VisualElementFlags.InsideTable) { score += 50; }
+  if ((candidate.visualElement?.flags ?? 0) & VisualElementFlags.LineItem) { score += 100; }
+  if ((candidate.visualElement?.flags ?? 0) & VisualElementFlags.InsideTable) { score += 50; }
   if (candidate.titleElement != null) { score += 10; }
   if (candidate.itemPath == preferredPath) { score += 1; }
   return score;
@@ -615,6 +618,8 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       type == ItemType.Table) {
     focusNewItemForEditing(store, type, newItem, newItemPath);
   } else if (type == ItemType.Link) {
+    store.history.setFocus(newItemPath);
+  } else if (type == ItemType.Divider) {
     store.history.setFocus(newItemPath);
   } else if (type == ItemType.Rating) {
     // noop.

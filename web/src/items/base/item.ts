@@ -33,6 +33,7 @@ export const ItemType = {
   Rating: "rating",
   Link: "link",
   Search: "search",
+  Divider: "divider",
   Placeholder: "placeholder",
 };
 

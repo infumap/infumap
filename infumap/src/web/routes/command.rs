@@ -1647,6 +1647,18 @@ pub async fn add_item_for_user(
       item_map.insert("thumbnail".to_owned(), Value::String("".to_owned()));
     }
 
+    if item_type == ItemType::Divider.as_str() {
+      if !item_map.contains_key("dividerDirection") {
+        item_map.insert("dividerDirection".to_owned(), Value::String("horizontal".to_owned()));
+      }
+      if !item_map.contains_key("spatialWidthGr") {
+        item_map.insert("spatialWidthGr".to_owned(), Value::Number((4 * GRID_SIZE).into()));
+      }
+      if !item_map.contains_key("spatialHeightGr") {
+        item_map.insert("spatialHeightGr".to_owned(), Value::Number(GRID_SIZE.into()));
+      }
+    }
+
     // Temporary placeholder so item parsing succeeds before server-side MIME detection overwrites it.
     if is_data_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("mimeType") {
       item_map.insert("mimeType".to_owned(), Value::String("application/octet-stream".to_owned()));

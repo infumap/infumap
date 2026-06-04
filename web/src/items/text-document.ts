@@ -25,6 +25,7 @@ import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { PlaceholderFns } from "./placeholder-item";
 import { NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, normalizeNoteInlineMarks } from "./note-item";
+import { DividerFns } from "./divider-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { TableFns } from "./table-item";
 import type { TextItem } from "./text-item";
@@ -67,7 +68,14 @@ type TextDocumentTableBlock = {
   ordinal: number,
 };
 
-type TextDocumentBlock = TextDocumentTextBlock | TextDocumentTableBlock;
+type TextDocumentDividerBlock = {
+  kind: "divider",
+  start: number,
+  end: number,
+  ordinal: number,
+};
+
+type TextDocumentBlock = TextDocumentTextBlock | TextDocumentTableBlock | TextDocumentDividerBlock;
 
 type TextLine = {
   text: string,
@@ -421,6 +429,13 @@ function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocume
   };
 }
 
+function isMarkdownDividerLine(line: string): boolean {
+  const trimmed = line.trim();
+  return /^(-\s*){3,}$/.test(trimmed) ||
+    /^(_\s*){3,}$/.test(trimmed) ||
+    /^(\*\s*){3,}$/.test(trimmed);
+}
+
 function isMarkdownTextItem(textItem: TextItem): boolean {
   const mimeType = (textItem.mimeType ?? "").toLowerCase();
   const title = textItem.title.toLowerCase();
@@ -496,6 +511,17 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
       table.ordinal = blocks.length;
       blocks.push(table);
       i += table.rows.length + 1;
+      continue;
+    }
+
+    if (parseMarkdown && isMarkdownDividerLine(line.text)) {
+      flushParagraph();
+      blocks.push({
+        kind: "divider",
+        start: line.start,
+        end: line.end,
+        ordinal: blocks.length,
+      });
       continue;
     }
 
@@ -623,6 +649,25 @@ function createNoteForTableCell(
   return note;
 }
 
+function createDividerForBlock(
+  textItem: TextItem,
+  ownerId: Uid,
+  pageId: Uid,
+  pageWidthBl: number,
+  block: TextDocumentDividerBlock,
+  ordering: Uint8Array,
+  virtual: boolean,
+): Item {
+  const divider = DividerFns.create(ownerId, pageId, RelationshipToParent.Child, ordering, "horizontal");
+  if (virtual) {
+    divider.id = stableUid(`text-document-divider:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
+    divider.capabilities = readonlyCapabilities;
+  }
+  divider.spatialWidthGr = Math.max(1, pageWidthBl) * GRID_SIZE;
+  divider.spatialHeightGr = GRID_SIZE;
+  return divider;
+}
+
 function createPlaceholderForTableCell(
   textItem: TextItem,
   ownerId: Uid,
@@ -690,6 +735,13 @@ function createTextDocumentItems(
   for (const block of blocks) {
     const ordering = newOrderingAtEnd(rootOrderings);
     rootOrderings.push(ordering);
+
+    if (block.kind == "divider") {
+      const divider = createDividerForBlock(textItem, ownerId, page.id, page.docWidthBl, block, ordering, virtual);
+      result.rootChildren.push(divider);
+      result.allItems.push(divider);
+      continue;
+    }
 
     if (block.kind != "table") {
       const note = createNoteForBlock(textItem, ownerId, page.id, block, ordering, virtual);

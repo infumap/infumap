@@ -53,6 +53,8 @@ import { isComposite } from '../../items/composite-item';
 import { Toolbar_Composite } from './item/Toolbar_Composite';
 import { isSearch } from '../../items/search-item';
 import { Toolbar_Search } from './item/Toolbar_Search';
+import { isDivider } from '../../items/divider-item';
+import { Toolbar_Divider } from './item/Toolbar_Divider';
 import { VesCache } from '../../layout/ves-cache';
 import { logout } from '../Main';
 import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chrome';
@@ -313,6 +315,9 @@ export const Toolbar: Component = () => {
           </Match>
           <Match when={isSearch(toolbarFocusItem())}>
             <Toolbar_Search />
+          </Match>
+          <Match when={isDivider(toolbarFocusItem())}>
+            <Toolbar_Divider />
           </Match>
         </Switch>
       </Show>

@@ -41,6 +41,7 @@ function fallbackTitleForItem(item: Item): string {
     case ItemType.Rating: return "[rating]";
     case ItemType.Link: return "[link]";
     case ItemType.Search: return "[search]";
+    case ItemType.Divider: return "[divider]";
     default: return `[${item.itemType}]`;
   }
 }

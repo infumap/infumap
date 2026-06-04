@@ -55,6 +55,9 @@ import { Composite_LineItem } from "./items/Composite_LineItem";
 import { Search_Desktop } from "./items/Search";
 import { Search_LineItem } from "./items/Search_LineItem";
 import { isSearch } from "../items/search-item";
+import { Divider_Desktop } from "./items/Divider";
+import { Divider_LineItem } from "./items/Divider_LineItem";
+import { isDivider } from "../items/divider-item";
 
 
 export interface VisualElementProps {
@@ -77,6 +80,7 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
       <Match when={isPassword(props.visualElement.displayItem)}><Password {...props} /></Match>
       <Match when={isRating(props.visualElement.displayItem)}><Rating_Desktop {...props} /></Match>
       <Match when={isSearch(props.visualElement.displayItem)}><Search_Desktop {...props} /></Match>
+      <Match when={isDivider(props.visualElement.displayItem)}><Divider_Desktop {...props} /></Match>
       <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_Desktop {...props} /></Match>
     </Switch>
   );
@@ -97,6 +101,7 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
       <Match when={isPassword(props.visualElement.displayItem)}><PasswordLineItem {...props} /></Match>
       <Match when={isRating(props.visualElement.displayItem)}><Rating_LineItem {...props} /></Match>
       <Match when={isSearch(props.visualElement.displayItem)}><Search_LineItem {...props} /></Match>
+      <Match when={isDivider(props.visualElement.displayItem)}><Divider_LineItem {...props} /></Match>
       <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_LineItem {...props} /></Match>
       <Match when={props.visualElement.displayItem == EMPTY_ITEM()}><></></Match> {/* generated only for the hitboxes. */}
     </Switch>

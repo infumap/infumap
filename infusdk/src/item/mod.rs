@@ -250,6 +250,29 @@ impl RatingType {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
+pub enum DividerDirection {
+  Horizontal,
+  Vertical,
+}
+
+impl DividerDirection {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      DividerDirection::Horizontal => "horizontal",
+      DividerDirection::Vertical => "vertical",
+    }
+  }
+
+  pub fn from_str(s: &str) -> InfuResult<DividerDirection> {
+    match s {
+      "horizontal" => Ok(DividerDirection::Horizontal),
+      "vertical" => Ok(DividerDirection::Vertical),
+      other => Err(format!("Invalid DividerDirection value: '{}'.", other).into()),
+    }
+  }
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ItemType {
   Page,
   Table,
@@ -262,6 +285,7 @@ pub enum ItemType {
   Rating,
   Link,
   Search,
+  Divider,
   Placeholder,
 }
 
@@ -279,6 +303,7 @@ impl ItemType {
       ItemType::Rating => "rating",
       ItemType::Link => "link",
       ItemType::Search => "search",
+      ItemType::Divider => "divider",
       ItemType::Placeholder => "placeholder",
     }
   }
@@ -296,6 +321,7 @@ impl ItemType {
       "rating" => Ok(ItemType::Rating),
       "link" => Ok(ItemType::Link),
       "search" => Ok(ItemType::Search),
+      "divider" => Ok(ItemType::Divider),
       "placeholder" => Ok(ItemType::Placeholder),
       other => Err(format!("Invalid ItemType value: '{}'.", other).into()),
     }
@@ -339,11 +365,12 @@ pub fn is_x_sizeable_item_type(item_type: ItemType) -> bool {
     || item_type == ItemType::Image
     || item_type == ItemType::Password
     || item_type == ItemType::Search
+    || item_type == ItemType::Divider
     || item_type == ItemType::Composite
 }
 
 pub fn is_y_sizeable_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Table
+  item_type == ItemType::Table || item_type == ItemType::Divider
 }
 
 pub fn is_titled_item_type(item_type: ItemType) -> bool {
@@ -414,7 +441,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 55] = [
+const ALL_JSON_FIELDS: [&'static str; 56] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -452,6 +479,7 @@ const ALL_JSON_FIELDS: [&'static str; 55] = [
   "fileSizeBytes",
   "rating",
   "ratingType",
+  "dividerDirection",
   "tableColumns",
   "linkTo",
   "catalogPathOverride",
@@ -576,6 +604,9 @@ pub struct Item {
   pub rating: Option<i64>,
   pub rating_type: Option<RatingType>,
 
+  // divider
+  pub divider_direction: Option<DividerDirection>,
+
   // link
   pub link_to: Option<Uid>,
   pub catalog_path_override: Option<Vec<CatalogPathSegment>>,
@@ -636,6 +667,7 @@ impl Clone for Item {
       thumbnail: self.thumbnail.clone(),
       rating: self.rating.clone(),
       rating_type: self.rating_type.clone(),
+      divider_direction: self.divider_direction.clone(),
       link_to: self.link_to.clone(),
       catalog_path_override: self.catalog_path_override.clone(),
       catalog_fragment_match: self.catalog_fragment_match.clone(),
@@ -1339,6 +1371,19 @@ impl JsonLogSerializable<Item> for Item {
       }
     }
 
+    // divider
+    if let Some(new_divider_direction) = &new.divider_direction {
+      if match &old.divider_direction {
+        Some(o) => o != new_divider_direction,
+        None => true,
+      } {
+        if old.item_type != ItemType::Divider {
+          cannot_modify_err("dividerDirection", &old.id)?;
+        }
+        result.insert(String::from("dividerDirection"), Value::String(String::from(new_divider_direction.as_str())));
+      }
+    }
+
     // link
     if let Some(new_link_to) = &new.link_to {
       if match &old.link_to {
@@ -1799,6 +1844,14 @@ impl JsonLogSerializable<Item> for Item {
         not_applicable_err("ratingType", self.item_type, &self.id)?;
       }
       self.rating_type = Some(RatingType::from_str(&v)?);
+    }
+
+    // divider
+    if let Some(v) = json::get_string_field(map, "dividerDirection")? {
+      if self.item_type != ItemType::Divider {
+        not_applicable_err("dividerDirection", self.item_type, &self.id)?;
+      }
+      self.divider_direction = Some(DividerDirection::from_str(&v)?);
     }
 
     // link
@@ -2287,6 +2340,14 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
       unexpected_field_err("ratingType", &item.id, item.item_type)?
     }
     result.insert(String::from("ratingType"), Value::String(String::from(rating_type.as_str())));
+  }
+
+  // divider
+  if let Some(divider_direction) = &item.divider_direction {
+    if item.item_type != ItemType::Divider {
+      unexpected_field_err("dividerDirection", &item.id, item.item_type)?
+    }
+    result.insert(String::from("dividerDirection"), Value::String(String::from(divider_direction.as_str())));
   }
 
   // link
@@ -3051,6 +3112,24 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       }
     }?,
 
+    // divider
+    divider_direction: match &json::get_string_field(map, "dividerDirection")? {
+      Some(v) => {
+        if item_type == ItemType::Divider {
+          Ok(Some(DividerDirection::from_str(v)?))
+        } else {
+          Err(not_applicable_err("dividerDirection", item_type, &id))
+        }
+      }
+      None => {
+        if item_type == ItemType::Divider {
+          Err(expected_for_err("dividerDirection", item_type, &id))
+        } else {
+          Ok(None)
+        }
+      }
+    }?,
+
     // link
     link_to: match json::get_string_field(map, "linkTo")? {
       Some(v) => {
@@ -3165,6 +3244,7 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
+      divider_direction: None,
     }
   }
 
@@ -3232,6 +3312,7 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
+      divider_direction: None,
     }
   }
 
@@ -3303,6 +3384,7 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
+      divider_direction: None,
     }
   }
 
@@ -3362,6 +3444,7 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
+      divider_direction: None,
     }
   }
 
@@ -3427,6 +3510,75 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
+      divider_direction: None,
+    }
+  }
+
+  pub fn new_divider(
+    parent_id: &Uid,
+    ordering: Vec<u8>,
+    spatial_position_gr: Vector<i64>,
+    spatial_width_gr: i64,
+    spatial_height_gr: i64,
+    relationship: RelationshipToParent,
+    divider_direction: DividerDirection,
+  ) -> Item {
+    Item {
+      item_type: ItemType::Divider,
+      owner_id: EMPTY_UID.to_owned(),
+      id: new_uid(),
+      parent_id: Some(parent_id.to_owned()),
+      relationship_to_parent: relationship,
+      group_id: None,
+      creation_date: unix_now_secs_i64().unwrap(),
+      last_modified_date: unix_now_secs_i64().unwrap(),
+      datetime: unix_now_secs_i64().unwrap(),
+      ordering,
+      flags: None,
+      spatial_position_gr: Some(spatial_position_gr),
+      order_children_by: None,
+      spatial_width_gr: Some(spatial_width_gr),
+      spatial_height_gr: Some(spatial_height_gr),
+      title: None,
+      url: None,
+      emoji: None,
+      icon_mode: None,
+      inline_marks: None,
+      format: None,
+      link_to: None,
+      catalog_path_override: None,
+      catalog_fragment_match: None,
+      table_columns: None,
+      number_of_visible_columns: None,
+      original_creation_date: None,
+      mime_type: None,
+      file_size_bytes: None,
+      document_width_bl: None,
+      document_show_title: None,
+      permission_flags: None,
+      inner_spatial_width_gr: None,
+      natural_aspect: None,
+      background_color_index: None,
+      arrange_algorithm: None,
+      default_popup_position_gr: None,
+      default_popup_width_gr: None,
+      popup_position_gr: None,
+      popup_width_gr: None,
+      default_cell_popup_position_norm: None,
+      default_cell_popup_width_norm: None,
+      cell_popup_position_norm: None,
+      cell_popup_width_norm: None,
+      grid_number_of_columns: None,
+      grid_cell_aspect: None,
+      doc_width_bl: None,
+      justified_row_aspect: None,
+      calendar_day_row_height_bl: None,
+      text: None,
+      image_size_px: None,
+      thumbnail: None,
+      rating: None,
+      rating_type: None,
+      divider_direction: Some(divider_direction),
     }
   }
 
@@ -3516,6 +3668,7 @@ impl Item {
       thumbnail: None,
       rating: None,
       rating_type: None,
+      divider_direction: None,
     }
   }
 
@@ -3764,6 +3917,13 @@ impl Item {
       }
       if let Some(rating_type) = &self.rating_type {
         hashes.push(hash_string_to_uid(rating_type.as_str()));
+      }
+    }
+
+    // Divider-specific properties
+    if self.item_type == ItemType::Divider {
+      if let Some(divider_direction) = &self.divider_direction {
+        hashes.push(hash_string_to_uid(divider_direction.as_str()));
       }
     }
 

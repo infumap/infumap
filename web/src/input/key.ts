@@ -509,7 +509,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   const recognizedKeys = [
     "Slash", "Backslash", "Escape", "Enter", "Space", "F2",
     "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
-    "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyE", "KeyF",
+    "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyD", "KeyE", "KeyF",
   ];
 
   if (document.activeElement!.id.includes('toolbarTitleDiv')) {
@@ -752,6 +752,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   else if (ev.code == "KeyL") {
     ev.preventDefault();
     newItemInContext(store, "link", hitInfo, CursorEventState.getLatestDesktopPx(store));
+  }
+
+  else if (ev.code == "KeyD") {
+    ev.preventDefault();
+    newItemInContext(store, "divider", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else if (ev.code == "KeyE") {
