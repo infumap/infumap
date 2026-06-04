@@ -50,6 +50,7 @@ bitflags! {
   pub struct TableFlags: i64 {
     const None =           0x000;
     const ShowColHeader =  0x001;
+    const HideTitle =      0x002;
   }
 }
 

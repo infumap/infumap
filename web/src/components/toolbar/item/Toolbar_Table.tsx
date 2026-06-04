@@ -30,6 +30,7 @@ import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem } from "../toolbarFocus";
+import { ItemType } from "../../../items/base/item";
 
 
 export const Toolbar_Table: Component = () => {
@@ -72,6 +73,30 @@ export const Toolbar_Table: Component = () => {
     }
     itemState.sortChildren(tableItem().id);
     requestArrange(store, "toolbar-table-header-visibility");
+    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    store.touchToolbar();
+  }
+
+  const showTitle = () => {
+    store.touchToolbarDependency();
+    return !(tableItem().flags & TableFlags.HideTitle);
+  }
+
+  const handleChangeShowTitle = () => {
+    if (!(tableItem().flags & TableFlags.HideTitle) &&
+      store.overlay.textEditInfo()?.itemType == ItemType.Table &&
+      store.overlay.textEditInfo()?.itemPath == store.history.getFocusPathMaybe() &&
+      store.overlay.textEditInfo()?.colNum == null) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
+    if (tableItem().flags & TableFlags.HideTitle) {
+      tableItem().flags &= ~TableFlags.HideTitle;
+    } else {
+      tableItem().flags |= TableFlags.HideTitle;
+    }
+    requestArrange(store, "toolbar-table-title-visibility");
+    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    store.touchToolbar();
   }
 
   const handleQr = () => {
@@ -125,7 +150,8 @@ export const Toolbar_Table: Component = () => {
           </div>
         </div>
         <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
-        <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} />
+        <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} title="Show column headers" />
+        <InfuIconButton icon="bi-type" highlighted={showTitle()} clickHandler={handleChangeShowTitle} title="Show table title" />
       </Show>
 
       <Toolbar_ItemOrdering />

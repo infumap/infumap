@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
+import { GRID_SIZE } from "../constants";
 import { ItemType } from "../items/base/item";
 import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -27,8 +27,7 @@ import { PasswordFns } from "../items/password-item";
 import { calculateCalendarDateTime } from "../util/calendar-layout";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
-import { TableFns, asTableItem, isTable } from "../items/table-item";
-import { TableFlags } from "../items/base/flags-item";
+import { TableFns, asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -280,9 +279,7 @@ function scrollTableToIncludeRow(store: StoreContextModel, tableVe: VisualElemen
   if (!tableVe.blockSizePx || tableVe.blockSizePx.h <= 0) { return; }
 
   const tableItem = asTableItem(tableVe.displayItem);
-  const headerRowsBl = TABLE_TITLE_HEADER_HEIGHT_BL;
-  const colHeaderRowsBl = (tableItem.flags & TableFlags.ShowColHeader) ? TABLE_COL_HEADER_HEIGHT_BL : 0;
-  const visibleRows = Math.max(1, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - headerRowsBl - colHeaderRowsBl));
+  const visibleRows = Math.max(1, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - tableHeaderHeightBl(tableItem)));
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
   const firstVisibleRow = Math.floor(scrollYPos);
   const lastVisibleRow = firstVisibleRow + visibleRows - 1;

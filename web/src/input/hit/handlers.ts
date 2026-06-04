@@ -17,9 +17,10 @@
 */
 
 import { HitboxFlags } from "../../layout/hitbox";
+import { TableFlags } from "../../items/base/flags-item";
 import { isComposite } from "../../items/composite-item";
 import { isPage } from "../../items/page-item";
-import { isTable } from "../../items/table-item";
+import { asTableItem, isTable } from "../../items/table-item";
 import { getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy } from "../../util/geometry";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
@@ -106,6 +107,19 @@ const _tableHandler: HitHandler = {
             debugCreatedAt: "table-handler-attachment",
           };
         }
+      }
+    }
+    if ((asTableItem(tableVe.displayItem).flags & TableFlags.HideTitle) && !ignoreItems.has(tableVe.displayItem.id)) {
+      const { flags: hitboxType, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx));
+      if (hitboxType != HitboxFlags.None) {
+        return new HitBuilder(parentRootVe, rootVes)
+          .over(tableVes)
+          .hitboxes(hitboxType, HitboxFlags.None)
+          .meta(meta)
+          .pos(posRelativeToRootVeViewportPx)
+          .allowEmbeddedInteractive(false)
+          .createdAt("table-handler-hidden-title-fallback")
+          .build();
       }
     }
     return null;

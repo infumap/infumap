@@ -17,9 +17,8 @@
 */
 
 import { GRID_SIZE } from "../constants";
-import { TableFlags } from "../items/base/flags-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
-import { asTableItem, isTable } from "../items/table-item";
+import { asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Uid } from "../util/uid";
@@ -190,8 +189,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
       const sizeBl = parentVe.linkItemMaybe
         ? { h: parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE }
         : { h: tableItem.spatialHeightGr / GRID_SIZE };
-      const showColHeader = !!(tableItem.flags & TableFlags.ShowColHeader);
-      const numVisibleRows = sizeBl.h - 1 - (showColHeader ? 1 : 0);
+      const numVisibleRows = sizeBl.h - tableHeaderHeightBl(tableItem);
 
       const newScrollPos = Math.max(0, rowIndex - Math.floor(numVisibleRows / 2));
       store.perItem.setTableScrollYPos(tableVeid, newScrollPos);
@@ -319,8 +317,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
       const sizeBl = parentVe.linkItemMaybe
         ? { h: parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE }
         : { h: tableItem.spatialHeightGr / GRID_SIZE };
-      const showColHeader = !!(tableItem.flags & TableFlags.ShowColHeader);
-      const numVisibleRows = sizeBl.h - 1 - (showColHeader ? 1 : 0);
+      const numVisibleRows = sizeBl.h - tableHeaderHeightBl(tableItem);
 
       const currentScrollPos = store.perItem.getTableScrollYPos(tableVeid);
       if (rowNumber < currentScrollPos || rowNumber >= currentScrollPos + numVisibleRows) {

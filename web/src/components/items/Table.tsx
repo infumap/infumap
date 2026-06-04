@@ -20,14 +20,13 @@ import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect,
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { asTableItem } from "../../items/table-item";
+import { asTableItem, tableColHeaderHeightBl, tableHeaderHeightBl, tableTitleHeaderHeightBl } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { compositeMoveOutHitboxBoundsPx } from "../../layout/composite-move-out";
 import { BoundingBox } from "../../util/geometry";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
-import { TableFlags } from "../../items/base/flags-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -48,7 +47,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const canEdit = () => itemCanEdit(tableItem());
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const vePath = () => VeFns.veToPath(props.visualElement);
-  const showColHeader = () => tableItem().flags & TableFlags.ShowColHeader;
+  const showTitle = () => tableTitleHeaderHeightBl(tableItem()) > 0;
+  const showColHeader = () => tableColHeaderHeightBl(tableItem()) > 0;
   const boundsPx = () => props.visualElement.boundsPx;
   const viewportBoundsPx = () => {
     if (props.visualElement.viewportBoundsPx == null) {
@@ -93,10 +93,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
   const showTriangleDetail = () => (blockSizePx().h / LINE_HEIGHT_PX) > 0.5;
   const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
-  const headerHeightPx = () => blockSizePx().h * TABLE_TITLE_HEADER_HEIGHT_BL;
+  const titleHeaderHeightPx = () => blockSizePx().h * tableTitleHeaderHeightBl(tableItem());
+  const colHeaderHeightPx = () => blockSizePx().h * tableColHeaderHeightBl(tableItem());
   const scale = () => blockSizePx().h / LINE_HEIGHT_PX;
   const overPosRowPx = (): number => {
-    const rowNumber = store.perVe.getMoveOverRowNumber(vePath()) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + TABLE_TITLE_HEADER_HEIGHT_BL + (showColHeader() ? TABLE_COL_HEADER_HEIGHT_BL : 0);
+    const rowNumber = store.perVe.getMoveOverRowNumber(vePath()) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + tableHeaderHeightBl(tableItem());
     const rowPx = rowNumber * blockSizePx().h;
     return rowPx;
   };
@@ -238,30 +239,30 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <>
         <Show when={!props.suppressLocalShadow}>
           <div class={`${shadowClass()}`}
-            style={`left: 0px; top: ${blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; z-index: 0;`} />
+            style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; z-index: 0;`} />
         </Show>
         <div class="absolute bg-white pointer-events-none"
-          style={`left: 0px; top: ${blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; z-index: 0;`} />
+          style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; z-index: 0;`} />
       </>
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px; ` +
+        style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderNotDetailed = () =>
     <div class={`absolute border border-[#999] rounded-xs bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
-      style={`left: 0px; top: ${blockSizePx().h}px; width: ${boundsPx().w}px; height: ${boundsPx().h - blockSizePx().h}px; z-index: 1;`} />;
+      style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; z-index: 1;`} />;
 
   const renderDetailed = () =>
     <>
-      <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+      <Show when={showTitle() && ((props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted))}>
         <div class="absolute pointer-events-none rounded-xs"
           style={`left: 0px; top: 0px; ` +
-            `width: ${boundsPx().w}px; height: ${headerHeightPx()}px; ` +
+            `width: ${boundsPx().w}px; height: ${titleHeaderHeightPx()}px; ` +
             `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
@@ -275,24 +276,26 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <TableChildArea visualElement={props.visualElement} />
       <div class={`absolute pointer-events-none ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 2;`}>
-        <div id={VeFns.veToPath(props.visualElement) + ":title"}
-          class={`absolute font-bold`}
-          style={`left: 0px; top: 0px; ` +
-            `width: ${boundsPx().w / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-            `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
-            `transform: scale(${scale()}); transform-origin: top left; ` +
-            `overflow-wrap: break-word; ` +
-            `outline: 0px solid transparent;`}
-          contentEditable={canEdit() && store.overlay.textEditInfo() != null}
-          spellcheck={canEdit() && store.overlay.textEditInfo() != null}
-          onKeyDown={keyDownHandler}>
-          {tableItem().title}
-        </div>
+        <Show when={showTitle()}>
+          <div id={VeFns.veToPath(props.visualElement) + ":title"}
+            class={`absolute font-bold`}
+            style={`left: 0px; top: 0px; ` +
+              `width: ${boundsPx().w / scale()}px; height: ${titleHeaderHeightPx() / scale()}px; ` +
+              `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+              `transform: scale(${scale()}); transform-origin: top left; ` +
+              `overflow-wrap: break-word; ` +
+              `outline: 0px solid transparent;`}
+            contentEditable={canEdit() && store.overlay.textEditInfo() != null}
+            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+            onKeyDown={keyDownHandler}>
+            {tableItem().title}
+          </div>
+        </Show>
         <div class={`absolute border border-[#999] rounded-xs pointer-events-none`}
-          style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - headerHeightPx()}px;`} />
+          style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px;`} />
         <Show when={showColHeader()}>
           <div class={`absolute border border-[#999] bg-slate-300 rounded-xs`}
-            style={`left: 0px; top: ${headerHeightPx()}px; width: ${boundsPx().w}px; height: ${headerHeightPx()}px;`} />
+            style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${colHeaderHeightPx()}px;`} />
         </Show>
 
         <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
@@ -313,14 +316,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </div>
       <Show when={showColHeader()}>
         <div class="absolute"
-          style={`left: ${viewportBoundsLocalPx().x}px; top: ${viewportBoundsLocalPx().y - blockSizePx().h}px; ` +
-            `width: ${viewportBoundsLocalPx().w}px; height: ${blockSizePx().h}px; z-index: 2;`}>
+          style={`left: ${viewportBoundsLocalPx().x}px; top: ${viewportBoundsLocalPx().y - colHeaderHeightPx()}px; ` +
+            `width: ${viewportBoundsLocalPx().w}px; height: ${colHeaderHeightPx()}px; z-index: 2;`}>
           <For each={columnSpecs()}>{spec =>
             <div id={VeFns.veToPath(props.visualElement) + ":col" + spec.idx}
               class={`absolute whitespace-nowrap overflow-hidden`}
               style={`left: ${spec.startPosPx + PADDING_PROP * blockSizePx().w}px; top: 0px; ` +
-                `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${headerHeightPx() / scale()}px; ` +
-                `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
+                `width: ${(spec.endPosPx - spec.startPosPx - PADDING_PROP * blockSizePx().w) / scale()}px; height: ${colHeaderHeightPx() / scale()}px; ` +
+                `line-height: ${LINE_HEIGHT_PX * TABLE_COL_HEADER_HEIGHT_BL}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;` +
                 `outline: 0px solid transparent;`}
               contentEditable={canEdit() && store.overlay.textEditInfo() != null}
@@ -337,12 +340,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </div>
       </Show>
       <div class="absolute pointer-events-none"
-        style={`left: ${viewportBoundsLocalPx().x}px; top: ${viewportBoundsLocalPx().y - (showColHeader() ? blockSizePx().h : 0)}px; ` +
-          `width: ${viewportBoundsLocalPx().w}px; height: ${viewportBoundsLocalPx().h + (showColHeader() ? blockSizePx().h : 0)}px; z-index: 2;`}>
+        style={`left: ${viewportBoundsLocalPx().x}px; top: ${viewportBoundsLocalPx().y - colHeaderHeightPx()}px; ` +
+          `width: ${viewportBoundsLocalPx().w}px; height: ${viewportBoundsLocalPx().h + colHeaderHeightPx()}px; z-index: 2;`}>
         <For each={columnSpecs()}>{spec =>
           <Show when={!spec.isLast}>
             <div class="absolute"
-              style={`background-color: #999; left: ${spec.endPosPx}px; width: 1px; top: 0px; height: ${viewportBoundsLocalPx().h + (showColHeader() ? blockSizePx().h : 0)}px`} />
+              style={`background-color: #999; left: ${spec.endPosPx}px; width: 1px; top: 0px; height: ${viewportBoundsLocalPx().h + colHeaderHeightPx()}px`} />
           </Show>
         }</For>
       </div>

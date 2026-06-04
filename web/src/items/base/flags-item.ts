@@ -23,6 +23,7 @@ import { Item, ItemTypeMixin, ItemType } from "./item";
 export enum TableFlags {
   None = 0x000,
   ShowColHeader = 0x001,
+  HideTitle = 0x002,
 };
 
 export enum NoteFlags {

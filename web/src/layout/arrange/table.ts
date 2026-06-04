@@ -20,12 +20,11 @@ import { recoverWithFullArrange } from ".";
 import { GRID_SIZE } from "../../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../../items/base/container-item";
-import { TableFlags } from "../../items/base/flags-item";
 import { Item, uniqueEmptyItem } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isComposite } from "../../items/composite-item";
 import { LinkItem } from "../../items/link-item";
-import { TableItem, asTableItem } from "../../items/table-item";
+import { TableItem, asTableItem, tableHeaderHeightBl } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -133,7 +132,7 @@ export function arrangeTableChildren(
 
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
   const firstItemIdx = Math.floor(scrollYPos);
-  const numVisibleRows = sizeBl.h - 1 - (displayItem_table.flags & TableFlags.ShowColHeader ? 1 : 0);
+  const numVisibleRows = sizeBl.h - tableHeaderHeightBl(displayItem_table);
   let lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
 

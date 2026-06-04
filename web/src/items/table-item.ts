@@ -79,6 +79,18 @@ export interface TableInsertionTarget {
   insertIndex: number,
 }
 
+export function tableTitleHeaderHeightBl(table: FlagsMixin): number {
+  return table.flags & TableFlags.HideTitle ? 0 : TABLE_TITLE_HEADER_HEIGHT_BL;
+}
+
+export function tableColHeaderHeightBl(table: FlagsMixin): number {
+  return table.flags & TableFlags.ShowColHeader ? TABLE_COL_HEADER_HEIGHT_BL : 0;
+}
+
+export function tableHeaderHeightBl(table: FlagsMixin): number {
+  return tableTitleHeaderHeightBl(table) + tableColHeaderHeightBl(table);
+}
+
 
 function tableVisibleRows(store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> {
   const tableItem = asTableItem(tableVe.displayItem);
@@ -358,6 +370,12 @@ export const TableFns = {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
+    const editTitle = hitboxMeta == null;
+    if (editTitle && tableTitleHeaderHeightBl(asTableItem(visualElement.displayItem)) == 0) {
+      store.history.setFocus(itemPath);
+      arrangeNow(store, "table-hidden-title-focus-only");
+      return;
+    }
     if (!itemCanEdit(visualElement.displayItem)) {
       if (!handledByList) {
         store.history.setFocus(itemPath);
@@ -372,8 +390,14 @@ export const TableFns = {
       startBl: hitboxMeta == null ? null : hitboxMeta.startBl!,
       endBl: hitboxMeta == null ? null : hitboxMeta.endBl!,
     });
-    const editingPath = hitboxMeta == null ? itemPath + ":title" : itemPath + ":col" + hitboxMeta.colNum!;
-    const el = document.getElementById(editingPath)!;
+    const editingPath = editTitle ? itemPath + ":title" : itemPath + ":col" + hitboxMeta.colNum!;
+    const el = document.getElementById(editingPath);
+    if (el == null) {
+      store.overlay.setTextEditInfo(store.history, null);
+      store.history.setFocus(itemPath);
+      arrangeNow(store, "table-edit-target-missing");
+      return;
+    }
     el.focus();
     const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
     arrangeNow(store, "table-enter-edit-mode");
@@ -528,7 +552,7 @@ export const TableFns = {
     const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
     const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
     const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
-    let insertRow = rawTableRowNumber + yScrollPos - TABLE_TITLE_HEADER_HEIGHT_BL - ((tableItem.flags & TableFlags.ShowColHeader) ? TABLE_COL_HEADER_HEIGHT_BL : 0);
+    let insertRow = rawTableRowNumber + yScrollPos - tableHeaderHeightBl(tableItem);
     if (insertRow < yScrollPos) { insertRow = yScrollPos; }
     insertRow = Math.floor(insertRow);
     const visibleRowCount = TableFns.tableVisibleRowCount(store, tableVe);
@@ -667,12 +691,13 @@ function calcTableGeometryImpl(
   if (colLen > table.numberOfVisibleColumns) { colLen = table.numberOfVisibleColumns; }
 
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+  const titleHeaderHeightPxOrZero = tableTitleHeaderHeightBl(table) * blockSizePx.h;
   const titleBoundsPx = {
     x: 0, y: 0,
     w: innerBoundsPx.w,
-    h: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h,
+    h: titleHeaderHeightPxOrZero,
   };
-  const colHeaderHeightPxOrZero = table.flags & TableFlags.ShowColHeader ? TABLE_COL_HEADER_HEIGHT_BL * blockSizePx.h : 0;
+  const colHeaderHeightPxOrZero = tableColHeaderHeightBl(table) * blockSizePx.h;
   let accumBl = 0;
   let colResizeHitboxes = [];
   let colClickHitboxes = [];
@@ -693,31 +718,34 @@ function calcTableGeometryImpl(
     if (accumBl < table.spatialWidthGr / GRID_SIZE && i < colLen - 1) {
       colResizeHitboxes.push(HitboxFns.create(
         HitboxFlags.HorizontalResize,
-        { x: endXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: RESIZE_BOX_SIZE_PX, h: boundsPx.h - TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h },
+        { x: endXPx, y: titleHeaderHeightPxOrZero, w: RESIZE_BOX_SIZE_PX, h: boundsPx.h - titleHeaderHeightPxOrZero },
         HitboxFns.createMeta({ colNum: i })
       ));
     }
     if (table.flags & TableFlags.ShowColHeader) {
       colClickHitboxes.push(HitboxFns.create(
         HitboxFlags.Click | HitboxFlags.ContentEditable,
-        { x: startXPx, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: endXPx - startXPx, h: colHeaderHeightPxOrZero },
+        { x: startXPx, y: titleHeaderHeightPxOrZero, w: endXPx - startXPx, h: colHeaderHeightPxOrZero },
         HitboxFns.createMeta({ colNum: i, startBl, endBl })
       ));
       colClickHitboxes.push(HitboxFns.create(
         HitboxFlags.TableColumnContextMenu,
-        { x: startXPx + (endBl - startBl - 1) * blockSizePx.w, y: TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h, w: blockSizePx.w, h: colHeaderHeightPxOrZero },
+        { x: startXPx + (endBl - startBl - 1) * blockSizePx.w, y: titleHeaderHeightPxOrZero, w: blockSizePx.w, h: colHeaderHeightPxOrZero },
         HitboxFns.createMeta({ colNum: i })
       ));
     }
     if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
   }
   const viewportBoundsPx = cloneBoundingBox(boundsPx)!;
-  viewportBoundsPx.h -= TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h + colHeaderHeightPxOrZero;
-  viewportBoundsPx.y += TABLE_TITLE_HEADER_HEIGHT_BL * blockSizePx.h + colHeaderHeightPxOrZero;
+  viewportBoundsPx.h -= titleHeaderHeightPxOrZero + colHeaderHeightPxOrZero;
+  viewportBoundsPx.y += titleHeaderHeightPxOrZero + colHeaderHeightPxOrZero;
   const moveHbMaybe = [];
   if (emitMove) {
     moveHbMaybe.push(HitboxFns.create(HitboxFlags.Move, innerBoundsPx));
   }
+  const titleHbMaybe = tableTitleHeaderHeightBl(table) == 0
+    ? []
+    : [HitboxFns.create(HitboxFlags.Move | HitboxFlags.Click | HitboxFlags.ContentEditable, titleBoundsPx)];
   return {
     boundsPx,
     blockSizePx,
@@ -730,7 +758,7 @@ function calcTableGeometryImpl(
       ),
       ...colResizeHitboxes,
       ...colClickHitboxes,
-      HitboxFns.create(HitboxFlags.Move | HitboxFlags.Click | HitboxFlags.ContentEditable, titleBoundsPx),
+      ...titleHbMaybe,
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ],
   };

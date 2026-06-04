@@ -16,12 +16,11 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL } from "../constants";
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { PageFlags, TableFlags } from "../items/base/flags-item";
+import { PageFlags } from "../items/base/flags-item";
 import { ImageFns, isImage } from "../items/image-item";
-import { TableFns, asTableItem, isTable } from "../items/table-item";
+import { TableFns, asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
@@ -1580,9 +1579,7 @@ function handleVirtualizedTableVerticalNavigationMaybe(
   if (!targetPath) { return false; }
 
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
-  const headerRowsBl = TABLE_TITLE_HEADER_HEIGHT_BL;
-  const colHeaderRowsBl = (tableItem.flags & TableFlags.ShowColHeader) ? TABLE_COL_HEADER_HEIGHT_BL : 0;
-  const numVisibleRows = Math.max(1, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - headerRowsBl - colHeaderRowsBl));
+  const numVisibleRows = Math.max(1, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - tableHeaderHeightBl(tableItem)));
   const firstVisibleRow = Math.floor(scrollYPos);
   const lastVisibleRow = firstVisibleRow + numVisibleRows - 1;
 
