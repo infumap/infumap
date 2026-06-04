@@ -23,6 +23,7 @@ import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW 
 import { asTableItem } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
+import { compositeMoveOutHitboxBoundsPx } from "../../layout/composite-move-out";
 import { BoundingBox } from "../../util/geometry";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
@@ -141,12 +142,27 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     };
   };
   const moveOutOfCompositeBox = (): BoundingBox => {
-    return ({
+    const fallbackBounds = {
       x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
-    });
+    };
+
+    const moveHitbox = props.visualElement.hitboxes.find(hitbox => hitbox.meta?.compositeMoveOut);
+    if (moveHitbox == null) {
+      return fallbackBounds;
+    }
+
+    const handleBounds = {
+      x: moveHitbox.boundsPx.x,
+      y: moveHitbox.boundsPx.y,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: moveHitbox.boundsPx.h,
+    };
+    const handleHitbox = compositeMoveOutHitboxBoundsPx(handleBounds);
+    handleBounds.x += moveHitbox.boundsPx.x - handleHitbox.x;
+    return handleBounds;
   };
   const isSortedByTitle = () => {
     store.touchToolbarDependency();

@@ -59,6 +59,15 @@ const _tableHandler: HitHandler = {
         return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.HorizontalResize, HitboxFlags.None).meta(hb.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-hresize").build();
       }
     }
+    for (let j = tableVe.hitboxes.length - 1; j >= 0; --j) {
+      const hb = tableVe.hitboxes[j];
+      if (!hb.meta?.compositeMoveOut) { continue; }
+      if (isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
+        if (!ignoreItems.has(tableVe.displayItem.id)) {
+          return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(hb.type, HitboxFlags.None).meta(hb.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-composite-move-out").build();
+        }
+      }
+    }
     if (tableVe.viewportBoundsPx && posRelativeToRootVeViewportPx.y < tableVe.viewportBoundsPx.y) {
       const { flags: hitboxType, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx));
       if (hitboxType != HitboxFlags.None && !ignoreItems.has(tableVe.displayItem.id)) {

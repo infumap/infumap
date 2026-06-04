@@ -415,6 +415,19 @@ function hitChildMaybe(
     );
     if (searchWorkspaceChildPageHit) { return searchWorkspaceChildPageHit; }
   }
+  if (allowOutsideBoundsHitboxes && isTable(childVe.displayItem) && (childVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
+    const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx));
+    if ((hitboxType & HitboxFlags.Move) && meta?.compositeMoveOut && !isIgnored(childVe.displayItem.id, ignoreItems)) {
+      return new HitBuilder(parentRootVe, rootVes)
+        .over(childVes)
+        .hitboxes(hitboxType, HitboxFlags.None)
+        .meta(meta)
+        .pos(posRelativeToRootVeViewportPx)
+        .allowEmbeddedInteractive(canHitEmbeddedInteractive)
+        .createdAt("hitChildMaybe-table-composite-move-out")
+        .build();
+    }
+  }
   if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
   const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes };
   for (const handler of HitHandlers) {
