@@ -20,7 +20,7 @@ import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
 import { GRID_SIZE } from "../constants";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { PageFlags, NoteFlags, TableFlags } from "./base/flags-item";
+import { noteFlagsWithIndentLevel, PageFlags, NoteFlags, TableFlags } from "./base/flags-item";
 import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { PlaceholderFns } from "./placeholder-item";
@@ -201,12 +201,13 @@ function headingInfo(line: string): { level: number, title: string } | null {
   };
 }
 
-function markdownBulletInfo(line: string): { title: string } | null {
-  const match = /^(?: {0,3})[-+*][ \t]+(.*)$/.exec(line);
+function markdownBulletInfo(line: string): { title: string, indentLevel: number } | null {
+  const match = /^([ \t]*)[-+*][ \t]+(.*)$/.exec(line);
   if (!match) { return null; }
-  const title = match[1].trim();
+  const indentSpaces = match[1].replace(/\t/g, "    ").length;
+  const title = match[2].trim();
   if (title == "") { return null; }
-  return { title };
+  return { title, indentLevel: Math.max(0, Math.min(Math.floor(indentSpaces / 2), 3)) };
 }
 
 function noteFlagsForHeadingLevel(level: number | null): NoteFlags {
@@ -563,7 +564,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
         headingLevel: null,
-        noteFlags: NoteFlags.Bullet1,
+        noteFlags: noteFlagsWithIndentLevel(NoteFlags.Bullet1, bullet.indentLevel),
         start: line.start,
         end: line.end,
         ordinal: blocks.length,

@@ -17,7 +17,7 @@
 */
 
 import { LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../constants";
-import { NoteFlags } from "../items/base/flags-item";
+import { noteIndentLevelFromFlags, NoteFlags } from "../items/base/flags-item";
 
 
 const lineCountCache = new Map<String, number>();
@@ -25,13 +25,14 @@ export const NOTE_BULLET_MARKER_TEXT = "\u25CF";
 export const NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER = 0.50;
 export const NOTE_BULLET_MARKER_OFFSET_PX = 3;
 export const NOTE_BULLET_TEXT_INSET_PX = 18;
+export const NOTE_LIST_INDENT_WIDTH_PX = 18;
 
 export function noteHasBullet(flags: NoteFlags): boolean {
   return (flags & NoteFlags.Bullet1) != 0;
 }
 
 export function noteTextBlockPaddingLeftPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
-  return noteHasBullet(flags) ? leadingInsetPx + NOTE_BULLET_TEXT_INSET_PX : 0;
+  return noteHasBullet(flags) ? leadingInsetPx + NOTE_BULLET_TEXT_INSET_PX + noteIndentLevelFromFlags(flags) * NOTE_LIST_INDENT_WIDTH_PX : 0;
 }
 
 export function noteTextBlockTextIndentPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
@@ -39,7 +40,7 @@ export function noteTextBlockTextIndentPx(flags: NoteFlags, leadingInsetPx: numb
 }
 
 export function noteBulletMarkerLeftPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
-  return noteHasBullet(flags) ? leadingInsetPx + NOTE_BULLET_MARKER_OFFSET_PX : 0;
+  return noteHasBullet(flags) ? leadingInsetPx + NOTE_BULLET_MARKER_OFFSET_PX + noteIndentLevelFromFlags(flags) * NOTE_LIST_INDENT_WIDTH_PX : 0;
 }
 
 export function desktopPopupIconTextIndentPx(widthBl: number): number {

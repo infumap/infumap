@@ -28,6 +28,7 @@ export enum ToolbarPopupType {
   NoteUrl = "url",
   NoteFormat = "format",
   NoteTextStyle = "notetextstyle",
+  NoteIndent = "noteindent",
   ItemIcon = "itemicon",
   PageColor = "color",
   PageAspect = "aspect",

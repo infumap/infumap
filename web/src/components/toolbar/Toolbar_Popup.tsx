@@ -49,7 +49,7 @@ import { isImage } from "../../items/image-item";
 import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { getToolbarFocusItem } from "./toolbarFocus";
-import { getPageCalendarDisplayMode, PageCalendarDisplayMode, setPageCalendarDisplayMode } from "../../items/base/flags-item";
+import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
 import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../items/text-document";
@@ -205,6 +205,7 @@ function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextSt
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
   if (overlayType == ToolbarPopupType.NoteFormat) { return 105; }
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
+  if (overlayType == ToolbarPopupType.NoteIndent) { return 36; }
   if (overlayType == ToolbarPopupType.ItemIcon) { return 292; }
   if (overlayType == ToolbarPopupType.PageWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
@@ -240,7 +241,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.PageCalendarDisplayMode &&
     popupType != ToolbarPopupType.SearchArrangeAlgorithm &&
     popupType != ToolbarPopupType.RatingType) {
-    const popupWidth = popupType == ToolbarPopupType.TableNumCols ? 300 : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
+    const popupWidth = popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300 : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
     if (x > maxX) { x = maxX; }
@@ -326,7 +327,9 @@ export const Toolbar_Popup: Component = () => {
       ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
       : isPage(getToolbarFocusItem(store))
         ? asPageItem(getToolbarFocusItem(store)).gridNumberOfColumns.toString()
-        : "1"
+        : isNote(getToolbarFocusItem(store))
+          ? (getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString()
+          : "1"
   );
   const [itemIconVisible, setItemIconVisible] = createSignal(
     overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(getToolbarFocusItem(store))
@@ -405,6 +408,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
+    if (overlayType() == ToolbarPopupType.NoteIndent) { return 190; }
     return 200;
   }
 
@@ -413,6 +417,8 @@ export const Toolbar_Popup: Component = () => {
   onMount(() => {
     if (overlayType() == ToolbarPopupType.TableNumCols) {
       setSliderValue(asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString());
+    } else if (overlayType() == ToolbarPopupType.NoteIndent) {
+      setSliderValue((getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString());
     }
 
     if (overlayType() != ToolbarPopupType.PageColor &&
@@ -423,6 +429,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
       overlayType() != ToolbarPopupType.SearchArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.TableNumCols &&
+      overlayType() != ToolbarPopupType.NoteIndent &&
       overlayType() != ToolbarPopupType.PageNumCols &&
       overlayType() != ToolbarPopupType.RatingType) {
       textElement!.focus();
@@ -461,6 +468,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "Num Cols"; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
+    if (overlayType() == ToolbarPopupType.NoteIndent) { return "Indent"; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "Row Aspect"; }
@@ -909,7 +917,8 @@ export const Toolbar_Popup: Component = () => {
   const handleSliderInput = (e: Event & { currentTarget: HTMLInputElement }) => {
     setSliderValue(e.currentTarget.value);
     let newValue = parseInt(e.currentTarget.value);
-    if (newValue > 20) { newValue = 20; }
+    const maxValue = overlayTypeConst == ToolbarPopupType.NoteIndent ? 4 : 20;
+    if (newValue > maxValue) { newValue = maxValue; }
     if (newValue < 1) { newValue = 1; }
     if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
       tableItem().numberOfVisibleColumns = newValue;
@@ -918,6 +927,8 @@ export const Toolbar_Popup: Component = () => {
       }
     } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
       pageItem().gridNumberOfColumns = newValue;
+    } else if (overlayTypeConst == ToolbarPopupType.NoteIndent) {
+      setNoteIndentLevel(noteItem(), newValue - 1);
     }
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-slider");
@@ -1178,7 +1189,7 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Show when={label() != null}>
-              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageNumCols
+              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageNumCols || overlayType() == ToolbarPopupType.NoteIndent
                 ? <div class="flex items-center mt-[7px]">
                   <div class="text-sm ml-2 mr-2">{label()}</div>
                   <input ref={textElement}
@@ -1186,7 +1197,7 @@ export const Toolbar_Popup: Component = () => {
                     style={`width: ${inputWidthPx() - 50}px`}
                     type="range"
                     min="1"
-                    max="20"
+                    max={overlayType() == ToolbarPopupType.NoteIndent ? "4" : "20"}
                     value={sliderValue()}
                     onInput={handleSliderInput}
                     onKeyDown={handleKeyDown}

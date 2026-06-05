@@ -45,7 +45,30 @@ export enum NoteFlags {
   ExplicitHeight = 0x400,
   Unused = 0x800,
   Heading4 = 0x1000,
+  Indent1 = 0x2000,
+  Indent2 = 0x4000,
 };
+
+export const NOTE_INDENT_MAX_LEVEL = 3;
+const NOTE_INDENT_LEVEL_MASK = NoteFlags.Indent1 | NoteFlags.Indent2;
+const NOTE_INDENT_LEVEL_SHIFT = 13;
+
+export function noteIndentLevelFromFlags(flags: number): number {
+  return (flags & NOTE_INDENT_LEVEL_MASK) >> NOTE_INDENT_LEVEL_SHIFT;
+}
+
+export function noteFlagsWithIndentLevel(flags: number, level: number): number {
+  const clamped = Math.max(0, Math.min(Math.trunc(level), NOTE_INDENT_MAX_LEVEL));
+  return (flags & ~NOTE_INDENT_LEVEL_MASK) | (clamped << NOTE_INDENT_LEVEL_SHIFT);
+}
+
+export function getNoteIndentLevel(flagsItem: FlagsMixin): number {
+  return noteIndentLevelFromFlags(flagsItem.flags);
+}
+
+export function setNoteIndentLevel(flagsItem: FlagsMixin, level: number): void {
+  flagsItem.flags = noteFlagsWithIndentLevel(flagsItem.flags, level);
+}
 
 export enum FileFlags {
   None = 0x000,

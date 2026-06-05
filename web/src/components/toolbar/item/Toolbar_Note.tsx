@@ -20,7 +20,7 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { NoteFns, NoteInlineMarkFlags, NoteTextStyle, asNoteItem } from "../../../items/note-item";
-import { CompositeFlags, NoteFlags } from "../../../items/base/flags-item";
+import { CompositeFlags, getNoteIndentLevel, NoteFlags } from "../../../items/base/flags-item";
 import { useStore } from "../../../store/StoreProvider";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
@@ -42,6 +42,7 @@ export const Toolbar_Note: Component = () => {
   const store = useStore();
 
   let textStyleDiv: HTMLDivElement | undefined;
+  let indentDiv: HTMLDivElement | undefined;
   let beforeFormatElement: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
   let formatDiv: HTMLDivElement | undefined;
@@ -232,6 +233,18 @@ export const Toolbar_Note: Component = () => {
     ClickState.setButtonClickBoundsPx(textStyleDiv!.getBoundingClientRect());
   };
 
+  const indentButtonHandler = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteIndent) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: indentDiv!.getBoundingClientRect().x, y: indentDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.NoteIndent });
+  };
+  const handleIndentDown = () => {
+    ClickState.setButtonClickBoundsPx(indentDiv!.getBoundingClientRect());
+  };
+
   const textStyleText = () => {
     store.touchToolbarDependency();
     const style = NoteFns.textStyle(noteItem());
@@ -255,10 +268,25 @@ export const Toolbar_Note: Component = () => {
       </div>
     </div>;
 
+  const renderIndentSelector = () =>
+    <Show when={NoteFns.textStyle(noteItem()) == NoteTextStyle.Bullet}>
+      <div ref={indentDiv}
+        class="inline-block w-[45px] border border-slate-400 rounded-md ml-[6px] cursor-pointer hover:bg-slate-300"
+        style={`font-size: 13px;`}
+        onClick={indentButtonHandler}
+        onMouseDown={handleIndentDown}>
+        <i class="bi-text-indent-left ml-[4px]" />
+        <div class="inline-block w-[18px] pl-[4px] text-right">
+          {getNoteIndentLevel(noteItem()) + 1}
+        </div>
+      </div>
+    </Show>;
+
   const renderSingleNoteToolbox = () =>
     <div class="inline-block">
       <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
         {renderTextStyleSelector()}
+        {renderIndentSelector()}
         <div class="inline-block ml-[12px]"></div>
         <InfuIconButton icon="fa fa-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
         <InfuIconButton icon="fa fa-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />
@@ -309,6 +337,7 @@ export const Toolbar_Note: Component = () => {
     <div class="inline-block">
       <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
         {renderTextStyleSelector()}
+        {renderIndentSelector()}
         <div class="inline-block ml-[12px]"></div>
         <InfuIconButton icon="fa fa-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
         <InfuIconButton icon="fa fa-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />

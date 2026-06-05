@@ -43,6 +43,8 @@ bitflags! {
     const ExplicitHeight = 0x400;
     const Unused =      0x800;
     const Heading4 =       0x1000;
+    const Indent1 =        0x2000;
+    const Indent2 =        0x4000;
   }
 }
 
