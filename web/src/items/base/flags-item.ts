@@ -47,6 +47,7 @@ export enum NoteFlags {
   Heading4 = 0x1000,
   Indent1 = 0x2000,
   Indent2 = 0x4000,
+  Numbered = 0x8000,
 };
 
 export const NOTE_INDENT_MAX_LEVEL = 3;
@@ -55,6 +56,18 @@ const NOTE_INDENT_LEVEL_SHIFT = 13;
 
 export function noteIndentLevelFromFlags(flags: number): number {
   return (flags & NOTE_INDENT_LEVEL_MASK) >> NOTE_INDENT_LEVEL_SHIFT;
+}
+
+export function noteHasBulletStyle(flags: number): boolean {
+  return (flags & NoteFlags.Bullet1) != 0;
+}
+
+export function noteHasNumberedStyle(flags: number): boolean {
+  return (flags & NoteFlags.Numbered) != 0;
+}
+
+export function noteHasListStyle(flags: number): boolean {
+  return noteHasBulletStyle(flags) || noteHasNumberedStyle(flags);
 }
 
 export function noteFlagsWithIndentLevel(flags: number, level: number): number {

@@ -32,11 +32,12 @@ import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import {
   desktopPopupIconTextIndentPx,
   getTextStyleForNote,
-  noteBulletMarkerLeftPx,
-  noteHasBullet,
+  noteHasListMarker,
+  noteHasNumbered,
+  noteListMarkerLeftPx,
+  noteListMarkerText,
+  noteListTextInsetPx,
   NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER,
-  NOTE_BULLET_MARKER_TEXT,
-  NOTE_BULLET_TEXT_INSET_PX,
   noteTextBlockPaddingLeftPx,
   noteTextBlockTextIndentPx,
 } from "../../layout/text";
@@ -135,10 +136,15 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (!reservePopupIconSpace()) { return 0; }
     return desktopPopupIconTextIndentPx(sizeBl().w);
   };
-  const hasBullet = () => noteHasBullet(noteItem().flags);
+  const hasListMarker = () => noteHasListMarker(noteItem().flags);
   const titlePaddingLeftPx = () => noteTextBlockPaddingLeftPx(noteItem().flags, popupTextIndentPx());
   const titleTextIndentPx = () => noteTextBlockTextIndentPx(noteItem().flags, popupTextIndentPx());
-  const bulletMarkerLeftPx = () => noteBulletMarkerLeftPx(noteItem().flags, popupTextIndentPx());
+  const listMarkerLeftPx = () => noteListMarkerLeftPx(noteItem().flags, popupTextIndentPx());
+  const listMarkerText = () => noteListMarkerText(noteItem().flags, props.visualElement.listItemNumber);
+  const listMarkerWidthPx = () => noteListTextInsetPx(noteItem().flags);
+  const listMarkerFontSizePx = () => noteHasNumbered(noteItem().flags)
+    ? infuTextStyle().fontSize
+    : infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER;
 
   const blockSize = () => {
     return {
@@ -367,17 +373,18 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderedInlineMarks = () =>
     renderedTitle() == noteItem().title ? noteItem().inlineMarks : [];
 
-  const renderBulletMaybe = () =>
-    <Show when={hasBullet()}>
+  const renderListMarkerMaybe = () =>
+    <Show when={hasListMarker()}>
       <span class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
-        style={`left: ${(NOTE_PADDING_PX + bulletMarkerLeftPx()) * textBlockScale()}px; ` +
+        style={`left: ${(NOTE_PADDING_PX + listMarkerLeftPx()) * textBlockScale()}px; ` +
           `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
-          `width: ${NOTE_BULLET_TEXT_INSET_PX}px; ` +
+          `width: ${listMarkerWidthPx()}px; ` +
           `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
           `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-          `font-size: ${infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER}px; ` +
+          `font-size: ${listMarkerFontSizePx()}px; ` +
+          `${noteHasNumbered(noteItem().flags) ? 'text-align: right; padding-right: 6px; box-sizing: border-box; ' : ''}` +
           `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-        {NOTE_BULLET_MARKER_TEXT}
+        {listMarkerText()}
       </span>
     </Show>;
 
@@ -421,7 +428,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             <NoteIconGlyph note={noteItem} iconContext={iconContext} highPriority={isPopup} />
           </div>
         </Show>
-        {renderBulletMaybe()}
+        {renderListMarkerMaybe()}
         <Switch>
           <Match when={NoteFns.hasUrl(noteItem()) &&
             !isInDocumentPage() &&

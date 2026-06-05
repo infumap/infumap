@@ -253,6 +253,7 @@ export const Toolbar_Note: Component = () => {
     if (style == NoteTextStyle.Heading3) { return "h3"; }
     if (style == NoteTextStyle.Heading4) { return "h4"; }
     if (style == NoteTextStyle.Bullet) { return "bullet"; }
+    if (style == NoteTextStyle.Numbered) { return "number"; }
     if (style == NoteTextStyle.Code) { return "code"; }
     return "text";
   };
@@ -269,7 +270,7 @@ export const Toolbar_Note: Component = () => {
     </div>;
 
   const renderIndentSelector = () =>
-    <Show when={NoteFns.textStyle(noteItem()) == NoteTextStyle.Bullet}>
+    <Show when={NoteFns.textStyle(noteItem()) == NoteTextStyle.Bullet || NoteFns.textStyle(noteItem()) == NoteTextStyle.Numbered}>
       <div ref={indentDiv}
         class="inline-block w-[45px] border border-slate-400 rounded-md ml-[6px] cursor-pointer hover:bg-slate-300"
         style={`font-size: 13px;`}

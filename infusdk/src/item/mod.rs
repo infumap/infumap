@@ -45,6 +45,7 @@ bitflags! {
     const Heading4 =       0x1000;
     const Indent1 =        0x2000;
     const Indent2 =        0x4000;
+    const Numbered =       0x8000;
   }
 }
 

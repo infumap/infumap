@@ -49,6 +49,11 @@ export interface ItemGeometry {
   col?: number,
 
   /**
+   * Context-derived ordered list number for note rendering.
+   */
+  listItemNumber?: number | null,
+
+  /**
    * Hitboxes.
    * Higher index => higher precedence.
    * Hitbox boundsPx are relative to this item's boundsPx.

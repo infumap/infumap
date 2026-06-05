@@ -30,6 +30,7 @@ import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../uti
 import { compositeMoveOutHitboxBoundsPx } from "../composite-move-out";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
+import { assignFlowListItemNumbers } from "../list-numbering";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -72,6 +73,7 @@ export function arrange_document_page(
   const childrenPaths: Array<VisualElementPath> = [];
   const childArrangeData: Array<{
     childItem: Item,
+    displayItem: Item,
     actualLinkItemMaybe: LinkItem | null,
     geometry: ItemGeometry,
     displayWidthBl: number,
@@ -122,6 +124,7 @@ export function arrange_document_page(
     const childItemIsEmbeddedInteractive = !!(isPage(childItem) && (asPageItem(childItem).flags & PageFlags.EmbeddedInteractive));
     childArrangeData.push({
       childItem,
+      displayItem: displayItem_childItem,
       actualLinkItemMaybe,
       geometry: documentChildGeometry,
       displayWidthBl,
@@ -131,6 +134,10 @@ export function arrange_document_page(
     topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
   }
 
+  assignFlowListItemNumbers(childArrangeData.map(child => ({
+    displayItem: child.displayItem,
+    geometry: child.geometry,
+  })));
   addContiguousStackedRowMarginHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
   addContiguousStackedGapHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
 

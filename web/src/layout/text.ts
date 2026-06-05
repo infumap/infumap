@@ -17,7 +17,13 @@
 */
 
 import { LINE_HEIGHT_PX, NOTE_PADDING_PX } from "../constants";
-import { noteIndentLevelFromFlags, NoteFlags } from "../items/base/flags-item";
+import {
+  noteHasBulletStyle,
+  noteHasListStyle,
+  noteHasNumberedStyle,
+  noteIndentLevelFromFlags,
+  NoteFlags,
+} from "../items/base/flags-item";
 
 
 const lineCountCache = new Map<String, number>();
@@ -25,22 +31,49 @@ export const NOTE_BULLET_MARKER_TEXT = "\u25CF";
 export const NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER = 0.50;
 export const NOTE_BULLET_MARKER_OFFSET_PX = 3;
 export const NOTE_BULLET_TEXT_INSET_PX = 18;
+export const NOTE_NUMBERED_TEXT_INSET_PX = 30;
 export const NOTE_LIST_INDENT_WIDTH_PX = 18;
 
 export function noteHasBullet(flags: NoteFlags): boolean {
-  return (flags & NoteFlags.Bullet1) != 0;
+  return noteHasBulletStyle(flags);
+}
+
+export function noteHasNumbered(flags: NoteFlags): boolean {
+  return noteHasNumberedStyle(flags);
+}
+
+export function noteHasListMarker(flags: NoteFlags): boolean {
+  return noteHasListStyle(flags);
+}
+
+export function noteListMarkerText(flags: NoteFlags, listItemNumber: number | null | undefined): string {
+  if (noteHasBullet(flags)) { return NOTE_BULLET_MARKER_TEXT; }
+  if (noteHasNumbered(flags)) { return `${listItemNumber ?? 1}.`; }
+  return "";
+}
+
+export function noteListTextInsetPx(flags: NoteFlags): number {
+  if (noteHasBullet(flags)) { return NOTE_BULLET_TEXT_INSET_PX; }
+  if (noteHasNumbered(flags)) { return NOTE_NUMBERED_TEXT_INSET_PX; }
+  return 0;
 }
 
 export function noteTextBlockPaddingLeftPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
-  return noteHasBullet(flags) ? leadingInsetPx + NOTE_BULLET_TEXT_INSET_PX + noteIndentLevelFromFlags(flags) * NOTE_LIST_INDENT_WIDTH_PX : 0;
+  return noteHasListMarker(flags) ? leadingInsetPx + noteListTextInsetPx(flags) + noteIndentLevelFromFlags(flags) * NOTE_LIST_INDENT_WIDTH_PX : 0;
 }
 
 export function noteTextBlockTextIndentPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
-  return noteHasBullet(flags) ? 0 : leadingInsetPx;
+  return noteHasListMarker(flags) ? 0 : leadingInsetPx;
+}
+
+export function noteListMarkerLeftPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
+  if (!noteHasListMarker(flags)) { return 0; }
+  const markerOffsetPx = noteHasBullet(flags) ? NOTE_BULLET_MARKER_OFFSET_PX : 0;
+  return leadingInsetPx + markerOffsetPx + noteIndentLevelFromFlags(flags) * NOTE_LIST_INDENT_WIDTH_PX;
 }
 
 export function noteBulletMarkerLeftPx(flags: NoteFlags, leadingInsetPx: number = 0): number {
-  return noteHasBullet(flags) ? leadingInsetPx + NOTE_BULLET_MARKER_OFFSET_PX + noteIndentLevelFromFlags(flags) * NOTE_LIST_INDENT_WIDTH_PX : 0;
+  return noteListMarkerLeftPx(flags, leadingInsetPx);
 }
 
 export function desktopPopupIconTextIndentPx(widthBl: number): number {

@@ -33,11 +33,12 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import {
   getTextStyleForNote,
-  noteBulletMarkerLeftPx,
-  noteHasBullet,
+  noteHasListMarker,
+  noteHasNumbered,
+  noteListMarkerLeftPx,
+  noteListMarkerText,
+  noteListTextInsetPx,
   NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER,
-  NOTE_BULLET_MARKER_TEXT,
-  NOTE_BULLET_TEXT_INSET_PX,
   noteTextBlockPaddingLeftPx,
 } from "../../layout/text";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
@@ -101,8 +102,13 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
-  const hasBullet = () => noteHasBullet(noteItem().flags);
-  const bulletMarkerLeftPx = () => noteBulletMarkerLeftPx(noteItem().flags);
+  const hasListMarker = () => noteHasListMarker(noteItem().flags);
+  const listMarkerLeftPx = () => noteListMarkerLeftPx(noteItem().flags);
+  const listMarkerText = () => noteListMarkerText(noteItem().flags, props.visualElement.listItemNumber);
+  const listMarkerWidthPx = () => noteListTextInsetPx(noteItem().flags);
+  const listMarkerFontSizePx = () => noteHasNumbered(noteItem().flags)
+    ? infuTextStyle().fontSize
+    : infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER;
   const textPaddingLeftPx = () => noteTextBlockPaddingLeftPx(noteItem().flags);
   const isTextEditTarget = () => store.overlay.textEditInfo()?.itemPath == vePath();
   const renderedTitle = () =>
@@ -191,21 +197,22 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     handleLineItemTitleKeyDown(store, ev);
   }
 
-  const renderBulletMaybe = () =>
-    <Show when={hasBullet() && (textWidthPx() > 0 || isTextEditTarget())}>
+  const renderListMarkerMaybe = () =>
+    <Show when={hasListMarker() && (textWidthPx() > 0 || isTextEditTarget())}>
       <div class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
-        style={`left: ${leftPx() + bulletMarkerLeftPx()}px; top: ${boundsPx().y}px; ` +
-          `width: ${NOTE_BULLET_TEXT_INSET_PX}px; height: ${boundsPx().h / scale()}px; ` +
+        style={`left: ${leftPx() + listMarkerLeftPx()}px; top: ${boundsPx().y}px; ` +
+          `width: ${listMarkerWidthPx()}px; height: ${boundsPx().h / scale()}px; ` +
           `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
-          `font-size: ${infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER}px; line-height: ${LINE_HEIGHT_PX * infuTextStyle().lineHeightMultiplier}px; ` +
+          `font-size: ${listMarkerFontSizePx()}px; line-height: ${LINE_HEIGHT_PX * infuTextStyle().lineHeightMultiplier}px; ` +
+          `${noteHasNumbered(noteItem().flags) ? 'text-align: right; padding-right: 6px; ' : ''}` +
           `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-        {NOTE_BULLET_MARKER_TEXT}
+        {listMarkerText()}
       </div>
     </Show>;
 
   const renderText = () =>
     <>
-      {renderBulletMaybe()}
+      {renderListMarkerMaybe()}
       <Show when={textWidthPx() > 0 || isTextEditTarget()}>
         <div class={`absolute overflow-hidden whitespace-nowrap ` +
           (isTextEditTarget() || isInCalendarPage() ? '' : `text-ellipsis `) +

@@ -207,6 +207,7 @@ export const arrangeItemNoChildren = (
     blockSizePx: itemGeometry.blockSizePx,
     row: itemGeometry.row,
     col: itemGeometry.col,
+    listItemNumber: itemGeometry.listItemNumber ?? null,
     hitboxes: itemGeometry.hitboxes,
     parentPath: parentVePath,
   };

@@ -31,6 +31,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
+import { assignFlowListItemNumbers } from "../list-numbering";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -124,6 +125,10 @@ export const arrangeComposite = (
     });
   }
 
+  assignFlowListItemNumbers(compositeChildArrangeData.map(child => ({
+    displayItem: child.displayItem_childItem,
+    geometry: child.geometry,
+  })));
   addContiguousStackedGapHitboxes(compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w, false);
 
   for (const child of compositeChildArrangeData) {
@@ -206,6 +211,7 @@ function arrangeCompositeChildItemPath(
     col: geometry.col ?? 0,
     row: geometry.row ?? 0,
     blockSizePx,
+    listItemNumber: geometry.listItemNumber ?? null,
   };
 
   const compositeChildRelationships: VisualElementRelationships = {};

@@ -20,7 +20,14 @@ import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
 import { GRID_SIZE } from "../constants";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { noteFlagsWithIndentLevel, PageFlags, NoteFlags, TableFlags } from "./base/flags-item";
+import {
+  noteFlagsWithIndentLevel,
+  noteHasListStyle,
+  noteIndentLevelFromFlags,
+  PageFlags,
+  NoteFlags,
+  TableFlags,
+} from "./base/flags-item";
 import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { PlaceholderFns } from "./placeholder-item";
@@ -201,13 +208,113 @@ function headingInfo(line: string): { level: number, title: string } | null {
   };
 }
 
-function markdownBulletInfo(line: string): { title: string, indentLevel: number } | null {
-  const match = /^([ \t]*)[-+*][ \t]+(.*)$/.exec(line);
-  if (!match) { return null; }
-  const indentSpaces = match[1].replace(/\t/g, "    ").length;
-  const title = match[2].trim();
+type MarkdownListKind = "bullet" | "numbered";
+
+type MarkdownListContainer = {
+  bodyColumn: number,
+};
+
+type MarkdownListMarkerInfo = {
+  kind: MarkdownListKind,
+  title: string,
+  bodyColumn: number,
+  indentLevel: number,
+};
+
+type MarkdownListContinuationInfo = {
+  title: string,
+  indentLevel: number,
+};
+
+function markdownColumnAfterChar(column: number, c: string): number {
+  return c == "\t" ? column + (4 - (column % 4)) : column + 1;
+}
+
+function markdownLeadingWhitespaceInfo(line: string): { index: number, column: number } {
+  let index = 0;
+  let column = 0;
+  while (index < line.length && (line[index] == " " || line[index] == "\t")) {
+    column = markdownColumnAfterChar(column, line[index]);
+    index += 1;
+  }
+  return { index, column };
+}
+
+function markdownColumnAfterText(text: string, start: number, end: number, column: number): number {
+  for (let i = start; i < end; ++i) {
+    column = markdownColumnAfterChar(column, text[i]);
+  }
+  return column;
+}
+
+function markdownListIndentLevel(markerColumn: number, stack: Array<MarkdownListContainer>): number | null {
+  for (let level = stack.length - 1; level >= 0; --level) {
+    if (markerColumn >= stack[level].bodyColumn && markerColumn <= stack[level].bodyColumn + 3) {
+      return Math.min(level + 1, 3);
+    }
+  }
+  return markerColumn <= 3 ? 0 : null;
+}
+
+function markdownListMarkerInfo(line: string, stack: Array<MarkdownListContainer>): MarkdownListMarkerInfo | null {
+  const leading = markdownLeadingWhitespaceInfo(line);
+  if (leading.index >= line.length) { return null; }
+
+  let kind: MarkdownListKind | null = null;
+  let markerEnd = leading.index;
+  if ("-+*".includes(line[leading.index])) {
+    kind = "bullet";
+    markerEnd += 1;
+  } else {
+    const orderedMatch = /^(\d{1,9})([.)])/.exec(line.substring(leading.index));
+    if (orderedMatch != null) {
+      kind = "numbered";
+      markerEnd += orderedMatch[0].length;
+    }
+  }
+  if (kind == null || markerEnd >= line.length || (line[markerEnd] != " " && line[markerEnd] != "\t")) {
+    return null;
+  }
+
+  let contentIndex = markerEnd;
+  let contentColumn = markdownColumnAfterText(line, leading.index, markerEnd, leading.column);
+  const markerWidth = contentColumn - leading.column;
+  while (contentIndex < line.length && (line[contentIndex] == " " || line[contentIndex] == "\t")) {
+    contentColumn = markdownColumnAfterChar(contentColumn, line[contentIndex]);
+    contentIndex += 1;
+  }
+
+  const paddingWidth = contentColumn - leading.column - markerWidth;
+  if (paddingWidth < 1 || paddingWidth > 4) { return null; }
+
+  const title = line.substring(contentIndex).trim();
   if (title == "") { return null; }
-  return { title, indentLevel: Math.max(0, Math.min(Math.floor(indentSpaces / 2), 3)) };
+
+  const indentLevel = markdownListIndentLevel(leading.column, stack);
+  if (indentLevel == null) { return null; }
+
+  return {
+    kind,
+    title,
+    bodyColumn: contentColumn,
+    indentLevel,
+  };
+}
+
+function markdownListContinuationInfo(line: string, stack: Array<MarkdownListContainer>): MarkdownListContinuationInfo | null {
+  if (stack.length == 0) { return null; }
+
+  const title = line.trim();
+  if (title == "") { return null; }
+
+  const leading = markdownLeadingWhitespaceInfo(line);
+  for (let level = stack.length - 1; level >= 0; --level) {
+    if (leading.column >= stack[level].bodyColumn) {
+      return { title, indentLevel: level };
+    }
+  }
+
+  return null;
 }
 
 function noteFlagsForHeadingLevel(level: number | null): NoteFlags {
@@ -481,10 +588,35 @@ function markdownInlineForParagraphLines(lines: Array<TextLine>): TextDocumentIn
   return { title, inlineMarks: normalizeNoteInlineMarks(inlineMarks, title) };
 }
 
+function appendMarkdownInlineTextBlock(block: TextDocumentTextBlock, parsed: TextDocumentInlineText): void {
+  if (parsed.title == "") { return; }
+
+  const separator = block.title == "" ? "" : " ";
+  const offset = block.title.length + separator.length;
+  block.title += `${separator}${parsed.title}`;
+  block.inlineMarks = normalizeNoteInlineMarks([
+    ...block.inlineMarks,
+    ...parsed.inlineMarks.map(mark => ({
+      start: mark.start + offset,
+      end: mark.end + offset,
+      flags: mark.flags,
+    })),
+  ], block.title);
+}
+
+function lastMarkdownListTextBlock(blocks: Array<TextDocumentBlock>): TextDocumentTextBlock | null {
+  const block = blocks[blocks.length - 1];
+  if (block == null || block.kind != "paragraph" || !noteHasListStyle(block.noteFlags)) {
+    return null;
+  }
+  return block;
+}
+
 function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<TextDocumentBlock> {
   const lines = linesWithOffsets(text);
   const blocks: Array<TextDocumentBlock> = [];
   let paragraphLines: Array<TextLine> = [];
+  let listStack: Array<MarkdownListContainer> = [];
 
   const flushParagraph = () => {
     if (paragraphLines.length == 0) { return; }
@@ -519,6 +651,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
     const table = parseMarkdown ? parseMarkdownTableAt(lines, i) : null;
     if (table != null) {
       flushParagraph();
+      listStack = [];
       table.ordinal = blocks.length;
       blocks.push(table);
       i += table.rows.length + 1;
@@ -527,6 +660,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
 
     if (parseMarkdown && isMarkdownDividerLine(line.text)) {
       flushParagraph();
+      listStack = [];
       blocks.push({
         kind: "divider",
         start: line.start,
@@ -536,9 +670,44 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
       continue;
     }
 
+    const listMarker = parseMarkdown ? markdownListMarkerInfo(line.text, listStack) : null;
+    if (listMarker != null) {
+      flushParagraph();
+      const parsed = parseMarkdownInline(listMarker.title);
+      const listFlag = listMarker.kind == "bullet" ? NoteFlags.Bullet1 : NoteFlags.Numbered;
+      blocks.push({
+        kind: "paragraph",
+        title: parsed.title,
+        inlineMarks: parsed.inlineMarks,
+        headingLevel: null,
+        noteFlags: noteFlagsWithIndentLevel(listFlag, listMarker.indentLevel),
+        start: line.start,
+        end: line.end,
+        ordinal: blocks.length,
+      });
+      listStack = listStack.slice(0, listMarker.indentLevel);
+      listStack[listMarker.indentLevel] = { bodyColumn: listMarker.bodyColumn };
+      continue;
+    }
+
+    const listContinuation = parseMarkdown && paragraphLines.length == 0
+      ? markdownListContinuationInfo(line.text, listStack)
+      : null;
+    const lastListBlock = listContinuation != null ? lastMarkdownListTextBlock(blocks) : null;
+    if (
+      listContinuation != null &&
+      lastListBlock != null &&
+      noteIndentLevelFromFlags(lastListBlock.noteFlags) == listContinuation.indentLevel
+    ) {
+      appendMarkdownInlineTextBlock(lastListBlock, parseMarkdownInline(listContinuation.title));
+      lastListBlock.end = line.end;
+      continue;
+    }
+
     const heading = headingInfo(line.text);
     if (heading != null) {
       flushParagraph();
+      listStack = [];
       const parsed = parseMarkdown
         ? parseMarkdownInline(heading.title)
         : { title: heading.title, inlineMarks: [] };
@@ -555,23 +724,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
       continue;
     }
 
-    const bullet = parseMarkdown ? markdownBulletInfo(line.text) : null;
-    if (bullet != null) {
-      flushParagraph();
-      const parsed = parseMarkdownInline(bullet.title);
-      blocks.push({
-        kind: "paragraph",
-        title: parsed.title,
-        inlineMarks: parsed.inlineMarks,
-        headingLevel: null,
-        noteFlags: noteFlagsWithIndentLevel(NoteFlags.Bullet1, bullet.indentLevel),
-        start: line.start,
-        end: line.end,
-        ordinal: blocks.length,
-      });
-      continue;
-    }
-
+    listStack = [];
     paragraphLines.push(line);
   }
   flushParagraph();

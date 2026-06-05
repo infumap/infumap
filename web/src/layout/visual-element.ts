@@ -308,6 +308,12 @@ export interface VisualElement {
   evaluatedTitle: string | null,
 
   /**
+   * Context-derived number for ordered list note rendering.
+   * Set only by flow layouts such as composite and document pages.
+   */
+  listItemNumber: number | null,
+
+  /**
    * Anything from displayItem that would require a re-render if changed.
    * Manage this explicitly to avoid a costly comparison of all displayItem properties.
    */
@@ -376,6 +382,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
 
   parentPath: null,
   evaluatedTitle: null,
+  listItemNumber: null,
 
   displayItemFingerprint: "",
 };
@@ -411,6 +418,7 @@ export interface VisualElementSpec {
   calendarMonthLayouts?: Array<CalendarMonthLayout>,
   parentPath?: VisualElementPath,
   evaluatedTitle?: string | null,
+  listItemNumber?: number | null,
 }
 
 /**
@@ -468,6 +476,7 @@ export const VeFns = {
 
       parentPath: null,
       evaluatedTitle: null,
+      listItemNumber: null,
 
       displayItemFingerprint: "",
     };
@@ -506,6 +515,7 @@ export const VeFns = {
 
     ve.parentPath = null;
     ve.evaluatedTitle = null;
+    ve.listItemNumber = null;
 
     ve.displayItemFingerprint = "";
 
@@ -1063,6 +1073,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.calendarMonthLayouts) != 'undefined') { result.calendarMonthLayouts = override.calendarMonthLayouts; }
   if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
   if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
+  if (typeof (override.listItemNumber) != 'undefined') { result.listItemNumber = override.listItemNumber; }
   if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
   // tableVesRows is moved to VesCache, do not copy to VisualElement
   // attachmentsVes is moved to VesCache, do not copy to VisualElement
