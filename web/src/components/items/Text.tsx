@@ -51,7 +51,7 @@ import { newOrdering } from "../../util/ordering";
 import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -95,6 +95,8 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
     }
   };
   const moveOutOfCompositeBox = (): BoundingBox => {
+    const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
+    if (documentBox != null) { return documentBox; }
     return ({
       x: boundsPx().w
         - COMPOSITE_MOVE_OUT_AREA_SIZE_PX

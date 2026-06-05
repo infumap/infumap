@@ -39,7 +39,7 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { MouseAction, MouseActionState } from "../../input/state";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -87,6 +87,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     }
   };
   const moveOutOfCompositeBox = (): BoundingBox => {
+    const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
+    if (documentBox != null) { return documentBox; }
     return ({
       x: boundsPx().w
         - COMPOSITE_MOVE_OUT_AREA_SIZE_PX

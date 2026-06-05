@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { Item, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -27,7 +27,7 @@ import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { compositeMoveOutHitboxBoundsPx } from "../composite-move-out";
+import { compositeMoveOutHitboxBoundsPx, documentPageMoveOutBoxPx } from "../composite-move-out";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
 import { assignFlowListItemNumbers } from "../list-numbering";
@@ -111,9 +111,7 @@ export function arrange_document_page(
       geometry.hitboxes = geometry.hitboxes.filter(hitbox => !(hitbox.type & HitboxFlags.Resize));
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
-    if (isTable(displayItem_childItem)) {
-      alignTableDocumentMoveOutHitbox(geometry, blockSizePx, documentContentWidthBl);
-    }
+    alignDocumentMoveOutHitbox(geometry, blockSizePx, documentContentWidthBl);
     const documentChildGeometry: ItemGeometry = {
       ...geometry,
       row: displayIdx,
@@ -278,7 +276,7 @@ function documentChildMeasurableForGeometry(
   return clonedTable;
 }
 
-function alignTableDocumentMoveOutHitbox(
+function alignDocumentMoveOutHitbox(
   geometry: ItemGeometry,
   blockSizePx: { w: number, h: number },
   documentContentWidthBl: number,
@@ -288,19 +286,12 @@ function alignTableDocumentMoveOutHitbox(
     return;
   }
 
-  const moveAreaRightPx = (PAGE_DOCUMENT_LEFT_MARGIN_BL + documentContentWidthBl) * blockSizePx.w;
-  const moveAreaBoundsPx = {
-    x: moveAreaRightPx
-      - geometry.boundsPx.x
-      - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
-      - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
-      - CONTAINER_IN_COMPOSITE_PADDING_PX
-      - 2,
-    y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
-    w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
-    h: geometry.boundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
-  };
-
+  const moveAreaBoundsPx = documentPageMoveOutBoxPx(
+    geometry.boundsPx,
+    blockSizePx,
+    documentContentWidthBl,
+    PAGE_DOCUMENT_LEFT_MARGIN_BL,
+  );
   moveHitbox.boundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, Number(PAGE_DOCUMENT_LEFT_MARGIN_BL) == 0 ? 2 : 0);
   moveHitbox.meta = {
     ...(moveHitbox.meta ?? {}),

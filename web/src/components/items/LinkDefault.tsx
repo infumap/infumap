@@ -23,7 +23,7 @@ import { useStore } from "../../store/StoreProvider";
 import { BoundingBox } from "../../util/geometry";
 import { COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX } from "../../constants";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -36,6 +36,8 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
   const InsideCompositeOrDoc = () => !(!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc));
 
   const moveOutOfCompositeBox = (): BoundingBox => {
+    const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
+    if (documentBox != null) { return documentBox; }
     return ({
       x: boundsPx().w
         - COMPOSITE_MOVE_OUT_AREA_SIZE_PX

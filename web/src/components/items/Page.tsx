@@ -58,6 +58,7 @@ import { asImageItem, isImage } from "../../items/image-item";
 import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { calculateChildrenStats, formatBytes, type ContainerChildrenStats } from "../../util/item-metadata";
 import { catalogSearchResultDisplay, catalogFragmentMatchDisplayFromMatch, type CatalogFragmentMatchDisplay } from "../../util/search-result-display";
+import { documentPageMoveOutBoxPxMaybe } from "./helper";
 import { SELECTED_LIGHT } from "../../style";
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
@@ -271,6 +272,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     },
 
     moveOutOfCompositeBox: (): BoundingBox => {
+      const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
+      if (documentBox != null) { return documentBox; }
       const moveAreaRightPx = (() => {
         if (!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || props.visualElement.blockSizePx == null) {
           return pageFns.boundsPx().w;

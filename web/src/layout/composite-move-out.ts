@@ -16,6 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import {
+  COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+  COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+} from "../constants";
 import { BoundingBox } from "../util/geometry";
 
 
@@ -24,6 +28,8 @@ const COMPOSITE_MOVE_OUT_HANDLE_LINE_GAP_PX = 2;
 const COMPOSITE_MOVE_OUT_HANDLE_RIGHT_SHIFT_PX = 3;
 const COMPOSITE_MOVE_OUT_HANDLE_HIT_PADDING_PX = 2;
 const COMPOSITE_MOVE_OUT_HANDLE_RIGHT_HIT_PADDING_PX = 1;
+
+export const DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX = 4;
 
 
 export function compositeMoveOutHandleLineWidthPx(): number {
@@ -64,4 +70,27 @@ export function compositeMoveOutHitboxBoundsPx(boundsPx: BoundingBox, xOffsetPx:
     w: Math.max(0, rightPx - leftPx),
     h: boundsPx.h,
   };
+}
+
+export function compositeMoveOutBoxForRightEdgePx(rightEdgePx: number, heightPx: number): BoundingBox {
+  return {
+    x: rightEdgePx - COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+    y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+    w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+    h: heightPx - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+  };
+}
+
+export function documentPageMoveOutBoxPx(
+  childBoundsPx: BoundingBox,
+  blockSizePx: { w: number, h: number },
+  documentContentWidthBl: number,
+  documentLeftMarginBl: number,
+): BoundingBox {
+  const documentContentRightPx =
+    (documentLeftMarginBl + documentContentWidthBl) * blockSizePx.w;
+  return compositeMoveOutBoxForRightEdgePx(
+    documentContentRightPx - childBoundsPx.x + DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX,
+    childBoundsPx.h,
+  );
 }

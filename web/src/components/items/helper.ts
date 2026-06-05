@@ -24,12 +24,14 @@ import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_key
 import { isArrowKey } from "../../input/key";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
-import { cloneBoundingBox } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { isPage, asPageItem } from "../../items/page-item";
 import { isSearch } from "../../items/search-item";
 import { POPUP_LINK_UID } from "../../util/uid";
 import { VesCache } from "../../layout/ves-cache";
 import { arrangeNow } from "../../layout/arrange";
+import { PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
+import { documentPageMoveOutBoxPx } from "../../layout/composite-move-out";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
 const AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE = "repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px)";
@@ -128,6 +130,30 @@ export const autoMovedIntoViewWarningStyle = (widthPx: number, heightPx: number)
 }
 
 export const autoMovedIntoViewBackgroundImage = (): string => AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE;
+
+export const parentDocumentPageMaybe = (visualElement: VisualElement) => {
+  if (!(visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || visualElement.parentPath == null) {
+    return null;
+  }
+  const parentItem = itemState.get(VeFns.veidFromPath(visualElement.parentPath).itemId);
+  if (!parentItem || !isPage(parentItem) || asPageItem(parentItem).arrangeAlgorithm != ArrangeAlgorithm.Document) {
+    return null;
+  }
+  return asPageItem(parentItem);
+}
+
+export const documentPageMoveOutBoxPxMaybe = (visualElement: VisualElement): BoundingBox | null => {
+  const parentPage = parentDocumentPageMaybe(visualElement);
+  if (parentPage == null || visualElement.blockSizePx == null) {
+    return null;
+  }
+  return documentPageMoveOutBoxPx(
+    visualElement.boundsPx,
+    visualElement.blockSizePx,
+    parentPage.docWidthBl,
+    PAGE_DOCUMENT_LEFT_MARGIN_BL,
+  );
+}
 
 export const createPageTitleEditHandlers = (
   store: StoreContextModel,

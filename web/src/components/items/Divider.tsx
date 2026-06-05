@@ -30,9 +30,7 @@ import { useStore } from "../../store/StoreProvider";
 import { FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
-import { itemState } from "../../store/ItemState";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 const DIVIDER_COLOR = "#64748b";
@@ -48,21 +46,21 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
   const canEdit = () => itemCanEdit(dividerItem());
   const isInDocumentPage = () => {
-    if (!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || props.visualElement.parentPath == null) {
-      return false;
-    }
-    const parentItem = itemState.get(VeFns.veidFromPath(props.visualElement.parentPath).itemId);
-    return parentItem != null && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+    return parentDocumentPageMaybe(props.visualElement) != null;
   };
   const isHorizontal = () => isInDocumentPage() || dividerItem().dividerDirection == "horizontal";
   const hasResizeHitbox = () => props.visualElement.hitboxes.some(hitbox => (hitbox.type & HitboxFlags.Resize) != 0);
 
-  const moveOutOfCompositeBox = (): BoundingBox => ({
-    x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
-    y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
-    w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
-    h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
-  });
+  const moveOutOfCompositeBox = (): BoundingBox => {
+    const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
+    if (documentBox != null) { return documentBox; }
+    return {
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+    };
+  };
 
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
