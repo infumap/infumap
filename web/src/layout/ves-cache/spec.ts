@@ -134,6 +134,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if (!calendarMonthLayoutsEqual(existingVe.calendarMonthLayouts, specValueOrDefault(preparedSpec.calendarMonthLayouts, NONE_VISUAL_ELEMENT.calendarMonthLayouts))) { return false; }
   if ((existingVe.parentPath ?? null) !== (specValueOrDefault(preparedSpec.parentPath, NONE_VISUAL_ELEMENT.parentPath) ?? null)) { return false; }
   if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return false; }
+  if ((existingVe.listItemNumber ?? null) !== (specValueOrDefault(preparedSpec.listItemNumber, NONE_VISUAL_ELEMENT.listItemNumber) ?? null)) { return false; }
 
   return true;
 }
