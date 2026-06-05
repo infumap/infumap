@@ -40,6 +40,7 @@ import { requestArrange } from '../layout/arrange';
 import { PageFns, asPageItem, isPage } from './page-item';
 import { asImageItem, isImage } from './image-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
+import { isNote, NoteFns } from './note-item';
 
 
 export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
@@ -151,7 +152,9 @@ export const CompositeFns = {
       } else if (isXSizableItem(cloned)) {
         asXSizableItem(cloned).spatialWidthGr = composite.spatialWidthGr;
       }
-      const sizeBl = ItemFns.calcSpatialDimensionsBl(cloned);
+      const sizeBl = isNote(cloned)
+        ? NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(cloned), true)
+        : ItemFns.calcSpatialDimensionsBl(cloned);
       if (isPage(cloned) && (asPageItem(cloned).flags & PageFlags.EmbeddedInteractive)) {
         sizeBl.h += PageFns.embeddedInteractiveTitleHeightBl(asPageItem(cloned));
       }

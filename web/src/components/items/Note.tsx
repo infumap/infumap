@@ -101,7 +101,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             ? asLinkItem(parentTreeItem).spatialWidthGr
             : panic(`Note sizeBl: parentTreeItem has unexpected type: ${parentTreeItem.itemType}`);
       }
-      return ItemFns.calcSpatialDimensionsBl(cloned);
+      return NoteFns.calcSpatialDimensionsBl(cloned, true);
     }
     if (props.visualElement.linkItemMaybe != null) {
       return ItemFns.calcSpatialDimensionsBl(props.visualElement.linkItemMaybe!);

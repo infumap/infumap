@@ -31,8 +31,11 @@ import { GRID_SIZE } from "../../../constants";
 import { itemState } from "../../../store/ItemState";
 import { isTable } from "../../../items/table-item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
-import { getToolbarFocusItem } from "../toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { toggleActiveNoteInlineMark } from "../../../input/edit";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
+import { VeFns } from "../../../layout/visual-element";
+import { VesCache } from "../../../layout/ves-cache";
 
 
 export const Toolbar_Note: Component = () => {
@@ -69,6 +72,23 @@ export const Toolbar_Note: Component = () => {
       if (parentItem.parentId == null || parentItem.parentId === parentId) { return false; }
       parentId = parentItem.parentId;
     }
+    return false;
+  };
+
+  const isInDocumentPage = (): boolean => {
+    const focusPath = getToolbarFocusPathMaybe(store);
+    if (focusPath == null) { return false; }
+
+    let currentPath: string | null = VeFns.parentPath(focusPath);
+    while (currentPath != null && currentPath != "") {
+      const currentVe = VesCache.current.readNode(currentPath);
+      if (currentVe == null) { return false; }
+      if (isPage(currentVe.displayItem) && asPageItem(currentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
+        return true;
+      }
+      currentPath = currentVe.parentPath;
+    }
+
     return false;
   };
 
@@ -265,7 +285,9 @@ export const Toolbar_Note: Component = () => {
         </div>
         <Show when={!isInTable()}>
           <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
-          <InfuIconButton icon="fa fa-arrows-v" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} />
+          <Show when={!isInDocumentPage()}>
+            <InfuIconButton icon="fa fa-arrows-v" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} />
+          </Show>
         </Show>
       </Show>
 

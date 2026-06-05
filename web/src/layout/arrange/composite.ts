@@ -23,6 +23,7 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeItem } from "../../items/composite-item";
 import { isImage } from "../../items/image-item";
 import { LinkItem } from "../../items/link-item";
+import { isNote, NoteFns } from "../../items/note-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
@@ -209,7 +210,9 @@ function arrangeCompositeChildItemPath(
 
   const compositeChildRelationships: VisualElementRelationships = {};
   if (isAttachmentsItem(displayItem_childItem)) {
-    const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
+    const parentItemSizeBl = isNote(displayItem_childItem) && linkItemMaybe_childItem == null
+      ? NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(displayItem_childItem), true)
+      : ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
     if (!isPage(displayItem_childItem) && !isImage(displayItem_childItem)) {
       parentItemSizeBl.w = compositeWidthBl;
     }

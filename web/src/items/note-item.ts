@@ -536,7 +536,7 @@ export const NoteFns = {
   calcGeometry_InComposite: (measurable: NoteMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     let cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(measurable));
     cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
-    const sizeBl = NoteFns.calcSpatialDimensionsBl(cloned);
+    const sizeBl = NoteFns.calcSpatialDimensionsBl(cloned, true);
     const boundsPx = {
       x: leftMarginBl * blockSizePx.w,
       y: topPx,
