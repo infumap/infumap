@@ -64,6 +64,10 @@ export interface TextDocumentMaterializeMoveState {
   pendingPageId: string,
 }
 
+export interface ItemCopyMoveState {
+  pendingItemId: string,
+}
+
 
 export interface MouseActionStateType {
   hitboxTypeOnMouseDown: HitboxFlags,
@@ -103,6 +107,7 @@ export interface MouseActionStateType {
   newPlaceholderItem: PlaceholderItem | null,
   moveRollback: Array<MoveRollbackSnapshotEntry> | null,
   textDocumentMaterializeMove: TextDocumentMaterializeMoveState | null,
+  itemCopyMove: ItemCopyMoveState | null,
 
   hitEmbeddedInteractive: boolean,
 
@@ -119,8 +124,9 @@ type MouseActionStateInit = Omit<
   "newPlaceholderItem" |
   "startCalendarMonthResize" |
   "moveRollback" |
-  "textDocumentMaterializeMove"
-> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize" | "moveRollback" | "textDocumentMaterializeMove">>;
+  "textDocumentMaterializeMove" |
+  "itemCopyMove"
+> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize" | "moveRollback" | "textDocumentMaterializeMove" | "itemCopyMove">>;
 
 type MouseActionStateFromHitInit = Omit<
   MouseActionStateInit,
@@ -340,6 +346,7 @@ export let MouseActionState = {
       startCalendarMonthResize: init.startCalendarMonthResize ?? null,
       moveRollback: init.moveRollback ?? null,
       textDocumentMaterializeMove: init.textDocumentMaterializeMove ?? null,
+      itemCopyMove: init.itemCopyMove ?? null,
     });
   },
 
@@ -575,6 +582,15 @@ export let MouseActionState = {
     mouseActionState.textDocumentMaterializeMove = textDocumentMaterializeMove;
   },
 
+  getItemCopyMove: (): ItemCopyMoveState | null => {
+    return mouseActionState?.itemCopyMove ?? null;
+  },
+
+  setItemCopyMove: (itemCopyMove: ItemCopyMoveState | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.itemCopyMove = itemCopyMove;
+  },
+
   usesEmbeddedInteractiveHitTesting: (): boolean => {
     return mouseActionState?.hitEmbeddedInteractive ?? false;
   },
@@ -734,6 +750,14 @@ export const CursorEventState = {
       shiftDown: false,
       ctrlDown: false,
     }
+  },
+
+  setModifierKeys: (shiftDown: boolean, ctrlDown: boolean) => {
+    lastMoveEvent = {
+      ...lastMoveEvent,
+      shiftDown,
+      ctrlDown,
+    };
   },
 
   get: (): TouchOrMouseEvent => lastMoveEvent,

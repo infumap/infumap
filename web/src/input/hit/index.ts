@@ -111,9 +111,9 @@ export const HitInfoFns = {
     result += "debugCreatedAt: " + hitInfo.debugCreatedAt + "\n";
     return result;
   },
-  hit: (store: StoreContextModel, posOnDesktopPx: Vector, ignoreItems: Array<Uid>, canHitEmbeddedInteractive: boolean, allowOutsideBoundsHitboxes: boolean = true): HitInfo => {
+  hit: (store: StoreContextModel, posOnDesktopPx: Vector, ignoreItems: Array<Uid>, canHitEmbeddedInteractive: boolean, allowOutsideBoundsHitboxes: boolean = true, allowCopyMove: boolean = false): HitInfo => {
     const ignoreSet = new Set<Uid>(ignoreItems);
-    return getHitInfo(store, posOnDesktopPx, ignoreSet, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
+    return getHitInfo(store, posOnDesktopPx, ignoreSet, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove);
   }
 };
 
@@ -216,6 +216,7 @@ export function getHitInfo(
   ignoreItems: Set<Uid>,
   canHitEmbeddedInteractive: boolean,
   allowOutsideBoundsHitboxes: boolean = true,
+  allowCopyMove: boolean = false,
 ): HitInfo {
   const umbrellaVe: VisualElement = store.umbrellaVisualElement.get();
   assert(VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
@@ -224,10 +225,10 @@ export function getHitInfo(
   if (hitTop) { return hitTop; }
   type RootResolver = (info: RootInfo) => RootInfo;
   const resolvers: Array<RootResolver> = [
-    (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
-    (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, allowOutsideBoundsHitboxes),
-    (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive),
-    (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive),
+    (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, allowCopyMove),
+    (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, allowOutsideBoundsHitboxes, allowCopyMove),
+    (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, allowCopyMove),
+    (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive, allowCopyMove),
   ];
 
   const visitedRootPaths = new Set<string>();
@@ -250,7 +251,7 @@ export function getHitInfo(
     if (!rootChanged) { break; }
   }
 
-  return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo, allowOutsideBoundsHitboxes);
+  return getHitInfoUnderRoot(store, posOnDesktopPx, ignoreItems, canHitEmbeddedInteractive, rootInfo, allowOutsideBoundsHitboxes, allowCopyMove);
 }
 
 
@@ -261,6 +262,7 @@ function getHitInfoUnderRoot(
   canHitEmbeddedInteractive: boolean,
   rootInfo: RootInfo,
   allowOutsideBoundsHitboxes: boolean,
+  allowCopyMove: boolean,
 ): HitInfo {
   const { parentRootVe, rootVes, rootVe } = rootInfo;
   let { posRelativeToRootVeViewportPx } = rootInfo;
@@ -304,12 +306,12 @@ function getHitInfoUnderRoot(
 
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
-    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove);
     if (hitMaybe) { return hitMaybe; }
   }
   const selectedVes = VesCache.render.getSelected(VeFns.veToPath(rootVe))();
   if (selectedVes) {
-    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, selectedVes, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootVe, posRelativeToRootChildAreaPx, selectedVes, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove);
     if (hitMaybe) { return hitMaybe; }
   }
   return new HitBuilder(parentRootVe, rootVes).over(rootVes).hitboxes(HitboxFlags.None, HitboxFlags.None).meta(null).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("getHitInfoUnderRoot").build();
@@ -326,6 +328,7 @@ function hitChildMaybe(
   ignoreItems: Set<Uid>,
   canHitEmbeddedInteractive: boolean,
   allowOutsideBoundsHitboxes: boolean,
+  allowCopyMove: boolean,
 ): HitInfo | null {
   const childVe = childVes.get();
   if (childVe.flags & VisualElementFlags.IsDock) { return null; }
@@ -335,7 +338,7 @@ function hitChildMaybe(
       y: posRelativeToRootVeViewportPx.y - getDockScrollYPx(store, rootVes.get()),
     };
     if (!isInside(dockViewportLocalPosPx, childVe.boundsPx)) { return null; }
-    const { flags: hitboxType, meta } = scanHitboxes(childVe, dockViewportLocalPosPx, getBoundingBoxTopLeft(childVe.boundsPx));
+    const { flags: hitboxType, meta } = scanHitboxes(childVe, dockViewportLocalPosPx, getBoundingBoxTopLeft(childVe.boundsPx), allowCopyMove);
     if (!isIgnored(childVe.displayItem.id, ignoreItems)) {
       return new HitBuilder(parentRootVe, rootVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(dockViewportLocalPosPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitChildMaybe-dock-trash").build();
     }
@@ -347,7 +350,7 @@ function hitChildMaybe(
       for (let i = 0; i < childVeChildren.length; ++i) {
         let ve = childVeChildren[i].get();
         const posRelativeToChildElementPx = toInnerAttachmentLocalInComposite(childVe, ve, posRelativeToRootVeViewportPx);
-        const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(ve))(), posRelativeToChildElementPx, ignoreItems, false);
+        const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(ve))(), posRelativeToChildElementPx, ignoreItems, false, allowCopyMove);
         if (hit) {
           const compositeParentVe = childVe;
           const parentOfComposite = parentVe(compositeParentVe);
@@ -368,7 +371,7 @@ function hitChildMaybe(
       }
     }
     const posRelativeToChildElementPx = toChildBoundsLocalFromViewport(posRelativeToRootVeViewportPx, childVe);
-    const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(childVe))(), posRelativeToChildElementPx, ignoreItems, true);
+      const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(childVe))(), posRelativeToChildElementPx, ignoreItems, true, allowCopyMove);
     if (hit) {
       const parent = parentVe(childVe);
       const grandparent = parentVe(parent);
@@ -399,6 +402,7 @@ function hitChildMaybe(
       ignoreItems,
       canHitEmbeddedInteractive,
       allowOutsideBoundsHitboxes,
+      allowCopyMove,
     );
     if (searchWorkspaceHit) { return searchWorkspaceHit; }
   }
@@ -412,11 +416,12 @@ function hitChildMaybe(
       ignoreItems,
       canHitEmbeddedInteractive,
       allowOutsideBoundsHitboxes,
+      allowCopyMove,
     );
     if (searchWorkspaceChildPageHit) { return searchWorkspaceChildPageHit; }
   }
   if (allowOutsideBoundsHitboxes && isTable(childVe.displayItem) && (childVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
-    const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx));
+    const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowCopyMove);
     if ((hitboxType & HitboxFlags.Move) && meta?.compositeMoveOut && !isIgnored(childVe.displayItem.id, ignoreItems)) {
       return new HitBuilder(parentRootVe, rootVes)
         .over(childVes)
@@ -428,15 +433,15 @@ function hitChildMaybe(
         .build();
     }
   }
-  if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
-  const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes };
+  if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove)) { return null; }
+  const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove };
   for (const handler of HitHandlers) {
     if (handler.canHandle(childVe)) {
       const res = handler.handle(childVe, childVes, ctx as any);
       if (res) { return res; }
     }
   }
-  const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx));
+  const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowCopyMove);
   if (!isIgnored(childVe.displayItem.id, ignoreItems)) {
     return new HitBuilder(parentRootVe, rootVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitChildMaybe").build();
   }
@@ -454,6 +459,7 @@ function hitSearchWorkspaceMaybe(
   ignoreItems: Set<Uid>,
   canHitEmbeddedInteractive: boolean,
   allowOutsideBoundsHitboxes: boolean,
+  allowCopyMove: boolean,
 ): HitInfo | null {
   const childVe = childVes.get();
   if (!isSearch(childVe.displayItem)) { return null; }
@@ -475,6 +481,7 @@ function hitSearchWorkspaceMaybe(
       ignoreItems,
       canHitEmbeddedInteractive,
       allowOutsideBoundsHitboxes,
+      allowCopyMove,
     );
     if (hitMaybe) { return hitMaybe; }
   }
@@ -492,6 +499,7 @@ function hitSearchWorkspaceChildPageMaybe(
   ignoreItems: Set<Uid>,
   canHitEmbeddedInteractive: boolean,
   allowOutsideBoundsHitboxes: boolean,
+  allowCopyMove: boolean,
 ): HitInfo | null {
   const childVe = childVes.get();
   if (!isPage(childVe.displayItem) || !(childVe.flags & VisualElementFlags.ShowChildren)) { return null; }
@@ -525,11 +533,12 @@ function hitSearchWorkspaceChildPageMaybe(
       ignoreItems,
       canHitEmbeddedInteractive,
       allowOutsideBoundsHitboxes,
+      allowCopyMove,
     );
     if (hitMaybe) { return hitMaybe; }
   }
 
-  const { flags: hitboxType, meta } = scanHitboxes(childVe, vectorSubtract(posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx)));
+  const { flags: hitboxType, meta } = scanHitboxes(childVe, vectorSubtract(posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx)), undefined, allowCopyMove);
   if (hitboxType == HitboxFlags.None || isIgnored(childVe.displayItem.id, ignoreItems)) { return null; }
 
   return new HitBuilder(rootVes.get(), childVes)
@@ -588,6 +597,7 @@ function hitNonPagePopupMaybe(
   canHitEmbeddedInteractive: boolean,
   ignoreItems: Set<Uid>,
   allowOutsideBoundsHitboxes: boolean,
+  allowCopyMove: boolean,
 ): RootInfo {
   let rootVe = parentRootInfo.rootVe;
   if (!VesCache.render.getPopup(VeFns.veToPath(rootVe))()) { return parentRootInfo; }
@@ -609,7 +619,7 @@ function hitNonPagePopupMaybe(
     popupPosRelativeToTopLevelVePx,
     isPage(popupRootVeMaybe.displayItem) ? getBoundingBoxTopLeft(rootVe.viewportBoundsPx!) : getBoundingBoxTopLeft(rootVe.boundsPx)
   );
-  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx);
+  const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx, undefined, allowCopyMove);
   if (isTable(rootVe.displayItem)) {
     if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move && !isIgnored(rootVe.displayItem.id, ignoreItems)) {
       return ({
@@ -628,7 +638,7 @@ function hitNonPagePopupMaybe(
       const tableBlockHeightPx = tableChildVe.boundsPx.h;
       const posRelativeToTableChildAreaPx = vectorSubtract(posRelativeToRootVeBoundsPx, { x: 0.0, y: (rootVe.viewportBoundsPx!.y - rootVe.boundsPx.y) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(rootVe)) * tableBlockHeightPx });
       {
-        const attHit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false);
+        const attHit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false, allowCopyMove);
         if (attHit) {
           const hitMaybe = {
             overVes: attHit.attachmentVes,
@@ -653,8 +663,8 @@ function hitNonPagePopupMaybe(
           });
         }
       }
-      if (isInsideBoundsOrAllowedHitbox(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx))) {
-        const { flags: thFlags, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx));
+      if (isInsideBoundsOrAllowedHitbox(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx), true, allowCopyMove)) {
+        const { flags: thFlags, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx), allowCopyMove);
         if (!isIgnored(tableChildVe.displayItem.id, ignoreItems)) {
           const hitMaybe = new HitBuilder(parentRootInfo.parentRootVe, rootVes).over(tableChildVes).hitboxes(thFlags, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitNonPagePopupMaybe-table-child").build();
           return ({ parentRootVe: parentRootInfo.parentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe });
@@ -668,7 +678,7 @@ function hitNonPagePopupMaybe(
   }
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
-    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes);
+    const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove);
     if (hitMaybe) { return ({ parentRootVe: parentRootInfo.parentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe }); }
   }
   if (hitboxType != HitboxFlags.None && !isIgnored(rootVe.displayItem.id, ignoreItems)) {
@@ -683,6 +693,7 @@ function hitPagePopupRootMaybe(
   parentRootInfo: RootInfo,
   posOnDesktopPx: Vector,
   canHitEmbeddedInteractive: boolean,
+  allowCopyMove: boolean,
 ): RootInfo {
   let rootVe = parentRootInfo.rootVe;
   let rootVes = parentRootInfo.rootVes;
@@ -700,7 +711,7 @@ function hitPagePopupRootMaybe(
       rootVes = popupRootVesMaybe;
       rootVe = popupRootVeMaybe;
       const posRelativeToPopupBoundsPx = vectorSubtract(popupPosRelativeToTopLevelVePx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y });
-      const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToPopupBoundsPx);
+      const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToPopupBoundsPx, undefined, allowCopyMove);
       if (hitboxType != HitboxFlags.None) {
         const titleTargetPath = (hitboxType & (HitboxFlags.AnchorChild | HitboxFlags.AnchorDefault))
           ? null
@@ -718,7 +729,7 @@ function hitPagePopupRootMaybe(
       changedRoot = true;
     }
   }
-  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan);
+  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan, undefined, allowCopyMove);
   const hitboxType = selectedPopupListRootHitboxType(rootVe, scannedHitboxType);
   let hitMaybe = null as HitInfo | null;
   if (hitboxType != HitboxFlags.None) {
@@ -738,7 +749,7 @@ function hitPagePopupRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
-  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
+  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive, allowCopyMove); }
   return result;
 }
 
@@ -748,6 +759,7 @@ function hitPageSelectedRootMaybe(
   parentRootInfo: RootInfo,
   posOnDesktopPx: Vector,
   canHitEmbeddedInteractive: boolean,
+  allowCopyMove: boolean,
 ): RootInfo {
   let rootVe = parentRootInfo.rootVe;
   let rootVes = parentRootInfo.rootVes;
@@ -784,7 +796,7 @@ function hitPageSelectedRootMaybe(
   const posForRootHitboxScan = changedRoot
     ? vectorSubtract(posRelativeToRootVeViewportPx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y })
     : posRelativeToRootVeBoundsPx;
-  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan);
+  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan, undefined, allowCopyMove);
   const hitboxType = selectedPopupListRootHitboxType(rootVe, scannedHitboxType);
   let hitMaybe = null as HitInfo | null;
   if (hitboxType != HitboxFlags.None) {
@@ -802,7 +814,7 @@ function hitPageSelectedRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
-  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive); }
+  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive, allowCopyMove); }
   return result;
 }
 
@@ -812,6 +824,7 @@ function hitEmbeddedRootMaybe(
   parentRootInfo: RootInfo,
   ignoreItems: Set<Uid>,
   canHitEmbeddedInteractive: boolean,
+  allowCopyMove: boolean,
 ): RootInfo {
   const { rootVe, posRelativeToRootVeViewportPx } = parentRootInfo;
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
@@ -830,7 +843,7 @@ function hitEmbeddedRootMaybe(
       });
       const newPosRelativeToRootVeViewportPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.viewportBoundsPx!.x - scrollPropX * (childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.viewportBoundsPx!.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
       const newPosRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x - scrollPropX * (childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.boundsPx.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
-      const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(childVe, posRelativeToEmbeddedRootBoundsPx);
+      const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(childVe, posRelativeToEmbeddedRootBoundsPx, undefined, allowCopyMove);
       return ({ parentRootVe: parentRootInfo.rootVe, rootVes: childVes, rootVe: childVe, posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx, posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx, hitMaybe: hitboxType != HitboxFlags.None ? new HitBuilder(parentRootInfo.rootVe, childVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToEmbeddedRootBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determineEmbeddedRootMaybe").build() : null });
     }
   }

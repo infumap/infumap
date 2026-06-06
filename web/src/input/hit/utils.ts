@@ -17,7 +17,7 @@
 */
 
 import { isPlaceholder } from "../../items/placeholder-item";
-import { itemCanMove } from "../../items/base/capabilities-item";
+import { itemCanCopy, itemCanMove } from "../../items/base/capabilities-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { HitboxFlags, HitboxMeta } from "../../layout/hitbox";
 import { VisualElement, VeFns } from "../../layout/visual-element";
@@ -36,11 +36,12 @@ export function scanHitboxes(
   ve: VisualElement,
   localPos: Vector,
   offsetTopLeft?: Vector,
+  allowCopyMove: boolean = false,
 ): { flags: HitboxFlags, meta: HitboxMeta | null } {
   let flags = HitboxFlags.None;
   let meta: HitboxMeta | null = null;
   for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
-    const type = filteredHitboxType(ve, ve.hitboxes[i].type);
+    const type = filteredHitboxType(ve, ve.hitboxes[i].type, ve.hitboxes[i].meta, allowCopyMove);
     if (type == HitboxFlags.None) { continue; }
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
@@ -66,6 +67,7 @@ export function isInsideBoundsOrAllowedHitbox(
   localPos: Vector,
   offsetTopLeft?: Vector,
   allowOutsideBoundsHitboxes: boolean = true,
+  allowCopyMove: boolean = false,
 ): boolean {
   if (isInside(localPos, ve.boundsPx)) {
     return true;
@@ -75,7 +77,7 @@ export function isInsideBoundsOrAllowedHitbox(
   }
   for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
     if (!ve.hitboxes[i].meta?.allowOutsideBounds) { continue; }
-    const type = filteredHitboxType(ve, ve.hitboxes[i].type);
+    const type = filteredHitboxType(ve, ve.hitboxes[i].type, ve.hitboxes[i].meta, allowCopyMove);
     if (type == HitboxFlags.None) { continue; }
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
@@ -98,6 +100,7 @@ export function findAttachmentHit(
   localPos: Vector,
   ignoreItems: Set<Uid>,
   reverse: boolean,
+  allowCopyMove: boolean = false,
 ): { attachmentVes: VisualElementSignal, flags: HitboxFlags, meta: HitboxMeta | null } | null {
   if (attachmentsVes.length === 0) { return null; }
   const start = reverse ? attachmentsVes.length - 1 : 0;
@@ -113,14 +116,15 @@ export function findAttachmentHit(
     const { flags, meta } = scanHitboxes(
       attachmentVe,
       localPos,
-      getBoundingBoxTopLeft(attachmentVe.boundsPx)
+      getBoundingBoxTopLeft(attachmentVe.boundsPx),
+      allowCopyMove
     );
     return { attachmentVes, flags, meta };
   }
   return null;
 }
 
-function filteredHitboxType(ve: VisualElement, type: HitboxFlags): HitboxFlags {
+function filteredHitboxType(ve: VisualElement, type: HitboxFlags, meta: HitboxMeta | null, allowCopyMove: boolean): HitboxFlags {
   let result = type;
 
   if ((result & HitboxFlags.Move) && ve.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM) {
@@ -130,8 +134,13 @@ function filteredHitboxType(ve: VisualElement, type: HitboxFlags): HitboxFlags {
 
   // Capabilities apply to the draggable tree item, not the rendered display target.
   if ((result & HitboxFlags.Move) && !itemCanMove(VeFns.treeItem(ve))) {
+    if (allowCopyMove && itemCanCopy(VeFns.treeItem(ve))) {
+      return result;
+    }
     result = (result & ~HitboxFlags.Move) as HitboxFlags;
-    if (result == HitboxFlags.ShowPointer) { result = HitboxFlags.None; }
+    if (result == HitboxFlags.ShowPointer) {
+      result = HitboxFlags.None;
+    }
   }
 
   return result;

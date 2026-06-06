@@ -40,8 +40,8 @@ import { UploadOverlay } from "./overlay/UploadOverlay";
 import { EmptyTrashOverlay } from "./overlay/EmptyTrashOverlay";
 import { Toolbar_Popup } from "./toolbar/Toolbar_Popup";
 import { mouseUpHandler } from "../input/mouse_up";
-import { mouseMoveHandler, clearMouseOverState } from "../input/mouse_move";
-import { CursorEventState } from "../input/state";
+import { mouseMoveHandler, clearMouseOverState, mouseMove_handleNoButtonDown } from "../input/mouse_move";
+import { CursorEventState, MouseActionState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
@@ -296,6 +296,7 @@ export const Main: Component = () => {
   };
 
   const keyDownListener = (ev: KeyboardEvent) => {
+    refreshHoverForCursorModifier(ev);
     if (shouldDebugLinearEdit() &&
       (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&
       store.overlay.textEditInfo()) {
@@ -310,6 +311,7 @@ export const Main: Component = () => {
   };
 
   const keyUpListener = (ev: KeyboardEvent) => {
+    refreshHoverForCursorModifier(ev);
     if (shouldDebugLinearEdit() &&
       (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&
       store.overlay.textEditInfo()) {
@@ -322,6 +324,18 @@ export const Main: Component = () => {
     }
     void keyUpHandler(store, ev);
   };
+
+  function refreshHoverForCursorModifier(ev: KeyboardEvent) {
+    if (ev.code != "ShiftLeft" && ev.code != "ShiftRight" &&
+      ev.code != "ControlLeft" && ev.code != "ControlRight") {
+      return;
+    }
+
+    CursorEventState.setModifierKeys(ev.shiftKey, ev.ctrlKey);
+    if (MouseActionState.empty()) {
+      mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
+    }
+  }
 
   const windowResizeListener = () => {
     store.resetDesktopSizePx();

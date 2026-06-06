@@ -25,6 +25,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+body.infumap-copy-move-cursor,
+body.infumap-copy-move-cursor * {
+  cursor: pointer !important;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }

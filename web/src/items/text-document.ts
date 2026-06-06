@@ -109,6 +109,7 @@ type TextDocumentGeneratedItems = {
 };
 
 const readonlyCapabilities = { edit: false, move: false };
+const readonlyCopyableCapabilities = { edit: false, move: false, copy: true };
 const virtualSourceTextIdByPageId = new Map<Uid, Uid>();
 const textContentPromises = new Map<string, Promise<string>>();
 const MAX_GENERATED_TABLE_HEIGHT_BL = 12;
@@ -131,6 +132,25 @@ const CHATGPT_ARTIFACT_SEPARATOR = "\uE202";
 const CHATGPT_ARTIFACT_END = "\uE201";
 const CHATGPT_ARTIFACT_BODY_RE = /^(?:cite|finance)\uE202turn\d+[a-z]+\d+(?:\uE202turn\d+[a-z]+\d+)*$/;
 const CHATGPT_ARTIFACT_TRIM_BEFORE = ",.;:!?)]}\"'";
+const MARKDOWN_ASCII_EQUIVALENTS: { [char: string]: string } = {
+  "\u2013": "-",
+  "\u2014": "--",
+  "\u2018": "'",
+  "\u2019": "'",
+  "\u201C": "\"",
+  "\u201D": "\"",
+  "\uE200": "",
+  "\uE201": "",
+  "\uE202": "",
+};
+
+function integerColumnWidthsGr(totalWidthGr: number, columnCount: number): Array<number> {
+  const safeColumnCount = Math.max(1, columnCount);
+  const integerTotalWidthGr = Math.max(1, Math.round(totalWidthGr));
+  const baseWidthGr = Math.floor(integerTotalWidthGr / safeColumnCount);
+  const remainderGr = integerTotalWidthGr - baseWidthGr * safeColumnCount;
+  return Array.from({ length: safeColumnCount }, (_, i) => baseWidthGr + (i < remainderGr ? 1 : 0));
+}
 
 function setTransientMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
   store.overlay.toolbarTransientMessage.set({ text, type });
@@ -394,6 +414,22 @@ function chatGptMarkdownArtifactEnd(text: string, pos: number): number | null {
   return end + 1;
 }
 
+function normalizeMarkdownDocumentText(text: string): string {
+  let result = "";
+  for (let i = 0; i < text.length;) {
+    const artifactEnd = chatGptMarkdownArtifactEnd(text, i);
+    if (artifactEnd != null) {
+      i = artifactEnd;
+      continue;
+    }
+
+    const c = text[i];
+    result += MARKDOWN_ASCII_EQUIVALENTS[c] ?? c;
+    i += 1;
+  }
+  return result;
+}
+
 function outputInlineLength(output: Array<string>): number {
   return output.reduce((sum, part) => sum + part.length, 0);
 }
@@ -481,7 +517,7 @@ function copyMarkdownCodeSpan(text: string, pos: number, output: Array<string>):
     return pos + 1;
   }
 
-  output.push(text.substring(pos + tickLen, end));
+  output.push(normalizeMarkdownDocumentText(text.substring(pos + tickLen, end)));
   return end + tickLen;
 }
 
@@ -537,12 +573,12 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
       continue;
     }
 
-    output.push(c);
+    output.push(MARKDOWN_ASCII_EQUIVALENTS[c] ?? c);
     i += 1;
   }
 
   if (stack.length != 0) {
-    return { title: text, inlineMarks: [] };
+    return { title: normalizeMarkdownDocumentText(text), inlineMarks: [] };
   }
 
   const title = output.join("");
@@ -676,7 +712,7 @@ function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): Markdo
   return {
     block: {
       kind: "paragraph",
-      title: codeLines.join("\n"),
+      title: normalizeMarkdownDocumentText(codeLines.join("\n")),
       inlineMarks: [],
       headingLevel: null,
       noteFlags: NoteFlags.Code,
@@ -931,7 +967,7 @@ function createNoteForBlock(
   note.inlineMarks = block.inlineMarks;
   if (virtual) {
     note.id = stableUid(`text-document-block:${textItem.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
-    note.capabilities = readonlyCapabilities;
+    note.capabilities = readonlyCopyableCapabilities;
   }
   note.flags = block.noteFlags;
   return note;
@@ -951,7 +987,7 @@ function createNoteForTableRow(
   note.inlineMarks = firstCell.inlineMarks;
   if (virtual) {
     note.id = stableUid(`text-document-table-row:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}`);
-    note.capabilities = readonlyCapabilities;
+    note.capabilities = readonlyCopyableCapabilities;
   }
   return note;
 }
@@ -971,7 +1007,7 @@ function createNoteForTableCell(
   note.inlineMarks = cell.inlineMarks;
   if (virtual) {
     note.id = stableUid(`text-document-table-cell:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
-    note.capabilities = readonlyCapabilities;
+    note.capabilities = readonlyCopyableCapabilities;
   }
   return note;
 }
@@ -988,7 +1024,7 @@ function createDividerForBlock(
   const divider = DividerFns.create(ownerId, pageId, RelationshipToParent.Child, ordering, "horizontal");
   if (virtual) {
     divider.id = stableUid(`text-document-divider:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
-    divider.capabilities = readonlyCapabilities;
+    divider.capabilities = readonlyCopyableCapabilities;
   }
   divider.spatialWidthGr = Math.max(1, pageWidthBl) * GRID_SIZE;
   divider.spatialHeightGr = GRID_SIZE;
@@ -1032,11 +1068,11 @@ function createTableForBlock(
   const table = TableFns.create(ownerId, pageId, RelationshipToParent.Child, "", ordering);
   if (virtual) {
     table.id = stableUid(`text-document-table:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
-    table.capabilities = readonlyCapabilities;
+    table.capabilities = readonlyCopyableCapabilities;
   }
   const tableWidthGr = Math.max(1, pageWidthBl) * GRID_SIZE;
-  const columnWidthGr = tableWidthGr / block.columns.length;
-  table.tableColumns = block.columns.map(name => ({ name, widthGr: columnWidthGr }));
+  const columnWidthsGr = integerColumnWidthsGr(tableWidthGr, block.columns.length);
+  table.tableColumns = block.columns.map((name, i) => ({ name, widthGr: columnWidthsGr[i] }));
   table.numberOfVisibleColumns = table.tableColumns.length;
   table.flags |= TableFlags.ShowColHeader | TableFlags.HideTitle;
   table.spatialWidthGr = tableWidthGr;

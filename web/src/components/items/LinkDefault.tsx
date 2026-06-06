@@ -85,7 +85,7 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0)}px; height: ${boundsPx().h}px;` +
         `${backgroundStyle()}${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={showMoveOutOfCompositeArea()}>
-        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class={`absolute border border-black`}

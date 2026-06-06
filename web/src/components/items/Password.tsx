@@ -390,7 +390,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
-        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
         (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&

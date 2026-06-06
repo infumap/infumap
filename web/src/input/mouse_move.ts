@@ -20,7 +20,7 @@ import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../co
 import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { itemCanMove } from "../items/base/capabilities-item";
+import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
@@ -57,6 +57,7 @@ import {
   solveCalendarMonthWidthForDividerOffset,
 } from "../util/calendar-layout";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
+import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 
 
 let lastMouseOverPath: VisualElementPath | null = null;
@@ -67,6 +68,32 @@ let lastMouseOverSearchGridPagePath: VisualElementPath | null = null;
 let lastSelectionArrangeTimeMs = 0;
 let lastSelectionSignature = "";
 const SELECTION_ARRANGE_THROTTLE_MS = 33;
+const COPY_MOVE_CURSOR_CLASS = "infumap-copy-move-cursor";
+
+function setCopyMoveCursorOverride(active: boolean): void {
+  document.body.classList.toggle(COPY_MOVE_CURSOR_CLASS, active);
+}
+
+function isCopyOnlyMoveHover(hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  if (!CursorEventState.get().shiftDown || !(hitInfo.hitboxType & HitboxFlags.Move)) {
+    return false;
+  }
+  if (hitInfo.hitboxType & (HitboxFlags.Resize | HitboxFlags.HorizontalResize | HitboxFlags.VerticalResize)) {
+    return false;
+  }
+
+  const treeItem = VeFns.treeItem(HitInfoFns.getHitVe(hitInfo));
+  return itemCanCopy(treeItem) && !itemCanMove(treeItem);
+}
+
+function isCopyOnlyMoveOutHover(hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  if (!hitInfo.overElementMeta?.compositeMoveOut) {
+    return false;
+  }
+
+  const treeItem = VeFns.treeItem(HitInfoFns.getHitVe(hitInfo));
+  return itemCanCopy(treeItem) && !itemCanMove(treeItem);
+}
 
 
 function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
@@ -128,6 +155,7 @@ export function mouseMoveHandler(store: StoreContextModel) {
     mouseMove_handleNoButtonDown(store, hasUser);
     return;
   }
+  setCopyMoveCursorOverride(false);
 
   let deltaPx = vectorSubtract(currentMouseDesktopPx, MouseActionState.getStartPx()!);
 
@@ -173,6 +201,7 @@ export function mouseMoveHandler(store: StoreContextModel) {
 
 
 export function clearMouseOverState(store: StoreContextModel) {
+  setCopyMoveCursorOverride(false);
   if (lastMouseOverPath) {
     store.perVe.setMouseIsOver(lastMouseOverPath, false);
     lastMouseOverPath = null;
@@ -577,8 +606,10 @@ function changeMouseActionStateMaybe(
       activeVisualElement = newActiveSignal.get();
       activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
     }
-    const shiftTextMaterializeMove = CursorEventState.get().shiftDown && isText(activeVisualElement.displayItem);
-    if (!itemCanMove(VeFns.treeItem(activeVisualElement)) && !shiftTextMaterializeMove) {
+    const shiftDown = CursorEventState.get().shiftDown;
+    const shiftTextMaterializeMove = shiftDown && isText(activeVisualElement.displayItem);
+    const shiftItemCopyMove = shiftDown && itemCanCopy(VeFns.treeItem(activeVisualElement));
+    if (!itemCanMove(VeFns.treeItem(activeVisualElement)) && !shiftTextMaterializeMove && !shiftItemCopyMove) {
       store.anItemIsMoving.set(false);
       return;
     }
@@ -1206,6 +1237,7 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 
 export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: boolean) {
   if (!MouseActionState.empty()) {
+    setCopyMoveCursorOverride(false);
     clearMouseOverState(store);
     store.mouseOverTableHeaderColumnNumber.set(null);
     return;
@@ -1223,7 +1255,16 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const hasModal = cmi != null || userSettingsInfo != null;
 
   const ev = CursorEventState.get();
-  const hitInfo = HitInfoFns.hit(store, desktopPxFromMouseEvent(ev, store), [], true);
+  const hitInfo = HitInfoFns.hit(store, desktopPxFromMouseEvent(ev, store), [], true, true, ev.shiftDown);
+  const readOnlyDocumentMoveOutVe = !ev.shiftDown
+    ? readOnlyDocumentMoveOutVeAtClientPx(CursorEventState.getLatestClientPx())
+    : null;
+  const readOnlyDocumentMoveOutPath = readOnlyDocumentMoveOutVe != null
+    ? VeFns.veToPath(readOnlyDocumentMoveOutVe)
+    : null;
+  const copyOnlyMoveHover = isCopyOnlyMoveHover(hitInfo);
+  const copyOnlyMoveOutHover = isCopyOnlyMoveOutHover(hitInfo);
+  setCopyMoveCursorOverride(copyOnlyMoveHover && hasUser && !hasModal && !isInsideToolbarPopup);
   if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && !isInsideToolbarPopup) {
     if (hitInfo.overElementMeta!.colNum) {
       store.mouseOverTableHeaderColumnNumber.set(hitInfo.overElementMeta!.colNum);
@@ -1240,7 +1281,9 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     !!hitInfo.overElementMeta?.focusOnly &&
     !!hitInfo.overElementMeta?.allowOutsideBounds;
   const overCompositeMoveOutVes =
-    (hitInfo.hitboxType & HitboxFlags.Move) && hitInfo.overElementMeta?.compositeMoveOut
+    (hitInfo.hitboxType & HitboxFlags.Move) &&
+      hitInfo.overElementMeta?.compositeMoveOut &&
+      ev.shiftDown
       ? overElementVes
       : null;
   const overElementVe = overElementVes.get();
@@ -1277,7 +1320,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     lastMouseOverSearchGridPagePath = searchGridCellHover.pagePath;
   }
 
-  if (overElementPath != lastMouseOverPath || suppressGenericMouseOver || hasModal || isInsideToolbarPopup) {
+  const effectiveMouseOverPath = readOnlyDocumentMoveOutPath ?? overElementPath;
+  if (effectiveMouseOverPath != lastMouseOverPath || suppressGenericMouseOver || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverPath != null) {
       store.perVe.setMouseIsOver(lastMouseOverPath, false);
       lastMouseOverPath = null;
@@ -1291,7 +1335,14 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     }
   }
 
-  if ((overElementVe.displayItem.id != store.history.currentPageVeid()!.itemId) &&
+  if (readOnlyDocumentMoveOutPath != null &&
+    readOnlyDocumentMoveOutVe != null &&
+    !hasModal && !isInsideToolbarPopup) {
+    if (!store.perVe.getMouseIsOver(readOnlyDocumentMoveOutPath)) {
+      store.perVe.setMouseIsOver(readOnlyDocumentMoveOutPath, true);
+    }
+    lastMouseOverPath = readOnlyDocumentMoveOutPath;
+  } else if ((overElementVe.displayItem.id != store.history.currentPageVeid()!.itemId) &&
     !(overElementVe.flags & VisualElementFlags.Popup) &&
     !suppressGenericMouseOver &&
     !hasModal && !isInsideToolbarPopup) {
@@ -1340,7 +1391,11 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "ew-resize";
     } else if (hitInfo.hitboxType & HitboxFlags.VerticalResize) {
       document.body.style.cursor = "ns-resize";
-    } else if (hitInfo.hitboxType & HitboxFlags.ShowPointer) {
+    } else if (readOnlyDocumentMoveOutVe != null && !ev.shiftDown) {
+      document.body.style.cursor = "default";
+    } else if (copyOnlyMoveHover) {
+      document.body.style.cursor = "pointer";
+    } else if ((hitInfo.hitboxType & HitboxFlags.ShowPointer) && !copyOnlyMoveOutHover) {
       document.body.style.cursor = "pointer";
     } else if ((hitInfo.hitboxType & HitboxFlags.AnchorChild) || (hitInfo.hitboxType & HitboxFlags.AnchorDefault)) {
       document.body.style.cursor = "pointer";

@@ -69,6 +69,7 @@ interface MoveRollbackContext {
   activeTreeItemId: string | null,
   newPlaceholderItemId: string | null,
   rollbackExtras: (() => void) | null,
+  activeTreeItemServerCleanupHandledByOps: boolean,
 }
 
 interface MoveFinalizeContext {
@@ -334,6 +335,16 @@ function enqueueUpdateItem(
   rollbackSnapshot?: Item | null,
   _iconMoveDestinationVe?: VisualElement | null,
 ): void {
+  const itemCopyMove = MouseActionState.getItemCopyMove();
+  if (itemCopyMove?.pendingItemId == item.id) {
+    const snapshot = cloneItemSnapshot(item);
+    ops.push({
+      apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
+      rollback: () => server.deleteItem(snapshot.id, store.general.networkStatus, false),
+    });
+    return;
+  }
+
   if (enqueueTextDocumentMaterializationIfPending(ops, store, item)) {
     return;
   }
@@ -390,6 +401,9 @@ function enqueuePersistMovedItems(
 
 function captureMoveRollbackContext(rollbackExtras: (() => void) | null = null): MoveRollbackContext {
   const activeElementPath = MouseActionState.getActiveElementPath();
+  const activeTreeItemServerCleanupHandledByOps =
+    MouseActionState.getTextDocumentMaterializeMove() != null ||
+    MouseActionState.getItemCopyMove() != null;
   return {
     snapshot: (MouseActionState.getMoveRollback() ?? []).map(entry => ({
       ...entry,
@@ -404,6 +418,7 @@ function captureMoveRollbackContext(rollbackExtras: (() => void) | null = null):
       : null,
     newPlaceholderItemId: MouseActionState.getNewPlaceholderItem()?.id ?? null,
     rollbackExtras,
+    activeTreeItemServerCleanupHandledByOps,
   };
 }
 
@@ -532,10 +547,15 @@ function placeholderRollbackSnapshotMaybe(placeholder: Item): Item | null {
 
 function rollbackInvalidMove(store: StoreContextModel): void {
   clearMoveOverState(store);
-  rollbackMove(store, captureMoveRollbackContext(), MouseActionState.getTextDocumentMaterializeMove() == null);
+  rollbackMove(
+    store,
+    captureMoveRollbackContext(),
+    MouseActionState.getTextDocumentMaterializeMove() == null && MouseActionState.getItemCopyMove() == null,
+  );
   MouseActionState.setNewPlaceholderItem(null);
   MouseActionState.setStartAttachmentsItem(null);
   MouseActionState.setMoveRollback(null);
+  MouseActionState.setItemCopyMove(null);
 }
 
 function buildCleanupPersistedPlaceholderOperations(
@@ -707,7 +727,11 @@ async function rollbackMoveServerState(
   rollbackContext: MoveRollbackContext,
 ): Promise<Array<string>> {
   const failures: Array<string> = [];
-  if (rollbackContext.activeTreeItemId != null && itemState.get(rollbackContext.activeTreeItemId) == null) {
+  if (
+    rollbackContext.activeTreeItemId != null &&
+    !rollbackContext.activeTreeItemServerCleanupHandledByOps &&
+    itemState.get(rollbackContext.activeTreeItemId) == null
+  ) {
     try {
       await server.deleteItem(rollbackContext.activeTreeItemId, store.general.networkStatus, false);
     } catch (error) {
@@ -795,9 +819,21 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
     return false;
   }
 
-  if (MouseActionState.getTextDocumentMaterializeMove() != null &&
+  const textDocumentMaterializeMove = MouseActionState.getTextDocumentMaterializeMove() != null;
+  const itemCopyMove = MouseActionState.getItemCopyMove() != null;
+  if (textDocumentMaterializeMove &&
     (MouseActionState.getMoveOverAttachHitboxPath() != null || MouseActionState.getMoveOverAttachCompositePath() != null)) {
     return true;
+  }
+
+  if (itemCopyMove) {
+    const attachmentTarget =
+      MouseActionState.readMoveOverAttachHitbox() ??
+      MouseActionState.readMoveOverAttachComposite();
+    if (attachmentTarget != null) {
+      return attachmentTarget.displayItem.origin != null ||
+        !itemCanEdit(VeFns.treeItem(attachmentTarget));
+    }
   }
 
   const ignoreIds = movingIgnoreIds(activeVisualElement);
@@ -813,7 +849,7 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
     return true;
   }
 
-  if (MouseActionState.getTextDocumentMaterializeMove() != null) {
+  if (textDocumentMaterializeMove || itemCopyMove) {
     return resolvedTarget.hoverContainerVe.displayItem.origin != null ||
       !isContainer(resolvedTarget.hoverContainerVe.displayItem) ||
       !itemCanEdit(resolvedTarget.hoverContainerVe.displayItem);

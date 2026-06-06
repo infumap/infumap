@@ -24,12 +24,14 @@ import {
   compositeMoveOutHandleLineTopPx,
   compositeMoveOutHandleLineWidthPx,
 } from "../../layout/composite-move-out";
+import type { VisualElementPath } from "../../layout/visual-element";
 import { BoundingBox } from "../../util/geometry";
 
 
 interface CompositeMoveOutHandleProps {
   boundsPx: BoundingBox,
   active?: boolean,
+  vePath?: VisualElementPath,
 }
 
 export const CompositeMoveOutHandle: Component<CompositeMoveOutHandleProps> = (props: CompositeMoveOutHandleProps) => {
@@ -38,6 +40,7 @@ export const CompositeMoveOutHandle: Component<CompositeMoveOutHandleProps> = (p
 
   return (
     <div class="absolute pointer-events-none"
+      data-infumap-composite-move-out-path={props.vePath}
       style={`left: ${props.boundsPx.x}px; top: ${props.boundsPx.y}px; width: ${props.boundsPx.w}px; height: ${props.boundsPx.h}px;`}>
       <div class={lineClass()}
         style={`left: ${compositeMoveOutHandleLineLeftPx(props.boundsPx)}px; top: ${compositeMoveOutHandleLineTopPx(props.boundsPx)}px; width: ${compositeMoveOutHandleLineWidthPx()}px; height: ${compositeMoveOutHandleLineHeightPx(props.boundsPx)}px; opacity: ${lineOpacity()};`} />

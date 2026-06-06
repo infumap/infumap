@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
 import { asAttachmentsItem, calcSpatialAttachmentInsertIndex } from "../items/base/attachments-item";
-import { itemCanMove } from "../items/base/capabilities-item";
+import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
 import type { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
@@ -105,6 +105,12 @@ function captureMoveRollbackSnapshot(store: StoreContextModel, activeVisualEleme
 
 function movingChildIdFromVe(visualElement: VisualElement): string {
   return visualElement.actualLinkItemMaybe?.id ?? visualElement.displayItem.id;
+}
+
+function newOrderingAtEndOfCurrentParent(item: Item): Uint8Array {
+  return item.relationshipToParent == RelationshipToParent.Attachment
+    ? itemState.newOrderingAtEndOfAttachments(item.parentId)
+    : itemState.newOrderingAtEndOfChildren(item.parentId);
 }
 
 function moveRollbackOrderingForChild(childId: string): Uint8Array | null {
@@ -243,7 +249,8 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   activeVisualElement = normalizeMovingListPageSelectedMainVe(store, activeVisualElement, desktopPosPx);
   activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
   const materializeTextDocument = textDocumentMaterializeMoveRequested(activeVisualElement);
-  if (!itemCanMove(activeItem) && !materializeTextDocument) {
+  const copyOnlyMove = CursorEventState.get().shiftDown && itemCanCopy(activeItem) && !itemCanMove(activeItem);
+  if (!itemCanMove(activeItem) && !materializeTextDocument && !copyOnlyMove) {
     return;
   }
   captureMoveRollbackSnapshot(store, activeVisualElement, activeItem);
@@ -327,9 +334,13 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       cloned.creationDate = currentUnixTimeSeconds();
       cloned.lastModifiedDate = currentUnixTimeSeconds();
       cloned.dateTime = currentUnixTimeSeconds();
-      cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
+      cloned.ordering = newOrderingAtEndOfCurrentParent(cloned);
       itemState.add(cloned);
-      server.addItem(cloned, null, store.general.networkStatus);
+      if (copyOnlyMove) {
+        MouseActionState.setItemCopyMove({ pendingItemId: cloned.id });
+      } else {
+        server.addItem(cloned, null, store.general.networkStatus);
+      }
 
       const activeParentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
       const newLinkVeid = VeFns.veidFromId(cloned.id);
@@ -848,7 +859,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     cloned.creationDate = currentUnixTimeSeconds();
     cloned.lastModifiedDate = currentUnixTimeSeconds();
     cloned.dateTime = currentUnixTimeSeconds();
-    cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
+    cloned.ordering = itemState.newOrderingAtEndOfChildren(moveToPage.id);
     cloned.spatialPositionGr = newItemPosGr;
     cloned.parentId = moveToPage.id;
     itemState.add(cloned);
@@ -980,7 +991,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     cloned.creationDate = currentUnixTimeSeconds();
     cloned.lastModifiedDate = currentUnixTimeSeconds();
     cloned.dateTime = currentUnixTimeSeconds();
-    cloned.ordering = itemState.newOrderingAtEndOfChildren(cloned.parentId);
+    cloned.ordering = itemState.newOrderingAtEndOfChildren(moveToPage.id);
     cloned.spatialPositionGr = itemPosInPageQuantizedGr;
     cloned.parentId = moveToPage.id;
     itemState.add(cloned);

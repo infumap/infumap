@@ -26,8 +26,6 @@ import { BoundingBox } from "../util/geometry";
 const COMPOSITE_MOVE_OUT_HANDLE_LINE_WIDTH_PX = 1;
 const COMPOSITE_MOVE_OUT_HANDLE_LINE_GAP_PX = 2;
 const COMPOSITE_MOVE_OUT_HANDLE_RIGHT_SHIFT_PX = 3;
-const COMPOSITE_MOVE_OUT_HANDLE_HIT_PADDING_PX = 2;
-const COMPOSITE_MOVE_OUT_HANDLE_RIGHT_HIT_PADDING_PX = 1;
 
 export const DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX = 4;
 
@@ -60,14 +58,10 @@ export function compositeMoveOutHandleLineLeftPx(boundsPx: BoundingBox): number 
 }
 
 export function compositeMoveOutHitboxBoundsPx(boundsPx: BoundingBox, xOffsetPx: number = 0): BoundingBox {
-  const leftPx = Math.max(0, compositeMoveOutHandleLineLeftPx(boundsPx) - COMPOSITE_MOVE_OUT_HANDLE_HIT_PADDING_PX);
-  const rightPx = compositeMoveOutHandleLineLeftPx(boundsPx) +
-    compositeMoveOutHandleTotalWidthPx() +
-    COMPOSITE_MOVE_OUT_HANDLE_RIGHT_HIT_PADDING_PX;
   return {
-    x: boundsPx.x + leftPx + xOffsetPx,
+    x: boundsPx.x + xOffsetPx,
     y: boundsPx.y,
-    w: Math.max(0, rightPx - leftPx),
+    w: boundsPx.w,
     h: boundsPx.h,
   };
 }

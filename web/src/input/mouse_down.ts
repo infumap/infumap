@@ -51,6 +51,8 @@ import { getCaretPosition, setCaretPosition } from "../util/caret";
 import { asPasswordItem, isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
+import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
+import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 
 
 export const MOUSE_LEFT = 0;
@@ -83,19 +85,19 @@ function isPageInDocumentArrangedPage(visualElement: VisualElement): boolean {
     asPageItem(parent.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
 }
 
-function isNoteInDocumentArrangedPage(visualElement: VisualElement): boolean {
-  if (!isNote(visualElement.displayItem) || visualElement.parentPath == null) {
+function isNoteInsideDocumentArrangedPage(visualElement: VisualElement): boolean {
+  if (!isNote(visualElement.displayItem)) {
     return false;
   }
 
-  const parent = VesCache.current.readNode(visualElement.parentPath);
-  return parent != null &&
-    isPage(parent.displayItem) &&
-    asPageItem(parent.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  return isInsideDocumentPageClickContext(visualElement);
 }
 
-function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  if (!isNoteInDocumentArrangedPage(hitVe)) {
+function documentNoteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  if (!isNoteInsideDocumentArrangedPage(hitVe)) {
+    return false;
+  }
+  if (hitInfo.overElementMeta?.compositeMoveOut) {
     return false;
   }
 
@@ -111,6 +113,27 @@ function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: Return
     !(hitInfo.hitboxType & blockedHitboxes);
 }
 
+function shouldAllowReadOnlyDocumentNoteTextSelection(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  return !CursorEventState.get().shiftDown &&
+    !itemCanEdit(VeFns.treeItem(hitVe)) &&
+    documentNoteBodyClick(hitVe, hitInfo);
+}
+
+function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  return !CursorEventState.get().shiftDown &&
+    itemCanEdit(VeFns.treeItem(hitVe)) &&
+    documentNoteBodyClick(hitVe, hitInfo);
+}
+
+function shouldFocusDocumentDragBarOnMouseDown(
+  hitVe: VisualElement,
+  hitInfo: ReturnType<typeof HitInfoFns.hit>,
+  documentPageMoveOut: boolean,
+): boolean {
+  return isInsideDocumentPageClickContext(hitVe) &&
+    (documentPageMoveOut ||
+      (!!hitInfo.overElementMeta?.compositeMoveOut && !!(hitInfo.hitboxType & HitboxFlags.Move)));
+}
 
 function onePxSizeBlForPageChild(parentPage: ReturnType<typeof asPageItem>, parentVe: VisualElement) {
   if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.Document && parentVe.childAreaBoundsPx != null) {
@@ -494,13 +517,29 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     return defaultResult;
   }
 
-  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false);
+  const shiftDown = CursorEventState.get().shiftDown;
+  if (!shiftDown) {
+    const readOnlyDocumentMoveOutVe = readOnlyDocumentMoveOutVeAtClientPx(CursorEventState.getLatestClientPx());
+    if (readOnlyDocumentMoveOutVe != null) {
+      ClickState.setLinkWasClicked(false);
+      store.history.setFocus(VeFns.veToPath(readOnlyDocumentMoveOutVe));
+      arrangeNow(store, "mouse-down-focus-readonly-document-drag-bar");
+      return defaultResult;
+    }
+  }
+
+  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, true, shiftDown);
 
   const startPosBl = null;
   const startWidthBl = null;
   const startHeightBl = null;
   const startPx = desktopPosPx;
   let hitVe = HitInfoFns.getHitVe(hitInfo);
+
+  if (shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
+    ClickState.setLinkWasClicked(false);
+    return MouseEventActionFlags.None;
+  }
 
   if (shouldEditDocumentNoteOnMouseDown(hitVe, hitInfo)) {
     ClickState.setLinkWasClicked(false);
@@ -583,6 +622,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     isPageInDocumentArrangedPage(hitVe) &&
     !!(hitInfo.hitboxType & HitboxFlags.Move) &&
     clickOffsetProp.x > 1;
+  const focusDocumentDragBar =
+    shouldFocusDocumentDragBarOnMouseDown(hitVe, hitInfo, documentPageMoveOut);
   if (hitInfo.overElementMeta?.compositeMoveOut || documentPageMoveOut) {
     // Composite move-out can start from a synthetic gutter outside the item's visible bounds.
     const clampOffsetProp = {
@@ -687,6 +728,12 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       }
     }
   } catch { }
+
+  if (focusDocumentDragBar) {
+    ClickState.setLinkWasClicked(false);
+    store.history.setFocus(activeElementPath);
+    arrangeNow(store, "mouse-down-focus-document-drag-bar");
+  }
 
   if (hitInfo.hitboxType & HitboxFlags.ContentEditable) {
     // make sure not PreventDefault in the case of clicking on a contenteditable.

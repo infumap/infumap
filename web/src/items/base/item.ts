@@ -39,7 +39,7 @@ export const ItemType = {
 
 export type ItemType = typeof ItemType[keyof typeof ItemType];
 
-export const ITEM_CAPABILITY_KEYS = ["edit", "move"] as const;
+export const ITEM_CAPABILITY_KEYS = ["edit", "move", "copy"] as const;
 
 export type ItemCapability = typeof ITEM_CAPABILITY_KEYS[number];
 

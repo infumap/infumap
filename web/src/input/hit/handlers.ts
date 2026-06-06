@@ -43,8 +43,8 @@ export const HitHandlers: Array<HitHandler> = [];
 const _tableHandler: HitHandler = {
   canHandle: (ve: VisualElement) => isTable(ve.displayItem) && !(ve.flags & VisualElementFlags.LineItem),
   handle: (childVe: VisualElement, childVes: VisualElementSignal, ctx: HitTraversalContext): HitInfo | null => {
-    const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, allowOutsideBoundsHitboxes } = ctx;
-    if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
+    const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, allowOutsideBoundsHitboxes, allowCopyMove } = ctx;
+    if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove)) { return null; }
     const tableVes = childVes;
     const tableVe = childVe;
     const resizeHitbox = lastResizeHitboxMaybe(tableVe);
@@ -65,12 +65,15 @@ const _tableHandler: HitHandler = {
       if (!hb.meta?.compositeMoveOut) { continue; }
       if (isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
         if (!ignoreItems.has(tableVe.displayItem.id)) {
-          return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(hb.type, HitboxFlags.None).meta(hb.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-composite-move-out").build();
+          const { flags, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx!), allowCopyMove);
+          if (flags != HitboxFlags.None && meta?.compositeMoveOut) {
+            return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(flags, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-composite-move-out").build();
+          }
         }
       }
     }
     if (tableVe.viewportBoundsPx && posRelativeToRootVeViewportPx.y < tableVe.viewportBoundsPx.y) {
-      const { flags: hitboxType, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx));
+      const { flags: hitboxType, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx), allowCopyMove);
       if (hitboxType != HitboxFlags.None && !ignoreItems.has(tableVe.displayItem.id)) {
         return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-header").build();
       }
@@ -80,8 +83,8 @@ const _tableHandler: HitHandler = {
       const tableChildVes = tableVeChildren[j];
       const tableChildVe = tableChildVes.get();
       const posRelativeToTableChildAreaPx = toTableChildAreaPos(store, tableVe, tableChildVe, posRelativeToRootVeViewportPx);
-      if (isInsideBoundsOrAllowedHitbox(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx), allowOutsideBoundsHitboxes)) {
-        const { flags: hitboxType, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx));
+      if (isInsideBoundsOrAllowedHitbox(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove)) {
+        const { flags: hitboxType, meta } = scanHitboxes(tableChildVe, posRelativeToTableChildAreaPx, getBoundingBoxTopLeft(tableChildVe.boundsPx), allowCopyMove);
         if (!ignoreItems.has(tableChildVe.displayItem.id)) {
           if (!ignoreItems.has(tableVe.displayItem.id)) {
             return new HitBuilder(parentRootVe, rootVes).over(tableChildVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-child").build();
@@ -89,7 +92,7 @@ const _tableHandler: HitHandler = {
         }
       }
       {
-        const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false);
+        const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false, allowCopyMove);
         if (hit) {
           const tableParentVe = parentVe(tableVe);
           const tableIsInsideComposite = !!(tableVe.flags & VisualElementFlags.InsideCompositeOrDoc);
@@ -110,7 +113,7 @@ const _tableHandler: HitHandler = {
       }
     }
     if ((asTableItem(tableVe.displayItem).flags & TableFlags.HideTitle) && !ignoreItems.has(tableVe.displayItem.id)) {
-      const { flags: hitboxType, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx));
+      const { flags: hitboxType, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx), allowCopyMove);
       if (hitboxType != HitboxFlags.None) {
         return new HitBuilder(parentRootVe, rootVes)
           .over(tableVes)
@@ -131,8 +134,8 @@ HitHandlers.push(_tableHandler);
 const _compositeHandler: HitHandler = {
   canHandle: (ve: VisualElement) => isComposite(ve.displayItem) && !(ve.flags & VisualElementFlags.LineItem),
   handle: (childVe: VisualElement, childVes: VisualElementSignal, ctx: HitTraversalContext): HitInfo | null => {
-    const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, allowOutsideBoundsHitboxes } = ctx;
-    if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
+    const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, allowOutsideBoundsHitboxes, allowCopyMove } = ctx;
+    if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove)) { return null; }
     const compositeVes = childVes;
     const compositeVe = childVe;
     const resizeHitbox = lastResizeHitboxMaybe(compositeVe);
@@ -141,13 +144,13 @@ const _compositeHandler: HitHandler = {
       offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
       return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-resize").build();
     }
-    const { flags: compositeHitboxType, meta: compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(compositeVe.boundsPx!));
+    const { flags: compositeHitboxType, meta: compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(compositeVe.boundsPx!), allowCopyMove);
     const compositeVeChildren = VesCache.render.getChildren(VeFns.veToPath(compositeVe))();
     for (let j = 0; j < compositeVeChildren.length; ++j) {
       const compositeChildVes = compositeVeChildren[j];
       const compositeChildVe = compositeChildVes.get();
       const posRelativeToCompositeChildAreaPx = toCompositeChildAreaPos(compositeVe, posRelativeToRootVeViewportPx);
-      const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx));
+      const { flags: hitboxType, meta } = scanHitboxes(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx), allowCopyMove);
       if ((hitboxType & (HitboxFlags.Attach | HitboxFlags.AttachComposite)) && !ignoreItems.has(compositeChildVe.displayItem.id)) {
         return new HitBuilder(parentRootVe, rootVes).over(compositeChildVes).hitboxes(hitboxType, compositeHitboxType).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-attach-child").build();
       }
@@ -169,7 +172,7 @@ const _compositeHandler: HitHandler = {
       const hitExtendedPageMoveArea =
         isPage(compositeChildVe.displayItem) &&
         !!(hitboxType & HitboxFlags.Move);
-      if (isInsideBoundsOrAllowedHitbox(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx), allowOutsideBoundsHitboxes) || hitExtendedPageMoveArea || isInPageGutter) {
+      if (isInsideBoundsOrAllowedHitbox(compositeChildVe, posRelativeToCompositeChildAreaPx, getBoundingBoxTopLeft(compositeChildVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove) || hitExtendedPageMoveArea || isInPageGutter) {
         if (!ignoreItems.has(compositeChildVe.displayItem.id)) {
           // table will be delegated to the table handler later in traversal
         }
@@ -203,9 +206,9 @@ HitHandlers.push(_compositeHandler);
 const _defaultHandler: HitHandler = {
   canHandle: (_ve: VisualElement) => true,
   handle: (childVe: VisualElement, childVes: VisualElementSignal, ctx: HitTraversalContext): HitInfo | null => {
-    const { rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes } = ctx;
-    if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes)) { return null; }
-    const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx));
+    const { rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove } = ctx;
+    if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove)) { return null; }
+    const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowCopyMove);
     if (!ignoreItems.has(childVe.displayItem.id)) {
       return new HitBuilder(parentRootVe, rootVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("default-handler").build();
     }

@@ -108,7 +108,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
       {renderBoundsHighlightMaybe()}
       {renderLine()}
       <Show when={showMoveOutOfCompositeArea()}>
-        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
         (props.visualElement.flags & VisualElementFlags.Detailed &&

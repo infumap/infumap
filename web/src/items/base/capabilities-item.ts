@@ -52,3 +52,7 @@ export function itemCanEdit(item: ItemTypeMixin | null): boolean {
 export function itemCanMove(item: ItemTypeMixin | null): boolean {
   return itemCapabilities(item)?.move ?? true;
 }
+
+export function itemCanCopy(item: ItemTypeMixin | null): boolean {
+  return itemCapabilities(item)?.copy ?? itemCanMove(item);
+}

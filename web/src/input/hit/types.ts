@@ -46,6 +46,7 @@ export interface HitTraversalContext {
   posOnDesktopPx: Vector,
   canHitEmbeddedInteractive: boolean,
   allowOutsideBoundsHitboxes: boolean,
+  allowCopyMove: boolean,
 }
 
 export interface HitHandler {
@@ -65,4 +66,3 @@ export interface RootInfo {
   posRelativeToRootVeBoundsPx: Vector,
   hitMaybe: HitInfo | null
 }
-

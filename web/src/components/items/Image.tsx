@@ -382,7 +382,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
         }</For>
         <Show when={showMoveOutOfCompositeArea()}>
-          <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
+          <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
         </Show>
         <div class="absolute" style={boundsStylePx(detailBoundsPx)}>
           <Show when={props.visualElement.linkItemMaybe != null &&

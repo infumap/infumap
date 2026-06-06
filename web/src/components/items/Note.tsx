@@ -356,15 +356,22 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
   const isInDocumentPage = () => {
-    if (!isInCompositeOrDocument() || props.visualElement.parentPath == null) {
-      return false;
+    const seenParentIds = new Set<string>();
+    let parentId: string | null = noteItem().parentId;
+    while (parentId != null && !seenParentIds.has(parentId)) {
+      seenParentIds.add(parentId);
+      const parentItem = itemState.get(parentId);
+      if (parentItem == null) { return false; }
+      if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
+        return true;
+      }
+      parentId = parentItem.parentId;
     }
-
-    const parentItem = itemState.get(VeFns.veidFromPath(props.visualElement.parentPath).itemId);
-    return parentItem != null &&
-      isPage(parentItem) &&
-      asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+    return false;
   };
+
+  const isSelectableReadOnlyDocumentText = () =>
+    isInDocumentPage() && !canEdit();
 
   const isTextEditTarget = () =>
     store.overlay.textEditInfo()?.itemPath == vePath();
@@ -462,7 +469,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           <Match when={!NoteFns.hasUrl(noteItem()) || isTextEditTarget() || isInDocumentPage()}>
             <span id={VeFns.veToPath(props.visualElement) + ":title"}
               class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-                `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}${isTextEditTarget() ? ' select-text cursor-text' : ''}`}
+                `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}${isTextEditTarget() || isSelectableReadOnlyDocumentText() ? ' select-text cursor-text' : ''}`}
               style={`position: absolute; ` +
                 `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
                 `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
@@ -477,7 +484,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `outline: 0px solid transparent; ` +
                 (isTextEditTarget()
                   ? `user-select: text; -webkit-user-select: text; `
-                  : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
+                  : `${isSelectableReadOnlyDocumentText() ? `user-select: text; -webkit-user-select: text; ` : ""}` +
+                    `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
               contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
               spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
@@ -492,7 +500,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
       }</For>
       <Show when={showMoveOutOfCompositeArea()}>
-        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} />
+        <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>
       <Show when={props.visualElement.linkItemMaybe != null &&
         (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
