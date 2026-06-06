@@ -54,7 +54,6 @@ interface IngestSessionsResponse extends IngestSimpleResponse {
 
 
 const DIALOG_WIDTH_PX = 510;
-const INGEST_SESSION_LIST_MAX_HEIGHT_PX = 340;
 
 export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 662 };
 
@@ -309,7 +308,7 @@ export const EditUserSettings: Component = () => {
       <div ref={editUserSettingsDiv}
            class="fixed bg-white z-20 rounded-md border border-slate-700"
            style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
-        <div class="p-3">
+        <div class="p-3 h-full box-border flex flex-col">
           <div class="font-bold text-lg" style="margin-bottom: 14px;">User Settings</div>
 
           <div class="flex border-b border-slate-300 mb-3" style="margin-bottom: 14px;">
@@ -351,6 +350,7 @@ export const EditUserSettings: Component = () => {
             </button>
           </div>
 
+          <div class="min-h-0 flex-1">
           <Switch>
             <Match when={activeTab() === "local"}>
               <div>
@@ -512,7 +512,7 @@ export const EditUserSettings: Component = () => {
             </Match>
 
             <Match when={activeTab() === "ingest"}>
-              <div>
+              <div class="h-full min-h-0 flex flex-col">
                 <div class="text-sm text-slate-700 mb-3">
                   Pair ingest clients with one-time codes. Ingest sessions are isolated from normal login sessions and can be revoked independently.
                 </div>
@@ -548,7 +548,7 @@ export const EditUserSettings: Component = () => {
 
                 <div class="text-sm text-slate-600 mb-2">Ingest sessions:</div>
                 <Show when={ingestSessionsList().length === 0} fallback={
-                  <div style={`max-height: ${INGEST_SESSION_LIST_MAX_HEIGHT_PX}px; overflow-y: auto; padding-right: 4px;`}>
+                  <div class="min-h-0 flex-1 mb-2" style="overflow-y: auto; padding-right: 4px;">
                     <For each={ingestSessionsList()}>
                       {(session) => (
                         <div class="mb-3 last:mb-0 p-2 border border-slate-300 rounded">
@@ -581,6 +581,7 @@ export const EditUserSettings: Component = () => {
               </div>
             </Match>
           </Switch>
+          </div>
         </div>
       </div>
     </>
