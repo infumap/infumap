@@ -45,6 +45,7 @@ const REASON_SERVER: &str = "server";
 const PAIRING_CODE_TTL_SECS: i64 = 60 * 5;
 const ACCESS_TOKEN_TTL_SECS: i64 = 60 * 10;
 const REFRESH_TOKEN_TTL_SECS: i64 = 60 * 60 * 24 * 180;
+const REVOKED_SESSION_VISIBLE_SECS: i64 = 60 * 60 * 24;
 
 const DEFAULT_DEVICE_NAME: &str = "Chrome extension";
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
@@ -549,8 +550,22 @@ async fn list_sessions(
     }
   };
 
+  let now_unix_secs = match now_unix_secs() {
+    Ok(t) => t,
+    Err(e) => {
+      error!("Could not list ingest sessions due to clock issue: {}", e);
+      return json_response(&ListSessionsResponse {
+        success: false,
+        err: Some(REASON_SERVER.to_owned()),
+        sessions: None,
+      });
+    }
+  };
+
   let db = db.lock().await;
   let mut sessions = db.ingest_session.list_sessions_for_user(&session.user_id);
+  let revoked_session_visible_after = now_unix_secs.saturating_sub(REVOKED_SESSION_VISIBLE_SECS);
+  sessions.retain(|s| !s.revoked || s.last_used_at > revoked_session_visible_after);
   sessions.sort_by(|a, b| b.last_used_at.cmp(&a.last_used_at));
 
   let summaries = sessions

@@ -74,6 +74,18 @@ const setStatus = (text, isError = false) => {
   status.style.color = isError ? "#b00020" : "#1f2937";
 };
 
+const revokeRefreshTokenBestEffort = async (baseUrl, refreshToken) => {
+  if (!refreshToken) {
+    return;
+  }
+  try {
+    await postJson(`${baseUrl}ingest/token/revoke`, {
+      refreshToken
+    });
+  } catch (_e) {
+  }
+};
+
 const renderSessionStatus = async () => {
   const settings = await storageGet({
     ingestSessionId: null,
@@ -117,6 +129,13 @@ const pairExtension = async () => {
 
   setStatus("Pairing...");
   try {
+    const previousSettings = await storageGet({
+      baseUrl: DEFAULT_BASE_URL,
+      refreshToken: null
+    });
+    const previousBaseUrl = normalizeBaseUrl(previousSettings.baseUrl);
+    const previousRefreshToken = previousSettings.refreshToken;
+
     const response = await postJson(`${baseUrl}ingest/pairing/redeem`, {
       pairingCode,
       deviceName: deviceName === "" ? null : deviceName
@@ -140,6 +159,9 @@ const pairExtension = async () => {
     document.getElementById("pairingCode").value = "";
     setStatus("Paired successfully.");
     await renderSessionStatus();
+    if (previousRefreshToken && previousRefreshToken !== response.refreshToken) {
+      await revokeRefreshTokenBestEffort(previousBaseUrl, previousRefreshToken);
+    }
   } catch (_e) {
     setStatus("Pairing request failed.", true);
   }
@@ -152,14 +174,7 @@ const disconnectExtension = async () => {
   });
 
   const baseUrl = normalizeBaseUrl(settings.baseUrl);
-  if (settings.refreshToken) {
-    try {
-      await postJson(`${baseUrl}ingest/token/revoke`, {
-        refreshToken: settings.refreshToken
-      });
-    } catch (_e) {
-    }
-  }
+  await revokeRefreshTokenBestEffort(baseUrl, settings.refreshToken);
 
   await storageRemove(AUTH_STORAGE_KEYS);
   setStatus("Ingest session removed.");

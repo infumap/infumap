@@ -54,6 +54,7 @@ interface IngestSessionsResponse extends IngestSimpleResponse {
 
 
 const DIALOG_WIDTH_PX = 510;
+const INGEST_SESSION_LIST_MAX_HEIGHT_PX = 220;
 
 export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 662 };
 
@@ -547,7 +548,7 @@ export const EditUserSettings: Component = () => {
 
                 <div class="text-sm text-slate-600 mb-2">Ingest sessions:</div>
                 <Show when={ingestSessionsList().length === 0} fallback={
-                  <div>
+                  <div style={`max-height: ${INGEST_SESSION_LIST_MAX_HEIGHT_PX}px; overflow-y: auto; padding-right: 4px;`}>
                     <For each={ingestSessionsList()}>
                       {(session) => (
                         <div class="mb-3 p-2 border border-slate-300 rounded">
@@ -555,8 +556,12 @@ export const EditUserSettings: Component = () => {
                             <div>
                               <div class="font-medium">{session.deviceName}</div>
                               <div class="text-sm text-slate-600">Created: {humanReadableTime(session.createdAt)}</div>
-                              <div class="text-sm text-slate-600">Last used: {humanReadableTime(session.lastUsedAt)}</div>
-                              <div class="text-sm text-slate-600">Refresh expires: {humanReadableTime(session.refreshExpires)}</div>
+                              <div class="text-sm text-slate-600">
+                                {session.revoked ? "Revoked" : "Last used"}: {humanReadableTime(session.lastUsedAt)}
+                              </div>
+                              <Show when={!session.revoked}>
+                                <div class="text-sm text-slate-600">Refresh expires: {humanReadableTime(session.refreshExpires)}</div>
+                              </Show>
                             </div>
                             <Show when={!session.revoked} fallback={<div class="text-xs text-red-700">Revoked</div>}>
                               <InfuButton text="Revoke" onClick={() => handleRevokeIngestSession(session.id)} />
