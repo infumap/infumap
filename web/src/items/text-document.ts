@@ -92,6 +92,15 @@ type TextLine = {
   nextStart: number,
 };
 
+type MarkdownCodeFenceInfo = {
+  tickCount: number,
+};
+
+type MarkdownCodeBlockParse = {
+  block: TextDocumentTextBlock,
+  endIndex: number,
+};
+
 type TextDocumentGeneratedItems = {
   rootChildren: Array<Item>,
   tableChildrenByTableId: { [id: string]: Array<Item> },
@@ -116,6 +125,12 @@ type InlineDelimiter = {
   flags: number,
   outputStart: number,
 };
+
+const CHATGPT_ARTIFACT_START = "\uE200";
+const CHATGPT_ARTIFACT_SEPARATOR = "\uE202";
+const CHATGPT_ARTIFACT_END = "\uE201";
+const CHATGPT_ARTIFACT_BODY_RE = /^(?:cite|finance)\uE202turn\d+[a-z]+\d+(?:\uE202turn\d+[a-z]+\d+)*$/;
+const CHATGPT_ARTIFACT_TRIM_BEFORE = ",.;:!?)]}\"'";
 
 function setTransientMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
   store.overlay.toolbarTransientMessage.set({ text, type });
@@ -359,6 +374,68 @@ function matchingInlineDelimiterIndex(stack: Array<InlineDelimiter>, marker: str
   return -1;
 }
 
+function chatGptMarkdownArtifactEnd(text: string, pos: number): number | null {
+  if (text[pos] != CHATGPT_ARTIFACT_START) { return null; }
+
+  const end = text.indexOf(CHATGPT_ARTIFACT_END, pos + 1);
+  if (end < 0) { return null; }
+
+  const body = text.substring(pos + 1, end);
+  if (
+    body.includes(CHATGPT_ARTIFACT_START) ||
+    body.includes("\n") ||
+    body.includes("\r") ||
+    !body.includes(CHATGPT_ARTIFACT_SEPARATOR) ||
+    !CHATGPT_ARTIFACT_BODY_RE.test(body)
+  ) {
+    return null;
+  }
+
+  return end + 1;
+}
+
+function outputInlineLength(output: Array<string>): number {
+  return output.reduce((sum, part) => sum + part.length, 0);
+}
+
+function outputEndsInlineWhitespace(output: Array<string>): boolean {
+  for (let i = output.length - 1; i >= 0; --i) {
+    const part = output[i];
+    if (part.length == 0) { continue; }
+    const c = part[part.length - 1];
+    return c == " " || c == "\t";
+  }
+  return false;
+}
+
+function trimTrailingInlineWhitespace(output: Array<string>, rawSpans: Array<RawInlineMarkSpan>): void {
+  let changed = false;
+  while (output.length > 0) {
+    const part = output[output.length - 1];
+    const trimmed = part.replace(/[ \t]+$/, "");
+    if (trimmed.length == part.length) { break; }
+    changed = true;
+    if (trimmed.length == 0) {
+      output.pop();
+    } else {
+      output[output.length - 1] = trimmed;
+      break;
+    }
+  }
+
+  if (!changed) { return; }
+  const textLen = outputInlineLength(output);
+  for (const span of rawSpans) {
+    if (span.end > textLen) {
+      span.end = Math.max(span.start, textLen);
+    }
+  }
+}
+
+function shouldTrimBeforeChatGptArtifactNextChar(c: string | undefined): boolean {
+  return c == null || CHATGPT_ARTIFACT_TRIM_BEFORE.includes(c);
+}
+
 function flattenedInlineMarks(rawSpans: Array<RawInlineMarkSpan>, text: string): Array<NoteInlineMark> {
   if (rawSpans.length == 0 || text == "") { return []; }
 
@@ -424,6 +501,22 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
 
     if (c == "`") {
       i = copyMarkdownCodeSpan(text, i, output);
+      continue;
+    }
+
+    const artifactEnd = chatGptMarkdownArtifactEnd(text, i);
+    if (artifactEnd != null) {
+      const next = text[artifactEnd];
+      const shouldSkipFollowingWhitespace = outputInlineLength(output) == 0 || outputEndsInlineWhitespace(output);
+      if (shouldTrimBeforeChatGptArtifactNextChar(next)) {
+        trimTrailingInlineWhitespace(output, rawSpans);
+      }
+      i = artifactEnd;
+      if (shouldSkipFollowingWhitespace) {
+        while (text[i] == " " || text[i] == "\t") {
+          i += 1;
+        }
+      }
       continue;
     }
 
@@ -553,6 +646,48 @@ function isMarkdownDividerLine(line: string): boolean {
     /^(\*\s*){3,}$/.test(trimmed);
 }
 
+function markdownCodeFenceInfo(line: string): MarkdownCodeFenceInfo | null {
+  const match = /^ {0,3}(`{3,})[^`]*$/.exec(line);
+  if (match == null) { return null; }
+  return { tickCount: match[1].length };
+}
+
+function isMarkdownCodeFenceClose(line: string, openingTickCount: number): boolean {
+  const match = /^ {0,3}(`{3,})[ \t]*$/.exec(line);
+  return match != null && match[1].length >= openingTickCount;
+}
+
+function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): MarkdownCodeBlockParse | null {
+  const fence = markdownCodeFenceInfo(lines[index].text);
+  if (fence == null) { return null; }
+
+  const codeLines: Array<string> = [];
+  let end = lines[index].end;
+  let endIndex = index;
+  for (let i = index + 1; i < lines.length; ++i) {
+    end = lines[i].end;
+    endIndex = i;
+    if (isMarkdownCodeFenceClose(lines[i].text, fence.tickCount)) {
+      break;
+    }
+    codeLines.push(lines[i].text);
+  }
+
+  return {
+    block: {
+      kind: "paragraph",
+      title: codeLines.join("\n"),
+      inlineMarks: [],
+      headingLevel: null,
+      noteFlags: NoteFlags.Code,
+      start: lines[index].start,
+      end,
+      ordinal: 0,
+    },
+    endIndex,
+  };
+}
+
 function isMarkdownTextItem(textItem: TextItem): boolean {
   const mimeType = (textItem.mimeType ?? "").toLowerCase();
   const title = textItem.title.toLowerCase();
@@ -645,6 +780,16 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
     const line = lines[i];
     if (line.text.trim() == "") {
       flushParagraph();
+      continue;
+    }
+
+    const codeBlock = parseMarkdown ? parseMarkdownCodeBlockAt(lines, i) : null;
+    if (codeBlock != null) {
+      flushParagraph();
+      listStack = [];
+      codeBlock.block.ordinal = blocks.length;
+      blocks.push(codeBlock.block);
+      i = codeBlock.endIndex;
       continue;
     }
 
