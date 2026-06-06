@@ -1668,6 +1668,10 @@ pub async fn add_item_for_user(
       item_map.insert("format".to_owned(), Value::String("".to_owned()));
     }
 
+    if item_type == ItemType::Note.as_str() && !item_map.contains_key("inlineMarks") {
+      item_map.insert("inlineMarks".to_owned(), Value::Array(vec![]));
+    }
+
     if is_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("flags") {
       item_map.insert("flags".to_owned(), Value::Number(0.into()));
     }
