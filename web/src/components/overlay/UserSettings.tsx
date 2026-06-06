@@ -54,7 +54,7 @@ interface IngestSessionsResponse extends IngestSimpleResponse {
 
 
 const DIALOG_WIDTH_PX = 510;
-const INGEST_SESSION_LIST_MAX_HEIGHT_PX = 220;
+const INGEST_SESSION_LIST_MAX_HEIGHT_PX = 340;
 
 export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 662 };
 
@@ -551,7 +551,7 @@ export const EditUserSettings: Component = () => {
                   <div style={`max-height: ${INGEST_SESSION_LIST_MAX_HEIGHT_PX}px; overflow-y: auto; padding-right: 4px;`}>
                     <For each={ingestSessionsList()}>
                       {(session) => (
-                        <div class="mb-3 p-2 border border-slate-300 rounded">
+                        <div class="mb-3 last:mb-0 p-2 border border-slate-300 rounded">
                           <div class="flex items-center justify-between">
                             <div>
                               <div class="font-medium">{session.deviceName}</div>
