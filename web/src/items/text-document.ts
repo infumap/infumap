@@ -603,6 +603,53 @@ function markdownAutolinkAt(text: string, pos: number): { title: string, url: st
   return { title: normalizeMarkdownDocumentText(value), url: value, end: end + 1 };
 }
 
+function countChars(text: string, char: string): number {
+  let count = 0;
+  for (let i = 0; i < text.length; ++i) {
+    if (text[i] == char) { count += 1; }
+  }
+  return count;
+}
+
+function trimBareMarkdownUrlEnd(text: string, start: number, end: number): number {
+  let trimmedEnd = end;
+  while (trimmedEnd > start) {
+    const c = text[trimmedEnd - 1];
+    const candidate = text.substring(start, trimmedEnd);
+    if (".,;:!?\"'".includes(c)) {
+      trimmedEnd -= 1;
+      continue;
+    }
+    if (c == ")" && countChars(candidate, ")") > countChars(candidate, "(")) {
+      trimmedEnd -= 1;
+      continue;
+    }
+    if (c == "]" && countChars(candidate, "]") > countChars(candidate, "[")) {
+      trimmedEnd -= 1;
+      continue;
+    }
+    if (c == "}" && countChars(candidate, "}") > countChars(candidate, "{")) {
+      trimmedEnd -= 1;
+      continue;
+    }
+    break;
+  }
+  return trimmedEnd;
+}
+
+function bareMarkdownUrlAt(text: string, pos: number): { title: string, url: string, end: number } | null {
+  if (pos > 0 && /[A-Za-z0-9]/.test(text[pos - 1])) { return null; }
+
+  const match = /^https?:\/\/[^\s<>]+/i.exec(text.substring(pos));
+  if (match == null) { return null; }
+
+  const end = trimBareMarkdownUrlEnd(text, pos, pos + match[0].length);
+  const url = text.substring(pos, end);
+  if (!/^https?:\/\/[^\s<>]+$/i.test(url)) { return null; }
+
+  return { title: normalizeMarkdownDocumentText(url), url, end };
+}
+
 function flattenedInlineMarks(rawSpans: Array<RawInlineMarkSpan>, text: string): Array<NoteInlineMark> {
   if (rawSpans.length == 0 || text == "") { return []; }
 
@@ -714,6 +761,16 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
       output.push(autolink.title);
       rawUrls.push({ start, end, url: autolink.url });
       i = autolink.end;
+      continue;
+    }
+
+    const bareUrl = bareMarkdownUrlAt(text, i);
+    if (bareUrl != null) {
+      const start = outputInlineLength(output);
+      const end = start + bareUrl.title.length;
+      output.push(bareUrl.title);
+      rawUrls.push({ start, end, url: bareUrl.url });
+      i = bareUrl.end;
       continue;
     }
 
