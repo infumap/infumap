@@ -79,6 +79,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const pagePath = pageFns().vePath();
     return itemPath == pagePath || VeFns.parentPath(itemPath) == pagePath;
   };
+  const readOnlyDocumentTextSelectionIsActive = () =>
+    pageFns().isDocumentPage() && !canEditPage();
+  const documentTextSelectionContainerIsActive = () =>
+    documentTextEditIsActive() || readOnlyDocumentTextSelectionIsActive();
 
   const getScrollVeid = (): Veid | null => {
     let veid = store.history.currentPageVeid();
@@ -350,15 +354,34 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   };
 
   const keyUpHandler = (ev: KeyboardEvent) => {
+    if (readOnlyDocumentTextSelectionIsActive()) { return; }
     edit_keyUpHandler(store, ev);
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
+    if (readOnlyDocumentTextSelectionIsActive()) {
+      if (ev.key == "Backspace" || ev.key == "Delete" || ev.key == "Enter" || ev.key == "Tab") {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      return;
+    }
     edit_keyDownHandler(store, props.visualElement, ev);
   }
 
   const inputListener = (ev: InputEvent) => {
+    if (readOnlyDocumentTextSelectionIsActive()) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      return;
+    }
     edit_inputListener(store, ev);
+  }
+
+  const beforeInputListener = (ev: InputEvent) => {
+    if (!readOnlyDocumentTextSelectionIsActive()) { return; }
+    ev.preventDefault();
+    ev.stopPropagation();
   }
 
   const rootScrollHandler = (_ev: Event) => {
@@ -560,7 +583,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             `width: ${pageFns().childAreaBoundsPx().w}px; ` +
             `height: ${pageFns().childAreaBoundsPx().h}px;` +
             `outline: 0px solid transparent; `}
-          contentEditable={documentTextEditIsActive()}
+          contentEditable={documentTextSelectionContainerIsActive()}
+          onBeforeInput={beforeInputListener}
           onKeyUp={keyUpHandler}
           onKeyDown={keyDownHandler}
           onInput={inputListener}>
@@ -738,7 +762,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px;` +
           `outline: 0px solid transparent; `}
-        contentEditable={documentTextEditIsActive()}
+        contentEditable={documentTextSelectionContainerIsActive()}
+        onBeforeInput={beforeInputListener}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
@@ -758,7 +783,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             <>
               <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
               <LinearSelectionGapCover
-                enabled={documentTextEditIsActive}
+                enabled={documentTextSelectionContainerIsActive}
                 boundsPx={gapAfterBoundsPx} />
             </>
           );

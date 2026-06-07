@@ -57,6 +57,7 @@ import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
+import { NativeTextSelectionState } from "./native_text_selection";
 
 
 interface MovePersistOperation {
@@ -860,6 +861,7 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
 
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
+  NativeTextSelectionState.clear();
 
   if (document.activeElement!.id.includes("toolbarTitleDiv")) {
     let titleBounds = boundingBoxFromDOMRect(document.activeElement!.getBoundingClientRect())!;

@@ -53,6 +53,7 @@ import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
+import { NativeTextSelectionState } from "./native_text_selection";
 
 
 export const MOUSE_LEFT = 0;
@@ -173,6 +174,7 @@ function isInsideToolbarControlArea(): boolean {
 
 export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number): Promise<MouseEventActionFlags> {
   let defaultResult = MouseEventActionFlags.PreventDefault;
+  NativeTextSelectionState.clear();
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
 
@@ -538,6 +540,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
 
   if (shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
     ClickState.setLinkWasClicked(false);
+    NativeTextSelectionState.startReadOnlyDocumentTextSelection();
     return MouseEventActionFlags.None;
   }
 

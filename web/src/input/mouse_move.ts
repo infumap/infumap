@@ -58,6 +58,7 @@ import {
 } from "../util/calendar-layout";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
+import { NativeTextSelectionState } from "./native_text_selection";
 
 
 let lastMouseOverPath: VisualElementPath | null = null;
@@ -133,6 +134,10 @@ export function mouseMoveHandler(store: StoreContextModel) {
   const hasUser = store.user.getUserMaybe() != null;
 
   const currentMouseDesktopPx = CursorEventState.getLatestDesktopPx(store);
+
+  if (NativeTextSelectionState.isReadOnlyDocumentTextSelectionActive()) {
+    return;
+  }
 
   // It is necessary to handle dialog moving at the global level, because sometimes the mouse position may
   // get outside the dialog area when being moved quickly.

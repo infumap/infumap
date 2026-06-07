@@ -250,6 +250,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
+    if (!isTextEditTarget()) { return; }
     switch (ev.key) {
       case "Enter":
         ev.preventDefault();
@@ -373,6 +374,21 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isSelectableReadOnlyDocumentText = () =>
     isInDocumentPage() && !canEdit();
 
+  const readOnlyDocumentSelectableTextStyle = () =>
+    isSelectableReadOnlyDocumentText()
+      ? `pointer-events: auto; user-select: text; -webkit-user-select: text; `
+      : "";
+
+  const documentTextBottomSelectionGuardHeightPx = () => {
+    if (!isInDocumentPage()) { return 0; }
+    const visualLineHeightPx = LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier * textBlockScale();
+    const visualFontSizePx = infuTextStyle().fontSize * textBlockScale();
+    const visualTextTopPx = (NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale();
+    const visualTextLineBoxBottomPx = visualTextTopPx + sizeBl().h * visualLineHeightPx;
+    const bottomSlackPx = Math.max(0, boundsPx().h - visualTextLineBoxBottomPx);
+    return Math.max(2, (visualLineHeightPx - visualFontSizePx) / 2 + bottomSlackPx);
+  };
+
   const isTextEditTarget = () =>
     store.overlay.textEditInfo()?.itemPath == vePath();
 
@@ -484,8 +500,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
                 `outline: 0px solid transparent; ` +
                 (isTextEditTarget()
                   ? `user-select: text; -webkit-user-select: text; `
-                  : `${isSelectableReadOnlyDocumentText() ? `user-select: text; -webkit-user-select: text; ` : ""}` +
-                    `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
+                  : isSelectableReadOnlyDocumentText()
+                    ? readOnlyDocumentSelectableTextStyle()
+                    : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
               contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
               spellcheck={canEdit() && isTextEditTarget()}
               onKeyDown={keyDownHandler}
@@ -495,6 +512,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             </span>
           </Match>
         </Switch>
+        <Show when={isInDocumentPage()}>
+          <div
+            aria-hidden="true"
+            contentEditable={false}
+            class="absolute select-none"
+            style={`left: 0px; top: ${boundsPx().h - documentTextBottomSelectionGuardHeightPx()}px; ` +
+              `width: ${boundsPx().w}px; height: ${documentTextBottomSelectionGuardHeightPx()}px; ` +
+              `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT - 1}; pointer-events: auto; ` +
+              `cursor: text; user-select: none; -webkit-user-select: none;`} />
+        </Show>
       </div>
       <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
