@@ -28,6 +28,15 @@ export interface TitledMixin {
 
 export interface TitledItem extends TitledMixin, Item { }
 
+export function titleWithCopySuffix(title: string): string {
+  return title + " (copy)";
+}
+
+export function appendCopySuffixToTitledItem(item: ItemTypeMixin): void {
+  if (!isTitledItem(item)) { return; }
+  const titledItem = asTitledItem(item);
+  titledItem.title = titleWithCopySuffix(titledItem.title);
+}
 
 export function isTitledItem(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }

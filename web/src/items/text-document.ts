@@ -30,6 +30,7 @@ import {
 } from "./base/flags-item";
 import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
+import { titleWithCopySuffix } from "./base/titled-item";
 import { PlaceholderFns } from "./placeholder-item";
 import { NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, normalizeNoteInlineMarks } from "./note-item";
 import { DividerFns } from "./divider-item";
@@ -1206,6 +1207,7 @@ export function createPendingTextDocumentPage(
     relationshipToParent: RelationshipToParent.Child,
     ordering,
   });
+  page.title = titleWithCopySuffix(page.title);
   page.capabilities = null;
   page.childrenLoaded = true;
   page.computed_children = [];

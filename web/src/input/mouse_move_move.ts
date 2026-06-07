@@ -22,6 +22,7 @@ import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
 import type { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
+import { appendCopySuffixToTitledItem } from "../items/base/titled-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { isComposite } from "../items/composite-item";
@@ -111,6 +112,12 @@ function newOrderingAtEndOfCurrentParent(item: Item): Uint8Array {
   return item.relationshipToParent == RelationshipToParent.Attachment
     ? itemState.newOrderingAtEndOfAttachments(item.parentId)
     : itemState.newOrderingAtEndOfChildren(item.parentId);
+}
+
+function appendCopySuffixToTextLikeClone(item: Item): void {
+  if (isNote(item) || isText(item)) {
+    appendCopySuffixToTitledItem(item);
+  }
 }
 
 function moveRollbackOrderingForChild(childId: string): Uint8Array | null {
@@ -335,6 +342,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       cloned.lastModifiedDate = currentUnixTimeSeconds();
       cloned.dateTime = currentUnixTimeSeconds();
       cloned.ordering = newOrderingAtEndOfCurrentParent(cloned);
+      appendCopySuffixToTextLikeClone(cloned);
       itemState.add(cloned);
       if (copyOnlyMove) {
         MouseActionState.setItemCopyMove({ pendingItemId: cloned.id });
@@ -862,6 +870,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     cloned.ordering = itemState.newOrderingAtEndOfChildren(moveToPage.id);
     cloned.spatialPositionGr = newItemPosGr;
     cloned.parentId = moveToPage.id;
+    appendCopySuffixToTextLikeClone(cloned);
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
 
@@ -994,6 +1003,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     cloned.ordering = itemState.newOrderingAtEndOfChildren(moveToPage.id);
     cloned.spatialPositionGr = itemPosInPageQuantizedGr;
     cloned.parentId = moveToPage.id;
+    appendCopySuffixToTextLikeClone(cloned);
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
 
