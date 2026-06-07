@@ -30,6 +30,7 @@ function segmentStyle(flags: number): string {
 
 function linkStyle(flags: number): string {
   return `${segmentStyle(flags)} ` +
+    `cursor: pointer; ` +
     `-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`;
 }
 
