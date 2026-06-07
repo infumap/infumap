@@ -182,6 +182,9 @@ export const itemState = {
 
   upsertItemFromServerObject: (itemObject: object, origin: string | null): Item => {
     const newItem = ItemFns.fromObject(itemObject, origin);
+    if ((itemObject as { clientOnly?: unknown }).clientOnly === true) {
+      newItem.clientOnly = true;
+    }
     const existingItem = items.get(newItem.id);
     if (existingItem) {
       preservePendingPopupFields(existingItem, newItem);

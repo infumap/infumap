@@ -174,7 +174,7 @@ interface ServerCommand {
 }
 
 function shouldSkipClientOnlyItemUpdate(item: Item): boolean {
-  return item.id == SOLO_ITEM_HOLDER_PAGE_UID;
+  return item.id == SOLO_ITEM_HOLDER_PAGE_UID || item.clientOnly === true;
 }
 
 const COMMAND_GET_ITEMS = "get-items";
@@ -574,7 +574,7 @@ function getTrackedLocalContainerSubscriptions(): Array<SyncContainerSubscriptio
         return false;
       }
       const item = itemState.get(containerId);
-      return item != null && isContainer(item);
+      return item != null && isContainer(item) && item.clientOnly !== true;
     })
     .sort()
     .map((containerId) => {

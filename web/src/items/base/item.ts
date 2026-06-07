@@ -58,6 +58,7 @@ export interface Measurable extends ItemTypeMixin { }
 
 export interface Item extends ItemTypeMixin {
   origin: string | null,
+  clientOnly?: boolean,
   capabilities?: ItemCapabilities | null,
   ownerId: Uid,
   id: Uid,

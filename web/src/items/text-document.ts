@@ -173,6 +173,10 @@ function setTransientMessage(store: StoreContextModel, text: string, type: Trans
   setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1500);
 }
 
+function markClientOnly(item: Item): void {
+  item.clientOnly = true;
+}
+
 function stableUid(input: string): Uid {
   let h1 = 0x811c9dc5;
   let h2 = 0x9e3779b9;
@@ -1301,7 +1305,12 @@ function createTextDocumentPage(
   page.id = virtual
     ? stableUid(`text-document-page:${textItem.id}`)
     : page.id;
-  page.capabilities = virtual ? readonlyCapabilities : null;
+  if (virtual) {
+    markClientOnly(page);
+    page.capabilities = readonlyCapabilities;
+  } else {
+    page.capabilities = null;
+  }
   page.arrangeAlgorithm = ArrangeAlgorithm.Document;
   page.childrenLoaded = true;
   page.orderChildrenBy = "";
@@ -1324,6 +1333,7 @@ function createNoteForBlock(
   note.inlineMarks = block.inlineMarks;
   note.urls = block.urls;
   if (virtual) {
+    markClientOnly(note);
     note.id = stableUid(`text-document-block:${textItem.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
     note.capabilities = readonlyCopyableCapabilities;
   }
@@ -1345,6 +1355,7 @@ function createNoteForTableRow(
   note.inlineMarks = firstCell.inlineMarks;
   note.urls = firstCell.urls;
   if (virtual) {
+    markClientOnly(note);
     note.id = stableUid(`text-document-table-row:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}`);
     note.capabilities = readonlyCopyableCapabilities;
   }
@@ -1366,6 +1377,7 @@ function createNoteForTableCell(
   note.inlineMarks = cell.inlineMarks;
   note.urls = cell.urls;
   if (virtual) {
+    markClientOnly(note);
     note.id = stableUid(`text-document-table-cell:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
     note.capabilities = readonlyCopyableCapabilities;
   }
@@ -1383,6 +1395,7 @@ function createDividerForBlock(
 ): Item {
   const divider = DividerFns.create(ownerId, pageId, RelationshipToParent.Child, ordering, "horizontal");
   if (virtual) {
+    markClientOnly(divider);
     divider.id = stableUid(`text-document-divider:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
     divider.capabilities = readonlyCopyableCapabilities;
   }
@@ -1403,6 +1416,7 @@ function createPlaceholderForTableCell(
 ): Item {
   const placeholder = PlaceholderFns.create(ownerId, rowId, RelationshipToParent.Attachment, ordering);
   if (virtual) {
+    markClientOnly(placeholder);
     placeholder.id = stableUid(`text-document-table-cell-placeholder:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
     placeholder.capabilities = readonlyCapabilities;
   }
@@ -1427,6 +1441,7 @@ function createTableForBlock(
 ): Item {
   const table = TableFns.create(ownerId, pageId, RelationshipToParent.Child, "", ordering);
   if (virtual) {
+    markClientOnly(table);
     table.id = stableUid(`text-document-table:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
     table.capabilities = readonlyCopyableCapabilities;
   }
@@ -1508,6 +1523,9 @@ function createTextDocumentItems(
 
 function toVirtualServerObject(item: Item): object {
   const result = ItemFns.toObject(item) as any;
+  if (item.clientOnly === true) {
+    result.clientOnly = true;
+  }
   if (item.capabilities != null) {
     result.capabilities = item.capabilities;
   }
