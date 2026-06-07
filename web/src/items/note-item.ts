@@ -37,11 +37,9 @@ import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemCli
 import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
-import { FormatMixin } from './base/format-item';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
-import { isNumeric } from '../util/math';
 import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject, listItemIconRenderContext } from './base/icon-item';
 
 
@@ -49,7 +47,7 @@ export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, At
   url: string,
 }
 
-export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, FormatMixin, AttachmentsMixin, IconMixin {
+export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin, IconMixin {
   inlineMarks: Array<NoteInlineMark>,
 }
 
@@ -402,8 +400,6 @@ export const NoteFns = {
 
       flags: NoteFlags.None,
 
-      format: "",
-
       url: "",
       emoji: null,
       iconMode: ItemIconMode.Auto,
@@ -441,7 +437,6 @@ export const NoteFns = {
       emoji: o.emoji || null,
       iconMode: itemIconModeFromObject(o, true),
       inlineMarks: unpackNoteInlineMarks(o.inlineMarks ?? [], o.title),
-      format: o.format,
 
       computed_attachments: [],
     });
@@ -471,7 +466,6 @@ export const NoteFns = {
       emoji: n.emoji,
       iconMode: n.iconMode,
       inlineMarks: packNoteInlineMarks(n.inlineMarks, n.title),
-      format: n.format,
     });
   },
 
@@ -479,10 +473,9 @@ export const NoteFns = {
     if (!ignoreExplicitHeight && (note.flags & NoteFlags.ExplicitHeight) && note.spatialHeightGr > 0) {
       return { w: note.spatialWidthGr / GRID_SIZE, h: note.spatialHeightGr / GRID_SIZE };
     }
-    const formattedTitle = NoteFns.noteFormatMaybe(note.title, note.format);
     const widthBl = note.spatialWidthGr / GRID_SIZE;
     const textIndentPx = NoteFns.showsIcon(note, iconContext) ? desktopPopupIconTextIndentPx(widthBl) : 0;
-    let measuredHeightBl = measureLineCount(formattedTitle, widthBl, note.flags, textIndentPx);
+    let measuredHeightBl = measureLineCount(note.title, widthBl, note.flags, textIndentPx);
     if (measuredHeightBl < 1) { measuredHeightBl = 1; }
 
     // measureLineCount already measures using the style's actual line-height,
@@ -704,7 +697,6 @@ export const NoteFns = {
       title: note.title,
       computed_attachments: note.computed_attachments,
       flags: note.flags,
-      format: note.format,
       inlineMarks: normalizeNoteInlineMarks(note.inlineMarks, note.title),
       emoji: note.emoji,
       iconMode: note.iconMode,
@@ -716,7 +708,7 @@ export const NoteFns = {
   },
 
   getFingerprint: (noteItem: NoteItem): string => {
-    return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags + "~~~!@#~~~" + noteItem.format +
+    return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags +
       "~~~!@#~~~" + packNoteInlineMarks(noteItem.inlineMarks, noteItem.title).join(",") +
       "~~~!@#~~~" + (noteItem.emoji || "") + "~~~!@#~~~" + noteItem.iconMode;
   },
@@ -808,30 +800,6 @@ export const NoteFns = {
 
   hasUrl: (noteItem: NoteItem) => {
     return noteItem.url != null && noteItem.url != "" && noteItem.title != "";
-  },
-
-  // TODO (HIGH): something not naive.
-  noteFormatMaybe: (text: string, format: string): string => {
-    if (format == "") { return text; }
-    if (!isNumeric(text)) { return text; }
-    if (format == "0") { return Math.round(parseFloat(text)).toString(); }
-    if (format == "0.0") { return parseFloat(text).toFixed(1); }
-    if (format == "0.00") { return parseFloat(text).toFixed(2); }
-    if (format == "0.000") { return parseFloat(text).toFixed(3); }
-    if (format == "0.0000") { return parseFloat(text).toFixed(4); }
-    if (format == "1,000") {
-      return parseFloat(text).toLocaleString('en-US', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      });
-    }
-    if (format == "1,000.00") {
-      return parseFloat(text).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      });
-    }
-    return text;
   }
 };
 

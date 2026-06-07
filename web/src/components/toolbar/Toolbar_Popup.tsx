@@ -33,7 +33,6 @@ import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
 import { panic } from "../../util/lang";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
-import { asFormatItem } from "../../items/base/format-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import QRCode from "qrcode";
 import {
@@ -203,7 +202,6 @@ function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextSt
 
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
-  if (overlayType == ToolbarPopupType.NoteFormat) { return 105; }
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
   if (overlayType == ToolbarPopupType.NoteIndent) { return 36; }
   if (overlayType == ToolbarPopupType.ItemIcon) { return 292; }
@@ -311,7 +309,6 @@ export const Toolbar_Popup: Component = () => {
   const passwordItem = () => asPasswordItem(getToolbarFocusItem(store));
   const tableItem = () => asTableItem(getToolbarFocusItem(store));
   const ratingItem = () => asRatingItem(getToolbarFocusItem(store));
-  const formatItem = () => asFormatItem(getToolbarFocusItem(store));
   const compositeItemMaybe = () => {
     const focusItem = getToolbarFocusItem(store);
     if (!isComposite(focusItem)) { return null; }
@@ -383,8 +380,6 @@ export const Toolbar_Popup: Component = () => {
       pageItem().justifiedRowAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
       noteItem().url = textElement!.value;
-    } else if (overlayTypeConst == ToolbarPopupType.NoteFormat) {
-      formatItem().format = textElement!.value;
     } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
       const docWidthBl = Math.round(parseFloat(textElement!.value));
       if (!Number.isFinite(docWidthBl)) { return; }
@@ -399,7 +394,6 @@ export const Toolbar_Popup: Component = () => {
   };
 
   const inputWidthPx = (): number => {
-    if (overlayType() == ToolbarPopupType.NoteFormat) { return 264; }
     if (overlayType() == ToolbarPopupType.NoteUrl) { return 292; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return 196; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
@@ -449,7 +443,6 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const textEntryValue = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteFormat) { return formatItem().format; }
     if (overlayType() == ToolbarPopupType.NoteUrl) { return noteItem().url; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
@@ -462,7 +455,6 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const label = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteFormat) { return "Format"; }
     if (overlayType() == ToolbarPopupType.NoteUrl) { return "Url"; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "Inner Block Width"; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
@@ -477,7 +469,6 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const tooltip = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteFormat) { return "If the text is numeric, it will be formatted according to the specified pattern. Currently only a limited set of format patterns are supported: 0.0000, 0.000, 0.00, 0.0, 1,000, 1,000.00 or empty"; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the height of one line of normal sized text."; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }

@@ -41,7 +41,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 34;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 35;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -2302,6 +2302,23 @@ pub fn migrate_record_v33_to_v34(kvs: &Map<String, Value>) -> InfuResult<Map<Str
     }
 
     "update" | "delete" | "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
+pub fn migrate_record_v34_to_v35(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 34),
+
+    "entry" | "update" => {
+      let mut result = kvs.clone();
+      result.remove("format");
+      Ok(result)
+    }
+
+    "delete" | "containerVersion" => Ok(kvs.clone()),
 
     unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
   }

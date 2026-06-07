@@ -43,9 +43,8 @@ export const Toolbar_Note: Component = () => {
 
   let textStyleDiv: HTMLDivElement | undefined;
   let indentDiv: HTMLDivElement | undefined;
-  let beforeFormatElement: HTMLDivElement | undefined;
+  let beforeUrlElement: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
-  let formatDiv: HTMLDivElement | undefined;
   let urlDiv: HTMLDivElement | undefined;
   let popupIconDiv: HTMLDivElement | undefined;
 
@@ -202,23 +201,10 @@ export const Toolbar_Note: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteUrl });
+      { topLeftPx: { x: beforeUrlElement!.getBoundingClientRect().x, y: beforeUrlElement!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteUrl });
   }
   const handleUrlDown = () => {
     ClickState.setButtonClickBoundsPx(urlDiv!.getBoundingClientRect());
-  };
-
-  // Format
-  const formatHandler = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteFormat) {
-      store.overlay.toolbarPopupInfoMaybe.set(null);
-      return;
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: beforeFormatElement!.getBoundingClientRect().x, y: beforeFormatElement!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteFormat });
-  }
-  const handleFormatDown = () => {
-    ClickState.setButtonClickBoundsPx(formatDiv!.getBoundingClientRect());
   };
 
   const textStyleButtonHandler = () => {
@@ -296,11 +282,7 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
         <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
         <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
-        <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
-        <div ref={formatDiv} class="inline-block"
-          onMouseDown={handleFormatDown}>
-          <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
-        </div>
+        <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
         <div ref={urlDiv} class="inline-block"
           onMouseDown={handleUrlDown}>
           <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
@@ -347,11 +329,7 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
         <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
         <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
-        <div ref={beforeFormatElement} class="inline-block ml-[12px]"></div>
-        <div ref={formatDiv} class="inline-block"
-          onMouseDown={handleFormatDown}>
-          <InfuIconButton icon={`fa fa-asterisk`} highlighted={false} clickHandler={formatHandler} />
-        </div>
+        <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
         <div ref={urlDiv} class="inline-block"
           onMouseDown={handleUrlDown}>
           <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />

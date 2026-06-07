@@ -428,10 +428,6 @@ pub fn is_flags_item_type(item_type: ItemType) -> bool {
     || item_type == ItemType::Image
 }
 
-pub fn is_format_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Note
-}
-
 pub fn is_icon_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password
 }
@@ -444,7 +440,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 56] = [
+const ALL_JSON_FIELDS: [&'static str; 55] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -492,7 +488,6 @@ const ALL_JSON_FIELDS: [&'static str; 56] = [
   "text",
   "flags",
   "permissionFlags",
-  "format",
   "inlineMarks",
   "documentWidthBl",
   "documentShowTitle",
@@ -556,9 +551,6 @@ pub struct Item {
 
   // flags
   pub flags: Option<i64>,
-
-  // format
-  pub format: Option<String>,
 
   // permission flags
   pub permission_flags: Option<i64>,
@@ -663,7 +655,6 @@ impl Clone for Item {
       emoji: self.emoji.clone(),
       icon_mode: self.icon_mode.clone(),
       inline_marks: self.inline_marks.clone(),
-      format: self.format.clone(),
       table_columns: self.table_columns.clone(),
       number_of_visible_columns: self.number_of_visible_columns.clone(),
       image_size_px: self.image_size_px.clone(),
@@ -982,19 +973,6 @@ impl JsonLogSerializable<Item> for Item {
           cannot_modify_err("flags", &old.id)?;
         }
         result.insert(String::from("flags"), Value::Number(new_flags.into()));
-      }
-    }
-
-    // format
-    if let Some(new_format) = &new.format {
-      if match &old.format {
-        Some(o) => o != new_format,
-        None => true,
-      } {
-        if !is_format_item_type(old.item_type) {
-          cannot_modify_err("format", &old.id)?;
-        }
-        result.insert(String::from("format"), Value::String(new_format.clone()));
       }
     }
 
@@ -1586,14 +1564,6 @@ impl JsonLogSerializable<Item> for Item {
       self.flags = Some(v);
     }
 
-    // format
-    if let Some(v) = json::get_string_field(map, "format")? {
-      if !is_format_item_type(self.item_type) {
-        not_applicable_err("format", self.item_type, &self.id)?;
-      }
-      self.format = Some(v);
-    }
-
     // permission flags
     if let Some(v) = json::get_integer_field(map, "permissionFlags")? {
       if !is_permission_flags_item_type(self.item_type) {
@@ -2122,14 +2092,6 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
       unexpected_field_err("flags", &item.id, item.item_type)?
     }
     result.insert(String::from("flags"), Value::Number(flags.into()));
-  }
-
-  // format
-  if let Some(format) = &item.format {
-    if !is_format_item_type(item.item_type) {
-      unexpected_field_err("format", &item.id, item.item_type)?
-    }
-    result.insert(String::from("format"), Value::String(format.clone()));
   }
 
   // permission flags
@@ -2685,24 +2647,6 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       }
     }?,
 
-    // format
-    format: match json::get_string_field(map, "format")? {
-      Some(v) => {
-        if is_format_item_type(item_type) {
-          Ok(Some(v))
-        } else {
-          Err(not_applicable_err("format", item_type, &id))
-        }
-      }
-      None => {
-        if is_format_item_type(item_type) {
-          Err(expected_for_err("format", item_type, &id))
-        } else {
-          Ok(None)
-        }
-      }
-    }?,
-
     // permission flags
     permission_flags: match json::get_integer_field(map, "permissionFlags")? {
       Some(v) => {
@@ -3185,13 +3129,8 @@ impl Item {
     relationship: RelationshipToParent,
     title: &str,
     flags: NoteFlags,
-    format: Option<&str>,
     url: Option<String>,
   ) -> Item {
-    let mut fmt = "";
-    if let Some(f) = format {
-      fmt = f;
-    }
     Item {
       item_type: ItemType::Note,
       owner_id: EMPTY_UID.to_owned(),
@@ -3211,7 +3150,6 @@ impl Item {
       emoji: None,
       icon_mode: Some(ItemIconMode::Auto),
       inline_marks: Some(vec![]),
-      format: Some(fmt.to_owned()),
       order_children_by: None,
       spatial_height_gr: None,
       table_columns: None,
@@ -3279,7 +3217,6 @@ impl Item {
       emoji: None,
       icon_mode: None,
       inline_marks: None,
-      format: None,
       order_children_by: None,
       spatial_height_gr: Some(spatial_height_gr),
       table_columns: None,
@@ -3353,7 +3290,6 @@ impl Item {
       emoji: None,
       icon_mode: None,
       inline_marks: None,
-      format: None,
       link_to: None,
       catalog_path_override: None,
       catalog_fragment_match: None,
@@ -3413,7 +3349,6 @@ impl Item {
       emoji: None,
       icon_mode: None,
       inline_marks: None,
-      format: None,
       link_to: None,
       catalog_path_override: None,
       catalog_fragment_match: None,
@@ -3479,7 +3414,6 @@ impl Item {
       emoji: None,
       icon_mode: None,
       inline_marks: None,
-      format: None,
       link_to: None,
       catalog_path_override: None,
       catalog_fragment_match: None,
@@ -3547,7 +3481,6 @@ impl Item {
       emoji: None,
       icon_mode: None,
       inline_marks: None,
-      format: None,
       link_to: None,
       catalog_path_override: None,
       catalog_fragment_match: None,
@@ -3651,7 +3584,6 @@ impl Item {
       emoji: None,
       icon_mode: None,
       inline_marks: None,
-      format: None,
       link_to: None,
       catalog_path_override: None,
       catalog_fragment_match: None,
@@ -3778,15 +3710,6 @@ impl Item {
     if is_flags_item_type(self.item_type) {
       if let Some(flags) = self.flags {
         hashes.push(hash_i64_to_uid(flags));
-      }
-    }
-
-    // Format properties
-    if is_format_item_type(self.item_type) {
-      if let Some(format) = &self.format {
-        if !format.is_empty() {
-          hashes.push(hash_string_to_uid(format));
-        }
       }
     }
 

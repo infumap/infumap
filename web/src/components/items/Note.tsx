@@ -392,11 +392,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isTextEditTarget = () =>
     store.overlay.textEditInfo()?.itemPath == vePath();
 
-  const renderedTitle = () =>
-    isTextEditTarget() ? noteItem().title : NoteFns.noteFormatMaybe(noteItem().title, noteItem().format);
+  const renderedTitle = () => noteItem().title;
 
-  const renderedInlineMarks = () =>
-    renderedTitle() == noteItem().title ? noteItem().inlineMarks : [];
+  const renderedInlineMarks = () => noteItem().inlineMarks;
 
   const renderListMarkerMaybe = () =>
     <Show when={hasListMarker()}>

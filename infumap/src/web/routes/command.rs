@@ -25,8 +25,8 @@ use image::ImageReader;
 use image::imageops::FilterType;
 use infusdk::item::{
   ArrangeAlgorithm, Item, ItemType, PermissionFlags, RelationshipToParent, TableColumn, is_attachments_item_type,
-  is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_format_item_type, is_image_item,
-  is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item,
+  is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_image_item, is_page_item,
+  is_permission_flags_item_type, is_positionable_type, is_table_item,
 };
 use infusdk::util::geometry::{Dimensions, GRID_SIZE, Vector};
 use infusdk::util::infu::InfuResult;
@@ -1662,10 +1662,6 @@ pub async fn add_item_for_user(
     // Temporary placeholder so item parsing succeeds before server-side MIME detection overwrites it.
     if is_data_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("mimeType") {
       item_map.insert("mimeType".to_owned(), Value::String("application/octet-stream".to_owned()));
-    }
-
-    if is_format_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("format") {
-      item_map.insert("format".to_owned(), Value::String("".to_owned()));
     }
 
     if item_type == ItemType::Note.as_str() && !item_map.contains_key("inlineMarks") {

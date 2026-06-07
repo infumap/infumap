@@ -111,10 +111,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     : infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER;
   const textPaddingLeftPx = () => noteTextBlockPaddingLeftPx(noteItem().flags);
   const isTextEditTarget = () => store.overlay.textEditInfo()?.itemPath == vePath();
-  const renderedTitle = () =>
-    isTextEditTarget() ? noteItem().title : NoteFns.noteFormatMaybe(noteItem().title, noteItem().format);
-  const renderedInlineMarks = () =>
-    renderedTitle() == noteItem().title ? noteItem().inlineMarks : [];
+  const renderedTitle = () => noteItem().title;
+  const renderedInlineMarks = () => noteItem().inlineMarks;
 
   const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
 
