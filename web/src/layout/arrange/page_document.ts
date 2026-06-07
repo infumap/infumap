@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, PAGE_DOCUMENT_BOTTOM_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { Item, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -159,7 +159,7 @@ export function arrange_document_page(
     : ItemFns.calcSpatialDimensionsBl(movingItemInThisPage).h * blockSizePx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.boundsPx)!);
   childAreaBoundsPx.w = documentWidthPx;
-  childAreaBoundsPx.h = topPx + movingItemReservedHeightPx;
+  childAreaBoundsPx.h = topPx + movingItemReservedHeightPx + PAGE_DOCUMENT_BOTTOM_PADDING_PX;
 
   if (movingItemInThisPage) {
     const movingVes = arrangeMovingItemInDocument(
