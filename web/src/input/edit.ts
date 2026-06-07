@@ -21,15 +21,18 @@ import {
   NoteFns,
   asNoteItem,
   concatNoteInlineMarks,
+  concatNoteUrls,
   isNote,
   noteInlineFlagsAtPosition,
   noteInlineFlagsForRange,
   NoteInlineMarkFlags,
   splitNoteInlineMarks,
+  splitNoteUrls,
   toggleNoteInlineMarkFlag,
   updateNoteInlineMarksForTextChange,
+  updateNoteUrlsForTextChange,
 } from "../items/note-item";
-import { trimNewline, isUrl, restoreContentEditablePlaceholderIfEmpty } from "../util/string";
+import { trimNewline, restoreContentEditablePlaceholderIfEmpty } from "../util/string";
 import { arrangeNow } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -210,6 +213,16 @@ function persistCurrentEditTarget(store: StoreContextModel) {
   serverOrRemote.updateItem(item, store.general.networkStatus);
 }
 
+function setNoteTitleFromEditedText(noteItem: ReturnType<typeof asNoteItem>, nextTitle: string, typingFlags: number): void {
+  const oldTitle = noteItem.title;
+  if (oldTitle != nextTitle) {
+    noteItem.inlineMarks = updateNoteInlineMarksForTextChange(noteItem.inlineMarks, oldTitle, nextTitle, typingFlags);
+    noteItem.urls = updateNoteUrlsForTextChange(noteItem.urls, oldTitle, nextTitle);
+  }
+  noteItem.title = nextTitle;
+  NoteFns.ensureTitleUrl(noteItem);
+}
+
 export function commitActiveTextEdit(
   store: StoreContextModel,
   preserveFocus: boolean = false,
@@ -241,14 +254,7 @@ export function commitActiveTextEdit(
     else if (textEditInfo.itemType == ItemType.Note) {
       editingDomEl.parentElement!.scrollLeft = 0;
       const noteItem = asNoteItem(item);
-      const nextTitle = trimNewline(newText);
-      if (noteItem.title != nextTitle) {
-        noteItem.inlineMarks = updateNoteInlineMarksForTextChange(noteItem.inlineMarks, noteItem.title, nextTitle, 0);
-      }
-      noteItem.title = nextTitle;
-      if (isUrl(noteItem.title) && noteItem.url == "") {
-        noteItem.url = noteItem.title;
-      }
+      setNoteTitleFromEditedText(noteItem, trimNewline(newText), 0);
     }
     else if (textEditInfo.itemType == ItemType.File) {
       editingDomEl.parentElement!.scrollLeft = 0;
@@ -432,7 +438,11 @@ function setTextForLinearSelectionDeletePath(context: LinearEditContext, path: s
 
   const item = itemState.get(VeFns.veidFromPath(path).itemId);
   if (item == null || (!isNote(item) && !isFile(item) && !isText(item))) { return false; }
-  asTitledItem(item).title = text;
+  if (isNote(item)) {
+    setNoteTitleFromEditedText(asNoteItem(item), text, 0);
+  } else {
+    asTitledItem(item).title = text;
+  }
   return true;
 }
 
@@ -981,11 +991,20 @@ const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualE
   if (!isNote(upFocusItem) && !isFile(upFocusItem) && !isText(upFocusItem)) { return; }
   const upTextLength = upFocusItem.title.length;
   if (isNote(upFocusItem)) {
-    asNoteItem(upFocusItem).inlineMarks = concatNoteInlineMarks(
-      asNoteItem(upFocusItem).inlineMarks,
+    const upNote = asNoteItem(upFocusItem);
+    const initialNote = asNoteItem(initialEditingItem);
+    const initialText = asTitledItem(context.editingVe.displayItem).title;
+    upNote.inlineMarks = concatNoteInlineMarks(
+      upNote.inlineMarks,
       upFocusItem.title,
-      asNoteItem(initialEditingItem).inlineMarks,
-      asTitledItem(context.editingVe.displayItem).title,
+      initialNote.inlineMarks,
+      initialText,
+    );
+    upNote.urls = concatNoteUrls(
+      upNote.urls,
+      upFocusItem.title,
+      initialNote.urls,
+      initialText,
     );
   }
   upFocusItem.title = upFocusItem.title + asTitledItem(context.editingVe.displayItem).title;
@@ -1047,23 +1066,20 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
   const beforeText = textElement!.innerText.substring(0, caretPosition);
   const afterText = textElement!.innerText.substring(caretPosition);
   let afterInlineMarks = null;
+  let afterUrls = null;
   if (isNote(item)) {
     const splitMarks = splitNoteInlineMarks(asNoteItem(item).inlineMarks, titledItem.title, caretPosition);
     asNoteItem(item).inlineMarks = splitMarks[0];
     afterInlineMarks = splitMarks[1];
-  }
-
-  // Set URL if the title is a URL (for notes)
-  if (isNote(item)) {
-    const noteItem = asNoteItem(item);
-    if (isUrl(beforeText)) {
-      if (noteItem.url == "") {
-        noteItem.url = beforeText;
-      }
-    }
+    const splitUrls = splitNoteUrls(asNoteItem(item).urls, titledItem.title, caretPosition);
+    asNoteItem(item).urls = splitUrls[0];
+    afterUrls = splitUrls[1];
   }
 
   titledItem.title = beforeText;
+  if (isNote(item)) {
+    NoteFns.ensureTitleUrl(asNoteItem(item));
+  }
 
   serverOrRemote.updateItem(titledItem, store.general.networkStatus);
 
@@ -1072,6 +1088,9 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
   note.title = afterText;
   if (afterInlineMarks != null) {
     note.inlineMarks = afterInlineMarks;
+  }
+  if (afterUrls != null) {
+    note.urls = afterUrls;
   }
   itemState.add(note);
   server.addItem(note, null, store.general.networkStatus);
@@ -1101,8 +1120,10 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
             : noteInputTypingFlags(store, focusItemPath);
           if (oldTitle != newText) {
             item.inlineMarks = updateNoteInlineMarksForTextChange(item.inlineMarks, oldTitle, newText, typingFlags);
+            item.urls = updateNoteUrlsForTextChange(item.urls, oldTitle, newText);
           }
           item.title = newText;
+          NoteFns.ensureTitleUrl(item);
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
           let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
           item.title = newText;

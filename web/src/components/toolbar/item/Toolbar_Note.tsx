@@ -106,6 +106,14 @@ export const Toolbar_Note: Component = () => {
       textEditInfo.itemPath == selectionInfo.itemPath &&
       !!(selectionInfo.typingFlags & flag);
   };
+  const noteUrlSelection = () => {
+    const selectionInfo = store.overlay.noteTextSelectionInfo.get();
+    if (selectionInfo == null || selectionInfo.itemPath != getToolbarFocusPathMaybe(store)) { return null; }
+    return selectionInfo;
+  };
+  const noteUrlHighlighted = (): boolean => {
+    return NoteFns.urlForToolbarEdit(noteItem(), noteUrlSelection()).trim() != "";
+  };
 
   const borderVisible = (): boolean => {
     if (compositeItemMaybe() != null) {
@@ -285,7 +293,7 @@ export const Toolbar_Note: Component = () => {
         <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
         <div ref={urlDiv} class="inline-block"
           onMouseDown={handleUrlDown}>
-          <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+          <InfuIconButton icon="fa fa-link" highlighted={noteUrlHighlighted()} clickHandler={urlButtonHandler} />
         </div>
         <Show when={isInTable()}>
           <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
@@ -332,7 +340,7 @@ export const Toolbar_Note: Component = () => {
         <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
         <div ref={urlDiv} class="inline-block"
           onMouseDown={handleUrlDown}>
-          <InfuIconButton icon="fa fa-link" highlighted={noteItem().url != ""} clickHandler={urlButtonHandler} />
+          <InfuIconButton icon="fa fa-link" highlighted={noteUrlHighlighted()} clickHandler={urlButtonHandler} />
         </div>
         <Show when={isInTable()}>
           <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />

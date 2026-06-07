@@ -40,11 +40,11 @@ import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DO
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { getToolbarFocusItem } from "../components/toolbar/toolbarFocus";
 import { serverOrRemote } from "../server";
-import { isUrl, trimNewline } from "../util/string";
+import { trimNewline } from "../util/string";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
-import { asNoteItem, isNote, NoteFns, updateNoteInlineMarksForTextChange } from "../items/note-item";
+import { asNoteItem, isNote, NoteFns, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
 import { asFileItem, FileFns, isFile } from "../items/file-item";
 import { asTextItem, TextFns, isText } from "../items/text-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
@@ -368,13 +368,10 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           const nextTitle = trimNewline(newText);
           if (noteItem.title != nextTitle) {
             noteItem.inlineMarks = updateNoteInlineMarksForTextChange(noteItem.inlineMarks, noteItem.title, nextTitle, 0);
+            noteItem.urls = updateNoteUrlsForTextChange(noteItem.urls, noteItem.title, nextTitle);
           }
           noteItem.title = nextTitle;
-          if (isUrl(noteItem.title)) {
-            if (noteItem.url == "") {
-              noteItem.url = noteItem.title;
-            }
-          }
+          NoteFns.ensureTitleUrl(noteItem);
         }
         else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
           editingDomEl.parentElement!.scrollLeft = 0;

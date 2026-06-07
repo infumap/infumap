@@ -83,7 +83,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
   item.insert("title".to_owned(), Value::String(note.to_owned()));
   item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 8).into()));
-  item.insert("url".to_owned(), Value::String("".to_owned()));
+  item.insert("urls".to_owned(), Value::Array(vec![]));
 
   let add_item_request = serde_json::to_string(&item)?;
   let send_request = CommandRequest { command: "add-item".to_owned(), json_data: add_item_request, base64_data: None };

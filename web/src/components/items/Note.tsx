@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch } from "solid-js";
+import { Component, For, Show } from "solid-js";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
-import { NoteFns, asNoteItem, splitNoteInlineMarks } from "../../items/note-item";
+import { NoteFns, asNoteItem, splitNoteInlineMarks, splitNoteUrls } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
@@ -44,9 +44,6 @@ import {
 import { HitboxFlags } from "../../layout/hitbox";
 import { useStore } from "../../store/StoreProvider";
 import { CompositeFns } from "../../items/composite-item";
-import { ClickState } from "../../input/state";
-import { MOUSE_LEFT } from "../../input/mouse_down";
-import { isUrl } from "../../util/string";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { VesCache } from "../../layout/ves-cache";
@@ -232,15 +229,6 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     }
   };
 
-  // Link click events are handled in the global mouse up handler. However, calculating the text
-  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
-  const aHrefMouseDownListener = (ev: MouseEvent) => {
-    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(noteItem().url != null && noteItem().url != ""); }
-    ev.preventDefault();
-  };
-  const aHrefClickListener = (ev: MouseEvent) => { ev.preventDefault(); };
-  const aHrefMouseUpListener = (ev: MouseEvent) => { ev.preventDefault(); };
-
   const beforeInputListener = (ev: InputEvent) => {
     edit_beforeInputHandler(store, ev);
   }
@@ -269,11 +257,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const enterKeyHandler = () => {
     if (store.user.getUserMaybe() == null || noteItem().ownerId != store.user.getUser().userId) { return; }
 
-    if (isUrl(noteItem().title)) {
-      if (noteItem().url == "") {
-        noteItem().url = noteItem().title;
-      }
-    }
+    NoteFns.ensureTitleUrl(noteItem());
 
     const ve = props.visualElement;
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
@@ -283,6 +267,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     const beforeText = textElement!.innerText.substring(0, caretPosition);
     const afterText = textElement!.innerText.substring(caretPosition);
     const splitMarks = splitNoteInlineMarks(asNoteItem(ve.displayItem).inlineMarks, asNoteItem(ve.displayItem).title, caretPosition);
+    const splitUrls = splitNoteUrls(asNoteItem(ve.displayItem).urls, asNoteItem(ve.displayItem).title, caretPosition);
 
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
@@ -298,12 +283,15 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
       asNoteItem(ve.displayItem).title = beforeText;
       asNoteItem(ve.displayItem).inlineMarks = splitMarks[0];
+      asNoteItem(ve.displayItem).urls = splitUrls[0];
+      NoteFns.ensureTitleUrl(asNoteItem(ve.displayItem));
       serverOrRemote.updateItem(ve.displayItem, store.general.networkStatus);
 
       const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
       const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
       note.title = afterText;
       note.inlineMarks = splitMarks[1];
+      note.urls = splitUrls[1];
       itemState.add(note);
       server.addItem(note, null, store.general.networkStatus);
 
@@ -396,6 +384,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderedInlineMarks = () => noteItem().inlineMarks;
 
+  const renderedUrls = () => noteItem().urls;
+
   const renderListMarkerMaybe = () =>
     <Show when={hasListMarker()}>
       <span class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
@@ -452,64 +442,38 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           </div>
         </Show>
         {renderListMarkerMaybe()}
-        <Switch>
-          <Match when={NoteFns.hasUrl(noteItem()) &&
-            !isInDocumentPage() &&
-            (store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
-            <div class={`${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass}`}
-              style={`position: absolute; ` +
-                `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-                `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
-                `width: ${naturalWidthPx()}px; ` +
-                `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
-                `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                `font-size: ${infuTextStyle().fontSize}px; ` +
-                `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
-                `text-indent: ${titleTextIndentPx()}px; ` +
-                `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `}>
-              <a id={VeFns.veToPath(props.visualElement) + ":title"}
-                href={noteItem().url}
-                class={`text-blue-800 hover:text-blue-600`}
-                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
-              onClick={aHrefClickListener}
-              onMouseDown={aHrefMouseDownListener}
-              onMouseUp={aHrefMouseUpListener}>
-                <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} />
-              </a>
-            </div>
-          </Match>
-          <Match when={!NoteFns.hasUrl(noteItem()) || isTextEditTarget() || isInDocumentPage()}>
-            <span id={VeFns.veToPath(props.visualElement) + ":title"}
-              class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-                `${NoteFns.hasUrl(noteItem()) ? 'black' : ''}${isTextEditTarget() || isSelectableReadOnlyDocumentText() ? ' select-text cursor-text' : ''}`}
-              style={`position: absolute; ` +
-                `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-                `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
-                `width: ${naturalWidthPx()}px; ` +
-                `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
-                `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-                `font-size: ${infuTextStyle().fontSize}px; ` +
-                `overflow-wrap: break-word; white-space: pre-wrap; ` +
-                `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
-                `text-indent: ${titleTextIndentPx()}px; ` +
-                `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                `outline: 0px solid transparent; ` +
-                (isTextEditTarget()
-                  ? `user-select: text; -webkit-user-select: text; `
-                  : isSelectableReadOnlyDocumentText()
-                    ? readOnlyDocumentSelectableTextStyle()
-                    : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
-              contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
-              spellcheck={canEdit() && isTextEditTarget()}
-              onKeyDown={keyDownHandler}
-              onBeforeInput={beforeInputListener}
-              onInput={inputListener}>
-              <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={isTextEditTarget()} />
-            </span>
-          </Match>
-        </Switch>
+        <span id={VeFns.veToPath(props.visualElement) + ":title"}
+          class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
+            `${isTextEditTarget() || isSelectableReadOnlyDocumentText() ? ' select-text cursor-text' : ''}`}
+          style={`position: absolute; ` +
+            `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+            `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+            `width: ${naturalWidthPx()}px; ` +
+            `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+            `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+            `font-size: ${infuTextStyle().fontSize}px; ` +
+            `overflow-wrap: break-word; white-space: pre-wrap; ` +
+            `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
+            `text-indent: ${titleTextIndentPx()}px; ` +
+            `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+            `outline: 0px solid transparent; ` +
+            (isTextEditTarget()
+              ? `user-select: text; -webkit-user-select: text; `
+              : isSelectableReadOnlyDocumentText()
+                ? readOnlyDocumentSelectableTextStyle()
+                : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
+          contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+          spellcheck={canEdit() && isTextEditTarget()}
+          onKeyDown={keyDownHandler}
+          onBeforeInput={beforeInputListener}
+          onInput={inputListener}>
+          <NoteInlineText
+            text={renderedTitle()}
+            inlineMarks={renderedInlineMarks()}
+            urls={renderedUrls()}
+            linksEnabled={!isTextEditTarget() && !isInDocumentPage()}
+            trailingCaretSpan={isTextEditTarget()} />
+        </span>
         <Show when={isInDocumentPage()}>
           <div
             aria-hidden="true"

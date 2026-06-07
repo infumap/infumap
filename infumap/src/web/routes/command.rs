@@ -1555,10 +1555,15 @@ async fn handle_add_link_note(
     }
   };
 
+  let title_len = title.encode_utf16().count();
   let item_json = serde_json::json!({
     "itemType": "note",
     "title": title,
-    "url": normalized_url_str,
+    "urls": [{
+      "start": 0,
+      "end": title_len,
+      "url": normalized_url_str,
+    }],
     "iconMode": "auto",
     "spatialWidthGr": 8 * 60,
   })
@@ -1666,6 +1671,18 @@ pub async fn add_item_for_user(
 
     if item_type == ItemType::Note.as_str() && !item_map.contains_key("inlineMarks") {
       item_map.insert("inlineMarks".to_owned(), Value::Array(vec![]));
+    }
+
+    if item_type == ItemType::Note.as_str() && !item_map.contains_key("urls") {
+      let title = json::get_string_field(&item_map, "title")?.unwrap_or_default();
+      let legacy_url = json::get_string_field(&item_map, "url")?.unwrap_or_default();
+      let urls = if !title.is_empty() && !legacy_url.trim().is_empty() {
+        serde_json::json!([{ "start": 0, "end": title.encode_utf16().count(), "url": legacy_url }])
+      } else {
+        Value::Array(vec![])
+      };
+      item_map.insert("urls".to_owned(), urls);
+      item_map.remove("url");
     }
 
     if is_flags_item_type(ItemType::from_str(&item_type)?) && !item_map.contains_key("flags") {

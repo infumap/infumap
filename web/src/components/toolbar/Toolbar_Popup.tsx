@@ -47,7 +47,7 @@ import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-it
 import { isImage } from "../../items/image-item";
 import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
-import { getToolbarFocusItem } from "./toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "./toolbarFocus";
 import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
@@ -352,6 +352,12 @@ export const Toolbar_Popup: Component = () => {
   );
   const [customEmojiInputFocused, setCustomEmojiInputFocused] = createSignal(false);
 
+  const noteUrlSelection = () => {
+    const selection = store.overlay.noteTextSelectionInfo.get();
+    if (selection == null || selection.itemPath != getToolbarFocusPathMaybe(store)) { return null; }
+    return selection;
+  };
+
   const handleKeyDown = (ev: KeyboardEvent) => {
     if (ev.code == "Enter") {
       handleTextChange();
@@ -379,7 +385,7 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {
       pageItem().justifiedRowAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
-      noteItem().url = textElement!.value;
+      NoteFns.setUrlForToolbarEdit(noteItem(), noteUrlSelection(), textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
       const docWidthBl = Math.round(parseFloat(textElement!.value));
       if (!Number.isFinite(docWidthBl)) { return; }
@@ -443,7 +449,7 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const textEntryValue = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteUrl) { return noteItem().url; }
+    if (overlayType() == ToolbarPopupType.NoteUrl) { return NoteFns.urlForToolbarEdit(noteItem(), noteUrlSelection()); }
     if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
@@ -514,7 +520,7 @@ export const Toolbar_Popup: Component = () => {
   const itemIconIsNone = (): boolean => iconMode() == ItemIconMode.None;
   const itemIconIsSymbol = (): boolean => iconMode() == ItemIconMode.Symbol;
   const noteIconIsFavicon = (): boolean => isNote(getToolbarFocusItem(store)) && noteItem().iconMode == ItemIconMode.Favicon;
-  const noteHasFaviconUrl = (): boolean => isNote(getToolbarFocusItem(store)) && noteItem().url.trim() != "";
+  const noteHasFaviconUrl = (): boolean => isNote(getToolbarFocusItem(store)) && NoteFns.hasFaviconUrl(noteItem());
   const noteFaviconPath = (): string | null => isNote(getToolbarFocusItem(store)) ? NoteFns.faviconPath(noteItem()) : null;
   const noteFaviconLoadStatus = (): NoteFaviconLoadStatus => isNote(getToolbarFocusItem(store))
     ? noteFaviconStatus(noteFaviconPath(), noteItem().origin)

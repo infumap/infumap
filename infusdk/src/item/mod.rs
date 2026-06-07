@@ -204,6 +204,13 @@ pub struct TableColumn {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct NoteUrl {
+  pub start: i64,
+  pub end: i64,
+  pub url: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct CatalogPathSegment {
   pub id: Uid,
   pub item_type: String,
@@ -440,7 +447,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 55] = [
+const ALL_JSON_FIELDS: [&'static str; 56] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -468,6 +475,7 @@ const ALL_JSON_FIELDS: [&'static str; 55] = [
   "cellPopupWidthNorm",
   "arrangeAlgorithm",
   "url",
+  "urls",
   "emoji",
   "iconMode",
   "originalCreationDate",
@@ -579,7 +587,9 @@ pub struct Item {
   pub calendar_day_row_height_bl: Option<f64>,
 
   // note
+  // `url` is retained as a legacy input field only. New note data uses `urls`.
   pub url: Option<String>,
+  pub urls: Option<Vec<NoteUrl>>,
   pub emoji: Option<String>,
   pub icon_mode: Option<ItemIconMode>,
   pub inline_marks: Option<Vec<i64>>,
@@ -652,6 +662,7 @@ impl Clone for Item {
       justified_row_aspect: self.justified_row_aspect.clone(),
       calendar_day_row_height_bl: self.calendar_day_row_height_bl.clone(),
       url: self.url.clone(),
+      urls: self.urls.clone(),
       emoji: self.emoji.clone(),
       icon_mode: self.icon_mode.clone(),
       inline_marks: self.inline_marks.clone(),
@@ -728,6 +739,86 @@ fn validate_note_inline_marks(inline_marks: &[i64], title: &str, item_id: &str) 
 
 fn note_inline_marks_to_array(inline_marks: &[i64]) -> Value {
   Value::Array(inline_marks.iter().map(|value| Value::Number((*value).into())).collect::<Vec<_>>())
+}
+
+fn get_note_urls_field(
+  map: &serde_json::Map<String, serde_json::Value>,
+  field: &str,
+) -> InfuResult<Option<Vec<NoteUrl>>> {
+  let Some(value) = map.get(field) else {
+    return Ok(None);
+  };
+  let values = value.as_array().ok_or(format!("'{}' field was not of type 'array'.", field))?;
+  let mut result = Vec::with_capacity(values.len());
+  for value in values {
+    let object = value.as_object().ok_or(format!("'{}' field contained a non-object value.", field))?;
+    result.push(NoteUrl {
+      start: json::get_integer_field(object, "start")?.ok_or(format!("'{}' entry was missing 'start'.", field))?,
+      end: json::get_integer_field(object, "end")?.ok_or(format!("'{}' entry was missing 'end'.", field))?,
+      url: json::get_string_field(object, "url")?.ok_or(format!("'{}' entry was missing 'url'.", field))?,
+    });
+  }
+  Ok(Some(result))
+}
+
+fn validate_note_urls(urls: &[NoteUrl], title: &str, item_id: &str) -> InfuResult<()> {
+  let title_len_utf16 = title.encode_utf16().count() as i64;
+  let mut previous_end = 0i64;
+
+  for (index, url) in urls.iter().enumerate() {
+    if url.start < 0 || url.end < 0 {
+      return Err(format!("'urls' field for note '{}' contains a negative range value.", item_id).into());
+    }
+    if url.start >= url.end {
+      return Err(format!("'urls' field for note '{}' contains an empty or reversed range.", item_id).into());
+    }
+    if url.end > title_len_utf16 {
+      return Err(format!("'urls' field for note '{}' contains a range past the note title.", item_id).into());
+    }
+    if url.url.trim().is_empty() {
+      return Err(format!("'urls' field for note '{}' contains an empty URL.", item_id).into());
+    }
+    if index > 0 && url.start < previous_end {
+      return Err(format!("'urls' field for note '{}' contains overlapping or unsorted ranges.", item_id).into());
+    }
+    previous_end = url.end;
+  }
+
+  Ok(())
+}
+
+fn note_urls_to_array(urls: &[NoteUrl]) -> Value {
+  Value::Array(
+    urls
+      .iter()
+      .map(|url| {
+        let mut result = Map::new();
+        result.insert(String::from("start"), Value::Number(url.start.into()));
+        result.insert(String::from("end"), Value::Number(url.end.into()));
+        result.insert(String::from("url"), Value::String(url.url.clone()));
+        Value::Object(result)
+      })
+      .collect::<Vec<_>>(),
+  )
+}
+
+fn note_urls_from_legacy_url(title: &str, url: &str) -> Vec<NoteUrl> {
+  if title.is_empty() || url.trim().is_empty() {
+    return vec![];
+  }
+  vec![NoteUrl { start: 0, end: title.encode_utf16().count() as i64, url: url.to_owned() }]
+}
+
+pub fn note_favicon_url(item: &Item) -> Option<&str> {
+  if item.item_type != ItemType::Note {
+    return None;
+  }
+  item
+    .urls
+    .as_ref()
+    .and_then(|urls| urls.first())
+    .filter(|url| url.start == 0 && !url.url.trim().is_empty())
+    .map(|url| url.url.as_str())
 }
 
 impl WebApiJsonSerializable<Item> for Item {
@@ -1224,15 +1315,16 @@ impl JsonLogSerializable<Item> for Item {
     }
 
     // note
-    if let Some(new_url) = &new.url {
-      if match &old.url {
-        Some(o) => o != new_url,
+    if let Some(new_urls) = &new.urls {
+      if match &old.urls {
+        Some(o) => o != new_urls,
         None => true,
       } {
         if old.item_type != ItemType::Note {
-          cannot_modify_err("url", &old.id)?;
+          cannot_modify_err("urls", &old.id)?;
         }
-        result.insert(String::from("url"), Value::String(new_url.clone()));
+        validate_note_urls(new_urls, new.title.as_deref().unwrap_or(""), &old.id)?;
+        result.insert(String::from("urls"), note_urls_to_array(new_urls));
       }
     }
     match (&old.emoji, &new.emoji) {
@@ -1743,10 +1835,20 @@ impl JsonLogSerializable<Item> for Item {
     // note
     if let Some(v) = json::get_string_field(map, "url")? {
       if self.item_type == ItemType::Note {
-        self.url = Some(v);
+        self.urls = Some(note_urls_from_legacy_url(self.title.as_deref().unwrap_or(""), &v));
+        self.url = None;
       } else {
         not_applicable_err("url", self.item_type, &self.id)?;
       }
+    }
+    if map.contains_key("urls") {
+      if self.item_type != ItemType::Note {
+        not_applicable_err("urls", self.item_type, &self.id)?;
+      }
+      let urls = get_note_urls_field(map, "urls")?.ok_or("'urls' field was missing after presence check.")?;
+      validate_note_urls(&urls, self.title.as_deref().unwrap_or(""), &self.id)?;
+      self.urls = Some(urls);
+      self.url = None;
     }
     if map.contains_key("emoji") {
       if self.item_type != ItemType::Note
@@ -2234,11 +2336,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   }
 
   // note
-  if let Some(url) = &item.url {
+  if let Some(urls) = &item.urls {
     if item.item_type != ItemType::Note {
-      unexpected_field_err("url", &item.id, item.item_type)?
+      unexpected_field_err("urls", &item.id, item.item_type)?
     }
-    result.insert(String::from("url"), Value::String(url.clone()));
+    validate_note_urls(urls, item.title.as_deref().unwrap_or(""), &item.id)?;
+    result.insert(String::from("urls"), note_urls_to_array(urls));
   }
   if let Some(emoji) = &item.emoji {
     if item.item_type != ItemType::Note
@@ -2908,19 +3011,31 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
 
     // note
-    url: match json::get_string_field(map, "url")? {
-      Some(v) => {
-        if item_type == ItemType::Note {
-          Ok(Some(v))
-        } else {
-          Err(not_applicable_err("url", item_type, &id))
+    url: None,
+    urls: {
+      let title = json::get_string_field(map, "title")?;
+      let title = title.as_deref().unwrap_or("");
+      match get_note_urls_field(map, "urls")? {
+        Some(v) => {
+          if item_type == ItemType::Note {
+            validate_note_urls(&v, title, &id)?;
+            Ok(Some(v))
+          } else {
+            Err(not_applicable_err("urls", item_type, &id))
+          }
         }
-      }
-      None => {
-        if item_type == ItemType::Note {
-          Err(expected_for_err("url", item_type, &id))
-        } else {
-          Ok(None)
+        None => {
+          if let Some(legacy_url) = json::get_string_field(map, "url")? {
+            if item_type == ItemType::Note {
+              Ok(Some(note_urls_from_legacy_url(title, &legacy_url)))
+            } else {
+              Err(not_applicable_err("url", item_type, &id))
+            }
+          } else if item_type == ItemType::Note {
+            Err(expected_for_err("urls", item_type, &id))
+          } else {
+            Ok(None)
+          }
         }
       }
     }?,
@@ -3131,6 +3246,7 @@ impl Item {
     flags: NoteFlags,
     url: Option<String>,
   ) -> Item {
+    let urls = url.as_deref().map(|url| note_urls_from_legacy_url(title, url)).unwrap_or_default();
     Item {
       item_type: ItemType::Note,
       owner_id: EMPTY_UID.to_owned(),
@@ -3146,7 +3262,8 @@ impl Item {
       spatial_position_gr: Some(spatial_position_gr),
       spatial_width_gr: Some(spatial_width_gr),
       title: Some(title.to_owned()),
-      url,
+      url: None,
+      urls: Some(urls),
       emoji: None,
       icon_mode: Some(ItemIconMode::Auto),
       inline_marks: Some(vec![]),
@@ -3214,6 +3331,7 @@ impl Item {
       spatial_width_gr: Some(spatial_width_gr),
       title: None,
       url: None,
+      urls: None,
       emoji: None,
       icon_mode: None,
       inline_marks: None,
@@ -3287,6 +3405,7 @@ impl Item {
       spatial_height_gr: Some(spatial_height_gr),
       title: Some(title.to_owned()),
       url: None,
+      urls: None,
       emoji: None,
       icon_mode: None,
       inline_marks: None,
@@ -3346,6 +3465,7 @@ impl Item {
       spatial_height_gr: None,
       title: None,
       url: None,
+      urls: None,
       emoji: None,
       icon_mode: None,
       inline_marks: None,
@@ -3411,6 +3531,7 @@ impl Item {
       spatial_height_gr: None,
       title: None,
       url: None,
+      urls: None,
       emoji: None,
       icon_mode: None,
       inline_marks: None,
@@ -3478,6 +3599,7 @@ impl Item {
       spatial_height_gr: Some(spatial_height_gr),
       title: None,
       url: None,
+      urls: None,
       emoji: None,
       icon_mode: None,
       inline_marks: None,
@@ -3581,6 +3703,7 @@ impl Item {
       number_of_visible_columns: Some(number_of_visible_columns),
 
       url: None,
+      urls: None,
       emoji: None,
       icon_mode: None,
       inline_marks: None,
@@ -3790,9 +3913,11 @@ impl Item {
 
     // Note-specific properties
     if self.item_type == ItemType::Note {
-      if let Some(url) = &self.url {
-        if !url.is_empty() {
-          hashes.push(hash_string_to_uid(url));
+      if let Some(urls) = &self.urls {
+        for url in urls {
+          hashes.push(hash_i64_to_uid(url.start));
+          hashes.push(hash_i64_to_uid(url.end));
+          hashes.push(hash_string_to_uid(&url.url));
         }
       }
       if let Some(inline_marks) = &self.inline_marks {

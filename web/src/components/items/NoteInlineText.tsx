@@ -17,8 +17,10 @@
 */
 
 import { Component, For, Show } from "solid-js";
-import { NoteInlineMark, NoteInlineMarkFlags, noteInlineTextSegments } from "../../items/note-item";
+import { NoteInlineMark, NoteInlineMarkFlags, NoteUrl, noteInlineTextSegments } from "../../items/note-item";
 import { EMPTY_CONTENT_EDITABLE_PLACEHOLDER } from "../../util/string";
+import { ClickState } from "../../input/state";
+import { MOUSE_LEFT } from "../../input/mouse_down";
 
 
 function segmentStyle(flags: number): string {
@@ -26,12 +28,25 @@ function segmentStyle(flags: number): string {
     `${(flags & NoteInlineMarkFlags.Italic) ? "font-style: italic; " : ""}`;
 }
 
+function linkStyle(flags: number): string {
+  return `${segmentStyle(flags)} ` +
+    `-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`;
+}
+
 export const NoteInlineText: Component<{
   text: string,
   inlineMarks: Array<NoteInlineMark>,
+  urls: Array<NoteUrl>,
+  linksEnabled?: boolean,
   trailingCaretSpan?: boolean,
 }> = (props) => {
-  const segments = () => noteInlineTextSegments(props.inlineMarks, props.text);
+  const segments = () => noteInlineTextSegments(props.inlineMarks, props.urls, props.text);
+
+  const linkMouseDown = (url: string) => (ev: MouseEvent) => {
+    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(url); }
+    ev.preventDefault();
+  };
+  const eatLinkClick = (ev: MouseEvent) => { ev.preventDefault(); };
 
   return (
     <>
@@ -40,7 +55,19 @@ export const NoteInlineText: Component<{
       </Show>
       <Show when={props.text != ""}>
         <For each={segments()}>{segment =>
-          <span style={segmentStyle(segment.flags)}>{segment.text}</span>
+          <Show
+            when={props.linksEnabled && segment.url != null}
+            fallback={<span style={segmentStyle(segment.flags)}>{segment.text}</span>}>
+            <a
+              href={segment.url ?? ""}
+              class="text-blue-800 hover:text-blue-600"
+              style={linkStyle(segment.flags)}
+              onClick={eatLinkClick}
+              onMouseDown={linkMouseDown(segment.url ?? "")}
+              onMouseUp={eatLinkClick}>
+              {segment.text}
+            </a>
+          </Show>
         }</For>
       </Show>
       <Show when={props.trailingCaretSpan}>

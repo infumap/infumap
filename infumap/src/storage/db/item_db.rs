@@ -41,7 +41,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 35;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 36;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -2322,6 +2322,93 @@ pub fn migrate_record_v34_to_v35(kvs: &Map<String, Value>) -> InfuResult<Map<Str
 
     unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
   }
+}
+
+#[derive(Clone, Default)]
+struct NoteUrlsMigrationState {
+  item_type: String,
+  title: Option<String>,
+  url: Option<String>,
+}
+
+fn note_urls_migration_value(title: Option<&str>, url: Option<&str>) -> Value {
+  let title = title.unwrap_or("");
+  let url = url.unwrap_or("");
+  if title.is_empty() || url.trim().is_empty() {
+    return Value::Array(vec![]);
+  }
+
+  let mut url_entry = Map::new();
+  url_entry.insert(String::from("start"), Value::Number(0.into()));
+  url_entry.insert(String::from("end"), Value::Number((title.encode_utf16().count() as i64).into()));
+  url_entry.insert(String::from("url"), Value::String(url.to_owned()));
+  Value::Array(vec![Value::Object(url_entry)])
+}
+
+pub fn migrate_records_v35_to_v36(
+  updated_descriptor: &Map<String, Value>,
+  records: &[Map<String, Value>],
+) -> InfuResult<(Map<String, Value>, Vec<Map<String, Value>>)> {
+  let mut state_by_id = HashMap::<String, NoteUrlsMigrationState>::new();
+  let mut migrated_records = Vec::with_capacity(records.len());
+
+  for kvs in records {
+    match json::get_string_field(kvs, "__recordType")?
+      .ok_or("'__recordType' field is missing from log record.")?
+      .as_str()
+    {
+      "entry" => {
+        let mut result = kvs.clone();
+        let item_id = json::get_string_field(kvs, "id")?.ok_or("Entry record is missing id.")?;
+        let item_type =
+          json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+        let title = json::get_string_field(kvs, "title")?;
+        let url = json::get_string_field(kvs, "url")?;
+        if item_type == "note" {
+          result.remove("url");
+          result.insert(String::from("urls"), note_urls_migration_value(title.as_deref(), url.as_deref()));
+        }
+        state_by_id.insert(item_id, NoteUrlsMigrationState { item_type, title, url });
+        migrated_records.push(result);
+      }
+
+      "update" => {
+        let mut result = kvs.clone();
+        let item_id = json::get_string_field(kvs, "id")?.ok_or("Update record does not have id.")?;
+        let previous = state_by_id
+          .get(&item_id)
+          .ok_or(format!("Update record has id '{}', but this is unknown.", item_id))?
+          .clone();
+        let mut next = previous.clone();
+        if let Some(title) = json::get_string_field(kvs, "title")? {
+          next.title = Some(title);
+        }
+        if kvs.contains_key("url") {
+          next.url = json::get_string_field(kvs, "url")?;
+        }
+        if previous.item_type == "note" && (kvs.contains_key("title") || kvs.contains_key("url")) {
+          result.remove("url");
+          result.insert(String::from("urls"), note_urls_migration_value(next.title.as_deref(), next.url.as_deref()));
+        }
+        state_by_id.insert(item_id, next);
+        migrated_records.push(result);
+      }
+
+      "delete" => {
+        let item_id = json::get_string_field(kvs, "id")?.ok_or("Delete record does not have id.")?;
+        state_by_id.remove(&item_id);
+        migrated_records.push(kvs.clone());
+      }
+
+      "containerVersion" => migrated_records.push(kvs.clone()),
+
+      unexpected_record_type => {
+        return Err(format!("Unknown log record type '{}'.", unexpected_record_type).into());
+      }
+    }
+  }
+
+  Ok((updated_descriptor.clone(), migrated_records))
 }
 
 fn is_legacy_text_file_entry(kvs: &Map<String, Value>) -> InfuResult<bool> {

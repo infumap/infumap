@@ -156,6 +156,31 @@ fn migrate_item_log(
     return Ok(());
   }
 
+  if from_version == 35 {
+    let mut records = Vec::<Map<String, Value>>::new();
+    for item in iterator {
+      match item? {
+        Object(kvs) => records.push(kvs),
+        unexpected_type => {
+          return Err(
+            format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
+          );
+        }
+      }
+    }
+
+    let (migrated_descriptor, migrated_records) =
+      crate::storage::db::item_db::migrate_records_v35_to_v36(&updated_descriptor, &records)?;
+    writer.write_all(serde_json::to_string(&migrated_descriptor)?.as_bytes())?;
+    writer.write_all("\n".as_bytes())?;
+    for migrated in migrated_records {
+      writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
+      writer.write_all("\n".as_bytes())?;
+    }
+    writer.flush()?;
+    return Ok(());
+  }
+
   writer.write_all(serde_json::to_string(&updated_descriptor)?.as_bytes())?;
   writer.write_all("\n".as_bytes())?;
 
@@ -212,6 +237,11 @@ fn migrate_item_log(
           32 => crate::storage::db::item_db::migrate_record_v32_to_v33(&kvs)?,
           33 => crate::storage::db::item_db::migrate_record_v33_to_v34(&kvs)?,
           34 => crate::storage::db::item_db::migrate_record_v34_to_v35(&kvs)?,
+          35 => {
+            return Err(
+              "Version 35 item logs require whole-log migration and should have been handled earlier.".into(),
+            );
+          }
           _ => {
             return Err(format!("Unexpected item log version: {}.", from_version).into());
           }

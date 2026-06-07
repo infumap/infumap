@@ -38,17 +38,17 @@ import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
-import { CursorEventState } from '../input/state';
+import { ClickState, CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
 import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject, listItemIconRenderContext } from './base/icon-item';
+import { isUrl } from '../util/string';
 
 
-export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, AttachmentsItem, TitledItem {
-  url: string,
-}
+export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, AttachmentsItem, TitledItem {}
 
 export interface NoteMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin, IconMixin {
   inlineMarks: Array<NoteInlineMark>,
+  urls: Array<NoteUrl>,
 }
 
 export { ItemIconMode, ItemIconRenderContext };
@@ -64,9 +64,16 @@ export interface NoteInlineMark {
   flags: number,
 }
 
+export interface NoteUrl {
+  start: number,
+  end: number,
+  url: string,
+}
+
 export interface NoteInlineTextSegment {
   text: string,
   flags: number,
+  url: string | null,
 }
 
 export const NoteTextStyle = {
@@ -133,6 +140,61 @@ function packNoteInlineMarks(inlineMarks: Array<NoteInlineMark>, text: string): 
   return normalizeNoteInlineMarks(inlineMarks, text).flatMap(mark => [mark.start, mark.end, mark.flags]);
 }
 
+export function normalizeNoteUrls(urls: Array<NoteUrl>, text: string): Array<NoteUrl> {
+  const textLen = text.length;
+  const normalized = urls
+    .map(url => ({
+      start: Math.trunc(url.start),
+      end: Math.trunc(url.end),
+      url: `${url.url ?? ""}`,
+    }))
+    .filter(url =>
+      Number.isFinite(url.start) &&
+      Number.isFinite(url.end) &&
+      url.start >= 0 &&
+      url.start < url.end &&
+      url.end <= textLen &&
+      url.url.trim() != "")
+    .sort((a, b) => a.start - b.start || a.end - b.end || a.url.localeCompare(b.url));
+
+  const result: Array<NoteUrl> = [];
+  for (const url of normalized) {
+    const last = result[result.length - 1];
+    if (last && url.start < last.end) { continue; }
+    if (last && url.start == last.end && last.url == url.url) {
+      last.end = url.end;
+    } else {
+      result.push(url);
+    }
+  }
+  return result;
+}
+
+function unpackNoteUrls(value: unknown, text: string, legacyUrl?: unknown): Array<NoteUrl> {
+  if (Array.isArray(value)) {
+    const urls: Array<NoteUrl> = [];
+    for (const entry of value) {
+      if (entry == null || typeof entry != "object") { return []; }
+      const start = (entry as any).start;
+      const end = (entry as any).end;
+      const url = (entry as any).url;
+      if (typeof start != "number" || typeof end != "number" || typeof url != "string") { return []; }
+      urls.push({ start, end, url });
+    }
+    return normalizeNoteUrls(urls, text);
+  }
+
+  if (typeof legacyUrl == "string" && legacyUrl.trim() != "" && text.length > 0) {
+    return [{ start: 0, end: text.length, url: legacyUrl }];
+  }
+
+  return [];
+}
+
+function packNoteUrls(urls: Array<NoteUrl>, text: string): Array<{ start: number, end: number, url: string }> {
+  return normalizeNoteUrls(urls, text).map(url => ({ ...url }));
+}
+
 function clampTextOffset(text: string, offset: number): number {
   return Math.max(0, Math.min(Math.trunc(offset), text.length));
 }
@@ -147,6 +209,29 @@ function flagsForInlineMarkInterval(inlineMarks: Array<NoteInlineMark>, start: n
     }
   }
   return 0;
+}
+
+function urlForInterval(urls: Array<NoteUrl>, start: number, end: number): string | null {
+  for (const url of urls) {
+    if (url.start <= start && url.end >= end) {
+      return url.url;
+    }
+    if (url.start > start) {
+      return null;
+    }
+  }
+  return null;
+}
+
+function urlForInsertedText(urls: Array<NoteUrl>, start: number, end: number): string | null {
+  if (start == end) {
+    for (const url of urls) {
+      if (url.start < start && start < url.end) { return url.url; }
+      if (start == url.end && url.start < url.end) { return url.url; }
+    }
+    return null;
+  }
+  return urlForInterval(urls, start, end);
 }
 
 export function noteInlineFlagsAtPosition(inlineMarks: Array<NoteInlineMark>, text: string, position: number): number {
@@ -348,32 +433,213 @@ export function concatNoteInlineMarks(
   return normalizeNoteInlineMarks([...normalizeNoteInlineMarks(leftMarks, leftText), ...shiftedRightMarks], leftText + rightText);
 }
 
-export function noteInlineTextSegments(inlineMarks: Array<NoteInlineMark>, text: string): Array<NoteInlineTextSegment> {
-  const segments: Array<NoteInlineTextSegment> = [];
-  let pos = 0;
-  for (const mark of normalizeNoteInlineMarks(inlineMarks, text)) {
-    if (mark.start > pos) {
-      segments.push({ text: text.substring(pos, mark.start), flags: 0 });
-    }
-    segments.push({ text: text.substring(mark.start, mark.end), flags: mark.flags });
-    pos = mark.end;
+export function updateNoteUrlsForTextChange(
+  urls: Array<NoteUrl>,
+  oldText: string,
+  newText: string,
+): Array<NoteUrl> {
+  const normalized = normalizeNoteUrls(urls, oldText);
+
+  let prefixLength = 0;
+  while (
+    prefixLength < oldText.length &&
+    prefixLength < newText.length &&
+    oldText[prefixLength] == newText[prefixLength]
+  ) {
+    ++prefixLength;
   }
-  if (pos < text.length) {
-    segments.push({ text: text.substring(pos), flags: 0 });
+
+  let oldSuffixStart = oldText.length;
+  let newSuffixStart = newText.length;
+  while (
+    oldSuffixStart > prefixLength &&
+    newSuffixStart > prefixLength &&
+    oldText[oldSuffixStart - 1] == newText[newSuffixStart - 1]
+  ) {
+    --oldSuffixStart;
+    --newSuffixStart;
+  }
+
+  const oldRangeStart = prefixLength;
+  const oldRangeEnd = oldSuffixStart;
+  const newRangeStart = prefixLength;
+  const newRangeEnd = newSuffixStart;
+  const delta = (newRangeEnd - newRangeStart) - (oldRangeEnd - oldRangeStart);
+
+  const result: Array<NoteUrl> = [];
+  for (const url of normalized) {
+    if (url.end <= oldRangeStart) {
+      result.push({ ...url });
+    } else if (url.start >= oldRangeEnd) {
+      result.push({ start: url.start + delta, end: url.end + delta, url: url.url });
+    } else {
+      if (url.start < oldRangeStart) {
+        result.push({ start: url.start, end: oldRangeStart, url: url.url });
+      }
+      if (url.end > oldRangeEnd) {
+        result.push({ start: newRangeEnd, end: url.end + delta, url: url.url });
+      }
+    }
+  }
+
+  const insertedUrl = urlForInsertedText(normalized, oldRangeStart, oldRangeEnd);
+  if (insertedUrl != null && newRangeStart < newRangeEnd) {
+    result.push({ start: newRangeStart, end: newRangeEnd, url: insertedUrl });
+  }
+
+  return normalizeNoteUrls(result, newText);
+}
+
+export function splitNoteUrls(
+  urls: Array<NoteUrl>,
+  text: string,
+  splitOffset: number,
+): [Array<NoteUrl>, Array<NoteUrl>] {
+  const split = clampTextOffset(text, splitOffset);
+  const left: Array<NoteUrl> = [];
+  const right: Array<NoteUrl> = [];
+  for (const url of normalizeNoteUrls(urls, text)) {
+    if (url.end <= split) {
+      left.push({ ...url });
+    } else if (url.start >= split) {
+      right.push({ start: url.start - split, end: url.end - split, url: url.url });
+    } else {
+      left.push({ start: url.start, end: split, url: url.url });
+      right.push({ start: 0, end: url.end - split, url: url.url });
+    }
+  }
+  return [
+    normalizeNoteUrls(left, text.substring(0, split)),
+    normalizeNoteUrls(right, text.substring(split)),
+  ];
+}
+
+export function concatNoteUrls(
+  leftUrls: Array<NoteUrl>,
+  leftText: string,
+  rightUrls: Array<NoteUrl>,
+  rightText: string,
+): Array<NoteUrl> {
+  const shiftedRightUrls = normalizeNoteUrls(rightUrls, rightText)
+    .map(url => ({ start: url.start + leftText.length, end: url.end + leftText.length, url: url.url }));
+  return normalizeNoteUrls([...normalizeNoteUrls(leftUrls, leftText), ...shiftedRightUrls], leftText + rightText);
+}
+
+export function noteInlineTextSegments(
+  inlineMarks: Array<NoteInlineMark>,
+  urls: Array<NoteUrl>,
+  text: string,
+): Array<NoteInlineTextSegment> {
+  const segments: Array<NoteInlineTextSegment> = [];
+  if (text == "") { return segments; }
+
+  const normalizedMarks = normalizeNoteInlineMarks(inlineMarks, text);
+  const normalizedUrls = normalizeNoteUrls(urls, text);
+  const boundaries = new Set<number>([0, text.length]);
+  for (const mark of normalizedMarks) {
+    boundaries.add(mark.start);
+    boundaries.add(mark.end);
+  }
+  for (const url of normalizedUrls) {
+    boundaries.add(url.start);
+    boundaries.add(url.end);
+  }
+
+  const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
+  for (let i = 0; i < sortedBoundaries.length - 1; ++i) {
+    const start = sortedBoundaries[i];
+    const end = sortedBoundaries[i + 1];
+    if (start == end) { continue; }
+    segments.push({
+      text: text.substring(start, end),
+      flags: flagsForInlineMarkInterval(normalizedMarks, start, end),
+      url: urlForInterval(normalizedUrls, start, end),
+    });
   }
   return segments;
 }
 
-function noteHasFaviconUrl(note: NoteItem): boolean {
-  return !!note.url?.trim();
+function noteFaviconUrl(note: NoteMeasurable): string | null {
+  const firstUrl = normalizeNoteUrls(note.urls, note.title)[0];
+  if (firstUrl == null || firstUrl.start != 0 || firstUrl.url.trim() == "") { return null; }
+  return firstUrl.url;
 }
 
 function noteIconKind(note: NoteMeasurable, context: ItemIconRenderContext): ItemIconMode.None | ItemIconMode.Symbol | ItemIconMode.Favicon {
-  const hasFaviconUrl = "url" in note && noteHasFaviconUrl(note as NoteItem);
+  const hasFaviconUrl = noteFaviconUrl(note) != null;
   if (note.iconMode == ItemIconMode.Auto && hasFaviconUrl && context != ItemIconRenderContext.TableAttachment) {
     return ItemIconMode.Favicon;
   }
   return itemIconKind(note.iconMode, context, hasFaviconUrl);
+}
+
+type NoteUrlEditSelection = {
+  start: number,
+  end: number,
+};
+
+type NoteUrlEditTarget = {
+  start: number,
+  end: number,
+  value: string,
+};
+
+function noteUrlAtPosition(urls: Array<NoteUrl>, text: string, position: number): NoteUrl | null {
+  const pos = clampTextOffset(text, position);
+  for (const url of normalizeNoteUrls(urls, text)) {
+    if (url.start <= pos && pos < url.end) { return url; }
+    if (pos > 0 && url.start < pos && pos <= url.end) { return url; }
+  }
+  return null;
+}
+
+function noteUrlEditTarget(note: NoteItem, selection: NoteUrlEditSelection | null | undefined): NoteUrlEditTarget {
+  const normalized = normalizeNoteUrls(note.urls, note.title);
+  if (selection != null) {
+    const start = clampTextOffset(note.title, Math.min(selection.start, selection.end));
+    const end = clampTextOffset(note.title, Math.max(selection.start, selection.end));
+    if (start != end) {
+      const containing = normalized.find(url => url.start <= start && url.end >= end);
+      return { start, end, value: containing?.url ?? "" };
+    }
+
+    const containing = noteUrlAtPosition(normalized, note.title, start);
+    if (containing != null) {
+      return { start: containing.start, end: containing.end, value: containing.url };
+    }
+  }
+
+  const fullTitleUrl = normalized.find(url => url.start == 0 && url.end == note.title.length);
+  return { start: 0, end: note.title.length, value: fullTitleUrl?.url ?? "" };
+}
+
+function setNoteUrlForRange(
+  urls: Array<NoteUrl>,
+  text: string,
+  start: number,
+  end: number,
+  url: string,
+): Array<NoteUrl> {
+  const rangeStart = clampTextOffset(text, Math.min(start, end));
+  const rangeEnd = clampTextOffset(text, Math.max(start, end));
+  const trimmedUrl = url.trim();
+  const result: Array<NoteUrl> = [];
+  for (const existing of normalizeNoteUrls(urls, text)) {
+    if (existing.end <= rangeStart || existing.start >= rangeEnd) {
+      result.push(existing);
+      continue;
+    }
+    if (existing.start < rangeStart) {
+      result.push({ start: existing.start, end: rangeStart, url: existing.url });
+    }
+    if (existing.end > rangeEnd) {
+      result.push({ start: rangeEnd, end: existing.end, url: existing.url });
+    }
+  }
+  if (rangeStart < rangeEnd && trimmedUrl != "") {
+    result.push({ start: rangeStart, end: rangeEnd, url: trimmedUrl });
+  }
+  return normalizeNoteUrls(result, text);
 }
 
 
@@ -400,7 +666,7 @@ export const NoteFns = {
 
       flags: NoteFlags.None,
 
-      url: "",
+      urls: [],
       emoji: null,
       iconMode: ItemIconMode.Auto,
       inlineMarks: [],
@@ -433,7 +699,7 @@ export const NoteFns = {
 
       flags: o.flags,
 
-      url: o.url ?? "",
+      urls: unpackNoteUrls(o.urls, o.title, o.url),
       emoji: o.emoji || null,
       iconMode: itemIconModeFromObject(o, true),
       inlineMarks: unpackNoteInlineMarks(o.inlineMarks ?? [], o.title),
@@ -462,7 +728,7 @@ export const NoteFns = {
 
       flags: n.flags,
 
-      url: n.url,
+      urls: packNoteUrls(n.urls, n.title),
       emoji: n.emoji,
       iconMode: n.iconMode,
       inlineMarks: packNoteInlineMarks(n.inlineMarks, n.title),
@@ -638,7 +904,15 @@ export const NoteFns = {
   },
 
   handleLinkClick: (visualElement: VisualElement): void => {
-    window.open(asNoteItem(visualElement.displayItem).url, '_blank');
+    const clickedUrl = ClickState.getLinkClickUrl();
+    if (clickedUrl != null && clickedUrl.trim() != "") {
+      window.open(clickedUrl, '_blank');
+      return;
+    }
+    const fallbackUrl = noteFaviconUrl(asNoteItem(visualElement.displayItem));
+    if (fallbackUrl != null) {
+      window.open(fallbackUrl, '_blank');
+    }
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
@@ -698,6 +972,7 @@ export const NoteFns = {
       computed_attachments: note.computed_attachments,
       flags: note.flags,
       inlineMarks: normalizeNoteInlineMarks(note.inlineMarks, note.title),
+      urls: normalizeNoteUrls(note.urls, note.title),
       emoji: note.emoji,
       iconMode: note.iconMode,
     });
@@ -708,8 +983,9 @@ export const NoteFns = {
   },
 
   getFingerprint: (noteItem: NoteItem): string => {
-    return noteItem.title + "~~~!@#~~~" + noteItem.url + "~~~!@#~~~" + noteItem.flags +
+    return noteItem.title + "~~~!@#~~~" + noteItem.flags +
       "~~~!@#~~~" + packNoteInlineMarks(noteItem.inlineMarks, noteItem.title).join(",") +
+      "~~~!@#~~~" + packNoteUrls(noteItem.urls, noteItem.title).map(url => `${url.start},${url.end},${url.url}`).join(",") +
       "~~~!@#~~~" + (noteItem.emoji || "") + "~~~!@#~~~" + noteItem.iconMode;
   },
 
@@ -777,7 +1053,7 @@ export const NoteFns = {
 
   faviconPath: (note: NoteItem, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): string | null => {
     if (noteIconKind(note, context) != ItemIconMode.Favicon) { return null; }
-    const url = note.url?.trim();
+    const url = noteFaviconUrl(note)?.trim();
     if (!url) { return null; }
     return `/favicons/${note.id}?u=${encodeURIComponent(url)}`;
   },
@@ -798,9 +1074,31 @@ export const NoteFns = {
     flagsItem.flags &= ~NoteFlags.AlignJustify;
   },
 
-  hasUrl: (noteItem: NoteItem) => {
-    return noteItem.url != null && noteItem.url != "" && noteItem.title != "";
-  }
+  hasUrls: (noteItem: NoteItem): boolean => {
+    return normalizeNoteUrls(noteItem.urls, noteItem.title).length > 0;
+  },
+
+  hasFaviconUrl: (noteItem: NoteItem): boolean => noteFaviconUrl(noteItem) != null,
+
+  wholeTitleUrl: (noteItem: NoteItem): string | null => {
+    const whole = normalizeNoteUrls(noteItem.urls, noteItem.title)
+      .find(url => url.start == 0 && url.end == noteItem.title.length);
+    return whole?.url ?? null;
+  },
+
+  ensureTitleUrl: (noteItem: NoteItem): void => {
+    if (!isUrl(noteItem.title) || normalizeNoteUrls(noteItem.urls, noteItem.title).length != 0) { return; }
+    noteItem.urls = [{ start: 0, end: noteItem.title.length, url: noteItem.title }];
+  },
+
+  urlForToolbarEdit: (noteItem: NoteItem, selection: NoteUrlEditSelection | null | undefined): string => {
+    return noteUrlEditTarget(noteItem, selection).value;
+  },
+
+  setUrlForToolbarEdit: (noteItem: NoteItem, selection: NoteUrlEditSelection | null | undefined, url: string): void => {
+    const target = noteUrlEditTarget(noteItem, selection);
+    noteItem.urls = setNoteUrlForRange(noteItem.urls, noteItem.title, target.start, target.end, url);
+  },
 };
 
 

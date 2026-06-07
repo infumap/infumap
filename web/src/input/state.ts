@@ -798,13 +798,24 @@ export const DoubleClickState = {
 
 let buttonClickBounds: BoundingBox | null = null;
 let linkWasClicked: boolean = false;
+let linkClickUrl: string | null = null;
 export const ClickState = {
-  setLinkWasClicked: (clickState: boolean): void => {
-    linkWasClicked = clickState;
+  setLinkWasClicked: (clickState: boolean | string | null): void => {
+    if (typeof clickState == "string") {
+      linkWasClicked = clickState.trim() != "";
+      linkClickUrl = clickState;
+      return;
+    }
+    linkWasClicked = clickState == true;
+    linkClickUrl = null;
   },
 
   getLinkWasClicked: (): boolean => {
     return linkWasClicked;
+  },
+
+  getLinkClickUrl: (): string | null => {
+    return linkClickUrl;
   },
 
   setButtonClickBoundsPx: (bounds: DOMRect | null): void => {

@@ -26,8 +26,6 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
-import { MOUSE_LEFT } from "../../input/mouse_down";
-import { ClickState } from "../../input/state";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
@@ -113,25 +111,18 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const isTextEditTarget = () => store.overlay.textEditInfo()?.itemPath == vePath();
   const renderedTitle = () => noteItem().title;
   const renderedInlineMarks = () => noteItem().inlineMarks;
+  const renderedUrls = () => noteItem().urls;
 
   const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
 
   const copyClickHandler = () => {
-    if (noteItem().url == "") {
+    const url = NoteFns.wholeTitleUrl(noteItem());
+    if (url == null) {
       navigator.clipboard.writeText(noteItem().title);
     } else {
-      navigator.clipboard.writeText("[" + noteItem().title + "](" + noteItem().url + ")");
+      navigator.clipboard.writeText("[" + noteItem().title + "](" + url + ")");
     }
   }
-
-  // Link click events are handled in the global mouse up handler. However, calculating the text
-  // hitbox is difficult, so this hook is here to enable the browser to conveniently do it for us.
-  const aHrefMouseDown = (ev: MouseEvent) => {
-    if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(noteItem().url != null && noteItem().url != ""); }
-    ev.preventDefault();
-  };
-  const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
-  const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
 
   const renderHighlightsMaybe = () =>
     <Switch>
@@ -219,47 +210,22 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             `width: ${textWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
             `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
             `padding-left: ${textPaddingLeftPx()}px; padding-right: ${textPaddingRightCssPx()}px;`}>
-          <Switch>
-            <Match when={NoteFns.hasUrl(noteItem()) &&
-              !isTextEditTarget()}>
-              <a id={VeFns.veToPath(props.visualElement) + ":title"}
-                href={noteItem().url}
-                class={`text-blue-800 ${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none; ` +
-                  `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}
-                onClick={aHrefClick}
-                onMouseDown={aHrefMouseDown}
-                onMouseUp={aHrefMouseUp}>
-                <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} />
-              </a>
-            </Match>
-            <Match when={isTextEditTarget()}>
-              <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                  `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
-                contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
-                spellcheck={canEdit() && isTextEditTarget()}
-                onKeyDown={keyDownHandler}
-                onBeforeInput={beforeInputListener}
-                onInput={inputListener}>
-                <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={true} />
-              </span>
-            </Match>
-            <Match when={!NoteFns.hasUrl(noteItem()) || isTextEditTarget()}>
-              <span id={VeFns.veToPath(props.visualElement) + ":title"}
-                class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-                style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-                  `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
-                contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
-                spellcheck={canEdit() && isTextEditTarget()}
-                onKeyDown={keyDownHandler}
-                onBeforeInput={beforeInputListener}
-                onInput={inputListener}>
-                <NoteInlineText text={renderedTitle()} inlineMarks={renderedInlineMarks()} trailingCaretSpan={isTextEditTarget()} />
-              </span>
-            </Match>
-          </Switch>
+          <span id={VeFns.veToPath(props.visualElement) + ":title"}
+            class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+            style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+              `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
+            contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+            spellcheck={canEdit() && isTextEditTarget()}
+            onKeyDown={keyDownHandler}
+            onBeforeInput={beforeInputListener}
+            onInput={inputListener}>
+            <NoteInlineText
+              text={renderedTitle()}
+              inlineMarks={renderedInlineMarks()}
+              urls={renderedUrls()}
+              linksEnabled={!isTextEditTarget()}
+              trailingCaretSpan={isTextEditTarget()} />
+          </span>
         </div>
       </Show>
     </>;

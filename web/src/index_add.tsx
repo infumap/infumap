@@ -162,7 +162,7 @@ async function handleSubmit() {
   const jsonData = JSON.stringify({
     itemType: "note",
     title: (document.getElementById("note")! as HTMLInputElement).value,
-    url: "",
+    urls: [],
     spatialWidthGr: 8 * 60,
   });
   setStatus("status", "adding");
