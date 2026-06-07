@@ -102,6 +102,19 @@ type MarkdownCodeBlockParse = {
   endIndex: number,
 };
 
+type MarkdownFrontMatterTableParse = {
+  block: TextDocumentTableBlock,
+  endIndex: number,
+};
+
+type MarkdownFrontMatterRawRow = {
+  key: string,
+  valueParts: Array<string>,
+  valueMode: "scalar" | "list" | "block",
+  start: number,
+  end: number,
+};
+
 type TextDocumentGeneratedItems = {
   rootChildren: Array<Item>,
   tableChildrenByTableId: { [id: string]: Array<Item> },
@@ -641,6 +654,10 @@ function normalizeMarkdownTableInlineCells(cells: Array<string>, columnCount: nu
   return normalizeMarkdownTableCells(cells, columnCount).map(parseMarkdownInline);
 }
 
+function plainInlineText(title: string): TextDocumentInlineText {
+  return { title: normalizeMarkdownDocumentText(title), inlineMarks: [] };
+}
+
 function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocumentTableBlock | null {
   if (index + 1 >= lines.length) { return null; }
 
@@ -681,6 +698,172 @@ function isMarkdownDividerLine(line: string): boolean {
   return /^(-\s*){3,}$/.test(trimmed) ||
     /^(_\s*){3,}$/.test(trimmed) ||
     /^(\*\s*){3,}$/.test(trimmed);
+}
+
+function isMarkdownFrontMatterDelimiterLine(line: string, allowBom: boolean): boolean {
+  const normalized = allowBom ? line.replace(/^\uFEFF/, "") : line;
+  return normalized.trim() == "---";
+}
+
+function normalizeMarkdownFrontMatterScalar(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed == "null" || trimmed == "~") { return ""; }
+
+  if (trimmed.length >= 2 && trimmed[0] == "\"" && trimmed[trimmed.length - 1] == "\"") {
+    const unescaped = trimmed.substring(1, trimmed.length - 1).replace(/\\(["\\/bfnrt])/g, (_, escaped: string) => {
+      if (escaped == "b") { return "\b"; }
+      if (escaped == "f") { return "\f"; }
+      if (escaped == "n") { return "\n"; }
+      if (escaped == "r") { return "\r"; }
+      if (escaped == "t") { return "\t"; }
+      return escaped;
+    });
+    return unescaped.replace(/[\r\n]+/g, " ");
+  }
+
+  if (trimmed.length >= 2 && trimmed[0] == "'" && trimmed[trimmed.length - 1] == "'") {
+    return trimmed.substring(1, trimmed.length - 1).replace(/''/g, "'");
+  }
+
+  return trimmed;
+}
+
+function splitMarkdownFrontMatterInlineArray(value: string): Array<string> | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) { return null; }
+
+  const body = trimmed.substring(1, trimmed.length - 1).trim();
+  if (body == "") { return []; }
+
+  const parts: Array<string> = [];
+  let part = "";
+  let quote: string | null = null;
+  for (let i = 0; i < body.length; ++i) {
+    const c = body[i];
+    if (quote != null) {
+      part += c;
+      if (c == "\\" && quote == "\"" && i + 1 < body.length) {
+        i += 1;
+        part += body[i];
+        continue;
+      }
+      if (c == quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (c == "\"" || c == "'") {
+      quote = c;
+      part += c;
+      continue;
+    }
+    if (c == ",") {
+      parts.push(normalizeMarkdownFrontMatterScalar(part));
+      part = "";
+      continue;
+    }
+    part += c;
+  }
+  parts.push(normalizeMarkdownFrontMatterScalar(part));
+
+  return parts;
+}
+
+function markdownFrontMatterValueParts(value: string): Array<string> {
+  const inlineArray = splitMarkdownFrontMatterInlineArray(value);
+  if (inlineArray != null) { return inlineArray; }
+  return [normalizeMarkdownFrontMatterScalar(value)];
+}
+
+function markdownFrontMatterRowValue(row: MarkdownFrontMatterRawRow): string {
+  const separator = row.valueMode == "list" ? ", " : " ";
+  return row.valueParts.filter(part => part.trim() != "").join(separator);
+}
+
+function appendMarkdownFrontMatterRowValue(row: MarkdownFrontMatterRawRow, value: string, line: TextLine, mode: "list" | "block"): void {
+  row.valueParts.push(...markdownFrontMatterValueParts(value));
+  if (row.valueMode != "block") {
+    row.valueMode = mode;
+  }
+  row.end = line.end;
+}
+
+function parseMarkdownFrontMatterAt(lines: Array<TextLine>, index: number): MarkdownFrontMatterTableParse | null {
+  if (index != 0 || lines.length < 3 || !isMarkdownFrontMatterDelimiterLine(lines[index].text, true)) {
+    return null;
+  }
+
+  let endIndex = -1;
+  for (let i = index + 1; i < lines.length; ++i) {
+    if (isMarkdownFrontMatterDelimiterLine(lines[i].text, false)) {
+      endIndex = i;
+      break;
+    }
+  }
+  if (endIndex < 0) { return null; }
+
+  const rawRows: Array<MarkdownFrontMatterRawRow> = [];
+  let currentRow: MarkdownFrontMatterRawRow | null = null;
+  for (let i = index + 1; i < endIndex; ++i) {
+    const line = lines[i];
+    const trimmed = line.text.trim();
+    if (trimmed == "" || trimmed.startsWith("#")) { continue; }
+
+    if (line.text[0] != " " && line.text[0] != "\t") {
+      const keyMatch = /^([^:\s][^:]*):(?:[ \t]*(.*))?$/.exec(line.text);
+      if (keyMatch == null) { return null; }
+
+      const key = normalizeMarkdownFrontMatterScalar(keyMatch[1]);
+      if (key == "") { return null; }
+
+      const value = keyMatch[2] ?? "";
+      const isBlockScalar = /^[>|][-+]?$/.test(value.trim());
+      currentRow = {
+        key,
+        valueParts: isBlockScalar ? [] : markdownFrontMatterValueParts(value),
+        valueMode: isBlockScalar ? "block" : "scalar",
+        start: line.start,
+        end: line.end,
+      };
+      rawRows.push(currentRow);
+      continue;
+    }
+
+    if (currentRow == null) { return null; }
+
+    const listMatch = /^[ \t]+-[ \t]*(.*)$/.exec(line.text);
+    if (listMatch != null) {
+      appendMarkdownFrontMatterRowValue(currentRow, listMatch[1], line, "list");
+      continue;
+    }
+
+    appendMarkdownFrontMatterRowValue(currentRow, trimmed, line, "block");
+  }
+
+  if (rawRows.length == 0) { return null; }
+
+  const rows = rawRows.map((row, ordinal) => ({
+    cells: [
+      plainInlineText(row.key),
+      parseMarkdownInline(markdownFrontMatterRowValue(row)),
+    ],
+    start: row.start,
+    end: row.end,
+    ordinal,
+  }));
+
+  return {
+    block: {
+      kind: "table",
+      columns: ["key", "value"],
+      rows,
+      start: lines[index].start,
+      end: lines[endIndex].end,
+      ordinal: 0,
+    },
+    endIndex,
+  };
 }
 
 function markdownCodeFenceInfo(line: string): MarkdownCodeFenceInfo | null {
@@ -815,6 +998,17 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
 
   for (let i = 0; i < lines.length; ++i) {
     const line = lines[i];
+
+    const frontMatter = parseMarkdown ? parseMarkdownFrontMatterAt(lines, i) : null;
+    if (frontMatter != null) {
+      flushParagraph();
+      listStack = [];
+      frontMatter.block.ordinal = blocks.length;
+      blocks.push(frontMatter.block);
+      i = frontMatter.endIndex;
+      continue;
+    }
+
     if (line.text.trim() == "") {
       flushParagraph();
       continue;
