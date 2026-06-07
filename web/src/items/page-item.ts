@@ -72,6 +72,8 @@ export const ArrangeAlgorithm = {
 
 export type ArrangeAlgorithm = typeof ArrangeAlgorithm[keyof typeof ArrangeAlgorithm];
 
+export const DEFAULT_DOCUMENT_WIDTH_BL = 32;
+
 export function dockForcesEmbeddedInteractiveArrangeAlgorithm(arrangeAlgorithm: string): boolean {
   return arrangeAlgorithm == ArrangeAlgorithm.List ||
     arrangeAlgorithm == ArrangeAlgorithm.Grid ||
@@ -500,7 +502,7 @@ export const PageFns = {
       popupWidthGr: null,
       gridNumberOfColumns: 6,
       gridCellAspect: 1.5,
-      docWidthBl: 36,
+      docWidthBl: DEFAULT_DOCUMENT_WIDTH_BL,
       justifiedRowAspect: 7.0,
       calendarDayRowHeightBl: CALENDAR_DAY_ROW_HEIGHT_BL,
 

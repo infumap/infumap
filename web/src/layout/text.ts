@@ -34,7 +34,8 @@ export const NOTE_BULLET_MARKER_OFFSET_PX = 3;
 export const NOTE_BULLET_TEXT_INSET_PX = 18;
 export const NOTE_NUMBERED_TEXT_INSET_PX = 30;
 export const NOTE_LIST_INDENT_WIDTH_PX = 18;
-export const DOCUMENT_NOTE_HEIGHT_QUANTUM_PX = 4;
+export const DOCUMENT_NOTE_HEIGHT_QUANTUM_PX = 2;
+export const DOCUMENT_PARAGRAPH_LINE_HEIGHT_EXTRA_PX = 2;
 
 export function noteHasBullet(flags: NoteFlags): boolean {
   return noteHasBulletStyle(flags);
@@ -99,16 +100,16 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags, t
 }
 
 export function measureDocumentNoteHeightBl(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0): number {
-  const style = getTextStyleForNote(flags);
+  const lineHeightPx = documentLineHeightPxForNote(flags);
   const measuredHeightPx = Math.max(
-    measureTextHeightPx(s, widthBl, flags, textIndentPx),
-    LINE_HEIGHT_PX * style.lineHeightMultiplier,
+    measureTextHeightPx(s, widthBl, flags, textIndentPx, lineHeightPx),
+    lineHeightPx,
   );
   return Math.ceil(measuredHeightPx / DOCUMENT_NOTE_HEIGHT_QUANTUM_PX) * DOCUMENT_NOTE_HEIGHT_QUANTUM_PX / LINE_HEIGHT_PX;
 }
 
-function measureTextHeightPx(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0): number {
-  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx; // TODO (LOW): not foolproof.
+function measureTextHeightPx(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0, lineHeightPxMaybe: number | null = null): number {
+  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx + "~" + (lineHeightPxMaybe ?? ""); // TODO (LOW): not foolproof.
   if (textHeightCache.has(key)) {
     return textHeightCache.get(key)!;
   }
@@ -129,7 +130,7 @@ function measureTextHeightPx(s: string, widthBl: number, flags: NoteFlags, textI
     `box-sizing: border-box; padding-left: ${paddingLeftPx}px; ` +
     `${style.isBold ? 'font-weight: bold; ' : ""}` +
     `font-size: ${style.fontSize}px; ` +
-    `line-height: ${LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
+    `line-height: ${lineHeightPxMaybe ?? LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
     `overflow-wrap: break-word; white-space: pre-wrap; ` +
     `text-indent: ${actualTextIndentPx}px;`);
   const txt = document.createTextNode(s);
@@ -176,6 +177,27 @@ export interface InfuTextStyle {
   isBold: boolean,
   isCode: boolean,
   alignClass: string,
+}
+
+function noteHasHeadingStyle(flags: NoteFlags): boolean {
+  return !!(
+    (flags & NoteFlags.Heading1) ||
+    (flags & NoteFlags.Heading2) ||
+    (flags & NoteFlags.Heading3) ||
+    (flags & NoteFlags.Heading4)
+  );
+}
+
+function noteIsDocumentParagraph(flags: NoteFlags): boolean {
+  return !noteHasHeadingStyle(flags) &&
+    !noteHasListStyle(flags) &&
+    !(flags & NoteFlags.Code);
+}
+
+export function documentLineHeightPxForNote(flags: NoteFlags): number {
+  const style = getTextStyleForNote(flags);
+  return LINE_HEIGHT_PX * style.lineHeightMultiplier +
+    (noteIsDocumentParagraph(flags) ? DOCUMENT_PARAGRAPH_LINE_HEIGHT_EXTRA_PX : 0);
 }
 
 export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {

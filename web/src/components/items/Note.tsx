@@ -31,6 +31,7 @@ import { NoteFlags } from "../../items/base/flags-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import {
   desktopPopupIconTextIndentPx,
+  documentLineHeightPxForNote,
   getTextStyleForNote,
   noteHasListMarker,
   noteHasNumbered,
@@ -120,6 +121,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
   const lineHeightScale = () => isPopup() || isInDocumentFlow() ? 1.0 : heightScale() / widthScale();
+  const titleLineHeightPx = () => isInDocumentFlow()
+    ? documentLineHeightPxForNote(noteItem().flags)
+    : LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier;
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
@@ -377,7 +381,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const documentTextBottomSelectionGuardHeightPx = () => {
     if (!isInDocumentPage()) { return 0; }
-    const visualLineHeightPx = LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier * textBlockScale();
+    const visualLineHeightPx = titleLineHeightPx() * textBlockScale();
     const visualFontSizePx = infuTextStyle().fontSize * textBlockScale();
     const visualTextTopPx = (NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale();
     const visualTextLineBoxBottomPx = visualTextTopPx + sizeBl().h * visualLineHeightPx;
@@ -400,7 +404,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         style={`left: ${(NOTE_PADDING_PX + listMarkerLeftPx()) * textBlockScale()}px; ` +
           `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
           `width: ${listMarkerWidthPx()}px; ` +
-          `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+          `line-height: ${titleLineHeightPx()}px; ` +
           `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
           `font-size: ${listMarkerFontSizePx()}px; ` +
           `${noteHasNumbered(noteItem().flags) ? 'text-align: right; padding-right: 6px; box-sizing: border-box; ' : ''}` +
@@ -457,7 +461,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
             `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
             `width: ${naturalWidthPx()}px; ` +
-            `line-height: ${LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier}px; ` +
+            `line-height: ${titleLineHeightPx()}px; ` +
             `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
             `font-size: ${infuTextStyle().fontSize}px; ` +
             `overflow-wrap: break-word; white-space: pre-wrap; ` +
