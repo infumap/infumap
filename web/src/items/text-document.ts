@@ -32,7 +32,7 @@ import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { titleWithCopySuffix } from "./base/titled-item";
 import { PlaceholderFns } from "./placeholder-item";
-import { NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, normalizeNoteInlineMarks } from "./note-item";
+import { NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls } from "./note-item";
 import { DividerFns } from "./divider-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { TableFns } from "./table-item";
@@ -48,12 +48,14 @@ import { fetchRemoteFileText, openRemoteFileInNewTab } from "../util/remoteFile"
 type TextDocumentInlineText = {
   title: string,
   inlineMarks: Array<NoteInlineMark>,
+  urls: Array<NoteUrl>,
 };
 
 type TextDocumentTextBlock = {
   kind: "paragraph" | "heading",
   title: string,
   inlineMarks: Array<NoteInlineMark>,
+  urls: Array<NoteUrl>,
   headingLevel: number | null,
   noteFlags: NoteFlags,
   start: number,
@@ -482,8 +484,119 @@ function trimTrailingInlineWhitespace(output: Array<string>, rawSpans: Array<Raw
   }
 }
 
+function trimTrailingInlineUrls(rawUrls: Array<NoteUrl>, textLen: number): void {
+  for (const url of rawUrls) {
+    if (url.end > textLen) {
+      url.end = Math.max(url.start, textLen);
+    }
+  }
+}
+
 function shouldTrimBeforeChatGptArtifactNextChar(c: string | undefined): boolean {
   return c == null || CHATGPT_ARTIFACT_TRIM_BEFORE.includes(c);
+}
+
+function skipMarkdownCodeSpan(text: string, pos: number): number {
+  let tickLen = 0;
+  while (text[pos + tickLen] == "`") {
+    tickLen += 1;
+  }
+
+  const marker = "`".repeat(tickLen);
+  const end = text.indexOf(marker, pos + tickLen);
+  return end < 0 ? pos + 1 : end + tickLen;
+}
+
+function findMarkdownLinkLabelEnd(text: string, pos: number): number | null {
+  if (text[pos] != "[") { return null; }
+  let depth = 0;
+  for (let i = pos; i < text.length; ++i) {
+    const c = text[i];
+    if (c == "\\" && i + 1 < text.length) {
+      i += 1;
+      continue;
+    }
+    if (c == "`") {
+      i = skipMarkdownCodeSpan(text, i) - 1;
+      continue;
+    }
+    if (c == "[") {
+      depth += 1;
+      continue;
+    }
+    if (c == "]") {
+      depth -= 1;
+      if (depth == 0) { return i; }
+    }
+  }
+  return null;
+}
+
+function findMarkdownLinkDestinationEnd(text: string, pos: number): number | null {
+  if (text[pos] != "(") { return null; }
+  let depth = 0;
+  for (let i = pos + 1; i < text.length; ++i) {
+    const c = text[i];
+    if (c == "\\" && i + 1 < text.length) {
+      i += 1;
+      continue;
+    }
+    if (c == "(") {
+      depth += 1;
+      continue;
+    }
+    if (c == ")") {
+      if (depth == 0) { return i; }
+      depth -= 1;
+    }
+  }
+  return null;
+}
+
+function unescapeMarkdownLinkDestination(value: string): string {
+  return value.replace(/\\([\\()[\]<>])/g, "$1");
+}
+
+function markdownLinkDestination(rawDestination: string): string | null {
+  const trimmed = rawDestination.trim();
+  if (trimmed == "") { return null; }
+
+  const angleWrapped = /^<([^<>\r\n]*)>(?:\s+.*)?$/.exec(trimmed);
+  if (angleWrapped != null) {
+    const url = angleWrapped[1].trim();
+    return url == "" ? null : unescapeMarkdownLinkDestination(url);
+  }
+
+  const token = /^[^\s]+/.exec(trimmed)?.[0] ?? "";
+  const url = unescapeMarkdownLinkDestination(token).trim();
+  return url == "" ? null : url;
+}
+
+function markdownLinkAt(text: string, pos: number): { label: string, url: string, end: number } | null {
+  const labelEnd = findMarkdownLinkLabelEnd(text, pos);
+  if (labelEnd == null || text[labelEnd + 1] != "(") { return null; }
+
+  const destinationEnd = findMarkdownLinkDestinationEnd(text, labelEnd + 1);
+  if (destinationEnd == null) { return null; }
+
+  const url = markdownLinkDestination(text.substring(labelEnd + 2, destinationEnd));
+  if (url == null) { return null; }
+
+  return {
+    label: text.substring(pos + 1, labelEnd),
+    url,
+    end: destinationEnd + 1,
+  };
+}
+
+function markdownAutolinkAt(text: string, pos: number): { title: string, url: string, end: number } | null {
+  if (text[pos] != "<") { return null; }
+  const end = text.indexOf(">", pos + 1);
+  if (end < 0) { return null; }
+
+  const value = text.substring(pos + 1, end);
+  if (!/^https?:\/\/[^\s<>]+$/i.test(value)) { return null; }
+  return { title: normalizeMarkdownDocumentText(value), url: value, end: end + 1 };
 }
 
 function flattenedInlineMarks(rawSpans: Array<RawInlineMarkSpan>, text: string): Array<NoteInlineMark> {
@@ -539,11 +652,12 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
   const output: Array<string> = [];
   const stack: Array<InlineDelimiter> = [];
   const rawSpans: Array<RawInlineMarkSpan> = [];
+  const rawUrls: Array<NoteUrl> = [];
 
   for (let i = 0; i < text.length;) {
     const c = text[i];
 
-    if (c == "\\" && i + 1 < text.length && "*_`\\".includes(text[i + 1])) {
+    if (c == "\\" && i + 1 < text.length && "*_`\\[]()<>".includes(text[i + 1])) {
       output.push(text[i + 1]);
       i += 2;
       continue;
@@ -560,6 +674,7 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
       const shouldSkipFollowingWhitespace = outputInlineLength(output) == 0 || outputEndsInlineWhitespace(output);
       if (shouldTrimBeforeChatGptArtifactNextChar(next)) {
         trimTrailingInlineWhitespace(output, rawSpans);
+        trimTrailingInlineUrls(rawUrls, outputInlineLength(output));
       }
       i = artifactEnd;
       if (shouldSkipFollowingWhitespace) {
@@ -567,6 +682,34 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
           i += 1;
         }
       }
+      continue;
+    }
+
+    const link = c == "[" ? markdownLinkAt(text, i) : null;
+    if (link != null) {
+      const parsedLabel = parseMarkdownInline(link.label);
+      const start = outputInlineLength(output);
+      const end = start + parsedLabel.title.length;
+      if (start < end) {
+        output.push(parsedLabel.title);
+        rawSpans.push(...parsedLabel.inlineMarks.map(mark => ({
+          start: mark.start + start,
+          end: mark.end + start,
+          flags: mark.flags,
+        })));
+        rawUrls.push({ start, end, url: link.url });
+      }
+      i = link.end;
+      continue;
+    }
+
+    const autolink = c == "<" ? markdownAutolinkAt(text, i) : null;
+    if (autolink != null) {
+      const start = outputInlineLength(output);
+      const end = start + autolink.title.length;
+      output.push(autolink.title);
+      rawUrls.push({ start, end, url: autolink.url });
+      i = autolink.end;
       continue;
     }
 
@@ -592,11 +735,11 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
   }
 
   if (stack.length != 0) {
-    return { title: normalizeMarkdownDocumentText(text), inlineMarks: [] };
+    return { title: normalizeMarkdownDocumentText(text), inlineMarks: [], urls: [] };
   }
 
   const title = output.join("");
-  return { title, inlineMarks: flattenedInlineMarks(rawSpans, title) };
+  return { title, inlineMarks: flattenedInlineMarks(rawSpans, title), urls: normalizeNoteUrls(rawUrls, title) };
 }
 
 function splitMarkdownTableRow(line: string): Array<string> | null {
@@ -655,7 +798,7 @@ function normalizeMarkdownTableInlineCells(cells: Array<string>, columnCount: nu
 }
 
 function plainInlineText(title: string): TextDocumentInlineText {
-  return { title: normalizeMarkdownDocumentText(title), inlineMarks: [] };
+  return { title: normalizeMarkdownDocumentText(title), inlineMarks: [], urls: [] };
 }
 
 function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocumentTableBlock | null {
@@ -898,6 +1041,7 @@ function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): Markdo
       kind: "paragraph",
       title: normalizeMarkdownDocumentText(codeLines.join("\n")),
       inlineMarks: [],
+      urls: [],
       headingLevel: null,
       noteFlags: NoteFlags.Code,
       start: lines[index].start,
@@ -920,6 +1064,7 @@ function isMarkdownTextItem(textItem: TextItem): boolean {
 function markdownInlineForParagraphLines(lines: Array<TextLine>): TextDocumentInlineText {
   const titleParts: Array<string> = [];
   const inlineMarks: Array<NoteInlineMark> = [];
+  const urls: Array<NoteUrl> = [];
   let offset = 0;
 
   for (const line of lines) {
@@ -936,11 +1081,16 @@ function markdownInlineForParagraphLines(lines: Array<TextLine>): TextDocumentIn
       end: mark.end + offset,
       flags: mark.flags,
     })));
+    urls.push(...parsed.urls.map(url => ({
+      start: url.start + offset,
+      end: url.end + offset,
+      url: url.url,
+    })));
     offset += parsed.title.length;
   }
 
   const title = titleParts.join("");
-  return { title, inlineMarks: normalizeNoteInlineMarks(inlineMarks, title) };
+  return { title, inlineMarks: normalizeNoteInlineMarks(inlineMarks, title), urls: normalizeNoteUrls(urls, title) };
 }
 
 function appendMarkdownInlineTextBlock(block: TextDocumentTextBlock, parsed: TextDocumentInlineText): void {
@@ -955,6 +1105,14 @@ function appendMarkdownInlineTextBlock(block: TextDocumentTextBlock, parsed: Tex
       start: mark.start + offset,
       end: mark.end + offset,
       flags: mark.flags,
+    })),
+  ], block.title);
+  block.urls = normalizeNoteUrls([
+    ...block.urls,
+    ...parsed.urls.map(url => ({
+      start: url.start + offset,
+      end: url.end + offset,
+      url: url.url,
     })),
   ], block.title);
 }
@@ -980,12 +1138,14 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
       : {
         title: paragraphLines.map(line => line.text.trim()).filter(line => line != "").join(" "),
         inlineMarks: [],
+        urls: [],
       };
     if (parsed.title != "") {
       blocks.push({
         kind: "paragraph",
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
+        urls: parsed.urls,
         headingLevel: null,
         noteFlags: NoteFlags.None,
         start: paragraphLines[0].start,
@@ -1055,6 +1215,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
         kind: "paragraph",
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
+        urls: parsed.urls,
         headingLevel: null,
         noteFlags: noteFlagsWithIndentLevel(listFlag, listMarker.indentLevel),
         start: line.start,
@@ -1086,11 +1247,12 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
       listStack = [];
       const parsed = parseMarkdown
         ? parseMarkdownInline(heading.title)
-        : { title: heading.title, inlineMarks: [] };
+        : { title: heading.title, inlineMarks: [], urls: [] };
       blocks.push({
         kind: "heading",
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
+        urls: parsed.urls,
         headingLevel: heading.level,
         noteFlags: noteFlagsForHeadingLevel(heading.level),
         start: line.start,
@@ -1160,6 +1322,7 @@ function createNoteForBlock(
 ): NoteItem {
   const note = NoteFns.create(ownerId, pageId, RelationshipToParent.Child, block.title, ordering);
   note.inlineMarks = block.inlineMarks;
+  note.urls = block.urls;
   if (virtual) {
     note.id = stableUid(`text-document-block:${textItem.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
     note.capabilities = readonlyCopyableCapabilities;
@@ -1177,9 +1340,10 @@ function createNoteForTableRow(
   ordering: Uint8Array,
   virtual: boolean,
 ): NoteItem {
-  const firstCell = row.cells[0] ?? { title: "", inlineMarks: [] };
+  const firstCell = row.cells[0] ?? { title: "", inlineMarks: [], urls: [] };
   const note = NoteFns.create(ownerId, tableId, RelationshipToParent.Child, firstCell.title, ordering);
   note.inlineMarks = firstCell.inlineMarks;
+  note.urls = firstCell.urls;
   if (virtual) {
     note.id = stableUid(`text-document-table-row:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}`);
     note.capabilities = readonlyCopyableCapabilities;
@@ -1200,6 +1364,7 @@ function createNoteForTableCell(
 ): NoteItem {
   const note = NoteFns.create(ownerId, rowId, RelationshipToParent.Attachment, cell.title, ordering);
   note.inlineMarks = cell.inlineMarks;
+  note.urls = cell.urls;
   if (virtual) {
     note.id = stableUid(`text-document-table-cell:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
     note.capabilities = readonlyCopyableCapabilities;
@@ -1329,7 +1494,7 @@ function createTextDocumentItems(
       for (let cellIndex = 1; cellIndex <= lastCellIndex; ++cellIndex) {
         const attachmentOrdering = newOrderingAtEnd(attachmentOrderings);
         attachmentOrderings.push(attachmentOrdering);
-        const cell = row.cells[cellIndex] ?? { title: "", inlineMarks: [] };
+        const cell = row.cells[cellIndex] ?? { title: "", inlineMarks: [], urls: [] };
         const attachment = cell.title.trim() == ""
           ? createPlaceholderForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, attachmentOrdering, virtual)
           : createNoteForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, cell, attachmentOrdering, virtual);
