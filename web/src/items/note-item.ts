@@ -35,7 +35,7 @@ import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
+import { desktopPopupIconTextIndentPx, measureDocumentNoteHeightBl, measureLineCount } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { ClickState, CursorEventState } from '../input/state';
@@ -749,6 +749,15 @@ export const NoteFns = {
     return { w: note.spatialWidthGr / GRID_SIZE, h: measuredHeightBl };
   },
 
+  calcDocumentSpatialDimensionsBl: (note: NoteMeasurable, iconContext: ItemIconRenderContext = ItemIconRenderContext.Spatial): Dimensions => {
+    const widthBl = note.spatialWidthGr / GRID_SIZE;
+    const textIndentPx = NoteFns.showsIcon(note, iconContext) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    return {
+      w: widthBl,
+      h: measureDocumentNoteHeightBl(note.title, widthBl, note.flags, textIndentPx),
+    };
+  },
+
   calcGeometry_Spatial: (note: NoteMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean, isPopup: boolean): ItemGeometry => {
     const ignoreExplicitHeight = isPopup && !(note.flags & NoteFlags.ExplicitHeight);
     const sizeBl = NoteFns.calcSpatialDimensionsBl(note, ignoreExplicitHeight);
@@ -801,6 +810,49 @@ export const NoteFns = {
       x: leftMarginBl * blockSizePx.w,
       y: topPx,
       w: compositeWidthBl * blockSizePx.w,
+      h: sizeBl.h * blockSizePx.h
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const moveAreaBoundsPx = {
+      x: innerBoundsPx.w
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX
+        - COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX,
+      y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
+    };
+    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0);
+    return {
+      boundsPx,
+      viewportBoundsPx: null,
+      blockSizePx,
+      hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, moveBoundsPx, { compositeMoveOut: true }),
+        HitboxFns.create(
+          HitboxFlags.Attach,
+          calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, measurable.computed_attachments.length),
+        ),
+        HitboxFns.create(HitboxFlags.AttachComposite, {
+          x: 0,
+          y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+          w: innerBoundsPx.w,
+          h: ATTACH_AREA_SIZE_PX,
+        }),
+      ]
+    };
+  },
+
+  calcGeometry_InDocument: (measurable: NoteMeasurable, blockSizePx: Dimensions, documentWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
+    let cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(measurable));
+    cloned.spatialWidthGr = documentWidthBl * GRID_SIZE;
+    const sizeBl = NoteFns.calcDocumentSpatialDimensionsBl(cloned);
+    const boundsPx = {
+      x: leftMarginBl * blockSizePx.w,
+      y: topPx,
+      w: documentWidthBl * blockSizePx.w,
       h: sizeBl.h * blockSizePx.h
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);

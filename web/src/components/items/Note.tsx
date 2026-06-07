@@ -61,7 +61,7 @@ import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
@@ -76,6 +76,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const noteItem = () => asNoteItem(props.visualElement.displayItem);
   const canEdit = () => itemCanEdit(noteItem());
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
+  const parentDocumentPage = () => parentDocumentPageMaybe(props.visualElement);
+  const isInDocumentFlow = () => parentDocumentPage() != null;
   const boundsPx = () => props.visualElement.boundsPx;
   const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
   const sizeBl = () => {
@@ -90,6 +92,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         parentTreeItem = itemState.get(parentVeid.itemId)!;
       }
 
+      const documentPage = parentDocumentPage();
+      if (documentPage != null) {
+        cloned.spatialWidthGr = documentPage.docWidthBl * GRID_SIZE;
+        return NoteFns.calcDocumentSpatialDimensionsBl(cloned);
+      }
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
@@ -112,7 +119,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const widthScale = () => (boundsPx().w - NOTE_PADDING_PX * 2) / naturalWidthPx();
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => widthScale();
-  const lineHeightScale = () => isPopup() ? 1.0 : heightScale() / widthScale();
+  const lineHeightScale = () => isPopup() || isInDocumentFlow() ? 1.0 : heightScale() / widthScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
@@ -345,6 +352,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
 
   const isInDocumentPage = () => {
+    if (isInDocumentFlow()) { return true; }
     const seenParentIds = new Set<string>();
     let parentId: string | null = noteItem().parentId;
     while (parentId != null && !seenParentIds.has(parentId)) {

@@ -16,17 +16,18 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX, COMPOSITE_ITEM_GAP_BL, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, PAGE_DOCUMENT_BOTTOM_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
-import { PageFlags } from "../../items/base/flags-item";
-import { Item, Measurable } from "../../items/base/item";
+import { LINK_TRIANGLE_SIZE_PX, NATURAL_BLOCK_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, PAGE_DOCUMENT_BOTTOM_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { NoteFlags, PageFlags, noteHasListStyle, noteIndentLevelFromFlags } from "../../items/base/flags-item";
+import { Item, ItemType, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { DividerFns, isDivider } from "../../items/divider-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
+import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { compositeMoveOutBoxForRightEdgePx, compositeMoveOutHitboxBoundsPx, DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX, documentPageMoveOutBoxPx } from "../composite-move-out";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
@@ -39,6 +40,86 @@ import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath } from "./popup";
 import { arrangeTable } from "./table";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
+
+
+const pxToBl = (px: number): number => px / NATURAL_BLOCK_SIZE_PX.h;
+
+const DOCUMENT_GAP_4PX_BL = pxToBl(4);
+const DOCUMENT_GAP_8PX_BL = pxToBl(8);
+const DOCUMENT_GAP_12PX_BL = pxToBl(12);
+const DOCUMENT_GAP_16PX_BL = pxToBl(16);
+const DOCUMENT_GAP_24PX_BL = pxToBl(24);
+const DOCUMENT_GAP_32PX_BL = pxToBl(32);
+const DOCUMENT_PAGE_TITLE_GAP_BL = DOCUMENT_GAP_24PX_BL;
+
+function noteHeadingLevel(item: Item): number | null {
+  if (!isNote(item)) { return null; }
+  const flags = asNoteItem(item).flags;
+  if (flags & NoteFlags.Heading1) { return 1; }
+  if (flags & NoteFlags.Heading2) { return 2; }
+  if (flags & NoteFlags.Heading3) { return 3; }
+  if (flags & NoteFlags.Heading4) { return 4; }
+  return null;
+}
+
+function noteIsListItem(item: Item): boolean {
+  return isNote(item) && noteHasListStyle(asNoteItem(item).flags);
+}
+
+function noteIsCode(item: Item): boolean {
+  return isNote(item) && !!(asNoteItem(item).flags & NoteFlags.Code);
+}
+
+function sameListRun(prev: Item, next: Item): boolean {
+  if (!noteIsListItem(prev) || !noteIsListItem(next)) { return false; }
+  return noteIndentLevelFromFlags(asNoteItem(prev).flags) == noteIndentLevelFromFlags(asNoteItem(next).flags);
+}
+
+function gapBeforeHeadingBl(level: number): number {
+  if (level == 1) { return DOCUMENT_GAP_32PX_BL; }
+  if (level == 2) { return DOCUMENT_GAP_24PX_BL; }
+  if (level == 3) { return DOCUMENT_GAP_16PX_BL; }
+  return DOCUMENT_GAP_12PX_BL;
+}
+
+function gapAfterHeadingBl(level: number, next: Item): number {
+  if (isTable(next)) { return DOCUMENT_GAP_12PX_BL; }
+  return level <= 2 ? DOCUMENT_GAP_12PX_BL : DOCUMENT_GAP_8PX_BL;
+}
+
+function itemIsLargeDocumentObject(item: Item): boolean {
+  return item.itemType == ItemType.Image ||
+    item.itemType == ItemType.Page ||
+    item.itemType == ItemType.Composite;
+}
+
+function itemIsCompactDocumentRow(item: Item): boolean {
+  return item.itemType == ItemType.File ||
+    item.itemType == ItemType.Text ||
+    item.itemType == ItemType.Password ||
+    item.itemType == ItemType.Rating ||
+    item.itemType == ItemType.Search;
+}
+
+function documentGapBetweenBl(prev: Item, next: Item): number {
+  const nextHeadingLevel = noteHeadingLevel(next);
+  if (nextHeadingLevel != null) { return gapBeforeHeadingBl(nextHeadingLevel); }
+
+  const prevHeadingLevel = noteHeadingLevel(prev);
+  if (prevHeadingLevel != null) { return gapAfterHeadingBl(prevHeadingLevel, next); }
+
+  if (sameListRun(prev, next)) { return DOCUMENT_GAP_4PX_BL; }
+  if (noteIsListItem(prev) && noteIsListItem(next)) { return DOCUMENT_GAP_8PX_BL; }
+  if (noteIsListItem(prev) || noteIsListItem(next)) { return DOCUMENT_GAP_16PX_BL; }
+
+  if (noteIsCode(prev) || noteIsCode(next)) { return DOCUMENT_GAP_16PX_BL; }
+  if (isTable(prev) || isTable(next)) { return DOCUMENT_GAP_24PX_BL; }
+  if (isDivider(prev) || isDivider(next)) { return DOCUMENT_GAP_16PX_BL; }
+  if (itemIsLargeDocumentObject(prev) || itemIsLargeDocumentObject(next)) { return DOCUMENT_GAP_24PX_BL; }
+  if (itemIsCompactDocumentRow(prev) || itemIsCompactDocumentRow(next)) { return DOCUMENT_GAP_12PX_BL; }
+
+  return DOCUMENT_GAP_16PX_BL;
+}
 
 
 export function arrange_document_page(
@@ -79,12 +160,16 @@ export function arrange_document_page(
     displayWidthBl: number,
     childItemIsEmbeddedInteractive: boolean,
   }> = [];
+  const documentChildren: Array<{
+    childItem: Item,
+    displayItem: Item,
+    linkItemMaybe: LinkItem | null,
+    actualLinkItemMaybe: LinkItem | null,
+    displayWidthBl: number,
+    childItemIsEmbeddedInteractive: boolean,
+  }> = [];
 
   let topPx = PAGE_DOCUMENT_TOP_MARGIN_PX * scale;
-  if (PageFns.showDocumentTitleInDocument(displayItem_pageWithChildren)) {
-    topPx += PageFns.calcDocumentTitleHeightBl(displayItem_pageWithChildren) * blockSizePx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
-  }
-  let displayIdx = 0;
   for (let idx = 0; idx < displayItem_pageWithChildren.computed_children.length; ++idx) {
     const childId = displayItem_pageWithChildren.computed_children[idx];
     const childItem = itemState.get(childId)!;
@@ -97,21 +182,42 @@ export function arrange_document_page(
 
     const documentContentWidthBl = totalWidthBl - totalMarginBl;
     const displayWidthBl = documentChildDisplayWidthBl(displayItem_childItem, linkItemMaybe_childItem, documentContentWidthBl);
-    const geometry = ItemFns.calcGeometry_InComposite(
-      documentChildMeasurableForGeometry(displayItem_childItem, linkItemMaybe_childItem, displayWidthBl),
-      blockSizePx,
+    documentChildren.push({
+      childItem,
+      displayItem: displayItem_childItem,
+      linkItemMaybe: linkItemMaybe_childItem,
+      actualLinkItemMaybe,
       displayWidthBl,
+      childItemIsEmbeddedInteractive: !!(isPage(childItem) && (asPageItem(childItem).flags & PageFlags.EmbeddedInteractive)),
+    });
+  }
+
+  if (PageFns.showDocumentTitleInDocument(displayItem_pageWithChildren)) {
+    topPx += PageFns.calcDocumentTitleHeightBl(displayItem_pageWithChildren) * blockSizePx.h;
+    if (documentChildren.length > 0) {
+      topPx += DOCUMENT_PAGE_TITLE_GAP_BL * blockSizePx.h;
+    }
+  }
+
+  let displayIdx = 0;
+  for (let idx = 0; idx < documentChildren.length; ++idx) {
+    const child = documentChildren[idx];
+    const geometry = calcDocumentChildGeometry(
+      child.displayItem,
+      child.linkItemMaybe,
+      child.displayWidthBl,
+      blockSizePx,
       PAGE_DOCUMENT_LEFT_MARGIN_BL,
       topPx,
       store.smallScreenMode());
-    if (isPage(displayItem_childItem)) {
+    if (isPage(child.displayItem)) {
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
-    if (isDivider(displayItem_childItem)) {
+    if (isDivider(child.displayItem)) {
       geometry.hitboxes = geometry.hitboxes.filter(hitbox => !(hitbox.type & HitboxFlags.Resize));
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
-    alignDocumentMoveOutHitbox(geometry, blockSizePx, documentContentWidthBl, isTable(displayItem_childItem));
+    alignDocumentMoveOutHitbox(geometry, blockSizePx, displayItem_pageWithChildren.docWidthBl, isTable(child.displayItem));
     const documentChildGeometry: ItemGeometry = {
       ...geometry,
       row: displayIdx,
@@ -119,17 +225,19 @@ export function arrange_document_page(
     };
     displayIdx += 1;
 
-    const childItemIsEmbeddedInteractive = !!(isPage(childItem) && (asPageItem(childItem).flags & PageFlags.EmbeddedInteractive));
     childArrangeData.push({
-      childItem,
-      displayItem: displayItem_childItem,
-      actualLinkItemMaybe,
+      childItem: child.childItem,
+      displayItem: child.displayItem,
+      actualLinkItemMaybe: child.actualLinkItemMaybe,
       geometry: documentChildGeometry,
-      displayWidthBl,
-      childItemIsEmbeddedInteractive,
+      displayWidthBl: child.displayWidthBl,
+      childItemIsEmbeddedInteractive: child.childItemIsEmbeddedInteractive,
     });
 
-    topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
+    topPx += geometry.boundsPx.h;
+    if (idx < documentChildren.length - 1) {
+      topPx += documentGapBetweenBl(child.displayItem, documentChildren[idx + 1].displayItem) * blockSizePx.h;
+    }
   }
 
   assignFlowListItemNumbers(childArrangeData.map(child => ({
@@ -156,7 +264,7 @@ export function arrange_document_page(
 
   const movingItemReservedHeightPx = movingItemInThisPage == null
     ? 0
-    : ItemFns.calcSpatialDimensionsBl(movingItemInThisPage).h * blockSizePx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
+    : calcMovingItemReservedHeightPx(store, movingItemInThisPage, displayItem_pageWithChildren.docWidthBl, blockSizePx);
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.boundsPx)!);
   childAreaBoundsPx.w = documentWidthPx;
   childAreaBoundsPx.h = topPx + movingItemReservedHeightPx + PAGE_DOCUMENT_BOTTOM_PADDING_PX;
@@ -274,6 +382,58 @@ function documentChildMeasurableForGeometry(
   const clonedTable = asTableItem(ItemFns.cloneMeasurableFields(asTableItem(displayItem)));
   clonedTable.spatialWidthGr = spatialWidthGr;
   return clonedTable;
+}
+
+function calcDocumentChildGeometry(
+  displayItem: Item,
+  linkItemMaybe: LinkItem | null,
+  displayWidthBl: number,
+  blockSizePx: Dimensions,
+  leftMarginBl: number,
+  topPx: number,
+  smallScreenMode: boolean,
+): ItemGeometry {
+  if (isNote(displayItem)) {
+    const geometry = NoteFns.calcGeometry_InDocument(asNoteItem(displayItem), blockSizePx, displayWidthBl, leftMarginBl, topPx);
+    if (linkItemMaybe != null) {
+      geometry.hitboxes.push(HitboxFns.create(HitboxFlags.TriangleLinkSettings, {
+        x: 0,
+        y: 0,
+        w: LINK_TRIANGLE_SIZE_PX + 2,
+        h: LINK_TRIANGLE_SIZE_PX + 2,
+      }));
+    }
+    return geometry;
+  }
+
+  return ItemFns.calcGeometry_InComposite(
+    documentChildMeasurableForGeometry(displayItem, linkItemMaybe, displayWidthBl),
+    blockSizePx,
+    displayWidthBl,
+    leftMarginBl,
+    topPx,
+    smallScreenMode);
+}
+
+function calcDocumentChildSizeBl(displayItem: Item, linkItemMaybe: LinkItem | null, displayWidthBl: number): Dimensions {
+  if (isNote(displayItem)) {
+    const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(displayItem));
+    cloned.spatialWidthGr = displayWidthBl * GRID_SIZE;
+    return NoteFns.calcDocumentSpatialDimensionsBl(cloned);
+  }
+  return ItemFns.calcSpatialDimensionsBl(documentChildMeasurableForGeometry(displayItem, linkItemMaybe, displayWidthBl));
+}
+
+function calcMovingItemReservedHeightPx(
+  store: StoreContextModel,
+  movingItem: Item,
+  documentContentWidthBl: number,
+  blockSizePx: Dimensions,
+): number {
+  const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItem);
+  const displayWidthBl = documentChildDisplayWidthBl(displayItem, linkItemMaybe, documentContentWidthBl);
+  const dimensionsBl = calcDocumentChildSizeBl(displayItem, linkItemMaybe, displayWidthBl);
+  return (dimensionsBl.h + DOCUMENT_GAP_16PX_BL) * blockSizePx.h;
 }
 
 function alignDocumentMoveOutHitbox(

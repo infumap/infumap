@@ -27,12 +27,14 @@ import {
 
 
 const lineCountCache = new Map<String, number>();
+const textHeightCache = new Map<String, number>();
 export const NOTE_BULLET_MARKER_TEXT = "\u25CF";
 export const NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER = 0.50;
 export const NOTE_BULLET_MARKER_OFFSET_PX = 3;
 export const NOTE_BULLET_TEXT_INSET_PX = 18;
 export const NOTE_NUMBERED_TEXT_INSET_PX = 30;
 export const NOTE_LIST_INDENT_WIDTH_PX = 18;
+export const DOCUMENT_NOTE_HEIGHT_QUANTUM_PX = 4;
 
 export function noteHasBullet(flags: NoteFlags): boolean {
   return noteHasBulletStyle(flags);
@@ -90,6 +92,30 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags, t
     // TODO (LOW): something better than this, though this trivial strategy should be very effective.
     lineCountCache.clear();
   }
+  const lineCount = measureTextHeightPx(s, widthBl, flags, textIndentPx) / LINE_HEIGHT_PX;
+  const result = Math.ceil(lineCount * 2) / 2;
+  lineCountCache.set(key, result);
+  return result;
+}
+
+export function measureDocumentNoteHeightBl(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0): number {
+  const style = getTextStyleForNote(flags);
+  const measuredHeightPx = Math.max(
+    measureTextHeightPx(s, widthBl, flags, textIndentPx),
+    LINE_HEIGHT_PX * style.lineHeightMultiplier,
+  );
+  return Math.ceil(measuredHeightPx / DOCUMENT_NOTE_HEIGHT_QUANTUM_PX) * DOCUMENT_NOTE_HEIGHT_QUANTUM_PX / LINE_HEIGHT_PX;
+}
+
+function measureTextHeightPx(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0): number {
+  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx; // TODO (LOW): not foolproof.
+  if (textHeightCache.has(key)) {
+    return textHeightCache.get(key)!;
+  }
+  if (textHeightCache.size > 10000) {
+    // TODO (LOW): something better than this, though this trivial strategy should be very effective.
+    textHeightCache.clear();
+  }
   const div = document.createElement("div");
   const style = getTextStyleForNote(flags);
   const paddingLeftPx = noteTextBlockPaddingLeftPx(flags, textIndentPx);
@@ -109,11 +135,10 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags, t
   const txt = document.createTextNode(s);
   div.appendChild(txt);
   document.body.appendChild(div);
-  const lineCount = div.offsetHeight / LINE_HEIGHT_PX;
+  const heightPx = div.offsetHeight;
   document.body.removeChild(div);
-  const result = Math.ceil(lineCount * 2) / 2;
-  lineCountCache.set(key, result);
-  return result;
+  textHeightCache.set(key, heightPx);
+  return heightPx;
 }
 
 const widthCache = new Map<String, number>();
