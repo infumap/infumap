@@ -471,7 +471,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             text={renderedTitle()}
             inlineMarks={renderedInlineMarks()}
             urls={renderedUrls()}
-            linksEnabled={!isTextEditTarget() && !isInDocumentPage()}
+            linksEnabled={!isTextEditTarget()}
             trailingCaretSpan={isTextEditTarget()} />
         </span>
         <Show when={isInDocumentPage()}>

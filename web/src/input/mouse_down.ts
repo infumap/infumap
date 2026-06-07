@@ -535,13 +535,13 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const startPx = desktopPosPx;
   let hitVe = HitInfoFns.getHitVe(hitInfo);
 
-  if (shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
+  if (!ClickState.getLinkWasClicked() && shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
     ClickState.setLinkWasClicked(false);
     NativeTextSelectionState.startReadOnlyDocumentTextSelection();
     return MouseEventActionFlags.None;
   }
 
-  if (shouldEditDocumentNoteOnMouseDown(hitVe, hitInfo)) {
+  if (!ClickState.getLinkWasClicked() && shouldEditDocumentNoteOnMouseDown(hitVe, hitInfo)) {
     ClickState.setLinkWasClicked(false);
     if (store.overlay.selectedVeids.get()?.length) {
       store.overlay.selectedVeids.set([]);
