@@ -171,9 +171,24 @@ function isInsideToolbarControlArea(): boolean {
     isInsideElementClientBounds("toolbarItemOptionsDiv");
 }
 
+function clearNativeTextSelectionMaybe(): boolean {
+  const selection = window.getSelection();
+  if (selection == null || selection.rangeCount == 0 || selection.isCollapsed) {
+    return false;
+  }
+
+  selection.removeAllRanges();
+  return true;
+}
+
 
 export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number): Promise<MouseEventActionFlags> {
   let defaultResult = MouseEventActionFlags.PreventDefault;
+  if (buttonNumber != MOUSE_LEFT && clearNativeTextSelectionMaybe()) {
+    NativeTextSelectionState.clear();
+    return defaultResult;
+  }
+
   NativeTextSelectionState.clear();
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
