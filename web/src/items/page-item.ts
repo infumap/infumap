@@ -72,7 +72,7 @@ export const ArrangeAlgorithm = {
 
 export type ArrangeAlgorithm = typeof ArrangeAlgorithm[keyof typeof ArrangeAlgorithm];
 
-export const DEFAULT_DOCUMENT_WIDTH_BL = 32;
+export const DEFAULT_DOCUMENT_WIDTH_BL = 30;
 
 export function dockForcesEmbeddedInteractiveArrangeAlgorithm(arrangeAlgorithm: string): boolean {
   return arrangeAlgorithm == ArrangeAlgorithm.List ||
