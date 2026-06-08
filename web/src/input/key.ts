@@ -36,7 +36,7 @@ import { panic } from "../util/lang";
 import { calculateCalendarWindowForPage } from "../util/calendar-layout";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState } from "./state";
-import { newItemInContext } from "./create";
+import { canCreateItemsOnCurrentPage, newItemInContext } from "./create";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
@@ -578,6 +578,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
 
   if (ev.code == "Slash") {
+    if (!canCreateItemsOnCurrentPage(store)) { return; }
     ev.preventDefault();
     store.overlay.contextMenuInfo.set({ posPx: CursorEventState.getLatestDesktopPx(store), hitInfo });
     mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);

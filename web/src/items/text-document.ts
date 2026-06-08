@@ -34,7 +34,7 @@ import { titleWithCopySuffix } from "./base/titled-item";
 import { PlaceholderFns } from "./placeholder-item";
 import { NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls } from "./note-item";
 import { DividerFns } from "./divider-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
+import { ArrangeAlgorithm, DEFAULT_DOCUMENT_WIDTH_BL, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { TableFns } from "./table-item";
 import type { TextItem } from "./text-item";
 import { itemState } from "../store/ItemState";
@@ -129,6 +129,9 @@ const readonlyCopyableCapabilities = { edit: false, move: false, copy: true };
 const virtualSourceTextIdByPageId = new Map<Uid, Uid>();
 const textContentPromises = new Map<string, Promise<string>>();
 const MAX_GENERATED_TABLE_HEIGHT_BL = 12;
+const MIN_GENERATED_TABLE_COLUMN_WIDTH_BL = 3;
+const GENERATED_TABLE_TEXT_SCORE_CAP = 120;
+const GENERATED_TABLE_LONG_WORD_SCORE_CAP = 40;
 
 type RawInlineMarkSpan = {
   start: number,
@@ -166,6 +169,30 @@ function integerColumnWidthsGr(totalWidthGr: number, columnCount: number): Array
   const baseWidthGr = Math.floor(integerTotalWidthGr / safeColumnCount);
   const remainderGr = integerTotalWidthGr - baseWidthGr * safeColumnCount;
   return Array.from({ length: safeColumnCount }, (_, i) => baseWidthGr + (i < remainderGr ? 1 : 0));
+}
+
+function weightedIntegerColumnWidthsGr(totalWidthGr: number, weights: Array<number>, minWidthGr: number): Array<number> {
+  if (weights.length == 0) { return []; }
+
+  const integerTotalWidthGr = Math.max(1, Math.round(totalWidthGr));
+  const safeWeights = weights.map(w => Number.isFinite(w) && w > 0 ? w : 1);
+  const totalWeight = safeWeights.reduce((sum, w) => sum + w, 0);
+  if (totalWeight <= 0) { return integerColumnWidthsGr(integerTotalWidthGr, weights.length); }
+
+  const integerMinWidthGr = Math.max(0, Math.round(minWidthGr));
+  const effectiveMinWidthGr = Math.min(integerMinWidthGr, Math.floor(integerTotalWidthGr / weights.length));
+  const remainingWidthGr = integerTotalWidthGr - effectiveMinWidthGr * weights.length;
+  const exactWidthsGr = safeWeights.map(w => effectiveMinWidthGr + remainingWidthGr * w / totalWeight);
+  const integerWidthsGr = exactWidthsGr.map(Math.floor);
+  const remainderGr = integerTotalWidthGr - integerWidthsGr.reduce((sum, w) => sum + w, 0);
+  const fractionalOrder = exactWidthsGr
+    .map((widthGr, i) => ({ i, fraction: widthGr - Math.floor(widthGr) }))
+    .sort((a, b) => b.fraction - a.fraction || a.i - b.i);
+  for (let i = 0; i < remainderGr; ++i) {
+    integerWidthsGr[fractionalOrder[i % fractionalOrder.length].i] += 1;
+  }
+
+  return integerWidthsGr;
 }
 
 function setTransientMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
@@ -1487,6 +1514,48 @@ function lastNonEmptyAttachmentCellIndex(row: TextDocumentTableRow): number {
   return 0;
 }
 
+function generatedTableWidthGr(documentWidthBl: number): number {
+  const widthBl = Number.isFinite(documentWidthBl)
+    ? Math.max(1, documentWidthBl)
+    : DEFAULT_DOCUMENT_WIDTH_BL;
+  return Math.max(1, Math.round(widthBl * GRID_SIZE));
+}
+
+function tableCellTextWidthScore(text: string): number {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized == "") { return 0; }
+
+  const longestWordLength = normalized
+    .split(/\s+/g)
+    .reduce((longest, word) => Math.max(longest, word.length), 0);
+  const cappedTextLength = Math.min(normalized.length, GENERATED_TABLE_TEXT_SCORE_CAP);
+  const cappedLongestWordLength = Math.min(longestWordLength, GENERATED_TABLE_LONG_WORD_SCORE_CAP);
+  return cappedTextLength * 0.7 + cappedLongestWordLength * 1.3;
+}
+
+function tableColumnTextWeight(block: TextDocumentTableBlock, columnIndex: number): number {
+  const scores = [tableCellTextWidthScore(block.columns[columnIndex] ?? "")];
+  for (const row of block.rows) {
+    scores.push(tableCellTextWidthScore(row.cells[columnIndex]?.title ?? ""));
+  }
+
+  const nonEmptyScores = scores.filter(score => score > 0);
+  if (nonEmptyScores.length == 0) { return 1; }
+
+  const maxScore = Math.max(...nonEmptyScores);
+  const averageScore = nonEmptyScores.reduce((sum, score) => sum + score, 0) / nonEmptyScores.length;
+  return Math.pow(maxScore * 0.75 + averageScore * 0.25, 0.8);
+}
+
+function generatedTableColumnWidthsGr(totalWidthGr: number, block: TextDocumentTableBlock): Array<number> {
+  const weights = block.columns.map((_, i) => tableColumnTextWeight(block, i));
+  return weightedIntegerColumnWidthsGr(
+    totalWidthGr,
+    weights,
+    MIN_GENERATED_TABLE_COLUMN_WIDTH_BL * GRID_SIZE,
+  );
+}
+
 function createTableForBlock(
   textItem: TextItem,
   ownerId: Uid,
@@ -1502,8 +1571,8 @@ function createTableForBlock(
     table.id = stableUid(`text-document-table:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
     table.capabilities = readonlyCopyableCapabilities;
   }
-  const tableWidthGr = Math.max(1, pageWidthBl) * GRID_SIZE;
-  const columnWidthsGr = integerColumnWidthsGr(tableWidthGr, block.columns.length);
+  const tableWidthGr = generatedTableWidthGr(pageWidthBl);
+  const columnWidthsGr = generatedTableColumnWidthsGr(tableWidthGr, block);
   table.tableColumns = block.columns.map((name, i) => ({ name, widthGr: columnWidthsGr[i] }));
   table.numberOfVisibleColumns = table.tableColumns.length;
   table.flags |= TableFlags.ShowColHeader | TableFlags.HideTitle;

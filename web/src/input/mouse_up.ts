@@ -1094,12 +1094,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         store.history.setFocus(focusPath);
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TableColumnContextMenu)) {
-        const hitMeta = MouseActionState.getHitMeta();
-        store.overlay.tableColumnContextMenuInfo.set({
-          posPx: CursorEventState.getLatestDesktopPx(store),
-          tablePath: MouseActionState.getActiveElementPath()!,
-          colNum: hitMeta?.colNum ? hitMeta.colNum : 0,
-        });
+        if (itemCanEdit(activeVisualElement.displayItem)) {
+          const hitMeta = MouseActionState.getHitMeta();
+          store.overlay.tableColumnContextMenuInfo.set({
+            posPx: CursorEventState.getLatestDesktopPx(store),
+            tablePath: MouseActionState.getActiveElementPath()!,
+            colNum: hitMeta?.colNum ? hitMeta.colNum : 0,
+          });
+        }
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Expand)) {
         store.perVe.setIsExpanded(

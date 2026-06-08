@@ -17,7 +17,8 @@
 */
 
 import { GRID_SIZE } from "../constants";
-import { ItemType } from "../items/base/item";
+import { Item, ItemType } from "../items/base/item";
+import { itemCanEdit } from "../items/base/capabilities-item";
 import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
@@ -40,7 +41,7 @@ import { setCaretPosition } from "../util/caret";
 import { isInside, Vector } from "../util/geometry";
 import { panic } from "../util/lang";
 import { restoreContentEditablePlaceholderIfEmpty } from "../util/string";
-import { Uid } from "../util/uid";
+import { SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
 
 
@@ -70,6 +71,17 @@ function createNewItem(
     panic("AddItem.createNewItem: unexpected item type.");
   }
   return newItem;
+}
+
+function itemAllowsNewChild(item: Item | null): boolean {
+  return item != null && item.clientOnly !== true && itemCanEdit(item);
+}
+
+export function canCreateItemsOnCurrentPage(store: StoreContextModel): boolean {
+  const currentPageVeid = store.history.currentPageVeid();
+  if (currentPageVeid == null) { return false; }
+  if (currentPageVeid.itemId == SOLO_ITEM_HOLDER_PAGE_UID) { return false; }
+  return itemAllowsNewChild(itemState.get(currentPageVeid.itemId));
 }
 
 function findContainingPageVe(candidate: VisualElement | null): VisualElement | null {
@@ -457,6 +469,11 @@ function focusNewItemForEditing(
 }
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
+  if (!canCreateItemsOnCurrentPage(store)) {
+    store.overlay.contextMenuInfo.set(null);
+    return;
+  }
+
   const overElementVe = findPlaceholderAtDesktopPos(store, hitInfo, desktopPosPx) ?? HitInfoFns.getHitVe(hitInfo);
   const focusedListPageVe = focusedListPageCreateTarget(store, desktopPosPx);
 

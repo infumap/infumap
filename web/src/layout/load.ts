@@ -114,9 +114,16 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
     PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
     return childLoadInFlight[containerVeid.itemId] ?? Promise.resolve();
   }
-  childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
 
   const container = itemState.get(containerVeid.itemId)!;
+  if (isContainer(container) && container.clientOnly === true) {
+    childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
+    asContainerItem(container).childrenLoaded = true;
+    PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
+    return Promise.resolve();
+  }
+
+  childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
   const origin = container.origin;
 
   const fetchPromise = origin == null

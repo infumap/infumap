@@ -17,6 +17,7 @@
 */
 
 import { StoreContextModel } from "../store/StoreProvider";
+import { canCreateItemsOnCurrentPage } from "./create";
 import { HitInfoFns } from "./hit";
 import { MOUSE_LEFT } from "./mouse_down";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
@@ -29,6 +30,7 @@ export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent
   if (store.overlay.contextMenuInfo.get() != null) { return; }
   if (store.overlay.textEditInfo() != null) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
+  if (!canCreateItemsOnCurrentPage(store)) { return; }
 
   const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
 
