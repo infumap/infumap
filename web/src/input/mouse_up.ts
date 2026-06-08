@@ -636,6 +636,9 @@ function buildCleanupCollapsedCompositeOperations(
   if (compositeItem.computed_children.length != 1) {
     return;
   }
+  if (CompositeFns.hasOwnTitle(compositeItem)) {
+    return;
+  }
 
   const child = itemState.get(compositeItem.computed_children[0]);
   if (itemState.getAsContainerItem(compositeItem.parentId) == null || child == null || !isPositionalItem(child)) {
@@ -1986,6 +1989,10 @@ async function maybeDeleteComposite(store: StoreContextModel) {
   const compositeItem = MouseActionState.getStartCompositeItem()!;
   if (compositeItem.computed_children.length == 0) { panic("maybeDeleteComposite: composite has no children."); }
   if (compositeItem.computed_children.length != 1) {
+    MouseActionState.setStartCompositeItem(null);
+    return;
+  }
+  if (CompositeFns.hasOwnTitle(compositeItem)) {
     MouseActionState.setStartCompositeItem(null);
     return;
   }

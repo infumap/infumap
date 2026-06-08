@@ -23,9 +23,10 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
-import { normalizeItemCapabilities } from './base/capabilities-item';
+import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ContainerItem } from './base/container-item';
-import { Item, ItemType, ItemTypeMixin } from './base/item';
+import { ItemType, ItemTypeMixin } from './base/item';
+import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin, asXSizableItem, isXSizableItem } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
@@ -33,19 +34,20 @@ import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { CompositeFlags, FlagsMixin, PageFlags } from './base/flags-item';
-import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
+import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
-import { VesCache } from '../layout/ves-cache';
-import { requestArrange } from '../layout/arrange';
+import { arrangeNow, requestArrange } from '../layout/arrange';
 import { PageFns, asPageItem, isPage } from './page-item';
 import { asImageItem, isImage } from './image-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { isNote, NoteFns } from './note-item';
+import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
+import { CursorEventState } from '../input/state';
 
 
-export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, Item { }
+export interface CompositeItem extends CompositeMeasurable, XSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
 
-export interface CompositeMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, AttachmentsMixin {
+export interface CompositeMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, AttachmentsMixin, TitledMixin {
   id: Uid;
 
   childrenLoaded: boolean;
@@ -72,6 +74,7 @@ export const CompositeFns = {
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
       spatialWidthGr: 4.0 * GRID_SIZE,
+      title: "",
 
       flags: CompositeFlags.None,
 
@@ -101,6 +104,7 @@ export const CompositeFns = {
       spatialPositionGr: o.spatialPositionGr,
 
       spatialWidthGr: o.spatialWidthGr,
+      title: o.title ?? "",
 
       flags: o.flags,
 
@@ -128,6 +132,7 @@ export const CompositeFns = {
       spatialPositionGr: p.spatialPositionGr,
 
       spatialWidthGr: p.spatialWidthGr,
+      title: p.title,
 
       flags: p.flags,
 
@@ -136,7 +141,7 @@ export const CompositeFns = {
   },
 
   calcSpatialDimensionsBl: (composite: CompositeMeasurable): Dimensions => {
-    let bh = 0.0;
+    let bh = CompositeFns.showTitle(composite) ? 1.0 + COMPOSITE_ITEM_GAP_BL : 0.0;
     for (let childId of composite.computed_children) {
       let item = itemState.get(childId)!;
       if (!item) { continue; }
@@ -163,6 +168,14 @@ export const CompositeFns = {
     bh -= COMPOSITE_ITEM_GAP_BL;
     bh = Math.ceil(bh * 2) / 2;
     return { w: composite.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
+  },
+
+  showTitle: (composite: CompositeMeasurable): boolean => {
+    return !!(composite.flags & CompositeFlags.ShowTitle);
+  },
+
+  hasOwnTitle: (composite: CompositeMeasurable): boolean => {
+    return CompositeFns.showTitle(composite) || composite.title.trim() != "";
   },
 
   calcGeometry_InComposite: (_measurable: CompositeMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
@@ -211,6 +224,9 @@ export const CompositeFns = {
       h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const titleHitboxMaybe = CompositeFns.showTitle(composite)
+      ? [HitboxFns.create(HitboxFlags.Click | HitboxFlags.ContentEditable, { x: 0, y: 0, w: innerBoundsPx.w, h: blockSizePx.h })]
+      : [];
     return ({
       boundsPx,
       blockSizePx,
@@ -221,6 +237,7 @@ export const CompositeFns = {
           HitboxFlags.Attach,
           calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, composite.computed_attachments.length),
         ),
+        ...titleHitboxMaybe,
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
       ],
     });
@@ -281,6 +298,9 @@ export const CompositeFns = {
       h: boundsPx.h / sizeBl.h,
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const titleHitboxMaybe = CompositeFns.showTitle(composite)
+      ? [HitboxFns.create(HitboxFlags.Click | HitboxFlags.ContentEditable, { x: 0, y: 0, w: innerBoundsPx.w, h: blockSizePx.h })]
+      : [];
     return ({
       boundsPx: cloneBoundingBox(boundsPx)!,
       blockSizePx,
@@ -288,6 +308,7 @@ export const CompositeFns = {
       hitboxes: [
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+        ...titleHitboxMaybe,
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
       ]
     });
@@ -304,6 +325,7 @@ export const CompositeFns = {
       id: composite.id,
       spatialPositionGr: composite.spatialPositionGr,
       spatialWidthGr: composite.spatialWidthGr,
+      title: composite.title,
       childrenLoaded: composite.childrenLoaded,
       computed_children: composite.computed_children,
       computed_attachments: composite.computed_attachments,
@@ -311,8 +333,45 @@ export const CompositeFns = {
     });
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    const itemPath = VeFns.veToPath(visualElement);
+    const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
+    if (!itemCanEdit(visualElement.displayItem)) {
+      if (!handledByList) {
+        store.history.setFocus(itemPath);
+        arrangeNow(store, "composite-title-focus-only");
+      }
+      return;
+    }
+
+    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Composite });
+    const editingDomId = itemPath + ":title";
+    const el = document.getElementById(editingDomId);
+    if (!(el instanceof HTMLElement)) {
+      store.overlay.setTextEditInfo(store.history, null);
+      store.history.setFocus(itemPath);
+      arrangeNow(store, "composite-title-edit-target-missing");
+      return;
+    }
+
+    el.focus();
+    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    arrangeNow(store, "composite-enter-title-edit-mode");
+    const freshEl = document.getElementById(editingDomId);
+    if (freshEl instanceof HTMLElement) {
+      freshEl.focus();
+      setCaretPosition(freshEl, closestIdx);
+    }
+  },
+
+  handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false): void => {
+    if (forceEdit) {
+      CompositeFns.handleEditTitleClick(visualElement, store);
+      return;
+    }
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    store.history.setFocus(VeFns.veToPath(visualElement));
+    requestArrange(store, "composite-focus-only");
   },
 
   handlePopupClick: (visualElement: VisualElement, store: StoreContextModel, _isFromAttachment?: boolean): void => {
@@ -326,11 +385,11 @@ export const CompositeFns = {
   },
 
   debugSummary: (_compositeItem: CompositeItem) => {
-    return "[composite] ...";
+    return "[composite] " + _compositeItem.title;
   },
 
   getFingerprint: (compositeItem: CompositeItem): string => {
-    return "~~~!@#~~~" + compositeItem.flags + "@#$" + compositeItem.computed_children.length;
+    return compositeItem.title + "~~~!@#~~~" + compositeItem.flags + "@#$" + compositeItem.computed_children.length;
   }
 };
 

@@ -298,7 +298,7 @@ export const ItemFns = {
     }
     if (isPage(item)) { PageFns.handleClick(visualElementSignal.get(), hitboxFlags, store, hitboxMeta); }
     else if (isTable(item)) { TableFns.handleClick(visualElementSignal.get(), hitboxMeta, store); }
-    else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), store); }
+    else if (isComposite(item)) { CompositeFns.handleClick(visualElementSignal.get(), store, !!(hitboxFlags & HitboxFlags.ContentEditable)); }
     else if (isNote(item)) { NoteFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isImage(item)) { ImageFns.handleClick(visualElementSignal.get(), store); }
     else if (isFile(item)) { FileFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }

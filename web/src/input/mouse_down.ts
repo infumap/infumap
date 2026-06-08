@@ -19,7 +19,7 @@
 import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { Item, ItemType } from "../items/base/item";
-import { CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
+import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { asTableItem, isTable, TableFns } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
@@ -377,6 +377,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
           asPageItem(item).title = trimNewline(newText);
         }
+        else if (store.overlay.textEditInfo()!.itemType == ItemType.Composite) {
+          asCompositeItem(item).title = trimNewline(newText);
+        }
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
           editingDomEl.parentElement!.scrollLeft = 0;
           const noteItem = asNoteItem(item);
@@ -686,6 +689,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     } else if (isTable(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
       TableFns.handleClick(hitVe, null, store, true);
+      MouseActionState.set(null);
+    } else if (isComposite(overDisplayItem)) {
+      ClickState.setLinkWasClicked(false);
+      CompositeFns.handleClick(hitVe, store, true);
       MouseActionState.set(null);
     } else if (isNote(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);

@@ -20,7 +20,7 @@ import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE } from "
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { CompositeItem } from "../../items/composite-item";
+import { CompositeFns, CompositeItem } from "../../items/composite-item";
 import { isImage } from "../../items/image-item";
 import { LinkItem } from "../../items/link-item";
 import { isNote, NoteFns } from "../../items/note-item";
@@ -97,7 +97,9 @@ export const arrangeComposite = (
     linkItemMaybe_childItem: LinkItem | null,
     geometry: ItemGeometry,
   }> = [];
-  let topPx = 0.0;
+  let topPx = CompositeFns.showTitle(displayItem_Composite)
+    ? blockSizePx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h
+    : 0.0;
   for (let idx = 0; idx < displayItem_Composite.computed_children.length; ++idx) {
     const childId = displayItem_Composite.computed_children[idx];
     const childItem = itemState.get(childId)!;

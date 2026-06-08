@@ -20,7 +20,7 @@ import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
 import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
-import { asCompositeItem } from "../../items/composite-item";
+import { CompositeFns, asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
@@ -36,6 +36,8 @@ import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW 
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
+import { appendNewlineIfEmpty } from "../../util/string";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -46,8 +48,25 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
+  const compositeItem = () => asCompositeItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(compositeItem());
   const childVes = () => VesCache.render.getChildren(vePath())();
   const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
+  const showTitle = () => CompositeFns.showTitle(compositeItem());
+  const compositeSizeBl = () => CompositeFns.calcSpatialDimensionsBl(compositeItem());
+  const blockSizePx = () => props.visualElement.blockSizePx ?? {
+    w: boundsPx().w / compositeSizeBl().w,
+    h: boundsPx().h / compositeSizeBl().h,
+  };
+  const titleHeightPx = () => showTitle() ? blockSizePx().h : 0;
+  const bodyTopPx = () => titleHeightPx();
+  const bodyHeightPx = () => Math.max(0, boundsPx().h - bodyTopPx());
+  const titleScale = () => titleHeightPx() / LINE_HEIGHT_PX;
+  const titleEditIsActive = () => store.overlay.textEditInfo()?.itemPath == vePath();
+  const isHighlighted = () =>
+    !!(props.visualElement.flags & (VisualElementFlags.FindHighlighted | VisualElementFlags.SelectionHighlighted));
+  const highlightColor = () =>
+    (props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR;
   const linearTextEditIsActive = () => {
     const itemPath = store.overlay.textEditInfo()?.itemPath;
     return itemPath != null && VeFns.parentPath(itemPath) == vePath();
@@ -73,9 +92,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     return stackedInsertionLineBoundsPx(childVes, Math.max(0, boundsPx().w - 2), moveOverIndex);
   };
 
-  const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * asCompositeItem(props.visualElement.displayItem).spatialWidthGr / GRID_SIZE); }
+  const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * compositeItem().spatialWidthGr / GRID_SIZE); }
 
-  const showBorder = () => !(asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder);
+  const showBorder = () => !(compositeItem().flags & CompositeFlags.HideBorder);
   const isFocused = () => {
     const focusPath = store.history.getFocusPathMaybe();
     const textEditInfo = store.overlay.textEditInfo();
@@ -120,27 +139,56 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     edit_inputListener(store, ev);
   }
 
+  const renderBodyFrame = () =>
+    <div class={`absolute border ` +
+      `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
+      `rounded-xs pointer-events-none`}
+      style={`left: 0px; top: ${bodyTopPx()}px; width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; ` +
+        `background-color: ${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "#eee" : "white"}; ` +
+        `outline: 0px solid transparent; z-index: 0;`} />;
+
+  const renderTitleMaybe = () =>
+    <Show when={showTitle()}>
+      <div id={VeFns.veToPath(props.visualElement) + ":title"}
+        class={`absolute font-bold overflow-hidden ${titleEditIsActive() ? "select-text cursor-text" : ""}`}
+        style={`left: 0px; top: 0px; width: ${boundsPx().w / titleScale()}px; height: ${titleHeightPx() / titleScale()}px; ` +
+          `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
+          `overflow-wrap: break-word; outline: 0px solid transparent; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT + 2};`}
+        contentEditable={canEdit() && titleEditIsActive()}
+        spellcheck={canEdit() && titleEditIsActive()}
+        onKeyUp={keyUpHandler}
+        onKeyDown={keyDownHandler}
+        onInput={inputListener}>
+        {appendNewlineIfEmpty(compositeItem().title)}
+      </div>
+    </Show>;
+
   return (
     <div class={positionClass()}
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
         `${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      <div class={`absolute border ` +
-        `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
-        `rounded-xs ` +
-        `bg-white  ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
+      <div class={`absolute ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
-          `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "background-color: #eee;" : ""}` +
           `outline: 0px solid transparent; `}
         contentEditable={linearTextEditIsActive()}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
-        <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
+        {renderBodyFrame()}
+        {renderTitleMaybe()}
+        <Show when={showTitle() && isHighlighted()}>
           <div class="absolute pointer-events-none rounded-xs"
             style={`left: 0px; top: 0px; ` +
-              `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-              `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+              `width: ${boundsPx().w}px; height: ${titleHeightPx()}px; ` +
+              `background-color: ${highlightColor()}; ` +
+              `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+        </Show>
+        <Show when={isHighlighted()}>
+          <div class="absolute pointer-events-none rounded-xs"
+            style={`left: 0px; top: ${bodyTopPx()}px; ` +
+              `width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; ` +
+              `background-color: ${highlightColor()}; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
         <For each={childVes()}>{(childVe, index) => {

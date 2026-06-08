@@ -101,6 +101,7 @@ export enum PasswordFlags {
 export enum CompositeFlags {
   None = 0x000,
   HideBorder = 0x001,
+  ShowTitle = 0x002,
 };
 
 export enum PageFlags {

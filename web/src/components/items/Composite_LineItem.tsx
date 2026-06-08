@@ -19,7 +19,7 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
-import { asCompositeItem } from "../../items/composite-item";
+import { CompositeFns, asCompositeItem } from "../../items/composite-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
@@ -45,6 +45,9 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
   const leftPx = () => boundsPx().x + oneBlockWidthPx();
   const widthPx = () => boundsPx().w - oneBlockWidthPx();
   const titleText = () => {
+    if (CompositeFns.showTitle(compositeItem())) {
+      return compositeItem().title == "" ? "[untitled]" : compositeItem().title;
+    }
     if (compositeItem().computed_children.length == 0) {
       return "[empty]";
     }

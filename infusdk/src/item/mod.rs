@@ -58,6 +58,14 @@ bitflags! {
 }
 
 bitflags! {
+  pub struct CompositeFlags: i64 {
+    const None =           0x000;
+    const HideBorder =     0x001;
+    const ShowTitle =      0x002;
+  }
+}
+
+bitflags! {
   pub struct FileFlags: i64 {
     const None =                 0x000;
     const Unused =             0x001;
@@ -389,6 +397,7 @@ pub fn is_titled_item_type(item_type: ItemType) -> bool {
     || item_type == ItemType::Note
     || item_type == ItemType::Page
     || item_type == ItemType::Table
+    || item_type == ItemType::Composite
     || item_type == ItemType::Image
 }
 
@@ -2616,7 +2625,9 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
       None => {
-        if is_titled_item_type(item_type) {
+        if item_type == ItemType::Composite {
+          Ok(Some(String::new()))
+        } else if is_titled_item_type(item_type) {
           Err(expected_for_err("title", item_type, &id))
         } else {
           Ok(None)

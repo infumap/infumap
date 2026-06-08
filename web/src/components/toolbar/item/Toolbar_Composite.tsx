@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, Show } from "solid-js";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProvider_Overlay";
@@ -24,6 +24,11 @@ import { asCompositeItem } from "../../../items/composite-item";
 import { ClickState } from "../../../input/state";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem } from "../toolbarFocus";
+import { CompositeFlags } from "../../../items/base/flags-item";
+import { ItemType } from "../../../items/base/item";
+import { requestArrange } from "../../../layout/arrange";
+import { serverOrRemote } from "../../../server";
+import { itemCanEdit } from "../../../items/base/capabilities-item";
 
 
 export const Toolbar_Composite: Component = () => {
@@ -32,6 +37,28 @@ export const Toolbar_Composite: Component = () => {
   let qrDiv: HTMLDivElement | undefined;
 
   const compositeItem = () => asCompositeItem(getToolbarFocusItem(store));
+  const canEdit = () => itemCanEdit(compositeItem());
+
+  const showTitle = () => {
+    store.touchToolbarDependency();
+    return !!(compositeItem().flags & CompositeFlags.ShowTitle);
+  };
+
+  const handleToggleTitle = () => {
+    if ((compositeItem().flags & CompositeFlags.ShowTitle) &&
+      store.overlay.textEditInfo()?.itemType == ItemType.Composite &&
+      store.overlay.textEditInfo()?.itemPath == store.history.getFocusPathMaybe()) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
+    if (compositeItem().flags & CompositeFlags.ShowTitle) {
+      compositeItem().flags &= ~CompositeFlags.ShowTitle;
+    } else {
+      compositeItem().flags |= CompositeFlags.ShowTitle;
+    }
+    requestArrange(store, "toolbar-composite-title-visibility");
+    serverOrRemote.updateItem(compositeItem(), store.general.networkStatus);
+    store.touchToolbar();
+  };
 
   const handleQr = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
@@ -55,6 +82,9 @@ export const Toolbar_Composite: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
+        <Show when={canEdit()}>
+          <InfuIconButton icon="bi-type" highlighted={showTitle()} clickHandler={handleToggleTitle} title="Show composite title" />
+        </Show>
         <Toolbar_ItemOrdering />
 
         <div ref={qrDiv} class="inline-block pl-[5px]" onMouseDown={handleQrDown}>

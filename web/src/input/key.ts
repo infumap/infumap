@@ -45,7 +45,7 @@ import { HitInfoFns } from "./hit";
 import { EMPTY_UID, UMBRELLA_PAGE_UID } from "../util/uid";
 import { asContainerItem } from "../items/base/container-item";
 import { MOUSE_RIGHT, mouseDownHandler } from "./mouse_down";
-import { isComposite } from "../items/composite-item";
+import { CompositeFns, isComposite } from "../items/composite-item";
 import { FileFns, isFile } from "../items/file-item";
 import { TextFns, isText } from "../items/text-item";
 import { NoteFns, isNote } from "../items/note-item";
@@ -1002,6 +1002,10 @@ function editFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement):
   }
   if (isTable(focusVe.displayItem)) {
     TableFns.handleClick(focusVe, null, store, true);
+    return true;
+  }
+  if (isComposite(focusVe.displayItem)) {
+    CompositeFns.handleClick(focusVe, store, true);
     return true;
   }
   if (isNote(focusVe.displayItem)) {

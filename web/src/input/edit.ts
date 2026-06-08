@@ -46,7 +46,7 @@ import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
 import { currentCaretElement, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setTextSelection } from "../util/caret";
-import { asCompositeItem, isComposite } from "../items/composite-item";
+import { asCompositeItem, CompositeFns, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
 import { asTitledItem } from "../items/base/titled-item";
@@ -251,6 +251,9 @@ export function commitActiveTextEdit(
     else if (textEditInfo.itemType == ItemType.Page) {
       asPageItem(item).title = trimNewline(newText);
     }
+    else if (textEditInfo.itemType == ItemType.Composite) {
+      asCompositeItem(item).title = trimNewline(newText);
+    }
     else if (textEditInfo.itemType == ItemType.Note) {
       editingDomEl.parentElement!.scrollLeft = 0;
       const noteItem = asNoteItem(item);
@@ -299,6 +302,7 @@ function editableItemType(ve: VisualElement): ItemType | null {
   if (isPassword(ve.displayItem)) { return ItemType.Password; }
   if (isPage(ve.displayItem)) { return ItemType.Page; }
   if (isTable(ve.displayItem)) { return ItemType.Table; }
+  if (isComposite(ve.displayItem)) { return ItemType.Composite; }
   return null;
 }
 
@@ -1019,7 +1023,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualE
   if (isComposite(context.containerVe.displayItem)) {
     const compositeItem = asCompositeItem(context.containerVe.displayItem);
     assert(compositeItem.computed_children.length != 0, "composite item does not have any children.");
-    if (compositeItem.computed_children.length == 1) {
+    if (compositeItem.computed_children.length == 1 && !CompositeFns.hasOwnTitle(compositeItem)) {
       const compositeParentPath = VeFns.parentPath(context.containerPath);
       if (compositeParentPath == null) { return; }
 
@@ -1135,6 +1139,9 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
           item.text = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
           let item = asPageItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+          item.title = newText;
+        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Composite) {
+          let item = asCompositeItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
           item.title = newText;
         } else if (store.overlay.textEditInfo()!.itemType == ItemType.Image) {
           let item = asImageItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
