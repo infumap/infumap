@@ -49,7 +49,8 @@ export const arrangeComposite = (
   linkItemMaybe_Composite: LinkItem | null,
   actualLinkItemMaybe_Composite: LinkItem | null,
   compositeGeometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementSignal => {
+  flags: ArrangeItemFlags,
+  widthBlOverride?: number): VisualElementSignal => {
 
   const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
 
@@ -88,8 +89,15 @@ export const arrangeComposite = (
     }
   }
 
-  const compositeSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Composite ? linkItemMaybe_Composite : displayItem_Composite);
-  const blockSizePx = { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
+  let compositeSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Composite ? linkItemMaybe_Composite : displayItem_Composite);
+  if (widthBlOverride != null) {
+    const cloned = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(displayItem_Composite));
+    cloned.spatialWidthGr = widthBlOverride * GRID_SIZE;
+    compositeSizeBl = CompositeFns.calcSpatialDimensionsBl(cloned);
+  }
+  const blockSizePx = widthBlOverride != null
+    ? { w: compositeGeometry.boundsPx.w / widthBlOverride, h: compositeGeometry.blockSizePx.h }
+    : { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
 
   let compositeChildPaths: Array<VisualElementPath> = [];
   const compositeChildArrangeData: Array<{

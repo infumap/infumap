@@ -39,7 +39,7 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { MouseAction, MouseActionState } from "../../input/state";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -115,7 +115,10 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
-        cloned.spatialWidthGr = isXSizableItem(parentTreeItem)
+        const effectiveWidthGr = effectiveFlowItemWidthGrMaybe(props.visualElement);
+        cloned.spatialWidthGr = effectiveWidthGr != null
+          ? effectiveWidthGr
+          : isXSizableItem(parentTreeItem)
           ? asXSizableItem(parentTreeItem).spatialWidthGr
           : isLink(parentTreeItem)
             ? asLinkItem(parentTreeItem).spatialWidthGr

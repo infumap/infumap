@@ -18,7 +18,7 @@
 
 import { Component, For, Show } from "solid-js";
 import { VisualElementProps, VisualElement_Desktop } from "../VisualElement";
-import { GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
+import { COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeFns, asCompositeItem } from "../../items/composite-item";
 import { CompositeFlags } from "../../items/base/flags-item";
@@ -38,6 +38,8 @@ import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { itemCanEdit } from "../../items/base/capabilities-item";
+import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
+import { compositeMoveOutHitboxBoundsPx } from "../../layout/composite-move-out";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -80,6 +82,29 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       h: 1,
     }
   };
+  const moveOutOfCompositeBox = (): BoundingBox => {
+    const fallbackBounds = {
+      x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: boundsPx().h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2),
+    };
+
+    const moveHitbox = props.visualElement.hitboxes.find(hitbox => hitbox.meta?.compositeMoveOut);
+    if (moveHitbox == null) {
+      return fallbackBounds;
+    }
+
+    const handleBounds = {
+      x: moveHitbox.boundsPx.x,
+      y: moveHitbox.boundsPx.y,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: moveHitbox.boundsPx.h,
+    };
+    const handleHitbox = compositeMoveOutHitboxBoundsPx(handleBounds);
+    handleBounds.x += moveHitbox.boundsPx.x - handleHitbox.x;
+    return handleBounds;
+  };
 
   const moveOverInsertLineBoundsPx = (): BoundingBox | null => {
     const moveOverIndex = store.perVe.getMoveOverIndex(vePath());
@@ -95,6 +120,14 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * compositeItem().spatialWidthGr / GRID_SIZE); }
 
   const showBorder = () => !(compositeItem().flags & CompositeFlags.HideBorder);
+  const isInCompositeOrDocument = () =>
+    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
+  const showMoveOutOfCompositeArea = () =>
+    store.user.getUserMaybe() != null &&
+    store.perVe.getMouseIsOver(vePath()) &&
+    !store.anItemIsMoving.get() &&
+    store.overlay.textEditInfo() == null &&
+    isInCompositeOrDocument();
   const isFocused = () => {
     const focusPath = store.history.getFocusPathMaybe();
     const textEditInfo = store.overlay.textEditInfo();
@@ -221,6 +254,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
           <div class={`absolute border border-black`}
             style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />
+        </Show>
+        <Show when={showMoveOutOfCompositeArea()}>
+          <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
         </Show>
         <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
           moveOverInsertLineBoundsPx()}>

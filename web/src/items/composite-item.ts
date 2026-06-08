@@ -211,6 +211,48 @@ export const CompositeFns = {
     };
   },
 
+  calcGeometry_InDocument: (composite: CompositeMeasurable, blockSizePx: Dimensions, documentWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
+    const cloned = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(composite));
+    cloned.spatialWidthGr = documentWidthBl * GRID_SIZE;
+    const sizeBl = CompositeFns.calcSpatialDimensionsBl(cloned);
+    const boundsPx = {
+      x: leftMarginBl * blockSizePx.w,
+      y: topPx,
+      w: documentWidthBl * blockSizePx.w,
+      h: sizeBl.h * blockSizePx.h
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    const moveAreaBoundsPx = {
+      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+      h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
+    };
+    const titleHitboxMaybe = CompositeFns.showTitle(composite)
+      ? [HitboxFns.create(HitboxFlags.Click | HitboxFlags.ContentEditable, { x: 0, y: 0, w: innerBoundsPx.w, h: blockSizePx.h })]
+      : [];
+    return {
+      boundsPx,
+      blockSizePx,
+      viewportBoundsPx: boundsPx,
+      hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0), { compositeMoveOut: true }),
+        HitboxFns.create(
+          HitboxFlags.Attach,
+          calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, composite.computed_attachments.length),
+        ),
+        ...titleHitboxMaybe,
+        HitboxFns.create(HitboxFlags.AttachComposite, {
+          x: 0,
+          y: innerBoundsPx.h - ATTACH_AREA_SIZE_PX,
+          w: innerBoundsPx.w,
+          h: ATTACH_AREA_SIZE_PX,
+        }),
+      ]
+    };
+  },
+
   calcGeometry_Spatial: (composite: CompositeMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
     const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite);
     const blockSizePx = {

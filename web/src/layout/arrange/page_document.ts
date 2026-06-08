@@ -20,6 +20,7 @@ import { LINK_TRIANGLE_SIZE_PX, NATURAL_BLOCK_SIZE_PX, CONTAINER_IN_COMPOSITE_PA
 import { NoteFlags, PageFlags, noteHasListStyle, noteIndentLevelFromFlags } from "../../items/base/flags-item";
 import { Item, ItemType, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
+import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
 import { DividerFns, isDivider } from "../../items/divider-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
@@ -39,6 +40,7 @@ import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getC
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath } from "./popup";
 import { arrangeTable } from "./table";
+import { arrangeComposite } from "./composite";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
 
@@ -367,6 +369,11 @@ function documentChildMeasurableForGeometry(
   }
 
   if (!isTable(displayItem)) {
+    if (isComposite(displayItem)) {
+      const clonedComposite = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(displayItem));
+      clonedComposite.spatialWidthGr = displayWidthBl * GRID_SIZE;
+      return clonedComposite;
+    }
     return linkItemMaybe ? linkItemMaybe : displayItem;
   }
 
@@ -404,6 +411,10 @@ function calcDocumentChildGeometry(
       }));
     }
     return geometry;
+  }
+
+  if (isComposite(displayItem)) {
+    return CompositeFns.calcGeometry_InDocument(asCompositeItem(displayItem), blockSizePx, displayWidthBl, leftMarginBl, topPx);
   }
 
   return ItemFns.calcGeometry_InComposite(
@@ -485,6 +496,19 @@ function arrangeDocumentChildItemPath(
       store,
       parentPath,
       asTableItem(displayItem),
+      linkItemMaybe,
+      actualLinkItemMaybe,
+      geometry,
+      flags,
+      displayWidthBl).get());
+  }
+
+  if (isComposite(displayItem)) {
+    initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+    return VeFns.veToPath(arrangeComposite(
+      store,
+      parentPath,
+      asCompositeItem(displayItem),
       linkItemMaybe,
       actualLinkItemMaybe,
       geometry,

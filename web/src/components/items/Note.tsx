@@ -62,7 +62,7 @@ import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
@@ -97,6 +97,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (documentPage != null) {
         cloned.spatialWidthGr = documentPage.docWidthBl * GRID_SIZE;
         return NoteFns.calcDocumentSpatialDimensionsBl(cloned);
+      }
+      const effectiveWidthGr = effectiveFlowItemWidthGrMaybe(props.visualElement);
+      if (effectiveWidthGr != null) {
+        cloned.spatialWidthGr = effectiveWidthGr;
+        return NoteFns.calcSpatialDimensionsBl(cloned, true);
       }
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;

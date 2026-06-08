@@ -51,7 +51,7 @@ import { newOrdering } from "../../util/ordering";
 import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -123,7 +123,10 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
       } else {
-        cloned.spatialWidthGr = isXSizableItem(parentTreeItem)
+        const effectiveWidthGr = effectiveFlowItemWidthGrMaybe(props.visualElement);
+        cloned.spatialWidthGr = effectiveWidthGr != null
+          ? effectiveWidthGr
+          : isXSizableItem(parentTreeItem)
           ? asXSizableItem(parentTreeItem).spatialWidthGr
           : isLink(parentTreeItem)
             ? asLinkItem(parentTreeItem).spatialWidthGr

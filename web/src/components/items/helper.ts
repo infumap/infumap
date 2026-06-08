@@ -30,7 +30,7 @@ import { isSearch } from "../../items/search-item";
 import { POPUP_LINK_UID } from "../../util/uid";
 import { VesCache } from "../../layout/ves-cache";
 import { arrangeNow } from "../../layout/arrange";
-import { PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
+import { GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { documentPageMoveOutBoxPx } from "../../layout/composite-move-out";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
@@ -140,6 +140,15 @@ export const parentDocumentPageMaybe = (visualElement: VisualElement) => {
     return null;
   }
   return asPageItem(parentItem);
+}
+
+export const effectiveFlowItemWidthGrMaybe = (visualElement: VisualElement): number | null => {
+  if (!(visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) ||
+    visualElement.blockSizePx == null ||
+    visualElement.blockSizePx.w <= 0) {
+    return null;
+  }
+  return (visualElement.boundsPx.w / visualElement.blockSizePx.w) * GRID_SIZE;
 }
 
 export const documentPageMoveOutBoxPxMaybe = (visualElement: VisualElement): BoundingBox | null => {

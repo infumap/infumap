@@ -35,7 +35,7 @@ import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { arrangeNow } from "../../layout/arrange";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -57,6 +57,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return props.visualElement.viewportBoundsPx;
   }
   const spatialWidthGr = () => {
+    const effectiveWidthGr = effectiveFlowItemWidthGrMaybe(props.visualElement);
+    if (effectiveWidthGr != null) {
+      return effectiveWidthGr;
+    }
     if (props.visualElement.linkItemMaybe != null) {
       const parent = itemState.get(props.visualElement.linkItemMaybe.parentId)!;
       if (isComposite(parent)) {
