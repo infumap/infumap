@@ -24,7 +24,7 @@ import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
 import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
 import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
-import { ContainerItem } from './base/container-item';
+import { ContainerItem, asContainerItem, isContainer } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
 import { TitledItem } from './base/titled-item';
 import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
@@ -133,6 +133,15 @@ function pageEmbeddedInteractiveTitleHeightBl(page: PageMeasurable): number {
   return page.flags & PageFlags.HideEmbeddedInteractiveTitle ? 0 : PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL;
 }
 
+export interface ListPageVisibleRow {
+  treeItemId: Uid;
+  veid: Veid;
+  displayItem: Item;
+  depth: number;
+  parentContainerId: Uid;
+  ancestorIds: Array<Uid>;
+}
+
 function getListPageChildVeidMaybe(childId: Uid | null | undefined): Veid | null {
   if (!childId) { return null; }
   const childItem = itemState.get(childId);
@@ -154,6 +163,26 @@ function getListPageChildVeidMaybe(childId: Uid | null | undefined): Veid | null
   };
 }
 
+function getListPageVisibleRowMaybe(
+  childId: Uid,
+  depth: number,
+  parentContainerId: Uid,
+  ancestorIds: Array<Uid>,
+): ListPageVisibleRow | null {
+  const veid = getListPageChildVeidMaybe(childId);
+  if (!veid || !isRenderableListPageSelectedVeid(veid)) { return null; }
+  const displayItem = itemState.get(veid.itemId);
+  if (!displayItem) { return null; }
+  return {
+    treeItemId: childId,
+    veid,
+    displayItem,
+    depth,
+    parentContainerId,
+    ancestorIds: Array.from(ancestorIds),
+  };
+}
+
 function isRenderableListPageSelectedVeid(veid: Veid): boolean {
   if (isEmptyVeid(veid)) { return false; }
   if (itemState.get(veid.itemId) == null) { return false; }
@@ -161,17 +190,65 @@ function isRenderableListPageSelectedVeid(veid: Veid): boolean {
   return true;
 }
 
+function getDirectListPageVisibleRows(page: PageItem): Array<ListPageVisibleRow> {
+  const rows: Array<ListPageVisibleRow> = [];
+  for (const childId of page.computed_children) {
+    const row = getListPageVisibleRowMaybe(childId, 0, page.id, []);
+    if (row != null) {
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function getListPageVisibleRowsImpl(
+  store: StoreContextModel,
+  page: PageItem,
+  listPagePath: VisualElementPath,
+): Array<ListPageVisibleRow> {
+  const rows: Array<ListPageVisibleRow> = [];
+
+  const walk = (container: ContainerItem, depth: number, ancestorIds: Array<Uid>) => {
+    for (const childId of container.computed_children) {
+      const row = getListPageVisibleRowMaybe(childId, depth, container.id, ancestorIds);
+      if (row == null) { continue; }
+
+      rows.push(row);
+
+      const rowPath = VeFns.addVeidToPath(row.veid, listPagePath);
+      if (isContainer(row.displayItem) && store.perVe.getIsExpanded(rowPath)) {
+        walk(
+          asContainerItem(row.displayItem),
+          depth + 1,
+          Array.from(new Set([...ancestorIds, row.treeItemId, row.displayItem.id])),
+        );
+      }
+    }
+  };
+
+  walk(page, 0, []);
+  return rows;
+}
+
+function listPageRowIsExcluded(row: ListPageVisibleRow, excludedChildIdMaybe: Uid | null): boolean {
+  if (excludedChildIdMaybe == null) { return false; }
+  return row.treeItemId == excludedChildIdMaybe ||
+    row.displayItem.id == excludedChildIdMaybe ||
+    row.ancestorIds.includes(excludedChildIdMaybe);
+}
+
 function findFirstSelectableListPageChildVeid(
   page: PageItem,
   excludedChildIdMaybe: Uid | null = null,
+  visibleRowsMaybe: Array<ListPageVisibleRow> | null = null,
 ): Veid {
-  for (const childId of page.computed_children) {
-    if (excludedChildIdMaybe != null && childId == excludedChildIdMaybe) {
+  const rows = visibleRowsMaybe ?? getDirectListPageVisibleRows(page);
+  for (const row of rows) {
+    if (listPageRowIsExcluded(row, excludedChildIdMaybe)) {
       continue;
     }
-    const veid = getListPageChildVeidMaybe(childId);
-    if (veid && isRenderableListPageSelectedVeid(veid)) {
-      return veid;
+    if (isRenderableListPageSelectedVeid(row.veid)) {
+      return row.veid;
     }
   }
   return EMPTY_VEID;
@@ -182,15 +259,16 @@ function findSelectableListPageChildVeidFromIndex(
   startIdx: number,
   step: number,
   excludedChildIdMaybe: Uid | null = null,
+  visibleRowsMaybe: Array<ListPageVisibleRow> | null = null,
 ): Veid {
-  for (let idx = startIdx; idx >= 0 && idx < page.computed_children.length; idx += step) {
-    const childId = page.computed_children[idx];
-    if (excludedChildIdMaybe != null && childId == excludedChildIdMaybe) {
+  const rows = visibleRowsMaybe ?? getDirectListPageVisibleRows(page);
+  for (let idx = startIdx; idx >= 0 && idx < rows.length; idx += step) {
+    const row = rows[idx];
+    if (listPageRowIsExcluded(row, excludedChildIdMaybe)) {
       continue;
     }
-    const veid = getListPageChildVeidMaybe(childId);
-    if (veid && isRenderableListPageSelectedVeid(veid)) {
-      return veid;
+    if (isRenderableListPageSelectedVeid(row.veid)) {
+      return row.veid;
     }
   }
   return EMPTY_VEID;
@@ -200,31 +278,50 @@ function findSelectableListPageChildVeidFromOrdering(
   page: PageItem,
   ordering: Uint8Array,
   excludedChildIdMaybe: Uid | null = null,
+  visibleRowsMaybe: Array<ListPageVisibleRow> | null = null,
+  parentContainerIdMaybe: Uid | null = null,
 ): Veid {
   let prevVeid = EMPTY_VEID;
   let nextVeid = EMPTY_VEID;
+  const rows = visibleRowsMaybe ?? getDirectListPageVisibleRows(page);
 
-  for (const childId of page.computed_children) {
-    if (excludedChildIdMaybe != null && childId == excludedChildIdMaybe) {
+  for (const row of rows) {
+    if (parentContainerIdMaybe != null && row.parentContainerId != parentContainerIdMaybe) {
       continue;
     }
-    const veid = getListPageChildVeidMaybe(childId);
-    if (!veid || !isRenderableListPageSelectedVeid(veid)) {
+    if (listPageRowIsExcluded(row, excludedChildIdMaybe)) {
       continue;
     }
 
-    const child = itemState.get(childId);
+    const child = itemState.get(row.treeItemId);
     if (!child) { continue; }
     const cmp = compareOrderings(child.ordering, ordering);
     if (cmp < 0) {
-      prevVeid = veid;
+      prevVeid = row.veid;
     } else if (cmp > 0 && isEmptyVeid(nextVeid)) {
-      nextVeid = veid;
+      nextVeid = row.veid;
     }
   }
 
   if (!isEmptyVeid(prevVeid)) { return prevVeid; }
   return nextVeid;
+}
+
+function findNearestVisibleListPageAncestorVeid(
+  selectedVeid: Veid,
+  visibleRowsMaybe: Array<ListPageVisibleRow> | null,
+): Veid {
+  if (visibleRowsMaybe == null) { return EMPTY_VEID; }
+  const treeItem = VeFns.treeItemFromVeid(selectedVeid);
+  let parentId = treeItem?.parentId ?? null;
+  while (parentId != null && parentId != EMPTY_UID) {
+    const row = visibleRowsMaybe.find(row => row.treeItemId == parentId || row.displayItem.id == parentId);
+    if (row != null && isRenderableListPageSelectedVeid(row.veid)) {
+      return row.veid;
+    }
+    parentId = itemState.get(parentId)?.parentId ?? null;
+  }
+  return EMPTY_VEID;
 }
 
 function addUniqueVeid(candidates: Veid[], candidate: Veid | null) {
@@ -1572,47 +1669,59 @@ export const PageFns = {
     selectedVeid: Veid,
     excludedChildIdMaybe: Uid | null = null,
     excludedChildOriginalOrderingMaybe: Uint8Array | null = null,
+    visibleRowsMaybe: Array<ListPageVisibleRow> | null = null,
   ): Veid => {
     if (page.arrangeAlgorithm != ArrangeAlgorithm.List || selectedVeid.itemId == "") {
       return selectedVeid;
     }
 
+    const rows = visibleRowsMaybe ?? getDirectListPageVisibleRows(page);
     let selectedIdx = -1;
-    for (let idx = 0; idx < page.computed_children.length; ++idx) {
-      const childVeid = getListPageChildVeidMaybe(page.computed_children[idx]);
-      if (childVeid && VeFns.compareVeids(childVeid, selectedVeid) == 0) {
+    for (let idx = 0; idx < rows.length; ++idx) {
+      if (VeFns.compareVeids(rows[idx].veid, selectedVeid) == 0) {
         selectedIdx = idx;
         break;
       }
     }
 
     if (selectedIdx == -1) {
-      return findFirstSelectableListPageChildVeid(page, excludedChildIdMaybe);
+      const ancestorVeid = findNearestVisibleListPageAncestorVeid(selectedVeid, visibleRowsMaybe);
+      if (!isEmptyVeid(ancestorVeid)) {
+        return ancestorVeid;
+      }
+      return findFirstSelectableListPageChildVeid(page, excludedChildIdMaybe, rows);
     }
 
-    const selectedChildId = page.computed_children[selectedIdx];
-    if (excludedChildIdMaybe == null || selectedChildId != excludedChildIdMaybe) {
-      const selectedChildVeid = getListPageChildVeidMaybe(selectedChildId);
-      if (selectedChildVeid && isRenderableListPageSelectedVeid(selectedChildVeid)) {
-        return selectedChildVeid;
+    const selectedRow = rows[selectedIdx];
+    if (!listPageRowIsExcluded(selectedRow, excludedChildIdMaybe)) {
+      if (isRenderableListPageSelectedVeid(selectedRow.veid)) {
+        return selectedRow.veid;
       }
-      return findFirstSelectableListPageChildVeid(page, excludedChildIdMaybe);
+      return findFirstSelectableListPageChildVeid(page, excludedChildIdMaybe, rows);
     }
 
     if (excludedChildOriginalOrderingMaybe != null) {
-      const orderedVeid = findSelectableListPageChildVeidFromOrdering(page, excludedChildOriginalOrderingMaybe, excludedChildIdMaybe);
+      const orderedVeid = findSelectableListPageChildVeidFromOrdering(
+        page,
+        excludedChildOriginalOrderingMaybe,
+        excludedChildIdMaybe,
+        rows,
+        selectedRow.parentContainerId,
+      );
       if (!isEmptyVeid(orderedVeid)) {
         return orderedVeid;
       }
     }
 
-    const prevVeid = findSelectableListPageChildVeidFromIndex(page, selectedIdx - 1, -1, excludedChildIdMaybe);
+    const prevVeid = findSelectableListPageChildVeidFromIndex(page, selectedIdx - 1, -1, excludedChildIdMaybe, rows);
     if (!isEmptyVeid(prevVeid)) {
       return prevVeid;
     }
 
-    return findSelectableListPageChildVeidFromIndex(page, selectedIdx + 1, 1, excludedChildIdMaybe);
+    return findSelectableListPageChildVeidFromIndex(page, selectedIdx + 1, 1, excludedChildIdMaybe, rows);
   },
+
+  getListPageVisibleRows: getListPageVisibleRowsImpl,
 
   moveListPageSelectionOffChild: (
     store: StoreContextModel,
