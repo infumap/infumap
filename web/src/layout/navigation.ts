@@ -20,6 +20,7 @@ import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { isSearch, SearchFns } from "../items/search-item";
+import { ensureClientOnlyChatPageUnderQueries } from "../items/chat";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
@@ -200,7 +201,7 @@ async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesP
     await server.addItem(searchItem, null, store.general.networkStatus);
     return searchItem.id;
   } catch (e) {
-    console.error("Failed to create default Search item under Searches page:", e);
+    console.error("Failed to create default Search item under Queries page:", e);
     itemState.delete(searchItem.id);
     return null;
   }
@@ -209,7 +210,7 @@ async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesP
 export async function navigateToSearches(store: StoreContextModel): Promise<void> {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) { return; }
-  store.overlay.autoFocusSearchInput.set(true);
+  store.overlay.autoFocusSearchInput.set(false);
 
   const searchesPageId = userMaybe.searchesPageId;
   let searchesPage = itemState.get(searchesPageId);
@@ -225,9 +226,17 @@ export async function navigateToSearches(store: StoreContextModel): Promise<void
     return;
   }
 
+  const queriesPage = asPageItem(searchesPage);
+  if (queriesPage.title == "Searches") {
+    queriesPage.title = "Queries";
+    void server.updateItem(queriesPage, store.general.networkStatus, false);
+  }
+
   const searchItemId = await ensureSearchItemUnderSearches(store, searchesPageId);
-  if (searchItemId != null) {
-    store.perItem.setSelectedListPageItem({ itemId: searchesPageId, linkIdMaybe: null }, { itemId: searchItemId, linkIdMaybe: null });
+  const chatPageId = ensureClientOnlyChatPageUnderQueries(store, searchesPageId);
+  const selectedItemId = chatPageId ?? searchItemId;
+  if (selectedItemId != null) {
+    store.perItem.setSelectedListPageItem({ itemId: searchesPageId, linkIdMaybe: null }, { itemId: selectedItemId, linkIdMaybe: null });
   }
 
   const currentPageVeid = store.history.currentPageVeid();

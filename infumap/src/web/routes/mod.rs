@@ -139,7 +139,7 @@ pub fn default_searches_page(owner_id: &str, searches_page_id: Uid, natural_aspe
     Vector { x: 0, y: 0 },
     inner_spatial_width_br * GRID_SIZE,
     RelationshipToParent::NoParent,
-    "Searches",
+    "Queries",
     "",
     0,
     0,

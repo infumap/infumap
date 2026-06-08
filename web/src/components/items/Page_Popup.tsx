@@ -54,6 +54,7 @@ import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
+import { ChatComposer } from "./ChatComposer";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -403,6 +404,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
+      <ChatComposer visualElement={props.visualElement} pageFns={props.pageFns} />
     </div>;
 
   const renderCalendarPage = () => {

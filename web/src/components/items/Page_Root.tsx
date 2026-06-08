@@ -51,6 +51,7 @@ import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chr
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
+import { ChatComposer } from "./ChatComposer";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -793,6 +794,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>
+      <ChatComposer visualElement={props.visualElement} pageFns={props.pageFns} />
       {renderSelectedRootMaybe()}
       {renderPopupRootMaybe()}
       {renderBorderOverlay()}

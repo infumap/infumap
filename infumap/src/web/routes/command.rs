@@ -226,6 +226,7 @@ pub async fn serve_command_route(
     }
     "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
     "search" => handle_search(config, db, &request.json_data, &session_maybe).await,
+    "chat-dummy" => handle_chat_dummy(db, &request.json_data, &session_maybe).await,
     "empty-trash" => handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     _ => {
       if let Some(session) = &session_maybe {
@@ -1570,6 +1571,145 @@ async fn handle_add_link_note(
   .to_string();
   let base64_data_maybe: Option<String> = None;
   add_item_for_user(db, object_store, &item_json, &base64_data_maybe, &session.user_id).await
+}
+
+#[derive(Deserialize)]
+struct ChatDummyRequest {
+  #[serde(rename = "ownerId")]
+  owner_id: Uid,
+  #[serde(rename = "pageId")]
+  page_id: Uid,
+  prompt: String,
+  #[serde(rename = "compositeOrdering")]
+  composite_ordering: Vec<u8>,
+  #[serde(rename = "clientOnly")]
+  client_only: bool,
+}
+
+async fn handle_chat_dummy(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = match session_maybe {
+    Some(session) => session,
+    None => {
+      return Err(format!("Session is required to run a chat query.").into());
+    }
+  };
+
+  let request: ChatDummyRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("Could not parse chat dummy request: {}", e))?;
+
+  if request.owner_id != session.user_id {
+    return Err(format!("Chat request owner did not match session user.").into());
+  }
+  if request.composite_ordering.is_empty() {
+    return Err(format!("Chat request had an empty composite ordering.").into());
+  }
+
+  if !request.client_only {
+    let db = db.lock().await;
+    let page = db
+      .item
+      .get(&request.page_id)
+      .map_err(|_| format!("Cannot run chat query for unknown page '{}'.", request.page_id))?;
+    if page.item_type != ItemType::Page {
+      return Err(format!("Cannot run chat query for non-page item '{}'.", request.page_id).into());
+    }
+    if page.owner_id != session.user_id {
+      return Err(format!("Cannot run chat query for a page owned by another user.").into());
+    }
+  }
+
+  let now = unix_now_secs_u64().unwrap();
+  let owner_id = session.user_id.clone();
+  let page_id = request.page_id.clone();
+  let composite_id = new_uid();
+  let note_1_id = new_uid();
+  let note_2_id = new_uid();
+
+  let mut note_orderings: Vec<Vec<u8>> = Vec::new();
+  let note_1_ordering = new_ordering_at_end(note_orderings.clone());
+  note_orderings.push(note_1_ordering.clone());
+  let note_2_ordering = new_ordering_at_end(note_orderings);
+
+  let prompt_summary = {
+    let trimmed = request.prompt.trim();
+    let mut chars = trimmed.chars();
+    let summary: String = chars.by_ref().take(140).collect();
+    if chars.next().is_some() {
+      format!("{}...", summary)
+    } else if summary.is_empty() {
+      "empty prompt".to_owned()
+    } else {
+      summary
+    }
+  };
+
+  let items = vec![
+    serde_json::json!({
+      "itemType": "composite",
+      "ownerId": owner_id.clone(),
+      "id": composite_id.clone(),
+      "parentId": page_id.clone(),
+      "relationshipToParent": "child",
+      "groupId": null,
+      "creationDate": now,
+      "lastModifiedDate": now,
+      "dateTime": now,
+      "ordering": request.composite_ordering,
+      "spatialPositionGr": { "x": 0, "y": 0 },
+      "spatialWidthGr": 30 * GRID_SIZE,
+      "title": "Assistant",
+      "flags": 0x002,
+      "orderChildrenBy": "",
+    }),
+    serde_json::json!({
+      "itemType": "note",
+      "ownerId": owner_id.clone(),
+      "id": note_1_id,
+      "parentId": composite_id.clone(),
+      "relationshipToParent": "child",
+      "groupId": null,
+      "creationDate": now,
+      "lastModifiedDate": now,
+      "dateTime": now,
+      "ordering": note_1_ordering,
+      "title": format!("Dummy response for: {}", prompt_summary),
+      "spatialPositionGr": { "x": 0, "y": 0 },
+      "spatialWidthGr": 30 * GRID_SIZE,
+      "spatialHeightGr": 0,
+      "flags": 0,
+      "urls": [],
+      "emoji": null,
+      "iconMode": "auto",
+      "inlineMarks": [],
+    }),
+    serde_json::json!({
+      "itemType": "note",
+      "ownerId": owner_id.clone(),
+      "id": note_2_id,
+      "parentId": composite_id,
+      "relationshipToParent": "child",
+      "groupId": null,
+      "creationDate": now,
+      "lastModifiedDate": now,
+      "dateTime": now,
+      "ordering": note_2_ordering,
+      "title": "No tools were invoked yet. This is the placeholder server response path.",
+      "spatialPositionGr": { "x": 0, "y": 0 },
+      "spatialWidthGr": 30 * GRID_SIZE,
+      "spatialHeightGr": 0,
+      "flags": 0,
+      "urls": [],
+      "emoji": null,
+      "iconMode": "auto",
+      "inlineMarks": [],
+    }),
+  ];
+
+  Ok(Some(serde_json::json!({ "items": items }).to_string()))
 }
 
 pub async fn add_item_for_user(

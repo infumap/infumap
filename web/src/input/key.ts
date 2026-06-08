@@ -87,6 +87,19 @@ function targetShouldKeepNativeTabBehavior(ev: KeyboardEvent): boolean {
     target instanceof HTMLAnchorElement;
 }
 
+function targetShouldKeepNativeKeyboardBehavior(ev: KeyboardEvent): boolean {
+  const target = ev.target;
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLButtonElement ||
+    target instanceof HTMLAnchorElement ||
+    target.isContentEditable;
+}
+
 function pageEmbeddedInteractiveStatusAppliesForEnter(ve: VisualElement): boolean {
   return isPage(ve.displayItem) &&
     !(ve.flags & VisualElementFlags.InsideTable) &&
@@ -545,6 +558,10 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
     // TODO (HIGH)
     // event is fired before content is updated.
+    return;
+  }
+
+  if (targetShouldKeepNativeKeyboardBehavior(ev)) {
     return;
   }
 

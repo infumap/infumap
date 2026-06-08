@@ -392,8 +392,19 @@ export const itemState = {
     itemState.sortChildren(parentId);
 
     for (const removedChildId of existingChildIds) {
+      const removedChild = itemState.get(removedChildId);
+      if (removedChild?.clientOnly === true &&
+        removedChild.parentId == parentId &&
+        removedChild.relationshipToParent == RelationshipToParent.Child) {
+        if (!parent.computed_children.includes(removedChildId)) {
+          parent.computed_children = [...parent.computed_children, removedChildId];
+        }
+        continue;
+      }
       removeRelationshipSubtreeIfCurrent(removedChildId, parentId, RelationshipToParent.Child);
     }
+
+    itemState.sortChildren(parentId);
 
     TabularFns.validateNumberOfVisibleColumnsMaybe(parentId);
   },
