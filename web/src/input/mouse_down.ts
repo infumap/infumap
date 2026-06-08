@@ -126,6 +126,33 @@ function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: Return
     documentNoteBodyClick(hitVe, hitInfo);
 }
 
+function toggleCompositeCollapseOnMouseDownMaybe(store: StoreContextModel, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  if (!hitInfo.overElementMeta?.compositeContentCollapse) {
+    return false;
+  }
+  if (!(hitInfo.hitboxType & HitboxFlags.Expand) && !(hitInfo.compositeHitboxTypeMaybe & HitboxFlags.Expand)) {
+    return false;
+  }
+
+  const hitVe = HitInfoFns.getHitVe(hitInfo);
+  const compositeVe = isComposite(hitVe.displayItem)
+    ? hitVe
+    : HitInfoFns.getCompositeContainerVe(hitInfo);
+  if (compositeVe == null) {
+    return false;
+  }
+
+  const compositeVeid = VeFns.veidFromVe(compositeVe);
+  store.perItem.setCompositeIsCollapsed(
+    compositeVeid,
+    !store.perItem.getCompositeIsCollapsed(compositeVeid)
+  );
+  ClickState.setLinkWasClicked(false);
+  DoubleClickState.preventDoubleClick();
+  arrangeNow(store, "mouse-down-toggle-composite-collapse");
+  return true;
+}
+
 function shouldFocusDocumentDragBarOnMouseDown(
   hitVe: VisualElement,
   hitInfo: ReturnType<typeof HitInfoFns.hit>,
@@ -552,6 +579,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const startHeightBl = null;
   const startPx = desktopPosPx;
   let hitVe = HitInfoFns.getHitVe(hitInfo);
+
+  if (toggleCompositeCollapseOnMouseDownMaybe(store, hitInfo)) {
+    return defaultResult;
+  }
 
   if (!ClickState.getLinkWasClicked() && shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
     ClickState.setLinkWasClicked(false);

@@ -205,6 +205,7 @@ export function arrange_document_page(
   for (let idx = 0; idx < documentChildren.length; ++idx) {
     const child = documentChildren[idx];
     const geometry = calcDocumentChildGeometry(
+      store,
       child.displayItem,
       child.linkItemMaybe,
       child.displayWidthBl,
@@ -392,6 +393,7 @@ function documentChildMeasurableForGeometry(
 }
 
 function calcDocumentChildGeometry(
+  store: StoreContextModel,
   displayItem: Item,
   linkItemMaybe: LinkItem | null,
   displayWidthBl: number,
@@ -414,7 +416,8 @@ function calcDocumentChildGeometry(
   }
 
   if (isComposite(displayItem)) {
-    return CompositeFns.calcGeometry_InDocument(asCompositeItem(displayItem), blockSizePx, displayWidthBl, leftMarginBl, topPx);
+    const compositeIsCollapsed = store.perItem.getCompositeIsCollapsed(VeFns.veidFromItems(displayItem, linkItemMaybe));
+    return CompositeFns.calcGeometry_InDocument(asCompositeItem(displayItem), blockSizePx, displayWidthBl, leftMarginBl, topPx, compositeIsCollapsed);
   }
 
   return ItemFns.calcGeometry_InComposite(
@@ -426,11 +429,17 @@ function calcDocumentChildGeometry(
     smallScreenMode);
 }
 
-function calcDocumentChildSizeBl(displayItem: Item, linkItemMaybe: LinkItem | null, displayWidthBl: number): Dimensions {
+function calcDocumentChildSizeBl(store: StoreContextModel, displayItem: Item, linkItemMaybe: LinkItem | null, displayWidthBl: number): Dimensions {
   if (isNote(displayItem)) {
     const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(displayItem));
     cloned.spatialWidthGr = displayWidthBl * GRID_SIZE;
     return NoteFns.calcDocumentSpatialDimensionsBl(cloned);
+  }
+  if (isComposite(displayItem)) {
+    const cloned = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(displayItem));
+    cloned.spatialWidthGr = displayWidthBl * GRID_SIZE;
+    const compositeIsCollapsed = store.perItem.getCompositeIsCollapsed(VeFns.veidFromItems(displayItem, linkItemMaybe));
+    return CompositeFns.calcSpatialDimensionsBl(cloned, compositeIsCollapsed);
   }
   return ItemFns.calcSpatialDimensionsBl(documentChildMeasurableForGeometry(displayItem, linkItemMaybe, displayWidthBl));
 }
@@ -443,7 +452,7 @@ function calcMovingItemReservedHeightPx(
 ): number {
   const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItem);
   const displayWidthBl = documentChildDisplayWidthBl(displayItem, linkItemMaybe, documentContentWidthBl);
-  const dimensionsBl = calcDocumentChildSizeBl(displayItem, linkItemMaybe, displayWidthBl);
+  const dimensionsBl = calcDocumentChildSizeBl(store, displayItem, linkItemMaybe, displayWidthBl);
   return (dimensionsBl.h + DOCUMENT_GAP_16PX_BL) * blockSizePx.h;
 }
 

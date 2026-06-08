@@ -86,6 +86,7 @@ export interface HitboxMeta {
   openContainingPageOfItemId?: Uid,
   allowOutsideBounds?: boolean,
   compositeMoveOut?: boolean,
+  compositeContentCollapse?: boolean,
   popupTitleTargetPath?: VisualElementPath,
   calendarYear?: number,
   calendarMonth?: number,
@@ -139,6 +140,9 @@ export const HitboxFns = {
     if (typeof (meta.compositeMoveOut) != 'undefined') {
       result.compositeMoveOut = meta.compositeMoveOut;
     }
+    if (typeof (meta.compositeContentCollapse) != 'undefined') {
+      result.compositeContentCollapse = meta.compositeContentCollapse;
+    }
     if (typeof (meta.popupTitleTargetPath) != 'undefined') {
       result.popupTitleTargetPath = meta.popupTitleTargetPath;
     }
@@ -187,7 +191,8 @@ export const HitboxFns = {
       (meta.endBl ? meta.endBl : "undefined") + ", openActualItem: " +
       (meta.openActualItem ? meta.openActualItem : "undefined") + ", allowOutsideBounds: " +
       (meta.allowOutsideBounds ? meta.allowOutsideBounds : "undefined") + ", compositeMoveOut: " +
-      (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", popupTitleTargetPath: " +
+      (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", compositeContentCollapse: " +
+      (meta.compositeContentCollapse ? meta.compositeContentCollapse : "undefined") + ", popupTitleTargetPath: " +
       (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", year: " +
       (meta.calendarYear ? meta.calendarYear : "undefined") + ", month: " +
       (meta.calendarMonth ? meta.calendarMonth : "undefined") + ", day: " +

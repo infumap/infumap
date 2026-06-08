@@ -19,6 +19,7 @@
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
+import { isComposite } from "../../items/composite-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
@@ -151,12 +152,15 @@ export function arrange_spatial_page(
     const childId = displayItem_pageWithChildren.computed_children[i];
     const childItem = itemState.get(childId)!;
     const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
     const emitHitboxes = true;
     const childItemIsPopup = false; // never the case.
     const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
     const hasChildChanges = false; // it may do, but only matters for popups.
     const hasDefaultChanges = false;
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
+    const compositeIsCollapsed = isComposite(displayItem) &&
+      store.perItem.getCompositeIsCollapsed(VeFns.veidFromItems(displayItem, linkItemMaybe));
     const itemGeometry = ItemFns.calcGeometry_Spatial(
       childItem,
       zeroBoundingBoxTopLeft(pageSpec.childAreaBoundsPx!),
@@ -167,7 +171,8 @@ export function arrange_spatial_page(
       hasChildChanges,
       hasDefaultChanges,
       false,
-      store.smallScreenMode());
+      store.smallScreenMode(),
+      compositeIsCollapsed);
     const { geometry: visibleItemGeometry, wasAutoMoved } = keepGeometryInsideScrollableArea(itemGeometry);
     let childPath: VisualElementPath;
     if (arrangeFlagIsRoot(flags) || displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) {
@@ -178,7 +183,6 @@ export function arrange_spatial_page(
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
         (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
     } else {
-      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
       childPath = arrangeItemNoChildrenPath(
         store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, visibleItemGeometry,
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |

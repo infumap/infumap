@@ -17,7 +17,7 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
-import { HitboxFlags, HitboxFns } from '../layout/hitbox';
+import { Hitbox, HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
@@ -140,7 +140,18 @@ export const CompositeFns = {
     });
   },
 
-  calcSpatialDimensionsBl: (composite: CompositeMeasurable): Dimensions => {
+  calcCollapsedSpatialDimensionsBl: (composite: CompositeMeasurable): Dimensions => {
+    return {
+      w: composite.spatialWidthGr / GRID_SIZE,
+      h: 1.0,
+    };
+  },
+
+  calcSpatialDimensionsBl: (composite: CompositeMeasurable, collapsed: boolean = false): Dimensions => {
+    if (collapsed) {
+      return CompositeFns.calcCollapsedSpatialDimensionsBl(composite);
+    }
+
     let bh = CompositeFns.showTitle(composite) ? 1.0 + COMPOSITE_ITEM_GAP_BL : 0.0;
     for (let childId of composite.computed_children) {
       let item = itemState.get(childId)!;
@@ -178,6 +189,23 @@ export const CompositeFns = {
     return CompositeFns.showTitle(composite) || composite.title.trim() != "";
   },
 
+  collapseToggleHitboxMaybe: (composite: CompositeMeasurable, blockSizePx: Dimensions): Array<Hitbox> => {
+    if (composite.computed_children.length == 0) {
+      return [];
+    }
+    return [
+      HitboxFns.create(HitboxFlags.Expand | HitboxFlags.ShowPointer, {
+        x: -blockSizePx.w,
+        y: 0,
+        w: blockSizePx.w,
+        h: blockSizePx.h,
+      }, {
+        allowOutsideBounds: true,
+        compositeContentCollapse: true,
+      }),
+    ];
+  },
+
   calcGeometry_InComposite: (_measurable: CompositeMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     const sizeBl = { w: compositeWidthBl, h: 1 };
     const boundsPx = {
@@ -199,6 +227,7 @@ export const CompositeFns = {
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
+        ...CompositeFns.collapseToggleHitboxMaybe(_measurable, blockSizePx),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, moveBoundsPx, { compositeMoveOut: true }),
         HitboxFns.create(HitboxFlags.AttachComposite, {
@@ -211,10 +240,10 @@ export const CompositeFns = {
     };
   },
 
-  calcGeometry_InDocument: (composite: CompositeMeasurable, blockSizePx: Dimensions, documentWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
+  calcGeometry_InDocument: (composite: CompositeMeasurable, blockSizePx: Dimensions, documentWidthBl: number, leftMarginBl: number, topPx: number, collapsed: boolean = false): ItemGeometry => {
     const cloned = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(composite));
     cloned.spatialWidthGr = documentWidthBl * GRID_SIZE;
-    const sizeBl = CompositeFns.calcSpatialDimensionsBl(cloned);
+    const sizeBl = CompositeFns.calcSpatialDimensionsBl(cloned, collapsed);
     const boundsPx = {
       x: leftMarginBl * blockSizePx.w + CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: topPx,
@@ -236,6 +265,7 @@ export const CompositeFns = {
       blockSizePx,
       viewportBoundsPx: boundsPx,
       hitboxes: [
+        ...CompositeFns.collapseToggleHitboxMaybe(composite, blockSizePx),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0), { compositeMoveOut: true }),
         HitboxFns.create(
@@ -253,8 +283,8 @@ export const CompositeFns = {
     };
   },
 
-  calcGeometry_Spatial: (composite: CompositeMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean): ItemGeometry => {
-    const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite);
+  calcGeometry_Spatial: (composite: CompositeMeasurable, containerBoundsPx: BoundingBox, containerInnerSizeBl: Dimensions, _parentIsPopup: boolean, emitHitboxes: boolean, collapsed: boolean = false): ItemGeometry => {
+    const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite, collapsed);
     const blockSizePx = {
       w: containerBoundsPx.w / containerInnerSizeBl.w,
       h: containerBoundsPx.h / containerInnerSizeBl.h
@@ -274,6 +304,7 @@ export const CompositeFns = {
       blockSizePx,
       viewportBoundsPx: boundsPx,
       hitboxes: !emitHitboxes ? [] : [
+        ...CompositeFns.collapseToggleHitboxMaybe(composite, blockSizePx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(
           HitboxFlags.Attach,
@@ -332,8 +363,8 @@ export const CompositeFns = {
     });
   },
 
-  calcGeometry_InCell: (composite: CompositeMeasurable, cellBoundsPx: BoundingBox, maximize: boolean): ItemGeometry => {
-    const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite);
+  calcGeometry_InCell: (composite: CompositeMeasurable, cellBoundsPx: BoundingBox, maximize: boolean, collapsed: boolean = false): ItemGeometry => {
+    const sizeBl = CompositeFns.calcSpatialDimensionsBl(composite, collapsed);
     const boundsPx = maximize ? calcBoundsInCell(sizeBl, cellBoundsPx) : calcBoundsInCellFromSizeBl(sizeBl, cellBoundsPx);
     const blockSizePx = {
       w: boundsPx.w / sizeBl.w,
@@ -348,6 +379,7 @@ export const CompositeFns = {
       blockSizePx,
       viewportBoundsPx: boundsPx,
       hitboxes: [
+        ...CompositeFns.collapseToggleHitboxMaybe(composite, blockSizePx),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         ...titleHitboxMaybe,

@@ -17,7 +17,7 @@
 */
 
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
-import { InfuSignal, NumberSignal, createInfuSignal, createNumberSignal } from "../util/signals";
+import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import type { SearchResult } from "../server";
 import { ArrangeAlgorithm } from "../items/page-item";
 
@@ -38,6 +38,9 @@ export interface PerItemStoreContextModel {
 
   getPageScrollYProp: (veid: Veid) => number,
   setPageScrollYProp: (veid: Veid, prop: number) => void,
+
+  getCompositeIsCollapsed: (veid: Veid) => boolean,
+  setCompositeIsCollapsed: (veid: Veid, collapsed: boolean) => void,
 
   getSearchQuery: (itemId: string) => string,
   setSearchQuery: (itemId: string, query: string) => void,
@@ -69,6 +72,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const tableScrollPositions = new Map<string, NumberSignal>();
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
+  const compositeCollapsedStates = new Map<string, BooleanSignal>();
   const selectedItems = new Map<string, InfuSignal<Veid>>();
   const focusedItems = new Map<string, InfuSignal<Veid>>();
   const searchQueries = new Map<string, InfuSignal<string>>();
@@ -79,8 +83,11 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const searchFocusedResultIndexes = new Map<string, NumberSignal>();
   const searchArrangeAlgorithms = new Map<string, InfuSignal<ArrangeAlgorithm>>();
 
+  const veidKey = (veid: Veid): string =>
+    veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+
   const getTableScrollYPos = (veid: Veid): number => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+    const key = veidKey(veid);
     if (!tableScrollPositions.get(key)) {
       tableScrollPositions.set(key, createNumberSignal(0.0));
     }
@@ -88,7 +95,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const setTableScrollYPos = (veid: Veid, pos: number): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+    const key = veidKey(veid);
     if (!tableScrollPositions.get(key)) {
       tableScrollPositions.set(key, createNumberSignal(pos));
       return;
@@ -97,7 +104,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const getPageScrollXProp = (veid: Veid): number => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+    const key = veidKey(veid);
     if (!pageScrollXPxs.get(key)) {
       pageScrollXPxs.set(key, createNumberSignal(0.0));
     }
@@ -105,7 +112,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const setPageScrollXProp = (veid: Veid, prop: number): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+    const key = veidKey(veid);
     if (!pageScrollXPxs.get(key)) {
       pageScrollXPxs.set(key, createNumberSignal(prop));
       return;
@@ -114,7 +121,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const getPageScrollYProp = (veid: Veid): number => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+    const key = veidKey(veid);
     if (!pageScrollYPxs.get(key)) {
       pageScrollYPxs.set(key, createNumberSignal(0.0));
     }
@@ -122,12 +129,29 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const setPageScrollYProp = (veid: Veid, prop: number): void => {
-    const key = veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+    const key = veidKey(veid);
     if (!pageScrollYPxs.get(key)) {
       pageScrollYPxs.set(key, createNumberSignal(prop));
       return;
     }
     pageScrollYPxs.get(key)!.set(prop);
+  };
+
+  const getCompositeIsCollapsed = (veid: Veid): boolean => {
+    const key = veidKey(veid);
+    if (!compositeCollapsedStates.get(key)) {
+      compositeCollapsedStates.set(key, createBooleanSignal(false));
+    }
+    return compositeCollapsedStates.get(key)!.get();
+  };
+
+  const setCompositeIsCollapsed = (veid: Veid, collapsed: boolean): void => {
+    const key = veidKey(veid);
+    if (!compositeCollapsedStates.get(key)) {
+      compositeCollapsedStates.set(key, createBooleanSignal(collapsed));
+      return;
+    }
+    compositeCollapsedStates.get(key)!.set(collapsed);
   };
 
   const getSearchQuery = (itemId: string): string => {
@@ -236,7 +260,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const getSelectedListPageItem = (listPageVeid: Veid): Veid => {
-    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
+    const key = veidKey(listPageVeid);
     if (!selectedItems.get(key)) {
       selectedItems.set(key, createInfuSignal<Veid>(EMPTY_VEID));
     }
@@ -244,7 +268,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const setSelectedListPageItem = (listPageVeid: Veid, selectedVeid: Veid): void => {
-    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
+    const key = veidKey(listPageVeid);
     if (!selectedItems.get(key)) {
       selectedItems.set(key, createInfuSignal<Veid>(selectedVeid));
       return;
@@ -253,7 +277,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const getFocusedListPageItem = (listPageVeid: Veid): Veid => {
-    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
+    const key = veidKey(listPageVeid);
     if (!focusedItems.get(key)) {
       focusedItems.set(key, createInfuSignal<Veid>(EMPTY_VEID));
     }
@@ -261,7 +285,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const setFocusedListPageItem = (listPageVeid: Veid, focusedVeid: Veid): void => {
-    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
+    const key = veidKey(listPageVeid);
     if (!focusedItems.get(key)) {
       focusedItems.set(key, createInfuSignal<Veid>(focusedVeid));
       return;
@@ -270,7 +294,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const clearFocusedListPageItem = (listPageVeid: Veid): void => {
-    const key = listPageVeid.itemId + (listPageVeid.linkIdMaybe == null ? "" : "[" + listPageVeid.linkIdMaybe + "]");
+    const key = veidKey(listPageVeid);
     if (focusedItems.get(key)) {
       focusedItems.get(key)!.set(EMPTY_VEID);
     }
@@ -280,6 +304,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     tableScrollPositions.clear();
     pageScrollXPxs.clear();
     pageScrollYPxs.clear();
+    compositeCollapsedStates.clear();
     selectedItems.clear();
     focusedItems.clear();
     searchQueries.clear();
@@ -297,6 +322,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getTableScrollYPos, setTableScrollYPos,
     getPageScrollXProp, setPageScrollXProp,
     getPageScrollYProp, setPageScrollYProp,
+    getCompositeIsCollapsed, setCompositeIsCollapsed,
     getSearchQuery, setSearchQuery,
     getSearchResults, setSearchResults,
     getSearchHasMoreResults, setSearchHasMoreResults,

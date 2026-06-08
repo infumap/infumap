@@ -40,6 +40,7 @@ import { appendNewlineIfEmpty } from "../../util/string";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { compositeMoveOutHitboxBoundsPx } from "../../layout/composite-move-out";
+import { arrangeNow } from "../../layout/arrange";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -64,7 +65,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const bodyTopPx = () => titleHeightPx();
   const bodyHeightPx = () => Math.max(0, boundsPx().h - bodyTopPx());
   const titleScale = () => titleHeightPx() / LINE_HEIGHT_PX;
+  const collapseControlScale = () => blockSizePx().h / LINE_HEIGHT_PX;
   const titleEditIsActive = () => store.overlay.textEditInfo()?.itemPath == vePath();
+  const compositeIsCollapsed = () => store.perItem.getCompositeIsCollapsed(VeFns.veidFromVe(props.visualElement));
   const isDirectDocumentChild = () => parentDocumentPageMaybe(props.visualElement) != null;
   const isHighlighted = () =>
     !!(props.visualElement.flags & (VisualElementFlags.FindHighlighted | VisualElementFlags.SelectionHighlighted));
@@ -120,6 +123,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * compositeItem().spatialWidthGr / GRID_SIZE); }
   const showResizeTriangle = () => !isDirectDocumentChild() && showTriangleDetail();
+  const showCollapseControl = () => compositeItem().computed_children.length > 0;
 
   const showBorder = () => !(compositeItem().flags & CompositeFlags.HideBorder);
   const isInCompositeOrDocument = () =>
@@ -174,6 +178,18 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     edit_inputListener(store, ev);
   }
 
+  const toggleCollapse = (ev: MouseEvent) => {
+    if (ev.button != 0) { return; }
+    ev.preventDefault();
+    ev.stopPropagation();
+    const compositeVeid = VeFns.veidFromVe(props.visualElement);
+    store.perItem.setCompositeIsCollapsed(
+      compositeVeid,
+      !store.perItem.getCompositeIsCollapsed(compositeVeid)
+    );
+    arrangeNow(store, "composite-collapse-control");
+  };
+
   const renderBodyFrame = () =>
     <Show when={isDirectDocumentChild()}
       fallback={
@@ -205,6 +221,19 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       </div>
     </Show>;
 
+  const renderCollapseControlMaybe = () =>
+    <Show when={showCollapseControl()}>
+      <div class="absolute text-center text-slate-400 select-none cursor-pointer"
+        contentEditable={false}
+        onmousedown={toggleCollapse}
+        style={`left: ${-blockSizePx().w}px; top: 0px; ` +
+          `width: ${blockSizePx().w / collapseControlScale()}px; height: ${blockSizePx().h / collapseControlScale()}px; ` +
+          `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${collapseControlScale()}); transform-origin: top left; ` +
+          `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT + 3};`}>
+        <i class={`fas ${compositeIsCollapsed() ? "fa-caret-right" : "fa-caret-down"}`} />
+      </div>
+    </Show>;
+
   return (
     <div class={positionClass()}
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y + ((props.visualElement.flags & VisualElementFlags.Fixed) ? store.topToolbarHeightPx() : 0)}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
@@ -218,6 +247,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
         {renderBodyFrame()}
+        {renderCollapseControlMaybe()}
         {renderTitleMaybe()}
         <Show when={showTitle() && isHighlighted()}>
           <div class="absolute pointer-events-none rounded-xs"

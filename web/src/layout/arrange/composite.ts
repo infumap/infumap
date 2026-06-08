@@ -53,6 +53,8 @@ export const arrangeComposite = (
   widthBlOverride?: number): VisualElementSignal => {
 
   const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
+  const compositeVeid = VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite);
+  const compositeIsCollapsed = store.perItem.getCompositeIsCollapsed(compositeVeid);
 
   let viewportBoundsPx = {
     x: compositeGeometry.boundsPx.x, y: compositeGeometry.boundsPx.y,
@@ -89,11 +91,14 @@ export const arrangeComposite = (
     }
   }
 
-  let compositeSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Composite ? linkItemMaybe_Composite : displayItem_Composite);
+  const measuredComposite = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(displayItem_Composite));
+  if (linkItemMaybe_Composite != null) {
+    measuredComposite.spatialWidthGr = linkItemMaybe_Composite.spatialWidthGr;
+  }
+  let compositeSizeBl = CompositeFns.calcSpatialDimensionsBl(measuredComposite, compositeIsCollapsed);
   if (widthBlOverride != null) {
-    const cloned = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(displayItem_Composite));
-    cloned.spatialWidthGr = widthBlOverride * GRID_SIZE;
-    compositeSizeBl = CompositeFns.calcSpatialDimensionsBl(cloned);
+    measuredComposite.spatialWidthGr = widthBlOverride * GRID_SIZE;
+    compositeSizeBl = CompositeFns.calcSpatialDimensionsBl(measuredComposite, compositeIsCollapsed);
   }
   const blockSizePx = widthBlOverride != null
     ? { w: compositeGeometry.boundsPx.w / widthBlOverride, h: compositeGeometry.blockSizePx.h }
@@ -108,7 +113,7 @@ export const arrangeComposite = (
   let topPx = CompositeFns.showTitle(displayItem_Composite)
     ? blockSizePx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h
     : 0.0;
-  for (let idx = 0; idx < displayItem_Composite.computed_children.length; ++idx) {
+  for (let idx = 0; !compositeIsCollapsed && idx < displayItem_Composite.computed_children.length; ++idx) {
     const childId = displayItem_Composite.computed_children[idx];
     const childItem = itemState.get(childId)!;
 

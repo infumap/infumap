@@ -1107,11 +1107,20 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         }
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Expand)) {
-        store.perVe.setIsExpanded(
-          MouseActionState.getActiveElementPath()!,
-          !store.perVe.getIsExpanded(MouseActionState.getActiveElementPath()!)
-        );
-        arrangeNow(store, "mouse-up-toggle-expand");
+        if (MouseActionState.getHitMeta()?.compositeContentCollapse && isComposite(activeVisualElement.displayItem)) {
+          const compositeVeid = VeFns.veidFromVe(activeVisualElement);
+          store.perItem.setCompositeIsCollapsed(
+            compositeVeid,
+            !store.perItem.getCompositeIsCollapsed(compositeVeid)
+          );
+          arrangeNow(store, "mouse-up-toggle-composite-collapse");
+        } else {
+          store.perVe.setIsExpanded(
+            MouseActionState.getActiveElementPath()!,
+            !store.perVe.getIsExpanded(MouseActionState.getActiveElementPath()!)
+          );
+          arrangeNow(store, "mouse-up-toggle-expand");
+        }
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.CalendarOverflow)) {
         DoubleClickState.preventDoubleClick();
