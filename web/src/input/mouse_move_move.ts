@@ -28,7 +28,7 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { isComposite } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
 import { asTextItem, isText, type TextItem } from "../items/text-item";
-import { createPendingTextDocumentPage } from "../items/text-document";
+import { createPendingTextDocumentPage, isMarkdownTextDocumentPage } from "../items/text-document";
 import { LinkFns, isLink } from "../items/link-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
@@ -118,6 +118,13 @@ function appendCopySuffixToTextLikeClone(item: Item): void {
   if (isNote(item) || isText(item)) {
     appendCopySuffixToTitledItem(item);
   }
+}
+
+function prepareShiftDragClone(cloned: Item, source: Item): void {
+  if (isPage(cloned) && isPage(source) && isMarkdownTextDocumentPage(source.id)) {
+    asPageItem(cloned).backgroundColorIndex = 0;
+  }
+  appendCopySuffixToTextLikeClone(cloned);
 }
 
 function moveRollbackOrderingForChild(childId: string): Uint8Array | null {
@@ -342,7 +349,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       cloned.lastModifiedDate = currentUnixTimeSeconds();
       cloned.dateTime = currentUnixTimeSeconds();
       cloned.ordering = newOrderingAtEndOfCurrentParent(cloned);
-      appendCopySuffixToTextLikeClone(cloned);
+      prepareShiftDragClone(cloned, toClone);
       itemState.add(cloned);
       if (copyOnlyMove) {
         MouseActionState.setItemCopyMove({ pendingItemId: cloned.id });
@@ -870,7 +877,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     cloned.ordering = itemState.newOrderingAtEndOfChildren(moveToPage.id);
     cloned.spatialPositionGr = newItemPosGr;
     cloned.parentId = moveToPage.id;
-    appendCopySuffixToTextLikeClone(cloned);
+    prepareShiftDragClone(cloned, toClone);
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
 
@@ -1003,7 +1010,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     cloned.ordering = itemState.newOrderingAtEndOfChildren(moveToPage.id);
     cloned.spatialPositionGr = itemPosInPageQuantizedGr;
     cloned.parentId = moveToPage.id;
-    appendCopySuffixToTextLikeClone(cloned);
+    prepareShiftDragClone(cloned, toClone);
     itemState.add(cloned);
     server.addItem(cloned, null, store.general.networkStatus);
 

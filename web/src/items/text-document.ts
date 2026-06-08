@@ -129,6 +129,7 @@ const readonlyCopyableCapabilities = { edit: false, move: false, copy: true };
 const virtualSourceTextIdByPageId = new Map<Uid, Uid>();
 const textContentPromises = new Map<string, Promise<string>>();
 const MAX_GENERATED_TABLE_HEIGHT_BL = 12;
+const MARKDOWN_DOCUMENT_PAGE_COLOR_INDEX = 6;
 const MIN_GENERATED_TABLE_COLUMN_WIDTH_BL = 3;
 const GENERATED_TABLE_TEXT_SCORE_CAP = 120;
 const GENERATED_TABLE_LONG_WORD_SCORE_CAP = 40;
@@ -1392,6 +1393,7 @@ function createTextDocumentPage(
   if (virtual) {
     markClientOnly(page);
     page.capabilities = readonlyCapabilities;
+    if (isMarkdownTextItem(textItem)) { page.backgroundColorIndex = MARKDOWN_DOCUMENT_PAGE_COLOR_INDEX; }
   } else {
     page.capabilities = null;
   }
@@ -1712,6 +1714,7 @@ export function createPendingTextDocumentPage(
   });
   page.title = titleWithCopySuffix(page.title);
   page.capabilities = null;
+  page.backgroundColorIndex = 0;
   page.childrenLoaded = true;
   page.computed_children = [];
   page.computed_attachments = [];
@@ -1734,6 +1737,11 @@ export function sourceTextItemForVirtualTextDocumentPage(pageId: Uid): TextItem 
   const source = itemState.get(sourceTextId);
   if (source == null || source.itemType != ItemType.Text) { return null; }
   return source as TextItem;
+}
+
+export function isMarkdownTextDocumentPage(pageId: Uid): boolean {
+  const source = sourceTextItemForVirtualTextDocumentPage(pageId);
+  return source != null && isMarkdownTextItem(source);
 }
 
 export function openTextItemFileInNewTab(store: StoreContextModel, textItem: TextItem): void {
