@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LINK_TRIANGLE_SIZE_PX, NATURAL_BLOCK_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, PAGE_DOCUMENT_BOTTOM_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { LINK_TRIANGLE_SIZE_PX, NATURAL_BLOCK_SIZE_PX, GRID_SIZE, PAGE_DOCUMENT_BOTTOM_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { NoteFlags, PageFlags, noteHasListStyle, noteIndentLevelFromFlags } from "../../items/base/flags-item";
 import { Item, ItemType, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -29,7 +29,7 @@ import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { compositeMoveOutBoxForRightEdgePx, compositeMoveOutHitboxBoundsPx, DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX, documentPageMoveOutBoxPx } from "../composite-move-out";
+import { compositeMoveOutHitboxBoundsPx, documentPageMoveOutBoxPx } from "../composite-move-out";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
 import { assignFlowListItemNumbers } from "../list-numbering";
@@ -219,7 +219,7 @@ export function arrange_document_page(
       geometry.hitboxes = geometry.hitboxes.filter(hitbox => !(hitbox.type & HitboxFlags.Resize));
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
-    alignDocumentMoveOutHitbox(geometry, blockSizePx, displayItem_pageWithChildren.docWidthBl, isTable(child.displayItem));
+    alignDocumentMoveOutHitbox(geometry, blockSizePx, displayItem_pageWithChildren.docWidthBl);
     const documentChildGeometry: ItemGeometry = {
       ...geometry,
       row: displayIdx,
@@ -451,24 +451,18 @@ function alignDocumentMoveOutHitbox(
   geometry: ItemGeometry,
   blockSizePx: { w: number, h: number },
   documentContentWidthBl: number,
-  useItemRightEdge: boolean,
 ): void {
   const moveHitbox = geometry.hitboxes.find(hitbox => hitbox.meta?.compositeMoveOut);
   if (moveHitbox == null) {
     return;
   }
 
-  const moveAreaBoundsPx = useItemRightEdge
-    ? compositeMoveOutBoxForRightEdgePx(
-      geometry.boundsPx.w + DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX + CONTAINER_IN_COMPOSITE_PADDING_PX + 2,
-      geometry.boundsPx.h,
-    )
-    : documentPageMoveOutBoxPx(
-      geometry.boundsPx,
-      blockSizePx,
-      documentContentWidthBl,
-      PAGE_DOCUMENT_LEFT_MARGIN_BL,
-    );
+  const moveAreaBoundsPx = documentPageMoveOutBoxPx(
+    geometry.boundsPx,
+    blockSizePx,
+    documentContentWidthBl,
+    PAGE_DOCUMENT_LEFT_MARGIN_BL,
+  );
   moveHitbox.boundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, Number(PAGE_DOCUMENT_LEFT_MARGIN_BL) == 0 ? 2 : 0);
   moveHitbox.meta = {
     ...(moveHitbox.meta ?? {}),
