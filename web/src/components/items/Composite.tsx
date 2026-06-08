@@ -33,7 +33,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -65,6 +65,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const bodyHeightPx = () => Math.max(0, boundsPx().h - bodyTopPx());
   const titleScale = () => titleHeightPx() / LINE_HEIGHT_PX;
   const titleEditIsActive = () => store.overlay.textEditInfo()?.itemPath == vePath();
+  const isDirectDocumentChild = () => parentDocumentPageMaybe(props.visualElement) != null;
   const isHighlighted = () =>
     !!(props.visualElement.flags & (VisualElementFlags.FindHighlighted | VisualElementFlags.SelectionHighlighted));
   const highlightColor = () =>
@@ -118,6 +119,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   };
 
   const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * compositeItem().spatialWidthGr / GRID_SIZE); }
+  const showResizeTriangle = () => !isDirectDocumentChild() && showTriangleDetail();
 
   const showBorder = () => !(compositeItem().flags & CompositeFlags.HideBorder);
   const isInCompositeOrDocument = () =>
@@ -173,12 +175,19 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   }
 
   const renderBodyFrame = () =>
-    <div class={`absolute border ` +
-      `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
-      `rounded-xs pointer-events-none`}
-      style={`left: 0px; top: ${bodyTopPx()}px; width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; ` +
-        `background-color: ${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "#eee" : "white"}; ` +
-        `outline: 0px solid transparent; z-index: 0;`} />;
+    <Show when={isDirectDocumentChild()}
+      fallback={
+        <div class={`absolute border ` +
+          `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
+          `rounded-xs pointer-events-none`}
+          style={`left: 0px; top: ${bodyTopPx()}px; width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; ` +
+            `background-color: ${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "#eee" : "white"}; ` +
+            `outline: 0px solid transparent; z-index: 0;`} />
+      }>
+      <div class="absolute pointer-events-none"
+        style={`left: 0px; top: ${bodyTopPx()}px; width: ${boundsPx().w}px; height: 1px; ` +
+          `background-color: #999; outline: 0px solid transparent; z-index: 0;`} />
+    </Show>;
 
   const renderTitleMaybe = () =>
     <Show when={showTitle()}>
@@ -272,7 +281,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         </Show>
       </div>
       {renderFocusRingMaybe()}
-      <Show when={showTriangleDetail()}>
+      <Show when={showResizeTriangle()}>
         <div class="absolute border border-transparent pointer-events-none"
           style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 3; outline: 0px solid transparent;`}>
           <div class="absolute"
