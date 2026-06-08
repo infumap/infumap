@@ -75,8 +75,8 @@ function dragOffsetBoundsRelativeToDesktopPx(store: StoreContextModel, visualEle
   };
 }
 
-function isPageInDocumentArrangedPage(visualElement: VisualElement): boolean {
-  if (!isPage(visualElement.displayItem) || visualElement.parentPath == null) {
+function isDirectChildOfDocumentArrangedPage(visualElement: VisualElement): boolean {
+  if (visualElement.parentPath == null) {
     return false;
   }
 
@@ -129,10 +129,10 @@ function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: Return
 function shouldFocusDocumentDragBarOnMouseDown(
   hitVe: VisualElement,
   hitInfo: ReturnType<typeof HitInfoFns.hit>,
-  documentPageMoveOut: boolean,
+  documentRowMoveOut: boolean,
 ): boolean {
   return isInsideDocumentPageClickContext(hitVe) &&
-    (documentPageMoveOut ||
+    (documentRowMoveOut ||
       (!!hitInfo.overElementMeta?.compositeMoveOut && !!(hitInfo.hitboxType & HitboxFlags.Move)));
 }
 
@@ -636,21 +636,21 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     x: (startPx.x - boundsOnTopLevelPagePx.x) / boundsOnTopLevelPagePx.w,
     y: (startPx.y - boundsOnTopLevelPagePx.y) / boundsOnTopLevelPagePx.h
   };
-  const documentPageMoveOut =
-    isPageInDocumentArrangedPage(hitVe) &&
+  const documentRowMoveOut =
+    isDirectChildOfDocumentArrangedPage(hitVe) &&
     !!(hitInfo.hitboxType & HitboxFlags.Move) &&
-    clickOffsetProp.x > 1;
+    (!!hitInfo.overElementMeta?.compositeMoveOut || clickOffsetProp.x > 1);
   const focusDocumentDragBar =
-    shouldFocusDocumentDragBarOnMouseDown(hitVe, hitInfo, documentPageMoveOut);
-  if (hitInfo.overElementMeta?.compositeMoveOut || documentPageMoveOut) {
+    shouldFocusDocumentDragBarOnMouseDown(hitVe, hitInfo, documentRowMoveOut);
+  if (hitInfo.overElementMeta?.compositeMoveOut || documentRowMoveOut) {
     // Composite move-out can start from a synthetic gutter outside the item's visible bounds.
     const clampOffsetProp = {
       x: Math.max(0, Math.min(1, clickOffsetProp.x)),
       y: Math.max(0, Math.min(1, clickOffsetProp.y)),
     };
-    // Document page handles are aligned to the document column, not necessarily the page box.
-    // Center the page under the cursor when it is picked up from that synthetic handle.
-    clickOffsetProp = documentPageMoveOut
+    // Document row handles are aligned to the document column, not necessarily the item box.
+    // Center the row under the cursor when it is picked up from that synthetic handle.
+    clickOffsetProp = documentRowMoveOut
       ? { x: 0.5, y: clampOffsetProp.y }
       : clampOffsetProp;
   }
