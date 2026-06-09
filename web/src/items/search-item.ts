@@ -28,6 +28,7 @@ import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { normalizeItemCapabilities } from "./base/capabilities-item";
+import { FlagsMixin, SearchFlags } from "./base/flags-item";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { Item, ItemType, ItemTypeMixin } from "./base/item";
 import { PositionalMixin } from "./base/positional-item";
@@ -112,7 +113,7 @@ export function calcSearchWorkspaceResultsBoundsPx(boundsPx: BoundingBox): Bound
 }
 
 export interface SearchItem extends SearchMeasurable, Item { }
-export interface SearchMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin { }
+export interface SearchMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin { }
 
 
 export const SearchFns = {
@@ -130,6 +131,7 @@ export const SearchFns = {
       lastModifiedDate: currentUnixTimeSeconds(),
       dateTime: currentUnixTimeSeconds(),
       ordering,
+      flags: SearchFlags.None,
       spatialPositionGr: { x: 0.0, y: 0.0 },
       spatialWidthGr: DEFAULT_WIDTH_GR,
     };
@@ -149,6 +151,7 @@ export const SearchFns = {
       lastModifiedDate: o.lastModifiedDate,
       dateTime: o.dateTime,
       ordering: new Uint8Array(o.ordering),
+      flags: o.flags ?? SearchFlags.None,
       spatialPositionGr: o.spatialPositionGr ?? { x: 0.0, y: 0.0 },
       spatialWidthGr: o.spatialWidthGr ?? DEFAULT_WIDTH_GR,
     });
@@ -166,6 +169,7 @@ export const SearchFns = {
       lastModifiedDate: search.lastModifiedDate,
       dateTime: search.dateTime,
       ordering: Array.from(search.ordering),
+      flags: search.flags,
       spatialPositionGr: search.spatialPositionGr,
       spatialWidthGr: search.spatialWidthGr,
     });
@@ -304,6 +308,7 @@ export const SearchFns = {
       itemType: search.itemType,
       spatialPositionGr: search.spatialPositionGr,
       spatialWidthGr: search.spatialWidthGr,
+      flags: search.flags,
     });
   },
 
@@ -311,8 +316,8 @@ export const SearchFns = {
     return "[search]";
   },
 
-  getFingerprint: (_searchItem: SearchItem): string => {
-    return "";
+  getFingerprint: (searchItem: SearchItem): string => {
+    return `${searchItem.flags}`;
   }
 };
 

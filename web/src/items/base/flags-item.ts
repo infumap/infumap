@@ -98,11 +98,25 @@ export enum PasswordFlags {
   Unused = 0x001,
 }
 
+export enum ListPageFlags {
+  None = 0x000000,
+  PinTop = 0x100000,
+  PinBottom = 0x200000,
+}
+
 export enum CompositeFlags {
   None = 0x000,
   HideBorder = 0x001,
   ShowTitle = 0x002,
+  ListPagePinTop = ListPageFlags.PinTop,
+  ListPagePinBottom = ListPageFlags.PinBottom,
 };
+
+export enum SearchFlags {
+  None = 0x000,
+  ListPagePinTop = ListPageFlags.PinTop,
+  ListPagePinBottom = ListPageFlags.PinBottom,
+}
 
 export enum PageFlags {
   None = 0x000,
@@ -111,6 +125,9 @@ export enum PageFlags {
   CalendarIndependentRows = 0x004,
   HideEmbeddedInteractiveTitle = 0x040,
   Chat = 0x080,
+  DisableLineItemExpand = 0x100,
+  ListPagePinTop = ListPageFlags.PinTop,
+  ListPagePinBottom = ListPageFlags.PinBottom,
 };
 
 export const PageCalendarDisplayMode = {
@@ -154,7 +171,7 @@ export enum ImageFlags {
   NoCrop = 0x002,
 }
 
-const ITEM_TYPES = [ItemType.Note, ItemType.File, ItemType.Text, ItemType.Password, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image];
+const ITEM_TYPES = [ItemType.Note, ItemType.File, ItemType.Text, ItemType.Password, ItemType.Table, ItemType.Composite, ItemType.Page, ItemType.Image, ItemType.Search];
 
 
 export interface FlagsMixin {
@@ -172,4 +189,26 @@ export function isFlagsItem(item: ItemTypeMixin | null): boolean {
 export function asFlagsItem(item: ItemTypeMixin): FlagsItem {
   if (isFlagsItem(item)) { return item as FlagsItem; }
   panic("not flags item.");
+}
+
+export function listPageFlags(item: ItemTypeMixin | null): number {
+  if (item == null) { return ListPageFlags.None; }
+  const flagsMaybe = (item as any).flags;
+  return typeof flagsMaybe == "number" ? flagsMaybe : ListPageFlags.None;
+}
+
+export function itemIsListPagePinnedTop(item: ItemTypeMixin | null): boolean {
+  return !!(listPageFlags(item) & ListPageFlags.PinTop);
+}
+
+export function itemIsListPagePinnedBottom(item: ItemTypeMixin | null): boolean {
+  return !!(listPageFlags(item) & ListPageFlags.PinBottom);
+}
+
+export function itemCanExpandInLineItem(item: ItemTypeMixin | null): boolean {
+  if (item == null) { return false; }
+  if (item.itemType == ItemType.Page) {
+    return !((item as any).flags & PageFlags.DisableLineItemExpand);
+  }
+  return true;
 }

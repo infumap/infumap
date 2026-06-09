@@ -31,7 +31,7 @@ import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
 import { clearLoadState, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { switchToNonPage, switchToPage } from "../layout/navigation";
+import { ensureSearchItemUnderSearches, switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -182,6 +182,7 @@ export const Main: Component = () => {
 
       const userMaybe = store.user.getUserMaybe();
       if (origin == null && userMaybe && itemId == userMaybe.searchesPageId) {
+        await ensureSearchItemUnderSearches(store, itemId);
         ensureClientOnlyChatPageUnderQueries(store, itemId);
       }
 

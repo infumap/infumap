@@ -65,6 +65,10 @@ bitflags! {
   }
 }
 
+pub const LIST_PAGE_PIN_TOP_FLAG: i64 = 0x100000;
+pub const LIST_PAGE_PIN_BOTTOM_FLAG: i64 = 0x200000;
+pub const PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG: i64 = 0x100;
+
 bitflags! {
   pub struct FileFlags: i64 {
     const None =                 0x000;
@@ -442,6 +446,7 @@ pub fn is_flags_item_type(item_type: ItemType) -> bool {
     || item_type == ItemType::Composite
     || item_type == ItemType::Page
     || item_type == ItemType::Image
+    || item_type == ItemType::Search
 }
 
 pub fn is_icon_item_type(item_type: ItemType) -> bool {
@@ -2751,7 +2756,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
       None => {
-        if item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password {
+        if item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password || item_type == ItemType::Search {
           Ok(Some(0))
         } else if is_flags_item_type(item_type) {
           Err(expected_for_err("flags", item_type, &id))
@@ -3535,7 +3540,7 @@ impl Item {
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
       ordering,
-      flags: None,
+      flags: Some(0),
       spatial_position_gr: Some(spatial_position_gr),
       order_children_by: None,
       spatial_width_gr: Some(spatial_width_gr),

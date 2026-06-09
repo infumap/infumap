@@ -34,7 +34,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { appendNewlineIfEmpty } from "../../util/string";
-import { PageFlags } from "../../items/base/flags-item";
+import { PageFlags, itemCanExpandInLineItem } from "../../items/base/flags-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -177,7 +177,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     </div>;
 
   const renderExpandIcon = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.Attachment) && (props.visualElement.flags & VisualElementFlags.LineItem)}>
+    <Show when={itemCanExpandInLineItem(pageItem()) && !(props.visualElement.flags & VisualElementFlags.Attachment) && (props.visualElement.flags & VisualElementFlags.LineItem)}>
       <div class="absolute text-center text-slate-400"
         style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx() * 0.85}px; top: ${boundsPx().y + boundsPx().h * PADDING_PROP}px; ` +
           `width: ${oneBlockWidthPx() / smallScale() * 0.8}px; height: ${boundsPx().h / smallScale() * 0.8}px; ` +

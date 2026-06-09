@@ -90,9 +90,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
     if (isListPage && props.visualElement.listChildAreaBoundsPx) {
       const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
-      const viewportH = pageFns().viewportBoundsPx().h;
+      const viewportH = props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h;
       const scrollYProp = store.perItem.getPageScrollYProp(veid);
-      const scrollYPx = scrollYProp * (listChildAreaH - viewportH);
+      const scrollYPx = scrollYProp * Math.max(0, listChildAreaH - viewportH);
       popupDiv.scrollTop = scrollYPx;
       popupDiv.scrollLeft = 0;
     } else {
@@ -122,10 +122,10 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
       if (isListPage && props.visualElement.listChildAreaBoundsPx) {
         const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
-        const viewportH = pageFns().viewportBoundsPx().h;
+        const viewportH = props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h;
         popupDiv.scrollTop =
           store.perItem.getPageScrollYProp(veid) *
-          (listChildAreaH - viewportH);
+          Math.max(0, listChildAreaH - viewportH);
         popupDiv.scrollLeft = 0;
       } else {
         popupDiv.scrollTop =
@@ -185,7 +185,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     if (updatingPopupScrollTop) { return; }
 
     const listChildAreaBoundsPx = props.visualElement.listChildAreaBoundsPx!;
-    const viewportH = pageFns().viewportBoundsPx().h;
+    const viewportH = props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h;
     const popupVeid = store.history.currentPopupSpec()!.actualVeid;
 
     if (listChildAreaBoundsPx.h > viewportH) {
@@ -339,39 +339,81 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     );
   };
 
-  const renderListPage = () =>
-    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}`}
-      style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
-        `height: ${pageFns().viewportBoundsPx().h}px; ` +
-        `left: ${pageFns().viewportBoundsPx().x}px; ` +
-        `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-        `background-color: #ffffff;` +
-        `${VeFns.zIndexStyle(props.visualElement)}`}>
-      <div ref={popupDiv}
-        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border-r border-slate-300`}
-        style={`overflow-y: auto; overflow-x: hidden; ` +
-          `width: ${pageFns().listViewportWidthPx()}px; ` +
-          `height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `background-color: #ffffff;` +
-          `${VeFns.zIndexStyle(props.visualElement)}`}
-        onscroll={popupListScrollHandler}>
+  const renderListPage = () => {
+    const renderListBand = (band: "top" | "middle" | "bottom") => {
+      const bandTopPx = () => {
+        if (band == "top") { return 0; }
+        if (band == "middle") { return props.visualElement.listViewportBoundsPx?.y ?? 0; }
+        return Math.max(0, pageFns().viewportBoundsPx().h - props.visualElement.listPagePinnedBottomHeightPx);
+      };
+      const bandHeightPx = () => {
+        if (band == "top") { return props.visualElement.listPagePinnedTopHeightPx; }
+        if (band == "middle") { return props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h; }
+        return props.visualElement.listPagePinnedBottomHeightPx;
+      };
+      const childAreaBoundsPx = () => pageFns().listBandChildAreaBoundsPx(band);
+      const childVes = () => pageFns().lineChildrenForListBand(band);
+      const inner =
         <div class="absolute"
-          style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
-          <PageGroupBoxes childVes={pageFns().lineChildren()} childAreaBoundsPx={props.visualElement.listChildAreaBoundsPx!} pageItemId={props.visualElement.displayItem.id} />
-          <For each={pageFns().lineChildren()}>{childVe =>
+          style={`width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px`}>
+          <PageGroupBoxes childVes={childVes()} childAreaBoundsPx={childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
+          <For each={childVes()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
-          {pageFns().renderMoveOverAnnotationMaybe()}
-        </div>
+          <Show when={band == "middle"}>
+            {pageFns().renderMoveOverAnnotationMaybe()}
+          </Show>
+        </div>;
+      const commonStyle = () =>
+        `left: 0px; top: ${bandTopPx()}px; ` +
+        `width: ${pageFns().listViewportWidthPx()}px; ` +
+        `height: ${bandHeightPx()}px; ` +
+        `background-color: #ffffff;` +
+        `${VeFns.zIndexStyle(props.visualElement)}`;
+
+      if (band == "middle") {
+        return (
+          <div ref={popupDiv}
+            class="absolute border-r border-slate-300"
+            style={`${commonStyle()} overflow-y: auto; overflow-x: hidden;`}
+            onscroll={popupListScrollHandler}>
+            {inner}
+          </div>
+        );
+      }
+
+      return (
+        <Show when={bandHeightPx() > 0}>
+          <div
+            class="absolute border-r border-slate-300"
+            style={`${commonStyle()} overflow: hidden;`}>
+            {inner}
+          </div>
+        </Show>
+      );
+    };
+
+    return (
+      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}`}
+        style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
+          `height: ${pageFns().viewportBoundsPx().h}px; ` +
+          `left: ${pageFns().viewportBoundsPx().x}px; ` +
+          `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+          `background-color: #ffffff;` +
+          `${VeFns.zIndexStyle(props.visualElement)}`}>
+        {renderListBand("top")}
+        {renderListBand("middle")}
+        {renderListBand("bottom")}
+        <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
+        <For each={pageFns().desktopChildren()}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
+        }</For>
+        <Show when={selectedRootVeMaybe()}>
+          {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
+        </Show>
       </div>
-      <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
-      <For each={pageFns().desktopChildren()}>{childVe =>
-        <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
-      }</For>
-      <Show when={selectedRootVeMaybe()}>
-        {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
-      </Show>
-    </div>;
+    );
+  };
 
   const renderPage = () =>
     <div ref={popupDiv}

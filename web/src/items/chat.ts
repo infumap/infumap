@@ -48,7 +48,8 @@ function titleFromPrompt(prompt: string): string {
 
 function prepareChatPage(page: PageItem): void {
   page.arrangeAlgorithm = ArrangeAlgorithm.Document;
-  page.flags |= PageFlags.Chat | PageFlags.HideDocumentTitle;
+  page.flags &= ~PageFlags.ListPagePinBottom;
+  page.flags |= PageFlags.Chat | PageFlags.HideDocumentTitle | PageFlags.ListPagePinTop | PageFlags.DisableLineItemExpand;
   page.orderChildrenBy = "";
   page.childrenLoaded = true;
   markChildrenLoadAsInitiatedOrComplete(page.id);

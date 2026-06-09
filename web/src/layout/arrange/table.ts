@@ -20,6 +20,7 @@ import { recoverWithFullArrange } from ".";
 import { GRID_SIZE } from "../../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../../items/base/container-item";
+import { itemCanExpandInLineItem } from "../../items/base/flags-item";
 import { Item, uniqueEmptyItem } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isComposite } from "../../items/composite-item";
@@ -327,10 +328,11 @@ function walkTableRowsInWindow(
       break;
     }
 
-    if (isContainer(displayItem_childItem) && store.perVe.getIsExpanded(itemPath)) {
+    const expandable = isContainer(displayItem_childItem) && itemCanExpandInLineItem(displayItem_childItem);
+    if (expandable && store.perVe.getIsExpanded(itemPath)) {
       initiateLoadChildItemsMaybe(store, itemVeid);
     }
-    if (isContainer(displayItem_childItem) && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
+    if (expandable && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
       iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
       iterIndices.push(0);
       iterContainers.push(asContainerItem(displayItem_childItem));
@@ -624,7 +626,8 @@ function buildTableRowRenderPlan(
     ? sizeBl.w
     : Math.min(di_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
 
-  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, true, true);
+  const expandable = isContainer(displayItem_childItem) && itemCanExpandInLineItem(displayItem_childItem);
+  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, expandable, true);
 
   const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
 

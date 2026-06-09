@@ -27,7 +27,7 @@ import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { navigateToContainingPageOfItem, navigateToSearches, switchToPage } from "../layout/navigation";
-import { isEmptyVeid, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot } from "../layout/visual-element";
+import { isEmptyVeid, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot, type ListPageRowBand, type VisualElementPath } from "../layout/visual-element";
 
 
 import { StoreContextModel } from "../store/StoreProvider";
@@ -1663,6 +1663,46 @@ function handleArrowKeyCalendarPageMaybe(store: StoreContextModel, ev: KeyboardE
   return false;
 }
 
+function orderedListPageLineChildrenForKeyNavigation(focusPagePath: VisualElementPath): Array<VisualElement> {
+  const children = VesCache.current.readStructuralChildren(focusPagePath)
+    .filter(ve => (ve.flags & VisualElementFlags.LineItem) && !(ve.flags & VisualElementFlags.Moving));
+  const bandOrder: Array<ListPageRowBand> = ["top", "middle", "bottom"];
+  const result: Array<VisualElement> = [];
+  for (const band of bandOrder) {
+    result.push(...children.filter(ve => (ve.listPageRowBand ?? "middle") == band));
+  }
+  return result;
+}
+
+function moveListPageSelectionInRenderedOrderMaybe(
+  store: StoreContextModel,
+  focusPagePath: VisualElementPath,
+  focusPageVeid: Veid,
+  selectedVeid: Veid,
+  direction: FindDirection,
+): boolean {
+  if (direction != FindDirection.Up && direction != FindDirection.Down) {
+    return false;
+  }
+
+  const lineChildren = orderedListPageLineChildrenForKeyNavigation(focusPagePath);
+  const selectedIdx = lineChildren.findIndex(ve => VeFns.compareVeids(VeFns.veidFromVe(ve), selectedVeid) == 0);
+  if (selectedIdx == -1) {
+    return false;
+  }
+
+  const nextIdx = direction == FindDirection.Up
+    ? selectedIdx - 1
+    : selectedIdx + 1;
+  if (nextIdx < 0 || nextIdx >= lineChildren.length) {
+    return false;
+  }
+
+  store.perItem.setSelectedListPageItem(focusPageVeid, VeFns.veidFromVe(lineChildren[nextIdx]));
+  arrangeNow(store, "key-list-page-move-selection");
+  return true;
+}
+
 
 /**
  * If arrow keydown event is relevant for a focussed list page, handle it and return true, else return false.
@@ -1714,14 +1754,8 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
       arrangeNow(store, "key-list-page-set-default-selection");
       return true;
     }
-    const selectedItemPath = VeFns.addVeidToPath(selectedVeid, focusPagePath);
     const direction = findDirectionFromKeyCode(ev.code);
-    const closest = findClosest(VesCache.current, selectedItemPath, direction, true);
-    if (closest != null) {
-      const closestVeid = VeFns.veidFromPath(closest);
-      store.perItem.setSelectedListPageItem(focusPageVeid, closestVeid);
-      arrangeNow(store, "key-list-page-move-selection");
-    } else {
+    if (!moveListPageSelectionInRenderedOrderMaybe(store, focusPagePath, focusPageVeid, selectedVeid, direction)) {
       // At boundary (topmost/bottommost item) - fall through to parent context navigation
       return false;
     }

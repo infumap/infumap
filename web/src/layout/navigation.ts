@@ -19,7 +19,8 @@
 import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { isSearch, SearchFns } from "../items/search-item";
+import { asSearchItem, isSearch, SearchFns } from "../items/search-item";
+import { SearchFlags } from "../items/base/flags-item";
 import { ensureClientOnlyChatPageUnderQueries } from "../items/chat";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -173,7 +174,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   store.currentUrlPath.set(url);
 }
 
-async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesPageId: Uid): Promise<Uid | null> {
+export async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesPageId: Uid): Promise<Uid | null> {
   const searchesPageMaybe = itemState.get(searchesPageId);
   if (!searchesPageMaybe || !isPage(searchesPageMaybe)) {
     return null;
@@ -183,8 +184,14 @@ async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesP
 
   const searchesPage = asPageItem(itemState.get(searchesPageId)!);
   for (const childId of searchesPage.computed_children) {
-    const child = itemState.get(childId);
-    if (isSearch(child)) {
+    const childMaybe = itemState.get(childId);
+    if (isSearch(childMaybe)) {
+      const child = asSearchItem(childMaybe!);
+      if (!(child.flags & SearchFlags.ListPagePinTop) || (child.flags & SearchFlags.ListPagePinBottom)) {
+        child.flags &= ~SearchFlags.ListPagePinBottom;
+        child.flags |= SearchFlags.ListPagePinTop;
+        void server.updateItem(child, store.general.networkStatus, false);
+      }
       return childId;
     }
   }
@@ -195,6 +202,7 @@ async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesP
     RelationshipToParent.Child,
     itemState.newOrderingAtBeginningOfChildren(searchesPageId),
   );
+  searchItem.flags |= SearchFlags.ListPagePinTop;
   itemState.add(searchItem);
 
   try {

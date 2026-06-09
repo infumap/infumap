@@ -33,6 +33,7 @@ import {
 } from "./base/attachments-item";
 import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
 import { ContainerItem, asContainerItem, isContainer } from "./base/container-item";
+import { itemCanExpandInLineItem } from "./base/flags-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
@@ -130,10 +131,11 @@ function tableVisibleRows(store: StoreContextModel, tableVe: VisualElement): Arr
 
     rowIdx += 1;
 
-    if (isContainer(displayItem) && store.perVe.getIsExpanded(itemPath)) {
+    const expandable = isContainer(displayItem) && itemCanExpandInLineItem(displayItem);
+    if (expandable && store.perVe.getIsExpanded(itemPath)) {
       initiateLoadChildItemsMaybe(store, itemVeid);
     }
-    if (isContainer(displayItem) && asContainerItem(displayItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
+    if (expandable && asContainerItem(displayItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
       iterIndices[iterIndices.length - 1] = indexInParent + 1;
       iterIndices.push(0);
       iterContainers.push(asContainerItem(displayItem));

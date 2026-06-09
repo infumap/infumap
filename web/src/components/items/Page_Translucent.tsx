@@ -63,6 +63,17 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   onMount(() => {
     let veid = VeFns.veidFromVe(props.visualElement);
 
+    if (pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List &&
+      props.visualElement.listChildAreaBoundsPx &&
+      props.visualElement.listViewportBoundsPx) {
+      const scrollYProp = store.perItem.getPageScrollYProp(veid);
+      const scrollYPx = scrollYProp * Math.max(0, props.visualElement.listChildAreaBoundsPx.h - props.visualElement.listViewportBoundsPx.h);
+      translucentDiv.scrollTop = scrollYPx;
+      translucentDiv.scrollLeft = 0;
+      latestTranslucentScrollTopPx = scrollYPx;
+      return;
+    }
+
     const scrollXProp = store.perItem.getPageScrollXProp(veid);
     const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
 
@@ -81,6 +92,21 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     updatingTranslucentScrollTop = true;
     if (translucentDiv) {
       const pageVeid = VeFns.veidFromVe(props.visualElement);
+      if (pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List &&
+        props.visualElement.listChildAreaBoundsPx &&
+        props.visualElement.listViewportBoundsPx) {
+        const maxScrollYPx = Math.max(0, props.visualElement.listChildAreaBoundsPx.h - props.visualElement.listViewportBoundsPx.h);
+        const nextScrollTopPx = store.perItem.getPageScrollYProp(pageVeid) * maxScrollYPx;
+        translucentDiv.scrollTop = nextScrollTopPx;
+        translucentDiv.scrollLeft = 0;
+        latestTranslucentScrollTopPx = nextScrollTopPx;
+        previousChildAreaHeightPx = props.visualElement.listChildAreaBoundsPx.h;
+        setTimeout(() => {
+          updatingTranslucentScrollTop = false;
+        }, 0);
+        return;
+      }
+
       const maxScrollYPx = Math.max(0, pageFns().childAreaBoundsPx().h - props.visualElement.boundsPx.h);
       const shouldPreserveAbsoluteScrollTop =
         pageFns().isSearchResultsPage() &&
@@ -146,6 +172,21 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     if (!translucentDiv) { return; }
     if (updatingTranslucentScrollTop) { return; }
 
+    if (pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List &&
+      props.visualElement.listChildAreaBoundsPx &&
+      props.visualElement.listViewportBoundsPx) {
+      const pageVeid = VeFns.veidFromVe(props.visualElement);
+      const maxScrollYPx = Math.max(0, props.visualElement.listChildAreaBoundsPx.h - props.visualElement.listViewportBoundsPx.h);
+      if (maxScrollYPx > 0) {
+        const scrollYProp = translucentDiv!.scrollTop / maxScrollYPx;
+        latestTranslucentScrollTopPx = translucentDiv!.scrollTop;
+        store.perItem.setPageScrollYProp(pageVeid, scrollYProp);
+      } else {
+        latestTranslucentScrollTopPx = 0;
+      }
+      return;
+    }
+
     const pageBoundsPx = props.visualElement.boundsPx;
     const childAreaBounds = pageFns().childAreaBoundsPx();
     const pageVeid = VeFns.veidFromVe(props.visualElement);
@@ -169,38 +210,81 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       selectedVe.boundsPx.y + selectedVe.boundsPx.h > 0;
   };
 
-  const renderListPage = () =>
-    <div class={`absolute rounded-xs`}
-      style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden; z-index: 1;`}>
-      <div class={`absolute rounded-xs`}
-        style={`width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; left: 0px; top: 0px; background-color: #ffffff;`} />
-      <Show when={Math.min(pageFns().listViewportWidthPx(), pageFns().boundsPx().w) > 0}>
+  const renderListPage = () => {
+    const renderListBand = (band: "top" | "middle" | "bottom") => {
+      const bandTopPx = () => {
+        if (band == "top") { return 0; }
+        if (band == "middle") { return props.visualElement.listViewportBoundsPx?.y ?? 0; }
+        return Math.max(0, pageFns().boundsPx().h - props.visualElement.listPagePinnedBottomHeightPx);
+      };
+      const bandHeightPx = () => {
+        if (band == "top") { return props.visualElement.listPagePinnedTopHeightPx; }
+        if (band == "middle") { return props.visualElement.listViewportBoundsPx?.h ?? pageFns().boundsPx().h; }
+        return props.visualElement.listPagePinnedBottomHeightPx;
+      };
+      const childAreaBoundsPx = () => pageFns().listBandChildAreaBoundsPx(band);
+      const childVes = () => pageFns().lineChildrenForListBand(band);
+      const inner =
         <div class="absolute"
-          style={`overflow-y: auto; overflow-x: hidden; ` +
-            `width: ${pageFns().listViewportWidthPx()}px; ` +
-            `height: ${pageFns().boundsPx().h}px; ` +
-            `left: 0px; ` +
-            `top: 0px; ` +
-            `border-right: 1px solid ${BORDER_COLOR};`}>
-          <div class="absolute"
-            style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
-              `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}>
-            <PageGroupBoxes childVes={pageFns().lineChildren()} childAreaBoundsPx={props.visualElement.listChildAreaBoundsPx!} pageItemId={props.visualElement.displayItem.id} />
-            <For each={pageFns().lineChildren()}>{childVe =>
-              <VisualElement_LineItem visualElement={childVe.get()} />
-            }</For>
+          style={`width: ${childAreaBoundsPx().w}px; ` +
+            `height: ${childAreaBoundsPx().h}px`}>
+          <PageGroupBoxes childVes={childVes()} childAreaBoundsPx={childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
+          <For each={childVes()}>{childVe =>
+            <VisualElement_LineItem visualElement={childVe.get()} />
+          }</For>
+          <Show when={band == "middle"}>
+            {pageFns().renderMoveOverAnnotationMaybe()}
+          </Show>
+        </div>;
+      const commonStyle = () =>
+        `width: ${pageFns().listViewportWidthPx()}px; ` +
+        `height: ${bandHeightPx()}px; ` +
+        `left: 0px; ` +
+        `top: ${bandTopPx()}px; ` +
+        `border-right: 1px solid ${BORDER_COLOR};`;
+
+      if (band == "middle") {
+        return (
+          <div ref={translucentDiv}
+            class="absolute"
+            style={`${commonStyle()} overflow-y: auto; overflow-x: hidden;`}
+            onscroll={translucentScrollHandler}>
+            {inner}
           </div>
+        );
+      }
+
+      return (
+        <Show when={bandHeightPx() > 0}>
+          <div class="absolute"
+            style={`${commonStyle()} overflow: hidden;`}>
+            {inner}
+          </div>
+        </Show>
+      );
+    };
+
+    return (
+      <div class={`absolute rounded-xs`}
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden; z-index: 1;`}>
+        <div class={`absolute rounded-xs`}
+          style={`width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; left: 0px; top: 0px; background-color: #ffffff;`} />
+        <Show when={Math.min(pageFns().listViewportWidthPx(), pageFns().boundsPx().w) > 0}>
+          {renderListBand("top")}
+          {renderListBand("middle")}
+          {renderListBand("bottom")}
+        </Show>
+        <div
+          class={`absolute`}
+          style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
+          <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
+          <For each={pageFns().desktopChildren()}>{childVe =>
+            <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
+          }</For>
         </div>
-      </Show>
-      <div ref={translucentDiv}
-        class={`absolute`}
-        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
-        <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
-        <For each={pageFns().desktopChildren()}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
-        }</For>
       </div>
-    </div>;
+    );
+  };
 
   const renderPage = () =>
   (

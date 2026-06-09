@@ -18,15 +18,15 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
-import { PageFlags } from "../../items/base/flags-item";
-import { ItemType } from "../../items/base/item";
+import { PageFlags, itemCanExpandInLineItem, itemIsListPagePinnedBottom, itemIsListPagePinnedTop } from "../../items/base/flags-item";
+import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isContainer } from "../../items/base/container-item";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { isComposite } from "../../items/composite-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, isPage, type ListPageVisibleRow } from "../../items/page-item";
 import { isSearch } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -39,7 +39,7 @@ import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
-import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, type ListPageRowBand } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath } from "./popup";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
@@ -53,11 +53,57 @@ function listPageScrollOffsetPx(
 ): { x: number, y: number } {
   return {
     x: Math.max(0, listChildAreaBoundsPx.w - listViewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid),
-    y: Math.max(0, listChildAreaBoundsPx.h - listViewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid),
+    y: Math.max(0, listChildAreaBoundsPx.h - listViewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid) - listViewportBoundsPx.y,
   };
 }
 
 const MIN_RENDERED_NESTED_LIST_WIDTH_PX = 30;
+
+interface ListPageArrangedRow {
+  rowIdx: number;
+  band: ListPageRowBand;
+  displayRowIdx: number;
+  childPath: VisualElementPath;
+  displayItem: Item;
+  linkItemMaybe: LinkItem | null;
+  childVeid: Veid;
+  indentBl: number;
+  rowWidthBl: number;
+  blockSizePx: { w: number, h: number };
+  isHighlighted: boolean;
+  expandable: boolean;
+}
+
+function listPageRowBandForItem(item: Item | null): ListPageRowBand | null {
+  if (itemIsListPagePinnedTop(item)) { return "top"; }
+  if (itemIsListPagePinnedBottom(item)) { return "bottom"; }
+  return null;
+}
+
+function listPageRowBandForVisibleRow(
+  row: ListPageVisibleRow,
+  displayItem: Item,
+): ListPageRowBand {
+  const directBand = listPageRowBandForItem(displayItem) ?? listPageRowBandForItem(itemState.get(row.treeItemId));
+  if (directBand != null) {
+    return directBand;
+  }
+
+  for (let i = row.ancestorIds.length - 1; i >= 0; --i) {
+    const ancestorBand = listPageRowBandForItem(itemState.get(row.ancestorIds[i]));
+    if (ancestorBand != null) {
+      return ancestorBand;
+    }
+  }
+
+  return "middle";
+}
+
+function listPageBandContentHeightPx(rowCount: number, rowHeightPx: number): number {
+  return rowCount > 0
+    ? LIST_PAGE_TOP_PADDING_PX * (rowHeightPx / LINE_HEIGHT_PX) + rowCount * rowHeightPx
+    : 0;
+}
 
 
 export function arrange_list_page(
@@ -216,40 +262,24 @@ export function arrange_list_page(
   const listViewportBoundsPx = cloneBoundingBox(geometry.viewportBoundsPx!)!;
   listViewportBoundsPx.w = listWidthPx;
   const listChildAreaBoundsPx = cloneBoundingBox(listViewportBoundsPx)!;
-  listChildAreaBoundsPx.h = geometry.viewportBoundsPx!.h;
   const blockSizePx = {
     w: LINE_HEIGHT_PX * listScale,
     h: 0  // TODO (LOW): better to calculate this, but it's not needed for anything.
   };
 
-  const pageSpec: VisualElementSpec = {
-    displayItem: displayItem_pageWithChildren,
-    linkItemMaybe: linkItemMaybe_pageWithChildren,
-    actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
-    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-      getCommonVisualElementFlags(flags) |
-      (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-      (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
-    _arrangeFlags_useForPartialRearrangeOnly: flags,
-    boundsPx: geometry.boundsPx,
-    viewportBoundsPx: geometry.viewportBoundsPx!,
-    childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
-    listViewportBoundsPx,
-    listChildAreaBoundsPx,
-    blockSizePx,
-    hitboxes,
-    parentPath,
-  };
-
-  const pageRelationships: VisualElementRelationships = {
-    focusedChildItemMaybe,
-  };
-
   let listChildPaths: Array<VisualElementPath> = [];
+  let arrangedRows: Array<ListPageArrangedRow> = [];
+  let topPinnedHeightPx = 0;
+  let bottomPinnedHeightPx = 0;
+
   if (shouldArrangeListContents) {
-    let renderedRowIdx = 0;
+    const rowCounts: Record<ListPageRowBand, number> = {
+      top: 0,
+      middle: 0,
+      bottom: 0,
+    };
     const hiddenBranchIds = new Set<string>();
+
     for (let idx = 0; idx < visibleRows.length; ++idx) {
       const row = visibleRows[idx];
       if (row.ancestorIds.some(id => hiddenBranchIds.has(id))) {
@@ -275,7 +305,8 @@ export function arrange_list_page(
         continue;
       }
 
-      if (isComposite(displayItem) || (isContainer(displayItem) && store.perVe.getIsExpanded(childPath))) {
+      const expandable = isContainer(displayItem) && itemCanExpandInLineItem(displayItem);
+      if (isComposite(displayItem) || (expandable && store.perVe.getIsExpanded(childPath))) {
         initiateLoadChildItemsMaybe(store, childVeid);
       }
 
@@ -290,53 +321,111 @@ export function arrange_list_page(
         }
       }
 
+      const band = listPageRowBandForVisibleRow(row, displayItem);
+      const displayRowIdx = rowCounts[band];
+      rowCounts[band] += 1;
       const blockSizePx = { w: LINE_HEIGHT_PX * listScale, h: LINE_HEIGHT_PX * listScale };
       const indentBl = Math.min(row.depth, Math.max(0, renderedListWidthBl - 1));
       const rowWidthBl = Math.max(1, renderedListWidthBl - indentBl);
-
-      const listItemGeometry = ItemFns.calcGeometry_ListItem(
-        childItem,
-        blockSizePx,
-        renderedRowIdx,
-        indentBl,
-        rowWidthBl,
-        insidePopup,
-        true,
-        isContainer(displayItem),
-        false,
-      );
-
       const highlightedPath = store.find.highlightedPath.get();
       const isHighlighted = highlightedPath !== null && highlightedPath === childPath;
 
-      const listItemVeSpec: VisualElementSpec = {
+      arrangedRows.push({
+        rowIdx: idx,
+        band,
+        displayRowIdx,
+        childPath,
         displayItem,
         linkItemMaybe,
-        actualLinkItemMaybe: linkItemMaybe,
+        childVeid,
+        indentBl,
+        rowWidthBl,
+        blockSizePx,
+        isHighlighted,
+        expandable,
+      });
+    }
+
+    const rowHeightPx = LINE_HEIGHT_PX * listScale;
+    topPinnedHeightPx = listPageBandContentHeightPx(rowCounts.top, rowHeightPx);
+    bottomPinnedHeightPx = listPageBandContentHeightPx(rowCounts.bottom, rowHeightPx);
+    listViewportBoundsPx.y = topPinnedHeightPx;
+    listViewportBoundsPx.h = Math.max(0, geometry.viewportBoundsPx!.h - topPinnedHeightPx - bottomPinnedHeightPx);
+    listChildAreaBoundsPx.y = 0;
+    listChildAreaBoundsPx.h = Math.max(
+      listPageBandContentHeightPx(rowCounts.middle, rowHeightPx),
+      listViewportBoundsPx.h,
+    );
+  } else {
+    listViewportBoundsPx.y = 0;
+    listViewportBoundsPx.h = geometry.viewportBoundsPx!.h;
+    listChildAreaBoundsPx.y = 0;
+    listChildAreaBoundsPx.h = geometry.viewportBoundsPx!.h;
+  }
+
+  const pageSpec: VisualElementSpec = {
+    displayItem: displayItem_pageWithChildren,
+    linkItemMaybe: linkItemMaybe_pageWithChildren,
+    actualLinkItemMaybe: actualLinkItemMaybe_pageWithChildren,
+    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
+      getCommonVisualElementFlags(flags) |
+      (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
+      (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+      (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
+    _arrangeFlags_useForPartialRearrangeOnly: flags,
+    boundsPx: geometry.boundsPx,
+    viewportBoundsPx: geometry.viewportBoundsPx!,
+    childAreaBoundsPx: zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!),
+    listViewportBoundsPx,
+    listChildAreaBoundsPx,
+    listPagePinnedTopHeightPx: topPinnedHeightPx,
+    listPagePinnedBottomHeightPx: bottomPinnedHeightPx,
+    blockSizePx,
+    hitboxes,
+    parentPath,
+  };
+
+  const pageRelationships: VisualElementRelationships = {
+    focusedChildItemMaybe,
+  };
+
+  if (shouldArrangeListContents) {
+    for (const row of arrangedRows) {
+      const listItemGeometry = ItemFns.calcGeometry_ListItem(
+        row.displayItem,
+        row.blockSizePx,
+        row.displayRowIdx,
+        row.indentBl,
+        row.rowWidthBl,
+        insidePopup,
+        true,
+        row.expandable,
+        false,
+      );
+
+      const listItemVeSpec: VisualElementSpec = {
+        displayItem: row.displayItem,
+        linkItemMaybe: row.linkItemMaybe,
+        actualLinkItemMaybe: row.linkItemMaybe,
         flags: VisualElementFlags.LineItem |
-          (VeFns.compareVeids(selectedVeid, childVeid) == 0
+          (VeFns.compareVeids(selectedVeid, row.childVeid) == 0
             ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
             : VisualElementFlags.None) |
-          (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+          (row.isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: listItemGeometry.boundsPx,
         hitboxes: listItemGeometry.hitboxes,
         parentPath: pageWithChildrenVePath,
-        col: indentBl,
-        row: renderedRowIdx,
-        blockSizePx,
+        col: row.indentBl,
+        row: row.rowIdx,
+        blockSizePx: row.blockSizePx,
+        listPageRowBand: row.band,
       };
       const listItemRelationships: VisualElementRelationships = {};
-      VesCache.arrange.createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, childPath);
-      listChildPaths.push(childPath);
-      renderedRowIdx += 1;
+      VesCache.arrange.createOrRecycleVisualElementSignal(listItemVeSpec, listItemRelationships, row.childPath);
+      listChildPaths.push(row.childPath);
     }
   }
-
-  listChildAreaBoundsPx.h = Math.max(
-    (listChildPaths.length * LINE_HEIGHT_PX + LIST_PAGE_TOP_PADDING_PX) * listScale,
-    geometry.viewportBoundsPx!.h,
-  );
 
   if (movingItemInThisPage && shouldArrangeListContents && !isBackgroundRenderOfPopupPage) {
     const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;

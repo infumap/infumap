@@ -113,9 +113,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const isListPage = pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
     if (isListPage && props.visualElement.listChildAreaBoundsPx) {
       const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
-      const viewportH = pageFns().viewportBoundsPx().h;
+      const viewportH = props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h;
       const scrollYProp = store.perItem.getPageScrollYProp(veid);
-      const scrollYPx = scrollYProp * (listChildAreaH - viewportH);
+      const scrollYPx = scrollYProp * Math.max(0, listChildAreaH - viewportH);
       rootDiv.scrollTop = scrollYPx;
       rootDiv.scrollLeft = 0;
     } else {
@@ -148,10 +148,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       const isListPage = pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
       if (isListPage && props.visualElement.listChildAreaBoundsPx) {
         const listChildAreaH = props.visualElement.listChildAreaBoundsPx.h;
-        const viewportH = pageFns().viewportBoundsPx().h;
+        const viewportH = props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h;
         rootDiv.scrollTop =
           store.perItem.getPageScrollYProp(veid) *
-          (listChildAreaH - viewportH);
+          Math.max(0, listChildAreaH - viewportH);
         // List pages typically only scroll vertically, but handle width just in case
         rootDiv.scrollLeft = 0;
       } else {
@@ -173,7 +173,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     if (!rootDiv || updatingRootScrollTop) { return; }
 
     const listChildAreaH = props.visualElement.listChildAreaBoundsPx!.h;
-    const viewportH = pageFns().viewportBoundsPx().h;
+    const viewportH = props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h;
 
     const veid = getScrollVeid();
     if (!veid) return;
@@ -316,6 +316,59 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             `height: ${pageFns().viewportBoundsPx().h}px; ` +
             `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>;
+    const renderListBand = (band: "top" | "middle" | "bottom") => {
+      const bandTopPx = () => {
+        if (band == "top") { return 0; }
+        if (band == "middle") { return props.visualElement.listViewportBoundsPx?.y ?? 0; }
+        return Math.max(0, pageFns().viewportBoundsPx().h - props.visualElement.listPagePinnedBottomHeightPx);
+      };
+      const bandHeightPx = () => {
+        if (band == "top") { return props.visualElement.listPagePinnedTopHeightPx; }
+        if (band == "middle") { return props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h; }
+        return props.visualElement.listPagePinnedBottomHeightPx;
+      };
+      const childAreaBoundsPx = () => pageFns().listBandChildAreaBoundsPx(band);
+      const childVes = () => pageFns().lineChildrenForListBand(band);
+      const commonStyle = () =>
+        `left: 0px; top: ${bandTopPx()}px; ` +
+        `width: ${pageFns().listViewportWidthPx()}px; ` +
+        `height: ${bandHeightPx()}px; ` +
+        `border-right-width: ${focusedChildBorderWidthPx()}px; ` +
+        `border-right-style: solid; ` +
+        `${focusedChildBorderColor()}`;
+      const inner =
+        <div class="absolute"
+          style={`width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}>
+          <PageGroupBoxes childVes={childVes()} childAreaBoundsPx={childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
+          <For each={childVes()}>{childVe =>
+            <VisualElement_LineItem visualElement={childVe.get()} />
+          }</For>
+          <Show when={band == "middle"}>
+            {pageFns().renderMoveOverAnnotationMaybe()}
+          </Show>
+        </div>;
+
+      if (band == "middle") {
+        return (
+          <div ref={rootDiv}
+            class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
+            style={`${commonStyle()} overflow-y: auto; overflow-x: hidden;`}
+            onscroll={listRootScrollHandler}>
+            {inner}
+          </div>
+        );
+      }
+
+      return (
+        <Show when={bandHeightPx() > 0}>
+          <div
+            class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
+            style={`${commonStyle()} overflow: hidden;`}>
+            {inner}
+          </div>
+        </Show>
+      );
+    };
 
     return (
       <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
@@ -324,24 +377,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
           `background-color: #ffffff;` +
           `${VeFns.zIndexStyle(props.visualElement)}`}>
-        <div ref={rootDiv}
-          class="absolute"
-          style={`left: 0px; top: 0px; ` +
-            `width: ${pageFns().listViewportWidthPx()}px; ` +
-            `height: ${pageFns().viewportBoundsPx().h}px; ` +
-            `overflow-y: auto; `}
-          onscroll={listRootScrollHandler}>
-          <div class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
-            style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; height: ${props.visualElement.listChildAreaBoundsPx!.h}px;` +
-              `border-right-width: ${focusedChildBorderWidthPx()}px;` +
-              `${focusedChildBorderColor()}`}>
-            <PageGroupBoxes childVes={pageFns().lineChildren()} childAreaBoundsPx={props.visualElement.listChildAreaBoundsPx!} pageItemId={props.visualElement.displayItem.id} />
-            <For each={pageFns().lineChildren()}>{childVe =>
-              <VisualElement_LineItem visualElement={childVe.get()} />
-            }</For>
-            {pageFns().renderMoveOverAnnotationMaybe()}
-          </div>
-        </div>
+        {renderListBand("top")}
+        {renderListBand("middle")}
+        {renderListBand("bottom")}
         <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />

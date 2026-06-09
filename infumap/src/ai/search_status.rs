@@ -12,8 +12,8 @@ use crate::util::fs::expand_tilde;
 
 pub const SEARCH_STATUS_SCHEMA_VERSION: u32 = 1;
 pub const SEARCH_STATUS_FILENAME: &str = "search_status.json";
-pub const SEARCH_FAILED_PAGE_TITLE: &str = "zz Index failed";
-pub const SEARCH_PENDING_PAGE_TITLE: &str = "zz Not indexed yet";
+pub const SEARCH_FAILED_PAGE_TITLE: &str = "Index failed";
+pub const SEARCH_PENDING_PAGE_TITLE: &str = "Index pending";
 pub const SEARCH_FAILED_PAGE_ROUTE_ID: &str = "search/failed";
 pub const SEARCH_PENDING_PAGE_ROUTE_ID: &str = "search/pending";
 

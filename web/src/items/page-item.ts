@@ -39,7 +39,7 @@ import { switchToPage } from '../layout/navigation';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { getTextStyleForNote, InfuTextStyle, measureLineCount, measureWidthBl } from '../layout/text';
-import { FlagsMixin, PageFlags } from './base/flags-item';
+import { FlagsMixin, PageFlags, itemCanExpandInLineItem } from './base/flags-item';
 import { serverOrRemote } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
@@ -216,7 +216,7 @@ function getListPageVisibleRowsImpl(
       rows.push(row);
 
       const rowPath = VeFns.addVeidToPath(row.veid, listPagePath);
-      if (isContainer(row.displayItem) && store.perVe.getIsExpanded(rowPath)) {
+      if (isContainer(row.displayItem) && itemCanExpandInLineItem(row.displayItem) && store.perVe.getIsExpanded(rowPath)) {
         walk(
           asContainerItem(row.displayItem),
           depth + 1,

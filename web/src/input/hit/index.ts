@@ -161,6 +161,43 @@ function pageContentScrollOffsetPx(store: StoreContextModel, pageVe: VisualEleme
   };
 }
 
+function listPageLineItemHitPosPx(
+  store: StoreContextModel,
+  rootVe: VisualElement,
+  childVe: VisualElement,
+  posRelativeToRootVeViewportPx: Vector,
+): Vector {
+  if (!(childVe.flags & VisualElementFlags.LineItem) ||
+    (rootVe.flags & VisualElementFlags.IsDock) ||
+    !isListPageVe(rootVe) ||
+    !rootVe.listChildAreaBoundsPx ||
+    !rootVe.listViewportBoundsPx ||
+    !rootVe.viewportBoundsPx) {
+    return posRelativeToRootVeViewportPx;
+  }
+
+  if (childVe.listPageRowBand == "top") {
+    return posRelativeToRootVeViewportPx;
+  }
+  if (childVe.listPageRowBand == "bottom") {
+    return {
+      x: posRelativeToRootVeViewportPx.x,
+      y: posRelativeToRootVeViewportPx.y - (rootVe.viewportBoundsPx.h - rootVe.listPagePinnedBottomHeightPx),
+    };
+  }
+
+  const pageVeid = rootVe.flags & VisualElementFlags.Popup
+    ? store.history.currentPopupSpec()?.actualVeid ?? VeFns.actualVeidFromVe(rootVe)
+    : VeFns.actualVeidFromVe(rootVe);
+  const scrollYPx =
+    Math.max(0, rootVe.listChildAreaBoundsPx.h - rootVe.listViewportBoundsPx.h) *
+    store.perItem.getPageScrollYProp(pageVeid);
+  return {
+    x: posRelativeToRootVeViewportPx.x,
+    y: posRelativeToRootVeViewportPx.y - rootVe.listPagePinnedTopHeightPx + scrollYPx,
+  };
+}
+
 function popupListTitleTargetPathMaybe(rootVe: VisualElement, titleLocalPos: Vector): string | null {
   if (!isListPageVe(rootVe) || !rootVe.listViewportBoundsPx) { return null; }
   const headerHeightPx = rootVe.boundsPx.h - (rootVe.viewportBoundsPx?.h ?? rootVe.boundsPx.h);
@@ -266,27 +303,7 @@ function getHitInfoUnderRoot(
 ): HitInfo {
   const { parentRootVe, rootVes, rootVe } = rootInfo;
   let { posRelativeToRootVeViewportPx } = rootInfo;
-
-  // For list pages in popups/nested contexts, add the scroll offset to convert from viewport position to child area position
-  // This is necessary because list children have their boundsPx in child area coordinates (not scroll-adjusted)
   const rootPageItem = asPageItem(rootVe.displayItem);
-  const isListPage = rootPageItem.arrangeAlgorithm == ArrangeAlgorithm.List;
-
-  // Check if this is the actual top-level root (parentRootVe == null)
-  // For actual top-level roots, scroll is already applied in determineTopLevelRoot
-  const isActualTopLevelRoot = parentRootVe == null;
-
-  // For list pages, apply scroll offset if this is NOT the actual top-level root
-  if (isListPage && rootVe.listChildAreaBoundsPx && !isActualTopLevelRoot) {
-    const listVeid = VeFns.actualVeidFromVe(rootVe);
-    const scrollYProp = store.perItem.getPageScrollYProp(listVeid);
-    const listChildAreaH = rootVe.listChildAreaBoundsPx.h;
-    const viewportH = rootVe.viewportBoundsPx!.h;
-    const scrollYPx = scrollYProp * (listChildAreaH - viewportH);
-
-    posRelativeToRootVeViewportPx = { ...posRelativeToRootVeViewportPx };
-    posRelativeToRootVeViewportPx.y = posRelativeToRootVeViewportPx.y + scrollYPx;
-  }
 
   const posRelativeToRootChildAreaPx = (() => {
     if (rootPageItem.arrangeAlgorithm != ArrangeAlgorithm.Document) {
@@ -345,11 +362,13 @@ function hitChildMaybe(
     return null;
   }
   {
+    const posRelativeToRootForChildPx = listPageLineItemHitPosPx(store, rootVes.get(), childVe, posRelativeToRootVeViewportPx);
+
     if (isComposite(childVe.displayItem)) {
       const childVeChildren = VesCache.render.getChildren(VeFns.veToPath(childVe))();
       for (let i = 0; i < childVeChildren.length; ++i) {
         let ve = childVeChildren[i].get();
-        const posRelativeToChildElementPx = toInnerAttachmentLocalInComposite(childVe, ve, posRelativeToRootVeViewportPx);
+        const posRelativeToChildElementPx = toInnerAttachmentLocalInComposite(childVe, ve, posRelativeToRootForChildPx);
         const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(ve))(), posRelativeToChildElementPx, ignoreItems, false, allowCopyMove);
         if (hit) {
           const compositeParentVe = childVe;
@@ -370,8 +389,8 @@ function hitChildMaybe(
         }
       }
     }
-    const posRelativeToChildElementPx = toChildBoundsLocalFromViewport(posRelativeToRootVeViewportPx, childVe);
-      const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(childVe))(), posRelativeToChildElementPx, ignoreItems, true, allowCopyMove);
+    const posRelativeToChildElementPx = toChildBoundsLocalFromViewport(posRelativeToRootForChildPx, childVe);
+    const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(childVe))(), posRelativeToChildElementPx, ignoreItems, true, allowCopyMove);
     if (hit) {
       const parent = parentVe(childVe);
       const grandparent = parentVe(parent);
@@ -392,12 +411,13 @@ function hitChildMaybe(
     }
   }
   {
+    const posRelativeToRootForChildPx = listPageLineItemHitPosPx(store, rootVes.get(), childVe, posRelativeToRootVeViewportPx);
     const searchWorkspaceHit = hitSearchWorkspaceMaybe(
       store,
       posOnDesktopPx,
       rootVes,
       parentRootVe,
-      posRelativeToRootVeViewportPx,
+      posRelativeToRootForChildPx,
       childVes,
       ignoreItems,
       canHitEmbeddedInteractive,
@@ -407,11 +427,12 @@ function hitChildMaybe(
     if (searchWorkspaceHit) { return searchWorkspaceHit; }
   }
   {
+    const posRelativeToRootForChildPx = listPageLineItemHitPosPx(store, rootVes.get(), childVe, posRelativeToRootVeViewportPx);
     const searchWorkspaceChildPageHit = hitSearchWorkspaceChildPageMaybe(
       store,
       posOnDesktopPx,
       rootVes,
-      posRelativeToRootVeViewportPx,
+      posRelativeToRootForChildPx,
       childVes,
       ignoreItems,
       canHitEmbeddedInteractive,
@@ -420,30 +441,31 @@ function hitChildMaybe(
     );
     if (searchWorkspaceChildPageHit) { return searchWorkspaceChildPageHit; }
   }
+  const posRelativeToRootForChildPx = listPageLineItemHitPosPx(store, rootVes.get(), childVe, posRelativeToRootVeViewportPx);
   if (allowOutsideBoundsHitboxes && isTable(childVe.displayItem) && (childVe.flags & VisualElementFlags.InsideCompositeOrDoc)) {
-    const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowCopyMove);
+    const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootForChildPx, getBoundingBoxTopLeft(childVe.boundsPx), allowCopyMove);
     if ((hitboxType & HitboxFlags.Move) && meta?.compositeMoveOut && !isIgnored(childVe.displayItem.id, ignoreItems)) {
       return new HitBuilder(parentRootVe, rootVes)
         .over(childVes)
         .hitboxes(hitboxType, HitboxFlags.None)
         .meta(meta)
-        .pos(posRelativeToRootVeViewportPx)
+        .pos(posRelativeToRootForChildPx)
         .allowEmbeddedInteractive(canHitEmbeddedInteractive)
         .createdAt("hitChildMaybe-table-composite-move-out")
         .build();
     }
   }
-  if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove)) { return null; }
-  const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove };
+  if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootForChildPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove)) { return null; }
+  const ctx = { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx: posRelativeToRootForChildPx, ignoreItems, posOnDesktopPx, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove };
   for (const handler of HitHandlers) {
     if (handler.canHandle(childVe)) {
       const res = handler.handle(childVe, childVes, ctx as any);
       if (res) { return res; }
     }
   }
-  const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowCopyMove);
+  const { flags: hitboxType, meta } = scanHitboxes(childVe, posRelativeToRootForChildPx, getBoundingBoxTopLeft(childVe.boundsPx), allowCopyMove);
   if (!isIgnored(childVe.displayItem.id, ignoreItems)) {
-    return new HitBuilder(parentRootVe, rootVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitChildMaybe").build();
+    return new HitBuilder(parentRootVe, rootVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(meta).pos(posRelativeToRootForChildPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitChildMaybe").build();
   }
   return null;
 }
@@ -563,18 +585,10 @@ function determineTopLevelRoot(
   let currentPageVes = VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))()[0];
   let currentPageVe = currentPageVes.get();
   const currentPageVeid = store.history.currentPageVeid()!;
-  let posRelativeToTopLevelVePx: Vector | null = null;
-  if (isPage(currentPageVe.displayItem) && asPageItem(currentPageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    if (posOnDesktopPx.x - store.getCurrentDockWidthPx() < currentPageVe.listViewportBoundsPx!.w) {
-      posRelativeToTopLevelVePx = vectorAdd(posOnDesktopPx, { x: 0, y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.listChildAreaBoundsPx!.h - currentPageVe.boundsPx.h) });
-    }
-  }
-  if (posRelativeToTopLevelVePx == null) {
-    posRelativeToTopLevelVePx = vectorAdd(posOnDesktopPx, {
-      x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
-      y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
-    });
-  }
+  const posRelativeToTopLevelVePx = vectorAdd(posOnDesktopPx, {
+    x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
+    y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
+  });
   let posRelativeToRootVeBoundsPx = { ...posRelativeToTopLevelVePx };
   const dockWidthPx = store.getCurrentDockWidthPx();
   posRelativeToRootVeBoundsPx.x = posRelativeToRootVeBoundsPx.x - dockWidthPx;

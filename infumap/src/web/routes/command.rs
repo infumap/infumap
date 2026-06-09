@@ -24,9 +24,10 @@ use image::ImageFormat;
 use image::ImageReader;
 use image::imageops::FilterType;
 use infusdk::item::{
-  ArrangeAlgorithm, Item, ItemType, PermissionFlags, RelationshipToParent, TableColumn, is_attachments_item_type,
-  is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_image_item, is_page_item,
-  is_permission_flags_item_type, is_positionable_type, is_table_item,
+  ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG, PermissionFlags,
+  RelationshipToParent, TableColumn, is_attachments_item_type, is_composite_item, is_container_item_type,
+  is_data_item_type, is_flags_item_type, is_image_item, is_page_item, is_permission_flags_item_type,
+  is_positionable_type, is_table_item,
 };
 use infusdk::util::geometry::{Dimensions, GRID_SIZE, Vector};
 use infusdk::util::infu::InfuResult;
@@ -1364,6 +1365,7 @@ fn virtual_search_status_page(
     SearchStatusPageKind::Failed => search_failed_page_id(user_id),
     SearchStatusPageKind::Pending => search_pending_page_id(user_id),
   };
+  item.flags = Some(item.flags.unwrap_or(0) | LIST_PAGE_PIN_BOTTOM_FLAG | PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG);
   item
 }
 

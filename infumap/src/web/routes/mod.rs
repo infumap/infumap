@@ -15,7 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use infusdk::{
-  item::{ArrangeAlgorithm, Item, RelationshipToParent, TableColumn},
+  item::{ArrangeAlgorithm, Item, LIST_PAGE_PIN_TOP_FLAG, RelationshipToParent, TableColumn},
   util::{
     geometry::{GRID_SIZE, Vector},
     uid::Uid,
@@ -173,6 +173,7 @@ pub fn default_search_item(owner_id: &str, searches_page_id: &Uid, search_item_i
 
   item.owner_id = String::from(owner_id);
   item.id = search_item_id;
+  item.flags = Some(item.flags.unwrap_or(0) | LIST_PAGE_PIN_TOP_FLAG);
 
   item
 }

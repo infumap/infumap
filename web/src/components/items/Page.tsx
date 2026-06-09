@@ -27,7 +27,7 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
-import { VisualElementFlags, VeFns, VisualElement } from "../../layout/visual-element";
+import { VisualElementFlags, VeFns, VisualElement, type ListPageRowBand } from "../../layout/visual-element";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { Page_Opaque } from "./Page_Opaque";
@@ -364,7 +364,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         return null;
       }
 
-      const childVes = pageFns.lineChildren().map(childVe => childVe.get());
+      const childVes = pageFns.lineChildrenForListBand("middle").map(childVe => childVe.get());
       const widthPx = props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx();
       if (childVes.length === 0) {
         return {
@@ -386,6 +386,23 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0,
 
     lineChildren: () => VesCache.render.getLineChildren(VeFns.veToPath(props.visualElement))(),
+
+    lineChildrenForListBand: (band: ListPageRowBand) =>
+      pageFns.lineChildren().filter(childVe => (childVe.get().listPageRowBand ?? "middle") == band),
+
+    listBandChildAreaBoundsPx: (band: ListPageRowBand): BoundingBox => {
+      const base = props.visualElement.listChildAreaBoundsPx ?? zeroBoundingBoxTopLeft(pageFns.viewportBoundsPx());
+      if (band == "middle") {
+        return base;
+      }
+      return {
+        ...base,
+        y: 0,
+        h: band == "top"
+          ? props.visualElement.listPagePinnedTopHeightPx
+          : props.visualElement.listPagePinnedBottomHeightPx,
+      };
+    },
 
     desktopChildren: () => VesCache.render.getDesktopChildren(VeFns.veToPath(props.visualElement))(),
 
@@ -764,7 +781,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const topPx = 0;
         const leftPx = 0;
         const widthPx = props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx();
-        const heightPx = props.visualElement.viewportBoundsPx!.h;
+        const heightPx = props.visualElement.listViewportBoundsPx?.h ?? props.visualElement.viewportBoundsPx!.h;
         return (
           <div class="absolute pointer-events-none"
             style={`background-color: #0044ff0a; ` +
