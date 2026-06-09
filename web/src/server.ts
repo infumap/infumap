@@ -647,12 +647,12 @@ export const server = {
   },
 
   search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal, pageNumMaybe?: number): Promise<SearchResponse> => {
-    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum: pageNumMaybe }, null, true, networkStatus)
+    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum: pageNumMaybe }, null, false, networkStatus)
       .then((response: any) => normalizeSearchResponse(response));
   },
 
   chat: async (payload: ChatRequest, networkStatus: NumberSignal): Promise<ChatResponse> => {
-    return constructCommandPromise(null, COMMAND_CHAT, payload, null, true, networkStatus)
+    return constructCommandPromise(null, COMMAND_CHAT, payload, null, false, networkStatus)
       .then((response: any) => ({
         items: Array.isArray(response?.items) ? response.items : [],
       }));
