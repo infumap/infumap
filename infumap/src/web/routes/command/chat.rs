@@ -218,6 +218,44 @@ fn truncate_for_error(text: &str, max_chars: usize) -> String {
   if chars.next().is_some() { format!("{}...", truncated) } else { truncated }
 }
 
+fn error_chain_for_log(error: &dyn std::error::Error) -> String {
+  let mut result = error.to_string();
+  let mut source_maybe = error.source();
+  while let Some(source) = source_maybe {
+    result.push_str(": ");
+    result.push_str(&source.to_string());
+    source_maybe = source.source();
+  }
+  result
+}
+
+fn reqwest_error_for_log(error: &reqwest::Error) -> String {
+  let mut kinds = Vec::new();
+  if error.is_timeout() {
+    kinds.push("timeout");
+  }
+  if error.is_connect() {
+    kinds.push("connect");
+  }
+  if error.is_builder() {
+    kinds.push("builder");
+  }
+  if error.is_redirect() {
+    kinds.push("redirect");
+  }
+  if error.is_status() {
+    kinds.push("status");
+  }
+  if error.is_body() {
+    kinds.push("body");
+  }
+  if error.is_decode() {
+    kinds.push("decode");
+  }
+  let kind_suffix = if kinds.is_empty() { "".to_owned() } else { format!(" [kind={}]", kinds.join(",")) };
+  format!("{}{}", error_chain_for_log(error), kind_suffix)
+}
+
 async fn llama_chat_completion(config: &Config, request: &ChatRequest) -> InfuResult<String> {
   let url = configured_llama_chat_url(config)?;
   let messages = llama_messages_from_chat_request(request);
@@ -228,25 +266,28 @@ async fn llama_chat_completion(config: &Config, request: &ChatRequest) -> InfuRe
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(CHAT_LLAMA_REQUEST_TIMEOUT_SECS))
     .build()
-    .map_err(|e| format!("Could not build llama-server HTTP client: {}", e))?;
+    .map_err(|e| format!("Could not build llama-server HTTP client: {}", reqwest_error_for_log(&e)))?;
   let payload = LlamaChatCompletionRequest { model: "default".to_owned(), messages, stream: false };
   let response = client
     .post(url.clone())
     .json(&payload)
     .send()
     .await
-    .map_err(|e| format!("Could not send chat request to llama-server '{}': {}", url, e))?;
+    .map_err(|e| format!("Could not send chat request to llama-server '{}': {}", url, reqwest_error_for_log(&e)))?;
 
   let status = response.status();
-  let body = response.text().await.map_err(|e| format!("Could not read llama-server response body: {}", e))?;
+  let body = response
+    .text()
+    .await
+    .map_err(|e| format!("Could not read llama-server response body: {}", reqwest_error_for_log(&e)))?;
   if !status.is_success() {
     return Err(
       format!("llama-server chat endpoint '{}' returned {}: {}", url, status, truncate_for_error(&body, 1000)).into(),
     );
   }
 
-  let parsed: LlamaChatCompletionResponse =
-    serde_json::from_str(&body).map_err(|e| format!("Could not parse llama-server chat response: {}", e))?;
+  let parsed: LlamaChatCompletionResponse = serde_json::from_str(&body)
+    .map_err(|e| format!("Could not parse llama-server chat response: {}", error_chain_for_log(&e)))?;
   let content =
     parsed.choices.into_iter().find_map(|choice| choice.message.content).unwrap_or_default().trim().to_owned();
   if content.is_empty() {
