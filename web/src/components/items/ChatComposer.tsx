@@ -16,8 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show, createSignal, onMount } from "solid-js";
+import { Component, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 
+import { arrangeNow } from "../../layout/arrange";
+import { VeFns } from "../../layout/visual-element";
 import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { isChatPage, materializeChatPage, submitChatMessage } from "../../items/chat";
@@ -87,9 +89,17 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
 
   onMount(() => {
     resizeTextareaSoon();
-    if (isDraft()) {
-      focusTextareaSoon();
+  });
+
+  createEffect(() => {
+    if (!enabled() || !store.overlay.autoFocusChatInput.get()) {
+      return;
     }
+    const raf = requestAnimationFrame(() => {
+      textarea?.focus();
+      store.overlay.autoFocusChatInput.set(false);
+    });
+    onCleanup(() => cancelAnimationFrame(raf));
   });
 
   const stop = (ev: Event) => {
@@ -115,6 +125,13 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
 
   const keyDown = (ev: KeyboardEvent) => {
     ev.stopPropagation();
+    if (ev.key == "Escape") {
+      ev.preventDefault();
+      textarea?.blur();
+      store.history.setFocus(VeFns.veToPath(props.visualElement));
+      arrangeNow(store, "chat-exit-edit");
+      return;
+    }
     if (ev.key == "Enter" && !ev.shiftKey) {
       ev.preventDefault();
       void send();
