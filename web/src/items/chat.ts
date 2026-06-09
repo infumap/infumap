@@ -29,7 +29,7 @@ import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Uid, newUid } from "../util/uid";
+import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 export const CHAT_DRAFT_TITLE = "Chat";
 const LEGACY_CHAT_DRAFT_TITLE = "New query";
@@ -143,21 +143,63 @@ function addLocalUserTurn(page: PageItem, text: string): Array<Item> {
   return [composite, note];
 }
 
-function addServerReturnedItems(itemObjects: Array<object>, clientOnly: boolean): Array<Item> {
-  const items: Array<Item> = [];
-  for (const itemObject of itemObjects) {
-    const item = ItemFns.fromObject(itemObject, null);
-    if (clientOnly) {
-      item.clientOnly = true;
-    }
-    if (isContainer(item)) {
-      asContainerItem(item).childrenLoaded = true;
-      markChildrenLoadAsInitiatedOrComplete(item.id);
-    }
-    itemState.add(item);
-    items.push(item);
+function prepareReturnedItem(item: Item, clientOnly: boolean): void {
+  if (clientOnly) {
+    item.clientOnly = true;
   }
-  return items;
+  if (isContainer(item)) {
+    asContainerItem(item).childrenLoaded = true;
+    markChildrenLoadAsInitiatedOrComplete(item.id);
+  }
+}
+
+function addServerReturnedItems(page: PageItem, itemObjects: Array<object>, clientOnly: boolean): Array<Item> {
+  const returnedItems = itemObjects.map(itemObject => ItemFns.fromObject(itemObject, null));
+  const pending = new Map<Uid, Item>();
+  const addedItems: Array<Item> = [];
+
+  for (const item of returnedItems) {
+    pending.set(item.id, item);
+  }
+
+  const roots = returnedItems.filter(item => item.parentId == null || item.parentId == EMPTY_UID);
+  for (const root of roots) {
+    root.parentId = page.id;
+    root.relationshipToParent = RelationshipToParent.Child;
+    root.ordering = itemState.newOrderingAtEndOfChildren(page.id);
+    prepareReturnedItem(root, clientOnly);
+    itemState.add(root);
+    addedItems.push(root);
+    pending.delete(root.id);
+  }
+
+  while (pending.size > 0) {
+    let addedThisPass = false;
+    for (const item of [...pending.values()]) {
+      if (item.parentId == null || item.parentId == EMPTY_UID || itemState.get(item.parentId) == null) {
+        continue;
+      }
+      prepareReturnedItem(item, clientOnly);
+      itemState.add(item);
+      addedItems.push(item);
+      pending.delete(item.id);
+      addedThisPass = true;
+    }
+    if (!addedThisPass) {
+      console.error("Could not insert all chat response items; some parent links were unresolved:", [...pending.values()]);
+      break;
+    }
+  }
+
+  return addedItems;
+}
+
+function collectChatContextItemObjects(page: PageItem): Array<object> {
+  const items: Array<Item> = [];
+  for (const childId of page.computed_children) {
+    collectSubtreeItems(childId, items);
+  }
+  return items.map(item => ItemFns.toObject(item));
 }
 
 async function persistItems(store: StoreContextModel, items: Array<Item>): Promise<void> {
@@ -173,6 +215,7 @@ export async function submitChatMessage(store: StoreContextModel, page: PageItem
   }
 
   const clientOnly = page.clientOnly === true;
+  const contextItems = collectChatContextItemObjects(page);
 
   const userItems = addLocalUserTurn(page, text);
   requestArrange(store, "chat-user-turn");
@@ -182,15 +225,12 @@ export async function submitChatMessage(store: StoreContextModel, page: PageItem
       await persistItems(store, userItems);
     }
 
-    const response = await server.chatDummy({
-      ownerId: page.ownerId,
-      pageId: page.id,
-      prompt: text,
-      compositeOrdering: Array.from(itemState.newOrderingAtEndOfChildren(page.id)),
-      clientOnly,
+    const response = await server.chat({
+      contextItems,
+      userText: text,
     }, store.general.networkStatus);
 
-    const assistantItems = addServerReturnedItems(response.items, clientOnly);
+    const assistantItems = addServerReturnedItems(page, response.items, clientOnly);
     requestArrange(store, "chat-assistant-turn");
 
     if (!clientOnly) {

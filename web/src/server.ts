@@ -92,15 +92,12 @@ export interface SearchResponse {
   hasMore: boolean,
 }
 
-export interface ChatDummyRequest {
-  ownerId: Uid,
-  pageId: Uid,
-  prompt: string,
-  compositeOrdering: Array<number>,
-  clientOnly: boolean,
+export interface ChatRequest {
+  contextItems: Array<object>,
+  userText: string,
 }
 
-export interface ChatDummyResponse {
+export interface ChatResponse {
   items: Array<object>,
 }
 
@@ -194,7 +191,7 @@ const COMMAND_ADD_ITEM = "add-item";
 const COMMAND_UPDATE_ITEM = "update-item";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
-const COMMAND_CHAT_DUMMY = "chat-dummy";
+const COMMAND_CHAT = "chat";
 const COMMAND_EMPTY_TRASH = "empty-trash";
 const COMMAND_SYNC_CONTAINERS = "sync-containers";
 
@@ -227,7 +224,7 @@ function getCommandDescription(command: string, payload: any): { description: st
     case COMMAND_SEARCH:
       description = `Searching for "${payload.text}"`;
       break;
-    case COMMAND_CHAT_DUMMY:
+    case COMMAND_CHAT:
       description = "Generating query response";
       break;
     case COMMAND_EMPTY_TRASH:
@@ -654,8 +651,8 @@ export const server = {
       .then((response: any) => normalizeSearchResponse(response));
   },
 
-  chatDummy: async (payload: ChatDummyRequest, networkStatus: NumberSignal): Promise<ChatDummyResponse> => {
-    return constructCommandPromise(null, COMMAND_CHAT_DUMMY, payload, null, true, networkStatus)
+  chat: async (payload: ChatRequest, networkStatus: NumberSignal): Promise<ChatResponse> => {
+    return constructCommandPromise(null, COMMAND_CHAT, payload, null, true, networkStatus)
       .then((response: any) => ({
         items: Array.isArray(response?.items) ? response.items : [],
       }));
