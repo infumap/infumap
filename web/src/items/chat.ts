@@ -19,6 +19,7 @@
 import { requestArrange } from "../layout/arrange";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
+import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { CompositeFlags, PageFlags } from "./base/flags-item";
 import { Item } from "./base/item";
@@ -257,6 +258,12 @@ function collectSubtreeItems(itemId: Uid, result: Array<Item>): void {
       collectSubtreeItems(childId, result);
     }
   }
+
+  if (isAttachmentsItem(item)) {
+    for (const attachmentId of asAttachmentsItem(item).computed_attachments) {
+      collectSubtreeItems(attachmentId, result);
+    }
+  }
 }
 
 function firstPromptInChatPage(page: PageItem): string {
@@ -277,11 +284,11 @@ function firstPromptInChatPage(page: PageItem): string {
   return "";
 }
 
-function cloneItemForMaterializedChat(source: Item, parentId: Uid): Item {
+function cloneItemForMaterializedChat(source: Item, parentId: Uid, relationshipToParent: RelationshipToParent): Item {
   const clone = ItemFns.fromObject(ItemFns.toObject(source), null);
   clone.id = newUid();
   clone.parentId = parentId;
-  clone.relationshipToParent = RelationshipToParent.Child;
+  clone.relationshipToParent = relationshipToParent;
   clone.groupId = null;
   clone.capabilities = null;
   delete clone.clientOnly;
@@ -294,14 +301,25 @@ function cloneItemForMaterializedChat(source: Item, parentId: Uid): Item {
 }
 
 function cloneChildrenIntoMaterializedChat(sourceParent: PageItem | Item, targetParentId: Uid, result: Array<Item>): void {
-  if (!isContainer(sourceParent)) { return; }
-  for (const childId of asContainerItem(sourceParent).computed_children) {
-    const child = itemState.get(childId);
-    if (!child) { continue; }
-    const clone = cloneItemForMaterializedChat(child, targetParentId);
+  const cloneChildSubtree = (sourceId: Uid, relationshipToParent: RelationshipToParent) => {
+    const child = itemState.get(sourceId);
+    if (!child) { return; }
+    const clone = cloneItemForMaterializedChat(child, targetParentId, relationshipToParent);
     itemState.add(clone);
     result.push(clone);
     cloneChildrenIntoMaterializedChat(child, clone.id, result);
+  };
+
+  if (isContainer(sourceParent)) {
+    for (const childId of asContainerItem(sourceParent).computed_children) {
+      cloneChildSubtree(childId, RelationshipToParent.Child);
+    }
+  }
+
+  if (isAttachmentsItem(sourceParent)) {
+    for (const attachmentId of asAttachmentsItem(sourceParent).computed_attachments) {
+      cloneChildSubtree(attachmentId, RelationshipToParent.Attachment);
+    }
   }
 }
 
