@@ -52,9 +52,9 @@ pub struct SearchRequest {
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SearchPathElement {
   #[serde(rename = "itemType")]
-  item_type: String,
-  title: Option<String>,
-  id: Uid,
+  pub item_type: String,
+  pub title: Option<String>,
+  pub id: Uid,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -121,6 +121,20 @@ pub(super) async fn handle_search(
   let request: SearchRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
+  let response = run_search(config, db, request, session).await?;
+  let serialized_results = serde_json::to_string(&response)?;
+
+  debug!("Executed 'search' command for user '{}'.", session.user_id);
+
+  Ok(Some(serialized_results))
+}
+
+pub(super) async fn run_search(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: SearchRequest,
+  session: &Session,
+) -> InfuResult<SearchResponse> {
   let full_user_search = request.page_id.is_none();
   let search_text = request.text.to_lowercase();
 
@@ -216,11 +230,7 @@ pub(super) async fn handle_search(
   if has_more {
     results.truncate(request.num_results as usize);
   }
-  let serialized_results = serde_json::to_string(&SearchResponse { results, has_more })?;
-
-  debug!("Executed 'search' command for user '{}'.", session.user_id);
-
-  Ok(Some(serialized_results))
+  Ok(SearchResponse { results, has_more })
 }
 
 fn search_exact_paginated(
