@@ -303,6 +303,14 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_GPU_TOOLS_URL, "<not set>");
     }
   }
+  match config.get_string(CONFIG_LLAMA_SERVER_URL) {
+    Ok(v) if !v.trim().is_empty() => {
+      info!(" {} = '{}'", CONFIG_LLAMA_SERVER_URL, v);
+    }
+    _ => {
+      info!(" {} = {}", CONFIG_LLAMA_SERVER_URL, "<not set>");
+    }
+  }
   info!(" {} = '{}'", CONFIG_GEOAPIFY_URL, config.get_string(CONFIG_GEOAPIFY_URL).map_err(|e| e.to_string())?);
   info!(
     " {} = {}",
@@ -543,6 +551,8 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_LLAMA_SERVER_URL, CONFIG_LLAMA_SERVER_URL_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_GEOAPIFY_URL, CONFIG_GEOAPIFY_URL_DEFAULT)
       .map_err(|e| e.to_string())?

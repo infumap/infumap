@@ -61,6 +61,11 @@
 # Unset by default; uncomment this example to enable it.
 #gpu_tools_url = "http://127.0.0.1:8787"
 
+# Optional llama.cpp llama-server URL for Chat. Infumap calls the
+# OpenAI-compatible /v1/chat/completions endpoint. You may provide either the
+# server base URL or the full chat completions endpoint URL.
+#llama_server_url = "http://127.0.0.1:8080"
+
 # Reverse geocoding service URL for GPS-tagged images. Used when geoapify_api_key
 # is set; this stage runs from successful image tag artifacts.
 #geoapify_url = "https://api.geoapify.com/v1/geocode/reverse"

@@ -81,6 +81,7 @@ use crate::ai::upload_quiet_period::record_object_store_backed_item_upload;
 use crate::ai::vector_db::{
   FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,
 };
+use crate::config::CONFIG_LLAMA_SERVER_URL;
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
 use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};
@@ -106,6 +107,7 @@ const SEARCH_LEXICAL_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_LEXICAL_MATCHES_PER_RESULT: usize = 2;
 const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
+const CHAT_LLAMA_REQUEST_TIMEOUT_SECS: u64 = 120;
 const SEARCH_FRAGMENT_MATCH_MAX_CHARS: usize = 1250;
 const SEARCH_MATCH_SNIPPET_MAX_SENTENCES: usize = 3;
 const SEARCH_MATCH_SNIPPET_MAX_SENTENCE_CHARS: usize = 220;
@@ -227,7 +229,7 @@ pub async fn serve_command_route(
     }
     "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
     "search" => handle_search(config, db, &request.json_data, &session_maybe).await,
-    "chat" => handle_chat(&request.json_data, &session_maybe).await,
+    "chat" => handle_chat(config.as_ref(), &request.json_data, &session_maybe).await,
     "empty-trash" => handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     _ => {
       if let Some(session) = &session_maybe {
@@ -1583,10 +1585,35 @@ struct ChatRequest {
   user_text: String,
 }
 
-async fn handle_chat(
-  json_data: &str,
-  session_maybe: &Option<Session>,
-) -> InfuResult<Option<String>> {
+#[derive(Clone, Deserialize, Serialize)]
+struct LlamaChatMessage {
+  role: String,
+  content: String,
+}
+
+#[derive(Serialize)]
+struct LlamaChatCompletionRequest {
+  model: String,
+  messages: Vec<LlamaChatMessage>,
+  stream: bool,
+}
+
+#[derive(Deserialize)]
+struct LlamaChatCompletionResponse {
+  choices: Vec<LlamaChatCompletionChoice>,
+}
+
+#[derive(Deserialize)]
+struct LlamaChatCompletionChoice {
+  message: LlamaChatCompletionMessage,
+}
+
+#[derive(Deserialize)]
+struct LlamaChatCompletionMessage {
+  content: Option<String>,
+}
+
+async fn handle_chat(config: &Config, json_data: &str, session_maybe: &Option<Session>) -> InfuResult<Option<String>> {
   let session = match session_maybe {
     Some(session) => session,
     None => {
@@ -1596,36 +1623,187 @@ async fn handle_chat(
 
   let request: ChatRequest =
     serde_json::from_str(json_data).map_err(|e| format!("Could not parse chat request: {}", e))?;
+  let assistant_text = llama_chat_completion(config, &request).await?;
 
-  let now = unix_now_secs_u64().unwrap();
-  let owner_id = session.user_id.clone();
-  let composite_id = new_uid();
-  let note_1_id = new_uid();
-  let note_2_id = new_uid();
-  let context_item_count = request.context_items.len();
+  Ok(Some(chat_response_items_json(&session.user_id, &assistant_text).to_string()))
+}
 
-  let mut note_orderings: Vec<Vec<u8>> = Vec::new();
-  let note_1_ordering = new_ordering_at_end(note_orderings.clone());
-  note_orderings.push(note_1_ordering.clone());
-  let note_2_ordering = new_ordering_at_end(note_orderings);
+fn configured_llama_chat_url(config: &Config) -> InfuResult<reqwest::Url> {
+  let raw_url = config.get_string(CONFIG_LLAMA_SERVER_URL).map_err(|e| e.to_string())?;
+  let trimmed_url = raw_url.trim();
+  if trimmed_url.is_empty() {
+    return Err(format!("{} must be configured to use Chat.", CONFIG_LLAMA_SERVER_URL).into());
+  }
 
-  let prompt_summary = {
-    let trimmed = request.user_text.trim();
-    let mut chars = trimmed.chars();
-    let summary: String = chars.by_ref().take(140).collect();
-    if chars.next().is_some() {
-      format!("{}...", summary)
-    } else if summary.is_empty() {
-      "empty prompt".to_owned()
-    } else {
-      summary
-    }
+  let endpoint_path = "/v1/chat/completions";
+  let parsed = reqwest::Url::parse(trimmed_url)
+    .map_err(|e| format!("Could not parse {} '{}': {}", CONFIG_LLAMA_SERVER_URL, trimmed_url, e))?;
+  if parsed.path().trim_end_matches('/').ends_with(endpoint_path) {
+    return Ok(parsed);
+  }
+
+  let base_url = reqwest::Url::parse(&format!("{}/", trimmed_url.trim_end_matches('/')))
+    .map_err(|e| format!("Could not parse {} '{}': {}", CONFIG_LLAMA_SERVER_URL, trimmed_url, e))?;
+  base_url
+    .join("v1/chat/completions")
+    .map_err(|e| format!("Could not build llama-server chat endpoint from '{}': {}", trimmed_url, e).into())
+}
+
+fn chat_item_id(item: &Value) -> Option<&str> {
+  item.get("id").and_then(Value::as_str).filter(|id| !id.is_empty())
+}
+
+fn chat_item_parent_id(item: &Value) -> Option<&str> {
+  item.get("parentId").and_then(Value::as_str).filter(|parent_id| !parent_id.is_empty())
+}
+
+fn chat_item_title(item: &Value) -> &str {
+  item.get("title").and_then(Value::as_str).unwrap_or("")
+}
+
+fn chat_root_role(item: &Value) -> Option<&'static str> {
+  let title = chat_item_title(item).trim().to_lowercase();
+  if title == "you" || title == "user" {
+    return Some("user");
+  }
+  if title == "assistant" {
+    return Some("assistant");
+  }
+  None
+}
+
+fn collect_chat_text(
+  item_id: &str,
+  items_by_id: &HashMap<String, &Value>,
+  children_by_parent_id: &HashMap<String, Vec<String>>,
+  visited: &mut HashSet<String>,
+  output: &mut Vec<String>,
+) {
+  if !visited.insert(item_id.to_owned()) {
+    return;
+  }
+
+  let Some(item) = items_by_id.get(item_id) else {
+    return;
   };
+
+  let item_type = item.get("itemType").and_then(Value::as_str).unwrap_or("");
+  if matches!(item_type, "note" | "text" | "file") {
+    let title = chat_item_title(item).trim();
+    if !title.is_empty() {
+      output.push(title.to_owned());
+    }
+  }
+
+  if let Some(children) = children_by_parent_id.get(item_id) {
+    for child_id in children {
+      collect_chat_text(child_id, items_by_id, children_by_parent_id, visited, output);
+    }
+  }
+}
+
+fn llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessage> {
+  let mut ids = HashSet::new();
+  let mut items_by_id: HashMap<String, &Value> = HashMap::new();
+  for item in &request.context_items {
+    if let Some(id) = chat_item_id(item) {
+      ids.insert(id.to_owned());
+      items_by_id.insert(id.to_owned(), item);
+    }
+  }
+
+  let mut children_by_parent_id: HashMap<String, Vec<String>> = HashMap::new();
+  for item in &request.context_items {
+    let Some(item_id) = chat_item_id(item) else {
+      continue;
+    };
+    if let Some(parent_id) = chat_item_parent_id(item) {
+      children_by_parent_id.entry(parent_id.to_owned()).or_default().push(item_id.to_owned());
+    }
+  }
+
+  let mut messages = Vec::new();
+  for item in &request.context_items {
+    let Some(item_id) = chat_item_id(item) else {
+      continue;
+    };
+    if chat_item_parent_id(item).is_some_and(|parent_id| ids.contains(parent_id)) {
+      continue;
+    }
+    let Some(role) = chat_root_role(item) else {
+      continue;
+    };
+
+    let mut text_parts = Vec::new();
+    let mut visited = HashSet::new();
+    collect_chat_text(item_id, &items_by_id, &children_by_parent_id, &mut visited, &mut text_parts);
+    let content = text_parts.join("\n\n").trim().to_owned();
+    if !content.is_empty() {
+      messages.push(LlamaChatMessage { role: role.to_owned(), content });
+    }
+  }
+
+  let user_text = request.user_text.trim();
+  if !user_text.is_empty() {
+    messages.push(LlamaChatMessage { role: "user".to_owned(), content: user_text.to_owned() });
+  }
+
+  messages
+}
+
+fn truncate_for_error(text: &str, max_chars: usize) -> String {
+  let mut chars = text.chars();
+  let truncated: String = chars.by_ref().take(max_chars).collect();
+  if chars.next().is_some() { format!("{}...", truncated) } else { truncated }
+}
+
+async fn llama_chat_completion(config: &Config, request: &ChatRequest) -> InfuResult<String> {
+  let url = configured_llama_chat_url(config)?;
+  let messages = llama_messages_from_chat_request(request);
+  if messages.is_empty() {
+    return Err("Chat request did not contain any message text.".into());
+  }
+
+  let client = reqwest::ClientBuilder::new()
+    .timeout(Duration::from_secs(CHAT_LLAMA_REQUEST_TIMEOUT_SECS))
+    .build()
+    .map_err(|e| format!("Could not build llama-server HTTP client: {}", e))?;
+  let payload = LlamaChatCompletionRequest { model: "default".to_owned(), messages, stream: false };
+  let response = client
+    .post(url.clone())
+    .json(&payload)
+    .send()
+    .await
+    .map_err(|e| format!("Could not send chat request to llama-server '{}': {}", url, e))?;
+
+  let status = response.status();
+  let body = response.text().await.map_err(|e| format!("Could not read llama-server response body: {}", e))?;
+  if !status.is_success() {
+    return Err(
+      format!("llama-server chat endpoint '{}' returned {}: {}", url, status, truncate_for_error(&body, 1000)).into(),
+    );
+  }
+
+  let parsed: LlamaChatCompletionResponse =
+    serde_json::from_str(&body).map_err(|e| format!("Could not parse llama-server chat response: {}", e))?;
+  let content =
+    parsed.choices.into_iter().find_map(|choice| choice.message.content).unwrap_or_default().trim().to_owned();
+  if content.is_empty() {
+    return Err("llama-server returned an empty chat response.".into());
+  }
+  Ok(content)
+}
+
+fn chat_response_items_json(owner_id: &Uid, assistant_text: &str) -> Value {
+  let now = unix_now_secs_u64().unwrap();
+  let composite_id = new_uid();
+  let note_id = new_uid();
+  let note_ordering = new_ordering_at_end(Vec::new());
 
   let items = vec![
     serde_json::json!({
       "itemType": "composite",
-      "ownerId": owner_id.clone(),
+      "ownerId": owner_id,
       "id": composite_id.clone(),
       "parentId": null,
       "relationshipToParent": "child",
@@ -1642,41 +1820,16 @@ async fn handle_chat(
     }),
     serde_json::json!({
       "itemType": "note",
-      "ownerId": owner_id.clone(),
-      "id": note_1_id,
+      "ownerId": owner_id,
+      "id": note_id,
       "parentId": composite_id.clone(),
       "relationshipToParent": "child",
       "groupId": null,
       "creationDate": now,
       "lastModifiedDate": now,
       "dateTime": now,
-      "ordering": note_1_ordering,
-      "title": format!("Dummy response for: {}", prompt_summary),
-      "spatialPositionGr": { "x": 0, "y": 0 },
-      "spatialWidthGr": 30 * GRID_SIZE,
-      "spatialHeightGr": 0,
-      "flags": 0,
-      "urls": [],
-      "emoji": null,
-      "iconMode": "auto",
-      "inlineMarks": [],
-    }),
-    serde_json::json!({
-      "itemType": "note",
-      "ownerId": owner_id.clone(),
-      "id": note_2_id,
-      "parentId": composite_id,
-      "relationshipToParent": "child",
-      "groupId": null,
-      "creationDate": now,
-      "lastModifiedDate": now,
-      "dateTime": now,
-      "ordering": note_2_ordering,
-      "title": format!(
-        "No tools were invoked yet. This placeholder saw {} prior chat item{}.",
-        context_item_count,
-        if context_item_count == 1 { "" } else { "s" },
-      ),
+      "ordering": note_ordering,
+      "title": assistant_text,
       "spatialPositionGr": { "x": 0, "y": 0 },
       "spatialWidthGr": 30 * GRID_SIZE,
       "spatialHeightGr": 0,
@@ -1688,7 +1841,7 @@ async fn handle_chat(
     }),
   ];
 
-  Ok(Some(serde_json::json!({ "items": items }).to_string()))
+  serde_json::json!({ "items": items })
 }
 
 pub async fn add_item_for_user(
