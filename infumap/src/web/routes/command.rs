@@ -108,6 +108,16 @@ const SEARCH_LEXICAL_MATCHES_PER_RESULT: usize = 2;
 const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
 const CHAT_LLAMA_REQUEST_TIMEOUT_SECS: u64 = 120;
+const CHAT_RESPONSE_ITEM_WIDTH_GR: i64 = 30 * GRID_SIZE;
+const NOTE_FLAG_HEADING3: i64 = 0x001;
+const NOTE_FLAG_HEADING1: i64 = 0x004;
+const NOTE_FLAG_HEADING2: i64 = 0x008;
+const NOTE_FLAG_BULLET1: i64 = 0x010;
+const NOTE_FLAG_CODE: i64 = 0x200;
+const NOTE_FLAG_HEADING4: i64 = 0x1000;
+const NOTE_FLAG_NUMBERED: i64 = 0x8000;
+const NOTE_INLINE_MARK_BOLD: i64 = 0x001;
+const NOTE_INLINE_MARK_ITALIC: i64 = 0x002;
 const SEARCH_FRAGMENT_MATCH_MAX_CHARS: usize = 1250;
 const SEARCH_MATCH_SNIPPET_MAX_SENTENCES: usize = 3;
 const SEARCH_MATCH_SNIPPET_MAX_SENTENCE_CHARS: usize = 220;
@@ -1794,13 +1804,28 @@ async fn llama_chat_completion(config: &Config, request: &ChatRequest) -> InfuRe
   Ok(content)
 }
 
+struct ChatMarkdownNote {
+  title: String,
+  flags: i64,
+  inline_marks: Vec<i64>,
+}
+
+enum ChatMarkdownItem {
+  Note(ChatMarkdownNote),
+  Divider,
+}
+
 fn chat_response_items_json(owner_id: &Uid, assistant_text: &str) -> Value {
   let now = unix_now_secs_u64().unwrap();
   let composite_id = new_uid();
-  let note_id = new_uid();
-  let note_ordering = new_ordering_at_end(Vec::new());
+  let mut parsed_items = chat_markdown_items_from_text(assistant_text);
 
-  let items = vec![
+  if parsed_items.is_empty() {
+    push_chat_markdown_note(&mut parsed_items, assistant_text, 0);
+  }
+
+  let mut items = Vec::with_capacity(parsed_items.len() + 1);
+  items.push(
     serde_json::json!({
       "itemType": "composite",
       "ownerId": owner_id,
@@ -1813,35 +1838,339 @@ fn chat_response_items_json(owner_id: &Uid, assistant_text: &str) -> Value {
       "dateTime": now,
       "ordering": [],
       "spatialPositionGr": { "x": 0, "y": 0 },
-      "spatialWidthGr": 30 * GRID_SIZE,
+      "spatialWidthGr": CHAT_RESPONSE_ITEM_WIDTH_GR,
       "title": "Assistant",
       "flags": 0x002,
       "orderChildrenBy": "",
     }),
-    serde_json::json!({
+  );
+
+  let mut child_orderings: Vec<Vec<u8>> = Vec::new();
+  for parsed_item in parsed_items {
+    let ordering = new_ordering_at_end(child_orderings.clone());
+    child_orderings.push(ordering.clone());
+    match parsed_item {
+      ChatMarkdownItem::Note(note) => items.push(chat_response_note_json(owner_id, &composite_id, now, ordering, note)),
+      ChatMarkdownItem::Divider => items.push(chat_response_divider_json(owner_id, &composite_id, now, ordering)),
+    }
+  }
+
+  serde_json::json!({ "items": items })
+}
+
+fn chat_response_note_json(
+  owner_id: &Uid,
+  parent_id: &Uid,
+  now: u64,
+  ordering: Vec<u8>,
+  note: ChatMarkdownNote,
+) -> Value {
+  serde_json::json!({
       "itemType": "note",
       "ownerId": owner_id,
-      "id": note_id,
-      "parentId": composite_id.clone(),
+      "id": new_uid(),
+      "parentId": parent_id,
       "relationshipToParent": "child",
       "groupId": null,
       "creationDate": now,
       "lastModifiedDate": now,
       "dateTime": now,
-      "ordering": note_ordering,
-      "title": assistant_text,
+      "ordering": ordering,
+      "title": note.title,
       "spatialPositionGr": { "x": 0, "y": 0 },
-      "spatialWidthGr": 30 * GRID_SIZE,
+      "spatialWidthGr": CHAT_RESPONSE_ITEM_WIDTH_GR,
       "spatialHeightGr": 0,
-      "flags": 0,
+      "flags": note.flags,
       "urls": [],
       "emoji": null,
       "iconMode": "auto",
-      "inlineMarks": [],
-    }),
-  ];
+      "inlineMarks": note.inline_marks,
+  })
+}
 
-  serde_json::json!({ "items": items })
+fn chat_response_divider_json(owner_id: &Uid, parent_id: &Uid, now: u64, ordering: Vec<u8>) -> Value {
+  serde_json::json!({
+      "itemType": "divider",
+      "ownerId": owner_id,
+      "id": new_uid(),
+      "parentId": parent_id,
+      "relationshipToParent": "child",
+      "groupId": null,
+      "creationDate": now,
+      "lastModifiedDate": now,
+      "dateTime": now,
+      "ordering": ordering,
+      "spatialPositionGr": { "x": 0, "y": 0 },
+      "spatialWidthGr": CHAT_RESPONSE_ITEM_WIDTH_GR,
+      "spatialHeightGr": GRID_SIZE,
+      "dividerDirection": "horizontal",
+  })
+}
+
+fn chat_markdown_items_from_text(markdown: &str) -> Vec<ChatMarkdownItem> {
+  let mut items = Vec::new();
+  let mut paragraph_lines: Vec<String> = Vec::new();
+  let lines: Vec<&str> = markdown.lines().collect();
+  let mut line_index = 0;
+
+  while line_index < lines.len() {
+    let line = lines[line_index];
+
+    if line.trim().is_empty() {
+      flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      line_index += 1;
+      continue;
+    }
+
+    if let Some(fence_marker) = markdown_code_fence_marker(line) {
+      flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      line_index += 1;
+      let mut code_lines = Vec::new();
+      while line_index < lines.len() {
+        let code_line = lines[line_index];
+        if code_line.trim_start().starts_with(fence_marker) {
+          break;
+        }
+        code_lines.push(code_line.to_owned());
+        line_index += 1;
+      }
+      if line_index < lines.len() {
+        line_index += 1;
+      }
+      push_chat_markdown_note(&mut items, &code_lines.join("\n"), NOTE_FLAG_CODE);
+      continue;
+    }
+
+    if markdown_divider_line(line) {
+      flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      items.push(ChatMarkdownItem::Divider);
+      line_index += 1;
+      continue;
+    }
+
+    if let Some((flags, title)) = markdown_heading(line) {
+      flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      push_chat_markdown_note(&mut items, title, flags);
+      line_index += 1;
+      continue;
+    }
+
+    if let Some((flags, title)) = markdown_list_item(line) {
+      flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      push_chat_markdown_note(&mut items, title, flags);
+      line_index += 1;
+      continue;
+    }
+
+    if markdown_standalone_inline_heading(line) {
+      flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      push_chat_markdown_note(&mut items, line, 0);
+      line_index += 1;
+      continue;
+    }
+
+    paragraph_lines.push(line.to_owned());
+    line_index += 1;
+  }
+
+  flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+  items
+}
+
+fn flush_chat_markdown_paragraph(items: &mut Vec<ChatMarkdownItem>, paragraph_lines: &mut Vec<String>) {
+  if paragraph_lines.is_empty() {
+    return;
+  }
+  let paragraph = paragraph_lines.join("\n");
+  paragraph_lines.clear();
+  push_chat_markdown_note(items, &paragraph, 0);
+}
+
+fn push_chat_markdown_note(items: &mut Vec<ChatMarkdownItem>, raw_title: &str, flags: i64) {
+  let title = if flags & NOTE_FLAG_CODE != 0 {
+    raw_title.trim_matches('\n').to_owned()
+  } else {
+    raw_title.trim().to_owned()
+  };
+  if title.is_empty() {
+    return;
+  }
+
+  let (title, inline_marks) = if flags & NOTE_FLAG_CODE != 0 {
+    (title, Vec::new())
+  } else {
+    parse_markdown_inline(&title)
+  };
+  if title.trim().is_empty() {
+    return;
+  }
+
+  items.push(ChatMarkdownItem::Note(ChatMarkdownNote { title, flags, inline_marks }));
+}
+
+fn markdown_code_fence_marker(line: &str) -> Option<&'static str> {
+  let trimmed = line.trim_start();
+  if trimmed.starts_with("```") {
+    Some("```")
+  } else if trimmed.starts_with("~~~") {
+    Some("~~~")
+  } else {
+    None
+  }
+}
+
+fn markdown_divider_line(line: &str) -> bool {
+  let chars: Vec<char> = line.chars().filter(|c| !c.is_whitespace()).collect();
+  if chars.len() < 3 {
+    return false;
+  }
+  let divider_char = chars[0];
+  matches!(divider_char, '-' | '_' | '*') && chars.iter().all(|c| *c == divider_char)
+}
+
+fn markdown_heading(line: &str) -> Option<(i64, &str)> {
+  let trimmed = line.trim_start();
+  let heading_level = trimmed.chars().take_while(|c| *c == '#').count();
+  if heading_level == 0 || heading_level > 6 {
+    return None;
+  }
+  let title = &trimmed[heading_level..];
+  if !title.chars().next().map(|c| c.is_whitespace()).unwrap_or(false) {
+    return None;
+  }
+  let title = title.trim();
+  if title.is_empty() {
+    return None;
+  }
+  Some((
+    match heading_level {
+      1 => NOTE_FLAG_HEADING1,
+      2 => NOTE_FLAG_HEADING2,
+      3 => NOTE_FLAG_HEADING3,
+      _ => NOTE_FLAG_HEADING4,
+    },
+    title,
+  ))
+}
+
+fn markdown_list_item(line: &str) -> Option<(i64, &str)> {
+  let trimmed = line.trim_start();
+  let mut chars = trimmed.char_indices();
+  if let Some((_, marker)) = chars.next() {
+    if matches!(marker, '-' | '*' | '+') {
+      if let Some((content_start, separator)) = chars.next() {
+        if separator.is_whitespace() {
+          return Some((NOTE_FLAG_BULLET1, trimmed[content_start..].trim_start()));
+        }
+      }
+    }
+  }
+
+  let mut digit_end = 0;
+  let mut has_digit = false;
+  for (index, ch) in trimmed.char_indices() {
+    if !ch.is_ascii_digit() {
+      break;
+    }
+    has_digit = true;
+    digit_end = index + ch.len_utf8();
+  }
+  if !has_digit || !trimmed[digit_end..].starts_with('.') {
+    return None;
+  }
+
+  let content = &trimmed[digit_end + 1..];
+  if !content.chars().next().map(|c| c.is_whitespace()).unwrap_or(false) {
+    return None;
+  }
+  Some((NOTE_FLAG_NUMBERED, content.trim_start()))
+}
+
+fn markdown_standalone_inline_heading(line: &str) -> bool {
+  let trimmed = line.trim();
+  for marker in ["***", "___", "**", "__"] {
+    if trimmed.len() > marker.len() * 2 && trimmed.starts_with(marker) && trimmed.ends_with(marker) {
+      return true;
+    }
+  }
+  false
+}
+
+fn parse_markdown_inline(input: &str) -> (String, Vec<i64>) {
+  let mut output = String::new();
+  let mut inline_marks = Vec::new();
+  let mut index = 0;
+
+  while index < input.len() {
+    if input[index..].starts_with("`") {
+      let content_start = index + 1;
+      if let Some(content_end) = input[content_start..].find('`').map(|offset| content_start + offset) {
+        output.push_str(&input[content_start..content_end]);
+        index = content_end + 1;
+        continue;
+      }
+    }
+
+    if let Some((marker, flags)) = markdown_inline_marker(&input[index..]) {
+      let content_start = index + marker.len();
+      if let Some(content_end) = input[content_start..].find(marker).map(|offset| content_start + offset) {
+        if content_end > content_start {
+          append_chat_marked_inline_text(&mut output, &mut inline_marks, &input[content_start..content_end], flags);
+          index = content_end + marker.len();
+          continue;
+        }
+      }
+    }
+
+    let ch = input[index..].chars().next().unwrap();
+    output.push(ch);
+    index += ch.len_utf8();
+  }
+
+  (output, inline_marks)
+}
+
+fn markdown_inline_marker(slice: &str) -> Option<(&'static str, i64)> {
+  for (marker, flags) in [
+    ("***", NOTE_INLINE_MARK_BOLD | NOTE_INLINE_MARK_ITALIC),
+    ("___", NOTE_INLINE_MARK_BOLD | NOTE_INLINE_MARK_ITALIC),
+    ("**", NOTE_INLINE_MARK_BOLD),
+    ("__", NOTE_INLINE_MARK_BOLD),
+    ("*", NOTE_INLINE_MARK_ITALIC),
+    ("_", NOTE_INLINE_MARK_ITALIC),
+  ] {
+    if slice.starts_with(marker) {
+      return Some((marker, flags));
+    }
+  }
+  None
+}
+
+fn append_chat_marked_inline_text(output: &mut String, inline_marks: &mut Vec<i64>, text: &str, flags: i64) {
+  let start = output.encode_utf16().count() as i64;
+  output.push_str(text);
+  let end = output.encode_utf16().count() as i64;
+  push_chat_inline_mark(inline_marks, start, end, flags);
+}
+
+fn push_chat_inline_mark(inline_marks: &mut Vec<i64>, start: i64, end: i64, flags: i64) {
+  if start >= end || flags == 0 {
+    return;
+  }
+  if inline_marks.len() >= 3 {
+    let last_start_index = inline_marks.len() - 3;
+    let last_end = inline_marks[last_start_index + 1];
+    let last_flags = inline_marks[last_start_index + 2];
+    if start < last_end {
+      return;
+    }
+    if start == last_end && flags == last_flags {
+      inline_marks[last_start_index + 1] = end;
+      return;
+    }
+  }
+
+  inline_marks.extend([start, end, flags]);
 }
 
 pub async fn add_item_for_user(
