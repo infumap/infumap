@@ -318,6 +318,11 @@ pub(super) async fn run_search(
   Ok(SearchResponse { results, has_more })
 }
 
+pub(super) fn compact_search_response_json(response: &SearchResponse) -> InfuResult<String> {
+  serde_json::to_string(&compact::compact_search_response(response))
+    .map_err(|e| format!("Could not serialize compact search response: {}", e).into())
+}
+
 fn search_exact_paginated(
   db: &mut MutexGuard<'_, Db>,
   search_text: &str,

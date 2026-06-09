@@ -216,7 +216,7 @@ pub async fn serve_command_route(
     }
     "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
     "search" => search::handle_search(config, db, &request.json_data, &session_maybe).await,
-    "chat" => chat::handle_chat(config.as_ref(), &request.json_data, &session_maybe).await,
+    "chat" => chat::handle_chat(config, db, &request.json_data, &session_maybe).await,
     "empty-trash" => item_ops::handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     _ => {
       if let Some(session) = &session_maybe {

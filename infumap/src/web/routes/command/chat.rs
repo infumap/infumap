@@ -15,13 +15,25 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
+use std::io::Write as _;
 
 const CHAT_LLAMA_REQUEST_TIMEOUT_SECS: u64 = 120;
+const CHAT_MAX_TOOL_ROUNDS: usize = 3;
+const CHAT_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
+const CHAT_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_RESPONSE_ITEM_WIDTH_GR: i64 = 30 * GRID_SIZE;
 const CHAT_RESPONSE_TABLE_MAX_HEIGHT_BL: i64 = 12;
 const CHAT_RESPONSE_TABLE_MIN_COLUMN_WIDTH_GR: i64 = 3 * GRID_SIZE;
 const CHAT_RESPONSE_TABLE_TEXT_SCORE_CAP: usize = 120;
 const CHAT_RESPONSE_TABLE_LONG_WORD_SCORE_CAP: usize = 40;
+const LLM_LOG_PATH: &str = "/tmp/llm.txt";
+const CHAT_SYSTEM_PROMPT: &str = "\
+You are Infumap's chat assistant.
+
+Use the search tool when the user asks about information that may be stored in Infumap.
+Search returns compact results with item ids, item types, titles, paths, and text snippets.
+If search results are insufficient, say what is missing rather than inventing details.
+Return a concise Markdown answer.";
 const NOTE_FLAG_HEADING3: i64 = 0x001;
 const NOTE_FLAG_HEADING1: i64 = 0x004;
 const NOTE_FLAG_HEADING2: i64 = 0x008;
@@ -44,8 +56,58 @@ struct ChatRequest {
 
 #[derive(Clone, Deserialize, Serialize)]
 struct LlamaChatMessage {
+  #[serde(default)]
   role: String,
-  content: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  content: Option<String>,
+  #[serde(rename = "tool_call_id", skip_serializing_if = "Option::is_none")]
+  tool_call_id: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  tool_calls: Option<Vec<LlamaToolCall>>,
+}
+
+impl LlamaChatMessage {
+  fn text(role: &str, content: String) -> Self {
+    Self { role: role.to_owned(), content: Some(content), tool_call_id: None, tool_calls: None }
+  }
+
+  fn tool(tool_call_id: String, content: String) -> Self {
+    Self { role: "tool".to_owned(), content: Some(content), tool_call_id: Some(tool_call_id), tool_calls: None }
+  }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+struct LlamaToolCall {
+  #[serde(default)]
+  id: String,
+  #[serde(rename = "type", default = "default_llama_tool_call_type")]
+  tool_type: String,
+  function: LlamaToolCallFunction,
+}
+
+fn default_llama_tool_call_type() -> String {
+  "function".to_owned()
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+struct LlamaToolCallFunction {
+  name: String,
+  #[serde(default)]
+  arguments: Value,
+}
+
+#[derive(Clone, Serialize)]
+struct LlamaToolSpec {
+  #[serde(rename = "type")]
+  tool_type: String,
+  function: LlamaToolFunctionSpec,
+}
+
+#[derive(Clone, Serialize)]
+struct LlamaToolFunctionSpec {
+  name: String,
+  description: String,
+  parameters: Value,
 }
 
 #[derive(Serialize)]
@@ -53,6 +115,8 @@ struct LlamaChatCompletionRequest {
   model: String,
   messages: Vec<LlamaChatMessage>,
   stream: bool,
+  #[serde(skip_serializing_if = "Vec::is_empty")]
+  tools: Vec<LlamaToolSpec>,
 }
 
 #[derive(Deserialize)]
@@ -62,16 +126,24 @@ struct LlamaChatCompletionResponse {
 
 #[derive(Deserialize)]
 struct LlamaChatCompletionChoice {
-  message: LlamaChatCompletionMessage,
+  message: LlamaChatMessage,
 }
 
 #[derive(Deserialize)]
-struct LlamaChatCompletionMessage {
-  content: Option<String>,
+struct ChatSearchToolArguments {
+  text: Option<String>,
+  query: Option<String>,
+  #[serde(rename = "pageId")]
+  page_id: Option<Uid>,
+  #[serde(rename = "numResults")]
+  num_results: Option<i64>,
+  #[serde(rename = "pageNum")]
+  page_num: Option<i64>,
 }
 
 pub(super) async fn handle_chat(
-  config: &Config,
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
   session_maybe: &Option<Session>,
 ) -> InfuResult<Option<String>> {
@@ -84,7 +156,7 @@ pub(super) async fn handle_chat(
 
   let request: ChatRequest =
     serde_json::from_str(json_data).map_err(|e| format!("Could not parse chat request: {}", e))?;
-  let assistant_text = llama_chat_completion(config, &request).await?;
+  let assistant_text = run_chat_with_tools(config, db, session, &request).await?;
 
   Ok(Some(chat_response_items_json(&session.user_id, &assistant_text).to_string()))
 }
@@ -200,13 +272,13 @@ fn llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessa
     collect_chat_text(item_id, &items_by_id, &children_by_parent_id, &mut visited, &mut text_parts);
     let content = text_parts.join("\n\n").trim().to_owned();
     if !content.is_empty() {
-      messages.push(LlamaChatMessage { role: role.to_owned(), content });
+      messages.push(LlamaChatMessage::text(role, content));
     }
   }
 
   let user_text = request.user_text.trim();
   if !user_text.is_empty() {
-    messages.push(LlamaChatMessage { role: "user".to_owned(), content: user_text.to_owned() });
+    messages.push(LlamaChatMessage::text("user", user_text.to_owned()));
   }
 
   messages
@@ -215,7 +287,11 @@ fn llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessa
 fn truncate_for_error(text: &str, max_chars: usize) -> String {
   let mut chars = text.chars();
   let truncated: String = chars.by_ref().take(max_chars).collect();
-  if chars.next().is_some() { format!("{}...", truncated) } else { truncated }
+  if chars.next().is_some() {
+    format!("{}...", truncated)
+  } else {
+    truncated
+  }
 }
 
 fn error_chain_for_log(error: &dyn std::error::Error) -> String {
@@ -256,18 +332,214 @@ fn reqwest_error_for_log(error: &reqwest::Error) -> String {
   format!("{}{}", error_chain_for_log(error), kind_suffix)
 }
 
-async fn llama_chat_completion(config: &Config, request: &ChatRequest) -> InfuResult<String> {
-  let url = configured_llama_chat_url(config)?;
-  let messages = llama_messages_from_chat_request(request);
+fn reset_llm_log() {
+  if let Err(e) = std::fs::write(LLM_LOG_PATH, "") {
+    warn!("Could not reset LLM log '{}': {}", LLM_LOG_PATH, e);
+  }
+}
+
+fn append_llm_log_section(title: &str, body: &str) {
+  match std::fs::OpenOptions::new().create(true).append(true).open(LLM_LOG_PATH) {
+    Ok(mut file) => {
+      if let Err(e) = writeln!(file, "\n===== {} =====\n{}", title, body) {
+        warn!("Could not write LLM log '{}': {}", LLM_LOG_PATH, e);
+      }
+    }
+    Err(e) => warn!("Could not open LLM log '{}': {}", LLM_LOG_PATH, e),
+  }
+}
+
+fn append_llm_json_log_section<T: Serialize>(title: &str, value: &T) {
+  let body =
+    serde_json::to_string_pretty(value).unwrap_or_else(|e| format!("Could not serialize LLM log value: {}", e));
+  append_llm_log_section(title, &body);
+}
+
+fn search_tool_spec() -> LlamaToolSpec {
+  LlamaToolSpec {
+    tool_type: "function".to_owned(),
+    function: LlamaToolFunctionSpec {
+      name: "search".to_owned(),
+      description: "Search the user's Infumap items using the same behavior as the search UI.".to_owned(),
+      parameters: serde_json::json!({
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Search query text."
+          },
+          "pageId": {
+            "type": ["string", "null"],
+            "description": "Optional Infumap page id to search within. Use null or omit it to search the user's home scope."
+          },
+          "numResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": CHAT_SEARCH_TOOL_MAX_NUM_RESULTS,
+            "description": "Maximum number of search results to return."
+          },
+          "pageNum": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional one-based page of search results."
+          }
+        },
+        "required": ["text"],
+        "additionalProperties": false
+      }),
+    },
+  }
+}
+
+async fn run_chat_with_tools(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  request: &ChatRequest,
+) -> InfuResult<String> {
+  reset_llm_log();
+
+  let mut messages = llama_messages_from_chat_request(request);
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
+  messages.insert(0, LlamaChatMessage::text("system", CHAT_SYSTEM_PROMPT.to_owned()));
+
+  let tools = vec![search_tool_spec()];
+  let mut llm_turn = 1usize;
+  let mut tool_rounds = 0usize;
+
+  loop {
+    let mut message = llama_chat_completion(config.as_ref(), &messages, &tools, llm_turn).await?;
+    llm_turn += 1;
+    if message.role.trim().is_empty() {
+      message.role = "assistant".to_owned();
+    }
+
+    let tool_calls = normalize_tool_calls(&mut message, tool_rounds);
+    if !tool_calls.is_empty() {
+      if tool_rounds >= CHAT_MAX_TOOL_ROUNDS {
+        return Err(format!("Chat tool loop exceeded maximum tool rounds ({CHAT_MAX_TOOL_ROUNDS}).").into());
+      }
+
+      tool_rounds += 1;
+      messages.push(message);
+      for tool_call in tool_calls {
+        let tool_result = execute_chat_tool_call(config.clone(), db, session, &tool_call).await?;
+        append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
+        messages.push(LlamaChatMessage::tool(tool_call.id.clone(), tool_result));
+      }
+      continue;
+    }
+
+    let content = message.content.unwrap_or_default().trim().to_owned();
+    if content.is_empty() {
+      return Err("llama-server returned an empty chat response.".into());
+    }
+    return Ok(content);
+  }
+}
+
+fn normalize_tool_calls(message: &mut LlamaChatMessage, tool_round: usize) -> Vec<LlamaToolCall> {
+  let Some(tool_calls) = message.tool_calls.as_mut() else {
+    return Vec::new();
+  };
+
+  for (index, tool_call) in tool_calls.iter_mut().enumerate() {
+    if tool_call.id.trim().is_empty() {
+      tool_call.id = format!("call_{}_{}", tool_round + 1, index + 1);
+    }
+    if tool_call.tool_type.trim().is_empty() {
+      tool_call.tool_type = "function".to_owned();
+    }
+  }
+
+  tool_calls.clone()
+}
+
+async fn execute_chat_tool_call(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  tool_call: &LlamaToolCall,
+) -> InfuResult<String> {
+  match tool_call.function.name.as_str() {
+    "search" => execute_search_tool_call(config, db, session, tool_call).await,
+    name => Ok(tool_error_json(&format!("Unknown tool '{name}'."))),
+  }
+}
+
+async fn execute_search_tool_call(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  tool_call: &LlamaToolCall,
+) -> InfuResult<String> {
+  let arguments = match tool_call_arguments_value(tool_call) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&e.to_string())),
+  };
+  let arguments: ChatSearchToolArguments = match serde_json::from_value(arguments) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&format!("Could not parse search tool arguments: {}", e))),
+  };
+
+  let search_text = arguments.text.or(arguments.query).unwrap_or_default().trim().to_owned();
+  if search_text.is_empty() {
+    return Ok(tool_error_json("Search tool argument 'text' is required."));
+  }
+
+  let num_results =
+    arguments.num_results.unwrap_or(CHAT_SEARCH_TOOL_DEFAULT_NUM_RESULTS).clamp(1, CHAT_SEARCH_TOOL_MAX_NUM_RESULTS);
+  let page_num = arguments.page_num.map(|page_num| page_num.max(1));
+  let search_request = search::SearchRequest { page_id: arguments.page_id, text: search_text, num_results, page_num };
+
+  match search::run_search(config, db, search_request, session).await {
+    Ok(response) => search::compact_search_response_json(&response),
+    Err(e) => Ok(tool_error_json(&format!("Search failed: {}", e))),
+  }
+}
+
+fn tool_call_arguments_value(tool_call: &LlamaToolCall) -> InfuResult<Value> {
+  match &tool_call.function.arguments {
+    Value::String(arguments) => serde_json::from_str(arguments).map_err(|e| {
+      format!("Could not parse arguments for tool '{}': {}", tool_call.function.name, error_chain_for_log(&e)).into()
+    }),
+    Value::Object(_) => Ok(tool_call.function.arguments.clone()),
+    Value::Null => Ok(serde_json::json!({})),
+    other => Err(
+      format!(
+        "Tool '{}' arguments must be a JSON object or JSON-encoded object string, got: {}",
+        tool_call.function.name, other
+      )
+      .into(),
+    ),
+  }
+}
+
+fn tool_error_json(message: &str) -> String {
+  serde_json::json!({ "error": message }).to_string()
+}
+
+async fn llama_chat_completion(
+  config: &Config,
+  messages: &[LlamaChatMessage],
+  tools: &[LlamaToolSpec],
+  llm_turn: usize,
+) -> InfuResult<LlamaChatMessage> {
+  let url = configured_llama_chat_url(config)?;
 
   let client = reqwest::ClientBuilder::new()
     .timeout(Duration::from_secs(CHAT_LLAMA_REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build llama-server HTTP client: {}", reqwest_error_for_log(&e)))?;
-  let payload = LlamaChatCompletionRequest { model: "default".to_owned(), messages, stream: false };
+  let payload = LlamaChatCompletionRequest {
+    model: "default".to_owned(),
+    messages: messages.to_vec(),
+    stream: false,
+    tools: tools.to_vec(),
+  };
+  append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &payload);
   let response = client
     .post(url.clone())
     .json(&payload)
@@ -280,6 +552,7 @@ async fn llama_chat_completion(config: &Config, request: &ChatRequest) -> InfuRe
     .text()
     .await
     .map_err(|e| format!("Could not read llama-server response body: {}", reqwest_error_for_log(&e)))?;
+  append_llm_log_section(&format!("LLM RESPONSE {}", llm_turn), &body);
   if !status.is_success() {
     return Err(
       format!("llama-server chat endpoint '{}' returned {}: {}", url, status, truncate_for_error(&body, 1000)).into(),
@@ -288,12 +561,12 @@ async fn llama_chat_completion(config: &Config, request: &ChatRequest) -> InfuRe
 
   let parsed: LlamaChatCompletionResponse = serde_json::from_str(&body)
     .map_err(|e| format!("Could not parse llama-server chat response: {}", error_chain_for_log(&e)))?;
-  let content =
-    parsed.choices.into_iter().find_map(|choice| choice.message.content).unwrap_or_default().trim().to_owned();
-  if content.is_empty() {
-    return Err("llama-server returned an empty chat response.".into());
-  }
-  Ok(content)
+  parsed
+    .choices
+    .into_iter()
+    .next()
+    .map(|choice| choice.message)
+    .ok_or_else(|| "llama-server returned no chat response choices.".into())
 }
 
 struct ChatMarkdownNote {
