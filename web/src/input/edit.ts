@@ -53,7 +53,7 @@ import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { asImageItem } from "../items/image-item";
-import { PageFlags } from "../items/base/flags-item";
+import { itemCanAcceptManualChildren, PageFlags } from "../items/base/flags-item";
 
 
 let arrowKeyDown_caretPosition: number | null = null;
@@ -78,6 +78,22 @@ type LinearSelectionDeleteSpec = {
   startIndex: number,
   endIndex: number,
 };
+
+function visualAncestorPageAcceptsManualChildAdd(path: string): boolean {
+  let currentPath: string | null = path;
+  while (currentPath != null && currentPath != "") {
+    const currentVe = VesCache.current.readNode(currentPath);
+    if (currentVe == null) {
+      return true;
+    }
+    if (isPage(currentVe.displayItem)) {
+      const page = asPageItem(currentVe.displayItem);
+      return page.clientOnly !== true && itemCanAcceptManualChildren(page);
+    }
+    currentPath = VeFns.parentPath(currentPath);
+  }
+  return true;
+}
 
 let arrowKeyDown_pendingBoundaryNavigation: PendingBoundaryNavigation | null = null;
 const LINEAR_EDIT_DEBUG_KEY = "debug:linear-edit";
@@ -712,7 +728,10 @@ export function splitDocumentTitleToFirstNote(
 ): boolean {
   if (!isPage(documentPageVe.displayItem)) { return false; }
   const page = asPageItem(documentPageVe.displayItem);
-  if (page.arrangeAlgorithm != ArrangeAlgorithm.Document || (page.flags & PageFlags.HideDocumentTitle)) {
+  if (page.arrangeAlgorithm != ArrangeAlgorithm.Document ||
+      (page.flags & PageFlags.HideDocumentTitle) ||
+      page.clientOnly === true ||
+      !itemCanAcceptManualChildren(page)) {
     return false;
   }
 
@@ -1049,6 +1068,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualE
 const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement) => {
   const context = currentLinearEditContext(store);
   if (context == null) { return; }
+  if (!visualAncestorPageAcceptsManualChildAdd(context.containerPath)) { return; }
 
   if (context.editingPath == context.containerPath) {
     const titleElement = document.getElementById(context.editingPath + ":title");

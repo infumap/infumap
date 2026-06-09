@@ -68,6 +68,7 @@ bitflags! {
 pub const LIST_PAGE_PIN_TOP_FLAG: i64 = 0x100000;
 pub const LIST_PAGE_PIN_BOTTOM_FLAG: i64 = 0x200000;
 pub const PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG: i64 = 0x100;
+pub const PAGE_DISABLE_MANUAL_CHILD_ADD_FLAG: i64 = 0x200;
 
 bitflags! {
   pub struct FileFlags: i64 {

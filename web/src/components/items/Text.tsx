@@ -19,6 +19,7 @@
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { TextFns, asTextItem } from "../../items/text-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
+import { itemCanAcceptManualChildren } from "../../items/base/flags-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
@@ -204,6 +205,18 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
     }, 0);
   }
 
+  const parentChainAcceptsManualChildAdd = (parentId: string | null): boolean => {
+    let current = parentId != null ? itemState.get(parentId) : null;
+    while (current != null) {
+      if (isPage(current)) {
+        const page = asPageItem(current);
+        return page.clientOnly !== true && itemCanAcceptManualChildren(page);
+      }
+      current = current.parentId != null ? itemState.get(current.parentId) : null;
+    }
+    return true;
+  }
+
   const keyDownHandler = (ev: KeyboardEvent) => {
     switch (ev.key) {
       case "Enter":
@@ -222,6 +235,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const enterKeyHandler = () => {
     if (store.user.getUserMaybe() == null || textItem().ownerId != store.user.getUser().userId) { return; }
+    if (!parentChainAcceptsManualChildAdd(props.visualElement.displayItem.parentId)) { return; }
     const ve = props.visualElement;
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);

@@ -18,7 +18,8 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
 import { asAttachmentsItem, calcSpatialAttachmentInsertIndex } from "../items/base/attachments-item";
-import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
+import { itemCanCopy, itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
+import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
@@ -485,7 +486,13 @@ function quantizeSpatialPosGr(posGr: Vector): Vector {
 }
 
 function pageCanHostLiveMovingItem(pageVe: VisualElement): boolean {
-  return isPage(pageVe.displayItem) &&
+  if (!isPage(pageVe.displayItem)) {
+    return false;
+  }
+  const page = asPageItem(pageVe.displayItem);
+  return page.clientOnly !== true &&
+    itemCanEdit(page) &&
+    itemCanAcceptManualChildren(page) &&
     !!(pageVe.flags & VisualElementFlags.ShowChildren) &&
     pageVe.childAreaBoundsPx != null &&
     pageVe.viewportBoundsPx != null;

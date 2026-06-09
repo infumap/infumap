@@ -33,7 +33,7 @@ import {
 } from "./base/attachments-item";
 import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
 import { ContainerItem, asContainerItem, isContainer } from "./base/container-item";
-import { itemCanExpandInLineItem } from "./base/flags-item";
+import { itemCanAcceptManualChildren, itemCanExpandInLineItem } from "./base/flags-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
@@ -614,6 +614,17 @@ export const TableFns = {
 
   insertEmptyColAt(tableId: Uid, colPos: number, store: StoreContextModel) {
     const tableItem = asTableItem(itemState.get(tableId)!);
+    let ancestor: Item | null = tableItem;
+    while (ancestor != null) {
+      if (ancestor.itemType == ItemType.Page) {
+        if (ancestor.clientOnly === true || !itemCanEdit(ancestor) || !itemCanAcceptManualChildren(ancestor)) {
+          return;
+        }
+        break;
+      }
+      ancestor = ancestor.parentId != null ? itemState.get(ancestor.parentId) : null;
+    }
+
     for (let i = 0; i < tableItem.computed_children.length; ++i) {
       const child = itemState.get(tableItem.computed_children[i])!;
       if (!isAttachmentsItem(child)) { continue; }

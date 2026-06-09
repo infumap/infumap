@@ -336,8 +336,10 @@ export const Toolbar_Page: Component = () => {
   const handleToggleChat = () => {
     if (pageItem().flags & PageFlags.Chat) {
       pageItem().flags &= ~PageFlags.Chat;
+      pageItem().flags &= ~PageFlags.DisableManualChildAdd;
     } else {
       pageItem().flags |= PageFlags.Chat;
+      pageItem().flags |= PageFlags.DisableManualChildAdd;
       pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document;
       pageItem().orderChildrenBy = "";
     }

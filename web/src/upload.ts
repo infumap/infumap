@@ -25,6 +25,8 @@ import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopP
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
 import { asAttachmentsItem, AttachmentsItem, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
+import { itemCanEdit } from "./items/base/capabilities-item";
+import { itemCanAcceptManualChildren } from "./items/base/flags-item";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "./items/page-item";
@@ -113,6 +115,33 @@ export function dataTransferContainsFiles(dataTransfer: DataTransfer | null): da
 
 function isAttachmentTarget(target: UploadTarget): boolean {
   return target.kind == "table-cell-attachment" || target.kind == "attach-hitbox";
+}
+
+function parentChainAcceptsManualChildAdd(parentId: string): boolean {
+  let current = itemState.get(parentId);
+  while (current != null) {
+    if (isPage(current)) {
+      return current.clientOnly !== true && itemCanEdit(current) && itemCanAcceptManualChildren(current);
+    }
+    current = current.parentId != null ? itemState.get(current.parentId) : null;
+  }
+  return true;
+}
+
+function uploadTargetAcceptsManualChildAdd(target: UploadTarget): boolean {
+  switch (target.kind) {
+    case "page-background":
+    case "page-ordered":
+    case "page-child-container":
+      return target.parent.clientOnly !== true &&
+        itemCanEdit(target.parent) &&
+        itemCanAcceptManualChildren(target.parent);
+    case "table-row":
+      return parentChainAcceptsManualChildAdd(target.parentId);
+    case "table-cell-attachment":
+    case "attach-hitbox":
+      return parentChainAcceptsManualChildAdd(target.parent.id);
+  }
 }
 
 function clearTableUploadHoverState(store: StoreContextModel, tablePath: VisualElementPath): void {
@@ -666,7 +695,11 @@ export function updateExternalUploadHover(
     return;
   }
 
-  externalUploadDropTarget = resolveExternalUploadTarget(store, desktopPx, true);
+  const target = resolveExternalUploadTarget(store, desktopPx, true);
+  externalUploadDropTarget = target != null && uploadTargetAcceptsManualChildAdd(target) ? target : null;
+  if (target != null && externalUploadDropTarget == null) {
+    clearExternalUploadHover(store);
+  }
 }
 
 export async function handleExternalUploadDrop(
@@ -696,6 +729,11 @@ export async function handleExternalUploadDrop(
       return;
     }
 
+    if (!uploadTargetAcceptsManualChildAdd(target)) {
+      showTransientMessage(store, "Can't add items to this page.");
+      return;
+    }
+
     if (isAttachmentTarget(target) && fileCount != 1) {
       showTransientMessage(store, "Attachment drops only support a single file.");
       return;
@@ -719,5 +757,9 @@ export async function handleUpload(
 
   handleStringTypeDataMaybe(dataTransfer, desktopPx);
   await waitForBrowserAfterDrop();
+  if (!uploadTargetAcceptsManualChildAdd({ kind: "page-background", parent })) {
+    showTransientMessage(store, "Can't add items to this page.");
+    return;
+  }
   await uploadFilesToTarget(store, Array.from(dataTransfer.files), desktopPx, { kind: "page-background", parent });
 }

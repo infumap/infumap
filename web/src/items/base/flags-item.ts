@@ -126,6 +126,7 @@ export enum PageFlags {
   HideEmbeddedInteractiveTitle = 0x040,
   Chat = 0x080,
   DisableLineItemExpand = 0x100,
+  DisableManualChildAdd = 0x200,
   ListPagePinTop = ListPageFlags.PinTop,
   ListPagePinBottom = ListPageFlags.PinBottom,
 };
@@ -209,6 +210,14 @@ export function itemCanExpandInLineItem(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
   if (item.itemType == ItemType.Page) {
     return !((item as any).flags & PageFlags.DisableLineItemExpand);
+  }
+  return true;
+}
+
+export function itemCanAcceptManualChildren(item: ItemTypeMixin | null): boolean {
+  if (item == null) { return false; }
+  if (item.itemType == ItemType.Page) {
+    return !((item as any).flags & PageFlags.DisableManualChildAdd);
   }
   return true;
 }

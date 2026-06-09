@@ -27,7 +27,7 @@ import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemState } from "../../store/ItemState";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { NoteFlags } from "../../items/base/flags-item";
+import { itemCanAcceptManualChildren, NoteFlags } from "../../items/base/flags-item";
 import { asXSizableItem } from "../../items/base/x-sizeable-item";
 import {
   desktopPopupIconTextIndentPx,
@@ -253,6 +253,18 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     edit_inputListener(store, ev);
   }
 
+  const parentChainAcceptsManualChildAdd = (parentId: string | null): boolean => {
+    let current = parentId != null ? itemState.get(parentId) : null;
+    while (current != null) {
+      if (isPage(current)) {
+        const page = asPageItem(current);
+        return page.clientOnly !== true && itemCanAcceptManualChildren(page);
+      }
+      current = current.parentId != null ? itemState.get(current.parentId) : null;
+    }
+    return true;
+  }
+
   const keyDownHandler = (ev: KeyboardEvent) => {
     if (!isTextEditTarget()) { return; }
     switch (ev.key) {
@@ -272,6 +284,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const enterKeyHandler = () => {
     if (store.user.getUserMaybe() == null || noteItem().ownerId != store.user.getUser().userId) { return; }
+    if (!parentChainAcceptsManualChildAdd(props.visualElement.displayItem.parentId)) { return; }
 
     NoteFns.ensureTitleUrl(noteItem());
 

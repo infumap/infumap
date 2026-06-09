@@ -19,6 +19,7 @@
 import { GRID_SIZE } from "../constants";
 import { Item, ItemType } from "../items/base/item";
 import { itemCanEdit } from "../items/base/capabilities-item";
+import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
@@ -74,7 +75,18 @@ function createNewItem(
 }
 
 function itemAllowsNewChild(item: Item | null): boolean {
-  return item != null && item.clientOnly !== true && itemCanEdit(item);
+  return item != null && item.clientOnly !== true && itemCanEdit(item) && itemCanAcceptManualChildren(item);
+}
+
+function parentChainAllowsNewChild(parentId: Uid): boolean {
+  let current = itemState.get(parentId);
+  while (current != null) {
+    if (isPage(current)) {
+      return itemAllowsNewChild(current);
+    }
+    current = current.parentId != null ? itemState.get(current.parentId) : null;
+  }
+  return false;
 }
 
 export function canCreateItemsOnCurrentPage(store: StoreContextModel): boolean {
@@ -260,7 +272,12 @@ function createItemInPage(
   desktopPosPx: Vector,
   arrangeReason: string,
   positionGrMaybe: Vector | null = null,
-): { newItem: PositionalItem, newItemPath: string } {
+): { newItem: PositionalItem, newItemPath: string } | null {
+  if (!itemAllowsNewChild(pageVe.displayItem)) {
+    store.overlay.contextMenuInfo.set(null);
+    return null;
+  }
+
   const pageArrangeAlgorithm = pageVe.linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(pageVe.displayItem).arrangeAlgorithm;
   const newItem = createNewItem(
     store,
@@ -481,6 +498,11 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   let newItemPath;
 
   if (isPlaceholder(overElementVe.displayItem)) {
+    if (!parentChainAllowsNewChild(overElementVe.displayItem.parentId)) {
+      store.overlay.contextMenuInfo.set(null);
+      return;
+    }
+
     newItem = createNewItem(
       store,
       type,
@@ -501,14 +523,16 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
   else if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
     const targetPageVe = focusedListPageVe ?? overElementVe;
-    ({ newItem, newItemPath } = createItemInPage(
+    const created = createItemInPage(
       store,
       type,
       targetPageVe,
       desktopPosPx,
       focusedListPageVe ? "create-in-focused-list-page" : "create-in-page",
       focusedListPageVe ? null : hitInfo.overPositionGr,
-    ));
+    );
+    if (created == null) { return; }
+    ({ newItem, newItemPath } = created);
   }
 
   else if (isTable(overElementVe.displayItem)) {
@@ -520,6 +544,11 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
       if (attachmentPos == -1 || displayedChild == null) {
         const insertionTarget = TableFns.tableInsertionTarget(store, overElementVe, insertRow);
+        if (!parentChainAllowsNewChild(insertionTarget.parentContainer.id)) {
+          store.overlay.contextMenuInfo.set(null);
+          return;
+        }
+
         newItem = createNewItem(
           store,
           type,
@@ -534,6 +563,11 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 
       } else {
+        if (!parentChainAllowsNewChild(displayedChild.id)) {
+          store.overlay.contextMenuInfo.set(null);
+          return;
+        }
+
         const numPlaceholdersToCreate = attachmentPos > displayedChild.computed_attachments.length ? attachmentPos - displayedChild.computed_attachments.length : 0;
         for (let i=0; i<numPlaceholdersToCreate; ++i) {
           const placeholderItem = PlaceholderFns.create(displayedChild.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
@@ -561,13 +595,15 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     else {
       // not inside child area: create item in the page containing the table.
       const parentVe = VesCache.current.readNode(overElementVe.parentPath!)!;
-      ({ newItem, newItemPath } = createItemInPage(
+      const created = createItemInPage(
         store,
         type,
         parentVe,
         desktopPosPx,
         "create-in-page-from-table",
-      ));
+      );
+      if (created == null) { return; }
+      ({ newItem, newItemPath } = created);
     }
   }
 
@@ -575,6 +611,11 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     const link = asLinkItem(overElementVe.displayItem);
 
     const currentPageId = store.history.currentPageVeid()!.itemId;
+    if (!parentChainAllowsNewChild(currentPageId)) {
+      store.overlay.contextMenuInfo.set(null);
+      return;
+    }
+
     const currentPage = itemState.get(currentPageId)!;
     newItem = createNewItem(
       store,
@@ -620,13 +661,15 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       return;
     }
 
-    ({ newItem, newItemPath } = createItemInPage(
+    const created = createItemInPage(
       store,
       type,
       containingPageVe,
       desktopPosPx,
       "create-in-containing-page",
-    ));
+    );
+    if (created == null) { return; }
+    ({ newItem, newItemPath } = created);
   }
 
   if (type == ItemType.Page ||

@@ -20,6 +20,7 @@ import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { asAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { asContainerItem, isContainer } from "../items/base/container-item";
+import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
@@ -247,6 +248,29 @@ function showMoveDropRejectedMessage(store: StoreContextModel, text: string): vo
       store.overlay.toolbarTransientMessage.set(null);
     }
   }, 1500);
+}
+
+function visualElementAcceptsManualChildAdd(visualElement: VisualElement): boolean {
+  let currentVe: VisualElement | null = visualElement;
+  while (currentVe != null) {
+    if (isPage(currentVe.displayItem)) {
+      const page = asPageItem(currentVe.displayItem);
+      return page.clientOnly !== true && itemCanEdit(page) && itemCanAcceptManualChildren(page);
+    }
+    currentVe = currentVe.parentPath ? MouseActionState.readVisualElement(currentVe.parentPath) : null;
+  }
+  return true;
+}
+
+function rejectManualDropTargetIfNeeded(store: StoreContextModel, targetVe: VisualElement): boolean {
+  if (visualElementAcceptsManualChildAdd(targetVe)) {
+    return false;
+  }
+  rollbackInvalidMove(store);
+  showMoveDropRejectedMessage(store, "Can't add items to this page.");
+  MouseActionState.set(null);
+  arrangeNow(store, "mouse-up-reject-manual-child-add-disabled");
+  return true;
 }
 
 function clearMoveOverState(store: StoreContextModel): void {
@@ -1222,11 +1246,19 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
   }
 
   if (MouseActionState.getMoveOverAttachHitboxPath() != null) {
+    const attachHitboxVe = MouseActionState.readMoveOverAttachHitbox();
+    if (attachHitboxVe != null && rejectManualDropTargetIfNeeded(store, attachHitboxVe)) {
+      return;
+    }
     mouseUpHandler_moving_hitboxAttachTo(store, activeItem);
     return;
   }
 
   if (MouseActionState.getMoveOverAttachCompositePath() != null) {
+    const attachCompositeVe = MouseActionState.readMoveOverAttachComposite();
+    if (attachCompositeVe != null && rejectManualDropTargetIfNeeded(store, attachCompositeVe)) {
+      return;
+    }
     mouseUpHandler_moving_hitboxAttachToComposite(store, activeItem);
     return;
   }
@@ -1236,6 +1268,9 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     rollbackInvalidMove(store);
     MouseActionState.set(null);
     arrangeNow(store, "mouse-up-finish-move-no-target");
+    return;
+  }
+  if (rejectManualDropTargetIfNeeded(store, overContainerVe)) {
     return;
   }
   if (isDockListPageIconMoveTargetVe(overContainerVe)) {
