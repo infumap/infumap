@@ -107,6 +107,91 @@ pub struct SearchResponse {
   pub has_more: bool,
 }
 
+#[allow(dead_code)]
+pub(super) mod compact {
+  use super::*;
+
+  #[derive(Clone, Serialize)]
+  pub(super) struct CompactSearchResponse {
+    pub results: Vec<CompactSearchResult>,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+  }
+
+  #[derive(Clone, Serialize)]
+  pub(super) struct CompactSearchResult {
+    #[serde(rename = "itemId")]
+    pub item_id: Uid,
+    #[serde(rename = "itemType")]
+    pub item_type: String,
+    pub title: Option<String>,
+    pub score: f32,
+    pub path: Vec<String>,
+    #[serde(rename = "fragmentMatch", skip_serializing_if = "Option::is_none")]
+    pub fragment_match: Option<CompactSearchFragmentMatch>,
+    #[serde(rename = "additionalFragmentMatches", skip_serializing_if = "Vec::is_empty")]
+    pub additional_fragment_matches: Vec<CompactSearchFragmentMatch>,
+  }
+
+  #[derive(Clone, Serialize)]
+  pub(super) struct CompactSearchFragmentMatch {
+    #[serde(rename = "sourceKind")]
+    pub source_kind: String,
+    pub score: f32,
+    pub text: String,
+    #[serde(rename = "textTruncated")]
+    pub text_truncated: bool,
+    #[serde(rename = "pageStart", skip_serializing_if = "Option::is_none")]
+    pub page_start: Option<usize>,
+    #[serde(rename = "pageEnd", skip_serializing_if = "Option::is_none")]
+    pub page_end: Option<usize>,
+  }
+
+  pub(super) fn compact_search_response(response: &SearchResponse) -> CompactSearchResponse {
+    CompactSearchResponse {
+      results: response.results.iter().filter_map(compact_search_result).collect(),
+      has_more: response.has_more,
+    }
+  }
+
+  fn compact_search_result(result: &SearchResult) -> Option<CompactSearchResult> {
+    let item = result.path.last()?;
+    Some(CompactSearchResult {
+      item_id: item.id.clone(),
+      item_type: item.item_type.clone(),
+      title: item.title.clone(),
+      score: result.score,
+      path: result.path.iter().map(compact_search_path_label).collect(),
+      fragment_match: result.fragment_match.as_ref().map(compact_search_fragment_match),
+      additional_fragment_matches: result
+        .additional_fragment_matches
+        .iter()
+        .map(compact_search_fragment_match)
+        .collect(),
+    })
+  }
+
+  fn compact_search_path_label(element: &SearchPathElement) -> String {
+    element
+      .title
+      .as_ref()
+      .filter(|title| !title.trim().is_empty())
+      .cloned()
+      .unwrap_or_else(|| format!("{} {}", element.item_type, element.id))
+  }
+
+  fn compact_search_fragment_match(fragment_match: &SearchFragmentMatch) -> CompactSearchFragmentMatch {
+    CompactSearchFragmentMatch {
+      source_kind: fragment_match.source_kind.clone(),
+      score: fragment_match.score,
+      text: fragment_match.text.clone(),
+      text_truncated: fragment_match.text_truncated,
+      page_start: fragment_match.page_start,
+      page_end: fragment_match.page_end,
+    }
+  }
+}
+
 pub(super) async fn handle_search(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
