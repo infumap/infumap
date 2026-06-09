@@ -18,7 +18,7 @@
 
 import imgUrl from '../../assets/circle.png'
 
-import { Component, For, Match, Show, Switch, createMemo } from "solid-js";
+import { Component, Index, Match, Show, Switch, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { NONE_VISUAL_ELEMENT, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
@@ -344,32 +344,32 @@ export const Toolbar: Component = () => {
     <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px;}`}>
       <div class="flex flex-row">
 
-        <For each={titleSpecs()}>{tSpec =>
+        <Index each={titleSpecs()}>{tSpec =>
           <>
             {/* spacer before title text */}
             <div class="border-b grow-0"
-              style={`width: ${tSpec.lPosPx == 0 ? '5' : (tSpec.hasFocus ? '7' : '6')}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
-                `${tSpec.bg}` +
-                (tSpec.lPosPx != 0 ? `border-left-width: ${tSpec.hasFocus ? '2' : '1'}px; border-left-color: ${tSpec.hasFocus ? tSpec.borderColor : BORDER_COLOR}; ` : '') +
-                `border-top-color: ${tSpec.borderColor};` +
-                `border-top-width: ${tSpec.borderWidthPx - 1}px; `} />
+              style={`width: ${tSpec().lPosPx == 0 ? '5' : (tSpec().hasFocus ? '7' : '6')}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                `${tSpec().bg}` +
+                (tSpec().lPosPx != 0 ? `border-left-width: ${tSpec().hasFocus ? '2' : '1'}px; border-left-color: ${tSpec().hasFocus ? tSpec().borderColor : BORDER_COLOR}; ` : '') +
+                `border-top-color: ${tSpec().borderColor};` +
+                `border-top-width: ${tSpec().borderWidthPx - 1}px; `} />
 
-            <div id={`toolbarTitleDiv-${tSpec.idx}`}
-              class={`p-[3px] inline-block border-b grow-0 overflow-hidden whitespace-nowrap ${tSpec.canEdit ? "cursor-text" : "cursor-pointer"}`}
-              contentEditable={tSpec.canEdit}
-              style={`font-size: 22px; color: ${tSpec.col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
-                `${tSpec.bg} ` +
-                `border-top-color: ${tSpec.borderColor};` +
-                `border-top-width: ${tSpec.borderWidthPx - 1}px; ` +
-                `padding-top: ${2 - (tSpec.borderWidthPx - 1)}px; ` +
+            <div id={`toolbarTitleDiv-${tSpec().idx}`}
+              class={`p-[3px] inline-block border-b grow-0 overflow-hidden whitespace-nowrap ${tSpec().canEdit ? "cursor-text" : "cursor-pointer"}`}
+              contentEditable={tSpec().canEdit}
+              style={`font-size: 22px; color: ${tSpec().col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                `${tSpec().bg} ` +
+                `border-top-color: ${tSpec().borderColor};` +
+                `border-top-width: ${tSpec().borderWidthPx - 1}px; ` +
+                `padding-top: ${2 - (tSpec().borderWidthPx - 1)}px; ` +
                 `height: ${store.topToolbarHeightPx()}px; ` +
-                (tSpec.rPosPx > 0 ? `width: ${tSpec.rPosPx - tSpec.lPosPx - 6 - (tSpec.nextHasFocus ? 1 : 0)}px;` : '') +
+                (tSpec().rPosPx > 0 ? `width: ${tSpec().rPosPx - tSpec().lPosPx - 6 - (tSpec().nextHasFocus ? 1 : 0)}px;` : '') +
                 "outline: 0px solid transparent;"}
               onClick={handleTitleClick}>
-              {tSpec.title}
+              {tSpec().title}
             </div>
           </>
-        }</For>
+        }</Index>
 
         <div id="toolbarTrailingTitleEditArea"
           class={`inline-block flex-nowrap border-b ${rightMostTitleSpec().canEdit ? "cursor-text" : "cursor-pointer"}`}
