@@ -24,30 +24,31 @@ import { CompositeFlags, PageFlags } from "./base/flags-item";
 import { Item } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
-import { NoteFns } from "./note-item";
+import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Uid } from "../util/uid";
+import { Uid, newUid } from "../util/uid";
 
-export const CHAT_DRAFT_TITLE = "New query";
+export const CHAT_DRAFT_TITLE = "Chat";
+const LEGACY_CHAT_DRAFT_TITLE = "New query";
 
 export function isChatPage(page: PageItem): boolean {
   return page.arrangeAlgorithm == ArrangeAlgorithm.Document && !!(page.flags & PageFlags.Chat);
 }
 
-function draftTitleFromPrompt(prompt: string): string {
-  const title = prompt.trim().replace(/\s+/g, " ");
-  if (title == "") {
+function titleFromPrompt(prompt: string): string {
+  const titleWords = prompt.trim().replace(/\s+/g, " ").split(" ").filter(word => word != "").slice(0, 3);
+  if (titleWords.length == 0) {
     return CHAT_DRAFT_TITLE;
   }
-  return title.length <= 60 ? title : `${title.slice(0, 57)}...`;
+  return titleWords.join(" ");
 }
 
 function prepareChatPage(page: PageItem): void {
   page.arrangeAlgorithm = ArrangeAlgorithm.Document;
-  page.flags |= PageFlags.Chat;
+  page.flags |= PageFlags.Chat | PageFlags.HideDocumentTitle;
   page.orderChildrenBy = "";
   page.childrenLoaded = true;
   markChildrenLoadAsInitiatedOrComplete(page.id);
@@ -65,6 +66,10 @@ export function ensureClientOnlyChatPageUnderQueries(store: StoreContextModel, q
     if (child && isPage(child)) {
       const page = asPageItem(child);
       if (page.clientOnly === true && isChatPage(page)) {
+        if (page.title == LEGACY_CHAT_DRAFT_TITLE) {
+          page.title = CHAT_DRAFT_TITLE;
+        }
+        prepareChatPage(page);
         return page.id;
       }
     }
@@ -167,9 +172,6 @@ export async function submitChatMessage(store: StoreContextModel, page: PageItem
   }
 
   const clientOnly = page.clientOnly === true;
-  if (clientOnly && page.title == CHAT_DRAFT_TITLE) {
-    page.title = draftTitleFromPrompt(text);
-  }
 
   const userItems = addLocalUserTurn(page, text);
   requestArrange(store, "chat-user-turn");
@@ -212,23 +214,106 @@ function collectSubtreeItems(itemId: Uid, result: Array<Item>): void {
   }
 }
 
+function firstPromptInChatPage(page: PageItem): string {
+  for (const childId of page.computed_children) {
+    const child = itemState.get(childId);
+    if (!child) { continue; }
+    if (isNote(child)) {
+      return asNoteItem(child).title;
+    }
+    if (!isContainer(child)) { continue; }
+    for (const grandchildId of asContainerItem(child).computed_children) {
+      const grandchild = itemState.get(grandchildId);
+      if (grandchild && isNote(grandchild)) {
+        return asNoteItem(grandchild).title;
+      }
+    }
+  }
+  return "";
+}
+
+function cloneItemForMaterializedChat(source: Item, parentId: Uid): Item {
+  const clone = ItemFns.fromObject(ItemFns.toObject(source), null);
+  clone.id = newUid();
+  clone.parentId = parentId;
+  clone.relationshipToParent = RelationshipToParent.Child;
+  clone.groupId = null;
+  clone.capabilities = null;
+  delete clone.clientOnly;
+  if (isContainer(clone)) {
+    asContainerItem(clone).computed_children = [];
+    asContainerItem(clone).childrenLoaded = true;
+    markChildrenLoadAsInitiatedOrComplete(clone.id);
+  }
+  return clone;
+}
+
+function cloneChildrenIntoMaterializedChat(sourceParent: PageItem | Item, targetParentId: Uid, result: Array<Item>): void {
+  if (!isContainer(sourceParent)) { return; }
+  for (const childId of asContainerItem(sourceParent).computed_children) {
+    const child = itemState.get(childId);
+    if (!child) { continue; }
+    const clone = cloneItemForMaterializedChat(child, targetParentId);
+    itemState.add(clone);
+    result.push(clone);
+    cloneChildrenIntoMaterializedChat(child, clone.id, result);
+  }
+}
+
+function clearDraftChatPage(page: PageItem): void {
+  const itemsToDelete: Array<Item> = [];
+  for (const childId of page.computed_children) {
+    collectSubtreeItems(childId, itemsToDelete);
+  }
+  for (const item of itemsToDelete.reverse()) {
+    itemState.delete(item.id);
+  }
+  page.title = CHAT_DRAFT_TITLE;
+}
+
 export async function materializeChatPage(store: StoreContextModel, page: PageItem): Promise<boolean> {
   if (page.clientOnly !== true) {
     return true;
   }
+  if (page.computed_children.length == 0) {
+    return false;
+  }
 
-  const items: Array<Item> = [];
-  collectSubtreeItems(page.id, items);
+  const materializedPage = PageFns.create(
+    page.ownerId,
+    page.parentId,
+    RelationshipToParent.Child,
+    titleFromPrompt(firstPromptInChatPage(page)),
+    itemState.newOrderingDirectlyAfterChild(page.parentId, page.id),
+  );
+  materializedPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
+  materializedPage.flags |= PageFlags.HideDocumentTitle;
+  materializedPage.orderChildrenBy = "";
+  materializedPage.childrenLoaded = true;
+  markChildrenLoadAsInitiatedOrComplete(materializedPage.id);
+
+  itemState.add(materializedPage);
+  const clonedItems: Array<Item> = [];
+  cloneChildrenIntoMaterializedChat(page, materializedPage.id, clonedItems);
+  requestArrange(store, "chat-materialize-local");
 
   try {
-    await persistItems(store, items);
-    for (const item of items) {
-      delete item.clientOnly;
-    }
-    requestArrange(store, "chat-materialize");
+    await server.addItem(materializedPage, null, store.general.networkStatus);
+    await persistItems(store, clonedItems);
+    clearDraftChatPage(page);
+    store.perItem.setSelectedListPageItem(
+      { itemId: materializedPage.parentId, linkIdMaybe: null },
+      { itemId: materializedPage.id, linkIdMaybe: null },
+    );
+    requestArrange(store, "chat-materialize-complete");
     return true;
   } catch (e) {
     console.error("Failed to materialize chat page:", e);
+    for (const item of clonedItems.reverse()) {
+      itemState.delete(item.id);
+    }
+    itemState.delete(materializedPage.id);
+    requestArrange(store, "chat-materialize-rollback");
     return false;
   }
 }

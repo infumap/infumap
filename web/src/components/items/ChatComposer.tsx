@@ -22,17 +22,25 @@ import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { isChatPage, materializeChatPage, submitChatMessage } from "../../items/chat";
 import { asPageItem } from "../../items/page-item";
+import {
+  SEARCH_WORKSPACE_CONTROLS_GAP_PX,
+  SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX,
+} from "../../items/search-item";
 import { useStore } from "../../store/StoreProvider";
 import { PageVisualElementProps } from "./Page";
 
-const COMPOSER_HEIGHT_PX = 58;
+const MIN_COMPOSER_HEIGHT_PX = SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX;
+const MAX_COMPOSER_HEIGHT_PX = 164;
 const COMPOSER_BOTTOM_PX = 18;
+const SEND_BUTTON_WIDTH_PX = SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX;
+const MATERIALIZE_BUTTON_WIDTH_PX = 118;
 
 export const ChatComposer: Component<PageVisualElementProps> = (props) => {
   const store = useStore();
   const [text, setText] = createSignal("");
   const [sending, setSending] = createSignal(false);
   const [materializing, setMaterializing] = createSignal(false);
+  const [composerHeightPx, setComposerHeightPx] = createSignal(MIN_COMPOSER_HEIGHT_PX);
   let textarea: HTMLTextAreaElement | undefined;
 
   const pageFns = () => props.pageFns;
@@ -48,12 +56,29 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
     Math.max(240, page().docWidthBl * LINE_HEIGHT_PX * documentScale());
 
   const wrapperStyle = () => {
-    const common = `left: ${leftPx()}px; width: ${widthPx()}px; height: ${COMPOSER_HEIGHT_PX}px; z-index: 80;`;
+    const heightPx = composerHeightPx();
+    const common = `left: ${leftPx()}px; width: ${widthPx()}px; height: ${heightPx}px; z-index: 80;`;
     if (!hasContent()) {
-      return `position: absolute; top: ${Math.max(24, pageFns().viewportBoundsPx().h * 0.45 - COMPOSER_HEIGHT_PX / 2)}px; ${common}`;
+      return `position: absolute; top: ${Math.max(24, pageFns().viewportBoundsPx().h * 0.45 - heightPx / 2)}px; ${common}`;
     }
-    const topPx = Math.max(0, pageFns().viewportBoundsPx().h - COMPOSER_HEIGHT_PX - COMPOSER_BOTTOM_PX);
+    const topPx = Math.max(0, pageFns().viewportBoundsPx().h - heightPx - COMPOSER_BOTTOM_PX);
     return `position: sticky; top: ${topPx}px; ${common}`;
+  };
+
+  const resizeTextarea = (elMaybe?: HTMLTextAreaElement) => {
+    const el = elMaybe ?? textarea;
+    if (!el) {
+      return;
+    }
+    el.style.height = "0px";
+    const nextHeight = Math.min(MAX_COMPOSER_HEIGHT_PX, Math.max(MIN_COMPOSER_HEIGHT_PX, el.scrollHeight));
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+    setComposerHeightPx(nextHeight);
+  };
+
+  const resizeTextareaSoon = () => {
+    window.setTimeout(() => resizeTextarea(), 0);
   };
 
   const focusTextareaSoon = () => {
@@ -61,6 +86,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
   };
 
   onMount(() => {
+    resizeTextareaSoon();
     if (isDraft()) {
       focusTextareaSoon();
     }
@@ -77,6 +103,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
       return;
     }
     setText("");
+    resizeTextareaSoon();
     setSending(true);
     try {
       await submitChatMessage(store, page(), value);
@@ -100,10 +127,12 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
     }
     setMaterializing(true);
     try {
-      await materializeChatPage(store, page());
+      const ok = await materializeChatPage(store, page());
+      if (!ok) {
+        focusTextareaSoon();
+      }
     } finally {
       setMaterializing(false);
-      focusTextareaSoon();
     }
   };
 
@@ -117,33 +146,47 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
         onClick={stop}
         onKeyDown={stop}
         onKeyUp={stop}>
-        <div class="flex h-full items-stretch gap-[6px] rounded-md border border-slate-300 bg-white/95 p-[6px] shadow-[0_3px_14px_rgba(15,23,42,0.13)]">
-          <textarea
-            ref={textarea}
-            class="min-w-0 grow resize-none rounded-sm border border-slate-200 px-[8px] py-[5px] text-[15px] leading-[20px] outline-none focus:border-slate-400"
-            value={text()}
-            rows={1}
-            spellcheck={true}
-            placeholder="Ask"
-            disabled={sending()}
-            onInput={(ev) => setText((ev.currentTarget as HTMLTextAreaElement).value)}
-            onKeyDown={keyDown}
-            onMouseDown={stop}
-            onMouseUp={stop}
-            onClick={stop} />
+        <div class="flex h-full items-end" style={`gap: ${SEARCH_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+          <div
+            class="min-w-0 grow overflow-hidden rounded-xs border border-[#999] bg-white"
+            style={`height: ${composerHeightPx()}px;`}>
+            <textarea
+              ref={textarea}
+              class="block w-full resize-none border-0 bg-transparent px-2.5 py-[9px] text-black outline-hidden"
+              style={`height: ${composerHeightPx()}px; font-size: 16px; line-height: 24px; user-select: text;`}
+              value={text()}
+              rows={1}
+              spellcheck={true}
+              placeholder="Ask"
+              disabled={sending()}
+              onInput={(ev) => {
+                const el = ev.currentTarget as HTMLTextAreaElement;
+                setText(el.value);
+                resizeTextarea(el);
+              }}
+              onKeyDown={keyDown}
+              onMouseDown={stop}
+              onMouseUp={stop}
+              onClick={stop} />
+          </div>
           <button
-            class="flex h-full w-[38px] shrink-0 items-center justify-center rounded-sm border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:text-slate-300"
+            class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+            style={`width: ${SEND_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+            type="button"
             title="Send"
+            aria-label="Send"
             disabled={sending() || text().trim() == ""}
             onClick={() => void send()}>
-            <i class="fa fa-paper-plane" />
+            <i class="fa fa-arrow-up" />
           </button>
           <Show when={isDraft()}>
             <button
-              class="h-full shrink-0 rounded-sm border border-slate-300 px-[10px] text-[13px] text-slate-700 hover:bg-slate-100 disabled:text-slate-300"
-              disabled={sending() || materializing()}
+              class="shrink-0 cursor-pointer rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+              style={`width: ${MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+              type="button"
+              disabled={sending() || materializing() || !hasContent()}
               onClick={() => void materialize()}>
-              materialize
+              Materialize
             </button>
           </Show>
         </div>

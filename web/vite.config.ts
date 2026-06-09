@@ -17,6 +17,7 @@ export default defineConfig(({ command, mode }) => {
     plugins: [solidPlugin()],
     server: {
       port: 3000,
+      hmr: false,
       proxy: {
         '/assets': {
           target: `http://${host}:8000`,

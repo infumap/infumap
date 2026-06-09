@@ -58,6 +58,7 @@ import { openTextDocumentProjection } from "../items/text-document";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
+import { ensureClientOnlyChatPageUnderQueries } from "../items/chat";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -177,6 +178,11 @@ export const Main: Component = () => {
           console.error(`Main.onMount applyContainerSnapshotFromServerObjects failed ${id}`, e);
           throw e;
         }
+      }
+
+      const userMaybe = store.user.getUserMaybe();
+      if (origin == null && userMaybe && itemId == userMaybe.searchesPageId) {
+        ensureClientOnlyChatPageUnderQueries(store, itemId);
       }
 
       try {
