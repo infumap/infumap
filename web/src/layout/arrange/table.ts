@@ -225,6 +225,56 @@ function snapshotTableRenderWindowRows(state: TableRenderWindowState): Array<num
   return [...state.rowSlots];
 }
 
+function snapshotTableRenderWindowChildren(state: TableRenderWindowState): Array<object> {
+  return Array.from({ length: state.childrenVes.length }, (_, outIdx) => {
+    const childSignal = state.childrenVes[outIdx];
+    if (!childSignal) {
+      return { outIdx, exists: false };
+    }
+    try {
+      const childVe = childSignal.get();
+      return {
+        outIdx,
+        exists: true,
+        path: VeFns.veToPath(childVe),
+        itemId: childVe.displayItem.id,
+        parentPath: childVe.parentPath,
+        row: childVe.row,
+        col: childVe.col,
+        flags: childVe.flags,
+      };
+    } catch (e: any) {
+      return { outIdx, exists: true, readError: e?.message ?? String(e) };
+    }
+  });
+}
+
+function recordTableDebugEvent(label: string, details: object) {
+  const event = {
+    label,
+    timestamp: new Date().toISOString(),
+    ...details,
+  };
+
+  if (typeof window !== "undefined") {
+    const debugWindow = window as any;
+    if (!Array.isArray(debugWindow.__infumapTableDebugEvents)) {
+      debugWindow.__infumapTableDebugEvents = [];
+    }
+    debugWindow.__infumapTableDebugEvents.push(event);
+    if (debugWindow.__infumapTableDebugEvents.length > 25) {
+      debugWindow.__infumapTableDebugEvents.shift();
+    }
+  }
+
+  console.error(`[TABLE_DEBUG] ${label}:`, event);
+  try {
+    console.error(`[TABLE_DEBUG_JSON] ${label}: ${JSON.stringify(event)}`);
+  } catch (_e) {
+    console.error(`[TABLE_DEBUG_JSON] ${label}: <failed to stringify>`);
+  }
+}
+
 function persistTableRenderWindowRows(tableVePath: VisualElementPath, state: TableRenderWindowState) {
   VesCache.table.setRenderRows(tableVePath, state.rowSlots);
 }
@@ -251,9 +301,9 @@ function logTableRenderWindowInconsistencies(
     outCount,
     childrenVesLength: windowState.childrenVes.length,
     tableVesRowsSnapshot: snapshotTableRenderWindowRows(windowState),
+    childrenSnapshot: snapshotTableRenderWindowChildren(windowState),
     debugRowMapping: Array.from(debugRowMapping.entries()),
     inconsistencies: [] as any[],
-    timestamp: new Date().toISOString(),
   };
 
   for (let i = 0; i < outCount; i++) {
@@ -284,7 +334,7 @@ function logTableRenderWindowInconsistencies(
   }
 
   if (hasInconsistency) {
-    console.error("[TABLE_DEBUG] Inconsistencies detected in final table arrangement:", finalDebugInfo);
+    recordTableDebugEvent("Inconsistencies detected in final table arrangement", finalDebugInfo);
   }
 }
 
@@ -385,7 +435,7 @@ function buildTableWindowPlans(
     },
     (rowIdx) => {
       const outIdx = rowIdx % outCount;
-      const fillerPlan = buildFillerRowPlan(displayItem_table, tableVePath);
+      const fillerPlan = buildFillerRowPlan(displayItem_table, tableVePath, rowIdx);
       slots.push({ kind: "filler", rowIdx, outIdx, fillerPlan });
     },
   );
@@ -416,12 +466,16 @@ function materializeTableWindowPlans(windowPlans: TableWindowPlanResult): TableR
 function buildFillerRowPlan(
   di_Table: TableItem,
   tableVePath: VisualElementPath,
+  rowIdx: number,
 ): TableRenderPlan {
   const uniqueNoneItem = uniqueEmptyItem();
   const spec: VisualElementSpec = {
     displayItem: uniqueNoneItem,
     boundsPx: EMPTY_BOUNDING_BOX,
-    flags: VisualElementFlags.LineItem,
+    flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable,
+    parentPath: tableVePath,
+    row: rowIdx,
+    col: 0,
   };
   const relationships: VisualElementRelationships = {};
   uniqueNoneItem.parentId = di_Table.id;
@@ -452,6 +506,17 @@ function applyTableWindowPlansAfterScroll(
 
         if (existingPath && !existingPath.includes(tableVePath)) {
           console.debug("rearrangeTableAfterScroll: stale VE signal detected, resorting to fullArrange.");
+          recordTableDebugEvent("stale VE signal detected", {
+            tableVePath,
+            outIdx,
+            rowIdx,
+            itemId: slot.rowPlan.spec.displayItem.id,
+            existingPath,
+            newPath: slot.rowPlan.path,
+            tableVesRows: snapshotTableRenderWindowRows(windowState),
+            childrenSnapshot: snapshotTableRenderWindowChildren(windowState),
+            debugRowMapping: Array.from(debugRowMapping.entries()),
+          });
           recoverWithFullArrange(store, "table-scroll-stale-row-signal");
           return false;
         }
@@ -465,7 +530,7 @@ function applyTableWindowPlansAfterScroll(
           debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: slot.rowPlan.spec.displayItem.id, outIdx: outIdx });
 
         } catch (e: any) {
-          console.error("[TABLE_DEBUG] createRow failed:", {
+          recordTableDebugEvent("createRow failed", {
             tableVePath: tableVePath,
             rowIdx: rowIdx,
             outIdx: outIdx,
@@ -478,8 +543,8 @@ function applyTableWindowPlansAfterScroll(
             existingVeExists: !!existingVe,
             tableVesRows: snapshotTableRenderWindowRows(windowState),
             childrenVesLength: windowState.childrenVes.length,
+            childrenSnapshot: snapshotTableRenderWindowChildren(windowState),
             debugRowMapping: Array.from(debugRowMapping.entries()),
-            timestamp: new Date().toISOString()
           });
           console.debug("rearrangeTableAfterScroll.createRow failed, resorting to fullArrange.");
           store.overlay.setTextEditInfo(store.history, null);
@@ -487,7 +552,63 @@ function applyTableWindowPlansAfterScroll(
           return false;
         }
       } else {
-        setTableRenderWindowSlot(windowState, outIdx, rowIdx, materializeTableRenderPlan(slot.fillerPlan));
+        const vesToOverwrite = getTableRenderWindowChild(windowState, outIdx);
+        const existingVe = vesToOverwrite?.get();
+        const existingPath = existingVe ? VeFns.veToPath(existingVe) : null;
+
+        if (existingPath && !existingPath.includes(tableVePath)) {
+          console.debug("rearrangeTableAfterScroll: stale filler VE signal detected, resorting to fullArrange.");
+          recordTableDebugEvent("stale filler VE signal detected", {
+            tableVePath,
+            outIdx,
+            rowIdx,
+            existingPath,
+            newPath: slot.fillerPlan.path,
+            tableVesRows: snapshotTableRenderWindowRows(windowState),
+            childrenSnapshot: snapshotTableRenderWindowChildren(windowState),
+            debugRowMapping: Array.from(debugRowMapping.entries()),
+          });
+          recoverWithFullArrange(store, "table-scroll-stale-filler-signal");
+          return false;
+        }
+
+        if (!vesToOverwrite) {
+          recordTableDebugEvent("missing filler VE signal", {
+            tableVePath,
+            outIdx,
+            rowIdx,
+            newPath: slot.fillerPlan.path,
+            tableVesRows: snapshotTableRenderWindowRows(windowState),
+            childrenVesLength: windowState.childrenVes.length,
+            childrenSnapshot: snapshotTableRenderWindowChildren(windowState),
+            debugRowMapping: Array.from(debugRowMapping.entries()),
+          });
+          recoverWithFullArrange(store, "table-scroll-missing-filler-signal");
+          return false;
+        }
+
+        try {
+          const nextFillerVe = materializeTableRenderPlanAfterScroll(slot.fillerPlan, vesToOverwrite);
+          setTableRenderWindowSlot(windowState, outIdx, rowIdx, nextFillerVe);
+        } catch (e: any) {
+          recordTableDebugEvent("createFiller failed", {
+            tableVePath,
+            rowIdx,
+            outIdx,
+            error: e?.message ?? String(e),
+            errorStack: e?.stack,
+            existingPath,
+            newPath: slot.fillerPlan.path,
+            tableVesRows: snapshotTableRenderWindowRows(windowState),
+            childrenVesLength: windowState.childrenVes.length,
+            childrenSnapshot: snapshotTableRenderWindowChildren(windowState),
+            debugRowMapping: Array.from(debugRowMapping.entries()),
+          });
+          console.debug("rearrangeTableAfterScroll.createFiller failed, resorting to fullArrange.");
+          store.overlay.setTextEditInfo(store.history, null);
+          recoverWithFullArrange(store, "table-scroll-create-filler-failed");
+          return false;
+        }
       }
     } else if (slot.kind === "row") {
       debugRowMapping.set(outIdx, { rowIdx: rowIdx, itemId: slot.rowPlan.spec.displayItem.id, outIdx: outIdx });
@@ -522,15 +643,15 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   if (windowState.rowSlots.length != windowState.childrenVes.length) {
     // TODO (LOW): should really implement logic such that this never happens. This is lazy.
     console.debug("rearrangeTableAfterScroll: invalid tableVesRows, resorting to fullArrange.");
-    console.error("[TABLE_DEBUG] Invalid state detected:", {
+    recordTableDebugEvent("Invalid state detected", {
       tableVePath: tableVePath,
       tableVesRows: windowState.rowSlots,
       tableVesRowsLength: windowState.rowSlots.length,
       childrenVesLength: windowState.childrenVes.length,
+      childrenSnapshot: snapshotTableRenderWindowChildren(windowState),
       prevScrollYPos: prevScrollYPos,
       currentScrollYPos: store.perItem.getTableScrollYPos(tableVeid),
       tableId: displayItem_table.id,
-      timestamp: new Date().toISOString()
     });
     // Clear text editing state to prevent race conditions with DOM elements
     store.overlay.setTextEditInfo(store.history, null);
@@ -721,6 +842,15 @@ function buildTableRowRenderPlan(
 
 function materializeTableRenderPlan(plan: TableRenderPlan): VisualElementSignal {
   return VesCache.arrange.writeVisualElementSignal(plan.spec, plan.relationships, plan.path);
+}
+
+
+function materializeTableRenderPlanAfterScroll(
+  plan: TableRenderPlan,
+  vesToOverwrite: VisualElementSignal): VisualElementSignal {
+
+  VesCache.mutate.overwriteVisualElementSignal(plan.spec, plan.relationships, plan.path, vesToOverwrite);
+  return vesToOverwrite;
 }
 
 
