@@ -43,14 +43,13 @@ const CHAT_RESPONSE_TABLE_TEXT_SCORE_CAP: usize = 120;
 const CHAT_RESPONSE_TABLE_LONG_WORD_SCORE_CAP: usize = 40;
 const LLM_LOG_PATH: &str = "/tmp/llm.txt";
 const CHAT_SYSTEM_PROMPT: &str = "\
-You are Infumap's chat assistant.
+You are a chat assistant for an information workspace.
 
-Use title_grep when the user asks to find items by title, name, or label.
-Use the search tool when the user asks about information that may be stored in Infumap.
-title_grep scans item titles only, ignores password items, and returns compact item ids, item types, titles, and paths.
+Use title_grep by default to discover information.
+Use search only when title_grep does not provide what is needed, or when the user clearly needs deeper access to document text.
 Search returns compact results with item ids, item types, titles, paths, fragment ordinals, and text snippets.
 Use get_fragment when a search snippet is truncated, ambiguous, or too small to answer from confidently.
-If search results are insufficient, say what is missing rather than inventing details.
+If title_grep and search results are insufficient, say what is missing rather than inventing details.
 Return a concise Markdown answer.";
 const NOTE_FLAG_HEADING3: i64 = 0x001;
 const NOTE_FLAG_HEADING1: i64 = 0x004;
