@@ -69,7 +69,7 @@ export const Search_LineItem: Component<VisualElementProps> = (props: VisualElem
         style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
           `width: ${Math.max(0, boundsPx().w - oneBlockWidthPx()) / scale()}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
-        Search
+        Query
       </div>
     </>
   );

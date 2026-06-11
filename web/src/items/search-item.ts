@@ -30,7 +30,7 @@ import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { normalizeItemCapabilities } from "./base/capabilities-item";
 import { FlagsMixin, SearchFlags } from "./base/flags-item";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
-import { Item, ItemType, ItemTypeMixin } from "./base/item";
+import { Item, ItemType, ItemTypeMixin, LEGACY_SEARCH_ITEM_TYPE } from "./base/item";
 import { PositionalMixin } from "./base/positional-item";
 import { XSizableMixin } from "./base/x-sizeable-item";
 
@@ -58,6 +58,14 @@ export function tempSearchResultsPageUid(searchItemId: Uid): Uid {
   return `fff0${searchItemId.slice(4)}`;
 }
 
+export function tempQueryChatPageUid(searchItemId: Uid): Uid {
+  return `fff2${searchItemId.slice(4)}`;
+}
+
+export function isTempQueryChatPageUid(itemId: Uid): boolean {
+  return itemId.startsWith("fff2");
+}
+
 export function tempSearchResultLinkUid(searchItemId: Uid, index: number): Uid {
   const indexHex = (index & 0xffff).toString(16).padStart(4, "0");
   return `fff1${indexHex}${searchItemId.slice(8)}`;
@@ -79,8 +87,8 @@ export function calcSearchWorkspaceInputWidthPx(boundsWidthPx: number): number {
   return Math.max(
     100,
     controlsWidthPx
-      - SEARCH_WORKSPACE_BUTTON_WIDTH_PX
-      - SEARCH_WORKSPACE_CONTROLS_GAP_PX,
+      - SEARCH_WORKSPACE_BUTTON_WIDTH_PX * 2
+      - SEARCH_WORKSPACE_CONTROLS_GAP_PX * 2,
   );
 }
 
@@ -118,10 +126,10 @@ export interface SearchMeasurable extends ItemTypeMixin, PositionalMixin, XSizab
 
 export const SearchFns = {
   create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): SearchItem => {
-    if (parentId == EMPTY_UID) { panic("SearchFns.create: parent is empty."); }
+    if (parentId == EMPTY_UID) { panic("Query item create: parent is empty."); }
     return {
       origin: null,
-      itemType: ItemType.Search,
+      itemType: ItemType.Query,
       ownerId,
       id: newUid(),
       parentId,
@@ -141,7 +149,7 @@ export const SearchFns = {
     return ({
       origin,
       capabilities: normalizeItemCapabilities(o.capabilities),
-      itemType: o.itemType,
+      itemType: ItemType.Query,
       ownerId: o.ownerId,
       id: o.id,
       parentId: o.parentId,
@@ -159,7 +167,7 @@ export const SearchFns = {
 
   toObject: (search: SearchItem): object => {
     return ({
-      itemType: search.itemType,
+      itemType: ItemType.Query,
       ownerId: search.ownerId,
       id: search.id,
       parentId: search.parentId,
@@ -289,7 +297,7 @@ export const SearchFns = {
   },
 
   asSearchMeasurable: (item: ItemTypeMixin): SearchMeasurable => {
-    if (item.itemType == ItemType.Search) { return item as SearchMeasurable; }
+    if (isSearch(item)) { return item as SearchMeasurable; }
     panic("not search measurable.");
   },
 
@@ -313,7 +321,7 @@ export const SearchFns = {
   },
 
   debugSummary: (_searchItem: SearchItem) => {
-    return "[search]";
+    return "[query]";
   },
 
   getFingerprint: (searchItem: SearchItem): string => {
@@ -324,12 +332,12 @@ export const SearchFns = {
 
 export function isSearch(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  return item.itemType == ItemType.Search;
+  return item.itemType == ItemType.Query || item.itemType == LEGACY_SEARCH_ITEM_TYPE;
 }
 
 export function asSearchItem(item: ItemTypeMixin): SearchItem {
-  if (item.itemType == ItemType.Search) { return item as SearchItem; }
+  if (isSearch(item)) { return item as SearchItem; }
   const item_any: any = item;
   const id = item_any["id"] ? item_any["id"] : "[unknown]";
-  panic(`item (id: ${id}) is a '${item.itemType}', not a search.`);
+  panic(`item (id: ${id}) is a '${item.itemType}', not a query.`);
 }

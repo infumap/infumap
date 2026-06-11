@@ -61,6 +61,7 @@ import {
 import { materializeSearchResults } from "../../layout/search_materialize";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../items/page-item";
+import { ensureClientOnlyChatPageUnderQueryItem, removeClientOnlyChatPagesUnderQueries, submitChatMessage } from "../../items/chat";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
@@ -75,6 +76,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const [pendingInputFocus, setPendingInputFocus] = createSignal<{ caretIdx: number, selectAll: boolean } | null>(null);
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
+  const [isStartingChat, setIsStartingChat] = createSignal(false);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
   let activeSearchRequestSerial = 0;
   const boundsPx = () => props.visualElement.boundsPx;
@@ -86,8 +88,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const searchItem = () => asSearchItem(props.visualElement.displayItem);
   const canEdit = () => itemCanEdit(searchItem());
   const queryText = () => store.perItem.getSearchQuery(searchItem().id);
+  const queryMode = () => store.perItem.getQueryMode(searchItem().id);
+  const isSearchMode = () => queryMode() == "search";
+  const isChatMode = () => queryMode() == "chat";
   const searchHasMoreResults = () => store.perItem.getSearchHasMoreResults(searchItem().id);
   const searchLoadedPageCount = () => store.perItem.getSearchLoadedPageCount(searchItem().id);
+  const hasSubmittedQuery = () => queryMode() != null;
   const hasSearchResults = () => (store.perItem.getSearchResults(searchItem().id)?.length ?? 0) > 0;
   const searchArrangeAlgorithm = () =>
     store.perItem.getSearchArrangeAlgorithm(searchItem().id) == ArrangeAlgorithm.Grid
@@ -212,6 +218,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   };
 
   const clearSearchResults = () => {
+    store.perItem.setQueryMode(searchItem().id, null);
     store.perItem.setSearchResults(searchItem().id, null);
     store.perItem.setSearchHasMoreResults(searchItem().id, false);
     store.perItem.setSearchLoadedPageCount(searchItem().id, 0);
@@ -235,6 +242,8 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       return;
     }
 
+    store.perItem.setQueryMode(searchItem().id, "search");
+    requestArrange(store, "query-search-start");
     const response = await server.search(null, text, store.general.networkStatus, 1);
     if (requestSerial != activeSearchRequestSerial) {
       return;
@@ -246,6 +255,33 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     store.perItem.setSearchFocusedResultIndex(searchItem().id, -1);
     requestArrange(store, "search-results");
     void warmSearchResults(response.results);
+  };
+
+  const startChat = async (editingElMaybe?: HTMLElement | null) => {
+    if (isStartingChat()) {
+      return;
+    }
+
+    const text = commitEditingQuery(editingElMaybe);
+    if (text.trim() == "") {
+      requestEditMode(queryText().length, false);
+      return;
+    }
+
+    setIsStartingChat(true);
+    activeSearchRequestSerial++;
+    try {
+      const queriesPageId = searchItem().parentId;
+      removeClientOnlyChatPagesUnderQueries(store, queriesPageId);
+      const chatPage = ensureClientOnlyChatPageUnderQueryItem(searchItem());
+      store.perItem.setQueryMode(searchItem().id, "chat");
+      store.history.setFocus(vePath());
+      store.overlay.autoFocusChatInput.set(true);
+      arrangeNow(store, "query-start-chat");
+      await submitChatMessage(store, chatPage, text);
+    } finally {
+      setIsStartingChat(false);
+    }
   };
 
   const loadMoreSearchResults = async () => {
@@ -426,7 +462,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   });
 
   createEffect(() => {
-    if (!isListPageMainRoot() || !searchHasMoreResults()) {
+    if (!isListPageMainRoot() || !isSearchMode() || !searchHasMoreResults()) {
       setMoreButtonHost(null);
       return;
     }
@@ -467,6 +503,66 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const lowerTopPx = calcSearchWorkspaceResultsTopPx();
     const arrangeSelectorTopPx = lowerTopPx - Math.round(SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
     const showMoreButton = () => searchHasMoreResults();
+    const initialControlsTopPx = () => {
+      const preferredTopPx = Math.round(boundsPx().h * 0.45 - SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX / 2);
+      const maxTopPx = Math.max(0, boundsPx().h - SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX - 24);
+      return Math.max(0, Math.min(maxTopPx, preferredTopPx));
+    };
+    const renderQueryControls = () =>
+      <div class="flex items-center" style={`gap: ${SEARCH_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+        <div
+          class="border border-[#999] rounded-xs bg-white overflow-hidden"
+          style={`width: ${inputWidthPx}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          onMouseDown={queryInputMouseDown}>
+          <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
+            style="font-size: 16px;">
+            <input id={editingDomId()}
+              class="block h-full w-full border-0 bg-transparent p-0 text-black outline-hidden"
+              style="font-size: 16px; user-select: text;"
+              value={queryText()}
+              placeholder="Query..."
+              readOnly={!canEdit() || !isEditing()}
+              spellcheck={canEdit() && isEditing()}
+              onMouseDown={queryInputMouseDown}
+              onKeyDown={keyDownHandler}
+              onInput={inputListener} />
+          </div>
+        </div>
+        <button
+          class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-40"
+          style={`width: ${SEARCH_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          type="button"
+          disabled={isStartingChat()}
+          onMouseDown={(ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            void runSearch(false);
+          }}
+          onMouseUp={(ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+          }}
+          >
+          Search
+        </button>
+        <button
+          class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-40"
+          style={`width: ${SEARCH_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          type="button"
+          disabled={!canEdit() || isStartingChat()}
+          onMouseDown={(ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            void startChat();
+          }}
+          onMouseUp={(ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+          }}
+          >
+          Chat
+        </button>
+      </div>;
     return (
       <div class="absolute bg-white"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
@@ -476,102 +572,75 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
             style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
               `background-color: ${FIND_HIGHLIGHT_COLOR};`} />
         </Show>
-        <div class="absolute border-b border-slate-300 bg-white"
-          style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${lowerTopPx}px;`}>
-          <div class="absolute"
-            style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; top: ${SEARCH_WORKSPACE_TOP_INSET_PX}px; width: ${controlsWidthPx}px;`}>
-            <div class="flex items-center gap-[10px]">
-              <div
-                class="border border-[#999] rounded-xs bg-white overflow-hidden"
-                style={`width: ${inputWidthPx}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-                onMouseDown={queryInputMouseDown}>
-                <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
-                  style="font-size: 16px;">
-                  <input id={editingDomId()}
-                    class="block h-full w-full border-0 bg-transparent p-0 text-black outline-hidden"
-                    style="font-size: 16px; user-select: text;"
-                    value={queryText()}
-                    placeholder="Search..."
-                    readOnly={!canEdit() || !isEditing()}
-                    spellcheck={canEdit() && isEditing()}
-                    onMouseDown={queryInputMouseDown}
-                    onKeyDown={keyDownHandler}
-                    onInput={inputListener} />
-                </div>
-              </div>
-              <button
-                class="border border-[#999] rounded-xs bg-white text-black cursor-pointer"
-                style={`width: ${SEARCH_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-                type="button"
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                  void runSearch(false);
-                }}
-                onMouseUp={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                }}
-                >
-                Search
-              </button>
+        <Show when={!isChatMode()}>
+          <div class="absolute bg-white"
+            classList={{ "border-b": isSearchMode(), "border-slate-300": isSearchMode() }}
+            style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${isSearchMode() ? lowerTopPx : boundsPx().h}px;`}>
+            <div class="absolute"
+              style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; ` +
+                `top: ${isSearchMode() ? SEARCH_WORKSPACE_TOP_INSET_PX : initialControlsTopPx()}px; width: ${controlsWidthPx}px;`}>
+              {renderQueryControls()}
             </div>
           </div>
-        </div>
-        <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(vePath())()} />
-        <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
-        }</For>
-        <div class="absolute flex items-center gap-[4px]"
-          style={`right: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
-          <button
-            class="flex items-center justify-center border border-slate-300 rounded-[5px] bg-white text-slate-600 cursor-pointer disabled:cursor-default disabled:opacity-40"
-            style={`width: ${SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; margin-right: 14px; ` +
-              `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
-            type="button"
-            title="Create page from results"
-            aria-label="Create page from results"
-            disabled={!hasSearchResults() || isEditing()}
-            onMouseDown={(ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
-              if (hasSearchResults() && !isEditing()) {
-                void materializeCurrentResults();
-              }
-            }}
-            onMouseUp={(ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
-            }}>
-            <i class="bi-file-earmark-plus" />
-          </button>
-          <For each={SEARCH_WORKSPACE_ARRANGE_OPTIONS}>{option => {
-            const selected = () => searchArrangeAlgorithm() == option.arrangeAlgorithm;
-            return (
-              <button
-                class="flex items-center justify-center cursor-pointer"
-                style={`width: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; ` +
-                  `font-size: 11px; letter-spacing: 0; font-weight: ${selected() ? 700 : 600}; ` +
-                  `color: ${selected() ? "rgba(51, 65, 85, 0.92)" : "rgba(100, 116, 139, 0.76)"}; ` +
-                  `background: rgba(255, 255, 255, 0.96); ` +
-                  `border: 1px solid rgba(203, 213, 225, 0.95); border-radius: 5px; ` +
-                  `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
-                type="button"
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                  setSearchArrangeAlgorithm(option.arrangeAlgorithm);
-                }}
-                onMouseUp={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                }}>
-                {option.label}
-              </button>
-            );
-          }}</For>
-        </div>
-        <Show when={showMoreButton() && moreButtonHost()}>
+        </Show>
+        <Show when={hasSubmittedQuery()}>
+          <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(vePath())()} />
+          <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
+            <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
+          }</For>
+        </Show>
+        <Show when={isSearchMode()}>
+          <div class="absolute flex items-center gap-[4px]"
+            style={`right: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
+            <button
+              class="flex items-center justify-center border border-slate-300 rounded-[5px] bg-white text-slate-600 cursor-pointer disabled:cursor-default disabled:opacity-40"
+              style={`width: ${SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; margin-right: 14px; ` +
+                `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
+              type="button"
+              title="Create page from results"
+              aria-label="Create page from results"
+              disabled={!hasSearchResults() || isEditing()}
+              onMouseDown={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (hasSearchResults() && !isEditing()) {
+                  void materializeCurrentResults();
+                }
+              }}
+              onMouseUp={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+              }}>
+              <i class="bi-file-earmark-plus" />
+            </button>
+            <For each={SEARCH_WORKSPACE_ARRANGE_OPTIONS}>{option => {
+              const selected = () => searchArrangeAlgorithm() == option.arrangeAlgorithm;
+              return (
+                <button
+                  class="flex items-center justify-center cursor-pointer"
+                  style={`width: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; ` +
+                    `font-size: 11px; letter-spacing: 0; font-weight: ${selected() ? 700 : 600}; ` +
+                    `color: ${selected() ? "rgba(51, 65, 85, 0.92)" : "rgba(100, 116, 139, 0.76)"}; ` +
+                    `background: rgba(255, 255, 255, 0.96); ` +
+                    `border: 1px solid rgba(203, 213, 225, 0.95); border-radius: 5px; ` +
+                    `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
+                  type="button"
+                  onMouseDown={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    setSearchArrangeAlgorithm(option.arrangeAlgorithm);
+                  }}
+                  onMouseUp={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                  }}>
+                  {option.label}
+                </button>
+              );
+            }}</For>
+          </div>
+        </Show>
+        <Show when={isSearchMode() && showMoreButton() && moreButtonHost()}>
           <Portal mount={moreButtonHost()!}>
             <button
               class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-60"
@@ -630,7 +699,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
           `${desktopTextStyle().isBold ? "font-weight: bold; " : ""}` +
           `outline: 0px solid transparent; ` +
           `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; text-overflow: ellipsis;`}>
-        Search
+        Query
       </span>
       <InfuResizeTriangle />
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>

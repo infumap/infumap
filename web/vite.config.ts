@@ -37,6 +37,10 @@ export default defineConfig(({ command, mode }) => {
           target: `http://${host}:8000`,
           changeOrigin: false
         },
+        '/chat': {
+          target: `http://${host}:8000`,
+          changeOrigin: false
+        },
         '/ingest': {
           target: `http://${host}:8000`,
           changeOrigin: false

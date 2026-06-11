@@ -31,7 +31,7 @@ import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
 import { clearLoadState, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { ensureSearchItemUnderSearches, switchToNonPage, switchToPage } from "../layout/navigation";
+import { ensureQueryItemUnderQueries, switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -58,7 +58,7 @@ import { openTextDocumentProjection } from "../items/text-document";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
-import { ensureClientOnlyChatPageUnderQueries } from "../items/chat";
+import { removeClientOnlyChatPagesUnderQueries } from "../items/chat";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -182,8 +182,12 @@ export const Main: Component = () => {
 
       const userMaybe = store.user.getUserMaybe();
       if (origin == null && userMaybe && itemId == userMaybe.searchesPageId) {
-        await ensureSearchItemUnderSearches(store, itemId);
-        ensureClientOnlyChatPageUnderQueries(store, itemId);
+        const queryItemId = await ensureQueryItemUnderQueries(store, itemId);
+        removeClientOnlyChatPagesUnderQueries(store, itemId);
+        if (queryItemId != null) {
+          store.perItem.setSelectedListPageItem({ itemId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
+          store.overlay.autoFocusSearchInput.set(true);
+        }
       }
 
       try {

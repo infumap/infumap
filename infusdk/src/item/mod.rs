@@ -325,7 +325,7 @@ impl ItemType {
       ItemType::Image => "image",
       ItemType::Rating => "rating",
       ItemType::Link => "link",
-      ItemType::Search => "search",
+      ItemType::Search => "query",
       ItemType::Divider => "divider",
       ItemType::Placeholder => "placeholder",
     }
@@ -343,7 +343,7 @@ impl ItemType {
       "image" => Ok(ItemType::Image),
       "rating" => Ok(ItemType::Rating),
       "link" => Ok(ItemType::Link),
-      "search" => Ok(ItemType::Search),
+      "query" | "search" => Ok(ItemType::Search),
       "divider" => Ok(ItemType::Divider),
       "placeholder" => Ok(ItemType::Placeholder),
       other => Err(format!("Invalid ItemType value: '{}'.", other).into()),
@@ -3523,7 +3523,7 @@ impl Item {
     }
   }
 
-  pub fn new_search(
+  pub fn new_query(
     parent_id: &Uid,
     ordering: Vec<u8>,
     spatial_position_gr: Vector<i64>,
@@ -3587,6 +3587,16 @@ impl Item {
       rating_type: None,
       divider_direction: None,
     }
+  }
+
+  pub fn new_search(
+    parent_id: &Uid,
+    ordering: Vec<u8>,
+    spatial_position_gr: Vector<i64>,
+    spatial_width_gr: i64,
+    relationship: RelationshipToParent,
+  ) -> Item {
+    Item::new_query(parent_id, ordering, spatial_position_gr, spatial_width_gr, relationship)
   }
 
   pub fn new_divider(

@@ -21,6 +21,7 @@ import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInf
 import type { SearchResult } from "../server";
 import { ArrangeAlgorithm } from "../items/page-item";
 
+export type QueryMode = "search" | "chat" | null;
 
 export interface PerItemStoreContextModel {
   getSelectedListPageItem: (listPageVeid: Veid) => Veid,
@@ -44,6 +45,9 @@ export interface PerItemStoreContextModel {
 
   getSearchQuery: (itemId: string) => string,
   setSearchQuery: (itemId: string, query: string) => void,
+
+  getQueryMode: (itemId: string) => QueryMode,
+  setQueryMode: (itemId: string, mode: QueryMode) => void,
 
   getSearchResults: (itemId: string) => Array<SearchResult> | null,
   setSearchResults: (itemId: string, results: Array<SearchResult> | null) => void,
@@ -76,6 +80,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const selectedItems = new Map<string, InfuSignal<Veid>>();
   const focusedItems = new Map<string, InfuSignal<Veid>>();
   const searchQueries = new Map<string, InfuSignal<string>>();
+  const queryModes = new Map<string, InfuSignal<QueryMode>>();
   const searchResults = new Map<string, InfuSignal<Array<SearchResult> | null>>();
   const searchHasMoreResults = new Map<string, InfuSignal<boolean>>();
   const searchLoadedPageCounts = new Map<string, NumberSignal>();
@@ -167,6 +172,21 @@ export function makePerItemStore(): PerItemStoreContextModel {
       return;
     }
     searchQueries.get(itemId)!.set(query);
+  };
+
+  const getQueryMode = (itemId: string): QueryMode => {
+    if (!queryModes.get(itemId)) {
+      queryModes.set(itemId, createInfuSignal<QueryMode>(null));
+    }
+    return queryModes.get(itemId)!.get();
+  };
+
+  const setQueryMode = (itemId: string, mode: QueryMode): void => {
+    if (!queryModes.get(itemId)) {
+      queryModes.set(itemId, createInfuSignal<QueryMode>(mode));
+      return;
+    }
+    queryModes.get(itemId)!.set(mode);
   };
 
   const getSearchResults = (itemId: string): Array<SearchResult> | null => {
@@ -308,6 +328,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     selectedItems.clear();
     focusedItems.clear();
     searchQueries.clear();
+    queryModes.clear();
     searchResults.clear();
     searchHasMoreResults.clear();
     searchLoadedPageCounts.clear();
@@ -324,6 +345,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getPageScrollYProp, setPageScrollYProp,
     getCompositeIsCollapsed, setCompositeIsCollapsed,
     getSearchQuery, setSearchQuery,
+    getQueryMode, setQueryMode,
     getSearchResults, setSearchResults,
     getSearchHasMoreResults, setSearchHasMoreResults,
     getSearchLoadedPageCount, setSearchLoadedPageCount,

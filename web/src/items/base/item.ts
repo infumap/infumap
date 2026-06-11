@@ -32,10 +32,13 @@ export const ItemType = {
   Image: "image",
   Rating: "rating",
   Link: "link",
-  Search: "search",
+  Query: "query",
+  Search: "query",
   Divider: "divider",
   Placeholder: "placeholder",
 };
+
+export const LEGACY_SEARCH_ITEM_TYPE = "search";
 
 export type ItemType = typeof ItemType[keyof typeof ItemType];
 

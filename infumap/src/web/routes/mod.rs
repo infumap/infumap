@@ -162,8 +162,8 @@ pub fn default_searches_page(owner_id: &str, searches_page_id: Uid, natural_aspe
   item
 }
 
-pub fn default_search_item(owner_id: &str, searches_page_id: &Uid, search_item_id: Uid, page_width_bl: i64) -> Item {
-  let mut item = Item::new_search(
+pub fn default_query_item(owner_id: &str, searches_page_id: &Uid, query_item_id: Uid, page_width_bl: i64) -> Item {
+  let mut item = Item::new_query(
     searches_page_id,
     vec![128],
     Vector { x: 0, y: 0 },
@@ -172,7 +172,7 @@ pub fn default_search_item(owner_id: &str, searches_page_id: &Uid, search_item_i
   );
 
   item.owner_id = String::from(owner_id);
-  item.id = search_item_id;
+  item.id = query_item_id;
   item.flags = Some(item.flags.unwrap_or(0) | LIST_PAGE_PIN_TOP_FLAG);
 
   item

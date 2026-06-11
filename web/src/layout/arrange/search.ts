@@ -26,9 +26,16 @@ import {
   isPage,
 } from "../../items/page-item";
 import {
+  NATURAL_BLOCK_SIZE_PX,
+  PAGE_DOCUMENT_LEFT_MARGIN_BL,
+  PAGE_DOCUMENT_RIGHT_MARGIN_BL,
+} from "../../constants";
+import {
   SearchItem,
+  SEARCH_WORKSPACE_SIDE_INSET_PX,
   TEMP_SEARCH_RESULTS_ORIGIN,
   calcSearchWorkspaceResultsBoundsPx,
+  tempQueryChatPageUid,
   tempSearchResultLinkUid,
   tempSearchResultsPageUid,
 } from "../../items/search-item";
@@ -113,6 +120,47 @@ export function arrangeSearchResultsPathMaybe(
   searchItemPath: VisualElementPath,
   searchItemGeometry: ItemGeometry,
 ): VisualElementPath | null {
+  const queryMode = store.perItem.getQueryMode(searchItem.id);
+  if (queryMode == "chat") {
+    const chatPage = itemState.get(tempQueryChatPageUid(searchItem.id));
+    if (!chatPage || !isPage(chatPage)) {
+      return null;
+    }
+    const page = asPageItem(chatPage);
+    const preferredWidthPx = (page.docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL) *
+      NATURAL_BLOCK_SIZE_PX.w;
+    const maxWidthPx = Math.max(
+      240,
+      searchItemGeometry.boundsPx.w - SEARCH_WORKSPACE_SIDE_INSET_PX * 2,
+    );
+    const chatWidthPx = Math.min(preferredWidthPx, maxWidthPx);
+    const chatBoundsPx = {
+      x: Math.max(0, Math.round((searchItemGeometry.boundsPx.w - chatWidthPx) / 2)),
+      y: 0,
+      w: chatWidthPx,
+      h: searchItemGeometry.boundsPx.h,
+    };
+    const pageGeometry: ItemGeometry = {
+      boundsPx: chatBoundsPx,
+      viewportBoundsPx: chatBoundsPx,
+      blockSizePx: searchItemGeometry.blockSizePx,
+      hitboxes: [],
+    };
+    return arrangeItemPath(
+      store,
+      searchItemPath,
+      ArrangeAlgorithm.Document,
+      page,
+      null,
+      pageGeometry,
+      ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsListPageMainRoot,
+    );
+  }
+
+  if (queryMode != "search") {
+    return null;
+  }
+
   const results = store.perItem.getSearchResults(searchItem.id);
   if (!results || results.length == 0) {
     return null;

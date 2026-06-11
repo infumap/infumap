@@ -28,9 +28,11 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
+import { SearchItem, tempQueryChatPageUid } from "./search-item";
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { newOrdering } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 export const CHAT_DRAFT_TITLE = "Chat";
@@ -120,39 +122,54 @@ function prepareChatPage(page: PageItem): void {
   markChildrenLoadAsInitiatedOrComplete(page.id);
 }
 
-export function ensureClientOnlyChatPageUnderQueries(store: StoreContextModel, queriesPageId: Uid): Uid | null {
+export function removeClientOnlyChatPagesUnderQueries(_store: StoreContextModel, queriesPageId: Uid): void {
   const queriesPageMaybe = itemState.get(queriesPageId);
   if (!queriesPageMaybe || !isPage(queriesPageMaybe)) {
-    return null;
+    return;
   }
 
   const queriesPage = asPageItem(queriesPageMaybe);
-  for (const childId of queriesPage.computed_children) {
+  for (const childId of [...queriesPage.computed_children]) {
     const child = itemState.get(childId);
-    if (child && isPage(child)) {
-      const page = asPageItem(child);
-      if (page.clientOnly === true && isChatPage(page)) {
-        if (page.title == LEGACY_CHAT_DRAFT_TITLE) {
-          page.title = CHAT_DRAFT_TITLE;
-        }
-        prepareChatPage(page);
-        return page.id;
-      }
+    if (!child || !isPage(child)) {
+      continue;
+    }
+    const page = asPageItem(child);
+    if (page.clientOnly === true && isChatPage(page)) {
+      clearDraftChatPage(page);
+      itemState.delete(page.id);
     }
   }
+}
 
-  const page = PageFns.create(
-    queriesPage.ownerId,
-    queriesPage.id,
-    RelationshipToParent.Child,
-    CHAT_DRAFT_TITLE,
-    itemState.newOrderingAtBeginningOfChildren(queriesPage.id),
-  );
-  prepareChatPage(page);
+export function ensureClientOnlyChatPageUnderQueryItem(searchItem: SearchItem): PageItem {
+  const pageId = tempQueryChatPageUid(searchItem.id);
+  let pageItem = itemState.get(pageId);
+  if (!pageItem || !isPage(pageItem)) {
+    const tempPage = PageFns.create(
+      searchItem.ownerId,
+      searchItem.id,
+      RelationshipToParent.Child,
+      CHAT_DRAFT_TITLE,
+      newOrdering(),
+    );
+    tempPage.id = pageId;
+    tempPage.origin = null;
+    tempPage.clientOnly = true;
+    pageItem = itemState.upsertItemFromServerObject(PageFns.toObject(tempPage), null);
+  }
+
+  const page = asPageItem(pageItem);
+  page.origin = null;
+  page.ownerId = searchItem.ownerId;
+  page.parentId = searchItem.id;
+  page.relationshipToParent = RelationshipToParent.Child;
   page.clientOnly = true;
-  itemState.add(page);
-  requestArrange(store, "chat-draft-page-create");
-  return page.id;
+  if (page.title == LEGACY_CHAT_DRAFT_TITLE) {
+    page.title = CHAT_DRAFT_TITLE;
+  }
+  prepareChatPage(page);
+  return page;
 }
 
 function createTurnComposite(

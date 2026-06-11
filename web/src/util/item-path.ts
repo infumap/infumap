@@ -40,7 +40,7 @@ function fallbackTitleForItem(item: Item): string {
     case ItemType.Image: return "[image]";
     case ItemType.Rating: return "[rating]";
     case ItemType.Link: return "[link]";
-    case ItemType.Search: return "[search]";
+    case ItemType.Search: return "[query]";
     case ItemType.Divider: return "[divider]";
     default: return `[${item.itemType}]`;
   }

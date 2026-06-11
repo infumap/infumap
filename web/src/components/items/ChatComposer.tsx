@@ -25,6 +25,7 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { chatProgressForPage, isChatPage, materializeChatPage, submitChatMessage } from "../../items/chat";
 import { asPageItem } from "../../items/page-item";
 import {
+  isTempQueryChatPageUid,
   SEARCH_WORKSPACE_CONTROLS_GAP_PX,
   SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX,
 } from "../../items/search-item";
@@ -51,6 +52,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
   const enabled = () => isChatPage(page()) && itemCanEdit(page());
   const hasContent = () => page().computed_children.length > 0;
   const isDraft = () => page().clientOnly === true;
+  const canMaterialize = () => isDraft() && !isTempQueryChatPageUid(page().id);
   const progress = () => chatProgressForPage(page().id);
 
   const documentScale = () => pageFns().documentScale ? pageFns().documentScale() : 1.0;
@@ -142,7 +144,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
   };
 
   const materialize = async () => {
-    if (materializing() || !isDraft()) {
+    if (materializing() || !canMaterialize()) {
       return;
     }
     setMaterializing(true);
@@ -206,7 +208,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
             onClick={() => void send()}>
             <i class="fa fa-arrow-up" />
           </button>
-          <Show when={isDraft()}>
+          <Show when={canMaterialize()}>
             <button
               class="shrink-0 cursor-pointer rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}

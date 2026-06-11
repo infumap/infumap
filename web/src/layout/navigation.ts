@@ -19,9 +19,9 @@
 import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { asSearchItem, isSearch, SearchFns } from "../items/search-item";
+import { asSearchItem, isSearch, isTempQueryChatPageUid, SearchFns } from "../items/search-item";
 import { SearchFlags } from "../items/base/flags-item";
-import { ensureClientOnlyChatPageUnderQueries } from "../items/chat";
+import { removeClientOnlyChatPagesUnderQueries } from "../items/chat";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
@@ -37,11 +37,34 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
   store.currentUrlPath.set(url);
 }
 
+function internalQueryChatOwnerPageId(itemId: Uid): Uid | null {
+  if (!isTempQueryChatPageUid(itemId)) {
+    return null;
+  }
+
+  const item = itemState.get(itemId);
+  if (!item || !isPage(item)) {
+    return null;
+  }
+
+  const parent = itemState.get(item.parentId);
+  if (!parent || !isSearch(parent)) {
+    return null;
+  }
+
+  return parent.parentId == EMPTY_UID ? null : parent.parentId;
+}
+
 function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): string {
   const currentVeid = store.history.currentPageVeid();
   const itemId = overrideItemId ?? currentVeid?.itemId;
   if (!itemId || itemId == EMPTY_UID) {
     return "/";
+  }
+
+  const queryChatOwnerPageId = internalQueryChatOwnerPageId(itemId);
+  if (queryChatOwnerPageId != null) {
+    return currentUrl(store, queryChatOwnerPageId);
   }
 
   const item = itemState.get(itemId);
@@ -154,6 +177,11 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     console.warn("switchToPage: ignored empty page veid.", { pageVeid, focusPath });
     return;
   }
+  const queryChatOwnerPageId = internalQueryChatOwnerPageId(pageVeid.itemId);
+  if (queryChatOwnerPageId != null) {
+    console.warn("switchToPage: ignored internal query chat page veid.", { pageVeid, focusPath });
+    return;
+  }
 
   if (clearHistory) {
     store.history.setHistoryToSinglePage(pageVeid, focusPath);
@@ -174,7 +202,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   store.currentUrlPath.set(url);
 }
 
-export async function ensureSearchItemUnderSearches(store: StoreContextModel, searchesPageId: Uid): Promise<Uid | null> {
+export async function ensureQueryItemUnderQueries(store: StoreContextModel, searchesPageId: Uid): Promise<Uid | null> {
   const searchesPageMaybe = itemState.get(searchesPageId);
   if (!searchesPageMaybe || !isPage(searchesPageMaybe)) {
     return null;
@@ -196,21 +224,21 @@ export async function ensureSearchItemUnderSearches(store: StoreContextModel, se
     }
   }
 
-  const searchItem = SearchFns.create(
+  const queryItem = SearchFns.create(
     searchesPage.ownerId,
     searchesPageId,
     RelationshipToParent.Child,
     itemState.newOrderingAtBeginningOfChildren(searchesPageId),
   );
-  searchItem.flags |= SearchFlags.ListPagePinTop;
-  itemState.add(searchItem);
+  queryItem.flags |= SearchFlags.ListPagePinTop;
+  itemState.add(queryItem);
 
   try {
-    await server.addItem(searchItem, null, store.general.networkStatus);
-    return searchItem.id;
+    await server.addItem(queryItem, null, store.general.networkStatus);
+    return queryItem.id;
   } catch (e) {
-    console.error("Failed to create default Search item under Queries page:", e);
-    itemState.delete(searchItem.id);
+    console.error("Failed to create default query item under Queries page:", e);
+    itemState.delete(queryItem.id);
     return null;
   }
 }
@@ -218,7 +246,7 @@ export async function ensureSearchItemUnderSearches(store: StoreContextModel, se
 export async function navigateToSearches(store: StoreContextModel): Promise<void> {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) { return; }
-  store.overlay.autoFocusSearchInput.set(false);
+  store.overlay.autoFocusSearchInput.set(true);
 
   const searchesPageId = userMaybe.searchesPageId;
   let searchesPage = itemState.get(searchesPageId);
@@ -240,11 +268,10 @@ export async function navigateToSearches(store: StoreContextModel): Promise<void
     void server.updateItem(queriesPage, store.general.networkStatus, false);
   }
 
-  const searchItemId = await ensureSearchItemUnderSearches(store, searchesPageId);
-  const chatPageId = ensureClientOnlyChatPageUnderQueries(store, searchesPageId);
-  const selectedItemId = chatPageId ?? searchItemId;
-  if (selectedItemId != null) {
-    store.perItem.setSelectedListPageItem({ itemId: searchesPageId, linkIdMaybe: null }, { itemId: selectedItemId, linkIdMaybe: null });
+  const queryItemId = await ensureQueryItemUnderQueries(store, searchesPageId);
+  removeClientOnlyChatPagesUnderQueries(store, searchesPageId);
+  if (queryItemId != null) {
+    store.perItem.setSelectedListPageItem({ itemId: searchesPageId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
   }
 
   const currentPageVeid = store.history.currentPageVeid();
