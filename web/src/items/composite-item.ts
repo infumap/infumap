@@ -227,7 +227,6 @@ export const CompositeFns = {
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
-        ...CompositeFns.collapseToggleHitboxMaybe(_measurable, blockSizePx),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, moveBoundsPx, { compositeMoveOut: true }),
         HitboxFns.create(HitboxFlags.AttachComposite, {
@@ -304,7 +303,6 @@ export const CompositeFns = {
       blockSizePx,
       viewportBoundsPx: boundsPx,
       hitboxes: !emitHitboxes ? [] : [
-        ...CompositeFns.collapseToggleHitboxMaybe(composite, blockSizePx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         HitboxFns.create(
           HitboxFlags.Attach,
@@ -379,7 +377,6 @@ export const CompositeFns = {
       blockSizePx,
       viewportBoundsPx: boundsPx,
       hitboxes: [
-        ...CompositeFns.collapseToggleHitboxMaybe(composite, blockSizePx),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
         ...titleHitboxMaybe,

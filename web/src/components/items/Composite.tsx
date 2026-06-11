@@ -123,7 +123,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const showTriangleDetail = () => { return boundsPx().w / LINE_HEIGHT_PX > (0.5 * compositeItem().spatialWidthGr / GRID_SIZE); }
   const showResizeTriangle = () => !isDirectDocumentChild() && showTriangleDetail();
-  const showCollapseControl = () => compositeItem().computed_children.length > 0;
+  const showCollapseControl = () => isDirectDocumentChild() && compositeItem().computed_children.length > 0;
 
   const showBorder = () => !(compositeItem().flags & CompositeFlags.HideBorder);
   const isInCompositeOrDocument = () =>
