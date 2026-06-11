@@ -43,7 +43,7 @@ use super::routes::account::{
   build_session_cookie_value, serve_account_route, set_cookie_header, should_use_secure_cookie,
 };
 use super::routes::admin::serve_admin_route;
-use super::routes::command::serve_command_route;
+use super::routes::command::{serve_chat_stream_route, serve_command_route};
 use super::routes::favicons::serve_favicons_route;
 use super::routes::files::serve_files_route;
 use super::routes::ingest::serve_ingest_route;
@@ -78,6 +78,8 @@ pub async fn http_serve(
 
   let (mut response, cors_policy) = if req.uri().path() == "/command" {
     (serve_command_route(config.clone(), &db, &object_store, image_cache.clone(), req).await, CorsPolicy::EmbedAllowed)
+  } else if req.uri().path() == "/chat/stream" {
+    (serve_chat_stream_route(config.clone(), &db, req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path().starts_with("/account/") {
     (serve_account_route(config.clone(), &db, req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path().starts_with("/ingest/") {

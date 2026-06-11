@@ -101,6 +101,15 @@ export interface ChatResponse {
   items: Array<object>,
 }
 
+export interface ChatStreamEvent {
+  type: "status" | "tool_call_started" | "tool_call_finished" | "final_items" | "error",
+  text?: string,
+  name?: string,
+  summary?: string,
+  items?: Array<object>,
+  message?: string,
+}
+
 const SEARCH_RESULTS_PER_PAGE = 60;
 
 function normalizeSearchResponse(response: any): SearchResponse {
@@ -244,6 +253,7 @@ function getCommandDescription(command: string, payload: any): { description: st
 const commandQueue: Array<ServerCommand> = [];
 let inProgressNonGet: ServerCommand | null = null; // any non-read command currently running
 const inProgressReadCommands: Array<ServerCommand> = [];
+const inProgressStreamingCommands: Array<ServerCommand> = [];
 const MUTATION_COMMANDS = new Set<string>([COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH]);
 let pendingMutationCommands = 0;
 let nextNetworkRequestId = 1;
@@ -269,6 +279,7 @@ function getInProgressCommands(): Array<ServerCommand> {
     active.push(inProgressNonGet);
   }
   active.push(...inProgressReadCommands);
+  active.push(...inProgressStreamingCommands);
   if (inProgressNonGet_remote != null) {
     active.push(inProgressNonGet_remote);
   }
@@ -428,6 +439,56 @@ function constructCommandPromise(
     commandQueue.push(commandObj);
     serveWaiting(networkStatus);
   })
+}
+
+async function streamChatCommand(
+  payload: ChatRequest,
+  networkStatus: NumberSignal,
+  onEvent: (event: ChatStreamEvent) => void,
+): Promise<ChatResponse> {
+  const commandObj: ServerCommand = {
+    requestId: nextNetworkRequestId++,
+    host: null,
+    command: COMMAND_CHAT,
+    payload,
+    base64data: null,
+    panicLogoutOnError: false,
+    resolve: () => { },
+    reject: () => { },
+  };
+  inProgressStreamingCommands.push(commandObj);
+  syncBaseNetworkStatus(networkStatus);
+  syncGlobalRequestTracker();
+
+  let finalItems: Array<object> | null = null;
+  let errorMessage: string | null = null;
+  try {
+    await sendChatStream(payload, (event) => {
+      onEvent(event);
+      if (event.type == "final_items") {
+        finalItems = Array.isArray(event.items) ? event.items : [];
+      } else if (event.type == "error") {
+        errorMessage = event.message ?? "Chat stream failed.";
+      }
+    });
+    if (errorMessage != null) {
+      throw new Error(errorMessage);
+    }
+    if (finalItems == null) {
+      throw new Error("Chat stream ended without a final response.");
+    }
+    return { items: finalItems };
+  } catch (error) {
+    trackNetworkCommandError(commandObj, error);
+    throw error;
+  } finally {
+    const index = inProgressStreamingCommands.findIndex(active => active.requestId === commandObj.requestId);
+    if (index !== -1) {
+      inProgressStreamingCommands.splice(index, 1);
+    }
+    syncBaseNetworkStatus(networkStatus);
+    syncGlobalRequestTracker();
+  }
 }
 
 const localContainerSyncVersions = new Map<Uid, { epoch: number | null, version: number | null }>();
@@ -656,6 +717,14 @@ export const server = {
       .then((response: any) => ({
         items: Array.isArray(response?.items) ? response.items : [],
       }));
+  },
+
+  chatStream: async (
+    payload: ChatRequest,
+    networkStatus: NumberSignal,
+    onEvent: (event: ChatStreamEvent) => void,
+  ): Promise<ChatResponse> => {
+    return streamChatCommand(payload, networkStatus, onEvent);
   },
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
@@ -985,6 +1054,57 @@ async function sendCommand(host: string | null, command: string, payload: object
     throw new Error(`'${command}' command returned malformed jsonData.`);
   }
   return JSON.parse(r.jsonData);
+}
+
+async function sendChatStream(payload: ChatRequest, onEvent: (event: ChatStreamEvent) => void): Promise<void> {
+  const fetchResult = await fetch("/chat/stream", {
+    method: "POST",
+    headers: {
+      "Accept": "application/x-ndjson",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!fetchResult.ok) {
+    throw new Error(`Chat stream request failed: ${fetchResult.status}`);
+  }
+  if (!fetchResult.body) {
+    throw new Error("Chat stream response did not include a body.");
+  }
+
+  const reader = fetchResult.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const parseLine = (line: string) => {
+    const trimmed = line.trim();
+    if (trimmed == "") {
+      return;
+    }
+    const parsed = JSON.parse(trimmed);
+    if (parsed == null || typeof parsed !== "object" || typeof parsed.type !== "string") {
+      throw new Error("Chat stream returned a malformed event.");
+    }
+    onEvent(parsed as ChatStreamEvent);
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    let newlineIndex = buffer.indexOf("\n");
+    while (newlineIndex !== -1) {
+      parseLine(buffer.slice(0, newlineIndex));
+      buffer = buffer.slice(newlineIndex + 1);
+      newlineIndex = buffer.indexOf("\n");
+    }
+  }
+
+  buffer += decoder.decode();
+  parseLine(buffer);
 }
 
 export async function post(host: string | null, path: string, json: any) {

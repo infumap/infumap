@@ -98,6 +98,7 @@ mod chat;
 mod item_ops;
 mod search;
 
+pub use chat::serve_chat_stream_route;
 pub use item_ops::add_item_for_user;
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly

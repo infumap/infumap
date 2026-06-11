@@ -19,6 +19,7 @@
 import { requestArrange } from "../layout/arrange";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
+import { createSignal } from "solid-js";
 import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { CompositeFlags, PageFlags } from "./base/flags-item";
@@ -27,13 +28,66 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
-import { server } from "../server";
+import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 export const CHAT_DRAFT_TITLE = "Chat";
 const LEGACY_CHAT_DRAFT_TITLE = "New query";
+
+export interface ChatProgress {
+  text: string,
+}
+
+const chatProgressByPageId = new Map<Uid, ChatProgress>();
+const [chatProgressRevision, setChatProgressRevision] = createSignal(0, { equals: false });
+
+export function chatProgressForPage(pageId: Uid): ChatProgress | null {
+  chatProgressRevision();
+  return chatProgressByPageId.get(pageId) ?? null;
+}
+
+function setChatProgress(pageId: Uid, text: string): void {
+  chatProgressByPageId.set(pageId, { text });
+  setChatProgressRevision(chatProgressRevision() + 1);
+}
+
+function clearChatProgress(pageId: Uid): void {
+  if (!chatProgressByPageId.delete(pageId)) {
+    return;
+  }
+  setChatProgressRevision(chatProgressRevision() + 1);
+}
+
+function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
+  switch (event.type) {
+    case "status":
+      return event.text ?? null;
+    case "tool_call_started":
+      if (event.name == "search") {
+        return "Searching your items";
+      }
+      if (event.name == "get_fragment") {
+        return "Reading source text";
+      }
+      return event.name ? `Running ${event.name}` : "Running tool";
+    case "tool_call_finished":
+      if (event.name == "search") {
+        return "Search complete";
+      }
+      if (event.name == "get_fragment") {
+        return "Source text loaded";
+      }
+      return event.summary ?? "Tool complete";
+    case "final_items":
+      return "Adding response";
+    case "error":
+      return "Chat failed";
+    default:
+      return null;
+  }
+}
 
 export function isChatPage(page: PageItem): boolean {
   return page.arrangeAlgorithm == ArrangeAlgorithm.Document && !!(page.flags & PageFlags.Chat);
@@ -235,24 +289,45 @@ export async function submitChatMessage(store: StoreContextModel, page: PageItem
   const userItems = addLocalUserTurn(page, text);
   requestArrange(store, "chat-user-turn");
 
+  let clearProgressOnExit = true;
+  setChatProgress(page.id, "Preparing request");
   try {
     if (!clientOnly) {
+      setChatProgress(page.id, "Saving your message");
       await persistItems(store, userItems);
     }
 
-    const response = await server.chat({
+    const response = await server.chatStream({
       contextItems,
       userText: text,
-    }, store.general.networkStatus);
+    }, store.general.networkStatus, (event) => {
+      const progressText = chatProgressTextFromEvent(event);
+      if (progressText != null) {
+        setChatProgress(page.id, progressText);
+      }
+    });
 
     const assistantItems = addServerReturnedItems(page, response.items, clientOnly);
     requestArrange(store, "chat-assistant-turn");
 
     if (!clientOnly) {
+      setChatProgress(page.id, "Saving response");
       await persistItems(store, assistantItems);
     }
   } catch (e) {
+    const failedProgress = "Chat failed";
+    setChatProgress(page.id, failedProgress);
+    window.setTimeout(() => {
+      if (chatProgressByPageId.get(page.id)?.text == failedProgress) {
+        clearChatProgress(page.id);
+      }
+    }, 3000);
+    clearProgressOnExit = false;
     console.error("Failed to submit chat message:", e);
+  } finally {
+    if (clearProgressOnExit) {
+      clearChatProgress(page.id);
+    }
   }
 }
 

@@ -22,7 +22,7 @@ import { arrangeNow } from "../../layout/arrange";
 import { VeFns } from "../../layout/visual-element";
 import { LINE_HEIGHT_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
-import { isChatPage, materializeChatPage, submitChatMessage } from "../../items/chat";
+import { chatProgressForPage, isChatPage, materializeChatPage, submitChatMessage } from "../../items/chat";
 import { asPageItem } from "../../items/page-item";
 import {
   SEARCH_WORKSPACE_CONTROLS_GAP_PX,
@@ -36,6 +36,7 @@ const MAX_COMPOSER_HEIGHT_PX = 164;
 const COMPOSER_BOTTOM_PX = 18;
 const SEND_BUTTON_WIDTH_PX = SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX;
 const MATERIALIZE_BUTTON_WIDTH_PX = 118;
+const CHAT_PROGRESS_HEIGHT_PX = 24;
 
 export const ChatComposer: Component<PageVisualElementProps> = (props) => {
   const store = useStore();
@@ -50,15 +51,17 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
   const enabled = () => isChatPage(page()) && itemCanEdit(page());
   const hasContent = () => page().computed_children.length > 0;
   const isDraft = () => page().clientOnly === true;
+  const progress = () => chatProgressForPage(page().id);
 
   const documentScale = () => pageFns().documentScale ? pageFns().documentScale() : 1.0;
   const leftPx = () =>
     pageFns().documentContentLeftPx() + PAGE_DOCUMENT_LEFT_MARGIN_BL * LINE_HEIGHT_PX * documentScale();
   const widthPx = () =>
     Math.max(240, page().docWidthBl * LINE_HEIGHT_PX * documentScale());
+  const wrapperHeightPx = () => composerHeightPx() + (progress() == null ? 0 : CHAT_PROGRESS_HEIGHT_PX);
 
   const wrapperStyle = () => {
-    const heightPx = composerHeightPx();
+    const heightPx = wrapperHeightPx();
     const common = `left: ${leftPx()}px; width: ${widthPx()}px; height: ${heightPx}px; z-index: 80;`;
     if (!hasContent()) {
       return `position: absolute; top: ${Math.max(24, pageFns().viewportBoundsPx().h * 0.45 - heightPx / 2)}px; ${common}`;
@@ -163,7 +166,14 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
         onClick={stop}
         onKeyDown={stop}
         onKeyUp={stop}>
-        <div class="flex h-full items-end" style={`gap: ${SEARCH_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+        <Show when={progress() != null}>
+          <div
+            class="truncate px-1 pb-1 text-[#555]"
+            style={`height: ${CHAT_PROGRESS_HEIGHT_PX}px; font-size: 12px; line-height: 20px;`}>
+            {progress()!.text}
+          </div>
+        </Show>
+        <div class="flex items-end" style={`height: ${composerHeightPx()}px; gap: ${SEARCH_WORKSPACE_CONTROLS_GAP_PX}px;`}>
           <div
             class="min-w-0 grow overflow-hidden rounded-xs border border-[#999] bg-white"
             style={`height: ${composerHeightPx()}px;`}>

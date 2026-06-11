@@ -15,7 +15,13 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
+use http_body_util::{BodyExt as _, StreamBody};
+use hyper::body::Frame;
 use std::io::Write as _;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
+
+use crate::web::serve::empty_body;
 
 const CHAT_LLAMA_REQUEST_TIMEOUT_SECS: u64 = 120;
 const CHAT_MAX_TOOL_ROUNDS: usize = 3;
@@ -59,6 +65,106 @@ struct ChatRequest {
   context_items: Vec<Value>,
   #[serde(rename = "userText")]
   user_text: String,
+}
+
+#[derive(Serialize)]
+struct ChatStreamEvent {
+  #[serde(rename = "type")]
+  event_type: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  text: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  name: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  summary: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  items: Option<Value>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  message: Option<String>,
+}
+
+impl ChatStreamEvent {
+  fn status(text: &str) -> Self {
+    Self {
+      event_type: "status".to_owned(),
+      text: Some(text.to_owned()),
+      name: None,
+      summary: None,
+      items: None,
+      message: None,
+    }
+  }
+
+  fn tool_call_started(name: &str) -> Self {
+    Self {
+      event_type: "tool_call_started".to_owned(),
+      text: None,
+      name: Some(name.to_owned()),
+      summary: None,
+      items: None,
+      message: None,
+    }
+  }
+
+  fn tool_call_finished(name: &str, summary: &str) -> Self {
+    Self {
+      event_type: "tool_call_finished".to_owned(),
+      text: None,
+      name: Some(name.to_owned()),
+      summary: Some(summary.to_owned()),
+      items: None,
+      message: None,
+    }
+  }
+
+  fn final_items(items: Value) -> Self {
+    Self {
+      event_type: "final_items".to_owned(),
+      text: None,
+      name: None,
+      summary: None,
+      items: Some(items),
+      message: None,
+    }
+  }
+
+  fn error(message: &str) -> Self {
+    Self {
+      event_type: "error".to_owned(),
+      text: None,
+      name: None,
+      summary: None,
+      items: None,
+      message: Some(message.to_owned()),
+    }
+  }
+}
+
+#[derive(Clone)]
+struct ChatProgressReporter {
+  tx: mpsc::Sender<Result<Frame<Bytes>, hyper::Error>>,
+}
+
+impl ChatProgressReporter {
+  async fn send(&self, event: ChatStreamEvent) {
+    let line = match serde_json::to_string(&event) {
+      Ok(line) => format!("{line}\n"),
+      Err(_) => "{\"type\":\"error\",\"message\":\"Could not serialize chat stream event.\"}\n".to_owned(),
+    };
+    let _ = self.tx.send(Ok(Frame::data(Bytes::from(line)))).await;
+  }
+
+  async fn status(&self, text: &str) {
+    self.send(ChatStreamEvent::status(text)).await;
+  }
+
+  async fn tool_call_started(&self, name: &str) {
+    self.send(ChatStreamEvent::tool_call_started(name)).await;
+  }
+
+  async fn tool_call_finished(&self, name: &str, summary: &str) {
+    self.send(ChatStreamEvent::tool_call_finished(name, summary)).await;
+  }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -190,6 +296,78 @@ pub(super) async fn handle_chat(
   let assistant_text = run_chat_with_tools(config, db, session, &request).await?;
 
   Ok(Some(chat_response_items_json(&session.user_id, &assistant_text).to_string()))
+}
+
+pub async fn serve_chat_stream_route(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  if request.method() == "OPTIONS" {
+    debug!("Serving OPTIONS request for chat stream, assuming CORS query.");
+    return cors_response();
+  }
+
+  let session_maybe = get_and_validate_session(&request, db).await;
+  let session = match session_maybe {
+    Some(session) => session,
+    None => {
+      return single_chat_stream_event_response(ChatStreamEvent::error("Session is required to run a chat query."));
+    }
+  };
+
+  let request: ChatRequest = match incoming_json_with_limit(request, COMMAND_REQUEST_MAX_BYTES).await {
+    Ok(request) => request,
+    Err(e) => {
+      error!("An error occurred parsing chat stream payload for user '{}': {}", session.user_id, e);
+      return single_chat_stream_event_response(ChatStreamEvent::error("Could not parse chat request."));
+    }
+  };
+
+  let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(16);
+  let progress = ChatProgressReporter { tx: tx.clone() };
+  let user_id = session.user_id.clone();
+  let db = db.clone();
+
+  tokio::spawn(async move {
+    progress.status("Preparing context").await;
+    let result = run_chat_with_tools_with_progress(config, &db, &session, &request, Some(&progress)).await;
+    match result {
+      Ok(assistant_text) => {
+        progress.status("Preparing response").await;
+        let response = chat_response_items_json(&user_id, &assistant_text);
+        let items = response.get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()));
+        progress.send(ChatStreamEvent::final_items(items)).await;
+      }
+      Err(e) => {
+        warn!("An error occurred servicing a streaming chat request for user '{}': {}.", user_id, e);
+        progress.send(ChatStreamEvent::error("Chat failed.")).await;
+      }
+    }
+  });
+
+  chat_stream_response(rx)
+}
+
+fn single_chat_stream_event_response(event: ChatStreamEvent) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(1);
+  tokio::spawn(async move {
+    let reporter = ChatProgressReporter { tx };
+    reporter.send(event).await;
+  });
+  chat_stream_response(rx)
+}
+
+fn chat_stream_response(
+  rx: mpsc::Receiver<Result<Frame<Bytes>, hyper::Error>>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let body = StreamBody::new(ReceiverStream::new(rx)).boxed();
+  Response::builder()
+    .header(hyper::header::CONTENT_TYPE, "application/x-ndjson")
+    .header(hyper::header::CACHE_CONTROL, "no-cache")
+    .header(hyper::header::X_CONTENT_TYPE_OPTIONS, "nosniff")
+    .body(body)
+    .unwrap_or_else(|_| Response::builder().status(500).body(empty_body()).unwrap())
 }
 
 fn configured_llama_chat_url(config: &Config) -> InfuResult<reqwest::Url> {
@@ -536,6 +714,16 @@ async fn run_chat_with_tools(
   session: &Session,
   request: &ChatRequest,
 ) -> InfuResult<String> {
+  run_chat_with_tools_with_progress(config, db, session, request, None).await
+}
+
+async fn run_chat_with_tools_with_progress(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  request: &ChatRequest,
+  progress: Option<&ChatProgressReporter>,
+) -> InfuResult<String> {
   reset_llm_log();
 
   let mut messages = llama_messages_from_chat_request(request);
@@ -549,6 +737,9 @@ async fn run_chat_with_tools(
   let mut tool_rounds = 0usize;
 
   loop {
+    if let Some(progress) = progress {
+      progress.status("Asking model").await;
+    }
     let mut message = llama_chat_completion(config.as_ref(), &messages, &tools, llm_turn).await?;
     llm_turn += 1;
     if message.role.trim().is_empty() {
@@ -564,7 +755,13 @@ async fn run_chat_with_tools(
       tool_rounds += 1;
       messages.push(message);
       for tool_call in tool_calls {
+        if let Some(progress) = progress {
+          progress.tool_call_started(&tool_call.function.name).await;
+        }
         let tool_result = execute_chat_tool_call(config.clone(), db, session, &tool_call).await?;
+        if let Some(progress) = progress {
+          progress.tool_call_finished(&tool_call.function.name, "Done").await;
+        }
         append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
         messages.push(LlamaChatMessage::tool(tool_call.id.clone(), tool_result));
       }
