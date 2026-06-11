@@ -28,11 +28,11 @@ const CHAT_MAX_TOOL_ROUNDS: usize = 3;
 const CHAT_HISTORY_MAX_PREVIOUS_MESSAGES: usize = 8;
 const CHAT_HISTORY_MAX_MESSAGE_CHARS: usize = 4_000;
 const CHAT_HISTORY_MAX_TOTAL_CHARS: usize = 12_000;
-const CHAT_TITLE_GREP_TOOL_DEFAULT_NUM_RESULTS: i64 = 12;
-const CHAT_TITLE_GREP_TOOL_MAX_NUM_RESULTS: i64 = 30;
-const CHAT_TITLE_GREP_DIVERSITY_PREFIX_LEN: usize = 3;
-const CHAT_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
-const CHAT_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
+const CHAT_FIND_TOOL_DEFAULT_NUM_RESULTS: i64 = 12;
+const CHAT_FIND_TOOL_MAX_NUM_RESULTS: i64 = 30;
+const CHAT_FIND_DIVERSITY_PREFIX_LEN: usize = 3;
+const CHAT_SEARCH_TEXT_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
+const CHAT_SEARCH_TEXT_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
 const CHAT_FRAGMENT_TOOL_MAX_CHARS: usize = 6_000;
 const CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS: usize = 2;
@@ -45,11 +45,12 @@ const LLM_LOG_PATH: &str = "/tmp/llm.txt";
 const CHAT_SYSTEM_PROMPT: &str = "\
 You are a chat assistant for an information workspace.
 
-Use title_grep by default to discover information.
-Use search only when title_grep does not provide what is needed, or when the user clearly needs deeper access to document text.
-Search returns compact results with item ids, item types, titles, paths, fragment ordinals, and text snippets.
-Use get_fragment when a search snippet is truncated, ambiguous, or too small to answer from confidently.
-If title_grep and search results are insufficient, say what is missing rather than inventing details.
+Use find by default to locate items or discover likely relevant items.
+find matches visible item identity text, ignores password items, and returns compact item ids, item types, titles, and paths.
+Use search_text only when find does not provide what is needed, or when the user clearly needs deeper access to document text.
+search_text returns compact results with item ids, item types, titles, paths, fragment ordinals, and text snippets.
+Use get_fragment when a search_text snippet is truncated, ambiguous, or too small to answer from confidently.
+If find and search_text results are insufficient, say what is missing rather than inventing details.
 Return a concise Markdown answer.";
 const NOTE_FLAG_HEADING3: i64 = 0x001;
 const NOTE_FLAG_HEADING1: i64 = 0x004;
@@ -258,7 +259,7 @@ struct LlamaChatCompletionUsage {
 }
 
 #[derive(Deserialize)]
-struct ChatTitleGrepToolArguments {
+struct ChatFindToolArguments {
   text: Option<String>,
   query: Option<String>,
   #[serde(rename = "numResults")]
@@ -266,7 +267,7 @@ struct ChatTitleGrepToolArguments {
 }
 
 #[derive(Deserialize)]
-struct ChatSearchToolArguments {
+struct ChatSearchTextToolArguments {
   text: Option<String>,
   query: Option<String>,
   #[serde(rename = "pageId")]
@@ -290,7 +291,7 @@ struct ChatFragmentToolArguments {
   max_chars: Option<i64>,
 }
 
-struct ChatTitleGrepBucket {
+struct ChatFindBucket {
   key: String,
   results: Vec<search::SearchResult>,
   next_index: usize,
@@ -645,24 +646,24 @@ fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage]
   append_llm_json_log_section(&format!("LLM REQUEST METRICS {}", llm_turn), &metrics);
 }
 
-fn title_grep_tool_spec() -> LlamaToolSpec {
+fn find_tool_spec() -> LlamaToolSpec {
   LlamaToolSpec {
     tool_type: "function".to_owned(),
     function: LlamaToolFunctionSpec {
-      name: "title_grep".to_owned(),
-      description: "Brute-force case-insensitive substring search over the user's Infumap item titles only. Ignores password items and items whose path crosses a password item.".to_owned(),
+      name: "find".to_owned(),
+      description: "Find workspace items by visible item text or label. Use this as the default item lookup tool. It ignores password items and items whose path crosses a password item.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
           "text": {
             "type": "string",
-            "description": "Title text to find as a case-insensitive substring."
+            "description": "Visible item text or label to match as a case-insensitive substring."
           },
           "numResults": {
             "type": "integer",
             "minimum": 1,
-            "maximum": CHAT_TITLE_GREP_TOOL_MAX_NUM_RESULTS,
-            "description": "Maximum number of title matches to return."
+            "maximum": CHAT_FIND_TOOL_MAX_NUM_RESULTS,
+            "description": "Maximum number of item matches to return."
           }
         },
         "required": ["text"],
@@ -672,27 +673,27 @@ fn title_grep_tool_spec() -> LlamaToolSpec {
   }
 }
 
-fn search_tool_spec() -> LlamaToolSpec {
+fn search_text_tool_spec() -> LlamaToolSpec {
   LlamaToolSpec {
     tool_type: "function".to_owned(),
     function: LlamaToolFunctionSpec {
-      name: "search".to_owned(),
-      description: "Search the user's Infumap items using the same behavior as the search UI.".to_owned(),
+      name: "search_text".to_owned(),
+      description: "Search workspace text using the same behavior as the search UI. Use this when document/body text is needed, not as the default item lookup tool.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
           "text": {
             "type": "string",
-            "description": "Search query text."
+            "description": "Text query to search for."
           },
           "pageId": {
             "type": ["string", "null"],
-            "description": "Optional Infumap page id to search within. Use null or omit it to search the user's home scope."
+            "description": "Optional workspace page id to search within. Use null or omit it to search the user's home scope."
           },
           "numResults": {
             "type": "integer",
             "minimum": 1,
-            "maximum": CHAT_SEARCH_TOOL_MAX_NUM_RESULTS,
+            "maximum": CHAT_SEARCH_TEXT_TOOL_MAX_NUM_RESULTS,
             "description": "Maximum number of search results to return."
           },
           "pageNum": {
@@ -713,19 +714,19 @@ fn get_fragment_tool_spec() -> LlamaToolSpec {
     tool_type: "function".to_owned(),
     function: LlamaToolFunctionSpec {
       name: "get_fragment".to_owned(),
-      description: "Fetch bounded full text for a specific Infumap search fragment by item id and fragment ordinal."
-        .to_owned(),
+      description:
+        "Fetch bounded full text for a specific search_text result fragment by item id and fragment ordinal.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
           "itemId": {
             "type": "string",
-            "description": "Item id from a search result."
+            "description": "Item id from a search_text result."
           },
           "fragmentOrdinal": {
             "type": "integer",
             "minimum": 0,
-            "description": "Fragment ordinal from a search result."
+            "description": "Fragment ordinal from a search_text result."
           },
           "before": {
             "type": "integer",
@@ -777,7 +778,7 @@ async fn run_chat_with_tools_with_progress(
   }
   messages.insert(0, LlamaChatMessage::text("system", CHAT_SYSTEM_PROMPT.to_owned()));
 
-  let tools = vec![title_grep_tool_spec(), search_tool_spec(), get_fragment_tool_spec()];
+  let tools = vec![find_tool_spec(), search_text_tool_spec(), get_fragment_tool_spec()];
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
@@ -845,14 +846,14 @@ async fn execute_chat_tool_call(
   tool_call: &LlamaToolCall,
 ) -> InfuResult<String> {
   match tool_call.function.name.as_str() {
-    "title_grep" => execute_title_grep_tool_call(db, session, tool_call).await,
-    "search" => execute_search_tool_call(config, db, session, tool_call).await,
+    "find" => execute_find_tool_call(db, session, tool_call).await,
+    "search_text" => execute_search_text_tool_call(config, db, session, tool_call).await,
     "get_fragment" => execute_get_fragment_tool_call(config, db, session, tool_call).await,
     name => Ok(tool_error_json(&format!("Unknown tool '{name}'."))),
   }
 }
 
-async fn execute_title_grep_tool_call(
+async fn execute_find_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   tool_call: &LlamaToolCall,
@@ -861,35 +862,29 @@ async fn execute_title_grep_tool_call(
     Ok(arguments) => arguments,
     Err(e) => return Ok(tool_error_json(&e.to_string())),
   };
-  let arguments: ChatTitleGrepToolArguments = match serde_json::from_value(arguments) {
+  let arguments: ChatFindToolArguments = match serde_json::from_value(arguments) {
     Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&format!("Could not parse title_grep tool arguments: {}", e))),
+    Err(e) => return Ok(tool_error_json(&format!("Could not parse find tool arguments: {}", e))),
   };
 
-  let grep_text = arguments.text.or(arguments.query).unwrap_or_default().trim().to_owned();
-  if grep_text.is_empty() {
-    return Ok(tool_error_json("title_grep tool argument 'text' is required."));
+  let find_text = arguments.text.or(arguments.query).unwrap_or_default().trim().to_owned();
+  if find_text.is_empty() {
+    return Ok(tool_error_json("find tool argument 'text' is required."));
   }
 
-  let num_results = arguments
-    .num_results
-    .unwrap_or(CHAT_TITLE_GREP_TOOL_DEFAULT_NUM_RESULTS)
-    .clamp(1, CHAT_TITLE_GREP_TOOL_MAX_NUM_RESULTS) as usize;
+  let num_results =
+    arguments.num_results.unwrap_or(CHAT_FIND_TOOL_DEFAULT_NUM_RESULTS).clamp(1, CHAT_FIND_TOOL_MAX_NUM_RESULTS)
+      as usize;
 
   let response = {
     let db = db.lock().await;
-    title_grep_response(&db, &session.user_id, &grep_text, num_results)?
+    find_response(&db, &session.user_id, &find_text, num_results)?
   };
   search::compact_search_response_json(&response)
 }
 
-fn title_grep_response(
-  db: &Db,
-  user_id: &Uid,
-  grep_text: &str,
-  num_results: usize,
-) -> InfuResult<search::SearchResponse> {
-  let grep_text_lower = grep_text.to_lowercase();
+fn find_response(db: &Db, user_id: &Uid, find_text: &str, num_results: usize) -> InfuResult<search::SearchResponse> {
+  let find_text_lower = find_text.to_lowercase();
   let mut item_ids = db
     .item
     .all_loaded_items()
@@ -909,16 +904,16 @@ fn title_grep_response(
     let Some(title) = item.title.as_deref().map(str::trim).filter(|title| !title.is_empty()) else {
       continue;
     };
-    if !title.to_lowercase().contains(&grep_text_lower) {
+    if !title.to_lowercase().contains(&find_text_lower) {
       continue;
     }
 
-    let Some(path) = title_grep_path_for_item(db, &item_id, user_id)? else {
+    let Some(path) = find_path_for_item(db, &item_id, user_id)? else {
       continue;
     };
     candidates.push(search::SearchResult {
       path,
-      score: search::exact_title_search_score(title, grep_text),
+      score: search::exact_title_search_score(title, find_text),
       stats: None,
       fragment_match: None,
       additional_fragment_matches: Vec::new(),
@@ -926,22 +921,18 @@ fn title_grep_response(
   }
 
   let has_more = candidates.len() > num_results;
-  let results = diversify_title_grep_results(candidates, num_results);
+  let results = diversify_find_results(candidates, num_results);
   Ok(search::SearchResponse { results, has_more })
 }
 
-fn title_grep_path_for_item(
-  db: &Db,
-  item_id: &Uid,
-  user_id: &Uid,
-) -> InfuResult<Option<Vec<search::SearchPathElement>>> {
+fn find_path_for_item(db: &Db, item_id: &Uid, user_id: &Uid) -> InfuResult<Option<Vec<search::SearchPathElement>>> {
   let mut path = Vec::new();
   let mut current_id = item_id.clone();
   let mut seen = HashSet::new();
 
   loop {
     if !seen.insert(current_id.clone()) {
-      return Err(format!("Cycle detected while building title_grep path for item '{}'.", item_id).into());
+      return Err(format!("Cycle detected while building find path for item '{}'.", item_id).into());
     }
 
     let item = match db.item.get(&current_id) {
@@ -967,27 +958,24 @@ fn title_grep_path_for_item(
   Ok(Some(path))
 }
 
-fn diversify_title_grep_results(
-  candidates: Vec<search::SearchResult>,
-  num_results: usize,
-) -> Vec<search::SearchResult> {
+fn diversify_find_results(candidates: Vec<search::SearchResult>, num_results: usize) -> Vec<search::SearchResult> {
   if num_results == 0 || candidates.is_empty() {
     return Vec::new();
   }
 
   let mut results_by_key: HashMap<String, Vec<search::SearchResult>> = HashMap::new();
   for candidate in candidates {
-    results_by_key.entry(title_grep_diversity_key(&candidate.path)).or_default().push(candidate);
+    results_by_key.entry(find_diversity_key(&candidate.path)).or_default().push(candidate);
   }
 
   let mut buckets = results_by_key
     .into_iter()
     .map(|(key, mut results)| {
-      results.sort_by(compare_title_grep_results);
-      ChatTitleGrepBucket { key, results, next_index: 0 }
+      results.sort_by(compare_find_results);
+      ChatFindBucket { key, results, next_index: 0 }
     })
     .collect::<Vec<_>>();
-  buckets.sort_by(compare_title_grep_buckets);
+  buckets.sort_by(compare_find_buckets);
 
   let mut diversified_results = Vec::new();
   while diversified_results.len() < num_results {
@@ -1011,43 +999,38 @@ fn diversify_title_grep_results(
   diversified_results
 }
 
-fn title_grep_diversity_key(path: &[search::SearchPathElement]) -> String {
-  path
-    .iter()
-    .take(CHAT_TITLE_GREP_DIVERSITY_PREFIX_LEN)
-    .map(|element| element.id.as_str())
-    .collect::<Vec<_>>()
-    .join("/")
+fn find_diversity_key(path: &[search::SearchPathElement]) -> String {
+  path.iter().take(CHAT_FIND_DIVERSITY_PREFIX_LEN).map(|element| element.id.as_str()).collect::<Vec<_>>().join("/")
 }
 
-fn compare_title_grep_buckets(a: &ChatTitleGrepBucket, b: &ChatTitleGrepBucket) -> std::cmp::Ordering {
+fn compare_find_buckets(a: &ChatFindBucket, b: &ChatFindBucket) -> std::cmp::Ordering {
   let a_first = a.results.first();
   let b_first = b.results.first();
   match (a_first, b_first) {
-    (Some(a_first), Some(b_first)) => compare_title_grep_results(a_first, b_first).then_with(|| a.key.cmp(&b.key)),
+    (Some(a_first), Some(b_first)) => compare_find_results(a_first, b_first).then_with(|| a.key.cmp(&b.key)),
     (Some(_), None) => std::cmp::Ordering::Less,
     (None, Some(_)) => std::cmp::Ordering::Greater,
     (None, None) => a.key.cmp(&b.key),
   }
 }
 
-fn compare_title_grep_results(a: &search::SearchResult, b: &search::SearchResult) -> std::cmp::Ordering {
+fn compare_find_results(a: &search::SearchResult, b: &search::SearchResult) -> std::cmp::Ordering {
   b.score
     .total_cmp(&a.score)
     .then_with(|| a.path.len().cmp(&b.path.len()))
-    .then_with(|| title_grep_result_title(a).cmp(title_grep_result_title(b)))
-    .then_with(|| title_grep_result_item_id(a).cmp(title_grep_result_item_id(b)))
+    .then_with(|| find_result_title(a).cmp(find_result_title(b)))
+    .then_with(|| find_result_item_id(a).cmp(find_result_item_id(b)))
 }
 
-fn title_grep_result_title(result: &search::SearchResult) -> &str {
+fn find_result_title(result: &search::SearchResult) -> &str {
   result.path.last().and_then(|element| element.title.as_deref()).unwrap_or("")
 }
 
-fn title_grep_result_item_id(result: &search::SearchResult) -> &str {
+fn find_result_item_id(result: &search::SearchResult) -> &str {
   result.path.last().map(|element| element.id.as_str()).unwrap_or("")
 }
 
-async fn execute_search_tool_call(
+async fn execute_search_text_tool_call(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
@@ -1057,24 +1040,26 @@ async fn execute_search_tool_call(
     Ok(arguments) => arguments,
     Err(e) => return Ok(tool_error_json(&e.to_string())),
   };
-  let arguments: ChatSearchToolArguments = match serde_json::from_value(arguments) {
+  let arguments: ChatSearchTextToolArguments = match serde_json::from_value(arguments) {
     Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&format!("Could not parse search tool arguments: {}", e))),
+    Err(e) => return Ok(tool_error_json(&format!("Could not parse search_text tool arguments: {}", e))),
   };
 
   let search_text = arguments.text.or(arguments.query).unwrap_or_default().trim().to_owned();
   if search_text.is_empty() {
-    return Ok(tool_error_json("Search tool argument 'text' is required."));
+    return Ok(tool_error_json("search_text tool argument 'text' is required."));
   }
 
-  let num_results =
-    arguments.num_results.unwrap_or(CHAT_SEARCH_TOOL_DEFAULT_NUM_RESULTS).clamp(1, CHAT_SEARCH_TOOL_MAX_NUM_RESULTS);
+  let num_results = arguments
+    .num_results
+    .unwrap_or(CHAT_SEARCH_TEXT_TOOL_DEFAULT_NUM_RESULTS)
+    .clamp(1, CHAT_SEARCH_TEXT_TOOL_MAX_NUM_RESULTS);
   let page_num = arguments.page_num.map(|page_num| page_num.max(1));
   let search_request = search::SearchRequest { page_id: arguments.page_id, text: search_text, num_results, page_num };
 
   match search::run_search(config, db, search_request, session).await {
     Ok(response) => search::compact_search_response_json(&response),
-    Err(e) => Ok(tool_error_json(&format!("Search failed: {}", e))),
+    Err(e) => Ok(tool_error_json(&format!("search_text failed: {}", e))),
   }
 }
 

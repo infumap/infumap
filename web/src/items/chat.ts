@@ -65,15 +65,21 @@ function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
     case "status":
       return event.text ?? null;
     case "tool_call_started":
-      if (event.name == "search") {
-        return "Searching your items";
+      if (event.name == "find") {
+        return "Finding items";
+      }
+      if (event.name == "search_text") {
+        return "Searching source text";
       }
       if (event.name == "get_fragment") {
         return "Reading source text";
       }
       return event.name ? `Running ${event.name}` : "Running tool";
     case "tool_call_finished":
-      if (event.name == "search") {
+      if (event.name == "find") {
+        return "Find complete";
+      }
+      if (event.name == "search_text") {
         return "Search complete";
       }
       if (event.name == "get_fragment") {
