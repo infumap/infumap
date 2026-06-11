@@ -32,6 +32,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { arrangeNow } from "../../layout/arrange";
 import { GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { documentPageMoveOutBoxPx } from "../../layout/composite-move-out";
+import { finishActivePendingClipboardTextItem } from "../../input/text_clipboard_create";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
 const AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE = "repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px)";
@@ -267,7 +268,11 @@ export const handleLineItemTitleKeyDown = (
   if (ev.key == "Escape") {
     ev.preventDefault();
     ev.stopPropagation();
-    store.overlay.setTextEditInfo(store.history, null, true);
+    if (finishActivePendingClipboardTextItem(store)) {
+      store.overlay.setTextEditInfo(store.history, null);
+    } else {
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
     return true;
   }
 

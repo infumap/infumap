@@ -19,7 +19,7 @@
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
-import { TextFns, asTextItem } from "../../items/text-item";
+import { TextFns, asTextItem, clipboardTextCreateShowsPlaceholder, textDisplayTitle } from "../../items/text-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, shouldShowFocusRingForVisualElement } from "./helper";
@@ -40,6 +40,8 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
   const store = useStore();
 
   const textItem = () => asTextItem(props.visualElement.displayItem);
+  const titleText = () => textDisplayTitle(textItem());
+  const titleIsPlaceholder = () => clipboardTextCreateShowsPlaceholder(textItem());
   const canEdit = () => itemCanEdit(textItem());
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -166,22 +168,23 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
         <Match when={store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath()}>
           <a id={VeFns.veToPath(props.visualElement) + ":title"}
             href={""}
-            class={`text-purple-800`}
+            class={titleIsPlaceholder() ? `italic text-slate-500` : `text-purple-800`}
             style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
             onClick={aHrefClick}
             onMouseDown={aHrefMouseDown}
             onMouseUp={aHrefMouseUp}>
-            {textItem().title}
+            {titleText()}
           </a>
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
+            class={titleIsPlaceholder() ? "italic text-slate-500" : ""}
             style={`display: inline-block; white-space: pre; outline: 0px solid transparent;`}
             contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
-            {appendNewlineIfEmpty(textItem().title)}<span></span>
+            {appendNewlineIfEmpty(titleText())}<span></span>
           </span>
         </Match>
       </Switch>

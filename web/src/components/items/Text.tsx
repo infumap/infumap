@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch } from "solid-js";
-import { TextFns, asTextItem } from "../../items/text-item";
+import { TextFns, asTextItem, clipboardTextCreateShowsPlaceholder, textDisplayTitle } from "../../items/text-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../../items/base/flags-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -53,6 +53,7 @@ import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { finishActivePendingClipboardTextItem } from "../../input/text_clipboard_create";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -62,6 +63,8 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const textItem = () => asTextItem(props.visualElement.displayItem);
+  const titleText = () => textDisplayTitle(textItem());
+  const titleIsPlaceholder = () => clipboardTextCreateShowsPlaceholder(textItem());
   const canEdit = () => itemCanEdit(textItem());
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
@@ -222,11 +225,21 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
       case "Enter":
         ev.preventDefault();
         ev.stopPropagation();
+        if (finishActivePendingClipboardTextItem(store)) {
+          store.overlay.setTextEditInfo(store.history, null);
+          arrangeNow(store, "clipboard-text-enter-exit-edit");
+          return;
+        }
         enterKeyHandler();
         return;
       case "Escape":
         ev.preventDefault();
         ev.stopPropagation();
+        if (finishActivePendingClipboardTextItem(store)) {
+          store.overlay.setTextEditInfo(store.history, null);
+          arrangeNow(store, "clipboard-text-escape-exit-edit");
+          return;
+        }
         store.overlay.setTextEditInfo(store.history, null, true);
         arrangeNow(store, "text-escape-exit-edit");
         return;
@@ -369,18 +382,18 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
               `text-indent: ${popupTextIndentPx()}px; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
               href={""}
-              class={`text-purple-800 hover:text-purple-700`}
+              class={titleIsPlaceholder() ? `italic text-slate-500` : `text-purple-800 hover:text-purple-700`}
               style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
               onClick={aHrefClick}
               onMouseDown={aHrefMouseDown}
               onMouseUp={aHrefMouseUp}>
-              {appendNewlineIfEmpty(textItem().title)}
+              {appendNewlineIfEmpty(titleText())}
             </a>
           </div>
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={"text-left"}
+            class={`text-left ${titleIsPlaceholder() ? "italic text-slate-500" : ""}`}
             style={`position: absolute; ` +
               `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
               `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
@@ -394,7 +407,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
             spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
-            {appendNewlineIfEmpty(textItem().title)}
+            {appendNewlineIfEmpty(titleText())}
           </span>
         </Match>
       </Switch>

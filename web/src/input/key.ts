@@ -62,6 +62,7 @@ import {
 import { isChatPage } from "../items/chat";
 import type { SearchResult } from "../server";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
+import { finishActivePendingClipboardTextItem } from "./text_clipboard_create";
 
 
 /**
@@ -538,7 +539,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   const recognizedKeys = [
     "Slash", "Backslash", "Escape", "Enter", "Space", "F2",
     "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
-    "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyD", "KeyE", "KeyF",
+    "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyD", "KeyE", "KeyF", "KeyX",
   ];
 
   if (document.activeElement!.id.includes('toolbarTitleDiv')) {
@@ -562,6 +563,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
     if (ev.code == "Escape") {
       ev.preventDefault();
+      if (finishActivePendingClipboardTextItem(store)) {
+        store.overlay.setTextEditInfo(store.history, null);
+        arrangeNow(store, "key-escape-clipboard-text-exit");
+        return;
+      }
       store.overlay.setTextEditInfo(store.history, null, true);
       arrangeNow(store, "key-escape-cancel-edit");
       return;
@@ -796,6 +802,12 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   else if (ev.code == "KeyD") {
     ev.preventDefault();
     newItemInContext(store, "divider", hitInfo, CursorEventState.getLatestDesktopPx(store));
+  }
+
+  else if (ev.code == "KeyX") {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) { return; }
+    ev.preventDefault();
+    newItemInContext(store, "text", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
 
   else if (ev.code == "KeyE") {

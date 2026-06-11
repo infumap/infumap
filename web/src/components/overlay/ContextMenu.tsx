@@ -41,6 +41,7 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
   const newLinkInContext = () => newItemInContext(store, "link", props.hitInfo, props.desktopPosPx);
   const newPasswordInContext = () => newItemInContext(store, "password", props.hitInfo, props.desktopPosPx);
   const newDividerInContext = () => newItemInContext(store, "divider", props.hitInfo, props.desktopPosPx);
+  const newTextInContext = () => newItemInContext(store, "text", props.hitInfo, props.desktopPosPx);
 
   return (
     <div class="border rounded w-[115px] h-[262px] bg-slate-50 mb-1 shadow-lg">
@@ -68,7 +69,7 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
       <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
         <div class="inline-block text-center w-[18px]"><i class="fa fa-image" /></div> Image
       </div>
-      <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
+      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newTextInContext}>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-font" /></div> Text
       </div>
       <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">

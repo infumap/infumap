@@ -20,7 +20,7 @@ import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX
 import { Hitbox, HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
-import { panic } from '../util/lang';
+import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
 import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ItemType, ItemTypeMixin } from './base/item';
@@ -41,17 +41,68 @@ import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 import { openTextDocumentProjection } from './text-document';
+import { EMPTY_UID, newUid, Uid } from '../util/uid';
 
 
 export interface TextItem extends TextMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
   documentWidthBl: number | null,
   documentShowTitle: boolean | null,
+  clipboardTextCreateState?: "awaiting-paste" | "editing-title" | "persisting",
+  clipboardTextContent?: string | null,
 }
 
 export interface TextMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin, IconMixin { }
 
+export const TEXT_CLIPBOARD_PLACEHOLDER_TITLE = "paste text";
+
+export function isClipboardTextCreateItem(item: ItemTypeMixin | null): item is TextItem {
+  return isText(item) && (item as TextItem).clipboardTextCreateState != null;
+}
+
+export function clipboardTextCreateShowsPlaceholder(item: TextItem): boolean {
+  return item.clipboardTextCreateState == "awaiting-paste";
+}
+
+export function textDisplayTitle(textItem: TextItem): string {
+  return clipboardTextCreateShowsPlaceholder(textItem) ? TEXT_CLIPBOARD_PLACEHOLDER_TITLE : textItem.title;
+}
+
 
 export const TextFns = {
+  create: (ownerId: Uid, parentId: Uid, relationshipToParent: string, title: string, ordering: Uint8Array): TextItem => {
+    if (parentId == EMPTY_UID) { panic("TextFns.create: parent is empty."); }
+    const now = currentUnixTimeSeconds();
+    return {
+      origin: null,
+      itemType: ItemType.Text,
+      ownerId,
+      id: newUid(),
+      parentId,
+      relationshipToParent,
+      groupId: null,
+      creationDate: now,
+      lastModifiedDate: now,
+      dateTime: now,
+      ordering,
+      title,
+      spatialPositionGr: { x: 0.0, y: 0.0 },
+
+      spatialWidthGr: 8.0 * GRID_SIZE,
+
+      flags: TextFlags.None,
+      emoji: null,
+      iconMode: ItemIconMode.Auto,
+
+      originalCreationDate: now,
+      mimeType: "text/plain",
+      fileSizeBytes: 0,
+      documentWidthBl: null,
+      documentShowTitle: null,
+
+      computed_attachments: [],
+    };
+  },
+
   fromObject: (o: any, origin: string | null): TextItem => {
     // TODO: dynamic type check of o.
     return ({

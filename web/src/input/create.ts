@@ -31,6 +31,7 @@ import { calculateCalendarDateTime } from "../util/calendar-layout";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
 import { TableFns, asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
+import { TextFns, isClipboardTextCreateItem } from "../items/text-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -44,6 +45,7 @@ import { panic } from "../util/lang";
 import { restoreContentEditablePlaceholderIfEmpty } from "../util/string";
 import { SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
+import { prepareNewTextItemForClipboardCreate } from "./text_clipboard_create";
 
 
 function createNewItem(
@@ -68,10 +70,20 @@ function createNewItem(
     newItem = PasswordFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "divider")  {
     newItem = DividerFns.create(store.user.getUser().userId, parentId, relationship, ordering);
+  } else if (type == "text")  {
+    newItem = TextFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
+    prepareNewTextItemForClipboardCreate(newItem);
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
   }
   return newItem;
+}
+
+function addNewItemForCreation(store: StoreContextModel, newItem: PositionalItem): void {
+  itemState.add(newItem);
+  if (!isClipboardTextCreateItem(newItem)) {
+    server.addItem(newItem, null, store.general.networkStatus);
+  }
 }
 
 function itemAllowsNewChild(item: Item | null): boolean {
@@ -289,8 +301,7 @@ function createItemInPage(
   positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
   applyNewPageDefaults(store, newItem);
 
-  itemState.add(newItem);
-  server.addItem(newItem, null, store.general.networkStatus);
+  addNewItemForCreation(store, newItem);
 
   store.overlay.contextMenuInfo.set(null);
   arrangeNow(store, arrangeReason);
@@ -497,7 +508,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   let newItem;
   let newItemPath;
 
-  if (isPlaceholder(overElementVe.displayItem)) {
+  if (type != ItemType.Text && isPlaceholder(overElementVe.displayItem)) {
     if (!parentChainAllowsNewChild(overElementVe.displayItem.parentId)) {
       store.overlay.contextMenuInfo.set(null);
       return;
@@ -512,8 +523,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
 
     itemState.delete(overElementVe.displayItem.id);
     server.deleteItem(overElementVe.displayItem.id, store.general.networkStatus);
-    itemState.add(newItem);
-    server.addItem(newItem, null, store.general.networkStatus);
+    addNewItemForCreation(store, newItem);
 
     store.overlay.contextMenuInfo.set(null);
     arrangeNow(store, "create-from-placeholder");
@@ -555,8 +565,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           insertionTarget.parentContainer.id,
           itemState.newOrderingAtChildrenPosition(insertionTarget.parentContainer.id, insertionTarget.insertIndex, null),
           RelationshipToParent.Child);
-        server.addItem(newItem, null, store.general.networkStatus);
-        itemState.add(newItem);
+        addNewItemForCreation(store, newItem);
         store.overlay.contextMenuInfo.set(null);
         scrollTableToIncludeRow(store, overElementVe, insertRow);
         arrangeNow(store, "create-in-table-end");
@@ -568,7 +577,9 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           return;
         }
 
-        const numPlaceholdersToCreate = attachmentPos > displayedChild.computed_attachments.length ? attachmentPos - displayedChild.computed_attachments.length : 0;
+        const numPlaceholdersToCreate = type == ItemType.Text
+          ? 0
+          : attachmentPos > displayedChild.computed_attachments.length ? attachmentPos - displayedChild.computed_attachments.length : 0;
         for (let i=0; i<numPlaceholdersToCreate; ++i) {
           const placeholderItem = PlaceholderFns.create(displayedChild.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
           itemState.add(placeholderItem);
@@ -582,8 +593,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           itemState.newOrderingAtEndOfAttachments(displayedChild.id),
           RelationshipToParent.Attachment);
 
-        itemState.add(newItem);
-        server.addItem(newItem, null, store.general.networkStatus);
+        addNewItemForCreation(store, newItem);
 
         store.overlay.contextMenuInfo.set(null);
         arrangeNow(store, "create-in-table-attachment");
@@ -607,7 +617,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     }
   }
 
-  else if (isLink(overElementVe.displayItem)) {
+  else if (type != ItemType.Text && isLink(overElementVe.displayItem)) {
     const link = asLinkItem(overElementVe.displayItem);
 
     const currentPageId = store.history.currentPageVeid()!.itemId;
@@ -642,8 +652,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       newItem.spatialPositionGr = { x: 0.0, y: 0.0 };
     }
 
-    itemState.add(newItem);
-    server.addItem(newItem, null, store.general.networkStatus);
+    addNewItemForCreation(store, newItem);
 
     link.linkTo = newItem.id;
     serverOrRemote.updateItem(link, store.general.networkStatus);
@@ -675,7 +684,8 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
   if (type == ItemType.Page ||
       type == ItemType.Note ||
       type == ItemType.Password ||
-      type == ItemType.Table) {
+      type == ItemType.Table ||
+      type == ItemType.Text) {
     focusNewItemForEditing(store, type, newItem, newItemPath);
   } else if (type == ItemType.Link) {
     store.history.setFocus(newItemPath);

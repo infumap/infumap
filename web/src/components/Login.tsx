@@ -112,7 +112,7 @@ export const Login: Component = () => {
           "/" → create a new item at current location using context menu.
         </div>
         <div class="mb-3">
-          "n", "p", "t", "r", "w", "l" → create a specific item (note, page, table, rating, password, link) at the current location.
+          "n", "p", "t", "r", "w", "l", "x" → create a specific item (note, page, table, rating, password, link, text) at the current location.
         </div>
         <div class="mb-3">
           right mouse button → navigate back in history one step.

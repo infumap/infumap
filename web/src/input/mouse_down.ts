@@ -54,6 +54,7 @@ import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
+import { finishPendingClipboardTextItem } from "./text_clipboard_create";
 
 
 export const MOUSE_LEFT = 0;
@@ -393,6 +394,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       } else {
         const newText = editingDomEl instanceof HTMLInputElement ? editingDomEl.value : editingDomEl.innerText;
         const item = itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!;
+        let handledPendingClipboardText = false;
 
         if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
           if (store.overlay.textEditInfo()!.colNum == null) {
@@ -425,6 +427,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Text) {
           editingDomEl.parentElement!.scrollLeft = 0;
           asTextItem(item).title = trimNewline(newText);
+          handledPendingClipboardText = finishPendingClipboardTextItem(store, editingItemPath, newText);
         }
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
           editingDomEl.parentElement!.scrollLeft = 0;
@@ -436,7 +439,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
         itemState.sortParentChildrenIfTitleOrdered(item);
 
-        if (editingItemType != ItemType.Search) {
+        if (editingItemType != ItemType.Search && !handledPendingClipboardText) {
           serverOrRemote.updateItem(item, store.general.networkStatus);
         }
         store.overlay.toolbarPopupInfoMaybe.set(null);

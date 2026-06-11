@@ -54,6 +54,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { asImageItem } from "../items/image-item";
 import { itemCanAcceptManualChildren, PageFlags } from "../items/base/flags-item";
+import { finishPendingClipboardTextItem } from "./text_clipboard_create";
 
 
 let arrowKeyDown_caretPosition: number | null = null;
@@ -279,9 +280,12 @@ export function commitActiveTextEdit(
       editingDomEl.parentElement!.scrollLeft = 0;
       asFileItem(item).title = trimNewline(newText);
     }
-    else if (textEditInfo.itemType == ItemType.Text) {
+    let handledPendingClipboardText = false;
+
+    if (textEditInfo.itemType == ItemType.Text) {
       editingDomEl.parentElement!.scrollLeft = 0;
       asTextItem(item).title = trimNewline(newText);
+      handledPendingClipboardText = finishPendingClipboardTextItem(store, editingItemPath, newText);
     }
     else if (textEditInfo.itemType == ItemType.Password) {
       editingDomEl.parentElement!.scrollLeft = 0;
@@ -295,7 +299,7 @@ export function commitActiveTextEdit(
     }
 
     itemState.sortParentChildrenIfTitleOrdered(item);
-    if (textEditInfo.itemType != ItemType.Search) {
+    if (textEditInfo.itemType != ItemType.Search && !handledPendingClipboardText) {
       serverOrRemote.updateItem(item, store.general.networkStatus);
     }
   }
@@ -1081,6 +1085,11 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
   const noteVeid = VeFns.veidFromPath(context.editingPath);
   const item = itemState.get(noteVeid.itemId)!;
   if (!isNote(item) && !isFile(item) && !isText(item)) { return; }
+  if (isText(item) && finishPendingClipboardTextItem(store, context.editingPath, document.getElementById(context.editingPath + ":title")?.textContent ?? "")) {
+    store.overlay.setTextEditInfo(store.history, null, false);
+    arrangeNow(store, "clipboard-text-enter-commit");
+    return;
+  }
   const titledItem = asTitledItem(item);
 
   const editingDomId = context.editingPath + ":title";

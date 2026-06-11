@@ -17,10 +17,26 @@
 */
 
 import { StoreContextModel } from "../store/StoreProvider";
+import { acceptClipboardTextForPendingTextItem } from "./text_clipboard_create";
 
 
-export function pasteHandler(_store: StoreContextModel, ev: ClipboardEvent) {
-  let text = ev.clipboardData!.getData('text/plain');
+export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
+  const clipboardData = ev.clipboardData;
+  const editInfo = store.overlay.textEditInfo();
+  if (clipboardData != null && editInfo != null) {
+    const clipboardText = clipboardData.getData('text/plain');
+    if (acceptClipboardTextForPendingTextItem(store, editInfo.itemPath, clipboardText)) {
+      ev.preventDefault();
+      return;
+    }
+  }
+
+  if (clipboardData == null) {
+    ev.preventDefault();
+    return;
+  }
+
+  let text = clipboardData.getData('text/plain');
   text = text.replace('\n', ' ');
   text = text.replace('\r', ' ');
   text = text.replace('\t', ' ');
