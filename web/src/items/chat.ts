@@ -204,7 +204,17 @@ function collectChatContextItemObjects(page: PageItem): Array<object> {
   for (const childId of page.computed_children) {
     collectSubtreeItems(childId, items);
   }
-  return items.map(item => ItemFns.toObject(item));
+  return items.map(chatContextItemObject);
+}
+
+function chatContextItemObject(item: Item): object {
+  const titled = item as Item & { title?: unknown };
+  return {
+    id: item.id,
+    parentId: item.parentId,
+    itemType: item.itemType,
+    title: typeof titled.title == "string" ? titled.title : "",
+  };
 }
 
 async function persistItems(store: StoreContextModel, items: Array<Item>): Promise<void> {

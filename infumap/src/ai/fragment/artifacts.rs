@@ -27,14 +27,19 @@ fn item_fragment_id(item_id: &str, fragmenter_version: u32, ordinal: usize) -> S
   format!("{}:{}:{}", item_id, fragmenter_version, ordinal)
 }
 
-#[derive(Serialize)]
-struct FragmentRecord {
-  ordinal: usize,
-  text: String,
+#[derive(Clone, Deserialize, Serialize)]
+pub struct ItemFragmentRecord {
+  pub ordinal: usize,
+  pub text: String,
   #[serde(skip_serializing_if = "Option::is_none")]
-  page_start: Option<usize>,
+  pub page_start: Option<usize>,
   #[serde(skip_serializing_if = "Option::is_none")]
-  page_end: Option<usize>,
+  pub page_end: Option<usize>,
+}
+
+pub struct ItemFragments {
+  pub source_kind: String,
+  pub records: Vec<ItemFragmentRecord>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -117,7 +122,7 @@ pub async fn write_item_fragments(
 
   let mut serialized = Vec::new();
   for (ordinal, fragment) in fragments.iter().enumerate() {
-    let record = FragmentRecord {
+    let record = ItemFragmentRecord {
       ordinal,
       text: fragment.text.clone(),
       page_start: fragment.page_start,
@@ -140,6 +145,39 @@ pub async fn write_item_fragments(
   fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
 
   Ok(FragmentBuildOutcome { wrote_fragments: true, fragment_count: fragments.len(), cleared_existing_fragments: false })
+}
+
+pub async fn read_item_fragments(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<ItemFragments> {
+  let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
+  let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
+  let manifest = read_fragments_manifest_if_present(&fragments_path, &manifest_path).await?;
+  let source_kind = manifest
+    .map(|manifest| manifest.source_kind)
+    .filter(|source_kind| !source_kind.trim().is_empty())
+    .unwrap_or_else(|| "unknown".to_owned());
+  let contents = fs::read_to_string(&fragments_path)
+    .await
+    .map_err(|e| format!("Could not read fragments file '{}': {}", fragments_path.display(), e))?;
+  let records = parse_item_fragment_records(&contents)?;
+  Ok(ItemFragments { source_kind, records })
+}
+
+fn parse_item_fragment_records(contents: &str) -> InfuResult<Vec<ItemFragmentRecord>> {
+  let mut out = Vec::new();
+
+  for (line_number, line) in contents.lines().enumerate() {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+      continue;
+    }
+    let record: ItemFragmentRecord = serde_json::from_str(trimmed)
+      .map_err(|e| format!("Could not parse fragment record on line {} of fragments.jsonl: {}", line_number + 1, e))?;
+    if !record.text.trim().is_empty() {
+      out.push(record);
+    }
+  }
+
+  Ok(out)
 }
 
 pub async fn clear_item_fragments(data_dir: &str, item: &Item) -> InfuResult<FragmentBuildOutcome> {

@@ -19,8 +19,14 @@ use std::io::Write as _;
 
 const CHAT_LLAMA_REQUEST_TIMEOUT_SECS: u64 = 120;
 const CHAT_MAX_TOOL_ROUNDS: usize = 3;
+const CHAT_HISTORY_MAX_PREVIOUS_MESSAGES: usize = 8;
+const CHAT_HISTORY_MAX_MESSAGE_CHARS: usize = 4_000;
+const CHAT_HISTORY_MAX_TOTAL_CHARS: usize = 12_000;
 const CHAT_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
+const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
+const CHAT_FRAGMENT_TOOL_MAX_CHARS: usize = 6_000;
+const CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS: usize = 2;
 const CHAT_RESPONSE_ITEM_WIDTH_GR: i64 = 30 * GRID_SIZE;
 const CHAT_RESPONSE_TABLE_MAX_HEIGHT_BL: i64 = 12;
 const CHAT_RESPONSE_TABLE_MIN_COLUMN_WIDTH_GR: i64 = 3 * GRID_SIZE;
@@ -31,7 +37,8 @@ const CHAT_SYSTEM_PROMPT: &str = "\
 You are Infumap's chat assistant.
 
 Use the search tool when the user asks about information that may be stored in Infumap.
-Search returns compact results with item ids, item types, titles, paths, and text snippets.
+Search returns compact results with item ids, item types, titles, paths, fragment ordinals, and text snippets.
+Use get_fragment when a search snippet is truncated, ambiguous, or too small to answer from confidently.
 If search results are insufficient, say what is missing rather than inventing details.
 Return a concise Markdown answer.";
 const NOTE_FLAG_HEADING3: i64 = 0x001;
@@ -122,11 +129,22 @@ struct LlamaChatCompletionRequest {
 #[derive(Deserialize)]
 struct LlamaChatCompletionResponse {
   choices: Vec<LlamaChatCompletionChoice>,
+  usage: Option<LlamaChatCompletionUsage>,
 }
 
 #[derive(Deserialize)]
 struct LlamaChatCompletionChoice {
   message: LlamaChatMessage,
+}
+
+#[derive(Deserialize, Serialize)]
+struct LlamaChatCompletionUsage {
+  #[serde(rename = "prompt_tokens")]
+  prompt_tokens: Option<i64>,
+  #[serde(rename = "completion_tokens")]
+  completion_tokens: Option<i64>,
+  #[serde(rename = "total_tokens")]
+  total_tokens: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -139,6 +157,19 @@ struct ChatSearchToolArguments {
   num_results: Option<i64>,
   #[serde(rename = "pageNum")]
   page_num: Option<i64>,
+}
+
+#[derive(Deserialize)]
+struct ChatFragmentToolArguments {
+  #[serde(rename = "itemId")]
+  item_id: Option<Uid>,
+  #[serde(rename = "fragmentOrdinal")]
+  fragment_ordinal: Option<i64>,
+  ordinal: Option<i64>,
+  before: Option<i64>,
+  after: Option<i64>,
+  #[serde(rename = "maxChars")]
+  max_chars: Option<i64>,
 }
 
 pub(super) async fn handle_chat(
@@ -235,6 +266,59 @@ fn collect_chat_text(
   }
 }
 
+fn text_char_count(text: &str) -> usize {
+  text.chars().count()
+}
+
+fn clamp_text_chars(text: &str, max_chars: usize) -> (String, bool) {
+  if max_chars == 0 {
+    return (String::new(), !text.is_empty());
+  }
+
+  let mut chars = text.chars();
+  let truncated: String = chars.by_ref().take(max_chars).collect();
+  (truncated, chars.next().is_some())
+}
+
+fn clamp_message_content(message: &mut LlamaChatMessage, max_chars: usize) {
+  let Some(content) = message.content.as_mut() else {
+    return;
+  };
+  let (clamped, _) = clamp_text_chars(content.trim(), max_chars);
+  *content = clamped;
+}
+
+fn message_content_chars(message: &LlamaChatMessage) -> usize {
+  message.content.as_deref().map(text_char_count).unwrap_or(0)
+}
+
+fn total_message_content_chars(messages: &[LlamaChatMessage]) -> usize {
+  messages.iter().map(message_content_chars).sum()
+}
+
+fn trim_chat_messages_for_prompt(
+  previous_messages: Vec<LlamaChatMessage>,
+  current_user_text: String,
+) -> Vec<LlamaChatMessage> {
+  let skip_count = previous_messages.len().saturating_sub(CHAT_HISTORY_MAX_PREVIOUS_MESSAGES);
+  let mut messages = previous_messages.into_iter().skip(skip_count).collect::<Vec<_>>();
+  for message in &mut messages {
+    clamp_message_content(message, CHAT_HISTORY_MAX_MESSAGE_CHARS);
+  }
+
+  let current_user_text = current_user_text.trim();
+  if !current_user_text.is_empty() {
+    let (content, _) = clamp_text_chars(current_user_text, CHAT_HISTORY_MAX_MESSAGE_CHARS);
+    messages.push(LlamaChatMessage::text("user", content));
+  }
+
+  while messages.len() > 1 && total_message_content_chars(&messages) > CHAT_HISTORY_MAX_TOTAL_CHARS {
+    messages.remove(0);
+  }
+
+  messages
+}
+
 fn llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessage> {
   let mut ids = HashSet::new();
   let mut items_by_id: HashMap<String, &Value> = HashMap::new();
@@ -276,22 +360,13 @@ fn llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessa
     }
   }
 
-  let user_text = request.user_text.trim();
-  if !user_text.is_empty() {
-    messages.push(LlamaChatMessage::text("user", user_text.to_owned()));
-  }
-
-  messages
+  trim_chat_messages_for_prompt(messages, request.user_text.clone())
 }
 
 fn truncate_for_error(text: &str, max_chars: usize) -> String {
   let mut chars = text.chars();
   let truncated: String = chars.by_ref().take(max_chars).collect();
-  if chars.next().is_some() {
-    format!("{}...", truncated)
-  } else {
-    truncated
-  }
+  if chars.next().is_some() { format!("{}...", truncated) } else { truncated }
 }
 
 fn error_chain_for_log(error: &dyn std::error::Error) -> String {
@@ -355,6 +430,25 @@ fn append_llm_json_log_section<T: Serialize>(title: &str, value: &T) {
   append_llm_log_section(title, &body);
 }
 
+fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) {
+  let content_chars = total_message_content_chars(messages);
+  let tool_schema_chars = serde_json::to_string(tools).map(|text| text_char_count(&text)).unwrap_or(0);
+  let total_request_chars = content_chars + tool_schema_chars;
+  let tool_result_chars =
+    messages.iter().filter(|message| message.role == "tool").map(message_content_chars).sum::<usize>();
+  let metrics = serde_json::json!({
+    "messageCount": messages.len(),
+    "toolCount": tools.len(),
+    "contentChars": content_chars,
+    "toolSchemaChars": tool_schema_chars,
+    "totalRequestChars": total_request_chars,
+    "approxContentTokens": (content_chars + 3) / 4,
+    "approxRequestTokens": (total_request_chars + 3) / 4,
+    "toolResultChars": tool_result_chars
+  });
+  append_llm_json_log_section(&format!("LLM REQUEST METRICS {}", llm_turn), &metrics);
+}
+
 fn search_tool_spec() -> LlamaToolSpec {
   LlamaToolSpec {
     tool_type: "function".to_owned(),
@@ -391,6 +485,51 @@ fn search_tool_spec() -> LlamaToolSpec {
   }
 }
 
+fn get_fragment_tool_spec() -> LlamaToolSpec {
+  LlamaToolSpec {
+    tool_type: "function".to_owned(),
+    function: LlamaToolFunctionSpec {
+      name: "get_fragment".to_owned(),
+      description: "Fetch bounded full text for a specific Infumap search fragment by item id and fragment ordinal."
+        .to_owned(),
+      parameters: serde_json::json!({
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "Item id from a search result."
+          },
+          "fragmentOrdinal": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Fragment ordinal from a search result."
+          },
+          "before": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS,
+            "description": "Optional number of preceding fragments to include."
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS,
+            "description": "Optional number of following fragments to include."
+          },
+          "maxChars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": CHAT_FRAGMENT_TOOL_MAX_CHARS,
+            "description": "Maximum text characters to return across all fetched fragments."
+          }
+        },
+        "required": ["itemId", "fragmentOrdinal"],
+        "additionalProperties": false
+      }),
+    },
+  }
+}
+
 async fn run_chat_with_tools(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -405,7 +544,7 @@ async fn run_chat_with_tools(
   }
   messages.insert(0, LlamaChatMessage::text("system", CHAT_SYSTEM_PROMPT.to_owned()));
 
-  let tools = vec![search_tool_spec()];
+  let tools = vec![search_tool_spec(), get_fragment_tool_spec()];
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
@@ -465,6 +604,7 @@ async fn execute_chat_tool_call(
 ) -> InfuResult<String> {
   match tool_call.function.name.as_str() {
     "search" => execute_search_tool_call(config, db, session, tool_call).await,
+    "get_fragment" => execute_get_fragment_tool_call(config, db, session, tool_call).await,
     name => Ok(tool_error_json(&format!("Unknown tool '{name}'."))),
   }
 }
@@ -498,6 +638,110 @@ async fn execute_search_tool_call(
     Ok(response) => search::compact_search_response_json(&response),
     Err(e) => Ok(tool_error_json(&format!("Search failed: {}", e))),
   }
+}
+
+async fn execute_get_fragment_tool_call(
+  _config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  tool_call: &LlamaToolCall,
+) -> InfuResult<String> {
+  let arguments = match tool_call_arguments_value(tool_call) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&e.to_string())),
+  };
+  let arguments: ChatFragmentToolArguments = match serde_json::from_value(arguments) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&format!("Could not parse get_fragment tool arguments: {}", e))),
+  };
+
+  let item_id = match arguments.item_id.as_deref().map(str::trim).filter(|item_id| !item_id.is_empty()) {
+    Some(item_id) => item_id.to_owned(),
+    None => return Ok(tool_error_json("get_fragment tool argument 'itemId' is required.")),
+  };
+  let fragment_ordinal = match arguments.fragment_ordinal.or(arguments.ordinal) {
+    Some(ordinal) if ordinal >= 0 => ordinal as usize,
+    Some(_) => return Ok(tool_error_json("get_fragment tool argument 'fragmentOrdinal' must be non-negative.")),
+    None => return Ok(tool_error_json("get_fragment tool argument 'fragmentOrdinal' is required.")),
+  };
+  let before = fragment_context_arg(arguments.before);
+  let after = fragment_context_arg(arguments.after);
+  let max_chars = arguments
+    .max_chars
+    .unwrap_or(CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS as i64)
+    .clamp(1, CHAT_FRAGMENT_TOOL_MAX_CHARS as i64) as usize;
+
+  let (data_dir, item_type, title) = {
+    let db = db.lock().await;
+    let item = match db.item.get(&item_id) {
+      Ok(item) => item,
+      Err(_) => return Ok(tool_error_json("Item was not found.")),
+    };
+    if item.owner_id != session.user_id {
+      return Ok(tool_error_json("Item was not found."));
+    }
+    (db.item.data_dir().to_owned(), item.item_type.as_str().to_owned(), item.title.clone())
+  };
+
+  let item_fragments: crate::ai::fragment::ItemFragments =
+    match crate::ai::fragment::read_item_fragments(&data_dir, &session.user_id, &item_id).await {
+      Ok(item_fragments) => item_fragments,
+      Err(e) => return Ok(tool_error_json(&format!("Could not read item fragments: {}", e))),
+    };
+  let source_kind = item_fragments.source_kind;
+  let start_ordinal = fragment_ordinal.saturating_sub(before);
+  let end_ordinal = fragment_ordinal.saturating_add(after);
+  let selected_records: Vec<crate::ai::fragment::ItemFragmentRecord> = item_fragments
+    .records
+    .into_iter()
+    .filter(|record| record.ordinal >= start_ordinal && record.ordinal <= end_ordinal)
+    .collect::<Vec<_>>();
+
+  if selected_records.is_empty() {
+    return Ok(tool_error_json("Fragment ordinal was not found for this item."));
+  }
+
+  let mut remaining_chars = max_chars;
+  let mut text_truncated = false;
+  let mut returned_fragments = Vec::new();
+  for record in selected_records {
+    if remaining_chars == 0 {
+      text_truncated = true;
+      break;
+    }
+
+    let (text, fragment_truncated) = clamp_text_chars(&record.text, remaining_chars);
+    remaining_chars = remaining_chars.saturating_sub(text_char_count(&text));
+    text_truncated |= fragment_truncated;
+    returned_fragments.push(serde_json::json!({
+      "fragmentOrdinal": record.ordinal,
+      "text": text,
+      "pageStart": record.page_start,
+      "pageEnd": record.page_end,
+      "textTruncated": fragment_truncated
+    }));
+
+    if fragment_truncated {
+      break;
+    }
+  }
+
+  Ok(
+    serde_json::json!({
+      "itemId": item_id,
+      "itemType": item_type,
+      "title": title,
+      "sourceKind": source_kind,
+      "requestedFragmentOrdinal": fragment_ordinal,
+      "fragments": returned_fragments,
+      "textTruncated": text_truncated
+    })
+    .to_string(),
+  )
+}
+
+fn fragment_context_arg(value: Option<i64>) -> usize {
+  value.unwrap_or(0).clamp(0, CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS as i64) as usize
 }
 
 fn tool_call_arguments_value(tool_call: &LlamaToolCall) -> InfuResult<Value> {
@@ -539,6 +783,7 @@ async fn llama_chat_completion(
     stream: false,
     tools: tools.to_vec(),
   };
+  append_llm_request_metrics_log(llm_turn, messages, tools);
   append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &payload);
   let response = client
     .post(url.clone())
@@ -561,6 +806,9 @@ async fn llama_chat_completion(
 
   let parsed: LlamaChatCompletionResponse = serde_json::from_str(&body)
     .map_err(|e| format!("Could not parse llama-server chat response: {}", error_chain_for_log(&e)))?;
+  if let Some(usage) = parsed.usage.as_ref() {
+    append_llm_json_log_section(&format!("LLM RESPONSE USAGE {}", llm_turn), usage);
+  }
   parsed
     .choices
     .into_iter()

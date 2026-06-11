@@ -135,6 +135,8 @@ pub(super) mod compact {
 
   #[derive(Clone, Serialize)]
   pub(super) struct CompactSearchFragmentMatch {
+    #[serde(rename = "fragmentOrdinal")]
+    pub fragment_ordinal: usize,
     #[serde(rename = "sourceKind")]
     pub source_kind: String,
     pub score: f32,
@@ -182,6 +184,7 @@ pub(super) mod compact {
 
   fn compact_search_fragment_match(fragment_match: &SearchFragmentMatch) -> CompactSearchFragmentMatch {
     CompactSearchFragmentMatch {
+      fragment_ordinal: fragment_match.fragment_ordinal,
       source_kind: fragment_match.source_kind.clone(),
       score: fragment_match.score,
       text: fragment_match.text.clone(),
