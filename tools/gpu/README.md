@@ -37,6 +37,11 @@ The child services keep their own defaults:
 - `text_embed`: `127.0.0.1:8789`
 - `pdf_extract`: `127.0.0.1:8790`
 
+Infumap can use the gateway for discovery with
+`gpu_tools_url = "http://127.0.0.1:8787"`. To use a standalone text embedding
+service instead of the gateway-discovered endpoint, set
+`text_embed_url = "http://127.0.0.1:8789"`.
+
 Hugging Face, llama.cpp, PyTorch, Transformers, and Marker downloads use their
 standard library cache locations, such as `~/.cache/huggingface` and
 `~/.cache/torch`.

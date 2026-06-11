@@ -303,6 +303,14 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_GPU_TOOLS_URL, "<not set>");
     }
   }
+  match config.get_string(CONFIG_TEXT_EMBED_URL) {
+    Ok(v) if !v.trim().is_empty() => {
+      info!(" {} = '{}'", CONFIG_TEXT_EMBED_URL, v);
+    }
+    _ => {
+      info!(" {} = {}", CONFIG_TEXT_EMBED_URL, "<not set>");
+    }
+  }
   match config.get_string(CONFIG_LLAMA_SERVER_URL) {
     Ok(v) if !v.trim().is_empty() => {
       info!(" {} = '{}'", CONFIG_LLAMA_SERVER_URL, v);

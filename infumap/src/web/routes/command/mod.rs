@@ -56,7 +56,6 @@ use crate::ai::fragment::{
 };
 use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::geo::delete_item_geo_artifacts;
-use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, resolve_configured_gpu_tool_url};
 use crate::ai::image_pipeline::{
   dequeue_image_semantic_pipeline_item_if_active, enqueue_image_semantic_pipeline_item_if_active,
 };
@@ -72,8 +71,8 @@ use crate::ai::search_status::{
   search_pending_page_id, search_status_link_id, search_status_page_id, search_status_page_kind_for_route_id,
 };
 use crate::ai::text_embedding::{
-  TextEmbeddingInput, embed_texts, text_embedding_vector_fingerprint, text_embedding_vector_norm,
-  validate_text_embedding_vector,
+  TextEmbeddingInput, embed_texts, resolve_configured_text_embedding_service_url, text_embedding_vector_fingerprint,
+  text_embedding_vector_norm, validate_text_embedding_vector,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;

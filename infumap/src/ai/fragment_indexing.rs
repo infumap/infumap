@@ -10,9 +10,10 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::{Instant as TokioInstant, sleep};
 
-use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, gpu_tools_url_from_config, resolve_gpu_tool_url};
+use crate::ai::gpu_tools::gpu_tools_url_from_config;
 use crate::ai::indexing::{EmbedRebuildSummary, LoadedFragmentIndexItem, reconcile_fragment_indexes_for_loaded_items};
 use crate::ai::metrics::{METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL};
+use crate::ai::text_embedding::{resolve_optional_text_embedding_service_url, text_embed_url_from_config};
 use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::{user_id_for_log, user_ids_for_log};
 use crate::config::CONFIG_DATA_DIR;
@@ -30,6 +31,7 @@ static FRAGMENT_INDEXING_STATE: OnceCell<Arc<Mutex<DirtyFragmentIndexState>>> = 
 struct FragmentIndexingConfig {
   data_dir: String,
   gpu_tools_url: Option<String>,
+  text_embed_url: Option<String>,
 }
 
 #[derive(Default)]
@@ -114,8 +116,8 @@ pub fn init_fragment_indexing_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuR
     .map_err(|_| "Fragment index reconciliation loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting fragment index reconciliation loop (lexical=document_fragments, semantic_discovery={}).",
-    if indexing_config.gpu_tools_url.is_some() { "on" } else { "off" }
+    "Starting fragment index reconciliation loop (lexical=document_fragments, semantic_service={}).",
+    if indexing_config.text_embed_url.is_some() || indexing_config.gpu_tools_url.is_some() { "on" } else { "off" }
   );
 
   let _worker = task::spawn(async move {
@@ -145,7 +147,8 @@ pub fn enqueue_fragment_index_rebuild_for_user(user_id: &str) {
 fn fragment_indexing_config(config: &Config) -> InfuResult<FragmentIndexingConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let gpu_tools_url = gpu_tools_url_from_config(config)?;
-  Ok(FragmentIndexingConfig { data_dir, gpu_tools_url })
+  let text_embed_url = text_embed_url_from_config(config)?;
+  Ok(FragmentIndexingConfig { data_dir, gpu_tools_url, text_embed_url })
 }
 
 async fn run_fragment_indexing_loop(
@@ -207,10 +210,12 @@ async fn should_rebuild_dirty_users(state: Arc<Mutex<DirtyFragmentIndexState>>) 
 }
 
 async fn refresh_semantic_enabled(config: &FragmentIndexingConfig, state: Arc<Mutex<DirtyFragmentIndexState>>) {
-  match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_TEXT_EMBED).await {
+  match resolve_optional_text_embedding_service_url(config.text_embed_url.as_deref(), config.gpu_tools_url.as_deref())
+    .await
+  {
     Ok(embed_url) => set_semantic_enabled(state, embed_url.is_some()).await,
     Err(e) => {
-      error!("Could not discover text embedding GPU tool endpoint during fragment indexing startup: {}", e);
+      error!("Could not resolve text embedding service endpoint during fragment indexing startup: {}", e);
       set_semantic_enabled(state, false).await;
     }
   }
@@ -238,10 +243,15 @@ async fn rebuild_fragment_indexes_for_dirty_users(
     return;
   }
 
-  let embed_url = match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_TEXT_EMBED).await {
+  let embed_url = match resolve_optional_text_embedding_service_url(
+    config.text_embed_url.as_deref(),
+    config.gpu_tools_url.as_deref(),
+  )
+  .await
+  {
     Ok(embed_url) => embed_url,
     Err(e) => {
-      error!("Could not discover text embedding GPU tool endpoint: {}", e);
+      error!("Could not resolve text embedding service endpoint: {}", e);
       sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
       record_dirty_users(state, user_ids).await;
       return;

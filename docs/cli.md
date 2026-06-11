@@ -17,7 +17,7 @@ In addition to (or instead of) using a settings file, Infumap web server configu
 
 For more information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
 
-Searches from the user's home page mix title lexical matches, document fragment lexical matches, and semantic fragment matches when the corresponding indexes exist. Semantic search also requires `gpu_tools_url` to report a `text_embed` endpoint so the query can be embedded. Searches scoped to a specific page or container currently use exact title matching only.
+Searches from the user's home page mix title lexical matches, document fragment lexical matches, and semantic fragment matches when the corresponding indexes exist. Semantic search also requires either `text_embed_url` or a `gpu_tools_url` that reports a `text_embed` endpoint so the query can be embedded. Searches scoped to a specific page or container currently use exact title matching only.
 
 
 Options:
@@ -213,7 +213,7 @@ Do not run this command at the same time as infumap web - it will compete for th
 Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **--service-url (optional):** Override the `text_embed` endpoint discovered from `gpu_tools_url` for this process.
+- **--service-url (optional):** Override `text_embed_url` or the `text_embed` endpoint discovered from `gpu_tools_url` for this process.
 - **--continue (optional):** Resume a previous rebuild from `indexes/fragments.sqlite3.tmp`.
 
 ### geo

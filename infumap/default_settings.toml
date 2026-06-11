@@ -56,10 +56,13 @@
 # Optional URL for the Infumap GPU tools service or gateway. Infumap discovers
 # available endpoints from /gpu-tools and uses any reported PDF extraction,
 # image extraction, first-page PDF caption fallback, and text embedding tools.
-# Lexical fragment indexing runs without GPU tools. If text embedding is not
-# reported by /gpu-tools, semantic fragment search is disabled.
-# Unset by default; uncomment this example to enable it.
+# If neither gpu_tools_url nor text_embed_url provides text embedding, semantic
+# fragment search is disabled. Unset by default; uncomment this example to enable it.
 #gpu_tools_url = "http://127.0.0.1:8787"
+
+# Optional URL for a standalone text embedding service. If configured, this is
+# used instead of the text_embed endpoint discovered from gpu_tools_url.
+#text_embed_url = "http://127.0.0.1:8789"
 
 # Optional llama.cpp llama-server URL for Chat. Infumap calls the
 # OpenAI-compatible /v1/chat/completions endpoint. You may provide either the

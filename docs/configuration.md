@@ -8,6 +8,8 @@ For documentation on each of the properties, refer to comments in the auto-gener
 
 Configure `gpu_tools_url` to point at either the local GPU gateway or a single direct GPU tool service. Infumap calls `GET /gpu-tools` on that URL to discover supported endpoints such as `/image-extract`, `/text-embed`, `/pdf-extract`, and `/pdf-extract-caption-only`. The local GPU gateway also keeps `/embed` and `/convert` as legacy aliases.
 
+Configure `text_embed_url` to point at a standalone text embedding service when it should be used instead of any `text_embed` endpoint discovered from `gpu_tools_url`.
+
 When configured and reported by `/gpu-tools`, the web server uses these services to maintain derived artifacts in the background: PDFs are text-extracted, images are tagged, fallback first-page PDF captions can be generated when extracted text produces no fragments, image/PDF fragments are generated from those artifacts, and fragment search indexes are reconciled after fragment or title changes.
 
-The discovered `text_embed` endpoint is used to embed fragment content for vector indexes and full-user search queries for semantic lookup. If no text embedding endpoint is reported, semantic fragment search is disabled, but exact title search and lexical title/document-fragment search can still work when their indexes exist.
+The configured `text_embed_url`, or otherwise the discovered `text_embed` endpoint, is used to embed fragment content for vector indexes and full-user search queries for semantic lookup. If no text embedding endpoint is configured or reported, semantic fragment search is disabled, but exact title search and lexical title/document-fragment search can still work when their indexes exist.

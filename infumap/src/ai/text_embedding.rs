@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 
-use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, resolve_configured_gpu_tool_url};
+use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::metrics::{METRIC_AI_EMBEDDING_REQUEST_DURATION_SECONDS, METRIC_AI_EMBEDDING_REQUESTS_TOTAL};
-use crate::config::CONFIG_GPU_TOOLS_URL;
+use crate::config::{CONFIG_GPU_TOOLS_URL, CONFIG_TEXT_EMBED_URL};
 
 pub const DEFAULT_TEXT_EMBEDDING_MODEL: &str = "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0";
 pub const DEFAULT_TEXT_EMBEDDING_BATCH_SIZE: usize = 256;
@@ -79,13 +79,39 @@ pub async fn resolve_text_embedding_service_url(
   if let Some(url) = override_url.map(str::trim).filter(|url| !url.is_empty()) {
     return text_embedding_embed_url(url);
   }
-  resolve_configured_gpu_tool_url(config, GPU_TOOL_TEXT_EMBED).await?.ok_or(
+  resolve_configured_text_embedding_service_url(config).await?.ok_or(
     format!(
-      "{} must be configured and expose '{}', or a service endpoint must be specified via {}.",
-      CONFIG_GPU_TOOLS_URL, GPU_TOOL_TEXT_EMBED, override_flag_name
+      "{} must be configured, {} must be configured and expose '{}', or a service endpoint must be specified via {}.",
+      CONFIG_TEXT_EMBED_URL, CONFIG_GPU_TOOLS_URL, GPU_TOOL_TEXT_EMBED, override_flag_name
     )
     .into(),
   )
+}
+
+pub fn text_embed_url_from_config(config: &Config) -> InfuResult<Option<String>> {
+  match config.get_string(CONFIG_TEXT_EMBED_URL) {
+    Ok(value) => {
+      let trimmed = value.trim();
+      if trimmed.is_empty() { Ok(None) } else { Ok(Some(trimmed.to_owned())) }
+    }
+    Err(_) => Ok(None),
+  }
+}
+
+pub async fn resolve_configured_text_embedding_service_url(config: &Config) -> InfuResult<Option<Url>> {
+  let text_embed_url = text_embed_url_from_config(config)?;
+  let gpu_tools_url = gpu_tools_url_from_config(config)?;
+  resolve_optional_text_embedding_service_url(text_embed_url.as_deref(), gpu_tools_url.as_deref()).await
+}
+
+pub async fn resolve_optional_text_embedding_service_url(
+  text_embed_url: Option<&str>,
+  gpu_tools_url: Option<&str>,
+) -> InfuResult<Option<Url>> {
+  if let Some(url) = text_embed_url.map(str::trim).filter(|url| !url.is_empty()) {
+    return Ok(Some(text_embedding_embed_url(url)?));
+  }
+  resolve_gpu_tool_url(gpu_tools_url, GPU_TOOL_TEXT_EMBED).await
 }
 
 pub fn text_embedding_embed_url(base_url: &str) -> InfuResult<Url> {

@@ -549,7 +549,7 @@ async fn semantic_search_results_inner(
     return Ok(Vec::new());
   }
 
-  let Some(embed_url) = resolve_configured_gpu_tool_url(config.as_ref(), GPU_TOOL_TEXT_EMBED).await? else {
+  let Some(embed_url) = resolve_configured_text_embedding_service_url(config.as_ref()).await? else {
     return Ok(Vec::new());
   };
   let client = reqwest::ClientBuilder::new()

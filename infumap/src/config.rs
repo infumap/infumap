@@ -47,6 +47,7 @@ pub const CONFIG_CACHE_DIR: &'static str = "cache_dir";
 pub const CONFIG_CACHE_DIR_DEFAULT: &'static str = "~/.infumap/cache";
 
 pub const CONFIG_GPU_TOOLS_URL: &'static str = "gpu_tools_url";
+pub const CONFIG_TEXT_EMBED_URL: &'static str = "text_embed_url";
 pub const CONFIG_LLAMA_SERVER_URL: &'static str = "llama_server_url";
 pub const CONFIG_LLAMA_SERVER_URL_DEFAULT: &'static str = "";
 pub const CONFIG_GEOAPIFY_URL: &'static str = "geoapify_url";

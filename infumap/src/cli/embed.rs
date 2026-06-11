@@ -14,7 +14,7 @@ pub fn make_clap_subcommand() -> Command {
     .arg(
       Arg::new("service_url")
         .long("service-url")
-        .help("Text embedding endpoint URL, for example http://127.0.0.1:8787/text-embed. Falls back to the text_embed endpoint discovered from gpu_tools_url in settings.toml.")
+        .help("Text embedding endpoint URL, for example http://127.0.0.1:8787/text-embed. Falls back to text_embed_url, then the text_embed endpoint discovered from gpu_tools_url in settings.toml.")
         .num_args(1)
         .required(false),
     )
