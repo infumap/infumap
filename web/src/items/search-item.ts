@@ -53,14 +53,6 @@ export const SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX = 30;
 export const SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX = Math.round(SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
 export const SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX = 6;
 
-export function tempSearchResultsPageUid(searchItemId: Uid): Uid {
-  return `fff0${searchItemId.slice(4)}`;
-}
-
-export function tempQueryChatPageUid(searchItemId: Uid): Uid {
-  return `fff2${searchItemId.slice(4)}`;
-}
-
 export function markAsQueryChatPage(item: Item): void {
   item.clientOnly = true;
   item.clientOnlyKind = ClientOnlyItemKind.QueryChatPage;
@@ -92,11 +84,6 @@ export function isQuerySearchResultLink(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
   const maybeItem = item as Partial<Item>;
   return maybeItem.clientOnly === true && maybeItem.clientOnlyKind == ClientOnlyItemKind.QuerySearchResultLink;
-}
-
-export function tempSearchResultLinkUid(searchItemId: Uid, index: number): Uid {
-  const indexHex = (index & 0xffff).toString(16).padStart(4, "0");
-  return `fff1${indexHex}${searchItemId.slice(8)}`;
 }
 
 export function searchResultsFooterHostId(searchItemId: Uid): string {

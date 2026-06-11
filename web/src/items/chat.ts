@@ -28,7 +28,7 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
-import { SearchItem, markAsQueryChatPage, tempQueryChatPageUid } from "./search-item";
+import { SearchItem, markAsQueryChatPage } from "./search-item";
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -142,8 +142,19 @@ export function removeClientOnlyChatPagesUnderQueries(_store: StoreContextModel,
   }
 }
 
-export function ensureClientOnlyChatPageUnderQueryItem(searchItem: SearchItem): PageItem {
-  const pageId = tempQueryChatPageUid(searchItem.id);
+export function ensureClientOnlyChatPageUnderQueryItem(store: StoreContextModel, searchItem: SearchItem): PageItem {
+  const runtime = store.perItem.getQueryRuntime(searchItem.id);
+  const pageId = runtime.chat.pageId ?? newUid();
+  if (runtime.chat.pageId == null) {
+    store.perItem.updateQueryRuntime(searchItem.id, current => ({
+      ...current,
+      chat: {
+        ...current.chat,
+        pageId,
+      },
+    }));
+  }
+
   let pageItem = itemState.get(pageId);
   if (!pageItem || !isPage(pageItem)) {
     const tempPage = PageFns.create(

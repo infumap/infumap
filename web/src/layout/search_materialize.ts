@@ -18,7 +18,7 @@
 
 import { LinkFns } from "../items/link-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
-import { SearchItem, tempSearchResultsPageUid } from "../items/search-item";
+import { SearchItem } from "../items/search-item";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
@@ -30,8 +30,8 @@ import type { SearchResult } from "../server";
 import { searchResultPathSegments } from "../util/search-result-display";
 
 function copyCurrentSearchResultsLayout(store: StoreContextModel, searchItem: SearchItem, materializedPage: ReturnType<typeof PageFns.create>) {
-  const resultsPageId = tempSearchResultsPageUid(searchItem.id);
-  const resultsPageMaybe = itemState.get(resultsPageId);
+  const resultsPageId = store.perItem.getQueryRuntime(searchItem.id).search.resultsPageId;
+  const resultsPageMaybe = resultsPageId == null ? null : itemState.get(resultsPageId);
   if (resultsPageMaybe && isPage(resultsPageMaybe)) {
     const resultsPage = asPageItem(resultsPageMaybe);
     materializedPage.arrangeAlgorithm = resultsPage.arrangeAlgorithm;

@@ -20,8 +20,21 @@ import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import type { SearchResult } from "../server";
 import { ArrangeAlgorithm } from "../items/page-item";
+import type { Uid } from "../util/uid";
 
 export type QueryMode = "search" | "chat" | null;
+
+export interface QueryRuntime {
+  mode: QueryMode,
+  text: string,
+  search: {
+    resultsPageId: Uid | null,
+    resultLinkIds: Array<Uid>,
+  },
+  chat: {
+    pageId: Uid | null,
+  },
+}
 
 export interface PerItemStoreContextModel {
   getSelectedListPageItem: (listPageVeid: Veid) => Veid,
@@ -48,6 +61,9 @@ export interface PerItemStoreContextModel {
 
   getQueryMode: (itemId: string) => QueryMode,
   setQueryMode: (itemId: string, mode: QueryMode) => void,
+
+  getQueryRuntime: (itemId: string) => QueryRuntime,
+  updateQueryRuntime: (itemId: string, update: (runtime: QueryRuntime) => QueryRuntime) => QueryRuntime,
 
   getSearchResults: (itemId: string) => Array<SearchResult> | null,
   setSearchResults: (itemId: string, results: Array<SearchResult> | null) => void,
@@ -79,8 +95,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const compositeCollapsedStates = new Map<string, BooleanSignal>();
   const selectedItems = new Map<string, InfuSignal<Veid>>();
   const focusedItems = new Map<string, InfuSignal<Veid>>();
-  const searchQueries = new Map<string, InfuSignal<string>>();
-  const queryModes = new Map<string, InfuSignal<QueryMode>>();
+  const queryRuntimes = new Map<string, InfuSignal<QueryRuntime>>();
   const searchResults = new Map<string, InfuSignal<Array<SearchResult> | null>>();
   const searchHasMoreResults = new Map<string, InfuSignal<boolean>>();
   const searchLoadedPageCounts = new Map<string, NumberSignal>();
@@ -90,6 +105,35 @@ export function makePerItemStore(): PerItemStoreContextModel {
 
   const veidKey = (veid: Veid): string =>
     veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
+
+  const newQueryRuntime = (): QueryRuntime => ({
+    mode: null,
+    text: "",
+    search: {
+      resultsPageId: null,
+      resultLinkIds: [],
+    },
+    chat: {
+      pageId: null,
+    },
+  });
+
+  const getQueryRuntimeSignal = (itemId: string): InfuSignal<QueryRuntime> => {
+    if (!queryRuntimes.get(itemId)) {
+      queryRuntimes.set(itemId, createInfuSignal<QueryRuntime>(newQueryRuntime()));
+    }
+    return queryRuntimes.get(itemId)!;
+  };
+
+  const getQueryRuntime = (itemId: string): QueryRuntime =>
+    getQueryRuntimeSignal(itemId).get();
+
+  const updateQueryRuntime = (itemId: string, update: (runtime: QueryRuntime) => QueryRuntime): QueryRuntime => {
+    const signal = getQueryRuntimeSignal(itemId);
+    const next = update(signal.get());
+    signal.set(next);
+    return next;
+  };
 
   const getTableScrollYPos = (veid: Veid): number => {
     const key = veidKey(veid);
@@ -160,33 +204,19 @@ export function makePerItemStore(): PerItemStoreContextModel {
   };
 
   const getSearchQuery = (itemId: string): string => {
-    if (!searchQueries.get(itemId)) {
-      searchQueries.set(itemId, createInfuSignal<string>(""));
-    }
-    return searchQueries.get(itemId)!.get();
+    return getQueryRuntime(itemId).text;
   };
 
   const setSearchQuery = (itemId: string, query: string): void => {
-    if (!searchQueries.get(itemId)) {
-      searchQueries.set(itemId, createInfuSignal<string>(query));
-      return;
-    }
-    searchQueries.get(itemId)!.set(query);
+    updateQueryRuntime(itemId, runtime => ({ ...runtime, text: query }));
   };
 
   const getQueryMode = (itemId: string): QueryMode => {
-    if (!queryModes.get(itemId)) {
-      queryModes.set(itemId, createInfuSignal<QueryMode>(null));
-    }
-    return queryModes.get(itemId)!.get();
+    return getQueryRuntime(itemId).mode;
   };
 
   const setQueryMode = (itemId: string, mode: QueryMode): void => {
-    if (!queryModes.get(itemId)) {
-      queryModes.set(itemId, createInfuSignal<QueryMode>(mode));
-      return;
-    }
-    queryModes.get(itemId)!.set(mode);
+    updateQueryRuntime(itemId, runtime => ({ ...runtime, mode }));
   };
 
   const getSearchResults = (itemId: string): Array<SearchResult> | null => {
@@ -327,8 +357,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     compositeCollapsedStates.clear();
     selectedItems.clear();
     focusedItems.clear();
-    searchQueries.clear();
-    queryModes.clear();
+    queryRuntimes.clear();
     searchResults.clear();
     searchHasMoreResults.clear();
     searchLoadedPageCounts.clear();
@@ -346,6 +375,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     getCompositeIsCollapsed, setCompositeIsCollapsed,
     getSearchQuery, setSearchQuery,
     getQueryMode, setQueryMode,
+    getQueryRuntime, updateQueryRuntime,
     getSearchResults, setSearchResults,
     getSearchHasMoreResults, setSearchHasMoreResults,
     getSearchLoadedPageCount, setSearchLoadedPageCount,

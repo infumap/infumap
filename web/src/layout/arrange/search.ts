@@ -36,13 +36,11 @@ import {
   calcSearchWorkspaceResultsBoundsPx,
   markAsQuerySearchResultLink,
   markAsQuerySearchResultsPage,
-  tempQueryChatPageUid,
-  tempSearchResultLinkUid,
-  tempSearchResultsPageUid,
 } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { newOrdering, newOrderingAtEnd } from "../../util/ordering";
+import { newUid } from "../../util/uid";
 import { VisualElementPath } from "../visual-element";
 import { ArrangeItemFlags, arrangeItemPath } from "./item";
 import { RelationshipToParent } from "../relationship-to-parent";
@@ -51,7 +49,17 @@ import { markChildrenLoadAsInitiatedOrComplete } from "../load";
 
 
 function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: SearchItem, results: Array<SearchResult>): PageItem {
-  const pageId = tempSearchResultsPageUid(searchItem.id);
+  const runtime = store.perItem.getQueryRuntime(searchItem.id);
+  const pageId = runtime.search.resultsPageId ?? newUid();
+  if (runtime.search.resultsPageId == null) {
+    store.perItem.updateQueryRuntime(searchItem.id, current => ({
+      ...current,
+      search: {
+        ...current.search,
+        resultsPageId: pageId,
+      },
+    }));
+  }
   const searchArrangeAlgorithm = (() => {
     const aa = store.perItem.getSearchArrangeAlgorithm(searchItem.id);
     return aa == ArrangeAlgorithm.Grid ? ArrangeAlgorithm.Grid : ArrangeAlgorithm.Catalog;
@@ -83,6 +91,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
 
   const childIds: Array<string> = [];
   const childOrderings: Array<Uint8Array> = [];
+  const existingLinkIds = runtime.search.resultLinkIds;
   for (let idx = 0; idx < results.length; ++idx) {
     const result = results[idx];
     const resultItemId = result.path[result.path.length - 1]?.id;
@@ -90,6 +99,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
       continue;
     }
 
+    const linkId = existingLinkIds[childIds.length] ?? newUid();
     const tempLink = LinkFns.create(
       searchItem.ownerId,
       page.id,
@@ -98,7 +108,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
       newOrderingAtEnd(childOrderings),
     );
     LinkFns.syncSizeFromLinkedItem(tempLink);
-    tempLink.id = tempSearchResultLinkUid(searchItem.id, idx);
+    tempLink.id = linkId;
     tempLink.origin = null;
     markAsQuerySearchResultLink(tempLink);
 
@@ -115,8 +125,37 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
     childOrderings.push(linkItem.ordering);
   }
 
+  for (const staleLinkId of existingLinkIds.slice(childIds.length)) {
+    itemState.delete(staleLinkId);
+  }
+  store.perItem.updateQueryRuntime(searchItem.id, current => ({
+    ...current,
+    search: {
+      ...current.search,
+      resultsPageId: page.id,
+      resultLinkIds: childIds,
+    },
+  }));
+
   page.computed_children = childIds;
   return page;
+}
+
+export function clearQuerySearchRuntime(store: StoreContextModel, searchItemId: string): void {
+  const runtime = store.perItem.getQueryRuntime(searchItemId);
+  for (const linkId of runtime.search.resultLinkIds) {
+    itemState.delete(linkId);
+  }
+  if (runtime.search.resultsPageId != null) {
+    itemState.delete(runtime.search.resultsPageId);
+  }
+  store.perItem.updateQueryRuntime(searchItemId, current => ({
+    ...current,
+    search: {
+      resultsPageId: null,
+      resultLinkIds: [],
+    },
+  }));
 }
 
 export function arrangeSearchResultsPathMaybe(
@@ -127,7 +166,8 @@ export function arrangeSearchResultsPathMaybe(
 ): VisualElementPath | null {
   const queryMode = store.perItem.getQueryMode(searchItem.id);
   if (queryMode == "chat") {
-    const chatPage = itemState.get(tempQueryChatPageUid(searchItem.id));
+    const chatPageId = store.perItem.getQueryRuntime(searchItem.id).chat.pageId;
+    const chatPage = chatPageId == null ? null : itemState.get(chatPageId);
     if (!chatPage || !isPage(chatPage)) {
       return null;
     }

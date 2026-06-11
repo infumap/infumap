@@ -59,6 +59,7 @@ import {
   searchResultsFooterHostId,
 } from "../../items/search-item";
 import { materializeSearchResults } from "../../layout/search_materialize";
+import { clearQuerySearchRuntime } from "../../layout/arrange/search";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../items/page-item";
 import { ensureClientOnlyChatPageUnderQueryItem, removeClientOnlyChatPagesUnderQueries, submitChatMessage } from "../../items/chat";
@@ -218,6 +219,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   };
 
   const clearSearchResults = () => {
+    clearQuerySearchRuntime(store, searchItem().id);
     store.perItem.setQueryMode(searchItem().id, null);
     store.perItem.setSearchResults(searchItem().id, null);
     store.perItem.setSearchHasMoreResults(searchItem().id, false);
@@ -248,6 +250,9 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     if (requestSerial != activeSearchRequestSerial) {
       return;
     }
+    if (response.results.length == 0) {
+      clearQuerySearchRuntime(store, searchItem().id);
+    }
     store.perItem.setSearchResults(searchItem().id, response.results);
     store.perItem.setSearchHasMoreResults(searchItem().id, response.hasMore);
     store.perItem.setSearchLoadedPageCount(searchItem().id, 1);
@@ -273,7 +278,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     try {
       const queriesPageId = searchItem().parentId;
       removeClientOnlyChatPagesUnderQueries(store, queriesPageId);
-      const chatPage = ensureClientOnlyChatPageUnderQueryItem(searchItem());
+      clearQuerySearchRuntime(store, searchItem().id);
+      store.perItem.setSearchResults(searchItem().id, null);
+      store.perItem.setSearchHasMoreResults(searchItem().id, false);
+      store.perItem.setSearchLoadedPageCount(searchItem().id, 0);
+      clearSearchResultSelection();
+      const chatPage = ensureClientOnlyChatPageUnderQueryItem(store, searchItem());
       store.perItem.setQueryMode(searchItem().id, "chat");
       store.history.setFocus(vePath());
       store.overlay.autoFocusChatInput.set(true);
