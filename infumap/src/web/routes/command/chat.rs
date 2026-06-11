@@ -24,7 +24,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use crate::web::serve::empty_body;
 
 const CHAT_LLAMA_REQUEST_TIMEOUT_SECS: u64 = 120;
-const CHAT_MAX_TOOL_ROUNDS: usize = 3;
+const CHAT_MAX_TOOL_ROUNDS: usize = 9;
 const CHAT_HISTORY_MAX_PREVIOUS_MESSAGES: usize = 8;
 const CHAT_HISTORY_MAX_MESSAGE_CHARS: usize = 4_000;
 const CHAT_HISTORY_MAX_TOTAL_CHARS: usize = 12_000;
