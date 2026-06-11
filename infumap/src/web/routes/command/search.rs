@@ -839,7 +839,7 @@ fn bm25_score_to_search_score(score: f32) -> f32 {
   clamp_search_score(score / (score + SEARCH_BM25_SCORE_SATURATION))
 }
 
-fn exact_title_search_score(title: &str, search_text: &str) -> f32 {
+pub(super) fn exact_title_search_score(title: &str, search_text: &str) -> f32 {
   let query = search_text.trim().to_lowercase();
   if query.is_empty() {
     return 0.0;

@@ -28,6 +28,9 @@ const CHAT_MAX_TOOL_ROUNDS: usize = 3;
 const CHAT_HISTORY_MAX_PREVIOUS_MESSAGES: usize = 8;
 const CHAT_HISTORY_MAX_MESSAGE_CHARS: usize = 4_000;
 const CHAT_HISTORY_MAX_TOTAL_CHARS: usize = 12_000;
+const CHAT_TITLE_GREP_TOOL_DEFAULT_NUM_RESULTS: i64 = 12;
+const CHAT_TITLE_GREP_TOOL_MAX_NUM_RESULTS: i64 = 30;
+const CHAT_TITLE_GREP_DIVERSITY_PREFIX_LEN: usize = 3;
 const CHAT_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
@@ -42,7 +45,9 @@ const LLM_LOG_PATH: &str = "/tmp/llm.txt";
 const CHAT_SYSTEM_PROMPT: &str = "\
 You are Infumap's chat assistant.
 
+Use title_grep when the user asks to find items by title, name, or label.
 Use the search tool when the user asks about information that may be stored in Infumap.
+title_grep scans item titles only, ignores password items, and returns compact item ids, item types, titles, and paths.
 Search returns compact results with item ids, item types, titles, paths, fragment ordinals, and text snippets.
 Use get_fragment when a search snippet is truncated, ambiguous, or too small to answer from confidently.
 If search results are insufficient, say what is missing rather than inventing details.
@@ -254,6 +259,14 @@ struct LlamaChatCompletionUsage {
 }
 
 #[derive(Deserialize)]
+struct ChatTitleGrepToolArguments {
+  text: Option<String>,
+  query: Option<String>,
+  #[serde(rename = "numResults")]
+  num_results: Option<i64>,
+}
+
+#[derive(Deserialize)]
 struct ChatSearchToolArguments {
   text: Option<String>,
   query: Option<String>,
@@ -276,6 +289,12 @@ struct ChatFragmentToolArguments {
   after: Option<i64>,
   #[serde(rename = "maxChars")]
   max_chars: Option<i64>,
+}
+
+struct ChatTitleGrepBucket {
+  key: String,
+  results: Vec<search::SearchResult>,
+  next_index: usize,
 }
 
 pub(super) async fn handle_chat(
@@ -627,6 +646,33 @@ fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage]
   append_llm_json_log_section(&format!("LLM REQUEST METRICS {}", llm_turn), &metrics);
 }
 
+fn title_grep_tool_spec() -> LlamaToolSpec {
+  LlamaToolSpec {
+    tool_type: "function".to_owned(),
+    function: LlamaToolFunctionSpec {
+      name: "title_grep".to_owned(),
+      description: "Brute-force case-insensitive substring search over the user's Infumap item titles only. Ignores password items and items whose path crosses a password item.".to_owned(),
+      parameters: serde_json::json!({
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Title text to find as a case-insensitive substring."
+          },
+          "numResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": CHAT_TITLE_GREP_TOOL_MAX_NUM_RESULTS,
+            "description": "Maximum number of title matches to return."
+          }
+        },
+        "required": ["text"],
+        "additionalProperties": false
+      }),
+    },
+  }
+}
+
 fn search_tool_spec() -> LlamaToolSpec {
   LlamaToolSpec {
     tool_type: "function".to_owned(),
@@ -732,7 +778,7 @@ async fn run_chat_with_tools_with_progress(
   }
   messages.insert(0, LlamaChatMessage::text("system", CHAT_SYSTEM_PROMPT.to_owned()));
 
-  let tools = vec![search_tool_spec(), get_fragment_tool_spec()];
+  let tools = vec![title_grep_tool_spec(), search_tool_spec(), get_fragment_tool_spec()];
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
@@ -800,10 +846,206 @@ async fn execute_chat_tool_call(
   tool_call: &LlamaToolCall,
 ) -> InfuResult<String> {
   match tool_call.function.name.as_str() {
+    "title_grep" => execute_title_grep_tool_call(db, session, tool_call).await,
     "search" => execute_search_tool_call(config, db, session, tool_call).await,
     "get_fragment" => execute_get_fragment_tool_call(config, db, session, tool_call).await,
     name => Ok(tool_error_json(&format!("Unknown tool '{name}'."))),
   }
+}
+
+async fn execute_title_grep_tool_call(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  tool_call: &LlamaToolCall,
+) -> InfuResult<String> {
+  let arguments = match tool_call_arguments_value(tool_call) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&e.to_string())),
+  };
+  let arguments: ChatTitleGrepToolArguments = match serde_json::from_value(arguments) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&format!("Could not parse title_grep tool arguments: {}", e))),
+  };
+
+  let grep_text = arguments.text.or(arguments.query).unwrap_or_default().trim().to_owned();
+  if grep_text.is_empty() {
+    return Ok(tool_error_json("title_grep tool argument 'text' is required."));
+  }
+
+  let num_results = arguments
+    .num_results
+    .unwrap_or(CHAT_TITLE_GREP_TOOL_DEFAULT_NUM_RESULTS)
+    .clamp(1, CHAT_TITLE_GREP_TOOL_MAX_NUM_RESULTS) as usize;
+
+  let response = {
+    let db = db.lock().await;
+    title_grep_response(&db, &session.user_id, &grep_text, num_results)?
+  };
+  search::compact_search_response_json(&response)
+}
+
+fn title_grep_response(
+  db: &Db,
+  user_id: &Uid,
+  grep_text: &str,
+  num_results: usize,
+) -> InfuResult<search::SearchResponse> {
+  let grep_text_lower = grep_text.to_lowercase();
+  let mut item_ids = db
+    .item
+    .all_loaded_items()
+    .into_iter()
+    .filter(|item_and_user_id| &item_and_user_id.user_id == user_id)
+    .map(|item_and_user_id| item_and_user_id.item_id)
+    .collect::<Vec<_>>();
+  item_ids.sort();
+
+  let mut candidates = Vec::new();
+  for item_id in item_ids {
+    let item = db.item.get(&item_id)?;
+    if &item.owner_id != user_id || item.item_type == ItemType::Password {
+      continue;
+    }
+
+    let Some(title) = item.title.as_deref().map(str::trim).filter(|title| !title.is_empty()) else {
+      continue;
+    };
+    if !title.to_lowercase().contains(&grep_text_lower) {
+      continue;
+    }
+
+    let Some(path) = title_grep_path_for_item(db, &item_id, user_id)? else {
+      continue;
+    };
+    candidates.push(search::SearchResult {
+      path,
+      score: search::exact_title_search_score(title, grep_text),
+      stats: None,
+      fragment_match: None,
+      additional_fragment_matches: Vec::new(),
+    });
+  }
+
+  let has_more = candidates.len() > num_results;
+  let results = diversify_title_grep_results(candidates, num_results);
+  Ok(search::SearchResponse { results, has_more })
+}
+
+fn title_grep_path_for_item(
+  db: &Db,
+  item_id: &Uid,
+  user_id: &Uid,
+) -> InfuResult<Option<Vec<search::SearchPathElement>>> {
+  let mut path = Vec::new();
+  let mut current_id = item_id.clone();
+  let mut seen = HashSet::new();
+
+  loop {
+    if !seen.insert(current_id.clone()) {
+      return Err(format!("Cycle detected while building title_grep path for item '{}'.", item_id).into());
+    }
+
+    let item = match db.item.get(&current_id) {
+      Ok(item) => item,
+      Err(_) => return Ok(None),
+    };
+    if &item.owner_id != user_id || item.item_type == ItemType::Password {
+      return Ok(None);
+    }
+    path.push(search::SearchPathElement {
+      item_type: item.item_type.as_str().to_owned(),
+      title: item.title.clone(),
+      id: item.id.clone(),
+    });
+
+    let Some(parent_id) = item.parent_id.clone() else {
+      break;
+    };
+    current_id = parent_id;
+  }
+
+  path.reverse();
+  Ok(Some(path))
+}
+
+fn diversify_title_grep_results(
+  candidates: Vec<search::SearchResult>,
+  num_results: usize,
+) -> Vec<search::SearchResult> {
+  if num_results == 0 || candidates.is_empty() {
+    return Vec::new();
+  }
+
+  let mut results_by_key: HashMap<String, Vec<search::SearchResult>> = HashMap::new();
+  for candidate in candidates {
+    results_by_key.entry(title_grep_diversity_key(&candidate.path)).or_default().push(candidate);
+  }
+
+  let mut buckets = results_by_key
+    .into_iter()
+    .map(|(key, mut results)| {
+      results.sort_by(compare_title_grep_results);
+      ChatTitleGrepBucket { key, results, next_index: 0 }
+    })
+    .collect::<Vec<_>>();
+  buckets.sort_by(compare_title_grep_buckets);
+
+  let mut diversified_results = Vec::new();
+  while diversified_results.len() < num_results {
+    let mut made_progress = false;
+    for bucket in &mut buckets {
+      if bucket.next_index >= bucket.results.len() {
+        continue;
+      }
+      diversified_results.push(bucket.results[bucket.next_index].clone());
+      bucket.next_index += 1;
+      made_progress = true;
+      if diversified_results.len() >= num_results {
+        break;
+      }
+    }
+    if !made_progress {
+      break;
+    }
+  }
+
+  diversified_results
+}
+
+fn title_grep_diversity_key(path: &[search::SearchPathElement]) -> String {
+  path
+    .iter()
+    .take(CHAT_TITLE_GREP_DIVERSITY_PREFIX_LEN)
+    .map(|element| element.id.as_str())
+    .collect::<Vec<_>>()
+    .join("/")
+}
+
+fn compare_title_grep_buckets(a: &ChatTitleGrepBucket, b: &ChatTitleGrepBucket) -> std::cmp::Ordering {
+  let a_first = a.results.first();
+  let b_first = b.results.first();
+  match (a_first, b_first) {
+    (Some(a_first), Some(b_first)) => compare_title_grep_results(a_first, b_first).then_with(|| a.key.cmp(&b.key)),
+    (Some(_), None) => std::cmp::Ordering::Less,
+    (None, Some(_)) => std::cmp::Ordering::Greater,
+    (None, None) => a.key.cmp(&b.key),
+  }
+}
+
+fn compare_title_grep_results(a: &search::SearchResult, b: &search::SearchResult) -> std::cmp::Ordering {
+  b.score
+    .total_cmp(&a.score)
+    .then_with(|| a.path.len().cmp(&b.path.len()))
+    .then_with(|| title_grep_result_title(a).cmp(title_grep_result_title(b)))
+    .then_with(|| title_grep_result_item_id(a).cmp(title_grep_result_item_id(b)))
+}
+
+fn title_grep_result_title(result: &search::SearchResult) -> &str {
+  result.path.last().and_then(|element| element.title.as_deref()).unwrap_or("")
+}
+
+fn title_grep_result_item_id(result: &search::SearchResult) -> &str {
+  result.path.last().map(|element| element.id.as_str()).unwrap_or("")
 }
 
 async fn execute_search_tool_call(
