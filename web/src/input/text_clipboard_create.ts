@@ -24,7 +24,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { base64ArrayBuffer } from "../util/base64ArrayBuffer";
 import { setCaretPosition } from "../util/caret";
 import { currentUnixTimeSeconds } from "../util/lang";
-import { trimNewline } from "../util/string";
+import { EMPTY_CONTENT_EDITABLE_PLACEHOLDER, trimNewline } from "../util/string";
 import { asTextItem, isClipboardTextCreateItem, TextItem } from "../items/text-item";
 
 export const MAX_CLIPBOARD_TEXT_BYTES = 1024 * 1024;
@@ -61,6 +61,14 @@ function focusTitleForClipboardText(itemPath: string): void {
   });
 }
 
+function clearPlaceholderTitleElement(itemPath: string): void {
+  const el = document.getElementById(titleElementId(itemPath));
+  if (!(el instanceof HTMLElement)) { return; }
+  el.textContent = EMPTY_CONTENT_EDITABLE_PLACEHOLDER;
+  el.classList.remove("italic", "text-slate-500");
+  setCaretPosition(el, 0);
+}
+
 export function acceptClipboardTextForPendingTextItem(
   store: StoreContextModel,
   itemPath: string,
@@ -89,6 +97,7 @@ export function acceptClipboardTextForPendingTextItem(
   textItem.mimeType = "text/plain";
   textItem.fileSizeBytes = bytes.byteLength;
 
+  clearPlaceholderTitleElement(itemPath);
   requestArrange(store, "clipboard-text-accepted");
   focusTitleForClipboardText(itemPath);
   return true;

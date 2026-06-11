@@ -208,6 +208,12 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
     }, 0);
   }
 
+  const beforeInputListener = (ev: InputEvent) => {
+    if (titleIsPlaceholder() && ev.inputType != "insertFromPaste") {
+      ev.preventDefault();
+    }
+  }
+
   const parentChainAcceptsManualChildAdd = (parentId: string | null): boolean => {
     let current = parentId != null ? itemState.get(parentId) : null;
     while (current != null) {
@@ -406,6 +412,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
             contentEditable={canEdit() && !isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
+            onBeforeInput={beforeInputListener}
             onInput={inputListener}>
             {appendNewlineIfEmpty(titleText())}
           </span>

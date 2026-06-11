@@ -397,7 +397,8 @@ export const TextFns = {
   getFingerprint: (textItem: TextItem): string => {
     return textItem.title + "~~~!@#~~~" + (textItem.emoji || "") + "~~~!@#~~~" + textItem.iconMode +
       "~~~!@#~~~" + (textItem.documentWidthBl ?? "") +
-      "~~~!@#~~~" + (textItem.documentShowTitle == null ? "" : textItem.documentShowTitle ? "1" : "0");
+      "~~~!@#~~~" + (textItem.documentShowTitle == null ? "" : textItem.documentShowTitle ? "1" : "0") +
+      "~~~!@#~~~" + (textItem.clipboardTextCreateState ?? "");
   },
 
   iconRenderContextFromVisualElement,

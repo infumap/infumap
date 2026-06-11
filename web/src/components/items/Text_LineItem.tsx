@@ -154,6 +154,12 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
     // fullArrange is not required in the line item case, because the ve geometry does not change.
   }
 
+  const beforeInputListener = (ev: InputEvent) => {
+    if (titleIsPlaceholder() && ev.inputType != "insertFromPaste") {
+      ev.preventDefault();
+    }
+  }
+
   const keyDownHandler = (ev: KeyboardEvent) => {
     handleLineItemTitleKeyDown(store, ev);
   }
@@ -183,6 +189,7 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
             contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
             spellcheck={canEdit() && store.overlay.textEditInfo() != null}
             onKeyDown={keyDownHandler}
+            onBeforeInput={beforeInputListener}
             onInput={inputListener}>
             {appendNewlineIfEmpty(titleText())}<span></span>
           </span>
