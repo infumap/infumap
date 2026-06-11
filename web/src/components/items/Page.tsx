@@ -63,9 +63,9 @@ import { SELECTED_LIGHT } from "../../style";
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  TEMP_SEARCH_RESULTS_ORIGIN,
   SEARCH_WORKSPACE_MORE_SECTION_GAP_PX,
   calcSearchWorkspaceResultsFooterHeightPx,
+  isQuerySearchResultsPage,
   searchResultsFooterHostId,
 } from "../../items/search-item";
 import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
@@ -489,7 +489,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     catalogRowsHeightPx: () => pageFns.catalogRowHeightPx() * (props.visualElement.numRows ?? 0),
 
-    isSearchResultsPage: () => pageFns.pageItem().origin == TEMP_SEARCH_RESULTS_ORIGIN,
+    isSearchResultsPage: () => isQuerySearchResultsPage(pageFns.pageItem()),
 
     searchResultsSourceItemId: () =>
       pageFns.isSearchResultsPage() ? pageFns.pageItem().parentId : null,

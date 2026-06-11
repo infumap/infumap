@@ -56,7 +56,7 @@ import { isPlaceholder } from "../items/placeholder-item";
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  TEMP_SEARCH_RESULTS_ORIGIN,
+  isQuerySearchResultsPage,
   isSearch,
 } from "../items/search-item";
 import { isChatPage } from "../items/chat";
@@ -245,7 +245,7 @@ function scrollSearchResultIndexIntoView(store: StoreContextModel, workspace: Ac
   const currentScrollPx = currentProp * maxScrollPx;
   const rowIndex = Math.floor(resultIndex / getSearchWorkspaceColumnCount(workspace));
   const resultsPage = asPageItem(resultsPageVe.displayItem);
-  const pageTopPaddingPx = resultsPage.origin == TEMP_SEARCH_RESULTS_ORIGIN
+  const pageTopPaddingPx = isQuerySearchResultsPage(resultsPage)
     ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : calcJustifiedPagePaddingPx(resultsPageVe.childAreaBoundsPx.w, resultsPage.justifiedRowAspect);
   const rowTopPx = pageTopPaddingPx + rowIndex * resultsPageVe.cellSizePx.h;

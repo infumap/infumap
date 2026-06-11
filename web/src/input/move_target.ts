@@ -19,7 +19,7 @@
 import { isContainer } from "../items/base/container-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { HitboxFlags } from "../layout/hitbox";
-import { TEMP_SEARCH_RESULTS_ORIGIN } from "../items/search-item";
+import { isQuerySearchResultsPage } from "../items/search-item";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VisualElementPath, VeFns } from "../layout/visual-element";
 import { panic } from "../util/lang";
@@ -56,7 +56,7 @@ export function resolveMoveTargetPageVe(moveToVe: VisualElement): VisualElement 
 export function isDisplayedInTransientSearchUi(ve: VisualElement | null): boolean {
   let current = ve;
   while (current) {
-    if (current.displayItem.origin == TEMP_SEARCH_RESULTS_ORIGIN) {
+    if (isQuerySearchResultsPage(current.displayItem)) {
       return true;
     }
     if (!current.parentPath) {
@@ -111,10 +111,10 @@ export function resolveInternalMoveTarget(
   const backedByPersistentContainer =
     displayedInTransientUi &&
     isContainer(hoverContainerVe.displayItem) &&
-    hoverContainerVe.displayItem.origin != TEMP_SEARCH_RESULTS_ORIGIN;
+    !isQuerySearchResultsPage(hoverContainerVe.displayItem);
   const resolvedParentId =
     isContainer(hoverContainerVe.displayItem) &&
-      hoverContainerVe.displayItem.origin != TEMP_SEARCH_RESULTS_ORIGIN
+      !isQuerySearchResultsPage(hoverContainerVe.displayItem)
       ? hoverContainerVe.displayItem.id
       : null;
 

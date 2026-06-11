@@ -30,13 +30,12 @@ import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { normalizeItemCapabilities } from "./base/capabilities-item";
 import { FlagsMixin, SearchFlags } from "./base/flags-item";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
-import { Item, ItemType, ItemTypeMixin, LEGACY_SEARCH_ITEM_TYPE } from "./base/item";
+import { ClientOnlyItemKind, Item, ItemType, ItemTypeMixin, LEGACY_SEARCH_ITEM_TYPE } from "./base/item";
 import { PositionalMixin } from "./base/positional-item";
 import { XSizableMixin } from "./base/x-sizeable-item";
 
 
 const DEFAULT_WIDTH_GR = GRID_SIZE * 4;
-export const TEMP_SEARCH_RESULTS_ORIGIN = "__search_results__";
 export const SEARCH_WORKSPACE_TOP_INSET_PX = 25;
 export const SEARCH_WORKSPACE_SIDE_INSET_PX = 26;
 export const SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX = 44;
@@ -62,8 +61,37 @@ export function tempQueryChatPageUid(searchItemId: Uid): Uid {
   return `fff2${searchItemId.slice(4)}`;
 }
 
-export function isTempQueryChatPageUid(itemId: Uid): boolean {
-  return itemId.startsWith("fff2");
+export function markAsQueryChatPage(item: Item): void {
+  item.clientOnly = true;
+  item.clientOnlyKind = ClientOnlyItemKind.QueryChatPage;
+}
+
+export function isQueryChatPage(item: ItemTypeMixin | null): boolean {
+  if (item == null) { return false; }
+  const maybeItem = item as Partial<Item>;
+  return maybeItem.clientOnly === true && maybeItem.clientOnlyKind == ClientOnlyItemKind.QueryChatPage;
+}
+
+export function markAsQuerySearchResultsPage(item: Item): void {
+  item.clientOnly = true;
+  item.clientOnlyKind = ClientOnlyItemKind.QuerySearchResultsPage;
+}
+
+export function isQuerySearchResultsPage(item: ItemTypeMixin | null): boolean {
+  if (item == null) { return false; }
+  const maybeItem = item as Partial<Item>;
+  return maybeItem.clientOnly === true && maybeItem.clientOnlyKind == ClientOnlyItemKind.QuerySearchResultsPage;
+}
+
+export function markAsQuerySearchResultLink(item: Item): void {
+  item.clientOnly = true;
+  item.clientOnlyKind = ClientOnlyItemKind.QuerySearchResultLink;
+}
+
+export function isQuerySearchResultLink(item: ItemTypeMixin | null): boolean {
+  if (item == null) { return false; }
+  const maybeItem = item as Partial<Item>;
+  return maybeItem.clientOnly === true && maybeItem.clientOnlyKind == ClientOnlyItemKind.QuerySearchResultLink;
 }
 
 export function tempSearchResultLinkUid(searchItemId: Uid, index: number): Uid {

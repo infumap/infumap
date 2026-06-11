@@ -54,7 +54,7 @@ import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { NoteFlags } from './base/flags-item';
 import { calcPopupActionStripLayout } from '../util/popupHeaderActions';
 import { LinkFns, asLinkItem, isLink } from './link-item';
-import { isTempQueryChatPageUid } from './search-item';
+import { isQueryChatPage } from './search-item';
 
 
 export const ArrangeAlgorithm = {
@@ -1191,7 +1191,7 @@ export const PageFns = {
       const focusPath = VeFns.veToPath(visualElement);
       store.history.setFocus(focusPath);
 
-      if (isTempQueryChatPageUid(visualElement.displayItem.id)) {
+      if (isQueryChatPage(visualElement.displayItem)) {
         arrangeNow(store, "query-chat-page-focus");
         return;
       }
@@ -1244,7 +1244,7 @@ export const PageFns = {
       return;
     }
 
-    if (isTempQueryChatPageUid(visualElement.displayItem.id)) {
+    if (isQueryChatPage(visualElement.displayItem)) {
       store.history.setFocus(VeFns.veToPath(visualElement));
       arrangeNow(store, "query-chat-page-link-focus");
       return;

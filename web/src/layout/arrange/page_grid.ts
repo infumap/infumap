@@ -26,8 +26,8 @@ import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  TEMP_SEARCH_RESULTS_ORIGIN,
   calcSearchWorkspaceResultsFooterHeightPx,
+  isQuerySearchResultsPage,
 } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -70,7 +70,7 @@ export function arrange_grid_page(
 
   const pageItem = asPageItem(displayItem_pageWithChildren);
   const numCols = pageItem.gridNumberOfColumns;
-  const isSearchResultsGridPage = displayItem_pageWithChildren.origin == TEMP_SEARCH_RESULTS_ORIGIN;
+  const isSearchResultsGridPage = isQuerySearchResultsPage(displayItem_pageWithChildren);
   const searchResultsFooterHeightPx = isSearchResultsGridPage
     ? calcSearchWorkspaceResultsFooterHeightPx(store.perItem.getSearchHasMoreResults(displayItem_pageWithChildren.parentId))
     : 0;

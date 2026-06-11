@@ -25,8 +25,8 @@ import { PageFlags } from "../../items/base/flags-item";
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  TEMP_SEARCH_RESULTS_ORIGIN,
   calcSearchWorkspaceResultsFooterHeightPx,
+  isQuerySearchResultsPage,
 } from "../../items/search-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -68,7 +68,7 @@ export function arrange_catalog_page(
   const previewColumnWidthPx = calcCatalogPreviewColumnWidthPx(geometry.boundsPx.w);
   const rowHeightPx = calcCatalogRowHeightPx(previewColumnWidthPx, displayItem_pageWithChildren.gridCellAspect);
   const marginPx = Math.max(1, Math.round(previewColumnWidthPx * 0.01));
-  const isSearchResultsCatalogPage = displayItem_pageWithChildren.origin == TEMP_SEARCH_RESULTS_ORIGIN;
+  const isSearchResultsCatalogPage = isQuerySearchResultsPage(displayItem_pageWithChildren);
   const pageTopPaddingPx = isSearchResultsCatalogPage
     ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : CATALOG_VERTICAL_MARGIN_PX;

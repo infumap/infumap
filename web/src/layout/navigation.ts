@@ -19,7 +19,7 @@
 import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { asSearchItem, isSearch, isTempQueryChatPageUid, SearchFns } from "../items/search-item";
+import { asSearchItem, isQueryChatPage, isSearch, SearchFns } from "../items/search-item";
 import { SearchFlags } from "../items/base/flags-item";
 import { removeClientOnlyChatPagesUnderQueries } from "../items/chat";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -38,12 +38,8 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
 }
 
 function internalQueryChatOwnerPageId(itemId: Uid): Uid | null {
-  if (!isTempQueryChatPageUid(itemId)) {
-    return null;
-  }
-
   const item = itemState.get(itemId);
-  if (!item || !isPage(item)) {
+  if (!item || !isPage(item) || !isQueryChatPage(item)) {
     return null;
   }
 

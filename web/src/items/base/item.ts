@@ -52,6 +52,14 @@ export type ItemCapability = typeof ITEM_CAPABILITY_KEYS[number];
  */
 export type ItemCapabilities = Partial<Record<ItemCapability, boolean>>;
 
+export const ClientOnlyItemKind = {
+  QueryChatPage: "query-chat-page",
+  QuerySearchResultsPage: "query-search-results-page",
+  QuerySearchResultLink: "query-search-result-link",
+} as const;
+
+export type ClientOnlyItemKind = typeof ClientOnlyItemKind[keyof typeof ClientOnlyItemKind];
+
 
 export interface ItemTypeMixin {
   itemType: string,
@@ -62,6 +70,7 @@ export interface Measurable extends ItemTypeMixin { }
 export interface Item extends ItemTypeMixin {
   origin: string | null,
   clientOnly?: boolean,
+  clientOnlyKind?: ClientOnlyItemKind,
   capabilities?: ItemCapabilities | null,
   ownerId: Uid,
   id: Uid,

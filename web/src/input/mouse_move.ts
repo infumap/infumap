@@ -25,7 +25,7 @@ import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-ite
 import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  TEMP_SEARCH_RESULTS_ORIGIN,
+  isQuerySearchResultsPage,
 } from "../items/search-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
@@ -273,7 +273,7 @@ function isCatalogPageVe(ve: VisualElement): boolean {
 }
 
 function isSearchResultsCatalogPageVe(ve: VisualElement): boolean {
-  return isCatalogPageVe(ve) && asPageItem(ve.displayItem).origin == TEMP_SEARCH_RESULTS_ORIGIN;
+  return isCatalogPageVe(ve) && isQuerySearchResultsPage(ve.displayItem);
 }
 
 function isSearchResultsGridPageVe(ve: VisualElement): boolean {
@@ -281,7 +281,7 @@ function isSearchResultsGridPageVe(ve: VisualElement): boolean {
     return false;
   }
   const pageItem = asPageItem(ve.displayItem);
-  return pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid && pageItem.origin == TEMP_SEARCH_RESULTS_ORIGIN;
+  return pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid && isQuerySearchResultsPage(pageItem);
 }
 
 function isCatalogChildPageVe(ve: VisualElement | null): boolean {
@@ -340,7 +340,7 @@ function catalogRowNumberFromBounds(
   const localY = desktopPosPx.y - catalogViewportBoundsPx.y + scrollYPx;
   const rowHeightPx = catalogPageVe.cellSizePx?.h ?? 0;
   const numRows = catalogPageVe.numRows ?? 0;
-  const rowsTopPx = catalogPageVe.displayItem.origin == TEMP_SEARCH_RESULTS_ORIGIN
+  const rowsTopPx = isQuerySearchResultsPage(catalogPageVe.displayItem)
     ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : CATALOG_VERTICAL_MARGIN_PX;
   const rowsBottomPx = rowsTopPx + numRows * rowHeightPx;
@@ -408,7 +408,7 @@ function searchGridCellIndexFromBounds(
   const scrollYPx = Math.max(0, gridPageVe.childAreaBoundsPx.h - gridPageVe.viewportBoundsPx.h) *
     store.perItem.getPageScrollYProp(scrollVeid);
   const pageSidePaddingPx = calcJustifiedPagePaddingPx(gridPageVe.childAreaBoundsPx.w, pageItem.justifiedRowAspect);
-  const pageTopPaddingPx = gridPageVe.displayItem.origin == TEMP_SEARCH_RESULTS_ORIGIN
+  const pageTopPaddingPx = isQuerySearchResultsPage(gridPageVe.displayItem)
     ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : pageSidePaddingPx;
   const localX = desktopPosPx.x - gridViewportBoundsPx.x - pageSidePaddingPx;

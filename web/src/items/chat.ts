@@ -28,7 +28,7 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
-import { SearchItem, tempQueryChatPageUid } from "./search-item";
+import { SearchItem, markAsQueryChatPage, tempQueryChatPageUid } from "./search-item";
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -155,7 +155,7 @@ export function ensureClientOnlyChatPageUnderQueryItem(searchItem: SearchItem): 
     );
     tempPage.id = pageId;
     tempPage.origin = null;
-    tempPage.clientOnly = true;
+    markAsQueryChatPage(tempPage);
     pageItem = itemState.upsertItemFromServerObject(PageFns.toObject(tempPage), null);
   }
 
@@ -164,7 +164,7 @@ export function ensureClientOnlyChatPageUnderQueryItem(searchItem: SearchItem): 
   page.ownerId = searchItem.ownerId;
   page.parentId = searchItem.id;
   page.relationshipToParent = RelationshipToParent.Child;
-  page.clientOnly = true;
+  markAsQueryChatPage(page);
   if (page.title == LEGACY_CHAT_DRAFT_TITLE) {
     page.title = CHAT_DRAFT_TITLE;
   }
@@ -400,6 +400,7 @@ function cloneItemForMaterializedChat(source: Item, parentId: Uid, relationshipT
   clone.groupId = null;
   clone.capabilities = null;
   delete clone.clientOnly;
+  delete clone.clientOnlyKind;
   if (isContainer(clone)) {
     asContainerItem(clone).computed_children = [];
     asContainerItem(clone).childrenLoaded = true;

@@ -33,8 +33,9 @@ import {
 import {
   SearchItem,
   SEARCH_WORKSPACE_SIDE_INSET_PX,
-  TEMP_SEARCH_RESULTS_ORIGIN,
   calcSearchWorkspaceResultsBoundsPx,
+  markAsQuerySearchResultLink,
+  markAsQuerySearchResultsPage,
   tempQueryChatPageUid,
   tempSearchResultLinkUid,
   tempSearchResultsPageUid,
@@ -60,15 +61,17 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
   if (!pageItem || !isPage(pageItem)) {
     const tempPage = PageFns.create(searchItem.ownerId, searchItem.id, RelationshipToParent.Child, "", newOrdering());
     tempPage.id = pageId;
-    tempPage.origin = TEMP_SEARCH_RESULTS_ORIGIN;
+    tempPage.origin = null;
+    markAsQuerySearchResultsPage(tempPage);
     tempPage.arrangeAlgorithm = searchArrangeAlgorithm;
     tempPage.orderChildrenBy = "";
     tempPage.title = "";
-    pageItem = itemState.upsertItemFromServerObject(PageFns.toObject(tempPage), TEMP_SEARCH_RESULTS_ORIGIN);
+    pageItem = itemState.upsertItemFromServerObject(PageFns.toObject(tempPage), null);
   }
 
   const page = asPageItem(pageItem);
-  page.origin = TEMP_SEARCH_RESULTS_ORIGIN;
+  page.origin = null;
+  markAsQuerySearchResultsPage(page);
   page.parentId = searchItem.id;
   page.relationshipToParent = RelationshipToParent.Child;
   page.arrangeAlgorithm = searchArrangeAlgorithm;
@@ -96,10 +99,12 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
     );
     LinkFns.syncSizeFromLinkedItem(tempLink);
     tempLink.id = tempSearchResultLinkUid(searchItem.id, idx);
-    tempLink.origin = TEMP_SEARCH_RESULTS_ORIGIN;
+    tempLink.origin = null;
+    markAsQuerySearchResultLink(tempLink);
 
-    const linkItem = asLinkItem(itemState.upsertItemFromServerObject(LinkFns.toObject(tempLink), TEMP_SEARCH_RESULTS_ORIGIN));
-    linkItem.origin = TEMP_SEARCH_RESULTS_ORIGIN;
+    const linkItem = asLinkItem(itemState.upsertItemFromServerObject(LinkFns.toObject(tempLink), null));
+    linkItem.origin = null;
+    markAsQuerySearchResultLink(linkItem);
     linkItem.parentId = page.id;
     linkItem.relationshipToParent = RelationshipToParent.Child;
     linkItem.ordering = tempLink.ordering;

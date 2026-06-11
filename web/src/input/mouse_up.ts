@@ -35,7 +35,7 @@ import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
-import { TEMP_SEARCH_RESULTS_ORIGIN, isSearch } from "../items/search-item";
+import { isQuerySearchResultsPage, isSearch } from "../items/search-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
@@ -213,7 +213,7 @@ function focusSearchItemFromResultsBackgroundClickMaybe(
   if (!isPage(activeVisualElement.displayItem)) {
     return false;
   }
-  if (activeVisualElement.displayItem.origin != TEMP_SEARCH_RESULTS_ORIGIN) {
+  if (!isQuerySearchResultsPage(activeVisualElement.displayItem)) {
     return false;
   }
   if (MouseActionState.getHitboxTypeOnMouseDown() != HitboxFlags.None) {
