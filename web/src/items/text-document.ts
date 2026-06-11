@@ -32,7 +32,7 @@ import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { titleWithCopySuffix } from "./base/titled-item";
 import { PlaceholderFns } from "./placeholder-item";
-import { NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls } from "./note-item";
+import { ItemIconMode, NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls } from "./note-item";
 import { DividerFns } from "./divider-item";
 import { ArrangeAlgorithm, DEFAULT_DOCUMENT_WIDTH_BL, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { TableFns } from "./table-item";
@@ -49,6 +49,7 @@ type TextDocumentInlineText = {
   title: string,
   inlineMarks: Array<NoteInlineMark>,
   urls: Array<NoteUrl>,
+  linkIconHints: Array<TextDocumentLinkIconHint>,
 };
 
 type TextDocumentTextBlock = {
@@ -56,6 +57,7 @@ type TextDocumentTextBlock = {
   title: string,
   inlineMarks: Array<NoteInlineMark>,
   urls: Array<NoteUrl>,
+  linkIconHints: Array<TextDocumentLinkIconHint>,
   headingLevel: number | null,
   noteFlags: NoteFlags,
   start: number,
@@ -140,6 +142,11 @@ type RawInlineMarkSpan = {
   flags: number,
 };
 
+type TextDocumentLinkIconHint = {
+  start: number,
+  end: number,
+};
+
 type InlineDelimiter = {
   marker: string,
   len: number,
@@ -152,6 +159,7 @@ const CHATGPT_ARTIFACT_SEPARATOR = "\uE202";
 const CHATGPT_ARTIFACT_END = "\uE201";
 const CHATGPT_ARTIFACT_BODY_RE = /^(?:cite|finance)\uE202turn\d+[a-z]+\d+(?:\uE202turn\d+[a-z]+\d+)*$/;
 const CHATGPT_ARTIFACT_TRIM_BEFORE = ",.;:!?)]}\"'";
+const MARKDOWN_LINK_ICON_EMOJI = "\u{1f517}";
 const MARKDOWN_ASCII_EQUIVALENTS: { [char: string]: string } = {
   "\u2013": "-",
   "\u2014": "--",
@@ -631,6 +639,28 @@ function markdownLinkAt(text: string, pos: number): { label: string, url: string
   };
 }
 
+function markdownImageAt(text: string, pos: number): { altText: string, end: number } | null {
+  if (text[pos] != "!" || text[pos + 1] != "[") { return null; }
+
+  const labelEnd = findMarkdownLinkLabelEnd(text, pos + 1);
+  if (labelEnd == null || text[labelEnd + 1] != "(") { return null; }
+
+  const destinationEnd = findMarkdownLinkDestinationEnd(text, labelEnd + 1);
+  if (destinationEnd == null) { return null; }
+
+  if (markdownLinkDestination(text.substring(labelEnd + 2, destinationEnd)) == null) { return null; }
+
+  return {
+    altText: text.substring(pos + 2, labelEnd),
+    end: destinationEnd + 1,
+  };
+}
+
+function leadingEmptyAltMarkdownImageEnd(text: string): number | null {
+  const image = markdownImageAt(text, 0);
+  return image != null && image.altText == "" ? image.end : null;
+}
+
 function markdownAutolinkAt(text: string, pos: number): { title: string, url: string, end: number } | null {
   if (text[pos] != "<") { return null; }
   const end = text.indexOf(">", pos + 1);
@@ -720,6 +750,33 @@ function flattenedInlineMarks(rawSpans: Array<RawInlineMarkSpan>, text: string):
   return normalizeNoteInlineMarks(result, text);
 }
 
+function normalizeTextDocumentLinkIconHints(
+  hints: Array<TextDocumentLinkIconHint>,
+  text: string,
+): Array<TextDocumentLinkIconHint> {
+  const textLen = text.length;
+  const normalized = hints
+    .map(hint => ({
+      start: Math.trunc(hint.start),
+      end: Math.trunc(hint.end),
+    }))
+    .filter(hint =>
+      Number.isFinite(hint.start) &&
+      Number.isFinite(hint.end) &&
+      hint.start >= 0 &&
+      hint.start < hint.end &&
+      hint.end <= textLen)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const result: Array<TextDocumentLinkIconHint> = [];
+  for (const hint of normalized) {
+    const last = result[result.length - 1];
+    if (last != null && last.start == hint.start && last.end == hint.end) { continue; }
+    result.push(hint);
+  }
+  return result;
+}
+
 function copyMarkdownCodeSpan(text: string, pos: number, output: Array<string>): number {
   let tickLen = 0;
   while (text[pos + tickLen] == "`") {
@@ -742,6 +799,7 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
   const stack: Array<InlineDelimiter> = [];
   const rawSpans: Array<RawInlineMarkSpan> = [];
   const rawUrls: Array<NoteUrl> = [];
+  const rawLinkIconHints: Array<TextDocumentLinkIconHint> = [];
 
   for (let i = 0; i < text.length;) {
     const c = text[i];
@@ -776,7 +834,8 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
 
     const link = c == "[" ? markdownLinkAt(text, i) : null;
     if (link != null) {
-      const parsedLabel = parseMarkdownInline(link.label);
+      const leadingImageEnd = leadingEmptyAltMarkdownImageEnd(link.label);
+      const parsedLabel = parseMarkdownInline(leadingImageEnd == null ? link.label : link.label.substring(leadingImageEnd));
       const start = outputInlineLength(output);
       const end = start + parsedLabel.title.length;
       if (start < end) {
@@ -786,6 +845,13 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
           end: mark.end + start,
           flags: mark.flags,
         })));
+        rawLinkIconHints.push(...parsedLabel.linkIconHints.map(hint => ({
+          start: hint.start + start,
+          end: hint.end + start,
+        })));
+        if (leadingImageEnd != null) {
+          rawLinkIconHints.push({ start, end });
+        }
         rawUrls.push({ start, end, url: link.url });
       }
       i = link.end;
@@ -834,11 +900,16 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
   }
 
   if (stack.length != 0) {
-    return { title: normalizeMarkdownDocumentText(text), inlineMarks: [], urls: [] };
+    return { title: normalizeMarkdownDocumentText(text), inlineMarks: [], urls: [], linkIconHints: [] };
   }
 
   const title = output.join("");
-  return { title, inlineMarks: flattenedInlineMarks(rawSpans, title), urls: normalizeNoteUrls(rawUrls, title) };
+  return {
+    title,
+    inlineMarks: flattenedInlineMarks(rawSpans, title),
+    urls: normalizeNoteUrls(rawUrls, title),
+    linkIconHints: normalizeTextDocumentLinkIconHints(rawLinkIconHints, title),
+  };
 }
 
 function splitMarkdownTableRow(line: string): Array<string> | null {
@@ -897,7 +968,7 @@ function normalizeMarkdownTableInlineCells(cells: Array<string>, columnCount: nu
 }
 
 function plainInlineText(title: string): TextDocumentInlineText {
-  return { title: normalizeMarkdownDocumentText(title), inlineMarks: [], urls: [] };
+  return { title: normalizeMarkdownDocumentText(title), inlineMarks: [], urls: [], linkIconHints: [] };
 }
 
 function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocumentTableBlock | null {
@@ -1141,6 +1212,7 @@ function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): Markdo
       title: normalizeMarkdownDocumentText(codeLines.join("\n")),
       inlineMarks: [],
       urls: [],
+      linkIconHints: [],
       headingLevel: null,
       noteFlags: NoteFlags.Code,
       start: lines[index].start,
@@ -1164,6 +1236,7 @@ function markdownInlineForParagraphLines(lines: Array<TextLine>): TextDocumentIn
   const titleParts: Array<string> = [];
   const inlineMarks: Array<NoteInlineMark> = [];
   const urls: Array<NoteUrl> = [];
+  const linkIconHints: Array<TextDocumentLinkIconHint> = [];
   let offset = 0;
 
   for (const line of lines) {
@@ -1185,11 +1258,20 @@ function markdownInlineForParagraphLines(lines: Array<TextLine>): TextDocumentIn
       end: url.end + offset,
       url: url.url,
     })));
+    linkIconHints.push(...parsed.linkIconHints.map(hint => ({
+      start: hint.start + offset,
+      end: hint.end + offset,
+    })));
     offset += parsed.title.length;
   }
 
   const title = titleParts.join("");
-  return { title, inlineMarks: normalizeNoteInlineMarks(inlineMarks, title), urls: normalizeNoteUrls(urls, title) };
+  return {
+    title,
+    inlineMarks: normalizeNoteInlineMarks(inlineMarks, title),
+    urls: normalizeNoteUrls(urls, title),
+    linkIconHints: normalizeTextDocumentLinkIconHints(linkIconHints, title),
+  };
 }
 
 function appendMarkdownInlineTextBlock(block: TextDocumentTextBlock, parsed: TextDocumentInlineText): void {
@@ -1212,6 +1294,13 @@ function appendMarkdownInlineTextBlock(block: TextDocumentTextBlock, parsed: Tex
       start: url.start + offset,
       end: url.end + offset,
       url: url.url,
+    })),
+  ], block.title);
+  block.linkIconHints = normalizeTextDocumentLinkIconHints([
+    ...block.linkIconHints,
+    ...parsed.linkIconHints.map(hint => ({
+      start: hint.start + offset,
+      end: hint.end + offset,
     })),
   ], block.title);
 }
@@ -1238,6 +1327,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
         title: paragraphLines.map(line => line.text.trim()).filter(line => line != "").join(" "),
         inlineMarks: [],
         urls: [],
+        linkIconHints: [],
       };
     if (parsed.title != "") {
       blocks.push({
@@ -1245,6 +1335,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
         urls: parsed.urls,
+        linkIconHints: parsed.linkIconHints,
         headingLevel: null,
         noteFlags: NoteFlags.None,
         start: paragraphLines[0].start,
@@ -1315,6 +1406,7 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
         urls: parsed.urls,
+        linkIconHints: parsed.linkIconHints,
         headingLevel: null,
         noteFlags: noteFlagsWithIndentLevel(listFlag, listMarker.indentLevel),
         start: line.start,
@@ -1346,12 +1438,13 @@ function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<Te
       listStack = [];
       const parsed = parseMarkdown
         ? parseMarkdownInline(heading.title)
-        : { title: heading.title, inlineMarks: [], urls: [] };
+        : { title: heading.title, inlineMarks: [], urls: [], linkIconHints: [] };
       blocks.push({
         kind: "heading",
         title: parsed.title,
         inlineMarks: parsed.inlineMarks,
         urls: parsed.urls,
+        linkIconHints: parsed.linkIconHints,
         headingLevel: heading.level,
         noteFlags: noteFlagsForHeadingLevel(heading.level),
         start: line.start,
@@ -1417,6 +1510,15 @@ function createTextDocumentPage(
   return page;
 }
 
+function applyMarkdownLinkIconHint(
+  note: NoteItem,
+  text: { linkIconHints: Array<TextDocumentLinkIconHint> },
+): void {
+  if (!text.linkIconHints.some(hint => hint.start == 0 && hint.start < hint.end)) { return; }
+  note.emoji = MARKDOWN_LINK_ICON_EMOJI;
+  note.iconMode = ItemIconMode.Symbol;
+}
+
 function createNoteForBlock(
   textItem: TextItem,
   ownerId: Uid,
@@ -1428,6 +1530,7 @@ function createNoteForBlock(
   const note = NoteFns.create(ownerId, pageId, RelationshipToParent.Child, block.title, ordering);
   note.inlineMarks = block.inlineMarks;
   note.urls = block.urls;
+  applyMarkdownLinkIconHint(note, block);
   if (virtual) {
     markClientOnly(note);
     note.id = stableUid(`text-document-block:${textItem.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
@@ -1446,10 +1549,11 @@ function createNoteForTableRow(
   ordering: Uint8Array,
   virtual: boolean,
 ): NoteItem {
-  const firstCell = row.cells[0] ?? { title: "", inlineMarks: [], urls: [] };
+  const firstCell = row.cells[0] ?? { title: "", inlineMarks: [], urls: [], linkIconHints: [] };
   const note = NoteFns.create(ownerId, tableId, RelationshipToParent.Child, firstCell.title, ordering);
   note.inlineMarks = firstCell.inlineMarks;
   note.urls = firstCell.urls;
+  applyMarkdownLinkIconHint(note, firstCell);
   if (virtual) {
     markClientOnly(note);
     note.id = stableUid(`text-document-table-row:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}`);
@@ -1472,6 +1576,7 @@ function createNoteForTableCell(
   const note = NoteFns.create(ownerId, rowId, RelationshipToParent.Attachment, cell.title, ordering);
   note.inlineMarks = cell.inlineMarks;
   note.urls = cell.urls;
+  applyMarkdownLinkIconHint(note, cell);
   if (virtual) {
     markClientOnly(note);
     note.id = stableUid(`text-document-table-cell:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
@@ -1647,7 +1752,7 @@ function createTextDocumentItems(
       for (let cellIndex = 1; cellIndex <= lastCellIndex; ++cellIndex) {
         const attachmentOrdering = newOrderingAtEnd(attachmentOrderings);
         attachmentOrderings.push(attachmentOrdering);
-        const cell = row.cells[cellIndex] ?? { title: "", inlineMarks: [], urls: [] };
+        const cell = row.cells[cellIndex] ?? { title: "", inlineMarks: [], urls: [], linkIconHints: [] };
         const attachment = cell.title.trim() == ""
           ? createPlaceholderForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, attachmentOrdering, virtual)
           : createNoteForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, cell, attachmentOrdering, virtual);
