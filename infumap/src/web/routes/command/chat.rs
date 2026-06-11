@@ -1177,6 +1177,12 @@ fn parse_markdown_inline(input: &str) -> (String, Vec<i64>) {
   let mut index = 0;
 
   while index < input.len() {
+    if let Some((escaped, len)) = markdown_escaped_ascii_punctuation(&input[index..]) {
+      output.push(escaped);
+      index += len;
+      continue;
+    }
+
     if input[index..].starts_with("`") {
       let content_start = index + 1;
       if let Some(content_end) = input[content_start..].find('`').map(|offset| content_start + offset) {
@@ -1205,6 +1211,20 @@ fn parse_markdown_inline(input: &str) -> (String, Vec<i64>) {
   (output, inline_marks)
 }
 
+fn markdown_escaped_ascii_punctuation(slice: &str) -> Option<(char, usize)> {
+  let mut chars = slice.chars();
+  if chars.next()? != '\\' {
+    return None;
+  }
+
+  let escaped = chars.next()?;
+  if !escaped.is_ascii_punctuation() {
+    return None;
+  }
+
+  Some((escaped, '\\'.len_utf8() + escaped.len_utf8()))
+}
+
 fn markdown_inline_marker(slice: &str) -> Option<(&'static str, i64)> {
   for (marker, flags) in [
     ("***", NOTE_INLINE_MARK_BOLD | NOTE_INLINE_MARK_ITALIC),
@@ -1223,9 +1243,24 @@ fn markdown_inline_marker(slice: &str) -> Option<(&'static str, i64)> {
 
 fn append_chat_marked_inline_text(output: &mut String, inline_marks: &mut Vec<i64>, text: &str, flags: i64) {
   let start = output.encode_utf16().count() as i64;
-  output.push_str(text);
+  append_chat_markdown_unescaped_text(output, text);
   let end = output.encode_utf16().count() as i64;
   push_chat_inline_mark(inline_marks, start, end, flags);
+}
+
+fn append_chat_markdown_unescaped_text(output: &mut String, text: &str) {
+  let mut index = 0;
+  while index < text.len() {
+    if let Some((escaped, len)) = markdown_escaped_ascii_punctuation(&text[index..]) {
+      output.push(escaped);
+      index += len;
+      continue;
+    }
+
+    let ch = text[index..].chars().next().unwrap();
+    output.push(ch);
+    index += ch.len_utf8();
+  }
 }
 
 fn push_chat_inline_mark(inline_marks: &mut Vec<i64>, start: i64, end: i64, flags: i64) {

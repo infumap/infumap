@@ -412,6 +412,16 @@ function isAsciiAlnum(c: string | undefined): boolean {
   return c != null && /^[A-Za-z0-9]$/.test(c);
 }
 
+function isMarkdownEscapableAsciiPunctuation(c: string | undefined): boolean {
+  if (c == null || c.length == 0) { return false; }
+
+  const code = c.charCodeAt(0);
+  return (code >= 33 && code <= 47) ||
+    (code >= 58 && code <= 64) ||
+    (code >= 91 && code <= 96) ||
+    (code >= 123 && code <= 126);
+}
+
 function markdownDelimiterInfo(text: string, pos: number): { marker: string, len: number, flags: number } | null {
   const marker = text[pos];
   if (marker != "*" && marker != "_") { return null; }
@@ -736,7 +746,7 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
   for (let i = 0; i < text.length;) {
     const c = text[i];
 
-    if (c == "\\" && i + 1 < text.length && "*_`\\[]()<>".includes(text[i + 1])) {
+    if (c == "\\" && isMarkdownEscapableAsciiPunctuation(text[i + 1])) {
       output.push(text[i + 1]);
       i += 2;
       continue;
