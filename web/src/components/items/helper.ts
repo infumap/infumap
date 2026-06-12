@@ -26,7 +26,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox, cloneBoundingBox } from "../../util/geometry";
 import { isPage, asPageItem } from "../../items/page-item";
-import { isSearch } from "../../items/search-item";
+import { isQueryItem } from "../../items/query-item";
 import { POPUP_LINK_UID } from "../../util/uid";
 import { VesCache } from "../../layout/ves-cache";
 import { arrangeNow } from "../../layout/arrange";
@@ -82,7 +82,7 @@ export const shouldShowFocusRingForVisualElement = (
     if (currentPage && isPage(currentPage) && asPageItem(currentPage).arrangeAlgorithm == ArrangeAlgorithm.List) {
       const selectedVeid = store.perItem.getSelectedListPageItem(VeFns.veidFromPath(currentPagePath));
       const selectedItem = isEmptyVeid(selectedVeid) ? null : itemState.get(selectedVeid.itemId);
-      if (selectedItem && isSearch(selectedItem)) {
+      if (selectedItem && isQueryItem(selectedItem)) {
         return false;
       }
     }

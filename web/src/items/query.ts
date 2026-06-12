@@ -25,7 +25,20 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { ensureClientOnlyChatPageUnderQueryItem, removeClientOnlyChatPagesUnderQueries, submitChatMessage } from "./chat";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
-import { SearchItem } from "./search-item";
+import {
+  QueryItem,
+  getQuerySearchLoadedPageCount,
+  getQuerySearchResults,
+  getQueryRuntime,
+  getQueryText,
+  setQueryMode,
+  setQuerySearchFocusedResultIndex,
+  setQuerySearchHasMoreResults,
+  setQuerySearchLoadedPageCount,
+  setQuerySearchResults,
+  setQuerySearchSelectedResultIndex,
+  updateQueryRuntime,
+} from "./query-item";
 
 export interface QuerySearchRunOptions {
   selectFirstResultRow: boolean,
@@ -37,20 +50,20 @@ export interface QuerySearchMoreOptions {
   shouldApply?: () => boolean,
 }
 
-export function clearQuerySearchSelection(store: StoreContextModel, queryItem: SearchItem): void {
-  store.perItem.setSearchSelectedResultIndex(queryItem.id, -1);
-  store.perItem.setSearchFocusedResultIndex(queryItem.id, -1);
+export function clearQuerySearchSelection(store: StoreContextModel, queryItem: QueryItem): void {
+  setQuerySearchSelectedResultIndex(store, queryItem, -1);
+  setQuerySearchFocusedResultIndex(store, queryItem, -1);
 }
 
 export function clearQuerySearchRuntime(store: StoreContextModel, queryItemId: string): void {
-  const runtime = store.perItem.getQueryRuntime(queryItemId);
+  const runtime = getQueryRuntime(store, queryItemId);
   for (const linkId of runtime.search.resultLinkIds) {
     itemState.delete(linkId);
   }
   if (runtime.search.resultsPageId != null) {
     itemState.delete(runtime.search.resultsPageId);
   }
-  store.perItem.updateQueryRuntime(queryItemId, current => ({
+  updateQueryRuntime(store, queryItemId, current => ({
     ...current,
     search: {
       resultsPageId: null,
@@ -59,23 +72,23 @@ export function clearQuerySearchRuntime(store: StoreContextModel, queryItemId: s
   }));
 }
 
-export function clearQuerySearch(store: StoreContextModel, queryItem: SearchItem, arrangeReason?: string): void {
+export function clearQuerySearch(store: StoreContextModel, queryItem: QueryItem, arrangeReason?: string): void {
   clearQuerySearchRuntime(store, queryItem.id);
-  store.perItem.setQueryMode(queryItem.id, null);
-  store.perItem.setSearchResults(queryItem.id, null);
-  store.perItem.setSearchHasMoreResults(queryItem.id, false);
-  store.perItem.setSearchLoadedPageCount(queryItem.id, 0);
+  setQueryMode(store, queryItem, null);
+  setQuerySearchResults(store, queryItem, null);
+  setQuerySearchHasMoreResults(store, queryItem, false);
+  setQuerySearchLoadedPageCount(store, queryItem, 0);
   clearQuerySearchSelection(store, queryItem);
   if (arrangeReason != null) {
     requestArrange(store, arrangeReason);
   }
 }
 
-export function clearQuerySearchForModeSwitch(store: StoreContextModel, queryItem: SearchItem): void {
+export function clearQuerySearchForModeSwitch(store: StoreContextModel, queryItem: QueryItem): void {
   clearQuerySearchRuntime(store, queryItem.id);
-  store.perItem.setSearchResults(queryItem.id, null);
-  store.perItem.setSearchHasMoreResults(queryItem.id, false);
-  store.perItem.setSearchLoadedPageCount(queryItem.id, 0);
+  setQuerySearchResults(store, queryItem, null);
+  setQuerySearchHasMoreResults(store, queryItem, false);
+  setQuerySearchLoadedPageCount(store, queryItem, 0);
   clearQuerySearchSelection(store, queryItem);
 }
 
@@ -110,7 +123,7 @@ function warmQuerySearchResults(store: StoreContextModel, result: Array<{ path: 
 
 export async function runQuerySearch(
   store: StoreContextModel,
-  queryItem: SearchItem,
+  queryItem: QueryItem,
   text: string,
   options: QuerySearchRunOptions,
 ): Promise<boolean> {
@@ -123,7 +136,7 @@ export async function runQuerySearch(
     return true;
   }
 
-  store.perItem.setQueryMode(queryItem.id, "search");
+  setQueryMode(store, queryItem, "search");
   requestArrange(store, "query-search-start");
 
   const response = await server.search(null, text, store.general.networkStatus, 1);
@@ -134,11 +147,11 @@ export async function runQuerySearch(
   if (response.results.length == 0) {
     clearQuerySearchRuntime(store, queryItem.id);
   }
-  store.perItem.setSearchResults(queryItem.id, response.results);
-  store.perItem.setSearchHasMoreResults(queryItem.id, response.hasMore);
-  store.perItem.setSearchLoadedPageCount(queryItem.id, 1);
-  store.perItem.setSearchSelectedResultIndex(queryItem.id, options.selectFirstResultRow && response.results.length > 0 ? 0 : -1);
-  store.perItem.setSearchFocusedResultIndex(queryItem.id, -1);
+  setQuerySearchResults(store, queryItem, response.results);
+  setQuerySearchHasMoreResults(store, queryItem, response.hasMore);
+  setQuerySearchLoadedPageCount(store, queryItem, 1);
+  setQuerySearchSelectedResultIndex(store, queryItem, options.selectFirstResultRow && response.results.length > 0 ? 0 : -1);
+  setQuerySearchFocusedResultIndex(store, queryItem, -1);
   requestArrange(store, "search-results");
   warmQuerySearchResults(store, response.results);
   return true;
@@ -146,25 +159,25 @@ export async function runQuerySearch(
 
 export async function loadMoreQuerySearchResults(
   store: StoreContextModel,
-  queryItem: SearchItem,
+  queryItem: QueryItem,
   options: QuerySearchMoreOptions = {},
 ): Promise<boolean> {
-  const existingResults = store.perItem.getSearchResults(queryItem.id);
-  const requestedQuery = store.perItem.getSearchQuery(queryItem.id);
+  const existingResults = getQuerySearchResults(store, queryItem);
+  const requestedQuery = getQueryText(store, queryItem);
   if (!existingResults || requestedQuery == "") {
     return false;
   }
 
-  const loadedPageCount = store.perItem.getSearchLoadedPageCount(queryItem.id);
+  const loadedPageCount = getQuerySearchLoadedPageCount(store, queryItem);
   const nextPage = Math.max(1, loadedPageCount + 1);
   const response = await server.search(null, requestedQuery, store.general.networkStatus, nextPage);
   if (options.shouldApply && !options.shouldApply()) {
     return false;
   }
 
-  store.perItem.setSearchResults(queryItem.id, [...existingResults, ...response.results]);
-  store.perItem.setSearchHasMoreResults(queryItem.id, response.hasMore);
-  store.perItem.setSearchLoadedPageCount(queryItem.id, nextPage);
+  setQuerySearchResults(store, queryItem, [...existingResults, ...response.results]);
+  setQuerySearchHasMoreResults(store, queryItem, response.hasMore);
+  setQuerySearchLoadedPageCount(store, queryItem, nextPage);
   requestArrange(store, "search-more-results");
   warmQuerySearchResults(store, response.results);
   return true;
@@ -172,7 +185,7 @@ export async function loadMoreQuerySearchResults(
 
 export async function startQueryChat(
   store: StoreContextModel,
-  queryItem: SearchItem,
+  queryItem: QueryItem,
   initialText: string,
   queryItemPath: VisualElementPath,
 ): Promise<void> {
@@ -180,7 +193,7 @@ export async function startQueryChat(
   clearQuerySearchForModeSwitch(store, queryItem);
 
   const chatPage = ensureClientOnlyChatPageUnderQueryItem(store, queryItem);
-  store.perItem.setQueryMode(queryItem.id, "chat");
+  setQueryMode(store, queryItem, "chat");
   store.history.setFocus(queryItemPath);
   store.overlay.autoFocusChatInput.set(true);
   arrangeNow(store, "query-start-chat");

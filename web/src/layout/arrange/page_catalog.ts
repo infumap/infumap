@@ -23,11 +23,12 @@ import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
 import {
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  calcSearchWorkspaceResultsFooterHeightPx,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  calcQueryWorkspaceResultsFooterHeightPx,
+  getQuerySearchHasMoreResults,
   isQuerySearchResultsPage,
-} from "../../items/search-item";
+} from "../../items/query-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -70,10 +71,10 @@ export function arrange_catalog_page(
   const marginPx = Math.max(1, Math.round(previewColumnWidthPx * 0.01));
   const isSearchResultsCatalogPage = isQuerySearchResultsPage(displayItem_pageWithChildren);
   const pageTopPaddingPx = isSearchResultsCatalogPage
-    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : CATALOG_VERTICAL_MARGIN_PX;
   const searchResultsFooterHeightPx = isSearchResultsCatalogPage
-    ? calcSearchWorkspaceResultsFooterHeightPx(store.perItem.getSearchHasMoreResults(displayItem_pageWithChildren.parentId))
+    ? calcQueryWorkspaceResultsFooterHeightPx(getQuerySearchHasMoreResults(store, displayItem_pageWithChildren.parentId))
     : 0;
   const movingAdj = movingItemInThisPage ? 1 : 0;
   const numRows = Math.max(displayItem_pageWithChildren.computed_children.length - movingAdj, 0);

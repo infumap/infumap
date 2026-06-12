@@ -18,7 +18,7 @@
 
 import { isComposite } from "../../items/composite-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
-import { isSearch } from "../../items/search-item";
+import { isQueryItem } from "../../items/query-item";
 import { isTable } from "../../items/table-item";
 import { isContainer } from "../../items/base/container-item";
 import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
@@ -484,7 +484,7 @@ function hitSearchWorkspaceMaybe(
   allowCopyMove: boolean,
 ): HitInfo | null {
   const childVe = childVes.get();
-  if (!isSearch(childVe.displayItem)) { return null; }
+  if (!isQueryItem(childVe.displayItem)) { return null; }
   if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { return null; }
 
   const posRelativeToSearchBoundsPx = vectorSubtract(
@@ -528,7 +528,7 @@ function hitSearchWorkspaceChildPageMaybe(
   if (!childVe.parentPath || !childVe.viewportBoundsPx || !childVe.childAreaBoundsPx) { return null; }
 
   const parentVe = VesCache.current.readNode(childVe.parentPath);
-  if (!parentVe || !isSearch(parentVe.displayItem)) { return null; }
+  if (!parentVe || !isQueryItem(parentVe.displayItem)) { return null; }
   if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { return null; }
 
   const childVeid = VeFns.actualVeidFromVe(childVe);

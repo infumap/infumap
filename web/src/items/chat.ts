@@ -28,7 +28,7 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
-import { SearchItem, markAsQueryChatPage } from "./search-item";
+import { QueryItem, getQueryRuntime, markAsQueryChatPage, updateQueryRuntime } from "./query-item";
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -142,11 +142,11 @@ export function removeClientOnlyChatPagesUnderQueries(_store: StoreContextModel,
   }
 }
 
-export function ensureClientOnlyChatPageUnderQueryItem(store: StoreContextModel, searchItem: SearchItem): PageItem {
-  const runtime = store.perItem.getQueryRuntime(searchItem.id);
+export function ensureClientOnlyChatPageUnderQueryItem(store: StoreContextModel, queryItem: QueryItem): PageItem {
+  const runtime = getQueryRuntime(store, queryItem);
   const pageId = runtime.chat.pageId ?? newUid();
   if (runtime.chat.pageId == null) {
-    store.perItem.updateQueryRuntime(searchItem.id, current => ({
+    updateQueryRuntime(store, queryItem, current => ({
       ...current,
       chat: {
         ...current.chat,
@@ -158,8 +158,8 @@ export function ensureClientOnlyChatPageUnderQueryItem(store: StoreContextModel,
   let pageItem = itemState.get(pageId);
   if (!pageItem || !isPage(pageItem)) {
     const tempPage = PageFns.create(
-      searchItem.ownerId,
-      searchItem.id,
+      queryItem.ownerId,
+      queryItem.id,
       RelationshipToParent.Child,
       CHAT_DRAFT_TITLE,
       newOrdering(),
@@ -172,8 +172,8 @@ export function ensureClientOnlyChatPageUnderQueryItem(store: StoreContextModel,
 
   const page = asPageItem(pageItem);
   page.origin = null;
-  page.ownerId = searchItem.ownerId;
-  page.parentId = searchItem.id;
+  page.ownerId = queryItem.ownerId;
+  page.parentId = queryItem.id;
   page.relationshipToParent = RelationshipToParent.Child;
   markAsQueryChatPage(page);
   if (page.title == LEGACY_CHAT_DRAFT_TITLE) {

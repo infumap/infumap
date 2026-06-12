@@ -41,7 +41,7 @@ import { Uid } from "../../util/uid";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { isSearch } from "../../items/search-item";
+import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 
@@ -522,7 +522,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       return false;
     }
     const parentVe = VesCache.current.readNode(props.visualElement.parentPath!);
-    return parentVe != null && isSearch(parentVe.displayItem);
+    return parentVe != null && isQueryItem(parentVe.displayItem);
   };
 
   const useFlatWorkspaceChrome = () =>

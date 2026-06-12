@@ -35,7 +35,7 @@ import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
-import { isQuerySearchResultsPage, isSearch } from "../items/search-item";
+import { isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
@@ -206,7 +206,7 @@ function maybeEditDocumentPageRowFromBackgroundClick(
   return false;
 }
 
-function focusSearchItemFromResultsBackgroundClickMaybe(
+function focusQueryItemFromResultsBackgroundClickMaybe(
   store: StoreContextModel,
   activeVisualElement: VisualElement,
 ): boolean {
@@ -224,7 +224,7 @@ function focusSearchItemFromResultsBackgroundClickMaybe(
   }
 
   const searchVe = VesCache.current.readNode(activeVisualElement.parentPath);
-  if (!searchVe || !isSearch(searchVe.displayItem)) {
+  if (!searchVe || !isQueryItem(searchVe.displayItem)) {
     return false;
   }
 
@@ -1170,7 +1170,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         if (switchPopupListToRootFromBackgroundClickMaybe(store, activeVisualElement)) {
           DoubleClickState.preventDoubleClick();
 
-        } else if (focusSearchItemFromResultsBackgroundClickMaybe(store, activeVisualElement)) {
+        } else if (focusQueryItemFromResultsBackgroundClickMaybe(store, activeVisualElement)) {
           DoubleClickState.preventDoubleClick();
 
         } else if (veFlagIsRoot(activeRootVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&

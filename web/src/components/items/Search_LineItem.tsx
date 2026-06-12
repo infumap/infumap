@@ -25,7 +25,7 @@ import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 
 
-export const Search_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+export const Query_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
   const vePath = () => VeFns.veToPath(props.visualElement);
@@ -74,3 +74,5 @@ export const Search_LineItem: Component<VisualElementProps> = (props: VisualElem
     </>
   );
 }
+
+export const Search_LineItem = Query_LineItem;

@@ -54,11 +54,16 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { getVePropertiesForItem } from "../layout/arrange/util";
 import { isPlaceholder } from "../items/placeholder-item";
 import {
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  getQuerySearchFocusedResultIndex,
+  getQuerySearchResults,
+  getQuerySearchSelectedResultIndex,
   isQuerySearchResultsPage,
-  isSearch,
-} from "../items/search-item";
+  isQueryItem,
+  setQuerySearchFocusedResultIndex,
+  setQuerySearchSelectedResultIndex,
+} from "../items/query-item";
 import { isChatPage } from "../items/chat";
 import type { SearchResult } from "../server";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
@@ -150,13 +155,13 @@ function getActiveSearchWorkspace(store: StoreContextModel): ActiveSearchWorkspa
   }
 
   const selectedItem = itemState.get(selectedVeid.itemId);
-  if (!selectedItem || !isSearch(selectedItem)) {
+  if (!selectedItem || !isQueryItem(selectedItem)) {
     return null;
   }
 
   const selectedVeSignal = VesCache.render.getSelected(listPagePath)();
   const selectedVe = selectedVeSignal?.get() ?? null;
-  if (!selectedVe || !isSearch(selectedVe.displayItem)) {
+  if (!selectedVe || !isQueryItem(selectedVe.displayItem)) {
     return null;
   }
   const focusPath = store.history.getFocusPathMaybe();
@@ -166,7 +171,7 @@ function getActiveSearchWorkspace(store: StoreContextModel): ActiveSearchWorkspa
   }
 
   const searchItemId = selectedVe.displayItem.id;
-  const results = store.perItem.getSearchResults(searchItemId) ?? [];
+  const results = getQuerySearchResults(store, searchItemId) ?? [];
   const resultsPageVeSignal = VesCache.render.getChildren(VeFns.veToPath(selectedVe))()[0];
   const resultsPageVe = resultsPageVeSignal?.get() ?? null;
   const resultChildVes = resultsPageVe
@@ -206,7 +211,7 @@ function searchWorkspaceUsesGridLayout(workspace: ActiveSearchWorkspace): boolea
 
 function getEffectiveFocusedSearchResultIndex(store: StoreContextModel, workspace: ActiveSearchWorkspace): number {
   const storedFocusedRow = clampSearchResultIndex(
-    store.perItem.getSearchFocusedResultIndex(workspace.searchItemId),
+    getQuerySearchFocusedResultIndex(store, workspace.searchItemId),
     workspace.resultsCount,
   );
   if (storedFocusedRow >= 0) {
@@ -246,7 +251,7 @@ function scrollSearchResultIndexIntoView(store: StoreContextModel, workspace: Ac
   const rowIndex = Math.floor(resultIndex / getSearchWorkspaceColumnCount(workspace));
   const resultsPage = asPageItem(resultsPageVe.displayItem);
   const pageTopPaddingPx = isQuerySearchResultsPage(resultsPage)
-    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : calcJustifiedPagePaddingPx(resultsPageVe.childAreaBoundsPx.w, resultsPage.justifiedRowAspect);
   const rowTopPx = pageTopPaddingPx + rowIndex * resultsPageVe.cellSizePx.h;
   const rowBottomPx = rowTopPx + resultsPageVe.cellSizePx.h;
@@ -311,20 +316,20 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   if (!workspace) { return false; }
   const focusPath = store.history.getFocusPathMaybe();
   const clearSearchWorkspaceSelection = () => {
-    store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, -1);
-    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+    setQuerySearchSelectedResultIndex(store, workspace.searchItemId, -1);
+    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
     store.history.setFocus(workspace.searchVePath);
     arrangeNow(store, "key-search-clear-selection");
   };
 
   const selectedRow = clampSearchResultIndex(
-    store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
+    getQuerySearchSelectedResultIndex(store, workspace.searchItemId),
     workspace.resultsCount,
   );
   const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
   const selectSearchWorkspaceResult = (resultIndex: number) => {
-    store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, resultIndex);
-    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+    setQuerySearchSelectedResultIndex(store, workspace.searchItemId, resultIndex);
+    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
     store.history.setFocus(workspace.searchVePath);
     scrollSearchResultIndexIntoView(store, workspace, resultIndex);
     arrangeNow(store, "key-search-select-result");
@@ -338,7 +343,7 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
       const atLeftEdge = baseIndex < 0 || baseIndex % getSearchWorkspaceColumnCount(workspace) == 0;
       if (atLeftEdge) {
         if (!currentPagePath) { return false; }
-        store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+        setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
         store.history.setFocus(currentPagePath);
         arrangeNow(store, "key-search-grid-to-list");
         return true;
@@ -364,8 +369,8 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
       return true;
     }
 
-    store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, nextIndex);
-    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, focusedRow >= 0 ? nextIndex : -1);
+    setQuerySearchSelectedResultIndex(store, workspace.searchItemId, nextIndex);
+    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, focusedRow >= 0 ? nextIndex : -1);
     if (focusedRow >= 0) {
       const targetVe = workspace.resultChildVes[nextIndex];
       if (targetVe) {
@@ -388,7 +393,7 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
 
   if (ev.code == "ArrowRight") {
     if (focusedRow < 0) { return false; }
-    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
     store.history.setFocus(workspace.searchVePath);
     arrangeNow(store, "key-search-item-to-row");
     return true;
@@ -416,8 +421,8 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   }
   const nextRow = nextRowCandidate;
 
-  store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, nextRow);
-  store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, focusedRow >= 0 ? nextRow : -1);
+  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, nextRow);
+  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, focusedRow >= 0 ? nextRow : -1);
   if (focusedRow >= 0) {
     const targetVe = workspace.resultChildVes[nextRow];
     if (targetVe) {
@@ -434,14 +439,14 @@ function handleSearchWorkspaceTabMaybe(store: StoreContextModel, ev: KeyboardEve
   if (!workspace) { return false; }
 
   const selectedRow = clampSearchResultIndex(
-    store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
+    getQuerySearchSelectedResultIndex(store, workspace.searchItemId),
     workspace.resultsCount,
   );
   const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
 
   if (!ev.shiftKey) {
     if (selectedRow < 0 || focusedRow >= 0) { return false; }
-    store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, selectedRow);
+    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, selectedRow);
     const targetVe = workspace.resultChildVes[selectedRow];
     if (targetVe) {
       store.history.setFocus(VeFns.veToPath(targetVe));
@@ -451,7 +456,7 @@ function handleSearchWorkspaceTabMaybe(store: StoreContextModel, ev: KeyboardEve
   }
 
   if (focusedRow < 0) { return false; }
-  store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
   store.history.setFocus(workspace.searchVePath);
   arrangeNow(store, "key-search-item-to-row");
   return true;
@@ -474,7 +479,7 @@ function handleSearchWorkspaceEnterMaybe(store: StoreContextModel): boolean {
   }
 
   const selectedRow = clampSearchResultIndex(
-    store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
+    getQuerySearchSelectedResultIndex(store, workspace.searchItemId),
     workspace.resultsCount,
   );
   if (selectedRow < 0 && store.history.getFocusPathMaybe() == workspace.searchVePath) {
@@ -496,14 +501,14 @@ function handleSearchWorkspaceEscapeMaybe(store: StoreContextModel): boolean {
   if (!workspace) { return false; }
 
   const selectedRow = clampSearchResultIndex(
-    store.perItem.getSearchSelectedResultIndex(workspace.searchItemId),
+    getQuerySearchSelectedResultIndex(store, workspace.searchItemId),
     workspace.resultsCount,
   );
   const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
   if (focusedRow < 0 && selectedRow < 0) { return false; }
 
-  store.perItem.setSearchSelectedResultIndex(workspace.searchItemId, -1);
-  store.perItem.setSearchFocusedResultIndex(workspace.searchItemId, -1);
+  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, -1);
+  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
   store.history.setFocus(workspace.searchVePath);
   arrangeNow(store, "key-search-clear-selection");
   return true;
@@ -949,9 +954,9 @@ function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean
   const selectedItem = isEmptyVeid(selectedVeid) ? null : itemState.get(selectedVeid.itemId);
   const selectedVeSignal = VesCache.render.getSelected(focusPagePath)();
   const selectedVe = selectedVeSignal?.get() ?? null;
-  if (selectedItem && isSearch(selectedItem)) {
+  if (selectedItem && isQueryItem(selectedItem)) {
     if (selectedVe) {
-      store.perItem.setSearchFocusedResultIndex(selectedItem.id, -1);
+      setQuerySearchFocusedResultIndex(store, selectedItem.id, -1);
       store.overlay.autoFocusSearchInput.set(false);
       store.history.setFocus(VeFns.veToPath(selectedVe));
       arrangeNow(store, "key-list-page-focus-search");

@@ -19,7 +19,7 @@
 import { isContainer } from "../items/base/container-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { HitboxFlags } from "../layout/hitbox";
-import { isQuerySearchResultsPage } from "../items/search-item";
+import { isQuerySearchResultsPage } from "../items/query-item";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VisualElementPath, VeFns } from "../layout/visual-element";
 import { panic } from "../util/lang";

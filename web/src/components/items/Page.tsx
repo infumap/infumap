@@ -61,13 +61,16 @@ import { catalogSearchResultDisplay, catalogFragmentMatchDisplayFromMatch, type 
 import { documentPageMoveOutBoxPxMaybe } from "./helper";
 import { SELECTED_LIGHT } from "../../style";
 import {
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  SEARCH_WORKSPACE_MORE_SECTION_GAP_PX,
-  calcSearchWorkspaceResultsFooterHeightPx,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  QUERY_WORKSPACE_MORE_SECTION_GAP_PX,
+  calcQueryWorkspaceResultsFooterHeightPx,
+  getQuerySearchHasMoreResults,
+  getQuerySearchResults,
+  getQuerySearchSelectedResultIndex,
   isQuerySearchResultsPage,
-  searchResultsFooterHostId,
-} from "../../items/search-item";
+  querySearchResultsFooterHostId,
+} from "../../items/query-item";
 import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
 
 
@@ -236,7 +239,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     gridPageTopPaddingPx: () =>
       pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid && pageFns.isSearchResultsPage()
-        ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+        ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
         : pageFns.gridPagePaddingPx(),
 
     gridContentWidthPx: () =>
@@ -469,7 +472,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>,
 
     catalogPageTopPaddingPx: () => pageFns.isSearchResultsPage()
-      ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+      ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
       : CATALOG_VERTICAL_MARGIN_PX,
 
     catalogContentLeftPx: () => CATALOG_HORIZONTAL_MARGIN_PX,
@@ -499,7 +502,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (!searchSourceItemId) {
         return 0;
       }
-      return calcSearchWorkspaceResultsFooterHeightPx(store.perItem.getSearchHasMoreResults(searchSourceItemId));
+      return calcQueryWorkspaceResultsFooterHeightPx(getQuerySearchHasMoreResults(store, searchSourceItemId));
     },
 
     searchResultsFooterTopPx: () =>
@@ -507,7 +510,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     searchResultsFooterHostId: () => {
       const searchSourceItemId = pageFns.searchResultsSourceItemId();
-      return searchSourceItemId ? searchResultsFooterHostId(searchSourceItemId) : "";
+      return searchSourceItemId ? querySearchResultsFooterHostId(searchSourceItemId) : "";
     },
 
     renderSearchResultsFooterHostMaybe: () =>
@@ -517,7 +520,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           class="absolute flex justify-center"
           style={`left: 0px; top: ${pageFns.searchResultsFooterTopPx()}px; ` +
             `width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.searchResultsFooterHeightPx()}px; ` +
-            `padding-top: ${SEARCH_WORKSPACE_MORE_SECTION_GAP_PX}px;`} />
+            `padding-top: ${QUERY_WORKSPACE_MORE_SECTION_GAP_PX}px;`} />
       </Show>,
 
     renderSearchSelectionMaybe: () => {
@@ -530,7 +533,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         return <></>;
       }
 
-      const selectedSearchResultIndex = () => store.perItem.getSearchSelectedResultIndex(searchSourceItemId);
+      const selectedSearchResultIndex = () => getQuerySearchSelectedResultIndex(store, searchSourceItemId);
       const searchSelectionStyle = () => {
         const numCols = Math.max(1, pageFns.pageItem().gridNumberOfColumns);
         const selectedIndex = selectedSearchResultIndex();
@@ -586,7 +589,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const childVe = () => childVeSignal.get();
           const searchSourceItemId = () => pageFns.searchResultsSourceItemId();
           const selectedSearchRow = () =>
-            searchSourceItemId() ? store.perItem.getSearchSelectedResultIndex(searchSourceItemId()!) : -1;
+            searchSourceItemId() ? getQuerySearchSelectedResultIndex(store, searchSourceItemId()!) : -1;
           const isMouseOverRow = () =>
             store.perVe.getMoveOverRowNumber(pageFns.vePath()) == rowIndex() &&
             !store.anItemIsMoving.get();
@@ -597,7 +600,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             if (!searchItemId) {
               return null;
             }
-            const results = store.perItem.getSearchResults(searchItemId);
+            const results = getQuerySearchResults(store, searchItemId);
             if (!results) {
               return null;
             }

@@ -17,7 +17,7 @@
 */
 
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { isSearch } from "../items/search-item";
+import { isQueryItem } from "../items/query-item";
 import { VesCache } from "../layout/ves-cache";
 import { VeFns } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -50,7 +50,7 @@ export function getFocusedSearchWorkspaceChromeSpec(store: StoreContextModel): S
   if (!isPage(currentPageVe.displayItem) || asPageItem(currentPageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
     return null;
   }
-  if (focusVe.parentPath != currentPagePath || !isSearch(focusVe.displayItem)) {
+  if (focusVe.parentPath != currentPagePath || !isQueryItem(focusVe.displayItem)) {
     return null;
   }
 

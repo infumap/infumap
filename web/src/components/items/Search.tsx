@@ -35,23 +35,30 @@ import { VesCache } from "../../layout/ves-cache";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
 import {
-  SearchFns,
-  asSearchItem,
-  SEARCH_WORKSPACE_BUTTON_WIDTH_PX,
-  SEARCH_WORKSPACE_CONTROLS_GAP_PX,
-  SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX,
-  SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX,
-  SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX,
-  SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX,
-  SEARCH_WORKSPACE_TOP_INSET_PX,
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX,
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX,
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX,
-  calcSearchWorkspaceControlsWidthPx,
-  calcSearchWorkspaceInputWidthPx,
-  calcSearchWorkspaceResultsTopPx,
-  searchResultsFooterHostId,
-} from "../../items/search-item";
+  QueryFns,
+  asQueryItem,
+  QUERY_WORKSPACE_BUTTON_WIDTH_PX,
+  QUERY_WORKSPACE_CONTROLS_GAP_PX,
+  QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
+  QUERY_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX,
+  QUERY_WORKSPACE_MORE_BUTTON_HEIGHT_PX,
+  QUERY_WORKSPACE_MORE_BUTTON_WIDTH_PX,
+  QUERY_WORKSPACE_TOP_INSET_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX,
+  calcQueryWorkspaceControlsWidthPx,
+  calcQueryWorkspaceInputWidthPx,
+  calcQueryWorkspaceResultsTopPx,
+  getQueryMode,
+  getQuerySearchArrangeAlgorithm,
+  getQuerySearchHasMoreResults,
+  getQuerySearchResults,
+  getQueryText,
+  querySearchResultsFooterHostId,
+  setQuerySearchArrangeAlgorithm,
+  setQueryText,
+} from "../../items/query-item";
 import { materializeSearchResults } from "../../layout/search_materialize";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../items/page-item";
@@ -64,13 +71,13 @@ import {
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
-const SEARCH_WORKSPACE_ARRANGE_OPTIONS = [
+const QUERY_SEARCH_ARRANGE_OPTIONS = [
   { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
   { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
 ] as const;
 
 
-export const Search_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
+export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
   const [pendingInputFocus, setPendingInputFocus] = createSignal<{ caretIdx: number, selectAll: boolean } | null>(null);
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
@@ -84,17 +91,17 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const isListPageMainRoot = () =>
     !!(props.visualElement.flags & VisualElementFlags.ListPageRoot) ||
     props.visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM;
-  const searchItem = () => asSearchItem(props.visualElement.displayItem);
-  const canEdit = () => itemCanEdit(searchItem());
-  const queryText = () => store.perItem.getSearchQuery(searchItem().id);
-  const queryMode = () => store.perItem.getQueryMode(searchItem().id);
+  const queryItem = () => asQueryItem(props.visualElement.displayItem);
+  const canEdit = () => itemCanEdit(queryItem());
+  const queryText = () => getQueryText(store, queryItem());
+  const queryMode = () => getQueryMode(store, queryItem());
   const isSearchMode = () => queryMode() == "search";
   const isChatMode = () => queryMode() == "chat";
-  const searchHasMoreResults = () => store.perItem.getSearchHasMoreResults(searchItem().id);
+  const searchHasMoreResults = () => getQuerySearchHasMoreResults(store, queryItem());
   const hasSubmittedQuery = () => queryMode() != null;
-  const hasSearchResults = () => (store.perItem.getSearchResults(searchItem().id)?.length ?? 0) > 0;
+  const hasSearchResults = () => (getQuerySearchResults(store, queryItem())?.length ?? 0) > 0;
   const searchArrangeAlgorithm = () =>
-    store.perItem.getSearchArrangeAlgorithm(searchItem().id) == ArrangeAlgorithm.Grid
+    getQuerySearchArrangeAlgorithm(store, queryItem()) == ArrangeAlgorithm.Grid
       ? ArrangeAlgorithm.Grid
       : ArrangeAlgorithm.Catalog;
   const isEditing = () => canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
@@ -145,7 +152,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const commitEditingQuery = (editingElMaybe?: HTMLElement | null): string => {
     const editingEl = editingElMaybe ?? document.getElementById(editingDomId());
     const nextQuery = isEditing() ? readQueryTextFromDom(editingEl instanceof HTMLElement ? editingEl : null) : queryText();
-    store.perItem.setSearchQuery(searchItem().id, nextQuery);
+    setQueryText(store, queryItem(), nextQuery);
     exitEditMode(editingEl instanceof HTMLElement ? editingEl : null);
     return nextQuery;
   };
@@ -155,7 +162,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     }
     setForceNonEditing(false);
     setPendingInputFocus(focusInput ? { caretIdx, selectAll } : null);
-    clearQuerySearchSelection(store, searchItem());
+    clearQuerySearchSelection(store, queryItem());
     if (!isEditing()) {
       store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
     }
@@ -171,14 +178,14 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     }, 1500);
   };
 
-  const setSearchArrangeAlgorithm = (arrangeAlgorithm: ArrangeAlgorithm) => {
+  const setQuerySearchArrangeAlgorithmForItem = (arrangeAlgorithm: ArrangeAlgorithm) => {
     const nextArrangeAlgorithm = arrangeAlgorithm == ArrangeAlgorithm.Grid
       ? ArrangeAlgorithm.Grid
       : ArrangeAlgorithm.Catalog;
     if (searchArrangeAlgorithm() == nextArrangeAlgorithm) {
       return;
     }
-    store.perItem.setSearchArrangeAlgorithm(searchItem().id, nextArrangeAlgorithm);
+    setQuerySearchArrangeAlgorithm(store, queryItem(), nextArrangeAlgorithm);
     store.touchToolbar();
     arrangeNow(store, "search-workspace-arrange-algorithm");
   };
@@ -191,7 +198,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const text = commitEditingQuery(editingElMaybe);
     const requestSerial = ++activeSearchRequestSerial;
     setIsLoadingMore(false);
-    await runQuerySearch(store, searchItem(), text, {
+    await runQuerySearch(store, queryItem(), text, {
       selectFirstResultRow,
       keepQueryFocusPath: keepSearchWorkspaceFocus ? vePath() : undefined,
       shouldApply: () => requestSerial == activeSearchRequestSerial,
@@ -212,7 +219,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     setIsStartingChat(true);
     activeSearchRequestSerial++;
     try {
-      await startQueryChat(store, searchItem(), text, vePath());
+      await startQueryChat(store, queryItem(), text, vePath());
     } finally {
       setIsStartingChat(false);
     }
@@ -226,7 +233,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const requestSerial = ++activeSearchRequestSerial;
     setIsLoadingMore(true);
     try {
-      await loadMoreQuerySearchResults(store, searchItem(), {
+      await loadMoreQuerySearchResults(store, queryItem(), {
         shouldApply: () => requestSerial == activeSearchRequestSerial,
       });
     } finally {
@@ -236,14 +243,14 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
 
   const materializeCurrentResults = async (editingElMaybe?: HTMLElement | null) => {
     const title = commitEditingQuery(editingElMaybe);
-    const results = store.perItem.getSearchResults(searchItem().id);
+    const results = getQuerySearchResults(store, queryItem());
     if (!results || results.length == 0) {
       showTransientMessage("no search results to materialize", TransientMessageType.Error);
       return;
     }
 
     try {
-      await materializeSearchResults(store, searchItem(), title);
+      await materializeSearchResults(store, queryItem(), title);
       showTransientMessage("search results materialized", TransientMessageType.Info);
     } catch (_e) {
       showTransientMessage("failed to materialize search results", TransientMessageType.Error);
@@ -387,16 +394,16 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       return;
     }
     searchArrangeAlgorithm();
-    store.perItem.getSearchResults(searchItem().id);
+    getQuerySearchResults(store, queryItem());
     const raf = requestAnimationFrame(() => {
-      const host = document.getElementById(searchResultsFooterHostId(searchItem().id));
+      const host = document.getElementById(querySearchResultsFooterHostId(queryItem().id));
       setMoreButtonHost(host instanceof HTMLElement ? host : null);
     });
     onCleanup(() => cancelAnimationFrame(raf));
   });
 
   const desktopTextStyle = () => getTextStyleForNote(0);
-  const desktopSizeBl = () => SearchFns.calcSpatialDimensionsBl(searchItem());
+  const desktopSizeBl = () => QueryFns.calcSpatialDimensionsBl(queryItem());
   const desktopNaturalWidthPx = () => Math.max(desktopSizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2, 0);
   const desktopNaturalHeightPx = () => Math.max(desktopSizeBl().h * LINE_HEIGHT_PX, 1);
   const desktopBlockSizePx = () => ({
@@ -418,21 +425,21 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const desktopTextIndentPx = () => desktopPopupIconTextIndentPx(desktopSizeBl().w);
 
   const renderSearchWorkspace = () => {
-    const controlsWidthPx = calcSearchWorkspaceControlsWidthPx(boundsPx().w);
-    const inputWidthPx = calcSearchWorkspaceInputWidthPx(boundsPx().w);
-    const lowerTopPx = calcSearchWorkspaceResultsTopPx();
-    const arrangeSelectorTopPx = lowerTopPx - Math.round(SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
+    const controlsWidthPx = calcQueryWorkspaceControlsWidthPx(boundsPx().w);
+    const inputWidthPx = calcQueryWorkspaceInputWidthPx(boundsPx().w);
+    const lowerTopPx = calcQueryWorkspaceResultsTopPx();
+    const arrangeSelectorTopPx = lowerTopPx - Math.round(QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
     const showMoreButton = () => searchHasMoreResults();
     const initialControlsTopPx = () => {
-      const preferredTopPx = Math.round(boundsPx().h * 0.45 - SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX / 2);
-      const maxTopPx = Math.max(0, boundsPx().h - SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX - 24);
+      const preferredTopPx = Math.round(boundsPx().h * 0.45 - QUERY_WORKSPACE_CONTROLS_HEIGHT_PX / 2);
+      const maxTopPx = Math.max(0, boundsPx().h - QUERY_WORKSPACE_CONTROLS_HEIGHT_PX - 24);
       return Math.max(0, Math.min(maxTopPx, preferredTopPx));
     };
     const renderQueryControls = () =>
-      <div class="flex items-center" style={`gap: ${SEARCH_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+      <div class="flex items-center" style={`gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
         <div
           class="border border-[#999] rounded-xs bg-white overflow-hidden"
-          style={`width: ${inputWidthPx}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          style={`width: ${inputWidthPx}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
           onMouseDown={queryInputMouseDown}>
           <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
             style="font-size: 16px;">
@@ -450,7 +457,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         </div>
         <button
           class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-40"
-          style={`width: ${SEARCH_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          style={`width: ${QUERY_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
           type="button"
           disabled={isStartingChat()}
           onMouseDown={(ev) => {
@@ -467,7 +474,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         </button>
         <button
           class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-40"
-          style={`width: ${SEARCH_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          style={`width: ${QUERY_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
           type="button"
           disabled={!canEdit() || isStartingChat()}
           onMouseDown={(ev) => {
@@ -498,7 +505,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
             style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${isSearchMode() ? lowerTopPx : boundsPx().h}px;`}>
             <div class="absolute"
               style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; ` +
-                `top: ${isSearchMode() ? SEARCH_WORKSPACE_TOP_INSET_PX : initialControlsTopPx()}px; width: ${controlsWidthPx}px;`}>
+                `top: ${isSearchMode() ? QUERY_WORKSPACE_TOP_INSET_PX : initialControlsTopPx()}px; width: ${controlsWidthPx}px;`}>
               {renderQueryControls()}
             </div>
           </div>
@@ -511,10 +518,10 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
         </Show>
         <Show when={isSearchMode()}>
           <div class="absolute flex items-center gap-[4px]"
-            style={`right: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
+            style={`right: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
             <button
               class="flex items-center justify-center border border-slate-300 rounded-[5px] bg-white text-slate-600 cursor-pointer disabled:cursor-default disabled:opacity-40"
-              style={`width: ${SEARCH_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; margin-right: 14px; ` +
+              style={`width: ${QUERY_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; margin-right: 14px; ` +
                 `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
               type="button"
               title="Create page from results"
@@ -533,12 +540,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
               }}>
               <i class="bi-file-earmark-plus" />
             </button>
-            <For each={SEARCH_WORKSPACE_ARRANGE_OPTIONS}>{option => {
+            <For each={QUERY_SEARCH_ARRANGE_OPTIONS}>{option => {
               const selected = () => searchArrangeAlgorithm() == option.arrangeAlgorithm;
               return (
                 <button
                   class="flex items-center justify-center cursor-pointer"
-                  style={`width: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; ` +
+                  style={`width: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX}px; height: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; ` +
                     `font-size: 11px; letter-spacing: 0; font-weight: ${selected() ? 700 : 600}; ` +
                     `color: ${selected() ? "rgba(51, 65, 85, 0.92)" : "rgba(100, 116, 139, 0.76)"}; ` +
                     `background: rgba(255, 255, 255, 0.96); ` +
@@ -548,7 +555,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
                   onMouseDown={(ev) => {
                     ev.preventDefault();
                     ev.stopPropagation();
-                    setSearchArrangeAlgorithm(option.arrangeAlgorithm);
+                    setQuerySearchArrangeAlgorithmForItem(option.arrangeAlgorithm);
                   }}
                   onMouseUp={(ev) => {
                     ev.preventDefault();
@@ -564,7 +571,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
           <Portal mount={moreButtonHost()!}>
             <button
               class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-60"
-              style={`width: ${SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_MORE_BUTTON_HEIGHT_PX}px;`}
+              style={`width: ${QUERY_WORKSPACE_MORE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_MORE_BUTTON_HEIGHT_PX}px;`}
               type="button"
               disabled={isEditing() || isLoadingMore()}
               onMouseDown={(ev) => {
@@ -629,3 +636,5 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     </div>
   );
 }
+
+export const Search_Desktop = Query_Desktop;

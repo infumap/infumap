@@ -55,6 +55,7 @@ import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns"
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { finishPendingClipboardTextItem } from "./text_clipboard_create";
+import { setQueryText } from "../items/query-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -434,7 +435,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           asPasswordItem(item).text = trimNewline(newText);
         }
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Search) {
-          store.perItem.setSearchQuery(item.id, trimNewline(newText).replace(/\u200B/g, ""));
+          setQueryText(store, item.id, trimNewline(newText).replace(/\u200B/g, ""));
         }
 
         itemState.sortParentChildrenIfTitleOrdered(item);

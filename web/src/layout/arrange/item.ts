@@ -21,7 +21,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Item } from "../../items/base/item";
 import { asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
-import { asSearchItem, isSearch } from "../../items/search-item";
+import { asQueryItem, isQueryItem } from "../../items/query-item";
 import { VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, VeFns } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { LinkItem, isLink } from "../../items/link-item";
@@ -234,8 +234,8 @@ export const arrangeItemNoChildren = (
   } else {
     itemRelationships.attachmentsPaths = [];
   }
-  if (isSearch(displayItem) && (flags & ArrangeItemFlags.RenderChildrenAsFull)) {
-    const searchResultsPath = arrangeSearchResultsPathMaybe(store, asSearchItem(displayItem), currentVePath, itemGeometry);
+  if (isQueryItem(displayItem) && (flags & ArrangeItemFlags.RenderChildrenAsFull)) {
+    const searchResultsPath = arrangeSearchResultsPathMaybe(store, asQueryItem(displayItem), currentVePath, itemGeometry);
     itemRelationships.childrenPaths = searchResultsPath == null ? [] : [searchResultsPath];
   }
 

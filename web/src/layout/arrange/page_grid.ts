@@ -24,11 +24,12 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import {
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  calcSearchWorkspaceResultsFooterHeightPx,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  calcQueryWorkspaceResultsFooterHeightPx,
+  getQuerySearchHasMoreResults,
   isQuerySearchResultsPage,
-} from "../../items/search-item";
+} from "../../items/query-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -72,7 +73,7 @@ export function arrange_grid_page(
   const numCols = pageItem.gridNumberOfColumns;
   const isSearchResultsGridPage = isQuerySearchResultsPage(displayItem_pageWithChildren);
   const searchResultsFooterHeightPx = isSearchResultsGridPage
-    ? calcSearchWorkspaceResultsFooterHeightPx(store.perItem.getSearchHasMoreResults(displayItem_pageWithChildren.parentId))
+    ? calcQueryWorkspaceResultsFooterHeightPx(getQuerySearchHasMoreResults(store, displayItem_pageWithChildren.parentId))
     : 0;
 
   // if an item is moving out of or into a grid page, then ensure the height of the page doesn't
@@ -89,7 +90,7 @@ export function arrange_grid_page(
   const numRows = Math.ceil((pageItem.computed_children.length - movingAdj + nItemAdj) / numCols);
   const pageSidePaddingPx = calcJustifiedPagePaddingPx(geometry.boundsPx.w, pageItem.justifiedRowAspect);
   const pageTopPaddingPx = isSearchResultsGridPage
-    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : pageSidePaddingPx;
   const gridContentWidthPx = Math.max(0, geometry.boundsPx.w - pageSidePaddingPx * 2.0);
   const cellWPx = gridContentWidthPx / numCols;

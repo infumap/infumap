@@ -54,7 +54,7 @@ import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { NoteFlags } from './base/flags-item';
 import { calcPopupActionStripLayout } from '../util/popupHeaderActions';
 import { LinkFns, asLinkItem, isLink } from './link-item';
-import { isQueryChatPage } from './search-item';
+import { isQueryChatPage } from './query-item';
 
 
 export const ArrangeAlgorithm = {

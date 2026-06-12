@@ -23,10 +23,10 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import {
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
+  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
   isQuerySearchResultsPage,
-} from "../items/search-item";
+} from "../items/query-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
@@ -341,7 +341,7 @@ function catalogRowNumberFromBounds(
   const rowHeightPx = catalogPageVe.cellSizePx?.h ?? 0;
   const numRows = catalogPageVe.numRows ?? 0;
   const rowsTopPx = isQuerySearchResultsPage(catalogPageVe.displayItem)
-    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : CATALOG_VERTICAL_MARGIN_PX;
   const rowsBottomPx = rowsTopPx + numRows * rowHeightPx;
   if (rowHeightPx <= 0 || localY < rowsTopPx || localY >= rowsBottomPx) {
@@ -409,7 +409,7 @@ function searchGridCellIndexFromBounds(
     store.perItem.getPageScrollYProp(scrollVeid);
   const pageSidePaddingPx = calcJustifiedPagePaddingPx(gridPageVe.childAreaBoundsPx.w, pageItem.justifiedRowAspect);
   const pageTopPaddingPx = isQuerySearchResultsPage(gridPageVe.displayItem)
-    ? SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : pageSidePaddingPx;
   const localX = desktopPosPx.x - gridViewportBoundsPx.x - pageSidePaddingPx;
   const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx - pageTopPaddingPx;

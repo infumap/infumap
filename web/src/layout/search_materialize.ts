@@ -18,7 +18,12 @@
 
 import { LinkFns } from "../items/link-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
-import { SearchItem } from "../items/search-item";
+import {
+  QueryItem,
+  getQueryRuntime,
+  getQuerySearchArrangeAlgorithm,
+  getQuerySearchResults,
+} from "../items/query-item";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
@@ -29,8 +34,8 @@ import { CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
 import type { SearchResult } from "../server";
 import { searchResultPathSegments } from "../util/search-result-display";
 
-function copyCurrentSearchResultsLayout(store: StoreContextModel, searchItem: SearchItem, materializedPage: ReturnType<typeof PageFns.create>) {
-  const resultsPageId = store.perItem.getQueryRuntime(searchItem.id).search.resultsPageId;
+function copyCurrentSearchResultsLayout(store: StoreContextModel, queryItem: QueryItem, materializedPage: ReturnType<typeof PageFns.create>) {
+  const resultsPageId = getQueryRuntime(store, queryItem).search.resultsPageId;
   const resultsPageMaybe = resultsPageId == null ? null : itemState.get(resultsPageId);
   if (resultsPageMaybe && isPage(resultsPageMaybe)) {
     const resultsPage = asPageItem(resultsPageMaybe);
@@ -45,11 +50,11 @@ function copyCurrentSearchResultsLayout(store: StoreContextModel, searchItem: Se
 
   // Keep the new page aligned with the active search layout choices even if the
   // temporary results page has not been instantiated yet.
-  materializedPage.arrangeAlgorithm = store.perItem.getSearchArrangeAlgorithm(searchItem.id);
+  materializedPage.arrangeAlgorithm = getQuerySearchArrangeAlgorithm(store, queryItem);
 }
 
 function makeMaterializedLink(
-  searchItem: SearchItem,
+  queryItem: QueryItem,
   pageId: string,
   results: Array<SearchResult>,
   index: number,
@@ -62,7 +67,7 @@ function makeMaterializedLink(
   }
 
   const link = LinkFns.create(
-    searchItem.ownerId,
+    queryItem.ownerId,
     pageId,
     RelationshipToParent.Child,
     resultItemId,
@@ -76,26 +81,26 @@ function makeMaterializedLink(
 
 export async function materializeSearchResults(
   store: StoreContextModel,
-  searchItem: SearchItem,
+  queryItem: QueryItem,
   title: string,
 ): Promise<string | null> {
-  const results = store.perItem.getSearchResults(searchItem.id);
+  const results = getQuerySearchResults(store, queryItem);
   if (!results || results.length == 0) {
     return null;
   }
 
-  const ordering = itemState.newOrderingDirectlyAfterChild(searchItem.parentId, searchItem.id);
+  const ordering = itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id);
   const page = PageFns.create(
-    searchItem.ownerId,
-    searchItem.parentId,
+    queryItem.ownerId,
+    queryItem.parentId,
     RelationshipToParent.Child,
     title,
     ordering,
   );
   page.childrenLoaded = true;
   page.orderChildrenBy = "";
-  page.arrangeAlgorithm = store.perItem.getSearchArrangeAlgorithm(searchItem.id);
-  copyCurrentSearchResultsLayout(store, searchItem, page);
+  page.arrangeAlgorithm = getQuerySearchArrangeAlgorithm(store, queryItem);
+  copyCurrentSearchResultsLayout(store, queryItem, page);
 
   itemState.add(page);
 
@@ -103,7 +108,7 @@ export async function materializeSearchResults(
   const createdLinks = [];
   const childOrderings: Array<Uint8Array> = [];
   for (let idx = 0; idx < results.length; ++idx) {
-    const link = makeMaterializedLink(searchItem, page.id, results, idx, childOrderings);
+    const link = makeMaterializedLink(queryItem, page.id, results, idx, childOrderings);
     if (!link) {
       continue;
     }

@@ -26,7 +26,7 @@ import { asImageItem, isImage } from "../items/image-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { isPassword } from "../items/password-item";
-import { isSearch } from "../items/search-item";
+import { isQueryItem } from "../items/query-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement, VisualElementFlags, VeFns, isVeTranslucentPage } from "../layout/visual-element";
 import { VesCache } from "../layout/ves-cache";
@@ -115,7 +115,7 @@ function isInsideSearchWorkspace(visualElement: VisualElement): boolean {
     return false;
   }
   const parentVe = VesCache.current.readNode(parentPath) ?? VesCache.render.getNode(parentPath)?.get() ?? null;
-  return parentVe != null && isSearch(parentVe.displayItem);
+  return parentVe != null && isQueryItem(parentVe.displayItem);
 }
 
 function pageUsesFlatWorkspaceChrome(visualElement: VisualElement): boolean {

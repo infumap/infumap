@@ -23,7 +23,7 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ClickState } from "../../../input/state";
 import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../../items/page-item";
-import { asSearchItem } from "../../../items/search-item";
+import { asQueryItem, getQuerySearchArrangeAlgorithm } from "../../../items/query-item";
 import { getToolbarFocusItem } from "../toolbarFocus";
 
 
@@ -33,8 +33,8 @@ export const Toolbar_Search: Component = () => {
   let arrangeAlgoDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
 
-  const searchItem = () => asSearchItem(getToolbarFocusItem(store));
-  const canEdit = () => itemCanEdit(searchItem());
+  const queryItem = () => asQueryItem(getToolbarFocusItem(store));
+  const canEdit = () => itemCanEdit(queryItem());
 
   const handleArrangeAlgoClick = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null &&
@@ -53,7 +53,7 @@ export const Toolbar_Search: Component = () => {
   };
 
   const arrangeAlgoText = () => {
-    const aa = store.perItem.getSearchArrangeAlgorithm(searchItem().id);
+    const aa = getQuerySearchArrangeAlgorithm(store, queryItem());
     return aa == ArrangeAlgorithm.Grid ? "grid" : "catalog";
   };
 
@@ -72,8 +72,8 @@ export const Toolbar_Search: Component = () => {
   };
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(searchItem().id);
-    store.overlay.toolbarTransientMessage.set({ text: "search id → clipboard", type: TransientMessageType.Info });
+    navigator.clipboard.writeText(queryItem().id);
+    store.overlay.toolbarTransientMessage.set({ text: "query id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   };
 

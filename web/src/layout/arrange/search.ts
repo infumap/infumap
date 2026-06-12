@@ -31,12 +31,17 @@ import {
   PAGE_DOCUMENT_RIGHT_MARGIN_BL,
 } from "../../constants";
 import {
-  SearchItem,
-  SEARCH_WORKSPACE_SIDE_INSET_PX,
-  calcSearchWorkspaceResultsBoundsPx,
+  QueryItem,
+  QUERY_WORKSPACE_SIDE_INSET_PX,
+  calcQueryWorkspaceResultsBoundsPx,
+  getQueryMode,
+  getQueryRuntime,
+  getQuerySearchArrangeAlgorithm,
+  getQuerySearchResults,
   markAsQuerySearchResultLink,
   markAsQuerySearchResultsPage,
-} from "../../items/search-item";
+  updateQueryRuntime,
+} from "../../items/query-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { newOrdering, newOrderingAtEnd } from "../../util/ordering";
@@ -48,11 +53,11 @@ import { ItemGeometry } from "../item-geometry";
 import { markChildrenLoadAsInitiatedOrComplete } from "../load";
 
 
-function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: SearchItem, results: Array<SearchResult>): PageItem {
-  const runtime = store.perItem.getQueryRuntime(searchItem.id);
+function ensureTemporaryResultsPage(store: StoreContextModel, queryItem: QueryItem, results: Array<SearchResult>): PageItem {
+  const runtime = getQueryRuntime(store, queryItem);
   const pageId = runtime.search.resultsPageId ?? newUid();
   if (runtime.search.resultsPageId == null) {
-    store.perItem.updateQueryRuntime(searchItem.id, current => ({
+    updateQueryRuntime(store, queryItem, current => ({
       ...current,
       search: {
         ...current.search,
@@ -61,13 +66,13 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
     }));
   }
   const searchArrangeAlgorithm = (() => {
-    const aa = store.perItem.getSearchArrangeAlgorithm(searchItem.id);
+    const aa = getQuerySearchArrangeAlgorithm(store, queryItem);
     return aa == ArrangeAlgorithm.Grid ? ArrangeAlgorithm.Grid : ArrangeAlgorithm.Catalog;
   })();
 
   let pageItem = itemState.get(pageId);
   if (!pageItem || !isPage(pageItem)) {
-    const tempPage = PageFns.create(searchItem.ownerId, searchItem.id, RelationshipToParent.Child, "", newOrdering());
+    const tempPage = PageFns.create(queryItem.ownerId, queryItem.id, RelationshipToParent.Child, "", newOrdering());
     tempPage.id = pageId;
     tempPage.origin = null;
     markAsQuerySearchResultsPage(tempPage);
@@ -80,7 +85,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
   const page = asPageItem(pageItem);
   page.origin = null;
   markAsQuerySearchResultsPage(page);
-  page.parentId = searchItem.id;
+  page.parentId = queryItem.id;
   page.relationshipToParent = RelationshipToParent.Child;
   page.arrangeAlgorithm = searchArrangeAlgorithm;
   page.orderChildrenBy = "";
@@ -101,7 +106,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
 
     const linkId = existingLinkIds[childIds.length] ?? newUid();
     const tempLink = LinkFns.create(
-      searchItem.ownerId,
+      queryItem.ownerId,
       page.id,
       RelationshipToParent.Child,
       resultItemId,
@@ -128,7 +133,7 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
   for (const staleLinkId of existingLinkIds.slice(childIds.length)) {
     itemState.delete(staleLinkId);
   }
-  store.perItem.updateQueryRuntime(searchItem.id, current => ({
+  updateQueryRuntime(store, queryItem, current => ({
     ...current,
     search: {
       ...current.search,
@@ -143,13 +148,13 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
 
 export function arrangeSearchResultsPathMaybe(
   store: StoreContextModel,
-  searchItem: SearchItem,
-  searchItemPath: VisualElementPath,
-  searchItemGeometry: ItemGeometry,
+  queryItem: QueryItem,
+  queryItemPath: VisualElementPath,
+  queryItemGeometry: ItemGeometry,
 ): VisualElementPath | null {
-  const queryMode = store.perItem.getQueryMode(searchItem.id);
+  const queryMode = getQueryMode(store, queryItem);
   if (queryMode == "chat") {
-    const chatPageId = store.perItem.getQueryRuntime(searchItem.id).chat.pageId;
+    const chatPageId = getQueryRuntime(store, queryItem).chat.pageId;
     const chatPage = chatPageId == null ? null : itemState.get(chatPageId);
     if (!chatPage || !isPage(chatPage)) {
       return null;
@@ -159,24 +164,24 @@ export function arrangeSearchResultsPathMaybe(
       NATURAL_BLOCK_SIZE_PX.w;
     const maxWidthPx = Math.max(
       240,
-      searchItemGeometry.boundsPx.w - SEARCH_WORKSPACE_SIDE_INSET_PX * 2,
+      queryItemGeometry.boundsPx.w - QUERY_WORKSPACE_SIDE_INSET_PX * 2,
     );
     const chatWidthPx = Math.min(preferredWidthPx, maxWidthPx);
     const chatBoundsPx = {
-      x: Math.max(0, Math.round((searchItemGeometry.boundsPx.w - chatWidthPx) / 2)),
+      x: Math.max(0, Math.round((queryItemGeometry.boundsPx.w - chatWidthPx) / 2)),
       y: 0,
       w: chatWidthPx,
-      h: searchItemGeometry.boundsPx.h,
+      h: queryItemGeometry.boundsPx.h,
     };
     const pageGeometry: ItemGeometry = {
       boundsPx: chatBoundsPx,
       viewportBoundsPx: chatBoundsPx,
-      blockSizePx: searchItemGeometry.blockSizePx,
+      blockSizePx: queryItemGeometry.blockSizePx,
       hitboxes: [],
     };
     return arrangeItemPath(
       store,
-      searchItemPath,
+      queryItemPath,
       ArrangeAlgorithm.Document,
       page,
       null,
@@ -189,24 +194,24 @@ export function arrangeSearchResultsPathMaybe(
     return null;
   }
 
-  const results = store.perItem.getSearchResults(searchItem.id);
+  const results = getQuerySearchResults(store, queryItem);
   if (!results || results.length == 0) {
     return null;
   }
 
-  const resultsPage = ensureTemporaryResultsPage(store, searchItem, results);
-  const resultsArrangeAlgorithm = store.perItem.getSearchArrangeAlgorithm(searchItem.id);
-  const resultsBoundsPx = calcSearchWorkspaceResultsBoundsPx(searchItemGeometry.boundsPx);
+  const resultsPage = ensureTemporaryResultsPage(store, queryItem, results);
+  const resultsArrangeAlgorithm = getQuerySearchArrangeAlgorithm(store, queryItem);
+  const resultsBoundsPx = calcQueryWorkspaceResultsBoundsPx(queryItemGeometry.boundsPx);
   const pageGeometry: ItemGeometry = {
     boundsPx: resultsBoundsPx,
     viewportBoundsPx: resultsBoundsPx,
-    blockSizePx: searchItemGeometry.blockSizePx,
+    blockSizePx: queryItemGeometry.blockSizePx,
     hitboxes: [],
   };
 
   return arrangeItemPath(
     store,
-    searchItemPath,
+    queryItemPath,
     resultsArrangeAlgorithm,
     resultsPage,
     null,

@@ -51,7 +51,7 @@ import { isLink } from '../../items/link-item';
 import { Toolbar_Link } from './item/Toolbar_Link';
 import { isComposite } from '../../items/composite-item';
 import { Toolbar_Composite } from './item/Toolbar_Composite';
-import { isSearch } from '../../items/search-item';
+import { isQueryItem } from '../../items/query-item';
 import { Toolbar_Search } from './item/Toolbar_Search';
 import { isDivider } from '../../items/divider-item';
 import { Toolbar_Divider } from './item/Toolbar_Divider';
@@ -313,7 +313,7 @@ export const Toolbar: Component = () => {
           <Match when={isComposite(toolbarFocusItem())}>
             <Toolbar_Composite />
           </Match>
-          <Match when={isSearch(toolbarFocusItem())}>
+          <Match when={isQueryItem(toolbarFocusItem())}>
             <Toolbar_Search />
           </Match>
           <Match when={isDivider(toolbarFocusItem())}>

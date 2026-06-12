@@ -55,6 +55,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { asImageItem } from "../items/image-item";
 import { itemCanAcceptManualChildren, PageFlags } from "../items/base/flags-item";
 import { finishPendingClipboardTextItem } from "./text_clipboard_create";
+import { setQueryText } from "../items/query-item";
 
 
 let arrowKeyDown_caretPosition: number | null = null;
@@ -295,7 +296,7 @@ export function commitActiveTextEdit(
       asImageItem(item).title = trimNewline(newText);
     }
     else if (textEditInfo.itemType == ItemType.Search) {
-      store.perItem.setSearchQuery(item.id, trimNewline(newText).replace(/\u200B/g, ""));
+      setQueryText(store, item.id, trimNewline(newText).replace(/\u200B/g, ""));
     }
 
     itemState.sortParentChildrenIfTitleOrdered(item);

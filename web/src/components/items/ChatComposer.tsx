@@ -26,16 +26,16 @@ import { chatProgressForPage, isChatPage, materializeChatPage, submitChatMessage
 import { asPageItem } from "../../items/page-item";
 import {
   isQueryChatPage,
-  SEARCH_WORKSPACE_CONTROLS_GAP_PX,
-  SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX,
-} from "../../items/search-item";
+  QUERY_WORKSPACE_CONTROLS_GAP_PX,
+  QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
+} from "../../items/query-item";
 import { useStore } from "../../store/StoreProvider";
 import { PageVisualElementProps } from "./Page";
 
-const MIN_COMPOSER_HEIGHT_PX = SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX;
+const MIN_COMPOSER_HEIGHT_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const MAX_COMPOSER_HEIGHT_PX = 164;
 const COMPOSER_BOTTOM_PX = 18;
-const SEND_BUTTON_WIDTH_PX = SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX;
+const SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const MATERIALIZE_BUTTON_WIDTH_PX = 118;
 const CHAT_PROGRESS_HEIGHT_PX = 24;
 
@@ -175,7 +175,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
             {progress()!.text}
           </div>
         </Show>
-        <div class="flex items-end" style={`height: ${composerHeightPx()}px; gap: ${SEARCH_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+        <div class="flex items-end" style={`height: ${composerHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
           <div
             class="min-w-0 grow overflow-hidden rounded-xs border border-[#999] bg-white"
             style={`height: ${composerHeightPx()}px;`}>
@@ -200,7 +200,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
           </div>
           <button
             class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
-            style={`width: ${SEND_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+            style={`width: ${SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
             type="button"
             title="Send"
             aria-label="Send"
@@ -211,7 +211,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
           <Show when={canMaterialize()}>
             <button
               class="shrink-0 cursor-pointer rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
-              style={`width: ${MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+              style={`width: ${MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
               disabled={sending() || materializing() || !hasContent()}
               onClick={() => void materialize()}>

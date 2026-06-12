@@ -19,7 +19,7 @@
 import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { asSearchItem, isQueryChatPage, isSearch, SearchFns } from "../items/search-item";
+import { QueryFns, asQueryItem, isQueryChatPage, isQueryItem } from "../items/query-item";
 import { SearchFlags } from "../items/base/flags-item";
 import { removeClientOnlyChatPagesUnderQueries } from "../items/chat";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -44,7 +44,7 @@ function internalQueryChatOwnerPageId(itemId: Uid): Uid | null {
   }
 
   const parent = itemState.get(item.parentId);
-  if (!parent || !isSearch(parent)) {
+  if (!parent || !isQueryItem(parent)) {
     return null;
   }
 
@@ -209,8 +209,8 @@ export async function ensureQueryItemUnderQueries(store: StoreContextModel, sear
   const searchesPage = asPageItem(itemState.get(searchesPageId)!);
   for (const childId of searchesPage.computed_children) {
     const childMaybe = itemState.get(childId);
-    if (isSearch(childMaybe)) {
-      const child = asSearchItem(childMaybe!);
+    if (isQueryItem(childMaybe)) {
+      const child = asQueryItem(childMaybe!);
       if (!(child.flags & SearchFlags.ListPagePinTop) || (child.flags & SearchFlags.ListPagePinBottom)) {
         child.flags &= ~SearchFlags.ListPagePinBottom;
         child.flags |= SearchFlags.ListPagePinTop;
@@ -220,7 +220,7 @@ export async function ensureQueryItemUnderQueries(store: StoreContextModel, sear
     }
   }
 
-  const queryItem = SearchFns.create(
+  const queryItem = QueryFns.create(
     searchesPage.ownerId,
     searchesPageId,
     RelationshipToParent.Child,

@@ -27,7 +27,7 @@ import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item
 import { isComposite } from "../../items/composite-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, isPage, type ListPageVisibleRow } from "../../items/page-item";
-import { isSearch } from "../../items/search-item";
+import { isQueryItem } from "../../items/query-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -555,7 +555,7 @@ export function arrangeSelectedListItem(
 
   let cellGeometry: ItemGeometry;
 
-  if (isPage(item) || isSearch(item)) {
+  if (isPage(item) || isQueryItem(item)) {
     let hitboxes: Array<Hitbox> = [];
     if (isPage(item) && canShiftLeft) {
       hitboxes = [

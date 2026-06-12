@@ -40,7 +40,7 @@ import {
   openRemoteItemTextInNewTab
 } from "../../util/remoteFile";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
-import { isSearch } from "../../items/search-item";
+import { getQuerySearchArrangeAlgorithm, isQueryItem, setQuerySearchArrangeAlgorithm } from "../../items/query-item";
 import { FileFns, asFileItem, isFile } from "../../items/file-item";
 import { TextFns, asTextItem, isText } from "../../items/text-item";
 import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-item";
@@ -873,16 +873,17 @@ export const Toolbar_Popup: Component = () => {
     `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${calendarDisplayMode() == displayMode ? "font-bold text-slate-900" : ""}`;
   const searchArrangeAlgorithm = () => {
     const focusItem = getToolbarFocusItem(store);
-    if (!isSearch(focusItem)) { return ArrangeAlgorithm.Catalog; }
-    return store.perItem.getSearchArrangeAlgorithm(focusItem.id) == ArrangeAlgorithm.Grid
+    if (!isQueryItem(focusItem)) { return ArrangeAlgorithm.Catalog; }
+    return getQuerySearchArrangeAlgorithm(store, focusItem) == ArrangeAlgorithm.Grid
       ? ArrangeAlgorithm.Grid
       : ArrangeAlgorithm.Catalog;
   };
   const handleSearchArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {
     const focusItem = getToolbarFocusItem(store);
-    if (!isSearch(focusItem)) { return; }
-    store.perItem.setSearchArrangeAlgorithm(
-      focusItem.id,
+    if (!isQueryItem(focusItem)) { return; }
+    setQuerySearchArrangeAlgorithm(
+      store,
+      focusItem,
       arrangeAlgorithm == ArrangeAlgorithm.Grid ? ArrangeAlgorithm.Grid : ArrangeAlgorithm.Catalog,
     );
     store.overlay.toolbarPopupInfoMaybe.set(null);

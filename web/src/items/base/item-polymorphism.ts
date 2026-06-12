@@ -34,7 +34,7 @@ import { EMPTY_ITEM, Item, Measurable, isEmptyItem } from './item';
 import { asPlaceholderItem, isPlaceholder, PlaceholderFns } from '../placeholder-item';
 import { asPasswordItem, isPassword, PasswordFns } from '../password-item';
 import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
-import { asSearchItem, isSearch, SearchFns } from '../search-item';
+import { asQueryItem, isQueryItem, QueryFns } from '../query-item';
 import { asDividerItem, isDivider, DividerFns } from '../divider-item';
 import { calcGeometryOfEmptyItem_ListItem, isInsidePopupHierarchy } from './item-common-fns';
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
@@ -62,7 +62,7 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcSpatialDimensionsBl(TextFns.asTextMeasurable(measurable)); }
     if (isPassword(measurable)) { return PasswordFns.calcSpatialDimensionsBl(PasswordFns.asPasswordMeasurable(measurable)); }
     if (isRating(measurable)) { return RatingFns.calcSpatialDimensionsBl(RatingFns.asRatingMeasurable(measurable)); }
-    if (isSearch(measurable)) { return SearchFns.calcSpatialDimensionsBl(SearchFns.asSearchMeasurable(measurable)); }
+    if (isQueryItem(measurable)) { return QueryFns.calcSpatialDimensionsBl(QueryFns.asQueryMeasurable(measurable)); }
     if (isDivider(measurable)) { return DividerFns.calcSpatialDimensionsBl(DividerFns.asDividerMeasurable(measurable)); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcSpatialDimensionsBl(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
     panic(`calcSpatialDimensionsBl: unknown item type: ${measurable.itemType}`);
@@ -90,7 +90,7 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_Spatial(TextFns.asTextMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Spatial(PasswordFns.asPasswordMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_Spatial(RatingFns.asRatingMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
-    if (isSearch(measurable)) { return SearchFns.calcGeometry_Spatial(SearchFns.asSearchMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
+    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_Spatial(QueryFns.asQueryMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_Spatial(DividerFns.asDividerMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_Spatial(asLinkItem(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasChildChanges, hasDefaultChanges, editing, smallScreenMode, collapsedComposite); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Spatial(PlaceholderFns.asPlaceholderMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
@@ -112,7 +112,7 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_Attachment(TextFns.asTextMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Attachment(PasswordFns.asPasswordMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_Attachment(RatingFns.asRatingMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
-    if (isSearch(measurable)) { return SearchFns.calcGeometry_Attachment(SearchFns.asSearchMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
+    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_Attachment(QueryFns.asQueryMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_Attachment(DividerFns.asDividerMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_Attachment(asLinkItem(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Attachment(PlaceholderFns.asPlaceholderMeasurable(measurable), parentBoundsPx, parentSizeBl, index, isSelected); }
@@ -139,7 +139,7 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_ListItem(TextFns.asTextMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_ListItem(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_ListItem(RatingFns.asRatingMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
-    if (isSearch(measurable)) { return SearchFns.calcGeometry_ListItem(SearchFns.asSearchMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
+    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_ListItem(QueryFns.asQueryMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_ListItem(DividerFns.asDividerMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_ListItem(asLinkItem(measurable), blockSizePx, row, col, widthBl, parentIsPopup, padTop, expandable, inTable); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_ListItem(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
@@ -167,7 +167,7 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_InCell(TextFns.asTextMeasurable(measurable), cellBoundsPx, maximize); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InCell(PasswordFns.asPasswordMeasurable(measurable), cellBoundsPx, maximize); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InCell(RatingFns.asRatingMeasurable(measurable), cellBoundsPx, maximize); }
-    if (isSearch(measurable)) { return SearchFns.calcGeometry_InCell(SearchFns.asSearchMeasurable(measurable), cellBoundsPx, maximize); }
+    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_InCell(QueryFns.asQueryMeasurable(measurable), cellBoundsPx, maximize); }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_InCell(DividerFns.asDividerMeasurable(measurable), cellBoundsPx, parentIsDock); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasChildChanges, hasDefaultChanges, maximize, ignoreCellHeight, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InCell(PlaceholderFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
@@ -210,7 +210,7 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_InComposite(TextFns.asTextMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InComposite(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InComposite(RatingFns.asRatingMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
-    if (isSearch(measurable)) { return SearchFns.calcGeometry_InComposite(SearchFns.asSearchMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
+    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_InComposite(QueryFns.asQueryMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_InComposite(DividerFns.asDividerMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InComposite(asLinkItem(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InComposite(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
@@ -232,7 +232,7 @@ export const ItemFns = {
     if (isText(item)) { return TextFns.getFingerprint(asTextItem(item)); }
     if (isPassword(item)) { return PasswordFns.getFingerprint(asPasswordItem(item)); }
     if (isRating(item)) { return RatingFns.getFingerprint(asRatingItem(item)); }
-    if (isSearch(item)) { return SearchFns.getFingerprint(asSearchItem(item)); }
+    if (isQueryItem(item)) { return QueryFns.getFingerprint(asQueryItem(item)); }
     if (isDivider(item)) { return DividerFns.getFingerprint(asDividerItem(item)); }
     if (isLink(item)) { return LinkFns.getFingerprint(asLinkItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.getFingerprint(asPlaceholderItem(item)); }
@@ -250,7 +250,7 @@ export const ItemFns = {
     if (isPassword(o)) { return PasswordFns.fromObject(o, origin); }
     if (isRating(o)) { return RatingFns.fromObject(o, origin); }
     if (isLink(o)) { return LinkFns.fromObject(o, origin); }
-    if (isSearch(o)) { return SearchFns.fromObject(o, origin); }
+    if (isQueryItem(o)) { return QueryFns.fromObject(o, origin); }
     if (isDivider(o)) { return DividerFns.fromObject(o, origin); }
     if (isPlaceholder(o)) { return PlaceholderFns.fromObject(o, origin); }
     panic(`fromObject: Unknown item type: ${o.itemType}`);
@@ -267,7 +267,7 @@ export const ItemFns = {
     if (isPassword(item)) { return PasswordFns.toObject(asPasswordItem(item)); }
     if (isRating(item)) { return RatingFns.toObject(asRatingItem(item)); }
     if (isLink(item)) { return LinkFns.toObject(asLinkItem(item)); }
-    if (isSearch(item)) { return SearchFns.toObject(asSearchItem(item)); }
+    if (isQueryItem(item)) { return QueryFns.toObject(asQueryItem(item)); }
     if (isDivider(item)) { return DividerFns.toObject(asDividerItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.toObject(asPlaceholderItem(item)); }
     panic(`toObject: Unknown item type: ${item.itemType}`);
@@ -306,7 +306,7 @@ export const ItemFns = {
     else if (isText(item)) { TextFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isPassword(item)) { PasswordFns.handleClick(visualElementSignal.get(), store, false, caretAtEnd); }
     else if (isRating(item)) { RatingFns.handleClick(store, visualElementSignal, hitboxMeta); }
-    else if (isSearch(item)) { SearchFns.handleClick(visualElementSignal.get(), store); }
+    else if (isQueryItem(item)) { QueryFns.handleClick(visualElementSignal.get(), store); }
     else if (isDivider(item)) { DividerFns.handleClick(visualElementSignal.get(), store); }
     else if (isLink(item)) { }
     else if (isPlaceholder(item)) { panic("handleClick: placeholder."); }
@@ -325,7 +325,7 @@ export const ItemFns = {
     else if (isPassword(item)) { panic("handleLinkClick: password"); }
     else if (isRating(item)) { panic("handleLinkClick: rating"); }
     else if (isLink(item)) { panic("handleLinkClick: link"); }
-    else if (isSearch(item)) { SearchFns.handleLinkClick(visualElement); }
+    else if (isQueryItem(item)) { QueryFns.handleLinkClick(visualElement); }
     else if (isDivider(item)) { panic("handleLinkClick: divider"); }
     else if (isPlaceholder(item)) { panic("handleLinkClick: placeholder"); }
     else { panic(`Unknown item type: ${item.itemType}`); }
@@ -373,7 +373,7 @@ export const ItemFns = {
     else if (isText(measurable)) { return TextFns.cloneMeasurableFields(TextFns.asTextMeasurable(measurable)); }
     else if (isPassword(measurable)) { return PasswordFns.cloneMeasurableFields(PasswordFns.asPasswordMeasurable(measurable)); }
     else if (isRating(measurable)) { return RatingFns.cloneMeasurableFields(RatingFns.asRatingMeasurable(measurable)); }
-    else if (isSearch(measurable)) { return SearchFns.cloneMeasurableFields(SearchFns.asSearchMeasurable(measurable)); }
+    else if (isQueryItem(measurable)) { return QueryFns.cloneMeasurableFields(QueryFns.asQueryMeasurable(measurable)); }
     else if (isDivider(measurable)) { return DividerFns.cloneMeasurableFields(DividerFns.asDividerMeasurable(measurable)); }
     else if (isLink(measurable)) { return LinkFns.cloneMeasurableFields(LinkFns.asLinkMeasurable(measurable)); }
     else if (isPlaceholder(measurable)) { return PlaceholderFns.cloneMeasurableFields(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
@@ -390,7 +390,7 @@ export const ItemFns = {
     if (isText(item)) { return TextFns.debugSummary(asTextItem(item)); }
     if (isPassword(item)) { return PasswordFns.debugSummary(asPasswordItem(item)); }
     if (isRating(item)) { return RatingFns.debugSummary(asRatingItem(item)); }
-    if (isSearch(item)) { return SearchFns.debugSummary(asSearchItem(item)); }
+    if (isQueryItem(item)) { return QueryFns.debugSummary(asQueryItem(item)); }
     if (isDivider(item)) { return DividerFns.debugSummary(asDividerItem(item)); }
     if (isImage(item)) { return ImageFns.debugSummary(asImageItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.debugSummary(asPlaceholderItem(item)); }
