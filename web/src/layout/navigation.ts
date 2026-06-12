@@ -280,7 +280,7 @@ export async function navigateToSearches(store: StoreContextModel): Promise<void
 }
 
 
-async function navigateToLocalRoot(store: StoreContextModel): Promise<void> {
+export async function navigateToLocalRoot(store: StoreContextModel): Promise<void> {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) {
     window.history.pushState(null, "", "/");

@@ -18,8 +18,7 @@
 
 import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { navigateBack, navigateToSearches, navigateUp, switchToPage } from '../../layout/navigation';
-import { ROOT_USERNAME } from '../../constants';
+import { navigateBack, navigateToLocalRoot, navigateToSearches, navigateUp } from '../../layout/navigation';
 import { InfuIconButton } from "../library/InfuIconButton";
 
 
@@ -27,17 +26,7 @@ export const Toolbar_Navigation: Component = () => {
   const store = useStore();
 
   const handleHome = () => {
-    const userMaybe = store.user.getUserMaybe();
-    if (!userMaybe) {
-      window.history.pushState(null, "", "/");
-    } else {
-      switchToPage(store, { itemId: store.user.getUser().homePageId, linkIdMaybe: null }, false, false, false);
-      if (userMaybe.username == ROOT_USERNAME) {
-        window.history.pushState(null, "", "/");
-      } else {
-        window.history.pushState(null, "", `/${userMaybe.username}`);
-      }
-    }
+    void navigateToLocalRoot(store);
   };
 
   const handleBack = async () => { await navigateBack(store); };
