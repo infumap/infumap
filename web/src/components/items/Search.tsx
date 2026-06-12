@@ -43,6 +43,7 @@ import {
   QUERY_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX,
   QUERY_WORKSPACE_MORE_BUTTON_HEIGHT_PX,
   QUERY_WORKSPACE_MORE_BUTTON_WIDTH_PX,
+  QUERY_WORKSPACE_SIDE_INSET_PX,
   QUERY_WORKSPACE_TOP_INSET_PX,
   QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX,
   QUERY_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX,
@@ -68,6 +69,13 @@ import {
   runQuerySearch,
   startQueryChat,
 } from "../../items/query";
+import {
+  chatProgressForQuery,
+  materializeQueryChat,
+  queryChatHasContent,
+  queryChatTurns,
+  submitQueryChatMessage,
+} from "../../items/chat";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
@@ -75,6 +83,11 @@ const QUERY_SEARCH_ARRANGE_OPTIONS = [
   { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
   { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
 ] as const;
+const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
+const QUERY_CHAT_COMPOSER_BOTTOM_PX = 18;
+const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
+const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = 118;
+const QUERY_CHAT_PROGRESS_HEIGHT_PX = 24;
 
 
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -83,7 +96,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
   const [isStartingChat, setIsStartingChat] = createSignal(false);
+  const [chatText, setChatText] = createSignal("");
+  const [isSendingChat, setIsSendingChat] = createSignal(false);
+  const [isMaterializingChat, setIsMaterializingChat] = createSignal(false);
+  const [chatComposerHeightPx, setChatComposerHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
+  let chatTextarea: HTMLTextAreaElement | undefined;
   let activeSearchRequestSerial = 0;
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
@@ -257,6 +275,61 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
   };
 
+  const resizeChatTextarea = (elMaybe?: HTMLTextAreaElement) => {
+    const el = elMaybe ?? chatTextarea;
+    if (!el) {
+      return;
+    }
+    el.style.height = "0px";
+    const nextHeight = Math.min(
+      QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX,
+      Math.max(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX, el.scrollHeight),
+    );
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+    setChatComposerHeightPx(nextHeight);
+  };
+
+  const resizeChatTextareaSoon = () => {
+    window.setTimeout(() => resizeChatTextarea(), 0);
+  };
+
+  const focusChatTextareaSoon = () => {
+    window.setTimeout(() => chatTextarea?.focus(), 0);
+  };
+
+  const sendChatMessage = async () => {
+    const value = chatText();
+    if (isSendingChat() || value.trim() == "") {
+      focusChatTextareaSoon();
+      return;
+    }
+    setChatText("");
+    resizeChatTextareaSoon();
+    setIsSendingChat(true);
+    try {
+      await submitQueryChatMessage(store, queryItem(), value);
+    } finally {
+      setIsSendingChat(false);
+      focusChatTextareaSoon();
+    }
+  };
+
+  const materializeCurrentChat = async () => {
+    if (isMaterializingChat() || !queryChatHasContent(store, queryItem())) {
+      return;
+    }
+    setIsMaterializingChat(true);
+    try {
+      const ok = await materializeQueryChat(store, queryItem());
+      if (!ok) {
+        focusChatTextareaSoon();
+      }
+    } finally {
+      setIsMaterializingChat(false);
+    }
+  };
+
   const selectQueryTextElement = (el: HTMLElement) => {
     if (el instanceof HTMLInputElement) {
       if (normalizeSearchText(el.value) == "") {
@@ -389,6 +462,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   createEffect(() => {
+    if (!isListPageMainRoot() || !isChatMode() || !store.overlay.autoFocusChatInput.get()) {
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      chatTextarea?.focus();
+      store.overlay.autoFocusChatInput.set(false);
+    });
+    onCleanup(() => cancelAnimationFrame(raf));
+  });
+
+  createEffect(() => {
     if (!isListPageMainRoot() || !isSearchMode() || !searchHasMoreResults()) {
       setMoreButtonHost(null);
       return;
@@ -423,6 +507,125 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const desktopIconScale = () => Math.max((desktopBlockSizePx().h / LINE_HEIGHT_PX) * 0.94, 0.01);
   const desktopIconTopPx = () => -Math.max(desktopBlockSizePx().h * 0.03, 0.5);
   const desktopTextIndentPx = () => desktopPopupIconTextIndentPx(desktopSizeBl().w);
+
+  const renderQueryChatSurface = () => {
+    const contentWidthPx = () => Math.min(
+      Math.max(240, boundsPx().w - QUERY_WORKSPACE_SIDE_INSET_PX * 2),
+      960,
+    );
+    const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
+    const progress = () => chatProgressForQuery(queryItem().id);
+    const wrapperHeightPx = () =>
+      chatComposerHeightPx() + (progress() == null ? 0 : QUERY_CHAT_PROGRESS_HEIGHT_PX);
+    const transcriptBottomPx = () => wrapperHeightPx() + QUERY_CHAT_COMPOSER_BOTTOM_PX + 24;
+    const stop = (ev: Event) => {
+      ev.stopPropagation();
+    };
+    const chatKeyDown = (ev: KeyboardEvent) => {
+      ev.stopPropagation();
+      if (ev.key == "Escape") {
+        ev.preventDefault();
+        chatTextarea?.blur();
+        store.history.setFocus(vePath());
+        arrangeNow(store, "query-chat-exit-edit");
+        return;
+      }
+      if (ev.key == "Enter" && !ev.shiftKey) {
+        ev.preventDefault();
+        void sendChatMessage();
+      }
+    };
+
+    return (
+      <div class="absolute bg-white"
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        <div class="absolute overflow-y-auto"
+          style={`left: 0px; top: 0px; width: ${boundsPx().w}px; ` +
+            `height: ${Math.max(0, boundsPx().h - transcriptBottomPx())}px;`}>
+          <div class="absolute"
+            style={`left: ${contentLeftPx()}px; top: 34px; width: ${contentWidthPx()}px;`}>
+            <For each={queryChatTurns(store, queryItem())}>{turn =>
+              <div style="margin-bottom: 34px;">
+                <div class="flex items-center"
+                  style="font-size: 18px; line-height: 24px; font-weight: 700;">
+                  <i class="fa fa-caret-down text-slate-400"
+                    style="font-size: 13px; width: 18px; margin-right: 6px;" />
+                  <div class="grow border-b border-[#999]">
+                    {turn.title || "Assistant"}
+                  </div>
+                </div>
+                <div style="font-size: 18px; line-height: 28px; padding-left: 30px; white-space: pre-wrap;">
+                  <For each={turn.bodyLines}>{line =>
+                    <div>{line}</div>
+                  }</For>
+                </div>
+              </div>
+            }</For>
+          </div>
+        </div>
+        <div
+          class="absolute pointer-events-auto"
+          style={`left: ${contentLeftPx()}px; bottom: ${QUERY_CHAT_COMPOSER_BOTTOM_PX}px; ` +
+            `width: ${contentWidthPx()}px; height: ${wrapperHeightPx()}px;`}
+          onMouseDown={stop}
+          onMouseUp={stop}
+          onClick={stop}
+          onKeyDown={stop}
+          onKeyUp={stop}>
+          <Show when={progress() != null}>
+            <div
+              class="truncate px-1 pb-1 text-[#555]"
+              style={`height: ${QUERY_CHAT_PROGRESS_HEIGHT_PX}px; font-size: 12px; line-height: 20px;`}>
+              {progress()!.text}
+            </div>
+          </Show>
+          <div class="flex items-end"
+            style={`height: ${chatComposerHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+            <div
+              class="min-w-0 grow overflow-hidden rounded-xs border border-[#999] bg-white"
+              style={`height: ${chatComposerHeightPx()}px;`}>
+              <textarea
+                ref={chatTextarea}
+                class="block w-full resize-none border-0 bg-transparent px-2.5 py-[9px] text-black outline-hidden"
+                style={`height: ${chatComposerHeightPx()}px; font-size: 16px; line-height: 24px; user-select: text;`}
+                value={chatText()}
+                rows={1}
+                spellcheck={true}
+                placeholder="Ask"
+                disabled={isSendingChat()}
+                onInput={(ev) => {
+                  const el = ev.currentTarget as HTMLTextAreaElement;
+                  setChatText(el.value);
+                  resizeChatTextarea(el);
+                }}
+                onKeyDown={chatKeyDown}
+                onMouseDown={stop}
+                onMouseUp={stop}
+                onClick={stop} />
+            </div>
+            <button
+              class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+              style={`width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+              type="button"
+              title="Send"
+              aria-label="Send"
+              disabled={isSendingChat() || chatText().trim() == ""}
+              onClick={() => void sendChatMessage()}>
+              <i class="fa fa-arrow-up" />
+            </button>
+            <button
+              class="shrink-0 cursor-pointer rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+              style={`width: ${QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+              type="button"
+              disabled={isSendingChat() || isMaterializingChat() || !queryChatHasContent(store, queryItem())}
+              onClick={() => void materializeCurrentChat()}>
+              Materialize
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderSearchWorkspace = () => {
     const controlsWidthPx = calcQueryWorkspaceControlsWidthPx(boundsPx().w);
@@ -510,7 +713,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </div>
           </div>
         </Show>
-        <Show when={hasSubmittedQuery()}>
+        <Show when={isChatMode()}>
+          {renderQueryChatSurface()}
+        </Show>
+        <Show when={isSearchMode()}>
           <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(vePath())()} />
           <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />

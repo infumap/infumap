@@ -36,7 +36,6 @@ import {
   isQuerySearchResultLink,
   isQuerySearchResultsPage,
   isSearch,
-  markAsQueryChatPage,
   markAsQuerySearchResultLink,
   markAsQuerySearchResultsPage,
   searchResultsFooterHostId,
@@ -80,7 +79,6 @@ export {
   isQueryChatPage,
   isQuerySearchResultLink,
   isQuerySearchResultsPage,
-  markAsQueryChatPage,
   markAsQuerySearchResultLink,
   markAsQuerySearchResultsPage,
 };

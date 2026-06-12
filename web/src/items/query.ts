@@ -18,12 +18,13 @@
 
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../layout/load";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VisualElementPath, VeFns } from "../layout/visual-element";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { asContainerItem, isContainer } from "./base/container-item";
-import { ensureClientOnlyChatPageUnderQueryItem, removeClientOnlyChatPagesUnderQueries, submitChatMessage } from "./chat";
+import { removeClientOnlyChatPagesUnderQueries, submitQueryChatMessage } from "./chat";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
 import {
   QueryItem,
@@ -57,11 +58,12 @@ export function clearQuerySearchSelection(store: StoreContextModel, queryItem: Q
 
 export function clearQuerySearchRuntime(store: StoreContextModel, queryItemId: string): void {
   const runtime = getQueryRuntime(store, queryItemId);
-  for (const linkId of runtime.search.resultLinkIds) {
-    itemState.delete(linkId);
-  }
   if (runtime.search.resultsPageId != null) {
-    itemState.delete(runtime.search.resultsPageId);
+    itemState.pruneRelationshipSubtreeIfCurrent(
+      runtime.search.resultsPageId,
+      queryItemId,
+      RelationshipToParent.Child,
+    );
   }
   updateQueryRuntime(store, queryItemId, current => ({
     ...current,
@@ -192,10 +194,9 @@ export async function startQueryChat(
   removeClientOnlyChatPagesUnderQueries(store, queryItem.parentId);
   clearQuerySearchForModeSwitch(store, queryItem);
 
-  const chatPage = ensureClientOnlyChatPageUnderQueryItem(store, queryItem);
   setQueryMode(store, queryItem, "chat");
   store.history.setFocus(queryItemPath);
   store.overlay.autoFocusChatInput.set(true);
   arrangeNow(store, "query-start-chat");
-  await submitChatMessage(store, chatPage, initialText);
+  await submitQueryChatMessage(store, queryItem, initialText);
 }

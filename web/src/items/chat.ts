@@ -28,21 +28,21 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
-import { QueryItem, getQueryRuntime, markAsQueryChatPage, updateQueryRuntime } from "./query-item";
+import { QueryItem, getQueryRuntime, isQueryChatPage, updateQueryRuntime } from "./query-item";
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { newOrdering } from "../util/ordering";
+import { newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 export const CHAT_DRAFT_TITLE = "Chat";
-const LEGACY_CHAT_DRAFT_TITLE = "New query";
 
 export interface ChatProgress {
   text: string,
 }
 
 const chatProgressByPageId = new Map<Uid, ChatProgress>();
+const chatProgressByQueryId = new Map<Uid, ChatProgress>();
 const [chatProgressRevision, setChatProgressRevision] = createSignal(0, { equals: false });
 
 export function chatProgressForPage(pageId: Uid): ChatProgress | null {
@@ -50,13 +50,30 @@ export function chatProgressForPage(pageId: Uid): ChatProgress | null {
   return chatProgressByPageId.get(pageId) ?? null;
 }
 
+export function chatProgressForQuery(queryId: Uid): ChatProgress | null {
+  chatProgressRevision();
+  return chatProgressByQueryId.get(queryId) ?? null;
+}
+
 function setChatProgress(pageId: Uid, text: string): void {
   chatProgressByPageId.set(pageId, { text });
   setChatProgressRevision(chatProgressRevision() + 1);
 }
 
+function setQueryChatProgress(queryId: Uid, text: string): void {
+  chatProgressByQueryId.set(queryId, { text });
+  setChatProgressRevision(chatProgressRevision() + 1);
+}
+
 function clearChatProgress(pageId: Uid): void {
   if (!chatProgressByPageId.delete(pageId)) {
+    return;
+  }
+  setChatProgressRevision(chatProgressRevision() + 1);
+}
+
+function clearQueryChatProgress(queryId: Uid): void {
+  if (!chatProgressByQueryId.delete(queryId)) {
     return;
   }
   setChatProgressRevision(chatProgressRevision() + 1);
@@ -142,45 +159,43 @@ export function removeClientOnlyChatPagesUnderQueries(_store: StoreContextModel,
   }
 }
 
-export function ensureClientOnlyChatPageUnderQueryItem(store: StoreContextModel, queryItem: QueryItem): PageItem {
-  const runtime = getQueryRuntime(store, queryItem);
-  const pageId = runtime.chat.pageId ?? newUid();
-  if (runtime.chat.pageId == null) {
-    updateQueryRuntime(store, queryItem, current => ({
-      ...current,
-      chat: {
-        ...current.chat,
-        pageId,
-      },
-    }));
-  }
+function queryChatRootIds(store: StoreContextModel, queryItem: QueryItem): Array<Uid> {
+  return getQueryRuntime(store, queryItem).chat.rootItemIds ?? [];
+}
 
-  let pageItem = itemState.get(pageId);
-  if (!pageItem || !isPage(pageItem)) {
-    const tempPage = PageFns.create(
-      queryItem.ownerId,
-      queryItem.id,
-      RelationshipToParent.Child,
-      CHAT_DRAFT_TITLE,
-      newOrdering(),
-    );
-    tempPage.id = pageId;
-    tempPage.origin = null;
-    markAsQueryChatPage(tempPage);
-    pageItem = itemState.upsertItemFromServerObject(PageFns.toObject(tempPage), null);
-  }
+function setQueryChatRootIds(store: StoreContextModel, queryItem: QueryItem, rootItemIds: Array<Uid>): void {
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    chat: {
+      ...current.chat,
+      rootItemIds,
+    },
+  }));
+}
 
-  const page = asPageItem(pageItem);
-  page.origin = null;
-  page.ownerId = queryItem.ownerId;
-  page.parentId = queryItem.id;
-  page.relationshipToParent = RelationshipToParent.Child;
-  markAsQueryChatPage(page);
-  if (page.title == LEGACY_CHAT_DRAFT_TITLE) {
-    page.title = CHAT_DRAFT_TITLE;
+function queryChatRootOrderings(store: StoreContextModel, queryItem: QueryItem): Array<Uint8Array> {
+  return queryChatRootIds(store, queryItem)
+    .map(id => itemState.get(id)?.ordering)
+    .filter((ordering): ordering is Uint8Array => ordering != null);
+}
+
+function insertDetachedClientItem(item: Item): Item {
+  item.clientOnly = true;
+  const itemObject = ItemFns.toObject(item) as { clientOnly?: boolean, clientOnlyKind?: unknown };
+  itemObject.clientOnly = true;
+  if (item.clientOnlyKind != null) {
+    itemObject.clientOnlyKind = item.clientOnlyKind;
   }
-  prepareChatPage(page);
-  return page;
+  const inserted = itemState.upsertItemFromServerObject(itemObject, null);
+  inserted.clientOnly = true;
+  if (item.clientOnlyKind != null) {
+    inserted.clientOnlyKind = item.clientOnlyKind;
+  }
+  if (isContainer(inserted)) {
+    asContainerItem(inserted).childrenLoaded = true;
+    markChildrenLoadAsInitiatedOrComplete(inserted.id);
+  }
+  return inserted;
 }
 
 function createTurnComposite(
@@ -236,6 +251,30 @@ function addLocalUserTurn(page: PageItem, text: string): Array<Item> {
   return [composite, note];
 }
 
+function addLocalQueryUserTurn(store: StoreContextModel, queryItem: QueryItem, text: string): Array<Item> {
+  const composite = CompositeFns.create(
+    queryItem.ownerId,
+    queryItem.id,
+    RelationshipToParent.Child,
+    newOrderingAtEnd(queryChatRootOrderings(store, queryItem)),
+  );
+  composite.title = "You";
+  composite.flags |= CompositeFlags.ShowTitle;
+  composite.childrenLoaded = true;
+  composite.clientOnly = true;
+  markChildrenLoadAsInitiatedOrComplete(composite.id);
+  const insertedComposite = insertDetachedClientItem(composite);
+  const note = createTurnNote(
+    queryItem.ownerId,
+    insertedComposite.id,
+    text,
+    itemState.newOrderingAtEndOfChildren(insertedComposite.id),
+    true,
+  );
+  setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), insertedComposite.id]);
+  return [insertedComposite, note];
+}
+
 function prepareReturnedItem(item: Item, clientOnly: boolean): void {
   if (clientOnly) {
     item.clientOnly = true;
@@ -287,10 +326,67 @@ function addServerReturnedItems(page: PageItem, itemObjects: Array<object>, clie
   return addedItems;
 }
 
+function addServerReturnedQueryItems(store: StoreContextModel, queryItem: QueryItem, itemObjects: Array<object>): Array<Item> {
+  const returnedItems = itemObjects.map(itemObject => ItemFns.fromObject(itemObject, null));
+  const pending = new Map<Uid, Item>();
+  const addedItems: Array<Item> = [];
+  const addedRootIds: Array<Uid> = [];
+
+  for (const item of returnedItems) {
+    pending.set(item.id, item);
+  }
+
+  const roots = returnedItems.filter(item => item.parentId == null || item.parentId == EMPTY_UID);
+  let rootOrderings = queryChatRootOrderings(store, queryItem);
+  for (const root of roots) {
+    root.parentId = queryItem.id;
+    root.relationshipToParent = RelationshipToParent.Child;
+    root.ordering = newOrderingAtEnd(rootOrderings);
+    prepareReturnedItem(root, true);
+    const insertedRoot = insertDetachedClientItem(root);
+    addedItems.push(insertedRoot);
+    addedRootIds.push(insertedRoot.id);
+    rootOrderings = [...rootOrderings, insertedRoot.ordering];
+    pending.delete(root.id);
+  }
+
+  while (pending.size > 0) {
+    let addedThisPass = false;
+    for (const item of [...pending.values()]) {
+      if (item.parentId == null || item.parentId == EMPTY_UID || itemState.get(item.parentId) == null) {
+        continue;
+      }
+      prepareReturnedItem(item, true);
+      itemState.add(item);
+      addedItems.push(item);
+      pending.delete(item.id);
+      addedThisPass = true;
+    }
+    if (!addedThisPass) {
+      console.error("Could not insert all query chat response items; some parent links were unresolved:", [...pending.values()]);
+      break;
+    }
+  }
+
+  if (addedRootIds.length > 0) {
+    setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), ...addedRootIds]);
+  }
+
+  return addedItems;
+}
+
 function collectChatContextItemObjects(page: PageItem): Array<object> {
   const items: Array<Item> = [];
   for (const childId of page.computed_children) {
     collectSubtreeItems(childId, items);
+  }
+  return items.map(chatContextItemObject);
+}
+
+function collectQueryChatContextItemObjects(store: StoreContextModel, queryItem: QueryItem): Array<object> {
+  const items: Array<Item> = [];
+  for (const rootId of queryChatRootIds(store, queryItem)) {
+    collectSubtreeItems(rootId, items);
   }
   return items.map(chatContextItemObject);
 }
@@ -365,6 +461,48 @@ export async function submitChatMessage(store: StoreContextModel, page: PageItem
   }
 }
 
+export async function submitQueryChatMessage(store: StoreContextModel, queryItem: QueryItem, rawText: string): Promise<void> {
+  const text = rawText.trim();
+  if (text == "") {
+    return;
+  }
+
+  const contextItems = collectQueryChatContextItemObjects(store, queryItem);
+  addLocalQueryUserTurn(store, queryItem, text);
+  requestArrange(store, "query-chat-user-turn");
+
+  let clearProgressOnExit = true;
+  setQueryChatProgress(queryItem.id, "Preparing request");
+  try {
+    const response = await server.chatStream({
+      contextItems,
+      userText: text,
+    }, store.general.networkStatus, (event) => {
+      const progressText = chatProgressTextFromEvent(event);
+      if (progressText != null) {
+        setQueryChatProgress(queryItem.id, progressText);
+      }
+    });
+
+    addServerReturnedQueryItems(store, queryItem, response.items);
+    requestArrange(store, "query-chat-assistant-turn");
+  } catch (e) {
+    const failedProgress = "Chat failed";
+    setQueryChatProgress(queryItem.id, failedProgress);
+    window.setTimeout(() => {
+      if (chatProgressByQueryId.get(queryItem.id)?.text == failedProgress) {
+        clearQueryChatProgress(queryItem.id);
+      }
+    }, 3000);
+    clearProgressOnExit = false;
+    console.error("Failed to submit query chat message:", e);
+  } finally {
+    if (clearProgressOnExit) {
+      clearQueryChatProgress(queryItem.id);
+    }
+  }
+}
+
 function collectSubtreeItems(itemId: Uid, result: Array<Item>): void {
   const item = itemState.get(itemId);
   if (!item) {
@@ -401,6 +539,69 @@ function firstPromptInChatPage(page: PageItem): string {
     }
   }
   return "";
+}
+
+function firstPromptInQueryChat(store: StoreContextModel, queryItem: QueryItem): string {
+  for (const rootId of queryChatRootIds(store, queryItem)) {
+    const root = itemState.get(rootId);
+    if (!root) { continue; }
+    if (isNote(root)) {
+      return asNoteItem(root).title;
+    }
+    if (!isContainer(root)) { continue; }
+    for (const childId of asContainerItem(root).computed_children) {
+      const child = itemState.get(childId);
+      if (child && isNote(child)) {
+        return asNoteItem(child).title;
+      }
+    }
+  }
+  return "";
+}
+
+export interface QueryChatTurnView {
+  id: Uid,
+  title: string,
+  bodyLines: Array<string>,
+}
+
+function chatItemText(item: Item): string {
+  const titled = item as Item & { title?: unknown };
+  return typeof titled.title == "string" ? titled.title : "";
+}
+
+export function queryChatTurns(store: StoreContextModel, queryItem: QueryItem): Array<QueryChatTurnView> {
+  return queryChatRootIds(store, queryItem).map(rootId => {
+    const root = itemState.get(rootId);
+    if (!root) {
+      return null;
+    }
+    const bodyLines: Array<string> = [];
+    if (isContainer(root)) {
+      for (const childId of asContainerItem(root).computed_children) {
+        const child = itemState.get(childId);
+        if (child == null) { continue; }
+        const text = chatItemText(child);
+        if (text != "") {
+          bodyLines.push(text);
+        }
+      }
+    } else {
+      const text = chatItemText(root);
+      if (text != "") {
+        bodyLines.push(text);
+      }
+    }
+    return {
+      id: root.id,
+      title: chatItemText(root),
+      bodyLines,
+    };
+  }).filter((turn): turn is QueryChatTurnView => turn != null);
+}
+
+export function queryChatHasContent(store: StoreContextModel, queryItem: QueryItem): boolean {
+  return queryChatRootIds(store, queryItem).length > 0;
 }
 
 function cloneItemForMaterializedChat(source: Item, parentId: Uid, relationshipToParent: RelationshipToParent): Item {
@@ -443,6 +644,26 @@ function cloneChildrenIntoMaterializedChat(sourceParent: PageItem | Item, target
   }
 }
 
+function cloneQueryChatRootsIntoMaterializedChat(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  targetParentId: Uid,
+  result: Array<Item>,
+): void {
+  const cloneRootSubtree = (sourceId: Uid) => {
+    const root = itemState.get(sourceId);
+    if (!root) { return; }
+    const clone = cloneItemForMaterializedChat(root, targetParentId, RelationshipToParent.Child);
+    itemState.add(clone);
+    result.push(clone);
+    cloneChildrenIntoMaterializedChat(root, clone.id, result);
+  };
+
+  for (const rootId of queryChatRootIds(store, queryItem)) {
+    cloneRootSubtree(rootId);
+  }
+}
+
 function clearDraftChatPage(page: PageItem): void {
   const itemsToDelete: Array<Item> = [];
   for (const childId of page.computed_children) {
@@ -454,6 +675,94 @@ function clearDraftChatPage(page: PageItem): void {
   page.title = CHAT_DRAFT_TITLE;
 }
 
+export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): void {
+  for (const rootId of queryChatRootIds(store, queryItem)) {
+    itemState.pruneRelationshipSubtreeIfCurrent(rootId, queryItem.id, RelationshipToParent.Child);
+  }
+  setQueryChatRootIds(store, queryItem, []);
+  clearQueryChatProgress(queryItem.id);
+}
+
+interface MaterializedChatPlacement {
+  parentId: Uid,
+  ordering: Uint8Array,
+}
+
+function materializedChatPlacement(page: PageItem): MaterializedChatPlacement | null {
+  if (isQueryChatPage(page)) {
+    const queryItem = itemState.get(page.parentId);
+    if (!queryItem) {
+      return null;
+    }
+    const parent = itemState.get(queryItem.parentId);
+    if (!parent || !isContainer(parent)) {
+      return null;
+    }
+    return {
+      parentId: queryItem.parentId,
+      ordering: itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id),
+    };
+  }
+
+  const parent = itemState.get(page.parentId);
+  if (!parent || !isContainer(parent)) {
+    return null;
+  }
+  return {
+    parentId: page.parentId,
+    ordering: itemState.newOrderingDirectlyAfterChild(page.parentId, page.id),
+  };
+}
+
+export async function materializeQueryChat(store: StoreContextModel, queryItem: QueryItem): Promise<boolean> {
+  if (!queryChatHasContent(store, queryItem)) {
+    return false;
+  }
+  const parent = itemState.get(queryItem.parentId);
+  if (!parent || !isContainer(parent)) {
+    console.error("Failed to materialize query chat: no valid parent container.", queryItem);
+    return false;
+  }
+
+  const materializedPage = PageFns.create(
+    queryItem.ownerId,
+    queryItem.parentId,
+    RelationshipToParent.Child,
+    titleFromPrompt(firstPromptInQueryChat(store, queryItem)),
+    itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id),
+  );
+  materializedPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
+  materializedPage.flags |= PageFlags.HideDocumentTitle;
+  materializedPage.orderChildrenBy = "";
+  materializedPage.childrenLoaded = true;
+  markChildrenLoadAsInitiatedOrComplete(materializedPage.id);
+
+  itemState.add(materializedPage);
+  const clonedItems: Array<Item> = [];
+  cloneQueryChatRootsIntoMaterializedChat(store, queryItem, materializedPage.id, clonedItems);
+  requestArrange(store, "query-chat-materialize-local");
+
+  try {
+    await server.addItem(materializedPage, null, store.general.networkStatus);
+    await persistItems(store, clonedItems);
+    clearQueryChat(store, queryItem);
+    store.perItem.setSelectedListPageItem(
+      { itemId: materializedPage.parentId, linkIdMaybe: null },
+      { itemId: materializedPage.id, linkIdMaybe: null },
+    );
+    requestArrange(store, "query-chat-materialize-complete");
+    return true;
+  } catch (e) {
+    console.error("Failed to materialize query chat:", e);
+    for (const item of clonedItems.reverse()) {
+      itemState.delete(item.id);
+    }
+    itemState.delete(materializedPage.id);
+    requestArrange(store, "query-chat-materialize-rollback");
+    return false;
+  }
+}
+
 export async function materializeChatPage(store: StoreContextModel, page: PageItem): Promise<boolean> {
   if (page.clientOnly !== true) {
     return true;
@@ -462,12 +771,18 @@ export async function materializeChatPage(store: StoreContextModel, page: PageIt
     return false;
   }
 
+  const placement = materializedChatPlacement(page);
+  if (placement == null) {
+    console.error("Failed to materialize chat page: no valid materialized chat placement.", page);
+    return false;
+  }
+
   const materializedPage = PageFns.create(
     page.ownerId,
-    page.parentId,
+    placement.parentId,
     RelationshipToParent.Child,
     titleFromPrompt(firstPromptInChatPage(page)),
-    itemState.newOrderingDirectlyAfterChild(page.parentId, page.id),
+    placement.ordering,
   );
   materializedPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
   materializedPage.flags |= PageFlags.HideDocumentTitle;

@@ -53,11 +53,6 @@ export const SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX = 30;
 export const SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX = Math.round(SEARCH_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
 export const SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX = 6;
 
-export function markAsQueryChatPage(item: Item): void {
-  item.clientOnly = true;
-  item.clientOnlyKind = ClientOnlyItemKind.QueryChatPage;
-}
-
 export function isQueryChatPage(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
   const maybeItem = item as Partial<Item>;

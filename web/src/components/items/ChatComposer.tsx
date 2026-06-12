@@ -25,7 +25,6 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { chatProgressForPage, isChatPage, materializeChatPage, submitChatMessage } from "../../items/chat";
 import { asPageItem } from "../../items/page-item";
 import {
-  isQueryChatPage,
   QUERY_WORKSPACE_CONTROLS_GAP_PX,
   QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
 } from "../../items/query-item";
@@ -52,7 +51,7 @@ export const ChatComposer: Component<PageVisualElementProps> = (props) => {
   const enabled = () => isChatPage(page()) && itemCanEdit(page());
   const hasContent = () => page().computed_children.length > 0;
   const isDraft = () => page().clientOnly === true;
-  const canMaterialize = () => isDraft() && !isQueryChatPage(page());
+  const canMaterialize = () => isDraft();
   const progress = () => chatProgressForPage(page().id);
 
   const documentScale = () => pageFns().documentScale ? pageFns().documentScale() : 1.0;

@@ -32,7 +32,7 @@ export interface QueryRuntime {
     resultLinkIds: Array<Uid>,
   },
   chat: {
-    pageId: Uid | null,
+    rootItemIds: Array<Uid>,
   },
 }
 
@@ -114,7 +114,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
       resultLinkIds: [],
     },
     chat: {
-      pageId: null,
+      rootItemIds: [],
     },
   });
 

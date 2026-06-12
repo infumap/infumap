@@ -26,13 +26,7 @@ import {
   isPage,
 } from "../../items/page-item";
 import {
-  NATURAL_BLOCK_SIZE_PX,
-  PAGE_DOCUMENT_LEFT_MARGIN_BL,
-  PAGE_DOCUMENT_RIGHT_MARGIN_BL,
-} from "../../constants";
-import {
   QueryItem,
-  QUERY_WORKSPACE_SIDE_INSET_PX,
   calcQueryWorkspaceResultsBoundsPx,
   getQueryMode,
   getQueryRuntime,
@@ -154,40 +148,7 @@ export function arrangeSearchResultsPathMaybe(
 ): VisualElementPath | null {
   const queryMode = getQueryMode(store, queryItem);
   if (queryMode == "chat") {
-    const chatPageId = getQueryRuntime(store, queryItem).chat.pageId;
-    const chatPage = chatPageId == null ? null : itemState.get(chatPageId);
-    if (!chatPage || !isPage(chatPage)) {
-      return null;
-    }
-    const page = asPageItem(chatPage);
-    const preferredWidthPx = (page.docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL) *
-      NATURAL_BLOCK_SIZE_PX.w;
-    const maxWidthPx = Math.max(
-      240,
-      queryItemGeometry.boundsPx.w - QUERY_WORKSPACE_SIDE_INSET_PX * 2,
-    );
-    const chatWidthPx = Math.min(preferredWidthPx, maxWidthPx);
-    const chatBoundsPx = {
-      x: Math.max(0, Math.round((queryItemGeometry.boundsPx.w - chatWidthPx) / 2)),
-      y: 0,
-      w: chatWidthPx,
-      h: queryItemGeometry.boundsPx.h,
-    };
-    const pageGeometry: ItemGeometry = {
-      boundsPx: chatBoundsPx,
-      viewportBoundsPx: chatBoundsPx,
-      blockSizePx: queryItemGeometry.blockSizePx,
-      hitboxes: [],
-    };
-    return arrangeItemPath(
-      store,
-      queryItemPath,
-      ArrangeAlgorithm.Document,
-      page,
-      null,
-      pageGeometry,
-      ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsListPageMainRoot,
-    );
+    return null;
   }
 
   if (queryMode != "search") {
