@@ -141,23 +141,6 @@ function ensureTemporaryResultsPage(store: StoreContextModel, searchItem: Search
   return page;
 }
 
-export function clearQuerySearchRuntime(store: StoreContextModel, searchItemId: string): void {
-  const runtime = store.perItem.getQueryRuntime(searchItemId);
-  for (const linkId of runtime.search.resultLinkIds) {
-    itemState.delete(linkId);
-  }
-  if (runtime.search.resultsPageId != null) {
-    itemState.delete(runtime.search.resultsPageId);
-  }
-  store.perItem.updateQueryRuntime(searchItemId, current => ({
-    ...current,
-    search: {
-      resultsPageId: null,
-      resultLinkIds: [],
-    },
-  }));
-}
-
 export function arrangeSearchResultsPathMaybe(
   store: StoreContextModel,
   searchItem: SearchItem,

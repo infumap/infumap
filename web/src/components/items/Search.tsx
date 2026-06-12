@@ -18,7 +18,7 @@
 
 import { Component, For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
-import { arrangeNow, requestArrange } from "../../layout/arrange";
+import { arrangeNow } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
@@ -29,16 +29,11 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
-import { server } from "../../server";
 import { VisualElement_Desktop } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { VesCache } from "../../layout/ves-cache";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
-import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../../layout/load";
-import { itemState } from "../../store/ItemState";
-import { asContainerItem, isContainer } from "../../items/base/container-item";
-import { asLinkItem, isLink, LinkFns } from "../../items/link-item";
 import {
   SearchFns,
   asSearchItem,
@@ -54,15 +49,18 @@ import {
   SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX,
   calcSearchWorkspaceControlsWidthPx,
   calcSearchWorkspaceInputWidthPx,
-  calcSearchWorkspaceResultsBoundsPx,
   calcSearchWorkspaceResultsTopPx,
   searchResultsFooterHostId,
 } from "../../items/search-item";
 import { materializeSearchResults } from "../../layout/search_materialize";
-import { clearQuerySearchRuntime } from "../../layout/arrange/search";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../items/page-item";
-import { ensureClientOnlyChatPageUnderQueryItem, removeClientOnlyChatPagesUnderQueries, submitChatMessage } from "../../items/chat";
+import {
+  clearQuerySearchSelection,
+  loadMoreQuerySearchResults,
+  runQuerySearch,
+  startQueryChat,
+} from "../../items/query";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
@@ -93,7 +91,6 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const isSearchMode = () => queryMode() == "search";
   const isChatMode = () => queryMode() == "chat";
   const searchHasMoreResults = () => store.perItem.getSearchHasMoreResults(searchItem().id);
-  const searchLoadedPageCount = () => store.perItem.getSearchLoadedPageCount(searchItem().id);
   const hasSubmittedQuery = () => queryMode() != null;
   const hasSearchResults = () => (store.perItem.getSearchResults(searchItem().id)?.length ?? 0) > 0;
   const searchArrangeAlgorithm = () =>
@@ -102,10 +99,6 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       : ArrangeAlgorithm.Catalog;
   const isEditing = () => canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && !forceNonEditing();
   const editingDomId = () => vePath() + ":title";
-  const clearSearchResultSelection = () => {
-    store.perItem.setSearchSelectedResultIndex(searchItem().id, -1);
-    store.perItem.setSearchFocusedResultIndex(searchItem().id, -1);
-  };
   const exitEditMode = (editingElMaybe?: HTMLElement | null) => {
     if (!isEditing()) {
       return;
@@ -162,38 +155,10 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     }
     setForceNonEditing(false);
     setPendingInputFocus(focusInput ? { caretIdx, selectAll } : null);
-    clearSearchResultSelection();
+    clearQuerySearchSelection(store, searchItem());
     if (!isEditing()) {
       store.overlay.setTextEditInfo(store.history, { itemPath: vePath(), itemType: ItemType.Search });
     }
-  };
-  const warmResultItemDetails = async (resultItemId: string) => {
-    await initiateLoadItemMaybe(store, resultItemId);
-
-    let targetItem = itemState.get(resultItemId);
-    if (!targetItem) {
-      return;
-    }
-
-    if (isLink(targetItem)) {
-      const linkItem = asLinkItem(targetItem);
-      const linkedToId = LinkFns.getLinkToId(linkItem);
-      if (linkedToId && !linkItem.linkTo.startsWith("http")) {
-        await initiateLoadItemMaybe(store, linkedToId, targetItem.parentId);
-        targetItem = itemState.get(linkedToId) ?? targetItem;
-      }
-    }
-
-    if (isContainer(targetItem) && !asContainerItem(targetItem).childrenLoaded) {
-      await initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(targetItem, null));
-    }
-  };
-
-  const warmSearchResults = async (result: Array<{ path: Array<{ id: string }> }>) => {
-    const resultIds = [...new Set(result
-      .map(r => r.path[r.path.length - 1]?.id)
-      .filter((id): id is string => !!id))];
-    await Promise.all(resultIds.map(id => warmResultItemDetails(id)));
   };
 
   const showTransientMessage = (text: string, type: TransientMessageType) => {
@@ -218,16 +183,6 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     arrangeNow(store, "search-workspace-arrange-algorithm");
   };
 
-  const clearSearchResults = () => {
-    clearQuerySearchRuntime(store, searchItem().id);
-    store.perItem.setQueryMode(searchItem().id, null);
-    store.perItem.setSearchResults(searchItem().id, null);
-    store.perItem.setSearchHasMoreResults(searchItem().id, false);
-    store.perItem.setSearchLoadedPageCount(searchItem().id, 0);
-    clearSearchResultSelection();
-    requestArrange(store, "search-clear-results");
-  };
-
   const runSearch = async (
     selectFirstResultRow: boolean,
     editingElMaybe?: HTMLElement | null,
@@ -236,30 +191,11 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     const text = commitEditingQuery(editingElMaybe);
     const requestSerial = ++activeSearchRequestSerial;
     setIsLoadingMore(false);
-    if (keepSearchWorkspaceFocus) {
-      store.history.setFocus(vePath());
-    }
-    if (text == "") {
-      clearSearchResults();
-      return;
-    }
-
-    store.perItem.setQueryMode(searchItem().id, "search");
-    requestArrange(store, "query-search-start");
-    const response = await server.search(null, text, store.general.networkStatus, 1);
-    if (requestSerial != activeSearchRequestSerial) {
-      return;
-    }
-    if (response.results.length == 0) {
-      clearQuerySearchRuntime(store, searchItem().id);
-    }
-    store.perItem.setSearchResults(searchItem().id, response.results);
-    store.perItem.setSearchHasMoreResults(searchItem().id, response.hasMore);
-    store.perItem.setSearchLoadedPageCount(searchItem().id, 1);
-    store.perItem.setSearchSelectedResultIndex(searchItem().id, selectFirstResultRow && response.results.length > 0 ? 0 : -1);
-    store.perItem.setSearchFocusedResultIndex(searchItem().id, -1);
-    requestArrange(store, "search-results");
-    void warmSearchResults(response.results);
+    await runQuerySearch(store, searchItem(), text, {
+      selectFirstResultRow,
+      keepQueryFocusPath: keepSearchWorkspaceFocus ? vePath() : undefined,
+      shouldApply: () => requestSerial == activeSearchRequestSerial,
+    });
   };
 
   const startChat = async (editingElMaybe?: HTMLElement | null) => {
@@ -276,19 +212,7 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
     setIsStartingChat(true);
     activeSearchRequestSerial++;
     try {
-      const queriesPageId = searchItem().parentId;
-      removeClientOnlyChatPagesUnderQueries(store, queriesPageId);
-      clearQuerySearchRuntime(store, searchItem().id);
-      store.perItem.setSearchResults(searchItem().id, null);
-      store.perItem.setSearchHasMoreResults(searchItem().id, false);
-      store.perItem.setSearchLoadedPageCount(searchItem().id, 0);
-      clearSearchResultSelection();
-      const chatPage = ensureClientOnlyChatPageUnderQueryItem(store, searchItem());
-      store.perItem.setQueryMode(searchItem().id, "chat");
-      store.history.setFocus(vePath());
-      store.overlay.autoFocusChatInput.set(true);
-      arrangeNow(store, "query-start-chat");
-      await submitChatMessage(store, chatPage, text);
+      await startQueryChat(store, searchItem(), text, vePath());
     } finally {
       setIsStartingChat(false);
     }
@@ -299,26 +223,12 @@ export const Search_Desktop: Component<VisualElementProps> = (props: VisualEleme
       return;
     }
 
-    const existingResults = store.perItem.getSearchResults(searchItem().id);
-    const requestedQuery = queryText();
-    if (!existingResults || requestedQuery == "") {
-      return;
-    }
-
-    const loadedPageCount = searchLoadedPageCount();
-    const nextPage = Math.max(1, loadedPageCount + 1);
     const requestSerial = ++activeSearchRequestSerial;
     setIsLoadingMore(true);
     try {
-      const response = await server.search(null, requestedQuery, store.general.networkStatus, nextPage);
-      if (requestSerial != activeSearchRequestSerial) {
-        return;
-      }
-      store.perItem.setSearchResults(searchItem().id, [...existingResults, ...response.results]);
-      store.perItem.setSearchHasMoreResults(searchItem().id, response.hasMore);
-      store.perItem.setSearchLoadedPageCount(searchItem().id, nextPage);
-      requestArrange(store, "search-more-results");
-      void warmSearchResults(response.results);
+      await loadMoreQuerySearchResults(store, searchItem(), {
+        shouldApply: () => requestSerial == activeSearchRequestSerial,
+      });
     } finally {
       setIsLoadingMore(false);
     }
