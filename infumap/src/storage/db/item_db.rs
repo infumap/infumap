@@ -41,7 +41,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 36;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 38;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -2409,6 +2409,55 @@ pub fn migrate_records_v35_to_v36(
   }
 
   Ok((updated_descriptor.clone(), migrated_records))
+}
+
+fn remove_obsolete_query_path_fields(kvs: &mut Map<String, Value>) {
+  kvs.remove("catalogPathOverride");
+  kvs.remove("searchResultPathSnapshot");
+}
+
+pub fn migrate_record_v36_to_v37(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 36),
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
+      if item_type == "search" {
+        result.insert(String::from("itemType"), Value::String(String::from("query")));
+      }
+      remove_obsolete_query_path_fields(&mut result);
+      Ok(result)
+    }
+
+    "update" => {
+      let mut result = kvs.clone();
+      remove_obsolete_query_path_fields(&mut result);
+      Ok(result)
+    }
+
+    "delete" | "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
+pub fn migrate_record_v37_to_v38(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 37),
+
+    "entry" | "update" => {
+      let mut result = kvs.clone();
+      remove_obsolete_query_path_fields(&mut result);
+      Ok(result)
+    }
+
+    "delete" | "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
 }
 
 fn is_legacy_text_file_entry(kvs: &Map<String, Value>) -> InfuResult<bool> {

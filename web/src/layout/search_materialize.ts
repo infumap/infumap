@@ -32,7 +32,6 @@ import { newOrderingAtEnd } from "../util/ordering";
 import { requestArrange } from "./arrange";
 import { CALENDAR_DAY_ROW_HEIGHT_BL } from "../constants";
 import type { SearchResult } from "../server";
-import { searchResultPathSegments } from "../util/search-result-display";
 
 function copyCurrentSearchResultsLayout(store: StoreContextModel, queryItem: QueryItem, materializedPage: ReturnType<typeof PageFns.create>) {
   const resultsPageId = getQueryRuntime(store, queryItem).search.resultsPageId;
@@ -74,7 +73,6 @@ function makeMaterializedLink(
     newOrderingAtEnd(childOrderings),
   );
   LinkFns.syncSizeFromLinkedItem(link);
-  link.catalogPathOverride = searchResultPathSegments(result);
   link.catalogFragmentMatch = result.fragmentMatch ?? null;
   return link;
 }

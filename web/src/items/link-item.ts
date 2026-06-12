@@ -45,7 +45,6 @@ export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
   overrideTitle?: string | null,
   linkRequiresRemoteLogin?: string | null,
   aspectOverride?: number | null,
-  catalogPathOverride?: Array<{ id: Uid, itemType: string, title: string }> | null,
   catalogFragmentMatch?: LinkCatalogFragmentMatch | null,
 }
 
@@ -114,7 +113,6 @@ export const LinkFns = {
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
-      catalogPathOverride: null,
       catalogFragmentMatch: null,
     };
   },
@@ -162,7 +160,6 @@ export const LinkFns = {
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
-      catalogPathOverride: o.catalogPathOverride ?? null,
       catalogFragmentMatch: o.catalogFragmentMatch ?? null,
     });
   },
@@ -185,7 +182,6 @@ export const LinkFns = {
       spatialHeightGr: l.spatialHeightGr,
 
       linkTo: l.linkTo,
-      catalogPathOverride: l.catalogPathOverride ?? null,
       catalogFragmentMatch: l.catalogFragmentMatch ?? null,
     });
   },

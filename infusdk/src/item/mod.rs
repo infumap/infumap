@@ -224,13 +224,6 @@ pub struct NoteUrl {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CatalogPathSegment {
-  pub id: Uid,
-  pub item_type: String,
-  pub title: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct CatalogFragmentMatch {
   pub fragment_ordinal: i64,
   pub source_kind: String,
@@ -462,7 +455,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 56] = [
+const ALL_JSON_FIELDS: [&'static str; 55] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -504,7 +497,6 @@ const ALL_JSON_FIELDS: [&'static str; 56] = [
   "dividerDirection",
   "tableColumns",
   "linkTo",
-  "catalogPathOverride",
   "catalogFragmentMatch",
   "gridNumberOfColumns",
   "orderChildrenBy",
@@ -629,7 +621,6 @@ pub struct Item {
 
   // link
   pub link_to: Option<Uid>,
-  pub catalog_path_override: Option<Vec<CatalogPathSegment>>,
   pub catalog_fragment_match: Option<CatalogFragmentMatch>,
   // composite
 }
@@ -689,7 +680,6 @@ impl Clone for Item {
       rating_type: self.rating_type.clone(),
       divider_direction: self.divider_direction.clone(),
       link_to: self.link_to.clone(),
-      catalog_path_override: self.catalog_path_override.clone(),
       catalog_fragment_match: self.catalog_fragment_match.clone(),
       text: self.text.clone(),
     }
@@ -1484,17 +1474,6 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("linkTo"), Value::String(String::from(new_link_to)));
       }
     }
-    if let Some(new_catalog_path_override) = &new.catalog_path_override {
-      if match &old.catalog_path_override {
-        Some(o) => o != new_catalog_path_override,
-        None => true,
-      } {
-        if old.item_type != ItemType::Link {
-          cannot_modify_err("catalogPathOverride", &old.id)?;
-        }
-        result.insert(String::from("catalogPathOverride"), catalog_path_segments_to_array(new_catalog_path_override));
-      }
-    }
     if let Some(new_catalog_fragment_match) = &new.catalog_fragment_match {
       if match &old.catalog_fragment_match {
         Some(o) => o != new_catalog_fragment_match,
@@ -1951,12 +1930,6 @@ impl JsonLogSerializable<Item> for Item {
       }
       self.link_to = Some(v);
     }
-    if let Some(v) = get_catalog_path_override_field(map, "catalogPathOverride")? {
-      if self.item_type != ItemType::Link {
-        not_applicable_err("catalogPathOverride", self.item_type, &self.id)?;
-      }
-      self.catalog_path_override = Some(v);
-    }
     if let Some(v) = get_catalog_fragment_match_field(map, "catalogFragmentMatch")? {
       if self.item_type != ItemType::Link {
         not_applicable_err("catalogFragmentMatch", self.item_type, &self.id)?;
@@ -1967,45 +1940,6 @@ impl JsonLogSerializable<Item> for Item {
     // composite
     Ok(())
   }
-}
-
-fn get_catalog_path_override_field(
-  map: &Map<String, Value>,
-  field: &str,
-) -> InfuResult<Option<Vec<CatalogPathSegment>>> {
-  let v = match map.get(field) {
-    None => return Ok(None),
-    Some(v) if v.is_null() => return Ok(None),
-    Some(v) => v,
-  };
-  let a = v.as_array().ok_or(format!("'{}' field was not of type 'array'.", field))?;
-  let mut result = vec![];
-  for segment in a {
-    let o = segment.as_object().ok_or("catalogPathOverride item was not of type 'object'.")?;
-    let id = json::get_string_field(o, "id")?.ok_or("catalogPathOverride item field 'id' was missing.")?;
-    if !is_uid(&id) {
-      return Err(format!("catalogPathOverride item had invalid uid '{}'.", id).into());
-    }
-    result.push(CatalogPathSegment {
-      id,
-      item_type: json::get_string_field(o, "itemType")?
-        .ok_or("catalogPathOverride item field 'itemType' was missing.")?,
-      title: json::get_string_field(o, "title")?.ok_or("catalogPathOverride item field 'title' was missing.")?,
-    });
-  }
-  Ok(Some(result))
-}
-
-fn catalog_path_segment_to_object(segment: &CatalogPathSegment) -> Value {
-  let mut result: Map<String, Value> = Map::new();
-  result.insert(String::from("id"), Value::String(segment.id.clone()));
-  result.insert(String::from("itemType"), Value::String(segment.item_type.clone()));
-  result.insert(String::from("title"), Value::String(segment.title.clone()));
-  Value::Object(result)
-}
-
-fn catalog_path_segments_to_array(segments: &Vec<CatalogPathSegment>) -> Value {
-  Value::Array(segments.iter().map(|segment| catalog_path_segment_to_object(segment)).collect())
 }
 
 fn get_bool_field(map: &Map<String, Value>, field: &str) -> InfuResult<Option<bool>> {
@@ -2439,12 +2373,6 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
       unexpected_field_err("linkTo", &item.id, item.item_type)?
     }
     result.insert(String::from("linkTo"), Value::String(link_to.clone()));
-  }
-  if let Some(catalog_path_override) = &item.catalog_path_override {
-    if item.item_type != ItemType::Link {
-      unexpected_field_err("catalogPathOverride", &item.id, item.item_type)?
-    }
-    result.insert(String::from("catalogPathOverride"), catalog_path_segments_to_array(catalog_path_override));
   }
   if let Some(catalog_fragment_match) = &item.catalog_fragment_match {
     if item.item_type != ItemType::Link {
@@ -3226,16 +3154,6 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
     }?,
-    catalog_path_override: match get_catalog_path_override_field(map, "catalogPathOverride")? {
-      Some(v) => {
-        if item_type == ItemType::Link {
-          Ok(Some(v))
-        } else {
-          Err(not_applicable_err("catalogPathOverride", item_type, &id))
-        }
-      }
-      None => Ok(None),
-    }?,
     catalog_fragment_match: match get_catalog_fragment_match_field(map, "catalogFragmentMatch")? {
       Some(v) => {
         if item_type == ItemType::Link {
@@ -3289,7 +3207,6 @@ impl Item {
       table_columns: None,
       number_of_visible_columns: None,
       link_to: None,
-      catalog_path_override: None,
       catalog_fragment_match: None,
       original_creation_date: None,
       mime_type: None,
@@ -3357,7 +3274,6 @@ impl Item {
       table_columns: None,
       number_of_visible_columns: None,
       link_to: Some(link_to.clone()),
-      catalog_path_override: None,
       catalog_fragment_match: None,
       original_creation_date: None,
       mime_type: None,
@@ -3427,7 +3343,6 @@ impl Item {
       icon_mode: None,
       inline_marks: None,
       link_to: None,
-      catalog_path_override: None,
       catalog_fragment_match: None,
       table_columns: Some(table_columns),
       number_of_visible_columns: Some(number_of_visible_columns),
@@ -3487,7 +3402,6 @@ impl Item {
       icon_mode: None,
       inline_marks: None,
       link_to: None,
-      catalog_path_override: None,
       catalog_fragment_match: None,
       table_columns: None,
       number_of_visible_columns: None,
@@ -3553,7 +3467,6 @@ impl Item {
       icon_mode: None,
       inline_marks: None,
       link_to: None,
-      catalog_path_override: None,
       catalog_fragment_match: None,
       table_columns: None,
       number_of_visible_columns: None,
@@ -3631,7 +3544,6 @@ impl Item {
       icon_mode: None,
       inline_marks: None,
       link_to: None,
-      catalog_path_override: None,
       catalog_fragment_match: None,
       table_columns: None,
       number_of_visible_columns: None,
@@ -3735,7 +3647,6 @@ impl Item {
       icon_mode: None,
       inline_marks: None,
       link_to: None,
-      catalog_path_override: None,
       catalog_fragment_match: None,
       original_creation_date: None,
       mime_type: None,
@@ -4010,13 +3921,6 @@ impl Item {
       if let Some(link_to) = &self.link_to {
         if !link_to.is_empty() {
           hashes.push(hash_string_to_uid(link_to));
-        }
-      }
-      if let Some(catalog_path_override) = &self.catalog_path_override {
-        for segment in catalog_path_override {
-          hashes.push(hash_string_to_uid(&segment.id));
-          hashes.push(hash_string_to_uid(&segment.item_type));
-          hashes.push(hash_string_to_uid(&segment.title));
         }
       }
       if let Some(catalog_fragment_match) = &self.catalog_fragment_match {
