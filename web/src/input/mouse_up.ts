@@ -17,9 +17,9 @@
 */
 
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
-import { asAttachmentsItem } from "../items/base/attachments-item";
+import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanEdit } from "../items/base/capabilities-item";
-import { asContainerItem, isContainer } from "../items/base/container-item";
+import { isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -76,7 +76,7 @@ interface MoveRollbackContext {
 
 interface MoveFinalizeContext {
   startAttachmentsItemId: string | null,
-  startCompositeItemId: string | null,
+  startCompositeItemIds: Array<string>,
   newPlaceholderItemId: string | null,
 }
 
@@ -448,9 +448,24 @@ function captureMoveRollbackContext(rollbackExtras: (() => void) | null = null):
 }
 
 function captureMoveFinalizeContext(): MoveFinalizeContext {
+  const startCompositeItemIds = new Set<string>();
+  const startCompositeItem = MouseActionState.getStartCompositeItem();
+  if (startCompositeItem != null) {
+    startCompositeItemIds.add(startCompositeItem.id);
+  }
+  for (const entry of MouseActionState.getMoveRollback() ?? []) {
+    if (entry.relationshipToParent != RelationshipToParent.Child) {
+      continue;
+    }
+    const parent = itemState.get(entry.parentId);
+    if (parent != null && isComposite(parent)) {
+      startCompositeItemIds.add(parent.id);
+    }
+  }
+
   return {
     startAttachmentsItemId: MouseActionState.getStartAttachmentsItem()?.id ?? null,
-    startCompositeItemId: MouseActionState.getStartCompositeItem()?.id ?? null,
+    startCompositeItemIds: [...startCompositeItemIds],
     newPlaceholderItemId: MouseActionState.getNewPlaceholderItem()?.id ?? null,
   };
 }
@@ -503,7 +518,7 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
     if (isContainer(parent)) {
       itemState.sortChildren(parentId);
     }
-    if ("computed_attachments" in parent) {
+    if (isAttachmentsItem(parent)) {
       itemState.sortAttachments(parentId);
     }
   }
@@ -542,7 +557,7 @@ function restorePositionalItemSnapshot(snapshot: PositionalItem): void {
     itemState.sortAttachments(snapshot.parentId);
     if (currentParentId != snapshot.parentId) {
       const prevParent = itemState.get(currentParentId);
-      if (prevParent != null && "computed_attachments" in prevParent) {
+      if (prevParent != null && isAttachmentsItem(prevParent)) {
         itemState.sortAttachments(currentParentId);
       }
     }
@@ -643,29 +658,69 @@ function buildCleanupCollapsedCompositeOperations(
   store: StoreContextModel,
   finalizeContext: MoveFinalizeContext,
 ): void {
-  const compositeId = finalizeContext.startCompositeItemId;
-  if (compositeId == null) {
-    return;
+  for (const compositeId of finalizeContext.startCompositeItemIds) {
+    buildCleanupCollapsedCompositeOperation(ops, store, compositeId);
   }
+}
 
+function buildCleanupCollapsedCompositeOperation(
+  ops: Array<MovePersistOperation>,
+  store: StoreContextModel,
+  compositeId: string,
+): void {
   const compositeItemMaybe = itemState.get(compositeId);
   if (compositeItemMaybe == null || !isComposite(compositeItemMaybe)) {
     return;
   }
 
   const compositeItem = asCompositeItem(compositeItemMaybe);
-  if (compositeItem.computed_children.length == 0) {
-    panic("buildCleanupCollapsedCompositeOperations: composite has no children.");
-  }
-  if (compositeItem.computed_children.length != 1) {
+  const compositeItemParent = itemState.getAsContainerItem(compositeItem.parentId);
+  if (compositeItemParent == null) {
     return;
   }
-  if (CompositeFns.hasOwnTitle(compositeItem)) {
+
+  if (compositeItem.computed_children.length == 0) {
+    const compositeSnapshot = cloneItemSnapshot(compositeItem);
+    ops.push({
+      apply: async () => {
+        const deletedLocally = itemState.get(compositeItem.id) != null;
+        if (deletedLocally) {
+          itemState.delete(compositeItem.id);
+          requestArrange(store, "mouse-up-cleanup-empty-composite-local");
+        }
+        try {
+          await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
+        } catch (error) {
+          if (deletedLocally && itemState.get(compositeSnapshot.id) == null) {
+            const compositeRestore = asCompositeItem(cloneItemSnapshot(compositeSnapshot));
+            compositeRestore.computed_children = [];
+            itemState.add(compositeRestore);
+          }
+          throw error;
+        }
+      },
+      rollback: async () => {
+        if (itemState.get(compositeSnapshot.id) == null) {
+          const compositeRestore = asCompositeItem(cloneItemSnapshot(compositeSnapshot));
+          compositeRestore.computed_children = [];
+          itemState.add(compositeRestore);
+        }
+        await server.addItem(cloneItemSnapshot(compositeSnapshot), null, store.general.networkStatus).then(() => undefined);
+      },
+    });
+    return;
+  }
+
+  if (CompositeFns.showTitle(compositeItem)) {
+    return;
+  }
+
+  if (compositeItem.computed_children.length != 1) {
     return;
   }
 
   const child = itemState.get(compositeItem.computed_children[0]);
-  if (itemState.getAsContainerItem(compositeItem.parentId) == null || child == null || !isPositionalItem(child)) {
+  if (child == null || !isPositionalItem(child)) {
     return;
   }
 
@@ -680,7 +735,16 @@ function buildCleanupCollapsedCompositeOperations(
       await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
       await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
       asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
-      itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
+      if (child.parentId != compositeItem.parentId || child.relationshipToParent != RelationshipToParent.Child) {
+        itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
+      } else {
+        child.ordering = new Uint8Array(compositeItem.ordering);
+        if (!compositeItemParent.computed_children.includes(child.id)) {
+          compositeItemParent.computed_children.push(child.id);
+        }
+        itemState.sortChildren(compositeItemParent.id);
+      }
+      compositeItem.computed_children = compositeItem.computed_children.filter(childId => childId != child.id);
       itemState.delete(compositeItem.id);
     },
     rollback: async () => {
@@ -2031,16 +2095,25 @@ async function maybeDeleteComposite(store: StoreContextModel) {
   if (MouseActionState.getStartCompositeItem() == null) { return; }
 
   const compositeItem = MouseActionState.getStartCompositeItem()!;
-  if (compositeItem.computed_children.length == 0) { panic("maybeDeleteComposite: composite has no children."); }
+  const compositeItemParent = itemState.getAsContainerItem(compositeItem.parentId);
+  if (compositeItemParent == null) {
+    MouseActionState.setStartCompositeItem(null);
+    return;
+  }
+  if (compositeItem.computed_children.length == 0) {
+    itemState.delete(compositeItem.id);
+    server.deleteItem(compositeItem.id, store.general.networkStatus);
+    MouseActionState.setStartCompositeItem(null);
+    return;
+  }
+  if (CompositeFns.showTitle(compositeItem)) {
+    MouseActionState.setStartCompositeItem(null);
+    return;
+  }
   if (compositeItem.computed_children.length != 1) {
     MouseActionState.setStartCompositeItem(null);
     return;
   }
-  if (CompositeFns.hasOwnTitle(compositeItem)) {
-    MouseActionState.setStartCompositeItem(null);
-    return;
-  }
-  const compositeItemParent = asContainerItem(itemState.get(compositeItem.parentId)!);
   const child = itemState.get(compositeItem.computed_children[0])!;
   if (!isPositionalItem(child)) { panic("maybeDeleteComposite: child is not positional."); }
   child.parentId = compositeItem.parentId;
