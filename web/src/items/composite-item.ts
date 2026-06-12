@@ -22,7 +22,7 @@ import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
-import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
+import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ContainerItem } from './base/container-item';
 import { ItemType, ItemTypeMixin } from './base/item';
@@ -267,10 +267,6 @@ export const CompositeFns = {
         ...CompositeFns.collapseToggleHitboxMaybe(composite, blockSizePx),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
         HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0), { compositeMoveOut: true }),
-        HitboxFns.create(
-          HitboxFlags.Attach,
-          calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, composite.computed_attachments.length),
-        ),
         ...titleHitboxMaybe,
         HitboxFns.create(HitboxFlags.AttachComposite, {
           x: 0,
@@ -304,10 +300,6 @@ export const CompositeFns = {
       viewportBoundsPx: boundsPx,
       hitboxes: !emitHitboxes ? [] : [
         HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(
-          HitboxFlags.Attach,
-          calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, composite.computed_attachments.length),
-        ),
         ...titleHitboxMaybe,
         HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX })
       ],
