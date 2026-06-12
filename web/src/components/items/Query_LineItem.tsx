@@ -74,5 +74,3 @@ export const Query_LineItem: Component<VisualElementProps> = (props: VisualEleme
     </>
   );
 }
-
-export const Search_LineItem = Query_LineItem;

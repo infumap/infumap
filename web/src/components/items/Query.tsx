@@ -842,5 +842,3 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     </div>
   );
 }
-
-export const Search_Desktop = Query_Desktop;
