@@ -28,7 +28,7 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
-import { QueryItem, getQueryRuntime, isQueryChatPage, updateQueryRuntime } from "./query-item";
+import { QueryItem, getQueryRuntime, isQueryChatPage, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -683,6 +683,15 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
   clearQueryChatProgress(queryItem.id);
 }
 
+export function resetQueryChatSession(store: StoreContextModel, queryItem: QueryItem, arrangeReason?: string): void {
+  clearQueryChat(store, queryItem);
+  setQueryMode(store, queryItem, null);
+  setQueryText(store, queryItem, "");
+  if (arrangeReason != null) {
+    requestArrange(store, arrangeReason);
+  }
+}
+
 interface MaterializedChatPlacement {
   parentId: Uid,
   ordering: Uint8Array,
@@ -745,7 +754,7 @@ export async function materializeQueryChat(store: StoreContextModel, queryItem: 
   try {
     await server.addItem(materializedPage, null, store.general.networkStatus);
     await persistItems(store, clonedItems);
-    clearQueryChat(store, queryItem);
+    resetQueryChatSession(store, queryItem);
     store.perItem.setSelectedListPageItem(
       { itemId: materializedPage.parentId, linkIdMaybe: null },
       { itemId: materializedPage.id, linkIdMaybe: null },

@@ -38,6 +38,7 @@ import {
   setQuerySearchLoadedPageCount,
   setQuerySearchResults,
   setQuerySearchSelectedResultIndex,
+  setQueryText,
   updateQueryRuntime,
 } from "./query-item";
 
@@ -81,6 +82,14 @@ export function clearQuerySearch(store: StoreContextModel, queryItem: QueryItem,
   setQuerySearchHasMoreResults(store, queryItem, false);
   setQuerySearchLoadedPageCount(store, queryItem, 0);
   clearQuerySearchSelection(store, queryItem);
+  if (arrangeReason != null) {
+    requestArrange(store, arrangeReason);
+  }
+}
+
+export function resetQuerySearchSession(store: StoreContextModel, queryItem: QueryItem, arrangeReason?: string): void {
+  clearQuerySearch(store, queryItem);
+  setQueryText(store, queryItem, "");
   if (arrangeReason != null) {
     requestArrange(store, arrangeReason);
   }

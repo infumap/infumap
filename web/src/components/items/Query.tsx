@@ -49,7 +49,6 @@ import {
   QUERY_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX,
   QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX,
   calcQueryWorkspaceControlsWidthPx,
-  calcQueryWorkspaceInputWidthPx,
   calcQueryWorkspaceResultsTopPx,
   getQueryMode,
   getQuerySearchArrangeAlgorithm,
@@ -66,6 +65,7 @@ import { ArrangeAlgorithm } from "../../items/page-item";
 import {
   clearQuerySearchSelection,
   loadMoreQuerySearchResults,
+  resetQuerySearchSession,
   runQuerySearch,
   startQueryChat,
 } from "../../items/query";
@@ -74,6 +74,7 @@ import {
   materializeQueryChat,
   queryChatHasContent,
   queryChatTurns,
+  resetQueryChatSession,
   submitQueryChatMessage,
 } from "../../items/chat";
 
@@ -83,10 +84,12 @@ const QUERY_SEARCH_ARRANGE_OPTIONS = [
   { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
   { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
 ] as const;
+const QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
 const QUERY_CHAT_COMPOSER_BOTTOM_PX = 18;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
-const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = 118;
+const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
+const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_PROGRESS_HEIGHT_PX = 24;
 
 
@@ -259,6 +262,41 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
   };
 
+  const resetLocalQuerySessionUi = () => {
+    activeSearchRequestSerial++;
+    setIsLoadingMore(false);
+    setMoreButtonHost(null);
+    setChatText("");
+    setChatComposerHeightPx(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
+    store.overlay.autoFocusSearchInput.set(false);
+    store.overlay.autoFocusChatInput.set(false);
+  };
+
+  const focusNewQueryInput = () => {
+    setForceNonEditing(false);
+    store.history.setFocus(vePath());
+    store.overlay.autoFocusSearchInput.set(true);
+  };
+
+  const discardCurrentSearch = () => {
+    if (isStartingChat()) {
+      return;
+    }
+    exitEditMode();
+    resetLocalQuerySessionUi();
+    resetQuerySearchSession(store, queryItem(), "query-search-discard");
+    focusNewQueryInput();
+  };
+
+  const discardCurrentChat = () => {
+    if (isStartingChat() || isSendingChat() || isMaterializingChat()) {
+      return;
+    }
+    resetLocalQuerySessionUi();
+    resetQueryChatSession(store, queryItem(), "query-chat-discard");
+    focusNewQueryInput();
+  };
+
   const materializeCurrentResults = async (editingElMaybe?: HTMLElement | null) => {
     const title = commitEditingQuery(editingElMaybe);
     const results = getQuerySearchResults(store, queryItem());
@@ -269,6 +307,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
     try {
       await materializeSearchResults(store, queryItem(), title);
+      resetLocalQuerySessionUi();
+      setForceNonEditing(false);
       showTransientMessage("search results materialized", TransientMessageType.Info);
     } catch (_e) {
       showTransientMessage("failed to materialize search results", TransientMessageType.Error);
@@ -300,7 +340,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const sendChatMessage = async () => {
     const value = chatText();
-    if (isSendingChat() || value.trim() == "") {
+    if (isStartingChat() || isSendingChat() || value.trim() == "") {
       focusChatTextareaSoon();
       return;
     }
@@ -322,7 +362,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setIsMaterializingChat(true);
     try {
       const ok = await materializeQueryChat(store, queryItem());
-      if (!ok) {
+      if (ok) {
+        resetLocalQuerySessionUi();
+        setForceNonEditing(false);
+      } else {
         focusChatTextareaSoon();
       }
     } finally {
@@ -518,6 +561,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const wrapperHeightPx = () =>
       chatComposerHeightPx() + (progress() == null ? 0 : QUERY_CHAT_PROGRESS_HEIGHT_PX);
     const transcriptBottomPx = () => wrapperHeightPx() + QUERY_CHAT_COMPOSER_BOTTOM_PX + 24;
+    const chatRequestActive = () => isStartingChat() || isSendingChat();
     const stop = (ev: Event) => {
       ev.stopPropagation();
     };
@@ -592,7 +636,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 rows={1}
                 spellcheck={true}
                 placeholder="Ask"
-                disabled={isSendingChat()}
+                disabled={chatRequestActive()}
                 onInput={(ev) => {
                   const el = ev.currentTarget as HTMLTextAreaElement;
                   setChatText(el.value);
@@ -609,17 +653,29 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               type="button"
               title="Send"
               aria-label="Send"
-              disabled={isSendingChat() || chatText().trim() == ""}
+              disabled={chatRequestActive() || chatText().trim() == ""}
               onClick={() => void sendChatMessage()}>
               <i class="fa fa-arrow-up" />
             </button>
             <button
-              class="shrink-0 cursor-pointer rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+              class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              disabled={isSendingChat() || isMaterializingChat() || !queryChatHasContent(store, queryItem())}
+              title="Create page from chat"
+              aria-label="Create page from chat"
+              disabled={chatRequestActive() || isMaterializingChat() || !queryChatHasContent(store, queryItem())}
               onClick={() => void materializeCurrentChat()}>
-              Materialize
+              <i class="bi-file-earmark-plus" />
+            </button>
+            <button
+              class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+              style={`width: ${QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+              type="button"
+              title="Discard chat"
+              aria-label="Discard chat"
+              disabled={chatRequestActive() || isMaterializingChat()}
+              onClick={discardCurrentChat}>
+              <i class="bi-x-lg" />
             </button>
           </div>
         </div>
@@ -628,8 +684,23 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const renderSearchWorkspace = () => {
-    const controlsWidthPx = calcQueryWorkspaceControlsWidthPx(boundsPx().w);
-    const inputWidthPx = calcQueryWorkspaceInputWidthPx(boundsPx().w);
+    const showDiscardButton = () => hasSubmittedQuery();
+    const controlsWidthPx = () => {
+      if (!showDiscardButton()) {
+        return calcQueryWorkspaceControlsWidthPx(boundsPx().w);
+      }
+      return Math.min(
+        760,
+        Math.max(360, boundsPx().w - QUERY_WORKSPACE_SIDE_INSET_PX * 2),
+      );
+    };
+    const inputWidthPx = () => Math.max(
+      100,
+      controlsWidthPx()
+        - QUERY_WORKSPACE_BUTTON_WIDTH_PX * 2
+        - (showDiscardButton() ? QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX : 0)
+        - QUERY_WORKSPACE_CONTROLS_GAP_PX * (showDiscardButton() ? 3 : 2),
+    );
     const lowerTopPx = calcQueryWorkspaceResultsTopPx();
     const arrangeSelectorTopPx = lowerTopPx - Math.round(QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
     const showMoreButton = () => searchHasMoreResults();
@@ -642,7 +713,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class="flex items-center" style={`gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
         <div
           class="border border-[#999] rounded-xs bg-white overflow-hidden"
-          style={`width: ${inputWidthPx}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          style={`width: ${inputWidthPx()}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
           onMouseDown={queryInputMouseDown}>
           <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
             style="font-size: 16px;">
@@ -692,6 +763,26 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           >
           Chat
         </button>
+        <Show when={showDiscardButton()}>
+          <button
+            class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+            style={`width: ${QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+            type="button"
+            title="Discard search"
+            aria-label="Discard search"
+            disabled={isStartingChat()}
+            onMouseDown={(ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+              discardCurrentSearch();
+            }}
+            onMouseUp={(ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }}>
+            <i class="bi-x-lg" />
+          </button>
+        </Show>
       </div>;
     return (
       <div class="absolute bg-white"
@@ -707,8 +798,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             classList={{ "border-b": isSearchMode(), "border-slate-300": isSearchMode() }}
             style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${isSearchMode() ? lowerTopPx : boundsPx().h}px;`}>
             <div class="absolute"
-              style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx) / 2))}px; ` +
-                `top: ${isSearchMode() ? QUERY_WORKSPACE_TOP_INSET_PX : initialControlsTopPx()}px; width: ${controlsWidthPx}px;`}>
+              style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx()) / 2))}px; ` +
+                `top: ${isSearchMode() ? QUERY_WORKSPACE_TOP_INSET_PX : initialControlsTopPx()}px; width: ${controlsWidthPx()}px;`}>
               {renderQueryControls()}
             </div>
           </div>

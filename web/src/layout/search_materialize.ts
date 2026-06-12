@@ -24,6 +24,7 @@ import {
   getQuerySearchArrangeAlgorithm,
   getQuerySearchResults,
 } from "../items/query-item";
+import { resetQuerySearchSession } from "../items/query";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
@@ -122,6 +123,7 @@ export async function materializeSearchResults(
     for (const link of createdLinks) {
       await server.addItem(link, null, store.general.networkStatus);
     }
+    resetQuerySearchSession(store, queryItem);
     requestArrange(store, "search-materialize-complete");
     return page.id;
   } catch (e) {
