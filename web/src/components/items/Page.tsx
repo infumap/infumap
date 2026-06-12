@@ -49,27 +49,10 @@ import {
   CATALOG_HORIZONTAL_MARGIN_PX,
   CATALOG_VERTICAL_MARGIN_PX,
 } from "../../layout/catalog";
-import { itemPathSegmentsFromItem, resolvedPathTargetItemForItem } from "../../util/item-path";
-import { Item, ItemType } from "../../items/base/item";
-import { asContainerItem, isContainer } from "../../items/base/container-item";
-import { asFileItem, isFile } from "../../items/file-item";
-import { asTextItem, isText } from "../../items/text-item";
-import { asImageItem, isImage } from "../../items/image-item";
-import { calculateChildrenStats, formatBytes, type ContainerChildrenStats } from "../../util/item-metadata";
-import { catalogSearchResultDisplay, type SearchFragmentMatchDisplay } from "../../util/search-result-display";
+import { ItemType } from "../../items/base/item";
+import { catalogPageDisplayContext, type CatalogRowFragmentDisplay } from "../../layout/catalog-display";
 import { documentPageMoveOutBoxPxMaybe } from "./helper";
 import { SELECTED_LIGHT } from "../../style";
-import {
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  QUERY_WORKSPACE_MORE_SECTION_GAP_PX,
-  calcQueryWorkspaceResultsFooterHeightPx,
-  getQuerySearchHasMoreResults,
-  getQuerySearchResults,
-  getQuerySearchSelectedResultIndex,
-  isQuerySearchResultsPage,
-  querySearchResultsFooterHostId,
-} from "../../items/query-item";
 import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
 
 
@@ -123,37 +106,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       .replace(/\s*(?:\.\.\.|…)\s*$/, "")
       .replace(/(?:\s*\.)+$/, "");
     return `${clamped}...`;
-  };
-
-  const catalogSourceItem = (item: Item): Item =>
-    resolvedPathTargetItemForItem(item) ?? item;
-
-  const catalogChildrenStatsMetadataLines = (stats: ContainerChildrenStats): Array<string> => [
-    `Children: ${stats.totalChildren}`,
-    `Images, Text & Files: ${stats.imageFileChildren}`,
-    `Total Size: ${formatBytes(stats.totalBytes)}`,
-  ];
-
-  const catalogMetadataLines = (item: Item): Array<string> => {
-    const targetItem = catalogSourceItem(item);
-    if (isImage(targetItem)) {
-      const imageItem = asImageItem(targetItem);
-      const result = [`Size: ${formatBytes(imageItem.fileSizeBytes || 0)}`];
-      if (imageItem.imageSizePx.w > 0 && imageItem.imageSizePx.h > 0) {
-        result.push(`Image Size: ${imageItem.imageSizePx.w} × ${imageItem.imageSizePx.h}`);
-      }
-      return result;
-    }
-    if (isFile(targetItem)) {
-      return [`Size: ${formatBytes(asFileItem(targetItem).fileSizeBytes || 0)}`];
-    }
-    if (isText(targetItem)) {
-      return [`Size: ${formatBytes(asTextItem(targetItem).fileSizeBytes || 0)}`];
-    }
-    if (isContainer(targetItem)) {
-      return catalogChildrenStatsMetadataLines(calculateChildrenStats(asContainerItem(targetItem)));
-    }
-    return [];
   };
 
   const itemTypeIcon = (itemType: string) => {
@@ -224,8 +176,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         : 0,
 
     gridPageTopPaddingPx: () =>
-      pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid && pageFns.isSearchResultsPage()
-        ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+      pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid && pageFns.catalogResultControlsTopInsetPx() != null
+        ? pageFns.catalogResultControlsTopInsetPx()!
         : pageFns.gridPagePaddingPx(),
 
     gridContentWidthPx: () =>
@@ -457,9 +409,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         }</For>
       </Show>,
 
-    catalogPageTopPaddingPx: () => pageFns.isSearchResultsPage()
-      ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
-      : CATALOG_VERTICAL_MARGIN_PX,
+    catalogDisplayContext: () => catalogPageDisplayContext(store, pageFns.pageItem()),
+
+    catalogResultControlsTopInsetPx: () => pageFns.catalogDisplayContext().resultControlsTopInsetPx(),
+
+    hasCatalogResultContext: () => pageFns.catalogResultControlsTopInsetPx() != null,
+
+    catalogPageTopPaddingPx: () => pageFns.catalogResultControlsTopInsetPx() ?? CATALOG_VERTICAL_MARGIN_PX,
 
     catalogContentLeftPx: () => CATALOG_HORIZONTAL_MARGIN_PX,
 
@@ -478,51 +434,32 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     catalogRowsHeightPx: () => pageFns.catalogRowHeightPx() * (props.visualElement.numRows ?? 0),
 
-    isSearchResultsPage: () => isQuerySearchResultsPage(pageFns.pageItem()),
+    catalogFooterHeightPx: () => pageFns.catalogDisplayContext().footerHeightPx(),
 
-    searchResultsSourceItemId: () =>
-      pageFns.isSearchResultsPage() ? pageFns.pageItem().parentId : null,
+    catalogFooterTopPx: () =>
+      Math.max(0, pageFns.childAreaBoundsPx().h - pageFns.catalogFooterHeightPx()),
 
-    searchResultsFooterHeightPx: () => {
-      const searchSourceItemId = pageFns.searchResultsSourceItemId();
-      if (!searchSourceItemId) {
-        return 0;
-      }
-      return calcQueryWorkspaceResultsFooterHeightPx(getQuerySearchHasMoreResults(store, searchSourceItemId));
-    },
+    catalogFooterHostId: () => pageFns.catalogDisplayContext().footerHostId(),
 
-    searchResultsFooterTopPx: () =>
-      Math.max(0, pageFns.childAreaBoundsPx().h - pageFns.searchResultsFooterHeightPx()),
-
-    searchResultsFooterHostId: () => {
-      const searchSourceItemId = pageFns.searchResultsSourceItemId();
-      return searchSourceItemId ? querySearchResultsFooterHostId(searchSourceItemId) : "";
-    },
-
-    renderSearchResultsFooterHostMaybe: () =>
-      <Show when={pageFns.isSearchResultsPage() && pageFns.searchResultsFooterHeightPx() > 0}>
+    renderCatalogFooterHostMaybe: () =>
+      <Show when={pageFns.catalogFooterHeightPx() > 0}>
         <div
-          id={pageFns.searchResultsFooterHostId()}
+          id={pageFns.catalogFooterHostId()}
           class="absolute flex justify-center"
-          style={`left: 0px; top: ${pageFns.searchResultsFooterTopPx()}px; ` +
-            `width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.searchResultsFooterHeightPx()}px; ` +
-            `padding-top: ${QUERY_WORKSPACE_MORE_SECTION_GAP_PX}px;`} />
+          style={`left: 0px; top: ${pageFns.catalogFooterTopPx()}px; ` +
+            `width: ${pageFns.childAreaBoundsPx().w}px; height: ${pageFns.catalogFooterHeightPx()}px; ` +
+            `padding-top: ${pageFns.catalogDisplayContext().footerGapPx()}px;`} />
       </Show>,
 
-    renderSearchSelectionMaybe: () => {
-      if (!pageFns.isSearchResultsPage()) {
+    renderCatalogResultSelectionMaybe: () => {
+      if (!pageFns.hasCatalogResultContext()) {
         return <></>;
       }
 
-      const searchSourceItemId = pageFns.searchResultsSourceItemId();
-      if (!searchSourceItemId) {
-        return <></>;
-      }
-
-      const selectedSearchResultIndex = () => getQuerySearchSelectedResultIndex(store, searchSourceItemId);
-      const searchSelectionStyle = () => {
+      const selectedResultIndex = () => pageFns.catalogDisplayContext().selectedRowIndex();
+      const resultSelectionStyle = () => {
         const numCols = Math.max(1, pageFns.pageItem().gridNumberOfColumns);
-        const selectedIndex = selectedSearchResultIndex();
+        const selectedIndex = selectedResultIndex();
         const row = Math.floor(selectedIndex / numCols);
         const col = selectedIndex % numCols;
         return `left: ${pageFns.gridPagePaddingPx() + col * props.visualElement.cellSizePx!.w}px; ` +
@@ -534,20 +471,20 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return (
         <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid &&
           props.visualElement.cellSizePx &&
-          selectedSearchResultIndex() >= 0}>
+          selectedResultIndex() >= 0}>
           <div class="absolute pointer-events-none"
-            style={searchSelectionStyle()} />
+            style={resultSelectionStyle()} />
         </Show>
       );
     },
 
-    renderSearchHoverMaybe: () => {
-      if (!pageFns.isSearchResultsPage()) {
+    renderCatalogResultHoverMaybe: () => {
+      if (!pageFns.hasCatalogResultContext()) {
         return <></>;
       }
 
       const hoveredIndex = () => store.perVe.getMoveOverIndex(pageFns.vePath());
-      const searchHoverStyle = () => {
+      const resultHoverStyle = () => {
         const numCols = Math.max(1, pageFns.pageItem().gridNumberOfColumns);
         const index = hoveredIndex();
         const row = Math.floor(index / numCols);
@@ -564,7 +501,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           hoveredIndex() >= 0 &&
           !store.anItemIsMoving.get()}>
           <div class="absolute pointer-events-none"
-            style={searchHoverStyle()} />
+            style={resultHoverStyle()} />
         </Show>
       );
     },
@@ -573,50 +510,15 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVeSignal => {
           const childVe = () => childVeSignal.get();
-          const searchSourceItemId = () => pageFns.searchResultsSourceItemId();
-          const selectedSearchRow = () =>
-            searchSourceItemId() ? getQuerySearchSelectedResultIndex(store, searchSourceItemId()!) : -1;
           const isMouseOverRow = () =>
             store.perVe.getMoveOverRowNumber(pageFns.vePath()) == rowIndex() &&
             !store.anItemIsMoving.get();
-          const isSelectedSearchRow = () => selectedSearchRow() == rowIndex();
+          const isSelectedResultRow = () => pageFns.catalogDisplayContext().selectedRowIndex() == rowIndex();
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
-          const searchResultForRow = () => {
-            const searchItemId = searchSourceItemId();
-            if (!searchItemId) {
-              return null;
-            }
-            const results = getQuerySearchResults(store, searchItemId);
-            if (!results) {
-              return null;
-            }
-
-            let visibleRow = -1;
-            for (const result of results) {
-              if (!result.path[result.path.length - 1]?.id) {
-                continue;
-              }
-              visibleRow += 1;
-              if (visibleRow == rowIndex()) {
-                return result;
-              }
-            }
-            return null;
-          };
-          const searchResultDisplay = () => {
-            const result = searchResultForRow();
-            return result ? catalogSearchResultDisplay(result) : null;
-          };
-          const pathSegments = () => searchResultDisplay()?.pathSegments ?? itemPathSegmentsFromItem(catalogItem());
-          const metadataLines = () => {
-            const display = searchResultDisplay();
-            const lines = display?.stats
-              ? catalogChildrenStatsMetadataLines(display.stats)
-              : catalogMetadataLines(catalogItem());
-            const overallScoreLabel = display?.overallScoreLabel;
-            return overallScoreLabel ? [...lines, overallScoreLabel] : lines;
-          };
-          const fragmentMatches = () => searchResultDisplay()?.fragmentMatches ?? [];
+          const rowDisplay = () => pageFns.catalogDisplayContext().rowDisplay(rowIndex(), catalogItem());
+          const pathSegments = () => rowDisplay().pathSegments;
+          const metadataLines = () => rowDisplay().metadataLines;
+          const fragmentMatches = () => rowDisplay().fragmentMatches;
           const visibleFragmentMatches = () => {
             const matches = fragmentMatches();
             if (matches.length == 0) {
@@ -639,7 +541,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             }
             return matches.slice(0, visibleCount);
           };
-          const inlineSnippetText = (match: SearchFragmentMatchDisplay) => {
+          const inlineSnippetText = (match: CatalogRowFragmentDisplay) => {
             const averageCharWidthPx =
               CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX * CATALOG_SEARCH_SNIPPET_AVERAGE_CHAR_WIDTH_EM;
             const pageLabelWidthPx = match.pageLabel
@@ -668,7 +570,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const widthPx = () => Math.max(0, pageFns.catalogContentLeftPx() + pageFns.catalogContentWidthPx() - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
           return (
             <>
-              <Show when={isSelectedSearchRow()}>
+              <Show when={isSelectedResultRow()}>
                 <div class="absolute pointer-events-none"
                   style={`left: ${pageFns.catalogContentLeftPx()}px; top: ${topPx()}px; width: ${pageFns.catalogContentWidthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                     `background-color: ${SELECTED_LIGHT};`} />

@@ -436,13 +436,13 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} />
         </Show>
-        {pageFns().renderSearchSelectionMaybe()}
+        {pageFns().renderCatalogResultSelectionMaybe()}
         <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
         }</For>
         {pageFns().renderGridLinesMaybe()}
-        {pageFns().renderSearchHoverMaybe()}
+        {pageFns().renderCatalogResultHoverMaybe()}
         {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>

@@ -810,7 +810,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
-        {pageFns().renderSearchSelectionMaybe()}
+        {pageFns().renderCatalogResultSelectionMaybe()}
         <VisualElement_DesktopShadowLayer visualElementSignals={pageChildren()} />
         <For each={pageChildren()}>{(childVes, index) => {
           const gapAfterBoundsPx = () => linearSelectionGapAfterBoundsPx(
@@ -828,7 +828,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           );
         }}</For>
         {pageFns().renderGridLinesMaybe()}
-        {pageFns().renderSearchHoverMaybe()}
+        {pageFns().renderCatalogResultHoverMaybe()}
         {pageFns().renderCatalogMetadataMaybe()}
         {pageFns().renderMoveOverAnnotationMaybe()}
       </div>

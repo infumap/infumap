@@ -109,7 +109,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
       const maxScrollYPx = Math.max(0, pageFns().childAreaBoundsPx().h - props.visualElement.boundsPx.h);
       const shouldPreserveAbsoluteScrollTop =
-        pageFns().isSearchResultsPage() &&
+        pageFns().hasCatalogResultContext() &&
         previousChildAreaHeightPx != null &&
         pageFns().childAreaBoundsPx().h > previousChildAreaHeightPx;
 
@@ -306,14 +306,14 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           style={`left: ${0}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
-          {pageFns().renderSearchSelectionMaybe()}
+          {pageFns().renderCatalogResultSelectionMaybe()}
           <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
             <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
           }</For>
-          {pageFns().renderSearchResultsFooterHostMaybe()}
+          {pageFns().renderCatalogFooterHostMaybe()}
           {pageFns().renderGridLinesMaybe()}
-          {pageFns().renderSearchHoverMaybe()}
+          {pageFns().renderCatalogResultHoverMaybe()}
           {pageFns().renderCatalogMetadataMaybe()}
           {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
