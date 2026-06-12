@@ -55,9 +55,8 @@ import { asContainerItem, isContainer } from "../../items/base/container-item";
 import { asFileItem, isFile } from "../../items/file-item";
 import { asTextItem, isText } from "../../items/text-item";
 import { asImageItem, isImage } from "../../items/image-item";
-import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { calculateChildrenStats, formatBytes, type ContainerChildrenStats } from "../../util/item-metadata";
-import { catalogSearchResultDisplay, catalogFragmentMatchDisplayFromMatch, type CatalogFragmentMatchDisplay } from "../../util/search-result-display";
+import { catalogSearchResultDisplay, type SearchFragmentMatchDisplay } from "../../util/search-result-display";
 import { documentPageMoveOutBoxPxMaybe } from "./helper";
 import { SELECTED_LIGHT } from "../../style";
 import {
@@ -155,19 +154,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return catalogChildrenStatsMetadataLines(calculateChildrenStats(asContainerItem(targetItem)));
     }
     return [];
-  };
-
-  const catalogFragmentMatches = (item: Item): Array<CatalogFragmentMatchDisplay> => {
-    if (!isLink(item)) {
-      return [];
-    }
-    const linkItem = asLinkItem(item);
-    const match = linkItem.catalogFragmentMatch;
-    if (!match) {
-      return [];
-    }
-    const display = catalogFragmentMatchDisplayFromMatch(LinkFns.getLinkToId(linkItem), match);
-    return display ? [display] : [];
   };
 
   const itemTypeIcon = (itemType: string) => {
@@ -630,7 +616,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             const overallScoreLabel = display?.overallScoreLabel;
             return overallScoreLabel ? [...lines, overallScoreLabel] : lines;
           };
-          const fragmentMatches = () => searchResultDisplay()?.fragmentMatches ?? catalogFragmentMatches(catalogItem());
+          const fragmentMatches = () => searchResultDisplay()?.fragmentMatches ?? [];
           const visibleFragmentMatches = () => {
             const matches = fragmentMatches();
             if (matches.length == 0) {
@@ -653,7 +639,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             }
             return matches.slice(0, visibleCount);
           };
-          const inlineSnippetText = (match: CatalogFragmentMatchDisplay) => {
+          const inlineSnippetText = (match: SearchFragmentMatchDisplay) => {
             const averageCharWidthPx =
               CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX * CATALOG_SEARCH_SNIPPET_AVERAGE_CHAR_WIDTH_EM;
             const pageLabelWidthPx = match.pageLabel

@@ -22,7 +22,7 @@ import { EMPTY_UID, Uid } from "./uid";
 
 const ITEM_TITLE_SOURCE_KIND = "item_title";
 
-export interface CatalogFragmentMatchDisplay {
+export interface SearchFragmentMatchDisplay {
   text: string,
   href: string | null,
   pageLabel: string | null,
@@ -31,8 +31,8 @@ export interface CatalogFragmentMatchDisplay {
 
 export interface CatalogSearchResultDisplay {
   pathSegments: Array<ItemPathSegment>,
-  fragmentMatch: CatalogFragmentMatchDisplay | null,
-  fragmentMatches: Array<CatalogFragmentMatchDisplay>,
+  fragmentMatch: SearchFragmentMatchDisplay | null,
+  fragmentMatches: Array<SearchFragmentMatchDisplay>,
   overallScoreLabel: string | null,
   stats: SearchResultStats | null,
 }
@@ -68,7 +68,7 @@ export function fragmentMatchPageLabel(pageStart?: number, pageEnd?: number): st
   return pageStart == pageEnd ? `Page ${pageStart}` : `Pages ${pageStart}-${pageEnd}`;
 }
 
-export function formatCatalogFragmentMatchText(_sourceKind: string, text: string): string {
+export function formatSearchFragmentMatchText(_sourceKind: string, text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
@@ -111,15 +111,15 @@ function appendTruncationEllipsis(text: string): string {
   return `${text.replace(/(?:\s*\.)+$/, "")}...`;
 }
 
-export function catalogFragmentMatchDisplayFromMatch(
+export function searchFragmentMatchDisplayFromMatch(
   targetId: Uid | null | undefined,
   match: SearchFragmentMatch | null | undefined,
-): CatalogFragmentMatchDisplay | null {
+): SearchFragmentMatchDisplay | null {
   if (!targetId || targetId == EMPTY_UID || !match) {
     return null;
   }
 
-  const formattedText = formatCatalogFragmentMatchText(match.sourceKind, match.text);
+  const formattedText = formatSearchFragmentMatchText(match.sourceKind, match.text);
   if (formattedText.trim() == "") {
     return null;
   }
@@ -138,8 +138,8 @@ export function catalogSearchResultDisplay(result: SearchResult): CatalogSearchR
     result.fragmentMatch,
     ...(result.additionalFragmentMatches ?? []),
   ]
-    .map(match => catalogFragmentMatchDisplayFromMatch(targetId, match))
-    .filter((match): match is CatalogFragmentMatchDisplay => match != null);
+    .map(match => searchFragmentMatchDisplayFromMatch(targetId, match))
+    .filter((match): match is SearchFragmentMatchDisplay => match != null);
 
   return {
     pathSegments: searchResultPathSegments(result),

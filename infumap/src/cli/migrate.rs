@@ -244,6 +244,7 @@ fn migrate_item_log(
           }
           36 => crate::storage::db::item_db::migrate_record_v36_to_v37(&kvs)?,
           37 => crate::storage::db::item_db::migrate_record_v37_to_v38(&kvs)?,
+          38 => crate::storage::db::item_db::migrate_record_v38_to_v39(&kvs)?,
           _ => {
             return Err(format!("Unexpected item log version: {}.", from_version).into());
           }

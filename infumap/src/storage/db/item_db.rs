@@ -41,7 +41,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 38;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 39;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -2411,9 +2411,10 @@ pub fn migrate_records_v35_to_v36(
   Ok((updated_descriptor.clone(), migrated_records))
 }
 
-fn remove_obsolete_query_path_fields(kvs: &mut Map<String, Value>) {
+fn remove_obsolete_query_fields(kvs: &mut Map<String, Value>) {
   kvs.remove("catalogPathOverride");
   kvs.remove("searchResultPathSnapshot");
+  kvs.remove("catalogFragmentMatch");
 }
 
 pub fn migrate_record_v36_to_v37(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
@@ -2427,13 +2428,13 @@ pub fn migrate_record_v36_to_v37(kvs: &Map<String, Value>) -> InfuResult<Map<Str
       if item_type == "search" {
         result.insert(String::from("itemType"), Value::String(String::from("query")));
       }
-      remove_obsolete_query_path_fields(&mut result);
+      remove_obsolete_query_fields(&mut result);
       Ok(result)
     }
 
     "update" => {
       let mut result = kvs.clone();
-      remove_obsolete_query_path_fields(&mut result);
+      remove_obsolete_query_fields(&mut result);
       Ok(result)
     }
 
@@ -2450,7 +2451,24 @@ pub fn migrate_record_v37_to_v38(kvs: &Map<String, Value>) -> InfuResult<Map<Str
 
     "entry" | "update" => {
       let mut result = kvs.clone();
-      remove_obsolete_query_path_fields(&mut result);
+      remove_obsolete_query_fields(&mut result);
+      Ok(result)
+    }
+
+    "delete" | "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
+pub fn migrate_record_v38_to_v39(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 38),
+
+    "entry" | "update" => {
+      let mut result = kvs.clone();
+      remove_obsolete_query_fields(&mut result);
       Ok(result)
     }
 

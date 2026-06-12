@@ -73,7 +73,6 @@ function makeMaterializedLink(
     newOrderingAtEnd(childOrderings),
   );
   LinkFns.syncSizeFromLinkedItem(link);
-  link.catalogFragmentMatch = result.fragmentMatch ?? null;
   return link;
 }
 

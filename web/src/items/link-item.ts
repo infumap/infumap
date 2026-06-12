@@ -45,26 +45,12 @@ export interface LinkItem extends LinkMeasurable, Item, AttachmentsMixin {
   overrideTitle?: string | null,
   linkRequiresRemoteLogin?: string | null,
   aspectOverride?: number | null,
-  catalogFragmentMatch?: LinkCatalogFragmentMatch | null,
 }
 
 export interface LinkMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin {
   linkTo: string,
   linkToResolvedId: Uid | null,
 }
-
-export interface LinkCatalogFragmentMatch {
-  fragmentOrdinal: number,
-  sourceKind: string,
-  semanticDistance?: number,
-  lexicalScore?: number,
-  score?: number,
-  text: string,
-  textTruncated: boolean,
-  pageStart?: number,
-  pageEnd?: number,
-}
-
 
 export const LinkFns = {
   createFromItem: (item: Item, parentId: Uid, relationshipToParent: string, ordering: Uint8Array): LinkItem => {
@@ -113,7 +99,6 @@ export const LinkFns = {
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
-      catalogFragmentMatch: null,
     };
   },
 
@@ -160,7 +145,6 @@ export const LinkFns = {
       overrideTitle: null,
       linkRequiresRemoteLogin: null,
       aspectOverride: null,
-      catalogFragmentMatch: o.catalogFragmentMatch ?? null,
     });
   },
 
@@ -182,7 +166,6 @@ export const LinkFns = {
       spatialHeightGr: l.spatialHeightGr,
 
       linkTo: l.linkTo,
-      catalogFragmentMatch: l.catalogFragmentMatch ?? null,
     });
   },
 
