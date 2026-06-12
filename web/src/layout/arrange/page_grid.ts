@@ -23,13 +23,6 @@ import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
-import {
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  calcQueryWorkspaceResultsFooterHeightPx,
-  getQuerySearchHasMoreResults,
-  isQuerySearchResultsPage,
-} from "../../items/query-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -38,6 +31,7 @@ import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
 import { calcJustifiedPagePaddingPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath } from "./popup";
@@ -71,10 +65,8 @@ export function arrange_grid_page(
 
   const pageItem = asPageItem(displayItem_pageWithChildren);
   const numCols = pageItem.gridNumberOfColumns;
-  const isSearchResultsGridPage = isQuerySearchResultsPage(displayItem_pageWithChildren);
-  const searchResultsFooterHeightPx = isSearchResultsGridPage
-    ? calcQueryWorkspaceResultsFooterHeightPx(getQuerySearchHasMoreResults(store, displayItem_pageWithChildren.parentId))
-    : 0;
+  const hasCatalogResults = hasCatalogResultContext(displayItem_pageWithChildren);
+  const catalogFooterHeightPx = catalogResultFooterHeightPx(store, displayItem_pageWithChildren);
 
   // if an item is moving out of or into a grid page, then ensure the height of the page doesn't
   // change until after the move is complete to avoid a very disruptive jump in y scroll px.
@@ -89,14 +81,12 @@ export function arrange_grid_page(
   const movingAdj = movingItemInThisPage ? 1 : 0;
   const numRows = Math.ceil((pageItem.computed_children.length - movingAdj + nItemAdj) / numCols);
   const pageSidePaddingPx = calcJustifiedPagePaddingPx(geometry.boundsPx.w, pageItem.justifiedRowAspect);
-  const pageTopPaddingPx = isSearchResultsGridPage
-    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
-    : pageSidePaddingPx;
+  const pageTopPaddingPx = catalogResultControlsTopInsetPx(displayItem_pageWithChildren) ?? pageSidePaddingPx;
   const gridContentWidthPx = Math.max(0, geometry.boundsPx.w - pageSidePaddingPx * 2.0);
   const cellWPx = gridContentWidthPx / numCols;
   const cellHPx = cellWPx * (1.0 / pageItem.gridCellAspect);
   const marginPx = cellWPx * 0.01;
-  const pageHeightPx = pageTopPaddingPx + numRows * cellHPx + pageSidePaddingPx + searchResultsFooterHeightPx;
+  const pageHeightPx = pageTopPaddingPx + numRows * cellHPx + pageSidePaddingPx + catalogFooterHeightPx;
   const childAreaBoundsPx = (() => {
     const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
     result.h = pageHeightPx;
@@ -177,7 +167,7 @@ export function arrange_grid_page(
     cellGeometry.col = col;
     const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
     const cellIndex = row * numCols + col;
-    if (isSearchResultsGridPage) {
+    if (hasCatalogResults) {
       const hitboxMeta = {
         focusOnly: true,
         allowOutsideBounds: true,

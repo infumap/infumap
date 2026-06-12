@@ -146,28 +146,44 @@ function queryResultsSourceItemId(pageItem: PageItem): Uid | null {
   return isQuerySearchResultsPage(pageItem) ? pageItem.parentId : null;
 }
 
+export function hasCatalogResultContext(pageItem: PageItem): boolean {
+  return queryResultsSourceItemId(pageItem) != null;
+}
+
+export function catalogResultControlsTopInsetPx(pageItem: PageItem): number | null {
+  return hasCatalogResultContext(pageItem)
+    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
+    : null;
+}
+
+export function catalogResultFooterGapPx(): number {
+  return QUERY_WORKSPACE_MORE_SECTION_GAP_PX;
+}
+
+export function catalogResultFooterHeightPx(store: StoreContextModel, pageItem: PageItem): number {
+  const queryItemId = queryResultsSourceItemId(pageItem);
+  return queryItemId == null ? 0 : calcQueryWorkspaceResultsFooterHeightPx(getQuerySearchHasMoreResults(store, queryItemId));
+}
+
+export function catalogResultFooterHostId(pageItem: PageItem): string {
+  const queryItemId = queryResultsSourceItemId(pageItem);
+  return queryItemId == null ? "" : querySearchResultsFooterHostId(queryItemId);
+}
+
+export function catalogResultSelectedRowIndex(store: StoreContextModel, pageItem: PageItem): number {
+  const queryItemId = queryResultsSourceItemId(pageItem);
+  return queryItemId == null ? -1 : getQuerySearchSelectedResultIndex(store, queryItemId);
+}
+
 export function catalogPageDisplayContext(store: StoreContextModel, pageItem: PageItem): CatalogPageDisplayContext {
-  const sourceQueryItemId = () => queryResultsSourceItemId(pageItem);
   return {
-    resultControlsTopInsetPx: () =>
-      sourceQueryItemId() == null
-        ? null
-        : QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-    footerGapPx: () => QUERY_WORKSPACE_MORE_SECTION_GAP_PX,
-    footerHeightPx: () => {
-      const queryItemId = sourceQueryItemId();
-      return queryItemId == null ? 0 : calcQueryWorkspaceResultsFooterHeightPx(getQuerySearchHasMoreResults(store, queryItemId));
-    },
-    footerHostId: () => {
-      const queryItemId = sourceQueryItemId();
-      return queryItemId == null ? "" : querySearchResultsFooterHostId(queryItemId);
-    },
-    selectedRowIndex: () => {
-      const queryItemId = sourceQueryItemId();
-      return queryItemId == null ? -1 : getQuerySearchSelectedResultIndex(store, queryItemId);
-    },
+    resultControlsTopInsetPx: () => catalogResultControlsTopInsetPx(pageItem),
+    footerGapPx: () => catalogResultFooterGapPx(),
+    footerHeightPx: () => catalogResultFooterHeightPx(store, pageItem),
+    footerHostId: () => catalogResultFooterHostId(pageItem),
+    selectedRowIndex: () => catalogResultSelectedRowIndex(store, pageItem),
     rowDisplay: (rowIndex: number, item: Item) => {
-      const queryItemId = sourceQueryItemId();
+      const queryItemId = queryResultsSourceItemId(pageItem);
       return queryItemId == null
         ? catalogItemRowDisplay(item)
         : queryResultRowDisplay(store, queryItemId, rowIndex, item);

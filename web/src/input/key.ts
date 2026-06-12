@@ -25,6 +25,7 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
+import { catalogResultControlsTopInsetPx } from "../layout/catalog-display";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { navigateToContainingPageOfItem, navigateToSearches, switchToPage } from "../layout/navigation";
 import { isEmptyVeid, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot, type ListPageRowBand, type VisualElementPath } from "../layout/visual-element";
@@ -54,12 +55,9 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { getVePropertiesForItem } from "../layout/arrange/util";
 import { isPlaceholder } from "../items/placeholder-item";
 import {
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
   getQuerySearchFocusedResultIndex,
   getQuerySearchResults,
   getQuerySearchSelectedResultIndex,
-  isQuerySearchResultsPage,
   isQueryItem,
   setQuerySearchFocusedResultIndex,
   setQuerySearchSelectedResultIndex,
@@ -250,9 +248,8 @@ function scrollSearchResultIndexIntoView(store: StoreContextModel, workspace: Ac
   const currentScrollPx = currentProp * maxScrollPx;
   const rowIndex = Math.floor(resultIndex / getSearchWorkspaceColumnCount(workspace));
   const resultsPage = asPageItem(resultsPageVe.displayItem);
-  const pageTopPaddingPx = isQuerySearchResultsPage(resultsPage)
-    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
-    : calcJustifiedPagePaddingPx(resultsPageVe.childAreaBoundsPx.w, resultsPage.justifiedRowAspect);
+  const pageTopPaddingPx = catalogResultControlsTopInsetPx(resultsPage) ??
+    calcJustifiedPagePaddingPx(resultsPageVe.childAreaBoundsPx.w, resultsPage.justifiedRowAspect);
   const rowTopPx = pageTopPaddingPx + rowIndex * resultsPageVe.cellSizePx.h;
   const rowBottomPx = rowTopPx + resultsPageVe.cellSizePx.h;
   const viewportTopPx = currentScrollPx;

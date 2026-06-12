@@ -22,13 +22,6 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
-import {
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  calcQueryWorkspaceResultsFooterHeightPx,
-  getQuerySearchHasMoreResults,
-  isQuerySearchResultsPage,
-} from "../../items/query-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -40,6 +33,7 @@ import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { CATALOG_HORIZONTAL_MARGIN_PX, CATALOG_VERTICAL_MARGIN_PX, calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx } from "../catalog";
+import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
 import { arrangeCellPopupPath } from "./popup";
 import { VisualElementSignal } from "../../util/signals";
 
@@ -69,16 +63,12 @@ export function arrange_catalog_page(
   const previewColumnWidthPx = calcCatalogPreviewColumnWidthPx(geometry.boundsPx.w);
   const rowHeightPx = calcCatalogRowHeightPx(previewColumnWidthPx, displayItem_pageWithChildren.gridCellAspect);
   const marginPx = Math.max(1, Math.round(previewColumnWidthPx * 0.01));
-  const isSearchResultsCatalogPage = isQuerySearchResultsPage(displayItem_pageWithChildren);
-  const pageTopPaddingPx = isSearchResultsCatalogPage
-    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
-    : CATALOG_VERTICAL_MARGIN_PX;
-  const searchResultsFooterHeightPx = isSearchResultsCatalogPage
-    ? calcQueryWorkspaceResultsFooterHeightPx(getQuerySearchHasMoreResults(store, displayItem_pageWithChildren.parentId))
-    : 0;
+  const hasCatalogResults = hasCatalogResultContext(displayItem_pageWithChildren);
+  const pageTopPaddingPx = catalogResultControlsTopInsetPx(displayItem_pageWithChildren) ?? CATALOG_VERTICAL_MARGIN_PX;
+  const catalogFooterHeightPx = catalogResultFooterHeightPx(store, displayItem_pageWithChildren);
   const movingAdj = movingItemInThisPage ? 1 : 0;
   const numRows = Math.max(displayItem_pageWithChildren.computed_children.length - movingAdj, 0);
-  const pageHeightPx = pageTopPaddingPx + numRows * rowHeightPx + CATALOG_VERTICAL_MARGIN_PX + searchResultsFooterHeightPx;
+  const pageHeightPx = pageTopPaddingPx + numRows * rowHeightPx + CATALOG_VERTICAL_MARGIN_PX + catalogFooterHeightPx;
   const childAreaBoundsPx = (() => {
     const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
     result.h = pageHeightPx;
@@ -147,7 +137,7 @@ export function arrange_catalog_page(
     const childGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     childGeometry.row = idx - 1;
     childGeometry.col = 0;
-    if (isSearchResultsCatalogPage) {
+    if (hasCatalogResults) {
       childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
         x: -childGeometry.boundsPx.x,
         y: pageTopPaddingPx + childGeometry.row * rowHeightPx - childGeometry.boundsPx.y,
@@ -165,7 +155,7 @@ export function arrange_catalog_page(
     });
   }
 
-  if (isSearchResultsCatalogPage) {
+  if (hasCatalogResults) {
     addContiguousStackedGapHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
     addContiguousStackedRowMarginHitboxes(childGeometries.map(entry => entry.geometry), childAreaBoundsPx.w);
   }
@@ -178,8 +168,8 @@ export function arrange_catalog_page(
       hitbox.meta = {
         ...(hitbox.meta ?? {}),
         catalogRowNumber: child.geometry.row,
-        ...(isSearchResultsCatalogPage && targetItemId && isRowHitbox ? { openContainingPageOfItemId: targetItemId } : {}),
-        ...(isSearchResultsCatalogPage && targetItemId && !isRowHitbox ? { openActualItem: true } : {}),
+        ...(hasCatalogResults && targetItemId && isRowHitbox ? { openContainingPageOfItemId: targetItemId } : {}),
+        ...(hasCatalogResults && targetItemId && !isRowHitbox ? { openActualItem: true } : {}),
       };
     }
   }

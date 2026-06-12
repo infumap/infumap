@@ -22,11 +22,6 @@ import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/ba
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
-import {
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX,
-  QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX,
-  isQuerySearchResultsPage,
-} from "../items/query-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
@@ -41,6 +36,7 @@ import { isText } from "../items/text-item";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
 import { arrangeNow } from "../layout/arrange";
+import { catalogResultControlsTopInsetPx, hasCatalogResultContext } from "../layout/catalog-display";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
 import { PageFlags } from "../items/base/flags-item";
@@ -272,16 +268,16 @@ function isCatalogPageVe(ve: VisualElement): boolean {
   return isPage(ve.displayItem) && asPageItem(ve.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Catalog;
 }
 
-function isSearchResultsCatalogPageVe(ve: VisualElement): boolean {
-  return isCatalogPageVe(ve) && isQuerySearchResultsPage(ve.displayItem);
+function isCatalogResultPageVe(ve: VisualElement): boolean {
+  return isCatalogPageVe(ve) && hasCatalogResultContext(asPageItem(ve.displayItem));
 }
 
-function isSearchResultsGridPageVe(ve: VisualElement): boolean {
+function isGridResultPageVe(ve: VisualElement): boolean {
   if (!isPage(ve.displayItem)) {
     return false;
   }
   const pageItem = asPageItem(ve.displayItem);
-  return pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid && isQuerySearchResultsPage(pageItem);
+  return pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid && hasCatalogResultContext(pageItem);
 }
 
 function isCatalogChildPageVe(ve: VisualElement | null): boolean {
@@ -320,7 +316,7 @@ function resolveCatalogPageVe(
   rowOwner: { pageVe: VisualElement, rowNumber: number } | null,
 ): VisualElement | null {
   return rowOwner?.pageVe ??
-    findAncestorVeAcrossCandidates(hitInfo, isSearchResultsCatalogPageVe) ??
+    findAncestorVeAcrossCandidates(hitInfo, isCatalogResultPageVe) ??
     findAncestorVeAcrossCandidates(hitInfo, isCatalogPageVe);
 }
 
@@ -340,9 +336,7 @@ function catalogRowNumberFromBounds(
   const localY = desktopPosPx.y - catalogViewportBoundsPx.y + scrollYPx;
   const rowHeightPx = catalogPageVe.cellSizePx?.h ?? 0;
   const numRows = catalogPageVe.numRows ?? 0;
-  const rowsTopPx = isQuerySearchResultsPage(catalogPageVe.displayItem)
-    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
-    : CATALOG_VERTICAL_MARGIN_PX;
+  const rowsTopPx = catalogResultControlsTopInsetPx(asPageItem(catalogPageVe.displayItem)) ?? CATALOG_VERTICAL_MARGIN_PX;
   const rowsBottomPx = rowsTopPx + numRows * rowHeightPx;
   if (rowHeightPx <= 0 || localY < rowsTopPx || localY >= rowsBottomPx) {
     return -1;
@@ -374,7 +368,7 @@ function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, 
     return { pagePath: null, rowNumber: -1 };
   }
 
-  if (!isSearchResultsCatalogPageVe(catalogPageVe)) {
+  if (!isCatalogResultPageVe(catalogPageVe)) {
     return { pagePath: null, rowNumber: -1 };
   }
 
@@ -393,7 +387,7 @@ function currentCatalogRowHover(store: StoreContextModel, desktopPosPx: Vector, 
   };
 }
 
-function searchGridCellIndexFromBounds(
+function gridResultCellIndexFromBounds(
   store: StoreContextModel,
   desktopPosPx: Vector,
   gridPageVe: VisualElement,
@@ -408,9 +402,7 @@ function searchGridCellIndexFromBounds(
   const scrollYPx = Math.max(0, gridPageVe.childAreaBoundsPx.h - gridPageVe.viewportBoundsPx.h) *
     store.perItem.getPageScrollYProp(scrollVeid);
   const pageSidePaddingPx = calcJustifiedPagePaddingPx(gridPageVe.childAreaBoundsPx.w, pageItem.justifiedRowAspect);
-  const pageTopPaddingPx = isQuerySearchResultsPage(gridPageVe.displayItem)
-    ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
-    : pageSidePaddingPx;
+  const pageTopPaddingPx = catalogResultControlsTopInsetPx(asPageItem(gridPageVe.displayItem)) ?? pageSidePaddingPx;
   const localX = desktopPosPx.x - gridViewportBoundsPx.x - pageSidePaddingPx;
   const localY = desktopPosPx.y - gridViewportBoundsPx.y + scrollYPx - pageTopPaddingPx;
   const cellW = gridPageVe.cellSizePx.w;
@@ -446,7 +438,7 @@ function directChildOfPage(overVe: VisualElement | null, pageVe: VisualElement):
 
 function currentSearchGridCellHover(store: StoreContextModel, desktopPosPx: Vector, hitInfo: ReturnType<typeof HitInfoFns.hit>): { pagePath: string | null, resultIndex: number } {
   const overVe = hitInfo.overVes?.get() ?? null;
-  const gridPageVe = findAncestorVeAcrossCandidates(hitInfo, isSearchResultsGridPageVe);
+  const gridPageVe = findAncestorVeAcrossCandidates(hitInfo, isGridResultPageVe);
 
   if (!gridPageVe) {
     return { pagePath: null, resultIndex: -1 };
@@ -455,7 +447,7 @@ function currentSearchGridCellHover(store: StoreContextModel, desktopPosPx: Vect
   const pageItem = asPageItem(gridPageVe.displayItem);
   let resultIndex = typeof hitInfo.overElementMeta?.searchGridCellIndex != "undefined"
     ? hitInfo.overElementMeta.searchGridCellIndex
-    : searchGridCellIndexFromBounds(store, desktopPosPx, gridPageVe, pageItem);
+    : gridResultCellIndexFromBounds(store, desktopPosPx, gridPageVe, pageItem);
 
   if (resultIndex < 0 && overVe) {
     const directChildOfGridPage = directChildOfPage(overVe, gridPageVe);
