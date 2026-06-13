@@ -26,7 +26,7 @@ import { CompositeFlags, PageFlags } from "./base/flags-item";
 import { Item } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
-import { NoteFns, asNoteItem, isNote } from "./note-item";
+import { NoteFns, NoteInlineMark, NoteUrl, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, PageItem } from "./page-item";
 import { QueryItem, getQueryRuntime, isQueryChatPage, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
 import { server, type ChatStreamEvent } from "../server";
@@ -562,12 +562,54 @@ function firstPromptInQueryChat(store: StoreContextModel, queryItem: QueryItem):
 export interface QueryChatTurnView {
   id: Uid,
   title: string,
-  bodyLines: Array<string>,
+  bodyLines: Array<QueryChatLineView>,
+}
+
+export interface QueryChatLineView {
+  text: string,
+  inlineMarks: Array<NoteInlineMark>,
+  urls: Array<NoteUrl>,
+}
+
+function chatItemLine(item: Item): QueryChatLineView | null {
+  if (isNote(item)) {
+    const note = asNoteItem(item);
+    if (note.title == "") { return null; }
+    return { text: note.title, inlineMarks: note.inlineMarks, urls: note.urls };
+  }
+
+  const titled = item as Item & { title?: unknown };
+  const text = typeof titled.title == "string" ? titled.title : "";
+  return text == "" ? null : { text, inlineMarks: [], urls: [] };
 }
 
 function chatItemText(item: Item): string {
-  const titled = item as Item & { title?: unknown };
-  return typeof titled.title == "string" ? titled.title : "";
+  return chatItemLine(item)?.text ?? "";
+}
+
+function collectQueryChatBodyLines(item: Item, bodyLines: Array<QueryChatLineView>): void {
+  const line = chatItemLine(item);
+  if (line != null) {
+    bodyLines.push(line);
+  }
+
+  if (isContainer(item)) {
+    for (const childId of asContainerItem(item).computed_children) {
+      const child = itemState.get(childId);
+      if (child != null) {
+        collectQueryChatBodyLines(child, bodyLines);
+      }
+    }
+  }
+
+  if (isAttachmentsItem(item)) {
+    for (const attachmentId of asAttachmentsItem(item).computed_attachments) {
+      const attachment = itemState.get(attachmentId);
+      if (attachment != null) {
+        collectQueryChatBodyLines(attachment, bodyLines);
+      }
+    }
+  }
 }
 
 export function queryChatTurns(store: StoreContextModel, queryItem: QueryItem): Array<QueryChatTurnView> {
@@ -576,21 +618,15 @@ export function queryChatTurns(store: StoreContextModel, queryItem: QueryItem): 
     if (!root) {
       return null;
     }
-    const bodyLines: Array<string> = [];
+    const bodyLines: Array<QueryChatLineView> = [];
     if (isContainer(root)) {
       for (const childId of asContainerItem(root).computed_children) {
         const child = itemState.get(childId);
         if (child == null) { continue; }
-        const text = chatItemText(child);
-        if (text != "") {
-          bodyLines.push(text);
-        }
+        collectQueryChatBodyLines(child, bodyLines);
       }
     } else {
-      const text = chatItemText(root);
-      if (text != "") {
-        bodyLines.push(text);
-      }
+      collectQueryChatBodyLines(root, bodyLines);
     }
     return {
       id: root.id,

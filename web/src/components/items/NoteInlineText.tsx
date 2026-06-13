@@ -39,10 +39,15 @@ export const NoteInlineText: Component<{
   inlineMarks: Array<NoteInlineMark>,
   urls: Array<NoteUrl>,
   linksEnabled?: boolean,
+  onLinkMouseDown?: (url: string, ev: MouseEvent) => void,
 }> = (props) => {
   const segments = () => noteInlineTextSegments(props.inlineMarks, props.urls, props.text);
 
   const linkMouseDown = (url: string) => (ev: MouseEvent) => {
+    if (props.onLinkMouseDown) {
+      props.onLinkMouseDown(url, ev);
+      return;
+    }
     if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(url); }
     ev.preventDefault();
   };

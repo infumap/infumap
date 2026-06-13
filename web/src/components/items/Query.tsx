@@ -60,6 +60,7 @@ import {
   setQueryText,
 } from "../../items/query-item";
 import { materializeSearchResults } from "../../layout/search_materialize";
+import { itemIdFromInfumapUrl, navigateToInfumapItemUrl } from "../../layout/navigation";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../items/page-item";
 import {
@@ -77,6 +78,8 @@ import {
   resetQueryChatSession,
   submitQueryChatMessage,
 } from "../../items/chat";
+import { NoteInlineText } from "./NoteInlineText";
+import { MOUSE_LEFT } from "../../input/mouse_down";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
@@ -636,6 +639,18 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const stop = (ev: Event) => {
       ev.stopPropagation();
     };
+    const chatLinkMouseDown = (url: string, ev: MouseEvent) => {
+      if (ev.button != MOUSE_LEFT) {
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (itemIdFromInfumapUrl(url) != null) {
+        void navigateToInfumapItemUrl(store, url);
+      } else {
+        window.open(url, "_blank");
+      }
+    };
     const chatKeyDown = (ev: KeyboardEvent) => {
       ev.stopPropagation();
       if (ev.key == "Escape") {
@@ -671,7 +686,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 </div>
                 <div style="font-size: 18px; line-height: 28px; padding-left: 30px; white-space: pre-wrap;">
                   <For each={turn.bodyLines}>{line =>
-                    <div>{line}</div>
+                    <div>
+                      <NoteInlineText
+                        text={line.text}
+                        inlineMarks={line.inlineMarks}
+                        urls={line.urls}
+                        linksEnabled
+                        onLinkMouseDown={chatLinkMouseDown} />
+                    </div>
                   }</For>
                 </div>
               </div>
