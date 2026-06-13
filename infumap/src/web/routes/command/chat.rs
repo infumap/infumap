@@ -34,8 +34,6 @@ const CHAT_FIND_DIVERSITY_PREFIX_LEN: usize = 3;
 const CHAT_SEARCH_TEXT_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_SEARCH_TEXT_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
-const CHAT_FRAGMENT_TOOL_MAX_CHARS: usize = 6_000;
-const CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS: usize = 2;
 const CHAT_RESPONSE_ITEM_WIDTH_GR: i64 = 30 * GRID_SIZE;
 const CHAT_RESPONSE_TABLE_MAX_HEIGHT_BL: i64 = 12;
 const CHAT_RESPONSE_TABLE_MIN_COLUMN_WIDTH_GR: i64 = 3 * GRID_SIZE;
@@ -285,10 +283,6 @@ struct ChatFragmentToolArguments {
   #[serde(rename = "fragmentOrdinal")]
   fragment_ordinal: Option<i64>,
   ordinal: Option<i64>,
-  before: Option<i64>,
-  after: Option<i64>,
-  #[serde(rename = "maxChars")]
-  max_chars: Option<i64>,
 }
 
 struct ChatFindBucket {
@@ -727,24 +721,6 @@ fn get_fragment_tool_spec() -> LlamaToolSpec {
             "type": "integer",
             "minimum": 0,
             "description": "Fragment ordinal from a search_text result."
-          },
-          "before": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS,
-            "description": "Optional number of preceding fragments to include."
-          },
-          "after": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS,
-            "description": "Optional number of following fragments to include."
-          },
-          "maxChars": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": CHAT_FRAGMENT_TOOL_MAX_CHARS,
-            "description": "Maximum text characters to return across all fetched fragments."
           }
         },
         "required": ["itemId", "fragmentOrdinal"],
@@ -1087,12 +1063,6 @@ async fn execute_get_fragment_tool_call(
     Some(_) => return Ok(tool_error_json("get_fragment tool argument 'fragmentOrdinal' must be non-negative.")),
     None => return Ok(tool_error_json("get_fragment tool argument 'fragmentOrdinal' is required.")),
   };
-  let before = fragment_context_arg(arguments.before);
-  let after = fragment_context_arg(arguments.after);
-  let max_chars = arguments
-    .max_chars
-    .unwrap_or(CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS as i64)
-    .clamp(1, CHAT_FRAGMENT_TOOL_MAX_CHARS as i64) as usize;
 
   let (data_dir, item_type, title) = {
     let db = db.lock().await;
@@ -1112,19 +1082,17 @@ async fn execute_get_fragment_tool_call(
       Err(e) => return Ok(tool_error_json(&format!("Could not read item fragments: {}", e))),
     };
   let source_kind = item_fragments.source_kind;
-  let start_ordinal = fragment_ordinal.saturating_sub(before);
-  let end_ordinal = fragment_ordinal.saturating_add(after);
   let selected_records: Vec<crate::ai::fragment::ItemFragmentRecord> = item_fragments
     .records
     .into_iter()
-    .filter(|record| record.ordinal >= start_ordinal && record.ordinal <= end_ordinal)
+    .filter(|record| record.ordinal == fragment_ordinal)
     .collect::<Vec<_>>();
 
   if selected_records.is_empty() {
     return Ok(tool_error_json("Fragment ordinal was not found for this item."));
   }
 
-  let mut remaining_chars = max_chars;
+  let mut remaining_chars = CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS;
   let mut text_truncated = false;
   let mut returned_fragments = Vec::new();
   for record in selected_records {
@@ -1161,10 +1129,6 @@ async fn execute_get_fragment_tool_call(
     })
     .to_string(),
   )
-}
-
-fn fragment_context_arg(value: Option<i64>) -> usize {
-  value.unwrap_or(0).clamp(0, CHAT_FRAGMENT_TOOL_MAX_CONTEXT_FRAGMENTS as i64) as usize
 }
 
 fn tool_call_arguments_value(tool_call: &LlamaToolCall) -> InfuResult<Value> {
