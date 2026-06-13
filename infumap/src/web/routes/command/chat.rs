@@ -586,6 +586,7 @@ fn reset_llm_log() {
 }
 
 fn append_llm_log_section(title: &str, body: &str) {
+  let body = pretty_llm_log_body(body);
   match std::fs::OpenOptions::new().create(true).append(true).open(LLM_LOG_PATH) {
     Ok(mut file) => {
       if let Err(e) = writeln!(file, "\n===== {} =====\n{}", title, body) {
@@ -594,6 +595,12 @@ fn append_llm_log_section(title: &str, body: &str) {
     }
     Err(e) => warn!("Could not open LLM log '{}': {}", LLM_LOG_PATH, e),
   }
+}
+
+fn pretty_llm_log_body(body: &str) -> String {
+  serde_json::from_str::<Value>(body)
+    .and_then(|value| serde_json::to_string_pretty(&value))
+    .unwrap_or_else(|_| body.to_owned())
 }
 
 fn append_llm_json_log_section<T: Serialize>(title: &str, value: &T) {

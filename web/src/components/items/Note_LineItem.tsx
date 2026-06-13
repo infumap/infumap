@@ -45,6 +45,7 @@ import { NoteIconGlyph } from "./NoteIconGlyph";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteInlineText } from "./NoteInlineText";
 import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
+import { appendNewlineIfEmpty } from "../../util/string";
 
 
 export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -219,12 +220,13 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             onKeyDown={keyDownHandler}
             onBeforeInput={beforeInputListener}
             onInput={inputListener}>
-            <NoteInlineText
-              text={renderedTitle()}
-              inlineMarks={renderedInlineMarks()}
-              urls={renderedUrls()}
-              linksEnabled={!isTextEditTarget()}
-              trailingCaretSpan={isTextEditTarget()} />
+            <Show when={!isTextEditTarget()} fallback={appendNewlineIfEmpty(renderedTitle())}>
+              <NoteInlineText
+                text={renderedTitle()}
+                inlineMarks={renderedInlineMarks()}
+                urls={renderedUrls()}
+                linksEnabled />
+            </Show>
           </span>
         </div>
       </Show>

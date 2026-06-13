@@ -39,7 +39,6 @@ export const NoteInlineText: Component<{
   inlineMarks: Array<NoteInlineMark>,
   urls: Array<NoteUrl>,
   linksEnabled?: boolean,
-  trailingCaretSpan?: boolean,
 }> = (props) => {
   const segments = () => noteInlineTextSegments(props.inlineMarks, props.urls, props.text);
 
@@ -70,9 +69,6 @@ export const NoteInlineText: Component<{
             </a>
           </Show>
         }</For>
-      </Show>
-      <Show when={props.trailingCaretSpan}>
-        <span></span>
       </Show>
     </>
   );
