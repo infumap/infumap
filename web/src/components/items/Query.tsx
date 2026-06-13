@@ -27,7 +27,7 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
-import { itemCanEdit } from "../../items/base/capabilities-item";
+import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
 import { VisualElement_Desktop } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
@@ -114,6 +114,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     props.visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   const queryItem = () => asQueryItem(props.visualElement.displayItem);
   const canEdit = () => itemCanEdit(queryItem());
+  const canResize = () => itemCanResize(queryItem());
   const queryText = () => getQueryText(store, queryItem());
   const queryMode = () => getQueryMode(store, queryItem());
   const isSearchMode = () => queryMode() == "search";
@@ -925,7 +926,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; text-overflow: ellipsis;`}>
         Query
       </span>
-      <InfuResizeTriangle />
+      <Show when={canResize()}>
+        <InfuResizeTriangle />
+      </Show>
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
         <div class="absolute pointer-events-none rounded-xs"
           style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />

@@ -18,7 +18,7 @@
 
 import { Component, For, Show, createMemo } from "solid-js";
 import { linearGradient, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { itemCanEdit } from "../../items/base/capabilities-item";
+import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_LOCAL_SHADOW, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
@@ -40,6 +40,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
+  const canResizePage = () => itemCanResize(pageFns().pageItem());
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   const opaqueTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("xs"));
@@ -181,7 +182,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
             <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} vePath={pageFns().vePath()} />
           </Show>
           {renderIsLinkMaybe()}
-          <Show when={pageFns().showTriangleDetail()}>
+          <Show when={pageFns().showTriangleDetail() && canResizePage()}>
             <InfuResizeTriangle />
           </Show>
         </Show>

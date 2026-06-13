@@ -42,7 +42,7 @@ export const LEGACY_SEARCH_ITEM_TYPE = "search";
 
 export type ItemType = typeof ItemType[keyof typeof ItemType];
 
-export const ITEM_CAPABILITY_KEYS = ["edit", "move", "copy"] as const;
+export const ITEM_CAPABILITY_KEYS = ["edit", "move", "copy", "resize"] as const;
 
 export type ItemCapability = typeof ITEM_CAPABILITY_KEYS[number];
 

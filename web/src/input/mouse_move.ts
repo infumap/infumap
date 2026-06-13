@@ -20,7 +20,7 @@ import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../co
 import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
+import { itemCanCopy, itemCanMove, itemCanResize } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
@@ -102,6 +102,9 @@ function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
   return asPositionalItem(VeFns.treeItem(activeVisualElement));
 }
 
+function hitInfoCanResize(hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  return itemCanResize(VeFns.treeItem(HitInfoFns.getHitVe(hitInfo)));
+}
 
 function maxInsideCompositeOrDocumentWidthBl(activeVisualElement: VisualElement): number | null {
   if (!(activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc)) {
@@ -484,6 +487,10 @@ function changeMouseActionStateMaybe(
 
   if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
     activeItem = resolveActiveTreeItemForResize(activeVisualElement);
+    if (!itemCanResize(activeItem)) {
+      store.anItemIsResizing.set(false);
+      return;
+    }
     MouseActionState.setStartPosBl(null);
     if (activeVisualElement.flags & VisualElementFlags.Popup) {
       const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
@@ -553,6 +560,10 @@ function changeMouseActionStateMaybe(
     }
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.HorizontalResize)) {
+    if (!itemCanResize(VeFns.treeItem(activeVisualElement))) {
+      store.anItemIsResizing.set(false);
+      return;
+    }
     MouseActionState.setStartPosBl(null);
     MouseActionState.setStartHeightBl(null);
     if (activeVisualElement.flags & VisualElementFlags.IsDock) {
@@ -583,6 +594,10 @@ function changeMouseActionStateMaybe(
     }
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.VerticalResize)) {
+    if (!itemCanResize(VeFns.treeItem(activeVisualElement))) {
+      store.anItemIsResizing.set(false);
+      return;
+    }
     MouseActionState.setAction(MouseAction.ResizingDockItem);
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Move) ||
@@ -1382,11 +1397,11 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   if (hasUser && !isInsideToolbarPopup) {
-    if (hitInfo.hitboxType & HitboxFlags.Resize) {
+    if ((hitInfo.hitboxType & HitboxFlags.Resize) && hitInfoCanResize(hitInfo)) {
       document.body.style.cursor = "nwse-resize";
-    } else if (hitInfo.hitboxType & HitboxFlags.HorizontalResize) {
+    } else if ((hitInfo.hitboxType & HitboxFlags.HorizontalResize) && hitInfoCanResize(hitInfo)) {
       document.body.style.cursor = "ew-resize";
-    } else if (hitInfo.hitboxType & HitboxFlags.VerticalResize) {
+    } else if ((hitInfo.hitboxType & HitboxFlags.VerticalResize) && hitInfoCanResize(hitInfo)) {
       document.body.style.cursor = "ns-resize";
     } else if (readOnlyDocumentMoveOutVe != null && !ev.shiftDown) {
       document.body.style.cursor = "default";

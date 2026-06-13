@@ -56,3 +56,7 @@ export function itemCanMove(item: ItemTypeMixin | null): boolean {
 export function itemCanCopy(item: ItemTypeMixin | null): boolean {
   return itemCapabilities(item)?.copy ?? itemCanMove(item);
 }
+
+export function itemCanResize(item: ItemTypeMixin | null): boolean {
+  return itemCapabilities(item)?.resize ?? true;
+}

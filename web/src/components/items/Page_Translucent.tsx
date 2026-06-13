@@ -35,7 +35,7 @@ import { PageVisualElementProps } from "./Page";
 import { CALENDAR_LAYOUT_CONSTANTS, getCurrentDayInfo } from "../../util/calendar-layout";
 import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
-import { itemCanEdit } from "../../items/base/capabilities-item";
+import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -58,6 +58,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
+  const canResizePage = () => itemCanResize(pageFns().pageItem());
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   onMount(() => {
@@ -568,7 +569,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     </Show>;
 
   const renderResizeTriangleMaybe = () =>
-    <Show when={pageFns().showTriangleDetail()}>
+    <Show when={pageFns().showTriangleDetail() && canResizePage()}>
       <div class={`absolute border border-transparent rounded-xs overflow-hidden pointer-events-none`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 3;`}>
         <InfuResizeTriangle />

@@ -540,13 +540,23 @@ fn readonly_item_capabilities_json() -> Value {
   let mut capabilities = serde_json::Map::new();
   capabilities.insert(String::from("edit"), Value::Bool(false));
   capabilities.insert(String::from("move"), Value::Bool(false));
+  capabilities.insert(String::from("resize"), Value::Bool(false));
   Value::Object(capabilities)
 }
 
 fn non_movable_item_capabilities_json() -> Value {
   let mut capabilities = serde_json::Map::new();
   capabilities.insert(String::from("move"), Value::Bool(false));
+  capabilities.insert(String::from("resize"), Value::Bool(false));
   Value::Object(capabilities)
+}
+
+fn searches_page_query_item_position_gr() -> Vector<i64> {
+  Vector { x: 9 * GRID_SIZE, y: GRID_SIZE }
+}
+
+fn searches_page_query_item_width_gr() -> i64 {
+  6 * GRID_SIZE
 }
 
 fn is_searches_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
@@ -558,11 +568,21 @@ fn is_searches_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
       .is_some_and(|parent_id| db.user.get(&item.owner_id).is_some_and(|user| &user.searches_page_id == parent_id))
 }
 
-fn item_move_fields_changed(old_item: &Item, new_item: &Item) -> bool {
+fn item_spatial_position_matches(item: &Item, position_gr: &Vector<i64>) -> bool {
+  item.spatial_position_gr.as_ref().is_some_and(|item_position_gr| item_position_gr == position_gr)
+}
+
+fn item_move_fields_changed_to_disallowed_layout(old_item: &Item, new_item: &Item) -> bool {
   old_item.parent_id != new_item.parent_id
     || old_item.relationship_to_parent != new_item.relationship_to_parent
     || old_item.ordering != new_item.ordering
-    || old_item.spatial_position_gr != new_item.spatial_position_gr
+    || (old_item.spatial_position_gr != new_item.spatial_position_gr
+      && !item_spatial_position_matches(new_item, &searches_page_query_item_position_gr()))
+}
+
+fn item_resize_fields_changed_to_disallowed_layout(old_item: &Item, new_item: &Item) -> bool {
+  old_item.spatial_width_gr != new_item.spatial_width_gr
+    && new_item.spatial_width_gr != Some(searches_page_query_item_width_gr())
 }
 
 fn item_to_api_json_map_with_capabilities(
@@ -572,6 +592,9 @@ fn item_to_api_json_map_with_capabilities(
   let mut item_json = item_to_api_json_map(item)?;
   if is_searches_page_query_item(db, item) {
     item_json.insert(String::from("capabilities"), non_movable_item_capabilities_json());
+    item_json
+      .insert(String::from("spatialPositionGr"), json::vector_to_object(&searches_page_query_item_position_gr()));
+    item_json.insert(String::from("spatialWidthGr"), Value::Number(searches_page_query_item_width_gr().into()));
   }
   Ok(item_json)
 }
@@ -1373,14 +1396,19 @@ fn virtual_search_status_page(
   ordering: Vec<u8>,
   child_count: usize,
 ) -> Item {
-  let page_width_bl = 60;
+  let spatial_page_width_bl = 3;
+  let inner_page_width_bl = 60;
+  let spatial_position_gr = match page_kind {
+    SearchStatusPageKind::Failed => Vector { x: 5 * GRID_SIZE, y: GRID_SIZE },
+    SearchStatusPageKind::Pending => Vector { x: GRID_SIZE, y: GRID_SIZE },
+  };
   let natural_aspect = 2.0;
   let title = search_status_page_title(page_kind, child_count);
   let mut item = Item::new_page(
     parent_id_maybe,
     ordering,
-    Vector { x: 0, y: 0 },
-    page_width_bl * GRID_SIZE,
+    spatial_position_gr,
+    spatial_page_width_bl * GRID_SIZE,
     if parent_id_maybe.is_some() { RelationshipToParent::Child } else { RelationshipToParent::NoParent },
     &title,
     "",
@@ -1388,7 +1416,7 @@ fn virtual_search_status_page(
     0,
     0,
     natural_aspect,
-    page_width_bl * GRID_SIZE,
+    inner_page_width_bl * GRID_SIZE,
     ArrangeAlgorithm::Grid,
     6,
     1.5,

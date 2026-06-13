@@ -28,7 +28,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, PageFns, isPage } from "../../items/page-item";
-import { itemCanEdit } from "../../items/base/capabilities-item";
+import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { PageVisualElementProps } from "./Page";
@@ -52,6 +52,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
+  const canResizePage = () => itemCanResize(pageFns().pageItem());
   const pageChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
   const isMinimalDocumentPage = () => pageFns().isDocumentPage();
   const documentTextEditIsActive = () => {
@@ -256,7 +257,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </Show>;
 
   const renderResizeTriangleMaybe = () =>
-    <Show when={pageFns().showTriangleDetail() && !isDockItem()}>
+    <Show when={pageFns().showTriangleDetail() && canResizePage() && !isDockItem()}>
       <InfuResizeTriangle />
     </Show>;
 

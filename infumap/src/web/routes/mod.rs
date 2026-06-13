@@ -162,12 +162,12 @@ pub fn default_searches_page(owner_id: &str, searches_page_id: Uid, natural_aspe
   item
 }
 
-pub fn default_query_item(owner_id: &str, searches_page_id: &Uid, query_item_id: Uid, page_width_bl: i64) -> Item {
+pub fn default_query_item(owner_id: &str, searches_page_id: &Uid, query_item_id: Uid, _page_width_bl: i64) -> Item {
   let mut item = Item::new_query(
     searches_page_id,
     vec![128],
-    Vector { x: 0, y: 0 },
-    page_width_bl * GRID_SIZE,
+    Vector { x: 9 * GRID_SIZE, y: GRID_SIZE },
+    6 * GRID_SIZE,
     RelationshipToParent::Child,
   );
 
