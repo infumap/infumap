@@ -536,6 +536,19 @@ fn item_to_api_json_map(item: &Item) -> InfuResult<serde_json::Map<String, serde
   item.to_api_json().map_err(|e| format!("Error occurred converting item '{}' to API JSON: {}", item.id, e).into())
 }
 
+fn readonly_item_capabilities_json() -> Value {
+  let mut capabilities = serde_json::Map::new();
+  capabilities.insert(String::from("edit"), Value::Bool(false));
+  capabilities.insert(String::from("move"), Value::Bool(false));
+  Value::Object(capabilities)
+}
+
+fn virtual_search_status_item_to_api_json_map(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>> {
+  let mut item_json = item_to_api_json_map(item)?;
+  item_json.insert(String::from("capabilities"), readonly_item_capabilities_json());
+  Ok(item_json)
+}
+
 fn attachments_to_api_json(items: Vec<&Item>) -> InfuResult<Vec<serde_json::Map<String, serde_json::Value>>> {
   items
     .iter()
@@ -600,7 +613,7 @@ fn append_virtual_search_status_pages_to_searches_snapshot(
   for page_kind in [SearchStatusPageKind::Failed, SearchStatusPageKind::Pending] {
     let child_count = virtual_search_status_page_child_count(db, session_user_id, page_kind, search_status_artifact);
     let item = virtual_search_status_page(session_user_id, page_kind, Some(item_id), ordering.clone(), child_count);
-    children.push(item_to_api_json_map(&item)?);
+    children.push(virtual_search_status_item_to_api_json_map(&item)?);
     ordering = new_ordering_after(&ordering);
   }
   Ok(())
@@ -1133,11 +1146,14 @@ async fn maybe_handle_get_virtual_search_status_page_items(
     virtual_search_status_page_child_count(&db, &session.user_id, page_kind, &artifact)
   };
   let page = virtual_search_status_page(&session.user_id, page_kind, parent_id_maybe.as_ref(), ordering, child_count);
-  let children = child_items.into_iter().map(|item| item_to_api_json_map(&item)).collect::<InfuResult<Vec<_>>>()?;
+  let children = child_items
+    .into_iter()
+    .map(|item| virtual_search_status_item_to_api_json_map(&item))
+    .collect::<InfuResult<Vec<_>>>()?;
 
   let mut result = serde_json::Map::new();
   if get_items_mode_includes_item(mode) {
-    result.insert(String::from("item"), Value::from(item_to_api_json_map(&page)?));
+    result.insert(String::from("item"), Value::from(virtual_search_status_item_to_api_json_map(&page)?));
   }
   result.insert(String::from("children"), Value::from(children));
   result.insert(String::from("attachments"), Value::from(serde_json::Map::new()));
@@ -1370,7 +1386,7 @@ fn virtual_search_status_page_children(
 ) -> InfuResult<Vec<serde_json::Map<String, serde_json::Value>>> {
   virtual_search_status_page_child_items(db, user_id, page_kind, artifact)?
     .into_iter()
-    .map(|item| item_to_api_json_map(&item))
+    .map(|item| virtual_search_status_item_to_api_json_map(&item))
     .collect()
 }
 

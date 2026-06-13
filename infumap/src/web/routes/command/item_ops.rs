@@ -532,6 +532,9 @@ pub(super) async fn handle_update_item(
   let item_map_maybe = iterator.next().ok_or("Update item request has no item.")??;
   let item_map = item_map_maybe.as_object().ok_or("Update item request body is not a JSON object.")?;
   let item: Item = Item::from_api_json(item_map)?;
+  if search_status_page_kind_for_id(&session.user_id, &item.id).is_some() {
+    return Err(format!("Virtual search status page '{}' cannot be updated.", item.id).into());
+  }
   let old_item = db.item.get(&item.id)?.clone();
 
   if &old_item.owner_id != &session.user_id {
