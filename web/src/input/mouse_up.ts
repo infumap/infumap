@@ -30,7 +30,7 @@ import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-i
 import { asFileItem, isFile } from "../items/file-item";
 import { asTextItem, isText } from "../items/text-item";
 import { asLinkItem, isLink } from "../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
@@ -59,6 +59,7 @@ import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupTo
 import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
 import { NativeTextSelectionState } from "./native_text_selection";
+import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
 
 
 interface MovePersistOperation {
@@ -199,11 +200,30 @@ function maybeEditDocumentPageRowFromBackgroundClick(
 
     if (posInDocumentYPx < bandTopPx || posInDocumentYPx > bandBottomPx) { continue; }
 
-    ItemFns.handleClick(childVes[i], null, HitboxFlags.Click, store);
+    if (isPage(childVe.displayItem)) {
+      PageFns.handleEditTitleClick(childVe, store);
+    } else {
+      ItemFns.handleClick(childVes[i], null, HitboxFlags.Click, store);
+    }
     return true;
   }
 
   return false;
+}
+
+function editDocumentChildPageTitleFromOutsideBoundsClickMaybe(
+  store: StoreContextModel,
+  visualElement: VisualElement,
+): boolean {
+  if (!isPage(visualElement.displayItem) || !isInsideDocumentPageClickContext(visualElement)) {
+    return false;
+  }
+  if (documentPageChildClickIsInsideVisibleBounds(visualElement, store)) {
+    return false;
+  }
+
+  PageFns.handleEditTitleClick(visualElement, store);
+  return true;
 }
 
 function focusQueryItemFromResultsBackgroundClickMaybe(
@@ -1235,6 +1255,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           DoubleClickState.preventDoubleClick();
 
         } else if (focusQueryItemFromResultsBackgroundClickMaybe(store, activeVisualElement)) {
+          DoubleClickState.preventDoubleClick();
+
+        } else if (editDocumentChildPageTitleFromOutsideBoundsClickMaybe(store, activeVisualElement)) {
           DoubleClickState.preventDoubleClick();
 
         } else if (veFlagIsRoot(activeRootVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&

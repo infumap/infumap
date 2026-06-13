@@ -19,7 +19,7 @@
 import { ANCHOR_BOX_SIZE_PX, ATTACH_AREA_SIZE_PX, NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, RESIZE_BOX_SIZE_PX, PAGE_POPUP_TITLE_HEIGHT_BL, PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL, LIST_PAGE_TOP_PADDING_PX, PADDING_PROP, CONTAINER_IN_COMPOSITE_PADDING_PX, LINE_HEIGHT_PX, ANCHOR_OFFSET_PX } from '../constants';
 import { HitboxFlags, HitboxFns, HitboxMeta } from '../layout/hitbox';
 import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
-import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
+import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, isInside, Vector, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
 import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
@@ -416,11 +416,25 @@ function maybeEditDocumentPageRowFromClick(
 
     if (posInDocumentYPx < bandTopPx || posInDocumentYPx > bandBottomPx) { continue; }
 
-    ItemFns.handleClick(childVes[i], null, HitboxFlags.Click, store);
+    if (isPage(childVe.displayItem)) {
+      PageFns.handleEditTitleClick(childVe, store);
+    } else {
+      ItemFns.handleClick(childVes[i], null, HitboxFlags.Click, store);
+    }
     return true;
   }
 
   return false;
+}
+
+export function documentPageChildClickIsInsideVisibleBounds(
+  visualElement: VisualElement,
+  store: StoreContextModel,
+): boolean {
+  const visibleBoundsPx = visualElement.viewportBoundsPx
+    ? VeFns.veViewportBoundsRelativeToDesktopPx(store, visualElement)
+    : VeFns.veBoundsRelativeToDesktopPx(store, visualElement);
+  return isInside(CursorEventState.getLatestDesktopPx(store), visibleBoundsPx);
 }
 
 
@@ -1196,13 +1210,25 @@ export const PageFns = {
         return;
       }
 
+      const isInDocumentPageClickContext = isInsideDocumentPageClickContext(visualElement);
+      if (isInDocumentPageClickContext && !documentPageChildClickIsInsideVisibleBounds(visualElement, store)) {
+        PageFns.handleEditTitleClick(visualElement, store);
+        return;
+      }
+
       if (hitboxMeta?.focusOnly) {
         arrangeNow(store, "page-focus-only");
         return;
       }
 
-      if (isInsideDocumentPageClickContext(visualElement)) {
-        PageFns.handleEditTitleClick(visualElement, store);
+      if (isInDocumentPageClickContext) {
+        const clickedVeid = VeFns.actualVeidFromVe(visualElement);
+        const currentVeid = store.history.currentPageVeid();
+        if (clickedVeid.itemId !== currentVeid?.itemId || clickedVeid.linkIdMaybe !== currentVeid?.linkIdMaybe) {
+          switchToPage(store, clickedVeid, true, false, false);
+        } else {
+          arrangeNow(store, "page-document-child-focus");
+        }
         return;
       }
 
