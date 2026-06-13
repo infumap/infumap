@@ -62,6 +62,13 @@ let arrowKeyDown_caretPosition: number | null = null;
 let arrowKeyDown_element: HTMLElement | null = null;
 let beforeInputNoteTypingFlags: { itemPath: string, flags: number } | null = null;
 type PendingBoundaryNavigation = { targetPath: string, targetCaretPosition: number };
+type LinearBoundaryNavigationKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
+type LinearBoundaryNavigationModifiers = {
+  shiftKey: boolean,
+  altKey: boolean,
+  ctrlKey: boolean,
+  metaKey: boolean,
+};
 type LinearEditContext = {
   containerVe: VisualElement,
   containerPath: string,
@@ -656,10 +663,57 @@ function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, 
   return isBoundary;
 }
 
+function isLinearBoundaryNavigationKey(key: string): key is LinearBoundaryNavigationKey {
+  return key == "ArrowUp" || key == "ArrowDown" || key == "ArrowLeft" || key == "ArrowRight";
+}
+
+function isHorizontalBoundaryNavigationKey(key: LinearBoundaryNavigationKey): boolean {
+  return key == "ArrowLeft" || key == "ArrowRight";
+}
+
+function linearBoundaryNavigationMovesBackward(key: LinearBoundaryNavigationKey): boolean {
+  return key == "ArrowUp" || key == "ArrowLeft";
+}
+
+function shouldKeepNativeHorizontalArrowBehavior(
+  key: LinearBoundaryNavigationKey,
+  modifiers: LinearBoundaryNavigationModifiers,
+): boolean {
+  return isHorizontalBoundaryNavigationKey(key) &&
+    (modifiers.shiftKey || modifiers.altKey || modifiers.ctrlKey || modifiers.metaKey);
+}
+
+function currentSelectionIsCollapsed(): boolean {
+  const selection = window.getSelection();
+  return selection != null && selection.rangeCount > 0 && selection.isCollapsed;
+}
+
+function isCaretAtHorizontalBoundary(textElement: HTMLElement, caretPosition: number, key: LinearBoundaryNavigationKey): boolean {
+  const textLength = trimNewline(textElement.innerText).length;
+  const isBoundary = key == "ArrowLeft"
+    ? caretPosition <= 0
+    : caretPosition >= textLength;
+  logLinearEdit("horizontal-boundary-check", {
+    key,
+    caretPosition,
+    textLength,
+    isBoundary,
+    text: textElement.innerText,
+  });
+  return isBoundary;
+}
+
+function isCaretAtLinearBoundary(textElement: HTMLElement, caretPosition: number, key: LinearBoundaryNavigationKey): boolean {
+  if (key == "ArrowUp" || key == "ArrowDown") {
+    return isCaretOnBoundaryLine(textElement, caretPosition, key);
+  }
+  return isCaretAtHorizontalBoundary(textElement, caretPosition, key);
+}
+
 function adjacentEditableChildPathInLinearContainer(
   containerVe: VisualElement,
   currentPath: string,
-  key: "ArrowUp" | "ArrowDown",
+  key: LinearBoundaryNavigationKey,
 ): string | null {
   const containerPath = VeFns.veToPath(containerVe);
   const childVes = VesCache.current.readStructuralChildren(containerPath);
@@ -668,7 +722,7 @@ function adjacentEditableChildPathInLinearContainer(
     !(asPageItem(containerVe.displayItem).flags & PageFlags.HideDocumentTitle);
 
   if (currentPath == containerPath) {
-    if (key == "ArrowUp") { return null; }
+    if (linearBoundaryNavigationMovesBackward(key)) { return null; }
     for (let i = 0; i < childVes.length; ++i) {
       if (editableItemType(childVes[i]) == null) { continue; }
       return VeFns.veToPath(childVes[i]);
@@ -679,14 +733,14 @@ function adjacentEditableChildPathInLinearContainer(
   const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == currentPath);
   if (currentIndex < 0) { return null; }
 
-  const step = key == "ArrowUp" ? -1 : 1;
+  const step = linearBoundaryNavigationMovesBackward(key) ? -1 : 1;
   for (let i = currentIndex + step; i >= 0 && i < childVes.length; i += step) {
     const targetVe = childVes[i];
     if (editableItemType(targetVe) == null) { continue; }
     return VeFns.veToPath(targetVe);
   }
 
-  if (containerHasMirroredTitle && key == "ArrowUp" && currentIndex == 0) {
+  if (containerHasMirroredTitle && linearBoundaryNavigationMovesBackward(key) && currentIndex == 0) {
     return containerPath;
   }
 
@@ -695,9 +749,37 @@ function adjacentEditableChildPathInLinearContainer(
 
 function adjacentEditableChildPathInCurrentLinearContext(
   context: LinearEditContext,
-  key: "ArrowUp" | "ArrowDown",
+  key: LinearBoundaryNavigationKey,
 ): string | null {
   return adjacentEditableChildPathInLinearContainer(context.containerVe, context.editingPath, key);
+}
+
+function textLengthForLinearPath(context: LinearEditContext, path: string): number | null {
+  if (path == context.containerPath) {
+    if (!isPage(context.containerVe.displayItem)) { return null; }
+    return asPageItem(context.containerVe.displayItem).title.length;
+  }
+
+  const targetVe = VesCache.current.readNode(path);
+  if (targetVe == null || editableItemType(targetVe) == null) { return null; }
+
+  const item = itemState.get(VeFns.veidFromPath(path).itemId);
+  if (item == null) { return null; }
+  if (isPassword(item)) { return asPasswordItem(item).text.length; }
+  return asTitledItem(item).title.length;
+}
+
+function targetCaretPositionForLinearBoundaryNavigation(
+  context: LinearEditContext,
+  targetPath: string,
+  key: LinearBoundaryNavigationKey,
+  caretPosition: number,
+): number {
+  if (key == "ArrowLeft") {
+    return textLengthForLinearPath(context, targetPath) ?? Number.MAX_SAFE_INTEGER;
+  }
+  if (key == "ArrowRight") { return 0; }
+  return caretPosition;
 }
 
 function itemPathInLinearContainer(itemId: string, containerPath: string): string | null {
@@ -767,6 +849,7 @@ function maybeBuildLinearBoundaryNavigation(
   key: string,
   textElement: HTMLElement,
   caretPosition: number,
+  modifiers: LinearBoundaryNavigationModifiers,
 ): PendingBoundaryNavigation | null {
   const context = currentLinearEditContext(store);
   if (context == null) {
@@ -776,8 +859,10 @@ function maybeBuildLinearBoundaryNavigation(
     });
     return null;
   }
-  if (key != "ArrowUp" && key != "ArrowDown") { return null; }
-  if (!isCaretOnBoundaryLine(textElement, caretPosition, key)) { return null; }
+  if (!isLinearBoundaryNavigationKey(key)) { return null; }
+  if (shouldKeepNativeHorizontalArrowBehavior(key, modifiers)) { return null; }
+  if (isHorizontalBoundaryNavigationKey(key) && !currentSelectionIsCollapsed()) { return null; }
+  if (!isCaretAtLinearBoundary(textElement, caretPosition, key)) { return null; }
 
   const targetPath = adjacentEditableChildPathInCurrentLinearContext(context, key);
   if (targetPath == null) {
@@ -788,7 +873,7 @@ function maybeBuildLinearBoundaryNavigation(
 
   const navigation = {
     targetPath,
-    targetCaretPosition: caretPosition,
+    targetCaretPosition: targetCaretPositionForLinearBoundaryNavigation(context, targetPath, key, caretPosition),
   };
   logLinearEdit("prepared-boundary-navigation", {
     key,
@@ -796,6 +881,7 @@ function maybeBuildLinearBoundaryNavigation(
     currentPath: context.editingPath,
     targetPath: navigation.targetPath,
     caretPosition,
+    targetCaretPosition: navigation.targetCaretPosition,
   });
   return navigation;
 }
@@ -956,7 +1042,12 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     const caretPosition = getCaretPosition(textElement!);
     arrowKeyDown_caretPosition = caretPosition;
     arrowKeyDown_element = textElement;
-    arrowKeyDown_pendingBoundaryNavigation = maybeBuildLinearBoundaryNavigation(store, ev.key, textElement!, caretPosition);
+    arrowKeyDown_pendingBoundaryNavigation = maybeBuildLinearBoundaryNavigation(store, ev.key, textElement!, caretPosition, {
+      shiftKey: ev.shiftKey,
+      altKey: ev.altKey,
+      ctrlKey: ev.ctrlKey,
+      metaKey: ev.metaKey,
+    });
     logLinearEdit("keydown-arrow", {
       key: ev.key,
       itemPath,
