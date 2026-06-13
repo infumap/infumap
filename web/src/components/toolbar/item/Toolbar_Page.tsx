@@ -169,7 +169,7 @@ export const Toolbar_Page: Component = () => {
 
   const showInteractiveButton = () => {
     store.touchToolbarDependency();
-    return !focusIsInDock() && !focusIsInsideTable();
+    return !isQueriesPage() && !focusIsInDock() && !focusIsInsideTable();
   }
 
   const showOrderByButton = () => {
@@ -545,16 +545,18 @@ export const Toolbar_Page: Component = () => {
             </div>
           </div>
         </Show>
-        <div ref={aspectDiv}
-          class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-          style={`font-size: 13px;`}
-          onClick={handleAspectClick}
-          onMouseDown={handleAspectDown}>
-          <i class="bi-aspect-ratio ml-[4px]" />
-          <div class="inline-block w-[40px] pl-[6px] text-right">
-            {aspectText()}
+        <Show when={!isQueriesPage()}>
+          <div ref={aspectDiv}
+            class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style={`font-size: 13px;`}
+            onClick={handleAspectClick}
+            onMouseDown={handleAspectDown}>
+            <i class="bi-aspect-ratio ml-[4px]" />
+            <div class="inline-block w-[40px] pl-[6px] text-right">
+              {aspectText()}
+            </div>
           </div>
-        </div>
+        </Show>
         <Show when={showCellAspectButton()}>
           <div ref={cellAspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
@@ -628,10 +630,12 @@ export const Toolbar_Page: Component = () => {
             </div>
           </div>
         </Show>
-        <div ref={divBeforeColorSelect} class="inline-block ml-0" />
-        <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle" onMouseDown={handleColorDown}>
-          <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
-        </div>
+        <Show when={!isQueriesPage()}>
+          <div ref={divBeforeColorSelect} class="inline-block ml-0" />
+          <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle" onMouseDown={handleColorDown}>
+            <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
+          </div>
+        </Show>
         <Show when={showMakePublicButton()}>
           <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
         </Show>
