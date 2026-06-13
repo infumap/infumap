@@ -801,9 +801,19 @@ export const Toolbar_Popup: Component = () => {
     serverOrRemote.updateItem(targetPage, store.general.networkStatus);
   }
 
+  const focusIsQueriesPage = () => {
+    const focusItem = getToolbarFocusItem(store);
+    const userMaybe = store.user.getUserMaybe();
+    return userMaybe != null && isPage(focusItem) && focusItem.id == userMaybe.searchesPageId;
+  }
+
   const handlePageArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {
     const focusItem = getToolbarFocusItem(store);
     if (!isPage(focusItem)) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    if (focusIsQueriesPage()) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }

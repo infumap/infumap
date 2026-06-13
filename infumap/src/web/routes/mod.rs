@@ -130,7 +130,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
   item
 }
 
-pub fn default_searches_page(owner_id: &str, searches_page_id: Uid, natural_aspect: f64) -> Item {
+pub fn default_queries_page(owner_id: &str, queries_page_id: Uid, natural_aspect: f64) -> Item {
   let inner_spatial_width_br: i64 = 60;
 
   let mut item = Item::new_page(
@@ -157,14 +157,14 @@ pub fn default_searches_page(owner_id: &str, searches_page_id: Uid, natural_aspe
   );
 
   item.owner_id = String::from(owner_id);
-  item.id = searches_page_id;
+  item.id = queries_page_id;
 
   item
 }
 
-pub fn default_query_item(owner_id: &str, searches_page_id: &Uid, query_item_id: Uid, _page_width_bl: i64) -> Item {
+pub fn default_query_item(owner_id: &str, queries_page_id: &Uid, query_item_id: Uid, _page_width_bl: i64) -> Item {
   let mut item = Item::new_query(
-    searches_page_id,
+    queries_page_id,
     vec![128],
     Vector { x: 9 * GRID_SIZE, y: GRID_SIZE },
     6 * GRID_SIZE,

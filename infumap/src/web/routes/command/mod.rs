@@ -551,15 +551,19 @@ fn non_movable_item_capabilities_json() -> Value {
   Value::Object(capabilities)
 }
 
-fn searches_page_query_item_position_gr() -> Vector<i64> {
+fn queries_page_query_item_position_gr() -> Vector<i64> {
   Vector { x: 9 * GRID_SIZE, y: GRID_SIZE }
 }
 
-fn searches_page_query_item_width_gr() -> i64 {
+fn queries_page_query_item_width_gr() -> i64 {
   6 * GRID_SIZE
 }
 
-fn is_searches_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
+fn is_queries_page_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
+  item.item_type == ItemType::Page && db.user.get(&item.owner_id).is_some_and(|user| user.searches_page_id == item.id)
+}
+
+fn is_queries_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
   item.item_type == ItemType::Search
     && item.relationship_to_parent == RelationshipToParent::Child
     && item
@@ -577,12 +581,16 @@ fn item_move_fields_changed_to_disallowed_layout(old_item: &Item, new_item: &Ite
     || old_item.relationship_to_parent != new_item.relationship_to_parent
     || old_item.ordering != new_item.ordering
     || (old_item.spatial_position_gr != new_item.spatial_position_gr
-      && !item_spatial_position_matches(new_item, &searches_page_query_item_position_gr()))
+      && !item_spatial_position_matches(new_item, &queries_page_query_item_position_gr()))
 }
 
 fn item_resize_fields_changed_to_disallowed_layout(old_item: &Item, new_item: &Item) -> bool {
   old_item.spatial_width_gr != new_item.spatial_width_gr
-    && new_item.spatial_width_gr != Some(searches_page_query_item_width_gr())
+    && new_item.spatial_width_gr != Some(queries_page_query_item_width_gr())
+}
+
+fn queries_page_arrange_algorithm_allowed(item: &Item) -> bool {
+  item.arrange_algorithm.as_ref() == Some(&ArrangeAlgorithm::List)
 }
 
 fn item_to_api_json_map_with_capabilities(
@@ -590,11 +598,13 @@ fn item_to_api_json_map_with_capabilities(
   item: &Item,
 ) -> InfuResult<serde_json::Map<String, serde_json::Value>> {
   let mut item_json = item_to_api_json_map(item)?;
-  if is_searches_page_query_item(db, item) {
+  if is_queries_page_item(db, item) {
+    item_json.insert(String::from("arrangeAlgorithm"), Value::String(ArrangeAlgorithm::List.as_str().to_owned()));
+  }
+  if is_queries_page_query_item(db, item) {
     item_json.insert(String::from("capabilities"), non_movable_item_capabilities_json());
-    item_json
-      .insert(String::from("spatialPositionGr"), json::vector_to_object(&searches_page_query_item_position_gr()));
-    item_json.insert(String::from("spatialWidthGr"), Value::Number(searches_page_query_item_width_gr().into()));
+    item_json.insert(String::from("spatialPositionGr"), json::vector_to_object(&queries_page_query_item_position_gr()));
+    item_json.insert(String::from("spatialWidthGr"), Value::Number(queries_page_query_item_width_gr().into()));
   }
   Ok(item_json)
 }
@@ -625,7 +635,7 @@ fn build_authoritative_child_attachment_snapshot(
     .map(|item| item_to_api_json_map_with_capabilities(db, item))
     .collect::<InfuResult<Vec<_>>>()
     .map_err(|e| format!("Error occurred getting children for container '{}': {}", item_id, e))?;
-  append_virtual_search_status_pages_to_searches_snapshot(
+  append_virtual_search_status_pages_to_queries_snapshot(
     db,
     item_id,
     session_user_id_maybe,
@@ -647,7 +657,7 @@ fn build_authoritative_child_attachment_snapshot(
   Ok(SyncContainerSnapshot { children, attachments })
 }
 
-fn append_virtual_search_status_pages_to_searches_snapshot(
+fn append_virtual_search_status_pages_to_queries_snapshot(
   db: &MutexGuard<'_, Db>,
   item_id: &Uid,
   session_user_id_maybe: &Option<String>,
@@ -882,7 +892,7 @@ async fn handle_sync_containers(
     }
   }
 
-  let search_status_artifact_for_searches_snapshot = maybe_read_search_status_artifact_for_searches_subscription(
+  let search_status_artifact_for_queries_snapshot = maybe_read_search_status_artifact_for_queries_subscription(
     db,
     &db_subscriptions,
     session_maybe,
@@ -900,7 +910,7 @@ async fn handle_sync_containers(
 
     let search_status_artifact_for_subscription = if let Some(session_user_id) = &session_user_id_maybe {
       match db.user.get(session_user_id) {
-        Some(user) if user.searches_page_id == subscription.id => search_status_artifact_for_searches_snapshot.as_ref(),
+        Some(user) if user.searches_page_id == subscription.id => search_status_artifact_for_queries_snapshot.as_ref(),
         _ => None,
       }
     } else {
@@ -910,7 +920,7 @@ async fn handle_sync_containers(
     if let Some(search_status_artifact) = search_status_artifact_for_subscription {
       let epoch = db.container_sync.epoch_for_user(&item.owner_id);
       let real_version = db.container_sync.version_for_container(&item.owner_id, &subscription.id);
-      let version = searches_container_sync_version(real_version, search_status_artifact);
+      let version = queries_container_sync_version(real_version, search_status_artifact);
       db.container_sync.mark_client_access(&item.owner_id, &subscription.id);
       if subscription.known_epoch == Some(epoch) && subscription.known_version == Some(version) {
         continue;
@@ -1033,8 +1043,8 @@ async fn handle_get_items(
     return Ok(Some(response));
   }
 
-  let search_status_artifact_for_searches_snapshot = if get_items_mode_includes_children(&mode) {
-    maybe_read_search_status_artifact_for_searches_container(db, &item_id, session_maybe).await?
+  let search_status_artifact_for_queries_snapshot = if get_items_mode_includes_children(&mode) {
+    maybe_read_search_status_artifact_for_queries_container(db, &item_id, session_maybe).await?
   } else {
     None
   };
@@ -1076,7 +1086,7 @@ async fn handle_get_items(
       db,
       &item_id,
       &session_user_id_maybe,
-      search_status_artifact_for_searches_snapshot.as_ref(),
+      search_status_artifact_for_queries_snapshot.as_ref(),
     )?;
     children_result = snapshot.children;
     attachments_result = snapshot.attachments;
@@ -1107,8 +1117,8 @@ async fn handle_get_items(
   let sync_version = match mode {
     GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
       let real_version = db.container_sync.version_for_container(&item.owner_id, &item_id);
-      Some(match search_status_artifact_for_searches_snapshot.as_ref() {
-        Some(search_status_artifact) => searches_container_sync_version(real_version, search_status_artifact),
+      Some(match search_status_artifact_for_queries_snapshot.as_ref() {
+        Some(search_status_artifact) => queries_container_sync_version(real_version, search_status_artifact),
         None => real_version,
       })
     }
@@ -1293,7 +1303,7 @@ async fn read_search_status_artifact_or_empty(
   })
 }
 
-async fn maybe_read_search_status_artifact_for_searches_container(
+async fn maybe_read_search_status_artifact_for_queries_container(
   db: &Arc<tokio::sync::Mutex<Db>>,
   item_id: &Uid,
   session_maybe: &Option<Session>,
@@ -1314,7 +1324,7 @@ async fn maybe_read_search_status_artifact_for_searches_container(
   Ok(Some(read_search_status_artifact(&data_dir, &session.user_id).await?.unwrap_or_else(SearchStatusArtifact::empty)))
 }
 
-async fn maybe_read_search_status_artifact_for_searches_subscription(
+async fn maybe_read_search_status_artifact_for_queries_subscription(
   db: &Arc<tokio::sync::Mutex<Db>>,
   subscriptions: &[SyncContainersSubscription],
   session_maybe: &Option<Session>,
@@ -1344,7 +1354,7 @@ fn virtual_search_status_sync_version(artifact: &SearchStatusArtifact) -> u64 {
   artifact.updated_at_unix_secs.max(0) as u64
 }
 
-fn searches_container_sync_version(real_version: u64, search_status_artifact: &SearchStatusArtifact) -> u64 {
+fn queries_container_sync_version(real_version: u64, search_status_artifact: &SearchStatusArtifact) -> u64 {
   virtual_search_status_sync_version(search_status_artifact)
     .saturating_mul(SEARCH_STATUS_CONTAINER_VERSION_MULTIPLIER)
     .saturating_add(real_version)

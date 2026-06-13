@@ -58,9 +58,17 @@ export const Toolbar_Page: Component = () => {
 
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(pageItem());
+  const isQueriesPage = () => {
+    store.touchToolbarDependency();
+    const userMaybe = store.user.getUserMaybe();
+    return userMaybe != null && pageItem().id == userMaybe.searchesPageId;
+  };
 
   // Arrange Algorithm
   const handleArrangeAlgoClick = () => {
+    if (isQueriesPage()) {
+      return;
+    }
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageArrangeAlgorithm) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
@@ -69,6 +77,9 @@ export const Toolbar_Page: Component = () => {
       { topLeftPx: { x: arrangeAlgoDiv!.getBoundingClientRect().x, y: arrangeAlgoDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageArrangeAlgorithm });
   };
   const handleArrangeAlgoDown = () => {
+    if (isQueriesPage()) {
+      return;
+    }
     ClickState.setButtonClickBoundsPx(arrangeAlgoDiv!.getBoundingClientRect());
   };
 
@@ -606,15 +617,17 @@ export const Toolbar_Page: Component = () => {
             <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
           </div>
         </Show>
-        <div ref={arrangeAlgoDiv}
-          class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
-          style={`font-size: 13px;`}>
-          <div class="inline-block w-[74px] pl-[6px] hover:bg-slate-300"
-            onClick={handleArrangeAlgoClick}
-            onMouseDown={handleArrangeAlgoDown}>
-            {arrangeAlgoText()}
+        <Show when={!isQueriesPage()}>
+          <div ref={arrangeAlgoDiv}
+            class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
+            style={`font-size: 13px;`}>
+            <div class="inline-block w-[74px] pl-[6px] hover:bg-slate-300"
+              onClick={handleArrangeAlgoClick}
+              onMouseDown={handleArrangeAlgoDown}>
+              {arrangeAlgoText()}
+            </div>
           </div>
-        </div>
+        </Show>
         <div ref={divBeforeColorSelect} class="inline-block ml-0" />
         <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle" onMouseDown={handleColorDown}>
           <InfuColorButton col={colorNumber()} onClick={handleColorClick} />

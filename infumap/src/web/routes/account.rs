@@ -42,7 +42,7 @@ use crate::storage::db::users_extra::UserExtra;
 use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
 use crate::web::routes::{
-  default_dock_page, default_home_page, default_query_item, default_searches_page, default_trash_page,
+  default_dock_page, default_home_page, default_queries_page, default_query_item, default_trash_page,
 };
 use crate::web::serve::{cors_response, forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
@@ -399,7 +399,7 @@ pub async fn register(
   let home_page_id = new_uid();
   let trash_page_id = new_uid();
   let dock_page_id = new_uid();
-  let searches_page_id = new_uid();
+  let queries_page_id = new_uid();
   let query_item_id = new_uid();
   let password_salt = new_uid();
   let password_hash = match User::hash_password(&payload.password) {
@@ -419,7 +419,7 @@ pub async fn register(
     home_page_id: home_page_id.clone(),
     trash_page_id: trash_page_id.clone(),
     dock_page_id: dock_page_id.clone(),
-    searches_page_id: searches_page_id.clone(),
+    searches_page_id: queries_page_id.clone(),
     default_page_width_bl: 60,
     default_page_natural_aspect: 2.0,
     object_encryption_key: generate_key(),
@@ -457,12 +457,12 @@ pub async fn register(
       error!("Error adding default dock page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let searches_page = default_searches_page(user_id.as_str(), searches_page_id.clone(), natural_aspect);
-    if let Err(e) = db.item.add(searches_page).await {
-      error!("Error adding default searches page: {}", e);
+    let queries_page = default_queries_page(user_id.as_str(), queries_page_id.clone(), natural_aspect);
+    if let Err(e) = db.item.add(queries_page).await {
+      error!("Error adding default queries page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let query_item = default_query_item(user_id.as_str(), &searches_page_id, query_item_id, page_width_bl);
+    let query_item = default_query_item(user_id.as_str(), &queries_page_id, query_item_id, page_width_bl);
     if let Err(e) = db.item.add(query_item).await {
       error!("Error adding default query item: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });

@@ -546,12 +546,17 @@ pub(super) async fn handle_update_item(
       .into(),
     );
   }
-  if (is_searches_page_query_item(&db, &old_item) || is_searches_page_query_item(&db, &item))
+  if (is_queries_page_item(&db, &old_item) || is_queries_page_item(&db, &item))
+    && !queries_page_arrange_algorithm_allowed(&item)
+  {
+    return Err(format!("Queries page '{}' must use list arrangement.", item.id).into());
+  }
+  if (is_queries_page_query_item(&db, &old_item) || is_queries_page_query_item(&db, &item))
     && item_move_fields_changed_to_disallowed_layout(&old_item, &item)
   {
     return Err(format!("Queries page query item '{}' cannot be moved.", item.id).into());
   }
-  if (is_searches_page_query_item(&db, &old_item) || is_searches_page_query_item(&db, &item))
+  if (is_queries_page_query_item(&db, &old_item) || is_queries_page_query_item(&db, &item))
     && item_resize_fields_changed_to_disallowed_layout(&old_item, &item)
   {
     return Err(format!("Queries page query item '{}' cannot be resized.", item.id).into());
