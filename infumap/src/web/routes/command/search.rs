@@ -107,6 +107,18 @@ pub struct SearchResponse {
   pub has_more: bool,
 }
 
+#[derive(Clone, Copy)]
+struct IndexedSearchBackends {
+  title_lexical: bool,
+  document_lexical: bool,
+  semantic: bool,
+}
+
+impl IndexedSearchBackends {
+  const MIXED: Self = Self { title_lexical: true, document_lexical: true, semantic: true };
+  const LEXICAL: Self = Self { title_lexical: true, document_lexical: true, semantic: false };
+}
+
 #[allow(dead_code)]
 pub(super) mod compact {
   use super::*;
@@ -229,82 +241,21 @@ pub(super) async fn run_search(
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
 
-  let (data_dir, search_root_id) = {
-    let db = db.lock().await;
+  let (data_dir, search_root_id) = resolve_search_scope(db, request.page_id, session).await?;
 
-    let page_id = if let Some(request_page_id) = request.page_id {
-      request_page_id
-    } else {
-      let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}", session.user_id))?;
-      user.home_page_id.clone()
-    };
-
-    (db.item.data_dir().to_owned(), page_id)
-  };
-
-  let mut results = if full_user_search {
-    let fragment_result_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
-      .map_err(|_| "Search result limit is too large.")?;
-    let title_results = match title_lexical_search_results(
+  let results = if full_user_search {
+    indexed_search_results(
+      Some(config),
       db,
       &data_dir,
       &session.user_id,
       &search_root_id,
       &request.text,
-      fragment_result_limit,
+      start_result,
+      end_result,
+      IndexedSearchBackends::MIXED,
     )
-    .await
-    {
-      Ok(results) => results,
-      Err(e) => {
-        warn!(
-          "Title lexical search failed for user '{}'; falling back without title lexical results: {}",
-          session.user_id, e
-        );
-        Vec::new()
-      }
-    };
-    let lexical_results = match lexical_search_results(
-      db,
-      &data_dir,
-      &session.user_id,
-      &search_root_id,
-      &request.text,
-      fragment_result_limit,
-    )
-    .await
-    {
-      Ok(results) => results,
-      Err(e) => {
-        warn!(
-          "Lexical fragment search failed for user '{}'; falling back without lexical fragment results: {}",
-          session.user_id, e
-        );
-        Vec::new()
-      }
-    };
-    let semantic_results = match semantic_search_results(
-      config,
-      db,
-      &data_dir,
-      &session.user_id,
-      &search_root_id,
-      &request.text,
-      fragment_result_limit,
-    )
-    .await
-    {
-      Ok(results) => results,
-      Err(e) => {
-        warn!(
-          "Semantic search failed for user '{}'; falling back without semantic fragment results: {}",
-          session.user_id, e
-        );
-        Vec::new()
-      }
-    };
-    let mixed = mix_search_results(title_results, lexical_results, semantic_results);
-    paginate_mixed_results(mixed, start_result, end_result)
+    .await?
   } else {
     let mut db = db.lock().await;
     let started = Instant::now();
@@ -314,16 +265,122 @@ pub(super) async fn run_search(
     result?
   };
 
-  let has_more = results.len() > request.num_results as usize;
-  if has_more {
-    results.truncate(request.num_results as usize);
-  }
-  Ok(SearchResponse { results, has_more })
+  Ok(search_response_from_results(results, request.num_results))
+}
+
+pub(super) async fn run_lexical_search(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: SearchRequest,
+  session: &Session,
+) -> InfuResult<SearchResponse> {
+  let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
+  let end_result = start_result + request.num_results + 1;
+  let (data_dir, search_root_id) = resolve_search_scope(db, request.page_id, session).await?;
+
+  let results = indexed_search_results(
+    None,
+    db,
+    &data_dir,
+    &session.user_id,
+    &search_root_id,
+    &request.text,
+    start_result,
+    end_result,
+    IndexedSearchBackends::LEXICAL,
+  )
+  .await?;
+
+  Ok(search_response_from_results(results, request.num_results))
 }
 
 pub(super) fn compact_search_response_json(response: &SearchResponse) -> InfuResult<String> {
   serde_json::to_string(&compact::compact_search_response(response))
     .map_err(|e| format!("Could not serialize compact search response: {}", e).into())
+}
+
+async fn resolve_search_scope(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  page_id: Option<Uid>,
+  session: &Session,
+) -> InfuResult<(String, Uid)> {
+  let db = db.lock().await;
+  let page_id = if let Some(page_id) = page_id {
+    page_id
+  } else {
+    let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}", session.user_id))?;
+    user.home_page_id.clone()
+  };
+
+  Ok((db.item.data_dir().to_owned(), page_id))
+}
+
+async fn indexed_search_results(
+  config: Option<Arc<Config>>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  data_dir: &str,
+  user_id: &Uid,
+  search_root_id: &Uid,
+  search_text: &str,
+  start_result: i64,
+  end_result: i64,
+  backends: IndexedSearchBackends,
+) -> InfuResult<Vec<SearchResult>> {
+  let fragment_result_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
+    .map_err(|_| "Search result limit is too large.")?;
+
+  let title_results = if backends.title_lexical {
+    match title_lexical_search_results(db, data_dir, user_id, search_root_id, search_text, fragment_result_limit).await
+    {
+      Ok(results) => results,
+      Err(e) => {
+        warn!("Title lexical search failed for user '{}'; falling back without title lexical results: {}", user_id, e);
+        Vec::new()
+      }
+    }
+  } else {
+    Vec::new()
+  };
+
+  let lexical_results = if backends.document_lexical {
+    match lexical_search_results(db, data_dir, user_id, search_root_id, search_text, fragment_result_limit).await {
+      Ok(results) => results,
+      Err(e) => {
+        warn!(
+          "Lexical fragment search failed for user '{}'; falling back without lexical fragment results: {}",
+          user_id, e
+        );
+        Vec::new()
+      }
+    }
+  } else {
+    Vec::new()
+  };
+
+  let semantic_results = if backends.semantic {
+    let config = config.ok_or("Semantic search requires configuration.")?;
+    match semantic_search_results(config, db, data_dir, user_id, search_root_id, search_text, fragment_result_limit)
+      .await
+    {
+      Ok(results) => results,
+      Err(e) => {
+        warn!("Semantic search failed for user '{}'; falling back without semantic fragment results: {}", user_id, e);
+        Vec::new()
+      }
+    }
+  } else {
+    Vec::new()
+  };
+
+  let mixed = mix_search_results(title_results, lexical_results, semantic_results);
+  Ok(paginate_mixed_results(mixed, start_result, end_result))
+}
+
+fn search_response_from_results(mut results: Vec<SearchResult>, num_results: i64) -> SearchResponse {
+  let has_more = results.len() > num_results as usize;
+  if has_more {
+    results.truncate(num_results as usize);
+  }
+  SearchResponse { results, has_more }
 }
 
 fn search_exact_paginated(

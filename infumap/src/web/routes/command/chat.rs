@@ -28,11 +28,8 @@ const CHAT_MAX_TOOL_ROUNDS: usize = 9;
 const CHAT_HISTORY_MAX_PREVIOUS_MESSAGES: usize = 8;
 const CHAT_HISTORY_MAX_MESSAGE_CHARS: usize = 4_000;
 const CHAT_HISTORY_MAX_TOTAL_CHARS: usize = 12_000;
-const CHAT_FIND_TOOL_DEFAULT_NUM_RESULTS: i64 = 12;
-const CHAT_FIND_TOOL_MAX_NUM_RESULTS: i64 = 30;
-const CHAT_FIND_DIVERSITY_PREFIX_LEN: usize = 3;
-const CHAT_SEARCH_TEXT_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
-const CHAT_SEARCH_TEXT_TOOL_MAX_NUM_RESULTS: i64 = 20;
+const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
+const CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
 const CHAT_RESPONSE_ITEM_WIDTH_GR: i64 = 30 * GRID_SIZE;
 const CHAT_RESPONSE_TABLE_MAX_HEIGHT_BL: i64 = 12;
@@ -43,12 +40,10 @@ const LLM_LOG_PATH: &str = "/tmp/llm.txt";
 const CHAT_SYSTEM_PROMPT: &str = "\
 You are a chat assistant for an information workspace.
 
-Use find by default to locate items or discover likely relevant items.
-find matches visible item identity text, ignores password items, and returns compact item ids, item types, titles, and paths.
-Use search_text only when find does not provide what is needed, or when the user clearly needs deeper access to document text.
-search_text returns compact results with item ids, item types, titles, paths, fragment ordinals, and text snippets.
-Use get_fragment when a search_text snippet is truncated, ambiguous, or too small to answer from confidently.
-If find and search_text results are insufficient, say what is missing rather than inventing details.
+Use lexical_search by default to locate items, discover likely relevant items, or search document text.
+lexical_search searches titles and document text using lexical matching.
+Use get_fragment when a lexical_search snippet is truncated, ambiguous, or too small to answer from confidently.
+If lexical_search results are insufficient, say what is missing rather than inventing details.
 Return a concise Markdown answer.";
 const NOTE_FLAG_HEADING3: i64 = 0x001;
 const NOTE_FLAG_HEADING1: i64 = 0x004;
@@ -257,15 +252,7 @@ struct LlamaChatCompletionUsage {
 }
 
 #[derive(Deserialize)]
-struct ChatFindToolArguments {
-  text: Option<String>,
-  query: Option<String>,
-  #[serde(rename = "numResults")]
-  num_results: Option<i64>,
-}
-
-#[derive(Deserialize)]
-struct ChatSearchTextToolArguments {
+struct ChatLexicalSearchToolArguments {
   text: Option<String>,
   query: Option<String>,
   #[serde(rename = "pageId")]
@@ -283,12 +270,6 @@ struct ChatFragmentToolArguments {
   #[serde(rename = "fragmentOrdinal")]
   fragment_ordinal: Option<i64>,
   ordinal: Option<i64>,
-}
-
-struct ChatFindBucket {
-  key: String,
-  results: Vec<search::SearchResult>,
-  next_index: usize,
 }
 
 pub(super) async fn handle_chat(
@@ -640,45 +621,18 @@ fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage]
   append_llm_json_log_section(&format!("LLM REQUEST METRICS {}", llm_turn), &metrics);
 }
 
-fn find_tool_spec() -> LlamaToolSpec {
+fn lexical_search_tool_spec() -> LlamaToolSpec {
   LlamaToolSpec {
     tool_type: "function".to_owned(),
     function: LlamaToolFunctionSpec {
-      name: "find".to_owned(),
-      description: "Find workspace items by visible item text or label. Use this as the default item lookup tool. It ignores password items and items whose path crosses a password item.".to_owned(),
+      name: "lexical_search".to_owned(),
+      description: "Search workspace titles and document text using lexical matching. Use this as the default lookup and search tool.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
           "text": {
             "type": "string",
-            "description": "Visible item text or label to match as a case-insensitive substring."
-          },
-          "numResults": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": CHAT_FIND_TOOL_MAX_NUM_RESULTS,
-            "description": "Maximum number of item matches to return."
-          }
-        },
-        "required": ["text"],
-        "additionalProperties": false
-      }),
-    },
-  }
-}
-
-fn search_text_tool_spec() -> LlamaToolSpec {
-  LlamaToolSpec {
-    tool_type: "function".to_owned(),
-    function: LlamaToolFunctionSpec {
-      name: "search_text".to_owned(),
-      description: "Search workspace text using the same behavior as the search UI. Use this when document/body text is needed, not as the default item lookup tool.".to_owned(),
-      parameters: serde_json::json!({
-        "type": "object",
-        "properties": {
-          "text": {
-            "type": "string",
-            "description": "Text query to search for."
+            "description": "Lexical text query to search for."
           },
           "pageId": {
             "type": ["string", "null"],
@@ -687,7 +641,7 @@ fn search_text_tool_spec() -> LlamaToolSpec {
           "numResults": {
             "type": "integer",
             "minimum": 1,
-            "maximum": CHAT_SEARCH_TEXT_TOOL_MAX_NUM_RESULTS,
+            "maximum": CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS,
             "description": "Maximum number of search results to return."
           },
           "pageNum": {
@@ -709,18 +663,19 @@ fn get_fragment_tool_spec() -> LlamaToolSpec {
     function: LlamaToolFunctionSpec {
       name: "get_fragment".to_owned(),
       description:
-        "Fetch bounded full text for a specific search_text result fragment by item id and fragment ordinal.".to_owned(),
+        "Fetch bounded full text for a specific lexical_search result fragment by item id and fragment ordinal."
+          .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
           "itemId": {
             "type": "string",
-            "description": "Item id from a search_text result."
+            "description": "Item id from a lexical_search result."
           },
           "fragmentOrdinal": {
             "type": "integer",
             "minimum": 0,
-            "description": "Fragment ordinal from a search_text result."
+            "description": "Fragment ordinal from a lexical_search result."
           }
         },
         "required": ["itemId", "fragmentOrdinal"],
@@ -754,7 +709,7 @@ async fn run_chat_with_tools_with_progress(
   }
   messages.insert(0, LlamaChatMessage::text("system", CHAT_SYSTEM_PROMPT.to_owned()));
 
-  let tools = vec![find_tool_spec(), search_text_tool_spec(), get_fragment_tool_spec()];
+  let tools = vec![lexical_search_tool_spec(), get_fragment_tool_spec()];
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
@@ -780,7 +735,7 @@ async fn run_chat_with_tools_with_progress(
         if let Some(progress) = progress {
           progress.tool_call_started(&tool_call.function.name).await;
         }
-        let tool_result = execute_chat_tool_call(config.clone(), db, session, &tool_call).await?;
+        let tool_result = execute_chat_tool_call(db, session, &tool_call).await?;
         if let Some(progress) = progress {
           progress.tool_call_finished(&tool_call.function.name, "Done").await;
         }
@@ -816,20 +771,18 @@ fn normalize_tool_calls(message: &mut LlamaChatMessage, tool_round: usize) -> Ve
 }
 
 async fn execute_chat_tool_call(
-  config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   tool_call: &LlamaToolCall,
 ) -> InfuResult<String> {
   match tool_call.function.name.as_str() {
-    "find" => execute_find_tool_call(db, session, tool_call).await,
-    "search_text" => execute_search_text_tool_call(config, db, session, tool_call).await,
-    "get_fragment" => execute_get_fragment_tool_call(config, db, session, tool_call).await,
+    "lexical_search" => execute_lexical_search_tool_call(db, session, tool_call).await,
+    "get_fragment" => execute_get_fragment_tool_call(db, session, tool_call).await,
     name => Ok(tool_error_json(&format!("Unknown tool '{name}'."))),
   }
 }
 
-async fn execute_find_tool_call(
+async fn execute_lexical_search_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   tool_call: &LlamaToolCall,
@@ -838,209 +791,30 @@ async fn execute_find_tool_call(
     Ok(arguments) => arguments,
     Err(e) => return Ok(tool_error_json(&e.to_string())),
   };
-  let arguments: ChatFindToolArguments = match serde_json::from_value(arguments) {
+  let arguments: ChatLexicalSearchToolArguments = match serde_json::from_value(arguments) {
     Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&format!("Could not parse find tool arguments: {}", e))),
-  };
-
-  let find_text = arguments.text.or(arguments.query).unwrap_or_default().trim().to_owned();
-  if find_text.is_empty() {
-    return Ok(tool_error_json("find tool argument 'text' is required."));
-  }
-
-  let num_results =
-    arguments.num_results.unwrap_or(CHAT_FIND_TOOL_DEFAULT_NUM_RESULTS).clamp(1, CHAT_FIND_TOOL_MAX_NUM_RESULTS)
-      as usize;
-
-  let response = {
-    let db = db.lock().await;
-    find_response(&db, &session.user_id, &find_text, num_results)?
-  };
-  search::compact_search_response_json(&response)
-}
-
-fn find_response(db: &Db, user_id: &Uid, find_text: &str, num_results: usize) -> InfuResult<search::SearchResponse> {
-  let find_text_lower = find_text.to_lowercase();
-  let mut item_ids = db
-    .item
-    .all_loaded_items()
-    .into_iter()
-    .filter(|item_and_user_id| &item_and_user_id.user_id == user_id)
-    .map(|item_and_user_id| item_and_user_id.item_id)
-    .collect::<Vec<_>>();
-  item_ids.sort();
-
-  let mut candidates = Vec::new();
-  for item_id in item_ids {
-    let item = db.item.get(&item_id)?;
-    if &item.owner_id != user_id || item.item_type == ItemType::Password {
-      continue;
-    }
-
-    let Some(title) = item.title.as_deref().map(str::trim).filter(|title| !title.is_empty()) else {
-      continue;
-    };
-    if !title.to_lowercase().contains(&find_text_lower) {
-      continue;
-    }
-
-    let Some(path) = find_path_for_item(db, &item_id, user_id)? else {
-      continue;
-    };
-    candidates.push(search::SearchResult {
-      path,
-      score: search::exact_title_search_score(title, find_text),
-      stats: None,
-      fragment_match: None,
-      additional_fragment_matches: Vec::new(),
-    });
-  }
-
-  let has_more = candidates.len() > num_results;
-  let results = diversify_find_results(candidates, num_results);
-  Ok(search::SearchResponse { results, has_more })
-}
-
-fn find_path_for_item(db: &Db, item_id: &Uid, user_id: &Uid) -> InfuResult<Option<Vec<search::SearchPathElement>>> {
-  let mut path = Vec::new();
-  let mut current_id = item_id.clone();
-  let mut seen = HashSet::new();
-
-  loop {
-    if !seen.insert(current_id.clone()) {
-      return Err(format!("Cycle detected while building find path for item '{}'.", item_id).into());
-    }
-
-    let item = match db.item.get(&current_id) {
-      Ok(item) => item,
-      Err(_) => return Ok(None),
-    };
-    if &item.owner_id != user_id || item.item_type == ItemType::Password {
-      return Ok(None);
-    }
-    path.push(search::SearchPathElement {
-      item_type: item.item_type.as_str().to_owned(),
-      title: item.title.clone(),
-      id: item.id.clone(),
-    });
-
-    let Some(parent_id) = item.parent_id.clone() else {
-      break;
-    };
-    current_id = parent_id;
-  }
-
-  path.reverse();
-  Ok(Some(path))
-}
-
-fn diversify_find_results(candidates: Vec<search::SearchResult>, num_results: usize) -> Vec<search::SearchResult> {
-  if num_results == 0 || candidates.is_empty() {
-    return Vec::new();
-  }
-
-  let mut results_by_key: HashMap<String, Vec<search::SearchResult>> = HashMap::new();
-  for candidate in candidates {
-    results_by_key.entry(find_diversity_key(&candidate.path)).or_default().push(candidate);
-  }
-
-  let mut buckets = results_by_key
-    .into_iter()
-    .map(|(key, mut results)| {
-      results.sort_by(compare_find_results);
-      ChatFindBucket { key, results, next_index: 0 }
-    })
-    .collect::<Vec<_>>();
-  buckets.sort_by(compare_find_buckets);
-
-  let mut diversified_results = Vec::new();
-  while diversified_results.len() < num_results {
-    let mut made_progress = false;
-    for bucket in &mut buckets {
-      if bucket.next_index >= bucket.results.len() {
-        continue;
-      }
-      diversified_results.push(bucket.results[bucket.next_index].clone());
-      bucket.next_index += 1;
-      made_progress = true;
-      if diversified_results.len() >= num_results {
-        break;
-      }
-    }
-    if !made_progress {
-      break;
-    }
-  }
-
-  diversified_results
-}
-
-fn find_diversity_key(path: &[search::SearchPathElement]) -> String {
-  path.iter().take(CHAT_FIND_DIVERSITY_PREFIX_LEN).map(|element| element.id.as_str()).collect::<Vec<_>>().join("/")
-}
-
-fn compare_find_buckets(a: &ChatFindBucket, b: &ChatFindBucket) -> std::cmp::Ordering {
-  let a_first = a.results.first();
-  let b_first = b.results.first();
-  match (a_first, b_first) {
-    (Some(a_first), Some(b_first)) => compare_find_results(a_first, b_first).then_with(|| a.key.cmp(&b.key)),
-    (Some(_), None) => std::cmp::Ordering::Less,
-    (None, Some(_)) => std::cmp::Ordering::Greater,
-    (None, None) => a.key.cmp(&b.key),
-  }
-}
-
-fn compare_find_results(a: &search::SearchResult, b: &search::SearchResult) -> std::cmp::Ordering {
-  b.score
-    .total_cmp(&a.score)
-    .then_with(|| a.path.len().cmp(&b.path.len()))
-    .then_with(|| find_result_title(a).cmp(find_result_title(b)))
-    .then_with(|| find_result_item_id(a).cmp(find_result_item_id(b)))
-}
-
-fn find_result_title(result: &search::SearchResult) -> &str {
-  result.path.last().and_then(|element| element.title.as_deref()).unwrap_or("")
-}
-
-fn find_result_item_id(result: &search::SearchResult) -> &str {
-  result.path.last().map(|element| element.id.as_str()).unwrap_or("")
-}
-
-async fn execute_search_text_tool_call(
-  config: Arc<Config>,
-  db: &Arc<tokio::sync::Mutex<Db>>,
-  session: &Session,
-  tool_call: &LlamaToolCall,
-) -> InfuResult<String> {
-  let arguments = match tool_call_arguments_value(tool_call) {
-    Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&e.to_string())),
-  };
-  let arguments: ChatSearchTextToolArguments = match serde_json::from_value(arguments) {
-    Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&format!("Could not parse search_text tool arguments: {}", e))),
+    Err(e) => return Ok(tool_error_json(&format!("Could not parse lexical_search tool arguments: {}", e))),
   };
 
   let search_text = arguments.text.or(arguments.query).unwrap_or_default().trim().to_owned();
   if search_text.is_empty() {
-    return Ok(tool_error_json("search_text tool argument 'text' is required."));
+    return Ok(tool_error_json("lexical_search tool argument 'text' is required."));
   }
 
   let num_results = arguments
     .num_results
-    .unwrap_or(CHAT_SEARCH_TEXT_TOOL_DEFAULT_NUM_RESULTS)
-    .clamp(1, CHAT_SEARCH_TEXT_TOOL_MAX_NUM_RESULTS);
+    .unwrap_or(CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS)
+    .clamp(1, CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS);
   let page_num = arguments.page_num.map(|page_num| page_num.max(1));
   let search_request = search::SearchRequest { page_id: arguments.page_id, text: search_text, num_results, page_num };
 
-  match search::run_search(config, db, search_request, session).await {
+  match search::run_lexical_search(db, search_request, session).await {
     Ok(response) => search::compact_search_response_json(&response),
-    Err(e) => Ok(tool_error_json(&format!("search_text failed: {}", e))),
+    Err(e) => Ok(tool_error_json(&format!("lexical_search failed: {}", e))),
   }
 }
 
 async fn execute_get_fragment_tool_call(
-  _config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   tool_call: &LlamaToolCall,
@@ -1082,11 +856,8 @@ async fn execute_get_fragment_tool_call(
       Err(e) => return Ok(tool_error_json(&format!("Could not read item fragments: {}", e))),
     };
   let source_kind = item_fragments.source_kind;
-  let selected_records: Vec<crate::ai::fragment::ItemFragmentRecord> = item_fragments
-    .records
-    .into_iter()
-    .filter(|record| record.ordinal == fragment_ordinal)
-    .collect::<Vec<_>>();
+  let selected_records: Vec<crate::ai::fragment::ItemFragmentRecord> =
+    item_fragments.records.into_iter().filter(|record| record.ordinal == fragment_ordinal).collect::<Vec<_>>();
 
   if selected_records.is_empty() {
     return Ok(tool_error_json("Fragment ordinal was not found for this item."));
