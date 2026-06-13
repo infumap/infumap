@@ -104,6 +104,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [isMaterializingChat, setIsMaterializingChat] = createSignal(false);
   const [chatComposerHeightPx, setChatComposerHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
+  let queryInput: HTMLInputElement | undefined;
+  let querySearchButton: HTMLButtonElement | undefined;
+  let queryChatButton: HTMLButtonElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let activeSearchRequestSerial = 0;
   const boundsPx = () => props.visualElement.boundsPx;
@@ -244,6 +247,70 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       await startQueryChat(store, queryItem(), text, vePath());
     } finally {
       setIsStartingChat(false);
+    }
+  };
+
+  const focusQueryInputControl = () => {
+    if (!canEdit()) {
+      return;
+    }
+    if (!isEditing()) {
+      requestEditMode(queryText().length, false, false);
+    }
+    requestAnimationFrame(() => {
+      const input = queryInput ?? document.getElementById(editingDomId());
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      input.focus();
+      const caretIdx = input.value.length;
+      input.setSelectionRange(caretIdx, caretIdx);
+    });
+  };
+
+  const focusSearchButton = () => {
+    if (!querySearchButton || querySearchButton.disabled) {
+      focusQueryInputControl();
+      return;
+    }
+    querySearchButton.focus();
+  };
+
+  const focusChatButton = () => {
+    if (!queryChatButton || queryChatButton.disabled) {
+      focusQueryInputControl();
+      return;
+    }
+    queryChatButton.focus();
+  };
+
+  const focusPreviousQueryControl = (currentControl: "input" | "search" | "chat") => {
+    if (currentControl == "input") {
+      focusChatButton();
+    } else if (currentControl == "search") {
+      focusQueryInputControl();
+    } else {
+      focusSearchButton();
+    }
+  };
+
+  const focusNextQueryControl = (currentControl: "input" | "search" | "chat") => {
+    if (currentControl == "input") {
+      focusSearchButton();
+    } else if (currentControl == "search") {
+      focusChatButton();
+    } else {
+      focusQueryInputControl();
+    }
+  };
+
+  const handleQueryControlTab = (ev: KeyboardEvent, currentControl: "input" | "search" | "chat") => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.shiftKey) {
+      focusPreviousQueryControl(currentControl);
+    } else {
+      focusNextQueryControl(currentControl);
     }
   };
 
@@ -450,6 +517,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         ev.preventDefault();
         ev.stopPropagation();
         void runSearch(true, ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null, true);
+        return;
+      case "Tab":
+        handleQueryControlTab(ev, "input");
         return;
       case "Escape":
         ev.preventDefault();
@@ -719,6 +789,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
             style="font-size: 16px;">
             <input id={editingDomId()}
+              ref={queryInput}
               class="block h-full w-full border-0 bg-transparent p-0 text-black outline-hidden"
               style="font-size: 16px; user-select: text;"
               value={queryText()}
@@ -731,6 +802,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </div>
         </div>
         <button
+          ref={querySearchButton}
           class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-40"
           style={`width: ${QUERY_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
           type="button"
@@ -744,10 +816,22 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             ev.preventDefault();
             ev.stopPropagation();
           }}
+          onKeyDown={(ev) => {
+            ev.stopPropagation();
+            if (ev.key == "Tab") {
+              handleQueryControlTab(ev, "search");
+              return;
+            }
+            if (ev.key == "Enter") {
+              ev.preventDefault();
+              void runSearch(false);
+            }
+          }}
           >
           Search
         </button>
         <button
+          ref={queryChatButton}
           class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-40"
           style={`width: ${QUERY_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
           type="button"
@@ -760,6 +844,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onMouseUp={(ev) => {
             ev.preventDefault();
             ev.stopPropagation();
+          }}
+          onKeyDown={(ev) => {
+            ev.stopPropagation();
+            if (ev.key == "Tab") {
+              handleQueryControlTab(ev, "chat");
+              return;
+            }
+            if (ev.key == "Enter") {
+              ev.preventDefault();
+              void startChat();
+            }
           }}
           >
           Chat
