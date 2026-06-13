@@ -804,7 +804,7 @@ export const Toolbar_Popup: Component = () => {
   const focusIsQueriesPage = () => {
     const focusItem = getToolbarFocusItem(store);
     const userMaybe = store.user.getUserMaybe();
-    return userMaybe != null && isPage(focusItem) && focusItem.id == userMaybe.searchesPageId;
+    return userMaybe != null && isPage(focusItem) && focusItem.id == userMaybe.queriesPageId;
   }
 
   const handlePageArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {

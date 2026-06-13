@@ -61,7 +61,7 @@ export const Toolbar_Page: Component = () => {
   const isQueriesPage = () => {
     store.touchToolbarDependency();
     const userMaybe = store.user.getUserMaybe();
-    return userMaybe != null && pageItem().id == userMaybe.searchesPageId;
+    return userMaybe != null && pageItem().id == userMaybe.queriesPageId;
   };
 
   // Arrange Algorithm

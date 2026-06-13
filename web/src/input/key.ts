@@ -27,7 +27,7 @@ import { arrangeNow, arrangeVirtual } from "../layout/arrange";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { catalogResultControlsTopInsetPx } from "../layout/catalog-display";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
-import { navigateToContainingPageOfItem, navigateToSearches, switchToPage } from "../layout/navigation";
+import { navigateToContainingPageOfItem, navigateToQueries, switchToPage } from "../layout/navigation";
 import { isEmptyVeid, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot, type ListPageRowBand, type VisualElementPath } from "../layout/visual-element";
 
 
@@ -821,7 +821,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     if (ev.ctrlKey || ev.metaKey) {
       ev.preventDefault();
       if (ev.shiftKey) {
-        void navigateToSearches(store);
+        void navigateToQueries(store);
       } else {
         store.overlay.findOverlayVisible.set(true);
       }

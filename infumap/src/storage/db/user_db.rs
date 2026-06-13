@@ -17,8 +17,10 @@
 use infusdk::db::kv_store::JsonLogSerializable;
 use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
+use infusdk::util::json;
 use infusdk::util::uid::{Uid, is_uid};
 use log::{debug, warn};
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::fs::File;
@@ -27,7 +29,7 @@ use tokio::io::{AsyncReadExt, BufReader};
 use super::user::User;
 use crate::util::fs::expand_tilde;
 
-pub const CURRENT_USER_LOG_VERSION: i64 = 5;
+pub const CURRENT_USER_LOG_VERSION: i64 = 6;
 
 /// Db for managing User instances, assuming the mandated data folder hierarchy.
 /// Not thread safe.
@@ -230,5 +232,40 @@ impl UserDb {
     log_path.push(String::from("user_") + user_id);
     log_path.push("user.json");
     Ok(log_path)
+  }
+}
+
+pub fn migrate_record_v5_to_v6(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => {
+      let descriptor_version =
+        json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
+      if descriptor_version != 5 {
+        return Err(format!("Descriptor version is {}, but 5 was expected.", descriptor_version).into());
+      }
+      let value_type =
+        json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
+      if value_type != User::value_type_identifier() {
+        return Err(
+          format!("Descriptor value_type is '{}', expecting '{}'.", &value_type, User::value_type_identifier()).into(),
+        );
+      }
+      let mut result = kvs.clone();
+      result.insert(String::from("version"), Value::Number((6 as i64).into()));
+      Ok(result)
+    }
+
+    "entry" | "update" => {
+      let mut result = kvs.clone();
+      if let Some(queries_page_id) = result.remove("searchesPageId") {
+        result.insert(String::from("queriesPageId"), queries_page_id);
+      }
+      Ok(result)
+    }
+
+    "delete" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
   }
 }

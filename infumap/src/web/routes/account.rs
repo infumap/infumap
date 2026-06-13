@@ -119,8 +119,8 @@ pub struct LoginResponse {
   pub trash_page_id: Option<String>,
   #[serde(rename = "dockPageId")]
   pub dock_page_id: Option<String>,
-  #[serde(rename = "searchesPageId")]
-  pub searches_page_id: Option<String>,
+  #[serde(rename = "queriesPageId")]
+  pub queries_page_id: Option<String>,
   #[serde(rename = "hasTotp")]
   pub has_totp: bool,
 }
@@ -144,7 +144,7 @@ pub async fn login(
       home_page_id: None,
       trash_page_id: None,
       dock_page_id: None,
-      searches_page_id: None,
+      queries_page_id: None,
       has_totp: false,
       err: Some(String::from(msg)),
     });
@@ -254,7 +254,7 @@ pub async fn login(
         home_page_id: Some(user.home_page_id),
         trash_page_id: Some(user.trash_page_id),
         dock_page_id: Some(user.dock_page_id),
-        searches_page_id: Some(user.searches_page_id),
+        queries_page_id: Some(user.queries_page_id),
         has_totp: user.totp_secret.is_some(),
         err: None,
       };
@@ -419,7 +419,7 @@ pub async fn register(
     home_page_id: home_page_id.clone(),
     trash_page_id: trash_page_id.clone(),
     dock_page_id: dock_page_id.clone(),
-    searches_page_id: queries_page_id.clone(),
+    queries_page_id: queries_page_id.clone(),
     default_page_width_bl: 60,
     default_page_natural_aspect: 2.0,
     object_encryption_key: generate_key(),
@@ -979,8 +979,8 @@ pub struct ValidateResponse {
   pub trash_page_id: Option<String>,
   #[serde(rename = "dockPageId")]
   pub dock_page_id: Option<String>,
-  #[serde(rename = "searchesPageId")]
-  pub searches_page_id: Option<String>,
+  #[serde(rename = "queriesPageId")]
+  pub queries_page_id: Option<String>,
   #[serde(rename = "hasTotp")]
   pub has_totp: Option<bool>,
 }
@@ -999,7 +999,7 @@ pub async fn validate(
         home_page_id: None,
         trash_page_id: None,
         dock_page_id: None,
-        searches_page_id: None,
+        queries_page_id: None,
         has_totp: None,
       });
     }
@@ -1020,7 +1020,7 @@ pub async fn validate(
         home_page_id: None,
         trash_page_id: None,
         dock_page_id: None,
-        searches_page_id: None,
+        queries_page_id: None,
         has_totp: None,
       })
     }
@@ -1031,7 +1031,7 @@ pub async fn validate(
       home_page_id: Some(user.home_page_id),
       trash_page_id: Some(user.trash_page_id),
       dock_page_id: Some(user.dock_page_id),
-      searches_page_id: Some(user.searches_page_id),
+      queries_page_id: Some(user.queries_page_id),
       has_totp: Some(user.totp_secret.is_some()),
     }),
   }

@@ -18,7 +18,7 @@
 
 import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { navigateBack, navigateToLocalRoot, navigateToSearches, navigateUp } from '../../layout/navigation';
+import { navigateBack, navigateToLocalRoot, navigateToQueries, navigateUp } from '../../layout/navigation';
 import { InfuIconButton } from "../library/InfuIconButton";
 
 
@@ -34,7 +34,7 @@ export const Toolbar_Navigation: Component = () => {
   const handleUp = async () => { await navigateUp(store); };
 
   const handleSearchClick = async () => {
-    await navigateToSearches(store);
+    await navigateToQueries(store);
   };
 
   return (

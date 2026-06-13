@@ -29,7 +29,7 @@ interface ValidateSessionResponse {
   homePageId?: string | null,
   trashPageId?: string | null,
   dockPageId?: string | null,
-  searchesPageId?: string | null,
+  queriesPageId?: string | null,
   hasTotp?: boolean | null,
 }
 
@@ -54,7 +54,7 @@ export function makeUserStore(): UserStoreContextModel {
       responseObj.homePageId == null ||
       responseObj.trashPageId == null ||
       responseObj.dockPageId == null ||
-      responseObj.searchesPageId == null ||
+      responseObj.queriesPageId == null ||
       responseObj.hasTotp == null
     ) {
       return null;
@@ -71,7 +71,7 @@ export function makeUserStore(): UserStoreContextModel {
       homePageId: responseObj.homePageId,
       trashPageId: responseObj.trashPageId,
       dockPageId: responseObj.dockPageId,
-      searchesPageId: responseObj.searchesPageId,
+      queriesPageId: responseObj.queriesPageId,
       hasTotp: responseObj.hasTotp,
     };
   };

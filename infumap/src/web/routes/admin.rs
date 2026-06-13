@@ -189,13 +189,13 @@ pub async fn approve_pending(
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
       let queries_page =
-        default_queries_page(pending_user.id.as_str(), pending_user.searches_page_id.clone(), natural_aspect);
+        default_queries_page(pending_user.id.as_str(), pending_user.queries_page_id.clone(), natural_aspect);
       if let Err(e) = db.item.add(queries_page).await {
         error!("Error adding default queries page: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
       let query_item =
-        default_query_item(pending_user.id.as_str(), &pending_user.searches_page_id, new_uid(), page_width_bl);
+        default_query_item(pending_user.id.as_str(), &pending_user.queries_page_id, new_uid(), page_width_bl);
       if let Err(e) = db.item.add(query_item).await {
         error!("Error adding default query item: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });

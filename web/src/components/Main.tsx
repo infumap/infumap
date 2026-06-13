@@ -181,7 +181,7 @@ export const Main: Component = () => {
       }
 
       const userMaybe = store.user.getUserMaybe();
-      if (origin == null && userMaybe && itemId == userMaybe.searchesPageId) {
+      if (origin == null && userMaybe && itemId == userMaybe.queriesPageId) {
         const queryItemId = await ensureQueryItemUnderQueries(store, itemId);
         removeClientOnlyChatPagesUnderQueries(store, itemId);
         if (queryItemId != null) {

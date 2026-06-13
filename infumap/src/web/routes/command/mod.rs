@@ -560,7 +560,7 @@ fn queries_page_query_item_width_gr() -> i64 {
 }
 
 fn is_queries_page_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
-  item.item_type == ItemType::Page && db.user.get(&item.owner_id).is_some_and(|user| user.searches_page_id == item.id)
+  item.item_type == ItemType::Page && db.user.get(&item.owner_id).is_some_and(|user| user.queries_page_id == item.id)
 }
 
 fn is_queries_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
@@ -569,7 +569,7 @@ fn is_queries_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
     && item
       .parent_id
       .as_ref()
-      .is_some_and(|parent_id| db.user.get(&item.owner_id).is_some_and(|user| &user.searches_page_id == parent_id))
+      .is_some_and(|parent_id| db.user.get(&item.owner_id).is_some_and(|user| &user.queries_page_id == parent_id))
 }
 
 fn item_spatial_position_matches(item: &Item, position_gr: &Vector<i64>) -> bool {
@@ -669,7 +669,7 @@ fn append_virtual_search_status_pages_to_queries_snapshot(
     return Ok(());
   };
   let user = db.user.get(session_user_id).ok_or(format!("Unknown user '{}'.", session_user_id))?;
-  if &user.searches_page_id != item_id {
+  if &user.queries_page_id != item_id {
     return Ok(());
   }
 
@@ -910,7 +910,7 @@ async fn handle_sync_containers(
 
     let search_status_artifact_for_subscription = if let Some(session_user_id) = &session_user_id_maybe {
       match db.user.get(session_user_id) {
-        Some(user) if user.searches_page_id == subscription.id => search_status_artifact_for_queries_snapshot.as_ref(),
+        Some(user) if user.queries_page_id == subscription.id => search_status_artifact_for_queries_snapshot.as_ref(),
         _ => None,
       }
     } else {
@@ -1315,7 +1315,7 @@ async fn maybe_read_search_status_artifact_for_queries_container(
   let data_dir = {
     let db = db.lock().await;
     let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
-    if &user.searches_page_id != item_id {
+    if &user.queries_page_id != item_id {
       return Ok(None);
     }
     db.item.data_dir().to_owned()
@@ -1337,7 +1337,7 @@ async fn maybe_read_search_status_artifact_for_queries_subscription(
   let data_dir = {
     let db = db.lock().await;
     let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
-    if !subscriptions.iter().any(|subscription| subscription.id == user.searches_page_id) {
+    if !subscriptions.iter().any(|subscription| subscription.id == user.queries_page_id) {
       return Ok(None);
     }
     db.item.data_dir().to_owned()
@@ -1383,7 +1383,7 @@ fn search_status_page_kind_for_id(user_id: &str, item_id: &str) -> Option<Search
 }
 
 fn search_status_page_parent_id(db: &MutexGuard<'_, Db>, user_id: &str) -> Option<Uid> {
-  db.user.get(&user_id.to_owned()).map(|user| user.searches_page_id.clone())
+  db.user.get(&user_id.to_owned()).map(|user| user.queries_page_id.clone())
 }
 
 fn virtual_search_status_page_ordering(

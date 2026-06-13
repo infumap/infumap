@@ -375,7 +375,7 @@ impl ItemDb {
       user.trash_page_id.as_str(),
       user.dock_page_id.as_str(),
       user.home_page_id.as_str(),
-      user.searches_page_id.as_str(),
+      user.queries_page_id.as_str(),
     ];
 
     let mut all_ids = store.get_iter().map(|e| e.1.id.as_str()).collect::<HashSet<&str>>();
@@ -2375,10 +2375,8 @@ pub fn migrate_records_v35_to_v36(
       "update" => {
         let mut result = kvs.clone();
         let item_id = json::get_string_field(kvs, "id")?.ok_or("Update record does not have id.")?;
-        let previous = state_by_id
-          .get(&item_id)
-          .ok_or(format!("Update record has id '{}', but this is unknown.", item_id))?
-          .clone();
+        let previous =
+          state_by_id.get(&item_id).ok_or(format!("Update record has id '{}', but this is unknown.", item_id))?.clone();
         let mut next = previous.clone();
         if let Some(title) = json::get_string_field(kvs, "title")? {
           next.title = Some(title);

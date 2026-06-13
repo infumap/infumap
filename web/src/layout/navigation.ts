@@ -198,16 +198,16 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   store.currentUrlPath.set(url);
 }
 
-export async function ensureQueryItemUnderQueries(store: StoreContextModel, searchesPageId: Uid): Promise<Uid | null> {
-  const searchesPageMaybe = itemState.get(searchesPageId);
-  if (!searchesPageMaybe || !isPage(searchesPageMaybe)) {
+export async function ensureQueryItemUnderQueries(store: StoreContextModel, queriesPageId: Uid): Promise<Uid | null> {
+  const queriesPageMaybe = itemState.get(queriesPageId);
+  if (!queriesPageMaybe || !isPage(queriesPageMaybe)) {
     return null;
   }
 
-  await initiateLoadChildItemsMaybe(store, { itemId: searchesPageId, linkIdMaybe: null });
+  await initiateLoadChildItemsMaybe(store, { itemId: queriesPageId, linkIdMaybe: null });
 
-  const searchesPage = asPageItem(itemState.get(searchesPageId)!);
-  for (const childId of searchesPage.computed_children) {
+  const queriesPage = asPageItem(itemState.get(queriesPageId)!);
+  for (const childId of queriesPage.computed_children) {
     const childMaybe = itemState.get(childId);
     if (isQueryItem(childMaybe)) {
       const child = asQueryItem(childMaybe!);
@@ -221,10 +221,10 @@ export async function ensureQueryItemUnderQueries(store: StoreContextModel, sear
   }
 
   const queryItem = QueryFns.create(
-    searchesPage.ownerId,
-    searchesPageId,
+    queriesPage.ownerId,
+    queriesPageId,
     RelationshipToParent.Child,
-    itemState.newOrderingAtBeginningOfChildren(searchesPageId),
+    itemState.newOrderingAtBeginningOfChildren(queriesPageId),
   );
   queryItem.flags |= SearchFlags.ListPagePinTop;
   itemState.add(queryItem);
@@ -239,44 +239,44 @@ export async function ensureQueryItemUnderQueries(store: StoreContextModel, sear
   }
 }
 
-export async function navigateToSearches(store: StoreContextModel): Promise<void> {
+export async function navigateToQueries(store: StoreContextModel): Promise<void> {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) { return; }
   store.overlay.autoFocusSearchInput.set(true);
 
-  const searchesPageId = userMaybe.searchesPageId;
-  let searchesPage = itemState.get(searchesPageId);
-  if (!searchesPage) {
-    const loadResult = await initiateLoadItemMaybe(store, searchesPageId);
-    if (loadResult == InitiateLoadResult.Failed || !itemState.get(searchesPageId)) {
+  const queriesPageId = userMaybe.queriesPageId;
+  let queriesPageMaybe = itemState.get(queriesPageId);
+  if (!queriesPageMaybe) {
+    const loadResult = await initiateLoadItemMaybe(store, queriesPageId);
+    if (loadResult == InitiateLoadResult.Failed || !itemState.get(queriesPageId)) {
       return;
     }
-    searchesPage = itemState.get(searchesPageId);
+    queriesPageMaybe = itemState.get(queriesPageId);
   }
 
-  if (!searchesPage || !isPage(searchesPage)) {
+  if (!queriesPageMaybe || !isPage(queriesPageMaybe)) {
     return;
   }
 
-  const queriesPage = asPageItem(searchesPage);
+  const queriesPage = asPageItem(queriesPageMaybe);
   if (queriesPage.title == "Searches") {
     queriesPage.title = "Queries";
     void server.updateItem(queriesPage, store.general.networkStatus, false);
   }
 
-  const queryItemId = await ensureQueryItemUnderQueries(store, searchesPageId);
-  removeClientOnlyChatPagesUnderQueries(store, searchesPageId);
+  const queryItemId = await ensureQueryItemUnderQueries(store, queriesPageId);
+  removeClientOnlyChatPagesUnderQueries(store, queriesPageId);
   if (queryItemId != null) {
-    store.perItem.setSelectedListPageItem({ itemId: searchesPageId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
+    store.perItem.setSelectedListPageItem({ itemId: queriesPageId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
   }
 
   const currentPageVeid = store.history.currentPageVeid();
-  if (currentPageVeid?.itemId == searchesPageId && currentPageVeid.linkIdMaybe == null) {
-    arrangeNow(store, "navigate-to-searches");
+  if (currentPageVeid?.itemId == queriesPageId && currentPageVeid.linkIdMaybe == null) {
+    arrangeNow(store, "navigate-to-queries");
     return;
   }
 
-  switchToPage(store, { itemId: searchesPageId, linkIdMaybe: null }, true, false, false);
+  switchToPage(store, { itemId: queriesPageId, linkIdMaybe: null }, true, false, false);
 }
 
 
@@ -353,7 +353,7 @@ export async function navigateUp(store: StoreContextModel) {
   navigateUpInProgress = true;
 
   const userMaybe = store.user.getUserMaybe();
-  if (userMaybe && currentPageVeid.itemId == userMaybe.searchesPageId && currentPageVeid.linkIdMaybe == null) {
+  if (userMaybe && currentPageVeid.itemId == userMaybe.queriesPageId && currentPageVeid.linkIdMaybe == null) {
     await navigateToLocalRoot(store);
     navigateUpInProgress = false;
     return;
