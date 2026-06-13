@@ -546,6 +546,11 @@ pub(super) async fn handle_update_item(
       .into(),
     );
   }
+  if (is_searches_page_query_item(&db, &old_item) || is_searches_page_query_item(&db, &item))
+    && item_move_fields_changed(&old_item, &item)
+  {
+    return Err(format!("Queries page query item '{}' cannot be moved.", item.id).into());
+  }
   validate_group_id_for_item(&db, &item)?;
 
   db.item.update(&item).await?;

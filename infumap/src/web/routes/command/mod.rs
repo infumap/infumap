@@ -543,6 +543,39 @@ fn readonly_item_capabilities_json() -> Value {
   Value::Object(capabilities)
 }
 
+fn non_movable_item_capabilities_json() -> Value {
+  let mut capabilities = serde_json::Map::new();
+  capabilities.insert(String::from("move"), Value::Bool(false));
+  Value::Object(capabilities)
+}
+
+fn is_searches_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
+  item.item_type == ItemType::Search
+    && item.relationship_to_parent == RelationshipToParent::Child
+    && item
+      .parent_id
+      .as_ref()
+      .is_some_and(|parent_id| db.user.get(&item.owner_id).is_some_and(|user| &user.searches_page_id == parent_id))
+}
+
+fn item_move_fields_changed(old_item: &Item, new_item: &Item) -> bool {
+  old_item.parent_id != new_item.parent_id
+    || old_item.relationship_to_parent != new_item.relationship_to_parent
+    || old_item.ordering != new_item.ordering
+    || old_item.spatial_position_gr != new_item.spatial_position_gr
+}
+
+fn item_to_api_json_map_with_capabilities(
+  db: &MutexGuard<'_, Db>,
+  item: &Item,
+) -> InfuResult<serde_json::Map<String, serde_json::Value>> {
+  let mut item_json = item_to_api_json_map(item)?;
+  if is_searches_page_query_item(db, item) {
+    item_json.insert(String::from("capabilities"), non_movable_item_capabilities_json());
+  }
+  Ok(item_json)
+}
+
 fn virtual_search_status_item_to_api_json_map(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>> {
   let mut item_json = item_to_api_json_map(item)?;
   item_json.insert(String::from("capabilities"), readonly_item_capabilities_json());
@@ -566,9 +599,9 @@ fn build_authoritative_child_attachment_snapshot(
   let child_items = get_children_authorized(db, item_id, session_user_id_maybe)?;
   let mut children = child_items
     .iter()
-    .map(|item| item.to_api_json().ok())
-    .collect::<Option<Vec<_>>>()
-    .ok_or(format!("Error occurred getting children for container '{}'.", item_id))?;
+    .map(|item| item_to_api_json_map_with_capabilities(db, item))
+    .collect::<InfuResult<Vec<_>>>()
+    .map_err(|e| format!("Error occurred getting children for container '{}': {}", item_id, e))?;
   append_virtual_search_status_pages_to_searches_snapshot(
     db,
     item_id,
@@ -636,7 +669,7 @@ fn build_item_attachment_snapshot(
 
 fn build_child_upsert_delta(db: &MutexGuard<'_, Db>, child: &Item) -> InfuResult<ContainerSyncDelta> {
   let mut delta = ContainerSyncDelta::default();
-  delta.add_child_upsert(item_to_api_json_map(child)?);
+  delta.add_child_upsert(item_to_api_json_map_with_capabilities(db, child)?);
   if is_attachments_item_type(child.item_type) {
     delta.set_attachment_snapshot(&child.id, build_item_attachment_snapshot(db, &child.id)?);
   }
@@ -1040,7 +1073,7 @@ async fn handle_get_items(
 
   let mut result = serde_json::Map::new();
   if mode == GetItemsMode::ItemAndAttachmentsOnly || mode == GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments {
-    let item_json_map = match item.to_api_json() {
+    let item_json_map = match item_to_api_json_map_with_capabilities(db, &item) {
       Ok(r) => r,
       Err(e) => return Err(format!("Error occurred getting item {}: {}", item_id, e).into()),
     };
