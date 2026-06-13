@@ -42,6 +42,8 @@ You are a chat assistant for an information workspace.
 
 Use lexical_search by default to locate items, discover likely relevant items, or search document text.
 lexical_search searches titles and document text using lexical matching.
+lexical_search results include linkUrl values. When you mention a specific search result item by title, link the title using Markdown with that exact linkUrl, for example [title](infumap://0123456789abcdef0123456789abcdef).
+Only use linkUrl values returned by tools; do not invent item links or expose raw item ids in visible text.
 Use get_fragment when a lexical_search snippet is truncated, ambiguous, or too small to answer from confidently.
 If lexical_search results are insufficient, say what is missing rather than inventing details.
 Return a concise Markdown answer.";
@@ -898,6 +900,7 @@ async fn execute_get_fragment_tool_call(
   Ok(
     serde_json::json!({
       "itemId": item_id,
+      "linkUrl": format!("infumap://{}", item_id),
       "itemType": item_type,
       "title": title,
       "sourceKind": source_kind,
@@ -986,12 +989,21 @@ struct ChatMarkdownNote {
   title: String,
   flags: i64,
   inline_marks: Vec<i64>,
+  urls: Vec<ChatMarkdownUrl>,
 }
 
 #[derive(Clone)]
 struct ChatMarkdownInlineText {
   title: String,
   inline_marks: Vec<i64>,
+  urls: Vec<ChatMarkdownUrl>,
+}
+
+#[derive(Clone)]
+struct ChatMarkdownUrl {
+  start: i64,
+  end: i64,
+  url: String,
 }
 
 struct ChatMarkdownTableRow {
@@ -1080,7 +1092,13 @@ fn chat_response_note_json(
       "spatialWidthGr": CHAT_RESPONSE_ITEM_WIDTH_GR,
       "spatialHeightGr": 0,
       "flags": note.flags,
-      "urls": [],
+      "urls": note.urls.iter().map(|url| {
+        serde_json::json!({
+          "start": url.start,
+          "end": url.end,
+          "url": url.url,
+        })
+      }).collect::<Vec<Value>>(),
       "emoji": null,
       "iconMode": "auto",
       "inlineMarks": note.inline_marks,
@@ -1156,7 +1174,12 @@ fn chat_response_table_json(
       now,
       row_ordering,
       row_id.clone(),
-      ChatMarkdownNote { title: first_cell.title, flags: 0, inline_marks: first_cell.inline_marks },
+      ChatMarkdownNote {
+        title: first_cell.title,
+        flags: 0,
+        inline_marks: first_cell.inline_marks,
+        urls: first_cell.urls,
+      },
     ));
 
     let mut attachment_orderings: Vec<Vec<u8>> = Vec::new();
@@ -1175,7 +1198,7 @@ fn chat_response_table_json(
           now,
           attachment_ordering,
           new_uid(),
-          ChatMarkdownNote { title: cell.title, flags: 0, inline_marks: cell.inline_marks },
+          ChatMarkdownNote { title: cell.title, flags: 0, inline_marks: cell.inline_marks, urls: cell.urls },
         ));
       }
     }
@@ -1200,7 +1223,7 @@ fn chat_response_placeholder_json(owner_id: &Uid, parent_id: &Uid, now: u64, ord
 }
 
 fn empty_chat_markdown_inline_text() -> ChatMarkdownInlineText {
-  ChatMarkdownInlineText { title: "".to_owned(), inline_marks: Vec::new() }
+  ChatMarkdownInlineText { title: "".to_owned(), inline_marks: Vec::new(), urls: Vec::new() }
 }
 
 fn last_non_empty_chat_table_attachment_cell_index(row: &ChatMarkdownTableRow) -> usize {
@@ -1382,13 +1405,21 @@ fn push_chat_markdown_note(items: &mut Vec<ChatMarkdownItem>, raw_title: &str, f
     return;
   }
 
-  let (title, inline_marks) =
-    if flags & NOTE_FLAG_CODE != 0 { (title, Vec::new()) } else { parse_markdown_inline(&title) };
-  if title.trim().is_empty() {
+  let inline_text = if flags & NOTE_FLAG_CODE != 0 {
+    ChatMarkdownInlineText { title, inline_marks: Vec::new(), urls: Vec::new() }
+  } else {
+    parse_markdown_inline(&title)
+  };
+  if inline_text.title.trim().is_empty() {
     return;
   }
 
-  items.push(ChatMarkdownItem::Note(ChatMarkdownNote { title, flags, inline_marks }));
+  items.push(ChatMarkdownItem::Note(ChatMarkdownNote {
+    title: inline_text.title,
+    flags,
+    inline_marks: inline_text.inline_marks,
+    urls: inline_text.urls,
+  }));
 }
 
 fn markdown_code_fence_marker(line: &str) -> Option<&'static str> {
@@ -1431,7 +1462,7 @@ fn markdown_table_at(lines: &[&str], index: usize) -> Option<(ChatMarkdownTable,
     ChatMarkdownTable {
       columns: normalize_markdown_table_cells(&header_cells, column_count)
         .iter()
-        .map(|cell| parse_markdown_inline(cell).0)
+        .map(|cell| parse_markdown_inline(cell).title)
         .collect(),
       rows,
     },
@@ -1498,13 +1529,7 @@ fn normalize_markdown_table_cells(cells: &[String], column_count: usize) -> Vec<
 }
 
 fn normalize_markdown_table_inline_cells(cells: &[String], column_count: usize) -> Vec<ChatMarkdownInlineText> {
-  normalize_markdown_table_cells(cells, column_count)
-    .iter()
-    .map(|cell| {
-      let (title, inline_marks) = parse_markdown_inline(cell);
-      ChatMarkdownInlineText { title, inline_marks }
-    })
-    .collect()
+  normalize_markdown_table_cells(cells, column_count).iter().map(|cell| parse_markdown_inline(cell)).collect()
 }
 
 fn markdown_divider_line(line: &str) -> bool {
@@ -1584,9 +1609,10 @@ fn markdown_standalone_inline_heading(line: &str) -> bool {
   false
 }
 
-fn parse_markdown_inline(input: &str) -> (String, Vec<i64>) {
+fn parse_markdown_inline(input: &str) -> ChatMarkdownInlineText {
   let mut output = String::new();
   let mut inline_marks = Vec::new();
+  let mut urls = Vec::new();
   let mut index = 0;
 
   while index < input.len() {
@@ -1605,6 +1631,12 @@ fn parse_markdown_inline(input: &str) -> (String, Vec<i64>) {
       }
     }
 
+    if let Some((label, url, len)) = markdown_link_at(&input[index..]) {
+      append_chat_linked_inline_text(&mut output, &mut inline_marks, &mut urls, label, url);
+      index += len;
+      continue;
+    }
+
     if let Some((marker, flags)) = markdown_inline_marker(&input[index..]) {
       let content_start = index + marker.len();
       if let Some(content_end) = input[content_start..].find(marker).map(|offset| content_start + offset) {
@@ -1621,7 +1653,58 @@ fn parse_markdown_inline(input: &str) -> (String, Vec<i64>) {
     index += ch.len_utf8();
   }
 
-  (output, inline_marks)
+  ChatMarkdownInlineText { title: output, inline_marks, urls }
+}
+
+fn markdown_link_at(slice: &str) -> Option<(&str, String, usize)> {
+  if !slice.starts_with('[') {
+    return None;
+  }
+
+  let label_end = slice[1..].find("](").map(|offset| offset + 1)?;
+  let label = &slice[1..label_end];
+  if label.trim().is_empty() {
+    return None;
+  }
+
+  let destination_start = label_end + 2;
+  let destination_end = markdown_link_destination_end(&slice[destination_start..])?;
+  let destination = markdown_link_destination(&slice[destination_start..destination_start + destination_end])?;
+  Some((label, destination, destination_start + destination_end + 1))
+}
+
+fn markdown_link_destination_end(slice: &str) -> Option<usize> {
+  let mut escaped = false;
+  for (index, ch) in slice.char_indices() {
+    if escaped {
+      escaped = false;
+      continue;
+    }
+    if ch == '\\' {
+      escaped = true;
+      continue;
+    }
+    if ch == ')' {
+      return Some(index);
+    }
+  }
+  None
+}
+
+fn markdown_link_destination(raw_destination: &str) -> Option<String> {
+  let trimmed = raw_destination.trim();
+  if trimmed.is_empty() {
+    return None;
+  }
+
+  let destination = if let Some(body) = trimmed.strip_prefix('<') {
+    let end = body.find('>')?;
+    &body[..end]
+  } else {
+    trimmed.split_whitespace().next().unwrap_or("")
+  };
+  let destination = destination.trim();
+  if destination.is_empty() { None } else { Some(destination.to_owned()) }
 }
 
 fn markdown_escaped_ascii_punctuation(slice: &str) -> Option<(char, usize)> {
@@ -1661,6 +1744,27 @@ fn append_chat_marked_inline_text(output: &mut String, inline_marks: &mut Vec<i6
   push_chat_inline_mark(inline_marks, start, end, flags);
 }
 
+fn append_chat_linked_inline_text(
+  output: &mut String,
+  inline_marks: &mut Vec<i64>,
+  urls: &mut Vec<ChatMarkdownUrl>,
+  label: &str,
+  url: String,
+) {
+  let start = output.encode_utf16().count() as i64;
+  let parsed_label = parse_markdown_inline(label);
+  output.push_str(&parsed_label.title);
+  append_shifted_chat_inline_marks(inline_marks, &parsed_label.inline_marks, start);
+  let end = output.encode_utf16().count() as i64;
+  push_chat_url(urls, start, end, url);
+}
+
+fn append_shifted_chat_inline_marks(inline_marks: &mut Vec<i64>, shifted_marks: &[i64], offset: i64) {
+  for chunk in shifted_marks.chunks_exact(3) {
+    push_chat_inline_mark(inline_marks, chunk[0] + offset, chunk[1] + offset, chunk[2]);
+  }
+}
+
 fn append_chat_markdown_unescaped_text(output: &mut String, text: &str) {
   let mut index = 0;
   while index < text.len() {
@@ -1694,4 +1798,22 @@ fn push_chat_inline_mark(inline_marks: &mut Vec<i64>, start: i64, end: i64, flag
   }
 
   inline_marks.extend([start, end, flags]);
+}
+
+fn push_chat_url(urls: &mut Vec<ChatMarkdownUrl>, start: i64, end: i64, url: String) {
+  let url = url.trim().to_owned();
+  if start >= end || url.is_empty() {
+    return;
+  }
+  if let Some(last) = urls.last_mut() {
+    if start < last.end {
+      return;
+    }
+    if start == last.end && last.url == url {
+      last.end = end;
+      return;
+    }
+  }
+
+  urls.push(ChatMarkdownUrl { start, end, url });
 }

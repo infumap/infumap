@@ -18,6 +18,7 @@
 
 import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
+import { Item } from "../items/base/item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { QueryFns, asQueryItem, isQueryChatPage, isQueryItem } from "../items/query-item";
 import { SearchFlags } from "../items/base/flags-item";
@@ -25,7 +26,7 @@ import { removeClientOnlyChatPagesUnderQueries } from "../items/chat";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
-import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
+import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid, isUid } from "../util/uid";
 import { arrangeNow } from "./arrange";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { isEmptyVeid, VeFns, Veid, VisualElementPath } from "./visual-element";
@@ -109,7 +110,28 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   store.currentUrlPath.set(url);
 }
 
-export async function navigateToContainingPageOfItem(store: StoreContextModel, itemId: Uid): Promise<boolean> {
+function fallbackToItem(store: StoreContextModel, item: Item): boolean {
+  if (isPage(item)) {
+    switchToPage(store, { itemId: item.id, linkIdMaybe: null }, true, false, false);
+  } else {
+    switchToItem(store, item.id, false);
+  }
+  return true;
+}
+
+function focusPathForItemChain(pageVeid: Veid, bottomUpItemChain: Array<Veid>): VisualElementPath {
+  let focusPath = VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
+  for (let i = bottomUpItemChain.length - 1; i >= 0; --i) {
+    focusPath = VeFns.addVeidToPath(bottomUpItemChain[i], focusPath);
+  }
+  return focusPath;
+}
+
+async function navigateToContainingPageOfItemWithOptions(
+  store: StoreContextModel,
+  itemId: Uid,
+  options: { focusTarget: boolean, fallbackToItem: boolean },
+): Promise<boolean> {
   let currentItem = itemState.get(itemId);
   if (!currentItem) {
     const loadResult = await initiateLoadItemMaybe(store, itemId);
@@ -119,7 +141,9 @@ export async function navigateToContainingPageOfItem(store: StoreContextModel, i
     currentItem = itemState.get(itemId)!;
   }
 
-  const isRemote = currentItem.origin != null;
+  const targetItem = currentItem;
+  const targetIsRemote = currentItem.origin != null;
+  const bottomUpItemChain: Array<Veid> = [VeFns.veidFromId(currentItem.id)];
   const MAX_LEVELS = 8;
   let cnt = 0;
   let parentId = currentItem.parentId;
@@ -127,7 +151,10 @@ export async function navigateToContainingPageOfItem(store: StoreContextModel, i
 
   while (cnt++ < MAX_LEVELS) {
     if (parentId == EMPTY_UID) {
-      if (isRemote) {
+      if (options.fallbackToItem) {
+        return fallbackToItem(store, targetItem);
+      }
+      if (targetIsRemote) {
         await navigateToLocalRoot(store);
         return true;
       }
@@ -136,7 +163,10 @@ export async function navigateToContainingPageOfItem(store: StoreContextModel, i
 
     const userMaybe = store.user.getUserMaybe();
     if (userMaybe && parentId == userMaybe.dockPageId) {
-      if (isRemote) {
+      if (options.fallbackToItem) {
+        return fallbackToItem(store, targetItem);
+      }
+      if (targetIsRemote) {
         await navigateToLocalRoot(store);
         return true;
       }
@@ -146,26 +176,80 @@ export async function navigateToContainingPageOfItem(store: StoreContextModel, i
     let parentItem = itemState.get(parentId);
     if (!parentItem) {
       if (await initiateLoadItemMaybe(store, parentId) == InitiateLoadResult.Failed || !itemState.get(parentId)) {
-        return false;
+        return options.fallbackToItem ? fallbackToItem(store, targetItem) : false;
       }
       parentItem = itemState.get(parentId)!;
     }
 
-    if (isRemote && parentItem.origin !== currentItem.origin) {
+    if (targetIsRemote && parentItem.origin !== targetItem.origin) {
+      if (options.fallbackToItem) {
+        return fallbackToItem(store, targetItem);
+      }
       await navigateToLocalRoot(store);
       return true;
     }
 
     if (isPage(parentItem) && relationshipToParent === RelationshipToParent.Child) {
-      switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, false, false);
+      const page = asPageItem(parentItem);
+      const pageVeid = { itemId: parentId, linkIdMaybe: null };
+      let focusPath: VisualElementPath | undefined = undefined;
+      if (options.focusTarget) {
+        focusPath = focusPathForItemChain(pageVeid, bottomUpItemChain);
+        if (page.arrangeAlgorithm == ArrangeAlgorithm.List) {
+          const directChildVeid = bottomUpItemChain[bottomUpItemChain.length - 1];
+          store.perItem.setSelectedListPageItem(pageVeid, directChildVeid);
+        }
+      }
+      switchToPage(store, pageVeid, true, false, false, focusPath);
       return true;
     }
 
+    bottomUpItemChain.push(VeFns.veidFromId(parentItem.id));
     parentId = parentItem.parentId;
     relationshipToParent = parentItem.relationshipToParent;
   }
 
+  if (options.fallbackToItem) {
+    return fallbackToItem(store, targetItem);
+  }
   panic(`navigateToContainingPageOfItem: could not find page after ${MAX_LEVELS} levels.`);
+}
+
+export async function navigateToContainingPageOfItem(store: StoreContextModel, itemId: Uid): Promise<boolean> {
+  return navigateToContainingPageOfItemWithOptions(store, itemId, { focusTarget: false, fallbackToItem: false });
+}
+
+export function itemIdFromInfumapUrl(url: string): Uid | null {
+  const trimmed = url.trim();
+  if (trimmed == "") {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol != "infumap:") {
+      return null;
+    }
+    if (parsed.pathname != "" && parsed.pathname != "/") {
+      return null;
+    }
+    if (parsed.search != "" || parsed.hash != "") {
+      return null;
+    }
+
+    const itemId = parsed.hostname.toLowerCase();
+    return isUid(itemId) ? itemId : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+export async function navigateToInfumapItemUrl(store: StoreContextModel, url: string): Promise<boolean> {
+  const itemId = itemIdFromInfumapUrl(url);
+  if (itemId == null) {
+    return false;
+  }
+  return navigateToContainingPageOfItemWithOptions(store, itemId, { focusTarget: true, fallbackToItem: true });
 }
 
 export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, replace: boolean, focusPath?: VisualElementPath) {

@@ -318,7 +318,7 @@ export const ItemFns = {
     if (isPage(item)) { PageFns.handleLinkClick(visualElement, store); }
     else if (isTable(item)) { panic("handleLinkClick: table"); }
     else if (isComposite(item)) { panic("handleLinkClick: composite"); }
-    else if (isNote(item)) { NoteFns.handleLinkClick(visualElement); }
+    else if (isNote(item)) { NoteFns.handleLinkClick(visualElement, store); }
     else if (isImage(item)) { ImageFns.handleLinkClick(visualElement, store); }
     else if (isFile(item)) { FileFns.handleLinkClick(visualElement); }
     else if (isText(item)) { TextFns.handleLinkClick(visualElement, store); }

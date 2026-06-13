@@ -134,6 +134,8 @@ pub(super) mod compact {
   pub(super) struct CompactSearchResult {
     #[serde(rename = "itemId")]
     pub item_id: Uid,
+    #[serde(rename = "linkUrl")]
+    pub link_url: String,
     #[serde(rename = "itemType")]
     pub item_type: String,
     pub title: Option<String>,
@@ -172,6 +174,7 @@ pub(super) mod compact {
     let item = result.path.last()?;
     Some(CompactSearchResult {
       item_id: item.id.clone(),
+      link_url: format!("infumap://{}", item.id),
       item_type: item.item_type.clone(),
       title: item.title.clone(),
       score: result.score,

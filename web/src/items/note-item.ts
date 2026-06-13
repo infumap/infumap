@@ -37,6 +37,7 @@ import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemCli
 import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, measureDocumentNoteHeightBl, measureLineCount } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
+import { itemIdFromInfumapUrl, navigateToInfumapItemUrl } from '../layout/navigation';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { ClickState, CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
@@ -955,10 +956,14 @@ export const NoteFns = {
     panic("not note measurable");
   },
 
-  handleLinkClick: (visualElement: VisualElement): void => {
+  handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const clickedUrl = ClickState.getLinkClickUrl();
     if (clickedUrl != null && clickedUrl.trim() != "") {
-      window.open(clickedUrl, '_blank');
+      if (itemIdFromInfumapUrl(clickedUrl) != null) {
+        void navigateToInfumapItemUrl(store, clickedUrl);
+      } else {
+        window.open(clickedUrl, '_blank');
+      }
       return;
     }
     const fallbackUrl = noteFaviconUrl(asNoteItem(visualElement.displayItem));
