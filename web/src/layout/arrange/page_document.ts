@@ -270,8 +270,7 @@ export function arrange_document_page(
     : calcMovingItemReservedHeightPx(store, movingItemInThisPage, displayItem_pageWithChildren.docWidthBl, blockSizePx);
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.boundsPx)!);
   childAreaBoundsPx.w = documentWidthPx;
-  const chatComposerBottomPaddingPx = displayItem_pageWithChildren.flags & PageFlags.Chat ? 96 : 0;
-  childAreaBoundsPx.h = topPx + movingItemReservedHeightPx + PAGE_DOCUMENT_BOTTOM_PADDING_PX + chatComposerBottomPaddingPx;
+  childAreaBoundsPx.h = topPx + movingItemReservedHeightPx + PAGE_DOCUMENT_BOTTOM_PADDING_PX;
 
   if (movingItemInThisPage) {
     const movingVes = arrangeMovingItemInDocument(

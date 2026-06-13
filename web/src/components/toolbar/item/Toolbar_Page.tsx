@@ -133,11 +133,6 @@ export const Toolbar_Page: Component = () => {
     return !!(pageItem().flags & PageFlags.CalendarIndependentRows);
   }
 
-  const isChatEnabled = () => {
-    store.touchToolbarDependency();
-    return !!(pageItem().flags & PageFlags.Chat);
-  }
-
   const focusIsInDock = () => {
     store.touchToolbarDependency();
     const userMaybe = store.user.getUserMaybe();
@@ -333,21 +328,6 @@ export const Toolbar_Page: Component = () => {
     store.touchToolbar();
   }
 
-  const handleToggleChat = () => {
-    if (pageItem().flags & PageFlags.Chat) {
-      pageItem().flags &= ~PageFlags.Chat;
-      pageItem().flags &= ~PageFlags.DisableManualChildAdd;
-    } else {
-      pageItem().flags |= PageFlags.Chat;
-      pageItem().flags |= PageFlags.DisableManualChildAdd;
-      pageItem().arrangeAlgorithm = ArrangeAlgorithm.Document;
-      pageItem().orderChildrenBy = "";
-    }
-    requestArrange(store, "toolbar-page-toggle-chat");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
-    store.touchToolbar();
-  }
-
   const handleToggleEmbeddedInteractiveTitle = () => {
     if (!(pageItem().flags & PageFlags.HideEmbeddedInteractiveTitle) &&
       store.overlay.textEditInfo()?.itemType == ItemType.Page &&
@@ -508,16 +488,11 @@ export const Toolbar_Page: Component = () => {
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
-  const documentControls = (showChatToggle: boolean) => (
+  const documentControls = () => (
     <>
       <div class="inline-block ml-[10px]">
         <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} />
       </div>
-      <Show when={showChatToggle}>
-        <div class="inline-block ml-[10px]">
-          <InfuIconButton icon="bi-chat-dots" highlighted={isChatEnabled()} clickHandler={handleToggleChat} title="Chat" />
-        </div>
-      </Show>
       <div ref={docWidthDiv}
         class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
         style={`font-size: 13px;`}
@@ -544,7 +519,7 @@ export const Toolbar_Page: Component = () => {
         </div>
       </Show>
       <Show when={showVirtualDocumentButtons()}>
-        {documentControls(false)}
+        {documentControls()}
       </Show>
       <Show when={canEdit()}>
         <Show when={showInnerBlockWidthButton()}>
@@ -624,7 +599,7 @@ export const Toolbar_Page: Component = () => {
           </div>
         </Show>
         <Show when={showDocumentButtons()}>
-          {documentControls(!showVirtualDocumentButtons())}
+          {documentControls()}
         </Show>
         <Show when={showOrderByButton()}>
           <div class="inline-block ml-[10px]">
