@@ -842,7 +842,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           style={`width: ${QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}>
           <select
             ref={queryModeSelect}
-            class="h-full w-full cursor-pointer appearance-none rounded-xs border border-[#999] bg-white pl-2 pr-[30px] text-black outline-hidden disabled:cursor-default disabled:opacity-40"
+            class="h-full w-full cursor-pointer appearance-none rounded-xs border border-[#999] bg-white pl-2 pr-[30px] text-black outline-hidden focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-40"
             style="font-size: 15px;"
             value={selectedInputMode()}
             disabled={isStartingChat()}
