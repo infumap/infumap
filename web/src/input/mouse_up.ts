@@ -52,7 +52,7 @@ import { HitInfoFns } from "./hit";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
-import { decodeCalendarCombinedIndex, calculateCalendarPosition } from "../util/calendar-layout";
+import { calculateCalendarDateTimeForPosition, calculateCalendarPosition, decodeCalendarCombinedIndex, getCurrentDayInfo } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
@@ -970,6 +970,26 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
   return false;
 }
 
+function calendarDropDateTime(store: StoreContextModel, calendarPageVe: VisualElement, activeItem: PositionalItem): number {
+  if (isVeTranslucentPage(calendarPageVe)) {
+    const currentDayInfo = getCurrentDayInfo();
+    return calculateCalendarDateTimeForPosition(
+      { month: currentDayInfo.month, day: currentDayInfo.day },
+      calendarPageVe,
+      store,
+      activeItem.dateTime,
+      currentDayInfo.year,
+    );
+  }
+
+  const path = VeFns.veToPath(calendarPageVe);
+  const combinedIndex = store.perVe.getMoveOverIndex(path);
+  const position = combinedIndex >= 0
+    ? decodeCalendarCombinedIndex(combinedIndex)
+    : calculateCalendarPosition(CursorEventState.getLatestDesktopPx(store), calendarPageVe, store);
+  return calculateCalendarDateTimeForPosition(position, calendarPageVe, store, activeItem.dateTime);
+}
+
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
   NativeTextSelectionState.clear();
@@ -1373,23 +1393,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     if (isPage(overContainerVe.displayItem)) {
       const targetPageItem = asPageItem(overContainerVe.displayItem);
       if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-        const path = VeFns.veToPath(overContainerVe);
-        let combinedIndex = store.perVe.getMoveOverIndex(path);
-        let targetMonth: number;
-        let targetDay: number;
-        if (combinedIndex >= 0) {
-          const decoded = decodeCalendarCombinedIndex(combinedIndex);
-          targetMonth = decoded.month;
-          targetDay = decoded.day;
-        } else {
-          const pos = calculateCalendarPosition(CursorEventState.getLatestDesktopPx(store), overContainerVe, store);
-          targetMonth = pos.month;
-          targetDay = pos.day;
-        }
-        const selectedYear = store.perVe.getCalendarYear(path);
-        const currentDate = new Date(activeItem.dateTime * 1000);
-        const newDate = new Date(selectedYear, targetMonth - 1, targetDay, currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
-        const newDateTime = Math.floor(newDate.getTime() / 1000);
+        const newDateTime = calendarDropDateTime(store, overContainerVe, activeItem);
         if (activeItem.dateTime !== newDateTime) {
           activeItem.dateTime = newDateTime;
         }
@@ -1439,23 +1443,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
       }
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-      const path = VeFns.veToPath(overContainerVe);
-      let combinedIndex = store.perVe.getMoveOverIndex(path);
-      let targetMonth: number;
-      let targetDay: number;
-      if (combinedIndex >= 0) {
-        const decoded = decodeCalendarCombinedIndex(combinedIndex);
-        targetMonth = decoded.month;
-        targetDay = decoded.day;
-      } else {
-        const pos = calculateCalendarPosition(CursorEventState.getLatestDesktopPx(store), overContainerVe, store);
-        targetMonth = pos.month;
-        targetDay = pos.day;
-      }
-      const selectedYear = store.perVe.getCalendarYear(path);
-      const currentDate = new Date(activeItem.dateTime * 1000);
-      const newDate = new Date(selectedYear, targetMonth - 1, targetDay, currentDate.getHours(), currentDate.getMinutes(), currentDate.getSeconds());
-      const newDateTime = Math.floor(newDate.getTime() / 1000);
+      const newDateTime = calendarDropDateTime(store, overContainerVe, activeItem);
       if (MouseActionState.getTextDocumentMaterializeMove()?.pendingPageId == activeItem.id ||
         activeItem.dateTime !== newDateTime) {
         activeItem.dateTime = newDateTime;

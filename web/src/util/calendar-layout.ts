@@ -645,18 +645,32 @@ export function calculateCalendarDateTime(
   store: StoreContextModel
 ): number {
   const position = calculateCalendarPosition(desktopPosPx, pageVe, store);
+  return calculateCalendarDateTimeForPosition(position, pageVe, store);
+}
+
+export function calculateCalendarDateTimeForPosition(
+  position: CalendarPosition,
+  pageVe: VisualElement,
+  store: StoreContextModel,
+  baseDateTimeSeconds: number | null = null,
+  targetYearOverride: number | null = null,
+): number {
   const calendarWindow = calculateCalendarWindowForPage(
     store,
     VeFns.veToPath(pageVe),
     pageVe.childAreaBoundsPx!.w,
     pageVe.displayItem as any,
   );
-  const currentTime = new Date();
+  const currentTime = baseDateTimeSeconds == null
+    ? new Date()
+    : new Date(baseDateTimeSeconds * 1000);
   const visibleMonth = calendarWindow.months.find(month => month.month === position.month);
+  const targetYear = targetYearOverride ?? visibleMonth?.year ?? calendarWindow.year;
+  const targetDay = Math.max(1, Math.min(position.day, getMonthInfo(position.month, targetYear).daysInMonth));
   const targetDate = new Date(
-    visibleMonth?.year ?? calendarWindow.year,
+    targetYear,
     position.month - 1, 
-    position.day, 
+    targetDay, 
     currentTime.getHours(), 
     currentTime.getMinutes(), 
     currentTime.getSeconds()

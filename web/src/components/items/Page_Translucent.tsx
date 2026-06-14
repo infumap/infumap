@@ -35,6 +35,7 @@ import { PageVisualElementProps } from "./Page";
 import { CALENDAR_LAYOUT_CONSTANTS, getCurrentDayInfo } from "../../util/calendar-layout";
 import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
+import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { isLink, LinkFns } from "../../items/link-item";
 import { Uid } from "../../util/uid";
@@ -42,7 +43,7 @@ import { appendNewlineIfEmpty } from "../../util/string";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isQueryItem } from "../../items/query-item";
-import { MouseAction, MouseActionState } from "../../input/state";
+import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 
 
@@ -351,11 +352,20 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       const dd = String(d.getDate()).padStart(2, '0');
       return { key: `${yyyy}-${d.getMonth() + 1}-${d.getDate()}`, display: `${yyyy}-${mm}-${dd}`, date: d };
     });
+    const movingTreeItemId = MouseActionState.isAction(MouseAction.Moving)
+      ? (() => {
+        const activeElementPath = MouseActionState.getActiveElementPath();
+        if (activeElementPath == null) { return null; }
+        const activeVeid = VeFns.veidFromPath(activeElementPath);
+        return activeVeid.linkIdMaybe ?? activeVeid.itemId;
+      })()
+      : null;
 
     // Collect all children once and group by date key
     const allChildren = pageFns().pageItem().computed_children
       .map((id: Uid) => itemState.get(id)!)
       .filter((it: Item | null): it is Item => it != null)
+      .filter((it: Item) => it.id != movingTreeItemId)
       .sort((a: Item, b: Item) => a.dateTime - b.dateTime);
 
     const itemsByDate = new Map<string, Array<Item>>();
@@ -379,6 +389,67 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const dayHeaderH = dayHeaderTextH + daySeparatorSpacing + daySeparatorH;
     const dayHeaderTopMargin = 14; // extra space above each section heading
     const emptyStateFontSizePx = 13;
+
+    const movingCalendarVisualElementMaybe = (): VisualElement | null => {
+      if (!store.anItemIsMoving.get() || !MouseActionState.isAction(MouseAction.Moving)) {
+        return null;
+      }
+
+      const activeElementPath = MouseActionState.getActiveElementPath();
+      const movingItem = activeElementPath == null ? null : VeFns.treeItemFromPath(activeElementPath);
+      if (movingItem == null) { return null; }
+
+      const targetInfo = store.movingItemTargetCalendarInfo.get();
+      if (movingItem.parentId != pageFns().pageItem().id && targetInfo?.pageItemId != pageFns().pageItem().id) {
+        return null;
+      }
+
+      let displayItem: Item = movingItem;
+      let linkItemMaybe: any = null;
+      if (isLink(movingItem)) {
+        linkItemMaybe = movingItem as any;
+        const target = itemState.get(LinkFns.getLinkToId(linkItemMaybe));
+        if (target) { displayItem = target; }
+      }
+
+      const scaleFactor = Math.max(scale, 0.001);
+      const clientPx = CursorEventState.getLatestClientPx();
+      const rect = translucentDiv?.getBoundingClientRect();
+      const localX = rect ? clientPx.x - rect.left : clientPx.x - bounds.x;
+      const localY = rect ? clientPx.y - rect.top : clientPx.y - bounds.y;
+      const scrollLeft = translucentDiv?.scrollLeft ?? 0;
+      const scrollTop = translucentDiv?.scrollTop ?? 0;
+      const clickOffsetProp = MouseActionState.getClickOffsetProp() ?? { x: 0, y: 0 };
+      const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
+      const itemWidthPx = dimensionsBl.w * NATURAL_BLOCK_SIZE_PX.w;
+      const itemHeightPx = dimensionsBl.h * NATURAL_BLOCK_SIZE_PX.h;
+      const itemBoundsPx = {
+        x: (localX + scrollLeft) / scaleFactor - clickOffsetProp.x * itemWidthPx,
+        y: (localY + scrollTop) / scaleFactor - clickOffsetProp.y * itemHeightPx,
+        w: itemWidthPx,
+        h: itemHeightPx,
+      };
+
+      return VeFns.create({
+        displayItem,
+        linkItemMaybe,
+        actualLinkItemMaybe: linkItemMaybe,
+        flags: VisualElementFlags.Moving,
+        boundsPx: itemBoundsPx,
+        blockSizePx: NATURAL_BLOCK_SIZE_PX,
+        hitboxes: [],
+        parentPath: VeFns.veToPath(props.visualElement),
+        col: 0,
+        row: 0,
+      });
+    };
+
+    const renderMovingCalendarItemMaybe = () => {
+      const movingVe = movingCalendarVisualElementMaybe();
+      return movingVe == null
+        ? null
+        : <VisualElement_Desktop visualElement={movingVe} />;
+    };
 
     // Compute total height needed
     const totalHeight = days.reduce((acc, day) => {
@@ -463,6 +534,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             }
             return sections;
           })()}
+          {renderMovingCalendarItemMaybe()}
         </div>
       </div>
     );

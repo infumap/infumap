@@ -18,7 +18,7 @@
 
 import { LinkItem, isLink, asLinkItem } from "../../items/link-item";
 import { isRating } from "../../items/rating-item";
-import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { ItemGeometry } from "../item-geometry";
@@ -33,7 +33,6 @@ import { isComposite } from "../../items/composite-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { HitboxFns, HitboxFlags } from "../hitbox";
 import { compareOrderings } from "../../util/ordering";
-import { CursorEventState, MouseActionState } from "../../input/state";
 import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import {
   calculateCalendarWindowForPage,
@@ -50,6 +49,7 @@ import {
 } from "../../util/calendar-layout";
 import { ItemType } from "../../items/base/item";
 import { getMovingTreeItemInParentMaybe } from "./util";
+import { movingItemCellBoundsInPagePx } from "./moving";
 
 
 export function arrange_calendar_page(
@@ -64,10 +64,7 @@ export function arrange_calendar_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  // Check if an item is being moved
-  let movingItem = null;
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
-  movingItem = movingItemInThisPage;
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   if (isFull) {
@@ -162,7 +159,7 @@ export function arrange_calendar_page(
       ArrangeItemFlags.IsDockRoot
     ));
 
-  if (rendersAsTranslucentPage) {
+  if (rendersAsTranslucentPage && movingItemInThisPage == null) {
     return { spec: pageSpec, relationships: pageRelationships };
   }
 
@@ -379,82 +376,53 @@ export function arrange_calendar_page(
 
   // Add moving item if it exists and belongs to this page
   if (movingItemInThisPage) {
-    const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
-
-    // Get scroll offset calculations matching other page types
-    let scrollPropY;
-    let scrollPropX;
-    if (flags & ArrangeItemFlags.IsPopupRoot) {
-      const popupSpec = store.history.currentPopupSpec();
-      scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
-      scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
-    } else {
-      scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-      scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-    }
-
-    const yOffsetPx = scrollPropY * Math.max(0, childAreaBoundsPx.h - geometry.viewportBoundsPx!.h);
-    const xOffsetPx = scrollPropX * Math.max(0, childAreaBoundsPx.w - geometry.viewportBoundsPx!.w);
-    const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-    const mouseChildAreaPosPx = (() => {
-      if ((flags & ArrangeItemFlags.IsTopRoot) || (flags & ArrangeItemFlags.IsFixed)) {
-        return {
-          x: mouseDesktopPosPx.x - geometry.viewportBoundsPx!.x + xOffsetPx,
-          y: mouseDesktopPosPx.y - geometry.viewportBoundsPx!.y + yOffsetPx,
-        };
-      }
-
-      const umbrellaVisualElement = store.umbrellaVisualElement.get();
-      const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
-      const desktopSizePx = store.desktopBoundsPx();
-      const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
-      const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
-      const titleHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
-      const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
-      return {
-        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
-        y: mouseDesktopPosPx.y - geometry.boundsPx.y - titleHeightPx + yOffsetPx + pageYScrollPx,
-      };
-    })();
-
     const movingItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
-    const movingItemBoundsPx = {
-      x: mouseChildAreaPosPx.x,
-      y: mouseChildAreaPosPx.y,
-      w: movingItemDimensionsBl.w * blockSizePx.w,
-      h: movingItemDimensionsBl.h * blockSizePx.h,
+    const scrollVeid = flags & ArrangeItemFlags.IsPopupRoot
+      ? store.history.currentPopupSpec()!.actualVeid
+      : VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+    const translucentDisplayScale = (() => {
+      if (!rendersAsTranslucentPage) { return 1.0; }
+      const parentItem = itemState.get(VeFns.veidFromPath(parentPath).itemId);
+      return parentItem != null &&
+        isPage(parentItem) &&
+        asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List
+        ? geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w
+        : 1.0;
+    })();
+    const movingBlockSizePx = {
+      w: blockSizePx.w * translucentDisplayScale,
+      h: blockSizePx.h * translucentDisplayScale,
     };
-
-    const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
-    movingItemBoundsPx.x -= clickOffsetProp.x * movingItemBoundsPx.w;
-    movingItemBoundsPx.y -= clickOffsetProp.y * movingItemBoundsPx.h;
-
-    const movingItemGeometry = ItemFns.calcGeometry_InCell(
-      movingItemInThisPage,
-      movingItemBoundsPx,
-      false,
-      !!(flags & ArrangeItemFlags.IsPopupRoot),
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      store.smallScreenMode(),
-    );
-
-    const movingItemVes = arrangeItem(
+    const movingItemBoundsPx = movingItemCellBoundsInPagePx(
       store,
       pageWithChildrenVePath,
-      ArrangeAlgorithm.Calendar,
-      movingItemInThisPage,
-      actualMovingItemLinkItemMaybe,
-      movingItemGeometry,
-      ArrangeItemFlags.RenderChildrenAsFull |
-      ArrangeItemFlags.IsMoving |
-      (flags & ArrangeItemFlags.IsPopupRoot ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None),
+      geometry,
+      childAreaBoundsPx,
+      scrollVeid,
+      {
+        w: movingItemDimensionsBl.w * movingBlockSizePx.w,
+        h: movingItemDimensionsBl.h * movingBlockSizePx.h,
+      },
+      flags,
     );
-    calendarChildPaths.push(VeFns.veToPath(movingItemVes.get()));
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItemInThisPage);
+    const movingItemPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
+    const movingItemVeSpec: VisualElementSpec = {
+      displayItem,
+      linkItemMaybe,
+      actualLinkItemMaybe: linkItemMaybe,
+      flags: VisualElementFlags.Moving,
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.IsMoving,
+      boundsPx: movingItemBoundsPx,
+      hitboxes: [],
+      parentPath: pageWithChildrenVePath,
+      col: 0,
+      row: 0,
+      blockSizePx: movingBlockSizePx,
+    };
+
+    VesCache.arrange.writeVisualElement(movingItemVeSpec, {}, movingItemPath);
+    calendarChildPaths.push(movingItemPath);
   }
 
   pageRelationships.childrenPaths = calendarChildPaths;
