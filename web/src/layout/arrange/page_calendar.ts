@@ -351,6 +351,7 @@ export function arrange_calendar_page(
         linkItemMaybe,
         actualLinkItemMaybe: linkItemMaybe,
         flags: VisualElementFlags.LineItem |
+          VisualElementFlags.DisableLineItemExpand |
           (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: calendarItemGeometry.boundsPx,
