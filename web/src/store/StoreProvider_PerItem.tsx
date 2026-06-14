@@ -19,7 +19,7 @@
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import type { SearchResult } from "../server";
-import { ArrangeAlgorithm } from "../items/page-item";
+import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
 export type QueryMode = "search" | "chat" | null;
@@ -80,7 +80,7 @@ export interface PerItemStoreContextModel {
   getSearchFocusedResultIndex: (itemId: string) => number,
   setSearchFocusedResultIndex: (itemId: string, index: number) => void,
 
-  getSearchArrangeAlgorithm: (itemId: string) => ArrangeAlgorithm,
+  getSearchArrangeAlgorithm: (itemId: string) => ArrangeAlgorithm | null,
   setSearchArrangeAlgorithm: (itemId: string, arrangeAlgorithm: ArrangeAlgorithm) => void,
 
   clear: () => void,
@@ -294,11 +294,8 @@ export function makePerItemStore(): PerItemStoreContextModel {
     searchFocusedResultIndexes.get(itemId)!.set(index);
   };
 
-  const getSearchArrangeAlgorithm = (itemId: string): ArrangeAlgorithm => {
-    if (!searchArrangeAlgorithms.get(itemId)) {
-      searchArrangeAlgorithms.set(itemId, createInfuSignal<ArrangeAlgorithm>(ArrangeAlgorithm.Catalog));
-    }
-    return searchArrangeAlgorithms.get(itemId)!.get();
+  const getSearchArrangeAlgorithm = (itemId: string): ArrangeAlgorithm | null => {
+    return searchArrangeAlgorithms.get(itemId)?.get() ?? null;
   };
 
   const setSearchArrangeAlgorithm = (itemId: string, arrangeAlgorithm: ArrangeAlgorithm): void => {

@@ -34,7 +34,8 @@ interface InstallationState {
 }
 
 interface LocalStorageData {
-  prefer2fa: boolean
+  prefer2fa?: boolean,
+  searchResultsArrangeAlgorithm?: string,
 }
 
 export interface NetworkRequestInfo {
@@ -53,6 +54,9 @@ export interface GeneralStoreContextModel {
 
   prefer2fa: () => boolean,
   setPrefer2fa: (prefer2fa: boolean) => void,
+
+  searchResultsArrangeAlgorithm: () => string,
+  setSearchResultsArrangeAlgorithm: (arrangeAlgorithm: string) => void,
 
   networkStatus: NumberSignal,
   inProgressNetworkRequests: Accessor<NetworkRequestInfo[]>,
@@ -81,6 +85,22 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   const [erroredNetworkRequests, setErroredNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [hasUnacknowledgedNetworkErrors, setHasUnacknowledgedNetworkErrors] = createSignal<boolean>(false, { equals: false });
   const recentNetworkRequestTimeouts = new Map<number, number>();
+
+  const normalizeSearchResultsArrangeAlgorithm = (arrangeAlgorithm: string | null | undefined): string =>
+    arrangeAlgorithm == "grid" ? "grid" : "catalog";
+
+  const readLocalStorageData = (): LocalStorageData => {
+    const lcDs = localStorageDataString();
+    if (lcDs == null) { return {}; }
+    const parsed = JSON.parse(lcDs);
+    return parsed != null && typeof parsed == "object" ? parsed : {};
+  };
+
+  const writeLocalStorageData = (data: LocalStorageData): void => {
+    const lcDs = JSON.stringify(data);
+    window.localStorage.setItem(LOCALSTORAGE_KEY_NAME, lcDs);
+    setLocalStorageDataString(lcDs);
+  };
 
   const clearRecentNetworkRequestTimeout = (requestId: number): void => {
     const timeoutId = recentNetworkRequestTimeouts.get(requestId);
@@ -165,26 +185,29 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   const clearInstallationState = () => { setInstallationState(null); }
 
   const prefer2fa = () => {
-    const lcDs = localStorageDataString();
-    let lcd: LocalStorageData | null = lcDs == null ? null : JSON.parse(lcDs);
-    if (lcd == null) { return false; }
-    return lcd.prefer2fa;
+    return readLocalStorageData().prefer2fa ?? false;
   }
   const setPrefer2fa = (prefer2fa: boolean) => {
-    let lcDs = localStorageDataString();
-    let r = { prefer2fa };
-    if (lcDs != null) {
-      r = JSON.parse(lcDs);
-      r.prefer2fa = prefer2fa;
-    }
-    lcDs = JSON.stringify(r);
-    window.localStorage.setItem(LOCALSTORAGE_KEY_NAME, lcDs);
-    setLocalStorageDataString(lcDs);
+    writeLocalStorageData({ ...readLocalStorageData(), prefer2fa });
   }
+  const searchResultsArrangeAlgorithm = () => {
+    return normalizeSearchResultsArrangeAlgorithm(readLocalStorageData().searchResultsArrangeAlgorithm);
+  };
+  const setSearchResultsArrangeAlgorithm = (arrangeAlgorithm: string) => {
+    const normalizedArrangeAlgorithm = normalizeSearchResultsArrangeAlgorithm(arrangeAlgorithm);
+    if (searchResultsArrangeAlgorithm() == normalizedArrangeAlgorithm) {
+      return;
+    }
+    writeLocalStorageData({
+      ...readLocalStorageData(),
+      searchResultsArrangeAlgorithm: normalizedArrangeAlgorithm,
+    });
+  };
 
   return {
     installationState, retrieveInstallationState, clearInstallationState,
     prefer2fa, setPrefer2fa,
+    searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
     networkStatus,
     inProgressNetworkRequests, setInProgressNetworkRequests,
     recentNetworkRequests,

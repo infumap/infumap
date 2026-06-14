@@ -20,7 +20,7 @@ import type { SearchResult } from "../server";
 import type { QueryMode, QueryRuntime } from "../store/StoreProvider_PerItem";
 import type { StoreContextModel } from "../store/StoreProvider";
 import type { Uid } from "../util/uid";
-import type { ArrangeAlgorithm } from "./page-item";
+import { ArrangeAlgorithm, type ArrangeAlgorithm as ArrangeAlgorithmType } from "./page-item";
 import type { SearchItem, SearchMeasurable } from "./search-item";
 import type { ItemTypeMixin } from "./base/item";
 import {
@@ -186,14 +186,24 @@ export function setQuerySearchFocusedResultIndex(store: StoreContextModel, query
   store.perItem.setSearchFocusedResultIndex(queryItemId(queryItemOrId), index);
 }
 
-export function getQuerySearchArrangeAlgorithm(store: StoreContextModel, queryItemOrId: QueryItemOrId): ArrangeAlgorithm {
-  return store.perItem.getSearchArrangeAlgorithm(queryItemId(queryItemOrId));
+const normalizeQuerySearchArrangeAlgorithm = (arrangeAlgorithm: string | null | undefined): ArrangeAlgorithmType =>
+  arrangeAlgorithm == ArrangeAlgorithm.Grid ? ArrangeAlgorithm.Grid : ArrangeAlgorithm.Catalog;
+
+export function getQuerySearchArrangeAlgorithm(store: StoreContextModel, queryItemOrId: QueryItemOrId): ArrangeAlgorithmType {
+  return normalizeQuerySearchArrangeAlgorithm(
+    store.perItem.getSearchArrangeAlgorithm(queryItemId(queryItemOrId)) ??
+    store.general.searchResultsArrangeAlgorithm()
+  );
 }
 
 export function setQuerySearchArrangeAlgorithm(
   store: StoreContextModel,
   queryItemOrId: QueryItemOrId,
-  arrangeAlgorithm: ArrangeAlgorithm,
+  arrangeAlgorithm: ArrangeAlgorithmType,
 ): void {
-  store.perItem.setSearchArrangeAlgorithm(queryItemId(queryItemOrId), arrangeAlgorithm);
+  const normalizedArrangeAlgorithm = normalizeQuerySearchArrangeAlgorithm(arrangeAlgorithm);
+  store.perItem.setSearchArrangeAlgorithm(queryItemId(queryItemOrId), normalizedArrangeAlgorithm);
+  if (store.general.searchResultsArrangeAlgorithm() != normalizedArrangeAlgorithm) {
+    store.general.setSearchResultsArrangeAlgorithm(normalizedArrangeAlgorithm);
+  }
 }

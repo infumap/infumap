@@ -40,7 +40,6 @@ import {
   openRemoteItemTextInNewTab
 } from "../../util/remoteFile";
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
-import { getQuerySearchArrangeAlgorithm, isQueryItem, setQuerySearchArrangeAlgorithm } from "../../items/query-item";
 import { FileFns, asFileItem, isFile } from "../../items/file-item";
 import { TextFns, asTextItem, isText } from "../../items/text-item";
 import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-item";
@@ -212,7 +211,6 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
-  if (overlayType == ToolbarPopupType.SearchArrangeAlgorithm) { return 60; }
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return 138; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
@@ -237,7 +235,6 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.NoteTextStyle &&
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
     popupType != ToolbarPopupType.PageCalendarDisplayMode &&
-    popupType != ToolbarPopupType.SearchArrangeAlgorithm &&
     popupType != ToolbarPopupType.RatingType) {
     const popupWidth = popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300 : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
@@ -275,13 +272,6 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 112,
       h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
-    }
-  } else if (popupType == ToolbarPopupType.SearchArrangeAlgorithm) {
-    return {
-      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
-      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
-      w: 96,
-      h: 60
     }
   } else if (popupType == ToolbarPopupType.RatingType) {
     return {
@@ -427,7 +417,6 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.NoteTextStyle &&
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
-      overlayType() != ToolbarPopupType.SearchArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.TableNumCols &&
       overlayType() != ToolbarPopupType.NoteIndent &&
       overlayType() != ToolbarPopupType.PageNumCols &&
@@ -881,25 +870,6 @@ export const Toolbar_Popup: Component = () => {
   };
   const calendarDisplayModeChoiceClass = (displayMode: PageCalendarDisplayMode): string =>
     `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${calendarDisplayMode() == displayMode ? "font-bold text-slate-900" : ""}`;
-  const searchArrangeAlgorithm = () => {
-    const focusItem = getToolbarFocusItem(store);
-    if (!isQueryItem(focusItem)) { return ArrangeAlgorithm.Catalog; }
-    return getQuerySearchArrangeAlgorithm(store, focusItem) == ArrangeAlgorithm.Grid
-      ? ArrangeAlgorithm.Grid
-      : ArrangeAlgorithm.Catalog;
-  };
-  const handleSearchArrangeAlgorithmChange = (arrangeAlgorithm: ArrangeAlgorithm) => {
-    const focusItem = getToolbarFocusItem(store);
-    if (!isQueryItem(focusItem)) { return; }
-    setQuerySearchArrangeAlgorithm(
-      store,
-      focusItem,
-      arrangeAlgorithm == ArrangeAlgorithm.Grid ? ArrangeAlgorithm.Grid : ArrangeAlgorithm.Catalog,
-    );
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.touchToolbar();
-    arrangeNow(store, "toolbar-popup-search-arrange-algorithm");
-  }
   const handleRatingTypeChange = (newRatingType: "Star" | "Number" | "HorizontalBar" | "VerticalBar") => {
     ratingItem().ratingType = newRatingType;
     store.touchToolbar();
@@ -1030,21 +1000,6 @@ export const Toolbar_Popup: Component = () => {
             <div class={calendarDisplayModeChoiceClass(PageCalendarDisplayMode.Auto)}
               onClick={() => { handleCalendarDisplayModeChange(PageCalendarDisplayMode.Auto); }}>
               Auto
-            </div>
-          </div>
-        </Match>
-        <Match when={overlayType() == ToolbarPopupType.SearchArrangeAlgorithm}>
-          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
-            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}>
-            <div class={`text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px] ${searchArrangeAlgorithm() == ArrangeAlgorithm.Grid ? "font-bold text-slate-900" : ""}`}
-              onClick={() => { handleSearchArrangeAlgorithmChange(ArrangeAlgorithm.Grid); }}>
-              Grid
-            </div>
-            <div class={`text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${searchArrangeAlgorithm() == ArrangeAlgorithm.Catalog ? "font-bold text-slate-900" : ""}`}
-              onClick={() => { handleSearchArrangeAlgorithmChange(ArrangeAlgorithm.Catalog); }}>
-              Catalog
             </div>
           </div>
         </Match>

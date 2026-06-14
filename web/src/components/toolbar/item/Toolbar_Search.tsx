@@ -16,46 +16,21 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Show } from "solid-js";
-import { itemCanEdit } from "../../../items/base/capabilities-item";
+import { Component } from "solid-js";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ClickState } from "../../../input/state";
 import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProvider_Overlay";
-import { ArrangeAlgorithm } from "../../../items/page-item";
-import { asQueryItem, getQuerySearchArrangeAlgorithm } from "../../../items/query-item";
+import { asQueryItem } from "../../../items/query-item";
 import { getToolbarFocusItem } from "../toolbarFocus";
 
 
 export const Toolbar_Search: Component = () => {
   const store = useStore();
 
-  let arrangeAlgoDiv: HTMLDivElement | undefined;
   let qrDiv: HTMLDivElement | undefined;
 
   const queryItem = () => asQueryItem(getToolbarFocusItem(store));
-  const canEdit = () => itemCanEdit(queryItem());
-
-  const handleArrangeAlgoClick = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null &&
-      store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.SearchArrangeAlgorithm) {
-      store.overlay.toolbarPopupInfoMaybe.set(null);
-      return;
-    }
-    store.overlay.toolbarPopupInfoMaybe.set({
-      topLeftPx: { x: arrangeAlgoDiv!.getBoundingClientRect().x, y: arrangeAlgoDiv!.getBoundingClientRect().y + 35 },
-      type: ToolbarPopupType.SearchArrangeAlgorithm
-    });
-  };
-
-  const handleArrangeAlgoDown = () => {
-    ClickState.setButtonClickBoundsPx(arrangeAlgoDiv!.getBoundingClientRect());
-  };
-
-  const arrangeAlgoText = () => {
-    const aa = getQuerySearchArrangeAlgorithm(store, queryItem());
-    return aa == ArrangeAlgorithm.Grid ? "grid" : "catalog";
-  };
 
   const handleQr = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null &&
@@ -81,19 +56,7 @@ export const Toolbar_Search: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <Show when={canEdit()}>
-          <div ref={arrangeAlgoDiv}
-            class="inline-block w-[88px] border border-slate-400 rounded-md ml-[10px] cursor-pointer text-center align-middle"
-            style={`font-size: 13px;`}
-            onMouseDown={handleArrangeAlgoDown}
-            onClick={handleArrangeAlgoClick}>
-            {arrangeAlgoText()}
-          </div>
-        </Show>
-
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
-
-        <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
+        <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
           <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
         </div>
         <div class="inline-block">

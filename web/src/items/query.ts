@@ -35,6 +35,7 @@ import {
   setQueryMode,
   setQuerySearchFocusedResultIndex,
   setQuerySearchHasMoreResults,
+  setQuerySearchArrangeAlgorithm,
   setQuerySearchLoadedPageCount,
   setQuerySearchResults,
   setQuerySearchSelectedResultIndex,
@@ -148,6 +149,7 @@ export async function runQuerySearch(
   }
 
   setQueryMode(store, queryItem, "search");
+  setQuerySearchArrangeAlgorithm(store, queryItem, store.general.searchResultsArrangeAlgorithm());
   requestArrange(store, "query-search-start");
 
   const response = await server.search(null, text, store.general.networkStatus, 1);
