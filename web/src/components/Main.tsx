@@ -29,7 +29,13 @@ import {
 import { useStore } from "../store/StoreProvider";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
-import { clearLoadState, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
+import {
+  clearLoadState,
+  InitiateLoadResult,
+  initiateLoadChildItemsMaybe,
+  initiateLoadItemMaybe,
+  markChildrenLoadAsInitiatedOrComplete,
+} from "../layout/load";
 import { itemState } from "../store/ItemState";
 import { ensureQueryItemUnderQueries, switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
@@ -87,6 +93,28 @@ type TwoFingerTapState = {
   maxSpreadDeltaPx: number,
   eligible: boolean,
 };
+
+async function preloadDockForInitialArrange(store: ReturnType<typeof useStore>): Promise<void> {
+  const userMaybe = store.user.getUserMaybe();
+  if (!userMaybe) {
+    return;
+  }
+
+  let dockPageMaybe = itemState.get(userMaybe.dockPageId);
+  if (!dockPageMaybe) {
+    const loadResult = await initiateLoadItemMaybe(store, userMaybe.dockPageId);
+    if (loadResult == InitiateLoadResult.Failed) {
+      return;
+    }
+    dockPageMaybe = itemState.get(userMaybe.dockPageId);
+  }
+
+  if (!dockPageMaybe || !isPage(dockPageMaybe)) {
+    return;
+  }
+
+  await initiateLoadChildItemsMaybe(store, { itemId: userMaybe.dockPageId, linkIdMaybe: null });
+}
 
 export const Main: Component = () => {
   const store = useStore();
@@ -189,6 +217,8 @@ export const Main: Component = () => {
           store.overlay.autoFocusSearchInput.set(true);
         }
       }
+
+      await preloadDockForInitialArrange(store);
 
       try {
         if (isText(item)) {
