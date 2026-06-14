@@ -122,7 +122,6 @@ export enum PageFlags {
   None = 0x000,
   EmbeddedInteractive = 0x001,
   HideDocumentTitle = 0x002,
-  CalendarIndependentRows = 0x004,
   HideEmbeddedInteractiveTitle = 0x040,
   Chat = 0x080,
   DisableLineItemExpand = 0x100,

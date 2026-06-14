@@ -40,7 +40,6 @@ export enum HitboxFlags {
   TableColumnContextMenu = 0x004000,
   VerticalResize = 0x008000,
   ShowPointer = 0x010000,
-  CalendarOverflow = 0x020000,
   AnchorDefault = 0x040000,
 }
 
@@ -64,7 +63,6 @@ export function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.Expand) { result += "Expand "; }
   if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu "; }
   if (flags & HitboxFlags.ShowPointer) { result += "ShowPointer "; }
-  if (flags & HitboxFlags.CalendarOverflow) { result += "CalendarOverflow "; }
   result += "(" + flags + ")";
   return result;
 }
@@ -88,9 +86,6 @@ export interface HitboxMeta {
   compositeMoveOut?: boolean,
   compositeContentCollapse?: boolean,
   popupTitleTargetPath?: VisualElementPath,
-  calendarYear?: number,
-  calendarMonth?: number,
-  calendarDay?: number,
   calendarDividerMonth?: number,
 }
 
@@ -146,15 +141,6 @@ export const HitboxFns = {
     if (typeof (meta.popupTitleTargetPath) != 'undefined') {
       result.popupTitleTargetPath = meta.popupTitleTargetPath;
     }
-    if (typeof (meta.calendarYear) != 'undefined') {
-      result.calendarYear = meta.calendarYear;
-    }
-    if (typeof (meta.calendarMonth) != 'undefined') {
-      result.calendarMonth = meta.calendarMonth;
-    }
-    if (typeof (meta.calendarDay) != 'undefined') {
-      result.calendarDay = meta.calendarDay;
-    }
     if (typeof (meta.calendarDividerMonth) != 'undefined') {
       result.calendarDividerMonth = meta.calendarDividerMonth;
     }
@@ -193,10 +179,7 @@ export const HitboxFns = {
       (meta.allowOutsideBounds ? meta.allowOutsideBounds : "undefined") + ", compositeMoveOut: " +
       (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", compositeContentCollapse: " +
       (meta.compositeContentCollapse ? meta.compositeContentCollapse : "undefined") + ", popupTitleTargetPath: " +
-      (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", year: " +
-      (meta.calendarYear ? meta.calendarYear : "undefined") + ", month: " +
-      (meta.calendarMonth ? meta.calendarMonth : "undefined") + ", day: " +
-      (meta.calendarDay ? meta.calendarDay : "undefined") + ", dividerMonth: " +
+      (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", dividerMonth: " +
       (meta.calendarDividerMonth ? meta.calendarDividerMonth : "undefined") + "]";
   }
 }

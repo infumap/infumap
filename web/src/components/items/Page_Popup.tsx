@@ -629,12 +629,6 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             );
           }}</For>
 
-          <For each={props.visualElement.calendarOverflowCounts}>{overlay =>
-            <div class="absolute flex items-center justify-center font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
-              style={`left: ${overlay.boundsPx.x}px; top: ${overlay.boundsPx.y}px; width: ${overlay.boundsPx.w}px; height: ${overlay.boundsPx.h}px; font-size: ${overlay.fontSizePx}px;`}>
-              {overlay.totalCount}
-            </div>
-          }</For>
           {renderMovingDayHighlight(() => store.movingItemSourceCalendarInfo.get(), "#f59e0b33", "#f59e0b")}
           {renderMovingDayHighlight(() => store.movingItemTargetCalendarInfo.get(), "#3b82f633", "#3b82f6")}
         </div>

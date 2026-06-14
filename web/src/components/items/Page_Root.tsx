@@ -731,13 +731,6 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             );
           }}</For>
 
-          {/* Render overflow count overlays per day */}
-          <For each={props.visualElement.calendarOverflowCounts}>{overlay =>
-            <div class="absolute flex items-center justify-center font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
-              style={`left: ${overlay.boundsPx.x}px; top: ${overlay.boundsPx.y}px; width: ${overlay.boundsPx.w}px; height: ${overlay.boundsPx.h}px; font-size: ${overlay.fontSizePx}px;`}>
-              {overlay.totalCount}
-            </div>
-          }</For>
           <Show when={store.anItemIsMoving.get() &&
             store.movingItemSourceCalendarInfo.get() != null &&
             store.movingItemSourceCalendarInfo.get()!.pageItemId === props.visualElement.displayItem.id}>

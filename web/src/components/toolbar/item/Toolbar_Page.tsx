@@ -139,11 +139,6 @@ export const Toolbar_Page: Component = () => {
     return !(!(pageItem().flags & PageFlags.EmbeddedInteractive));
   }
 
-  const isCalendarIndependentRows = () => {
-    store.touchToolbarDependency();
-    return !!(pageItem().flags & PageFlags.CalendarIndependentRows);
-  }
-
   const focusIsInDock = () => {
     store.touchToolbarDependency();
     const userMaybe = store.user.getUserMaybe();
@@ -304,17 +299,6 @@ export const Toolbar_Page: Component = () => {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
     requestArrange(store, "toolbar-page-interactive");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
-    store.touchToolbar();
-  }
-
-  const handleToggleCalendarIndependentRows = () => {
-    if (pageItem().flags & PageFlags.CalendarIndependentRows) {
-      pageItem().flags &= ~PageFlags.CalendarIndependentRows;
-    } else {
-      pageItem().flags |= PageFlags.CalendarIndependentRows;
-    }
-    requestArrange(store, "toolbar-page-calendar-row-mode");
     serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
     store.touchToolbar();
   }
@@ -602,13 +586,6 @@ export const Toolbar_Page: Component = () => {
               onMouseDown={handleCalendarDisplayModeDown}>
               {calendarDisplayModeText()}
             </div>
-          </div>
-          <div class="inline-block ml-[10px]">
-            <InfuIconButton
-              icon="fa fa-calendar"
-              highlighted={isCalendarIndependentRows()}
-              clickHandler={handleToggleCalendarIndependentRows}
-              title="Show all items in each calendar day" />
           </div>
         </Show>
         <Show when={showDocumentButtons()}>
