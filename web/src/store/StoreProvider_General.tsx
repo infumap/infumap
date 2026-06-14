@@ -38,6 +38,8 @@ interface LocalStorageData {
   searchResultsArrangeAlgorithm?: string,
 }
 
+export type QueryInputMode = "search" | "chat";
+
 export interface NetworkRequestInfo {
   requestId: number,
   command: string,
@@ -57,6 +59,9 @@ export interface GeneralStoreContextModel {
 
   searchResultsArrangeAlgorithm: () => string,
   setSearchResultsArrangeAlgorithm: (arrangeAlgorithm: string) => void,
+
+  queryInputMode: () => QueryInputMode,
+  setQueryInputMode: (mode: QueryInputMode) => void,
 
   networkStatus: NumberSignal,
   inProgressNetworkRequests: Accessor<NetworkRequestInfo[]>,
@@ -84,10 +89,13 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   const [queuedNetworkRequests, setQueuedNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [erroredNetworkRequests, setErroredNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [hasUnacknowledgedNetworkErrors, setHasUnacknowledgedNetworkErrors] = createSignal<boolean>(false, { equals: false });
+  const [queryInputMode, setQueryInputModeSignal] = createSignal<QueryInputMode>("search");
   const recentNetworkRequestTimeouts = new Map<number, number>();
 
   const normalizeSearchResultsArrangeAlgorithm = (arrangeAlgorithm: string | null | undefined): string =>
     arrangeAlgorithm == "grid" ? "grid" : "catalog";
+  const normalizeQueryInputMode = (mode: string | null | undefined): QueryInputMode =>
+    mode == "chat" ? "chat" : "search";
 
   const readLocalStorageData = (): LocalStorageData => {
     const lcDs = localStorageDataString();
@@ -203,11 +211,15 @@ export function makeGeneralStore(): GeneralStoreContextModel {
       searchResultsArrangeAlgorithm: normalizedArrangeAlgorithm,
     });
   };
+  const setQueryInputMode = (mode: QueryInputMode) => {
+    setQueryInputModeSignal(normalizeQueryInputMode(mode));
+  };
 
   return {
     installationState, retrieveInstallationState, clearInstallationState,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
+    queryInputMode, setQueryInputMode,
     networkStatus,
     inProgressNetworkRequests, setInProgressNetworkRequests,
     recentNetworkRequests,

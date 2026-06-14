@@ -37,7 +37,6 @@ import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/
 import {
   QueryFns,
   asQueryItem,
-  QUERY_WORKSPACE_BUTTON_WIDTH_PX,
   QUERY_WORKSPACE_CONTROLS_GAP_PX,
   QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
   QUERY_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX,
@@ -80,6 +79,7 @@ import {
 } from "../../items/chat";
 import { NoteInlineText } from "./NoteInlineText";
 import { MOUSE_LEFT } from "../../input/mouse_down";
+import type { QueryInputMode } from "../../store/StoreProvider_General";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
@@ -87,6 +87,12 @@ const QUERY_SEARCH_ARRANGE_OPTIONS = [
   { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
   { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
 ] as const;
+const QUERY_INPUT_MODE_OPTIONS = [
+  { mode: "search", label: "Search" },
+  { mode: "chat", label: "Chat" },
+] as const;
+const QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX = 104;
+const QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX = 34;
 const QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
 const QUERY_CHAT_COMPOSER_BOTTOM_PX = 18;
@@ -108,8 +114,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatComposerHeightPx, setChatComposerHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
   let queryInput: HTMLInputElement | undefined;
-  let querySearchButton: HTMLButtonElement | undefined;
-  let queryChatButton: HTMLButtonElement | undefined;
+  let queryModeSelect: HTMLSelectElement | undefined;
+  let querySendButton: HTMLButtonElement | undefined;
+  let queryDiscardButton: HTMLButtonElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let activeSearchRequestSerial = 0;
   const boundsPx = () => props.visualElement.boundsPx;
@@ -128,6 +135,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const searchHasMoreResults = () => getQuerySearchHasMoreResults(store, queryItem());
   const hasSubmittedQuery = () => queryMode() != null;
   const hasSearchResults = () => (getQuerySearchResults(store, queryItem())?.length ?? 0) > 0;
+  const selectedInputMode = () => store.general.queryInputMode();
+  const sendButtonTitle = () => selectedInputMode() == "chat" ? "Send chat" : "Run search";
   const searchArrangeAlgorithm = () =>
     getQuerySearchArrangeAlgorithm(store, queryItem()) == ArrangeAlgorithm.Grid
       ? ArrangeAlgorithm.Grid
@@ -271,50 +280,74 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     });
   };
 
-  const focusSearchButton = () => {
-    if (!querySearchButton || querySearchButton.disabled) {
+  const focusModeSelector = () => {
+    if (!queryModeSelect || queryModeSelect.disabled) {
       focusQueryInputControl();
       return;
     }
-    querySearchButton.focus();
+    queryModeSelect.focus();
   };
 
-  const focusChatButton = () => {
-    if (!queryChatButton || queryChatButton.disabled) {
+  const focusSendButton = () => {
+    if (!querySendButton || querySendButton.disabled) {
       focusQueryInputControl();
       return;
     }
-    queryChatButton.focus();
+    querySendButton.focus();
   };
 
-  const focusPreviousQueryControl = (currentControl: "input" | "search" | "chat") => {
-    if (currentControl == "input") {
-      focusChatButton();
-    } else if (currentControl == "search") {
+  const focusDiscardButton = () => {
+    if (!queryDiscardButton || queryDiscardButton.disabled) {
       focusQueryInputControl();
+      return;
+    }
+    queryDiscardButton.focus();
+  };
+
+  type QueryControlName = "mode" | "input" | "send" | "discard";
+
+  const queryControlOrder = (): Array<QueryControlName> =>
+    hasSubmittedQuery()
+      ? ["mode", "input", "send", "discard"]
+      : ["mode", "input", "send"];
+
+  const focusQueryControl = (control: QueryControlName) => {
+    if (control == "mode") {
+      focusModeSelector();
+    } else if (control == "input") {
+      focusQueryInputControl();
+    } else if (control == "send") {
+      focusSendButton();
     } else {
-      focusSearchButton();
+      focusDiscardButton();
     }
   };
 
-  const focusNextQueryControl = (currentControl: "input" | "search" | "chat") => {
-    if (currentControl == "input") {
-      focusSearchButton();
-    } else if (currentControl == "search") {
-      focusChatButton();
-    } else {
-      focusQueryInputControl();
-    }
+  const focusAdjacentQueryControl = (currentControl: QueryControlName, direction: -1 | 1) => {
+    const order = queryControlOrder();
+    const currentIndex = Math.max(0, order.indexOf(currentControl));
+    const nextIndex = (currentIndex + direction + order.length) % order.length;
+    focusQueryControl(order[nextIndex]);
   };
 
-  const handleQueryControlTab = (ev: KeyboardEvent, currentControl: "input" | "search" | "chat") => {
+  const handleQueryControlTab = (ev: KeyboardEvent, currentControl: QueryControlName) => {
     ev.preventDefault();
     ev.stopPropagation();
-    if (ev.shiftKey) {
-      focusPreviousQueryControl(currentControl);
-    } else {
-      focusNextQueryControl(currentControl);
+    focusAdjacentQueryControl(currentControl, ev.shiftKey ? -1 : 1);
+  };
+
+  const setSelectedInputMode = (mode: QueryInputMode) => {
+    store.general.setQueryInputMode(mode);
+  };
+
+  const submitQueryInput = (editingElMaybe?: HTMLElement | null) => {
+    const mode = selectedInputMode();
+    store.general.setQueryInputMode(mode);
+    if (mode == "chat") {
+      void startChat(editingElMaybe);
+      return;
     }
+    void runSearch(false, editingElMaybe, false);
   };
 
   const loadMoreSearchResults = async () => {
@@ -519,7 +552,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       case "Enter":
         ev.preventDefault();
         ev.stopPropagation();
-        void runSearch(true, ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null, true);
+        submitQueryInput(ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null);
         return;
       case "Tab":
         handleQueryControlTab(ev, "input");
@@ -787,12 +820,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         Math.max(360, boundsPx().w - QUERY_WORKSPACE_SIDE_INSET_PX * 2),
       );
     };
-    const inputWidthPx = () => Math.max(
-      100,
+    const inputShellWidthPx = () => Math.max(
+      160,
       controlsWidthPx()
-        - QUERY_WORKSPACE_BUTTON_WIDTH_PX * 2
+        - QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX
         - (showDiscardButton() ? QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX : 0)
-        - QUERY_WORKSPACE_CONTROLS_GAP_PX * (showDiscardButton() ? 3 : 2),
+        - QUERY_WORKSPACE_CONTROLS_GAP_PX * (showDiscardButton() ? 2 : 1),
     );
     const lowerTopPx = calcQueryWorkspaceResultsTopPx();
     const arrangeSelectorTopPx = lowerTopPx - Math.round(QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
@@ -805,14 +838,42 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const renderQueryControls = () =>
       <div class="flex items-center" style={`gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
         <div
+          class="relative shrink-0"
+          style={`width: ${QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}>
+          <select
+            ref={queryModeSelect}
+            class="h-full w-full cursor-pointer appearance-none rounded-xs border border-[#999] bg-white pl-2 pr-[30px] text-black outline-hidden disabled:cursor-default disabled:opacity-40"
+            style="font-size: 15px;"
+            value={selectedInputMode()}
+            disabled={isStartingChat()}
+            onChange={(ev) => setSelectedInputMode(ev.currentTarget.value == "chat" ? "chat" : "search")}
+            onMouseDown={(ev) => ev.stopPropagation()}
+            onMouseUp={(ev) => ev.stopPropagation()}
+            onClick={(ev) => ev.stopPropagation()}
+            onKeyDown={(ev) => {
+              ev.stopPropagation();
+              if (ev.key == "Tab") {
+                handleQueryControlTab(ev, "mode");
+              }
+            }}
+            aria-label="Query mode">
+            <For each={QUERY_INPUT_MODE_OPTIONS}>{option =>
+              <option value={option.mode}>{option.label}</option>
+            }</For>
+          </select>
+          <i
+            class="bi-chevron-down pointer-events-none absolute text-black"
+            style="right: 12px; top: 50%; transform: translateY(-50%); font-size: 15px; line-height: 15px;" />
+        </div>
+        <div
           class="border border-[#999] rounded-xs bg-white overflow-hidden"
-          style={`width: ${inputWidthPx()}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          style={`width: ${inputShellWidthPx()}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
           onMouseDown={queryInputMouseDown}>
-          <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap px-2.5"
+          <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap pl-2.5 pr-[4px]"
             style="font-size: 16px;">
             <input id={editingDomId()}
               ref={queryInput}
-              class="block h-full w-full border-0 bg-transparent p-0 text-black outline-hidden"
+              class="block h-full min-w-0 grow border-0 bg-transparent p-0 text-black outline-hidden"
               style="font-size: 16px; user-select: text;"
               value={queryText()}
               placeholder="Query..."
@@ -821,68 +882,41 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               onMouseDown={queryInputMouseDown}
               onKeyDown={keyDownHandler}
               onInput={inputListener} />
+            <button
+              ref={querySendButton}
+              class="ml-[6px] flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+              style={`width: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px;`}
+              type="button"
+              title={sendButtonTitle()}
+              aria-label={sendButtonTitle()}
+              disabled={isStartingChat() || (selectedInputMode() == "chat" && !canEdit())}
+              onMouseDown={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                submitQueryInput();
+              }}
+              onMouseUp={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+              }}
+              onKeyDown={(ev) => {
+                ev.stopPropagation();
+                if (ev.key == "Tab") {
+                  handleQueryControlTab(ev, "send");
+                  return;
+                }
+                if (ev.key == "Enter") {
+                  ev.preventDefault();
+                  submitQueryInput();
+                }
+              }}>
+              <i class="fa fa-arrow-up" />
+            </button>
           </div>
         </div>
-        <button
-          ref={querySearchButton}
-          class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-40"
-          style={`width: ${QUERY_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-          type="button"
-          disabled={isStartingChat()}
-          onMouseDown={(ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            void runSearch(false);
-          }}
-          onMouseUp={(ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-          }}
-          onKeyDown={(ev) => {
-            ev.stopPropagation();
-            if (ev.key == "Tab") {
-              handleQueryControlTab(ev, "search");
-              return;
-            }
-            if (ev.key == "Enter") {
-              ev.preventDefault();
-              void runSearch(false);
-            }
-          }}
-          >
-          Search
-        </button>
-        <button
-          ref={queryChatButton}
-          class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-40"
-          style={`width: ${QUERY_WORKSPACE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-          type="button"
-          disabled={!canEdit() || isStartingChat()}
-          onMouseDown={(ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            void startChat();
-          }}
-          onMouseUp={(ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-          }}
-          onKeyDown={(ev) => {
-            ev.stopPropagation();
-            if (ev.key == "Tab") {
-              handleQueryControlTab(ev, "chat");
-              return;
-            }
-            if (ev.key == "Enter") {
-              ev.preventDefault();
-              void startChat();
-            }
-          }}
-          >
-          Chat
-        </button>
         <Show when={showDiscardButton()}>
           <button
+            ref={queryDiscardButton}
             class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
             style={`width: ${QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
             type="button"
@@ -897,6 +931,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             onMouseUp={(ev) => {
               ev.preventDefault();
               ev.stopPropagation();
+            }}
+            onKeyDown={(ev) => {
+              ev.stopPropagation();
+              if (ev.key == "Tab") {
+                handleQueryControlTab(ev, "discard");
+                return;
+              }
+              if (ev.key == "Enter") {
+                ev.preventDefault();
+                discardCurrentSearch();
+              }
             }}>
             <i class="bi-x-lg" />
           </button>
