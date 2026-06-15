@@ -28,7 +28,7 @@ import { VesCache } from "../ves-cache";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
 import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
-import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, MIN_NON_ROOT_LIST_PAGE_SCALE } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, LINK_TRIANGLE_SIZE_PX } from "../../constants";
 import { isComposite } from "../../items/composite-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { HitboxFns, HitboxFlags } from "../hitbox";
@@ -54,6 +54,78 @@ import {
 import { Item, ItemType } from "../../items/base/item";
 import { getMovingTreeItemInParentMaybe } from "./util";
 import { movingItemCellBoundsInPagePx } from "./moving";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "./page_list";
+
+function shouldShowLinkSettingsTriangle(linkItemMaybe: LinkItem | null): boolean {
+  return linkItemMaybe != null && linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM;
+}
+
+function linkSettingsTriangleHitbox() {
+  return HitboxFns.create(HitboxFlags.TriangleLinkSettings, {
+    x: 0,
+    y: 0,
+    w: LINK_TRIANGLE_SIZE_PX + 2,
+    h: LINK_TRIANGLE_SIZE_PX + 2,
+  });
+}
+
+function openPopupHitboxes(
+  popupClickAreaBoundsPx: { x: number, y: number, w: number, h: number },
+  excludeLinkTriangle: boolean,
+): Array<ReturnType<typeof HitboxFns.create>> {
+  if (!excludeLinkTriangle) {
+    return [HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx)];
+  }
+
+  const triangleSizePx = LINK_TRIANGLE_SIZE_PX + 2;
+  const rightBoundsPx = {
+    x: popupClickAreaBoundsPx.x + triangleSizePx,
+    y: popupClickAreaBoundsPx.y,
+    w: Math.max(0, popupClickAreaBoundsPx.w - triangleSizePx),
+    h: popupClickAreaBoundsPx.h,
+  };
+  const lowerLeftBoundsPx = {
+    x: popupClickAreaBoundsPx.x,
+    y: popupClickAreaBoundsPx.y + triangleSizePx,
+    w: Math.min(triangleSizePx, popupClickAreaBoundsPx.w),
+    h: Math.max(0, popupClickAreaBoundsPx.h - triangleSizePx),
+  };
+
+  const result: Array<ReturnType<typeof HitboxFns.create>> = [];
+  if (rightBoundsPx.w > 0 && rightBoundsPx.h > 0) {
+    result.push(HitboxFns.create(HitboxFlags.OpenPopup, rightBoundsPx));
+  }
+  if (lowerLeftBoundsPx.w > 0 && lowerLeftBoundsPx.h > 0) {
+    result.push(HitboxFns.create(HitboxFlags.OpenPopup, lowerLeftBoundsPx));
+  }
+  return result;
+}
+
+function calendarItemHitboxes(
+  displayItem: Item,
+  linkItemMaybe: LinkItem | null,
+  innerBoundsPx: { x: number, y: number, w: number, h: number },
+  clickAreaBoundsPx: { x: number, y: number, w: number, h: number },
+  popupClickAreaBoundsPx: { x: number, y: number, w: number, h: number },
+): Array<ReturnType<typeof HitboxFns.create>> {
+  const showLinkSettingsTriangle = shouldShowLinkSettingsTriangle(linkItemMaybe);
+  const hitboxes = isRating(displayItem)
+    ? [
+      HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+    ]
+    : [
+      HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+      ...openPopupHitboxes(popupClickAreaBoundsPx, showLinkSettingsTriangle),
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+    ];
+
+  if (showLinkSettingsTriangle) {
+    hitboxes.push(linkSettingsTriangleHitbox());
+  }
+
+  return hitboxes;
+}
 
 function miniCalendarHostScale(
   store: StoreContextModel,
@@ -212,18 +284,7 @@ function arrangeMiniCalendarPage(
           (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx,
-        hitboxes: (
-          isRating(displayItem)
-            ? [
-              HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-              HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-            ]
-            : [
-              HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-              HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-              HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-            ]
-        ),
+        hitboxes: calendarItemHitboxes(displayItem, linkItemMaybe, innerBoundsPx, clickAreaBoundsPx, popupClickAreaBoundsPx),
         parentPath: pageWithChildrenVePath,
         col: 0,
         row: dayLayout.rowStart + stackIndex,
@@ -573,18 +634,7 @@ export function arrange_calendar_page(
         boundsPx,
         blockSizePx,
         viewportBoundsPx: null,
-        hitboxes: (
-          isRating(displayItem)
-            ? [
-              HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-              HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-            ]
-            : [
-              HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
-              HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
-              HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-            ]
-        )
+        hitboxes: calendarItemHitboxes(displayItem, linkItemMaybe, innerBoundsPx, clickAreaBoundsPx, popupClickAreaBoundsPx),
       };
 
       const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
