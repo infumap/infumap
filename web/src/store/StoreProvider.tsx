@@ -62,8 +62,8 @@ export interface StoreContextModel {
   anItemIsResizing: InfuSignal<boolean>,
   anItemIsMoving: InfuSignal<boolean>,
   externalFileDragActive: InfuSignal<boolean>,
-  movingItemSourceCalendarInfo: InfuSignal<{ pageItemId: string, combinedIndex: number } | null>,
-  movingItemTargetCalendarInfo: InfuSignal<{ pageItemId: string, combinedIndex: number } | null>,
+  movingItemSourceCalendarInfo: InfuSignal<{ pageItemId: string, combinedIndex: number, year?: number } | null>,
+  movingItemTargetCalendarInfo: InfuSignal<{ pageItemId: string, combinedIndex: number, year?: number } | null>,
   mouseOverTableHeaderColumnNumber: InfuSignal<number | null>,
 
   touchToolbar: () => void,
@@ -199,8 +199,8 @@ export function StoreProvider(props: StoreContextProps) {
     anItemIsResizing: createInfuSignal<boolean>(false),
     anItemIsMoving: createInfuSignal<boolean>(false),
     externalFileDragActive: createInfuSignal<boolean>(false),
-    movingItemSourceCalendarInfo: createInfuSignal<{ pageItemId: string, combinedIndex: number } | null>(null),
-    movingItemTargetCalendarInfo: createInfuSignal<{ pageItemId: string, combinedIndex: number } | null>(null),
+    movingItemSourceCalendarInfo: createInfuSignal<{ pageItemId: string, combinedIndex: number, year?: number } | null>(null),
+    movingItemTargetCalendarInfo: createInfuSignal<{ pageItemId: string, combinedIndex: number, year?: number } | null>(null),
     mouseOverTableHeaderColumnNumber: createInfuSignal<number | null>(null),
 
     perVe,

@@ -51,6 +51,7 @@ export function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
       ...monthLayout,
       days: monthLayout.days.map(dayLayout => ({ ...dayLayout })),
     })),
+    calendarMiniDayLayouts: (ve.calendarMiniDayLayouts ?? []).map(dayLayout => ({ ...dayLayout })),
   };
 }
 
@@ -89,6 +90,27 @@ function calendarMonthLayoutsEqual(
   return true;
 }
 
+function calendarMiniDayLayoutsEqual(
+  a: VisualElement["calendarMiniDayLayouts"] | undefined,
+  b: VisualElement["calendarMiniDayLayouts"] | undefined,
+): boolean {
+  const aLayouts = a ?? [];
+  const bLayouts = b ?? [];
+  if (aLayouts.length !== bLayouts.length) { return false; }
+  for (let i = 0; i < aLayouts.length; ++i) {
+    if (aLayouts[i].key !== bLayouts[i].key) { return false; }
+    if (aLayouts[i].year !== bLayouts[i].year) { return false; }
+    if (aLayouts[i].month !== bLayouts[i].month) { return false; }
+    if (aLayouts[i].day !== bLayouts[i].day) { return false; }
+    if (aLayouts[i].dayOfWeek !== bLayouts[i].dayOfWeek) { return false; }
+    if (aLayouts[i].rowStart !== bLayouts[i].rowStart) { return false; }
+    if (aLayouts[i].rowCount !== bLayouts[i].rowCount) { return false; }
+    if (aLayouts[i].topPx !== bLayouts[i].topPx) { return false; }
+    if (aLayouts[i].heightPx !== bLayouts[i].heightPx) { return false; }
+  }
+  return true;
+}
+
 export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
   if (existingVe.displayItemFingerprint !== preparedSpec.displayItemFingerprint) { return false; }
   if (existingVe.displayItem.id !== preparedSpec.displayItem.id) { return false; }
@@ -111,6 +133,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if ((existingVe.numRows ?? null) !== (specValueOrDefault(preparedSpec.numRows, NONE_VISUAL_ELEMENT.numRows) ?? null)) { return false; }
   if (HitboxFns.ArrayCompare(existingVe.hitboxes, specValueOrDefault(preparedSpec.hitboxes, NONE_VISUAL_ELEMENT.hitboxes)) !== 0) { return false; }
   if (!calendarMonthLayoutsEqual(existingVe.calendarMonthLayouts, specValueOrDefault(preparedSpec.calendarMonthLayouts, NONE_VISUAL_ELEMENT.calendarMonthLayouts))) { return false; }
+  if (!calendarMiniDayLayoutsEqual(existingVe.calendarMiniDayLayouts, specValueOrDefault(preparedSpec.calendarMiniDayLayouts, NONE_VISUAL_ELEMENT.calendarMiniDayLayouts))) { return false; }
   if ((existingVe.parentPath ?? null) !== (specValueOrDefault(preparedSpec.parentPath, NONE_VISUAL_ELEMENT.parentPath) ?? null)) { return false; }
   if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return false; }
   if ((existingVe.listItemNumber ?? null) !== (specValueOrDefault(preparedSpec.listItemNumber, NONE_VISUAL_ELEMENT.listItemNumber) ?? null)) { return false; }

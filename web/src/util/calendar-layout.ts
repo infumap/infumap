@@ -19,7 +19,7 @@
 import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX } from "../constants";
 import type { StoreContextModel } from "../store/StoreProvider";
 import { VeFns, VisualElementFlags } from "../layout/visual-element";
-import type { CalendarMonthLayout, VisualElement } from "../layout/visual-element";
+import type { CalendarMiniDayLayout, CalendarMonthLayout, VisualElement } from "../layout/visual-element";
 import { Vector } from "./geometry";
 import { getMonthInfo } from "./time";
 import { getPageCalendarDisplayMode, PageCalendarDisplayMode } from "../items/base/flags-item";
@@ -44,6 +44,12 @@ export const CALENDAR_POPUP_LAYOUT_CONSTANTS = {
   TITLE_TO_MONTH_SPACING: 8,
   MONTH_TITLE_HEIGHT: 26,
   BOTTOM_MARGIN: 3,
+} as const;
+
+export const CALENDAR_MINI_LAYOUT_CONSTANTS = {
+  TITLE_TO_DAYS_SPACING: 6,
+  BOTTOM_MARGIN: 5,
+  MIN_ROW_HEIGHT_SCALE: 0.72,
 } as const;
 
 export const CALENDAR_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -275,6 +281,135 @@ export function isCalendarMonthVisible(calendarWindow: CalendarWindow, year: num
 
 export function calendarDateKey(year: number, month: number, day: number): string {
   return `${year}-${month}-${day}`;
+}
+
+function localCalendarDate(year: number, month: number, day: number): Date {
+  return new Date(year, month - 1, day);
+}
+
+function addCalendarDays(date: Date, dayOffset: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + dayOffset);
+}
+
+export function calendarMiniScale(baseRowHeightPx: number): number {
+  return Math.max(0.001, baseRowHeightPx / LINE_HEIGHT_PX);
+}
+
+export function calendarMiniTitleTopPx(baseRowHeightPx: number): number {
+  return CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING * calendarMiniScale(baseRowHeightPx);
+}
+
+export function calendarMiniTitleHeightPx(baseRowHeightPx: number): number {
+  return CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT * calendarMiniScale(baseRowHeightPx);
+}
+
+export function calendarMiniDayAreaTopPx(baseRowHeightPx: number): number {
+  const scale = calendarMiniScale(baseRowHeightPx);
+  return calendarMiniTitleTopPx(baseRowHeightPx) +
+    calendarMiniTitleHeightPx(baseRowHeightPx) +
+    CALENDAR_MINI_LAYOUT_CONSTANTS.TITLE_TO_DAYS_SPACING * scale;
+}
+
+export function calculateCalendarMiniDayLayouts(
+  childAreaBoundsPx: { h: number },
+  itemCountsByDate: ReadonlyMap<string, number>,
+  baseRowHeightPx: number,
+): Array<CalendarMiniDayLayout> {
+  const today = getCurrentDayInfo();
+  const startDate = localCalendarDate(today.year, today.month, today.day);
+  const scale = calendarMiniScale(baseRowHeightPx);
+  const dayAreaTopPx = calendarMiniDayAreaTopPx(baseRowHeightPx);
+  const availableHeightForDays = Math.max(
+    0,
+    childAreaBoundsPx.h - dayAreaTopPx - CALENDAR_MINI_LAYOUT_CONSTANTS.BOTTOM_MARGIN * scale,
+  );
+  const minRowHeightPx = Math.max(1, baseRowHeightPx * CALENDAR_MINI_LAYOUT_CONSTANTS.MIN_ROW_HEIGHT_SCALE);
+  const maxRowsAtMinHeight = Math.max(1, Math.floor(availableHeightForDays / minRowHeightPx));
+
+  let totalRows = 0;
+  const selectedDays: Array<{
+    key: string,
+    year: number,
+    month: number,
+    day: number,
+    dayOfWeek: number,
+    rowCount: number,
+  }> = [];
+
+  for (let dayOffset = 0; dayOffset < 370; ++dayOffset) {
+    const date = addCalendarDays(startDate, dayOffset);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const key = calendarDateKey(year, month, day);
+    const rowCount = Math.max(1, itemCountsByDate.get(key) ?? 0);
+    if (selectedDays.length > 0 && totalRows + rowCount > maxRowsAtMinHeight) {
+      break;
+    }
+
+    selectedDays.push({
+      key,
+      year,
+      month,
+      day,
+      dayOfWeek: date.getDay(),
+      rowCount,
+    });
+    totalRows += rowCount;
+
+    if (totalRows >= maxRowsAtMinHeight) {
+      break;
+    }
+  }
+
+  const rowHeightPx = totalRows > 0
+    ? Math.max(1, Math.min(baseRowHeightPx, availableHeightForDays / totalRows))
+    : baseRowHeightPx;
+
+  let rowStart = 0;
+  return selectedDays.map(dayLayout => {
+    const result = {
+      key: dayLayout.key,
+      year: dayLayout.year,
+      month: dayLayout.month,
+      day: dayLayout.day,
+      dayOfWeek: dayLayout.dayOfWeek,
+      rowStart,
+      rowCount: dayLayout.rowCount,
+      topPx: dayAreaTopPx + rowStart * rowHeightPx,
+      heightPx: dayLayout.rowCount * rowHeightPx,
+    };
+    rowStart += dayLayout.rowCount;
+    return result;
+  });
+}
+
+export function getCalendarMiniRowHeightPx(dayLayouts: ReadonlyArray<CalendarMiniDayLayout>, fallbackPx: number): number {
+  if (dayLayouts.length == 0 || dayLayouts[0].rowCount <= 0) {
+    return fallbackPx;
+  }
+  return dayLayouts[0].heightPx / dayLayouts[0].rowCount;
+}
+
+export function formatCalendarMiniRangeTitle(dayLayouts: ReadonlyArray<CalendarMiniDayLayout>): string {
+  if (dayLayouts.length == 0) {
+    const today = getCurrentDayInfo();
+    return `${CALENDAR_MONTH_NAMES[today.month - 1]} ${today.day}`;
+  }
+
+  const first = dayLayouts[0];
+  const last = dayLayouts[dayLayouts.length - 1];
+  const firstMonth = CALENDAR_MONTH_NAMES[first.month - 1];
+  const lastMonth = CALENDAR_MONTH_NAMES[last.month - 1];
+  if (first.year == last.year && first.month == last.month) {
+    return first.day == last.day
+      ? `${firstMonth} ${first.day}`
+      : `${firstMonth} ${first.day}-${last.day}`;
+  }
+  if (first.year == last.year) {
+    return `${firstMonth} ${first.day} - ${lastMonth} ${last.day}`;
+  }
+  return `${firstMonth} ${first.day}, ${first.year} - ${lastMonth} ${last.day}, ${last.year}`;
 }
 
 export function calculateCalendarDimensions(
@@ -599,6 +734,44 @@ export function solveCalendarMonthWidthForDividerOffset(
 export interface CalendarPosition {
   month: number;
   day: number;
+  year?: number;
+}
+
+export function getCalendarMiniDayLayoutForPosition(
+  dayLayouts: ReadonlyArray<CalendarMiniDayLayout>,
+  position: CalendarPosition,
+): CalendarMiniDayLayout | null {
+  return dayLayouts.find(layout =>
+    layout.month == position.month &&
+    layout.day == position.day &&
+    (position.year == null || layout.year == position.year)) ?? null;
+}
+
+export function getCalendarMiniPositionForYOffset(
+  dayLayouts: ReadonlyArray<CalendarMiniDayLayout>,
+  yOffsetPx: number,
+): CalendarPosition {
+  if (dayLayouts.length == 0) {
+    const currentDay = getCurrentDayInfo();
+    return currentDay;
+  }
+
+  for (const dayLayout of dayLayouts) {
+    if (yOffsetPx < dayLayout.topPx + dayLayout.heightPx) {
+      return {
+        year: dayLayout.year,
+        month: dayLayout.month,
+        day: dayLayout.day,
+      };
+    }
+  }
+
+  const lastDayLayout = dayLayouts[dayLayouts.length - 1];
+  return {
+    year: lastDayLayout.year,
+    month: lastDayLayout.month,
+    day: lastDayLayout.day,
+  };
 }
 
 export function calculateCalendarPosition(
@@ -608,13 +781,6 @@ export function calculateCalendarPosition(
 ): CalendarPosition {
   const childAreaBounds = pageVe.childAreaBoundsPx!;
   const viewportBounds = pageVe.viewportBoundsPx!;
-  const pagePath = VeFns.veToPath(pageVe);
-  const calendarWindow = calculateCalendarWindowForPage(store, pagePath, childAreaBounds.w, pageVe.displayItem as any);
-  const monthResizeMaybe = calendarWindow.monthsPerPage == 12
-    ? store.perVe.getCalendarMonthResize(pagePath)
-    : null;
-  const dimensions = calculateCalendarDimensionsForVisualElement(pageVe, monthResizeMaybe, calendarWindow);
-
   const veid = pageVe.flags & VisualElementFlags.Popup
     ? store.history.currentPopupSpec()?.actualVeid ?? VeFns.actualVeidFromVe(pageVe)
     : VeFns.actualVeidFromVe(pageVe);
@@ -626,6 +792,17 @@ export function calculateCalendarPosition(
 
   const xOffsetPx = desktopPosPx.x - viewportBoundsOnDesktop.x + scrollXPx;
   const yOffsetPx = desktopPosPx.y - viewportBoundsOnDesktop.y + scrollYPx;
+
+  if ((pageVe.calendarMiniDayLayouts ?? []).length > 0) {
+    return getCalendarMiniPositionForYOffset(pageVe.calendarMiniDayLayouts, yOffsetPx);
+  }
+
+  const pagePath = VeFns.veToPath(pageVe);
+  const calendarWindow = calculateCalendarWindowForPage(store, pagePath, childAreaBounds.w, pageVe.displayItem as any);
+  const monthResizeMaybe = calendarWindow.monthsPerPage == 12
+    ? store.perVe.getCalendarMonthResize(pagePath)
+    : null;
+  const dimensions = calculateCalendarDimensionsForVisualElement(pageVe, monthResizeMaybe, calendarWindow);
 
   const month = getCalendarMonthForXOffset(dimensions, xOffsetPx);
   const day = getCalendarDayForYOffset(dimensions, pageVe.calendarMonthLayouts, month, yOffsetPx);
@@ -655,17 +832,23 @@ export function calculateCalendarDateTimeForPosition(
   baseDateTimeSeconds: number | null = null,
   targetYearOverride: number | null = null,
 ): number {
-  const calendarWindow = calculateCalendarWindowForPage(
-    store,
-    VeFns.veToPath(pageVe),
-    pageVe.childAreaBoundsPx!.w,
-    pageVe.displayItem as any,
-  );
   const currentTime = baseDateTimeSeconds == null
     ? new Date()
     : new Date(baseDateTimeSeconds * 1000);
-  const visibleMonth = calendarWindow.months.find(month => month.month === position.month);
-  const targetYear = targetYearOverride ?? visibleMonth?.year ?? calendarWindow.year;
+  let targetYear = targetYearOverride ?? position.year ?? null;
+  if (targetYear == null && (pageVe.calendarMiniDayLayouts ?? []).length > 0) {
+    targetYear = getCalendarMiniDayLayoutForPosition(pageVe.calendarMiniDayLayouts, position)?.year ?? null;
+  }
+  if (targetYear == null) {
+    const calendarWindow = calculateCalendarWindowForPage(
+      store,
+      VeFns.veToPath(pageVe),
+      pageVe.childAreaBoundsPx!.w,
+      pageVe.displayItem as any,
+    );
+    const visibleMonth = calendarWindow.months.find(month => month.month === position.month);
+    targetYear = visibleMonth?.year ?? calendarWindow.year;
+  }
   const targetDay = Math.max(1, Math.min(position.day, getMonthInfo(position.month, targetYear).daysInMonth));
   const targetDate = new Date(
     targetYear,

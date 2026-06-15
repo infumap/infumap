@@ -35,13 +35,13 @@ import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PlaceholderFns } from "../items/placeholder-item";
-import { calculateCalendarPosition, encodeCalendarCombinedIndex, getCurrentDayInfo } from "../util/calendar-layout";
+import { calculateCalendarPosition, encodeCalendarCombinedIndex } from "../util/calendar-layout";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, isVeTranslucentPage } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -439,7 +439,11 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     const itemDate = new Date(activeItem.dateTime * 1000);
     const month = itemDate.getMonth() + 1;
     const day = itemDate.getDate();
-    store.movingItemSourceCalendarInfo.set({ pageItemId: parentItem.id, combinedIndex: encodeCalendarCombinedIndex(month, day) });
+    store.movingItemSourceCalendarInfo.set({
+      pageItemId: parentItem.id,
+      combinedIndex: encodeCalendarCombinedIndex(month, day),
+      year: itemDate.getFullYear(),
+    });
   } else {
     store.movingItemSourceCalendarInfo.set(null);
   }
@@ -734,14 +738,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-    // Calculate which month and day the mouse is over using scaled childAreaBoundsPx
-    const currentDayInfo = getCurrentDayInfo();
-    const position = isVeTranslucentPage(inElementVe)
-      ? { month: currentDayInfo.month, day: currentDayInfo.day }
-      : calculateCalendarPosition(desktopPosPx, inElementVe, store);
+    const position = calculateCalendarPosition(desktopPosPx, inElementVe, store);
     const combinedIndex = encodeCalendarCombinedIndex(position.month, position.day);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), combinedIndex);
-    store.movingItemTargetCalendarInfo.set({ pageItemId: inElement.id, combinedIndex });
+    store.movingItemTargetCalendarInfo.set({ pageItemId: inElement.id, combinedIndex, year: position.year });
   }
 
   if (hasValidMoveTarget && (inElementVe.flags & VisualElementFlags.IsDock)) {

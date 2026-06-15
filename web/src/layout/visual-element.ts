@@ -324,6 +324,7 @@ export interface VisualElement {
   hitboxes: Array<Hitbox>,  // higher index => higher precedence.
 
   calendarMonthLayouts: Array<CalendarMonthLayout>,
+  calendarMiniDayLayouts: Array<CalendarMiniDayLayout>,
 
   parentPath: VisualElementPath | null,
 
@@ -367,6 +368,18 @@ export interface CalendarMonthLayout {
   days: Array<CalendarDayLayout>,
 }
 
+export interface CalendarMiniDayLayout {
+  key: string,
+  year: number,
+  month: number,
+  day: number,
+  dayOfWeek: number,
+  rowStart: number,
+  rowCount: number,
+  topPx: number,
+  heightPx: number,
+}
+
 
 /**
  * Sentinel value used when there is no top level visual element. This makes typing much easier to deal with
@@ -396,6 +409,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   numRows: null,
   hitboxes: [],
   calendarMonthLayouts: [],
+  calendarMiniDayLayouts: [],
 
   parentPath: null,
   evaluatedTitle: null,
@@ -435,6 +449,7 @@ export interface VisualElementSpec {
   numRows?: number,
   hitboxes?: Array<Hitbox>,
   calendarMonthLayouts?: Array<CalendarMonthLayout>,
+  calendarMiniDayLayouts?: Array<CalendarMiniDayLayout>,
   parentPath?: VisualElementPath,
   evaluatedTitle?: string | null,
   listItemNumber?: number | null,
@@ -494,6 +509,7 @@ export const VeFns = {
       numRows: null,
       hitboxes: [],
       calendarMonthLayouts: [],
+      calendarMiniDayLayouts: [],
 
       parentPath: null,
       evaluatedTitle: null,
@@ -535,6 +551,7 @@ export const VeFns = {
     ve.numRows = null;
     ve.hitboxes = [];
     ve.calendarMonthLayouts = [];
+    ve.calendarMiniDayLayouts = [];
 
     ve.parentPath = null;
     ve.evaluatedTitle = null;
@@ -1096,6 +1113,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.numRows) != 'undefined') { result.numRows = override.numRows; }
   if (typeof (override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
   if (typeof (override.calendarMonthLayouts) != 'undefined') { result.calendarMonthLayouts = override.calendarMonthLayouts; }
+  if (typeof (override.calendarMiniDayLayouts) != 'undefined') { result.calendarMiniDayLayouts = override.calendarMiniDayLayouts; }
   if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
   if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
   if (typeof (override.listItemNumber) != 'undefined') { result.listItemNumber = override.listItemNumber; }

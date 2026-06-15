@@ -37,19 +37,222 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import {
   calculateCalendarWindowForPage,
   calculateCalendarDimensions,
+  calculateCalendarMiniDayLayouts,
   calculateCalendarMonthLayouts,
   calculateCalendarVerticalLayout,
   calendarDateKey,
   CALENDAR_LAYOUT_CONSTANTS,
   getCalendarDayMetrics,
+  getCalendarMiniRowHeightPx,
   getCalendarDividerCenterPx,
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCalendarMonthVisible,
 } from "../../util/calendar-layout";
-import { ItemType } from "../../items/base/item";
+import { Item, ItemType } from "../../items/base/item";
 import { getMovingTreeItemInParentMaybe } from "./util";
 import { movingItemCellBoundsInPagePx } from "./moving";
+
+function miniCalendarHostScale(
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  geometry: ItemGeometry,
+): number {
+  const parentItem = itemState.get(VeFns.veidFromPath(parentPath).itemId);
+  if (parentItem != null &&
+    isPage(parentItem) &&
+    asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    return Math.max(0.001, geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w);
+  }
+  const geometryScale = geometry.blockSizePx?.h
+    ? geometry.blockSizePx.h / NATURAL_BLOCK_SIZE_PX.h
+    : 1.0;
+  return Math.max(0.001, geometryScale);
+}
+
+function arrangeMiniCalendarPage(
+  store: StoreContextModel,
+  displayItem_pageWithChildren: PageItem,
+  linkItemMaybe_pageWithChildren: LinkItem | null,
+  pageWithChildrenVePath: VisualElementPath,
+  geometry: ItemGeometry,
+  flags: ArrangeItemFlags,
+  pageSpec: VisualElementSpec,
+  pageRelationships: VisualElementRelationships,
+  highlightedPath: VisualElementPath | null,
+  movingItemInThisPage: Item | null,
+): void {
+  const childAreaBoundsPx = pageSpec.childAreaBoundsPx!;
+  const hostScale = miniCalendarHostScale(store, pageSpec.parentPath!, geometry);
+  const baseRowHeightPx = LINE_HEIGHT_PX * hostScale;
+  const blockSizePx = {
+    w: NATURAL_BLOCK_SIZE_PX.w * hostScale,
+    h: NATURAL_BLOCK_SIZE_PX.h * hostScale,
+  };
+  const leftRightMarginPx = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN * hostScale;
+  const dayLabelWidthPx = CALENDAR_DAY_LABEL_LEFT_MARGIN_PX * hostScale;
+  const itemLeftPaddingPx = 2 * hostScale;
+  const columnLeftPx = leftRightMarginPx;
+  const columnWidthPx = Math.max(0, childAreaBoundsPx.w - leftRightMarginPx * 2);
+  const itemWidthPx = Math.max(0, columnWidthPx - dayLabelWidthPx - itemLeftPaddingPx);
+
+  const itemsByDate = new Map<string, Array<Item>>();
+  for (const childId of displayItem_pageWithChildren.computed_children) {
+    const child = itemState.get(childId);
+    if (child == null) { continue; }
+    if (movingItemInThisPage && child.id === movingItemInThisPage.id) { continue; }
+
+    const itemDate = new Date(child.dateTime * 1000);
+    const dateKey = calendarDateKey(itemDate.getFullYear(), itemDate.getMonth() + 1, itemDate.getDate());
+    if (!itemsByDate.has(dateKey)) {
+      itemsByDate.set(dateKey, []);
+    }
+    itemsByDate.get(dateKey)!.push(child);
+  }
+
+  itemsByDate.forEach((items) => {
+    items.sort((a, b) => {
+      const cmp = compareOrderings(a.ordering, b.ordering);
+      if (cmp !== 0) return cmp;
+      return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+    });
+  });
+
+  const itemCountsByDate = new Map<string, number>();
+  itemsByDate.forEach((items, dateKey) => {
+    itemCountsByDate.set(dateKey, items.length);
+  });
+
+  const calendarMiniDayLayouts = calculateCalendarMiniDayLayouts(
+    childAreaBoundsPx,
+    itemCountsByDate,
+    baseRowHeightPx,
+  );
+  const rowHeightPx = getCalendarMiniRowHeightPx(calendarMiniDayLayouts, baseRowHeightPx);
+  const visibleDateKeys = new Set(calendarMiniDayLayouts.map(dayLayout => dayLayout.key));
+  const calendarChildPaths: Array<VisualElementPath> = [];
+
+  for (const dayLayout of calendarMiniDayLayouts) {
+    const itemsForDate = itemsByDate.get(dayLayout.key) ?? [];
+    if (!visibleDateKeys.has(dayLayout.key)) { continue; }
+
+    itemsForDate.forEach((childItem, stackIndex) => {
+      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+
+      if (isComposite(displayItem)) {
+        initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+      }
+
+      const visibleItemHeight = Math.min(rowHeightPx, blockSizePx.h);
+      const itemTopInset = Math.min(hostScale, Math.max(0, visibleItemHeight * 0.2));
+      const arrangedItemHeight = Math.max(0, visibleItemHeight - itemTopInset);
+      const effectiveItemWidth = Math.max(0, itemWidthPx - 2 * hostScale);
+      const boundsPx = {
+        x: columnLeftPx + dayLabelWidthPx + itemLeftPaddingPx,
+        y: dayLayout.topPx + stackIndex * rowHeightPx + itemTopInset,
+        w: effectiveItemWidth,
+        h: arrangedItemHeight,
+      };
+      const innerBoundsPx = {
+        x: 0,
+        y: 0,
+        w: effectiveItemWidth,
+        h: arrangedItemHeight,
+      };
+      const effectiveWidthBl = blockSizePx.w > 0 ? Math.floor(effectiveItemWidth / blockSizePx.w) : 0;
+      const clickAreaBoundsPx = effectiveWidthBl > 1 ? {
+        x: blockSizePx.w,
+        y: 0,
+        w: Math.max(0, effectiveItemWidth - blockSizePx.w),
+        h: arrangedItemHeight,
+      } : {
+        x: 0,
+        y: 0,
+        w: effectiveItemWidth,
+        h: arrangedItemHeight,
+      };
+      const popupClickAreaBoundsPx = {
+        x: 0,
+        y: 0,
+        w: Math.min(blockSizePx.w, effectiveItemWidth),
+        h: arrangedItemHeight,
+      };
+
+      const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
+      const isChildHighlighted = highlightedPath !== null && highlightedPath === childPath;
+      const calendarItemVeSpec: VisualElementSpec = {
+        displayItem,
+        linkItemMaybe,
+        actualLinkItemMaybe: linkItemMaybe,
+        flags: VisualElementFlags.LineItem |
+          VisualElementFlags.DisableLineItemExpand |
+          (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+        _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
+        boundsPx,
+        hitboxes: (
+          isRating(displayItem)
+            ? [
+              HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+              HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+            ]
+            : [
+              HitboxFns.create(HitboxFlags.Click, clickAreaBoundsPx),
+              HitboxFns.create(HitboxFlags.OpenPopup, popupClickAreaBoundsPx),
+              HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+            ]
+        ),
+        parentPath: pageWithChildrenVePath,
+        col: 0,
+        row: dayLayout.rowStart + stackIndex,
+        blockSizePx,
+      };
+
+      VesCache.arrange.writeVisualElement(calendarItemVeSpec, {}, childPath);
+      calendarChildPaths.push(childPath);
+    });
+  }
+
+  pageSpec.calendarMonthLayouts = [];
+  pageSpec.calendarMiniDayLayouts = calendarMiniDayLayouts;
+  pageSpec.blockSizePx = blockSizePx;
+
+  if (movingItemInThisPage) {
+    const movingItemDimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
+    const scrollVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
+    const movingItemBoundsPx = movingItemCellBoundsInPagePx(
+      store,
+      pageWithChildrenVePath,
+      geometry,
+      childAreaBoundsPx,
+      scrollVeid,
+      {
+        w: movingItemDimensionsBl.w * blockSizePx.w,
+        h: movingItemDimensionsBl.h * blockSizePx.h,
+      },
+      flags,
+    );
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItemInThisPage);
+    const movingItemPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pageWithChildrenVePath);
+    const movingItemVeSpec: VisualElementSpec = {
+      displayItem,
+      linkItemMaybe,
+      actualLinkItemMaybe: linkItemMaybe,
+      flags: VisualElementFlags.Moving,
+      _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.IsMoving,
+      boundsPx: movingItemBoundsPx,
+      hitboxes: [],
+      parentPath: pageWithChildrenVePath,
+      col: 0,
+      row: 0,
+      blockSizePx,
+    };
+
+    VesCache.arrange.writeVisualElement(movingItemVeSpec, {}, movingItemPath);
+    calendarChildPaths.push(movingItemPath);
+  }
+
+  pageRelationships.childrenPaths = calendarChildPaths;
+}
 
 
 export function arrange_calendar_page(
@@ -71,8 +274,21 @@ export function arrange_calendar_page(
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
+  const rendersAsTranslucentPage =
+    !(flags & (
+      ArrangeItemFlags.IsTopRoot |
+      ArrangeItemFlags.IsPopupRoot |
+      ArrangeItemFlags.IsListPageMainRoot |
+      ArrangeItemFlags.IsEmbeddedInteractiveRoot |
+      ArrangeItemFlags.IsDockRoot
+    ));
+
   const childAreaBoundsPx = (() => {
     let result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx!)!);
+    if (rendersAsTranslucentPage) {
+      result.h = geometry.viewportBoundsPx!.h;
+      return result;
+    }
 
     // Calculate natural calendar height
     const titleHeight = 40;
@@ -150,16 +366,19 @@ export function arrange_calendar_page(
 
   const pageRelationships: VisualElementRelationships = {};
 
-  const rendersAsTranslucentPage =
-    !(flags & (
-      ArrangeItemFlags.IsTopRoot |
-      ArrangeItemFlags.IsPopupRoot |
-      ArrangeItemFlags.IsListPageMainRoot |
-      ArrangeItemFlags.IsEmbeddedInteractiveRoot |
-      ArrangeItemFlags.IsDockRoot
-    ));
-
-  if (rendersAsTranslucentPage && movingItemInThisPage == null) {
+  if (rendersAsTranslucentPage) {
+    arrangeMiniCalendarPage(
+      store,
+      displayItem_pageWithChildren,
+      linkItemMaybe_pageWithChildren,
+      pageWithChildrenVePath,
+      geometry,
+      flags,
+      pageSpec,
+      pageRelationships,
+      highlightedPath,
+      movingItemInThisPage,
+    );
     return { spec: pageSpec, relationships: pageRelationships };
   }
 

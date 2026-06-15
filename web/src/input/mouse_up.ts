@@ -52,7 +52,7 @@ import { HitInfoFns } from "./hit";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
-import { calculateCalendarDateTimeForPosition, calculateCalendarPosition, decodeCalendarCombinedIndex, getCurrentDayInfo } from "../util/calendar-layout";
+import { calculateCalendarDateTimeForPosition, calculateCalendarPosition, decodeCalendarCombinedIndex } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
@@ -971,18 +971,18 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
 }
 
 function calendarDropDateTime(store: StoreContextModel, calendarPageVe: VisualElement, activeItem: PositionalItem): number {
-  if (isVeTranslucentPage(calendarPageVe)) {
-    const currentDayInfo = getCurrentDayInfo();
+  const path = VeFns.veToPath(calendarPageVe);
+  const targetInfo = store.movingItemTargetCalendarInfo.get();
+  if (targetInfo != null && targetInfo.pageItemId == calendarPageVe.displayItem.id) {
+    const position = decodeCalendarCombinedIndex(targetInfo.combinedIndex);
     return calculateCalendarDateTimeForPosition(
-      { month: currentDayInfo.month, day: currentDayInfo.day },
+      { ...position, year: targetInfo.year },
       calendarPageVe,
       store,
       activeItem.dateTime,
-      currentDayInfo.year,
     );
   }
 
-  const path = VeFns.veToPath(calendarPageVe);
   const combinedIndex = store.perVe.getMoveOverIndex(path);
   const position = combinedIndex >= 0
     ? decodeCalendarCombinedIndex(combinedIndex)

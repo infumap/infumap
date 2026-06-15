@@ -23,7 +23,7 @@ import { VeFns, VisualElementFlags, type VisualElement } from "../../layout/visu
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
-import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW, NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
 import { BORDER_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { linearGradient } from "../../style";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -32,18 +32,22 @@ import { ArrangeAlgorithm } from "../../items/page-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { VesCache } from "../../layout/ves-cache";
 import { PageVisualElementProps } from "./Page";
-import { CALENDAR_LAYOUT_CONSTANTS, getCurrentDayInfo } from "../../util/calendar-layout";
-import { itemState } from "../../store/ItemState";
-import { Item } from "../../items/base/item";
-import { ItemFns } from "../../items/base/item-polymorphism";
+import {
+  CALENDAR_LAYOUT_CONSTANTS,
+  calendarMiniTitleHeightPx,
+  calendarMiniTitleTopPx,
+  decodeCalendarCombinedIndex,
+  formatCalendarMiniRangeTitle,
+  getCalendarMiniDayLayoutForPosition,
+  getCalendarMiniRowHeightPx,
+  isCurrentDay,
+} from "../../util/calendar-layout";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
-import { isLink, LinkFns } from "../../items/link-item";
-import { Uid } from "../../util/uid";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isQueryItem } from "../../items/query-item";
-import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 
 
@@ -323,7 +327,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   );
 
   const renderBoxTitleMaybe = () =>
-    <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot)}>
+    <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot) &&
+      pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar}>
       <div id={VeFns.veToPath(props.visualElement) + ":title"}
         class={translucentTitleClass()}
         style={calendarTitleStyle()}
@@ -339,202 +344,87 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const renderCalendarTranslucentPage = () => {
     const childArea = pageFns().childAreaBoundsPx();
     const bounds = pageFns().boundsPx();
-    const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
-
-    // Prepare date range: today + next 6 days
-    const todayInfo = getCurrentDayInfo();
-    const baseDate = new Date(todayInfo.year, todayInfo.month - 1, todayInfo.day);
-    const todayKey = `${todayInfo.year}-${todayInfo.month}-${todayInfo.day}`;
-    const days: Array<{ key: string, display: string, date: Date }> = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(baseDate.getTime() + i * 24 * 60 * 60 * 1000);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return { key: `${yyyy}-${d.getMonth() + 1}-${d.getDate()}`, display: `${yyyy}-${mm}-${dd}`, date: d };
-    });
-    const movingTreeItemId = MouseActionState.isAction(MouseAction.Moving)
-      ? (() => {
-        const activeElementPath = MouseActionState.getActiveElementPath();
-        if (activeElementPath == null) { return null; }
-        const activeVeid = VeFns.veidFromPath(activeElementPath);
-        return activeVeid.linkIdMaybe ?? activeVeid.itemId;
-      })()
-      : null;
-
-    // Collect all children once and group by date key
-    const allChildren = pageFns().pageItem().computed_children
-      .map((id: Uid) => itemState.get(id)!)
-      .filter((it: Item | null): it is Item => it != null)
-      .filter((it: Item) => it.id != movingTreeItemId)
-      .sort((a: Item, b: Item) => a.dateTime - b.dateTime);
-
-    const itemsByDate = new Map<string, Array<Item>>();
-    for (const item of allChildren) {
-      const d = new Date(item.dateTime * 1000);
-      const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-      if (!itemsByDate.has(key)) { itemsByDate.set(key, []); }
-      itemsByDate.get(key)!.push(item);
-    }
-
-    const leftMargin = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN;
-    const innerWidth = childArea.w - leftMargin * 2;
-    const textLeft = leftMargin + 3; // align with item title text (after icon)
-    const rowH = LINE_HEIGHT_PX;
-    const titleTopOffsetPx = 30; // keep items below page title on first render
-    const dayHeaderTextH = 20;
-    const dayHeaderFontSizePx = 15;
-    const dayHeaderMetaFontSizePx = 12;
-    const daySeparatorSpacing = 3;
-    const daySeparatorH = 1;
-    const dayHeaderH = dayHeaderTextH + daySeparatorSpacing + daySeparatorH;
-    const dayHeaderTopMargin = 14; // extra space above each section heading
-    const emptyStateFontSizePx = 13;
-
-    const movingCalendarVisualElementMaybe = (): VisualElement | null => {
-      if (!store.anItemIsMoving.get() || !MouseActionState.isAction(MouseAction.Moving)) {
-        return null;
-      }
-
-      const activeElementPath = MouseActionState.getActiveElementPath();
-      const movingItem = activeElementPath == null ? null : VeFns.treeItemFromPath(activeElementPath);
-      if (movingItem == null) { return null; }
-
-      const targetInfo = store.movingItemTargetCalendarInfo.get();
-      if (movingItem.parentId != pageFns().pageItem().id && targetInfo?.pageItemId != pageFns().pageItem().id) {
-        return null;
-      }
-
-      let displayItem: Item = movingItem;
-      let linkItemMaybe: any = null;
-      if (isLink(movingItem)) {
-        linkItemMaybe = movingItem as any;
-        const target = itemState.get(LinkFns.getLinkToId(linkItemMaybe));
-        if (target) { displayItem = target; }
-      }
-
-      const scaleFactor = Math.max(scale, 0.001);
-      const clientPx = CursorEventState.getLatestClientPx();
-      const rect = translucentDiv?.getBoundingClientRect();
-      const localX = rect ? clientPx.x - rect.left : clientPx.x - bounds.x;
-      const localY = rect ? clientPx.y - rect.top : clientPx.y - bounds.y;
-      const scrollLeft = translucentDiv?.scrollLeft ?? 0;
-      const scrollTop = translucentDiv?.scrollTop ?? 0;
-      const clickOffsetProp = MouseActionState.getClickOffsetProp() ?? { x: 0, y: 0 };
-      const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-      const itemWidthPx = dimensionsBl.w * NATURAL_BLOCK_SIZE_PX.w;
-      const itemHeightPx = dimensionsBl.h * NATURAL_BLOCK_SIZE_PX.h;
-      const itemBoundsPx = {
-        x: (localX + scrollLeft) / scaleFactor - clickOffsetProp.x * itemWidthPx,
-        y: (localY + scrollTop) / scaleFactor - clickOffsetProp.y * itemHeightPx,
-        w: itemWidthPx,
-        h: itemHeightPx,
-      };
-
-      return VeFns.create({
-        displayItem,
-        linkItemMaybe,
-        actualLinkItemMaybe: linkItemMaybe,
-        flags: VisualElementFlags.Moving,
-        boundsPx: itemBoundsPx,
-        blockSizePx: NATURAL_BLOCK_SIZE_PX,
-        hitboxes: [],
-        parentPath: VeFns.veToPath(props.visualElement),
-        col: 0,
-        row: 0,
-      });
+    const dayLayouts = props.visualElement.calendarMiniDayLayouts ?? [];
+    const baseRowHeightPx = props.visualElement.blockSizePx?.h ?? LINE_HEIGHT_PX;
+    const rowHeightPx = getCalendarMiniRowHeightPx(dayLayouts, baseRowHeightPx);
+    const scale = Math.max(0.001, baseRowHeightPx / LINE_HEIGHT_PX);
+    const leftRightMarginPx = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN * scale;
+    const columnLeftPx = leftRightMarginPx;
+    const columnWidthPx = Math.max(0, childArea.w - leftRightMarginPx * 2);
+    const titleTopPx = calendarMiniTitleTopPx(baseRowHeightPx);
+    const titleHeightPx = calendarMiniTitleHeightPx(baseRowHeightPx);
+    const dayLabelWidthPx = CALENDAR_DAY_LABEL_LEFT_MARGIN_PX * scale;
+    const dayLabelFontSizePx = Math.max(7, 10 * Math.min(scale, rowHeightPx / LINE_HEIGHT_PX));
+    const titleFontSizePx = Math.max(10, 24 * scale);
+    const visibleCalendarPosition = (combinedIndex: number, year?: number) => {
+      const decoded = decodeCalendarCombinedIndex(combinedIndex);
+      return getCalendarMiniDayLayoutForPosition(dayLayouts, { ...decoded, year });
     };
-
-    const renderMovingCalendarItemMaybe = () => {
-      const movingVe = movingCalendarVisualElementMaybe();
-      return movingVe == null
-        ? null
-        : <VisualElement_Desktop visualElement={movingVe} />;
-    };
-
-    // Compute total height needed
-    const totalHeight = days.reduce((acc, day) => {
-      const items = itemsByDate.get(day.key) || [];
-      const rows = Math.max(1, items.length);
-      return acc + dayHeaderTopMargin + dayHeaderH + rowH * rows;
-    }, titleTopOffsetPx) + 12;
+    const renderMovingDayHighlight = (
+      getInfo: () => { pageItemId: string, combinedIndex: number, year?: number } | null,
+      backgroundColor: string,
+      borderColor: string,
+    ) =>
+      <Show when={store.anItemIsMoving.get() &&
+        getInfo() != null &&
+        getInfo()!.pageItemId === props.visualElement.displayItem.id}>
+        {(() => {
+          const info = getInfo()!;
+          const dayLayout = visibleCalendarPosition(info.combinedIndex, info.year);
+          if (dayLayout == null) {
+            return null;
+          }
+          return (
+            <div class="absolute pointer-events-none"
+              style={`left: ${columnLeftPx}px; top: ${dayLayout.topPx}px; width: ${columnWidthPx}px; height: ${dayLayout.heightPx}px; ` +
+                `background-color: ${backgroundColor}; border: 1px solid ${borderColor};`} />
+          );
+        })()}
+      </Show>;
 
     return (
       <div ref={translucentDiv}
         class={`absolute ${borderClass()} rounded-xs`}
-        style={`left: 0px; top: 0px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow-y: auto; overflow-x: hidden; z-index: 1;`}
-        onscroll={translucentScrollHandler}>
+        style={`left: 0px; top: 0px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow: hidden; z-index: 1;`}>
         <div class="absolute"
-          style={`left: 0px; top: 0px; width: ${childArea.w / scale}px; height: ${totalHeight / scale}px; transform: scale(${scale}); transform-origin: top left;`}>
-          {(() => {
-            // Render sequentially to maintain running Y
-            let runningY = titleTopOffsetPx;
-            const sections: any[] = [];
-            for (const day of days) {
-              const items = (itemsByDate.get(day.key) || []).sort((a, b) => a.dateTime - b.dateTime);
-              const sectionTop = runningY + dayHeaderTopMargin;
-              // Date header text
-              sections.push(
-                <div class="absolute"
-                  style={`left: ${textLeft}px; top: ${sectionTop}px; width: ${innerWidth - NATURAL_BLOCK_SIZE_PX.w}px; height: ${dayHeaderTextH}px; line-height: ${dayHeaderTextH}px; ` +
-                    `font-size: ${dayHeaderFontSizePx}px; font-weight: 600; letter-spacing: -0.02em; color: #1f2937;`}>
-                  <span>{day.display}</span>
-                  <Show when={day.key === todayKey}>
-                    <span style={`margin-left: 6px; font-size: ${dayHeaderMetaFontSizePx}px; font-weight: 500; color: #64748b; letter-spacing: 0em;`}>
-                      (today)
-                    </span>
-                  </Show>
-                </div>
-              );
-              // Separator line spanning inner width
-              sections.push(
-                <div class="absolute"
-                  style={`left: ${textLeft}px; top: ${sectionTop + dayHeaderTextH + daySeparatorSpacing}px; width: ${childArea.w - 2 * textLeft - 4}px; height: ${daySeparatorH}px; background-color: #94a3b866;`} />
-              );
+          style={`left: 0px; top: 0px; width: ${childArea.w}px; height: ${childArea.h}px;`}>
+          <div class="absolute flex items-center justify-center font-bold"
+            style={`left: ${leftRightMarginPx}px; top: ${titleTopPx}px; width: ${columnWidthPx}px; height: ${titleHeightPx}px; ` +
+              `font-size: ${titleFontSizePx}px; color: #111827; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;`}>
+            {formatCalendarMiniRangeTitle(dayLayouts)}
+          </div>
 
-              const contentTop = sectionTop + dayHeaderH;
-              if (items.length === 0) {
-                sections.push(
-                  <div class="absolute"
-                    style={`left: ${textLeft}px; top: ${contentTop}px; width: ${childArea.w - textLeft - leftMargin}px; height: ${rowH}px; line-height: ${rowH}px; ` +
-                      `font-size: ${emptyStateFontSizePx}px; font-weight: 500; letter-spacing: 0.01em; color: #64748b;`}>
-                    [no items]
-                  </div>
-                );
-                runningY += dayHeaderTopMargin + dayHeaderH + rowH;
-              } else {
-                for (let i = 0; i < items.length; i++) {
-                  const y = contentTop + i * rowH;
-                  const child = items[i];
-
-                  // Resolve links to their targets, but keep link metadata for rendering markers
-                  let displayItem: Item = child;
-                  let linkItemMaybe: any = null;
-                  if (isLink(child)) {
-                    linkItemMaybe = child as any;
-                    const linkToId = LinkFns.getLinkToId(linkItemMaybe);
-                    const target = itemState.get(linkToId);
-                    if (target) { displayItem = target; }
-                  }
-
-                  const ve = VeFns.create({
-                    displayItem,
-                    linkItemMaybe,
-                    flags: VisualElementFlags.LineItem,
-                    boundsPx: { x: leftMargin, y, w: innerWidth, h: rowH },
-                    blockSizePx: NATURAL_BLOCK_SIZE_PX,
-                    hitboxes: [],
-                    parentPath: VeFns.veToPath(props.visualElement),
-                    col: 0,
-                    row: i,
-                  });
-                  sections.push(<VisualElement_LineItem visualElement={ve} />);
-                }
-                runningY += dayHeaderTopMargin + dayHeaderH + rowH * items.length;
-              }
+          <For each={dayLayouts}>{dayLayout => {
+            const isWeekend = dayLayout.dayOfWeek == 0 || dayLayout.dayOfWeek == 6;
+            let backgroundColor = "#ffffff";
+            if (isCurrentDay(dayLayout.month, dayLayout.day, dayLayout.year)) {
+              backgroundColor = "#fef3c7";
+            } else if (isWeekend) {
+              backgroundColor = "#f5f5f5";
             }
-            return sections;
-          })()}
-          {renderMovingCalendarItemMaybe()}
+            return (
+              <div class="absolute flex items-start"
+                style={`left: ${columnLeftPx}px; top: ${dayLayout.topPx}px; width: ${columnWidthPx}px; height: ${dayLayout.heightPx}px; ` +
+                  `background-color: ${backgroundColor}; border-bottom: 1px solid #e5e5e5; box-sizing: border-box; padding-top: ${Math.min(5 * scale, Math.max(0, rowHeightPx * 0.2))}px;`}>
+                <span style={`width: ${dayLabelWidthPx}px; text-align: right; font-size: ${dayLabelFontSizePx}px; margin-left: ${2 * scale}px;`}>
+                  {dayLayout.day}
+                </span>
+              </div>
+            );
+          }}</For>
+
+          <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
+          <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes => {
+            const childVe = () => childVes.get();
+            return (
+              <Show when={childVe().flags & VisualElementFlags.Moving}
+                fallback={<VisualElement_LineItem visualElement={childVe()} />}>
+                <VisualElement_Desktop visualElement={childVe()} />
+              </Show>
+            );
+          }}</For>
+          {renderMovingDayHighlight(() => store.movingItemSourceCalendarInfo.get(), "#f59e0b33", "#f59e0b")}
+          {renderMovingDayHighlight(() => store.movingItemTargetCalendarInfo.get(), "#3b82f633", "#3b82f6")}
         </div>
       </div>
     );
@@ -617,7 +507,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     return 'shadow-xl';
   };
 
-  const backgroundStyle = () => useFlatWorkspaceChrome()
+  const backgroundStyle = () => useFlatWorkspaceChrome() || pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar
     ? ''
     : `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.636)};`;
 
