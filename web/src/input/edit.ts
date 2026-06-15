@@ -782,12 +782,12 @@ function targetCaretPositionForLinearBoundaryNavigation(
   return caretPosition;
 }
 
-function documentBottomBoundaryCaretPositionMaybe(
+function documentEdgeBoundaryCaretPositionMaybe(
   context: LinearEditContext,
   key: LinearBoundaryNavigationKey,
   textElement: HTMLElement,
 ): number | null {
-  if (key != "ArrowDown") { return null; }
+  if (key != "ArrowUp" && key != "ArrowDown") { return null; }
   if (!isPage(context.containerVe.displayItem) ||
     asPageItem(context.containerVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Document ||
     context.editingPath == context.containerPath) {
@@ -796,9 +796,11 @@ function documentBottomBoundaryCaretPositionMaybe(
 
   const childVes = VesCache.current.readStructuralChildren(context.containerPath);
   const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == context.editingPath);
-  if (currentIndex < 0 || currentIndex != childVes.length - 1) { return null; }
+  if (currentIndex < 0) { return null; }
+  if (key == "ArrowUp" && currentIndex != 0) { return null; }
+  if (key == "ArrowDown" && currentIndex != childVes.length - 1) { return null; }
 
-  return trimNewline(textElement.innerText).length;
+  return key == "ArrowUp" ? 0 : trimNewline(textElement.innerText).length;
 }
 
 function itemPathInLinearContainer(itemId: string, containerPath: string): string | null {
@@ -886,9 +888,9 @@ function maybeBuildLinearBoundaryNavigation(
   const targetPath = adjacentEditableChildPathInCurrentLinearContext(context, key);
   if (targetPath == null) {
     const childCount = VesCache.current.readStructuralChildren(context.containerPath).length;
-    const fallbackCaretPosition = documentBottomBoundaryCaretPositionMaybe(context, key, textElement);
+    const fallbackCaretPosition = documentEdgeBoundaryCaretPositionMaybe(context, key, textElement);
     if (fallbackCaretPosition != null) {
-      logLinearEdit("prepared-document-bottom-boundary-caret-move", {
+      logLinearEdit("prepared-document-edge-boundary-caret-move", {
         key,
         containerPath: context.containerPath,
         currentPath: context.editingPath,
