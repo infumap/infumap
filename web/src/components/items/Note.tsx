@@ -251,6 +251,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   }
 
   const inputListener = (ev: InputEvent) => {
+    ev.stopPropagation();
     edit_inputListener(store, ev);
   }
 
@@ -449,7 +450,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderDetailed = () =>
     <>
-      <div class="absolute inset-0 rounded-xs overflow-hidden">
+      <div class={`absolute inset-0 rounded-xs ${isTextEditTarget() ? "overflow-visible" : "overflow-hidden"}`}>
         <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
           <div class="absolute pointer-events-none rounded-xs"
             style={`left: 0px; top: 0px; ` +

@@ -1264,67 +1264,81 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
 export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) => {
   const capturedBeforeInputNoteTypingFlags = beforeInputNoteTypingFlags;
   setTimeout(() => {
-    if (store.overlay.textEditInfo()) {
-      const colNum = store.overlay.textEditInfo()!.colNum;
-      const focusItemPath = store.history.getFocusPath();
-      const focusItemDomId = colNum == null
-        ? focusItemPath + ":title"
-        : focusItemPath + ":col" + colNum;
-      const el = document.getElementById(focusItemDomId);
+    const textEditInfo = store.overlay.textEditInfo();
+    if (textEditInfo) {
+      const colNum = textEditInfo.colNum;
+      const editingItemPath = textEditInfo.itemPath;
+      const editingDomId = colNum == null
+        ? editingItemPath + ":title"
+        : editingItemPath + ":col" + colNum;
+      const el = document.getElementById(editingDomId);
       if (!(el instanceof HTMLElement)) { return; }
       const newText = trimNewline(el!.innerText);
       if (!store.overlay.toolbarPopupInfoMaybe.get()) {
-        if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
-          let item = asNoteItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+        if (textEditInfo.itemType == ItemType.Note) {
+          let item = asNoteItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           const oldTitle = item.title;
-          const typingFlags = capturedBeforeInputNoteTypingFlags != null && capturedBeforeInputNoteTypingFlags.itemPath == focusItemPath
+          const typingFlags = capturedBeforeInputNoteTypingFlags != null && capturedBeforeInputNoteTypingFlags.itemPath == editingItemPath
             ? capturedBeforeInputNoteTypingFlags.flags
-            : noteInputTypingFlags(store, focusItemPath);
+            : noteInputTypingFlags(store, editingItemPath);
           if (oldTitle != newText) {
             item.inlineMarks = updateNoteInlineMarksForTextChange(item.inlineMarks, oldTitle, newText, typingFlags);
             item.urls = updateNoteUrlsForTextChange(item.urls, oldTitle, newText);
           }
           item.title = newText;
           NoteFns.ensureTitleUrl(item);
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
-          let item = asFileItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+        } else if (textEditInfo.itemType == ItemType.File) {
+          let item = asFileItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           item.title = newText;
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Text) {
-          let item = asTextItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+        } else if (textEditInfo.itemType == ItemType.Text) {
+          let item = asTextItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           item.title = newText;
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
-          let item = asPasswordItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+        } else if (textEditInfo.itemType == ItemType.Password) {
+          let item = asPasswordItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           item.text = newText;
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
-          let item = asPageItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+        } else if (textEditInfo.itemType == ItemType.Page) {
+          let item = asPageItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           item.title = newText;
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Composite) {
-          let item = asCompositeItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+        } else if (textEditInfo.itemType == ItemType.Composite) {
+          let item = asCompositeItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           item.title = newText;
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Image) {
-          let item = asImageItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+        } else if (textEditInfo.itemType == ItemType.Image) {
+          let item = asImageItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           item.title = newText;
-        } else if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
-          let item = asTableItem(itemState.get(VeFns.veidFromPath(focusItemPath).itemId)!);
+        } else if (textEditInfo.itemType == ItemType.Table) {
+          let item = asTableItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           if (colNum == null) {
             item.title = newText;
           } else {
             item.tableColumns[colNum].name = newText;
           }
         } else {
-          console.warn("input handler for item type " + store.overlay.textEditInfo()!.itemType + " not implemented.");
+          console.warn("input handler for item type " + textEditInfo.itemType + " not implemented.");
         }
         if (newText == "") {
           restoreContentEditablePlaceholderIfEmpty(el);
         }
         const caretPosition = newText == "" ? 0 : getCaretPosition(el!);
         arrangeNow(store, "text-edit-input-preserve-caret");
-        const el_ = document.getElementById(focusItemDomId);
+        const el_ = document.getElementById(editingDomId);
         if (el_ instanceof HTMLElement) {
+          const selection = window.getSelection();
+          const selectionInsideEditTarget =
+            selection != null &&
+            selection.rangeCount > 0 &&
+            selection.anchorNode != null &&
+            selection.focusNode != null &&
+            nodeIsInsideElement(el_, selection.anchorNode) &&
+            nodeIsInsideElement(el_, selection.focusNode);
+          const currentCaretPosition = selectionInsideEditTarget && selection?.isCollapsed
+            ? getCaretPosition(el_)
+            : null;
           if (document.activeElement !== el_) {
             el_.focus();
           }
-          setCaretPosition(el_, caretPosition);
+          if (!selectionInsideEditTarget || currentCaretPosition !== caretPosition) {
+            setCaretPosition(el_, caretPosition);
+          }
           if (store.overlay.textEditInfo()?.itemType == ItemType.Note) {
             updateNoteTextSelectionInfoFromDom(store, false);
           }

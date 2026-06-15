@@ -180,6 +180,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   }
 
   const inputListener = (ev: InputEvent) => {
+    ev.stopPropagation();
     edit_inputListener(store, ev);
   }
 

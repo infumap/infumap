@@ -123,8 +123,8 @@ function measureTextHeightPx(s: string, widthBl: number, flags: NoteFlags, textI
   const actualTextIndentPx = noteTextBlockTextIndentPx(flags, textIndentPx);
   div.setAttribute("class", `${style.alignClass} ${style.isCode ? ' font-mono' : '' }`);
   div.setAttribute("style",
-    `left: ${NOTE_PADDING_PX}px; ` +
-    `top: ${NOTE_PADDING_PX - LINE_HEIGHT_PX/4}px; ` +
+    `position: absolute; visibility: hidden; pointer-events: none; ` +
+    `left: -10000px; top: 0px; z-index: -1; ` +
     `right: ${widthBl*LINE_HEIGHT_PX - NOTE_PADDING_PX}px; ` +
     `width: ${widthBl*LINE_HEIGHT_PX - NOTE_PADDING_PX*2}px; ` +
     `box-sizing: border-box; padding-left: ${paddingLeftPx}px; ` +
