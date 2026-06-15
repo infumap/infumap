@@ -471,6 +471,7 @@ export function arrange_calendar_page(
     return NATURAL_BLOCK_SIZE_PX;
   })();
   const itemLeftPadding = 2;
+  const lineItemTextRightPaddingPx = 6;
 
   // Group items by date for stacking
   const itemsByDate = new Map<string, typeof childrenWithDateTime>();
@@ -604,6 +605,7 @@ export function arrange_calendar_page(
         col: 0,
         row: dayMetrics.rowStart + stackIndex,
         blockSizePx: blockSizePx,
+        lineItemTextRightPaddingPx,
       };
 
       const calendarItemRelationships: VisualElementRelationships = {};
@@ -664,6 +666,7 @@ export function arrange_calendar_page(
       col: 0,
       row: 0,
       blockSizePx: movingBlockSizePx,
+      lineItemTextRightPaddingPx,
     };
 
     VesCache.arrange.writeVisualElement(movingItemVeSpec, {}, movingItemPath);
