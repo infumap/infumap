@@ -801,6 +801,20 @@ export const VeFns = {
     };
 
     let ve: VisualElement | null = visualElement;
+    if (ve.flags & VisualElementFlags.Fixed) {
+      if (isPage(ve.displayItem) && ve.viewportBoundsPx && ve.childAreaBoundsPx) {
+        const pageVeid = VeFns.actualVeidFromVe(ve);
+        const adjY = (ve.childAreaBoundsPx.h - ve.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid);
+        const adjX = (ve.childAreaBoundsPx.w - ve.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid);
+        return {
+          x: ve.viewportBoundsPx.x + adjX,
+          y: ve.viewportBoundsPx.y + adjY,
+          w: ve.childAreaBoundsPx.w,
+          h: ve.childAreaBoundsPx.h,
+        };
+      }
+      return cloneBoundingBox(ve.boundsPx)!;
+    }
     if (ve.parentPath == null) {
       return cloneBoundingBox(ve.boundsPx)!;
     }
@@ -828,6 +842,7 @@ export const VeFns = {
     ve = resolveParentVe(ve.parentPath!);
     if (!ve) { return fallbackBounds(); }
     while (ve != null) {
+      const ancestorIsFixed = !!(ve.flags & VisualElementFlags.Fixed);
       r = vectorAdd(r, getBoundingBoxTopLeft(ve.viewportBoundsPx ? ve.viewportBoundsPx : ve.boundsPx));
       if (isTable(ve.displayItem)) {
         const tableItem = asTableItem(ve.displayItem);
@@ -840,6 +855,7 @@ export const VeFns = {
         r.x -= scrollOffsetPx.x;
         r.y -= scrollOffsetPx.y;
       }
+      if (ancestorIsFixed) { break; }
       ve = ve.parentPath == null ? null : resolveParentVe(ve.parentPath!);
       if (ve === null) { break; }
     }
@@ -981,6 +997,12 @@ export const VeFns = {
     };
 
     let ve: VisualElement | null = visualElement;
+    if (ve.flags & VisualElementFlags.Fixed) {
+      if (isPage(ve.displayItem) && ve.viewportBoundsPx) {
+        return cloneBoundingBox(ve.viewportBoundsPx)!;
+      }
+      return cloneBoundingBox(ve.boundsPx)!;
+    }
     if (ve.parentPath == null) {
       if (isPage(ve.displayItem) && ve.viewportBoundsPx) {
         const popupTitleHeightMaybePx = ve.boundsPx.h - ve.viewportBoundsPx.h;
@@ -1017,6 +1039,7 @@ export const VeFns = {
     ve = resolveParentVe(ve.parentPath!);
     if (!ve) { return fallbackBounds(); }
     while (ve != null) {
+      const ancestorIsFixed = !!(ve.flags & VisualElementFlags.Fixed);
       r = vectorAdd(r, getBoundingBoxTopLeft(ve.viewportBoundsPx ? ve.viewportBoundsPx : ve.boundsPx));
       if (isTable(ve.displayItem)) {
         const tableItem = asTableItem(ve.displayItem);
@@ -1029,6 +1052,7 @@ export const VeFns = {
         r.x -= scrollOffsetPx.x;
         r.y -= scrollOffsetPx.y;
       }
+      if (ancestorIsFixed) { break; }
       ve = ve.parentPath == null ? null : resolveParentVe(ve.parentPath!);
       if (ve === null) { break; }
     }
