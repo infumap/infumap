@@ -65,6 +65,9 @@ export const createLineHighlightBoundsPxFn = (veFn: () => VisualElement) => {
   })
 }
 
+export const lineItemTextClippedWidthCssPx = (visualElement: VisualElement, renderedWidthPx: number, scale: number): number =>
+  Math.max(0, renderedWidthPx - Math.max(0, visualElement.lineItemTextRightPaddingPx)) / Math.max(0.001, scale);
+
 export const scrollGestureStyleForArrangeAlgorithm = (arrangeAlgorithm: ArrangeAlgorithm): string => {
   if (arrangeAlgorithm != ArrangeAlgorithm.Grid && arrangeAlgorithm != ArrangeAlgorithm.Justified) {
     return "";

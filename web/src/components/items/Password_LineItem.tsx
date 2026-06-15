@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -138,7 +138,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const renderText = () =>
     <div class="absolute overflow-hidden whitespace-nowrap"
       style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-        `width: ${widthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+        `width: ${lineItemTextClippedWidthCssPx(props.visualElement, widthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
         `transform: scale(${scale()}); transform-origin: top left;`}>
       <Switch>
         <Match when={store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()}>

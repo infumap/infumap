@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asTableItem } from "../../items/table-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { cloneBoundingBox } from "../../util/geometry";
@@ -118,7 +118,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
     <div class={`absolute overflow-hidden whitespace-nowrap text-left ` +
       ((store.overlay.textEditInfo() != null && store.overlay.textEditInfo()?.itemPath == vePath()) ? '' : `text-ellipsis `)}
       style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-        `width: ${(boundsPx().w - oneBlockWidthPx()) / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+        `width: ${lineItemTextClippedWidthCssPx(props.visualElement, boundsPx().w - oneBlockWidthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
         `transform: scale(${scale()}); transform-origin: top left;`}>
       <span id={VeFns.veToPath(props.visualElement) + ":title"}
         style={`display: inline-block; white-space: pre; outline: 0px solid transparent;`}

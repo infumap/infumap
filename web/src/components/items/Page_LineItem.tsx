@@ -22,7 +22,7 @@ import { useStore } from "../../store/StoreProvider";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { asPageItem } from "../../items/page-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR } from "../../style";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -223,7 +223,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <div class="absolute overflow-hidden whitespace-nowrap"
       style={`left: ${boundsPx().x + oneBlockWidthPx()}px; ` +
         `top: ${boundsPx().y}px; ` +
-        `width: ${(boundsPx().w - oneBlockWidthPx()) / scale()}px; ` +
+        `width: ${lineItemTextClippedWidthCssPx(props.visualElement, boundsPx().w - oneBlockWidthPx(), scale())}px; ` +
         `height: ${boundsPx().h / scale()}px; ` +
         `transform: scale(${scale()}); transform-origin: top left;`}
       onClick={titleRegionClick}

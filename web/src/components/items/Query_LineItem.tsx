@@ -20,7 +20,7 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, lineItemTextClippedWidthCssPx } from "./helper";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 
@@ -67,7 +67,7 @@ export const Query_LineItem: Component<VisualElementProps> = (props: VisualEleme
       </div>
       <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis pointer-events-none"
         style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-          `width: ${Math.max(0, boundsPx().w - oneBlockWidthPx()) / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `width: ${lineItemTextClippedWidthCssPx(props.visualElement, Math.max(0, boundsPx().w - oneBlockWidthPx()), scale())}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
         Query
       </div>

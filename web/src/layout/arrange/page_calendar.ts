@@ -92,6 +92,7 @@ function arrangeMiniCalendarPage(
     w: NATURAL_BLOCK_SIZE_PX.w * hostScale,
     h: NATURAL_BLOCK_SIZE_PX.h * hostScale,
   };
+  const lineItemTextRightPaddingPx = 6;
   const leftRightMarginPx = CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN * hostScale;
   const dayLabelWidthPx = CALENDAR_DAY_LABEL_LEFT_MARGIN_PX * hostScale;
   const itemLeftPaddingPx = 2 * hostScale;
@@ -227,6 +228,7 @@ function arrangeMiniCalendarPage(
         col: 0,
         row: dayLayout.rowStart + stackIndex,
         blockSizePx,
+        lineItemTextRightPaddingPx,
       };
 
       VesCache.arrange.writeVisualElement(calendarItemVeSpec, {}, childPath);
@@ -267,6 +269,7 @@ function arrangeMiniCalendarPage(
       col: 0,
       row: 0,
       blockSizePx,
+      lineItemTextRightPaddingPx,
     };
 
     VesCache.arrange.writeVisualElement(movingItemVeSpec, {}, movingItemPath);

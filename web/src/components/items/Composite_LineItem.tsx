@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { CompositeFns, asCompositeItem } from "../../items/composite-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, lineItemTextClippedWidthCssPx } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { itemState } from "../../store/ItemState";
@@ -103,7 +103,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
   const renderText = () =>
     <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis"
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-                `width: ${widthPx()/scale()}px; height: ${boundsPx().h / scale()}px; ` +
+                `width: ${lineItemTextClippedWidthCssPx(props.visualElement, widthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
       <span>{titleText()}</span>
     </div>;

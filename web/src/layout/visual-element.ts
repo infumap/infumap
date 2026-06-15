@@ -309,6 +309,11 @@ export interface VisualElement {
   blockSizePx: Dimensions | null,
 
   /**
+   * Extra rendered right padding for line-item text truncation. This does not affect bounds or shading.
+   */
+  lineItemTextRightPaddingPx: number,
+
+  /**
    * Size of one grid cell. Set only in the case of grid pages.
    */
   cellSizePx: Dimensions | null,
@@ -403,6 +408,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   listPagePinnedTopHeightPx: 0,
   listPagePinnedBottomHeightPx: 0,
   blockSizePx: null,
+  lineItemTextRightPaddingPx: 0,
   col: null,
   row: null,
   cellSizePx: null,
@@ -443,6 +449,7 @@ export interface VisualElementSpec {
   tableDimensionsPx?: Dimensions,
   indentBl?: number,
   blockSizePx?: Dimensions,
+  lineItemTextRightPaddingPx?: number,
   col?: number,
   row?: number,
   cellSizePx?: Dimensions,
@@ -503,6 +510,7 @@ export const VeFns = {
       listPagePinnedBottomHeightPx: 0,
       indentBl: null,
       blockSizePx: null,
+      lineItemTextRightPaddingPx: 0,
       col: null,
       row: null,
       cellSizePx: null,
@@ -545,6 +553,7 @@ export const VeFns = {
     ve.tableDimensionsPx = null;
     ve.indentBl = null;
     ve.blockSizePx = null;
+    ve.lineItemTextRightPaddingPx = 0;
     ve.col = null;
     ve.row = null;
     ve.cellSizePx = null;
@@ -1107,6 +1116,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
   if (typeof (override.indentBl) != 'undefined') { result.indentBl = override.indentBl; }
   if (typeof (override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
+  if (typeof (override.lineItemTextRightPaddingPx) != 'undefined') { result.lineItemTextRightPaddingPx = override.lineItemTextRightPaddingPx; }
   if (typeof (override.col) != 'undefined') { result.col = override.col; }
   if (typeof (override.row) != 'undefined') { result.row = override.row; }
   if (typeof (override.cellSizePx) != 'undefined') { result.cellSizePx = override.cellSizePx; }

@@ -23,7 +23,7 @@ import { asNoteItem, NoteFns } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -208,7 +208,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
           (isTextEditTarget() || isInCalendarPage() ? '' : `text-ellipsis `) +
           `${infuTextStyle().alignClass} `}
           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
-            `width: ${textWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+            `width: ${lineItemTextClippedWidthCssPx(props.visualElement, textWidthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
             `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
             `padding-left: ${textPaddingLeftPx()}px; padding-right: ${textPaddingRightCssPx()}px;`}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}

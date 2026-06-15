@@ -22,7 +22,7 @@ import { VisualElementProps } from "../VisualElement";
 import { asImageItem } from "../../items/image-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { cloneBoundingBox } from "../../util/geometry";
@@ -119,7 +119,7 @@ export const Image_LineItem: Component<VisualElementProps> = (props: VisualEleme
     <div id={props.visualElement.displayItem.id}
       class="absolute overflow-hidden whitespace-nowrap"
       style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-        `width: ${(boundsPx().w - oneBlockWidthPx()) / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+        `width: ${lineItemTextClippedWidthCssPx(props.visualElement, boundsPx().w - oneBlockWidthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
         `transform: scale(${scale()}); transform-origin: top left;`}>
       <Switch>
         <Match when={(store.overlay.textEditInfo() == null || store.overlay.textEditInfo()!.itemPath != vePath())}>
