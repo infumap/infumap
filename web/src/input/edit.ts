@@ -782,6 +782,25 @@ function targetCaretPositionForLinearBoundaryNavigation(
   return caretPosition;
 }
 
+function documentBottomBoundaryCaretPositionMaybe(
+  context: LinearEditContext,
+  key: LinearBoundaryNavigationKey,
+  textElement: HTMLElement,
+): number | null {
+  if (key != "ArrowDown") { return null; }
+  if (!isPage(context.containerVe.displayItem) ||
+    asPageItem(context.containerVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Document ||
+    context.editingPath == context.containerPath) {
+    return null;
+  }
+
+  const childVes = VesCache.current.readStructuralChildren(context.containerPath);
+  const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == context.editingPath);
+  if (currentIndex < 0 || currentIndex != childVes.length - 1) { return null; }
+
+  return trimNewline(textElement.innerText).length;
+}
+
 function itemPathInLinearContainer(itemId: string, containerPath: string): string | null {
   const veid = { itemId, linkIdMaybe: null };
   const allVes = VesCache.current.findNodes(veid);
@@ -867,6 +886,20 @@ function maybeBuildLinearBoundaryNavigation(
   const targetPath = adjacentEditableChildPathInCurrentLinearContext(context, key);
   if (targetPath == null) {
     const childCount = VesCache.current.readStructuralChildren(context.containerPath).length;
+    const fallbackCaretPosition = documentBottomBoundaryCaretPositionMaybe(context, key, textElement);
+    if (fallbackCaretPosition != null) {
+      logLinearEdit("prepared-document-bottom-boundary-caret-move", {
+        key,
+        containerPath: context.containerPath,
+        currentPath: context.editingPath,
+        childCount,
+        targetCaretPosition: fallbackCaretPosition,
+      });
+      return {
+        targetPath: context.editingPath,
+        targetCaretPosition: fallbackCaretPosition,
+      };
+    }
     logLinearEdit("no-boundary-target", { key, currentPath: context.editingPath, childCount });
     return null;
   }
@@ -899,7 +932,9 @@ function applyLinearBoundaryNavigation(store: StoreContextModel, navigation: Pen
     targetCaretPosition: navigation.targetCaretPosition,
   });
   arrowKeyDown_pendingBoundaryNavigation = navigation;
-  persistCurrentEditTarget(store);
+  if (store.overlay.textEditInfo()?.itemPath != navigation.targetPath) {
+    persistCurrentEditTarget(store);
+  }
   const didFocus = focusTextEditPathInfo(store, {
     path: navigation.targetPath,
     type: EditElementType.Title,
