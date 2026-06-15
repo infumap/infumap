@@ -28,7 +28,7 @@ import { VesCache } from "../ves-cache";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
 import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
-import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, MIN_NON_ROOT_LIST_PAGE_SCALE } from "../../constants";
 import { isComposite } from "../../items/composite-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { HitboxFns, HitboxFlags } from "../hitbox";
@@ -40,6 +40,8 @@ import {
   calculateCalendarMiniDayLayouts,
   calculateCalendarMonthLayouts,
   calculateCalendarVerticalLayout,
+  calendarMiniTitleHeightPx,
+  calendarMiniTitleTopPx,
   calendarDateKey,
   CALENDAR_LAYOUT_CONSTANTS,
   getCalendarDayMetrics,
@@ -62,7 +64,8 @@ function miniCalendarHostScale(
   if (parentItem != null &&
     isPage(parentItem) &&
     asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    return Math.max(0.001, geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w);
+    const proportionalListScale = geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
+    return Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalListScale);
   }
   const geometryScale = geometry.blockSizePx?.h
     ? geometry.blockSizePx.h / NATURAL_BLOCK_SIZE_PX.h
@@ -95,6 +98,25 @@ function arrangeMiniCalendarPage(
   const columnLeftPx = leftRightMarginPx;
   const columnWidthPx = Math.max(0, childAreaBoundsPx.w - leftRightMarginPx * 2);
   const itemWidthPx = Math.max(0, columnWidthPx - dayLabelWidthPx - itemLeftPaddingPx);
+  const titleBoundsPx = {
+    x: leftRightMarginPx,
+    y: calendarMiniTitleTopPx(baseRowHeightPx),
+    w: columnWidthPx,
+    h: calendarMiniTitleHeightPx(baseRowHeightPx),
+  };
+  pageSpec.hitboxes = [
+    ...(pageSpec.hitboxes ?? []).filter(hitbox =>
+      !(hitbox.type & (
+        HitboxFlags.Click |
+        HitboxFlags.Move |
+        HitboxFlags.OpenPopup |
+        HitboxFlags.ShowPointer |
+        HitboxFlags.ContentEditable
+      ))
+    ),
+    HitboxFns.create(HitboxFlags.Move, titleBoundsPx),
+    HitboxFns.create(HitboxFlags.Click, titleBoundsPx, HitboxFns.createMeta({ openActualItem: true })),
+  ];
 
   const itemsByDate = new Map<string, Array<Item>>();
   for (const childId of displayItem_pageWithChildren.computed_children) {

@@ -49,7 +49,7 @@ export const CALENDAR_POPUP_LAYOUT_CONSTANTS = {
 export const CALENDAR_MINI_LAYOUT_CONSTANTS = {
   TITLE_TO_DAYS_SPACING: 6,
   BOTTOM_MARGIN: 5,
-  MIN_ROW_HEIGHT_SCALE: 0.72,
+  MIN_ROW_HEIGHT_SCALE: 0.9,
 } as const;
 
 export const CALENDAR_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;

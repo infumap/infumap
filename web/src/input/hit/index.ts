@@ -126,6 +126,14 @@ function isListPageVe(ve: VisualElement): boolean {
   return (ve.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(ve.displayItem).arrangeAlgorithm) == ArrangeAlgorithm.List;
 }
 
+function isCalendarMiniPageVe(ve: VisualElement): boolean {
+  if (!isPage(ve.displayItem)) { return false; }
+  const arrangeAlgorithm = ve.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(ve.displayItem).arrangeAlgorithm;
+  return arrangeAlgorithm == ArrangeAlgorithm.Calendar &&
+    ve.calendarMiniDayLayouts.length > 0 &&
+    !!(ve.flags & VisualElementFlags.ShowChildren);
+}
+
 function hasPopupAncestor(ve: VisualElement): boolean {
   let parentPath = ve.parentPath;
   while (parentPath != null) {
@@ -265,6 +273,7 @@ export function getHitInfo(
     (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, allowCopyMove),
     (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, allowOutsideBoundsHitboxes, allowCopyMove),
     (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, allowCopyMove),
+    (info) => hitCalendarMiniRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive, allowCopyMove),
     (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive, allowCopyMove),
   ];
 
@@ -860,6 +869,66 @@ function hitEmbeddedRootMaybe(
       const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(childVe, posRelativeToEmbeddedRootBoundsPx, undefined, allowCopyMove);
       return ({ parentRootVe: parentRootInfo.rootVe, rootVes: childVes, rootVe: childVe, posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx, posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx, hitMaybe: hitboxType != HitboxFlags.None ? new HitBuilder(parentRootInfo.rootVe, childVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToEmbeddedRootBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determineEmbeddedRootMaybe").build() : null });
     }
+  }
+  return parentRootInfo;
+}
+
+function hitCalendarMiniRootMaybe(
+  store: StoreContextModel,
+  parentRootInfo: RootInfo,
+  ignoreItems: Set<Uid>,
+  canHitEmbeddedInteractive: boolean,
+  allowCopyMove: boolean,
+): RootInfo {
+  const { rootVe, posRelativeToRootVeViewportPx } = parentRootInfo;
+  const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
+  for (let i = rootVeChildren.length - 1; i >= 0; --i) {
+    const childVes = rootVeChildren[i];
+    const childVe = childVes.get();
+    if (isIgnored(childVe.displayItem.id, ignoreItems)) { continue; }
+    if (!isCalendarMiniPageVe(childVe)) { continue; }
+    if (!childVe.viewportBoundsPx || !childVe.childAreaBoundsPx) { continue; }
+    if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { continue; }
+
+    const childVeid = VeFns.actualVeidFromVe(childVe);
+    const scrollPropX = store.perItem.getPageScrollXProp(childVeid);
+    const scrollPropY = store.perItem.getPageScrollYProp(childVeid);
+    const scrollableWidthPx = Math.max(0, childVe.childAreaBoundsPx.w - childVe.viewportBoundsPx.w);
+    const scrollableHeightPx = Math.max(0, childVe.childAreaBoundsPx.h - childVe.viewportBoundsPx.h);
+    const scrollOffsetPx = {
+      x: scrollPropX * scrollableWidthPx,
+      y: scrollPropY * scrollableHeightPx,
+    };
+    const posRelativeToMiniBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, {
+      x: childVe.boundsPx.x,
+      y: childVe.boundsPx.y,
+    });
+    const newPosRelativeToRootVeViewportPx = vectorSubtract(posRelativeToRootVeViewportPx, {
+      x: childVe.viewportBoundsPx.x - scrollOffsetPx.x,
+      y: childVe.viewportBoundsPx.y - scrollOffsetPx.y,
+    });
+    const newPosRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, {
+      x: childVe.boundsPx.x - scrollOffsetPx.x,
+      y: childVe.boundsPx.y - scrollOffsetPx.y,
+    });
+    const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(childVe, posRelativeToMiniBoundsPx, undefined, allowCopyMove);
+    return {
+      parentRootVe: parentRootInfo.rootVe,
+      rootVes: childVes,
+      rootVe: childVe,
+      posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx,
+      posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx,
+      hitMaybe: hitboxType != HitboxFlags.None
+        ? new HitBuilder(parentRootInfo.rootVe, childVes)
+          .over(childVes)
+          .hitboxes(hitboxType, HitboxFlags.None)
+          .meta(hitboxMeta)
+          .pos(posRelativeToMiniBoundsPx)
+          .allowEmbeddedInteractive(canHitEmbeddedInteractive)
+          .createdAt("determineCalendarMiniRootMaybe")
+          .build()
+        : null,
+    };
   }
   return parentRootInfo;
 }
