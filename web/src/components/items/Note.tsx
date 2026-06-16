@@ -66,7 +66,6 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveO
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
-import { appendNewlineIfEmpty } from "../../util/string";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -499,13 +498,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           onKeyDown={keyDownHandler}
           onBeforeInput={beforeInputListener}
           onInput={inputListener}>
-          <Show when={!isTextEditTarget()} fallback={appendNewlineIfEmpty(renderedTitle())}>
-            <NoteInlineText
-              text={renderedTitle()}
-              inlineMarks={renderedInlineMarks()}
-              urls={renderedUrls()}
-              linksEnabled />
-          </Show>
+          <NoteInlineText
+            text={renderedTitle()}
+            inlineMarks={renderedInlineMarks()}
+            urls={renderedUrls()}
+            linksEnabled={!isTextEditTarget()}
+            inactiveLinksStyled={isTextEditTarget()} />
         </span>
         <Show when={isInDocumentPage()}>
           <div

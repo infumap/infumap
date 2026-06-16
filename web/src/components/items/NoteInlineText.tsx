@@ -34,11 +34,16 @@ function linkStyle(flags: number): string {
     `-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`;
 }
 
+function inactiveLinkStyle(flags: number): string {
+  return `${segmentStyle(flags)} cursor: text;`;
+}
+
 export const NoteInlineText: Component<{
   text: string,
   inlineMarks: Array<NoteInlineMark>,
   urls: Array<NoteUrl>,
   linksEnabled?: boolean,
+  inactiveLinksStyled?: boolean,
   onLinkMouseDown?: (url: string, ev: MouseEvent) => void,
 }> = (props) => {
   const segments = () => noteInlineTextSegments(props.inlineMarks, props.urls, props.text);
@@ -62,7 +67,15 @@ export const NoteInlineText: Component<{
         <For each={segments()}>{segment =>
           <Show
             when={props.linksEnabled && segment.url != null}
-            fallback={<span style={segmentStyle(segment.flags)}>{segment.text}</span>}>
+            fallback={
+              <Show
+                when={props.inactiveLinksStyled && segment.url != null}
+                fallback={<span style={segmentStyle(segment.flags)}>{segment.text}</span>}>
+                <span class="text-blue-800" style={inactiveLinkStyle(segment.flags)}>
+                  {segment.text}
+                </span>
+              </Show>
+            }>
             <a
               href={segment.url ?? ""}
               class="text-blue-800 hover:text-blue-600"
