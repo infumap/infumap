@@ -1227,6 +1227,9 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
 
   const beforeText = textElement!.innerText.substring(0, caretPosition);
   const afterText = textElement!.innerText.substring(caretPosition);
+  const continuationFlags = isNote(item)
+    ? NoteFns.listContinuationFlagsForEnter(asNoteItem(item), textElement!.innerText, caretPosition)
+    : 0;
   let afterInlineMarks = null;
   let afterUrls = null;
   if (isNote(item)) {
@@ -1248,6 +1251,7 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
   const ordering = itemState.newOrderingDirectlyAfterChild(context.containerVe.displayItem.id, VeFns.treeItemFromVeid(noteVeid)!.id);
   const note = NoteFns.create(titledItem.ownerId, context.containerVe.displayItem.id, RelationshipToParent.Child, "", ordering);
   note.title = afterText;
+  note.flags = continuationFlags;
   if (afterInlineMarks != null) {
     note.inlineMarks = afterInlineMarks;
   }

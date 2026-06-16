@@ -65,7 +65,7 @@ import { asLinkItem, isLink } from "../../items/link-item";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
-import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
+import { edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler } from "../../input/edit";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -270,6 +270,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (!isTextEditTarget()) { return; }
     switch (ev.key) {
       case "Enter":
+        if (isInCompositeOrDocument()) {
+          edit_keyDownHandler(store, props.visualElement, ev);
+          return;
+        }
         ev.preventDefault();
         ev.stopPropagation();
         enterKeyHandler();
@@ -294,10 +298,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     const textElement = document.getElementById(editingDomId);
     const caretPosition = getCaretPosition(textElement!);
 
+    const sourceNote = asNoteItem(ve.displayItem);
     const beforeText = textElement!.innerText.substring(0, caretPosition);
     const afterText = textElement!.innerText.substring(caretPosition);
-    const splitMarks = splitNoteInlineMarks(asNoteItem(ve.displayItem).inlineMarks, asNoteItem(ve.displayItem).title, caretPosition);
-    const splitUrls = splitNoteUrls(asNoteItem(ve.displayItem).urls, asNoteItem(ve.displayItem).title, caretPosition);
+    const continuationFlags = NoteFns.listContinuationFlagsForEnter(sourceNote, textElement!.innerText, caretPosition);
+    const splitMarks = splitNoteInlineMarks(sourceNote.inlineMarks, sourceNote.title, caretPosition);
+    const splitUrls = splitNoteUrls(sourceNote.urls, sourceNote.title, caretPosition);
 
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
@@ -320,6 +326,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
       const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
       note.title = afterText;
+      note.flags = continuationFlags;
       note.inlineMarks = splitMarks[1];
       note.urls = splitUrls[1];
       itemState.add(note);

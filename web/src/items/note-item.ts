@@ -42,7 +42,7 @@ import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret'
 import { ClickState, CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
 import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject, listItemIconRenderContext } from './base/icon-item';
-import { isUrl } from '../util/string';
+import { isUrl, trimNewline } from '../util/string';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, AttachmentsItem, TitledItem {}
@@ -91,6 +91,7 @@ export const NoteTextStyle = {
 export type NoteTextStyle = typeof NoteTextStyle[keyof typeof NoteTextStyle];
 
 export const NOTE_INLINE_MARK_ALLOWED_FLAGS = NoteInlineMarkFlags.Bold | NoteInlineMarkFlags.Italic;
+const NOTE_LIST_CONTINUATION_FLAGS = NoteFlags.Bullet1 | NoteFlags.Numbered | NoteFlags.Indent1 | NoteFlags.Indent2;
 
 export function normalizeNoteInlineMarks(inlineMarks: Array<NoteInlineMark>, text: string): Array<NoteInlineMark> {
   const textLen = text.length;
@@ -1095,6 +1096,12 @@ export const NoteFns = {
     } else if (textStyle == NoteTextStyle.Code) {
       flagsItem.flags |= NoteFlags.Code;
     }
+  },
+
+  listContinuationFlagsForEnter: (noteItem: NoteItem, editedText: string, caretPosition: number): number => {
+    if ((noteItem.flags & (NoteFlags.Bullet1 | NoteFlags.Numbered)) == 0) { return NoteFlags.None; }
+    if (caretPosition < trimNewline(editedText).length) { return NoteFlags.None; }
+    return noteItem.flags & NOTE_LIST_CONTINUATION_FLAGS;
   },
 
   isAlignedLeft: (flagsItem: FlagsItem): boolean => {
