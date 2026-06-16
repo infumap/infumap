@@ -35,7 +35,7 @@ import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { desktopPopupIconTextIndentPx, measureDocumentNoteHeightBl, measureLineCount } from '../layout/text';
+import { desktopPopupIconTextIndentPx, type InlineTextMeasureSegment, measureDocumentNoteHeightBl, measureLineCount } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemIdFromInfumapUrl, navigateToInfumapItemUrl } from '../layout/navigation';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -560,6 +560,15 @@ export function noteInlineTextSegments(
   return segments;
 }
 
+function noteInlineTextMeasureSegments(note: NoteMeasurable): Array<InlineTextMeasureSegment> | null {
+  if (note.inlineMarks.length == 0) { return null; }
+  return noteInlineTextSegments(note.inlineMarks, note.urls, note.title).map(segment => ({
+    text: segment.text,
+    isBold: !!(segment.flags & NoteInlineMarkFlags.Bold),
+    isItalic: !!(segment.flags & NoteInlineMarkFlags.Italic),
+  }));
+}
+
 function noteFaviconUrl(note: NoteMeasurable): string | null {
   const firstUrl = normalizeNoteUrls(note.urls, note.title)[0];
   if (firstUrl == null || firstUrl.start != 0 || firstUrl.url.trim() == "") { return null; }
@@ -742,7 +751,7 @@ export const NoteFns = {
     }
     const widthBl = note.spatialWidthGr / GRID_SIZE;
     const textIndentPx = NoteFns.showsIcon(note, iconContext) ? desktopPopupIconTextIndentPx(widthBl) : 0;
-    let measuredHeightBl = measureLineCount(note.title, widthBl, note.flags, textIndentPx);
+    let measuredHeightBl = measureLineCount(note.title, widthBl, note.flags, textIndentPx, noteInlineTextMeasureSegments(note));
     if (measuredHeightBl < 1) { measuredHeightBl = 1; }
 
     // measureLineCount already measures using the style's actual line-height,
@@ -755,7 +764,7 @@ export const NoteFns = {
     const textIndentPx = NoteFns.showsIcon(note, iconContext) ? desktopPopupIconTextIndentPx(widthBl) : 0;
     return {
       w: widthBl,
-      h: measureDocumentNoteHeightBl(note.title, widthBl, note.flags, textIndentPx),
+      h: measureDocumentNoteHeightBl(note.title, widthBl, note.flags, textIndentPx, noteInlineTextMeasureSegments(note)),
     };
   },
 

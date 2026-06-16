@@ -37,6 +37,12 @@ export const NOTE_LIST_INDENT_WIDTH_PX = 18;
 export const DOCUMENT_NOTE_HEIGHT_QUANTUM_PX = 2;
 export const DOCUMENT_PARAGRAPH_LINE_HEIGHT_EXTRA_PX = 2;
 
+export interface InlineTextMeasureSegment {
+  text: string,
+  isBold: boolean,
+  isItalic: boolean,
+}
+
 export function noteHasBullet(flags: NoteFlags): boolean {
   return noteHasBulletStyle(flags);
 }
@@ -84,8 +90,21 @@ export function desktopPopupIconTextIndentPx(widthBl: number): number {
   return Math.max(((widthBl * LINE_HEIGHT_PX) - NOTE_PADDING_PX * 2) / widthBl - NOTE_PADDING_PX, 0);
 }
 
-export function measureLineCount(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0): number {
-  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx; // TODO (LOW): not foolproof.
+function inlineTextMeasureSegmentsKey(inlineSegments: Array<InlineTextMeasureSegment> | null = null): string {
+  if (inlineSegments == null || inlineSegments.length == 0) { return ""; }
+  return inlineSegments
+    .map(segment => `${segment.text.length}:${segment.isBold ? "b" : ""}${segment.isItalic ? "i" : ""}`)
+    .join(",");
+}
+
+export function measureLineCount(
+  s: string,
+  widthBl: number,
+  flags: NoteFlags,
+  textIndentPx: number = 0,
+  inlineSegments: Array<InlineTextMeasureSegment> | null = null,
+): number {
+  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx + "~" + inlineTextMeasureSegmentsKey(inlineSegments); // TODO (LOW): not foolproof.
   if (lineCountCache.has(key)) {
     return lineCountCache.get(key)!;
   }
@@ -93,23 +112,36 @@ export function measureLineCount(s: string, widthBl: number, flags: NoteFlags, t
     // TODO (LOW): something better than this, though this trivial strategy should be very effective.
     lineCountCache.clear();
   }
-  const lineCount = measureTextHeightPx(s, widthBl, flags, textIndentPx) / LINE_HEIGHT_PX;
+  const lineCount = measureTextHeightPx(s, widthBl, flags, textIndentPx, null, inlineSegments) / LINE_HEIGHT_PX;
   const result = Math.ceil(lineCount * 2) / 2;
   lineCountCache.set(key, result);
   return result;
 }
 
-export function measureDocumentNoteHeightBl(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0): number {
+export function measureDocumentNoteHeightBl(
+  s: string,
+  widthBl: number,
+  flags: NoteFlags,
+  textIndentPx: number = 0,
+  inlineSegments: Array<InlineTextMeasureSegment> | null = null,
+): number {
   const lineHeightPx = documentLineHeightPxForNote(flags);
   const measuredHeightPx = Math.max(
-    measureTextHeightPx(s, widthBl, flags, textIndentPx, lineHeightPx),
+    measureTextHeightPx(s, widthBl, flags, textIndentPx, lineHeightPx, inlineSegments),
     lineHeightPx,
   );
   return Math.ceil(measuredHeightPx / DOCUMENT_NOTE_HEIGHT_QUANTUM_PX) * DOCUMENT_NOTE_HEIGHT_QUANTUM_PX / LINE_HEIGHT_PX;
 }
 
-function measureTextHeightPx(s: string, widthBl: number, flags: NoteFlags, textIndentPx: number = 0, lineHeightPxMaybe: number | null = null): number {
-  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx + "~" + (lineHeightPxMaybe ?? ""); // TODO (LOW): not foolproof.
+function measureTextHeightPx(
+  s: string,
+  widthBl: number,
+  flags: NoteFlags,
+  textIndentPx: number = 0,
+  lineHeightPxMaybe: number | null = null,
+  inlineSegments: Array<InlineTextMeasureSegment> | null = null,
+): number {
+  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx + "~" + (lineHeightPxMaybe ?? "") + "~" + inlineTextMeasureSegmentsKey(inlineSegments); // TODO (LOW): not foolproof.
   if (textHeightCache.has(key)) {
     return textHeightCache.get(key)!;
   }
@@ -133,8 +165,19 @@ function measureTextHeightPx(s: string, widthBl: number, flags: NoteFlags, textI
     `line-height: ${lineHeightPxMaybe ?? LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
     `overflow-wrap: break-word; white-space: pre-wrap; ` +
     `text-indent: ${actualTextIndentPx}px;`);
-  const txt = document.createTextNode(s);
-  div.appendChild(txt);
+  if (inlineSegments == null || inlineSegments.length == 0) {
+    const txt = document.createTextNode(s);
+    div.appendChild(txt);
+  } else {
+    for (const segment of inlineSegments) {
+      const span = document.createElement("span");
+      span.setAttribute("style",
+        `${segment.isBold ? "font-weight: bold; " : ""}` +
+        `${segment.isItalic ? "font-style: italic; " : ""}`);
+      span.appendChild(document.createTextNode(segment.text));
+      div.appendChild(span);
+    }
+  }
   document.body.appendChild(div);
   const heightPx = div.offsetHeight;
   document.body.removeChild(div);
