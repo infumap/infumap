@@ -500,7 +500,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               : isSelectableReadOnlyDocumentText()
                 ? readOnlyDocumentSelectableTextStyle()
                 : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
-          contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+          contentEditable={canEdit() && isTextEditTarget() ? "plaintext-only" : undefined}
           spellcheck={canEdit() && isTextEditTarget()}
           onKeyDown={keyDownHandler}
           onBeforeInput={beforeInputListener}

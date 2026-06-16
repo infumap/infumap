@@ -215,7 +215,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
             style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
               `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
-            contentEditable={canEdit() && isTextEditTarget() ? true : undefined}
+            contentEditable={canEdit() && isTextEditTarget() ? "plaintext-only" : undefined}
             spellcheck={canEdit() && isTextEditTarget()}
             onKeyDown={keyDownHandler}
             onBeforeInput={beforeInputListener}
