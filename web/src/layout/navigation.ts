@@ -20,9 +20,8 @@ import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
 import { Item } from "../items/base/item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { QueryFns, asQueryItem, isQueryChatPage, isQueryItem } from "../items/query-item";
+import { QueryFns, asQueryItem, isQueryItem } from "../items/query-item";
 import { SearchFlags } from "../items/base/flags-item";
-import { removeClientOnlyChatPagesUnderQueries } from "../items/chat";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
@@ -38,30 +37,11 @@ export function switchToNonPage(store: StoreContextModel, url: string) {
   store.currentUrlPath.set(url);
 }
 
-function internalQueryChatOwnerPageId(itemId: Uid): Uid | null {
-  const item = itemState.get(itemId);
-  if (!item || !isPage(item) || !isQueryChatPage(item)) {
-    return null;
-  }
-
-  const parent = itemState.get(item.parentId);
-  if (!parent || !isQueryItem(parent)) {
-    return null;
-  }
-
-  return parent.parentId == EMPTY_UID ? null : parent.parentId;
-}
-
 function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): string {
   const currentVeid = store.history.currentPageVeid();
   const itemId = overrideItemId ?? currentVeid?.itemId;
   if (!itemId || itemId == EMPTY_UID) {
     return "/";
-  }
-
-  const queryChatOwnerPageId = internalQueryChatOwnerPageId(itemId);
-  if (queryChatOwnerPageId != null) {
-    return currentUrl(store, queryChatOwnerPageId);
   }
 
   const item = itemState.get(itemId);
@@ -257,11 +237,6 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     console.warn("switchToPage: ignored empty page veid.", { pageVeid, focusPath });
     return;
   }
-  const queryChatOwnerPageId = internalQueryChatOwnerPageId(pageVeid.itemId);
-  if (queryChatOwnerPageId != null) {
-    console.warn("switchToPage: ignored internal query chat page veid.", { pageVeid, focusPath });
-    return;
-  }
 
   if (clearHistory) {
     store.history.setHistoryToSinglePage(pageVeid, focusPath);
@@ -349,7 +324,6 @@ export async function navigateToQueries(store: StoreContextModel): Promise<void>
   }
 
   const queryItemId = await ensureQueryItemUnderQueries(store, queriesPageId);
-  removeClientOnlyChatPagesUnderQueries(store, queriesPageId);
   if (queryItemId != null) {
     store.perItem.setSelectedListPageItem({ itemId: queriesPageId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
   }

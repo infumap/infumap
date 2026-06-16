@@ -34,7 +34,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { appendNewlineIfEmpty } from "../../util/string";
-import { PageFlags, itemCanExpandInLineItem } from "../../items/base/flags-item";
+import { itemCanExpandInLineItem } from "../../items/base/flags-item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -97,7 +97,6 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       : highlightBoundsPx();
 
   const bgOpaqueVal = () => `background-image: linear-gradient(270deg, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.7)}, ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 0.75)});`;
-  const isClientOnlyChat = () => pageItem().clientOnly === true && !!(pageItem().flags & PageFlags.Chat);
 
   const renderHighlightsMaybe = () => {
     // Always highlight just the icon area when hovering over OpenPopup hitbox
@@ -167,14 +166,6 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <div class="absolute border border-slate-700 rounded-xs shadow-xs"
       style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` +
         bgOpaqueVal()} />;
-
-  const renderChatIcon = () =>
-    <div class="absolute text-center pointer-events-none font-mono text-slate-700"
-      style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-        `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
-        `transform: scale(${scale()}); transform-origin: top left;`}>
-      <i class="fas fa-terminal" />
-    </div>;
 
   const renderExpandIcon = () =>
     <Show when={itemCanExpandInLineItem(pageItem()) &&
@@ -271,9 +262,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   return (
     <>
       {renderHighlightsMaybe()}
-      <Show when={isClientOnlyChat()} fallback={renderThumbnail()}>
-        {renderChatIcon()}
-      </Show>
+      {renderThumbnail()}
       {renderText()}
       {renderExpandIcon()}
       {renderLinkMarkingMaybe()}

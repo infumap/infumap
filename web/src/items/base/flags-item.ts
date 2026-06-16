@@ -123,9 +123,10 @@ export enum PageFlags {
   EmbeddedInteractive = 0x001,
   HideDocumentTitle = 0x002,
   HideEmbeddedInteractiveTitle = 0x040,
-  Chat = 0x080,
-  DisableLineItemExpand = 0x100,
-  DisableManualChildAdd = 0x200,
+  // Retired persisted-chat-page bits. Keep reserved so legacy data remains inert.
+  UnusedChat = 0x080,
+  UnusedDisableLineItemExpand = 0x100,
+  UnusedDisableManualChildAdd = 0x200,
   ListPagePinTop = ListPageFlags.PinTop,
   ListPagePinBottom = ListPageFlags.PinBottom,
 };
@@ -207,16 +208,10 @@ export function itemIsListPagePinnedBottom(item: ItemTypeMixin | null): boolean 
 
 export function itemCanExpandInLineItem(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  if (item.itemType == ItemType.Page) {
-    return !((item as any).flags & PageFlags.DisableLineItemExpand);
-  }
   return true;
 }
 
 export function itemCanAcceptManualChildren(item: ItemTypeMixin | null): boolean {
   if (item == null) { return false; }
-  if (item.itemType == ItemType.Page) {
-    return !((item as any).flags & PageFlags.DisableManualChildAdd);
-  }
   return true;
 }

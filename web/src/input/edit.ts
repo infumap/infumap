@@ -88,20 +88,20 @@ type LinearSelectionDeleteSpec = {
   endIndex: number,
 };
 
-function visualAncestorPageAcceptsManualChildAdd(path: string): boolean {
+function visualAncestorPageIsClientOnly(path: string): boolean {
   let currentPath: string | null = path;
   while (currentPath != null && currentPath != "") {
     const currentVe = VesCache.current.readNode(currentPath);
     if (currentVe == null) {
-      return true;
+      return false;
     }
     if (isPage(currentVe.displayItem)) {
       const page = asPageItem(currentVe.displayItem);
-      return page.clientOnly !== true && itemCanAcceptManualChildren(page);
+      return page.clientOnly === true;
     }
     currentPath = VeFns.parentPath(currentPath);
   }
-  return true;
+  return false;
 }
 
 let arrowKeyDown_pendingBoundaryNavigation: PendingBoundaryNavigation | null = null;
@@ -1201,7 +1201,6 @@ const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualE
 const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement) => {
   const context = currentLinearEditContext(store);
   if (context == null) { return; }
-  if (!visualAncestorPageAcceptsManualChildAdd(context.containerPath)) { return; }
 
   if (context.editingPath == context.containerPath) {
     const titleElement = document.getElementById(context.editingPath + ":title");
@@ -1210,6 +1209,8 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
       return;
     }
   }
+
+  if (visualAncestorPageIsClientOnly(context.containerPath)) { return; }
 
   const noteVeid = VeFns.veidFromPath(context.editingPath);
   const item = itemState.get(noteVeid.itemId)!;

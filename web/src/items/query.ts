@@ -24,7 +24,7 @@ import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { asContainerItem, isContainer } from "./base/container-item";
-import { removeClientOnlyChatPagesUnderQueries, submitQueryChatMessage } from "./chat";
+import { submitQueryChatMessage } from "./chat";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
 import {
   QueryItem,
@@ -202,7 +202,6 @@ export async function startQueryChat(
   initialText: string,
   queryItemPath: VisualElementPath,
 ): Promise<void> {
-  removeClientOnlyChatPagesUnderQueries(store, queryItem.parentId);
   clearQuerySearchForModeSwitch(store, queryItem);
 
   setQueryMode(store, queryItem, "chat");

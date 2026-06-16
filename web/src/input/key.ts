@@ -62,7 +62,6 @@ import {
   setQuerySearchFocusedResultIndex,
   setQuerySearchSelectedResultIndex,
 } from "../items/query-item";
-import { isChatPage } from "../items/chat";
 import type { SearchResult } from "../server";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { finishActivePendingClipboardTextItem } from "./text_clipboard_create";
@@ -511,22 +510,6 @@ function handleSearchWorkspaceEscapeMaybe(store: StoreContextModel): boolean {
   return true;
 }
 
-function handleChatPageEnterMaybe(store: StoreContextModel): boolean {
-  if (store.overlay.anOverlayIsVisible()) { return false; }
-
-  const focusPath = store.history.getFocusPathMaybe();
-  if (!focusPath) { return false; }
-  const focusVe = VesCache.current.readNode(focusPath);
-  if (!focusVe || !isPage(focusVe.displayItem) || !isChatPage(asPageItem(focusVe.displayItem))) {
-    return false;
-  }
-
-  store.overlay.autoFocusChatInput.set(true);
-  arrangeNow(store, "key-chat-enter-edit");
-  return true;
-}
-
-
 /**
  * Top level handler for keydown events.
  */
@@ -600,11 +583,6 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   }
 
   if (ev.code == "Enter" && handleSearchWorkspaceEnterMaybe(store)) {
-    ev.preventDefault();
-    return;
-  }
-
-  if (ev.code == "Enter" && handleChatPageEnterMaybe(store)) {
     ev.preventDefault();
     return;
   }

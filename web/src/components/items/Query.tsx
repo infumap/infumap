@@ -111,7 +111,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatText, setChatText] = createSignal("");
   const [isSendingChat, setIsSendingChat] = createSignal(false);
   const [isMaterializingChat, setIsMaterializingChat] = createSignal(false);
-  const [chatComposerHeightPx, setChatComposerHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
+  const [chatTextareaHeightPx, setChatTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
   let queryInput: HTMLInputElement | undefined;
   let queryModeSelect: HTMLSelectElement | undefined;
@@ -371,7 +371,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setIsLoadingMore(false);
     setMoreButtonHost(null);
     setChatText("");
-    setChatComposerHeightPx(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
+    setChatTextareaHeightPx(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
     store.overlay.autoFocusSearchInput.set(false);
     store.overlay.autoFocusChatInput.set(false);
   };
@@ -431,7 +431,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     );
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
-    setChatComposerHeightPx(nextHeight);
+    setChatTextareaHeightPx(nextHeight);
   };
 
   const resizeChatTextareaSoon = () => {
@@ -666,7 +666,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
     const progress = () => chatProgressForQuery(queryItem().id);
     const wrapperHeightPx = () =>
-      chatComposerHeightPx() + (progress() == null ? 0 : QUERY_CHAT_PROGRESS_HEIGHT_PX);
+      chatTextareaHeightPx() + (progress() == null ? 0 : QUERY_CHAT_PROGRESS_HEIGHT_PX);
     const transcriptBottomPx = () => wrapperHeightPx() + QUERY_CHAT_COMPOSER_BOTTOM_PX + 24;
     const chatRequestActive = () => isStartingChat() || isSendingChat();
     const stop = (ev: Event) => {
@@ -750,14 +750,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </div>
           </Show>
           <div class="flex items-end"
-            style={`height: ${chatComposerHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+            style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
             <div
               class="min-w-0 grow overflow-hidden rounded-xs border border-[#999] bg-white"
-              style={`height: ${chatComposerHeightPx()}px;`}>
+              style={`height: ${chatTextareaHeightPx()}px;`}>
               <textarea
                 ref={chatTextarea}
                 class="block w-full resize-none border-0 bg-transparent px-2.5 py-[9px] text-black outline-hidden"
-                style={`height: ${chatComposerHeightPx()}px; font-size: 16px; line-height: 24px; user-select: text;`}
+                style={`height: ${chatTextareaHeightPx()}px; font-size: 16px; line-height: 24px; user-select: text;`}
                 value={chatText()}
                 rows={1}
                 spellcheck={true}

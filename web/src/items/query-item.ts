@@ -32,7 +32,6 @@ import {
   calcSearchWorkspaceResultsBoundsPx,
   calcSearchWorkspaceResultsFooterHeightPx,
   calcSearchWorkspaceResultsTopPx,
-  isQueryChatPage,
   isQuerySearchResultLink,
   isQuerySearchResultsPage,
   isSearch,
@@ -76,7 +75,6 @@ export function isQueryItem(item: ItemTypeMixin | null): item is QueryItem {
 export const isQuery = isQueryItem;
 
 export {
-  isQueryChatPage,
   isQuerySearchResultLink,
   isQuerySearchResultsPage,
   markAsQuerySearchResultLink,

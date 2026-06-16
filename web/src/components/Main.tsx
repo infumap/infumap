@@ -64,7 +64,6 @@ import { openTextDocumentProjection } from "../items/text-document";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
-import { removeClientOnlyChatPagesUnderQueries } from "../items/chat";
 
 
 export let logout: (() => Promise<void>) | null = null;
@@ -211,7 +210,6 @@ export const Main: Component = () => {
       const userMaybe = store.user.getUserMaybe();
       if (origin == null && userMaybe && itemId == userMaybe.queriesPageId) {
         const queryItemId = await ensureQueryItemUnderQueries(store, itemId);
-        removeClientOnlyChatPagesUnderQueries(store, itemId);
         if (queryItemId != null) {
           store.perItem.setSelectedListPageItem({ itemId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
           store.overlay.autoFocusSearchInput.set(true);

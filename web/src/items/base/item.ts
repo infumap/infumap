@@ -53,7 +53,6 @@ export type ItemCapability = typeof ITEM_CAPABILITY_KEYS[number];
 export type ItemCapabilities = Partial<Record<ItemCapability, boolean>>;
 
 export const ClientOnlyItemKind = {
-  QueryChatPage: "query-chat-page",
   QuerySearchResultsPage: "query-search-results-page",
   QuerySearchResultLink: "query-search-result-link",
 } as const;
