@@ -1289,6 +1289,26 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
   focusItemInLinearContainer(store, context.containerPath, note.id, 0);
 }
 
+function revealCaretHorizontallyIfClipped(el: HTMLElement, caretPosition: number): void {
+  const viewport = el.parentElement;
+  if (viewport == null || window.getComputedStyle(viewport).whiteSpace != "nowrap") { return; }
+
+  const viewportRect = viewport.getBoundingClientRect();
+  if (viewport.clientWidth <= 0 || viewportRect.width <= 0) { return; }
+
+  const caretLineRect = getCaretLineRect(el, caretPosition);
+  const textLength = el.textContent?.length ?? 0;
+  const caretXPx = caretPosition >= textLength ? caretLineRect.right : caretLineRect.left;
+  const scale = viewportRect.width / viewport.clientWidth;
+  const insetPx = 2;
+
+  if (caretXPx > viewportRect.right - insetPx) {
+    viewport.scrollLeft += (caretXPx - viewportRect.right + insetPx) / scale;
+  } else if (caretXPx < viewportRect.left + insetPx) {
+    viewport.scrollLeft = Math.max(0, viewport.scrollLeft - (viewportRect.left + insetPx - caretXPx) / scale);
+  }
+}
+
 export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) => {
   const capturedBeforeInputNoteTypingFlags = beforeInputNoteTypingFlags;
   setTimeout(() => {
@@ -1368,6 +1388,7 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
           if (!selectionInsideEditTarget || currentCaretPosition !== caretPosition) {
             setCaretPosition(el_, caretPosition);
           }
+          revealCaretHorizontallyIfClipped(el_, caretPosition);
           if (store.overlay.textEditInfo()?.itemType == ItemType.Note) {
             updateNoteTextSelectionInfoFromDom(store, false);
           }
