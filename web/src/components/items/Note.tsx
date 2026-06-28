@@ -529,7 +529,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             style={`left: 0px; top: ${boundsPx().h - documentTextBottomSelectionGuardHeightPx()}px; ` +
               `width: ${boundsPx().w}px; height: ${documentTextBottomSelectionGuardHeightPx()}px; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT - 1}; pointer-events: auto; ` +
-              `cursor: text; user-select: none; -webkit-user-select: none;`} />
+              `cursor: ${isTextEditTarget() || isSelectableReadOnlyDocumentText() ? "text" : "default"}; ` +
+              `user-select: none; -webkit-user-select: none;`} />
         </Show>
       </div>
       <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
