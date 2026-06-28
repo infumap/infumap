@@ -45,7 +45,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { asTableItem, isTable } from "../items/table-item";
-import { currentCaretElement, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setTextSelection } from "../util/caret";
+import { closestCaretPositionToClientPx, currentCaretElement, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setTextSelection } from "../util/caret";
 import { asCompositeItem, CompositeFns, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -773,13 +773,36 @@ function targetCaretPositionForLinearBoundaryNavigation(
   context: LinearEditContext,
   targetPath: string,
   key: LinearBoundaryNavigationKey,
+  textElement: HTMLElement,
   caretPosition: number,
 ): number {
   if (key == "ArrowLeft") {
     return textLengthForLinearPath(context, targetPath) ?? Number.MAX_SAFE_INTEGER;
   }
   if (key == "ArrowRight") { return 0; }
-  return caretPosition;
+
+  const fallbackPosition = key == "ArrowDown"
+    ? 0
+    : textLengthForLinearPath(context, targetPath) ?? Number.MAX_SAFE_INTEGER;
+  const targetElement = document.getElementById(targetPath + ":title");
+  if (!(targetElement instanceof HTMLElement) || trimNewline(targetElement.innerText) == "") {
+    return fallbackPosition;
+  }
+
+  const sourceTextLength = textElement.textContent?.length ?? 0;
+  const sourceLineRect = getCaretLineRect(textElement, caretPosition);
+  const sourceCaretXPx = caretPosition >= sourceTextLength
+    ? sourceLineRect.right
+    : sourceLineRect.left;
+  const targetBoundaryPosition = key == "ArrowDown"
+    ? 0
+    : targetElement.textContent?.length ?? 0;
+  const targetBoundaryLineRect = getCaretLineRect(targetElement, targetBoundaryPosition);
+
+  return closestCaretPositionToClientPx(targetElement, {
+    x: sourceCaretXPx,
+    y: targetBoundaryLineRect.top + targetBoundaryLineRect.height / 2,
+  });
 }
 
 function documentEdgeBoundaryCaretPositionMaybe(
@@ -908,7 +931,7 @@ function maybeBuildLinearBoundaryNavigation(
 
   const navigation = {
     targetPath,
-    targetCaretPosition: targetCaretPositionForLinearBoundaryNavigation(context, targetPath, key, caretPosition),
+    targetCaretPosition: targetCaretPositionForLinearBoundaryNavigation(context, targetPath, key, textElement, caretPosition),
   };
   logLinearEdit("prepared-boundary-navigation", {
     key,
