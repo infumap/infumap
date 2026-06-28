@@ -600,7 +600,18 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       store.overlay.selectedVeids.set([]);
     }
     NoteFns.handleClick(hitVe, store, true);
-    return MouseEventActionFlags.None;
+    // Native selection is useful over the title, but a non-editable document
+    // guard would replace the caret above with one in the page container.
+    const editingElement = document.getElementById(VeFns.veToPath(hitVe) + ":title");
+    const clientPx = CursorEventState.getLatestClientPx();
+    const nativeSelectionTarget = document.elementFromPoint(clientPx.x, clientPx.y);
+    const nativeSelectionWillStayInNote =
+      editingElement != null &&
+      nativeSelectionTarget != null &&
+      (nativeSelectionTarget == editingElement || editingElement.contains(nativeSelectionTarget));
+    return nativeSelectionWillStayInNote
+      ? MouseEventActionFlags.None
+      : MouseEventActionFlags.PreventDefault;
   }
 
   // If clicking a child inside a composite and that composite is in the current selection,
