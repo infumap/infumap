@@ -1320,7 +1320,8 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
         } else {
           console.warn("input handler for item type " + textEditInfo.itemType + " not implemented.");
         }
-        if (newText == "") {
+        // Note editors are remounted from model state after this handler.
+        if (newText == "" && textEditInfo.itemType != ItemType.Note) {
           restoreContentEditablePlaceholderIfEmpty(el);
         }
         const caretPosition = newText == "" ? 0 : getCaretPosition(el!);

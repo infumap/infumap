@@ -454,6 +454,44 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
 
+  const editingTextRenderKey = () => isTextEditTarget()
+    ? JSON.stringify([renderedTitle(), renderedInlineMarks(), renderedUrls()])
+    : null;
+
+  const renderTitle = (editing: boolean) =>
+    <span id={VeFns.veToPath(props.visualElement) + ":title"}
+      class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
+        `${editing || isSelectableReadOnlyDocumentText() ? ' select-text cursor-text' : ''}`}
+      style={`position: absolute; ` +
+        `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
+        `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+        `width: ${naturalWidthPx()}px; ` +
+        `line-height: ${titleLineHeightPx()}px; ` +
+        `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
+        `font-size: ${infuTextStyle().fontSize}px; ` +
+        `overflow-wrap: break-word; white-space: pre-wrap; ` +
+        `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
+        `text-indent: ${titleTextIndentPx()}px; ` +
+        `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+        `outline: 0px solid transparent; ` +
+        (editing
+          ? `user-select: text; -webkit-user-select: text; `
+          : isSelectableReadOnlyDocumentText()
+            ? readOnlyDocumentSelectableTextStyle()
+            : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
+      contentEditable={canEdit() && editing ? "plaintext-only" : undefined}
+      spellcheck={canEdit() && editing}
+      onKeyDown={keyDownHandler}
+      onBeforeInput={beforeInputListener}
+      onInput={inputListener}>
+      <NoteInlineText
+        text={renderedTitle()}
+        inlineMarks={renderedInlineMarks()}
+        urls={renderedUrls()}
+        linksEnabled={!editing}
+        inactiveLinksStyled={editing} />
+    </span>;
+
   const renderDetailed = () =>
     <>
       <div class={`absolute inset-0 rounded-xs ${isTextEditTarget() ? "overflow-visible" : "overflow-hidden"}`}>
@@ -480,38 +518,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           </div>
         </Show>
         {renderListMarkerMaybe()}
-        <span id={VeFns.veToPath(props.visualElement) + ":title"}
-          class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
-            `${isTextEditTarget() || isSelectableReadOnlyDocumentText() ? ' select-text cursor-text' : ''}`}
-          style={`position: absolute; ` +
-            `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-            `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
-            `width: ${naturalWidthPx()}px; ` +
-            `line-height: ${titleLineHeightPx()}px; ` +
-            `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
-            `font-size: ${infuTextStyle().fontSize}px; ` +
-            `overflow-wrap: break-word; white-space: pre-wrap; ` +
-            `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
-            `text-indent: ${titleTextIndentPx()}px; ` +
-            `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-            `outline: 0px solid transparent; ` +
-            (isTextEditTarget()
-              ? `user-select: text; -webkit-user-select: text; `
-              : isSelectableReadOnlyDocumentText()
-                ? readOnlyDocumentSelectableTextStyle()
-                : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
-          contentEditable={canEdit() && isTextEditTarget() ? "plaintext-only" : undefined}
-          spellcheck={canEdit() && isTextEditTarget()}
-          onKeyDown={keyDownHandler}
-          onBeforeInput={beforeInputListener}
-          onInput={inputListener}>
-          <NoteInlineText
-            text={renderedTitle()}
-            inlineMarks={renderedInlineMarks()}
-            urls={renderedUrls()}
-            linksEnabled={!isTextEditTarget()}
-            inactiveLinksStyled={isTextEditTarget()} />
-        </span>
+        <Show keyed when={editingTextRenderKey()} fallback={renderTitle(false)}>
+          {(_renderKey) => renderTitle(true)}
+        </Show>
         <Show when={isInDocumentPage()}>
           <div
             aria-hidden="true"

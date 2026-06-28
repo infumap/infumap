@@ -200,6 +200,28 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       </div>
     </Show>;
 
+  const editingTextRenderKey = () => isTextEditTarget()
+    ? JSON.stringify([renderedTitle(), renderedInlineMarks(), renderedUrls()])
+    : null;
+
+  const renderTitle = (editing: boolean) =>
+    <span id={VeFns.veToPath(props.visualElement) + ":title"}
+      class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
+      style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
+        `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
+      contentEditable={canEdit() && editing ? "plaintext-only" : undefined}
+      spellcheck={canEdit() && editing}
+      onKeyDown={keyDownHandler}
+      onBeforeInput={beforeInputListener}
+      onInput={inputListener}>
+      <NoteInlineText
+        text={renderedTitle()}
+        inlineMarks={renderedInlineMarks()}
+        urls={renderedUrls()}
+        linksEnabled={!editing}
+        inactiveLinksStyled={editing} />
+    </span>;
+
   const renderText = () =>
     <>
       {renderListMarkerMaybe()}
@@ -211,22 +233,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             `width: ${lineItemTextClippedWidthCssPx(props.visualElement, textWidthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
             `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
             `padding-left: ${textPaddingLeftPx()}px; padding-right: ${textPaddingRightCssPx()}px;`}>
-          <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
-            style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-              `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
-            contentEditable={canEdit() && isTextEditTarget() ? "plaintext-only" : undefined}
-            spellcheck={canEdit() && isTextEditTarget()}
-            onKeyDown={keyDownHandler}
-            onBeforeInput={beforeInputListener}
-            onInput={inputListener}>
-            <NoteInlineText
-              text={renderedTitle()}
-              inlineMarks={renderedInlineMarks()}
-              urls={renderedUrls()}
-              linksEnabled={!isTextEditTarget()}
-              inactiveLinksStyled={isTextEditTarget()} />
-          </span>
+          <Show keyed when={editingTextRenderKey()} fallback={renderTitle(false)}>
+            {(_renderKey) => renderTitle(true)}
+          </Show>
         </div>
       </Show>
     </>;
