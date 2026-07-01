@@ -260,14 +260,14 @@ function popupTitleTargetSignalMaybe() {
   return VesCache.render.getNode(targetPath) ?? null;
 }
 
-function showMoveDropRejectedMessage(store: StoreContextModel, text: string): void {
+function showMoveDropRejectedMessage(store: StoreContextModel, text: string, durationMs: number = 5000): void {
   store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
   window.setTimeout(() => {
     const current = store.overlay.toolbarTransientMessage.get();
     if (current?.text == text) {
       store.overlay.toolbarTransientMessage.set(null);
     }
-  }, 1500);
+  }, durationMs);
 }
 
 function visualElementAcceptsManualChildAdd(visualElement: VisualElement): boolean {

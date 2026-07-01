@@ -26,6 +26,7 @@ import { setCaretPosition } from "../util/caret";
 import { currentUnixTimeSeconds } from "../util/lang";
 import { EMPTY_CONTENT_EDITABLE_PLACEHOLDER, trimNewline } from "../util/string";
 import { asTextItem, isClipboardTextCreateItem, TextItem } from "../items/text-item";
+import { ItemFns } from "../items/base/item-polymorphism";
 
 export const MAX_CLIPBOARD_TEXT_BYTES = 1024 * 1024;
 
@@ -134,7 +135,19 @@ export function finishPendingClipboardTextItem(
   const base64Data = base64ArrayBuffer(exactArrayBuffer(bytes));
   void server.addItem(textItem, base64Data, store.general.networkStatus)
     .then(returnedItem => {
-      itemState.upsertItemFromServerObject(returnedItem, null);
+      const currentItem = itemState.get(textItem.id);
+      if (currentItem != null && isClipboardTextCreateItem(currentItem)) {
+        const persistedItem = asTextItem(ItemFns.fromObject(returnedItem, null));
+
+        // Keep the existing object alive: a drag that started while this request
+        // was in flight still holds a reference to it. Replacing it here would
+        // make the drag update a stale object and persist the pre-drag location.
+        currentItem.origin = persistedItem.origin;
+        currentItem.capabilities = persistedItem.capabilities;
+        delete currentItem.clientOnly;
+        delete currentItem.clipboardTextCreateState;
+        delete currentItem.clipboardTextContent;
+      }
       requestArrange(store, "clipboard-text-persisted");
     })
     .catch(error => {
