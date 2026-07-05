@@ -1658,6 +1658,7 @@ dependencies = [
  "infer",
  "infusdk",
  "kamadak-exif",
+ "libc",
  "log",
  "mime",
  "mime-sniffer",
