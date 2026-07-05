@@ -93,6 +93,18 @@ pub fn make_clap_subcommand() -> Command {
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
+  tokio::select! {
+    result = execute_upload(sub_matches) => result,
+    signal_result = tokio::signal::ctrl_c() => {
+      match signal_result {
+        Ok(()) => Err("\nUpload cancelled.".into()),
+        Err(e) => Err(format!("\nCould not listen for Ctrl-C: {}", e).into()),
+      }
+    }
+  }
+}
+
+async fn execute_upload(sub_matches: &ArgMatches) -> InfuResult<()> {
   let resuming = sub_matches.get_flag("resume");
   let additional = sub_matches.get_flag("additional");
 
@@ -233,7 +245,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
   }
 
-  let mut num_skipped = 0;
   for i in 0..local_filenames.len() {
     let filename = &local_filenames[i];
     let mut path = local_path.clone();
@@ -315,8 +326,10 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
         Ok(r) => {
           let json_response: CommandResponse = r.json().await.map_err(|e| e.to_string())?;
           if !json_response.success {
-            println!("Infumap rejected the add-item command - skipping.");
-            num_skipped += 1;
+            let fail_reason = json_response.fail_reason.as_deref().unwrap_or("unspecified");
+            return Err(
+              format!("\nInfumap rejected the add-item command (reason: {}). Upload stopped.", fail_reason).into(),
+            );
           } else {
             println!("success!");
           }
@@ -329,7 +342,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       }
     }
   }
-  println!("Number skipped: {}", num_skipped);
 
   Ok(())
 }
