@@ -92,37 +92,7 @@ pub fn make_clap_subcommand() -> Command {
     .required(false))
 }
 
-#[cfg(unix)]
-extern "C" fn exit_on_sigint(_signal: libc::c_int) {
-  // _exit is async-signal-safe and does not depend on the Tokio runtime or another thread.
-  unsafe {
-    libc::_exit(130);
-  }
-}
-
-fn install_ctrl_c_handler() -> InfuResult<()> {
-  #[cfg(unix)]
-  {
-    let previous_handler = unsafe { libc::signal(libc::SIGINT, exit_on_sigint as *const () as libc::sighandler_t) };
-    if previous_handler == libc::SIG_ERR {
-      return Err(format!("Could not install Ctrl-C handler: {}", std::io::Error::last_os_error()).into());
-    }
-  }
-
-  #[cfg(not(unix))]
-  {
-    ctrlc::set_handler(|| std::process::exit(130)).map_err(|e| format!("Could not install Ctrl-C handler: {}", e))?;
-  }
-
-  Ok(())
-}
-
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
-  install_ctrl_c_handler()?;
-  execute_upload(sub_matches).await
-}
-
-async fn execute_upload(sub_matches: &ArgMatches) -> InfuResult<()> {
   let resuming = sub_matches.get_flag("resume");
   let additional = sub_matches.get_flag("additional");
 
