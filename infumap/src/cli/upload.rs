@@ -93,15 +93,9 @@ pub fn make_clap_subcommand() -> Command {
 }
 
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
-  tokio::select! {
-    result = execute_upload(sub_matches) => result,
-    signal_result = tokio::signal::ctrl_c() => {
-      match signal_result {
-        Ok(()) => Err("\nUpload cancelled.".into()),
-        Err(e) => Err(format!("\nCould not listen for Ctrl-C: {}", e).into()),
-      }
-    }
-  }
+  ctrlc::set_handler(|| std::process::exit(130)).map_err(|e| format!("Could not install Ctrl-C handler: {}", e))?;
+
+  execute_upload(sub_matches).await
 }
 
 async fn execute_upload(sub_matches: &ArgMatches) -> InfuResult<()> {
