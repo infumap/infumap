@@ -54,19 +54,19 @@ fn make_approve_subcommand() -> Command {
 pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
   let session_name = sub_matches.get_one::<String>("session").unwrap();
 
-  let named_session = NamedInfuSession::get(session_name)
+  let mut named_session = NamedInfuSession::get(session_name)
     .await
     .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
     .ok_or("Session does not exist - use the login CLI command to create one.")?;
 
   match sub_matches.subcommand() {
-    Some(("list", arg_sub_matches)) => execute_list(arg_sub_matches, &named_session).await,
-    Some(("approve", arg_sub_matches)) => execute_approve(arg_sub_matches, &named_session).await,
+    Some(("list", arg_sub_matches)) => execute_list(arg_sub_matches, &mut named_session).await,
+    Some(("approve", arg_sub_matches)) => execute_approve(arg_sub_matches, &mut named_session).await,
     _ => return Err("Sub command was not recognized or specified.".into()),
   }
 }
 
-pub async fn execute_list<'a>(_sub_matches: &ArgMatches, named_session: &NamedInfuSession) -> InfuResult<()> {
+pub async fn execute_list<'a>(_sub_matches: &ArgMatches, named_session: &mut NamedInfuSession) -> InfuResult<()> {
   let request_headers = build_session_headers(&named_session.session)?;
   let client = build_http_client(Some(request_headers)).await?;
 
@@ -74,6 +74,7 @@ pub async fn execute_list<'a>(_sub_matches: &ArgMatches, named_session: &NamedIn
     client.post(named_session.list_pending_users_url()?.clone()).send().await.map_err(|e| e.to_string());
   match send_result {
     Ok(r) => {
+      named_session.update_from_response(&r).await?;
       let logout_response: Result<ListPendingUsersResponse, String> = r.json().await.map_err(|e| e.to_string());
       match logout_response {
         Ok(rr) => {
@@ -89,7 +90,7 @@ pub async fn execute_list<'a>(_sub_matches: &ArgMatches, named_session: &NamedIn
   }
 }
 
-pub async fn execute_approve<'a>(sub_matches: &ArgMatches, named_session: &NamedInfuSession) -> InfuResult<()> {
+pub async fn execute_approve<'a>(sub_matches: &ArgMatches, named_session: &mut NamedInfuSession) -> InfuResult<()> {
   let request_headers = build_session_headers(&named_session.session)?;
   let client = build_http_client(Some(request_headers)).await?;
 
@@ -108,6 +109,7 @@ pub async fn execute_approve<'a>(sub_matches: &ArgMatches, named_session: &Named
     .map_err(|e| e.to_string());
   match send_result {
     Ok(r) => {
+      named_session.update_from_response(&r).await?;
       let approve_response: Result<ApprovePendingUserResponse, String> = r.json().await.map_err(|e| e.to_string());
       match approve_response {
         Ok(rr) => {

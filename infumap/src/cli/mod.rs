@@ -17,8 +17,10 @@
 use std::path::PathBuf;
 
 use infusdk::util::infu::InfuResult;
+use infusdk::util::uid::is_uid;
 use log::debug;
 use reqwest::Url;
+use reqwest::header::SET_COOKIE;
 use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
@@ -83,6 +85,45 @@ impl NamedInfuSession {
       Some(s) => Ok(Some(s.clone())),
       None => Ok(None),
     }
+  }
+
+  pub async fn update_from_response(&mut self, response: &reqwest::Response) -> InfuResult<bool> {
+    let mut rotated_session_id = None;
+    for header_value in response.headers().get_all(SET_COOKIE) {
+      let header_str =
+        header_value.to_str().map_err(|e| format!("Could not interpret server Set-Cookie header: {}", e))?;
+      let cookie =
+        cookie::Cookie::parse(header_str).map_err(|e| format!("Could not parse server Set-Cookie header: {}", e))?;
+      if cookie.name() != SESSION_COOKIE_NAME {
+        continue;
+      }
+      if !is_uid(cookie.value()) {
+        return Err("Server returned an invalid rotated session id.".into());
+      }
+      rotated_session_id = Some(cookie.value().to_owned());
+    }
+
+    let Some(rotated_session_id) = rotated_session_id else {
+      return Ok(false);
+    };
+    if rotated_session_id == self.session.session_id {
+      return Ok(false);
+    }
+
+    self.session.session_id = rotated_session_id;
+    self.persist().await?;
+    Ok(true)
+  }
+
+  async fn persist(&self) -> InfuResult<()> {
+    let mut sessions = Self::read_sessions().await?;
+    let stored_session = sessions
+      .iter_mut()
+      .find(|session| session.name == self.name)
+      .ok_or(format!("CLI session '{}' disappeared while it was in use.", self.name))?;
+    *stored_session = self.clone();
+    let session_refs = sessions.iter().collect::<Vec<&NamedInfuSession>>();
+    Self::write_sessions(&session_refs).await
   }
 
   async fn read_sessions() -> InfuResult<Vec<NamedInfuSession>> {

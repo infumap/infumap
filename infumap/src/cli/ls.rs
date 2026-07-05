@@ -51,7 +51,7 @@ pub fn make_clap_subcommand() -> Command {
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let session_name = sub_matches.get_one::<String>("session").unwrap().as_str();
 
-  let named_session = NamedInfuSession::get(session_name)
+  let mut named_session = NamedInfuSession::get(session_name)
     .await
     .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
     .ok_or("Session does not exist - use the login CLI command to create one.")?;
@@ -75,21 +75,19 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   };
 
   let request_headers = build_session_headers(&named_session.session)?;
-  let client = build_http_client(Some(request_headers)).await?;
+  let mut client = build_http_client(Some(request_headers)).await?;
 
   let get_children_request = serde_json::to_string(&request_data)?;
   let send_request =
     CommandRequest { command: "get-items".to_owned(), json_data: get_children_request, base64_data: None };
 
-  let get_children_response: CommandResponse = client
-    .post(named_session.command_url()?.clone())
-    .json(&send_request)
-    .send()
-    .await
-    .map_err(|e| format!("{}", e))?
-    .json()
-    .await
-    .map_err(|e| format!("{}", e))?;
+  let response =
+    client.post(named_session.command_url()?.clone()).json(&send_request).send().await.map_err(|e| format!("{}", e))?;
+  if named_session.update_from_response(&response).await? {
+    let request_headers = build_session_headers(&named_session.session)?;
+    client = build_http_client(Some(request_headers)).await?;
+  }
+  let get_children_response: CommandResponse = response.json().await.map_err(|e| format!("{}", e))?;
 
   if !get_children_response.success {
     return Err("Infumap rejected the get-items command. Has your session expired?".into());
@@ -111,15 +109,10 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let send_request =
     CommandRequest { command: "get-attachments".to_owned(), json_data: get_attachments_request, base64_data: None };
 
-  let get_attachments_response: CommandResponse = client
-    .post(named_session.command_url()?.clone())
-    .json(&send_request)
-    .send()
-    .await
-    .map_err(|e| format!("{}", e))?
-    .json()
-    .await
-    .map_err(|e| format!("{}", e))?;
+  let response =
+    client.post(named_session.command_url()?.clone()).json(&send_request).send().await.map_err(|e| format!("{}", e))?;
+  named_session.update_from_response(&response).await?;
+  let get_attachments_response: CommandResponse = response.json().await.map_err(|e| format!("{}", e))?;
 
   if !get_attachments_response.success {
     println!("Infumap rejected the get-attachments command.");

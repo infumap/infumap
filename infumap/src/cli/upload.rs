@@ -157,13 +157,13 @@ async fn execute_upload(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   let session_name = sub_matches.get_one::<String>("session").unwrap();
 
-  let named_session = NamedInfuSession::get(session_name)
+  let mut named_session = NamedInfuSession::get(session_name)
     .await
     .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
     .ok_or("Session does not exist - use the login CLI command to create one.")?;
 
   let request_headers = build_session_headers(&named_session.session)?;
-  let client = build_http_client(Some(request_headers)).await?;
+  let mut client = build_http_client(Some(request_headers)).await?;
 
   // Get children of container.
   let get_children_request = serde_json::to_string(&GetItemsRequest {
@@ -173,15 +173,13 @@ async fn execute_upload(sub_matches: &ArgMatches) -> InfuResult<()> {
   .unwrap();
   let send_request =
     CommandRequest { command: "get-items".to_owned(), json_data: get_children_request, base64_data: None };
-  let container_children_response: CommandResponse = client
-    .post(named_session.command_url()?.clone())
-    .json(&send_request)
-    .send()
-    .await
-    .map_err(|e| e.to_string())?
-    .json()
-    .await
-    .map_err(|e| e.to_string())?;
+  let response =
+    client.post(named_session.command_url()?.clone()).json(&send_request).send().await.map_err(|e| e.to_string())?;
+  if named_session.update_from_response(&response).await? {
+    let request_headers = build_session_headers(&named_session.session)?;
+    client = build_http_client(Some(request_headers)).await?;
+  }
+  let container_children_response: CommandResponse = response.json().await.map_err(|e| e.to_string())?;
   if !container_children_response.success {
     if let Some(reason) = container_children_response.fail_reason {
       if reason == "invalid-session" {
@@ -245,6 +243,7 @@ async fn execute_upload(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
   }
 
+  let mut num_skipped = 0;
   for i in 0..local_filenames.len() {
     let filename = &local_filenames[i];
     let mut path = local_path.clone();
@@ -324,12 +323,14 @@ async fn execute_upload(sub_matches: &ArgMatches) -> InfuResult<()> {
       let add_item_response = client.post(named_session.command_url()?.clone()).json(&send_request).send().await;
       match add_item_response {
         Ok(r) => {
+          if named_session.update_from_response(&r).await? {
+            let request_headers = build_session_headers(&named_session.session)?;
+            client = build_http_client(Some(request_headers)).await?;
+          }
           let json_response: CommandResponse = r.json().await.map_err(|e| e.to_string())?;
           if !json_response.success {
-            let fail_reason = json_response.fail_reason.as_deref().unwrap_or("unspecified");
-            return Err(
-              format!("\nInfumap rejected the add-item command (reason: {}). Upload stopped.", fail_reason).into(),
-            );
+            println!("Infumap rejected the add-item command - skipping.");
+            num_skipped += 1;
           } else {
             println!("success!");
           }
@@ -342,6 +343,7 @@ async fn execute_upload(sub_matches: &ArgMatches) -> InfuResult<()> {
       }
     }
   }
+  println!("Number skipped: {}", num_skipped);
 
   Ok(())
 }

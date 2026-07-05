@@ -54,7 +54,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let note = sub_matches.get_one::<String>("note").unwrap();
   let session_name = sub_matches.get_one::<String>("session").unwrap();
 
-  let named_session = NamedInfuSession::get(session_name)
+  let mut named_session = NamedInfuSession::get(session_name)
     .await
     .map_err(|e| format!("A problem occurred getting session '{}': {}.", session_name, e))?
     .ok_or("Session does not exist - use the login CLI command to create one.")?;
@@ -88,15 +88,10 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let add_item_request = serde_json::to_string(&item)?;
   let send_request = CommandRequest { command: "add-item".to_owned(), json_data: add_item_request, base64_data: None };
 
-  let add_item_response: CommandResponse = client
-    .post(named_session.command_url()?.clone())
-    .json(&send_request)
-    .send()
-    .await
-    .map_err(|e| format!("{}", e))?
-    .json()
-    .await
-    .map_err(|e| format!("{}", e))?;
+  let response =
+    client.post(named_session.command_url()?.clone()).json(&send_request).send().await.map_err(|e| format!("{}", e))?;
+  named_session.update_from_response(&response).await?;
+  let add_item_response: CommandResponse = response.json().await.map_err(|e| format!("{}", e))?;
 
   if !add_item_response.success {
     println!("Infumap rejected the add-item command. Has your session expired?");
