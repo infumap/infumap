@@ -109,6 +109,11 @@ function geometryCanFitVisibleBounds(geometry: ItemGeometry, visibleBoundsPx: Bo
     geometry.boundsPx.h + insets.topPx + insets.bottomPx <= visibleBoundsPx.h;
 }
 
+function geometryCanFitVisibleWidth(geometry: ItemGeometry, visibleBoundsPx: BoundingBox): boolean {
+  const insets = geometryInsetsFromVisibleContent(geometry);
+  return geometry.boundsPx.w + insets.leftPx + insets.rightPx <= visibleBoundsPx.w;
+}
+
 function geometryTranslationIntoVisibleBounds(geometry: ItemGeometry, visibleBoundsPx: BoundingBox): { dxPx: number, dyPx: number } {
   const insets = geometryInsetsFromVisibleContent(geometry);
   const minX = visibleBoundsPx.x + insets.leftPx;
@@ -214,16 +219,17 @@ function expandGeometryToNaturalPopupBounds(geometry: ItemGeometry, widthPx: num
 function shrinkPopupSizeUntilItFits(
   buildGeometry: (sizeValue: number) => ItemGeometry,
   currentSizeValue: number,
-  visibleBoundsPx: BoundingBox
+  visibleBoundsPx: BoundingBox,
+  geometryFits: (geometry: ItemGeometry, visibleBoundsPx: BoundingBox) => boolean = geometryCanFitVisibleBounds,
 ): { sizeValue: number, geometry: ItemGeometry, wasShrunk: boolean } {
   const currentGeometry = buildGeometry(currentSizeValue);
-  if (geometryCanFitVisibleBounds(currentGeometry, visibleBoundsPx)) {
+  if (geometryFits(currentGeometry, visibleBoundsPx)) {
     return { sizeValue: currentSizeValue, geometry: currentGeometry, wasShrunk: false };
   }
 
   let low = Math.max(currentSizeValue / 4096.0, 0.0001);
   let lowGeometry = buildGeometry(low);
-  if (!geometryCanFitVisibleBounds(lowGeometry, visibleBoundsPx)) {
+  if (!geometryFits(lowGeometry, visibleBoundsPx)) {
     return { sizeValue: low, geometry: lowGeometry, wasShrunk: low !== currentSizeValue };
   }
 
@@ -231,7 +237,7 @@ function shrinkPopupSizeUntilItFits(
   for (let i = 0; i < 24; ++i) {
     const mid = (low + high) / 2.0;
     const midGeometry = buildGeometry(mid);
-    if (geometryCanFitVisibleBounds(midGeometry, visibleBoundsPx)) {
+    if (geometryFits(midGeometry, visibleBoundsPx)) {
       low = mid;
       lowGeometry = midGeometry;
     } else {
@@ -377,7 +383,8 @@ function calcCellPopupGeometry(
   const sizeFit = shrinkPopupSizeUntilItFits(
     (nextWidthNorm) => buildGeometry(adjustedPositionNorm, nextWidthNorm),
     widthNorm,
-    visibleBoundsPx
+    visibleBoundsPx,
+    popupItem && isNote(popupItem) ? geometryCanFitVisibleWidth : geometryCanFitVisibleBounds,
   );
   const adjustedWidthNorm = sizeFit.sizeValue;
   let geometry = sizeFit.geometry;
@@ -551,7 +558,8 @@ export function calcSpatialPopupGeometry(
   const sizeFit = shrinkPopupSizeUntilItFits(
     (nextWidthGr) => buildGeometry(adjustedPopupCenter, nextWidthGr).geometry,
     widthGr,
-    desktopLocalBoundsPx
+    desktopLocalBoundsPx,
+    popupItem && isNote(popupItem) ? geometryCanFitVisibleWidth : geometryCanFitVisibleBounds,
   );
   widthGr = sizeFit.sizeValue;
   let geometry = sizeFit.geometry;
