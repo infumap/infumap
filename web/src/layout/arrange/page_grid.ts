@@ -34,7 +34,7 @@ import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getC
 import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
 import { calcJustifiedPagePaddingPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
-import { arrangeCellPopupPath } from "./popup";
+import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
 
 
@@ -254,7 +254,9 @@ export function arrange_grid_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupPath = arrangeCellPopupPath(store);
+      pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Grid, childAreaBoundsPx)
+        : arrangeCellPopupPath(store);
     }
   }
 

@@ -41,7 +41,7 @@ import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, type ListPageRowBand } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
-import { arrangeCellPopupPath } from "./popup";
+import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 
 
@@ -498,7 +498,9 @@ export function arrange_list_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupPath = arrangeCellPopupPath(store);
+      pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.List, geometry.viewportBoundsPx!)
+        : arrangeCellPopupPath(store);
     }
   }
 

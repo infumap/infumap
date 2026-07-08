@@ -266,7 +266,6 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
         if (linkItemMaybe) {
           const linkItem = asLinkItem(linkItemMaybe);
           linkItem.linkToResolvedId = ItemFns.fromObject(result.item, baseUrl).id;
-          LinkFns.syncSizeFromLinkedItem(linkItem);
           linkItem.linkRequiresRemoteLogin = null;
         }
         if (isAttachmentsItem(itemState.get(itemId)!)) {

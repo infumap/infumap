@@ -34,7 +34,7 @@ import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationship
 import { ArrangeItemFlags, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { CATALOG_HORIZONTAL_MARGIN_PX, CATALOG_VERTICAL_MARGIN_PX, calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx } from "../catalog";
 import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
-import { arrangeCellPopupPath } from "./popup";
+import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { VisualElementSignal } from "../../util/signals";
 
 
@@ -202,7 +202,9 @@ export function arrange_catalog_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupPath = arrangeCellPopupPath(store);
+      pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Catalog, childAreaBoundsPx)
+        : arrangeCellPopupPath(store);
     }
   }
 

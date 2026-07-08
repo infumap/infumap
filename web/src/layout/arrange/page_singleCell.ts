@@ -32,7 +32,7 @@ import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeFlagIsRoot, arrangeItemPath, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
-import { arrangeCellPopupPath } from "./popup";
+import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
 
 const SOLO_ITEM_SMALL_DISPLAY_SHORT_SIDE_PX = 420;
@@ -209,7 +209,9 @@ export function arrange_single_cell_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupPath = arrangeCellPopupPath(store);
+      pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.SingleCell, childAreaBoundsPx)
+        : arrangeCellPopupPath(store);
     }
   }
 

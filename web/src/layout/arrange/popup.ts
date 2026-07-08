@@ -653,3 +653,41 @@ export function arrangeCellPopup(store: StoreContextModel): VisualElementSignal 
 export function arrangeCellPopupPath(store: StoreContextModel): VisualElementPath {
   return VeFns.veToPath(arrangeCellPopup(store).get());
 }
+
+export function shouldArrangeSourceAnchoredPopup(store: StoreContextModel): boolean {
+  const currentPopupSpec = store.history.currentPopupSpec();
+  if (currentPopupSpec == null) { return false; }
+
+  const popupItem = itemState.get(currentPopupSpec.actualVeid.itemId);
+  if (popupItem == null || isPage(popupItem) || isImage(popupItem)) { return false; }
+
+  return (currentPopupSpec.isFromAttachment ?? false) || currentPopupSpec.sourceTopLeftGr != null;
+}
+
+export function arrangeSourceAnchoredPopupPath(
+  store: StoreContextModel,
+  currentPage: PageItem,
+  currentPath: VisualElementPath,
+  parentArrangeAlgorithm: string,
+  childAreaBoundsPx: BoundingBox,
+): VisualElementPath {
+  const currentPopupSpec = store.history.currentPopupSpec()!;
+  const { geometry, linkItem, actualLinkItemMaybe, wasAutoAdjusted } = calcSpatialPopupGeometry(
+    store,
+    currentPage,
+    currentPopupSpec.actualVeid,
+    childAreaBoundsPx,
+  );
+  const popupVes = arrangeItem(
+    store,
+    currentPath,
+    parentArrangeAlgorithm,
+    linkItem,
+    actualLinkItemMaybe,
+    geometry,
+    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsPopupRoot,
+  );
+  const popupPath = VeFns.veToPath(popupVes.get());
+  store.perVe.setAutoMovedIntoView(popupPath, wasAutoAdjusted);
+  return popupPath;
+}

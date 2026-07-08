@@ -38,7 +38,7 @@ import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { movingItemCellBoundsInPagePx } from "./moving";
-import { arrangeCellPopupPath } from "./popup";
+import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
@@ -331,7 +331,9 @@ export function arrange_document_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupPath = arrangeCellPopupPath(store);
+      pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Document, childAreaBoundsPx)
+        : arrangeCellPopupPath(store);
     }
   }
 
