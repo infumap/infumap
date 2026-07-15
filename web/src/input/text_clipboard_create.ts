@@ -144,9 +144,19 @@ export function finishPendingClipboardTextItem(
         // make the drag update a stale object and persist the pre-drag location.
         currentItem.origin = persistedItem.origin;
         currentItem.capabilities = persistedItem.capabilities;
+        currentItem.originalCreationDate = persistedItem.originalCreationDate;
+        currentItem.mimeType = persistedItem.mimeType;
+        currentItem.fileSizeBytes = persistedItem.fileSizeBytes;
         delete currentItem.clientOnly;
         delete currentItem.clipboardTextCreateState;
         delete currentItem.clipboardTextContent;
+
+        // Updates are intentionally skipped while the add request is in flight.
+        // Flush the live object now so any move or edit made during that window is
+        // persisted after the item exists, using the server-authoritative data
+        // fields returned by add-item.
+        void server.updateItem(currentItem, store.general.networkStatus, false)
+          .catch(error => console.warn("Failed to persist changes made while creating clipboard text item:", error));
       }
       requestArrange(store, "clipboard-text-persisted");
     })
