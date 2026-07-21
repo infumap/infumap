@@ -24,27 +24,12 @@ interface CalendarRangeOverlaysProps {
   visualElement: VisualElement,
 }
 
-const RANGE_COLORS = [
-  "#3b82f624",
-  "#8b5cf624",
-  "#06b6d424",
-  "#10b98124",
-  "#f59e0b24",
-  "#ec489924",
-] as const;
-
-function rangeColors(itemId: string): typeof RANGE_COLORS[number] {
-  let hash = 0;
-  for (let i = 0; i < itemId.length; ++i) {
-    hash = ((hash * 31) + itemId.charCodeAt(i)) | 0;
-  }
-  return RANGE_COLORS[Math.abs(hash) % RANGE_COLORS.length];
-}
+const RANGE_FILL = "rgba(59, 130, 246, 0.10)";
+const ACTIVE_RANGE_FILL = "rgba(59, 130, 246, 0.14)";
 
 export function CalendarRangeOverlays(props: CalendarRangeOverlaysProps) {
   return (
     <For each={props.visualElement.calendarRangeLayouts}>{rangeLayout => {
-      const colors = rangeColors(rangeLayout.itemId);
       const isActiveResize = MouseActionState.isAction(MouseAction.ResizingCalendarRange) &&
         MouseActionState.getCalendarRangeResize()?.occurrenceItemId == rangeLayout.itemId;
       return (
@@ -55,7 +40,7 @@ export function CalendarRangeOverlays(props: CalendarRangeOverlaysProps) {
               data-calendar-range-item-id={rangeLayout.itemId}
               style={`left: ${segment.boundsPx.x}px; top: ${segment.boundsPx.y}px; ` +
                 `width: ${segment.boundsPx.w}px; height: ${segment.boundsPx.h}px; ` +
-                `background-color: ${colors}; opacity: ${isActiveResize ? 1 : 0.78};`}
+                `background-color: ${isActiveResize ? ACTIVE_RANGE_FILL : RANGE_FILL};`}
             />
           }</For>
         </>
