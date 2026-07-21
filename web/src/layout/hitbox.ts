@@ -90,6 +90,8 @@ export interface HitboxMeta {
   popupTitleTargetPath?: VisualElementPath,
   calendarDividerMonth?: number,
   calendarRangeItemId?: Uid,
+  calendarRangeOccurrenceItemId?: Uid,
+  calendarRangeStartDateTime?: number,
 }
 
 export const HitboxFns = {
@@ -150,6 +152,12 @@ export const HitboxFns = {
     if (typeof (meta.calendarRangeItemId) != 'undefined') {
       result.calendarRangeItemId = meta.calendarRangeItemId;
     }
+    if (typeof (meta.calendarRangeOccurrenceItemId) != 'undefined') {
+      result.calendarRangeOccurrenceItemId = meta.calendarRangeOccurrenceItemId;
+    }
+    if (typeof (meta.calendarRangeStartDateTime) != 'undefined') {
+      result.calendarRangeStartDateTime = meta.calendarRangeStartDateTime;
+    }
     return result;
   },
 
@@ -159,6 +167,8 @@ export const HitboxFns = {
       if (a.meta == null || b.meta == null) { return 1; }
       if (a.meta.colNum != b.meta.colNum) { return 1; }
       if (a.meta.calendarRangeItemId != b.meta.calendarRangeItemId) { return 1; }
+      if (a.meta.calendarRangeOccurrenceItemId != b.meta.calendarRangeOccurrenceItemId) { return 1; }
+      if (a.meta.calendarRangeStartDateTime != b.meta.calendarRangeStartDateTime) { return 1; }
     }
     return compareBoundingBox(a.boundsPx, b.boundsPx);
   },
@@ -188,6 +198,8 @@ export const HitboxFns = {
       (meta.compositeContentCollapse ? meta.compositeContentCollapse : "undefined") + ", popupTitleTargetPath: " +
       (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", dividerMonth: " +
       (meta.calendarDividerMonth ? meta.calendarDividerMonth : "undefined") + ", calendarRangeItemId: " +
-      (meta.calendarRangeItemId ? meta.calendarRangeItemId : "undefined") + "]";
+      (meta.calendarRangeItemId ? meta.calendarRangeItemId : "undefined") + ", calendarRangeOccurrenceItemId: " +
+      (meta.calendarRangeOccurrenceItemId ? meta.calendarRangeOccurrenceItemId : "undefined") + ", calendarRangeStartDateTime: " +
+      (meta.calendarRangeStartDateTime ?? "undefined") + "]";
   }
 }

@@ -398,6 +398,7 @@ export interface CalendarRangeSegmentLayout {
 
 export interface CalendarRangeLayout {
   itemId: Uid,
+  rangeOwnerItemId: Uid,
   dateTime: number,
   endDateTime: number | null,
   segments: Array<CalendarRangeSegmentLayout>,

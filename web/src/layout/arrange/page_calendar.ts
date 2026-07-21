@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { LinkItem, isLink, asLinkItem } from "../../items/link-item";
+import { LinkFns, LinkItem, isLink, asLinkItem } from "../../items/link-item";
 import { isRating } from "../../items/rating-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -53,6 +53,7 @@ import {
   getCalendarMonthLeftPx,
   getCalendarMonthWidthPx,
   isCalendarMonthVisible,
+  moveCalendarDateTimeRangeToStart,
 } from "../../util/calendar-layout";
 import { Item, ItemType } from "../../items/base/item";
 import { getMovingTreeItemInParentMaybe } from "./util";
@@ -177,9 +178,30 @@ function calendarRangeResizeHitboxes(
         ...rangeLayout.endpointResizeBoundsPx,
         y: rangeLayout.endpointResizeBoundsPx.y + yOffsetPx,
       },
-      HitboxFns.createMeta({ calendarRangeItemId: rangeLayout.itemId }),
+      HitboxFns.createMeta({
+        calendarRangeItemId: rangeLayout.rangeOwnerItemId,
+        calendarRangeOccurrenceItemId: rangeLayout.itemId,
+        calendarRangeStartDateTime: rangeLayout.dateTime,
+      }),
     )];
   });
+}
+
+function calendarRangeValues(child: Item): { ownerItem: Item, endDateTime: number | null } | null {
+  if (!isLink(child)) {
+    return { ownerItem: child, endDateTime: child.endDateTime };
+  }
+
+  const ownerItem = itemState.get(LinkFns.getLinkToId(asLinkItem(child)));
+  if (ownerItem == null || isLink(ownerItem)) { return null; }
+  return {
+    ownerItem,
+    endDateTime: moveCalendarDateTimeRangeToStart(
+      ownerItem.dateTime,
+      ownerItem.endDateTime,
+      child.dateTime,
+    ).endDateTime,
+  };
 }
 
 function arrangeMiniCalendarPage(
@@ -341,11 +363,15 @@ function arrangeMiniCalendarPage(
 
   const calendarRangeLayouts: Array<CalendarRangeLayout> = [];
   for (const child of calendarChildren) {
+    const rangeValues = calendarRangeValues(child);
+    if (rangeValues == null) { continue; }
+    const { ownerItem: rangeOwnerItem, endDateTime } = rangeValues;
     const itemBounds = itemBoundsById.get(child.id) ?? null;
-    if (child.endDateTime == null) {
+    if (endDateTime == null) {
       if (itemBounds == null) { continue; }
       calendarRangeLayouts.push({
         itemId: child.id,
+        rangeOwnerItemId: rangeOwnerItem.id,
         dateTime: child.dateTime,
         endDateTime: null,
         segments: [],
@@ -360,7 +386,7 @@ function arrangeMiniCalendarPage(
     }
 
     const startDate = calendarDateFromDateTime(child.dateTime);
-    const endDate = calendarDateFromDateTime(child.endDateTime);
+    const endDate = calendarDateFromDateTime(endDateTime);
     const visibleRangeDays = calendarMiniDayLayouts.filter(dayLayout => {
       const date = { year: dayLayout.year, month: dayLayout.month, day: dayLayout.day };
       return compareCalendarDates(date, startDate) >= 0 && compareCalendarDates(date, endDate) <= 0;
@@ -379,7 +405,7 @@ function arrangeMiniCalendarPage(
       }
 
       const startsAtRangeStart = compareCalendarDates(date, startDate) == 0;
-      const segmentTopPx = startsAtRangeStart && itemBounds != null ? itemBounds.y : dayLayout.topPx;
+      const segmentTopPx = dayLayout.topPx;
       segments.push({
         year: dayLayout.year,
         month: dayLayout.month,
@@ -388,9 +414,9 @@ function arrangeMiniCalendarPage(
         startsAtRangeStart,
         endsAtRangeEnd: compareCalendarDates(date, endDate) == 0,
         boundsPx: {
-          x: calendarItemLeftPx,
+          x: columnLeftPx,
           y: segmentTopPx,
-          w: effectiveItemWidthPx,
+          w: columnWidthPx,
           h: dayLayout.topPx + dayLayout.heightPx - segmentTopPx,
         },
       });
@@ -399,8 +425,9 @@ function arrangeMiniCalendarPage(
     const endSegment = segments.find(segment => segment.endsAtRangeEnd) ?? null;
     calendarRangeLayouts.push({
       itemId: child.id,
+      rangeOwnerItemId: rangeOwnerItem.id,
       dateTime: child.dateTime,
-      endDateTime: child.endDateTime,
+      endDateTime,
       segments,
       endpointResizeBoundsPx: endSegment == null
         ? null
@@ -792,11 +819,15 @@ export function arrange_calendar_page(
 
   const calendarRangeLayouts: Array<CalendarRangeLayout> = [];
   for (const child of calendarChildren) {
+    const rangeValues = calendarRangeValues(child);
+    if (rangeValues == null) { continue; }
+    const { ownerItem: rangeOwnerItem, endDateTime } = rangeValues;
     const itemBounds = itemBoundsById.get(child.id) ?? null;
-    if (child.endDateTime == null) {
+    if (endDateTime == null) {
       if (itemBounds == null) { continue; }
       calendarRangeLayouts.push({
         itemId: child.id,
+        rangeOwnerItemId: rangeOwnerItem.id,
         dateTime: child.dateTime,
         endDateTime: null,
         segments: [],
@@ -812,7 +843,7 @@ export function arrange_calendar_page(
 
     const monthSegments = calculateCalendarRangeMonthSegments(
       child.dateTime,
-      child.endDateTime,
+      endDateTime,
       calendarWindow.months,
     );
     if (monthSegments.length == 0) { continue; }
@@ -832,16 +863,14 @@ export function arrange_calendar_page(
         monthSegment.month,
         monthSegment.endDay,
       );
-      const topPx = monthSegment.startsAtRangeStart && itemBounds != null
-        ? itemBounds.y
-        : startDayMetrics.topPx;
+      const topPx = startDayMetrics.topPx;
       const bottomPx = endDayMetrics.topPx + endDayMetrics.heightPx;
       return {
         ...monthSegment,
         boundsPx: {
-          x: monthLeftPx + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX + itemLeftPadding,
+          x: monthLeftPx,
           y: topPx,
-          w: Math.max(0, monthWidthPx - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding - 2),
+          w: monthWidthPx,
           h: Math.max(0, bottomPx - topPx),
         },
       };
@@ -849,8 +878,9 @@ export function arrange_calendar_page(
     const endSegment = segments.find(segment => segment.endsAtRangeEnd) ?? null;
     calendarRangeLayouts.push({
       itemId: child.id,
+      rangeOwnerItemId: rangeOwnerItem.id,
       dateTime: child.dateTime,
-      endDateTime: child.endDateTime,
+      endDateTime,
       segments,
       endpointResizeBoundsPx: endSegment == null
         ? null

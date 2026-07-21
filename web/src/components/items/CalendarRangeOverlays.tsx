@@ -16,7 +16,7 @@
   along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { For, Show } from "solid-js";
+import { For } from "solid-js";
 import { VisualElement } from "../../layout/visual-element";
 import { MouseAction, MouseActionState } from "../../input/state";
 
@@ -25,12 +25,12 @@ interface CalendarRangeOverlaysProps {
 }
 
 const RANGE_COLORS = [
-  { fill: "#3b82f624", edge: "#2563eb99" },
-  { fill: "#8b5cf624", edge: "#7c3aed99" },
-  { fill: "#06b6d424", edge: "#0891b299" },
-  { fill: "#10b98124", edge: "#05966999" },
-  { fill: "#f59e0b24", edge: "#d9770699" },
-  { fill: "#ec489924", edge: "#db277799" },
+  "#3b82f624",
+  "#8b5cf624",
+  "#06b6d424",
+  "#10b98124",
+  "#f59e0b24",
+  "#ec489924",
 ] as const;
 
 function rangeColors(itemId: string): typeof RANGE_COLORS[number] {
@@ -46,7 +46,7 @@ export function CalendarRangeOverlays(props: CalendarRangeOverlaysProps) {
     <For each={props.visualElement.calendarRangeLayouts}>{rangeLayout => {
       const colors = rangeColors(rangeLayout.itemId);
       const isActiveResize = MouseActionState.isAction(MouseAction.ResizingCalendarRange) &&
-        MouseActionState.getCalendarRangeResize()?.itemId == rangeLayout.itemId;
+        MouseActionState.getCalendarRangeResize()?.occurrenceItemId == rangeLayout.itemId;
       return (
         <>
           <For each={rangeLayout.segments}>{segment =>
@@ -55,22 +55,9 @@ export function CalendarRangeOverlays(props: CalendarRangeOverlaysProps) {
               data-calendar-range-item-id={rangeLayout.itemId}
               style={`left: ${segment.boundsPx.x}px; top: ${segment.boundsPx.y}px; ` +
                 `width: ${segment.boundsPx.w}px; height: ${segment.boundsPx.h}px; ` +
-                `box-sizing: border-box; background-color: ${colors.fill}; opacity: ${isActiveResize ? 1 : 0.78}; ` +
-                `border-left: 2px solid ${colors.edge}; border-right: 2px solid ${colors.edge}; ` +
-                `${segment.startsAtRangeStart ? `border-top: 1px solid ${colors.edge}; ` : ""}` +
-                `${segment.endsAtRangeEnd ? `border-bottom: 2px solid ${colors.edge}; ` : ""}`}
+                `background-color: ${colors}; opacity: ${isActiveResize ? 1 : 0.78};`}
             />
           }</For>
-          <Show when={rangeLayout.endDateTime != null && rangeLayout.endpointResizeBoundsPx != null}>
-            <div
-              class="absolute pointer-events-none"
-              data-calendar-range-end-item-id={rangeLayout.itemId}
-              style={`left: ${rangeLayout.endpointResizeBoundsPx!.x}px; ` +
-                `top: ${rangeLayout.endpointResizeBoundsPx!.y + rangeLayout.endpointResizeBoundsPx!.h / 2 - (isActiveResize ? 1.5 : 1)}px; ` +
-                `width: ${rangeLayout.endpointResizeBoundsPx!.w}px; height: ${isActiveResize ? 3 : 2}px; ` +
-                `background-color: ${colors.edge};`}
-            />
-          </Show>
         </>
       );
     }}</For>

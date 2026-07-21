@@ -813,8 +813,15 @@ pub fn note_favicon_url(item: &Item) -> Option<&str> {
     .map(|url| url.url.as_str())
 }
 
-fn validate_datetime_range(datetime: i64, end_datetime: Option<i64>, item_id: &str) -> InfuResult<()> {
+fn validate_datetime_range(item_type: ItemType, datetime: i64, end_datetime: Option<i64>, item_id: &str) -> InfuResult<()> {
   if let Some(end_datetime) = end_datetime {
+    if item_type == ItemType::Link {
+      return Err(format!(
+        "Link item '{}' cannot have endDateTime set; the range belongs to its linked-to item.",
+        item_id
+      )
+      .into());
+    }
     if end_datetime <= datetime {
       return Err(format!(
         "Item '{}' has endDateTime '{}', which must be later than dateTime '{}'.",
@@ -872,7 +879,7 @@ impl JsonLogSerializable<Item> for Item {
     if old.owner_id != new.owner_id {
       return Err("An attempt was made to create an item update from instances with non-matching owner_ids.".into());
     }
-    validate_datetime_range(new.datetime, new.end_datetime, &new.id)?;
+    validate_datetime_range(new.item_type, new.datetime, new.end_datetime, &new.id)?;
 
     let mut result = Map::new();
     result.insert(String::from("__recordType"), Value::String(String::from("update")));
@@ -1576,7 +1583,7 @@ impl JsonLogSerializable<Item> for Item {
     } else {
       self.end_datetime
     };
-    validate_datetime_range(updated_datetime, updated_end_datetime, &self.id)?;
+    validate_datetime_range(self.item_type, updated_datetime, updated_end_datetime, &self.id)?;
     self.datetime = updated_datetime;
     self.end_datetime = updated_end_datetime;
     if map.contains_key("ordering") {
@@ -1953,7 +1960,7 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     Err(format!("'{}' field cannot be set for item '{}' of type {}.", field_name, item_id, item_type).into())
   }
 
-  validate_datetime_range(item.datetime, item.end_datetime, &item.id)?;
+  validate_datetime_range(item.item_type, item.datetime, item.end_datetime, &item.id)?;
 
   let mut result = Map::new();
   result.insert(String::from("itemType"), Value::String(item.item_type.as_str().to_owned()));
@@ -2371,7 +2378,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
 
   let datetime = json::get_integer_field(map, "dateTime")?.ok_or("'dateTime' field was missing.")?;
   let end_datetime = json::get_integer_field(map, "endDateTime")?;
-  validate_datetime_range(datetime, end_datetime, &id)?;
+  validate_datetime_range(item_type, datetime, end_datetime, &id)?;
 
   let r = Item {
     item_type: item_type.clone(),

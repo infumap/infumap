@@ -49,7 +49,7 @@ import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics"
 import { CATALOG_VERTICAL_MARGIN_PX } from "../layout/catalog";
 import {
   calculateCalendarPosition,
-  calculateCalendarRangeEndDateTime,
+  calculateCalendarRangeOwnerEndDateTime,
   calculateCalendarWindowForPage,
   calculateCalendarDimensions,
   getCalendarDividerCenterPx,
@@ -502,6 +502,8 @@ function changeMouseActionStateMaybe(
     }
     MouseActionState.setCalendarRangeResize({
       itemId: rangeItem.id,
+      occurrenceItemId: MouseActionState.getHitMeta()?.calendarRangeOccurrenceItemId ?? rangeItem.id,
+      rangeStartDateTime: MouseActionState.getHitMeta()?.calendarRangeStartDateTime ?? rangeItem.dateTime,
       originalEndDateTime: rangeItem.endDateTime,
       edgeDirection: 0,
       edgeEnteredAtMs: 0,
@@ -1225,7 +1227,7 @@ function mouseAction_resizingCalendarRange(desktopPosPx: Vector, store: StoreCon
     );
     targetYear = calendarWindow.months.find(month => month.month == targetPosition.month)?.year ?? calendarWindow.year;
   }
-  const nextEndDateTime = calculateCalendarRangeEndDateTime(item.dateTime, {
+  const nextEndDateTime = calculateCalendarRangeOwnerEndDateTime(item.dateTime, resizeState.rangeStartDateTime, {
     year: targetYear,
     month: targetPosition.month,
     day: targetPosition.day,

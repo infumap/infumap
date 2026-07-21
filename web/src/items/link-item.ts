@@ -131,7 +131,7 @@ export const LinkFns = {
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
       dateTime: o.dateTime,
-      endDateTime: o.endDateTime ?? null,
+      endDateTime: null,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
 
@@ -161,7 +161,6 @@ export const LinkFns = {
       creationDate: l.creationDate,
       lastModifiedDate: l.lastModifiedDate,
       dateTime: l.dateTime,
-      endDateTime: l.endDateTime,
       ordering: Array.from(l.ordering),
       spatialPositionGr: l.spatialPositionGr,
 

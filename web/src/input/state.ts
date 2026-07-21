@@ -72,6 +72,8 @@ export interface ItemCopyMoveState {
 
 export interface CalendarRangeResizeState {
   itemId: string,
+  occurrenceItemId: string,
+  rangeStartDateTime: number,
   originalEndDateTime: number | null,
   edgeDirection: -1 | 0 | 1,
   edgeEnteredAtMs: number,

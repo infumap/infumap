@@ -358,6 +358,23 @@ export function calculateCalendarRangeEndDateTime(
   return calendarDateTimeForDate(clampedTargetEndDate, dateTimeSeconds);
 }
 
+export function calculateCalendarRangeOwnerEndDateTime(
+  ownerDateTimeSeconds: number,
+  rangeStartDateTimeSeconds: number,
+  targetEndDate: CalendarDate,
+): number | null {
+  const occurrenceEndDateTime = calculateCalendarRangeEndDateTime(
+    rangeStartDateTimeSeconds,
+    targetEndDate,
+  );
+  if (occurrenceEndDateTime == null) { return null; }
+  const durationDays = calendarDayDifference(
+    calendarDateFromDateTime(rangeStartDateTimeSeconds),
+    calendarDateFromDateTime(occurrenceEndDateTime),
+  );
+  return shiftCalendarDateTimeByDays(ownerDateTimeSeconds, durationDays);
+}
+
 export function shiftCalendarDateTimeByDays(dateTimeSeconds: number, dayOffset: number): number {
   const date = new Date(dateTimeSeconds * 1000);
   const shiftedDate = new Date(

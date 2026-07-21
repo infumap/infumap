@@ -129,6 +129,7 @@ function calendarRangeLayoutsEqual(
     const aLayout = aLayouts[i];
     const bLayout = bLayouts[i];
     if (aLayout.itemId !== bLayout.itemId) { return false; }
+    if (aLayout.rangeOwnerItemId !== bLayout.rangeOwnerItemId) { return false; }
     if (aLayout.dateTime !== bLayout.dateTime) { return false; }
     if (aLayout.endDateTime !== bLayout.endDateTime) { return false; }
     if (compareBoundingBox(aLayout.endpointResizeBoundsPx, bLayout.endpointResizeBoundsPx) !== 0) { return false; }
