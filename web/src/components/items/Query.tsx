@@ -80,7 +80,9 @@ import {
   submitQueryChatMessage,
 } from "../../items/chat";
 import { NoteInlineText } from "./NoteInlineText";
-import { MOUSE_LEFT } from "../../input/mouse_down";
+import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_down";
+import { mouseUpHandler } from "../../input/mouse_up";
+import { CursorEventState } from "../../input/state";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
 
 const normalizeSearchText = (text: string): string =>
@@ -123,6 +125,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryInfumapDataCheckbox: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let activeSearchRequestSerial = 0;
+  let chatRequestWasActive = false;
   const boundsPx = () => props.visualElement.boundsPx;
   const vePath = () => VeFns.veToPath(props.visualElement);
 
@@ -475,7 +478,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       await submitQueryChatMessage(store, queryItem(), value);
     } finally {
       setIsSendingChat(false);
-      focusChatTextareaSoon();
     }
   };
 
@@ -643,6 +645,24 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   createEffect(() => {
+    const requestActive = isStartingChat() || isSendingChat();
+    if (!isListPageMainRoot() || !isChatMode()) {
+      chatRequestWasActive = requestActive;
+      return;
+    }
+    if (requestActive) {
+      chatRequestWasActive = true;
+      return;
+    }
+    if (!chatRequestWasActive) {
+      return;
+    }
+    chatRequestWasActive = false;
+    const raf = requestAnimationFrame(() => chatTextarea?.focus());
+    onCleanup(() => cancelAnimationFrame(raf));
+  });
+
+  createEffect(() => {
     if (!isListPageMainRoot() || !isSearchMode() || !searchHasMoreResults()) {
       setMoreButtonHost(null);
       return;
@@ -703,6 +723,30 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const stop = (ev: Event) => {
       ev.stopPropagation();
     };
+    const chatTranscriptMouseDown = (ev: MouseEvent) => {
+      if (ev.button == MOUSE_RIGHT) {
+        const selection = window.getSelection();
+        if (selection != null && !selection.isCollapsed) {
+          selection.removeAllRanges();
+        }
+        return;
+      }
+      if (ev.button == MOUSE_LEFT) {
+        CursorEventState.setFromMouseEvent(ev);
+        void mouseDownHandler(store, MOUSE_LEFT);
+      }
+      ev.stopPropagation();
+    };
+    const chatTranscriptMouseUp = (ev: MouseEvent) => {
+      if (ev.button == MOUSE_RIGHT) {
+        return;
+      }
+      if (ev.button == MOUSE_LEFT) {
+        CursorEventState.setFromMouseEvent(ev);
+        mouseUpHandler(store);
+      }
+      ev.stopPropagation();
+    };
     const chatLinkMouseDown = (url: string, ev: MouseEvent) => {
       if (ev.button != MOUSE_LEFT) {
         return;
@@ -734,16 +778,18 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class="absolute bg-white"
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <div
-          class="absolute pointer-events-auto select-text overflow-y-auto"
+          class="absolute overflow-y-auto"
           style={`left: 0px; top: 0px; width: ${boundsPx().w}px; ` +
             `height: ${Math.max(0, boundsPx().h - transcriptBottomPx())}px; ` +
-            `cursor: text; user-select: text; -webkit-user-select: text;`}
-          onMouseDown={stop}
-          onMouseMove={stop}
-          onMouseUp={stop}
-          onClick={stop}>
-          <div class="absolute"
-            style={`left: ${contentLeftPx()}px; top: 34px; width: ${contentWidthPx()}px;`}>
+            `cursor: default;`}>
+          <div
+            class="absolute pointer-events-auto select-text"
+            style={`left: ${contentLeftPx()}px; top: 34px; width: ${contentWidthPx()}px; ` +
+              `cursor: text; user-select: text; -webkit-user-select: text;`}
+            onMouseDown={chatTranscriptMouseDown}
+            onMouseMove={stop}
+            onMouseUp={chatTranscriptMouseUp}
+            onClick={stop}>
             <For each={queryChatTurns(store, queryItem())}>{turn =>
               <div style="margin-bottom: 34px;">
                 <div class="flex items-center"
