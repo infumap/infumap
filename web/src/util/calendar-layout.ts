@@ -384,6 +384,27 @@ export function shiftCalendarDateTimeRange(
   };
 }
 
+export function moveCalendarDateTimeRangeToStart(
+  dateTimeSeconds: number,
+  endDateTimeSeconds: number | null,
+  targetDateTimeSeconds: number,
+): ShiftedCalendarDateTimeRange {
+  if (endDateTimeSeconds == null) {
+    return { dateTime: targetDateTimeSeconds, endDateTime: null };
+  }
+
+  const durationDays = calendarDayDifference(
+    calendarDateFromDateTime(dateTimeSeconds),
+    calendarDateFromDateTime(endDateTimeSeconds),
+  );
+  return {
+    dateTime: targetDateTimeSeconds,
+    endDateTime: durationDays <= 0
+      ? null
+      : shiftCalendarDateTimeByDays(targetDateTimeSeconds, durationDays),
+  };
+}
+
 export function calculateCalendarRangeMonthSegments(
   dateTimeSeconds: number,
   endDateTimeSeconds: number | null,

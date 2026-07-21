@@ -35,7 +35,7 @@ import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { PlaceholderFns } from "../items/placeholder-item";
-import { calculateCalendarPosition, encodeCalendarCombinedIndex } from "../util/calendar-layout";
+import { calculateCalendarPosition, encodeCalendarCombinedIndex, moveCalendarDateTimeRangeToStart } from "../util/calendar-layout";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
@@ -123,6 +123,11 @@ function appendCopySuffixToTextLikeClone(item: Item): void {
 }
 
 function prepareShiftDragClone(cloned: Item, source: Item): void {
+  cloned.endDateTime = moveCalendarDateTimeRangeToStart(
+    source.dateTime,
+    source.endDateTime,
+    cloned.dateTime,
+  ).endDateTime;
   if (isPage(cloned) && isPage(source) && isMarkdownTextDocumentPage(source.id)) {
     asPageItem(cloned).backgroundColorIndex = 0;
   }

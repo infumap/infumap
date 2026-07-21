@@ -52,7 +52,15 @@ import { HitInfoFns } from "./hit";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry } from "./state";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
-import { calculateCalendarDateTimeForPosition, calculateCalendarPosition, decodeCalendarCombinedIndex } from "../util/calendar-layout";
+import {
+  calculateCalendarDateTimeForPosition,
+  calculateCalendarPosition,
+  calendarDateFromDateTime,
+  calendarDayDifference,
+  decodeCalendarCombinedIndex,
+  moveCalendarDateTimeRangeToStart,
+  shiftCalendarDateTimeByDays,
+} from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
@@ -992,6 +1000,45 @@ function calendarDropDateTime(store: StoreContextModel, calendarPageVe: VisualEl
   return calculateCalendarDateTimeForPosition(position, calendarPageVe, store, activeItem.dateTime);
 }
 
+function moveCalendarSelectionToDate(
+  activeItem: PositionalItem,
+  targetDateTime: number,
+): { changed: boolean, items: Array<PositionalItem> } {
+  const dayOffset = calendarDayDifference(
+    calendarDateFromDateTime(activeItem.dateTime),
+    calendarDateFromDateTime(targetDateTime),
+  );
+  const group = MouseActionState.getGroupMoveItems() ?? [];
+  const activeIsInGroup = group.some(entry =>
+    (entry.veid.linkIdMaybe ?? entry.veid.itemId) == activeItem.id);
+  const items = activeIsInGroup
+    ? group
+      .map(entry => itemState.get(entry.veid.linkIdMaybe ?? entry.veid.itemId))
+      .filter((item): item is PositionalItem =>
+        item != null && isPositionalItem(item) && item.parentId == activeItem.parentId)
+    : [activeItem];
+
+  let changed = false;
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (seen.has(item.id)) { continue; }
+    seen.add(item.id);
+    const itemTargetDateTime = item.id == activeItem.id
+      ? targetDateTime
+      : shiftCalendarDateTimeByDays(item.dateTime, dayOffset);
+    const movedRange = moveCalendarDateTimeRangeToStart(
+      item.dateTime,
+      item.endDateTime,
+      itemTargetDateTime,
+    );
+    if (item.dateTime == movedRange.dateTime && item.endDateTime == movedRange.endDateTime) { continue; }
+    item.dateTime = movedRange.dateTime;
+    item.endDateTime = movedRange.endDateTime;
+    changed = true;
+  }
+  return { changed, items };
+}
+
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
   NativeTextSelectionState.clear();
@@ -1408,11 +1455,11 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       const targetPageItem = asPageItem(overContainerVe.displayItem);
       if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
         const newDateTime = calendarDropDateTime(store, overContainerVe, activeItem);
-        if (activeItem.dateTime !== newDateTime) {
-          activeItem.dateTime = newDateTime;
+        const calendarMove = moveCalendarSelectionToDate(activeItem, newDateTime);
+        for (const item of calendarMove.items) {
+          item.spatialPositionGr = { x: 0.0, y: 0.0 };
+          itemState.moveToNewParent(item, targetPageItem.id, RelationshipToParent.Child);
         }
-        activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-        itemState.moveToNewParent(activeItem, targetPageItem.id, RelationshipToParent.Child);
         const ops: Array<MovePersistOperation> = [];
         enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
         scheduleMoveCommit(store, ops, "mouse-up-move-to-calendar-page");
@@ -1458,10 +1505,10 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       }
     } else if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
       const newDateTime = calendarDropDateTime(store, overContainerVe, activeItem);
+      const calendarMove = moveCalendarSelectionToDate(activeItem, newDateTime);
       if (MouseActionState.getTextDocumentMaterializeMove()?.pendingPageId == activeItem.id ||
-        activeItem.dateTime !== newDateTime) {
-        activeItem.dateTime = newDateTime;
-        enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
+        calendarMove.changed) {
+        enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
       }
     }
     else {
