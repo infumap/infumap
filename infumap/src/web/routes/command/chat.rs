@@ -37,7 +37,7 @@ const CHAT_RESPONSE_TABLE_MIN_COLUMN_WIDTH_GR: i64 = 3 * GRID_SIZE;
 const CHAT_RESPONSE_TABLE_TEXT_SCORE_CAP: usize = 120;
 const CHAT_RESPONSE_TABLE_LONG_WORD_SCORE_CAP: usize = 40;
 const LLM_LOG_PATH: &str = "/tmp/llm.txt";
-const CHAT_SYSTEM_PROMPT: &str = "\
+const CHAT_INFUMAP_SYSTEM_PROMPT: &str = "\
 You are a chat assistant for an information workspace.
 
 Use lexical_search by default to locate items, discover likely relevant items, or search document text.
@@ -47,6 +47,10 @@ Only use linkUrl values returned by tools; do not invent item links or expose ra
 Use get_fragment when a lexical_search snippet is truncated, ambiguous, or too small to answer from confidently.
 If lexical_search results are insufficient, say what is missing rather than inventing details.
 Return a concise Markdown answer.";
+const CHAT_GENERAL_SYSTEM_PROMPT: &str = "\
+You are a helpful chat assistant.
+Return a concise Markdown answer.";
+const CHAT_CAPABILITY_INFUMAP_DATA: &str = "infumap_data";
 const NOTE_FLAG_HEADING3: i64 = 0x001;
 const NOTE_FLAG_HEADING1: i64 = 0x004;
 const NOTE_FLAG_HEADING2: i64 = 0x008;
@@ -65,6 +69,14 @@ struct ChatRequest {
   context_items: Vec<Value>,
   #[serde(rename = "userText")]
   user_text: String,
+  #[serde(default)]
+  capabilities: Vec<String>,
+}
+
+impl ChatRequest {
+  fn uses_infumap_data(&self) -> bool {
+    self.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_INFUMAP_DATA)
+  }
 }
 
 #[derive(Serialize)]
@@ -326,7 +338,7 @@ pub async fn serve_chat_stream_route(
   let db = db.clone();
 
   tokio::spawn(async move {
-    progress.status("Preparing context").await;
+    progress.status("Preparing request").await;
     let result = run_chat_with_tools_with_progress(config, &db, &session, &request, Some(&progress)).await;
     match result {
       Ok(assistant_text) => {
@@ -716,9 +728,15 @@ async fn run_chat_with_tools_with_progress(
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
-  messages.insert(0, LlamaChatMessage::text("system", CHAT_SYSTEM_PROMPT.to_owned()));
+  let uses_infumap_data = request.uses_infumap_data();
+  let system_prompt = if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT };
+  messages.insert(0, LlamaChatMessage::text("system", system_prompt.to_owned()));
 
-  let tools = vec![lexical_search_tool_spec(), get_fragment_tool_spec()];
+  let tools = if uses_infumap_data {
+    vec![lexical_search_tool_spec(), get_fragment_tool_spec()]
+  } else {
+    Vec::new()
+  };
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
@@ -734,6 +752,9 @@ async fn run_chat_with_tools_with_progress(
 
     let tool_calls = normalize_tool_calls(&mut message, tool_rounds);
     if !tool_calls.is_empty() {
+      if !uses_infumap_data {
+        return Err("The model requested an Infumap tool without the required capability.".into());
+      }
       if tool_rounds >= CHAT_MAX_TOOL_ROUNDS {
         return Err(format!("Chat tool loop exceeded maximum tool rounds ({CHAT_MAX_TOOL_ROUNDS}).").into());
       }

@@ -72,9 +72,11 @@ import {
 import {
   chatProgressForQuery,
   materializeQueryChat,
+  queryChatUsesInfumapData,
   queryChatHasContent,
   queryChatTurns,
   resetQueryChatSession,
+  setQueryChatUsesInfumapData,
   submitQueryChatMessage,
 } from "../../items/chat";
 import { NoteInlineText } from "./NoteInlineText";
@@ -100,6 +102,7 @@ const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_PROGRESS_HEIGHT_PX = 24;
+const QUERY_CHAT_SETTINGS_HEIGHT_PX = 28;
 
 
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -117,6 +120,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryModeSelect: HTMLSelectElement | undefined;
   let querySendButton: HTMLButtonElement | undefined;
   let queryDiscardButton: HTMLButtonElement | undefined;
+  let queryInfumapDataCheckbox: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let activeSearchRequestSerial = 0;
   const boundsPx = () => props.visualElement.boundsPx;
@@ -304,12 +308,26 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  type QueryControlName = "mode" | "input" | "send" | "discard";
+  const focusInfumapDataCheckbox = () => {
+    if (!queryInfumapDataCheckbox || queryInfumapDataCheckbox.disabled) {
+      focusQueryInputControl();
+      return;
+    }
+    queryInfumapDataCheckbox.focus();
+  };
 
-  const queryControlOrder = (): Array<QueryControlName> =>
-    hasSubmittedQuery()
-      ? ["mode", "input", "send", "discard"]
-      : ["mode", "input", "send"];
+  type QueryControlName = "mode" | "input" | "send" | "discard" | "infumap-data";
+
+  const queryControlOrder = (): Array<QueryControlName> => {
+    const controls: Array<QueryControlName> = ["mode", "input", "send"];
+    if (hasSubmittedQuery()) {
+      controls.push("discard");
+    }
+    if (selectedInputMode() == "chat") {
+      controls.push("infumap-data");
+    }
+    return controls;
+  };
 
   const focusQueryControl = (control: QueryControlName) => {
     if (control == "mode") {
@@ -318,8 +336,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       focusQueryInputControl();
     } else if (control == "send") {
       focusSendButton();
-    } else {
+    } else if (control == "discard") {
       focusDiscardButton();
+    } else {
+      focusInfumapDataCheckbox();
     }
   };
 
@@ -666,7 +686,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
     const progress = () => chatProgressForQuery(queryItem().id);
     const wrapperHeightPx = () =>
-      chatTextareaHeightPx() + (progress() == null ? 0 : QUERY_CHAT_PROGRESS_HEIGHT_PX);
+      chatTextareaHeightPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX +
+      (progress() == null ? 0 : QUERY_CHAT_PROGRESS_HEIGHT_PX);
     const transcriptBottomPx = () => wrapperHeightPx() + QUERY_CHAT_COMPOSER_BOTTOM_PX + 24;
     const chatRequestActive = () => isStartingChat() || isSendingChat();
     const stop = (ev: Event) => {
@@ -742,6 +763,20 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onClick={stop}
           onKeyDown={stop}
           onKeyUp={stop}>
+          <label
+            class="flex items-center gap-2 px-1 text-[#555]"
+            style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px; font-size: 13px; line-height: 20px;`}
+            title={queryChatUsesInfumapData(store, queryItem())
+              ? "The assistant can search and read this Infumap instance. Start a new chat to change this setting."
+              : "The assistant can only use this conversation. Start a new chat to change this setting."}>
+            <input
+              type="checkbox"
+              checked={queryChatUsesInfumapData(store, queryItem())}
+              disabled />
+            <i class="bi-database" />
+            <span>Infumap data {queryChatUsesInfumapData(store, queryItem()) ? "enabled" : "disabled"}</span>
+            <i class="bi-lock-fill text-slate-400" style="font-size: 10px;" aria-hidden="true" />
+          </label>
           <Show when={progress() != null}>
             <div
               class="truncate px-1 pb-1 text-[#555]"
@@ -835,7 +870,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       const maxTopPx = Math.max(0, boundsPx().h - QUERY_WORKSPACE_CONTROLS_HEIGHT_PX - 24);
       return Math.max(0, Math.min(maxTopPx, preferredTopPx));
     };
-    const renderQueryControls = () =>
+    const renderQueryControls = () => <>
       <div class="flex items-center" style={`gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
         <div
           class="relative shrink-0"
@@ -946,7 +981,34 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             <i class="bi-x-lg" />
           </button>
         </Show>
-      </div>;
+      </div>
+      <Show when={selectedInputMode() == "chat"}>
+        <label
+          class="flex w-fit cursor-pointer items-center gap-2 px-1 text-[#555]"
+          style="height: 20px; margin-top: 4px; font-size: 13px; line-height: 20px;"
+          title={queryChatUsesInfumapData(store, queryItem())
+            ? "The assistant can search and read this Infumap instance."
+            : "The assistant can only use this conversation."}
+          onMouseDown={(ev) => ev.stopPropagation()}
+          onMouseUp={(ev) => ev.stopPropagation()}
+          onClick={(ev) => ev.stopPropagation()}>
+          <input
+            ref={queryInfumapDataCheckbox}
+            type="checkbox"
+            checked={queryChatUsesInfumapData(store, queryItem())}
+            disabled={isStartingChat()}
+            onChange={(ev) => setQueryChatUsesInfumapData(store, queryItem(), ev.currentTarget.checked)}
+            onKeyDown={(ev) => {
+              ev.stopPropagation();
+              if (ev.key == "Tab") {
+                handleQueryControlTab(ev, "infumap-data");
+              }
+            }} />
+          <i class="bi-database" aria-hidden="true" />
+          <span>Use Infumap data</span>
+        </label>
+      </Show>
+    </>;
     return (
       <div class="absolute bg-white"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +

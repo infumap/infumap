@@ -23,6 +23,7 @@ import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
 export type QueryMode = "search" | "chat" | null;
+export type ChatCapability = "infumap_data";
 
 export interface QueryRuntime {
   mode: QueryMode,
@@ -33,6 +34,7 @@ export interface QueryRuntime {
   },
   chat: {
     rootItemIds: Array<Uid>,
+    capabilities: Array<ChatCapability>,
   },
 }
 
@@ -115,6 +117,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
     },
     chat: {
       rootItemIds: [],
+      capabilities: ["infumap_data"],
     },
   });
 

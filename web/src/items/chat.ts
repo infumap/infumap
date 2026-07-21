@@ -32,6 +32,7 @@ import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRunt
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import type { ChatCapability } from "../store/StoreProvider_PerItem";
 import { newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
@@ -114,6 +115,28 @@ function setQueryChatRootIds(store: StoreContextModel, queryItem: QueryItem, roo
     chat: {
       ...current.chat,
       rootItemIds,
+    },
+  }));
+}
+
+export function queryChatCapabilities(store: StoreContextModel, queryItem: QueryItem): Array<ChatCapability> {
+  return getQueryRuntime(store, queryItem).chat.capabilities;
+}
+
+export function queryChatUsesInfumapData(store: StoreContextModel, queryItem: QueryItem): boolean {
+  return queryChatCapabilities(store, queryItem).includes("infumap_data");
+}
+
+export function setQueryChatUsesInfumapData(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  enabled: boolean,
+): void {
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    chat: {
+      ...current.chat,
+      capabilities: enabled ? ["infumap_data"] : [],
     },
   }));
 }
@@ -300,6 +323,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
     const response = await server.chatStream({
       contextItems,
       userText: text,
+      capabilities: queryChatCapabilities(store, queryItem),
     }, store.general.networkStatus, (event) => {
       const progressText = chatProgressTextFromEvent(event);
       if (progressText != null) {

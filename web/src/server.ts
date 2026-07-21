@@ -95,6 +95,7 @@ export interface SearchResponse {
 export interface ChatRequest {
   contextItems: Array<object>,
   userText: string,
+  capabilities: Array<"infumap_data">,
 }
 
 export interface ChatResponse {
