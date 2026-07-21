@@ -723,9 +723,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return (
       <div class="absolute bg-white"
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        <div class="absolute overflow-y-auto"
+        <div
+          class="absolute pointer-events-auto select-text overflow-y-auto"
           style={`left: 0px; top: 0px; width: ${boundsPx().w}px; ` +
-            `height: ${Math.max(0, boundsPx().h - transcriptBottomPx())}px;`}>
+            `height: ${Math.max(0, boundsPx().h - transcriptBottomPx())}px; ` +
+            `cursor: text; user-select: text; -webkit-user-select: text;`}
+          onMouseDown={stop}
+          onMouseMove={stop}
+          onMouseUp={stop}
+          onClick={stop}>
           <div class="absolute"
             style={`left: ${contentLeftPx()}px; top: 34px; width: ${contentWidthPx()}px;`}>
             <For each={queryChatTurns(store, queryItem())}>{turn =>
