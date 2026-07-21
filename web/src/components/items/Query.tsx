@@ -86,7 +86,7 @@ import { CursorEventState } from "../../input/state";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
 
 const normalizeSearchText = (text: string): string =>
-  text.replace(/\u200B/g, "").replace(/\n/g, "").trim();
+  text.replace(/\u200B/g, "").trim();
 const QUERY_SEARCH_ARRANGE_OPTIONS = [
   { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
   { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
@@ -120,9 +120,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatText, setChatText] = createSignal("");
   const [isSendingChat, setIsSendingChat] = createSignal(false);
   const [isMaterializingChat, setIsMaterializingChat] = createSignal(false);
+  const [queryTextareaHeightPx, setQueryTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatTextareaHeightPx, setChatTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
-  let queryInput: HTMLInputElement | undefined;
+  let queryInput: HTMLTextAreaElement | undefined;
   let queryModeSelect: HTMLSelectElement | undefined;
   let querySendButton: HTMLButtonElement | undefined;
   let queryDiscardButton: HTMLButtonElement | undefined;
@@ -165,7 +166,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.overlay.autoFocusSearchInput.set(false);
     if (editingEl instanceof HTMLElement) {
       editingEl.contentEditable = "false";
-      if (editingEl instanceof HTMLInputElement) {
+      if (editingEl instanceof HTMLInputElement || editingEl instanceof HTMLTextAreaElement) {
         editingEl.value = queryText();
       }
     }
@@ -175,7 +176,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
   const readQueryTextFromDom = (elMaybe?: HTMLElement | null) => {
     const el = elMaybe ?? document.getElementById(editingDomId());
-    if (el instanceof HTMLInputElement) {
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
       return normalizeSearchText(el.value);
     }
     if (!(el instanceof HTMLElement)) {
@@ -282,7 +283,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
     requestAnimationFrame(() => {
       const input = queryInput ?? document.getElementById(editingDomId());
-      if (!(input instanceof HTMLInputElement)) {
+      if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) {
         return;
       }
       input.focus();
@@ -461,6 +462,21 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setChatTextareaHeightPx(nextHeight);
   };
 
+  const resizeQueryTextarea = (elMaybe?: HTMLTextAreaElement) => {
+    const el = elMaybe ?? queryInput;
+    if (!el) {
+      return;
+    }
+    el.style.height = "0px";
+    const nextHeight = Math.min(
+      QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX,
+      Math.max(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX, el.scrollHeight),
+    );
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+    setQueryTextareaHeightPx(nextHeight);
+  };
+
   const resizeChatTextareaSoon = () => {
     window.setTimeout(() => resizeChatTextarea(), 0);
   };
@@ -504,7 +520,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const selectQueryTextElement = (el: HTMLElement) => {
-    if (el instanceof HTMLInputElement) {
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
       if (normalizeSearchText(el.value) == "") {
         return false;
       }
@@ -566,7 +582,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return;
     }
     if (!isEditing()) {
-      requestEditMode(queryText().length, false, !(ev.target instanceof HTMLInputElement));
+      requestEditMode(queryText().length, false, !(ev.target instanceof HTMLTextAreaElement));
     }
   };
 
@@ -579,6 +595,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const keyDownHandler = (ev: KeyboardEvent) => {
     switch (ev.key) {
       case "Enter":
+        if (ev.shiftKey) {
+          return;
+        }
         ev.preventDefault();
         ev.stopPropagation();
         submitQueryInput(ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null);
@@ -595,13 +614,20 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   createEffect(() => {
+    queryText();
+    boundsPx().w;
+    const raf = requestAnimationFrame(() => resizeQueryTextarea());
+    onCleanup(() => cancelAnimationFrame(raf));
+  });
+
+  createEffect(() => {
     if (!isListPageMainRoot() || pendingInputFocus() == null || !isEditing()) {
       return;
     }
     const pendingFocus = pendingInputFocus()!;
     const raf = requestAnimationFrame(() => {
       const freshEl = document.getElementById(editingDomId());
-      if (freshEl instanceof HTMLInputElement) {
+      if (freshEl instanceof HTMLInputElement || freshEl instanceof HTMLTextAreaElement) {
         freshEl.focus();
         if (pendingFocus.selectAll && normalizeSearchText(freshEl.value) != "") {
           selectQueryTextAfterFocus(freshEl);
@@ -958,7 +984,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return Math.max(0, Math.min(maxTopPx, preferredTopPx));
     };
     const renderQueryControls = () => <>
-      <div class="flex items-center" style={`gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+      <div class="flex items-start" style={`gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
         <div
           class="relative shrink-0"
           style={`width: ${QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}>
@@ -989,24 +1015,28 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </div>
         <div
           class="border border-[#999] rounded-xs bg-white overflow-hidden"
-          style={`width: ${inputShellWidthPx()}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+          style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;`}
           onMouseDown={queryInputMouseDown}>
-          <div class="relative flex items-center h-full overflow-hidden whitespace-nowrap pl-2.5 pr-[4px]"
+          <div class="relative flex items-end h-full overflow-hidden pl-2.5 pr-[4px]"
             style="font-size: 16px;">
-            <input id={editingDomId()}
+            <textarea id={editingDomId()}
               ref={queryInput}
-              class="block h-full min-w-0 grow border-0 bg-transparent p-0 text-black outline-hidden"
-              style="font-size: 16px; user-select: text;"
+              class="block min-w-0 grow resize-none border-0 bg-transparent py-[9px] pl-0 pr-0 text-black outline-hidden"
+              style={`height: ${queryTextareaHeightPx()}px; font-size: 16px; line-height: 24px; user-select: text;`}
               value={queryText()}
+              rows={1}
               placeholder="Query..."
               readOnly={!canEdit() || !isEditing()}
               spellcheck={canEdit() && isEditing()}
               onMouseDown={queryInputMouseDown}
               onKeyDown={keyDownHandler}
-              onInput={inputListener} />
+              onInput={(ev) => {
+                inputListener(ev);
+                resizeQueryTextarea(ev.currentTarget);
+              }} />
             <button
               ref={querySendButton}
-              class="ml-[6px] flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+              class="mb-[4px] ml-[6px] flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px;`}
               type="button"
               title={sendButtonTitle()}
