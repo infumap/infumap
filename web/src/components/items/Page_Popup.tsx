@@ -54,6 +54,7 @@ import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
+import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -618,6 +619,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             );
           }}</For>
 
+          <CalendarRangeOverlays visualElement={props.visualElement} />
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes => {
             const childVe = () => childVes.get();

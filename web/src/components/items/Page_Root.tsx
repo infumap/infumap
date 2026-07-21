@@ -51,6 +51,7 @@ import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chr
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
+import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -718,6 +719,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               </div>
             );
           }}</For>
+
+          <CalendarRangeOverlays visualElement={props.visualElement} />
 
           {/* Render child items arranged in calendar grid */}
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
