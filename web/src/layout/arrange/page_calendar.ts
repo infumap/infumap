@@ -22,7 +22,7 @@ import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { ItemGeometry } from "../item-geometry";
-import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { CalendarRangeLayout, CalendarRangeSegmentLayout, VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeItem, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { VesCache } from "../ves-cache";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
@@ -33,16 +33,19 @@ import { isComposite } from "../../items/composite-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { HitboxFns, HitboxFlags } from "../hitbox";
 import { compareOrderings } from "../../util/ordering";
-import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import {
   calculateCalendarWindowForPage,
   calculateCalendarDimensions,
   calculateCalendarMiniDayLayouts,
   calculateCalendarMonthLayouts,
+  calculateCalendarRangeMonthSegments,
   calculateCalendarVerticalLayout,
+  calendarDateFromDateTime,
   calendarMiniTitleHeightPx,
   calendarMiniTitleTopPx,
   calendarDateKey,
+  compareCalendarDates,
   CALENDAR_LAYOUT_CONSTANTS,
   getCalendarDayMetrics,
   getCalendarMiniRowHeightPx,
@@ -145,6 +148,40 @@ function miniCalendarHostScale(
   return Math.max(0.001, geometryScale);
 }
 
+const CALENDAR_RANGE_RESIZE_HITBOX_HEIGHT_PX = 6;
+
+function calendarRangeEndpointBounds(
+  x: number,
+  width: number,
+  endpointBottomPx: number,
+  scale: number = 1.0,
+): BoundingBox {
+  const heightPx = CALENDAR_RANGE_RESIZE_HITBOX_HEIGHT_PX * scale;
+  return {
+    x,
+    y: endpointBottomPx - heightPx / 2,
+    w: width,
+    h: heightPx,
+  };
+}
+
+function calendarRangeResizeHitboxes(
+  rangeLayouts: ReadonlyArray<CalendarRangeLayout>,
+  yOffsetPx: number = 0,
+): Array<ReturnType<typeof HitboxFns.create>> {
+  return rangeLayouts.flatMap(rangeLayout => {
+    if (rangeLayout.endpointResizeBoundsPx == null) { return []; }
+    return [HitboxFns.create(
+      HitboxFlags.CalendarRangeResize,
+      {
+        ...rangeLayout.endpointResizeBoundsPx,
+        y: rangeLayout.endpointResizeBoundsPx.y + yOffsetPx,
+      },
+      HitboxFns.createMeta({ calendarRangeItemId: rangeLayout.itemId }),
+    )];
+  });
+}
+
 function arrangeMiniCalendarPage(
   store: StoreContextModel,
   displayItem_pageWithChildren: PageItem,
@@ -171,6 +208,8 @@ function arrangeMiniCalendarPage(
   const columnLeftPx = leftRightMarginPx;
   const columnWidthPx = Math.max(0, childAreaBoundsPx.w - leftRightMarginPx * 2);
   const itemWidthPx = Math.max(0, columnWidthPx - dayLabelWidthPx - itemLeftPaddingPx);
+  const calendarItemLeftPx = columnLeftPx + dayLabelWidthPx + itemLeftPaddingPx;
+  const effectiveItemWidthPx = Math.max(0, itemWidthPx - 2 * hostScale);
   const titleBoundsPx = {
     x: leftRightMarginPx,
     y: calendarMiniTitleTopPx(baseRowHeightPx),
@@ -191,11 +230,13 @@ function arrangeMiniCalendarPage(
     HitboxFns.create(HitboxFlags.Click, titleBoundsPx, HitboxFns.createMeta({ openActualItem: true })),
   ];
 
+  const calendarChildren: Array<Item> = [];
   const itemsByDate = new Map<string, Array<Item>>();
   for (const childId of displayItem_pageWithChildren.computed_children) {
     const child = itemState.get(childId);
     if (child == null) { continue; }
     if (movingItemInThisPage && child.id === movingItemInThisPage.id) { continue; }
+    calendarChildren.push(child);
 
     const itemDate = new Date(child.dateTime * 1000);
     const dateKey = calendarDateKey(itemDate.getFullYear(), itemDate.getMonth() + 1, itemDate.getDate());
@@ -226,6 +267,7 @@ function arrangeMiniCalendarPage(
   const rowHeightPx = getCalendarMiniRowHeightPx(calendarMiniDayLayouts, baseRowHeightPx);
   const visibleDateKeys = new Set(calendarMiniDayLayouts.map(dayLayout => dayLayout.key));
   const calendarChildPaths: Array<VisualElementPath> = [];
+  const itemBoundsById = new Map<string, BoundingBox>();
 
   for (const dayLayout of calendarMiniDayLayouts) {
     const itemsForDate = itemsByDate.get(dayLayout.key) ?? [];
@@ -241,35 +283,35 @@ function arrangeMiniCalendarPage(
       const visibleItemHeight = Math.min(rowHeightPx, blockSizePx.h);
       const itemTopInset = Math.min(hostScale, Math.max(0, visibleItemHeight * 0.2));
       const arrangedItemHeight = Math.max(0, visibleItemHeight - itemTopInset);
-      const effectiveItemWidth = Math.max(0, itemWidthPx - 2 * hostScale);
       const boundsPx = {
-        x: columnLeftPx + dayLabelWidthPx + itemLeftPaddingPx,
+        x: calendarItemLeftPx,
         y: dayLayout.topPx + stackIndex * rowHeightPx + itemTopInset,
-        w: effectiveItemWidth,
+        w: effectiveItemWidthPx,
         h: arrangedItemHeight,
       };
+      itemBoundsById.set(childItem.id, boundsPx);
       const innerBoundsPx = {
         x: 0,
         y: 0,
-        w: effectiveItemWidth,
+        w: effectiveItemWidthPx,
         h: arrangedItemHeight,
       };
-      const effectiveWidthBl = blockSizePx.w > 0 ? Math.floor(effectiveItemWidth / blockSizePx.w) : 0;
+      const effectiveWidthBl = blockSizePx.w > 0 ? Math.floor(effectiveItemWidthPx / blockSizePx.w) : 0;
       const clickAreaBoundsPx = effectiveWidthBl > 1 ? {
         x: blockSizePx.w,
         y: 0,
-        w: Math.max(0, effectiveItemWidth - blockSizePx.w),
+        w: Math.max(0, effectiveItemWidthPx - blockSizePx.w),
         h: arrangedItemHeight,
       } : {
         x: 0,
         y: 0,
-        w: effectiveItemWidth,
+        w: effectiveItemWidthPx,
         h: arrangedItemHeight,
       };
       const popupClickAreaBoundsPx = {
         x: 0,
         y: 0,
-        w: Math.min(blockSizePx.w, effectiveItemWidth),
+        w: Math.min(blockSizePx.w, effectiveItemWidthPx),
         h: arrangedItemHeight,
       };
 
@@ -297,8 +339,87 @@ function arrangeMiniCalendarPage(
     });
   }
 
+  const calendarRangeLayouts: Array<CalendarRangeLayout> = [];
+  for (const child of calendarChildren) {
+    const itemBounds = itemBoundsById.get(child.id) ?? null;
+    if (child.endDateTime == null) {
+      if (itemBounds == null) { continue; }
+      calendarRangeLayouts.push({
+        itemId: child.id,
+        dateTime: child.dateTime,
+        endDateTime: null,
+        segments: [],
+        endpointResizeBoundsPx: calendarRangeEndpointBounds(
+          itemBounds.x,
+          itemBounds.w,
+          itemBounds.y + itemBounds.h,
+          hostScale,
+        ),
+      });
+      continue;
+    }
+
+    const startDate = calendarDateFromDateTime(child.dateTime);
+    const endDate = calendarDateFromDateTime(child.endDateTime);
+    const visibleRangeDays = calendarMiniDayLayouts.filter(dayLayout => {
+      const date = { year: dayLayout.year, month: dayLayout.month, day: dayLayout.day };
+      return compareCalendarDates(date, startDate) >= 0 && compareCalendarDates(date, endDate) <= 0;
+    });
+    if (visibleRangeDays.length == 0) { continue; }
+
+    const segments: Array<CalendarRangeSegmentLayout> = [];
+    for (const dayLayout of visibleRangeDays) {
+      const date = { year: dayLayout.year, month: dayLayout.month, day: dayLayout.day };
+      const previous = segments[segments.length - 1];
+      if (previous != null && previous.year == dayLayout.year && previous.month == dayLayout.month) {
+        previous.endDay = dayLayout.day;
+        previous.endsAtRangeEnd = compareCalendarDates(date, endDate) == 0;
+        previous.boundsPx.h = dayLayout.topPx + dayLayout.heightPx - previous.boundsPx.y;
+        continue;
+      }
+
+      const startsAtRangeStart = compareCalendarDates(date, startDate) == 0;
+      const segmentTopPx = startsAtRangeStart && itemBounds != null ? itemBounds.y : dayLayout.topPx;
+      segments.push({
+        year: dayLayout.year,
+        month: dayLayout.month,
+        startDay: dayLayout.day,
+        endDay: dayLayout.day,
+        startsAtRangeStart,
+        endsAtRangeEnd: compareCalendarDates(date, endDate) == 0,
+        boundsPx: {
+          x: calendarItemLeftPx,
+          y: segmentTopPx,
+          w: effectiveItemWidthPx,
+          h: dayLayout.topPx + dayLayout.heightPx - segmentTopPx,
+        },
+      });
+    }
+
+    const endSegment = segments.find(segment => segment.endsAtRangeEnd) ?? null;
+    calendarRangeLayouts.push({
+      itemId: child.id,
+      dateTime: child.dateTime,
+      endDateTime: child.endDateTime,
+      segments,
+      endpointResizeBoundsPx: endSegment == null
+        ? null
+        : calendarRangeEndpointBounds(
+          endSegment.boundsPx.x,
+          endSegment.boundsPx.w,
+          endSegment.boundsPx.y + endSegment.boundsPx.h,
+          hostScale,
+        ),
+    });
+  }
+
   pageSpec.calendarMonthLayouts = [];
   pageSpec.calendarMiniDayLayouts = calendarMiniDayLayouts;
+  pageSpec.calendarRangeLayouts = calendarRangeLayouts;
+  pageSpec.hitboxes = [
+    ...(pageSpec.hitboxes ?? []),
+    ...calendarRangeResizeHitboxes(calendarRangeLayouts),
+  ];
   pageSpec.blockSizePx = blockSizePx;
 
   if (movingItemInThisPage) {
@@ -474,12 +595,15 @@ export function arrange_calendar_page(
 
   // Sort children by dateTime, but exclude moving item if it's in this page
   // Also filter to only show items from the visible calendar window
-  const childrenWithDateTime = displayItem_pageWithChildren.computed_children
+  const calendarChildren = displayItem_pageWithChildren.computed_children
     .map(childId => itemState.get(childId)!)
     .filter(child => {
       if (child == null) return false;
       if (movingItemInThisPage && child.id === movingItemInThisPage.id) return false;
-
+      return true;
+    });
+  const childrenWithDateTime = calendarChildren
+    .filter(child => {
       const itemDate = new Date(child.dateTime * 1000);
       return isCalendarMonthVisible(calendarWindow, itemDate.getFullYear(), itemDate.getMonth() + 1);
     })
@@ -564,6 +688,7 @@ export function arrange_calendar_page(
     calendarVerticalLayout.dayAreaTopPx,
     itemCountsByDate,
   );
+  const itemBoundsById = new Map<string, BoundingBox>();
 
   // Arrange items by date
   itemsByDate.forEach((itemsForDate) => {
@@ -601,6 +726,7 @@ export function arrange_calendar_page(
         w: effectiveItemWidth,
         h: arrangedItemHeight
       };
+      itemBoundsById.set(childItem.id, boundsPx);
 
       const innerBoundsPx = {
         x: 0,
@@ -664,12 +790,87 @@ export function arrange_calendar_page(
     });
   });
 
+  const calendarRangeLayouts: Array<CalendarRangeLayout> = [];
+  for (const child of calendarChildren) {
+    const itemBounds = itemBoundsById.get(child.id) ?? null;
+    if (child.endDateTime == null) {
+      if (itemBounds == null) { continue; }
+      calendarRangeLayouts.push({
+        itemId: child.id,
+        dateTime: child.dateTime,
+        endDateTime: null,
+        segments: [],
+        endpointResizeBoundsPx: calendarRangeEndpointBounds(
+          itemBounds.x,
+          itemBounds.w,
+          itemBounds.y + itemBounds.h,
+          calendarVerticalLayout.scale,
+        ),
+      });
+      continue;
+    }
+
+    const monthSegments = calculateCalendarRangeMonthSegments(
+      child.dateTime,
+      child.endDateTime,
+      calendarWindow.months,
+    );
+    if (monthSegments.length == 0) { continue; }
+
+    const segments = monthSegments.map(monthSegment => {
+      const monthLeftPx = getCalendarMonthLeftPx(calendarDimensions, monthSegment.month);
+      const monthWidthPx = getCalendarMonthWidthPx(calendarDimensions, monthSegment.month);
+      const startDayMetrics = getCalendarDayMetrics(
+        calendarDimensions,
+        calendarMonthLayouts,
+        monthSegment.month,
+        monthSegment.startDay,
+      );
+      const endDayMetrics = getCalendarDayMetrics(
+        calendarDimensions,
+        calendarMonthLayouts,
+        monthSegment.month,
+        monthSegment.endDay,
+      );
+      const topPx = monthSegment.startsAtRangeStart && itemBounds != null
+        ? itemBounds.y
+        : startDayMetrics.topPx;
+      const bottomPx = endDayMetrics.topPx + endDayMetrics.heightPx;
+      return {
+        ...monthSegment,
+        boundsPx: {
+          x: monthLeftPx + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX + itemLeftPadding,
+          y: topPx,
+          w: Math.max(0, monthWidthPx - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding - 2),
+          h: Math.max(0, bottomPx - topPx),
+        },
+      };
+    });
+    const endSegment = segments.find(segment => segment.endsAtRangeEnd) ?? null;
+    calendarRangeLayouts.push({
+      itemId: child.id,
+      dateTime: child.dateTime,
+      endDateTime: child.endDateTime,
+      segments,
+      endpointResizeBoundsPx: endSegment == null
+        ? null
+        : calendarRangeEndpointBounds(
+          endSegment.boundsPx.x,
+          endSegment.boundsPx.w,
+          endSegment.boundsPx.y + endSegment.boundsPx.h,
+          calendarVerticalLayout.scale,
+        ),
+    });
+  }
+
   // Attach page-level hitboxes to the page visual element
   pageSpec.hitboxes = [
     ...(pageSpec.hitboxes || []),
     ...dividerHitboxes,
+    ...calendarRangeResizeHitboxes(calendarRangeLayouts, titleBarHeightPx),
   ];
   pageSpec.calendarMonthLayouts = calendarMonthLayouts;
+  pageSpec.calendarRangeLayouts = calendarRangeLayouts;
 
   // Add moving item if it exists and belongs to this page
   if (movingItemInThisPage) {

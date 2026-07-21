@@ -52,6 +52,13 @@ export function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
       days: monthLayout.days.map(dayLayout => ({ ...dayLayout })),
     })),
     calendarMiniDayLayouts: (ve.calendarMiniDayLayouts ?? []).map(dayLayout => ({ ...dayLayout })),
+    calendarRangeLayouts: (ve.calendarRangeLayouts ?? []).map(rangeLayout => ({
+      ...rangeLayout,
+      segments: rangeLayout.segments.map(segment => ({ ...segment, boundsPx: { ...segment.boundsPx } })),
+      endpointResizeBoundsPx: rangeLayout.endpointResizeBoundsPx
+        ? { ...rangeLayout.endpointResizeBoundsPx }
+        : null,
+    })),
   };
 }
 
@@ -111,6 +118,36 @@ function calendarMiniDayLayoutsEqual(
   return true;
 }
 
+function calendarRangeLayoutsEqual(
+  a: VisualElement["calendarRangeLayouts"] | undefined,
+  b: VisualElement["calendarRangeLayouts"] | undefined,
+): boolean {
+  const aLayouts = a ?? [];
+  const bLayouts = b ?? [];
+  if (aLayouts.length !== bLayouts.length) { return false; }
+  for (let i = 0; i < aLayouts.length; ++i) {
+    const aLayout = aLayouts[i];
+    const bLayout = bLayouts[i];
+    if (aLayout.itemId !== bLayout.itemId) { return false; }
+    if (aLayout.dateTime !== bLayout.dateTime) { return false; }
+    if (aLayout.endDateTime !== bLayout.endDateTime) { return false; }
+    if (compareBoundingBox(aLayout.endpointResizeBoundsPx, bLayout.endpointResizeBoundsPx) !== 0) { return false; }
+    if (aLayout.segments.length !== bLayout.segments.length) { return false; }
+    for (let j = 0; j < aLayout.segments.length; ++j) {
+      const aSegment = aLayout.segments[j];
+      const bSegment = bLayout.segments[j];
+      if (aSegment.year !== bSegment.year) { return false; }
+      if (aSegment.month !== bSegment.month) { return false; }
+      if (aSegment.startDay !== bSegment.startDay) { return false; }
+      if (aSegment.endDay !== bSegment.endDay) { return false; }
+      if (aSegment.startsAtRangeStart !== bSegment.startsAtRangeStart) { return false; }
+      if (aSegment.endsAtRangeEnd !== bSegment.endsAtRangeEnd) { return false; }
+      if (compareBoundingBox(aSegment.boundsPx, bSegment.boundsPx) !== 0) { return false; }
+    }
+  }
+  return true;
+}
+
 export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
   if (existingVe.displayItemFingerprint !== preparedSpec.displayItemFingerprint) { return false; }
   if (existingVe.displayItem.id !== preparedSpec.displayItem.id) { return false; }
@@ -135,6 +172,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if (HitboxFns.ArrayCompare(existingVe.hitboxes, specValueOrDefault(preparedSpec.hitboxes, NONE_VISUAL_ELEMENT.hitboxes)) !== 0) { return false; }
   if (!calendarMonthLayoutsEqual(existingVe.calendarMonthLayouts, specValueOrDefault(preparedSpec.calendarMonthLayouts, NONE_VISUAL_ELEMENT.calendarMonthLayouts))) { return false; }
   if (!calendarMiniDayLayoutsEqual(existingVe.calendarMiniDayLayouts, specValueOrDefault(preparedSpec.calendarMiniDayLayouts, NONE_VISUAL_ELEMENT.calendarMiniDayLayouts))) { return false; }
+  if (!calendarRangeLayoutsEqual(existingVe.calendarRangeLayouts, specValueOrDefault(preparedSpec.calendarRangeLayouts, NONE_VISUAL_ELEMENT.calendarRangeLayouts))) { return false; }
   if ((existingVe.parentPath ?? null) !== (specValueOrDefault(preparedSpec.parentPath, NONE_VISUAL_ELEMENT.parentPath) ?? null)) { return false; }
   if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return false; }
   if ((existingVe.listItemNumber ?? null) !== (specValueOrDefault(preparedSpec.listItemNumber, NONE_VISUAL_ELEMENT.listItemNumber) ?? null)) { return false; }

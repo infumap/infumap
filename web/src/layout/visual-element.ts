@@ -330,6 +330,7 @@ export interface VisualElement {
 
   calendarMonthLayouts: Array<CalendarMonthLayout>,
   calendarMiniDayLayouts: Array<CalendarMiniDayLayout>,
+  calendarRangeLayouts: Array<CalendarRangeLayout>,
 
   parentPath: VisualElementPath | null,
 
@@ -385,6 +386,24 @@ export interface CalendarMiniDayLayout {
   heightPx: number,
 }
 
+export interface CalendarRangeSegmentLayout {
+  year: number,
+  month: number,
+  startDay: number,
+  endDay: number,
+  startsAtRangeStart: boolean,
+  endsAtRangeEnd: boolean,
+  boundsPx: BoundingBox,
+}
+
+export interface CalendarRangeLayout {
+  itemId: Uid,
+  dateTime: number,
+  endDateTime: number | null,
+  segments: Array<CalendarRangeSegmentLayout>,
+  endpointResizeBoundsPx: BoundingBox | null,
+}
+
 
 /**
  * Sentinel value used when there is no top level visual element. This makes typing much easier to deal with
@@ -416,6 +435,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   hitboxes: [],
   calendarMonthLayouts: [],
   calendarMiniDayLayouts: [],
+  calendarRangeLayouts: [],
 
   parentPath: null,
   evaluatedTitle: null,
@@ -457,6 +477,7 @@ export interface VisualElementSpec {
   hitboxes?: Array<Hitbox>,
   calendarMonthLayouts?: Array<CalendarMonthLayout>,
   calendarMiniDayLayouts?: Array<CalendarMiniDayLayout>,
+  calendarRangeLayouts?: Array<CalendarRangeLayout>,
   parentPath?: VisualElementPath,
   evaluatedTitle?: string | null,
   listItemNumber?: number | null,
@@ -518,6 +539,7 @@ export const VeFns = {
       hitboxes: [],
       calendarMonthLayouts: [],
       calendarMiniDayLayouts: [],
+      calendarRangeLayouts: [],
 
       parentPath: null,
       evaluatedTitle: null,
@@ -561,6 +583,7 @@ export const VeFns = {
     ve.hitboxes = [];
     ve.calendarMonthLayouts = [];
     ve.calendarMiniDayLayouts = [];
+    ve.calendarRangeLayouts = [];
 
     ve.parentPath = null;
     ve.evaluatedTitle = null;
@@ -1148,6 +1171,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
   if (typeof (override.calendarMonthLayouts) != 'undefined') { result.calendarMonthLayouts = override.calendarMonthLayouts; }
   if (typeof (override.calendarMiniDayLayouts) != 'undefined') { result.calendarMiniDayLayouts = override.calendarMiniDayLayouts; }
+  if (typeof (override.calendarRangeLayouts) != 'undefined') { result.calendarRangeLayouts = override.calendarRangeLayouts; }
   if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
   if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
   if (typeof (override.listItemNumber) != 'undefined') { result.listItemNumber = override.listItemNumber; }

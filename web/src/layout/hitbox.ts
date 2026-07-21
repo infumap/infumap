@@ -41,6 +41,7 @@ export enum HitboxFlags {
   VerticalResize = 0x008000,
   ShowPointer = 0x010000,
   AnchorDefault = 0x040000,
+  CalendarRangeResize = 0x080000,
 }
 
 export function hitboxFlagsToString(flags: HitboxFlags): string {
@@ -63,6 +64,7 @@ export function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.Expand) { result += "Expand "; }
   if (flags & HitboxFlags.TableColumnContextMenu) { result += "TableColumnContextMenu "; }
   if (flags & HitboxFlags.ShowPointer) { result += "ShowPointer "; }
+  if (flags & HitboxFlags.CalendarRangeResize) { result += "CalendarRangeResize "; }
   result += "(" + flags + ")";
   return result;
 }
@@ -87,6 +89,7 @@ export interface HitboxMeta {
   compositeContentCollapse?: boolean,
   popupTitleTargetPath?: VisualElementPath,
   calendarDividerMonth?: number,
+  calendarRangeItemId?: Uid,
 }
 
 export const HitboxFns = {
@@ -144,6 +147,9 @@ export const HitboxFns = {
     if (typeof (meta.calendarDividerMonth) != 'undefined') {
       result.calendarDividerMonth = meta.calendarDividerMonth;
     }
+    if (typeof (meta.calendarRangeItemId) != 'undefined') {
+      result.calendarRangeItemId = meta.calendarRangeItemId;
+    }
     return result;
   },
 
@@ -152,6 +158,7 @@ export const HitboxFns = {
     if (a.meta != b.meta) {
       if (a.meta == null || b.meta == null) { return 1; }
       if (a.meta.colNum != b.meta.colNum) { return 1; }
+      if (a.meta.calendarRangeItemId != b.meta.calendarRangeItemId) { return 1; }
     }
     return compareBoundingBox(a.boundsPx, b.boundsPx);
   },
@@ -180,6 +187,7 @@ export const HitboxFns = {
       (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", compositeContentCollapse: " +
       (meta.compositeContentCollapse ? meta.compositeContentCollapse : "undefined") + ", popupTitleTargetPath: " +
       (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", dividerMonth: " +
-      (meta.calendarDividerMonth ? meta.calendarDividerMonth : "undefined") + "]";
+      (meta.calendarDividerMonth ? meta.calendarDividerMonth : "undefined") + ", calendarRangeItemId: " +
+      (meta.calendarRangeItemId ? meta.calendarRangeItemId : "undefined") + "]";
   }
 }
