@@ -515,6 +515,7 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
 
     item.spatialPositionGr = { ...entry.spatialPositionGr };
     item.dateTime = entry.dateTime;
+    item.endDateTime = entry.endDateTime;
     if (entry.rollbackFlags != null && isNote(item)) {
       asNoteItem(item).flags = entry.rollbackFlags;
     } else if (entry.rollbackFlags != null && isFile(item)) {
@@ -558,6 +559,7 @@ function restorePositionalItemSnapshot(snapshot: PositionalItem): void {
   const currentParentId = item.parentId;
   item.spatialPositionGr = { ...snapshot.spatialPositionGr };
   item.dateTime = snapshot.dateTime;
+  item.endDateTime = snapshot.endDateTime;
 
   if (item.parentId != snapshot.parentId || item.relationshipToParent != snapshot.relationshipToParent) {
     itemState.moveToNewParent(item, snapshot.parentId, snapshot.relationshipToParent, new Uint8Array(snapshot.ordering));

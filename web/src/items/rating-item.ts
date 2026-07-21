@@ -65,6 +65,7 @@ export const RatingFns = {
       creationDate: currentUnixTimeSeconds(),
       lastModifiedDate: currentUnixTimeSeconds(),
       dateTime: currentUnixTimeSeconds(),
+      endDateTime: null,
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
@@ -87,6 +88,7 @@ export const RatingFns = {
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
       dateTime: o.dateTime,
+      endDateTime: o.endDateTime ?? null,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
 
@@ -110,6 +112,7 @@ export const RatingFns = {
       creationDate: r.creationDate,
       lastModifiedDate: r.lastModifiedDate,
       dateTime: r.dateTime,
+      endDateTime: r.endDateTime,
       ordering: Array.from(r.ordering),
       spatialPositionGr: r.spatialPositionGr,
 

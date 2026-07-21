@@ -70,6 +70,7 @@ export const CompositeFns = {
       creationDate: currentUnixTimeSeconds(),
       lastModifiedDate: currentUnixTimeSeconds(),
       dateTime: currentUnixTimeSeconds(),
+      endDateTime: null,
       ordering,
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
@@ -100,6 +101,7 @@ export const CompositeFns = {
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
       dateTime: o.dateTime,
+      endDateTime: o.endDateTime ?? null,
       ordering: new Uint8Array(o.ordering),
       spatialPositionGr: o.spatialPositionGr,
 
@@ -128,6 +130,7 @@ export const CompositeFns = {
       creationDate: p.creationDate,
       lastModifiedDate: p.lastModifiedDate,
       dateTime: p.dateTime,
+      endDateTime: p.endDateTime,
       ordering: Array.from(p.ordering),
       spatialPositionGr: p.spatialPositionGr,
 

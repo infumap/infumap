@@ -79,6 +79,7 @@ export interface Item extends ItemTypeMixin {
   creationDate: number,
   lastModifiedDate: number,
   dateTime: number,
+  endDateTime: number | null,
   ordering: Uint8Array,
 }
 
@@ -94,6 +95,7 @@ export const EMPTY_ITEM = () => ({
   creationDate: 0,
   lastModifiedDate: 0,
   dateTime: 0,
+  endDateTime: null,
   ordering: Uint8Array.from([]),
 });
 
@@ -109,6 +111,7 @@ export const uniqueEmptyItem = () => ({
   creationDate: 0,
   lastModifiedDate: 0,
   dateTime: 0,
+  endDateTime: null,
   ordering: Uint8Array.from([]),
 });
 

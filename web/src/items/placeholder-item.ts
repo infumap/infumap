@@ -45,6 +45,7 @@ export const PlaceholderFns = {
       creationDate: currentUnixTimeSeconds(),
       lastModifiedDate: currentUnixTimeSeconds(),
       dateTime: currentUnixTimeSeconds(),
+      endDateTime: null,
       ordering
     };
   },
@@ -63,6 +64,7 @@ export const PlaceholderFns = {
       creationDate: o.creationDate,
       lastModifiedDate: o.lastModifiedDate,
       dateTime: o.dateTime,
+      endDateTime: o.endDateTime ?? null,
       ordering: new Uint8Array(o.ordering),
     });
   },
@@ -78,6 +80,7 @@ export const PlaceholderFns = {
       creationDate: h.creationDate,
       lastModifiedDate: h.lastModifiedDate,
       dateTime: h.dateTime,
+      endDateTime: h.endDateTime,
       ordering: Array.from(h.ordering),
     });
   },

@@ -91,6 +91,7 @@ function captureMoveRollbackSnapshot(store: StoreContextModel, activeVisualEleme
       ordering: new Uint8Array(item.ordering),
       spatialPositionGr: { ...item.spatialPositionGr },
       dateTime: item.dateTime,
+      endDateTime: item.endDateTime,
       rollbackFlags: isNote(item)
         ? asNoteItem(item).flags
         : isFile(item)

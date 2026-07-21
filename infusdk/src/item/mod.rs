@@ -442,7 +442,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 54] = [
+const ALL_JSON_FIELDS: [&'static str; 55] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -453,6 +453,7 @@ const ALL_JSON_FIELDS: [&'static str; 54] = [
   "creationDate",
   "lastModifiedDate",
   "dateTime",
+  "endDateTime",
   "ordering",
   "title",
   "spatialPositionGr",
@@ -520,6 +521,7 @@ pub struct Item {
   pub creation_date: i64,
   pub last_modified_date: i64,
   pub datetime: i64,
+  pub end_datetime: Option<i64>,
   pub ordering: Vec<u8>,
 
   // container
@@ -622,6 +624,7 @@ impl Clone for Item {
       creation_date: self.creation_date.clone(),
       last_modified_date: self.last_modified_date.clone(),
       datetime: self.datetime.clone(),
+      end_datetime: self.end_datetime.clone(),
       ordering: self.ordering.clone(),
       order_children_by: self.order_children_by.clone(),
       spatial_position_gr: self.spatial_position_gr.clone(),
@@ -810,6 +813,19 @@ pub fn note_favicon_url(item: &Item) -> Option<&str> {
     .map(|url| url.url.as_str())
 }
 
+fn validate_datetime_range(datetime: i64, end_datetime: Option<i64>, item_id: &str) -> InfuResult<()> {
+  if let Some(end_datetime) = end_datetime {
+    if end_datetime <= datetime {
+      return Err(format!(
+        "Item '{}' has endDateTime '{}', which must be later than dateTime '{}'.",
+        item_id, end_datetime, datetime
+      )
+      .into());
+    }
+  }
+  Ok(())
+}
+
 impl WebApiJsonSerializable<Item> for Item {
   fn to_api_json(&self) -> InfuResult<Map<String, Value>> {
     to_json(self)
@@ -856,6 +872,7 @@ impl JsonLogSerializable<Item> for Item {
     if old.owner_id != new.owner_id {
       return Err("An attempt was made to create an item update from instances with non-matching owner_ids.".into());
     }
+    validate_datetime_range(new.datetime, new.end_datetime, &new.id)?;
 
     let mut result = Map::new();
     result.insert(String::from("__recordType"), Value::String(String::from("update")));
@@ -895,6 +912,15 @@ impl JsonLogSerializable<Item> for Item {
     }
     if old.datetime != new.datetime {
       result.insert(String::from("dateTime"), Value::Number(new.datetime.into()));
+    }
+    match (old.end_datetime, new.end_datetime) {
+      (Some(_), None) => {
+        result.insert(String::from("endDateTime"), Value::Null);
+      }
+      (old_end_datetime, Some(new_end_datetime)) if old_end_datetime != Some(new_end_datetime) => {
+        result.insert(String::from("endDateTime"), Value::Number(new_end_datetime.into()));
+      }
+      _ => {}
     }
     if old.ordering != new.ordering {
       result.insert(
@@ -1544,9 +1570,15 @@ impl JsonLogSerializable<Item> for Item {
     if let Some(u) = json::get_integer_field(map, "lastModifiedDate")? {
       self.last_modified_date = u;
     }
-    if let Some(u) = json::get_integer_field(map, "dateTime")? {
-      self.datetime = u;
-    }
+    let updated_datetime = json::get_integer_field(map, "dateTime")?.unwrap_or(self.datetime);
+    let updated_end_datetime = if map.contains_key("endDateTime") {
+      json::get_integer_field(map, "endDateTime")?
+    } else {
+      self.end_datetime
+    };
+    validate_datetime_range(updated_datetime, updated_end_datetime, &self.id)?;
+    self.datetime = updated_datetime;
+    self.end_datetime = updated_end_datetime;
     if map.contains_key("ordering") {
       self.ordering = map
         .get("ordering")
@@ -1921,6 +1953,8 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     Err(format!("'{}' field cannot be set for item '{}' of type {}.", field_name, item_id, item_type).into())
   }
 
+  validate_datetime_range(item.datetime, item.end_datetime, &item.id)?;
+
   let mut result = Map::new();
   result.insert(String::from("itemType"), Value::String(item.item_type.as_str().to_owned()));
   result.insert(String::from("id"), Value::String(item.id.clone()));
@@ -1941,6 +1975,9 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
   result.insert(String::from("creationDate"), Value::Number(item.creation_date.into()));
   result.insert(String::from("lastModifiedDate"), Value::Number(item.last_modified_date.into()));
   result.insert(String::from("dateTime"), Value::Number(item.datetime.into()));
+  if let Some(end_datetime) = item.end_datetime {
+    result.insert(String::from("endDateTime"), Value::Number(end_datetime.into()));
+  }
   result.insert(
     String::from("ordering"),
     Value::Array(item.ordering.iter().map(|v| Value::Number((*v).into())).collect::<Vec<_>>()),
@@ -2332,6 +2369,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }
   }
 
+  let datetime = json::get_integer_field(map, "dateTime")?.ok_or("'dateTime' field was missing.")?;
+  let end_datetime = json::get_integer_field(map, "endDateTime")?;
+  validate_datetime_range(datetime, end_datetime, &id)?;
+
   let r = Item {
     item_type: item_type.clone(),
     id: id.clone(),
@@ -2342,7 +2383,8 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     creation_date: json::get_integer_field(map, "creationDate")?.ok_or("'creationDate' field was missing.")?,
     last_modified_date: json::get_integer_field(map, "lastModifiedDate")?
       .ok_or("'lastModifiedDate' field was missing.")?,
-    datetime: json::get_integer_field(map, "dateTime")?.ok_or("'dateTime' field was missing.")?,
+    datetime,
+    end_datetime,
     ordering: map
       .get("ordering")
       .ok_or(format!("'ordering' field for item '{}' was missing.", &id))?
@@ -3069,6 +3111,7 @@ impl Item {
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
+      end_datetime: None,
       ordering,
       flags: Some(flags.bits()),
       spatial_position_gr: Some(spatial_position_gr),
@@ -3135,6 +3178,7 @@ impl Item {
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
+      end_datetime: None,
       ordering,
       flags: None,
       spatial_position_gr: Some(spatial_position_gr),
@@ -3205,6 +3249,7 @@ impl Item {
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
+      end_datetime: None,
       ordering,
       flags: Some(flags.bits()),
       spatial_position_gr: Some(spatial_position_gr),
@@ -3263,6 +3308,7 @@ impl Item {
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
+      end_datetime: None,
       ordering,
       flags: None,
       spatial_position_gr: None,
@@ -3327,6 +3373,7 @@ impl Item {
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
+      end_datetime: None,
       ordering,
       flags: Some(0),
       spatial_position_gr: Some(spatial_position_gr),
@@ -3403,6 +3450,7 @@ impl Item {
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
+      end_datetime: None,
       ordering,
       flags: None,
       spatial_position_gr: Some(spatial_position_gr),
@@ -3490,6 +3538,7 @@ impl Item {
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
+      end_datetime: None,
       ordering,
       order_children_by: Some(order_children_by.to_owned()),
       spatial_position_gr: Some(spatial_position_gr),
@@ -3558,6 +3607,9 @@ impl Item {
     hashes.push(hash_i64_to_uid(self.creation_date));
     hashes.push(hash_i64_to_uid(self.last_modified_date));
     hashes.push(hash_i64_to_uid(self.datetime));
+    if let Some(end_datetime) = self.end_datetime {
+      hashes.push(hash_i64_to_uid(end_datetime));
+    }
     hashes.push(hash_u8_vec_to_uid(&self.ordering));
 
     // Container properties
