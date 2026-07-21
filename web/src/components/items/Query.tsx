@@ -690,6 +690,16 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       (progress() == null ? 0 : QUERY_CHAT_PROGRESS_HEIGHT_PX);
     const transcriptBottomPx = () => wrapperHeightPx() + QUERY_CHAT_COMPOSER_BOTTOM_PX + 24;
     const chatRequestActive = () => isStartingChat() || isSendingChat();
+    const chatTurnIsCollapsed = (turnId: string) =>
+      store.perItem.getCompositeIsCollapsed({ itemId: turnId, linkIdMaybe: null });
+    const toggleChatTurnCollapsed = (turnId: string, ev: MouseEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      store.perItem.setCompositeIsCollapsed(
+        { itemId: turnId, linkIdMaybe: null },
+        !chatTurnIsCollapsed(turnId),
+      );
+    };
     const stop = (ev: Event) => {
       ev.stopPropagation();
     };
@@ -738,24 +748,34 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <div style="margin-bottom: 34px;">
                 <div class="flex items-center"
                   style="font-size: 18px; line-height: 24px; font-weight: 700;">
-                  <i class="fa fa-caret-down text-slate-400"
-                    style="font-size: 13px; width: 18px; margin-right: 6px;" />
+                  <button
+                    class="flex shrink-0 cursor-pointer select-none items-center justify-center border-0 bg-transparent p-0 text-slate-400"
+                    style="font-size: 13px; width: 18px; height: 24px; margin-right: 6px;"
+                    type="button"
+                    title={chatTurnIsCollapsed(turn.id) ? "Expand turn" : "Collapse turn"}
+                    aria-label={chatTurnIsCollapsed(turn.id) ? "Expand turn" : "Collapse turn"}
+                    aria-expanded={!chatTurnIsCollapsed(turn.id)}
+                    onClick={(ev) => toggleChatTurnCollapsed(turn.id, ev)}>
+                    <i class={`fa ${chatTurnIsCollapsed(turn.id) ? "fa-caret-right" : "fa-caret-down"}`} />
+                  </button>
                   <div class="grow border-b border-[#999]">
                     {turn.title || "Assistant"}
                   </div>
                 </div>
-                <div style="font-size: 18px; line-height: 28px; padding-left: 30px; white-space: pre-wrap;">
-                  <For each={turn.bodyLines}>{line =>
-                    <div>
-                      <NoteInlineText
-                        text={line.text}
-                        inlineMarks={line.inlineMarks}
-                        urls={line.urls}
-                        linksEnabled
-                        onLinkMouseDown={chatLinkMouseDown} />
-                    </div>
-                  }</For>
-                </div>
+                <Show when={!chatTurnIsCollapsed(turn.id)}>
+                  <div style="font-size: 18px; line-height: 28px; padding-left: 30px; white-space: pre-wrap;">
+                    <For each={turn.bodyLines}>{line =>
+                      <div>
+                        <NoteInlineText
+                          text={line.text}
+                          inlineMarks={line.inlineMarks}
+                          urls={line.urls}
+                          linksEnabled
+                          onLinkMouseDown={chatLinkMouseDown} />
+                      </div>
+                    }</For>
+                  </div>
+                </Show>
               </div>
             }</For>
           </div>
