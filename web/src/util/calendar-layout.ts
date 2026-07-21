@@ -95,6 +95,26 @@ export interface CalendarVisibleMonth {
   year: number;
 }
 
+export interface CalendarDate {
+  year: number;
+  month: number;
+  day: number;
+}
+
+export interface CalendarRangeMonthSegment {
+  year: number;
+  month: number;
+  startDay: number;
+  endDay: number;
+  startsAtRangeStart: boolean;
+  endsAtRangeEnd: boolean;
+}
+
+export interface ShiftedCalendarDateTimeRange {
+  dateTime: number;
+  endDateTime: number | null;
+}
+
 export interface CalendarWindow {
   anchorMonthIndex: number;
   startMonthIndex: number;
@@ -281,6 +301,121 @@ export function isCalendarMonthVisible(calendarWindow: CalendarWindow, year: num
 
 export function calendarDateKey(year: number, month: number, day: number): string {
   return `${year}-${month}-${day}`;
+}
+
+export function calendarDateFromDateTime(dateTimeSeconds: number): CalendarDate {
+  const date = new Date(dateTimeSeconds * 1000);
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+  };
+}
+
+export function compareCalendarDates(a: CalendarDate, b: CalendarDate): number {
+  if (a.year != b.year) { return a.year < b.year ? -1 : 1; }
+  if (a.month != b.month) { return a.month < b.month ? -1 : 1; }
+  if (a.day != b.day) { return a.day < b.day ? -1 : 1; }
+  return 0;
+}
+
+export function calendarDayDifference(start: CalendarDate, end: CalendarDate): number {
+  const startUtc = Date.UTC(start.year, start.month - 1, start.day);
+  const endUtc = Date.UTC(end.year, end.month - 1, end.day);
+  return Math.round((endUtc - startUtc) / (24 * 60 * 60 * 1000));
+}
+
+function clampCalendarDate(date: CalendarDate): CalendarDate {
+  const month = Math.max(1, Math.min(12, Math.trunc(date.month)));
+  const year = Math.trunc(date.year);
+  const day = Math.max(1, Math.min(Math.trunc(date.day), getMonthInfo(month, year).daysInMonth));
+  return { year, month, day };
+}
+
+export function calendarDateTimeForDate(date: CalendarDate, baseDateTimeSeconds: number): number {
+  const target = clampCalendarDate(date);
+  const base = new Date(baseDateTimeSeconds * 1000);
+  const targetDate = new Date(
+    target.year,
+    target.month - 1,
+    target.day,
+    base.getHours(),
+    base.getMinutes(),
+    base.getSeconds(),
+  );
+  return Math.floor(targetDate.getTime() / 1000);
+}
+
+export function calculateCalendarRangeEndDateTime(
+  dateTimeSeconds: number,
+  targetEndDate: CalendarDate,
+): number | null {
+  const startDate = calendarDateFromDateTime(dateTimeSeconds);
+  const clampedTargetEndDate = clampCalendarDate(targetEndDate);
+  if (compareCalendarDates(clampedTargetEndDate, startDate) <= 0) {
+    return null;
+  }
+  return calendarDateTimeForDate(clampedTargetEndDate, dateTimeSeconds);
+}
+
+export function shiftCalendarDateTimeByDays(dateTimeSeconds: number, dayOffset: number): number {
+  const date = new Date(dateTimeSeconds * 1000);
+  const shiftedDate = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + Math.trunc(dayOffset),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+  );
+  return Math.floor(shiftedDate.getTime() / 1000);
+}
+
+export function shiftCalendarDateTimeRange(
+  dateTimeSeconds: number,
+  endDateTimeSeconds: number | null,
+  dayOffset: number,
+): ShiftedCalendarDateTimeRange {
+  return {
+    dateTime: shiftCalendarDateTimeByDays(dateTimeSeconds, dayOffset),
+    endDateTime: endDateTimeSeconds == null
+      ? null
+      : shiftCalendarDateTimeByDays(endDateTimeSeconds, dayOffset),
+  };
+}
+
+export function calculateCalendarRangeMonthSegments(
+  dateTimeSeconds: number,
+  endDateTimeSeconds: number | null,
+  visibleMonths: ReadonlyArray<Pick<CalendarVisibleMonth, "year" | "month">>,
+): Array<CalendarRangeMonthSegment> {
+  if (endDateTimeSeconds == null) { return []; }
+
+  const start = calendarDateFromDateTime(dateTimeSeconds);
+  const end = calendarDateFromDateTime(endDateTimeSeconds);
+  if (compareCalendarDates(end, start) <= 0) { return []; }
+
+  const startMonthIndex = encodeCalendarMonthIndex(start.year, start.month);
+  const endMonthIndex = encodeCalendarMonthIndex(end.year, end.month);
+  const segments: Array<CalendarRangeMonthSegment> = [];
+  for (const visibleMonth of visibleMonths) {
+    const monthIndex = encodeCalendarMonthIndex(visibleMonth.year, visibleMonth.month);
+    if (monthIndex < startMonthIndex || monthIndex > endMonthIndex) { continue; }
+
+    const startsAtRangeStart = monthIndex == startMonthIndex;
+    const endsAtRangeEnd = monthIndex == endMonthIndex;
+    segments.push({
+      year: visibleMonth.year,
+      month: visibleMonth.month,
+      startDay: startsAtRangeStart ? start.day : 1,
+      endDay: endsAtRangeEnd
+        ? end.day
+        : getMonthInfo(visibleMonth.month, visibleMonth.year).daysInMonth,
+      startsAtRangeStart,
+      endsAtRangeEnd,
+    });
+  }
+  return segments;
 }
 
 function localCalendarDate(year: number, month: number, day: number): Date {
