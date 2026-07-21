@@ -103,7 +103,11 @@ const QUERY_CHAT_COMPOSER_BOTTOM_PX = 18;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
-const QUERY_CHAT_PROGRESS_HEIGHT_PX = 24;
+const QUERY_CHAT_TRAILING_CONTROLS_WIDTH_PX =
+  QUERY_CHAT_SEND_BUTTON_WIDTH_PX +
+  QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX +
+  QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX +
+  QUERY_WORKSPACE_CONTROLS_GAP_PX * 3;
 const QUERY_CHAT_SETTINGS_HEIGHT_PX = 28;
 
 
@@ -708,9 +712,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     );
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
     const progress = () => chatProgressForQuery(queryItem().id);
-    const wrapperHeightPx = () =>
-      chatTextareaHeightPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX +
-      (progress() == null ? 0 : QUERY_CHAT_PROGRESS_HEIGHT_PX);
+    const wrapperHeightPx = () => chatTextareaHeightPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
     const transcriptBottomPx = () => wrapperHeightPx() + QUERY_CHAT_COMPOSER_BOTTOM_PX + 24;
     const chatRequestActive = () => isStartingChat() || isSendingChat();
     const chatTurnIsCollapsed = (turnId: string) =>
@@ -847,27 +849,28 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onClick={stop}
           onKeyDown={stop}
           onKeyUp={stop}>
-          <label
-            class="flex items-center gap-2 px-1 text-[#555]"
-            style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px; font-size: 13px; line-height: 20px;`}
-            title={queryChatUsesInfumapData(store, queryItem())
-              ? "The assistant can search and read this Infumap instance. Start a new chat to change this setting."
-              : "The assistant can only use this conversation. Start a new chat to change this setting."}>
-            <input
-              type="checkbox"
-              checked={queryChatUsesInfumapData(store, queryItem())}
-              disabled />
-            <i class="bi-database" />
-            <span>Infumap data {queryChatUsesInfumapData(store, queryItem()) ? "enabled" : "disabled"}</span>
-            <i class="bi-lock-fill text-slate-400" style="font-size: 10px;" aria-hidden="true" />
-          </label>
-          <Show when={progress() != null}>
-            <div
-              class="truncate px-1 pb-1 text-[#555]"
-              style={`height: ${QUERY_CHAT_PROGRESS_HEIGHT_PX}px; font-size: 12px; line-height: 20px;`}>
-              {progress()!.text}
-            </div>
-          </Show>
+          <div
+            class="flex items-center px-1 text-[#555]"
+            style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px; ` +
+              `padding-right: ${QUERY_CHAT_TRAILING_CONTROLS_WIDTH_PX}px;`}>
+            <Show when={progress() != null}>
+              <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;">
+                {progress()!.text}
+              </div>
+            </Show>
+            <label
+              class="ml-auto flex shrink-0 items-center gap-2 pl-3"
+              style="font-size: 13px; line-height: 20px;"
+              title={queryChatUsesInfumapData(store, queryItem())
+                ? "The assistant can search and read this Infumap instance. Start a new chat to change this setting."
+                : "The assistant can only use this conversation. Start a new chat to change this setting."}>
+              <input
+                type="checkbox"
+                checked={queryChatUsesInfumapData(store, queryItem())}
+                disabled />
+              <span>Infumap data {queryChatUsesInfumapData(store, queryItem()) ? "enabled" : "disabled"}</span>
+            </label>
+          </div>
           <div class="flex items-end"
             style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
             <div
@@ -1068,7 +1071,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </div>
       <Show when={selectedInputMode() == "chat"}>
         <label
-          class="flex w-fit cursor-pointer items-center gap-2 px-1 text-[#555]"
+          class="flex w-full cursor-pointer items-center justify-end gap-2 px-1 text-[#555]"
           style="height: 20px; margin-top: 4px; font-size: 13px; line-height: 20px;"
           title={queryChatUsesInfumapData(store, queryItem())
             ? "The assistant can search and read this Infumap instance."
@@ -1092,7 +1095,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 handleQueryControlTab(ev, "infumap-data");
               }
             }} />
-          <i class="bi-database" aria-hidden="true" />
           <span>Use Infumap data</span>
         </label>
       </Show>
