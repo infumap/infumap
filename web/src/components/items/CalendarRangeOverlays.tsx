@@ -18,6 +18,7 @@
 
 import { For, Show } from "solid-js";
 import { VisualElement } from "../../layout/visual-element";
+import { MouseAction, MouseActionState } from "../../input/state";
 
 interface CalendarRangeOverlaysProps {
   visualElement: VisualElement,
@@ -44,6 +45,8 @@ export function CalendarRangeOverlays(props: CalendarRangeOverlaysProps) {
   return (
     <For each={props.visualElement.calendarRangeLayouts}>{rangeLayout => {
       const colors = rangeColors(rangeLayout.itemId);
+      const isActiveResize = MouseActionState.isAction(MouseAction.ResizingCalendarRange) &&
+        MouseActionState.getCalendarRangeResize()?.itemId == rangeLayout.itemId;
       return (
         <>
           <For each={rangeLayout.segments}>{segment =>
@@ -52,7 +55,7 @@ export function CalendarRangeOverlays(props: CalendarRangeOverlaysProps) {
               data-calendar-range-item-id={rangeLayout.itemId}
               style={`left: ${segment.boundsPx.x}px; top: ${segment.boundsPx.y}px; ` +
                 `width: ${segment.boundsPx.w}px; height: ${segment.boundsPx.h}px; ` +
-                `box-sizing: border-box; background-color: ${colors.fill}; ` +
+                `box-sizing: border-box; background-color: ${colors.fill}; opacity: ${isActiveResize ? 1 : 0.78}; ` +
                 `border-left: 2px solid ${colors.edge}; border-right: 2px solid ${colors.edge}; ` +
                 `${segment.startsAtRangeStart ? `border-top: 1px solid ${colors.edge}; ` : ""}` +
                 `${segment.endsAtRangeEnd ? `border-bottom: 2px solid ${colors.edge}; ` : ""}`}
@@ -63,8 +66,8 @@ export function CalendarRangeOverlays(props: CalendarRangeOverlaysProps) {
               class="absolute pointer-events-none"
               data-calendar-range-end-item-id={rangeLayout.itemId}
               style={`left: ${rangeLayout.endpointResizeBoundsPx!.x}px; ` +
-                `top: ${rangeLayout.endpointResizeBoundsPx!.y + rangeLayout.endpointResizeBoundsPx!.h / 2 - 1}px; ` +
-                `width: ${rangeLayout.endpointResizeBoundsPx!.w}px; height: 2px; ` +
+                `top: ${rangeLayout.endpointResizeBoundsPx!.y + rangeLayout.endpointResizeBoundsPx!.h / 2 - (isActiveResize ? 1.5 : 1)}px; ` +
+                `width: ${rangeLayout.endpointResizeBoundsPx!.w}px; height: ${isActiveResize ? 3 : 2}px; ` +
                 `background-color: ${colors.edge};`}
             />
           </Show>

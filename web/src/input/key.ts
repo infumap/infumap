@@ -36,7 +36,7 @@ import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { calculateCalendarWindowForPage } from "../util/calendar-layout";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
-import { CursorEventState } from "./state";
+import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { canCreateItemsOnCurrentPage, newItemInContext } from "./create";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
@@ -614,6 +614,18 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   else if (ev.code == "Escape") {
     ev.preventDefault();
+    if (MouseActionState.isAction(MouseAction.ResizingCalendarRange)) {
+      const resizeState = MouseActionState.getCalendarRangeResize();
+      const item = resizeState == null ? null : itemState.get(resizeState.itemId);
+      if (resizeState != null && item != null) {
+        item.endDateTime = resizeState.originalEndDateTime;
+      }
+      MouseActionState.set(null);
+      store.anItemIsResizing.set(false);
+      document.body.style.cursor = "";
+      arrangeNow(store, "key-escape-cancel-calendar-range-resize");
+      return;
+    }
     // Exit text edit mode while keeping focus on the item
     if (store.overlay.textEditInfo()) {
       store.overlay.setTextEditInfo(store.history, null, true);

@@ -45,6 +45,7 @@ export enum MouseAction {
   ResizingDock,
   ResizingListPageColumn,
   ResizingCalendarMonth,
+  ResizingCalendarRange,
   ResizingDockItem,
   Selecting,
 }
@@ -67,6 +68,13 @@ export interface TextDocumentMaterializeMoveState {
 
 export interface ItemCopyMoveState {
   pendingItemId: string,
+}
+
+export interface CalendarRangeResizeState {
+  itemId: string,
+  originalEndDateTime: number | null,
+  edgeDirection: -1 | 0 | 1,
+  edgeEnteredAtMs: number,
 }
 
 
@@ -109,6 +117,7 @@ export interface MouseActionStateType {
   moveRollback: Array<MoveRollbackSnapshotEntry> | null,
   textDocumentMaterializeMove: TextDocumentMaterializeMoveState | null,
   itemCopyMove: ItemCopyMoveState | null,
+  calendarRangeResize: CalendarRangeResizeState | null,
 
   hitEmbeddedInteractive: boolean,
 
@@ -126,8 +135,9 @@ type MouseActionStateInit = Omit<
   "startCalendarMonthResize" |
   "moveRollback" |
   "textDocumentMaterializeMove" |
-  "itemCopyMove"
-> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize" | "moveRollback" | "textDocumentMaterializeMove" | "itemCopyMove">>;
+  "itemCopyMove" |
+  "calendarRangeResize"
+> & Partial<Pick<MouseActionStateType, "action" | "linkCreatedOnMoveStart" | "newPlaceholderItem" | "startCalendarMonthResize" | "moveRollback" | "textDocumentMaterializeMove" | "itemCopyMove" | "calendarRangeResize">>;
 
 type MouseActionStateFromHitInit = Omit<
   MouseActionStateInit,
@@ -348,6 +358,7 @@ export let MouseActionState = {
       moveRollback: init.moveRollback ?? null,
       textDocumentMaterializeMove: init.textDocumentMaterializeMove ?? null,
       itemCopyMove: init.itemCopyMove ?? null,
+      calendarRangeResize: init.calendarRangeResize ?? null,
     });
   },
 
@@ -518,6 +529,15 @@ export let MouseActionState = {
   setStartCalendarMonthResize: (startCalendarMonthResize: CalendarMonthResize | null): void => {
     if (mouseActionState == null) { return; }
     mouseActionState.startCalendarMonthResize = startCalendarMonthResize;
+  },
+
+  getCalendarRangeResize: (): CalendarRangeResizeState | null => {
+    return mouseActionState?.calendarRangeResize ?? null;
+  },
+
+  setCalendarRangeResize: (calendarRangeResize: CalendarRangeResizeState | null): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.calendarRangeResize = calendarRangeResize;
   },
 
   getGroupMoveItems: (): MouseActionStateType["groupMoveItems"] | undefined => {

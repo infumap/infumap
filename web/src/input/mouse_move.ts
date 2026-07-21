@@ -20,7 +20,7 @@ import { NATURAL_BLOCK_SIZE_PX, GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX } from "../co
 import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { itemCanCopy, itemCanMove, itemCanResize } from "../items/base/capabilities-item";
+import { itemCanCopy, itemCanEdit, itemCanMove, itemCanResize } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
@@ -48,6 +48,9 @@ import { calcSpatialPopupGeometry } from "../layout/arrange/popup";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { CATALOG_VERTICAL_MARGIN_PX } from "../layout/catalog";
 import {
+  calculateCalendarPosition,
+  calculateCalendarRangeEndDateTime,
+  calculateCalendarWindowForPage,
   calculateCalendarDimensions,
   getCalendarDividerCenterPx,
   solveCalendarMonthWidthForDividerOffset,
@@ -194,6 +197,9 @@ export function mouseMoveHandler(store: StoreContextModel) {
       return;
     case MouseAction.ResizingCalendarMonth:
       mouseAction_resizingCalendarMonth(store);
+      return;
+    case MouseAction.ResizingCalendarRange:
+      mouseAction_resizingCalendarRange(currentMouseDesktopPx, store);
       return;
     case MouseAction.Selecting:
       mouseAction_selecting(store);
@@ -485,7 +491,25 @@ function changeMouseActionStateMaybe(
   let activeVisualElement = activeVisualElementSignal.get();
   let activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
-  if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
+  if (MouseActionState.hitboxTypeIncludes(HitboxFlags.CalendarRangeResize)) {
+    const rangeItemId = MouseActionState.getHitMeta()?.calendarRangeItemId ?? null;
+    const rangeItem = rangeItemId == null ? null : itemState.get(rangeItemId);
+    if (rangeItem == null || !itemCanEdit(rangeItem) ||
+      !isPage(activeVisualElement.displayItem) ||
+      asPageItem(activeVisualElement.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Calendar) {
+      store.anItemIsResizing.set(false);
+      return;
+    }
+    MouseActionState.setCalendarRangeResize({
+      itemId: rangeItem.id,
+      originalEndDateTime: rangeItem.endDateTime,
+      edgeDirection: 0,
+      edgeEnteredAtMs: 0,
+    });
+    store.anItemIsResizing.set(true);
+    MouseActionState.setAction(MouseAction.ResizingCalendarRange);
+
+  } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
     activeItem = resolveActiveTreeItemForResize(activeVisualElement);
     if (!itemCanResize(activeItem)) {
       store.anItemIsResizing.set(false);
@@ -1118,6 +1142,100 @@ function mouseAction_resizingCalendarMonth(store: StoreContextModel) {
   arrangeNow(store, "resize-calendar-page-month");
 }
 
+const CALENDAR_RANGE_EDGE_NAVIGATION_ZONE_PX = 18;
+const CALENDAR_RANGE_EDGE_NAVIGATION_DELAY_MS = 650;
+
+function navigateCalendarRangeWindowAtEdgeMaybe(
+  desktopPosPx: Vector,
+  calendarPageVe: VisualElement,
+  store: StoreContextModel,
+): boolean {
+  const resizeState = MouseActionState.getCalendarRangeResize();
+  if (resizeState == null || calendarPageVe.calendarMiniDayLayouts.length > 0 ||
+    calendarPageVe.viewportBoundsPx == null || calendarPageVe.childAreaBoundsPx == null) {
+    return false;
+  }
+
+  const viewportBoundsOnDesktop = calendarPageVe.flags & VisualElementFlags.Fixed
+    ? calendarPageVe.viewportBoundsPx
+    : VeFns.veViewportBoundsRelativeToDesktopPx(store, calendarPageVe);
+  const direction: -1 | 0 | 1 = desktopPosPx.x <= viewportBoundsOnDesktop.x + CALENDAR_RANGE_EDGE_NAVIGATION_ZONE_PX
+    ? -1
+    : desktopPosPx.x >= viewportBoundsOnDesktop.x + viewportBoundsOnDesktop.w - CALENDAR_RANGE_EDGE_NAVIGATION_ZONE_PX
+      ? 1
+      : 0;
+  const now = window.performance.now();
+  if (direction == 0) {
+    resizeState.edgeDirection = 0;
+    resizeState.edgeEnteredAtMs = 0;
+    return false;
+  }
+  if (resizeState.edgeDirection != direction) {
+    resizeState.edgeDirection = direction;
+    resizeState.edgeEnteredAtMs = now;
+    return false;
+  }
+  if (now - resizeState.edgeEnteredAtMs < CALENDAR_RANGE_EDGE_NAVIGATION_DELAY_MS) {
+    return false;
+  }
+
+  const pagePath = VeFns.veToPath(calendarPageVe);
+  const calendarWindow = calculateCalendarWindowForPage(
+    store,
+    pagePath,
+    calendarPageVe.childAreaBoundsPx.w,
+    calendarPageVe.displayItem as any,
+  );
+  store.perVe.setCalendarMonthIndex(pagePath, calendarWindow.startMonthIndex + direction);
+  resizeState.edgeEnteredAtMs = now;
+  arrangeNow(store, "resize-calendar-range-window-navigation");
+  return true;
+}
+
+function mouseAction_resizingCalendarRange(desktopPosPx: Vector, store: StoreContextModel): void {
+  document.body.style.cursor = "ns-resize";
+  const resizeState = MouseActionState.getCalendarRangeResize();
+  const calendarPageSignal = MouseActionState.getActiveVisualElementSignal();
+  if (resizeState == null || calendarPageSignal == null) {
+    store.anItemIsResizing.set(false);
+    return;
+  }
+
+  let calendarPageVe = calendarPageSignal.get();
+  if (!isPage(calendarPageVe.displayItem) ||
+    asPageItem(calendarPageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Calendar) {
+    return;
+  }
+  if (navigateCalendarRangeWindowAtEdgeMaybe(desktopPosPx, calendarPageVe, store)) {
+    const updatedPageSignal = MouseActionState.getActiveVisualElementSignal();
+    if (updatedPageSignal == null) { return; }
+    calendarPageVe = updatedPageSignal.get();
+  }
+
+  const item = itemState.get(resizeState.itemId);
+  if (item == null || !itemCanEdit(item)) { return; }
+  const targetPosition = calculateCalendarPosition(desktopPosPx, calendarPageVe, store);
+  let targetYear = targetPosition.year ?? null;
+  if (targetYear == null) {
+    const calendarWindow = calculateCalendarWindowForPage(
+      store,
+      VeFns.veToPath(calendarPageVe),
+      calendarPageVe.childAreaBoundsPx!.w,
+      calendarPageVe.displayItem as any,
+    );
+    targetYear = calendarWindow.months.find(month => month.month == targetPosition.month)?.year ?? calendarWindow.year;
+  }
+  const nextEndDateTime = calculateCalendarRangeEndDateTime(item.dateTime, {
+    year: targetYear,
+    month: targetPosition.month,
+    day: targetPosition.day,
+  });
+  if (item.endDateTime == nextEndDateTime) { return; }
+
+  item.endDateTime = nextEndDateTime;
+  arrangeNow(store, "resize-calendar-range-preview");
+}
+
 
 function mouseAction_resizingDockItem(deltaPx: Vector, store: StoreContextModel) {
   const dockItemSignal = MouseActionState.getActiveVisualElementSignal();
@@ -1397,7 +1515,12 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   if (hasUser && !isInsideToolbarPopup) {
-    if ((hitInfo.hitboxType & HitboxFlags.Resize) && hitInfoCanResize(hitInfo)) {
+    const calendarRangeItemId = hitInfo.overElementMeta?.calendarRangeItemId ?? null;
+    const calendarRangeItem = calendarRangeItemId == null ? null : itemState.get(calendarRangeItemId);
+    if ((hitInfo.hitboxType & HitboxFlags.CalendarRangeResize) &&
+      calendarRangeItem != null && itemCanEdit(calendarRangeItem)) {
+      document.body.style.cursor = "ns-resize";
+    } else if ((hitInfo.hitboxType & HitboxFlags.Resize) && hitInfoCanResize(hitInfo)) {
       document.body.style.cursor = "nwse-resize";
     } else if ((hitInfo.hitboxType & HitboxFlags.HorizontalResize) && hitInfoCanResize(hitInfo)) {
       document.body.style.cursor = "ew-resize";

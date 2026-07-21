@@ -1134,6 +1134,18 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       DoubleClickState.preventDoubleClick();
       break;
 
+    case MouseAction.ResizingCalendarRange: {
+      const resizeState = MouseActionState.getCalendarRangeResize();
+      const item = resizeState == null ? null : itemState.get(resizeState.itemId);
+      if (resizeState != null && item != null && item.endDateTime != resizeState.originalEndDateTime) {
+        serverOrRemote.updateItem(item, store.general.networkStatus);
+      }
+      document.body.style.cursor = "";
+      mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
+      DoubleClickState.preventDoubleClick();
+      break;
+    }
+
     case MouseAction.Selecting:
       handleSelectionMouseUp(store);
       break;

@@ -17,7 +17,7 @@
 */
 
 import { isPlaceholder } from "../../items/placeholder-item";
-import { itemCanCopy, itemCanMove } from "../../items/base/capabilities-item";
+import { itemCanCopy, itemCanEdit, itemCanMove } from "../../items/base/capabilities-item";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { HitboxFlags, HitboxMeta } from "../../layout/hitbox";
 import { VisualElement, VeFns } from "../../layout/visual-element";
@@ -26,6 +26,7 @@ import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy, ve
 import { BoundingBox } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
+import { itemState } from "../../store/ItemState";
 
 
 export function isIgnored(id: Uid, ignoreItems: Set<Uid>): boolean {
@@ -126,6 +127,13 @@ export function findAttachmentHit(
 
 function filteredHitboxType(ve: VisualElement, type: HitboxFlags, meta: HitboxMeta | null, allowCopyMove: boolean): HitboxFlags {
   let result = type;
+
+  if (result & HitboxFlags.CalendarRangeResize) {
+    const rangeItem = meta?.calendarRangeItemId == null ? null : itemState.get(meta.calendarRangeItemId);
+    if (rangeItem == null || !itemCanEdit(rangeItem)) {
+      result = (result & ~HitboxFlags.CalendarRangeResize) as HitboxFlags;
+    }
+  }
 
   if ((result & HitboxFlags.Move) && ve.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM) {
     result = (result & ~HitboxFlags.Move) as HitboxFlags;

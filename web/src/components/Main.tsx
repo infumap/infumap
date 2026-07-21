@@ -47,7 +47,7 @@ import { EmptyTrashOverlay } from "./overlay/EmptyTrashOverlay";
 import { Toolbar_Popup } from "./toolbar/Toolbar_Popup";
 import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler, clearMouseOverState, mouseMove_handleNoButtonDown } from "../input/mouse_move";
-import { CursorEventState, MouseActionState } from "../input/state";
+import { CursorEventState, MouseAction, MouseActionState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
@@ -252,6 +252,8 @@ export const Main: Component = () => {
     window.addEventListener('drop', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.addEventListener('drop', externalFileDropFallbackListener);
     window.addEventListener('dragleave', externalFileDragLeaveListener, externalFileDragListenerOptions);
+    window.addEventListener('mousemove', calendarRangeWindowMouseMoveListener);
+    window.addEventListener('mouseup', calendarRangeWindowMouseUpListener);
   });
 
   onCleanup(() => {
@@ -272,6 +274,8 @@ export const Main: Component = () => {
     window.removeEventListener('drop', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.removeEventListener('drop', externalFileDropFallbackListener);
     window.removeEventListener('dragleave', externalFileDragLeaveListener, externalFileDragListenerOptions);
+    window.removeEventListener('mousemove', calendarRangeWindowMouseMoveListener);
+    window.removeEventListener('mouseup', calendarRangeWindowMouseUpListener);
   });
 
   const selectionChangeListener = () => {
@@ -580,6 +584,28 @@ export const Main: Component = () => {
   const mouseMoveListener = (ev: MouseEvent) => {
     CursorEventState.setFromMouseEvent(ev);
     mouseMoveHandler(store);
+  };
+
+  const eventTargetIsInsideMain = (ev: MouseEvent): boolean =>
+    ev.target instanceof Node && mainDiv!.contains(ev.target);
+
+  const calendarRangeWindowMouseMoveListener = (ev: MouseEvent) => {
+    if (!MouseActionState.isAction(MouseAction.ResizingCalendarRange) || eventTargetIsInsideMain(ev)) {
+      return;
+    }
+    CursorEventState.setFromMouseEvent(ev);
+    mouseMoveHandler(store);
+  };
+
+  const calendarRangeWindowMouseUpListener = (ev: MouseEvent) => {
+    if (!MouseActionState.isAction(MouseAction.ResizingCalendarRange) || eventTargetIsInsideMain(ev)) {
+      return;
+    }
+    CursorEventState.setFromMouseEvent(ev);
+    const flags = mouseUpHandler(store);
+    if (flags & MouseEventActionFlags.PreventDefault) {
+      ev.preventDefault();
+    }
   };
 
   const mouseLeaveListener = () => {
