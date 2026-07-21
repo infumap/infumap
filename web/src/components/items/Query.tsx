@@ -1081,7 +1081,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             type="checkbox"
             checked={queryChatUsesInfumapData(store, queryItem())}
             disabled={isStartingChat()}
-            onChange={(ev) => setQueryChatUsesInfumapData(store, queryItem(), ev.currentTarget.checked)}
+            onChange={(ev) => {
+              const enabled = ev.currentTarget.checked;
+              setQueryText(store, queryItem(), readQueryTextFromDom());
+              setQueryChatUsesInfumapData(store, queryItem(), enabled);
+            }}
             onKeyDown={(ev) => {
               ev.stopPropagation();
               if (ev.key == "Tab") {
