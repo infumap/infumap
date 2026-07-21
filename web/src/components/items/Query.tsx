@@ -541,6 +541,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const queryInputMouseDown = (ev: MouseEvent) => {
+    if (ev.button == MOUSE_RIGHT) {
+      return;
+    }
     if (!canEdit()) {
       ev.preventDefault();
       ev.stopPropagation();
@@ -721,7 +724,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       );
     };
     const stop = (ev: Event) => {
+      if (ev instanceof MouseEvent && ev.button == MOUSE_RIGHT) {
+        return;
+      }
       ev.stopPropagation();
+    };
+    const chatSurfaceMouseDown = (ev: MouseEvent) => {
+      if (ev.button == MOUSE_RIGHT) {
+        chatTextarea?.blur();
+      }
     };
     const chatTranscriptMouseDown = (ev: MouseEvent) => {
       if (ev.button == MOUSE_RIGHT) {
@@ -776,7 +787,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
     return (
       <div class="absolute bg-white"
-        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}
+        onMouseDown={chatSurfaceMouseDown}>
         <div
           class="absolute overflow-y-auto"
           style={`left: 0px; top: 0px; width: ${boundsPx().w}px; ` +
