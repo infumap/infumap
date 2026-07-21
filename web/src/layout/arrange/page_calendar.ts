@@ -187,12 +187,39 @@ function calendarRangeResizeHitboxes(
   });
 }
 
-function calendarRangeValues(child: Item): { ownerItem: Item, endDateTime: number | null } | null {
+function isLastCalendarLinkOccurrence(child: LinkItem, siblingIds: ReadonlyArray<string>): boolean {
+  const linkToId = LinkFns.getLinkToId(child);
+  for (const siblingId of siblingIds) {
+    const sibling = itemState.get(siblingId);
+    if (sibling == null || !isLink(sibling) || sibling.id == child.id ||
+      LinkFns.getLinkToId(asLinkItem(sibling)) != linkToId) {
+      continue;
+    }
+    const dateComparison = compareCalendarDates(
+      calendarDateFromDateTime(sibling.dateTime),
+      calendarDateFromDateTime(child.dateTime),
+    );
+    if (dateComparison > 0) { return false; }
+    if (dateComparison < 0) { continue; }
+    const orderingComparison = compareOrderings(sibling.ordering, child.ordering);
+    if (orderingComparison > 0 || (orderingComparison == 0 && sibling.id > child.id)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function calendarRangeValues(
+  child: Item,
+  siblingIds: ReadonlyArray<string>,
+): { ownerItem: Item, endDateTime: number | null } | null {
   if (!isLink(child)) {
     return { ownerItem: child, endDateTime: child.endDateTime };
   }
 
-  const ownerItem = itemState.get(LinkFns.getLinkToId(asLinkItem(child)));
+  const link = asLinkItem(child);
+  if (!isLastCalendarLinkOccurrence(link, siblingIds)) { return null; }
+  const ownerItem = itemState.get(LinkFns.getLinkToId(link));
   if (ownerItem == null || isLink(ownerItem)) { return null; }
   return {
     ownerItem,
@@ -363,7 +390,7 @@ function arrangeMiniCalendarPage(
 
   const calendarRangeLayouts: Array<CalendarRangeLayout> = [];
   for (const child of calendarChildren) {
-    const rangeValues = calendarRangeValues(child);
+    const rangeValues = calendarRangeValues(child, displayItem_pageWithChildren.computed_children);
     if (rangeValues == null) { continue; }
     const { ownerItem: rangeOwnerItem, endDateTime } = rangeValues;
     const itemBounds = itemBoundsById.get(child.id) ?? null;
@@ -819,7 +846,7 @@ export function arrange_calendar_page(
 
   const calendarRangeLayouts: Array<CalendarRangeLayout> = [];
   for (const child of calendarChildren) {
-    const rangeValues = calendarRangeValues(child);
+    const rangeValues = calendarRangeValues(child, displayItem_pageWithChildren.computed_children);
     if (rangeValues == null) { continue; }
     const { ownerItem: rangeOwnerItem, endDateTime } = rangeValues;
     const itemBounds = itemBoundsById.get(child.id) ?? null;
