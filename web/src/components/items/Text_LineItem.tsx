@@ -34,6 +34,7 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
+import { ItemIconRenderContext } from "../../items/base/icon-item";
 
 
 export const TextLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -65,12 +66,14 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
     return false;
   };
 
-  const iconContext = () => TextFns.iconRenderContextFromVisualElement(props.visualElement);
-  const shouldRenderIcon = () => TextFns.showsIcon(textItem(), iconContext()) && !isInCalendarPage();
+  const iconContext = () => isInCalendarPage()
+    ? ItemIconRenderContext.TableAttachment
+    : TextFns.iconRenderContextFromVisualElement(props.visualElement);
+  const shouldRenderIcon = () => TextFns.showsIcon(textItem(), iconContext());
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
-  const shouldReserveLeadingBlock = () => shouldRenderIcon() || shouldShowLinkMarking();
+  const shouldReserveLeadingBlock = () => shouldRenderIcon() || (shouldShowLinkMarking() && !isInCalendarPage());
   const emoji = () => TextFns.emoji(textItem(), iconContext());
 
   const leftPx = () => shouldReserveLeadingBlock()

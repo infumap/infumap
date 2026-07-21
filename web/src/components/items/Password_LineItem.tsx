@@ -29,6 +29,7 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
+import { ItemIconRenderContext } from "../../items/base/icon-item";
 
 
 export const PasswordLineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -60,13 +61,15 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     return false;
   };
 
-  const iconContext = () => PasswordFns.iconRenderContextFromVisualElement(props.visualElement);
-  const shouldRenderIcon = () => PasswordFns.showsIcon(passwordItem(), iconContext()) && !isInCalendarPage();
+  const iconContext = () => isInCalendarPage()
+    ? ItemIconRenderContext.TableAttachment
+    : PasswordFns.iconRenderContextFromVisualElement(props.visualElement);
+  const shouldRenderIcon = () => PasswordFns.showsIcon(passwordItem(), iconContext());
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
-  const shouldReserveLeadingBlock = () => shouldRenderIcon() || shouldShowLinkMarking();
+  const shouldReserveLeadingBlock = () => shouldRenderIcon() || (shouldShowLinkMarking() && !isInCalendarPage());
   const emoji = () => PasswordFns.emoji(passwordItem(), iconContext());
   const trailingControlsWidthPx = () => oneBlockWidthPx() * 1.9;
 
