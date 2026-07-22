@@ -250,7 +250,10 @@ export function arrange_document_page(
   addContiguousStackedRowMarginHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
   addContiguousStackedGapHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
 
-  const renderChildrenAsFull = flags & ArrangeItemFlags.IsPopupRoot || arrangeFlagIsRoot(flags);
+  const renderChildrenAsFull =
+    !!(flags & ArrangeItemFlags.RenderChildrenAsFull) ||
+    !!(flags & ArrangeItemFlags.IsPopupRoot) ||
+    arrangeFlagIsRoot(flags);
   for (const child of childArrangeData) {
     childrenPaths.push(arrangeDocumentChildItemPath(
       store,
@@ -287,13 +290,6 @@ export function arrange_document_page(
     );
     childrenPaths.push(VeFns.veToPath(movingVes.get()));
   }
-
-  const isEmbeddedInteractive =
-    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
-    (VeFns.pathDepth(parentPath) >= 2) &&
-    !(flags & ArrangeItemFlags.IsTopRoot) &&
-    !(flags & ArrangeItemFlags.IsPopupRoot) &&
-    !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;

@@ -43,6 +43,7 @@ import {
   isCurrentDay,
 } from "../../util/calendar-layout";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
+import { ClientOnlyItemKind } from "../../items/base/item";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
@@ -61,10 +62,14 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   let previousChildAreaHeightPx: number | null = null;
   let latestTranslucentScrollTopPx = 0;
   let translucentDiv: any = undefined; // HTMLDivElement | undefined
+  let followingLatestChatTurn = true;
+  const CHAT_FOLLOW_LATEST_THRESHOLD_PX = 8;
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const canResizePage = () => itemCanResize(pageFns().pageItem());
+  const isQueryChatPage = () =>
+    pageFns().pageItem().clientOnlyKind == ClientOnlyItemKind.QueryChatPage;
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   onMount(() => {
@@ -84,8 +89,15 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const scrollXProp = store.perItem.getPageScrollXProp(veid);
     const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
 
-    const scrollYProp = store.perItem.getPageScrollYProp(veid);
-    const scrollYPx = scrollYProp * (pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+    const maxScrollYPx = Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
+    const scrollYProp = isQueryChatPage() && followingLatestChatTurn
+      ? 1
+      : store.perItem.getPageScrollYProp(veid);
+    const scrollYPx = scrollYProp * maxScrollYPx;
+
+    if (isQueryChatPage() && followingLatestChatTurn) {
+      store.perItem.setPageScrollYProp(veid, 1);
+    }
 
     translucentDiv.scrollTop = scrollYPx;
     translucentDiv.scrollLeft = scrollXPx;
@@ -120,7 +132,11 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         previousChildAreaHeightPx != null &&
         pageFns().childAreaBoundsPx().h > previousChildAreaHeightPx;
 
-      if (shouldPreserveAbsoluteScrollTop) {
+      if (isQueryChatPage() && followingLatestChatTurn) {
+        translucentDiv.scrollTop = maxScrollYPx;
+        latestTranslucentScrollTopPx = maxScrollYPx;
+        store.perItem.setPageScrollYProp(pageVeid, 1);
+      } else if (shouldPreserveAbsoluteScrollTop) {
         const preservedScrollTopPx = Math.min(latestTranslucentScrollTopPx, maxScrollYPx);
         translucentDiv.scrollTop = preservedScrollTopPx;
         latestTranslucentScrollTopPx = preservedScrollTopPx;
@@ -197,6 +213,14 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const pageBoundsPx = props.visualElement.boundsPx;
     const childAreaBounds = pageFns().childAreaBoundsPx();
     const pageVeid = VeFns.veidFromVe(props.visualElement);
+
+    if (isQueryChatPage()) {
+      const distanceFromBottomPx = Math.max(
+        0,
+        translucentDiv.scrollHeight - translucentDiv.clientHeight - translucentDiv.scrollTop,
+      );
+      followingLatestChatTurn = distanceFromBottomPx <= CHAT_FOLLOW_LATEST_THRESHOLD_PX;
+    }
 
     if (childAreaBounds.h > pageBoundsPx.h) {
       const scrollYProp = translucentDiv!.scrollTop / (childAreaBounds.h - pageBoundsPx.h);

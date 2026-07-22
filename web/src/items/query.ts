@@ -24,7 +24,7 @@ import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { asContainerItem, isContainer } from "./base/container-item";
-import { clearQueryChatForModeSwitch, ensureTemporaryQueryChatPage, submitQueryChatMessage } from "./chat";
+import { clearQueryChat, ensureTemporaryQueryChatPage, submitQueryChatMessage } from "./chat";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
 import {
   QueryItem,
@@ -139,7 +139,7 @@ export async function runQuerySearch(
   text: string,
   options: QuerySearchRunOptions,
 ): Promise<boolean> {
-  clearQueryChatForModeSwitch(store, queryItem);
+  clearQueryChat(store, queryItem);
   if (options.keepQueryFocusPath != null) {
     store.history.setFocus(options.keepQueryFocusPath);
   }
@@ -203,7 +203,7 @@ export async function startQueryChat(
   initialText: string,
   queryItemPath: VisualElementPath,
 ): Promise<void> {
-  clearQueryChatForModeSwitch(store, queryItem);
+  clearQueryChat(store, queryItem);
   clearQuerySearchForModeSwitch(store, queryItem);
   ensureTemporaryQueryChatPage(store, queryItem);
 

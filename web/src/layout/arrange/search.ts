@@ -18,7 +18,6 @@
 
 import type { SearchResult } from "../../server";
 import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
-import { PageFlags } from "../../items/base/flags-item";
 import {
   ArrangeAlgorithm,
   PageFns,
@@ -194,18 +193,6 @@ function temporaryChatPageMaybe(store: StoreContextModel, queryItem: QueryItem):
   }
 
   const page = asPageItem(pageItem);
-  page.parentId = queryItem.id;
-  page.relationshipToParent = RelationshipToParent.Child;
-  page.arrangeAlgorithm = ArrangeAlgorithm.Document;
-  page.flags |= PageFlags.EmbeddedInteractive |
-    PageFlags.HideDocumentTitle |
-    PageFlags.HideEmbeddedInteractiveTitle;
-  page.orderChildrenBy = "";
-  page.title = "";
-  page.childrenLoaded = true;
-  page.computed_children = [...runtime.chat.rootItemIds];
-  page.computed_attachments = [];
-  markChildrenLoadAsInitiatedOrComplete(page.id);
   return page;
 }
 
@@ -242,6 +229,6 @@ export function arrangeQueryWorkspacePathMaybe(
     chatPage,
     null,
     pageGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsEmbeddedInteractiveRoot,
+    ArrangeItemFlags.RenderChildrenAsFull,
   );
 }

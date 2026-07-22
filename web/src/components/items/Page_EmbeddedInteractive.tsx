@@ -39,7 +39,6 @@ import { VisualElementSignal } from "../../util/signals";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
-import { ClientOnlyItemKind } from "../../items/base/item";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -49,16 +48,12 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   let rootDiv: any = undefined; // HTMLDivElement | undefined
   let updatingRootScrollTop = false;
-  let followingLatestChatTurn = true;
   const SCROLL_PROP_EPSILON = 0.000001;
-  const CHAT_FOLLOW_LATEST_THRESHOLD_PX = 8;
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const canResizePage = () => itemCanResize(pageFns().pageItem());
   const pageChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
-  const isQueryChatPage = () =>
-    pageFns().pageItem().clientOnlyKind == ClientOnlyItemKind.QueryChatPage;
   const isMinimalDocumentPage = () => pageFns().isDocumentPage();
   const documentTextEditIsActive = () => {
     if (!canEditPage() || !pageFns().isDocumentPage()) { return false; }
@@ -104,9 +99,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   };
 
   onMount(() => {
-    if (isQueryChatPage() && followingLatestChatTurn) {
-      store.perItem.setPageScrollYProp(getScrollVeid(), 1);
-    }
     syncRootScrollPosition();
   });
 
@@ -125,9 +117,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       store.perItem.getPageScrollYProp(getScrollVeid());
     }
 
-    if (isQueryChatPage() && followingLatestChatTurn) {
-      store.perItem.setPageScrollYProp(getScrollVeid(), 1);
-    }
     syncRootScrollPosition();
   });
 
@@ -314,7 +303,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     if (ev.target !== ev.currentTarget) { return; }
     ev.preventDefault();
     ev.stopPropagation();
-    if (isQueryChatPage()) { return; }
     switchToPage(store, VeFns.actualVeidFromVe(props.visualElement), true, false, false);
   };
 
@@ -343,11 +331,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
     const nextScrollYProp = scrollableHeightPx > 0 ? rootDiv.scrollTop / scrollableHeightPx : 0;
     const nextScrollXProp = scrollableWidthPx > 0 ? rootDiv.scrollLeft / scrollableWidthPx : 0;
-
-    if (isQueryChatPage()) {
-      const distanceFromBottomPx = Math.max(0, rootDiv.scrollHeight - rootDiv.clientHeight - rootDiv.scrollTop);
-      followingLatestChatTurn = distanceFromBottomPx <= CHAT_FOLLOW_LATEST_THRESHOLD_PX;
-    }
 
     if (Math.abs(store.perItem.getPageScrollYProp(veid) - nextScrollYProp) > SCROLL_PROP_EPSILON) {
       store.perItem.setPageScrollYProp(veid, nextScrollYProp);

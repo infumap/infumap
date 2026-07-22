@@ -23,7 +23,7 @@ import { createSignal } from "solid-js";
 import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { CompositeFlags, PageFlags } from "./base/flags-item";
-import { ClientOnlyItemKind, Item, ItemTypeMixin } from "./base/item";
+import { ClientOnlyItemKind, Item } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
@@ -38,16 +38,10 @@ import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 const MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE = "Chat";
 
-export function markAsQueryChatPage(item: Item): void {
+function markAsQueryChatPage(item: Item): void {
   item.clientOnly = true;
   item.clientOnlyKind = ClientOnlyItemKind.QueryChatPage;
   makeQueryChatItemReadOnly(item);
-}
-
-export function isQueryChatPage(item: ItemTypeMixin | null): boolean {
-  if (item == null) { return false; }
-  const maybeItem = item as Partial<Item>;
-  return maybeItem.clientOnly === true && maybeItem.clientOnlyKind == ClientOnlyItemKind.QueryChatPage;
 }
 
 function makeQueryChatItemReadOnly(item: Item): void {
@@ -170,9 +164,7 @@ export function ensureTemporaryQueryChatPage(store: StoreContextModel, queryItem
     temporaryPage.id = pageId;
     temporaryPage.origin = null;
     temporaryPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
-    temporaryPage.flags |= PageFlags.EmbeddedInteractive |
-      PageFlags.HideDocumentTitle |
-      PageFlags.HideEmbeddedInteractiveTitle;
+    temporaryPage.flags |= PageFlags.HideDocumentTitle;
     temporaryPage.orderChildrenBy = "";
     temporaryPage.title = "";
     markAsQueryChatPage(temporaryPage);
@@ -184,9 +176,9 @@ export function ensureTemporaryQueryChatPage(store: StoreContextModel, queryItem
   page.parentId = queryItem.id;
   page.relationshipToParent = RelationshipToParent.Child;
   page.arrangeAlgorithm = ArrangeAlgorithm.Document;
-  page.flags |= PageFlags.EmbeddedInteractive |
-    PageFlags.HideDocumentTitle |
-    PageFlags.HideEmbeddedInteractiveTitle;
+  page.flags = (page.flags | PageFlags.HideDocumentTitle) &
+    ~PageFlags.EmbeddedInteractive &
+    ~PageFlags.HideEmbeddedInteractiveTitle;
   page.orderChildrenBy = "";
   page.title = "";
   page.childrenLoaded = true;
@@ -514,10 +506,6 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
     },
   }));
   clearQueryChatProgress(queryItem.id);
-}
-
-export function clearQueryChatForModeSwitch(store: StoreContextModel, queryItem: QueryItem): void {
-  clearQueryChat(store, queryItem);
 }
 
 export function resetQueryChatSession(store: StoreContextModel, queryItem: QueryItem, arrangeReason?: string): void {
