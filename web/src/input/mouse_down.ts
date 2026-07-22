@@ -18,7 +18,7 @@
 
 import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanEdit } from "../items/base/capabilities-item";
-import { Item, ItemType } from "../items/base/item";
+import { ClientOnlyItemKind, Item, ItemType } from "../items/base/item";
 import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { asTableItem, isTable, TableFns } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
@@ -55,11 +55,32 @@ import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns"
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { finishPendingClipboardTextItem } from "./text_clipboard_create";
-import { setQueryText } from "../items/query-item";
+import { isQueryItem, setQueryText } from "../items/query-item";
 
 
 export const MOUSE_LEFT = 0;
 export const MOUSE_RIGHT = 2;
+
+
+function owningQueryChatPathMaybe(focusPath: string): string | null {
+  let path: string | null = focusPath;
+  while (path != null && path != "" && path != UMBRELLA_PAGE_UID) {
+    const ve = VesCache.current.readNode(path);
+    if (ve == null) {
+      return null;
+    }
+    if (ve.displayItem.clientOnlyKind == ClientOnlyItemKind.QueryChatPage) {
+      const parentPath = ve.parentPath;
+      if (parentPath == null) {
+        return null;
+      }
+      const parentVe = VesCache.current.readNode(parentPath);
+      return parentVe != null && isQueryItem(parentVe.displayItem) ? parentPath : null;
+    }
+    path = ve.parentPath;
+  }
+  return null;
+}
 
 
 function dragOffsetBoundsRelativeToDesktopPx(store: StoreContextModel, visualElement: VisualElement): BoundingBox {
@@ -503,6 +524,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (buttonNumber != MOUSE_LEFT && !store.history.currentPopupSpec()) {
     const focusItem = store.history.getFocusItem();
     const focusPath = store.history.getFocusPath();
+    const owningQueryChatPath = owningQueryChatPathMaybe(focusPath);
+    if (owningQueryChatPath != null && owningQueryChatPath != focusPath) {
+      store.history.setFocus(owningQueryChatPath);
+      arrangeNow(store, "mouse-right-focus-query-from-chat");
+      return defaultResult;
+    }
     const currentPagePath = store.history.currentPagePath();
     const focusVe = VesCache.current.readNode(focusPath);
     const shouldClearEmbeddedInteractiveFocus =
