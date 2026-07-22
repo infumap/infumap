@@ -793,16 +793,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </div>
             </Show>
             <label
-              class="ml-auto flex shrink-0 items-center gap-2 pl-3"
+              class="ml-auto flex shrink-0 cursor-pointer items-center gap-2 pl-3"
               style="font-size: 13px; line-height: 20px;"
               title={queryChatUsesInfumapData(store, queryItem())
-                ? "The assistant can search and read this Infumap instance. Start a new chat to change this setting."
-                : "The assistant can only use this conversation. Start a new chat to change this setting."}>
+                ? "The assistant can search and read this Infumap instance."
+                : "The assistant can only use this conversation."}>
               <input
                 type="checkbox"
                 checked={queryChatUsesInfumapData(store, queryItem())}
-                disabled />
-              <span>Infumap data {queryChatUsesInfumapData(store, queryItem()) ? "enabled" : "disabled"}</span>
+                disabled={chatRequestActive()}
+                onChange={(ev) => setQueryChatUsesInfumapData(store, queryItem(), ev.currentTarget.checked)} />
+              <span>Use Infumap data</span>
             </label>
           </div>
           <div class="flex items-end"
