@@ -26,7 +26,7 @@ On the VPS (`10.0.0.1`):
 Create `/etc/dnsmasq.d/infumap-vpn.conf`:
 
     interface=wg0
-    bind-interfaces
+    bind-dynamic
     listen-address=10.0.0.1
     domain-needed
     bogus-priv
@@ -43,11 +43,25 @@ lookups because they are widely available, fast, and provide simple redundancy. 
 upstream resolvers (for example, Quad9 or Google Public DNS). `local-ttl=300` tells clients to cache local DNS mappings
 for about five minutes, reducing repeated lookups from iPhone and laptop clients.
 
+`wg0` and `10.0.0.1` do not exist until WireGuard starts. `bind-dynamic` allows `dnsmasq` to handle that dynamically
+created interface. Also add an explicit systemd dependency so that `dnsmasq` starts only after WireGuard has brought
+the interface up:
+
+    sudo systemctl edit dnsmasq
+
+Add the following override:
+
+    [Unit]
+    Requires=wg-quick@wg0.service
+    After=wg-quick@wg0.service
+
 Start and verify on the VPS:
 
+    sudo dnsmasq --test
+    sudo systemctl daemon-reload
     sudo systemctl enable dnsmasq
     sudo systemctl restart dnsmasq
-    sudo systemctl status dnsmasq
+    sudo systemctl status wg-quick@wg0 dnsmasq --no-pager
     nslookup infumap.yourdomain.tld 10.0.0.1
 
 If you enabled Grafana DNS:
@@ -56,8 +70,29 @@ If you enabled Grafana DNS:
 
 If UFW is enabled on the VPS, allow DNS only from the WireGuard subnet:
 
-    sudo ufw allow from 10.0.0.0/24 to 10.0.0.1 port 53 proto udp
-    sudo ufw allow from 10.0.0.0/24 to 10.0.0.1 port 53 proto tcp
+    sudo ufw allow in on wg0 from 10.0.0.0/24 to 10.0.0.1 port 53 proto udp
+    sudo ufw allow in on wg0 from 10.0.0.0/24 to 10.0.0.1 port 53 proto tcp
+
+Reboot the VPS once to verify that both services start in the correct order and that DNS survives a reboot:
+
+    sudo reboot
+
+After reconnecting:
+
+    systemctl is-active wg-quick@wg0 dnsmasq
+    nslookup infumap.yourdomain.tld 10.0.0.1
+    nslookup example.com 10.0.0.1
+
+Both services should report `active`. If `dnsmasq` fails, inspect its boot log and confirm that it is listening on port
+53 on the WireGuard address:
+
+    sudo journalctl -b -u dnsmasq --no-pager
+    sudo ss -lntup | grep ':53'
+
+If restarting `dnsmasq` after boot makes DNS work, check that the systemd override above is installed correctly with
+`systemctl cat dnsmasq`; that symptom usually means `dnsmasq` started before `wg0` was ready. An `address already in use`
+error instead means another DNS service is already listening on port 53 and must be reconfigured before `dnsmasq` can
+start.
 
 Configure name resolution for iPhone and macOS clients:
 
