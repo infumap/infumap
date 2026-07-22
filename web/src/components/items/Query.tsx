@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, createSignal, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 import { arrangeNow } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
@@ -33,7 +33,12 @@ import { VisualElement_Desktop } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { VesCache } from "../../layout/ves-cache";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
-import { desktopPopupIconTextIndentPx, getTextStyleForNote } from "../../layout/text";
+import {
+  desktopPopupIconTextIndentPx,
+  getTextStyleForNote,
+  noteListMarkerText,
+  noteListTextInsetPx,
+} from "../../layout/text";
 import {
   QueryFns,
   asQueryItem,
@@ -84,6 +89,7 @@ import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_dow
 import { mouseUpHandler } from "../../input/mouse_up";
 import { CursorEventState } from "../../input/state";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
+import { NoteFlags } from "../../items/base/flags-item";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").trim();
@@ -812,6 +818,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         void sendChatMessage();
       }
     };
+    const chatNoteStyle = (flags: NoteFlags) => {
+      const textStyle = getTextStyleForNote(flags);
+      return `position: relative; font-size: ${textStyle.fontSize}px; ` +
+        `line-height: ${LINE_HEIGHT_PX * textStyle.lineHeightMultiplier}px; ` +
+        `font-weight: ${textStyle.isBold ? 700 : 400}; ` +
+        `font-family: ${textStyle.isCode ? "monospace" : "inherit"}; ` +
+        `padding-left: ${noteListTextInsetPx(flags)}px; white-space: pre-wrap;`;
+    };
 
     return (
       <div class="absolute bg-white"
@@ -849,16 +863,61 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   </div>
                 </div>
                 <Show when={!chatTurnIsCollapsed(turn.id)}>
-                  <div style="font-size: 18px; line-height: 28px; padding-left: 30px; white-space: pre-wrap;">
-                    <For each={turn.bodyLines}>{line =>
-                      <div>
-                        <NoteInlineText
-                          text={line.text}
-                          inlineMarks={line.inlineMarks}
-                          urls={line.urls}
-                          linksEnabled
-                          onLinkMouseDown={chatLinkMouseDown} />
-                      </div>
+                  <div style="font-size: 16px; line-height: 24px; padding-left: 30px;">
+                    <For each={turn.bodyBlocks}>{block =>
+                      <Switch>
+                        <Match when={block.kind == "note" ? block : null}>{noteBlock =>
+                          <div
+                            class={noteBlock().flags & NoteFlags.Code ? "rounded-xs bg-slate-100 px-3 py-2" : ""}
+                            style={`${chatNoteStyle(noteBlock().flags)} margin-top: 12px;`}>
+                            <Show when={noteListMarkerText(noteBlock().flags, noteBlock().listItemNumber) != ""}>
+                              <span class="absolute left-0 select-none">
+                                {noteListMarkerText(noteBlock().flags, noteBlock().listItemNumber)}
+                              </span>
+                            </Show>
+                            <NoteInlineText
+                              text={noteBlock().line.text}
+                              inlineMarks={noteBlock().line.inlineMarks}
+                              urls={noteBlock().line.urls}
+                              linksEnabled
+                              onLinkMouseDown={chatLinkMouseDown} />
+                          </div>
+                        }</Match>
+                        <Match when={block.kind == "divider"}>
+                          <hr class="my-4 border-0 border-t border-slate-300" />
+                        </Match>
+                        <Match when={block.kind == "table" ? block : null}>{tableBlock =>
+                          <div class="my-4 overflow-x-auto">
+                            <table class="w-full border-collapse text-left" style="font-size: 15px; line-height: 22px;">
+                              <thead>
+                                <tr>
+                                  <For each={tableBlock().columns}>{column =>
+                                    <th class="border border-slate-300 bg-slate-100 px-2 py-1 font-bold">{column}</th>
+                                  }</For>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <For each={tableBlock().rows}>{row =>
+                                  <tr>
+                                    <For each={row}>{cell =>
+                                      <td class="border border-slate-300 px-2 py-1 align-top">
+                                        <Show when={cell != null}>{
+                                          <NoteInlineText
+                                            text={cell!.text}
+                                            inlineMarks={cell!.inlineMarks}
+                                            urls={cell!.urls}
+                                            linksEnabled
+                                            onLinkMouseDown={chatLinkMouseDown} />
+                                        }</Show>
+                                      </td>
+                                    }</For>
+                                  </tr>
+                                }</For>
+                              </tbody>
+                            </table>
+                          </div>
+                        }</Match>
+                      </Switch>
                     }</For>
                   </div>
                 </Show>

@@ -22,13 +22,15 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { createSignal } from "solid-js";
 import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
 import { asContainerItem, isContainer } from "./base/container-item";
-import { CompositeFlags, PageFlags } from "./base/flags-item";
+import { CompositeFlags, NoteFlags, PageFlags } from "./base/flags-item";
 import { Item } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns } from "./composite-item";
 import { NoteFns, NoteInlineMark, NoteUrl, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns } from "./page-item";
 import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
+import { asTableItem, isTable } from "./table-item";
+import { isDivider } from "./divider-item";
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -391,7 +393,7 @@ function firstPromptInQueryChat(store: StoreContextModel, queryItem: QueryItem):
 export interface QueryChatTurnView {
   id: Uid,
   title: string,
-  bodyLines: Array<QueryChatLineView>,
+  bodyBlocks: Array<QueryChatBlockView>,
 }
 
 export interface QueryChatLineView {
@@ -399,6 +401,11 @@ export interface QueryChatLineView {
   inlineMarks: Array<NoteInlineMark>,
   urls: Array<NoteUrl>,
 }
+
+export type QueryChatBlockView =
+  | { kind: "note", id: Uid, line: QueryChatLineView, flags: NoteFlags, listItemNumber: number | null }
+  | { kind: "divider", id: Uid }
+  | { kind: "table", id: Uid, columns: Array<string>, rows: Array<Array<QueryChatLineView | null>> };
 
 function chatItemLine(item: Item): QueryChatLineView | null {
   if (isNote(item)) {
@@ -416,27 +423,73 @@ function chatItemText(item: Item): string {
   return chatItemLine(item)?.text ?? "";
 }
 
-function collectQueryChatBodyLines(item: Item, bodyLines: Array<QueryChatLineView>): void {
-  const line = chatItemLine(item);
-  if (line != null) {
-    bodyLines.push(line);
-  }
+function chatTableCell(item: Item | null): QueryChatLineView | null {
+  return item == null ? null : chatItemLine(item);
+}
 
-  if (isContainer(item)) {
-    for (const childId of asContainerItem(item).computed_children) {
-      const child = itemState.get(childId);
-      if (child != null) {
-        collectQueryChatBodyLines(child, bodyLines);
-      }
+function chatTableBlock(item: Item): QueryChatBlockView {
+  const table = asTableItem(item);
+  const columnCount = Math.max(1, Math.min(table.numberOfVisibleColumns, table.tableColumns.length));
+  const rows = table.computed_children.map(rowId => {
+    const row = itemState.get(rowId) ?? null;
+    const cells: Array<QueryChatLineView | null> = [chatTableCell(row)];
+    const attachmentIds = row != null && isAttachmentsItem(row)
+      ? asAttachmentsItem(row).computed_attachments
+      : [];
+    for (let index = 0; index < columnCount - 1; ++index) {
+      cells.push(chatTableCell(itemState.get(attachmentIds[index]) ?? null));
     }
-  }
+    return cells;
+  });
+  return {
+    kind: "table",
+    id: item.id,
+    columns: table.tableColumns.slice(0, columnCount).map(column => column.name),
+    rows,
+  };
+}
 
-  if (isAttachmentsItem(item)) {
-    for (const attachmentId of asAttachmentsItem(item).computed_attachments) {
-      const attachment = itemState.get(attachmentId);
-      if (attachment != null) {
-        collectQueryChatBodyLines(attachment, bodyLines);
+function collectQueryChatBodyBlocks(items: Array<Item>, bodyBlocks: Array<QueryChatBlockView>): void {
+  let numberedListItem = 0;
+  for (const item of items) {
+    if (isNote(item)) {
+      const note = asNoteItem(item);
+      if (note.flags & NoteFlags.Numbered) {
+        numberedListItem += 1;
+      } else {
+        numberedListItem = 0;
       }
+      const line = chatItemLine(item);
+      if (line != null) {
+        bodyBlocks.push({
+          kind: "note",
+          id: item.id,
+          line,
+          flags: note.flags,
+          listItemNumber: note.flags & NoteFlags.Numbered ? numberedListItem : null,
+        });
+      }
+      continue;
+    }
+    numberedListItem = 0;
+    if (isDivider(item)) {
+      bodyBlocks.push({ kind: "divider", id: item.id });
+      continue;
+    }
+    if (isTable(item)) {
+      bodyBlocks.push(chatTableBlock(item));
+      continue;
+    }
+
+    const line = chatItemLine(item);
+    if (line != null) {
+      bodyBlocks.push({ kind: "note", id: item.id, line, flags: NoteFlags.None, listItemNumber: null });
+    }
+    if (isContainer(item)) {
+      collectQueryChatBodyBlocks(
+        asContainerItem(item).computed_children.map(id => itemState.get(id)).filter((child): child is Item => child != null),
+        bodyBlocks,
+      );
     }
   }
 }
@@ -447,20 +500,19 @@ export function queryChatTurns(store: StoreContextModel, queryItem: QueryItem): 
     if (!root) {
       return null;
     }
-    const bodyLines: Array<QueryChatLineView> = [];
+    const bodyBlocks: Array<QueryChatBlockView> = [];
     if (isContainer(root)) {
-      for (const childId of asContainerItem(root).computed_children) {
-        const child = itemState.get(childId);
-        if (child == null) { continue; }
-        collectQueryChatBodyLines(child, bodyLines);
-      }
+      collectQueryChatBodyBlocks(
+        asContainerItem(root).computed_children.map(id => itemState.get(id)).filter((child): child is Item => child != null),
+        bodyBlocks,
+      );
     } else {
-      collectQueryChatBodyLines(root, bodyLines);
+      collectQueryChatBodyBlocks([root], bodyBlocks);
     }
     return {
       id: root.id,
       title: chatItemText(root),
-      bodyLines,
+      bodyBlocks,
     };
   }).filter((turn): turn is QueryChatTurnView => turn != null);
 }

@@ -431,7 +431,10 @@ pub fn is_flags_item_type(item_type: ItemType) -> bool {
 }
 
 pub fn is_icon_item_type(item_type: ItemType) -> bool {
-  item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password
+  item_type == ItemType::Note
+    || item_type == ItemType::File
+    || item_type == ItemType::Text
+    || item_type == ItemType::Password
 }
 
 pub fn is_permission_flags_item_type(item_type: ItemType) -> bool {
@@ -693,7 +696,9 @@ fn get_note_inline_marks_field(
 
 fn validate_note_inline_marks(inline_marks: &[i64], title: &str, item_id: &str) -> InfuResult<()> {
   if inline_marks.len() % 3 != 0 {
-    return Err(format!("'inlineMarks' field for note '{}' must contain triples of start, end, flags.", item_id).into());
+    return Err(
+      format!("'inlineMarks' field for note '{}' must contain triples of start, end, flags.", item_id).into(),
+    );
   }
 
   let title_len_utf16 = title.encode_utf16().count() as i64;
@@ -714,13 +719,19 @@ fn validate_note_inline_marks(inline_marks: &[i64], title: &str, item_id: &str) 
       return Err(format!("'inlineMarks' field for note '{}' contains a range past the note title.", item_id).into());
     }
     if flags == 0 || (flags & !NOTE_INLINE_MARK_ALLOWED_FLAGS) != 0 {
-      return Err(format!("'inlineMarks' field for note '{}' contains invalid mark flags '{}'.", item_id, flags).into());
+      return Err(
+        format!("'inlineMarks' field for note '{}' contains invalid mark flags '{}'.", item_id, flags).into(),
+      );
     }
     if index > 0 && start < previous_end {
-      return Err(format!("'inlineMarks' field for note '{}' contains overlapping or unsorted ranges.", item_id).into());
+      return Err(
+        format!("'inlineMarks' field for note '{}' contains overlapping or unsorted ranges.", item_id).into(),
+      );
     }
     if index > 0 && start == previous_end && previous_flags == Some(flags) {
-      return Err(format!("'inlineMarks' field for note '{}' contains adjacent ranges with identical flags.", item_id).into());
+      return Err(
+        format!("'inlineMarks' field for note '{}' contains adjacent ranges with identical flags.", item_id).into(),
+      );
     }
     previous_end = end;
     previous_flags = Some(flags);
@@ -813,21 +824,26 @@ pub fn note_favicon_url(item: &Item) -> Option<&str> {
     .map(|url| url.url.as_str())
 }
 
-fn validate_datetime_range(item_type: ItemType, datetime: i64, end_datetime: Option<i64>, item_id: &str) -> InfuResult<()> {
+fn validate_datetime_range(
+  item_type: ItemType,
+  datetime: i64,
+  end_datetime: Option<i64>,
+  item_id: &str,
+) -> InfuResult<()> {
   if let Some(end_datetime) = end_datetime {
     if item_type == ItemType::Link {
-      return Err(format!(
-        "Link item '{}' cannot have endDateTime set; the range belongs to its linked-to item.",
-        item_id
-      )
-      .into());
+      return Err(
+        format!("Link item '{}' cannot have endDateTime set; the range belongs to its linked-to item.", item_id).into(),
+      );
     }
     if end_datetime <= datetime {
-      return Err(format!(
-        "Item '{}' has endDateTime '{}', which must be later than dateTime '{}'.",
-        item_id, end_datetime, datetime
-      )
-      .into());
+      return Err(
+        format!(
+          "Item '{}' has endDateTime '{}', which must be later than dateTime '{}'.",
+          item_id, end_datetime, datetime
+        )
+        .into(),
+      );
     }
   }
   Ok(())
@@ -1578,11 +1594,8 @@ impl JsonLogSerializable<Item> for Item {
       self.last_modified_date = u;
     }
     let updated_datetime = json::get_integer_field(map, "dateTime")?.unwrap_or(self.datetime);
-    let updated_end_datetime = if map.contains_key("endDateTime") {
-      json::get_integer_field(map, "endDateTime")?
-    } else {
-      self.end_datetime
-    };
+    let updated_end_datetime =
+      if map.contains_key("endDateTime") { json::get_integer_field(map, "endDateTime")? } else { self.end_datetime };
     validate_datetime_range(self.item_type, updated_datetime, updated_end_datetime, &self.id)?;
     self.datetime = updated_datetime;
     self.end_datetime = updated_end_datetime;
@@ -2621,7 +2634,11 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
       None => {
-        if item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password || item_type == ItemType::Search {
+        if item_type == ItemType::File
+          || item_type == ItemType::Text
+          || item_type == ItemType::Password
+          || item_type == ItemType::Search
+        {
           Ok(Some(0))
         } else if is_flags_item_type(item_type) {
           Err(expected_for_err("flags", item_type, &id))
@@ -2922,7 +2939,11 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     }?,
     emoji: match json::get_string_field(map, "emoji")? {
       Some(v) => {
-        if item_type == ItemType::Note || item_type == ItemType::File || item_type == ItemType::Text || item_type == ItemType::Password {
+        if item_type == ItemType::Note
+          || item_type == ItemType::File
+          || item_type == ItemType::Text
+          || item_type == ItemType::Password
+        {
           Ok(Some(v))
         } else {
           Err(not_applicable_err("emoji", item_type, &id))
@@ -3795,7 +3816,11 @@ impl Item {
     }
 
     // Note/File/Password icon properties
-    if self.item_type == ItemType::Note || self.item_type == ItemType::File || self.item_type == ItemType::Text || self.item_type == ItemType::Password {
+    if self.item_type == ItemType::Note
+      || self.item_type == ItemType::File
+      || self.item_type == ItemType::Text
+      || self.item_type == ItemType::Password
+    {
       if let Some(icon_mode) = &self.icon_mode {
         hashes.push(hash_string_to_uid(icon_mode.as_str()));
       }
