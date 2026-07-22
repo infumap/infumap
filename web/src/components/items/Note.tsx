@@ -35,10 +35,10 @@ import {
   getTextStyleForNote,
   noteHasListMarker,
   noteHasNumbered,
+  noteListMarkerFontSizePx,
   noteListMarkerLeftPx,
   noteListMarkerText,
   noteListTextInsetPx,
-  NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER,
   noteTextBlockPaddingLeftPx,
   noteTextBlockTextIndentPx,
 } from "../../layout/text";
@@ -155,9 +155,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const listMarkerLeftPx = () => noteListMarkerLeftPx(noteItem().flags, popupTextIndentPx());
   const listMarkerText = () => noteListMarkerText(noteItem().flags, props.visualElement.listItemNumber);
   const listMarkerWidthPx = () => noteListTextInsetPx(noteItem().flags);
-  const listMarkerFontSizePx = () => noteHasNumbered(noteItem().flags)
-    ? infuTextStyle().fontSize
-    : infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER;
+  const listMarkerFontSizePx = () => noteListMarkerFontSizePx(noteItem().flags, infuTextStyle().fontSize);
 
   const blockSize = () => {
     return {

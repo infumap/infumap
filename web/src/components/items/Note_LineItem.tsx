@@ -33,10 +33,10 @@ import {
   getTextStyleForNote,
   noteHasListMarker,
   noteHasNumbered,
+  noteListMarkerFontSizePx,
   noteListMarkerLeftPx,
   noteListMarkerText,
   noteListTextInsetPx,
-  NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER,
   noteTextBlockPaddingLeftPx,
 } from "../../layout/text";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
@@ -104,9 +104,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const listMarkerLeftPx = () => noteListMarkerLeftPx(noteItem().flags);
   const listMarkerText = () => noteListMarkerText(noteItem().flags, props.visualElement.listItemNumber);
   const listMarkerWidthPx = () => noteListTextInsetPx(noteItem().flags);
-  const listMarkerFontSizePx = () => noteHasNumbered(noteItem().flags)
-    ? infuTextStyle().fontSize
-    : infuTextStyle().fontSize * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER;
+  const listMarkerFontSizePx = () => noteListMarkerFontSizePx(noteItem().flags, infuTextStyle().fontSize);
   const textPaddingLeftPx = () => noteTextBlockPaddingLeftPx(noteItem().flags);
   const isTextEditTarget = () => store.overlay.textEditInfo()?.itemPath == vePath();
   const renderedTitle = () => noteItem().title;

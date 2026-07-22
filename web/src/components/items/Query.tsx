@@ -36,6 +36,8 @@ import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } 
 import {
   desktopPopupIconTextIndentPx,
   getTextStyleForNote,
+  noteHasNumbered,
+  noteListMarkerFontSizePx,
   noteListMarkerText,
   noteListTextInsetPx,
 } from "../../layout/text";
@@ -826,6 +828,13 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         `font-family: ${textStyle.isCode ? "monospace" : "inherit"}; ` +
         `padding-left: ${noteListTextInsetPx(flags)}px; white-space: pre-wrap;`;
     };
+    const chatListMarkerStyle = (flags: NoteFlags) => {
+      const textStyle = getTextStyleForNote(flags);
+      return `width: ${noteListTextInsetPx(flags)}px; ` +
+        `font-size: ${noteListMarkerFontSizePx(flags, textStyle.fontSize)}px; ` +
+        `line-height: ${LINE_HEIGHT_PX * textStyle.lineHeightMultiplier}px; ` +
+        (noteHasNumbered(flags) ? "text-align: right; padding-right: 6px; box-sizing: border-box;" : "");
+    };
 
     return (
       <div class="absolute bg-white"
@@ -871,7 +880,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                             class={noteBlock().flags & NoteFlags.Code ? "rounded-xs bg-slate-100 px-3 py-2" : ""}
                             style={`${chatNoteStyle(noteBlock().flags)} margin-top: 12px;`}>
                             <Show when={noteListMarkerText(noteBlock().flags, noteBlock().listItemNumber) != ""}>
-                              <span class="absolute left-0 select-none">
+                              <span class="absolute left-0 select-none" style={chatListMarkerStyle(noteBlock().flags)}>
                                 {noteListMarkerText(noteBlock().flags, noteBlock().listItemNumber)}
                               </span>
                             </Show>

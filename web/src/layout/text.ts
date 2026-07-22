@@ -61,6 +61,12 @@ export function noteListMarkerText(flags: NoteFlags, listItemNumber: number | nu
   return "";
 }
 
+export function noteListMarkerFontSizePx(flags: NoteFlags, textFontSizePx: number): number {
+  return noteHasNumbered(flags)
+    ? textFontSizePx
+    : textFontSizePx * NOTE_BULLET_MARKER_FONT_SIZE_MULTIPLIER;
+}
+
 export function noteListTextInsetPx(flags: NoteFlags): number {
   if (noteHasBullet(flags)) { return NOTE_BULLET_TEXT_INSET_PX; }
   if (noteHasNumbered(flags)) { return NOTE_NUMBERED_TEXT_INSET_PX; }
