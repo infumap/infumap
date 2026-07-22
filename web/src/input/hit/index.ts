@@ -169,6 +169,16 @@ function pageContentScrollOffsetPx(store: StoreContextModel, pageVe: VisualEleme
   };
 }
 
+function documentContentLeftPx(pageVe: VisualElement): number {
+  if (!isPage(pageVe.displayItem) ||
+    asPageItem(pageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Document ||
+    !pageVe.viewportBoundsPx ||
+    !pageVe.childAreaBoundsPx) {
+    return 0;
+  }
+  return Math.max((pageVe.viewportBoundsPx.w - pageVe.childAreaBoundsPx.w) / 2, 0);
+}
+
 function listPageLineItemHitPosPx(
   store: StoreContextModel,
   rootVe: VisualElement,
@@ -319,14 +329,9 @@ function getHitInfoUnderRoot(
       return posRelativeToRootVeViewportPx;
     }
 
-    const documentContentLeftPx = Math.max(
-      (rootVe.viewportBoundsPx!.w - rootVe.childAreaBoundsPx!.w) / 2,
-      0,
-    );
-
     return {
       ...posRelativeToRootVeViewportPx,
-      x: posRelativeToRootVeViewportPx.x - documentContentLeftPx,
+      x: posRelativeToRootVeViewportPx.x - documentContentLeftPx(rootVe),
     };
   })();
 
@@ -540,16 +545,15 @@ function hitSearchWorkspaceChildPageMaybe(
   if (!parentVe || !isQueryItem(parentVe.displayItem)) { return null; }
   if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { return null; }
 
-  const childVeid = VeFns.actualVeidFromVe(childVe);
-  const scrollPropX = store.perItem.getPageScrollXProp(childVeid);
-  const scrollPropY = store.perItem.getPageScrollYProp(childVeid);
-  const posRelativeToChildBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, {
-    x: childVe.boundsPx.x - scrollPropX * (childVe.childAreaBoundsPx.w - childVe.viewportBoundsPx.w),
-    y: childVe.boundsPx.y - scrollPropY * (childVe.childAreaBoundsPx.h - childVe.viewportBoundsPx.h),
-  });
-  const posRelativeToChildViewportPx = {
-    ...posRelativeToChildBoundsPx,
-    y: posRelativeToChildBoundsPx.y - (childVe.boundsPx.h - childVe.viewportBoundsPx.h),
+  const scrollOffsetPx = pageContentScrollOffsetPx(store, childVe);
+  const viewportTopInsetPx = childVe.boundsPx.h - childVe.viewportBoundsPx.h;
+  const posRelativeToChildBoundsPx = vectorSubtract(
+    posRelativeToRootVeViewportPx,
+    getBoundingBoxTopLeft(childVe.boundsPx),
+  );
+  const posRelativeToChildAreaPx = {
+    x: posRelativeToChildBoundsPx.x + scrollOffsetPx.x - documentContentLeftPx(childVe),
+    y: posRelativeToChildBoundsPx.y + scrollOffsetPx.y - viewportTopInsetPx,
   };
 
   const childChildren = VesCache.render.getChildren(VeFns.veToPath(childVe))();
@@ -559,7 +563,7 @@ function hitSearchWorkspaceChildPageMaybe(
       posOnDesktopPx,
       childVes,
       rootVes.get(),
-      posRelativeToChildViewportPx,
+      posRelativeToChildAreaPx,
       childChildren[i],
       ignoreItems,
       canHitEmbeddedInteractive,
