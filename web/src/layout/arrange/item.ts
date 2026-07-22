@@ -38,7 +38,7 @@ import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { arrangeSearchResultsPathMaybe } from "./search";
+import { arrangeQueryWorkspacePathMaybe } from "./search";
 
 
 export enum ArrangeItemFlags {
@@ -235,8 +235,8 @@ export const arrangeItemNoChildren = (
     itemRelationships.attachmentsPaths = [];
   }
   if (isQueryItem(displayItem) && (flags & ArrangeItemFlags.RenderChildrenAsFull)) {
-    const searchResultsPath = arrangeSearchResultsPathMaybe(store, asQueryItem(displayItem), currentVePath, itemGeometry);
-    itemRelationships.childrenPaths = searchResultsPath == null ? [] : [searchResultsPath];
+    const workspacePath = arrangeQueryWorkspacePathMaybe(store, asQueryItem(displayItem), currentVePath, itemGeometry);
+    itemRelationships.childrenPaths = workspacePath == null ? [] : [workspacePath];
   }
 
   const itemVisualElementSignal = VesCache.arrange.writeVisualElementSignal(itemVisualElementSpec, itemRelationships, currentVePath);

@@ -22,23 +22,42 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { createSignal } from "solid-js";
 import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
 import { asContainerItem, isContainer } from "./base/container-item";
-import { CompositeFlags, NoteFlags, PageFlags } from "./base/flags-item";
-import { Item } from "./base/item";
+import { CompositeFlags, PageFlags } from "./base/flags-item";
+import { ClientOnlyItemKind, Item, ItemTypeMixin } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
-import { CompositeFns } from "./composite-item";
-import { NoteFns, NoteInlineMark, NoteUrl, asNoteItem, isNote } from "./note-item";
-import { ArrangeAlgorithm, PageFns } from "./page-item";
+import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
+import { NoteFns, asNoteItem, isNote } from "./note-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
-import { asTableItem, isTable } from "./table-item";
-import { isDivider } from "./divider-item";
 import { server, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import type { ChatCapability } from "../store/StoreProvider_PerItem";
-import { newOrderingAtEnd } from "../util/ordering";
+import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 const MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE = "Chat";
+
+export function markAsQueryChatPage(item: Item): void {
+  item.clientOnly = true;
+  item.clientOnlyKind = ClientOnlyItemKind.QueryChatPage;
+  makeQueryChatItemReadOnly(item);
+}
+
+export function isQueryChatPage(item: ItemTypeMixin | null): boolean {
+  if (item == null) { return false; }
+  const maybeItem = item as Partial<Item>;
+  return maybeItem.clientOnly === true && maybeItem.clientOnlyKind == ClientOnlyItemKind.QueryChatPage;
+}
+
+function makeQueryChatItemReadOnly(item: Item): void {
+  item.capabilities = {
+    edit: false,
+    move: false,
+    copy: false,
+    resize: false,
+  };
+}
 
 export interface ChatProgress {
   text: string,
@@ -119,6 +138,63 @@ function setQueryChatRootIds(store: StoreContextModel, queryItem: QueryItem, roo
       rootItemIds,
     },
   }));
+  const pageId = getQueryRuntime(store, queryItem).chat.pageId;
+  const page = pageId == null ? null : itemState.get(pageId);
+  if (page != null && isPage(page)) {
+    asPageItem(page).computed_children = [...rootItemIds];
+  }
+}
+
+export function ensureTemporaryQueryChatPage(store: StoreContextModel, queryItem: QueryItem): PageItem {
+  const runtime = getQueryRuntime(store, queryItem);
+  const pageId = runtime.chat.pageId ?? newUid();
+  if (runtime.chat.pageId == null) {
+    updateQueryRuntime(store, queryItem, current => ({
+      ...current,
+      chat: {
+        ...current.chat,
+        pageId,
+      },
+    }));
+  }
+
+  let pageItem = itemState.get(pageId);
+  if (!pageItem || !isPage(pageItem)) {
+    const temporaryPage = PageFns.create(
+      queryItem.ownerId,
+      queryItem.id,
+      RelationshipToParent.Child,
+      "",
+      newOrdering(),
+    );
+    temporaryPage.id = pageId;
+    temporaryPage.origin = null;
+    temporaryPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
+    temporaryPage.flags |= PageFlags.EmbeddedInteractive |
+      PageFlags.HideDocumentTitle |
+      PageFlags.HideEmbeddedInteractiveTitle;
+    temporaryPage.orderChildrenBy = "";
+    temporaryPage.title = "";
+    markAsQueryChatPage(temporaryPage);
+    pageItem = itemState.upsertItemFromServerObject(PageFns.toObject(temporaryPage), null);
+  }
+
+  const page = asPageItem(pageItem);
+  page.origin = null;
+  page.parentId = queryItem.id;
+  page.relationshipToParent = RelationshipToParent.Child;
+  page.arrangeAlgorithm = ArrangeAlgorithm.Document;
+  page.flags |= PageFlags.EmbeddedInteractive |
+    PageFlags.HideDocumentTitle |
+    PageFlags.HideEmbeddedInteractiveTitle;
+  page.orderChildrenBy = "";
+  page.title = "";
+  page.childrenLoaded = true;
+  page.computed_children = [...queryChatRootIds(store, queryItem)];
+  page.computed_attachments = [];
+  markAsQueryChatPage(page);
+  markChildrenLoadAsInitiatedOrComplete(page.id);
+  return page;
 }
 
 export function queryChatCapabilities(store: StoreContextModel, queryItem: QueryItem): Array<ChatCapability> {
@@ -149,25 +225,6 @@ function queryChatRootOrderings(store: StoreContextModel, queryItem: QueryItem):
     .filter((ordering): ordering is Uint8Array => ordering != null);
 }
 
-function insertDetachedClientItem(item: Item): Item {
-  item.clientOnly = true;
-  const itemObject = ItemFns.toObject(item) as { clientOnly?: boolean, clientOnlyKind?: unknown };
-  itemObject.clientOnly = true;
-  if (item.clientOnlyKind != null) {
-    itemObject.clientOnlyKind = item.clientOnlyKind;
-  }
-  const inserted = itemState.upsertItemFromServerObject(itemObject, null);
-  inserted.clientOnly = true;
-  if (item.clientOnlyKind != null) {
-    inserted.clientOnlyKind = item.clientOnlyKind;
-  }
-  if (isContainer(inserted)) {
-    asContainerItem(inserted).childrenLoaded = true;
-    markChildrenLoadAsInitiatedOrComplete(inserted.id);
-  }
-  return inserted;
-}
-
 function createTurnComposite(
   ownerId: Uid,
   parentId: Uid,
@@ -181,6 +238,7 @@ function createTurnComposite(
   composite.childrenLoaded = true;
   if (clientOnly) {
     composite.clientOnly = true;
+    makeQueryChatItemReadOnly(composite);
   }
   markChildrenLoadAsInitiatedOrComplete(composite.id);
   itemState.add(composite);
@@ -197,38 +255,36 @@ function createTurnNote(
   const note = NoteFns.create(ownerId, parentId, RelationshipToParent.Child, text, ordering);
   if (clientOnly) {
     note.clientOnly = true;
+    makeQueryChatItemReadOnly(note);
   }
   itemState.add(note);
   return note;
 }
 
 function addLocalQueryUserTurn(store: StoreContextModel, queryItem: QueryItem, text: string): Array<Item> {
-  const composite = CompositeFns.create(
+  const chatPage = ensureTemporaryQueryChatPage(store, queryItem);
+  const composite = createTurnComposite(
     queryItem.ownerId,
-    queryItem.id,
-    RelationshipToParent.Child,
+    chatPage.id,
+    "You",
     newOrderingAtEnd(queryChatRootOrderings(store, queryItem)),
-  );
-  composite.title = "You";
-  composite.flags |= CompositeFlags.ShowTitle;
-  composite.childrenLoaded = true;
-  composite.clientOnly = true;
-  markChildrenLoadAsInitiatedOrComplete(composite.id);
-  const insertedComposite = insertDetachedClientItem(composite);
-  const note = createTurnNote(
-    queryItem.ownerId,
-    insertedComposite.id,
-    text,
-    itemState.newOrderingAtEndOfChildren(insertedComposite.id),
     true,
   );
-  setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), insertedComposite.id]);
-  return [insertedComposite, note];
+  const note = createTurnNote(
+    queryItem.ownerId,
+    composite.id,
+    text,
+    itemState.newOrderingAtEndOfChildren(composite.id),
+    true,
+  );
+  setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), composite.id]);
+  return [composite, note];
 }
 
 function prepareReturnedItem(item: Item, clientOnly: boolean): void {
   if (clientOnly) {
     item.clientOnly = true;
+    makeQueryChatItemReadOnly(item);
   }
   if (isContainer(item)) {
     asContainerItem(item).childrenLoaded = true;
@@ -237,6 +293,7 @@ function prepareReturnedItem(item: Item, clientOnly: boolean): void {
 }
 
 function addServerReturnedQueryItems(store: StoreContextModel, queryItem: QueryItem, itemObjects: Array<object>): Array<Item> {
+  const chatPage = ensureTemporaryQueryChatPage(store, queryItem);
   const returnedItems = itemObjects.map(itemObject => ItemFns.fromObject(itemObject, null));
   const pending = new Map<Uid, Item>();
   const addedItems: Array<Item> = [];
@@ -249,14 +306,17 @@ function addServerReturnedQueryItems(store: StoreContextModel, queryItem: QueryI
   const roots = returnedItems.filter(item => item.parentId == null || item.parentId == EMPTY_UID);
   let rootOrderings = queryChatRootOrderings(store, queryItem);
   for (const root of roots) {
-    root.parentId = queryItem.id;
+    root.parentId = chatPage.id;
     root.relationshipToParent = RelationshipToParent.Child;
     root.ordering = newOrderingAtEnd(rootOrderings);
+    if (isComposite(root)) {
+      asCompositeItem(root).flags |= CompositeFlags.ShowTitle;
+    }
     prepareReturnedItem(root, true);
-    const insertedRoot = insertDetachedClientItem(root);
-    addedItems.push(insertedRoot);
-    addedRootIds.push(insertedRoot.id);
-    rootOrderings = [...rootOrderings, insertedRoot.ordering];
+    itemState.add(root);
+    addedItems.push(root);
+    addedRootIds.push(root.id);
+    rootOrderings = [...rootOrderings, root.ordering];
     pending.delete(root.id);
   }
 
@@ -390,133 +450,6 @@ function firstPromptInQueryChat(store: StoreContextModel, queryItem: QueryItem):
   return "";
 }
 
-export interface QueryChatTurnView {
-  id: Uid,
-  title: string,
-  bodyBlocks: Array<QueryChatBlockView>,
-}
-
-export interface QueryChatLineView {
-  text: string,
-  inlineMarks: Array<NoteInlineMark>,
-  urls: Array<NoteUrl>,
-}
-
-export type QueryChatBlockView =
-  | { kind: "note", id: Uid, line: QueryChatLineView, flags: NoteFlags, listItemNumber: number | null }
-  | { kind: "divider", id: Uid }
-  | { kind: "table", id: Uid, columns: Array<string>, rows: Array<Array<QueryChatLineView | null>> };
-
-function chatItemLine(item: Item): QueryChatLineView | null {
-  if (isNote(item)) {
-    const note = asNoteItem(item);
-    if (note.title == "") { return null; }
-    return { text: note.title, inlineMarks: note.inlineMarks, urls: note.urls };
-  }
-
-  const titled = item as Item & { title?: unknown };
-  const text = typeof titled.title == "string" ? titled.title : "";
-  return text == "" ? null : { text, inlineMarks: [], urls: [] };
-}
-
-function chatItemText(item: Item): string {
-  return chatItemLine(item)?.text ?? "";
-}
-
-function chatTableCell(item: Item | null): QueryChatLineView | null {
-  return item == null ? null : chatItemLine(item);
-}
-
-function chatTableBlock(item: Item): QueryChatBlockView {
-  const table = asTableItem(item);
-  const columnCount = Math.max(1, Math.min(table.numberOfVisibleColumns, table.tableColumns.length));
-  const rows = table.computed_children.map(rowId => {
-    const row = itemState.get(rowId) ?? null;
-    const cells: Array<QueryChatLineView | null> = [chatTableCell(row)];
-    const attachmentIds = row != null && isAttachmentsItem(row)
-      ? asAttachmentsItem(row).computed_attachments
-      : [];
-    for (let index = 0; index < columnCount - 1; ++index) {
-      cells.push(chatTableCell(itemState.get(attachmentIds[index]) ?? null));
-    }
-    return cells;
-  });
-  return {
-    kind: "table",
-    id: item.id,
-    columns: table.tableColumns.slice(0, columnCount).map(column => column.name),
-    rows,
-  };
-}
-
-function collectQueryChatBodyBlocks(items: Array<Item>, bodyBlocks: Array<QueryChatBlockView>): void {
-  let numberedListItem = 0;
-  for (const item of items) {
-    if (isNote(item)) {
-      const note = asNoteItem(item);
-      if (note.flags & NoteFlags.Numbered) {
-        numberedListItem += 1;
-      } else {
-        numberedListItem = 0;
-      }
-      const line = chatItemLine(item);
-      if (line != null) {
-        bodyBlocks.push({
-          kind: "note",
-          id: item.id,
-          line,
-          flags: note.flags,
-          listItemNumber: note.flags & NoteFlags.Numbered ? numberedListItem : null,
-        });
-      }
-      continue;
-    }
-    numberedListItem = 0;
-    if (isDivider(item)) {
-      bodyBlocks.push({ kind: "divider", id: item.id });
-      continue;
-    }
-    if (isTable(item)) {
-      bodyBlocks.push(chatTableBlock(item));
-      continue;
-    }
-
-    const line = chatItemLine(item);
-    if (line != null) {
-      bodyBlocks.push({ kind: "note", id: item.id, line, flags: NoteFlags.None, listItemNumber: null });
-    }
-    if (isContainer(item)) {
-      collectQueryChatBodyBlocks(
-        asContainerItem(item).computed_children.map(id => itemState.get(id)).filter((child): child is Item => child != null),
-        bodyBlocks,
-      );
-    }
-  }
-}
-
-export function queryChatTurns(store: StoreContextModel, queryItem: QueryItem): Array<QueryChatTurnView> {
-  return queryChatRootIds(store, queryItem).map(rootId => {
-    const root = itemState.get(rootId);
-    if (!root) {
-      return null;
-    }
-    const bodyBlocks: Array<QueryChatBlockView> = [];
-    if (isContainer(root)) {
-      collectQueryChatBodyBlocks(
-        asContainerItem(root).computed_children.map(id => itemState.get(id)).filter((child): child is Item => child != null),
-        bodyBlocks,
-      );
-    } else {
-      collectQueryChatBodyBlocks([root], bodyBlocks);
-    }
-    return {
-      id: root.id,
-      title: chatItemText(root),
-      bodyBlocks,
-    };
-  }).filter((turn): turn is QueryChatTurnView => turn != null);
-}
-
 export function queryChatHasContent(store: StoreContextModel, queryItem: QueryItem): boolean {
   return queryChatRootIds(store, queryItem).length > 0;
 }
@@ -561,32 +494,30 @@ function cloneChildrenIntoMaterializedChat(sourceParent: Item, targetParentId: U
   }
 }
 
-function cloneQueryChatRootsIntoMaterializedChat(
-  store: StoreContextModel,
-  queryItem: QueryItem,
-  targetParentId: Uid,
-  result: Array<Item>,
-): void {
-  const cloneRootSubtree = (sourceId: Uid) => {
-    const root = itemState.get(sourceId);
-    if (!root) { return; }
-    const clone = cloneItemForMaterializedChat(root, targetParentId, RelationshipToParent.Child);
-    itemState.add(clone);
-    result.push(clone);
-    cloneChildrenIntoMaterializedChat(root, clone.id, result);
-  };
-
-  for (const rootId of queryChatRootIds(store, queryItem)) {
-    cloneRootSubtree(rootId);
+export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): void {
+  const runtime = getQueryRuntime(store, queryItem);
+  const pageId = runtime.chat.pageId;
+  if (pageId != null) {
+    itemState.pruneRelationshipSubtreeIfCurrent(pageId, queryItem.id, RelationshipToParent.Child);
   }
+  const rootParentId = pageId ?? queryItem.id;
+  for (const rootId of runtime.chat.rootItemIds) {
+    itemState.pruneRelationshipSubtreeIfCurrent(rootId, rootParentId, RelationshipToParent.Child);
+  }
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    chat: {
+      ...current.chat,
+      pageId: null,
+      composerHeightPx: null,
+      rootItemIds: [],
+    },
+  }));
+  clearQueryChatProgress(queryItem.id);
 }
 
-export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): void {
-  for (const rootId of queryChatRootIds(store, queryItem)) {
-    itemState.pruneRelationshipSubtreeIfCurrent(rootId, queryItem.id, RelationshipToParent.Child);
-  }
-  setQueryChatRootIds(store, queryItem, []);
-  clearQueryChatProgress(queryItem.id);
+export function clearQueryChatForModeSwitch(store: StoreContextModel, queryItem: QueryItem): void {
+  clearQueryChat(store, queryItem);
 }
 
 export function resetQueryChatSession(store: StoreContextModel, queryItem: QueryItem, arrangeReason?: string): void {
@@ -607,6 +538,7 @@ export async function materializeQueryChat(store: StoreContextModel, queryItem: 
     console.error("Failed to materialize query chat: no valid parent container.", queryItem);
     return false;
   }
+  const sourceChatPage = ensureTemporaryQueryChatPage(store, queryItem);
 
   const materializedPage = PageFns.create(
     queryItem.ownerId,
@@ -623,7 +555,7 @@ export async function materializeQueryChat(store: StoreContextModel, queryItem: 
 
   itemState.add(materializedPage);
   const clonedItems: Array<Item> = [];
-  cloneQueryChatRootsIntoMaterializedChat(store, queryItem, materializedPage.id, clonedItems);
+  cloneChildrenIntoMaterializedChat(sourceChatPage, materializedPage.id, clonedItems);
   requestArrange(store, "query-chat-materialize-local");
 
   try {

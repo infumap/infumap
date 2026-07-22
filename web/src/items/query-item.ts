@@ -20,6 +20,7 @@ import type { SearchResult } from "../server";
 import type { QueryMode, QueryRuntime } from "../store/StoreProvider_PerItem";
 import type { StoreContextModel } from "../store/StoreProvider";
 import type { Uid } from "../util/uid";
+import type { BoundingBox } from "../util/geometry";
 import { ArrangeAlgorithm, type ArrangeAlgorithm as ArrangeAlgorithmType } from "./page-item";
 import type { SearchItem, SearchMeasurable } from "./search-item";
 import type { ItemTypeMixin } from "./base/item";
@@ -97,6 +98,9 @@ export const QUERY_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX = SEARCH_WORKSPACE_ARRANG
 export const QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX = SEARCH_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX;
 export const QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX = SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX;
 export const QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX = SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX;
+export const QUERY_CHAT_COMPOSER_BOTTOM_PX = 18;
+export const QUERY_CHAT_SETTINGS_HEIGHT_PX = 28;
+export const QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX = 24;
 
 export const querySearchResultsFooterHostId = searchResultsFooterHostId;
 export const calcQueryWorkspaceControlsWidthPx = calcSearchWorkspaceControlsWidthPx;
@@ -104,6 +108,22 @@ export const calcQueryWorkspaceInputWidthPx = calcSearchWorkspaceInputWidthPx;
 export const calcQueryWorkspaceResultsTopPx = calcSearchWorkspaceResultsTopPx;
 export const calcQueryWorkspaceResultsFooterHeightPx = calcSearchWorkspaceResultsFooterHeightPx;
 export const calcQueryWorkspaceMoreButtonTopPx = calcSearchWorkspaceMoreButtonTopPx;
+
+export function calcQueryChatTranscriptBoundsPx(
+  boundsPx: BoundingBox,
+  composerHeightPx: number = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
+): BoundingBox {
+  const reservedBottomPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
+    QUERY_CHAT_SETTINGS_HEIGHT_PX +
+    Math.max(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX, composerHeightPx) +
+    QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX;
+  return {
+    x: 0,
+    y: 0,
+    w: boundsPx.w,
+    h: Math.max(0, boundsPx.h - reservedBottomPx),
+  };
+}
 export const calcQueryWorkspaceResultsBoundsPx = calcSearchWorkspaceResultsBoundsPx;
 
 type QueryItemOrId = QueryItem | Uid;
@@ -126,6 +146,20 @@ export function getQueryMode(store: StoreContextModel, queryItemOrId: QueryItemO
 
 export function setQueryMode(store: StoreContextModel, queryItemOrId: QueryItemOrId, mode: QueryMode): void {
   store.perItem.setQueryMode(queryItemId(queryItemOrId), mode);
+}
+
+export function setQueryChatComposerHeightPx(
+  store: StoreContextModel,
+  queryItemOrId: QueryItemOrId,
+  composerHeightPx: number,
+): void {
+  updateQueryRuntime(store, queryItemOrId, current => ({
+    ...current,
+    chat: {
+      ...current.chat,
+      composerHeightPx: Math.max(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX, composerHeightPx),
+    },
+  }));
 }
 
 export function getQueryRuntime(store: StoreContextModel, queryItemOrId: QueryItemOrId): QueryRuntime {

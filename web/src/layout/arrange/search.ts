@@ -18,6 +18,7 @@
 
 import type { SearchResult } from "../../server";
 import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
+import { PageFlags } from "../../items/base/flags-item";
 import {
   ArrangeAlgorithm,
   PageFns,
@@ -27,6 +28,7 @@ import {
 } from "../../items/page-item";
 import {
   QueryItem,
+  calcQueryChatTranscriptBoundsPx,
   calcQueryWorkspaceResultsBoundsPx,
   getQueryMode,
   getQueryRuntime,
@@ -178,5 +180,68 @@ export function arrangeSearchResultsPathMaybe(
     null,
     pageGeometry,
     ArrangeItemFlags.RenderChildrenAsFull,
+  );
+}
+
+function temporaryChatPageMaybe(store: StoreContextModel, queryItem: QueryItem): PageItem | null {
+  const runtime = getQueryRuntime(store, queryItem);
+  if (runtime.chat.pageId == null) {
+    return null;
+  }
+  const pageItem = itemState.get(runtime.chat.pageId);
+  if (pageItem == null || !isPage(pageItem)) {
+    return null;
+  }
+
+  const page = asPageItem(pageItem);
+  page.parentId = queryItem.id;
+  page.relationshipToParent = RelationshipToParent.Child;
+  page.arrangeAlgorithm = ArrangeAlgorithm.Document;
+  page.flags |= PageFlags.EmbeddedInteractive |
+    PageFlags.HideDocumentTitle |
+    PageFlags.HideEmbeddedInteractiveTitle;
+  page.orderChildrenBy = "";
+  page.title = "";
+  page.childrenLoaded = true;
+  page.computed_children = [...runtime.chat.rootItemIds];
+  page.computed_attachments = [];
+  markChildrenLoadAsInitiatedOrComplete(page.id);
+  return page;
+}
+
+export function arrangeQueryWorkspacePathMaybe(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  queryItemPath: VisualElementPath,
+  queryItemGeometry: ItemGeometry,
+): VisualElementPath | null {
+  if (getQueryMode(store, queryItem) != "chat") {
+    return arrangeSearchResultsPathMaybe(store, queryItem, queryItemPath, queryItemGeometry);
+  }
+
+  const chatPage = temporaryChatPageMaybe(store, queryItem);
+  if (chatPage == null) {
+    return null;
+  }
+  const runtime = getQueryRuntime(store, queryItem);
+  const transcriptBoundsPx = calcQueryChatTranscriptBoundsPx(
+    queryItemGeometry.boundsPx,
+    runtime.chat.composerHeightPx ?? undefined,
+  );
+  const pageGeometry: ItemGeometry = {
+    boundsPx: transcriptBoundsPx,
+    viewportBoundsPx: transcriptBoundsPx,
+    blockSizePx: queryItemGeometry.blockSizePx,
+    hitboxes: [],
+  };
+
+  return arrangeItemPath(
+    store,
+    queryItemPath,
+    ArrangeAlgorithm.Document,
+    chatPage,
+    null,
+    pageGeometry,
+    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsEmbeddedInteractiveRoot,
   );
 }

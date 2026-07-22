@@ -310,7 +310,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           `z-index: 1;`}
         onscroll={translucentScrollHandler}>
         <div class="absolute"
-          style={`left: ${0}px; top: ${0}px; ` +
+          style={`left: ${pageFns().documentContentLeftPx()}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           {pageFns().renderCatalogResultSelectionMaybe()}

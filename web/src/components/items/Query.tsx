@@ -16,9 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, createEffect, createSignal, onCleanup } from "solid-js";
+import { Component, For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
-import { arrangeNow } from "../../layout/arrange";
+import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
@@ -36,10 +36,6 @@ import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } 
 import {
   desktopPopupIconTextIndentPx,
   getTextStyleForNote,
-  noteHasNumbered,
-  noteListMarkerFontSizePx,
-  noteListMarkerText,
-  noteListTextInsetPx,
 } from "../../layout/text";
 import {
   QueryFns,
@@ -54,6 +50,8 @@ import {
   QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX,
   QUERY_WORKSPACE_ARRANGE_SELECTOR_WIDTH_PX,
   QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX,
+  QUERY_CHAT_COMPOSER_BOTTOM_PX,
+  QUERY_CHAT_SETTINGS_HEIGHT_PX,
   calcQueryWorkspaceControlsWidthPx,
   calcQueryWorkspaceResultsTopPx,
   getQueryMode,
@@ -63,10 +61,10 @@ import {
   getQueryText,
   querySearchResultsFooterHostId,
   setQuerySearchArrangeAlgorithm,
+  setQueryChatComposerHeightPx,
   setQueryText,
 } from "../../items/query-item";
 import { materializeSearchResults } from "../../layout/search_materialize";
-import { itemIdFromInfumapUrl, navigateToInfumapItemUrl } from "../../layout/navigation";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { ArrangeAlgorithm } from "../../items/page-item";
 import {
@@ -81,17 +79,12 @@ import {
   materializeQueryChat,
   queryChatUsesInfumapData,
   queryChatHasContent,
-  queryChatTurns,
   resetQueryChatSession,
   setQueryChatUsesInfumapData,
   submitQueryChatMessage,
 } from "../../items/chat";
-import { NoteInlineText } from "./NoteInlineText";
-import { MOUSE_LEFT, MOUSE_RIGHT, mouseDownHandler } from "../../input/mouse_down";
-import { mouseUpHandler } from "../../input/mouse_up";
-import { CursorEventState } from "../../input/state";
+import { MOUSE_RIGHT } from "../../input/mouse_down";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
-import { NoteFlags } from "../../items/base/flags-item";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").trim();
@@ -107,7 +100,6 @@ const QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX = 104;
 const QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX = 34;
 const QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
-const QUERY_CHAT_COMPOSER_BOTTOM_PX = 18;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
@@ -116,7 +108,6 @@ const QUERY_CHAT_TRAILING_CONTROLS_WIDTH_PX =
   QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX +
   QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX +
   QUERY_WORKSPACE_CONTROLS_GAP_PX * 3;
-const QUERY_CHAT_SETTINGS_HEIGHT_PX = 28;
 
 
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -467,7 +458,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     );
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+    const heightChanged = chatTextareaHeightPx() != nextHeight;
     setChatTextareaHeightPx(nextHeight);
+    if (heightChanged && isChatMode()) {
+      setQueryChatComposerHeightPx(store, queryItem(), nextHeight);
+      requestArrange(store, "query-chat-composer-resize");
+    }
   };
 
   const resizeQueryTextarea = (elMaybe?: HTMLTextAreaElement) => {
@@ -747,18 +743,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
     const progress = () => chatProgressForQuery(queryItem().id);
     const wrapperHeightPx = () => chatTextareaHeightPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
-    const transcriptBottomPx = () => wrapperHeightPx() + QUERY_CHAT_COMPOSER_BOTTOM_PX + 24;
     const chatRequestActive = () => isStartingChat() || isSendingChat();
-    const chatTurnIsCollapsed = (turnId: string) =>
-      store.perItem.getCompositeIsCollapsed({ itemId: turnId, linkIdMaybe: null });
-    const toggleChatTurnCollapsed = (turnId: string, ev: MouseEvent) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      store.perItem.setCompositeIsCollapsed(
-        { itemId: turnId, linkIdMaybe: null },
-        !chatTurnIsCollapsed(turnId),
-      );
-    };
     const stop = (ev: Event) => {
       if (ev instanceof MouseEvent && ev.button == MOUSE_RIGHT) {
         return;
@@ -768,42 +753,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const chatSurfaceMouseDown = (ev: MouseEvent) => {
       if (ev.button == MOUSE_RIGHT) {
         chatTextarea?.blur();
-      }
-    };
-    const chatTranscriptMouseDown = (ev: MouseEvent) => {
-      if (ev.button == MOUSE_RIGHT) {
-        const selection = window.getSelection();
-        if (selection != null && !selection.isCollapsed) {
-          selection.removeAllRanges();
-        }
-        return;
-      }
-      if (ev.button == MOUSE_LEFT) {
-        CursorEventState.setFromMouseEvent(ev);
-        void mouseDownHandler(store, MOUSE_LEFT);
-      }
-      ev.stopPropagation();
-    };
-    const chatTranscriptMouseUp = (ev: MouseEvent) => {
-      if (ev.button == MOUSE_RIGHT) {
-        return;
-      }
-      if (ev.button == MOUSE_LEFT) {
-        CursorEventState.setFromMouseEvent(ev);
-        mouseUpHandler(store);
-      }
-      ev.stopPropagation();
-    };
-    const chatLinkMouseDown = (url: string, ev: MouseEvent) => {
-      if (ev.button != MOUSE_LEFT) {
-        return;
-      }
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (itemIdFromInfumapUrl(url) != null) {
-        void navigateToInfumapItemUrl(store, url);
-      } else {
-        window.open(url, "_blank");
       }
     };
     const chatKeyDown = (ev: KeyboardEvent) => {
@@ -820,124 +769,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         void sendChatMessage();
       }
     };
-    const chatNoteStyle = (flags: NoteFlags) => {
-      const textStyle = getTextStyleForNote(flags);
-      return `position: relative; font-size: ${textStyle.fontSize}px; ` +
-        `line-height: ${LINE_HEIGHT_PX * textStyle.lineHeightMultiplier}px; ` +
-        `font-weight: ${textStyle.isBold ? 700 : 400}; ` +
-        `font-family: ${textStyle.isCode ? "monospace" : "inherit"}; ` +
-        `padding-left: ${noteListTextInsetPx(flags)}px; white-space: pre-wrap;`;
-    };
-    const chatListMarkerStyle = (flags: NoteFlags) => {
-      const textStyle = getTextStyleForNote(flags);
-      return `width: ${noteListTextInsetPx(flags)}px; ` +
-        `font-size: ${noteListMarkerFontSizePx(flags, textStyle.fontSize)}px; ` +
-        `line-height: ${LINE_HEIGHT_PX * textStyle.lineHeightMultiplier}px; ` +
-        (noteHasNumbered(flags) ? "text-align: right; padding-right: 6px; box-sizing: border-box;" : "");
-    };
 
     return (
       <div class="absolute bg-white"
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}
         onMouseDown={chatSurfaceMouseDown}>
         <div
-          class="absolute overflow-y-auto"
-          style={`left: 0px; top: 0px; width: ${boundsPx().w}px; ` +
-            `height: ${Math.max(0, boundsPx().h - transcriptBottomPx())}px; ` +
-            `cursor: default;`}>
-          <div
-            class="absolute pointer-events-auto select-text"
-            style={`left: ${contentLeftPx()}px; top: 34px; width: ${contentWidthPx()}px; ` +
-              `cursor: text; user-select: text; -webkit-user-select: text;`}
-            onMouseDown={chatTranscriptMouseDown}
-            onMouseMove={stop}
-            onMouseUp={chatTranscriptMouseUp}
-            onClick={stop}>
-            <For each={queryChatTurns(store, queryItem())}>{turn =>
-              <div style="margin-bottom: 34px;">
-                <div class="flex items-center"
-                  style="font-size: 18px; line-height: 24px; font-weight: 700;">
-                  <button
-                    class="flex shrink-0 cursor-pointer select-none items-center justify-center border-0 bg-transparent p-0 text-slate-400"
-                    style="font-size: 13px; width: 18px; height: 24px; margin-right: 6px;"
-                    type="button"
-                    title={chatTurnIsCollapsed(turn.id) ? "Expand turn" : "Collapse turn"}
-                    aria-label={chatTurnIsCollapsed(turn.id) ? "Expand turn" : "Collapse turn"}
-                    aria-expanded={!chatTurnIsCollapsed(turn.id)}
-                    onClick={(ev) => toggleChatTurnCollapsed(turn.id, ev)}>
-                    <i class={`fa ${chatTurnIsCollapsed(turn.id) ? "fa-caret-right" : "fa-caret-down"}`} />
-                  </button>
-                  <div class="grow border-b border-[#999]">
-                    {turn.title || "Assistant"}
-                  </div>
-                </div>
-                <Show when={!chatTurnIsCollapsed(turn.id)}>
-                  <div style="font-size: 16px; line-height: 24px; padding-left: 30px;">
-                    <For each={turn.bodyBlocks}>{block =>
-                      <Switch>
-                        <Match when={block.kind == "note" ? block : null}>{noteBlock =>
-                          <div
-                            class={noteBlock().flags & NoteFlags.Code ? "rounded-xs bg-slate-100 px-3 py-2" : ""}
-                            style={`${chatNoteStyle(noteBlock().flags)} margin-top: 12px;`}>
-                            <Show when={noteListMarkerText(noteBlock().flags, noteBlock().listItemNumber) != ""}>
-                              <span class="absolute left-0 select-none" style={chatListMarkerStyle(noteBlock().flags)}>
-                                {noteListMarkerText(noteBlock().flags, noteBlock().listItemNumber)}
-                              </span>
-                            </Show>
-                            <NoteInlineText
-                              text={noteBlock().line.text}
-                              inlineMarks={noteBlock().line.inlineMarks}
-                              urls={noteBlock().line.urls}
-                              linksEnabled
-                              onLinkMouseDown={chatLinkMouseDown} />
-                          </div>
-                        }</Match>
-                        <Match when={block.kind == "divider"}>
-                          <hr class="my-4 border-0 border-t border-slate-300" />
-                        </Match>
-                        <Match when={block.kind == "table" ? block : null}>{tableBlock =>
-                          <div class="my-4 overflow-x-auto">
-                            <table class="w-full border-collapse text-left" style="font-size: 15px; line-height: 22px;">
-                              <thead>
-                                <tr>
-                                  <For each={tableBlock().columns}>{column =>
-                                    <th class="border border-slate-300 bg-slate-100 px-2 py-1 font-bold">{column}</th>
-                                  }</For>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <For each={tableBlock().rows}>{row =>
-                                  <tr>
-                                    <For each={row}>{cell =>
-                                      <td class="border border-slate-300 px-2 py-1 align-top">
-                                        <Show when={cell != null}>{
-                                          <NoteInlineText
-                                            text={cell!.text}
-                                            inlineMarks={cell!.inlineMarks}
-                                            urls={cell!.urls}
-                                            linksEnabled
-                                            onLinkMouseDown={chatLinkMouseDown} />
-                                        }</Show>
-                                      </td>
-                                    }</For>
-                                  </tr>
-                                }</For>
-                              </tbody>
-                            </table>
-                          </div>
-                        }</Match>
-                      </Switch>
-                    }</For>
-                  </div>
-                </Show>
-              </div>
-            }</For>
-          </div>
-        </div>
-        <div
           class="absolute pointer-events-auto"
           style={`left: ${contentLeftPx()}px; bottom: ${QUERY_CHAT_COMPOSER_BOTTOM_PX}px; ` +
-            `width: ${contentWidthPx()}px; height: ${wrapperHeightPx()}px;`}
+            `width: ${contentWidthPx()}px; height: ${wrapperHeightPx()}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}
           onMouseDown={stop}
           onMouseUp={stop}
           onClick={stop}
@@ -1222,6 +1062,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
         <Show when={isSearchMode()}>
           <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(vePath())()} />
+        </Show>
+        <Show when={isSearchMode() || isChatMode()}>
           <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
           }</For>

@@ -33,6 +33,8 @@ export interface QueryRuntime {
     resultLinkIds: Array<Uid>,
   },
   chat: {
+    pageId: Uid | null,
+    composerHeightPx: number | null,
     rootItemIds: Array<Uid>,
     capabilities: Array<ChatCapability>,
   },
@@ -116,6 +118,8 @@ export function makePerItemStore(): PerItemStoreContextModel {
       resultLinkIds: [],
     },
     chat: {
+      pageId: null,
+      composerHeightPx: null,
       rootItemIds: [],
       capabilities: ["infumap_data"],
     },
