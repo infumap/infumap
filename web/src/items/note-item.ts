@@ -35,7 +35,7 @@ import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { desktopPopupIconTextIndentPx, type InlineTextMeasureSegment, measureDocumentNoteHeightBl, measureLineCount } from '../layout/text';
+import { desktopPopupIconTextIndentPx, getTextStyleForNote, type InlineTextMeasureSegment, measureDocumentNoteHeightBl, measureLineCount } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemIdFromInfumapUrl, navigateToInfumapItemUrl } from '../layout/navigation';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -754,7 +754,9 @@ export const NoteFns = {
       return { w: note.spatialWidthGr / GRID_SIZE, h: note.spatialHeightGr / GRID_SIZE };
     }
     const widthBl = note.spatialWidthGr / GRID_SIZE;
-    const textIndentPx = NoteFns.showsIcon(note, iconContext) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    const textIndentPx = NoteFns.showsIcon(note, iconContext)
+      ? desktopPopupIconTextIndentPx(widthBl, getTextStyleForNote(note.flags).lineHeightMultiplier)
+      : 0;
     let measuredHeightBl = measureLineCount(note.title, widthBl, note.flags, textIndentPx, noteInlineTextMeasureSegments(note));
     if (measuredHeightBl < 1) { measuredHeightBl = 1; }
 
@@ -765,7 +767,9 @@ export const NoteFns = {
 
   calcDocumentSpatialDimensionsBl: (note: NoteMeasurable, iconContext: ItemIconRenderContext = ItemIconRenderContext.Spatial): Dimensions => {
     const widthBl = note.spatialWidthGr / GRID_SIZE;
-    const textIndentPx = NoteFns.showsIcon(note, iconContext) ? desktopPopupIconTextIndentPx(widthBl) : 0;
+    const textIndentPx = NoteFns.showsIcon(note, iconContext)
+      ? desktopPopupIconTextIndentPx(widthBl, getTextStyleForNote(note.flags).lineHeightMultiplier)
+      : 0;
     return {
       w: widthBl,
       h: measureDocumentNoteHeightBl(note.title, widthBl, note.flags, textIndentPx, noteInlineTextMeasureSegments(note)),
@@ -788,7 +792,13 @@ export const NoteFns = {
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const hitboxes: Array<Hitbox> = [];
     if (emitHitboxes && NoteFns.showsIcon(note, ItemIconRenderContext.Spatial)) {
-      hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, { x: 0, y: 0, w: blockSizePx.w, h: blockSizePx.h }));
+      const iconSizeMultiplier = getTextStyleForNote(note.flags).lineHeightMultiplier;
+      hitboxes.push(HitboxFns.create(HitboxFlags.OpenPopup, {
+        x: 0,
+        y: 0,
+        w: blockSizePx.w * iconSizeMultiplier,
+        h: blockSizePx.h * iconSizeMultiplier,
+      }));
     }
     if (emitHitboxes) {
       hitboxes.push(

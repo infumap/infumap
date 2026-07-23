@@ -137,17 +137,22 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     NoteFns.showsIcon(noteItem(), iconContext()) &&
     (hasPopupHandle() || isPopup());
   const shouldRenderIcon = () => reservePopupIconSpace();
+  const popupIconSizeMultiplier = () => infuTextStyle().lineHeightMultiplier;
+  const popupIconSizePx = () => ({
+    w: blockSize().w * popupIconSizeMultiplier(),
+    h: blockSize().h * popupIconSizeMultiplier(),
+  });
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
     y: 1,
-    w: Math.max(blockSize().w - 2, 0),
-    h: Math.max(blockSize().h - 2, 0),
+    w: Math.max(popupIconSizePx().w - 2, 0),
+    h: Math.max(popupIconSizePx().h - 2, 0),
   });
-  const popupIconScale = () => (blockSize().h / LINE_HEIGHT_PX) * 0.94;
-  const popupIconTopPx = () => -Math.max(blockSize().h * 0.03, 0.5);
+  const popupIconScale = () => (popupIconSizePx().h / LINE_HEIGHT_PX) * 0.94;
+  const popupIconTopPx = () => -Math.max(popupIconSizePx().h * 0.03, 0.5);
   const popupTextIndentPx = () => {
     if (!reservePopupIconSpace()) { return 0; }
-    return desktopPopupIconTextIndentPx(sizeBl().w);
+    return desktopPopupIconTextIndentPx(sizeBl().w, popupIconSizeMultiplier());
   };
   const hasListMarker = () => noteHasListMarker(noteItem().flags);
   const titlePaddingLeftPx = () => noteTextBlockPaddingLeftPx(noteItem().flags, popupTextIndentPx());
@@ -509,7 +514,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT}; transition: background-color 0.1s, border-color 0.1s;`} />
           <div class="absolute text-center pointer-events-none"
             style={`left: 0px; top: ${popupIconTopPx()}px; ` +
-              `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
+              `width: ${popupIconSizePx().w / popupIconScale()}px; height: ${popupIconSizePx().h / popupIconScale()}px; ` +
               `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
             <NoteIconGlyph note={noteItem} iconContext={iconContext} highPriority={isPopup} />

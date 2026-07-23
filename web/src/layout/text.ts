@@ -91,9 +91,12 @@ export function noteBulletMarkerLeftPx(flags: NoteFlags, leadingInsetPx: number 
   return noteListMarkerLeftPx(flags, leadingInsetPx);
 }
 
-export function desktopPopupIconTextIndentPx(widthBl: number): number {
+export function desktopPopupIconTextIndentPx(widthBl: number, iconSizeBl: number = 1): number {
   if (widthBl <= 0) { return 0; }
-  return Math.max(((widthBl * LINE_HEIGHT_PX) - NOTE_PADDING_PX * 2) / widthBl - NOTE_PADDING_PX, 0);
+  return Math.max(
+    (((widthBl * LINE_HEIGHT_PX) - NOTE_PADDING_PX * 2) / widthBl) * iconSizeBl - NOTE_PADDING_PX,
+    0,
+  );
 }
 
 function inlineTextMeasureSegmentsKey(inlineSegments: Array<InlineTextMeasureSegment> | null = null): string {
