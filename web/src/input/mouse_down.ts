@@ -234,6 +234,14 @@ function clearNativeTextSelectionMaybe(): boolean {
 
 export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number): Promise<MouseEventActionFlags> {
   let defaultResult = MouseEventActionFlags.PreventDefault;
+  const activeElement = document.activeElement;
+  if (buttonNumber == MOUSE_RIGHT &&
+    activeElement instanceof HTMLTextAreaElement &&
+    activeElement.hasAttribute("data-query-chat-composer")) {
+    activeElement.blur();
+    return defaultResult;
+  }
+
   if (buttonNumber != MOUSE_LEFT && clearNativeTextSelectionMaybe()) {
     NativeTextSelectionState.clear();
     return defaultResult;

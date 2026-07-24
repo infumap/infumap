@@ -21,7 +21,7 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
-import { Item } from "../items/base/item";
+import { ClientOnlyItemKind, Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
@@ -259,6 +259,26 @@ function focusQueryItemFromResultsBackgroundClickMaybe(
   store.perItem.setSearchFocusedResultIndex(searchVe.displayItem.id, -1);
   store.history.setFocus(activeVisualElement.parentPath);
   arrangeNow(store, "mouse-up-focus-search-from-results-background");
+  return true;
+}
+
+function focusQueryItemFromChatPageClickMaybe(
+  store: StoreContextModel,
+  activeVisualElement: VisualElement,
+): boolean {
+  if (!isPage(activeVisualElement.displayItem) ||
+    activeVisualElement.displayItem.clientOnlyKind != ClientOnlyItemKind.QueryChatPage ||
+    !activeVisualElement.parentPath) {
+    return false;
+  }
+
+  const queryVe = VesCache.current.readNode(activeVisualElement.parentPath);
+  if (!queryVe || !isQueryItem(queryVe.displayItem)) {
+    return false;
+  }
+
+  store.history.setFocus(activeVisualElement.parentPath);
+  arrangeNow(store, "mouse-up-focus-query-from-chat-page");
   return true;
 }
 
@@ -1313,7 +1333,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Click)) {
         DoubleClickState.preventDoubleClick();
-        if (!switchPopupListToRootFromNestedListAreaClickMaybe(store, activeVisualElement)) {
+        if (!switchPopupListToRootFromNestedListAreaClickMaybe(store, activeVisualElement) &&
+          !focusQueryItemFromChatPageClickMaybe(store, activeVisualElement)) {
           const popupTitleTargetSignal = popupTitleTargetSignalMaybe();
           ItemFns.handleClick(popupTitleTargetSignal ?? activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
           if (popupTitleTargetSignal != null) {
@@ -1332,6 +1353,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           DoubleClickState.preventDoubleClick();
 
         } else if (focusQueryItemFromResultsBackgroundClickMaybe(store, activeVisualElement)) {
+          DoubleClickState.preventDoubleClick();
+
+        } else if (focusQueryItemFromChatPageClickMaybe(store, activeVisualElement)) {
           DoubleClickState.preventDoubleClick();
 
         } else if (editDocumentChildPageTitleFromOutsideBoundsClickMaybe(store, activeVisualElement)) {

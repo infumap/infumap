@@ -751,8 +751,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       ev.stopPropagation();
     };
     const chatSurfaceMouseDown = (ev: MouseEvent) => {
-      if (ev.button == MOUSE_RIGHT) {
+      if (ev.button == MOUSE_RIGHT && document.activeElement == chatTextarea) {
         chatTextarea?.blur();
+        ev.stopPropagation();
+        ev.preventDefault();
       }
     };
     const chatKeyDown = (ev: KeyboardEvent) => {
@@ -813,6 +815,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               style={`height: ${chatTextareaHeightPx()}px;`}>
               <textarea
                 ref={chatTextarea}
+                data-query-chat-composer
                 class="block w-full resize-none border-0 bg-transparent px-2.5 py-[9px] text-black outline-hidden"
                 style={`height: ${chatTextareaHeightPx()}px; font-size: 16px; line-height: 24px; user-select: text;`}
                 value={chatText()}
