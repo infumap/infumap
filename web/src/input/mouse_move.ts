@@ -1397,7 +1397,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const copyOnlyMoveHover = isCopyOnlyMoveHover(hitInfo);
   const copyOnlyMoveOutHover = isCopyOnlyMoveOutHover(hitInfo);
   setCopyMoveCursorOverride(copyOnlyMoveHover && hasUser && !hasModal && !isInsideToolbarPopup);
-  if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && !isInsideToolbarPopup) {
+  if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && !hasModal && !isInsideToolbarPopup) {
     if (hitInfo.overElementMeta!.colNum) {
       store.mouseOverTableHeaderColumnNumber.set(hitInfo.overElementMeta!.colNum);
     } else {
@@ -1516,7 +1516,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     lastMouseOverCompositeMoveOutPath = overCompositeMoveOutPath;
   }
 
-  if (hasUser && !isInsideToolbarPopup) {
+  if (hasUser && !isInsideToolbarPopup && !hasModal) {
     const calendarRangeItemId = hitInfo.overElementMeta?.calendarRangeItemId ?? null;
     const calendarRangeItem = calendarRangeItemId == null ? null : itemState.get(calendarRangeItemId);
     if ((hitInfo.hitboxType & HitboxFlags.CalendarRangeResize) &&
@@ -1559,5 +1559,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     } else {
       document.body.style.cursor = "default";
     }
+  } else if (hasModal) {
+    document.body.style.cursor = "default";
   }
 }
