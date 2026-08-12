@@ -366,7 +366,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (store.overlay.textEditInfo()) {
     if (isInsideToolbarControlArea()) { return MouseEventActionFlags.PreventDefault; }
 
-    if (store.user.getUserMaybe() == null || store.history.getFocusItem().ownerId != store.user.getUser().userId) {
+    const editingItemPathForGate = store.overlay.textEditInfo()!.itemPath;
+    const editingItemForGate = itemState.get(VeFns.veidFromPath(editingItemPathForGate).itemId);
+    if (store.user.getUserMaybe() == null || !itemCanEdit(editingItemForGate)) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       store.overlay.setTextEditInfo(store.history, null);
       arrangeNow(store, "mouse-down-end-text-edit-readonly");
