@@ -1,7 +1,18 @@
 // @ts-ignore
 import { resolve } from 'path';
+import { execSync } from 'child_process';
 import { defineConfig, loadEnv } from 'vite';
 import solidPlugin from 'vite-plugin-solid';
+
+function gitCommit(): string {
+  try {
+    const hash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+    const dirty = execSync('git status --porcelain', { encoding: 'utf8' }).trim();
+    return dirty ? `${hash}-dirty` : hash;
+  } catch {
+    return 'unknown';
+  }
+}
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -15,6 +26,9 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     plugins: [solidPlugin()],
+    define: {
+      __INFUMAP_GIT_COMMIT__: JSON.stringify(gitCommit()),
+    },
     server: {
       port: 3000,
       hmr: false,

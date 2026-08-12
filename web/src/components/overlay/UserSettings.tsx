@@ -437,6 +437,12 @@ export const EditUserSettings: Component = () => {
                   <div class="inline-block text-right mr-[6px]" style="width: 150px;">last failed backup:</div>
                   <div class="inline-block">{humanReadableTime(lastFailedBackupTime.get())}</div>
                 </div>
+                <div>
+                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">build:</div>
+                  <div class="text-slate-800 text-sm inline-block">
+                    <span class="font-mono text-slate-400">{__INFUMAP_GIT_COMMIT__}</span>
+                  </div>
+                </div>
 
                 <Switch>
                   <Match when={!addTotpVisibleSignal.get()}>
