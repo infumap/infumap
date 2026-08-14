@@ -20,12 +20,12 @@ set -euo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
-readonly VENV_DIR="${TEXT_EXTRACTION_VENV_DIR:-${MARKER_SERVICE_VENV_DIR:-$ROOT_DIR/.venv}}"
+readonly VENV_DIR="${TEXT_EXTRACTION_VENV_DIR:-$ROOT_DIR/.venv}"
 source "$GPU_ROOT_DIR/python_runtime.sh"
 PYTHON_BIN="$(select_gpu_python_bin "$VENV_DIR")"
 readonly PYTHON_BIN
-readonly HOST="${TEXT_EXTRACTION_HOST:-${MARKER_SERVICE_HOST:-127.0.0.1}}"
-readonly PORT="${TEXT_EXTRACTION_PORT:-${MARKER_SERVICE_PORT:-8790}}"
+readonly HOST="${TEXT_EXTRACTION_HOST:-127.0.0.1}"
+readonly PORT="${TEXT_EXTRACTION_PORT:-8790}"
 readonly RESTART_DELAY_SECS="${TEXT_EXTRACTION_RESTART_DELAY_SECS:-5}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 LAUNCHED_CHILD_PID=""
