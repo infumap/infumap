@@ -1,26 +1,11 @@
 # Direct requirements for pdf_extract service.
-# marker-pdf is left unpinned as it pulls large platform-specific deps (torch, etc.).
+# Pinned to the reviewed versions so first install does not drift to whatever
+# happens to be latest on PyPI that day.
 #
-# After first install on a target platform, capture a full lock with:
-#   .venv/bin/pip freeze | grep -v '^-e' > requirements.txt
+# pypdfium2 is imported by app.py for password-protected PDF detection.
+# pdftext 0.7.1 (pulled by marker-pdf 2.0.0) requires exactly 5.10.1.
 fastapi==0.135.2
 uvicorn==0.42.0
-python-multipart>=0.0.18
-pypdfium2
-marker-pdf[full]
-# Two CVEs are suppressed in audit-python.sh for this service. They are present
-# as transitive deps of marker-pdf, which pins older versions of both packages.
-# Upgrading them directly causes a dependency conflict (marker-pdf 1.10.2 requires
-# Pillow<11.0.0 and weasyprint<64.0). Remove the suppressions once marker-pdf
-# depends on pillow>=12.1.1 and weasyprint>=68.0.
-#
-# CVE-2026-25990 (pillow, CVSS 8.9 High):
-#   Out-of-bounds write when loading PSD (Photoshop) images. Exploitable only if
-#   a PDF containing a crafted PSD image is processed. PDFs do not normally embed
-#   PSD files; risk is low for typical document sources (web pages, bank statements).
-#
-# CVE-2025-68616 (weasyprint, CVSS 7.5 High):
-#   SSRF bypass via HTTP redirects — a crafted document can cause WeasyPrint to
-#   fetch internal URLs (e.g. localhost services). Risk is low in a single-user,
-#   self-controlled deployment with no cloud metadata endpoints, but would be
-#   significant if this service were ever exposed to untrusted document sources.
+python-multipart==0.0.32
+pypdfium2==5.10.1
+marker-pdf[full]==2.0.0

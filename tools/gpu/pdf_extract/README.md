@@ -8,7 +8,8 @@ Intended for burst or long running use.
 
 - accepts multipart file uploads at `POST /pdf-extract`
 - returns markdown and Marker metadata as JSON
-- loads Marker models once when the service starts
+- loads Marker predictor clients when the service starts; the Surya VLM
+  `llama-server` is spawned on first layout or OCR use
 - uses a fixed extraction policy chosen by the tool
 
 ## Start The Service
@@ -49,23 +50,24 @@ Optional environment variables:
 - `TEXT_EXTRACTION_RESTART_DELAY_SECS`
 - `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`
 - `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
-- `TEXT_EXTRACTION_MODE`
+- `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
+- `TEXT_EXTRACTION_MODE` (default `balanced`; set `fast` for the lighter layout path)
+- `SURYA_GUIDED_LAYOUT` (default `0`). Current Homebrew `llama.cpp` cannot parse Surya's layout JSON schema (`\d` in bbox patterns), so guided decoding fails every page. Keep the default unless your `llama-server` supports that grammar, then set `1`.
 - `PYTHON_BIN`
-- `TORCH_DEVICE`
 - `GOOGLE_API_KEY`
 
 Examples:
 
 ```bash
-TORCH_DEVICE=cpu ./tools/gpu/pdf_extract/run.sh
+TEXT_EXTRACTION_PORT=9000 ./tools/gpu/pdf_extract/run.sh
 ```
 
 ```bash
-TORCH_DEVICE=cuda TEXT_EXTRACTION_PORT=9000 ./tools/gpu/pdf_extract/run.sh
+TEXT_EXTRACTION_MODE=fast ./tools/gpu/pdf_extract/run.sh
 ```
 
 ```bash
-TEXT_EXTRACTION_MODE=balanced ./tools/gpu/pdf_extract/run.sh
+SURYA_GUIDED_LAYOUT=1 ./tools/gpu/pdf_extract/run.sh
 ```
 
 The service uses a fixed extraction policy:
@@ -73,7 +75,8 @@ The service uses a fixed extraction policy:
 - `force_ocr=false`
 - `paginate_output=true`
 - `use_llm=true` only when `GOOGLE_API_KEY` is present in the environment at startup
-- `mode` from `TEXT_EXTRACTION_MODE` (`balanced` or `fast`); unset leaves Marker's device default (`balanced` on CUDA, `fast` on CPU/MPS)
+- `mode=balanced` unless `TEXT_EXTRACTION_MODE=fast`
+- `SURYA_GUIDED_LAYOUT=0` unless overridden
 
 ## Access Over SSH
 
@@ -166,7 +169,7 @@ Password-protected PDFs return HTTP 422 with a structured terminal response:
   The default is `134217728` bytes (128 MiB), configurable via
   `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`.
 - Each PDF conversion is bounded by `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
-  (default 3600 seconds). If Marker/PyTorch gets stuck or a PDF is too complex,
-  the request returns a terminal 422 failure and the supervised worker process
-  exits so `run.sh` can restart it with clean native state.
+  (default 3600 seconds). If Marker or `llama-server` gets stuck or a PDF is too
+  complex, the request returns a terminal 422 failure and the supervised worker
+  process exits so `run.sh` can restart it with clean native state.
 Interactive API docs are available at `http://127.0.0.1:8790/docs`.

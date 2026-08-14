@@ -28,14 +28,7 @@ readonly REQUIREMENTS_FILES=(
   "text_embed:tools/gpu/text_embed/requirements.txt"
   "text_embed (fastembed CPU):tools/gpu/text_embed/requirements-fastembed.txt"
   "image_extract:tools/gpu/image_extract/requirements.txt"
-  # CVE-2026-25990 (pillow >=10.3.0,<12.1.1, CVSS 8.9): out-of-bounds write loading
-  #   PSD images. Low risk here — PDFs rarely embed PSD files.
-  # CVE-2025-68616 (weasyprint <68.0, CVSS 7.5): SSRF bypass via HTTP redirects.
-  #   Low risk in a single-user self-controlled deployment; would be high risk if
-  #   this service were exposed to untrusted document sources.
-  # Both are unfixable while marker-pdf 1.10.2 pins Pillow<11.0.0 and weasyprint<64.0.
-  # Remove suppressions once marker-pdf depends on pillow>=12.1.1 and weasyprint>=68.0.
-  "pdf_extract:tools/gpu/pdf_extract/requirements.txt:--ignore-vuln CVE-2026-25990 --ignore-vuln CVE-2025-68616"
+  "pdf_extract:tools/gpu/pdf_extract/requirements.txt"
 )
 
 print_usage() {

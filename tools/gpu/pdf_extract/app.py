@@ -27,6 +27,11 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+if not os.environ.get("TEXT_EXTRACTION_MODE", "").strip():
+    os.environ["TEXT_EXTRACTION_MODE"] = "balanced"
+if not os.environ.get("SURYA_GUIDED_LAYOUT", "").strip():
+    os.environ["SURYA_GUIDED_LAYOUT"] = "0"
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -148,7 +153,8 @@ def build_runtime_summary() -> list[str]:
         f"worker_slot_wait_timeout_secs={worker_slot_wait_timeout_secs()}",
         f"conversion_timeout_secs={conversion_timeout_secs()}",
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
-        f"mode={conversion_mode() or '<marker default>'}",
+        f"mode={conversion_mode()}",
+        f"surya_guided_layout={os.environ.get('SURYA_GUIDED_LAYOUT', '<unset>')}",
         f"max_upload_bytes={max_upload_bytes()}",
     ]
 
@@ -292,7 +298,7 @@ async def lifespan(_: FastAPI):
         config["use_llm"],
         config["output_format"],
         config["pdftext_workers"],
-        config.get("mode", "<marker default>"),
+        config["mode"],
     )
     started_at = time.perf_counter()
     APP_STATE["models"] = create_model_dict()
@@ -315,10 +321,10 @@ app = FastAPI(
 )
 
 
-def conversion_mode() -> str | None:
+def conversion_mode() -> str:
     raw = os.environ.get("TEXT_EXTRACTION_MODE", "").strip().lower()
     if not raw:
-        return None
+        return "balanced"
     if raw not in ("balanced", "fast"):
         raise ValueError(
             f"Invalid TEXT_EXTRACTION_MODE={raw!r}; expected 'balanced' or 'fast'."
@@ -327,17 +333,14 @@ def conversion_mode() -> str | None:
 
 
 def build_config() -> dict[str, Any]:
-    config: dict[str, Any] = {
+    return {
         "force_ocr": False,
         "paginate_output": True,
         "use_llm": bool(os.environ.get("GOOGLE_API_KEY")),
         "output_format": "markdown",
         "pdftext_workers": PDFTEXT_WORKERS,
+        "mode": conversion_mode(),
     }
-    mode = conversion_mode()
-    if mode is not None:
-        config["mode"] = mode
-    return config
 
 
 def max_upload_bytes() -> int:
