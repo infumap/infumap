@@ -4,8 +4,6 @@ This is a small ad-hoc HTTP wrapper around [Marker](https://github.com/datalab-t
 
 Intended for burst or long running use.
 
-Works well on a google cloud g2-standard-4 instance (NVIDIA L4). Note that a T4 is a little underpowered for larger / more complex PDFs. L4 is the sweat spot.
-
 ## What It Does
 
 - accepts multipart file uploads at `POST /pdf-extract`
@@ -51,6 +49,7 @@ Optional environment variables:
 - `TEXT_EXTRACTION_RESTART_DELAY_SECS`
 - `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`
 - `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
+- `TEXT_EXTRACTION_MODE`
 - `PYTHON_BIN`
 - `TORCH_DEVICE`
 - `GOOGLE_API_KEY`
@@ -65,11 +64,16 @@ TORCH_DEVICE=cpu ./tools/gpu/pdf_extract/run.sh
 TORCH_DEVICE=cuda TEXT_EXTRACTION_PORT=9000 ./tools/gpu/pdf_extract/run.sh
 ```
 
+```bash
+TEXT_EXTRACTION_MODE=balanced ./tools/gpu/pdf_extract/run.sh
+```
+
 The service uses a fixed extraction policy:
 
 - `force_ocr=false`
 - `paginate_output=true`
 - `use_llm=true` only when `GOOGLE_API_KEY` is present in the environment at startup
+- `mode` from `TEXT_EXTRACTION_MODE` (`balanced` or `fast`); unset leaves Marker's device default (`balanced` on CUDA, `fast` on CPU/MPS)
 
 ## Access Over SSH
 

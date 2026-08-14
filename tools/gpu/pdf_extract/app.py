@@ -148,6 +148,7 @@ def build_runtime_summary() -> list[str]:
         f"worker_slot_wait_timeout_secs={worker_slot_wait_timeout_secs()}",
         f"conversion_timeout_secs={conversion_timeout_secs()}",
         f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
+        f"mode={conversion_mode() or '<marker default>'}",
         f"max_upload_bytes={max_upload_bytes()}",
     ]
 
@@ -285,12 +286,13 @@ async def lifespan(_: FastAPI):
     CONVERT_SEMAPHORE = asyncio.Semaphore(GPU_REQUEST_CONCURRENCY)
     LOGGER.info("Text extraction startup: %s", " ".join(build_runtime_summary()))
     LOGGER.info(
-        "Text extraction config: force_ocr=%s paginate_output=%s use_llm=%s output_format=%s pdftext_workers=%s",
+        "Text extraction config: force_ocr=%s paginate_output=%s use_llm=%s output_format=%s pdftext_workers=%s mode=%s",
         config["force_ocr"],
         config["paginate_output"],
         config["use_llm"],
         config["output_format"],
         config["pdftext_workers"],
+        config.get("mode", "<marker default>"),
     )
     started_at = time.perf_counter()
     APP_STATE["models"] = create_model_dict()
@@ -313,14 +315,29 @@ app = FastAPI(
 )
 
 
+def conversion_mode() -> str | None:
+    raw = os.environ.get("TEXT_EXTRACTION_MODE", "").strip().lower()
+    if not raw:
+        return None
+    if raw not in ("balanced", "fast"):
+        raise ValueError(
+            f"Invalid TEXT_EXTRACTION_MODE={raw!r}; expected 'balanced' or 'fast'."
+        )
+    return raw
+
+
 def build_config() -> dict[str, Any]:
-    return {
+    config: dict[str, Any] = {
         "force_ocr": False,
         "paginate_output": True,
         "use_llm": bool(os.environ.get("GOOGLE_API_KEY")),
         "output_format": "markdown",
         "pdftext_workers": PDFTEXT_WORKERS,
     }
+    mode = conversion_mode()
+    if mode is not None:
+        config["mode"] = mode
+    return config
 
 
 def max_upload_bytes() -> int:
