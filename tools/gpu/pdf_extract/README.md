@@ -75,7 +75,8 @@ The service uses a fixed extraction policy:
 - `force_ocr=false`
 - `paginate_output=true`
 - `use_llm=true` only when `GOOGLE_API_KEY` is present in the environment at startup
-- `mode=balanced` unless `TEXT_EXTRACTION_MODE=fast`
+- `mode=balanced` unless `TEXT_EXTRACTION_MODE=fast`. An optional multipart
+  field `mode=balanced|fast` overrides this for one request.
 - `SURYA_GUIDED_LAYOUT=0` unless overridden
 
 ## Access Over SSH
@@ -121,6 +122,15 @@ Example upload request:
 
 ```bash
 curl -sS \
+  -F "file=@/path/to/document.pdf" \
+  http://127.0.0.1:8790/pdf-extract
+```
+
+Force Marker's lighter `fast` path for one request (omitted `mode` uses `TEXT_EXTRACTION_MODE`):
+
+```bash
+curl -sS \
+  -F "mode=fast" \
   -F "file=@/path/to/document.pdf" \
   http://127.0.0.1:8790/pdf-extract
 ```

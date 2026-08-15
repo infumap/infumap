@@ -55,6 +55,8 @@ CONVERSION_TIMEOUT_EXIT_DELAY_SECS = 2.0
 PDF_PASSWORD_REQUIRED_ERROR_CODE = "pdf_password_required"
 PDF_UNREADABLE_ERROR_CODE = "pdf_unreadable"
 PDF_CONVERSION_TIMEOUT_ERROR_CODE = "pdf_conversion_timeout"
+VALID_CONVERSION_MODES = ("balanced", "fast")
+MODE_FIELD_MAX_BYTES = 32
 
 
 class DocumentRejectedError(Exception):
@@ -321,25 +323,30 @@ app = FastAPI(
 )
 
 
-def conversion_mode() -> str:
+def conversion_mode(requested: str | None = None) -> str:
+    raw = (requested or "").strip().lower()
+    if raw:
+        if raw not in VALID_CONVERSION_MODES:
+            raise ValueError(f"Invalid mode={raw!r}; expected 'balanced' or 'fast'.")
+        return raw
     raw = os.environ.get("TEXT_EXTRACTION_MODE", "").strip().lower()
     if not raw:
         return "balanced"
-    if raw not in ("balanced", "fast"):
+    if raw not in VALID_CONVERSION_MODES:
         raise ValueError(
             f"Invalid TEXT_EXTRACTION_MODE={raw!r}; expected 'balanced' or 'fast'."
         )
     return raw
 
 
-def build_config() -> dict[str, Any]:
+def build_config(mode: str | None = None) -> dict[str, Any]:
     return {
         "force_ocr": False,
         "paginate_output": True,
         "use_llm": bool(os.environ.get("GOOGLE_API_KEY")),
         "output_format": "markdown",
         "pdftext_workers": PDFTEXT_WORKERS,
-        "mode": conversion_mode(),
+        "mode": conversion_mode(mode),
     }
 
 
@@ -433,15 +440,15 @@ def store_upload_bytes(file_bytes: bytes, file_name: str) -> str:
         return handle.name
 
 
-def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
+def convert_file_bytes(file_bytes: bytes, file_name: str, mode: str) -> ConvertResponse:
     started_at = time.perf_counter()
     file_size_bytes = len(file_bytes)
-    LOGGER.info("Starting conversion: file=%s size_bytes=%d", file_name, file_size_bytes)
+    LOGGER.info("Starting conversion: file=%s size_bytes=%d mode=%s", file_name, file_size_bytes, mode)
     reset_torch_cuda_peak_memory()
     reject_password_protected_pdf(file_bytes)
     temp_path = store_upload_bytes(file_bytes, file_name)
     try:
-        config_parser = ConfigParser(build_config())
+        config_parser = ConfigParser(build_config(mode))
         converter = PdfConverter(
             config=config_parser.generate_config_dict(),
             artifact_dict=APP_STATE["models"],
@@ -504,7 +511,7 @@ def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
         clear_torch_cuda_cache()
 
 
-async def read_multipart_upload(request: Request) -> tuple[str, str | None, bytes]:
+async def read_multipart_upload(request: Request) -> tuple[str, str | None, bytes, str | None]:
     content_type_header = request.headers.get("content-type", "")
     parsed_content_type, params = parse_options_header(content_type_header.encode("latin-1"))
     if parsed_content_type != b"multipart/form-data":
@@ -524,18 +531,23 @@ async def read_multipart_upload(request: Request) -> tuple[str, str | None, byte
     current_file_name: str | None = None
     current_content_type: str | None = None
     collecting_target_file = False
+    collecting_mode = False
     seen_target_file = False
+    seen_mode = False
     file_name: str | None = None
     file_content_type: str | None = None
     file_bytes = bytearray()
+    mode_bytes = bytearray()
 
     def on_part_begin() -> None:
-        nonlocal current_headers, current_field_name, current_file_name, current_content_type, collecting_target_file
+        nonlocal current_headers, current_field_name, current_file_name, current_content_type
+        nonlocal collecting_target_file, collecting_mode
         current_headers = {}
         current_field_name = None
         current_file_name = None
         current_content_type = None
         collecting_target_file = False
+        collecting_mode = False
 
     def on_header_begin() -> None:
         header_name_parts.clear()
@@ -556,7 +568,8 @@ async def read_multipart_upload(request: Request) -> tuple[str, str | None, byte
 
     def on_headers_finished() -> None:
         nonlocal current_field_name, current_file_name, current_content_type
-        nonlocal collecting_target_file, seen_target_file, file_name, file_content_type
+        nonlocal collecting_target_file, collecting_mode, seen_target_file, seen_mode
+        nonlocal file_name, file_content_type
 
         disposition = current_headers.get(b"content-disposition", b"")
         disposition_type, disposition_params = parse_options_header(disposition)
@@ -566,6 +579,12 @@ async def read_multipart_upload(request: Request) -> tuple[str, str | None, byte
         current_field_name = decode_header_value(disposition_params.get(b"name"))
         current_file_name = decode_header_value(disposition_params.get(b"filename"))
         current_content_type = decode_header_value(current_headers.get(b"content-type"))
+
+        if current_field_name == "mode":
+            if seen_mode:
+                raise ValueError("Multipart request contained more than one 'mode' part.")
+            collecting_mode = True
+            return
 
         if current_field_name != "file":
             return
@@ -578,9 +597,14 @@ async def read_multipart_upload(request: Request) -> tuple[str, str | None, byte
         file_content_type = current_content_type
 
     def on_part_data(data: bytes, start: int, end: int) -> None:
+        chunk = data[start:end]
+        if collecting_mode:
+            if len(mode_bytes) + len(chunk) > MODE_FIELD_MAX_BYTES:
+                raise ValueError("Multipart 'mode' field is too large.")
+            mode_bytes.extend(chunk)
+            return
         if not collecting_target_file:
             return
-        chunk = data[start:end]
         if len(file_bytes) + len(chunk) > upload_limit:
             raise UploadTooLargeError(
                 f"Uploaded PDF exceeds the in-memory limit of {upload_limit} bytes. "
@@ -589,7 +613,9 @@ async def read_multipart_upload(request: Request) -> tuple[str, str | None, byte
         file_bytes.extend(chunk)
 
     def on_part_end() -> None:
-        nonlocal seen_target_file
+        nonlocal seen_target_file, seen_mode
+        if collecting_mode:
+            seen_mode = True
         if collecting_target_file:
             seen_target_file = True
 
@@ -627,7 +653,8 @@ async def read_multipart_upload(request: Request) -> tuple[str, str | None, byte
     if not file_bytes:
         raise HTTPException(status_code=422, detail="Uploaded file was empty.")
 
-    return file_name or "upload", file_content_type, bytes(file_bytes)
+    requested_mode = mode_bytes.decode("utf-8", errors="replace").strip() or None
+    return file_name or "upload", file_content_type, bytes(file_bytes), requested_mode
 
 
 @app.get("/")
@@ -652,7 +679,7 @@ async def gpu_tools() -> dict[str, Any]:
                 "id": "pdf_extract",
                 "method": "POST",
                 "path": "/pdf-extract",
-                "description": "Extract Markdown text from an uploaded PDF.",
+                "description": "Extract Markdown text from an uploaded PDF. Optional multipart field mode=balanced|fast.",
             },
         ],
     }
@@ -669,15 +696,20 @@ async def convert_upload(request: Request) -> ConvertResponse:
     request_started_at = time.perf_counter()
     try:
         upload_started_at = time.perf_counter()
-        file_name, content_type, upload_bytes = await read_multipart_upload(request)
+        file_name, content_type, upload_bytes, requested_mode = await read_multipart_upload(request)
+        try:
+            mode = conversion_mode(requested_mode)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         upload_size_bytes = len(upload_bytes)
         upload_duration_ms = int((time.perf_counter() - upload_started_at) * 1000)
         LOGGER.info(
-            "Received in-memory text extraction upload: file=%s content_type=%s size_bytes=%d upload_ms=%d",
+            "Received in-memory text extraction upload: file=%s content_type=%s size_bytes=%d upload_ms=%d mode=%s",
             file_name,
             content_type or "<unset>",
             upload_size_bytes,
             upload_duration_ms,
+            mode,
         )
         semaphore = CONVERT_SEMAPHORE
         if semaphore is None:
@@ -703,16 +735,17 @@ async def convert_upload(request: Request) -> ConvertResponse:
             semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
             request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
             LOGGER.info(
-                "Dispatching text extraction conversion: file=%s size_bytes=%d request_age_ms=%d semaphore_wait_ms=%d",
+                "Dispatching text extraction conversion: file=%s size_bytes=%d mode=%s request_age_ms=%d semaphore_wait_ms=%d",
                 file_name,
                 upload_size_bytes,
+                mode,
                 request_age_ms,
                 semaphore_wait_ms,
             )
             conversion_timeout = conversion_timeout_secs()
             try:
                 return await asyncio.wait_for(
-                    asyncio.to_thread(convert_file_bytes, upload_bytes, file_name),
+                    asyncio.to_thread(convert_file_bytes, upload_bytes, file_name, mode),
                     timeout=conversion_timeout,
                 )
             except asyncio.TimeoutError as exc:
