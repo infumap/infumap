@@ -82,9 +82,11 @@ import {
   chatStreamingStateForQuery,
   materializeQueryChat,
   queryChatUsesInfumapData,
+  queryChatUsesWebSearch,
   queryChatHasContent,
   resetQueryChatSession,
   setQueryChatUsesInfumapData,
+  setQueryChatUsesWebSearch,
   submitQueryChatMessage,
 } from "../../items/chat";
 import {
@@ -144,6 +146,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let querySendButton: HTMLButtonElement | undefined;
   let queryDiscardButton: HTMLButtonElement | undefined;
   let queryInfumapDataCheckbox: HTMLInputElement | undefined;
+  let queryWebSearchCheckbox: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
   let activeSearchRequestSerial = 0;
@@ -388,7 +391,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryInfumapDataCheckbox.focus();
   };
 
-  type QueryControlName = "mode" | "input" | "send" | "discard" | "infumap-data";
+  const focusWebSearchCheckbox = () => {
+    if (!queryWebSearchCheckbox || queryWebSearchCheckbox.disabled) {
+      focusQueryInputControl();
+      return;
+    }
+    queryWebSearchCheckbox.focus();
+  };
+
+  type QueryControlName = "mode" | "input" | "send" | "discard" | "infumap-data" | "web-search";
 
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = ["mode", "input", "send"];
@@ -397,6 +408,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
     if (selectedInputMode() == "chat") {
       controls.push("infumap-data");
+      controls.push("web-search");
     }
     return controls;
   };
@@ -410,6 +422,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       focusSendButton();
     } else if (control == "discard") {
       focusDiscardButton();
+    } else if (control == "web-search") {
+      focusWebSearchCheckbox();
     } else {
       focusInfumapDataCheckbox();
     }
@@ -958,19 +972,34 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 {liveChatActivity()!.statusText}
               </div>
             </Show>
-            <label
-              class="ml-auto flex shrink-0 cursor-default items-center gap-2 pl-3 opacity-60"
-              style="font-size: 13px; line-height: 20px;"
-              title={queryChatUsesInfumapData(store, queryItem())
-                ? "The assistant can search and read this Infumap instance. Start a new chat to change this setting."
-                : "The assistant can only use this conversation. Start a new chat to change this setting."}>
-              <input
-                type="checkbox"
-                checked={queryChatUsesInfumapData(store, queryItem())}
-                disabled={chatRequestActive() || queryChatHasContent(store, queryItem())}
-                onChange={(ev) => setQueryChatUsesInfumapData(store, queryItem(), ev.currentTarget.checked)} />
-              <span>Use Infumap data</span>
-            </label>
+            <div class="ml-auto flex shrink-0 items-center gap-4 pl-3">
+              <label
+                class="flex cursor-default items-center gap-2 opacity-60"
+                style="font-size: 13px; line-height: 20px;"
+                title={queryChatUsesInfumapData(store, queryItem())
+                  ? "The assistant can search and read this Infumap instance. Start a new chat to change this setting."
+                  : "The assistant cannot search this Infumap instance. Start a new chat to change this setting."}>
+                <input
+                  type="checkbox"
+                  checked={queryChatUsesInfumapData(store, queryItem())}
+                  disabled={chatRequestActive() || queryChatHasContent(store, queryItem())}
+                  onChange={(ev) => setQueryChatUsesInfumapData(store, queryItem(), ev.currentTarget.checked)} />
+                <span>Use Infumap data</span>
+              </label>
+              <label
+                class="flex cursor-default items-center gap-2 opacity-60"
+                style="font-size: 13px; line-height: 20px;"
+                title={queryChatUsesWebSearch(store, queryItem())
+                  ? "The assistant can search the public web and fetch pages you approve. Start a new chat to change this setting."
+                  : "The assistant cannot search the public web. Start a new chat to change this setting."}>
+                <input
+                  type="checkbox"
+                  checked={queryChatUsesWebSearch(store, queryItem())}
+                  disabled={chatRequestActive() || queryChatHasContent(store, queryItem())}
+                  onChange={(ev) => setQueryChatUsesWebSearch(store, queryItem(), ev.currentTarget.checked)} />
+                <span>Web search</span>
+              </label>
+            </div>
           </div>
           <div class="flex items-end"
             style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
@@ -1182,33 +1211,59 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
       </div>
       <Show when={selectedInputMode() == "chat"}>
-        <label
-          class="flex w-full cursor-pointer items-center justify-end gap-2 px-1 text-[#555]"
+        <div
+          class="flex w-full items-center justify-end gap-4 px-1 text-[#555]"
           style="height: 20px; margin-top: 4px; font-size: 13px; line-height: 20px;"
-          title={queryChatUsesInfumapData(store, queryItem())
-            ? "The assistant can search and read this Infumap instance."
-            : "The assistant can only use this conversation."}
           onMouseDown={(ev) => ev.stopPropagation()}
           onMouseUp={(ev) => ev.stopPropagation()}
           onClick={(ev) => ev.stopPropagation()}>
-          <input
-            ref={queryInfumapDataCheckbox}
-            type="checkbox"
-            checked={queryChatUsesInfumapData(store, queryItem())}
-            disabled={isStartingChat()}
-            onChange={(ev) => {
-              const enabled = ev.currentTarget.checked;
-              setQueryText(store, queryItem(), readQueryTextFromDom());
-              setQueryChatUsesInfumapData(store, queryItem(), enabled);
-            }}
-            onKeyDown={(ev) => {
-              ev.stopPropagation();
-              if (ev.key == "Tab") {
-                handleQueryControlTab(ev, "infumap-data");
-              }
-            }} />
-          <span>Use Infumap data</span>
-        </label>
+          <label
+            class="flex cursor-pointer items-center gap-2"
+            title={queryChatUsesInfumapData(store, queryItem())
+              ? "The assistant can search and read this Infumap instance."
+              : "The assistant cannot search this Infumap instance."}>
+            <input
+              ref={queryInfumapDataCheckbox}
+              type="checkbox"
+              checked={queryChatUsesInfumapData(store, queryItem())}
+              disabled={isStartingChat()}
+              onChange={(ev) => {
+                const enabled = ev.currentTarget.checked;
+                setQueryText(store, queryItem(), readQueryTextFromDom());
+                setQueryChatUsesInfumapData(store, queryItem(), enabled);
+              }}
+              onKeyDown={(ev) => {
+                ev.stopPropagation();
+                if (ev.key == "Tab") {
+                  handleQueryControlTab(ev, "infumap-data");
+                }
+              }} />
+            <span>Use Infumap data</span>
+          </label>
+          <label
+            class="flex cursor-pointer items-center gap-2"
+            title={queryChatUsesWebSearch(store, queryItem())
+              ? "The assistant can search the public web and fetch pages you approve."
+              : "The assistant cannot search the public web."}>
+            <input
+              ref={queryWebSearchCheckbox}
+              type="checkbox"
+              checked={queryChatUsesWebSearch(store, queryItem())}
+              disabled={isStartingChat()}
+              onChange={(ev) => {
+                const enabled = ev.currentTarget.checked;
+                setQueryText(store, queryItem(), readQueryTextFromDom());
+                setQueryChatUsesWebSearch(store, queryItem(), enabled);
+              }}
+              onKeyDown={(ev) => {
+                ev.stopPropagation();
+                if (ev.key == "Tab") {
+                  handleQueryControlTab(ev, "web-search");
+                }
+              }} />
+            <span>Web search</span>
+          </label>
+        </div>
       </Show>
     </>;
     return (

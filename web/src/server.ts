@@ -112,7 +112,7 @@ export interface ChatMessage {
 export interface ChatRequest {
   requestId: string,
   messages: Array<ChatMessage>,
-  capabilities: Array<"infumap_data">,
+  capabilities: Array<"infumap_data" | "web_search">,
 }
 
 export interface ChatResponse {

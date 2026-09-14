@@ -52,6 +52,12 @@ const CHAT_GENERAL_SYSTEM_PROMPT: &str = "\
 You are a helpful chat assistant.
 Return a concise Markdown answer.";
 const CHAT_CAPABILITY_INFUMAP_DATA: &str = "infumap_data";
+const CHAT_CAPABILITY_WEB_SEARCH: &str = "web_search";
+const CHAT_SYSTEM_PROMPT_CLOSING: &str = "Return a concise Markdown answer.";
+const CHAT_SYSTEM_PROMPT_WEB_SEARCH: &str = "\
+Use web_search to search the public web. The user must approve the exact query before the search runs.
+Use fetch_page to read an HTTP or HTTPS URL. The user must approve the exact URL before the request is sent.
+Cite web sources with URLs returned by those tools; do not invent links.";
 
 #[derive(Deserialize)]
 struct ChatRequest {
@@ -127,6 +133,10 @@ impl ChatRequest {
 
   fn uses_infumap_data(&self) -> bool {
     self.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_INFUMAP_DATA)
+  }
+
+  fn uses_web_search(&self) -> bool {
+    self.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_WEB_SEARCH)
   }
 }
 
@@ -709,6 +719,19 @@ fn legacy_llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaCh
   messages
 }
 
+fn chat_system_prompt(uses_infumap_data: bool, uses_web_search: bool) -> String {
+  let base = if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT };
+  if !uses_web_search {
+    return base.to_owned();
+  }
+  let mut prompt = base.strip_suffix(CHAT_SYSTEM_PROMPT_CLOSING).unwrap_or(base).trim_end().to_owned();
+  prompt.push_str("\n\n");
+  prompt.push_str(CHAT_SYSTEM_PROMPT_WEB_SEARCH);
+  prompt.push('\n');
+  prompt.push_str(CHAT_SYSTEM_PROMPT_CLOSING);
+  prompt
+}
+
 fn llama_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<LlamaChatMessage>> {
   match request.messages.as_deref() {
     Some(messages) => explicit_llama_messages(messages),
@@ -946,8 +969,8 @@ async fn run_chat_with_tools(
     return Err("Chat request did not contain any message text.".into());
   }
   let uses_infumap_data = request.uses_infumap_data();
-  let system_prompt = if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT };
-  messages.insert(0, LlamaChatMessage::text("system", system_prompt.to_owned()));
+  let uses_web_search = request.uses_web_search();
+  messages.insert(0, LlamaChatMessage::text("system", chat_system_prompt(uses_infumap_data, uses_web_search)));
 
   let tools = if uses_infumap_data { vec![lexical_search_tool_spec(), get_fragment_tool_spec()] } else { Vec::new() };
   let mut llm_turn = 1usize;

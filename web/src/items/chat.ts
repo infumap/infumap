@@ -508,6 +508,8 @@ export function ensureTemporaryQueryChatPage(store: StoreContextModel, queryItem
   return page;
 }
 
+const CHAT_CAPABILITY_ORDER: Array<ChatCapability> = ["infumap_data", "web_search"];
+
 export function queryChatCapabilities(store: StoreContextModel, queryItem: QueryItem): Array<ChatCapability> {
   return getQueryRuntime(store, queryItem).chat.capabilities;
 }
@@ -516,9 +518,28 @@ export function queryChatUsesInfumapData(store: StoreContextModel, queryItem: Qu
   return queryChatCapabilities(store, queryItem).includes("infumap_data");
 }
 
-export function setQueryChatUsesInfumapData(
+export function queryChatUsesWebSearch(store: StoreContextModel, queryItem: QueryItem): boolean {
+  return queryChatCapabilities(store, queryItem).includes("web_search");
+}
+
+function withQueryChatCapability(
+  capabilities: Array<ChatCapability>,
+  capability: ChatCapability,
+  enabled: boolean,
+): Array<ChatCapability> {
+  const next = new Set(capabilities);
+  if (enabled) {
+    next.add(capability);
+  } else {
+    next.delete(capability);
+  }
+  return CHAT_CAPABILITY_ORDER.filter(item => next.has(item));
+}
+
+function setQueryChatCapability(
   store: StoreContextModel,
   queryItem: QueryItem,
+  capability: ChatCapability,
   enabled: boolean,
 ): void {
   if (queryChatHasContent(store, queryItem)) {
@@ -528,9 +549,25 @@ export function setQueryChatUsesInfumapData(
     ...current,
     chat: {
       ...current.chat,
-      capabilities: enabled ? ["infumap_data"] : [],
+      capabilities: withQueryChatCapability(current.chat.capabilities ?? [], capability, enabled),
     },
   }));
+}
+
+export function setQueryChatUsesInfumapData(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  enabled: boolean,
+): void {
+  setQueryChatCapability(store, queryItem, "infumap_data", enabled);
+}
+
+export function setQueryChatUsesWebSearch(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  enabled: boolean,
+): void {
+  setQueryChatCapability(store, queryItem, "web_search", enabled);
 }
 
 function queryChatRootOrderings(store: StoreContextModel, queryItem: QueryItem): Array<Uint8Array> {

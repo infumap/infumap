@@ -23,7 +23,7 @@ import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
 export type QueryMode = "search" | "chat" | null;
-export type ChatCapability = "infumap_data";
+export type ChatCapability = "infumap_data" | "web_search";
 
 export interface QueryChatActivityToolCall {
   callId: string,
