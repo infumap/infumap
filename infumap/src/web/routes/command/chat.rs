@@ -222,6 +222,8 @@ struct LlamaChatMessage {
   role: String,
   #[serde(skip_serializing_if = "Option::is_none")]
   content: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  reasoning_content: Option<String>,
   #[serde(rename = "tool_call_id", skip_serializing_if = "Option::is_none")]
   tool_call_id: Option<String>,
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -230,11 +232,23 @@ struct LlamaChatMessage {
 
 impl LlamaChatMessage {
   fn text(role: &str, content: String) -> Self {
-    Self { role: role.to_owned(), content: Some(content), tool_call_id: None, tool_calls: None }
+    Self {
+      role: role.to_owned(),
+      content: Some(content),
+      reasoning_content: None,
+      tool_call_id: None,
+      tool_calls: None,
+    }
   }
 
   fn tool(tool_call_id: String, content: String) -> Self {
-    Self { role: "tool".to_owned(), content: Some(content), tool_call_id: Some(tool_call_id), tool_calls: None }
+    Self {
+      role: "tool".to_owned(),
+      content: Some(content),
+      reasoning_content: None,
+      tool_call_id: Some(tool_call_id),
+      tool_calls: None,
+    }
   }
 }
 
@@ -567,8 +581,8 @@ fn message_content_chars(message: &LlamaChatMessage) -> usize {
   message.content.as_deref().map(text_char_count).unwrap_or(0)
 }
 
-fn total_message_content_chars(messages: &[LlamaChatMessage]) -> usize {
-  messages.iter().map(message_content_chars).sum()
+fn message_reasoning_chars(message: &LlamaChatMessage) -> usize {
+  message.reasoning_content.as_deref().map(text_char_count).unwrap_or(0)
 }
 
 fn explicit_llama_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<LlamaChatMessage>> {
@@ -715,18 +729,24 @@ fn append_llm_json_log_section<T: Serialize>(title: &str, value: &T) {
 }
 
 fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) {
-  let content_chars = total_message_content_chars(messages);
+  let content_chars = messages.iter().map(message_content_chars).sum::<usize>();
+  let reasoning_chars = messages.iter().map(message_reasoning_chars).sum::<usize>();
+  let message_chars = content_chars + reasoning_chars;
   let tool_schema_chars = serde_json::to_string(tools).map(|text| text_char_count(&text)).unwrap_or(0);
-  let total_request_chars = content_chars + tool_schema_chars;
+  let total_request_chars = message_chars + tool_schema_chars;
   let tool_result_chars =
     messages.iter().filter(|message| message.role == "tool").map(message_content_chars).sum::<usize>();
   let metrics = serde_json::json!({
     "messageCount": messages.len(),
     "toolCount": tools.len(),
     "contentChars": content_chars,
+    "reasoningChars": reasoning_chars,
+    "messageChars": message_chars,
     "toolSchemaChars": tool_schema_chars,
     "totalRequestChars": total_request_chars,
     "approxContentTokens": (content_chars + 3) / 4,
+    "approxReasoningTokens": (reasoning_chars + 3) / 4,
+    "approxMessageTokens": (message_chars + 3) / 4,
     "approxRequestTokens": (total_request_chars + 3) / 4,
     "toolResultChars": tool_result_chars
   });
@@ -1170,7 +1190,8 @@ impl LlamaStreamingCompletion {
 
     Ok(LlamaChatMessage {
       role: if self.role.is_empty() { "assistant".to_owned() } else { self.role },
-      content: if self.content.is_empty() { None } else { Some(self.content) },
+      content: Some(self.content),
+      reasoning_content: if self.reasoning_content.is_empty() { None } else { Some(self.reasoning_content) },
       tool_call_id: None,
       tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
     })
