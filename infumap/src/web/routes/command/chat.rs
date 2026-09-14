@@ -25,9 +25,6 @@ use crate::web::serve::empty_body;
 
 const CHAT_LLAMA_REQUEST_TIMEOUT_SECS: u64 = 120;
 const CHAT_MAX_TOOL_ROUNDS: usize = 9;
-const CHAT_HISTORY_MAX_PREVIOUS_MESSAGES: usize = 8;
-const CHAT_HISTORY_MAX_MESSAGE_CHARS: usize = 4_000;
-const CHAT_HISTORY_MAX_TOTAL_CHARS: usize = 12_000;
 const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
@@ -65,12 +62,20 @@ const TABLE_FLAG_HIDE_TITLE: i64 = 0x002;
 
 #[derive(Deserialize)]
 struct ChatRequest {
-  #[serde(rename = "contextItems")]
+  #[serde(default)]
+  messages: Option<Vec<ChatHistoryMessage>>,
+  #[serde(rename = "contextItems", default)]
   context_items: Vec<Value>,
-  #[serde(rename = "userText")]
+  #[serde(rename = "userText", default)]
   user_text: String,
   #[serde(default)]
   capabilities: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct ChatHistoryMessage {
+  role: String,
+  content: String,
 }
 
 impl ChatRequest {
@@ -129,10 +134,10 @@ impl ChatStreamEvent {
     }
   }
 
-  fn final_items(items: Value) -> Self {
+  fn final_items(items: Value, assistant_text: &str) -> Self {
     Self {
       event_type: "final_items".to_owned(),
-      text: None,
+      text: Some(assistant_text.to_owned()),
       name: None,
       summary: None,
       items: Some(items),
@@ -302,8 +307,9 @@ pub(super) async fn handle_chat(
   let request: ChatRequest =
     serde_json::from_str(json_data).map_err(|e| format!("Could not parse chat request: {}", e))?;
   let assistant_text = run_chat_with_tools(config, db, session, &request).await?;
-
-  Ok(Some(chat_response_items_json(&session.user_id, &assistant_text).to_string()))
+  let mut response = chat_response_items_json(&session.user_id, &assistant_text);
+  response["assistantText"] = Value::String(assistant_text);
+  Ok(Some(response.to_string()))
 }
 
 pub async fn serve_chat_stream_route(
@@ -345,7 +351,7 @@ pub async fn serve_chat_stream_route(
         progress.status("Preparing response").await;
         let response = chat_response_items_json(&user_id, &assistant_text);
         let items = response.get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()));
-        progress.send(ChatStreamEvent::final_items(items)).await;
+        progress.send(ChatStreamEvent::final_items(items, &assistant_text)).await;
       }
       Err(e) => {
         warn!("An error occurred servicing a streaming chat request for user '{}': {}.", user_id, e);
@@ -466,14 +472,6 @@ fn clamp_text_chars(text: &str, max_chars: usize) -> (String, bool) {
   (truncated, chars.next().is_some())
 }
 
-fn clamp_message_content(message: &mut LlamaChatMessage, max_chars: usize) {
-  let Some(content) = message.content.as_mut() else {
-    return;
-  };
-  let (clamped, _) = clamp_text_chars(content.trim(), max_chars);
-  *content = clamped;
-}
-
 fn message_content_chars(message: &LlamaChatMessage) -> usize {
   message.content.as_deref().map(text_char_count).unwrap_or(0)
 }
@@ -482,30 +480,21 @@ fn total_message_content_chars(messages: &[LlamaChatMessage]) -> usize {
   messages.iter().map(message_content_chars).sum()
 }
 
-fn trim_chat_messages_for_prompt(
-  previous_messages: Vec<LlamaChatMessage>,
-  current_user_text: String,
-) -> Vec<LlamaChatMessage> {
-  let skip_count = previous_messages.len().saturating_sub(CHAT_HISTORY_MAX_PREVIOUS_MESSAGES);
-  let mut messages = previous_messages.into_iter().skip(skip_count).collect::<Vec<_>>();
-  for message in &mut messages {
-    clamp_message_content(message, CHAT_HISTORY_MAX_MESSAGE_CHARS);
-  }
-
-  let current_user_text = current_user_text.trim();
-  if !current_user_text.is_empty() {
-    let (content, _) = clamp_text_chars(current_user_text, CHAT_HISTORY_MAX_MESSAGE_CHARS);
-    messages.push(LlamaChatMessage::text("user", content));
-  }
-
-  while messages.len() > 1 && total_message_content_chars(&messages) > CHAT_HISTORY_MAX_TOTAL_CHARS {
-    messages.remove(0);
-  }
-
+fn explicit_llama_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<LlamaChatMessage>> {
   messages
+    .iter()
+    .enumerate()
+    .map(|(index, message)| {
+      let role = message.role.trim().to_lowercase();
+      if role != "user" && role != "assistant" {
+        return Err(format!("Chat history message {} has unsupported role '{}'.", index, message.role).into());
+      }
+      Ok(LlamaChatMessage::text(&role, message.content.clone()))
+    })
+    .collect()
 }
 
-fn llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessage> {
+fn legacy_llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessage> {
   let mut ids = HashSet::new();
   let mut items_by_id: HashMap<String, &Value> = HashMap::new();
   for item in &request.context_items {
@@ -546,7 +535,18 @@ fn llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessa
     }
   }
 
-  trim_chat_messages_for_prompt(messages, request.user_text.clone())
+  let current_user_text = request.user_text.trim();
+  if !current_user_text.is_empty() {
+    messages.push(LlamaChatMessage::text("user", current_user_text.to_owned()));
+  }
+  messages
+}
+
+fn llama_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<LlamaChatMessage>> {
+  match request.messages.as_deref() {
+    Some(messages) => explicit_llama_messages(messages),
+    None => Ok(legacy_llama_messages_from_chat_request(request)),
+  }
 }
 
 fn truncate_for_error(text: &str, max_chars: usize) -> String {
@@ -724,7 +724,7 @@ async fn run_chat_with_tools_with_progress(
 ) -> InfuResult<String> {
   reset_llm_log();
 
-  let mut messages = llama_messages_from_chat_request(request);
+  let mut messages = llama_messages_from_chat_request(request)?;
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
@@ -732,11 +732,7 @@ async fn run_chat_with_tools_with_progress(
   let system_prompt = if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT };
   messages.insert(0, LlamaChatMessage::text("system", system_prompt.to_owned()));
 
-  let tools = if uses_infumap_data {
-    vec![lexical_search_tool_spec(), get_fragment_tool_spec()]
-  } else {
-    Vec::new()
-  };
+  let tools = if uses_infumap_data { vec![lexical_search_tool_spec(), get_fragment_tool_spec()] } else { Vec::new() };
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 

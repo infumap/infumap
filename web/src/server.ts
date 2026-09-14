@@ -92,14 +92,19 @@ export interface SearchResponse {
   hasMore: boolean,
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant",
+  content: string,
+}
+
 export interface ChatRequest {
-  contextItems: Array<object>,
-  userText: string,
+  messages: Array<ChatMessage>,
   capabilities: Array<"infumap_data">,
 }
 
 export interface ChatResponse {
   items: Array<object>,
+  assistantText: string,
 }
 
 export interface ChatStreamEvent {
@@ -462,12 +467,14 @@ async function streamChatCommand(
   syncGlobalRequestTracker();
 
   let finalItems: Array<object> | null = null;
+  let finalAssistantText: string | null = null;
   let errorMessage: string | null = null;
   try {
     await sendChatStream(payload, (event) => {
       onEvent(event);
       if (event.type == "final_items") {
         finalItems = Array.isArray(event.items) ? event.items : [];
+        finalAssistantText = typeof event.text == "string" ? event.text : null;
       } else if (event.type == "error") {
         errorMessage = event.message ?? "Chat stream failed.";
       }
@@ -478,7 +485,10 @@ async function streamChatCommand(
     if (finalItems == null) {
       throw new Error("Chat stream ended without a final response.");
     }
-    return { items: finalItems };
+    if (finalAssistantText == null) {
+      throw new Error("Chat stream ended without assistant text.");
+    }
+    return { items: finalItems, assistantText: finalAssistantText };
   } catch (error) {
     trackNetworkCommandError(commandObj, error);
     throw error;
@@ -715,9 +725,15 @@ export const server = {
 
   chat: async (payload: ChatRequest, networkStatus: NumberSignal): Promise<ChatResponse> => {
     return constructCommandPromise(null, COMMAND_CHAT, payload, null, false, networkStatus)
-      .then((response: any) => ({
-        items: Array.isArray(response?.items) ? response.items : [],
-      }));
+      .then((response: any) => {
+        if (typeof response?.assistantText != "string") {
+          throw new Error("Chat response did not include assistant text.");
+        }
+        return {
+          items: Array.isArray(response?.items) ? response.items : [],
+          assistantText: response.assistantText,
+        };
+      });
   },
 
   chatStream: async (

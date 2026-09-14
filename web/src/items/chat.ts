@@ -29,7 +29,7 @@ import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
-import { server, type ChatStreamEvent } from "../server";
+import { server, type ChatMessage, type ChatStreamEvent } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import type { ChatCapability } from "../store/StoreProvider_PerItem";
@@ -124,6 +124,20 @@ function queryChatRootIds(store: StoreContextModel, queryItem: QueryItem): Array
   return getQueryRuntime(store, queryItem).chat.rootItemIds ?? [];
 }
 
+function queryChatMessages(store: StoreContextModel, queryItem: QueryItem): Array<ChatMessage> {
+  return getQueryRuntime(store, queryItem).chat.messages ?? [];
+}
+
+function appendQueryChatMessage(store: StoreContextModel, queryItem: QueryItem, message: ChatMessage): void {
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    chat: {
+      ...current.chat,
+      messages: [...(current.chat.messages ?? []), message],
+    },
+  }));
+}
+
 function setQueryChatRootIds(store: StoreContextModel, queryItem: QueryItem, rootItemIds: Array<Uid>): void {
   updateQueryRuntime(store, queryItem, current => ({
     ...current,
@@ -202,6 +216,9 @@ export function setQueryChatUsesInfumapData(
   queryItem: QueryItem,
   enabled: boolean,
 ): void {
+  if (queryChatHasContent(store, queryItem)) {
+    return;
+  }
   updateQueryRuntime(store, queryItem, current => ({
     ...current,
     chat: {
@@ -337,24 +354,6 @@ function addServerReturnedQueryItems(store: StoreContextModel, queryItem: QueryI
   return addedItems;
 }
 
-function collectQueryChatContextItemObjects(store: StoreContextModel, queryItem: QueryItem): Array<object> {
-  const items: Array<Item> = [];
-  for (const rootId of queryChatRootIds(store, queryItem)) {
-    collectSubtreeItems(rootId, items);
-  }
-  return items.map(chatContextItemObject);
-}
-
-function chatContextItemObject(item: Item): object {
-  const titled = item as Item & { title?: unknown };
-  return {
-    id: item.id,
-    parentId: item.parentId,
-    itemType: item.itemType,
-    title: typeof titled.title == "string" ? titled.title : "",
-  };
-}
-
 async function persistItems(store: StoreContextModel, items: Array<Item>): Promise<void> {
   for (const item of items) {
     await server.addItem(item, null, store.general.networkStatus);
@@ -367,16 +366,16 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
     return;
   }
 
-  const contextItems = collectQueryChatContextItemObjects(store, queryItem);
   addLocalQueryUserTurn(store, queryItem, text);
+  appendQueryChatMessage(store, queryItem, { role: "user", content: text });
+  const messages = [...queryChatMessages(store, queryItem)];
   requestArrange(store, "query-chat-user-turn");
 
   let clearProgressOnExit = true;
   setQueryChatProgress(queryItem.id, "Preparing request");
   try {
     const response = await server.chatStream({
-      contextItems,
-      userText: text,
+      messages,
       capabilities: queryChatCapabilities(store, queryItem),
     }, store.general.networkStatus, (event) => {
       const progressText = chatProgressTextFromEvent(event);
@@ -386,6 +385,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
     });
 
     addServerReturnedQueryItems(store, queryItem, response.items);
+    appendQueryChatMessage(store, queryItem, { role: "assistant", content: response.assistantText });
     requestArrange(store, "query-chat-assistant-turn");
   } catch (e) {
     const failedProgress = "Chat failed";
@@ -400,26 +400,6 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
   } finally {
     if (clearProgressOnExit) {
       clearQueryChatProgress(queryItem.id);
-    }
-  }
-}
-
-function collectSubtreeItems(itemId: Uid, result: Array<Item>): void {
-  const item = itemState.get(itemId);
-  if (!item) {
-    return;
-  }
-  result.push(item);
-
-  if (isContainer(item)) {
-    for (const childId of asContainerItem(item).computed_children) {
-      collectSubtreeItems(childId, result);
-    }
-  }
-
-  if (isAttachmentsItem(item)) {
-    for (const attachmentId of asAttachmentsItem(item).computed_attachments) {
-      collectSubtreeItems(attachmentId, result);
     }
   }
 }
@@ -503,6 +483,7 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       pageId: null,
       composerHeightPx: null,
       rootItemIds: [],
+      messages: [],
     },
   }));
   clearQueryChatProgress(queryItem.id);
