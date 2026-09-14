@@ -826,6 +826,60 @@ async fn run_chat_with_tools(
   run_chat_with_tools_with_progress(config, db, session, request, None).await
 }
 
+struct CompletedChatModelRound {
+  number: usize,
+  assistant_message: LlamaChatMessage,
+  tool_calls: Vec<LlamaToolCall>,
+}
+
+async fn run_chat_model_round(
+  config: &Config,
+  messages: &[LlamaChatMessage],
+  tools: &[LlamaToolSpec],
+  round: usize,
+  tool_rounds_completed: usize,
+  progress: Option<&ChatProgressReporter>,
+) -> InfuResult<CompletedChatModelRound> {
+  if let Some(progress) = progress {
+    progress.model_round_started(round).await;
+  }
+
+  let mut assistant_message = llama_chat_completion(config, messages, tools, round, progress).await?;
+  let response_role = assistant_message.role.trim();
+  if response_role.is_empty() {
+    assistant_message.role = "assistant".to_owned();
+  } else if !response_role.eq_ignore_ascii_case("assistant") {
+    return Err(format!("llama-server returned unexpected chat response role '{}'.", assistant_message.role).into());
+  } else {
+    assistant_message.role = "assistant".to_owned();
+  }
+  let tool_calls = normalize_tool_calls(&mut assistant_message, tool_rounds_completed);
+
+  Ok(CompletedChatModelRound { number: round, assistant_message, tool_calls })
+}
+
+async fn execute_chat_tool_round(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  round: usize,
+  tool_calls: Vec<LlamaToolCall>,
+  progress: Option<&ChatProgressReporter>,
+) -> InfuResult<Vec<LlamaChatMessage>> {
+  let mut tool_messages = Vec::with_capacity(tool_calls.len());
+  for tool_call in tool_calls {
+    if let Some(progress) = progress {
+      progress.tool_call_started(round, &tool_call.id, &tool_call.function.name).await;
+    }
+    let tool_result = execute_chat_tool_call(db, session, &tool_call).await?;
+    if let Some(progress) = progress {
+      progress.tool_call_finished(round, &tool_call.id, &tool_call.function.name, "Done").await;
+    }
+    append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
+    tool_messages.push(LlamaChatMessage::tool(tool_call.id, tool_result));
+  }
+  Ok(tool_messages)
+}
+
 async fn run_chat_with_tools_with_progress(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -848,18 +902,11 @@ async fn run_chat_with_tools_with_progress(
   let mut tool_rounds = 0usize;
 
   loop {
-    let current_round = llm_turn;
-    if let Some(progress) = progress {
-      progress.model_round_started(current_round).await;
-    }
-    let mut message = llama_chat_completion(config.as_ref(), &messages, &tools, current_round, progress).await?;
+    let completed_round =
+      run_chat_model_round(config.as_ref(), &messages, &tools, llm_turn, tool_rounds, progress).await?;
     llm_turn += 1;
-    if message.role.trim().is_empty() {
-      message.role = "assistant".to_owned();
-    }
 
-    let tool_calls = normalize_tool_calls(&mut message, tool_rounds);
-    if !tool_calls.is_empty() {
+    if !completed_round.tool_calls.is_empty() {
       if !uses_infumap_data {
         return Err("The model requested an Infumap tool without the required capability.".into());
       }
@@ -868,22 +915,14 @@ async fn run_chat_with_tools_with_progress(
       }
 
       tool_rounds += 1;
-      messages.push(message);
-      for tool_call in tool_calls {
-        if let Some(progress) = progress {
-          progress.tool_call_started(current_round, &tool_call.id, &tool_call.function.name).await;
-        }
-        let tool_result = execute_chat_tool_call(db, session, &tool_call).await?;
-        if let Some(progress) = progress {
-          progress.tool_call_finished(current_round, &tool_call.id, &tool_call.function.name, "Done").await;
-        }
-        append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
-        messages.push(LlamaChatMessage::tool(tool_call.id.clone(), tool_result));
-      }
+      messages.push(completed_round.assistant_message);
+      let tool_messages =
+        execute_chat_tool_round(db, session, completed_round.number, completed_round.tool_calls, progress).await?;
+      messages.extend(tool_messages);
       continue;
     }
 
-    let content = message.content.unwrap_or_default().trim().to_owned();
+    let content = completed_round.assistant_message.content.unwrap_or_default().trim().to_owned();
     if content.is_empty() {
       return Err("llama-server returned an empty chat response.".into());
     }
