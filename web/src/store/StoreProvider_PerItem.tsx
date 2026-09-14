@@ -30,6 +30,9 @@ export interface QueryChatActivityToolCall {
   name: string,
   status: "running" | "complete",
   summary: string | null,
+  arguments?: unknown,
+  durationMs?: number,
+  resultPreview?: unknown,
 }
 
 export interface QueryChatActivityModelRound {

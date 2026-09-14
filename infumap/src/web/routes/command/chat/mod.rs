@@ -18,6 +18,7 @@ use super::*;
 use http_body_util::{BodyExt as _, StreamBody};
 use hyper::body::Frame;
 use std::io::Write as _;
+use std::time::Instant;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
@@ -33,6 +34,9 @@ const CHAT_MAX_TOOL_ROUNDS: usize = 9;
 const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
+const CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS: usize = 280;
+const CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS: usize = 80;
+const CHAT_TOOL_SUMMARY_TITLE_COUNT: usize = 3;
 const LLM_LOG_PATH: &str = "/tmp/llm.txt";
 const CHAT_INFUMAP_SYSTEM_PROMPT: &str = "\
 You are a chat assistant for an information workspace.
@@ -114,6 +118,7 @@ enum ChatStreamEventKind {
     #[serde(rename = "callId")]
     call_id: String,
     name: String,
+    arguments: Value,
   },
   ToolCallFinished {
     round: usize,
@@ -121,6 +126,10 @@ enum ChatStreamEventKind {
     call_id: String,
     name: String,
     summary: String,
+    #[serde(rename = "durationMs")]
+    duration_ms: u64,
+    #[serde(rename = "resultPreview")]
+    result_preview: Value,
   },
   Materializing,
   FinalItems {
@@ -139,12 +148,26 @@ impl ChatStreamEventKind {
     Self::Status { text: text.to_owned() }
   }
 
-  fn tool_call_started(round: usize, call_id: &str, name: &str) -> Self {
-    Self::ToolCallStarted { round, call_id: call_id.to_owned(), name: name.to_owned() }
+  fn tool_call_started(round: usize, call_id: &str, name: &str, arguments: Value) -> Self {
+    Self::ToolCallStarted { round, call_id: call_id.to_owned(), name: name.to_owned(), arguments }
   }
 
-  fn tool_call_finished(round: usize, call_id: &str, name: &str, summary: &str) -> Self {
-    Self::ToolCallFinished { round, call_id: call_id.to_owned(), name: name.to_owned(), summary: summary.to_owned() }
+  fn tool_call_finished(
+    round: usize,
+    call_id: &str,
+    name: &str,
+    summary: &str,
+    duration_ms: u64,
+    result_preview: Value,
+  ) -> Self {
+    Self::ToolCallFinished {
+      round,
+      call_id: call_id.to_owned(),
+      name: name.to_owned(),
+      summary: summary.to_owned(),
+      duration_ms,
+      result_preview,
+    }
   }
 
   fn final_items(items: Value, assistant_text: &str) -> Self {
@@ -195,12 +218,22 @@ impl ChatProgressReporter {
     self.send(ChatStreamEventKind::AnswerDelta { round, text }).await;
   }
 
-  async fn tool_call_started(&self, round: usize, call_id: &str, name: &str) {
-    self.send(ChatStreamEventKind::tool_call_started(round, call_id, name)).await;
+  async fn tool_call_started(&self, round: usize, call_id: &str, name: &str, arguments: Value) {
+    self.send(ChatStreamEventKind::tool_call_started(round, call_id, name, arguments)).await;
   }
 
-  async fn tool_call_finished(&self, round: usize, call_id: &str, name: &str, summary: &str) {
-    self.send(ChatStreamEventKind::tool_call_finished(round, call_id, name, summary)).await;
+  async fn tool_call_finished(
+    &self,
+    round: usize,
+    call_id: &str,
+    name: &str,
+    summary: &str,
+    duration_ms: u64,
+    result_preview: Value,
+  ) {
+    self
+      .send(ChatStreamEventKind::tool_call_finished(round, call_id, name, summary, duration_ms, result_preview))
+      .await;
   }
 }
 
@@ -830,9 +863,16 @@ async fn execute_chat_tool_round(
 ) -> InfuResult<Vec<LlamaChatMessage>> {
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
   for tool_call in tool_calls {
-    progress.tool_call_started(round, &tool_call.id, &tool_call.function.name).await;
+    let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
+    progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
+    let started_at = Instant::now();
     let tool_result = execute_chat_tool_call(db, session, &tool_call).await?;
-    progress.tool_call_finished(round, &tool_call.id, &tool_call.function.name, "Done").await;
+    let duration_ms = started_at.elapsed().as_millis() as u64;
+    let (summary, result_preview) =
+      chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
+    progress
+      .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, duration_ms, result_preview)
+      .await;
     append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
     tool_messages.push(LlamaChatMessage::tool(tool_call.id, tool_result));
   }
@@ -1058,6 +1098,147 @@ fn tool_call_arguments_value(tool_call: &LlamaToolCall) -> InfuResult<Value> {
 
 fn tool_error_json(message: &str) -> String {
   serde_json::json!({ "error": message }).to_string()
+}
+
+fn json_object_str<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
+  value.get(key).and_then(Value::as_str).map(str::trim).filter(|text| !text.is_empty())
+}
+
+fn clipped_preview_text(text: &str) -> (String, bool) {
+  clamp_text_chars(text, CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS)
+}
+
+fn chat_tool_finished_activity(name: &str, arguments: &Value, result_json: &str) -> (String, Value) {
+  let parsed = serde_json::from_str::<Value>(result_json).ok();
+  if let Some(error) = parsed.as_ref().and_then(|value| json_object_str(value, "error")).map(str::to_owned) {
+    return (error.clone(), serde_json::json!({ "error": error }));
+  }
+
+  match name {
+    "lexical_search" => lexical_search_tool_activity(arguments, parsed.as_ref()),
+    "get_fragment" => get_fragment_tool_activity(parsed.as_ref()),
+    _ => (
+      "Completed".to_owned(),
+      parsed.unwrap_or_else(|| serde_json::json!({ "text": clipped_preview_text(result_json).0 })),
+    ),
+  }
+}
+
+fn lexical_search_tool_activity(arguments: &Value, parsed: Option<&Value>) -> (String, Value) {
+  let query = json_object_str(arguments, "text").or_else(|| json_object_str(arguments, "query")).unwrap_or("");
+  let results = parsed.and_then(|value| value.get("results")).and_then(Value::as_array);
+  let result_count = results.map(Vec::len).unwrap_or(0);
+  let has_more = parsed.and_then(|value| value.get("hasMore")).and_then(Value::as_bool).unwrap_or(false);
+  let titles: Vec<&str> = results
+    .iter()
+    .flat_map(|arr| arr.iter())
+    .filter_map(|result| json_object_str(result, "title"))
+    .take(CHAT_TOOL_SUMMARY_TITLE_COUNT)
+    .collect();
+
+  let mut summary = String::new();
+  if !query.is_empty() {
+    let (clipped_query, _) = clamp_text_chars(query, CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS);
+    summary.push('"');
+    summary.push_str(&clipped_query);
+    summary.push_str("\" · ");
+  }
+  summary.push_str(&format!("{result_count} result{}", if result_count == 1 { "" } else { "s" }));
+  if !titles.is_empty() {
+    summary.push_str(" · ");
+    summary.push_str(&titles.join(", "));
+  }
+  if has_more {
+    summary.push_str(" · more");
+  }
+
+  let preview_results = results
+    .iter()
+    .flat_map(|arr| arr.iter())
+    .map(|result| {
+      let mut preview = serde_json::json!({
+        "itemId": result.get("itemId").cloned().unwrap_or(Value::Null),
+        "title": result.get("title").cloned().unwrap_or(Value::Null),
+      });
+      if let Some(fragment_match) = result.get("fragmentMatch") {
+        preview["fragmentMatch"] = clipped_fragment_match_preview(fragment_match);
+      }
+      preview
+    })
+    .collect::<Vec<_>>();
+
+  (summary, serde_json::json!({ "results": preview_results, "hasMore": has_more }))
+}
+
+fn clipped_fragment_match_preview(fragment_match: &Value) -> Value {
+  let text = fragment_match.get("text").and_then(Value::as_str).unwrap_or("");
+  let (clipped, clip_truncated) = clipped_preview_text(text);
+  let already_truncated = fragment_match.get("textTruncated").and_then(Value::as_bool).unwrap_or(false);
+  serde_json::json!({
+    "fragmentOrdinal": fragment_match.get("fragmentOrdinal").cloned().unwrap_or(Value::Null),
+    "text": clipped,
+    "textTruncated": already_truncated || clip_truncated,
+  })
+}
+
+fn get_fragment_tool_activity(parsed: Option<&Value>) -> (String, Value) {
+  let Some(parsed) = parsed else {
+    return ("Completed".to_owned(), serde_json::json!({}));
+  };
+
+  let title = json_object_str(parsed, "title");
+  let ordinal = parsed.get("requestedFragmentOrdinal").and_then(Value::as_u64);
+  let fragments = parsed.get("fragments").and_then(Value::as_array);
+  let char_count = fragments
+    .iter()
+    .flat_map(|arr| arr.iter())
+    .filter_map(|fragment| fragment.get("text").and_then(Value::as_str))
+    .map(text_char_count)
+    .sum::<usize>();
+  let truncated = parsed.get("textTruncated").and_then(Value::as_bool).unwrap_or(false)
+    || fragments.iter().flat_map(|arr| arr.iter()).any(|fragment| {
+      fragment.get("textTruncated").and_then(Value::as_bool).unwrap_or(false)
+    });
+
+  let mut summary = String::new();
+  if let Some(title) = title {
+    let (clipped_title, _) = clamp_text_chars(title, CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS);
+    summary.push('"');
+    summary.push_str(&clipped_title);
+    summary.push_str("\" · ");
+  }
+  if let Some(ordinal) = ordinal {
+    summary.push_str(&format!("fragment {ordinal} · "));
+  }
+  summary.push_str(&format!("{char_count} chars"));
+  if truncated {
+    summary.push_str(", truncated");
+  }
+
+  let preview_fragments = fragments
+    .iter()
+    .flat_map(|arr| arr.iter())
+    .map(|fragment| {
+      let text = fragment.get("text").and_then(Value::as_str).unwrap_or("");
+      let (clipped, clip_truncated) = clipped_preview_text(text);
+      let already_truncated = fragment.get("textTruncated").and_then(Value::as_bool).unwrap_or(false);
+      serde_json::json!({
+        "fragmentOrdinal": fragment.get("fragmentOrdinal").cloned().unwrap_or(Value::Null),
+        "text": clipped,
+        "textTruncated": already_truncated || clip_truncated,
+      })
+    })
+    .collect::<Vec<_>>();
+
+  (
+    summary,
+    serde_json::json!({
+      "title": parsed.get("title").cloned().unwrap_or(Value::Null),
+      "requestedFragmentOrdinal": parsed.get("requestedFragmentOrdinal").cloned().unwrap_or(Value::Null),
+      "textTruncated": truncated,
+      "fragments": preview_fragments,
+    }),
+  )
 }
 
 #[derive(Default)]

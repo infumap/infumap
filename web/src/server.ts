@@ -127,8 +127,8 @@ export type ChatStreamEvent = ChatStreamEventBase & (
   { type: "model_round_started", round: number } |
   { type: "reasoning_delta", round: number, text: string } |
   { type: "answer_delta", round: number, text: string } |
-  { type: "tool_call_started", round: number, callId: string, name: string } |
-  { type: "tool_call_finished", round: number, callId: string, name: string, summary: string } |
+  { type: "tool_call_started", round: number, callId: string, name: string, arguments?: unknown } |
+  { type: "tool_call_finished", round: number, callId: string, name: string, summary: string, durationMs?: number, resultPreview?: unknown } |
   { type: "materializing" } |
   { type: "final_items", text: string, items: Array<object> } |
   { type: "cancelled" } |

@@ -280,7 +280,13 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
           complete: true,
           toolCalls: [
             ...round.toolCalls.filter(toolCall => toolCall.callId != event.callId),
-            { callId: event.callId, name: event.name, status: "running", summary: null },
+            {
+              callId: event.callId,
+              name: event.name,
+              status: "running",
+              summary: null,
+              arguments: event.arguments,
+            },
           ],
         })),
       };
@@ -292,7 +298,16 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
         statusText,
         rounds: updateStreamingModelRound(current.rounds, event.round, round => {
           const existingIndex = round.toolCalls.findIndex(toolCall => toolCall.callId == event.callId);
-          const completed = { callId: event.callId, name: event.name, status: "complete" as const, summary: event.summary };
+          const existing = existingIndex == -1 ? null : round.toolCalls[existingIndex];
+          const completed = {
+            callId: event.callId,
+            name: event.name,
+            status: "complete" as const,
+            summary: event.summary,
+            arguments: existing?.arguments,
+            durationMs: event.durationMs,
+            resultPreview: event.resultPreview,
+          };
           return {
             ...round,
             complete: true,
