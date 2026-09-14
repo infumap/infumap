@@ -706,6 +706,14 @@ function cloneCompletedRounds(rounds: Array<ChatStreamingModelRound>): Array<Cha
   }));
 }
 
+function lastRoundReasoningContent(rounds: Array<ChatStreamingModelRound>): string | undefined {
+  const reasoning = rounds[rounds.length - 1]?.reasoning;
+  if (reasoning == null || reasoning == "") {
+    return undefined;
+  }
+  return reasoning;
+}
+
 function finalizeServerReturnedQueryItems(
   store: StoreContextModel,
   queryItem: QueryItem,
@@ -719,6 +727,7 @@ function finalizeServerReturnedQueryItems(
   const nextRootIds = [...previousRootIds, ...staged.rootIds];
   const chatPage = ensureTemporaryQueryChatPage(store, queryItem);
   const insertedItems: Array<Item> = [];
+  const reasoningContent = lastRoundReasoningContent(streamingState.rounds);
 
   try {
     batch(() => {
@@ -741,7 +750,11 @@ function finalizeServerReturnedQueryItems(
         chat: {
           ...current.chat,
           rootItemIds: nextRootIds,
-          messages: [...(current.chat.messages ?? []), { role: "assistant", content: assistantText }],
+          messages: [...(current.chat.messages ?? []), {
+            role: "assistant",
+            content: assistantText,
+            ...(reasoningContent == null ? {} : { reasoningContent }),
+          }],
           completedActivities: [...(current.chat.completedActivities ?? []), completedActivity],
         },
       }));

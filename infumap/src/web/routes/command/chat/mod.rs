@@ -71,6 +71,8 @@ struct ChatRequest {
 struct ChatHistoryMessage {
   role: String,
   content: String,
+  #[serde(rename = "reasoningContent", default)]
+  reasoning_content: Option<String>,
 }
 
 impl ChatRequest {
@@ -270,6 +272,11 @@ impl LlamaChatMessage {
       tool_call_id: Some(tool_call_id),
       tool_calls: None,
     }
+  }
+
+  fn with_reasoning_content(mut self, reasoning_content: Option<String>) -> Self {
+    self.reasoning_content = reasoning_content.filter(|text| !text.is_empty());
+    self
   }
 }
 
@@ -601,7 +608,11 @@ fn explicit_llama_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<Ll
       if role != "user" && role != "assistant" {
         return Err(format!("Chat history message {} has unsupported role '{}'.", index, message.role).into());
       }
-      Ok(LlamaChatMessage::text(&role, message.content.clone()))
+      Ok(
+        LlamaChatMessage::text(&role, message.content.clone()).with_reasoning_content(
+          if role == "assistant" { message.reasoning_content.clone() } else { None },
+        ),
+      )
     })
     .collect()
 }

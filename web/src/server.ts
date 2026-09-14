@@ -95,6 +95,7 @@ export interface SearchResponse {
 export interface ChatMessage {
   role: "user" | "assistant",
   content: string,
+  reasoningContent?: string,
 }
 
 export interface ChatRequest {
