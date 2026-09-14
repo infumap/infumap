@@ -80,7 +80,13 @@ function clearQueryChatProgress(queryId: Uid): void {
 function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
   switch (event.type) {
     case "status":
-      return event.text ?? null;
+      return event.text;
+    case "model_round_started":
+      return "Asking model";
+    case "reasoning_delta":
+      return "Thinking";
+    case "answer_delta":
+      return "Answering";
     case "tool_call_started":
       if (event.name == "find") {
         return "Finding items";
@@ -91,7 +97,7 @@ function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
       if (event.name == "get_fragment") {
         return "Reading source text";
       }
-      return event.name ? `Running ${event.name}` : "Running tool";
+      return `Running ${event.name}`;
     case "tool_call_finished":
       if (event.name == "find") {
         return "Find complete";
@@ -102,9 +108,13 @@ function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
       if (event.name == "get_fragment") {
         return "Source text loaded";
       }
-      return event.summary ?? "Tool complete";
+      return event.summary;
+    case "materializing":
+      return "Adding response";
     case "final_items":
       return "Adding response";
+    case "cancelled":
+      return "Chat cancelled";
     case "error":
       return "Chat failed";
     default:
@@ -375,6 +385,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
   setQueryChatProgress(queryItem.id, "Preparing request");
   try {
     const response = await server.chatStream({
+      requestId: newUid(),
       messages,
       capabilities: queryChatCapabilities(store, queryItem),
     }, store.general.networkStatus, (event) => {

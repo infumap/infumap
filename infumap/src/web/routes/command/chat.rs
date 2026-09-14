@@ -20,6 +20,7 @@ use hyper::body::Frame;
 use std::io::Write as _;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
+use uuid::Uuid;
 
 use crate::web::serve::empty_body;
 
@@ -62,6 +63,8 @@ const TABLE_FLAG_HIDE_TITLE: i64 = 0x002;
 
 #[derive(Deserialize)]
 struct ChatRequest {
+  #[serde(rename = "requestId", default)]
+  request_id: Option<String>,
   #[serde(default)]
   messages: Option<Vec<ChatHistoryMessage>>,
   #[serde(rename = "contextItems", default)]
@@ -79,6 +82,15 @@ struct ChatHistoryMessage {
 }
 
 impl ChatRequest {
+  fn stream_request_id(&self) -> String {
+    self
+      .request_id
+      .as_ref()
+      .filter(|request_id| !request_id.trim().is_empty())
+      .cloned()
+      .unwrap_or_else(new_chat_request_id)
+  }
+
   fn uses_infumap_data(&self) -> bool {
     self.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_INFUMAP_DATA)
   }
@@ -86,101 +98,113 @@ impl ChatRequest {
 
 #[derive(Serialize)]
 struct ChatStreamEvent {
-  #[serde(rename = "type")]
-  event_type: String,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  text: Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  name: Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  summary: Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  items: Option<Value>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  message: Option<String>,
+  #[serde(rename = "requestId")]
+  request_id: String,
+  #[serde(flatten)]
+  kind: ChatStreamEventKind,
 }
 
-impl ChatStreamEvent {
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[allow(dead_code)] // Delta and cancellation events are produced by later streaming steps.
+enum ChatStreamEventKind {
+  Status {
+    text: String,
+  },
+  ModelRoundStarted {
+    round: usize,
+  },
+  ReasoningDelta {
+    round: usize,
+    text: String,
+  },
+  AnswerDelta {
+    round: usize,
+    text: String,
+  },
+  ToolCallStarted {
+    round: usize,
+    #[serde(rename = "callId")]
+    call_id: String,
+    name: String,
+  },
+  ToolCallFinished {
+    round: usize,
+    #[serde(rename = "callId")]
+    call_id: String,
+    name: String,
+    summary: String,
+  },
+  Materializing,
+  FinalItems {
+    text: String,
+    items: Value,
+  },
+  Cancelled,
+  Error {
+    message: String,
+  },
+}
+
+impl ChatStreamEventKind {
   fn status(text: &str) -> Self {
-    Self {
-      event_type: "status".to_owned(),
-      text: Some(text.to_owned()),
-      name: None,
-      summary: None,
-      items: None,
-      message: None,
-    }
+    Self::Status { text: text.to_owned() }
   }
 
-  fn tool_call_started(name: &str) -> Self {
-    Self {
-      event_type: "tool_call_started".to_owned(),
-      text: None,
-      name: Some(name.to_owned()),
-      summary: None,
-      items: None,
-      message: None,
-    }
+  fn tool_call_started(round: usize, call_id: &str, name: &str) -> Self {
+    Self::ToolCallStarted { round, call_id: call_id.to_owned(), name: name.to_owned() }
   }
 
-  fn tool_call_finished(name: &str, summary: &str) -> Self {
-    Self {
-      event_type: "tool_call_finished".to_owned(),
-      text: None,
-      name: Some(name.to_owned()),
-      summary: Some(summary.to_owned()),
-      items: None,
-      message: None,
-    }
+  fn tool_call_finished(round: usize, call_id: &str, name: &str, summary: &str) -> Self {
+    Self::ToolCallFinished { round, call_id: call_id.to_owned(), name: name.to_owned(), summary: summary.to_owned() }
   }
 
   fn final_items(items: Value, assistant_text: &str) -> Self {
-    Self {
-      event_type: "final_items".to_owned(),
-      text: Some(assistant_text.to_owned()),
-      name: None,
-      summary: None,
-      items: Some(items),
-      message: None,
-    }
+    Self::FinalItems { text: assistant_text.to_owned(), items }
   }
 
   fn error(message: &str) -> Self {
-    Self {
-      event_type: "error".to_owned(),
-      text: None,
-      name: None,
-      summary: None,
-      items: None,
-      message: Some(message.to_owned()),
-    }
+    Self::Error { message: message.to_owned() }
   }
+}
+
+fn new_chat_request_id() -> String {
+  Uuid::new_v4().simple().to_string()
 }
 
 #[derive(Clone)]
 struct ChatProgressReporter {
+  request_id: String,
   tx: mpsc::Sender<Result<Frame<Bytes>, hyper::Error>>,
 }
 
 impl ChatProgressReporter {
-  async fn send(&self, event: ChatStreamEvent) {
+  async fn send(&self, kind: ChatStreamEventKind) {
+    let event = ChatStreamEvent { request_id: self.request_id.clone(), kind };
     let line = match serde_json::to_string(&event) {
       Ok(line) => format!("{line}\n"),
-      Err(_) => "{\"type\":\"error\",\"message\":\"Could not serialize chat stream event.\"}\n".to_owned(),
+      Err(_) => format!(
+        "{{\"requestId\":{},\"type\":\"error\",\"message\":\"Could not serialize chat stream event.\"}}\n",
+        serde_json::to_string(&self.request_id).unwrap_or_else(|_| "\"\"".to_owned()),
+      ),
     };
     let _ = self.tx.send(Ok(Frame::data(Bytes::from(line)))).await;
   }
 
   async fn status(&self, text: &str) {
-    self.send(ChatStreamEvent::status(text)).await;
+    self.send(ChatStreamEventKind::status(text)).await;
   }
 
-  async fn tool_call_started(&self, name: &str) {
-    self.send(ChatStreamEvent::tool_call_started(name)).await;
+  async fn model_round_started(&self, round: usize) {
+    self.send(ChatStreamEventKind::ModelRoundStarted { round }).await;
   }
 
-  async fn tool_call_finished(&self, name: &str, summary: &str) {
-    self.send(ChatStreamEvent::tool_call_finished(name, summary)).await;
+  async fn tool_call_started(&self, round: usize, call_id: &str, name: &str) {
+    self.send(ChatStreamEventKind::tool_call_started(round, call_id, name)).await;
+  }
+
+  async fn tool_call_finished(&self, round: usize, call_id: &str, name: &str, summary: &str) {
+    self.send(ChatStreamEventKind::tool_call_finished(round, call_id, name, summary)).await;
   }
 }
 
@@ -322,11 +346,21 @@ pub async fn serve_chat_stream_route(
     return cors_response();
   }
 
+  let request_id = request
+    .headers()
+    .get("x-infumap-chat-request-id")
+    .and_then(|value| value.to_str().ok())
+    .filter(|value| !value.trim().is_empty())
+    .map(str::to_owned)
+    .unwrap_or_else(new_chat_request_id);
   let session_maybe = get_and_validate_session(&request, db).await;
   let session = match session_maybe {
     Some(session) => session,
     None => {
-      return single_chat_stream_event_response(ChatStreamEvent::error("Session is required to run a chat query."));
+      return single_chat_stream_event_response(
+        request_id,
+        ChatStreamEventKind::error("Session is required to run a chat query."),
+      );
     }
   };
 
@@ -334,12 +368,15 @@ pub async fn serve_chat_stream_route(
     Ok(request) => request,
     Err(e) => {
       error!("An error occurred parsing chat stream payload for user '{}': {}", session.user_id, e);
-      return single_chat_stream_event_response(ChatStreamEvent::error("Could not parse chat request."));
+      return single_chat_stream_event_response(
+        request_id,
+        ChatStreamEventKind::error("Could not parse chat request."),
+      );
     }
   };
 
   let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(16);
-  let progress = ChatProgressReporter { tx: tx.clone() };
+  let progress = ChatProgressReporter { request_id: request.stream_request_id(), tx: tx.clone() };
   let user_id = session.user_id.clone();
   let db = db.clone();
 
@@ -348,14 +385,14 @@ pub async fn serve_chat_stream_route(
     let result = run_chat_with_tools_with_progress(config, &db, &session, &request, Some(&progress)).await;
     match result {
       Ok(assistant_text) => {
-        progress.status("Preparing response").await;
+        progress.send(ChatStreamEventKind::Materializing).await;
         let response = chat_response_items_json(&user_id, &assistant_text);
         let items = response.get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()));
-        progress.send(ChatStreamEvent::final_items(items, &assistant_text)).await;
+        progress.send(ChatStreamEventKind::final_items(items, &assistant_text)).await;
       }
       Err(e) => {
         warn!("An error occurred servicing a streaming chat request for user '{}': {}.", user_id, e);
-        progress.send(ChatStreamEvent::error("Chat failed.")).await;
+        progress.send(ChatStreamEventKind::error("Chat failed.")).await;
       }
     }
   });
@@ -363,10 +400,13 @@ pub async fn serve_chat_stream_route(
   chat_stream_response(rx)
 }
 
-fn single_chat_stream_event_response(event: ChatStreamEvent) -> Response<BoxBody<Bytes, hyper::Error>> {
+fn single_chat_stream_event_response(
+  request_id: String,
+  event: ChatStreamEventKind,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
   let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(1);
   tokio::spawn(async move {
-    let reporter = ChatProgressReporter { tx };
+    let reporter = ChatProgressReporter { request_id, tx };
     reporter.send(event).await;
   });
   chat_stream_response(rx)
@@ -737,10 +777,11 @@ async fn run_chat_with_tools_with_progress(
   let mut tool_rounds = 0usize;
 
   loop {
+    let current_round = llm_turn;
     if let Some(progress) = progress {
-      progress.status("Asking model").await;
+      progress.model_round_started(current_round).await;
     }
-    let mut message = llama_chat_completion(config.as_ref(), &messages, &tools, llm_turn).await?;
+    let mut message = llama_chat_completion(config.as_ref(), &messages, &tools, current_round).await?;
     llm_turn += 1;
     if message.role.trim().is_empty() {
       message.role = "assistant".to_owned();
@@ -759,11 +800,11 @@ async fn run_chat_with_tools_with_progress(
       messages.push(message);
       for tool_call in tool_calls {
         if let Some(progress) = progress {
-          progress.tool_call_started(&tool_call.function.name).await;
+          progress.tool_call_started(current_round, &tool_call.id, &tool_call.function.name).await;
         }
         let tool_result = execute_chat_tool_call(db, session, &tool_call).await?;
         if let Some(progress) = progress {
-          progress.tool_call_finished(&tool_call.function.name, "Done").await;
+          progress.tool_call_finished(current_round, &tool_call.id, &tool_call.function.name, "Done").await;
         }
         append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
         messages.push(LlamaChatMessage::tool(tool_call.id.clone(), tool_result));

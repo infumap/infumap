@@ -98,6 +98,7 @@ export interface ChatMessage {
 }
 
 export interface ChatRequest {
+  requestId: string,
   messages: Array<ChatMessage>,
   capabilities: Array<"infumap_data">,
 }
@@ -107,14 +108,32 @@ export interface ChatResponse {
   assistantText: string,
 }
 
-export interface ChatStreamEvent {
-  type: "status" | "tool_call_started" | "tool_call_finished" | "final_items" | "error",
-  text?: string,
-  name?: string,
-  summary?: string,
-  items?: Array<object>,
-  message?: string,
+export type ChatStreamPhase =
+  "submitted" |
+  "thinking" |
+  "using_tools" |
+  "answering" |
+  "materializing" |
+  "complete" |
+  "cancelled" |
+  "error";
+
+interface ChatStreamEventBase {
+  requestId: string,
 }
+
+export type ChatStreamEvent = ChatStreamEventBase & (
+  { type: "status", text: string } |
+  { type: "model_round_started", round: number } |
+  { type: "reasoning_delta", round: number, text: string } |
+  { type: "answer_delta", round: number, text: string } |
+  { type: "tool_call_started", round: number, callId: string, name: string } |
+  { type: "tool_call_finished", round: number, callId: string, name: string, summary: string } |
+  { type: "materializing" } |
+  { type: "final_items", text: string, items: Array<object> } |
+  { type: "cancelled" } |
+  { type: "error", message: string }
+);
 
 const SEARCH_RESULTS_PER_PAGE = 60;
 
@@ -471,12 +490,15 @@ async function streamChatCommand(
   let errorMessage: string | null = null;
   try {
     await sendChatStream(payload, (event) => {
+      if (event.requestId != payload.requestId) {
+        throw new Error("Chat stream returned an event for a different request.");
+      }
       onEvent(event);
       if (event.type == "final_items") {
-        finalItems = Array.isArray(event.items) ? event.items : [];
-        finalAssistantText = typeof event.text == "string" ? event.text : null;
+        finalItems = event.items;
+        finalAssistantText = event.text;
       } else if (event.type == "error") {
-        errorMessage = event.message ?? "Chat stream failed.";
+        errorMessage = event.message;
       }
     });
     if (errorMessage != null) {
@@ -1079,6 +1101,7 @@ async function sendChatStream(payload: ChatRequest, onEvent: (event: ChatStreamE
     headers: {
       "Accept": "application/x-ndjson",
       "Content-Type": "application/json",
+      "X-Infumap-Chat-Request-Id": payload.requestId,
     },
     body: JSON.stringify(payload),
   });
@@ -1100,7 +1123,12 @@ async function sendChatStream(payload: ChatRequest, onEvent: (event: ChatStreamE
       return;
     }
     const parsed = JSON.parse(trimmed);
-    if (parsed == null || typeof parsed !== "object" || typeof parsed.type !== "string") {
+    if (
+      parsed == null ||
+      typeof parsed !== "object" ||
+      typeof parsed.type !== "string" ||
+      typeof parsed.requestId !== "string"
+    ) {
       throw new Error("Chat stream returned a malformed event.");
     }
     onEvent(parsed as ChatStreamEvent);
