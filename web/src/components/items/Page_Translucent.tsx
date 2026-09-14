@@ -47,15 +47,7 @@ import { ClientOnlyItemKind } from "../../items/base/item";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { isQueryItem, asQueryItem, getQueryRuntime } from "../../items/query-item";
-import { itemState } from "../../store/ItemState";
-import {
-  completedQueryChatActivitiesForQuery,
-  queryChatCompletedActivityAnchorRootId,
-  queryChatCompletedActivityUiRevision,
-} from "../../items/query-chat-activity-ui";
-import { QueryChatCompletedActivityTrace } from "./QueryChatActivity";
-import type { QueryChatCompletedActivity } from "../../store/StoreProvider_PerItem";
+import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
@@ -78,35 +70,6 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const canResizePage = () => itemCanResize(pageFns().pageItem());
   const isQueryChatPage = () =>
     pageFns().pageItem().clientOnlyKind == ClientOnlyItemKind.QueryChatPage;
-  const queryChatQueryItem = () => {
-    if (!isQueryChatPage()) {
-      return null;
-    }
-    const parent = itemState.get(pageFns().pageItem().parentId);
-    return parent != null && isQueryItem(parent) ? asQueryItem(parent) : null;
-  };
-  const queryChatCompletedActivities = () => {
-    const queryItem = queryChatQueryItem();
-    if (queryItem == null) {
-      return [];
-    }
-    queryChatCompletedActivityUiRevision();
-    return completedQueryChatActivitiesForQuery(store, queryItem);
-  };
-  const queryChatActivityChildVe = (activity: QueryChatCompletedActivity) => {
-    const queryItem = queryChatQueryItem();
-    if (queryItem == null) {
-      return null;
-    }
-    const currentRootIds = new Set(getQueryRuntime(store, queryItem).chat.rootItemIds ?? []);
-    const rootId = queryChatCompletedActivityAnchorRootId(activity, currentRootIds);
-    if (rootId == null) {
-      return null;
-    }
-    return VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()
-      .map(childVe => childVe.get())
-      .find(childVe => childVe.displayItem.id == rootId) ?? null;
-  };
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   onMount(() => {
@@ -379,17 +342,6 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
             <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
           }</For>
-          <Show when={isQueryChatPage()}>
-            <For each={queryChatCompletedActivities()}>{(activity, index) =>
-              <Show when={queryChatActivityChildVe(activity) != null}>
-                <QueryChatCompletedActivityTrace
-                  queryId={queryChatQueryItem()!.id}
-                  activity={activity}
-                  turnNumber={index() + 1}
-                  boundsPx={queryChatActivityChildVe(activity)!.boundsPx} />
-              </Show>
-            }</For>
-          </Show>
           {pageFns().renderCatalogFooterHostMaybe()}
           {pageFns().renderGridLinesMaybe()}
           {pageFns().renderCatalogResultHoverMaybe()}

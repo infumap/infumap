@@ -41,6 +41,12 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { compositeMoveOutHitboxBoundsPx } from "../../layout/composite-move-out";
 import { arrangeNow } from "../../layout/arrange";
+import {
+  QUERY_CHAT_ACTIVITY_ABOVE_GAP_PX,
+  queryChatCompletedActivityPlacementForComposite,
+  queryChatCompletedActivityUiRevision,
+} from "../../items/query-chat-activity-ui";
+import { QueryChatCompletedActivityTrace } from "./QueryChatActivity";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -68,6 +74,23 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const collapseControlScale = () => blockSizePx().h / LINE_HEIGHT_PX;
   const titleEditIsActive = () => store.overlay.textEditInfo()?.itemPath == vePath();
   const compositeIsCollapsed = () => store.perItem.getCompositeIsCollapsed(VeFns.veidFromVe(props.visualElement));
+  const queryChatActivityPlacement = () => {
+    if (compositeIsCollapsed()) {
+      return null;
+    }
+    queryChatCompletedActivityUiRevision();
+    return queryChatCompletedActivityPlacementForComposite(
+      store,
+      compositeItem().id,
+      compositeItem().parentId,
+    );
+  };
+  const queryChatActivityBoundsPx = (): BoundingBox => ({
+    x: 0,
+    y: titleHeightPx() + QUERY_CHAT_ACTIVITY_ABOVE_GAP_PX,
+    w: boundsPx().w,
+    h: 0,
+  });
   const isDirectDocumentChild = () => parentDocumentPageMaybe(props.visualElement) != null;
   const isHighlighted = () =>
     !!(props.visualElement.flags & (VisualElementFlags.FindHighlighted | VisualElementFlags.SelectionHighlighted));
@@ -262,6 +285,13 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
               `width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; ` +
               `background-color: ${highlightColor()}; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+        </Show>
+        <Show when={queryChatActivityPlacement() != null}>
+          <QueryChatCompletedActivityTrace
+            queryId={queryChatActivityPlacement()!.queryId}
+            activity={queryChatActivityPlacement()!.activity}
+            turnNumber={queryChatActivityPlacement()!.turnNumber}
+            boundsPx={queryChatActivityBoundsPx()} />
         </Show>
         <For each={childVes()}>{(childVe, index) => {
           const gapAfterBoundsPx = () => linearSelectionGapAfterBoundsPx(

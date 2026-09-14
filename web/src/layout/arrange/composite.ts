@@ -27,6 +27,7 @@ import { isNote, NoteFns } from "../../items/note-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
+import { queryChatCompositeActivityLayoutPx } from "../../items/query-chat-activity-ui";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
@@ -100,9 +101,12 @@ export const arrangeComposite = (
     measuredComposite.spatialWidthGr = widthBlOverride * GRID_SIZE;
     compositeSizeBl = CompositeFns.calcSpatialDimensionsBl(measuredComposite, compositeIsCollapsed);
   }
-  const blockSizePx = widthBlOverride != null
-    ? { w: compositeGeometry.boundsPx.w / widthBlOverride, h: compositeGeometry.blockSizePx.h }
-    : { w: compositeGeometry.boundsPx.w / compositeSizeBl.w, h: compositeGeometry.boundsPx.h / compositeSizeBl.h };
+  const blockSizePx = {
+    w: widthBlOverride != null
+      ? compositeGeometry.boundsPx.w / widthBlOverride
+      : compositeGeometry.boundsPx.w / compositeSizeBl.w,
+    h: compositeGeometry.blockSizePx.h,
+  };
 
   let compositeChildPaths: Array<VisualElementPath> = [];
   const compositeChildArrangeData: Array<{
@@ -113,6 +117,18 @@ export const arrangeComposite = (
   let topPx = CompositeFns.showTitle(displayItem_Composite)
     ? blockSizePx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h
     : 0.0;
+  const parentItem = itemState.get(displayItem_Composite.parentId);
+  if (parentItem != null && isPage(parentItem)) {
+    const activityLayoutPx = queryChatCompositeActivityLayoutPx(
+      store,
+      asPageItem(parentItem),
+      displayItem_Composite.id,
+      compositeIsCollapsed,
+    );
+    if (activityLayoutPx > 0) {
+      topPx = (CompositeFns.showTitle(displayItem_Composite) ? blockSizePx.h : 0.0) + activityLayoutPx;
+    }
+  }
   for (let idx = 0; !compositeIsCollapsed && idx < displayItem_Composite.computed_children.length; ++idx) {
     const childId = displayItem_Composite.computed_children[idx];
     const childItem = itemState.get(childId)!;

@@ -300,7 +300,7 @@ export const QueryChatCompletedActivityTrace: Component<{
   return (
     <div
       class="absolute flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm pointer-events-auto"
-      style={`left: ${props.boundsPx.x}px; top: ${props.boundsPx.y - reservePx()}px; ` +
+      style={`left: ${props.boundsPx.x}px; top: ${props.boundsPx.y}px; ` +
         `width: ${props.boundsPx.w}px; height: ${reservePx()}px;`}
       role="region"
       aria-label={`Turn ${props.turnNumber} assistant activity`}

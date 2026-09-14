@@ -19,7 +19,7 @@
 import { createSignal } from "solid-js";
 import { ClientOnlyItemKind } from "./base/item";
 import { asQueryItem, getQueryRuntime, isQueryItem, type QueryItem } from "./query-item";
-import { PageItem } from "./page-item";
+import { PageItem, asPageItem, isPage } from "./page-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import type { QueryChatCompletedActivity } from "../store/StoreProvider_PerItem";
@@ -28,6 +28,8 @@ import { Uid } from "../util/uid";
 export const QUERY_CHAT_ACTIVITY_HEADER_HEIGHT_PX = 36;
 export const QUERY_CHAT_ACTIVITY_MIN_HEIGHT_PX = 140;
 export const QUERY_CHAT_ACTIVITY_MAX_HEIGHT_PX = 300;
+export const QUERY_CHAT_ACTIVITY_ABOVE_GAP_PX = 8;
+export const QUERY_CHAT_ACTIVITY_BELOW_GAP_PX = 16;
 
 const [completedActivityUiRevision, setCompletedActivityUiRevision] =
   createSignal(0, { equals: false });
@@ -146,4 +148,50 @@ export function queryChatPageChildActivityReservePx(
     return 0;
   }
   return queryChatCompletedActivityReservePx(queryItem.id, activity.requestId);
+}
+
+export function queryChatCompositeActivityLayoutPx(
+  store: StoreContextModel,
+  page: PageItem,
+  childItemId: Uid,
+  compositeIsCollapsed: boolean,
+): number {
+  if (compositeIsCollapsed) {
+    return 0;
+  }
+  const reservePx = queryChatPageChildActivityReservePx(store, page, childItemId);
+  if (reservePx == 0) {
+    return 0;
+  }
+  return QUERY_CHAT_ACTIVITY_ABOVE_GAP_PX + reservePx + QUERY_CHAT_ACTIVITY_BELOW_GAP_PX;
+}
+
+export function queryChatCompletedActivityPlacementForComposite(
+  store: StoreContextModel,
+  compositeId: Uid,
+  parentId: Uid,
+): { queryId: Uid, activity: QueryChatCompletedActivity, turnNumber: number } | null {
+  const pageItem = itemState.get(parentId);
+  if (pageItem == null || !isPage(pageItem)) {
+    return null;
+  }
+  const page = asPageItem(pageItem);
+  const parent = itemState.get(page.parentId);
+  if (parent == null || !isQueryItem(parent)) {
+    return null;
+  }
+  const queryItem = asQueryItem(parent);
+  const activities = completedQueryChatActivitiesForQuery(store, queryItem);
+  const currentRootIds = new Set(getQueryRuntime(store, queryItem).chat.rootItemIds ?? []);
+  const turnNumber = activities.findIndex(activity =>
+    queryChatCompletedActivityAnchorRootId(activity, currentRootIds) == compositeId
+  );
+  if (turnNumber < 0) {
+    return null;
+  }
+  return {
+    queryId: queryItem.id,
+    activity: activities[turnNumber],
+    turnNumber: turnNumber + 1,
+  };
 }

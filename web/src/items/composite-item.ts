@@ -242,7 +242,7 @@ export const CompositeFns = {
     };
   },
 
-  calcGeometry_InDocument: (composite: CompositeMeasurable, blockSizePx: Dimensions, documentWidthBl: number, leftMarginBl: number, topPx: number, collapsed: boolean = false): ItemGeometry => {
+  calcGeometry_InDocument: (composite: CompositeMeasurable, blockSizePx: Dimensions, documentWidthBl: number, leftMarginBl: number, topPx: number, collapsed: boolean = false, extraHeightPx: number = 0): ItemGeometry => {
     const cloned = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(composite));
     cloned.spatialWidthGr = documentWidthBl * GRID_SIZE;
     const sizeBl = CompositeFns.calcSpatialDimensionsBl(cloned, collapsed);
@@ -250,7 +250,7 @@ export const CompositeFns = {
       x: leftMarginBl * blockSizePx.w + CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: topPx,
       w: documentWidthBl * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2,
-      h: sizeBl.h * blockSizePx.h
+      h: sizeBl.h * blockSizePx.h + Math.max(0, extraHeightPx)
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const moveAreaBoundsPx = {
