@@ -106,7 +106,6 @@ struct ChatStreamEvent {
 
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[allow(dead_code)] // Delta and cancellation events are produced by later streaming steps.
 enum ChatStreamEventKind {
   Status {
     text: String,
@@ -140,6 +139,7 @@ enum ChatStreamEventKind {
     text: String,
     items: Value,
   },
+  #[allow(dead_code)] // Emitted when request cancellation is implemented.
   Cancelled,
   Error {
     message: String,
@@ -197,6 +197,14 @@ impl ChatProgressReporter {
 
   async fn model_round_started(&self, round: usize) {
     self.send(ChatStreamEventKind::ModelRoundStarted { round }).await;
+  }
+
+  async fn reasoning_delta(&self, round: usize, text: String) {
+    self.send(ChatStreamEventKind::ReasoningDelta { round, text }).await;
+  }
+
+  async fn answer_delta(&self, round: usize, text: String) {
+    self.send(ChatStreamEventKind::AnswerDelta { round, text }).await;
   }
 
   async fn tool_call_started(&self, round: usize, call_id: &str, name: &str) {
@@ -824,7 +832,7 @@ async fn run_chat_with_tools_with_progress(
     if let Some(progress) = progress {
       progress.model_round_started(current_round).await;
     }
-    let mut message = llama_chat_completion(config.as_ref(), &messages, &tools, current_round).await?;
+    let mut message = llama_chat_completion(config.as_ref(), &messages, &tools, current_round, progress).await?;
     llm_turn += 1;
     if message.role.trim().is_empty() {
       message.role = "assistant".to_owned();
@@ -1054,8 +1062,13 @@ struct LlamaStreamingCompletion {
   saw_choice: bool,
 }
 
+enum LlamaVisibleDelta {
+  Reasoning(String),
+  Answer(String),
+}
+
 impl LlamaStreamingCompletion {
-  fn apply_chunk(&mut self, chunk: LlamaChatCompletionChunk) -> InfuResult<()> {
+  fn apply_chunk(&mut self, chunk: LlamaChatCompletionChunk) -> InfuResult<Vec<LlamaVisibleDelta>> {
     if let Some(error) = chunk.error {
       return Err(format!("llama-server returned a streaming error: {}", error).into());
     }
@@ -1066,6 +1079,7 @@ impl LlamaStreamingCompletion {
       self.usage = Some(usage);
     }
 
+    let mut visible_deltas = Vec::new();
     for choice in chunk.choices {
       if choice.index != 0 {
         continue;
@@ -1077,11 +1091,17 @@ impl LlamaStreamingCompletion {
       if let Some(role) = choice.delta.role {
         self.role = role;
       }
-      if let Some(content) = choice.delta.content {
-        self.content.push_str(&content);
-      }
       if let Some(reasoning_content) = choice.delta.reasoning_content {
         self.reasoning_content.push_str(&reasoning_content);
+        if !reasoning_content.is_empty() {
+          visible_deltas.push(LlamaVisibleDelta::Reasoning(reasoning_content));
+        }
+      }
+      if let Some(content) = choice.delta.content {
+        self.content.push_str(&content);
+        if !content.is_empty() {
+          visible_deltas.push(LlamaVisibleDelta::Answer(content));
+        }
       }
       for tool_call_delta in choice.delta.tool_calls {
         if self.tool_calls.len() <= tool_call_delta.index {
@@ -1105,7 +1125,7 @@ impl LlamaStreamingCompletion {
       }
     }
 
-    Ok(())
+    Ok(visible_deltas)
   }
 
   fn response_log_value(&self) -> Value {
@@ -1222,13 +1242,18 @@ fn dispatch_llama_sse_event(data_lines: &mut Vec<String>, events: &mut Vec<Strin
   }
 }
 
-fn apply_llama_sse_data(data: &str, completion: &mut LlamaStreamingCompletion) -> InfuResult<bool> {
+struct AppliedLlamaSseData {
+  done: bool,
+  visible_deltas: Vec<LlamaVisibleDelta>,
+}
+
+fn apply_llama_sse_data(data: &str, completion: &mut LlamaStreamingCompletion) -> InfuResult<AppliedLlamaSseData> {
   let trimmed = data.trim();
   if trimmed.is_empty() {
-    return Ok(false);
+    return Ok(AppliedLlamaSseData { done: false, visible_deltas: Vec::new() });
   }
   if trimmed == "[DONE]" {
-    return Ok(true);
+    return Ok(AppliedLlamaSseData { done: true, visible_deltas: Vec::new() });
   }
 
   let chunk: LlamaChatCompletionChunk = serde_json::from_str(trimmed).map_err(|e| {
@@ -1238,7 +1263,30 @@ fn apply_llama_sse_data(data: &str, completion: &mut LlamaStreamingCompletion) -
       truncate_for_error(trimmed, 1000),
     )
   })?;
-  completion.apply_chunk(chunk)?;
+  let visible_deltas = completion.apply_chunk(chunk)?;
+  Ok(AppliedLlamaSseData { done: false, visible_deltas })
+}
+
+async fn apply_llama_sse_events(
+  events: Vec<String>,
+  completion: &mut LlamaStreamingCompletion,
+  round: usize,
+  progress: Option<&ChatProgressReporter>,
+) -> InfuResult<bool> {
+  for data in events {
+    let applied = apply_llama_sse_data(&data, completion)?;
+    if let Some(progress) = progress {
+      for delta in applied.visible_deltas {
+        match delta {
+          LlamaVisibleDelta::Reasoning(text) => progress.reasoning_delta(round, text).await,
+          LlamaVisibleDelta::Answer(text) => progress.answer_delta(round, text).await,
+        }
+      }
+    }
+    if applied.done {
+      return Ok(true);
+    }
+  }
   Ok(false)
 }
 
@@ -1247,6 +1295,7 @@ async fn llama_chat_completion(
   messages: &[LlamaChatMessage],
   tools: &[LlamaToolSpec],
   llm_turn: usize,
+  progress: Option<&ChatProgressReporter>,
 ) -> InfuResult<LlamaChatMessage> {
   let url = configured_llama_chat_url(config)?;
 
@@ -1289,23 +1338,13 @@ async fn llama_chat_completion(
   while let Some(chunk) = futures_util::StreamExt::next(&mut response_stream).await {
     let chunk =
       chunk.map_err(|e| format!("Could not read llama-server SSE response body: {}", reqwest_error_for_log(&e)))?;
-    for data in decoder.push(&chunk)? {
-      if apply_llama_sse_data(&data, &mut completion)? {
-        saw_done = true;
-        break;
-      }
-    }
+    saw_done = apply_llama_sse_events(decoder.push(&chunk)?, &mut completion, llm_turn, progress).await?;
     if saw_done {
       break;
     }
   }
   if !saw_done {
-    for data in decoder.finish()? {
-      if apply_llama_sse_data(&data, &mut completion)? {
-        saw_done = true;
-        break;
-      }
-    }
+    saw_done = apply_llama_sse_events(decoder.finish()?, &mut completion, llm_turn, progress).await?;
   }
   if !saw_done {
     return Err("llama-server SSE response ended before the [DONE] event.".into());

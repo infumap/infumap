@@ -66,6 +66,9 @@ export function chatProgressForQuery(queryId: Uid): ChatProgress | null {
 }
 
 function setQueryChatProgress(queryId: Uid, text: string): void {
+  if (chatProgressByQueryId.get(queryId)?.text == text) {
+    return;
+  }
   chatProgressByQueryId.set(queryId, { text });
   setChatProgressRevision(chatProgressRevision() + 1);
 }
