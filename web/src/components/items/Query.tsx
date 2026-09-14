@@ -168,7 +168,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const roundsRevision = live.rounds.map(round =>
       `${round.number}:${round.reasoning.length}:${round.answer.length}:` +
       round.toolCalls.map(toolCall =>
-        `${toolCall.callId}:${toolCall.status}:${toolCall.summary ?? ""}:${toolCall.durationMs ?? ""}`
+        `${toolCall.callId}:${toolCall.status}:${toolCall.summary ?? ""}:${toolCall.durationMs ?? ""}:${toolCall.query ?? ""}:${toolCall.url ?? ""}`
       ).join(",")
     ).join("|");
     return `${live.requestId}:${live.phase}:${roundsRevision}:${live.answerPreview.length}`;
@@ -938,7 +938,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <QueryChatActivityRounds
                 rounds={() => liveChatActivity()!.rounds}
                 errorMessage={() => liveChatActivity()!.errorMessage}
-                running={activityIsRunning} />
+                running={activityIsRunning}
+                requestId={chatStreamingRequestId} />
             </div>
             <Show when={!chatActivityFollowingLatest()}>
               <button

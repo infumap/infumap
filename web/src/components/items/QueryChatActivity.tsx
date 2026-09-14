@@ -16,11 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Index, Show, createEffect, onCleanup } from "solid-js";
+import { Component, Index, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { requestArrange } from "../../layout/arrange";
 import { BoundingBox } from "../../util/geometry";
 import { Uid } from "../../util/uid";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
+import { submitQueryChatToolApproval } from "../../items/chat";
 import type { QueryChatActivityModelRound, QueryChatActivityToolCall, QueryChatCompletedActivity } from "../../store/StoreProvider_PerItem";
 import { useStore } from "../../store/StoreProvider";
 import {
@@ -133,6 +134,23 @@ function queryChatToolCallSignature(name: string, args: unknown): string | null 
   }
 }
 
+function queryChatToolCallStatusIconClass(status: QueryChatActivityToolCall["status"]): string {
+  if (status == "complete") {
+    return "bi-check-circle mt-[1px] text-emerald-600";
+  }
+  if (status == "awaiting_approval") {
+    return "bi-pause-circle mt-[1px] text-amber-600";
+  }
+  return "fa fa-circle-notch fa-spin mt-[2px] text-slate-400";
+}
+
+function queryChatToolApprovalPrompt(toolCall: QueryChatActivityToolCall): { label: string, value: string } {
+  if (toolCall.name == "fetch_page") {
+    return { label: "URL", value: toolCall.url ?? "" };
+  }
+  return { label: "Query", value: toolCall.query ?? "" };
+}
+
 function queryChatToolCallHeadline(toolCall: QueryChatActivityToolCall): string | null {
   const signature = queryChatToolCallSignature(toolCall.name, toolCall.arguments);
   let summary = toolCall.summary?.trim() ?? "";
@@ -172,10 +190,68 @@ function stopQueryChatActivityEvent(ev: Event): void {
   ev.stopPropagation();
 }
 
+const QueryChatToolApproval: Component<{
+  requestId: string | null,
+  toolCall: QueryChatActivityToolCall,
+}> = (props) => {
+  const [submitting, setSubmitting] = createSignal(false);
+  const prompt = () => queryChatToolApprovalPrompt(props.toolCall);
+  const decide = async (approved: boolean) => {
+    const requestId = props.requestId;
+    if (requestId == null || submitting()) {
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await submitQueryChatToolApproval(requestId, props.toolCall.callId, approved);
+    } catch (e) {
+      setSubmitting(false);
+      console.error("Failed to submit chat tool approval:", e);
+    }
+  };
+  return (
+    <>
+      <div class="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+        {prompt().label}
+      </div>
+      <div
+        class="select-text whitespace-pre-wrap text-[12px] leading-[18px] text-slate-700"
+        style="overflow-wrap: anywhere;">
+        {prompt().value}
+      </div>
+      <Show when={props.requestId != null}>
+        <div class="mt-2 flex gap-2">
+          <button
+            type="button"
+            class="flex cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white px-3 py-1 text-[12px] font-medium text-black disabled:cursor-default disabled:opacity-40"
+            disabled={submitting()}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              void decide(true);
+            }}>
+            OK
+          </button>
+          <button
+            type="button"
+            class="flex cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white px-3 py-1 text-[12px] font-medium text-black disabled:cursor-default disabled:opacity-40"
+            disabled={submitting()}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              void decide(false);
+            }}>
+            Deny
+          </button>
+        </div>
+      </Show>
+    </>
+  );
+};
+
 export const QueryChatActivityRounds: Component<{
   rounds: () => Array<QueryChatActivityModelRound>,
   errorMessage?: () => string | null,
   running: () => boolean,
+  requestId?: () => string | null,
 }> = (props) => {
   const visibleRoundCount = () => props.rounds().filter(queryChatRoundHasContent).length;
   const errorMessage = () => props.errorMessage?.() ?? null;
@@ -219,19 +295,22 @@ export const QueryChatActivityRounds: Component<{
                   ? "border-t border-slate-100"
                   : ""
               }`}>
-                <i class={toolCall().status == "complete"
-                  ? "bi-check-circle mt-[1px] text-emerald-600"
-                  : "fa fa-circle-notch fa-spin mt-[2px] text-slate-400"} />
+                <i class={queryChatToolCallStatusIconClass(toolCall().status)} />
                 <div class="min-w-0 grow">
                   <div class="font-medium text-slate-600">{queryChatToolDisplayName(toolCall().name)}</div>
-                  <Show when={queryChatToolCallHeadline(toolCall()) != null}>
+                  <Show when={toolCall().status == "awaiting_approval"}>
+                    <QueryChatToolApproval
+                      requestId={props.running() ? (props.requestId?.() ?? null) : null}
+                      toolCall={toolCall()} />
+                  </Show>
+                  <Show when={toolCall().status != "awaiting_approval" && queryChatToolCallHeadline(toolCall()) != null}>
                     <div
                       class="truncate text-[11px] text-slate-400"
                       title={queryChatToolCallHeadline(toolCall()) ?? undefined}>
                       {queryChatToolCallHeadline(toolCall())}
                     </div>
                   </Show>
-                  <Show when={queryChatHasJsonValue(toolCall().arguments)}>
+                  <Show when={toolCall().status != "awaiting_approval" && queryChatHasJsonValue(toolCall().arguments)}>
                     <details class="mt-1 text-[11px] text-slate-500">
                       <summary class="cursor-pointer select-none text-slate-400">Arguments</summary>
                       <pre
