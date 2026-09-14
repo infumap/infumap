@@ -14,16 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#[allow(dead_code)]
 mod fetch;
-#[allow(dead_code)]
 mod search;
 
-#[allow(unused_imports)]
-pub(super) use fetch::{
-  DEFAULT_MAX_CHARS, FetchedPage, MAX_CHARS_CAP, compact_fetch_page_json, fetch_page_json, fetch_url,
-};
-#[allow(unused_imports)]
-pub(super) use search::{
-  DEFAULT_MAX_RESULTS, MAX_RESULTS_CAP, SearchResult, compact_web_search_json, search, search_web_json,
-};
+pub(super) use fetch::{DEFAULT_MAX_CHARS, MAX_CHARS_CAP, fetch_page_json};
+pub(super) use search::{DEFAULT_MAX_RESULTS, MAX_RESULTS_CAP, search_web_json};

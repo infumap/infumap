@@ -490,6 +490,21 @@ struct ChatFragmentToolArguments {
   ordinal: Option<i64>,
 }
 
+#[derive(Deserialize)]
+struct ChatWebSearchToolArguments {
+  query: Option<String>,
+  text: Option<String>,
+  #[serde(rename = "numResults")]
+  num_results: Option<i64>,
+}
+
+#[derive(Deserialize)]
+struct ChatFetchPageToolArguments {
+  url: Option<String>,
+  #[serde(rename = "maxChars")]
+  max_chars: Option<i64>,
+}
+
 pub async fn serve_chat_stream_route(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -1066,6 +1081,74 @@ fn get_fragment_tool_spec() -> LlamaToolSpec {
   }
 }
 
+fn fetch_page_tool_spec() -> LlamaToolSpec {
+  LlamaToolSpec {
+    tool_type: "function".to_owned(),
+    function: LlamaToolFunctionSpec {
+      name: "fetch_page".to_owned(),
+      description: "Read an HTTP or HTTPS URL. The user must approve the exact URL before the request is sent."
+        .to_owned(),
+      parameters: serde_json::json!({
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "HTTP or HTTPS URL to fetch."
+          },
+          "maxChars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": web_search::MAX_CHARS_CAP,
+            "description": "Maximum number of characters of page text to return."
+          }
+        },
+        "required": ["url"],
+        "additionalProperties": false
+      }),
+    },
+  }
+}
+
+fn web_search_tool_spec() -> LlamaToolSpec {
+  LlamaToolSpec {
+    tool_type: "function".to_owned(),
+    function: LlamaToolFunctionSpec {
+      name: "web_search".to_owned(),
+      description: "Search the public web. The user must approve the exact query before the search runs.".to_owned(),
+      parameters: serde_json::json!({
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Web search query."
+          },
+          "numResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": web_search::MAX_RESULTS_CAP,
+            "description": "Maximum number of search results to return."
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }),
+    },
+  }
+}
+
+fn chat_tool_specs(uses_infumap_data: bool, uses_web_search: bool) -> Vec<LlamaToolSpec> {
+  let mut tools = Vec::new();
+  if uses_infumap_data {
+    tools.push(lexical_search_tool_spec());
+    tools.push(get_fragment_tool_spec());
+  }
+  if uses_web_search {
+    tools.push(web_search_tool_spec());
+    tools.push(fetch_page_tool_spec());
+  }
+  tools
+}
+
 struct CompletedChatModelRound {
   number: usize,
   assistant_message: LlamaChatMessage,
@@ -1111,6 +1194,8 @@ fn web_tool_approval_prompt(name: &str, arguments: &Value) -> (Option<String>, O
 async fn execute_chat_tool_round(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
+  uses_infumap_data: bool,
+  uses_web_search: bool,
   round: usize,
   tool_calls: Vec<LlamaToolCall>,
   progress: &ChatProgressReporter,
@@ -1118,7 +1203,7 @@ async fn execute_chat_tool_round(
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
   for tool_call in tool_calls {
     let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
-    if chat_tool_requires_approval(&tool_call.function.name) {
+    if uses_web_search && chat_tool_requires_approval(&tool_call.function.name) {
       let (query, url) = web_tool_approval_prompt(&tool_call.function.name, &arguments);
       progress.tool_approval_required(round, &tool_call.id, &tool_call.function.name, query, url).await;
       match wait_for_tool_approval(&progress.request_id, &tool_call.id, &session.user_id).await {
@@ -1141,7 +1226,7 @@ async fn execute_chat_tool_round(
     }
     progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
     let started_at = Instant::now();
-    let tool_result = execute_chat_tool_call(db, session, &tool_call).await?;
+    let tool_result = execute_chat_tool_call(db, session, &tool_call, uses_infumap_data, uses_web_search).await?;
     let duration_ms = started_at.elapsed().as_millis() as u64;
     let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
     progress
@@ -1170,7 +1255,7 @@ async fn run_chat_with_tools(
   let uses_web_search = request.uses_web_search();
   messages.insert(0, LlamaChatMessage::text("system", chat_system_prompt(uses_infumap_data, uses_web_search)));
 
-  let tools = if uses_infumap_data { vec![lexical_search_tool_spec(), get_fragment_tool_spec()] } else { Vec::new() };
+  let tools = chat_tool_specs(uses_infumap_data, uses_web_search);
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
@@ -1180,17 +1265,22 @@ async fn run_chat_with_tools(
     llm_turn += 1;
 
     if !completed_round.tool_calls.is_empty() {
-      if !uses_infumap_data {
-        return Err("The model requested an Infumap tool without the required capability.".into());
-      }
       if tool_rounds >= CHAT_MAX_TOOL_ROUNDS {
         return Err(format!("Chat tool loop exceeded maximum tool rounds ({CHAT_MAX_TOOL_ROUNDS}).").into());
       }
 
       tool_rounds += 1;
       messages.push(completed_round.assistant_message);
-      let tool_messages =
-        execute_chat_tool_round(db, session, completed_round.number, completed_round.tool_calls, progress).await?;
+      let tool_messages = execute_chat_tool_round(
+        db,
+        session,
+        uses_infumap_data,
+        uses_web_search,
+        completed_round.number,
+        completed_round.tool_calls,
+        progress,
+      )
+      .await?;
       messages.extend(tool_messages);
       continue;
     }
@@ -1229,10 +1319,18 @@ async fn execute_chat_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   tool_call: &LlamaToolCall,
+  uses_infumap_data: bool,
+  uses_web_search: bool,
 ) -> InfuResult<String> {
   match tool_call.function.name.as_str() {
+    "lexical_search" | "get_fragment" if !uses_infumap_data => {
+      Ok(tool_error_json("Infumap data is not enabled for this chat."))
+    }
     "lexical_search" => execute_lexical_search_tool_call(db, session, tool_call).await,
     "get_fragment" => execute_get_fragment_tool_call(db, session, tool_call).await,
+    "web_search" | "fetch_page" if !uses_web_search => Ok(tool_error_json("Web search is not enabled for this chat.")),
+    "web_search" => execute_web_search_tool_call(tool_call).await,
+    "fetch_page" => execute_fetch_page_tool_call(tool_call).await,
     name => Ok(tool_error_json(&format!("Unknown tool '{name}'."))),
   }
 }
@@ -1358,6 +1456,57 @@ async fn execute_get_fragment_tool_call(
   )
 }
 
+async fn execute_web_search_tool_call(tool_call: &LlamaToolCall) -> InfuResult<String> {
+  let arguments = match tool_call_arguments_value(tool_call) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&e.to_string())),
+  };
+  let arguments: ChatWebSearchToolArguments = match serde_json::from_value(arguments) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&format!("Could not parse web_search tool arguments: {}", e))),
+  };
+
+  let query = arguments.query.or(arguments.text).unwrap_or_default();
+  if query.trim().is_empty() {
+    return Ok(tool_error_json("web_search tool argument 'query' is required."));
+  }
+
+  let num_results = arguments
+    .num_results
+    .unwrap_or(web_search::DEFAULT_MAX_RESULTS as i64)
+    .clamp(1, web_search::MAX_RESULTS_CAP as i64) as usize;
+
+  match web_search::search_web_json(&query, num_results).await {
+    Ok(response) => Ok(response),
+    Err(e) => Ok(tool_error_json(&e.to_string())),
+  }
+}
+
+async fn execute_fetch_page_tool_call(tool_call: &LlamaToolCall) -> InfuResult<String> {
+  let arguments = match tool_call_arguments_value(tool_call) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&e.to_string())),
+  };
+  let arguments: ChatFetchPageToolArguments = match serde_json::from_value(arguments) {
+    Ok(arguments) => arguments,
+    Err(e) => return Ok(tool_error_json(&format!("Could not parse fetch_page tool arguments: {}", e))),
+  };
+
+  let url = arguments.url.unwrap_or_default();
+  if url.trim().is_empty() {
+    return Ok(tool_error_json("fetch_page tool argument 'url' is required."));
+  }
+
+  let max_chars =
+    arguments.max_chars.unwrap_or(web_search::DEFAULT_MAX_CHARS as i64).clamp(1, web_search::MAX_CHARS_CAP as i64)
+      as usize;
+
+  match web_search::fetch_page_json(&url, max_chars).await {
+    Ok(response) => Ok(response),
+    Err(e) => Ok(tool_error_json(&e.to_string())),
+  }
+}
+
 fn tool_call_arguments_value(tool_call: &LlamaToolCall) -> InfuResult<Value> {
   match &tool_call.function.arguments {
     Value::String(arguments) if arguments.trim().is_empty() => Ok(serde_json::json!({})),
@@ -1401,6 +1550,8 @@ fn chat_tool_finished_activity(name: &str, arguments: &Value, result_json: &str)
   match name {
     "lexical_search" => lexical_search_tool_activity(arguments, parsed.as_ref()),
     "get_fragment" => get_fragment_tool_activity(parsed.as_ref()),
+    "web_search" => web_search_tool_activity(arguments, parsed.as_ref()),
+    "fetch_page" => fetch_page_tool_activity(parsed.as_ref()),
     _ => (
       "Completed".to_owned(),
       parsed.unwrap_or_else(|| serde_json::json!({ "text": clipped_preview_text(result_json).0 })),
@@ -1452,6 +1603,82 @@ fn lexical_search_tool_activity(arguments: &Value, parsed: Option<&Value>) -> (S
     .collect::<Vec<_>>();
 
   (summary, serde_json::json!({ "results": preview_results, "hasMore": has_more }))
+}
+
+fn web_search_tool_activity(arguments: &Value, parsed: Option<&Value>) -> (String, Value) {
+  let query = json_object_str(arguments, "query").or_else(|| json_object_str(arguments, "text")).unwrap_or("");
+  let results = parsed.and_then(|value| value.get("results")).and_then(Value::as_array);
+  let result_count = results.map(Vec::len).unwrap_or(0);
+  let titles: Vec<&str> = results
+    .iter()
+    .flat_map(|arr| arr.iter())
+    .filter_map(|result| json_object_str(result, "title"))
+    .take(CHAT_TOOL_SUMMARY_TITLE_COUNT)
+    .collect();
+
+  let mut summary = String::new();
+  if !query.is_empty() {
+    let (clipped_query, _) = clamp_text_chars(query, CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS);
+    summary.push('"');
+    summary.push_str(&clipped_query);
+    summary.push_str("\" · ");
+  }
+  summary.push_str(&format!("{result_count} result{}", if result_count == 1 { "" } else { "s" }));
+  if !titles.is_empty() {
+    summary.push_str(" · ");
+    summary.push_str(&titles.join(", "));
+  }
+
+  let preview_results = results
+    .iter()
+    .flat_map(|arr| arr.iter())
+    .map(|result| {
+      serde_json::json!({
+        "title": result.get("title").cloned().unwrap_or(Value::Null),
+        "url": result.get("url").cloned().unwrap_or(Value::Null),
+      })
+    })
+    .collect::<Vec<_>>();
+
+  (summary, serde_json::json!({ "results": preview_results }))
+}
+
+fn fetch_page_tool_activity(parsed: Option<&Value>) -> (String, Value) {
+  let Some(parsed) = parsed else {
+    return ("Completed".to_owned(), serde_json::json!({}));
+  };
+
+  let url = json_object_str(parsed, "finalUrl").or_else(|| json_object_str(parsed, "url")).unwrap_or("");
+  let truncated = parsed.get("truncated").and_then(Value::as_bool).unwrap_or(false);
+  let host_changed = parsed.get("hostChanged").and_then(Value::as_bool).unwrap_or(false);
+  let text = parsed.get("text").and_then(Value::as_str).unwrap_or("");
+  let (clipped, clip_truncated) = clipped_preview_text(text);
+
+  let mut summary = String::new();
+  if !url.is_empty() {
+    let (clipped_url, _) = clamp_text_chars(url, CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS);
+    summary.push_str(&clipped_url);
+    summary.push_str(" · ");
+  }
+  if host_changed {
+    summary.push_str("host changed · ");
+  }
+  if truncated || clip_truncated {
+    summary.push_str("truncated");
+  } else {
+    summary.push_str("fetched");
+  }
+
+  (
+    summary,
+    serde_json::json!({
+      "url": parsed.get("url").cloned().unwrap_or(Value::Null),
+      "finalUrl": parsed.get("finalUrl").cloned().unwrap_or(Value::Null),
+      "truncated": truncated,
+      "hostChanged": host_changed,
+      "text": clipped,
+    }),
+  )
 }
 
 fn clipped_fragment_match_preview(fragment_match: &Value) -> Value {

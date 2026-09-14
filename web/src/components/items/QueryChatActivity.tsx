@@ -124,6 +124,20 @@ function queryChatToolCallSignature(name: string, args: unknown): string | null 
     }
     return parts.length == 0 ? `${name}()` : `${name}(${parts.join(", ")})`;
   }
+  if (name == "web_search") {
+    const query = queryChatJsonString(record?.query) ?? queryChatJsonString(record?.text);
+    if (query == null) {
+      return record == null ? null : `${name}()`;
+    }
+    return `${name}(${JSON.stringify(query)})`;
+  }
+  if (name == "fetch_page") {
+    const url = queryChatJsonString(record?.url);
+    if (url == null) {
+      return record == null ? null : `${name}()`;
+    }
+    return `${name}(${JSON.stringify(url)})`;
+  }
   if (record == null) {
     return null;
   }
