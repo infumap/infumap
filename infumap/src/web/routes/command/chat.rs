@@ -24,7 +24,8 @@ use uuid::Uuid;
 
 use crate::web::serve::empty_body;
 
-const CHAT_LLAMA_REQUEST_TIMEOUT_SECS: u64 = 120;
+const CHAT_LLAMA_CONNECT_TIMEOUT_SECS: u64 = 30;
+const CHAT_LLAMA_READ_TIMEOUT_SECS: u64 = 120;
 const CHAT_MAX_TOOL_ROUNDS: usize = 9;
 const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
@@ -1329,7 +1330,8 @@ async fn llama_chat_completion(
   let url = configured_llama_chat_url(config)?;
 
   let client = reqwest::ClientBuilder::new()
-    .timeout(Duration::from_secs(CHAT_LLAMA_REQUEST_TIMEOUT_SECS))
+    .connect_timeout(Duration::from_secs(CHAT_LLAMA_CONNECT_TIMEOUT_SECS))
+    .read_timeout(Duration::from_secs(CHAT_LLAMA_READ_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build llama-server HTTP client: {}", reqwest_error_for_log(&e)))?;
   let payload = LlamaChatCompletionRequest {
