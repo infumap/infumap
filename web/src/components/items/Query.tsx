@@ -105,6 +105,7 @@ const QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_
 const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
 const QUERY_CHAT_ACTIVITY_MIN_HEIGHT_PX = 140;
 const QUERY_CHAT_ACTIVITY_MAX_HEIGHT_PX = 300;
+const QUERY_CHAT_ACTIVITY_FOLLOW_THRESHOLD_PX = 24;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
@@ -152,6 +153,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatTextareaHeightPx, setChatTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatThinkingExpanded, setChatThinkingExpanded] = createSignal(true);
   const [chatActivityNowMs, setChatActivityNowMs] = createSignal(Date.now());
+  const [chatActivityFollowingLatest, setChatActivityFollowingLatest] = createSignal(true);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
   let queryInput: HTMLTextAreaElement | undefined;
   let queryModeSelect: HTMLSelectElement | undefined;
@@ -159,6 +161,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryDiscardButton: HTMLButtonElement | undefined;
   let queryInfumapDataCheckbox: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
+  let chatActivityBody: HTMLDivElement | undefined;
   let activeSearchRequestSerial = 0;
   let chatRequestWasActive = false;
   let chatThinkingExpansionRequestId: string | null = null;
@@ -173,6 +176,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const queryItem = () => asQueryItem(props.visualElement.displayItem);
   const chatStreamingState = () => chatStreamingStateForQuery(queryItem().id);
   const chatStreamingRequestId = createMemo(() => chatStreamingState()?.requestId ?? null);
+  const chatActivityContentRevision = createMemo(() => {
+    const streamingState = chatStreamingState();
+    if (streamingState == null) {
+      return null;
+    }
+    const roundsRevision = streamingState.rounds.map(round =>
+      `${round.number}:${round.reasoning.length}:${round.answer.length}:` +
+      round.toolCalls.map(toolCall => `${toolCall.callId}:${toolCall.status}:${toolCall.summary ?? ""}`).join(",")
+    ).join("|");
+    return `${streamingState.requestId}:${streamingState.phase}:${roundsRevision}:${streamingState.answerPreview.length}`;
+  });
   const chatActivityPanelHeightPx = () => {
     if (!isChatMode() || chatStreamingState() == null) {
       return 0;
@@ -184,6 +198,22 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const availablePx = Math.max(0, boundsPx().h - reservedWithoutActivityPx - 80);
     const preferredPx = Math.max(QUERY_CHAT_ACTIVITY_MIN_HEIGHT_PX, Math.round(boundsPx().h * 0.34));
     return Math.min(QUERY_CHAT_ACTIVITY_MAX_HEIGHT_PX, preferredPx, availablePx);
+  };
+  const chatActivityIsNearBottom = (el: HTMLDivElement): boolean =>
+    Math.max(0, el.scrollHeight - el.clientHeight - el.scrollTop) <= QUERY_CHAT_ACTIVITY_FOLLOW_THRESHOLD_PX;
+  const scrollChatActivityToLatest = () => {
+    setChatActivityFollowingLatest(true);
+    window.requestAnimationFrame(() => {
+      if (chatActivityBody != null) {
+        chatActivityBody.scrollTop = chatActivityBody.scrollHeight;
+      }
+    });
+  };
+  const chatActivityScrollHandler = () => {
+    if (chatActivityBody == null) {
+      return;
+    }
+    setChatActivityFollowingLatest(chatActivityIsNearBottom(chatActivityBody));
   };
   const canEdit = () => itemCanEdit(queryItem());
   const canResize = () => itemCanResize(queryItem());
@@ -681,6 +711,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       chatThinkingExpansionRequestId = null;
       chatThinkingManuallyToggled = false;
       previousChatStreamingPhase = null;
+      setChatActivityFollowingLatest(true);
       return;
     }
     if (chatThinkingExpansionRequestId != streamingState.requestId) {
@@ -688,6 +719,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       chatThinkingManuallyToggled = false;
       previousChatStreamingPhase = streamingState.phase;
       setChatThinkingExpanded(true);
+      setChatActivityFollowingLatest(true);
       return;
     }
     if (previousChatStreamingPhase != streamingState.phase) {
@@ -700,6 +732,21 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         );
       }
     }
+  });
+
+  createEffect(() => {
+    const contentRevision = chatActivityContentRevision();
+    chatThinkingExpanded();
+    const followingLatest = chatActivityFollowingLatest();
+    if (contentRevision == null || !followingLatest) {
+      return;
+    }
+    const raf = window.requestAnimationFrame(() => {
+      if (chatActivityBody != null) {
+        chatActivityBody.scrollTop = chatActivityBody.scrollHeight;
+      }
+    });
+    onCleanup(() => window.cancelAnimationFrame(raf));
   });
 
   createEffect(() => {
@@ -904,7 +951,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 {formatChatActivityElapsed(chatStreamingState()!.startedAt, chatActivityNowMs())}
               </span>
             </div>
-            <div class="min-h-0 grow overflow-y-auto px-3 py-2 text-[13px] text-slate-700">
+            <div
+              ref={chatActivityBody}
+              class="min-h-0 grow overflow-y-auto px-3 py-2 text-[13px] text-slate-700"
+              style={`padding-bottom: ${chatActivityFollowingLatest() ? 8 : 44}px;`}
+              onScroll={chatActivityScrollHandler}>
               <Show when={hasReasoning()}>
                 <button
                   type="button"
@@ -977,6 +1028,18 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 <div class="py-2 text-[12px] text-slate-400">Waiting for model output…</div>
               </Show>
             </div>
+            <Show when={!chatActivityFollowingLatest()}>
+              <button
+                type="button"
+                class="absolute bottom-2 right-3 flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  scrollChatActivityToLatest();
+                }}>
+                <span>Jump to latest</span>
+                <i class="bi-arrow-down" />
+              </button>
+            </Show>
           </div>
         </Show>
         <div
