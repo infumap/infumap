@@ -992,7 +992,7 @@ async fn execute_get_fragment_tool_call(
       Ok(item) => item,
       Err(_) => return Ok(tool_error_json("Item was not found.")),
     };
-    if item.owner_id != session.user_id {
+    if item.owner_id != session.user_id || item.item_type == ItemType::Password {
       return Ok(tool_error_json("Item was not found."));
     }
     (db.item.data_dir().to_owned(), item.item_type.as_str().to_owned(), item.title.clone())
