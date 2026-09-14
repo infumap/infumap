@@ -74,6 +74,13 @@ export interface ChatStreamingState {
 const chatStreamingStateByQueryId = new Map<Uid, ChatStreamingState>();
 const [chatStreamingStateRevision, setChatStreamingStateRevision] = createSignal(0, { equals: false });
 
+interface ActiveQueryChatRequest {
+  requestId: string,
+  controller: AbortController,
+}
+
+const activeQueryChatRequestByQueryId = new Map<Uid, ActiveQueryChatRequest>();
+
 interface BufferedChatTextDelta {
   type: "reasoning_delta" | "answer_delta",
   round: number,
@@ -133,6 +140,28 @@ function clearQueryChatStreamingState(queryId: Uid, requestId?: string): void {
   }
   chatStreamingStateByQueryId.delete(queryId);
   setChatStreamingStateRevision(chatStreamingStateRevision() + 1);
+}
+
+export function cancelQueryChatRequest(queryId: Uid): boolean {
+  const activeRequest = activeQueryChatRequestByQueryId.get(queryId);
+  const current = chatStreamingStateByQueryId.get(queryId);
+  if (activeRequest == null || current == null || current.requestId != activeRequest.requestId) {
+    return false;
+  }
+  if (current.phase == "complete" || current.phase == "cancelled" || current.phase == "error") {
+    return false;
+  }
+
+  flushBufferedChatTextDeltas(queryId, activeRequest.requestId);
+  const flushed = chatStreamingStateByQueryId.get(queryId);
+  if (flushed != null && flushed.requestId == activeRequest.requestId) {
+    setQueryChatStreamingState(queryId, reduceQueryChatStreamEvent(flushed, {
+      requestId: activeRequest.requestId,
+      type: "cancelled",
+    }));
+  }
+  activeRequest.controller.abort();
+  return true;
 }
 
 function chatStatusTextFromEvent(event: ChatStreamEvent): string {
@@ -753,8 +782,10 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
   requestArrange(store, "query-chat-user-turn");
 
   const requestId = newUid();
+  const controller = new AbortController();
   let clearStreamingStateOnExit = true;
   discardBufferedChatTextDeltas(queryItem.id);
+  activeQueryChatRequestByQueryId.set(queryItem.id, { requestId, controller });
   setQueryChatStreamingState(queryItem.id, {
     requestId,
     phase: "submitted",
@@ -771,7 +802,12 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
       capabilities: queryChatCapabilities(store, queryItem),
     }, store.general.networkStatus, (event) => {
       applyQueryChatStreamEvent(queryItem.id, event);
-    });
+    }, controller.signal);
+
+    if (controller.signal.aborted || chatStreamingStateByQueryId.get(queryItem.id)?.phase == "cancelled") {
+      clearStreamingStateOnExit = false;
+      return;
+    }
 
     flushBufferedChatTextDeltas(queryItem.id, requestId);
     const finalStreamingState = chatStreamingStateByQueryId.get(queryItem.id);
@@ -789,18 +825,34 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
   } catch (e) {
     flushBufferedChatTextDeltas(queryItem.id, requestId);
     const current = chatStreamingStateByQueryId.get(queryItem.id);
-    if (current?.requestId == requestId && current.phase != "error") {
-      setQueryChatStreamingState(queryItem.id, {
-        ...current,
-        phase: "error",
-        statusText: "Chat failed",
-        rounds: completeStreamingModelRounds(current.rounds),
-        errorMessage: e instanceof Error ? e.message : String(e),
-      });
+    if (controller.signal.aborted || (current?.requestId == requestId && current.phase == "cancelled")) {
+      if (current?.requestId == requestId && current.phase != "cancelled") {
+        setQueryChatStreamingState(queryItem.id, reduceQueryChatStreamEvent(current, {
+          requestId,
+          type: "cancelled",
+        }));
+      }
+      clearStreamingStateOnExit = false;
+    } else {
+      if (current?.requestId == requestId) {
+        if (current.phase != "error") {
+          setQueryChatStreamingState(queryItem.id, {
+            ...current,
+            phase: "error",
+            statusText: "Chat failed",
+            rounds: completeStreamingModelRounds(current.rounds),
+            errorMessage: e instanceof Error ? e.message : String(e),
+          });
+        }
+        clearStreamingStateOnExit = false;
+      }
+      console.error("Failed to submit query chat message:", e);
     }
-    clearStreamingStateOnExit = false;
-    console.error("Failed to submit query chat message:", e);
   } finally {
+    const activeRequest = activeQueryChatRequestByQueryId.get(queryItem.id);
+    if (activeRequest?.requestId == requestId) {
+      activeQueryChatRequestByQueryId.delete(queryItem.id);
+    }
     if (clearStreamingStateOnExit) {
       clearQueryChatStreamingState(queryItem.id, requestId);
     }
@@ -870,6 +922,7 @@ function cloneChildrenIntoMaterializedChat(sourceParent: Item, targetParentId: U
 }
 
 export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): void {
+  cancelQueryChatRequest(queryItem.id);
   const runtime = getQueryRuntime(store, queryItem);
   const pageId = runtime.chat.pageId;
   if (pageId != null) {

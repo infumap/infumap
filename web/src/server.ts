@@ -470,6 +470,7 @@ async function streamChatCommand(
   payload: ChatRequest,
   networkStatus: NumberSignal,
   onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
 ): Promise<ChatResponse> {
   const commandObj: ServerCommand = {
     requestId: nextNetworkRequestId++,
@@ -500,7 +501,7 @@ async function streamChatCommand(
       } else if (event.type == "error") {
         errorMessage = event.message;
       }
-    });
+    }, signal);
     if (errorMessage != null) {
       throw new Error(errorMessage);
     }
@@ -512,7 +513,9 @@ async function streamChatCommand(
     }
     return { items: finalItems, assistantText: finalAssistantText };
   } catch (error) {
-    trackNetworkCommandError(commandObj, error);
+    if (signal?.aborted !== true) {
+      trackNetworkCommandError(commandObj, error);
+    }
     throw error;
   } finally {
     const index = inProgressStreamingCommands.findIndex(active => active.requestId === commandObj.requestId);
@@ -762,8 +765,9 @@ export const server = {
     payload: ChatRequest,
     networkStatus: NumberSignal,
     onEvent: (event: ChatStreamEvent) => void,
+    signal?: AbortSignal,
   ): Promise<ChatResponse> => {
-    return streamChatCommand(payload, networkStatus, onEvent);
+    return streamChatCommand(payload, networkStatus, onEvent, signal);
   },
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
@@ -1095,7 +1099,11 @@ async function sendCommand(host: string | null, command: string, payload: object
   return JSON.parse(r.jsonData);
 }
 
-async function sendChatStream(payload: ChatRequest, onEvent: (event: ChatStreamEvent) => void): Promise<void> {
+async function sendChatStream(
+  payload: ChatRequest,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
   const fetchResult = await fetch("/chat/stream", {
     method: "POST",
     headers: {
@@ -1104,6 +1112,7 @@ async function sendChatStream(payload: ChatRequest, onEvent: (event: ChatStreamE
       "X-Infumap-Chat-Request-Id": payload.requestId,
     },
     body: JSON.stringify(payload),
+    signal,
   });
 
   if (!fetchResult.ok) {

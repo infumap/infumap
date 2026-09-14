@@ -139,7 +139,7 @@ enum ChatStreamEventKind {
     text: String,
     items: Value,
   },
-  #[allow(dead_code)] // Emitted when request cancellation is implemented.
+  #[allow(dead_code)] // Reserved for explicit server-originated cancellation.
   Cancelled,
   Error {
     message: String,
@@ -442,12 +442,19 @@ pub async fn serve_chat_stream_route(
 
   let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(16);
   let progress = ChatProgressReporter { request_id: request.stream_request_id(), tx: tx.clone() };
+  let disconnect = tx.clone();
   let user_id = session.user_id.clone();
   let db = db.clone();
 
   tokio::spawn(async move {
     progress.status("Preparing request").await;
-    let result = run_chat_with_tools_with_progress(config, &db, &session, &request, Some(&progress)).await;
+    let result = tokio::select! {
+      _ = disconnect.closed() => {
+        debug!("Cancelling streaming chat request '{}' for user '{}' after the client disconnected.", progress.request_id, user_id);
+        return;
+      }
+      result = run_chat_with_tools_with_progress(config, &db, &session, &request, Some(&progress)) => result,
+    };
     match result {
       Ok(assistant_text) => {
         progress.send(ChatStreamEventKind::Materializing).await;

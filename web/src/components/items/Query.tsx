@@ -79,6 +79,7 @@ import {
 } from "../../items/query";
 import {
   type ChatStreamingState,
+  cancelQueryChatRequest,
   chatStreamingStateForQuery,
   completedQueryChatActivityForQuery,
   materializeQueryChat,
@@ -918,6 +919,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return phase != null && phase != "complete" && phase != "cancelled" && phase != "error";
     };
     const chatRequestActive = () => isStartingChat() || isSendingChat();
+    const chatRequestCanCancel = () => chatRequestActive() && activityIsRunning();
     const stop = (ev: Event) => {
       if (ev instanceof MouseEvent && ev.button == MOUSE_RIGHT) {
         return;
@@ -1072,7 +1074,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
               <Show when={!hasReasoning() && chatActivityState()!.answerPreview == "" &&
                 chatActivityState()!.rounds.every(round => round.toolCalls.length == 0) &&
-                chatActivityState()!.phase != "complete"}>
+                activityIsRunning()}>
                 <div class="py-2 text-[12px] text-slate-400">Waiting for model output…</div>
               </Show>
             </div>
@@ -1151,11 +1153,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              title="Send"
-              aria-label="Send"
-              disabled={chatRequestActive() || chatText().trim() == ""}
-              onClick={() => void sendChatMessage()}>
-              <i class="fa fa-arrow-up" />
+              title={chatRequestCanCancel() ? "Stop generating" : "Send"}
+              aria-label={chatRequestCanCancel() ? "Stop generating" : "Send"}
+              disabled={chatRequestActive() ? !chatRequestCanCancel() : chatText().trim() == ""}
+              onClick={() => {
+                if (chatRequestCanCancel()) {
+                  cancelQueryChatRequest(queryItem().id);
+                  return;
+                }
+                void sendChatMessage();
+              }}>
+              <i class={chatRequestCanCancel() ? "fa fa-stop" : "fa fa-arrow-up"} />
             </button>
             <button
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
