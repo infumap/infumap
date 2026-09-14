@@ -112,10 +112,12 @@ export const calcQueryWorkspaceMoreButtonTopPx = calcSearchWorkspaceMoreButtonTo
 export function calcQueryChatTranscriptBoundsPx(
   boundsPx: BoundingBox,
   composerHeightPx: number = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
+  activityHeightPx: number = 0,
 ): BoundingBox {
   const reservedBottomPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
     QUERY_CHAT_SETTINGS_HEIGHT_PX +
     Math.max(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX, composerHeightPx) +
+    Math.max(0, activityHeightPx) +
     QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX;
   return {
     x: 0,
@@ -158,6 +160,20 @@ export function setQueryChatComposerHeightPx(
     chat: {
       ...current.chat,
       composerHeightPx: Math.max(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX, composerHeightPx),
+    },
+  }));
+}
+
+export function setQueryChatActivityHeightPx(
+  store: StoreContextModel,
+  queryItemOrId: QueryItemOrId,
+  activityHeightPx: number,
+): void {
+  updateQueryRuntime(store, queryItemOrId, current => ({
+    ...current,
+    chat: {
+      ...current.chat,
+      activityHeightPx: Math.max(0, activityHeightPx),
     },
   }));
 }

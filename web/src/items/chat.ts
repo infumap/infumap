@@ -764,6 +764,7 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       ...current.chat,
       pageId: null,
       composerHeightPx: null,
+      activityHeightPx: null,
       rootItemIds: [],
       messages: [],
     },

@@ -214,6 +214,7 @@ export function arrangeQueryWorkspacePathMaybe(
   const transcriptBoundsPx = calcQueryChatTranscriptBoundsPx(
     queryItemGeometry.boundsPx,
     runtime.chat.composerHeightPx ?? undefined,
+    runtime.chat.activityHeightPx ?? undefined,
   );
   const pageGeometry: ItemGeometry = {
     boundsPx: transcriptBoundsPx,
