@@ -80,6 +80,7 @@ import {
 import {
   type ChatStreamingModelRound,
   type ChatStreamingState,
+  type ChatStreamingToolCall,
   cancelQueryChatRequest,
   chatStreamingStateForQuery,
   completedQueryChatActivityForQuery,
@@ -135,6 +136,103 @@ function queryChatToolDisplayName(name: string): string {
     default:
       return name.replaceAll("_", " ");
   }
+}
+
+function queryChatJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (value == null || typeof value != "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function queryChatJsonString(value: unknown): string | null {
+  if (typeof value != "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed == "" ? null : trimmed;
+}
+
+function queryChatJsonNumber(value: unknown): number | null {
+  return typeof value == "number" && Number.isFinite(value) ? value : null;
+}
+
+function queryChatHasJsonValue(value: unknown): boolean {
+  if (value == null) {
+    return false;
+  }
+  if (typeof value == "object") {
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+    return Object.keys(value).length > 0;
+  }
+  return true;
+}
+
+function queryChatPrettyJson(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function queryChatToolDurationLabel(durationMs: number): string {
+  if (durationMs < 1000) {
+    return `${durationMs}ms`;
+  }
+  const seconds = durationMs / 1000;
+  return Number.isInteger(seconds) ? `${seconds}s` : `${seconds.toFixed(1)}s`;
+}
+
+function queryChatToolCallSignature(name: string, args: unknown): string | null {
+  const record = queryChatJsonRecord(args);
+  if (name == "lexical_search" || name == "find") {
+    const query = queryChatJsonString(record?.text) ?? queryChatJsonString(record?.query);
+    if (query == null) {
+      return record == null ? null : `${name}()`;
+    }
+    return `${name}(${JSON.stringify(query)})`;
+  }
+  if (name == "get_fragment") {
+    const itemId = queryChatJsonString(record?.itemId);
+    const ordinal = queryChatJsonNumber(record?.fragmentOrdinal) ?? queryChatJsonNumber(record?.ordinal);
+    const parts: Array<string> = [];
+    if (itemId != null) {
+      parts.push(JSON.stringify(itemId));
+    }
+    if (ordinal != null) {
+      parts.push(String(ordinal));
+    }
+    return parts.length == 0 ? `${name}()` : `${name}(${parts.join(", ")})`;
+  }
+  if (record == null) {
+    return null;
+  }
+  try {
+    return `${name}(${JSON.stringify(record)})`;
+  } catch {
+    return name;
+  }
+}
+
+function queryChatToolCallHeadline(toolCall: ChatStreamingToolCall): string | null {
+  const signature = queryChatToolCallSignature(toolCall.name, toolCall.arguments);
+  let summary = toolCall.summary?.trim() ?? "";
+  const record = queryChatJsonRecord(toolCall.arguments);
+  const query = queryChatJsonString(record?.text) ?? queryChatJsonString(record?.query);
+  if (query != null && summary.startsWith(`"${query}" · `)) {
+    summary = summary.slice(`"${query}" · `.length);
+  } else if (query != null && summary == `"${query}"`) {
+    summary = "";
+  }
+  const parts = [signature, summary == "" ? null : summary];
+  if (toolCall.durationMs != null) {
+    parts.push(queryChatToolDurationLabel(toolCall.durationMs));
+  }
+  const headline = parts.filter((part): part is string => part != null && part != "").join(" · ");
+  return headline == "" ? null : headline;
 }
 
 function formatChatActivityElapsed(startedAt: number, now: number): string {
@@ -211,7 +309,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
     const roundsRevision = activityState.rounds.map(round =>
       `${round.number}:${round.reasoning.length}:${round.answer.length}:` +
-      round.toolCalls.map(toolCall => `${toolCall.callId}:${toolCall.status}:${toolCall.summary ?? ""}`).join(",")
+      round.toolCalls.map(toolCall =>
+        `${toolCall.callId}:${toolCall.status}:${toolCall.summary ?? ""}:${toolCall.durationMs ?? ""}`
+      ).join(",")
     ).join("|");
     return `${activityState.requestId}:${activityState.phase}:${roundsRevision}:${activityState.answerPreview.length}`;
   });
@@ -1048,8 +1148,32 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                           : "bi-check-circle mt-[1px] text-emerald-600"} />
                         <div class="min-w-0 grow">
                           <div class="font-medium text-slate-600">{queryChatToolDisplayName(toolCall().name)}</div>
-                          <Show when={toolCall().summary != null}>
-                            <div class="truncate text-[11px] text-slate-400">{toolCall().summary}</div>
+                          <Show when={queryChatToolCallHeadline(toolCall()) != null}>
+                            <div
+                              class="truncate text-[11px] text-slate-400"
+                              title={queryChatToolCallHeadline(toolCall()) ?? undefined}>
+                              {queryChatToolCallHeadline(toolCall())}
+                            </div>
+                          </Show>
+                          <Show when={queryChatHasJsonValue(toolCall().arguments)}>
+                            <details class="mt-1 text-[11px] text-slate-500">
+                              <summary class="cursor-pointer select-none text-slate-400">Arguments</summary>
+                              <pre
+                                class="mt-1 max-h-32 overflow-auto select-text whitespace-pre-wrap text-slate-600"
+                                style="overflow-wrap: anywhere;">
+                                {queryChatPrettyJson(toolCall().arguments)}
+                              </pre>
+                            </details>
+                          </Show>
+                          <Show when={queryChatHasJsonValue(toolCall().resultPreview)}>
+                            <details class="mt-1 text-[11px] text-slate-500">
+                              <summary class="cursor-pointer select-none text-slate-400">Result</summary>
+                              <pre
+                                class="mt-1 max-h-32 overflow-auto select-text whitespace-pre-wrap text-slate-600"
+                                style="overflow-wrap: anywhere;">
+                                {queryChatPrettyJson(toolCall().resultPreview)}
+                              </pre>
+                            </details>
                           </Show>
                         </div>
                       </div>
