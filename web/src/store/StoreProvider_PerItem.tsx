@@ -25,6 +25,29 @@ import type { Uid } from "../util/uid";
 export type QueryMode = "search" | "chat" | null;
 export type ChatCapability = "infumap_data";
 
+export interface QueryChatActivityToolCall {
+  callId: string,
+  name: string,
+  status: "running" | "complete",
+  summary: string | null,
+}
+
+export interface QueryChatActivityModelRound {
+  number: number,
+  reasoning: string,
+  answer: string,
+  toolCalls: Array<QueryChatActivityToolCall>,
+  complete: boolean,
+}
+
+export interface QueryChatCompletedActivity {
+  requestId: string,
+  assistantRootIds: Array<Uid>,
+  rounds: Array<QueryChatActivityModelRound>,
+  startedAt: number,
+  completedAt: number,
+}
+
 export interface QueryRuntime {
   mode: QueryMode,
   text: string,
@@ -39,6 +62,7 @@ export interface QueryRuntime {
     rootItemIds: Array<Uid>,
     messages: Array<ChatMessage>,
     capabilities: Array<ChatCapability>,
+    completedActivities: Array<QueryChatCompletedActivity>,
   },
 }
 
@@ -126,6 +150,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
       rootItemIds: [],
       messages: [],
       capabilities: ["infumap_data"],
+      completedActivities: [],
     },
   });
 

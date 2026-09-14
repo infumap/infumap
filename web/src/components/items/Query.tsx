@@ -78,7 +78,9 @@ import {
   startQueryChat,
 } from "../../items/query";
 import {
+  type ChatStreamingState,
   chatStreamingStateForQuery,
+  completedQueryChatActivityForQuery,
   materializeQueryChat,
   queryChatUsesInfumapData,
   queryChatHasContent,
@@ -175,21 +177,45 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     props.visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM;
   const queryItem = () => asQueryItem(props.visualElement.displayItem);
   const chatStreamingState = () => chatStreamingStateForQuery(queryItem().id);
-  const chatStreamingRequestId = createMemo(() => chatStreamingState()?.requestId ?? null);
-  const chatActivityContentRevision = createMemo(() => {
+  const chatActivityState = (): (ChatStreamingState & { completedAt: number | null }) | null => {
     const streamingState = chatStreamingState();
-    if (streamingState == null) {
+    if (streamingState != null) {
+      return { ...streamingState, completedAt: null };
+    }
+    const completed = completedQueryChatActivityForQuery(store, queryItem());
+    if (completed == null) {
       return null;
     }
-    const roundsRevision = streamingState.rounds.map(round =>
+    return {
+      requestId: completed.requestId,
+      phase: "complete",
+      statusText: "Assistant activity",
+      rounds: completed.rounds,
+      answerPreview: "",
+      startedAt: completed.startedAt,
+      completedAt: completed.completedAt,
+      errorMessage: null,
+    };
+  };
+  const chatStreamingRequestId = createMemo(() => chatStreamingState()?.requestId ?? null);
+  const chatActivityContentRevision = createMemo(() => {
+    const activityState = chatActivityState();
+    if (activityState == null) {
+      return null;
+    }
+    const roundsRevision = activityState.rounds.map(round =>
       `${round.number}:${round.reasoning.length}:${round.answer.length}:` +
       round.toolCalls.map(toolCall => `${toolCall.callId}:${toolCall.status}:${toolCall.summary ?? ""}`).join(",")
     ).join("|");
-    return `${streamingState.requestId}:${streamingState.phase}:${roundsRevision}:${streamingState.answerPreview.length}`;
+    return `${activityState.requestId}:${activityState.phase}:${roundsRevision}:${activityState.answerPreview.length}`;
   });
   const chatActivityPanelHeightPx = () => {
-    if (!isChatMode() || chatStreamingState() == null) {
+    const activityState = chatActivityState();
+    if (!isChatMode() || activityState == null) {
       return 0;
+    }
+    if (activityState.phase == "complete" && !chatThinkingExpanded()) {
+      return QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
     }
     const reservedWithoutActivityPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
       QUERY_CHAT_SETTINGS_HEIGHT_PX +
@@ -706,29 +732,29 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   createEffect(() => {
-    const streamingState = chatStreamingState();
-    if (streamingState == null) {
+    const activityState = chatActivityState();
+    if (activityState == null) {
       chatThinkingExpansionRequestId = null;
       chatThinkingManuallyToggled = false;
       previousChatStreamingPhase = null;
       setChatActivityFollowingLatest(true);
       return;
     }
-    if (chatThinkingExpansionRequestId != streamingState.requestId) {
-      chatThinkingExpansionRequestId = streamingState.requestId;
+    if (chatThinkingExpansionRequestId != activityState.requestId) {
+      chatThinkingExpansionRequestId = activityState.requestId;
       chatThinkingManuallyToggled = false;
-      previousChatStreamingPhase = streamingState.phase;
-      setChatThinkingExpanded(true);
+      previousChatStreamingPhase = activityState.phase;
+      setChatThinkingExpanded(activityState.phase != "complete");
       setChatActivityFollowingLatest(true);
       return;
     }
-    if (previousChatStreamingPhase != streamingState.phase) {
-      previousChatStreamingPhase = streamingState.phase;
+    if (previousChatStreamingPhase != activityState.phase) {
+      previousChatStreamingPhase = activityState.phase;
       if (!chatThinkingManuallyToggled) {
         setChatThinkingExpanded(
-          streamingState.phase == "submitted" ||
-          streamingState.phase == "thinking" ||
-          streamingState.phase == "using_tools",
+          activityState.phase == "submitted" ||
+          activityState.phase == "thinking" ||
+          activityState.phase == "using_tools",
         );
       }
     }
@@ -886,9 +912,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const wrapperHeightPx = () => chatTextareaHeightPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
     const activityBottomPx = () =>
       QUERY_CHAT_COMPOSER_BOTTOM_PX + wrapperHeightPx() + QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
-    const hasReasoning = () => chatStreamingState()?.rounds.some(round => round.reasoning != "") == true;
+    const hasReasoning = () => chatActivityState()?.rounds.some(round => round.reasoning != "") == true;
     const activityIsRunning = () => {
-      const phase = chatStreamingState()?.phase;
+      const phase = chatActivityState()?.phase;
       return phase != null && phase != "complete" && phase != "cancelled" && phase != "error";
     };
     const chatRequestActive = () => isStartingChat() || isSendingChat();
@@ -924,7 +950,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class="absolute bg-white"
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}
         onMouseDown={chatSurfaceMouseDown}>
-        <Show when={chatStreamingState() != null && chatActivityPanelHeightPx() > 0}>
+        <Show when={chatActivityState() != null && chatActivityPanelHeightPx() > 0}>
           <div
             class="absolute flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm pointer-events-auto"
             style={`left: ${contentLeftPx()}px; bottom: ${activityBottomPx()}px; ` +
@@ -937,19 +963,34 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             onKeyDown={stop}
             onKeyUp={stop}>
             <div
-              class="flex h-9 shrink-0 items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 text-slate-700"
-              aria-live="polite">
+              class={`flex h-9 shrink-0 items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 text-slate-700 ${chatActivityState()!.phase == "complete" ? "cursor-pointer" : ""}`}
+              aria-live="polite"
+              aria-expanded={chatActivityState()!.phase == "complete" ? chatThinkingExpanded() : undefined}
+              onClick={(ev) => {
+                if (chatActivityState()!.phase != "complete") {
+                  return;
+                }
+                ev.stopPropagation();
+                chatThinkingManuallyToggled = true;
+                setChatThinkingExpanded(!chatThinkingExpanded());
+              }}>
               <Show
                 when={activityIsRunning()}
-                fallback={<i class={chatStreamingState()!.phase == "error" ? "bi-exclamation-circle" : "bi-check-circle"} />}>
+                fallback={<i class={chatActivityState()!.phase == "error" ? "bi-exclamation-circle" : "bi-check-circle"} />}>
                 <i class="fa fa-circle-notch fa-spin" />
               </Show>
               <span class="min-w-0 grow truncate text-[13px] font-medium">
-                {chatStreamingState()!.statusText}
+                {chatActivityState()!.statusText}
               </span>
               <span class="shrink-0 text-[11px] tabular-nums text-slate-500">
-                {formatChatActivityElapsed(chatStreamingState()!.startedAt, chatActivityNowMs())}
+                {formatChatActivityElapsed(
+                  chatActivityState()!.startedAt,
+                  chatActivityState()!.completedAt ?? chatActivityNowMs(),
+                )}
               </span>
+              <Show when={chatActivityState()!.phase == "complete"}>
+                <i class={chatThinkingExpanded() ? "bi-chevron-down" : "bi-chevron-right"} />
+              </Show>
             </div>
             <div
               ref={chatActivityBody}
@@ -968,18 +1009,18 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   }}>
                   <i class={chatThinkingExpanded() ? "bi-chevron-down" : "bi-chevron-right"} />
                   <span class="font-medium">Thinking</span>
-                  <Show when={chatStreamingState()!.rounds.length > 1}>
+                  <Show when={chatActivityState()!.rounds.length > 1}>
                     <span class="text-[11px] text-slate-400">
-                      {chatStreamingState()!.rounds.length} rounds
+                      {chatActivityState()!.rounds.length} rounds
                     </span>
                   </Show>
                 </button>
                 <Show when={chatThinkingExpanded()}>
                   <div class="mb-2 border-l-2 border-slate-200 pl-3">
-                    <Index each={chatStreamingState()!.rounds}>{(round, index) =>
+                    <Index each={chatActivityState()!.rounds}>{(round, index) =>
                       <Show when={round().reasoning != ""}>
                         <div class="mb-2 last:mb-0">
-                          <Show when={chatStreamingState()!.rounds.length > 1}>
+                          <Show when={chatActivityState()!.rounds.length > 1}>
                             <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
                               Round {index + 1}
                             </div>
@@ -996,7 +1037,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 </Show>
               </Show>
 
-              <Index each={chatStreamingState()!.rounds}>{round =>
+              <Index each={chatActivityState()!.rounds}>{round =>
                 <Index each={round().toolCalls}>{toolCall =>
                   <div class="flex items-start gap-2 border-t border-slate-100 py-1.5 first:border-t-0">
                     <i class={toolCall().status == "running"
@@ -1012,19 +1053,26 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 }</Index>
               }</Index>
 
-              <Show when={chatStreamingState()!.answerPreview != ""}>
+              <Show when={chatActivityState()!.answerPreview != ""}>
                 <div class="mt-2 border-t border-slate-200 pt-2">
                   <div class="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">Answering</div>
                   <div
                     class="select-text whitespace-pre-wrap text-[13px] leading-5 text-slate-700"
                     style="overflow-wrap: anywhere;">
-                    {chatStreamingState()!.answerPreview}
+                    {chatActivityState()!.answerPreview}
                   </div>
                 </div>
               </Show>
 
-              <Show when={!hasReasoning() && chatStreamingState()!.answerPreview == "" &&
-                chatStreamingState()!.rounds.every(round => round.toolCalls.length == 0)}>
+              <Show when={chatActivityState()!.errorMessage != null}>
+                <div class="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-[12px] text-red-700">
+                  {chatActivityState()!.errorMessage}
+                </div>
+              </Show>
+
+              <Show when={!hasReasoning() && chatActivityState()!.answerPreview == "" &&
+                chatActivityState()!.rounds.every(round => round.toolCalls.length == 0) &&
+                chatActivityState()!.phase != "complete"}>
                 <div class="py-2 text-[12px] text-slate-400">Waiting for model output…</div>
               </Show>
             </div>
@@ -1055,9 +1103,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             class="flex items-center px-1 text-[#555]"
             style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px; ` +
               `padding-right: ${QUERY_CHAT_TRAILING_CONTROLS_WIDTH_PX}px;`}>
-            <Show when={chatStreamingState() != null && chatActivityPanelHeightPx() == 0}>
+            <Show when={chatActivityState() != null && chatActivityPanelHeightPx() == 0}>
               <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;">
-                {chatStreamingState()!.statusText}
+                {chatActivityState()!.statusText}
               </div>
             </Show>
             <label

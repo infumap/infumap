@@ -19,7 +19,7 @@
 import { requestArrange } from "../layout/arrange";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { createSignal } from "solid-js";
+import { batch, createSignal } from "solid-js";
 import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { CompositeFlags, PageFlags } from "./base/flags-item";
@@ -32,7 +32,12 @@ import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRunt
 import { server, type ChatMessage, type ChatStreamEvent, type ChatStreamPhase } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import type { ChatCapability } from "../store/StoreProvider_PerItem";
+import type {
+  ChatCapability,
+  QueryChatActivityModelRound,
+  QueryChatActivityToolCall,
+  QueryChatCompletedActivity,
+} from "../store/StoreProvider_PerItem";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
@@ -53,20 +58,8 @@ function makeQueryChatItemReadOnly(item: Item): void {
   };
 }
 
-export interface ChatStreamingToolCall {
-  callId: string,
-  name: string,
-  status: "running" | "complete",
-  summary: string | null,
-}
-
-export interface ChatStreamingModelRound {
-  number: number,
-  reasoning: string,
-  answer: string,
-  toolCalls: Array<ChatStreamingToolCall>,
-  complete: boolean,
-}
+export type ChatStreamingToolCall = QueryChatActivityToolCall;
+export type ChatStreamingModelRound = QueryChatActivityModelRound;
 
 export interface ChatStreamingState {
   requestId: string,
@@ -98,6 +91,22 @@ const bufferedChatTextDeltasByQueryId = new Map<Uid, BufferedChatTextDeltas>();
 export function chatStreamingStateForQuery(queryId: Uid): ChatStreamingState | null {
   chatStreamingStateRevision();
   return chatStreamingStateByQueryId.get(queryId) ?? null;
+}
+
+export function completedQueryChatActivityForQuery(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+): QueryChatCompletedActivity | null {
+  const chat = getQueryRuntime(store, queryItem).chat;
+  const currentRootIds = new Set(chat.rootItemIds ?? []);
+  const activities = chat.completedActivities ?? [];
+  for (let i = activities.length - 1; i >= 0; i--) {
+    const activity = activities[i];
+    if (activity.assistantRootIds.some(rootId => currentRootIds.has(rootId))) {
+      return activity;
+    }
+  }
+  return null;
 }
 
 function setQueryChatStreamingState(queryId: Uid, state: ChatStreamingState): void {
@@ -563,23 +572,75 @@ function prepareReturnedItem(item: Item, clientOnly: boolean): void {
     makeQueryChatItemReadOnly(item);
   }
   if (isContainer(item)) {
-    asContainerItem(item).childrenLoaded = true;
+    const container = asContainerItem(item);
+    container.computed_children = [];
+    container.childrenLoaded = true;
     markChildrenLoadAsInitiatedOrComplete(item.id);
+  }
+  if (isAttachmentsItem(item)) {
+    asAttachmentsItem(item).computed_attachments = [];
   }
 }
 
-function addServerReturnedQueryItems(store: StoreContextModel, queryItem: QueryItem, itemObjects: Array<object>): Array<Item> {
+interface StagedQueryChatItems {
+  itemsInInsertionOrder: Array<Item>,
+  rootIds: Array<Uid>,
+}
+
+function stageServerReturnedQueryItems(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  itemObjects: Array<object>,
+): StagedQueryChatItems {
   const chatPage = ensureTemporaryQueryChatPage(store, queryItem);
   const returnedItems = itemObjects.map(itemObject => ItemFns.fromObject(itemObject, null));
-  const pending = new Map<Uid, Item>();
-  const addedItems: Array<Item> = [];
-  const addedRootIds: Array<Uid> = [];
+  if (returnedItems.length == 0) {
+    throw new Error("The assistant returned no items.");
+  }
 
+  const itemsById = new Map<Uid, Item>();
   for (const item of returnedItems) {
-    pending.set(item.id, item);
+    if (item.id == EMPTY_UID) {
+      throw new Error("The assistant returned an item with an empty id.");
+    }
+    if (itemsById.has(item.id)) {
+      throw new Error(`The assistant returned duplicate item id '${item.id}'.`);
+    }
+    if (itemState.get(item.id) != null) {
+      throw new Error(`The assistant returned item id '${item.id}', which is already in use.`);
+    }
+    itemsById.set(item.id, item);
   }
 
   const roots = returnedItems.filter(item => item.parentId == null || item.parentId == EMPTY_UID);
+  if (roots.length == 0) {
+    throw new Error("The assistant item graph has no root.");
+  }
+
+  const rootIds = new Set(roots.map(root => root.id));
+  const childrenByParentId = new Map<Uid, Array<Item>>();
+  for (const item of returnedItems) {
+    if (rootIds.has(item.id)) {
+      continue;
+    }
+    const parent = item.parentId == null ? null : itemsById.get(item.parentId);
+    if (parent == null) {
+      throw new Error(`The assistant item '${item.id}' refers to missing parent '${item.parentId}'.`);
+    }
+    if (item.relationshipToParent == RelationshipToParent.Child) {
+      if (!isContainer(parent)) {
+        throw new Error(`The assistant item '${item.id}' has a parent that cannot contain children.`);
+      }
+    } else if (item.relationshipToParent == RelationshipToParent.Attachment) {
+      if (!isAttachmentsItem(parent)) {
+        throw new Error(`The assistant item '${item.id}' has a parent that cannot contain attachments.`);
+      }
+    } else {
+      throw new Error(`The assistant item '${item.id}' has an unsupported parent relationship.`);
+    }
+    childrenByParentId.set(parent.id, [...(childrenByParentId.get(parent.id) ?? []), item]);
+  }
+
   let rootOrderings = queryChatRootOrderings(store, queryItem);
   for (const root of roots) {
     root.parentId = chatPage.id;
@@ -588,37 +649,90 @@ function addServerReturnedQueryItems(store: StoreContextModel, queryItem: QueryI
     if (isComposite(root)) {
       asCompositeItem(root).flags |= CompositeFlags.ShowTitle;
     }
-    prepareReturnedItem(root, true);
-    itemState.add(root);
-    addedItems.push(root);
-    addedRootIds.push(root.id);
     rootOrderings = [...rootOrderings, root.ordering];
-    pending.delete(root.id);
   }
 
-  while (pending.size > 0) {
-    let addedThisPass = false;
-    for (const item of [...pending.values()]) {
-      if (item.parentId == null || item.parentId == EMPTY_UID || itemState.get(item.parentId) == null) {
-        continue;
+  const itemsInInsertionOrder: Array<Item> = [];
+  const visit = (item: Item): void => {
+    itemsInInsertionOrder.push(item);
+    for (const child of childrenByParentId.get(item.id) ?? []) {
+      visit(child);
+    }
+  };
+  for (const root of roots) {
+    visit(root);
+  }
+  if (itemsInInsertionOrder.length != returnedItems.length) {
+    throw new Error("The assistant item graph contains a cycle or an unreachable item.");
+  }
+
+  return { itemsInInsertionOrder, rootIds: roots.map(root => root.id) };
+}
+
+function cloneCompletedRounds(rounds: Array<ChatStreamingModelRound>): Array<ChatStreamingModelRound> {
+  return rounds.map(round => ({
+    ...round,
+    toolCalls: round.toolCalls.map(toolCall => ({ ...toolCall })),
+    complete: true,
+  }));
+}
+
+function finalizeServerReturnedQueryItems(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  itemObjects: Array<object>,
+  assistantText: string,
+  streamingState: ChatStreamingState,
+): Array<Item> {
+  const staged = stageServerReturnedQueryItems(store, queryItem, itemObjects);
+  const previousRuntime = getQueryRuntime(store, queryItem);
+  const previousRootIds = [...(previousRuntime.chat.rootItemIds ?? [])];
+  const nextRootIds = [...previousRootIds, ...staged.rootIds];
+  const chatPage = ensureTemporaryQueryChatPage(store, queryItem);
+  const insertedItems: Array<Item> = [];
+
+  try {
+    batch(() => {
+      for (const item of staged.itemsInInsertionOrder) {
+        prepareReturnedItem(item, true);
+        insertedItems.push(item);
+        itemState.add(item);
       }
-      prepareReturnedItem(item, true);
-      itemState.add(item);
-      addedItems.push(item);
-      pending.delete(item.id);
-      addedThisPass = true;
+
+      chatPage.computed_children = [...nextRootIds];
+      const completedActivity: QueryChatCompletedActivity = {
+        requestId: streamingState.requestId,
+        assistantRootIds: [...staged.rootIds],
+        rounds: cloneCompletedRounds(streamingState.rounds),
+        startedAt: streamingState.startedAt,
+        completedAt: Date.now(),
+      };
+      updateQueryRuntime(store, queryItem, current => ({
+        ...current,
+        chat: {
+          ...current.chat,
+          rootItemIds: nextRootIds,
+          messages: [...(current.chat.messages ?? []), { role: "assistant", content: assistantText }],
+          completedActivities: [...(current.chat.completedActivities ?? []), completedActivity],
+        },
+      }));
+    });
+  } catch (error) {
+    for (let i = insertedItems.length - 1; i >= 0; i--) {
+      const item = insertedItems[i];
+      if (itemState.get(item.id) == item) {
+        try {
+          itemState.delete(item.id);
+        } catch (rollbackError) {
+          console.error("Failed to roll back query chat item insertion:", rollbackError);
+        }
+      }
     }
-    if (!addedThisPass) {
-      console.error("Could not insert all query chat response items; some parent links were unresolved:", [...pending.values()]);
-      break;
-    }
+    chatPage.computed_children = previousRootIds;
+    throw error;
   }
 
-  if (addedRootIds.length > 0) {
-    setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), ...addedRootIds]);
-  }
-
-  return addedItems;
+  return insertedItems;
 }
 
 async function persistItems(store: StoreContextModel, items: Array<Item>): Promise<void> {
@@ -659,8 +773,18 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
       applyQueryChatStreamEvent(queryItem.id, event);
     });
 
-    addServerReturnedQueryItems(store, queryItem, response.items);
-    appendQueryChatMessage(store, queryItem, { role: "assistant", content: response.assistantText });
+    flushBufferedChatTextDeltas(queryItem.id, requestId);
+    const finalStreamingState = chatStreamingStateByQueryId.get(queryItem.id);
+    if (finalStreamingState == null || finalStreamingState.requestId != requestId) {
+      throw new Error("Chat streaming state was lost before the response could be finalized.");
+    }
+    finalizeServerReturnedQueryItems(
+      store,
+      queryItem,
+      response.items,
+      response.assistantText,
+      finalStreamingState,
+    );
     requestArrange(store, "query-chat-assistant-turn");
   } catch (e) {
     flushBufferedChatTextDeltas(queryItem.id, requestId);
@@ -674,9 +798,6 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
         errorMessage: e instanceof Error ? e.message : String(e),
       });
     }
-    window.setTimeout(() => {
-      clearQueryChatStreamingState(queryItem.id, requestId);
-    }, 3000);
     clearStreamingStateOnExit = false;
     console.error("Failed to submit query chat message:", e);
   } finally {
@@ -767,6 +888,7 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       activityHeightPx: null,
       rootItemIds: [],
       messages: [],
+      completedActivities: [],
     },
   }));
   clearQueryChatStreamingState(queryItem.id);
