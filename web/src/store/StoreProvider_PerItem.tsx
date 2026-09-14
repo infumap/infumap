@@ -28,9 +28,11 @@ export type ChatCapability = "infumap_data" | "web_search";
 export interface QueryChatActivityToolCall {
   callId: string,
   name: string,
-  status: "running" | "complete",
+  status: "running" | "complete" | "awaiting_approval",
   summary: string | null,
   arguments?: unknown,
+  query?: string,
+  url?: string,
   durationMs?: number,
   resultPreview?: unknown,
 }

@@ -17,13 +17,15 @@
 use super::*;
 use http_body_util::{BodyExt as _, StreamBody};
 use hyper::body::Frame;
+use std::collections::HashMap;
 use std::io::Write as _;
+use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
-use crate::web::serve::empty_body;
+use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
 mod markdown;
 use markdown::chat_response_items_json;
@@ -31,6 +33,8 @@ use markdown::chat_response_items_json;
 const CHAT_LLAMA_CONNECT_TIMEOUT_SECS: u64 = 30;
 const CHAT_LLAMA_READ_TIMEOUT_SECS: u64 = 120;
 const CHAT_MAX_TOOL_ROUNDS: usize = 9;
+const CHAT_TOOL_APPROVAL_TIMEOUT_SECS: u64 = 300;
+const CHAT_TOOL_APPROVAL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
@@ -165,6 +169,16 @@ enum ChatStreamEventKind {
     round: usize,
     text: String,
   },
+  ToolApprovalRequired {
+    round: usize,
+    #[serde(rename = "callId")]
+    call_id: String,
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    query: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+  },
   ToolCallStarted {
     round: usize,
     #[serde(rename = "callId")]
@@ -199,6 +213,16 @@ enum ChatStreamEventKind {
 impl ChatStreamEventKind {
   fn status(text: &str) -> Self {
     Self::Status { text: text.to_owned() }
+  }
+
+  fn tool_approval_required(
+    round: usize,
+    call_id: &str,
+    name: &str,
+    query: Option<String>,
+    url: Option<String>,
+  ) -> Self {
+    Self::ToolApprovalRequired { round, call_id: call_id.to_owned(), name: name.to_owned(), query, url }
   }
 
   fn tool_call_started(round: usize, call_id: &str, name: &str, arguments: Value) -> Self {
@@ -269,6 +293,17 @@ impl ChatProgressReporter {
 
   async fn answer_delta(&self, round: usize, text: String) {
     self.send(ChatStreamEventKind::AnswerDelta { round, text }).await;
+  }
+
+  async fn tool_approval_required(
+    &self,
+    round: usize,
+    call_id: &str,
+    name: &str,
+    query: Option<String>,
+    url: Option<String>,
+  ) {
+    self.send(ChatStreamEventKind::tool_approval_required(round, call_id, name, query, url)).await;
   }
 
   async fn tool_call_started(&self, round: usize, call_id: &str, name: &str, arguments: Value) {
@@ -504,10 +539,12 @@ pub async fn serve_chat_stream_route(
     let result = tokio::select! {
       _ = disconnect.closed() => {
         debug!("Cancelling streaming chat request '{}' for user '{}' after the client disconnected.", progress.request_id, user_id);
+        cancel_pending_tool_approvals(&progress.request_id);
         return;
       }
       result = run_chat_with_tools(config, &db, &session, &request, &progress) => result,
     };
+    cancel_pending_tool_approvals(&progress.request_id);
     match result {
       Ok(result) => {
         progress.send(ChatStreamEventKind::Materializing).await;
@@ -523,6 +560,132 @@ pub async fn serve_chat_stream_route(
   });
 
   chat_stream_response(rx)
+}
+
+#[derive(Deserialize)]
+struct ChatToolApprovalRequest {
+  #[serde(rename = "requestId")]
+  request_id: String,
+  #[serde(rename = "callId")]
+  call_id: String,
+  approved: bool,
+}
+
+#[derive(Serialize)]
+struct ChatToolApprovalResponse {
+  ok: bool,
+}
+
+enum ToolApprovalDecision {
+  Approved,
+  Denied,
+  TimedOut,
+}
+
+struct PendingToolApproval {
+  user_id: Uid,
+  tx: oneshot::Sender<bool>,
+}
+
+fn pending_tool_approvals() -> &'static Mutex<HashMap<(String, String), PendingToolApproval>> {
+  static PENDING: OnceLock<Mutex<HashMap<(String, String), PendingToolApproval>>> = OnceLock::new();
+  PENDING.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn lock_pending_tool_approvals() -> std::sync::MutexGuard<'static, HashMap<(String, String), PendingToolApproval>> {
+  pending_tool_approvals().lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn cancel_pending_tool_approvals(request_id: &str) {
+  let mut pending = lock_pending_tool_approvals();
+  let keys: Vec<(String, String)> =
+    pending.keys().filter(|(pending_request_id, _)| pending_request_id == request_id).cloned().collect();
+  for key in keys {
+    if let Some(approval) = pending.remove(&key) {
+      let _ = approval.tx.send(false);
+    }
+  }
+}
+
+async fn wait_for_tool_approval(request_id: &str, call_id: &str, user_id: &Uid) -> ToolApprovalDecision {
+  let (tx, rx) = oneshot::channel();
+  {
+    let mut pending = lock_pending_tool_approvals();
+    if let Some(previous) =
+      pending.insert((request_id.to_owned(), call_id.to_owned()), PendingToolApproval { user_id: user_id.clone(), tx })
+    {
+      let _ = previous.tx.send(false);
+    }
+  }
+  let decision = match tokio::time::timeout(Duration::from_secs(CHAT_TOOL_APPROVAL_TIMEOUT_SECS), rx).await {
+    Ok(Ok(true)) => ToolApprovalDecision::Approved,
+    Ok(Ok(false)) | Ok(Err(_)) => ToolApprovalDecision::Denied,
+    Err(_) => ToolApprovalDecision::TimedOut,
+  };
+  lock_pending_tool_approvals().remove(&(request_id.to_owned(), call_id.to_owned()));
+  decision
+}
+
+enum ToolApprovalResolveError {
+  NotFound,
+  Forbidden,
+}
+
+fn resolve_pending_tool_approval(
+  request_id: &str,
+  call_id: &str,
+  user_id: &Uid,
+  approved: bool,
+) -> Result<(), ToolApprovalResolveError> {
+  let mut pending = lock_pending_tool_approvals();
+  match pending.remove(&(request_id.to_owned(), call_id.to_owned())) {
+    None => Err(ToolApprovalResolveError::NotFound),
+    Some(approval) if approval.user_id != *user_id => {
+      pending.insert((request_id.to_owned(), call_id.to_owned()), approval);
+      Err(ToolApprovalResolveError::Forbidden)
+    }
+    Some(approval) => {
+      let _ = approval.tx.send(approved);
+      Ok(())
+    }
+  }
+}
+
+pub async fn serve_chat_tool_approval_route(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  if request.method() == "OPTIONS" {
+    debug!("Serving OPTIONS request for chat tool approval, assuming CORS query.");
+    return cors_response();
+  }
+  if request.method() != "POST" {
+    return not_found_response();
+  }
+
+  let session_maybe = get_and_validate_session(&request, db).await;
+  let session = match session_maybe {
+    Some(session) => session,
+    None => return forbidden_response(),
+  };
+
+  let request: ChatToolApprovalRequest =
+    match incoming_json_with_limit(request, CHAT_TOOL_APPROVAL_REQUEST_MAX_BYTES).await {
+      Ok(request) => request,
+      Err(e) => {
+        error!("An error occurred parsing chat tool approval payload for user '{}': {}", session.user_id, e);
+        return Response::builder().status(400).body(empty_body()).unwrap();
+      }
+    };
+  if request.request_id.trim().is_empty() || request.call_id.trim().is_empty() {
+    return not_found_response();
+  }
+
+  match resolve_pending_tool_approval(&request.request_id, &request.call_id, &session.user_id, request.approved) {
+    Ok(()) => json_response(&ChatToolApprovalResponse { ok: true }),
+    Err(ToolApprovalResolveError::Forbidden) => forbidden_response(),
+    Err(ToolApprovalResolveError::NotFound) => not_found_response(),
+  }
 }
 
 fn single_chat_stream_event_response(
@@ -930,6 +1093,20 @@ async fn run_chat_model_round(
   Ok(CompletedChatModelRound { number: round, assistant_message, tool_calls })
 }
 
+fn chat_tool_requires_approval(name: &str) -> bool {
+  name == "web_search" || name == "fetch_page"
+}
+
+fn web_tool_approval_prompt(name: &str, arguments: &Value) -> (Option<String>, Option<String>) {
+  match name {
+    "web_search" => {
+      (json_object_string_raw(arguments, "query").or_else(|| json_object_string_raw(arguments, "text")), None)
+    }
+    "fetch_page" => (None, json_object_string_raw(arguments, "url")),
+    _ => (None, None),
+  }
+}
+
 async fn execute_chat_tool_round(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
@@ -940,12 +1117,32 @@ async fn execute_chat_tool_round(
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
   for tool_call in tool_calls {
     let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
+    if chat_tool_requires_approval(&tool_call.function.name) {
+      let (query, url) = web_tool_approval_prompt(&tool_call.function.name, &arguments);
+      progress.tool_approval_required(round, &tool_call.id, &tool_call.function.name, query, url).await;
+      match wait_for_tool_approval(&progress.request_id, &tool_call.id, &session.user_id).await {
+        ToolApprovalDecision::Approved => {}
+        decision => {
+          let tool_result = tool_error_json(match decision {
+            ToolApprovalDecision::TimedOut => "Tool approval timed out.",
+            _ => "User declined.",
+          });
+          let (summary, result_preview) =
+            chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
+          progress
+            .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, 0, result_preview)
+            .await;
+          append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
+          tool_messages.push(LlamaChatMessage::tool(tool_call.id, tool_result));
+          continue;
+        }
+      }
+    }
     progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
     let started_at = Instant::now();
     let tool_result = execute_chat_tool_call(db, session, &tool_call).await?;
     let duration_ms = started_at.elapsed().as_millis() as u64;
-    let (summary, result_preview) =
-      chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
+    let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
     progress
       .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, duration_ms, result_preview)
       .await;
@@ -1186,6 +1383,10 @@ fn json_object_str<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
   value.get(key).and_then(Value::as_str).map(str::trim).filter(|text| !text.is_empty())
 }
 
+fn json_object_string_raw(value: &Value, key: &str) -> Option<String> {
+  value.get(key).and_then(Value::as_str).map(str::to_owned)
+}
+
 fn clipped_preview_text(text: &str) -> (String, bool) {
   clamp_text_chars(text, CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS)
 }
@@ -1278,9 +1479,10 @@ fn get_fragment_tool_activity(parsed: Option<&Value>) -> (String, Value) {
     .map(text_char_count)
     .sum::<usize>();
   let truncated = parsed.get("textTruncated").and_then(Value::as_bool).unwrap_or(false)
-    || fragments.iter().flat_map(|arr| arr.iter()).any(|fragment| {
-      fragment.get("textTruncated").and_then(Value::as_bool).unwrap_or(false)
-    });
+    || fragments
+      .iter()
+      .flat_map(|arr| arr.iter())
+      .any(|fragment| fragment.get("textTruncated").and_then(Value::as_bool).unwrap_or(false));
 
   let mut summary = String::new();
   if let Some(title) = title {
@@ -1442,10 +1644,7 @@ impl LlamaStreamingCompletion {
       .map(|tool_call| LlamaToolCall {
         id: tool_call.id,
         tool_type: tool_call.tool_type,
-        function: LlamaToolCallFunction {
-          name: tool_call.name,
-          arguments: Value::String(tool_call.arguments),
-        },
+        function: LlamaToolCallFunction { name: tool_call.name, arguments: Value::String(tool_call.arguments) },
       })
       .collect::<Vec<_>>();
 

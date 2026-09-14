@@ -45,6 +45,10 @@ function queryChatToolDisplayName(name: string): string {
       return "Search source text";
     case "get_fragment":
       return "Read source text";
+    case "web_search":
+      return "Search the web";
+    case "fetch_page":
+      return "Fetch page";
     default:
       return name.replaceAll("_", " ");
   }
@@ -215,9 +219,9 @@ export const QueryChatActivityRounds: Component<{
                   ? "border-t border-slate-100"
                   : ""
               }`}>
-                <i class={toolCall().status == "running"
-                  ? "fa fa-circle-notch fa-spin mt-[2px] text-slate-400"
-                  : "bi-check-circle mt-[1px] text-emerald-600"} />
+                <i class={toolCall().status == "complete"
+                  ? "bi-check-circle mt-[1px] text-emerald-600"
+                  : "fa fa-circle-notch fa-spin mt-[2px] text-slate-400"} />
                 <div class="min-w-0 grow">
                   <div class="font-medium text-slate-600">{queryChatToolDisplayName(toolCall().name)}</div>
                   <Show when={queryChatToolCallHeadline(toolCall()) != null}>

@@ -149,6 +149,14 @@ export function cancelQueryChatRequest(queryId: Uid): boolean {
   return true;
 }
 
+export async function submitQueryChatToolApproval(
+  requestId: string,
+  callId: string,
+  approved: boolean,
+): Promise<void> {
+  await server.submitChatToolApproval({ requestId, callId, approved });
+}
+
 function chatStatusTextFromEvent(event: ChatStreamEvent): string {
   switch (event.type) {
     case "status":
@@ -159,6 +167,14 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
       return "Thinking";
     case "answer_delta":
       return "Answering";
+    case "tool_approval_required":
+      if (event.name == "web_search") {
+        return "Waiting to search the web";
+      }
+      if (event.name == "fetch_page") {
+        return "Waiting to fetch page";
+      }
+      return "Waiting for approval";
     case "tool_call_started":
       if (event.name == "find" || event.name == "lexical_search") {
         return "Finding items";
@@ -168,6 +184,12 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
       }
       if (event.name == "get_fragment") {
         return "Reading source text";
+      }
+      if (event.name == "web_search") {
+        return "Searching the web";
+      }
+      if (event.name == "fetch_page") {
+        return "Fetching page";
       }
       return `Running ${event.name}`;
     case "tool_call_finished":
@@ -255,10 +277,10 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
         answerPreview: current.answerPreview + event.text,
       };
       break;
-    case "tool_call_started":
+    case "tool_approval_required":
       next = {
         ...current,
-        phase: "using_tools",
+        phase: "awaiting_approval",
         statusText,
         rounds: updateStreamingModelRound(current.rounds, event.round, round => ({
           ...round,
@@ -268,12 +290,39 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
             {
               callId: event.callId,
               name: event.name,
-              status: "running",
+              status: "awaiting_approval" as const,
               summary: null,
-              arguments: event.arguments,
+              query: event.query,
+              url: event.url,
             },
           ],
         })),
+      };
+      break;
+    case "tool_call_started":
+      next = {
+        ...current,
+        phase: "using_tools",
+        statusText,
+        rounds: updateStreamingModelRound(current.rounds, event.round, round => {
+          const existing = round.toolCalls.find(toolCall => toolCall.callId == event.callId);
+          return {
+            ...round,
+            complete: true,
+            toolCalls: [
+              ...round.toolCalls.filter(toolCall => toolCall.callId != event.callId),
+              {
+                callId: event.callId,
+                name: event.name,
+                status: "running" as const,
+                summary: null,
+                arguments: event.arguments ?? existing?.arguments,
+                query: existing?.query,
+                url: existing?.url,
+              },
+            ],
+          };
+        }),
       };
       break;
     case "tool_call_finished":
@@ -290,6 +339,8 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
             status: "complete" as const,
             summary: event.summary,
             arguments: existing?.arguments,
+            query: existing?.query,
+            url: existing?.url,
             durationMs: event.durationMs,
             resultPreview: event.resultPreview,
           };

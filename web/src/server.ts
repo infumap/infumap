@@ -125,6 +125,7 @@ export type ChatStreamPhase =
   "submitted" |
   "thinking" |
   "using_tools" |
+  "awaiting_approval" |
   "answering" |
   "materializing" |
   "complete" |
@@ -140,6 +141,7 @@ export type ChatStreamEvent = ChatStreamEventBase & (
   { type: "model_round_started", round: number } |
   { type: "reasoning_delta", round: number, text: string } |
   { type: "answer_delta", round: number, text: string } |
+  { type: "tool_approval_required", round: number, callId: string, name: string, query?: string, url?: string } |
   { type: "tool_call_started", round: number, callId: string, name: string, arguments?: unknown } |
   { type: "tool_call_finished", round: number, callId: string, name: string, summary: string, durationMs?: number, resultPreview?: unknown } |
   { type: "materializing" } |
@@ -774,6 +776,12 @@ export const server = {
     return streamChatCommand(payload, networkStatus, onEvent, signal);
   },
 
+  submitChatToolApproval: async (
+    payload: { requestId: string, callId: string, approved: boolean },
+  ): Promise<void> => {
+    return submitChatToolApprovalCommand(payload);
+  },
+
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
     return constructCommandPromise(null, COMMAND_EMPTY_TRASH, {}, null, true, networkStatus)
       .then((response: EmptyTrashCommandResponse) => {
@@ -1163,6 +1171,23 @@ async function sendChatStream(
 
   buffer += decoder.decode();
   parseLine(buffer);
+}
+
+async function submitChatToolApprovalCommand(
+  payload: { requestId: string, callId: string, approved: boolean },
+): Promise<void> {
+  const fetchResult = await fetch("/chat/tool-approval", {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "X-Infumap-Chat-Request-Id": payload.requestId,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!fetchResult.ok) {
+    throw new Error(`Chat tool approval request failed: ${fetchResult.status}`);
+  }
 }
 
 export async function post(host: string | null, path: string, json: any) {
