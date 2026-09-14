@@ -274,14 +274,57 @@ struct LlamaChatCompletionRequest {
 }
 
 #[derive(Deserialize)]
-struct LlamaChatCompletionResponse {
+struct LlamaChatCompletionChunk {
+  #[serde(default)]
+  id: Option<String>,
+  #[serde(default)]
   choices: Vec<LlamaChatCompletionChoice>,
+  #[serde(default)]
   usage: Option<LlamaChatCompletionUsage>,
+  #[serde(default)]
+  error: Option<Value>,
 }
 
 #[derive(Deserialize)]
 struct LlamaChatCompletionChoice {
-  message: LlamaChatMessage,
+  #[serde(default)]
+  index: usize,
+  delta: LlamaChatCompletionDelta,
+  #[serde(default)]
+  finish_reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct LlamaChatCompletionDelta {
+  #[serde(default)]
+  role: Option<String>,
+  #[serde(default)]
+  content: Option<String>,
+  #[serde(default)]
+  reasoning_content: Option<String>,
+  #[serde(default)]
+  tool_calls: Vec<LlamaToolCallDelta>,
+  #[serde(default)]
+  finish_reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct LlamaToolCallDelta {
+  index: usize,
+  #[serde(default)]
+  id: Option<String>,
+  #[serde(rename = "type", default)]
+  tool_type: Option<String>,
+  #[serde(default)]
+  function: Option<LlamaToolCallFunctionDelta>,
+}
+
+#[derive(Deserialize)]
+struct LlamaToolCallFunctionDelta {
+  #[serde(default)]
+  name: Option<String>,
+  #[serde(default)]
+  arguments: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -991,6 +1034,214 @@ fn tool_error_json(message: &str) -> String {
   serde_json::json!({ "error": message }).to_string()
 }
 
+#[derive(Default)]
+struct LlamaStreamingToolCall {
+  id: String,
+  tool_type: String,
+  name: String,
+  arguments: String,
+}
+
+#[derive(Default)]
+struct LlamaStreamingCompletion {
+  completion_id: Option<String>,
+  role: String,
+  content: String,
+  reasoning_content: String,
+  tool_calls: Vec<Option<LlamaStreamingToolCall>>,
+  finish_reason: Option<String>,
+  usage: Option<LlamaChatCompletionUsage>,
+  saw_choice: bool,
+}
+
+impl LlamaStreamingCompletion {
+  fn apply_chunk(&mut self, chunk: LlamaChatCompletionChunk) -> InfuResult<()> {
+    if let Some(error) = chunk.error {
+      return Err(format!("llama-server returned a streaming error: {}", error).into());
+    }
+    if let Some(completion_id) = chunk.id {
+      self.completion_id = Some(completion_id);
+    }
+    if let Some(usage) = chunk.usage {
+      self.usage = Some(usage);
+    }
+
+    for choice in chunk.choices {
+      if choice.index != 0 {
+        continue;
+      }
+      self.saw_choice = true;
+      if let Some(finish_reason) = choice.finish_reason.or(choice.delta.finish_reason.clone()) {
+        self.finish_reason = Some(finish_reason);
+      }
+      if let Some(role) = choice.delta.role {
+        self.role = role;
+      }
+      if let Some(content) = choice.delta.content {
+        self.content.push_str(&content);
+      }
+      if let Some(reasoning_content) = choice.delta.reasoning_content {
+        self.reasoning_content.push_str(&reasoning_content);
+      }
+      for tool_call_delta in choice.delta.tool_calls {
+        if self.tool_calls.len() <= tool_call_delta.index {
+          self.tool_calls.resize_with(tool_call_delta.index + 1, || None);
+        }
+        let tool_call = self.tool_calls[tool_call_delta.index].get_or_insert_with(Default::default);
+        if let Some(id) = tool_call_delta.id {
+          tool_call.id.push_str(&id);
+        }
+        if let Some(tool_type) = tool_call_delta.tool_type {
+          tool_call.tool_type.push_str(&tool_type);
+        }
+        if let Some(function) = tool_call_delta.function {
+          if let Some(name) = function.name {
+            tool_call.name.push_str(&name);
+          }
+          if let Some(arguments) = function.arguments {
+            tool_call.arguments.push_str(&arguments);
+          }
+        }
+      }
+    }
+
+    Ok(())
+  }
+
+  fn response_log_value(&self) -> Value {
+    serde_json::json!({
+      "id": self.completion_id,
+      "role": if self.role.is_empty() { "assistant" } else { self.role.as_str() },
+      "reasoning_content": self.reasoning_content,
+      "content": self.content,
+      "tool_calls": self.tool_calls.iter().filter_map(|tool_call| tool_call.as_ref()).map(|tool_call| {
+        serde_json::json!({
+          "id": tool_call.id,
+          "type": tool_call.tool_type,
+          "function": {
+            "name": tool_call.name,
+            "arguments": tool_call.arguments,
+          }
+        })
+      }).collect::<Vec<_>>(),
+      "finish_reason": self.finish_reason,
+      "stream_done": true,
+    })
+  }
+
+  fn into_message(self) -> InfuResult<LlamaChatMessage> {
+    if !self.saw_choice {
+      return Err("llama-server returned no chat response choices.".into());
+    }
+
+    let tool_calls = self
+      .tool_calls
+      .into_iter()
+      .flatten()
+      .map(|tool_call| LlamaToolCall {
+        id: tool_call.id,
+        tool_type: if tool_call.tool_type.is_empty() { default_llama_tool_call_type() } else { tool_call.tool_type },
+        function: LlamaToolCallFunction {
+          name: tool_call.name,
+          arguments: Value::String(if tool_call.arguments.is_empty() { "{}".to_owned() } else { tool_call.arguments }),
+        },
+      })
+      .collect::<Vec<_>>();
+
+    Ok(LlamaChatMessage {
+      role: if self.role.is_empty() { "assistant".to_owned() } else { self.role },
+      content: if self.content.is_empty() { None } else { Some(self.content) },
+      tool_call_id: None,
+      tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+    })
+  }
+}
+
+#[derive(Default)]
+struct LlamaSseDecoder {
+  pending_bytes: Vec<u8>,
+  data_lines: Vec<String>,
+}
+
+impl LlamaSseDecoder {
+  fn push(&mut self, bytes: &[u8]) -> InfuResult<Vec<String>> {
+    self.pending_bytes.extend_from_slice(bytes);
+    self.consume_complete_lines(false)
+  }
+
+  fn finish(&mut self) -> InfuResult<Vec<String>> {
+    self.consume_complete_lines(true)
+  }
+
+  fn consume_complete_lines(&mut self, flush: bool) -> InfuResult<Vec<String>> {
+    let mut events = Vec::new();
+    let mut consumed = 0usize;
+    while let Some(relative_newline) = self.pending_bytes[consumed..].iter().position(|byte| *byte == b'\n') {
+      let newline = consumed + relative_newline;
+      process_llama_sse_line(&self.pending_bytes[consumed..newline], &mut self.data_lines, &mut events)?;
+      consumed = newline + 1;
+    }
+    if consumed > 0 {
+      self.pending_bytes.drain(..consumed);
+    }
+
+    if flush {
+      if !self.pending_bytes.is_empty() {
+        process_llama_sse_line(&self.pending_bytes, &mut self.data_lines, &mut events)?;
+        self.pending_bytes.clear();
+      }
+      dispatch_llama_sse_event(&mut self.data_lines, &mut events);
+    }
+
+    Ok(events)
+  }
+}
+
+fn process_llama_sse_line(raw_line: &[u8], data_lines: &mut Vec<String>, events: &mut Vec<String>) -> InfuResult<()> {
+  let raw_line = raw_line.strip_suffix(b"\r").unwrap_or(raw_line);
+  let line = std::str::from_utf8(raw_line)
+    .map_err(|e| format!("llama-server SSE response contained invalid UTF-8: {}", error_chain_for_log(&e)))?;
+  if line.is_empty() {
+    dispatch_llama_sse_event(data_lines, events);
+    return Ok(());
+  }
+  if line.starts_with(':') {
+    return Ok(());
+  }
+
+  let (field, value) = line.split_once(':').unwrap_or((line, ""));
+  if field == "data" {
+    data_lines.push(value.strip_prefix(' ').unwrap_or(value).to_owned());
+  }
+  Ok(())
+}
+
+fn dispatch_llama_sse_event(data_lines: &mut Vec<String>, events: &mut Vec<String>) {
+  if !data_lines.is_empty() {
+    events.push(std::mem::take(data_lines).join("\n"));
+  }
+}
+
+fn apply_llama_sse_data(data: &str, completion: &mut LlamaStreamingCompletion) -> InfuResult<bool> {
+  let trimmed = data.trim();
+  if trimmed.is_empty() {
+    return Ok(false);
+  }
+  if trimmed == "[DONE]" {
+    return Ok(true);
+  }
+
+  let chunk: LlamaChatCompletionChunk = serde_json::from_str(trimmed).map_err(|e| {
+    format!(
+      "Could not parse llama-server SSE data as a chat completion chunk: {}. Data: {}",
+      error_chain_for_log(&e),
+      truncate_for_error(trimmed, 1000),
+    )
+  })?;
+  completion.apply_chunk(chunk)?;
+  Ok(false)
+}
+
 async fn llama_chat_completion(
   config: &Config,
   messages: &[LlamaChatMessage],
@@ -1006,41 +1257,65 @@ async fn llama_chat_completion(
   let payload = LlamaChatCompletionRequest {
     model: "default".to_owned(),
     messages: messages.to_vec(),
-    stream: false,
+    stream: true,
     tools: tools.to_vec(),
   };
   append_llm_request_metrics_log(llm_turn, messages, tools);
   append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &payload);
   let response = client
     .post(url.clone())
+    .header(reqwest::header::ACCEPT, "text/event-stream")
     .json(&payload)
     .send()
     .await
     .map_err(|e| format!("Could not send chat request to llama-server '{}': {}", url, reqwest_error_for_log(&e)))?;
 
   let status = response.status();
-  let body = response
-    .text()
-    .await
-    .map_err(|e| format!("Could not read llama-server response body: {}", reqwest_error_for_log(&e)))?;
-  append_llm_log_section(&format!("LLM RESPONSE {}", llm_turn), &body);
   if !status.is_success() {
+    let body = response
+      .text()
+      .await
+      .map_err(|e| format!("Could not read llama-server error response body: {}", reqwest_error_for_log(&e)))?;
+    append_llm_log_section(&format!("LLM RESPONSE {}", llm_turn), &body);
     return Err(
       format!("llama-server chat endpoint '{}' returned {}: {}", url, status, truncate_for_error(&body, 1000)).into(),
     );
   }
 
-  let parsed: LlamaChatCompletionResponse = serde_json::from_str(&body)
-    .map_err(|e| format!("Could not parse llama-server chat response: {}", error_chain_for_log(&e)))?;
-  if let Some(usage) = parsed.usage.as_ref() {
+  let mut response_stream = response.bytes_stream();
+  let mut decoder = LlamaSseDecoder::default();
+  let mut completion = LlamaStreamingCompletion::default();
+  let mut saw_done = false;
+  while let Some(chunk) = futures_util::StreamExt::next(&mut response_stream).await {
+    let chunk =
+      chunk.map_err(|e| format!("Could not read llama-server SSE response body: {}", reqwest_error_for_log(&e)))?;
+    for data in decoder.push(&chunk)? {
+      if apply_llama_sse_data(&data, &mut completion)? {
+        saw_done = true;
+        break;
+      }
+    }
+    if saw_done {
+      break;
+    }
+  }
+  if !saw_done {
+    for data in decoder.finish()? {
+      if apply_llama_sse_data(&data, &mut completion)? {
+        saw_done = true;
+        break;
+      }
+    }
+  }
+  if !saw_done {
+    return Err("llama-server SSE response ended before the [DONE] event.".into());
+  }
+
+  append_llm_json_log_section(&format!("LLM RESPONSE {}", llm_turn), &completion.response_log_value());
+  if let Some(usage) = completion.usage.as_ref() {
     append_llm_json_log_section(&format!("LLM RESPONSE USAGE {}", llm_turn), usage);
   }
-  parsed
-    .choices
-    .into_iter()
-    .next()
-    .map(|choice| choice.message)
-    .ok_or_else(|| "llama-server returned no chat response choices.".into())
+  completion.into_message()
 }
 
 struct ChatMarkdownNote {
