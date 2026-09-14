@@ -29,7 +29,7 @@ import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
-import { server, type ChatMessage, type ChatStreamEvent } from "../server";
+import { server, type ChatMessage, type ChatStreamEvent, type ChatStreamPhase } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import type { ChatCapability } from "../store/StoreProvider_PerItem";
@@ -53,34 +53,54 @@ function makeQueryChatItemReadOnly(item: Item): void {
   };
 }
 
-export interface ChatProgress {
-  text: string,
+export interface ChatStreamingToolCall {
+  callId: string,
+  name: string,
+  status: "running" | "complete",
+  summary: string | null,
 }
 
-const chatProgressByQueryId = new Map<Uid, ChatProgress>();
-const [chatProgressRevision, setChatProgressRevision] = createSignal(0, { equals: false });
-
-export function chatProgressForQuery(queryId: Uid): ChatProgress | null {
-  chatProgressRevision();
-  return chatProgressByQueryId.get(queryId) ?? null;
+export interface ChatStreamingModelRound {
+  number: number,
+  reasoning: string,
+  answer: string,
+  toolCalls: Array<ChatStreamingToolCall>,
+  complete: boolean,
 }
 
-function setQueryChatProgress(queryId: Uid, text: string): void {
-  if (chatProgressByQueryId.get(queryId)?.text == text) {
+export interface ChatStreamingState {
+  requestId: string,
+  phase: ChatStreamPhase,
+  statusText: string,
+  rounds: Array<ChatStreamingModelRound>,
+  answerPreview: string,
+  startedAt: number,
+  errorMessage: string | null,
+}
+
+const chatStreamingStateByQueryId = new Map<Uid, ChatStreamingState>();
+const [chatStreamingStateRevision, setChatStreamingStateRevision] = createSignal(0, { equals: false });
+
+export function chatStreamingStateForQuery(queryId: Uid): ChatStreamingState | null {
+  chatStreamingStateRevision();
+  return chatStreamingStateByQueryId.get(queryId) ?? null;
+}
+
+function setQueryChatStreamingState(queryId: Uid, state: ChatStreamingState): void {
+  chatStreamingStateByQueryId.set(queryId, state);
+  setChatStreamingStateRevision(chatStreamingStateRevision() + 1);
+}
+
+function clearQueryChatStreamingState(queryId: Uid, requestId?: string): void {
+  const current = chatStreamingStateByQueryId.get(queryId);
+  if (current == null || (requestId != null && current.requestId != requestId)) {
     return;
   }
-  chatProgressByQueryId.set(queryId, { text });
-  setChatProgressRevision(chatProgressRevision() + 1);
+  chatStreamingStateByQueryId.delete(queryId);
+  setChatStreamingStateRevision(chatStreamingStateRevision() + 1);
 }
 
-function clearQueryChatProgress(queryId: Uid): void {
-  if (!chatProgressByQueryId.delete(queryId)) {
-    return;
-  }
-  setChatProgressRevision(chatProgressRevision() + 1);
-}
-
-function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
+function chatStatusTextFromEvent(event: ChatStreamEvent): string {
   switch (event.type) {
     case "status":
       return event.text;
@@ -91,7 +111,7 @@ function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
     case "answer_delta":
       return "Answering";
     case "tool_call_started":
-      if (event.name == "find") {
+      if (event.name == "find" || event.name == "lexical_search") {
         return "Finding items";
       }
       if (event.name == "search_text") {
@@ -102,7 +122,7 @@ function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
       }
       return `Running ${event.name}`;
     case "tool_call_finished":
-      if (event.name == "find") {
+      if (event.name == "find" || event.name == "lexical_search") {
         return "Find complete";
       }
       if (event.name == "search_text") {
@@ -120,9 +140,146 @@ function chatProgressTextFromEvent(event: ChatStreamEvent): string | null {
       return "Chat cancelled";
     case "error":
       return "Chat failed";
-    default:
-      return null;
   }
+}
+
+function emptyStreamingModelRound(number: number): ChatStreamingModelRound {
+  return { number, reasoning: "", answer: "", toolCalls: [], complete: false };
+}
+
+function updateStreamingModelRound(
+  rounds: Array<ChatStreamingModelRound>,
+  roundNumber: number,
+  update: (round: ChatStreamingModelRound) => ChatStreamingModelRound,
+): Array<ChatStreamingModelRound> {
+  const existingIndex = rounds.findIndex(round => round.number == roundNumber);
+  if (existingIndex == -1) {
+    return [...rounds, update(emptyStreamingModelRound(roundNumber))];
+  }
+  return rounds.map((round, index) => index == existingIndex ? update(round) : round);
+}
+
+function completeStreamingModelRounds(rounds: Array<ChatStreamingModelRound>): Array<ChatStreamingModelRound> {
+  return rounds.map(round => round.complete ? round : { ...round, complete: true });
+}
+
+function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
+  const current = chatStreamingStateByQueryId.get(queryId);
+  if (current == null || current.requestId != event.requestId) {
+    throw new Error("Received a chat stream event without a matching active request.");
+  }
+
+  const statusText = chatStatusTextFromEvent(event);
+  let next: ChatStreamingState;
+  switch (event.type) {
+    case "status":
+      next = { ...current, statusText };
+      break;
+    case "model_round_started":
+      next = {
+        ...current,
+        phase: "thinking",
+        statusText,
+        rounds: updateStreamingModelRound(
+          completeStreamingModelRounds(current.rounds),
+          event.round,
+          round => ({ ...round, complete: false }),
+        ),
+        answerPreview: "",
+      };
+      break;
+    case "reasoning_delta":
+      next = {
+        ...current,
+        phase: "thinking",
+        statusText,
+        rounds: updateStreamingModelRound(current.rounds, event.round, round => ({
+          ...round,
+          reasoning: round.reasoning + event.text,
+        })),
+      };
+      break;
+    case "answer_delta":
+      next = {
+        ...current,
+        phase: "answering",
+        statusText,
+        rounds: updateStreamingModelRound(current.rounds, event.round, round => ({
+          ...round,
+          answer: round.answer + event.text,
+        })),
+        answerPreview: current.answerPreview + event.text,
+      };
+      break;
+    case "tool_call_started":
+      next = {
+        ...current,
+        phase: "using_tools",
+        statusText,
+        rounds: updateStreamingModelRound(current.rounds, event.round, round => ({
+          ...round,
+          complete: true,
+          toolCalls: [
+            ...round.toolCalls.filter(toolCall => toolCall.callId != event.callId),
+            { callId: event.callId, name: event.name, status: "running", summary: null },
+          ],
+        })),
+      };
+      break;
+    case "tool_call_finished":
+      next = {
+        ...current,
+        phase: "using_tools",
+        statusText,
+        rounds: updateStreamingModelRound(current.rounds, event.round, round => {
+          const existingIndex = round.toolCalls.findIndex(toolCall => toolCall.callId == event.callId);
+          const completed = { callId: event.callId, name: event.name, status: "complete" as const, summary: event.summary };
+          return {
+            ...round,
+            complete: true,
+            toolCalls: existingIndex == -1
+              ? [...round.toolCalls, completed]
+              : round.toolCalls.map((toolCall, index) => index == existingIndex ? completed : toolCall),
+          };
+        }),
+      };
+      break;
+    case "materializing":
+      next = {
+        ...current,
+        phase: "materializing",
+        statusText,
+        rounds: completeStreamingModelRounds(current.rounds),
+      };
+      break;
+    case "final_items":
+      next = {
+        ...current,
+        phase: "complete",
+        statusText,
+        rounds: completeStreamingModelRounds(current.rounds),
+        answerPreview: event.text,
+      };
+      break;
+    case "cancelled":
+      next = {
+        ...current,
+        phase: "cancelled",
+        statusText,
+        rounds: completeStreamingModelRounds(current.rounds),
+      };
+      break;
+    case "error":
+      next = {
+        ...current,
+        phase: "error",
+        statusText,
+        rounds: completeStreamingModelRounds(current.rounds),
+        errorMessage: event.message,
+      };
+      break;
+  }
+  setQueryChatStreamingState(queryId, next);
 }
 
 function titleFromPrompt(prompt: string): string {
@@ -384,36 +541,48 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
   const messages = [...queryChatMessages(store, queryItem)];
   requestArrange(store, "query-chat-user-turn");
 
-  let clearProgressOnExit = true;
-  setQueryChatProgress(queryItem.id, "Preparing request");
+  const requestId = newUid();
+  let clearStreamingStateOnExit = true;
+  setQueryChatStreamingState(queryItem.id, {
+    requestId,
+    phase: "submitted",
+    statusText: "Preparing request",
+    rounds: [],
+    answerPreview: "",
+    startedAt: Date.now(),
+    errorMessage: null,
+  });
   try {
     const response = await server.chatStream({
-      requestId: newUid(),
+      requestId,
       messages,
       capabilities: queryChatCapabilities(store, queryItem),
     }, store.general.networkStatus, (event) => {
-      const progressText = chatProgressTextFromEvent(event);
-      if (progressText != null) {
-        setQueryChatProgress(queryItem.id, progressText);
-      }
+      applyQueryChatStreamEvent(queryItem.id, event);
     });
 
     addServerReturnedQueryItems(store, queryItem, response.items);
     appendQueryChatMessage(store, queryItem, { role: "assistant", content: response.assistantText });
     requestArrange(store, "query-chat-assistant-turn");
   } catch (e) {
-    const failedProgress = "Chat failed";
-    setQueryChatProgress(queryItem.id, failedProgress);
+    const current = chatStreamingStateByQueryId.get(queryItem.id);
+    if (current?.requestId == requestId && current.phase != "error") {
+      setQueryChatStreamingState(queryItem.id, {
+        ...current,
+        phase: "error",
+        statusText: "Chat failed",
+        rounds: completeStreamingModelRounds(current.rounds),
+        errorMessage: e instanceof Error ? e.message : String(e),
+      });
+    }
     window.setTimeout(() => {
-      if (chatProgressByQueryId.get(queryItem.id)?.text == failedProgress) {
-        clearQueryChatProgress(queryItem.id);
-      }
+      clearQueryChatStreamingState(queryItem.id, requestId);
     }, 3000);
-    clearProgressOnExit = false;
+    clearStreamingStateOnExit = false;
     console.error("Failed to submit query chat message:", e);
   } finally {
-    if (clearProgressOnExit) {
-      clearQueryChatProgress(queryItem.id);
+    if (clearStreamingStateOnExit) {
+      clearQueryChatStreamingState(queryItem.id, requestId);
     }
   }
 }
@@ -500,7 +669,7 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       messages: [],
     },
   }));
-  clearQueryChatProgress(queryItem.id);
+  clearQueryChatStreamingState(queryItem.id);
 }
 
 export function resetQueryChatSession(store: StoreContextModel, queryItem: QueryItem, arrangeReason?: string): void {

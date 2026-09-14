@@ -75,7 +75,7 @@ import {
   startQueryChat,
 } from "../../items/query";
 import {
-  chatProgressForQuery,
+  chatStreamingStateForQuery,
   materializeQueryChat,
   queryChatUsesInfumapData,
   queryChatHasContent,
@@ -741,7 +741,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       960,
     );
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
-    const progress = () => chatProgressForQuery(queryItem().id);
+    const streamingState = () => chatStreamingStateForQuery(queryItem().id);
     const wrapperHeightPx = () => chatTextareaHeightPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
     const chatRequestActive = () => isStartingChat() || isSendingChat();
     const stop = (ev: Event) => {
@@ -789,9 +789,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             class="flex items-center px-1 text-[#555]"
             style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px; ` +
               `padding-right: ${QUERY_CHAT_TRAILING_CONTROLS_WIDTH_PX}px;`}>
-            <Show when={progress() != null}>
+            <Show when={streamingState() != null}>
               <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;">
-                {progress()!.text}
+                {streamingState()!.statusText}
               </div>
             </Show>
             <label
