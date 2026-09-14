@@ -932,8 +932,8 @@ async fn run_chat_with_tools(
       continue;
     }
 
-    let content = completed_round.assistant_message.content.unwrap_or_default().trim().to_owned();
-    if content.is_empty() {
+    let content = completed_round.assistant_message.content.unwrap_or_default();
+    if content.trim().is_empty() {
       return Err("llama-server returned an empty chat response.".into());
     }
     return Ok(content);

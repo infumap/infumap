@@ -77,10 +77,11 @@ enum ChatMarkdownItem {
 pub(super) fn chat_response_items_json(owner_id: &Uid, assistant_text: &str) -> Value {
   let now = unix_now_secs_u64().unwrap();
   let composite_id = new_uid();
-  let mut parsed_items = chat_markdown_items_from_text(assistant_text);
+  let display_text = assistant_text.trim();
+  let mut parsed_items = chat_markdown_items_from_text(display_text);
 
   if parsed_items.is_empty() {
-    push_chat_markdown_note(&mut parsed_items, assistant_text, 0);
+    push_chat_markdown_note(&mut parsed_items, display_text, 0);
   }
 
   let mut items = Vec::with_capacity(parsed_items.len() + 1);
