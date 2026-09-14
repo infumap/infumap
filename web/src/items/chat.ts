@@ -100,20 +100,15 @@ export function chatStreamingStateForQuery(queryId: Uid): ChatStreamingState | n
   return chatStreamingStateByQueryId.get(queryId) ?? null;
 }
 
-export function completedQueryChatActivityForQuery(
+export function completedQueryChatActivitiesForQuery(
   store: StoreContextModel,
   queryItem: QueryItem,
-): QueryChatCompletedActivity | null {
+): Array<QueryChatCompletedActivity> {
   const chat = getQueryRuntime(store, queryItem).chat;
   const currentRootIds = new Set(chat.rootItemIds ?? []);
-  const activities = chat.completedActivities ?? [];
-  for (let i = activities.length - 1; i >= 0; i--) {
-    const activity = activities[i];
-    if (activity.assistantRootIds.some(rootId => currentRootIds.has(rootId))) {
-      return activity;
-    }
-  }
-  return null;
+  return (chat.completedActivities ?? []).filter(activity =>
+    activity.assistantRootIds.some(rootId => currentRootIds.has(rootId))
+  );
 }
 
 function setQueryChatStreamingState(queryId: Uid, state: ChatStreamingState): void {
