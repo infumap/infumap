@@ -714,12 +714,32 @@ function lastRoundReasoningContent(rounds: Array<ChatStreamingModelRound>): stri
   return reasoning;
 }
 
+function nextQueryChatMessages(
+  currentMessages: Array<ChatMessage>,
+  assistantText: string,
+  reasoningContent: string | undefined,
+  transcriptMessages: Array<ChatMessage> | undefined,
+): Array<ChatMessage> {
+  if (transcriptMessages != null && transcriptMessages.length > 0) {
+    return [...transcriptMessages];
+  }
+  return [
+    ...currentMessages,
+    {
+      role: "assistant",
+      content: assistantText,
+      ...(reasoningContent == null ? {} : { reasoningContent }),
+    },
+  ];
+}
+
 function finalizeServerReturnedQueryItems(
   store: StoreContextModel,
   queryItem: QueryItem,
   itemObjects: Array<object>,
   assistantText: string,
   streamingState: ChatStreamingState,
+  transcriptMessages: Array<ChatMessage> | undefined,
 ): Array<Item> {
   const staged = stageServerReturnedQueryItems(store, queryItem, itemObjects);
   const previousRuntime = getQueryRuntime(store, queryItem);
@@ -750,11 +770,12 @@ function finalizeServerReturnedQueryItems(
         chat: {
           ...current.chat,
           rootItemIds: nextRootIds,
-          messages: [...(current.chat.messages ?? []), {
-            role: "assistant",
-            content: assistantText,
-            ...(reasoningContent == null ? {} : { reasoningContent }),
-          }],
+          messages: nextQueryChatMessages(
+            current.chat.messages ?? [],
+            assistantText,
+            reasoningContent,
+            transcriptMessages,
+          ),
           completedActivities: [...(current.chat.completedActivities ?? []), completedActivity],
         },
       }));
@@ -833,6 +854,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
       response.items,
       response.assistantText,
       finalStreamingState,
+      response.messages,
     );
     requestArrange(store, "query-chat-assistant-turn");
   } catch (e) {

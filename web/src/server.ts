@@ -92,10 +92,21 @@ export interface SearchResponse {
   hasMore: boolean,
 }
 
+export interface ChatToolCall {
+  id: string,
+  type?: string,
+  function: {
+    name: string,
+    arguments: unknown,
+  },
+}
+
 export interface ChatMessage {
-  role: "user" | "assistant",
-  content: string,
+  role: "user" | "assistant" | "tool",
+  content?: string,
   reasoningContent?: string,
+  toolCallId?: string,
+  toolCalls?: Array<ChatToolCall>,
 }
 
 export interface ChatRequest {
@@ -107,6 +118,7 @@ export interface ChatRequest {
 export interface ChatResponse {
   items: Array<object>,
   assistantText: string,
+  messages?: Array<ChatMessage>,
 }
 
 export type ChatStreamPhase =
@@ -131,7 +143,7 @@ export type ChatStreamEvent = ChatStreamEventBase & (
   { type: "tool_call_started", round: number, callId: string, name: string, arguments?: unknown } |
   { type: "tool_call_finished", round: number, callId: string, name: string, summary: string, durationMs?: number, resultPreview?: unknown } |
   { type: "materializing" } |
-  { type: "final_items", text: string, items: Array<object> } |
+  { type: "final_items", text: string, items: Array<object>, messages?: Array<ChatMessage> } |
   { type: "cancelled" } |
   { type: "error", message: string }
 );
@@ -489,6 +501,7 @@ async function streamChatCommand(
 
   let finalItems: Array<object> | null = null;
   let finalAssistantText: string | null = null;
+  let finalMessages: Array<ChatMessage> | undefined;
   let errorMessage: string | null = null;
   try {
     await sendChatStream(payload, (event) => {
@@ -499,6 +512,9 @@ async function streamChatCommand(
       if (event.type == "final_items") {
         finalItems = event.items;
         finalAssistantText = event.text;
+        if (Array.isArray(event.messages) && event.messages.length > 0) {
+          finalMessages = event.messages;
+        }
       } else if (event.type == "error") {
         errorMessage = event.message;
       }
@@ -512,7 +528,7 @@ async function streamChatCommand(
     if (finalAssistantText == null) {
       throw new Error("Chat stream ended without assistant text.");
     }
-    return { items: finalItems, assistantText: finalAssistantText };
+    return { items: finalItems, assistantText: finalAssistantText, messages: finalMessages };
   } catch (error) {
     if (signal?.aborted !== true) {
       trackNetworkCommandError(commandObj, error);

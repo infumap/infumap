@@ -67,12 +67,52 @@ struct ChatRequest {
   capabilities: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct ChatHistoryMessage {
   role: String,
-  content: String,
-  #[serde(rename = "reasoningContent", default)]
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  content: Option<String>,
+  #[serde(rename = "reasoningContent", default, skip_serializing_if = "Option::is_none")]
   reasoning_content: Option<String>,
+  #[serde(rename = "toolCallId", default, skip_serializing_if = "Option::is_none")]
+  tool_call_id: Option<String>,
+  #[serde(rename = "toolCalls", default, skip_serializing_if = "Option::is_none")]
+  tool_calls: Option<Vec<LlamaToolCall>>,
+}
+
+impl ChatHistoryMessage {
+  fn from_llama(message: &LlamaChatMessage) -> Self {
+    Self {
+      role: message.role.clone(),
+      content: message.content.clone(),
+      reasoning_content: message.reasoning_content.clone().filter(|text| !text.is_empty()),
+      tool_call_id: message.tool_call_id.clone().filter(|text| !text.is_empty()),
+      tool_calls: message.tool_calls.clone().filter(|tool_calls| !tool_calls.is_empty()),
+    }
+  }
+
+  fn into_llama(&self, role: &str) -> LlamaChatMessage {
+    LlamaChatMessage {
+      role: role.to_owned(),
+      content: self.content.clone(),
+      reasoning_content: if role == "assistant" {
+        self.reasoning_content.clone().filter(|text| !text.is_empty())
+      } else {
+        None
+      },
+      tool_call_id: if role == "tool" { self.tool_call_id.clone().filter(|text| !text.is_empty()) } else { None },
+      tool_calls: if role == "assistant" {
+        self.tool_calls.clone().filter(|tool_calls| !tool_calls.is_empty())
+      } else {
+        None
+      },
+    }
+  }
+}
+
+struct ChatRunResult {
+  assistant_text: String,
+  messages: Vec<ChatHistoryMessage>,
 }
 
 impl ChatRequest {
@@ -137,6 +177,7 @@ enum ChatStreamEventKind {
   FinalItems {
     text: String,
     items: Value,
+    messages: Vec<ChatHistoryMessage>,
   },
   #[allow(dead_code)] // Reserved for explicit server-originated cancellation.
   Cancelled,
@@ -172,8 +213,8 @@ impl ChatStreamEventKind {
     }
   }
 
-  fn final_items(items: Value, assistant_text: &str) -> Self {
-    Self::FinalItems { text: assistant_text.to_owned(), items }
+  fn final_items(items: Value, assistant_text: &str, messages: Vec<ChatHistoryMessage>) -> Self {
+    Self::FinalItems { text: assistant_text.to_owned(), items, messages }
   }
 
   fn error(message: &str) -> Self {
@@ -272,11 +313,6 @@ impl LlamaChatMessage {
       tool_call_id: Some(tool_call_id),
       tool_calls: None,
     }
-  }
-
-  fn with_reasoning_content(mut self, reasoning_content: Option<String>) -> Self {
-    self.reasoning_content = reasoning_content.filter(|text| !text.is_empty());
-    self
   }
 }
 
@@ -463,11 +499,11 @@ pub async fn serve_chat_stream_route(
       result = run_chat_with_tools(config, &db, &session, &request, &progress) => result,
     };
     match result {
-      Ok(assistant_text) => {
+      Ok(result) => {
         progress.send(ChatStreamEventKind::Materializing).await;
-        let response = chat_response_items_json(&user_id, &assistant_text);
+        let response = chat_response_items_json(&user_id, &result.assistant_text);
         let items = response.get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()));
-        progress.send(ChatStreamEventKind::final_items(items, &assistant_text)).await;
+        progress.send(ChatStreamEventKind::final_items(items, &result.assistant_text, result.messages)).await;
       }
       Err(e) => {
         warn!("An error occurred servicing a streaming chat request for user '{}': {}.", user_id, e);
@@ -600,20 +636,28 @@ fn message_reasoning_chars(message: &LlamaChatMessage) -> usize {
 }
 
 fn explicit_llama_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<LlamaChatMessage>> {
+  let mut llama_messages = Vec::with_capacity(messages.len());
+  for (index, message) in messages.iter().enumerate() {
+    let role = message.role.trim().to_lowercase();
+    if role == "system" {
+      continue;
+    }
+    if role != "user" && role != "assistant" && role != "tool" {
+      return Err(format!("Chat history message {} has unsupported role '{}'.", index, message.role).into());
+    }
+    if role == "tool" && message.tool_call_id.as_deref().unwrap_or("").trim().is_empty() {
+      return Err(format!("Chat history message {} is missing toolCallId.", index).into());
+    }
+    llama_messages.push(message.into_llama(&role));
+  }
+  Ok(llama_messages)
+}
+
+fn chat_history_from_llama_messages(messages: &[LlamaChatMessage]) -> Vec<ChatHistoryMessage> {
   messages
     .iter()
-    .enumerate()
-    .map(|(index, message)| {
-      let role = message.role.trim().to_lowercase();
-      if role != "user" && role != "assistant" {
-        return Err(format!("Chat history message {} has unsupported role '{}'.", index, message.role).into());
-      }
-      Ok(
-        LlamaChatMessage::text(&role, message.content.clone()).with_reasoning_content(
-          if role == "assistant" { message.reasoning_content.clone() } else { None },
-        ),
-      )
-    })
+    .filter(|message| !message.role.eq_ignore_ascii_case("system"))
+    .map(ChatHistoryMessage::from_llama)
     .collect()
 }
 
@@ -896,7 +940,7 @@ async fn run_chat_with_tools(
   session: &Session,
   request: &ChatRequest,
   progress: &ChatProgressReporter,
-) -> InfuResult<String> {
+) -> InfuResult<ChatRunResult> {
   reset_llm_log();
 
   let mut messages = llama_messages_from_chat_request(request)?;
@@ -932,11 +976,12 @@ async fn run_chat_with_tools(
       continue;
     }
 
-    let content = completed_round.assistant_message.content.unwrap_or_default();
-    if content.trim().is_empty() {
+    messages.push(completed_round.assistant_message);
+    let assistant_text = messages.last().and_then(|message| message.content.clone()).unwrap_or_default();
+    if assistant_text.trim().is_empty() {
       return Err("llama-server returned an empty chat response.".into());
     }
-    return Ok(content);
+    return Ok(ChatRunResult { assistant_text, messages: chat_history_from_llama_messages(&messages) });
   }
 }
 
