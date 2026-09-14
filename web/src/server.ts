@@ -748,19 +748,6 @@ export const server = {
       .then((response: any) => normalizeSearchResponse(response));
   },
 
-  chat: async (payload: ChatRequest, networkStatus: NumberSignal): Promise<ChatResponse> => {
-    return constructCommandPromise(null, COMMAND_CHAT, payload, null, false, networkStatus)
-      .then((response: any) => {
-        if (typeof response?.assistantText != "string") {
-          throw new Error("Chat response did not include assistant text.");
-        }
-        return {
-          items: Array.isArray(response?.items) ? response.items : [],
-          assistantText: response.assistantText,
-        };
-      });
-  },
-
   chatStream: async (
     payload: ChatRequest,
     networkStatus: NumberSignal,

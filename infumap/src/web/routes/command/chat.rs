@@ -380,27 +380,6 @@ struct ChatFragmentToolArguments {
   ordinal: Option<i64>,
 }
 
-pub(super) async fn handle_chat(
-  config: Arc<Config>,
-  db: &Arc<tokio::sync::Mutex<Db>>,
-  json_data: &str,
-  session_maybe: &Option<Session>,
-) -> InfuResult<Option<String>> {
-  let session = match session_maybe {
-    Some(session) => session,
-    None => {
-      return Err(format!("Session is required to run a chat query.").into());
-    }
-  };
-
-  let request: ChatRequest =
-    serde_json::from_str(json_data).map_err(|e| format!("Could not parse chat request: {}", e))?;
-  let assistant_text = run_chat_with_tools(config, db, session, &request).await?;
-  let mut response = chat_response_items_json(&session.user_id, &assistant_text);
-  response["assistantText"] = Value::String(assistant_text);
-  Ok(Some(response.to_string()))
-}
-
 pub async fn serve_chat_stream_route(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -453,7 +432,7 @@ pub async fn serve_chat_stream_route(
         debug!("Cancelling streaming chat request '{}' for user '{}' after the client disconnected.", progress.request_id, user_id);
         return;
       }
-      result = run_chat_with_tools_with_progress(config, &db, &session, &request, Some(&progress)) => result,
+      result = run_chat_with_tools(config, &db, &session, &request, &progress) => result,
     };
     match result {
       Ok(assistant_text) => {
@@ -824,15 +803,6 @@ fn get_fragment_tool_spec() -> LlamaToolSpec {
   }
 }
 
-async fn run_chat_with_tools(
-  config: Arc<Config>,
-  db: &Arc<tokio::sync::Mutex<Db>>,
-  session: &Session,
-  request: &ChatRequest,
-) -> InfuResult<String> {
-  run_chat_with_tools_with_progress(config, db, session, request, None).await
-}
-
 struct CompletedChatModelRound {
   number: usize,
   assistant_message: LlamaChatMessage,
@@ -845,11 +815,9 @@ async fn run_chat_model_round(
   tools: &[LlamaToolSpec],
   round: usize,
   tool_rounds_completed: usize,
-  progress: Option<&ChatProgressReporter>,
+  progress: &ChatProgressReporter,
 ) -> InfuResult<CompletedChatModelRound> {
-  if let Some(progress) = progress {
-    progress.model_round_started(round).await;
-  }
+  progress.model_round_started(round).await;
 
   let mut assistant_message = llama_chat_completion(config, messages, tools, round, progress).await?;
   let response_role = assistant_message.role.trim();
@@ -870,29 +838,25 @@ async fn execute_chat_tool_round(
   session: &Session,
   round: usize,
   tool_calls: Vec<LlamaToolCall>,
-  progress: Option<&ChatProgressReporter>,
+  progress: &ChatProgressReporter,
 ) -> InfuResult<Vec<LlamaChatMessage>> {
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
   for tool_call in tool_calls {
-    if let Some(progress) = progress {
-      progress.tool_call_started(round, &tool_call.id, &tool_call.function.name).await;
-    }
+    progress.tool_call_started(round, &tool_call.id, &tool_call.function.name).await;
     let tool_result = execute_chat_tool_call(db, session, &tool_call).await?;
-    if let Some(progress) = progress {
-      progress.tool_call_finished(round, &tool_call.id, &tool_call.function.name, "Done").await;
-    }
+    progress.tool_call_finished(round, &tool_call.id, &tool_call.function.name, "Done").await;
     append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
     tool_messages.push(LlamaChatMessage::tool(tool_call.id, tool_result));
   }
   Ok(tool_messages)
 }
 
-async fn run_chat_with_tools_with_progress(
+async fn run_chat_with_tools(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   request: &ChatRequest,
-  progress: Option<&ChatProgressReporter>,
+  progress: &ChatProgressReporter,
 ) -> InfuResult<String> {
   reset_llm_log();
 
@@ -1338,16 +1302,14 @@ async fn apply_llama_sse_events(
   events: Vec<String>,
   completion: &mut LlamaStreamingCompletion,
   round: usize,
-  progress: Option<&ChatProgressReporter>,
+  progress: &ChatProgressReporter,
 ) -> InfuResult<bool> {
   for data in events {
     let applied = apply_llama_sse_data(&data, completion)?;
-    if let Some(progress) = progress {
-      for delta in applied.visible_deltas {
-        match delta {
-          LlamaVisibleDelta::Reasoning(text) => progress.reasoning_delta(round, text).await,
-          LlamaVisibleDelta::Answer(text) => progress.answer_delta(round, text).await,
-        }
+    for delta in applied.visible_deltas {
+      match delta {
+        LlamaVisibleDelta::Reasoning(text) => progress.reasoning_delta(round, text).await,
+        LlamaVisibleDelta::Answer(text) => progress.answer_delta(round, text).await,
       }
     }
     if applied.done {
@@ -1362,7 +1324,7 @@ async fn llama_chat_completion(
   messages: &[LlamaChatMessage],
   tools: &[LlamaToolSpec],
   llm_turn: usize,
-  progress: Option<&ChatProgressReporter>,
+  progress: &ChatProgressReporter,
 ) -> InfuResult<LlamaChatMessage> {
   let url = configured_llama_chat_url(config)?;
 
