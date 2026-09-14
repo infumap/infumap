@@ -78,6 +78,7 @@ import {
   startQueryChat,
 } from "../../items/query";
 import {
+  type ChatStreamingModelRound,
   type ChatStreamingState,
   cancelQueryChatRequest,
   chatStreamingStateForQuery,
@@ -117,6 +118,10 @@ const QUERY_CHAT_TRAILING_CONTROLS_WIDTH_PX =
   QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX +
   QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX +
   QUERY_WORKSPACE_CONTROLS_GAP_PX * 3;
+
+function queryChatRoundHasContent(round: ChatStreamingModelRound): boolean {
+  return round.reasoning != "" || round.answer != "" || round.toolCalls.length > 0;
+}
 
 function queryChatToolDisplayName(name: string): string {
   switch (name) {
@@ -913,7 +918,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const wrapperHeightPx = () => chatTextareaHeightPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
     const activityBottomPx = () =>
       QUERY_CHAT_COMPOSER_BOTTOM_PX + wrapperHeightPx() + QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
-    const hasReasoning = () => chatActivityState()?.rounds.some(round => round.reasoning != "") == true;
+    const activityHasRoundContent = () =>
+      chatActivityState()?.rounds.some(queryChatRoundHasContent) == true;
     const activityIsRunning = () => {
       const phase = chatActivityState()?.phase;
       return phase != null && phase != "complete" && phase != "cancelled" && phase != "error";
@@ -999,72 +1005,58 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="min-h-0 grow overflow-y-auto px-3 py-2 text-[13px] text-slate-700"
               style={`padding-bottom: ${chatActivityFollowingLatest() ? 8 : 44}px;`}
               onScroll={chatActivityScrollHandler}>
-              <Show when={hasReasoning()}>
-                <button
-                  type="button"
-                  class="flex w-full cursor-pointer items-center gap-2 py-1 text-left text-slate-600"
-                  aria-expanded={chatThinkingExpanded()}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    chatThinkingManuallyToggled = true;
-                    setChatThinkingExpanded(!chatThinkingExpanded());
-                  }}>
-                  <i class={chatThinkingExpanded() ? "bi-chevron-down" : "bi-chevron-right"} />
-                  <span class="font-medium">Thinking</span>
-                  <Show when={chatActivityState()!.rounds.length > 1}>
-                    <span class="text-[11px] text-slate-400">
-                      {chatActivityState()!.rounds.length} rounds
-                    </span>
-                  </Show>
-                </button>
-                <Show when={chatThinkingExpanded()}>
-                  <div class="mb-2 border-l-2 border-slate-200 pl-3">
-                    <Index each={chatActivityState()!.rounds}>{(round, index) =>
-                      <Show when={round().reasoning != ""}>
-                        <div class="mb-2 last:mb-0">
-                          <Show when={chatActivityState()!.rounds.length > 1}>
-                            <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                              Round {index + 1}
-                            </div>
-                          </Show>
-                          <div
-                            class="select-text whitespace-pre-wrap text-[12px] leading-[18px] text-slate-500"
-                            style="overflow-wrap: anywhere;">
-                            {round().reasoning}
-                          </div>
+              <Index each={chatActivityState()!.rounds}>{round =>
+                <Show when={queryChatRoundHasContent(round())}>
+                  <div class="mb-3 last:mb-0">
+                    <Show when={chatActivityState()!.rounds.filter(queryChatRoundHasContent).length > 1}>
+                      <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                        Round {round().number}
+                      </div>
+                    </Show>
+                    <Show when={round().reasoning != ""}>
+                      <div class="mb-2">
+                        <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                          Thinking
                         </div>
-                      </Show>
+                        <div
+                          class="select-text whitespace-pre-wrap text-[12px] leading-[18px] text-slate-500"
+                          style="overflow-wrap: anywhere;">
+                          {round().reasoning}
+                        </div>
+                      </div>
+                    </Show>
+                    <Show when={round().answer != ""}>
+                      <div class="mb-2">
+                        <div class="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                          {round().toolCalls.length > 0 || round().complete ? "Answer" : "Answering"}
+                        </div>
+                        <div
+                          class="select-text whitespace-pre-wrap text-[13px] leading-5 text-slate-700"
+                          style="overflow-wrap: anywhere;">
+                          {round().answer}
+                        </div>
+                      </div>
+                    </Show>
+                    <Index each={round().toolCalls}>{(toolCall, toolIndex) =>
+                      <div class={`flex items-start gap-2 py-1.5 ${
+                        toolIndex > 0 || round().reasoning != "" || round().answer != ""
+                          ? "border-t border-slate-100"
+                          : ""
+                      }`}>
+                        <i class={toolCall().status == "running"
+                          ? "fa fa-circle-notch fa-spin mt-[2px] text-slate-400"
+                          : "bi-check-circle mt-[1px] text-emerald-600"} />
+                        <div class="min-w-0 grow">
+                          <div class="font-medium text-slate-600">{queryChatToolDisplayName(toolCall().name)}</div>
+                          <Show when={toolCall().summary != null}>
+                            <div class="truncate text-[11px] text-slate-400">{toolCall().summary}</div>
+                          </Show>
+                        </div>
+                      </div>
                     }</Index>
                   </div>
                 </Show>
-              </Show>
-
-              <Index each={chatActivityState()!.rounds}>{round =>
-                <Index each={round().toolCalls}>{toolCall =>
-                  <div class="flex items-start gap-2 border-t border-slate-100 py-1.5 first:border-t-0">
-                    <i class={toolCall().status == "running"
-                      ? "fa fa-circle-notch fa-spin mt-[2px] text-slate-400"
-                      : "bi-check-circle mt-[1px] text-emerald-600"} />
-                    <div class="min-w-0 grow">
-                      <div class="font-medium text-slate-600">{queryChatToolDisplayName(toolCall().name)}</div>
-                      <Show when={toolCall().summary != null}>
-                        <div class="truncate text-[11px] text-slate-400">{toolCall().summary}</div>
-                      </Show>
-                    </div>
-                  </div>
-                }</Index>
               }</Index>
-
-              <Show when={chatActivityState()!.answerPreview != ""}>
-                <div class="mt-2 border-t border-slate-200 pt-2">
-                  <div class="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">Answering</div>
-                  <div
-                    class="select-text whitespace-pre-wrap text-[13px] leading-5 text-slate-700"
-                    style="overflow-wrap: anywhere;">
-                    {chatActivityState()!.answerPreview}
-                  </div>
-                </div>
-              </Show>
 
               <Show when={chatActivityState()!.errorMessage != null}>
                 <div class="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-[12px] text-red-700">
@@ -1072,9 +1064,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 </div>
               </Show>
 
-              <Show when={!hasReasoning() && chatActivityState()!.answerPreview == "" &&
-                chatActivityState()!.rounds.every(round => round.toolCalls.length == 0) &&
-                activityIsRunning()}>
+              <Show when={!activityHasRoundContent() && activityIsRunning()}>
                 <div class="py-2 text-[12px] text-slate-400">Waiting for model output…</div>
               </Show>
             </div>
