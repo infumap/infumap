@@ -28,6 +28,7 @@ use uuid::Uuid;
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
 mod markdown;
+mod web_search;
 use markdown::chat_response_items_json;
 
 const CHAT_LLAMA_CONNECT_TIMEOUT_SECS: u64 = 30;
