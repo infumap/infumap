@@ -42,6 +42,7 @@ import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSour
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
+import { queryChatPageChildActivityReservePx } from "../../items/query-chat-activity-ui";
 
 
 const pxToBl = (px: number): number => px / NATURAL_BLOCK_SIZE_PX.h;
@@ -204,6 +205,7 @@ export function arrange_document_page(
   let displayIdx = 0;
   for (let idx = 0; idx < documentChildren.length; ++idx) {
     const child = documentChildren[idx];
+    topPx += queryChatPageChildActivityReservePx(store, displayItem_pageWithChildren, child.childItem.id);
     const geometry = calcDocumentChildGeometry(
       store,
       child.displayItem,

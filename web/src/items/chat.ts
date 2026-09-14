@@ -29,6 +29,7 @@ import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
+import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import { server, type ChatMessage, type ChatStreamEvent, type ChatStreamPhase } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -98,17 +99,6 @@ const bufferedChatTextDeltasByQueryId = new Map<Uid, BufferedChatTextDeltas>();
 export function chatStreamingStateForQuery(queryId: Uid): ChatStreamingState | null {
   chatStreamingStateRevision();
   return chatStreamingStateByQueryId.get(queryId) ?? null;
-}
-
-export function completedQueryChatActivitiesForQuery(
-  store: StoreContextModel,
-  queryItem: QueryItem,
-): Array<QueryChatCompletedActivity> {
-  const chat = getQueryRuntime(store, queryItem).chat;
-  const currentRootIds = new Set(chat.rootItemIds ?? []);
-  return (chat.completedActivities ?? []).filter(activity =>
-    activity.assistantRootIds.some(rootId => currentRootIds.has(rootId))
-  );
 }
 
 function setQueryChatStreamingState(queryId: Uid, state: ChatStreamingState): void {
@@ -955,6 +945,7 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
     },
   }));
   clearQueryChatStreamingState(queryItem.id);
+  clearQueryChatCompletedActivityUi(queryItem.id);
 }
 
 export function resetQueryChatSession(store: StoreContextModel, queryItem: QueryItem, arrangeReason?: string): void {
