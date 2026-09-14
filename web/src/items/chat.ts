@@ -81,6 +81,20 @@ export interface ChatStreamingState {
 const chatStreamingStateByQueryId = new Map<Uid, ChatStreamingState>();
 const [chatStreamingStateRevision, setChatStreamingStateRevision] = createSignal(0, { equals: false });
 
+interface BufferedChatTextDelta {
+  type: "reasoning_delta" | "answer_delta",
+  round: number,
+  text: string,
+}
+
+interface BufferedChatTextDeltas {
+  requestId: string,
+  deltas: Array<BufferedChatTextDelta>,
+  animationFrameId: number | null,
+}
+
+const bufferedChatTextDeltasByQueryId = new Map<Uid, BufferedChatTextDeltas>();
+
 export function chatStreamingStateForQuery(queryId: Uid): ChatStreamingState | null {
   chatStreamingStateRevision();
   return chatStreamingStateByQueryId.get(queryId) ?? null;
@@ -91,7 +105,19 @@ function setQueryChatStreamingState(queryId: Uid, state: ChatStreamingState): vo
   setChatStreamingStateRevision(chatStreamingStateRevision() + 1);
 }
 
+function discardBufferedChatTextDeltas(queryId: Uid, requestId?: string): void {
+  const buffered = bufferedChatTextDeltasByQueryId.get(queryId);
+  if (buffered == null || (requestId != null && buffered.requestId != requestId)) {
+    return;
+  }
+  if (buffered.animationFrameId != null) {
+    window.cancelAnimationFrame(buffered.animationFrameId);
+  }
+  bufferedChatTextDeltasByQueryId.delete(queryId);
+}
+
 function clearQueryChatStreamingState(queryId: Uid, requestId?: string): void {
+  discardBufferedChatTextDeltas(queryId, requestId);
   const current = chatStreamingStateByQueryId.get(queryId);
   if (current == null || (requestId != null && current.requestId != requestId)) {
     return;
@@ -163,12 +189,7 @@ function completeStreamingModelRounds(rounds: Array<ChatStreamingModelRound>): A
   return rounds.map(round => round.complete ? round : { ...round, complete: true });
 }
 
-function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
-  const current = chatStreamingStateByQueryId.get(queryId);
-  if (current == null || current.requestId != event.requestId) {
-    throw new Error("Received a chat stream event without a matching active request.");
-  }
-
+function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStreamEvent): ChatStreamingState {
   const statusText = chatStatusTextFromEvent(event);
   let next: ChatStreamingState;
   switch (event.type) {
@@ -279,7 +300,83 @@ function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
       };
       break;
   }
+  return next;
+}
+
+function flushBufferedChatTextDeltas(queryId: Uid, requestId: string): void {
+  const buffered = bufferedChatTextDeltasByQueryId.get(queryId);
+  if (buffered == null || buffered.requestId != requestId) {
+    return;
+  }
+  if (buffered.animationFrameId != null) {
+    window.cancelAnimationFrame(buffered.animationFrameId);
+  }
+  bufferedChatTextDeltasByQueryId.delete(queryId);
+
+  const current = chatStreamingStateByQueryId.get(queryId);
+  if (current == null || current.requestId != requestId) {
+    return;
+  }
+  const next = buffered.deltas.reduce<ChatStreamingState>((state, delta) => reduceQueryChatStreamEvent(state, {
+    requestId,
+    type: delta.type,
+    round: delta.round,
+    text: delta.text,
+  }), current);
   setQueryChatStreamingState(queryId, next);
+}
+
+function bufferQueryChatTextDelta(
+  queryId: Uid,
+  event: Extract<ChatStreamEvent, { type: "reasoning_delta" | "answer_delta" }>,
+): void {
+  let buffered = bufferedChatTextDeltasByQueryId.get(queryId);
+  if (buffered == null || buffered.requestId != event.requestId) {
+    discardBufferedChatTextDeltas(queryId);
+    buffered = { requestId: event.requestId, deltas: [], animationFrameId: null };
+    bufferedChatTextDeltasByQueryId.set(queryId, buffered);
+  }
+
+  const last = buffered.deltas.at(-1);
+  if (last?.type == event.type && last.round == event.round) {
+    last.text += event.text;
+  } else {
+    buffered.deltas.push({ type: event.type, round: event.round, text: event.text });
+  }
+  if (buffered.animationFrameId == null) {
+    buffered.animationFrameId = window.requestAnimationFrame(() => {
+      flushBufferedChatTextDeltas(queryId, event.requestId);
+    });
+  }
+}
+
+function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
+  let current = chatStreamingStateByQueryId.get(queryId);
+  if (current == null || current.requestId != event.requestId) {
+    throw new Error("Received a chat stream event without a matching active request.");
+  }
+
+  if (event.type == "reasoning_delta" || event.type == "answer_delta") {
+    const targetPhase: ChatStreamPhase = event.type == "reasoning_delta" ? "thinking" : "answering";
+    if (current.phase != targetPhase) {
+      flushBufferedChatTextDeltas(queryId, event.requestId);
+      current = chatStreamingStateByQueryId.get(queryId);
+      if (current == null || current.requestId != event.requestId) {
+        throw new Error("Chat streaming state changed while flushing text deltas.");
+      }
+      setQueryChatStreamingState(queryId, reduceQueryChatStreamEvent(current, event));
+    } else {
+      bufferQueryChatTextDelta(queryId, event);
+    }
+    return;
+  }
+
+  flushBufferedChatTextDeltas(queryId, event.requestId);
+  current = chatStreamingStateByQueryId.get(queryId);
+  if (current == null || current.requestId != event.requestId) {
+    throw new Error("Chat streaming state changed while flushing text deltas.");
+  }
+  setQueryChatStreamingState(queryId, reduceQueryChatStreamEvent(current, event));
 }
 
 function titleFromPrompt(prompt: string): string {
@@ -543,6 +640,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
 
   const requestId = newUid();
   let clearStreamingStateOnExit = true;
+  discardBufferedChatTextDeltas(queryItem.id);
   setQueryChatStreamingState(queryItem.id, {
     requestId,
     phase: "submitted",
@@ -565,6 +663,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
     appendQueryChatMessage(store, queryItem, { role: "assistant", content: response.assistantText });
     requestArrange(store, "query-chat-assistant-turn");
   } catch (e) {
+    flushBufferedChatTextDeltas(queryItem.id, requestId);
     const current = chatStreamingStateByQueryId.get(queryItem.id);
     if (current?.requestId == requestId && current.phase != "error") {
       setQueryChatStreamingState(queryItem.id, {
