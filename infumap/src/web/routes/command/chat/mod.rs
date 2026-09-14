@@ -318,9 +318,9 @@ impl LlamaChatMessage {
 
 #[derive(Clone, Deserialize, Serialize)]
 struct LlamaToolCall {
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "String::is_empty")]
   id: String,
-  #[serde(rename = "type", default = "default_llama_tool_call_type")]
+  #[serde(rename = "type", default, skip_serializing_if = "String::is_empty")]
   tool_type: String,
   function: LlamaToolCallFunction,
 }
@@ -901,10 +901,8 @@ async fn run_chat_model_round(
     assistant_message.role = "assistant".to_owned();
   } else if !response_role.eq_ignore_ascii_case("assistant") {
     return Err(format!("llama-server returned unexpected chat response role '{}'.", assistant_message.role).into());
-  } else {
-    assistant_message.role = "assistant".to_owned();
   }
-  let tool_calls = normalize_tool_calls(&mut assistant_message, tool_rounds_completed);
+  let tool_calls = execution_tool_calls(&assistant_message, tool_rounds_completed);
 
   Ok(CompletedChatModelRound { number: round, assistant_message, tool_calls })
 }
@@ -985,21 +983,25 @@ async fn run_chat_with_tools(
   }
 }
 
-fn normalize_tool_calls(message: &mut LlamaChatMessage, tool_round: usize) -> Vec<LlamaToolCall> {
-  let Some(tool_calls) = message.tool_calls.as_mut() else {
+fn execution_tool_calls(message: &LlamaChatMessage, tool_round: usize) -> Vec<LlamaToolCall> {
+  let Some(tool_calls) = &message.tool_calls else {
     return Vec::new();
   };
 
-  for (index, tool_call) in tool_calls.iter_mut().enumerate() {
-    if tool_call.id.trim().is_empty() {
-      tool_call.id = format!("call_{}_{}", tool_round + 1, index + 1);
-    }
-    if tool_call.tool_type.trim().is_empty() {
-      tool_call.tool_type = "function".to_owned();
-    }
-  }
-
-  tool_calls.clone()
+  tool_calls
+    .iter()
+    .enumerate()
+    .map(|(index, tool_call)| {
+      let mut execution_call = tool_call.clone();
+      if execution_call.id.trim().is_empty() {
+        execution_call.id = format!("call_{}_{}", tool_round + 1, index + 1);
+      }
+      if execution_call.tool_type.trim().is_empty() {
+        execution_call.tool_type = default_llama_tool_call_type();
+      }
+      execution_call
+    })
+    .collect()
 }
 
 async fn execute_chat_tool_call(
@@ -1137,6 +1139,7 @@ async fn execute_get_fragment_tool_call(
 
 fn tool_call_arguments_value(tool_call: &LlamaToolCall) -> InfuResult<Value> {
   match &tool_call.function.arguments {
+    Value::String(arguments) if arguments.trim().is_empty() => Ok(serde_json::json!({})),
     Value::String(arguments) => serde_json::from_str(arguments).map_err(|e| {
       format!("Could not parse arguments for tool '{}': {}", tool_call.function.name, error_chain_for_log(&e)).into()
     }),
@@ -1415,17 +1418,17 @@ impl LlamaStreamingCompletion {
       .flatten()
       .map(|tool_call| LlamaToolCall {
         id: tool_call.id,
-        tool_type: if tool_call.tool_type.is_empty() { default_llama_tool_call_type() } else { tool_call.tool_type },
+        tool_type: tool_call.tool_type,
         function: LlamaToolCallFunction {
           name: tool_call.name,
-          arguments: Value::String(if tool_call.arguments.is_empty() { "{}".to_owned() } else { tool_call.arguments }),
+          arguments: Value::String(tool_call.arguments),
         },
       })
       .collect::<Vec<_>>();
 
     Ok(LlamaChatMessage {
       role: if self.role.is_empty() { "assistant".to_owned() } else { self.role },
-      content: Some(self.content),
+      content: if self.content.is_empty() { None } else { Some(self.content) },
       reasoning_content: if self.reasoning_content.is_empty() { None } else { Some(self.reasoning_content) },
       tool_call_id: None,
       tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
