@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use std::io::Write as _;
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
+use time::OffsetDateTime;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
@@ -917,16 +918,31 @@ fn legacy_llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaCh
   messages
 }
 
+fn chat_utc_today_line() -> String {
+  let now = OffsetDateTime::now_utc();
+  format!(
+    "Today is {}, {:04}-{:02}-{:02} (UTC).",
+    now.weekday(),
+    now.year(),
+    u8::from(now.month()),
+    now.day()
+  )
+}
+
 fn chat_system_prompt(uses_infumap_data: bool, uses_web_search: bool) -> String {
   let base = if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT };
-  if !uses_web_search {
-    return base.to_owned();
-  }
-  let mut prompt = base.strip_suffix(CHAT_SYSTEM_PROMPT_CLOSING).unwrap_or(base).trim_end().to_owned();
+  let mut prompt = if uses_web_search {
+    let mut prompt = base.strip_suffix(CHAT_SYSTEM_PROMPT_CLOSING).unwrap_or(base).trim_end().to_owned();
+    prompt.push_str("\n\n");
+    prompt.push_str(CHAT_SYSTEM_PROMPT_WEB_SEARCH);
+    prompt.push('\n');
+    prompt.push_str(CHAT_SYSTEM_PROMPT_CLOSING);
+    prompt
+  } else {
+    base.to_owned()
+  };
   prompt.push_str("\n\n");
-  prompt.push_str(CHAT_SYSTEM_PROMPT_WEB_SEARCH);
-  prompt.push('\n');
-  prompt.push_str(CHAT_SYSTEM_PROMPT_CLOSING);
+  prompt.push_str(&chat_utc_today_line());
   prompt
 }
 
