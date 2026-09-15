@@ -84,12 +84,10 @@ import {
   materializeQueryChat,
   queryChatContextTokenDisplay,
   queryChatUsesInfumapData,
-  queryChatUsesWebSearch,
   queryChatUsesCapability,
   queryChatHasContent,
   resetQueryChatSession,
   setQueryChatUsesInfumapData,
-  setQueryChatUsesWebSearch,
   setQueryChatUsesCapability,
   applyQueryChatDefaultPluginCapabilities,
   submitQueryChatMessage,
@@ -147,7 +145,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryDiscardButton: HTMLButtonElement | undefined;
   let queryModelButton: HTMLButtonElement | undefined;
   let queryInfumapDataCheckbox: HTMLInputElement | undefined;
-  let queryWebSearchCheckbox: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
   let activeSearchRequestSerial = 0;
@@ -402,15 +399,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryInfumapDataCheckbox.focus();
   };
 
-  const focusWebSearchCheckbox = () => {
-    if (!queryWebSearchCheckbox || queryWebSearchCheckbox.disabled) {
-      focusQueryInputControl();
-      return;
-    }
-    queryWebSearchCheckbox.focus();
-  };
-
-  type QueryControlName = "mode" | "input" | "send" | "discard" | "model" | "infumap-data" | "web-search";
+  type QueryControlName = "mode" | "input" | "send" | "discard" | "model" | "infumap-data";
 
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = ["mode", "input", "send"];
@@ -420,7 +409,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (selectedInputMode() == "chat") {
       controls.push("model");
       controls.push("infumap-data");
-      controls.push("web-search");
     }
     return controls;
   };
@@ -436,8 +424,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       focusDiscardButton();
     } else if (control == "model") {
       focusModelButton();
-    } else if (control == "web-search") {
-      focusWebSearchCheckbox();
     } else {
       focusInfumapDataCheckbox();
     }
@@ -1034,19 +1020,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   onChange={(ev) => setQueryChatUsesInfumapData(store, queryItem(), ev.currentTarget.checked)} />
                 <span>Use Infumap data</span>
               </label>
-              <label
-                class="flex cursor-default items-center gap-2 opacity-60"
-                style="font-size: 13px; line-height: 20px;"
-                title={queryChatUsesWebSearch(store, queryItem())
-                  ? "The assistant can search the public web and fetch pages you approve. Start a new chat to change this setting."
-                  : "The assistant cannot search the public web. Start a new chat to change this setting."}>
-                <input
-                  type="checkbox"
-                  checked={queryChatUsesWebSearch(store, queryItem())}
-                  disabled={chatRequestActive() || queryChatHasContent(store, queryItem())}
-                  onChange={(ev) => setQueryChatUsesWebSearch(store, queryItem(), ev.currentTarget.checked)} />
-                <span>Web search</span>
-              </label>
               <For each={store.general.chatBackends()?.toolServers ?? []}>{server =>
                 <label
                   class="flex cursor-default items-center gap-2 opacity-60"
@@ -1308,29 +1281,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 }
               }} />
             <span>Use Infumap data</span>
-          </label>
-          <label
-            class="flex cursor-pointer items-center gap-2"
-            title={queryChatUsesWebSearch(store, queryItem())
-              ? "The assistant can search the public web and fetch pages you approve."
-              : "The assistant cannot search the public web."}>
-            <input
-              ref={queryWebSearchCheckbox}
-              type="checkbox"
-              checked={queryChatUsesWebSearch(store, queryItem())}
-              disabled={isStartingChat()}
-              onChange={(ev) => {
-                const enabled = ev.currentTarget.checked;
-                setQueryText(store, queryItem(), readQueryTextFromDom());
-                setQueryChatUsesWebSearch(store, queryItem(), enabled);
-              }}
-              onKeyDown={(ev) => {
-                ev.stopPropagation();
-                if (ev.key == "Tab") {
-                  handleQueryControlTab(ev, "web-search");
-                }
-              }} />
-            <span>Web search</span>
           </label>
           <For each={store.general.chatBackends()?.toolServers ?? []}>{server =>
             <label

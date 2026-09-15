@@ -28,9 +28,7 @@ export type ChatCapability = string;
 let extraDefaultCapabilities: Array<ChatCapability> = [];
 
 export function setExtraDefaultChatCapabilities(capabilities: Array<ChatCapability>): void {
-  extraDefaultCapabilities = capabilities.filter(capability =>
-    capability != "infumap_data" && capability != "web_search"
-  );
+  extraDefaultCapabilities = capabilities.filter(capability => capability != "infumap_data");
 }
 
 export interface QueryChatActivityToolCall {

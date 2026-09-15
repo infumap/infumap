@@ -191,15 +191,8 @@ pub async fn mapped_tools_for_capabilities(
   (mapped, name_map)
 }
 
-pub fn reserved_openai_names(uses_infumap_data: bool, uses_web_search: bool) -> Vec<&'static str> {
-  let mut names = Vec::new();
-  if uses_infumap_data {
-    names.extend(["lexical_search", "get_fragment"]);
-  }
-  if uses_web_search {
-    names.extend(["web_search", "fetch_page"]);
-  }
-  names
+pub fn reserved_openai_names(uses_infumap_data: bool) -> Vec<&'static str> {
+  if uses_infumap_data { vec!["lexical_search", "get_fragment"] } else { Vec::new() }
 }
 
 pub fn server_requires_approval(config: &Config, server_id: &str) -> bool {

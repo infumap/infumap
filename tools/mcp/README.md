@@ -16,9 +16,13 @@ It listens on `http://127.0.0.1:8791/mcp` by default. Point Infumap at it with:
 
 ```toml
 [[chat_tool_server]]
-id = "web_search_mcp"
+id = "web_search"
 url = "http://127.0.0.1:8791/mcp"
-label = "Web search (MCP)"
+label = "Web search"
 ```
 
-Do not use `web_search` as the plugin id; that name is the built-in capability.
+Infumap does not start this process. If the sidecar is down, the Web search
+checkbox is greyed out. There is no in-process fallback.
+
+A musl release binary can be built with `./tools/mcp/web-search/build-musl.sh`,
+which `./build-musl.sh` also runs.

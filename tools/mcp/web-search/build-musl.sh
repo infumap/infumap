@@ -17,7 +17,5 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pushd "$(dirname "$0")"
-./web/build.sh
-./infumap/build-musl.sh
-./tools/mcp/web-search/build-musl.sh
+docker run --rm -it -v "$(pwd)":/home/rust/src rust-musl-builder cargo build --release
 popd

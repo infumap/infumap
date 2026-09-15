@@ -26,6 +26,15 @@ Environment:
 
 The MCP endpoint is `http://$WEB_SEARCH_HOST:$WEB_SEARCH_PORT/mcp`.
 
+Point Infumap at it:
+
+```toml
+[[chat_tool_server]]
+id = "web_search"
+url = "http://127.0.0.1:8791/mcp"
+label = "Web search"
+```
+
 ## Inspector
 
 With the server running:
