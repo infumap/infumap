@@ -22,6 +22,7 @@ readonly LOCAL_CARGO_HOME="$ROOT_DIR/.audit-cache/cargo"
 readonly CRATE_DIRS=(
   "infumap"
   "infusdk"
+  "tools/mcp/web-search"
 )
 
 print_usage() {
@@ -102,8 +103,8 @@ run_cargo_deny() {
     )
     ensure_lockfile "$crate_dir"
 
-    if [[ "$crate_dir" == "infusdk" ]]; then
-      # infusdk shares the top-level deny.toml, but some ignore entries only apply to infumap.
+    if [[ "$crate_dir" == "infusdk" || "$crate_dir" == "tools/mcp/web-search" ]]; then
+      # These crates share the top-level deny.toml, but some ignore entries only apply to infumap.
       deny_cmd+=(-A advisory-not-detected)
     fi
 
