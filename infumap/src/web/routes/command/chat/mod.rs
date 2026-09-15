@@ -47,22 +47,19 @@ const LLM_LOG_PATH: &str = "/tmp/llm.txt";
 const CHAT_INFUMAP_SYSTEM_PROMPT: &str = "\
 You are a chat assistant for an information workspace.
 
-Use lexical_search by default to locate items, discover likely relevant items, or search document text.
-lexical_search searches titles and document text using lexical matching.
-lexical_search results include linkUrl values (\"infumap://<uid>\"). When you mention a specific search result item by title, link the title using Markdown with that result's linkUrl, i.e. [title](linkUrl).
-Use get_fragment when a lexical_search snippet is truncated, ambiguous, or too small to answer from confidently.
-If lexical_search results are insufficient, say what is missing rather than inventing details.
-Return a concise Markdown answer.";
-const CHAT_GENERAL_SYSTEM_PROMPT: &str = "\
-You are a helpful chat assistant.
-Return a concise Markdown answer.";
+Search the workspace with lexical_search before answering from memory. \
+Call get_fragment when a snippet is truncated or too small to answer from confidently.
+Search results carry a linkUrl (\"infumap://<uid>\"). Whenever you name an item, \
+link it as [title](linkUrl), copying the linkUrl verbatim.";
+const CHAT_GENERAL_SYSTEM_PROMPT: &str = "You are a helpful chat assistant.";
 const CHAT_CAPABILITY_INFUMAP_DATA: &str = "infumap_data";
 const CHAT_CAPABILITY_WEB_SEARCH: &str = "web_search";
-const CHAT_SYSTEM_PROMPT_CLOSING: &str = "Return a concise Markdown answer.";
+const CHAT_SYSTEM_PROMPT_CLOSING: &str = "\
+Answer concisely in Markdown. If the tools don't give you enough, \
+say what is missing rather than inventing details.";
 const CHAT_SYSTEM_PROMPT_WEB_SEARCH: &str = "\
-Use web_search to search the public web.
-Use fetch_page to read an HTTP or HTTPS URL.
-Cite web sources with URLs returned by those tools; do not invent links.";
+Use web_search and fetch_page for public web information. \
+Cite sources with the URLs those tools return; never invent a link.";
 
 #[derive(Deserialize)]
 struct ChatRequest {
@@ -929,20 +926,12 @@ fn chat_utc_today_line() -> String {
 }
 
 fn chat_system_prompt(uses_infumap_data: bool, uses_web_search: bool) -> String {
-  let base = if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT };
-  let mut prompt = if uses_web_search {
-    let mut prompt = base.strip_suffix(CHAT_SYSTEM_PROMPT_CLOSING).unwrap_or(base).trim_end().to_owned();
-    prompt.push_str("\n\n");
-    prompt.push_str(CHAT_SYSTEM_PROMPT_WEB_SEARCH);
-    prompt.push('\n');
-    prompt.push_str(CHAT_SYSTEM_PROMPT_CLOSING);
-    prompt
-  } else {
-    base.to_owned()
-  };
-  prompt.push_str("\n\n");
-  prompt.push_str(&chat_utc_today_line());
-  prompt
+  let mut parts = vec![if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT }];
+  if uses_web_search {
+    parts.push(CHAT_SYSTEM_PROMPT_WEB_SEARCH);
+  }
+  parts.push(CHAT_SYSTEM_PROMPT_CLOSING);
+  format!("{}\n\n{}", chat_utc_today_line(), parts.join("\n\n"))
 }
 
 fn llama_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<LlamaChatMessage>> {
