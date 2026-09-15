@@ -23,7 +23,15 @@ import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
 export type QueryMode = "search" | "chat" | null;
-export type ChatCapability = "infumap_data" | "web_search";
+export type ChatCapability = string;
+
+let extraDefaultCapabilities: Array<ChatCapability> = [];
+
+export function setExtraDefaultChatCapabilities(capabilities: Array<ChatCapability>): void {
+  extraDefaultCapabilities = capabilities.filter(capability =>
+    capability != "infumap_data" && capability != "web_search"
+  );
+}
 
 export interface QueryChatActivityToolCall {
   callId: string,
@@ -158,7 +166,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
       activityHeightPx: null,
       rootItemIds: [],
       messages: [],
-      capabilities: ["infumap_data"],
+      capabilities: ["infumap_data", ...extraDefaultCapabilities],
       model: null,
       completedActivities: [],
       contextTokens: null,

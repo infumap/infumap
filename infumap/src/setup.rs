@@ -340,6 +340,23 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, "<not set>");
     }
   }
+  let chat_tool_servers = crate::web::routes::command::chat_tool_servers_from_config(&config)?;
+  if chat_tool_servers.is_empty() {
+    info!(" {} = {}", CONFIG_CHAT_TOOL_SERVER, "<not set>");
+  } else {
+    for server in &chat_tool_servers {
+      info!(
+        " {} id='{}' url='{}' label='{}' enabled_by_default={} require_approval={} bearer={}",
+        CONFIG_CHAT_TOOL_SERVER,
+        server.id,
+        server.url,
+        server.label,
+        server.enabled_by_default,
+        server.require_approval,
+        if server.bearer_token.is_some() { "<redacted>" } else { "<not set>" }
+      );
+    }
+  }
   info!(" {} = '{}'", CONFIG_GEOAPIFY_URL, config.get_string(CONFIG_GEOAPIFY_URL).map_err(|e| e.to_string())?);
   info!(
     " {} = {}",
@@ -565,6 +582,7 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
       .into(),
     );
   }
+  crate::web::routes::command::chat_tool_servers_from_config(&result)?;
   return Ok(result);
 }
 

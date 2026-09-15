@@ -85,10 +85,13 @@ import {
   queryChatContextTokenDisplay,
   queryChatUsesInfumapData,
   queryChatUsesWebSearch,
+  queryChatUsesCapability,
   queryChatHasContent,
   resetQueryChatSession,
   setQueryChatUsesInfumapData,
   setQueryChatUsesWebSearch,
+  setQueryChatUsesCapability,
+  applyQueryChatDefaultPluginCapabilities,
   submitQueryChatMessage,
 } from "../../items/chat";
 import {
@@ -708,6 +711,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   createEffect(() => {
+    const backends = store.general.chatBackends();
+    if (backends == null) {
+      return;
+    }
+    applyQueryChatDefaultPluginCapabilities(store, queryItem(), backends.toolServers ?? []);
+  });
+
+  createEffect(() => {
     const requestId = chatStreamingRequestId();
     if (requestId == null) {
       return;
@@ -1036,6 +1047,23 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   onChange={(ev) => setQueryChatUsesWebSearch(store, queryItem(), ev.currentTarget.checked)} />
                 <span>Web search</span>
               </label>
+              <For each={store.general.chatBackends()?.toolServers ?? []}>{server =>
+                <label
+                  class="flex cursor-default items-center gap-2 opacity-60"
+                  style="font-size: 13px; line-height: 20px;"
+                  title={!server.available
+                    ? (server.unavailableReason ?? "Tool server is unavailable")
+                    : queryChatUsesCapability(store, queryItem(), server.id)
+                      ? `The assistant can use tools from ${server.label}. Start a new chat to change this setting.`
+                      : `The assistant cannot use tools from ${server.label}. Start a new chat to change this setting.`}>
+                  <input
+                    type="checkbox"
+                    checked={queryChatUsesCapability(store, queryItem(), server.id)}
+                    disabled={chatRequestActive() || queryChatHasContent(store, queryItem()) || !server.available}
+                    onChange={(ev) => setQueryChatUsesCapability(store, queryItem(), server.id, ev.currentTarget.checked)} />
+                  <span>{server.label}</span>
+                </label>
+              }</For>
             </div>
           </div>
           <div class="flex items-end"
@@ -1304,6 +1332,31 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               }} />
             <span>Web search</span>
           </label>
+          <For each={store.general.chatBackends()?.toolServers ?? []}>{server =>
+            <label
+              class="flex items-center gap-2"
+              classList={{
+                "cursor-pointer": server.available && !isStartingChat(),
+                "cursor-default opacity-60": !server.available || isStartingChat(),
+              }}
+              title={!server.available
+                ? (server.unavailableReason ?? "Tool server is unavailable")
+                : queryChatUsesCapability(store, queryItem(), server.id)
+                  ? `The assistant can use tools from ${server.label}.`
+                  : `The assistant cannot use tools from ${server.label}.`}>
+              <input
+                type="checkbox"
+                checked={queryChatUsesCapability(store, queryItem(), server.id)}
+                disabled={isStartingChat() || !server.available}
+                onChange={(ev) => {
+                  const enabled = ev.currentTarget.checked;
+                  setQueryText(store, queryItem(), readQueryTextFromDom());
+                  setQueryChatUsesCapability(store, queryItem(), server.id, enabled);
+                }}
+                onKeyDown={(ev) => ev.stopPropagation()} />
+              <span>{server.label}</span>
+            </label>
+          }</For>
         </div>
       </Show>
     </>;

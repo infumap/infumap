@@ -97,6 +97,7 @@ mod chat;
 mod item_ops;
 mod search;
 
+pub(crate) use chat::chat_tool_servers_from_config;
 pub use chat::{serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route};
 pub use item_ops::add_item_for_user;
 

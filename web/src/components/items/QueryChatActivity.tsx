@@ -163,7 +163,10 @@ function queryChatToolApprovalPrompt(toolCall: QueryChatActivityToolCall): { lab
   if (toolCall.name == "fetch_page") {
     return { label: "URL", value: toolCall.url ?? "" };
   }
-  return { label: "Query", value: toolCall.query ?? "" };
+  if (toolCall.name == "web_search") {
+    return { label: "Query", value: toolCall.query ?? "" };
+  }
+  return { label: "Arguments", value: queryChatPrettyJson(toolCall.arguments ?? {}) };
 }
 
 function queryChatToolCallHeadline(toolCall: QueryChatActivityToolCall): string | null {

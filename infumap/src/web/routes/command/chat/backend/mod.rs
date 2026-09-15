@@ -28,6 +28,7 @@ use std::time::Duration;
 mod openrouter;
 pub use openrouter::ChatModelInfo;
 
+use super::mcp::{self, ChatToolServerInfo};
 use crate::config::{
   CHAT_BACKEND_LLAMA, CHAT_BACKEND_OPENROUTER, CONFIG_CHAT_DEFAULT_BACKEND, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL,
   CONFIG_LLAMA_SERVER_URL, CONFIG_OPENROUTER_API_KEY,
@@ -282,6 +283,8 @@ struct ChatDefaultSelection {
 pub struct ChatBackendsResponse {
   backends: Vec<ChatBackendInfo>,
   default: ChatDefaultSelection,
+  #[serde(rename = "toolServers")]
+  tool_servers: Vec<ChatToolServerInfo>,
 }
 
 fn backend_id(backend: ChatBackend) -> &'static str {
@@ -341,5 +344,6 @@ pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
         ChatBackend::LlamaServer => None,
       },
     },
+    tool_servers: mcp::tool_server_catalog(config).await,
   }
 }
