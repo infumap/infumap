@@ -18,6 +18,7 @@
 
 import { Component, Index, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { requestArrange } from "../../layout/arrange";
+import { LIGHT_BORDER_COLOR } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { Uid } from "../../util/uid";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
@@ -396,9 +397,10 @@ export const QueryChatCompletedActivityTrace: Component<{
 
   return (
     <div
-      class="absolute flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm pointer-events-auto"
+      class="absolute flex flex-col overflow-hidden rounded-xs border bg-white pointer-events-auto"
       style={`left: ${props.boundsPx.x}px; top: ${props.boundsPx.y}px; ` +
-        `width: ${props.boundsPx.w}px; height: ${reservePx()}px;`}
+        `width: ${props.boundsPx.w}px; height: ${reservePx()}px; ` +
+        `border-color: ${LIGHT_BORDER_COLOR};`}
       role="region"
       aria-label={`Turn ${props.turnNumber} assistant activity`}
       onMouseDown={stopQueryChatActivityEvent}
@@ -407,7 +409,8 @@ export const QueryChatCompletedActivityTrace: Component<{
       onKeyDown={stopQueryChatActivityEvent}
       onKeyUp={stopQueryChatActivityEvent}>
       <div
-        class="flex h-9 shrink-0 cursor-pointer items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 text-slate-700"
+        class="flex h-9 shrink-0 cursor-pointer items-center gap-2 border-b px-3 text-slate-700"
+        style={`background-color: #fafafa; border-color: ${LIGHT_BORDER_COLOR};`}
         aria-expanded={expanded()}
         onClick={(ev) => {
           ev.stopPropagation();

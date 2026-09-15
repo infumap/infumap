@@ -21,7 +21,7 @@ import { Portal } from "solid-js/web";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { FIND_HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -903,9 +903,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         onMouseDown={chatSurfaceMouseDown}>
         <Show when={liveChatActivity() != null && chatActivityPanelHeightPx() > 0}>
           <div
-            class="absolute flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm pointer-events-auto"
+            class="absolute flex flex-col overflow-hidden rounded-xs border bg-white pointer-events-auto"
             style={`left: ${contentLeftPx()}px; bottom: ${activityBottomPx()}px; ` +
-              `width: ${contentWidthPx()}px; height: ${chatActivityPanelHeightPx()}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}
+              `width: ${contentWidthPx()}px; height: ${chatActivityPanelHeightPx()}px; z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
+              `border-color: ${LIGHT_BORDER_COLOR};`}
             role="region"
             aria-label="Assistant activity"
             onMouseDown={stop}
@@ -914,7 +915,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             onKeyDown={stop}
             onKeyUp={stop}>
             <div
-              class="flex h-9 shrink-0 items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 text-slate-700"
+              class="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-slate-700"
+              style={`background-color: #fafafa; border-color: ${LIGHT_BORDER_COLOR};`}
               aria-live="polite">
               <Show
                 when={activityIsRunning()}
