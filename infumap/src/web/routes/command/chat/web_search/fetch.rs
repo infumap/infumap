@@ -26,7 +26,7 @@ use reqwest::header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, HeaderMap, Heade
 use serde::Serialize;
 use tokio::net::lookup_host;
 
-pub const DEFAULT_MAX_CHARS: usize = 16_000;
+pub const DEFAULT_MAX_CHARS: usize = 8_000;
 pub const MAX_CHARS_CAP: usize = 100_000;
 const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);

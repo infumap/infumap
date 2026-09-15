@@ -145,6 +145,7 @@ export type ChatStreamEvent = ChatStreamEventBase & (
   { type: "tool_call_started", round: number, callId: string, name: string, arguments?: unknown } |
   { type: "tool_call_finished", round: number, callId: string, name: string, summary: string, durationMs?: number, resultPreview?: unknown } |
   { type: "materializing" } |
+  { type: "context_tokens", tokens: number, exact: boolean } |
   { type: "final_items", text: string, items: Array<object>, messages?: Array<ChatMessage> } |
   { type: "cancelled" } |
   { type: "error", message: string }

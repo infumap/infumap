@@ -81,6 +81,7 @@ import {
   cancelQueryChatRequest,
   chatStreamingStateForQuery,
   materializeQueryChat,
+  queryChatContextTokenDisplay,
   queryChatUsesInfumapData,
   queryChatUsesWebSearch,
   queryChatHasContent,
@@ -120,11 +121,6 @@ const QUERY_CHAT_ACTIVITY_FOLLOW_THRESHOLD_PX = 24;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
-const QUERY_CHAT_TRAILING_CONTROLS_WIDTH_PX =
-  QUERY_CHAT_SEND_BUTTON_WIDTH_PX +
-  QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX +
-  QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX +
-  QUERY_WORKSPACE_CONTROLS_GAP_PX * 3;
 
 
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -160,6 +156,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const queryItem = () => asQueryItem(props.visualElement.displayItem);
   const liveChatActivity = () => chatStreamingStateForQuery(queryItem().id);
   const chatStreamingRequestId = createMemo(() => liveChatActivity()?.requestId ?? null);
+  const chatContextTokens = () => queryChatContextTokenDisplay(store, queryItem(), chatText());
+  const chatActivityHeaderVisible = () => liveChatActivity() != null && chatActivityPanelHeightPx() > 0;
   const chatActivityContentRevision = createMemo(() => {
     const live = liveChatActivity();
     if (live == null) {
@@ -926,6 +924,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <span class="min-w-0 grow truncate text-[13px] font-medium">
                 {liveChatActivity()!.statusText}
               </span>
+              <Show when={chatContextTokens()}>
+                {(display) =>
+                  <span
+                    class="shrink-0 text-[11px] tabular-nums text-slate-500"
+                    title={display().exact
+                      ? "Tokens in the last model request"
+                      : "Estimated tokens in context"}>
+                    {display().label}
+                  </span>
+                }
+              </Show>
               <span class="shrink-0 text-[11px] tabular-nums text-slate-500">
                 {formatChatActivityElapsed(liveChatActivity()!.startedAt, chatActivityNowMs())}
               </span>
@@ -965,9 +974,20 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onKeyDown={stop}
           onKeyUp={stop}>
           <div
-            class="flex items-center px-1 text-[#555]"
-            style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px; ` +
-              `padding-right: ${QUERY_CHAT_TRAILING_CONTROLS_WIDTH_PX}px;`}>
+            class="flex items-center gap-3 pl-1 text-[#555]"
+            style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px;`}>
+            <Show when={!chatActivityHeaderVisible() && chatContextTokens()}>
+              {(display) =>
+                <span
+                  class="shrink-0 tabular-nums"
+                  style="font-size: 12px; line-height: 20px;"
+                  title={display().exact
+                    ? "Tokens in the last model request"
+                    : "Estimated tokens in context"}>
+                  {display().label}
+                </span>
+              }
+            </Show>
             <Show when={liveChatActivity() != null && chatActivityPanelHeightPx() == 0}>
               <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;">
                 {liveChatActivity()!.statusText}

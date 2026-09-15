@@ -33,7 +33,7 @@ use markdown::chat_response_items_json;
 
 const CHAT_LLAMA_CONNECT_TIMEOUT_SECS: u64 = 30;
 const CHAT_LLAMA_READ_TIMEOUT_SECS: u64 = 120;
-const CHAT_MAX_TOOL_ROUNDS: usize = 9;
+const CHAT_MAX_TOOL_ROUNDS: usize = 10_000;
 const CHAT_TOOL_APPROVAL_TIMEOUT_SECS: u64 = 300;
 const CHAT_TOOL_APPROVAL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
@@ -199,6 +199,10 @@ enum ChatStreamEventKind {
     result_preview: Value,
   },
   Materializing,
+  ContextTokens {
+    tokens: i64,
+    exact: bool,
+  },
   FinalItems {
     text: String,
     items: Value,
@@ -248,6 +252,10 @@ impl ChatStreamEventKind {
     }
   }
 
+  fn context_tokens(tokens: i64, exact: bool) -> Self {
+    Self::ContextTokens { tokens, exact }
+  }
+
   fn final_items(items: Value, assistant_text: &str, messages: Vec<ChatHistoryMessage>) -> Self {
     Self::FinalItems { text: assistant_text.to_owned(), items, messages }
   }
@@ -286,6 +294,10 @@ impl ChatProgressReporter {
 
   async fn model_round_started(&self, round: usize) {
     self.send(ChatStreamEventKind::ModelRoundStarted { round }).await;
+  }
+
+  async fn context_tokens(&self, tokens: i64, exact: bool) {
+    self.send(ChatStreamEventKind::context_tokens(tokens, exact)).await;
   }
 
   async fn reasoning_delta(&self, round: usize, text: String) {
@@ -397,10 +409,17 @@ struct LlamaToolFunctionSpec {
 }
 
 #[derive(Serialize)]
+struct LlamaStreamOptions {
+  include_usage: bool,
+}
+
+#[derive(Serialize)]
 struct LlamaChatCompletionRequest {
   model: String,
   messages: Vec<LlamaChatMessage>,
   stream: bool,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  stream_options: Option<LlamaStreamOptions>,
   #[serde(skip_serializing_if = "Vec::is_empty")]
   tools: Vec<LlamaToolSpec>,
 }
@@ -570,7 +589,7 @@ pub async fn serve_chat_stream_route(
       }
       Err(e) => {
         warn!("An error occurred servicing a streaming chat request for user '{}': {}.", user_id, e);
-        progress.send(ChatStreamEventKind::error("Chat failed.")).await;
+        progress.send(ChatStreamEventKind::error(&chat_failure_message(e.message()))).await;
       }
     }
   });
@@ -918,6 +937,43 @@ fn llama_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<Lla
   }
 }
 
+fn chat_failure_message(message: &str) -> String {
+  if message.contains("exceeded maximum tool rounds") {
+    return format!("Exceeded maximum tool rounds ({CHAT_MAX_TOOL_ROUNDS}).");
+  }
+  if message.contains("empty chat response") {
+    return "The model returned an empty response.".to_owned();
+  }
+  if message.contains("must be configured to use Chat") {
+    return "The language model server is not configured.".to_owned();
+  }
+  if message.contains("Could not send chat request") || message.contains("[kind=connect]") {
+    return "Could not reach the language model server.".to_owned();
+  }
+  if message.contains("timeout") || message.contains("timed out") {
+    return "The language model request timed out.".to_owned();
+  }
+  if message.contains("returned no chat response choices") {
+    return "The model returned no response.".to_owned();
+  }
+  if message.contains("SSE response ended") {
+    return "The model stream ended unexpectedly.".to_owned();
+  }
+  if message.contains("unexpected chat response role") {
+    return "The model returned an unexpected response.".to_owned();
+  }
+  if message.contains("streaming error") {
+    return "The language model reported an error.".to_owned();
+  }
+  if message.contains("llama-server chat endpoint") && message.contains("returned") {
+    return "The language model server rejected the request.".to_owned();
+  }
+  if message.contains("Chat request did not contain any message text") {
+    return "The chat request did not contain any message text.".to_owned();
+  }
+  "Chat failed.".to_owned()
+}
+
 fn truncate_for_error(text: &str, max_chars: usize) -> String {
   let mut chars = text.chars();
   let truncated: String = chars.by_ref().take(max_chars).collect();
@@ -992,11 +1048,25 @@ fn append_llm_json_log_section<T: Serialize>(title: &str, value: &T) {
   append_llm_log_section(title, &body);
 }
 
-fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) {
+fn approx_chars_to_tokens(chars: usize) -> i64 {
+  ((chars + 3) / 4) as i64
+}
+
+fn request_char_counts(messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) -> (usize, usize, usize) {
   let content_chars = messages.iter().map(message_content_chars).sum::<usize>();
   let reasoning_chars = messages.iter().map(message_reasoning_chars).sum::<usize>();
-  let message_chars = content_chars + reasoning_chars;
   let tool_schema_chars = serde_json::to_string(tools).map(|text| text_char_count(&text)).unwrap_or(0);
+  (content_chars, reasoning_chars, tool_schema_chars)
+}
+
+fn approx_request_tokens(messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) -> i64 {
+  let (content_chars, reasoning_chars, tool_schema_chars) = request_char_counts(messages, tools);
+  approx_chars_to_tokens(content_chars + reasoning_chars + tool_schema_chars)
+}
+
+fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) {
+  let (content_chars, reasoning_chars, tool_schema_chars) = request_char_counts(messages, tools);
+  let message_chars = content_chars + reasoning_chars;
   let total_request_chars = message_chars + tool_schema_chars;
   let tool_result_chars =
     messages.iter().filter(|message| message.role == "tool").map(message_content_chars).sum::<usize>();
@@ -1008,10 +1078,10 @@ fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage]
     "messageChars": message_chars,
     "toolSchemaChars": tool_schema_chars,
     "totalRequestChars": total_request_chars,
-    "approxContentTokens": (content_chars + 3) / 4,
-    "approxReasoningTokens": (reasoning_chars + 3) / 4,
-    "approxMessageTokens": (message_chars + 3) / 4,
-    "approxRequestTokens": (total_request_chars + 3) / 4,
+    "approxContentTokens": approx_chars_to_tokens(content_chars),
+    "approxReasoningTokens": approx_chars_to_tokens(reasoning_chars),
+    "approxMessageTokens": approx_chars_to_tokens(message_chars),
+    "approxRequestTokens": approx_chars_to_tokens(total_request_chars),
     "toolResultChars": tool_result_chars
   });
   append_llm_json_log_section(&format!("LLM REQUEST METRICS {}", llm_turn), &metrics);
@@ -2015,10 +2085,12 @@ async fn llama_chat_completion(
     model: "default".to_owned(),
     messages: messages.to_vec(),
     stream: true,
+    stream_options: Some(LlamaStreamOptions { include_usage: true }),
     tools: tools.to_vec(),
   };
   append_llm_request_metrics_log(llm_turn, messages, tools);
   append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &payload);
+  progress.context_tokens(approx_request_tokens(messages, tools), false).await;
   let response = client
     .post(url.clone())
     .header(reqwest::header::ACCEPT, "text/event-stream")
@@ -2061,6 +2133,9 @@ async fn llama_chat_completion(
   append_llm_json_log_section(&format!("LLM RESPONSE {}", llm_turn), &completion.response_log_value());
   if let Some(usage) = completion.usage.as_ref() {
     append_llm_json_log_section(&format!("LLM RESPONSE USAGE {}", llm_turn), usage);
+    if let Some(prompt_tokens) = usage.prompt_tokens {
+      progress.context_tokens(prompt_tokens, true).await;
+    }
   }
   completion.into_message()
 }

@@ -203,6 +203,8 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
         return "Source text loaded";
       }
       return event.summary;
+    case "context_tokens":
+      return "";
     case "materializing":
       return "Adding response";
     case "final_items":
@@ -210,7 +212,7 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
     case "cancelled":
       return "Chat cancelled";
     case "error":
-      return "Chat failed";
+      return event.message.trim() == "" ? "Chat failed" : event.message;
   }
 }
 
@@ -235,6 +237,9 @@ function completeStreamingModelRounds(rounds: Array<ChatStreamingModelRound>): A
 }
 
 function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStreamEvent): ChatStreamingState {
+  if (event.type == "context_tokens") {
+    return current;
+  }
   const statusText = chatStatusTextFromEvent(event);
   let next: ChatStreamingState;
   switch (event.type) {
@@ -444,6 +449,9 @@ function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
   if (current == null || current.requestId != event.requestId) {
     throw new Error("Received a chat stream event without a matching active request.");
   }
+  if (event.type == "context_tokens") {
+    return;
+  }
 
   if (event.type == "reasoning_delta" || event.type == "answer_delta") {
     const targetPhase: ChatStreamPhase = event.type == "reasoning_delta" ? "thinking" : "answering";
@@ -482,6 +490,65 @@ function queryChatRootIds(store: StoreContextModel, queryItem: QueryItem): Array
 
 function queryChatMessages(store: StoreContextModel, queryItem: QueryItem): Array<ChatMessage> {
   return getQueryRuntime(store, queryItem).chat.messages ?? [];
+}
+
+function textCharCount(text: string): number {
+  return [...text].length;
+}
+
+function estimateChatContextTokens(messages: Array<ChatMessage>, extraText: string): number {
+  let chars = 0;
+  for (const message of messages) {
+    if (message.content != null) {
+      chars += textCharCount(message.content);
+    }
+    if (message.reasoningContent != null) {
+      chars += textCharCount(message.reasoningContent);
+    }
+  }
+  if (extraText != "") {
+    chars += textCharCount(extraText);
+  }
+  return Math.floor((chars + 3) / 4);
+}
+
+function setQueryChatContextTokens(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  tokens: number,
+  exact: boolean,
+): void {
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    chat: {
+      ...current.chat,
+      contextTokens: tokens,
+      contextTokensExact: exact,
+    },
+  }));
+}
+
+export function queryChatContextTokenDisplay(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  draftText: string,
+): { label: string, exact: boolean } | null {
+  const draft = draftText.trim();
+  const messages = queryChatMessages(store, queryItem);
+  const stored = getQueryRuntime(store, queryItem).chat;
+  const useStored = stored.contextTokens != null && draft == "";
+  const tokens = useStored
+    ? stored.contextTokens!
+    : estimateChatContextTokens(messages, draft);
+  const exact = useStored && stored.contextTokensExact;
+  if (tokens <= 0 && !exact) {
+    return null;
+  }
+  const formatted = tokens.toLocaleString("en-US");
+  return {
+    label: exact ? `${formatted} tokens` : `~${formatted} tokens`,
+    exact,
+  };
 }
 
 function appendQueryChatMessage(store: StoreContextModel, queryItem: QueryItem, message: ChatMessage): void {
@@ -901,6 +968,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
   addLocalQueryUserTurn(store, queryItem, text);
   appendQueryChatMessage(store, queryItem, { role: "user", content: text });
   const messages = [...queryChatMessages(store, queryItem)];
+  setQueryChatContextTokens(store, queryItem, estimateChatContextTokens(messages, ""), false);
   requestArrange(store, "query-chat-user-turn");
 
   const requestId = newUid();
@@ -923,6 +991,9 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
       messages,
       capabilities: queryChatCapabilities(store, queryItem),
     }, store.general.networkStatus, (event) => {
+      if (event.type == "context_tokens") {
+        setQueryChatContextTokens(store, queryItem, event.tokens, event.exact);
+      }
       applyQueryChatStreamEvent(queryItem.id, event);
     }, controller.signal);
 
@@ -1065,6 +1136,8 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       rootItemIds: [],
       messages: [],
       completedActivities: [],
+      contextTokens: null,
+      contextTokensExact: false,
     },
   }));
   clearQueryChatStreamingState(queryItem.id);

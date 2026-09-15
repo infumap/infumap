@@ -68,6 +68,8 @@ export interface QueryRuntime {
     messages: Array<ChatMessage>,
     capabilities: Array<ChatCapability>,
     completedActivities: Array<QueryChatCompletedActivity>,
+    contextTokens: number | null,
+    contextTokensExact: boolean,
   },
 }
 
@@ -156,6 +158,8 @@ export function makePerItemStore(): PerItemStoreContextModel {
       messages: [],
       capabilities: ["infumap_data"],
       completedActivities: [],
+      contextTokens: null,
+      contextTokensExact: false,
     },
   });
 
