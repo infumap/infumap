@@ -31,7 +31,6 @@ use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 mod backend;
 mod markdown;
 mod mcp;
-mod web_search;
 use backend::{
   ChatBackend, ChatEndpoint, ChatModelSelection, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends,
   resolve_chat_endpoint,
@@ -58,13 +57,11 @@ Search results carry a linkUrl (\"infumap://<uid>\"). Whenever you name an item,
 link it as [title](linkUrl), copying the linkUrl verbatim.";
 const CHAT_GENERAL_SYSTEM_PROMPT: &str = "You are a helpful chat assistant.";
 const CHAT_CAPABILITY_INFUMAP_DATA: &str = "infumap_data";
-const CHAT_CAPABILITY_WEB_SEARCH: &str = "web_search";
 const CHAT_SYSTEM_PROMPT_CLOSING: &str = "\
 Answer concisely in Markdown. If the tools don't give you enough, \
 say what is missing rather than inventing details.";
-const CHAT_SYSTEM_PROMPT_WEB_SEARCH: &str = "\
-Use web_search and fetch_page for public web information. \
-Cite sources with the URLs those tools return; never invent a link.";
+const CHAT_SYSTEM_PROMPT_PLUGIN_TOOLS: &str = "\
+Cite sources with URLs the tools return; never invent a link.";
 
 #[derive(Deserialize)]
 struct ChatRequest {
@@ -144,17 +141,8 @@ impl ChatRequest {
     self.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_INFUMAP_DATA)
   }
 
-  fn uses_web_search(&self) -> bool {
-    self.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_WEB_SEARCH)
-  }
-
   fn plugin_capabilities(&self) -> Vec<String> {
-    self
-      .capabilities
-      .iter()
-      .filter(|capability| *capability != CHAT_CAPABILITY_INFUMAP_DATA && *capability != CHAT_CAPABILITY_WEB_SEARCH)
-      .cloned()
-      .collect()
+    self.capabilities.iter().filter(|capability| *capability != CHAT_CAPABILITY_INFUMAP_DATA).cloned().collect()
   }
 }
 
@@ -590,21 +578,6 @@ struct ChatFragmentToolArguments {
   ordinal: Option<i64>,
 }
 
-#[derive(Deserialize)]
-struct ChatWebSearchToolArguments {
-  query: Option<String>,
-  text: Option<String>,
-  #[serde(rename = "numResults")]
-  num_results: Option<i64>,
-}
-
-#[derive(Deserialize)]
-struct ChatFetchPageToolArguments {
-  url: Option<String>,
-  #[serde(rename = "maxChars")]
-  max_chars: Option<i64>,
-}
-
 pub async fn serve_chat_stream_route(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -1001,10 +974,10 @@ fn chat_utc_today_line() -> String {
   format!("Today is {}, {:04}-{:02}-{:02} (UTC).", now.weekday(), now.year(), u8::from(now.month()), now.day())
 }
 
-fn chat_system_prompt(uses_infumap_data: bool, uses_web_search: bool) -> String {
+fn chat_system_prompt(uses_infumap_data: bool, has_plugin_tools: bool) -> String {
   let mut parts = vec![if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT }];
-  if uses_web_search {
-    parts.push(CHAT_SYSTEM_PROMPT_WEB_SEARCH);
+  if has_plugin_tools {
+    parts.push(CHAT_SYSTEM_PROMPT_PLUGIN_TOOLS);
   }
   parts.push(CHAT_SYSTEM_PROMPT_CLOSING);
   format!("{}\n\n{}", chat_utc_today_line(), parts.join("\n\n"))
@@ -1240,73 +1213,11 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
   }
 }
 
-fn fetch_page_tool_spec() -> OpenAiToolSpec {
-  OpenAiToolSpec {
-    tool_type: "function".to_owned(),
-    function: OpenAiToolFunctionSpec {
-      name: "fetch_page".to_owned(),
-      description: "Read an HTTP or HTTPS URL.".to_owned(),
-      parameters: serde_json::json!({
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "description": "HTTP or HTTPS URL to fetch."
-          },
-          "maxChars": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": web_search::MAX_CHARS_CAP,
-            "description": "Maximum number of characters of page text to return."
-          }
-        },
-        "required": ["url"],
-        "additionalProperties": false
-      }),
-    },
-  }
-}
-
-fn web_search_tool_spec() -> OpenAiToolSpec {
-  OpenAiToolSpec {
-    tool_type: "function".to_owned(),
-    function: OpenAiToolFunctionSpec {
-      name: "web_search".to_owned(),
-      description: "Search the public web.".to_owned(),
-      parameters: serde_json::json!({
-        "type": "object",
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "Web search query."
-          },
-          "numResults": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": web_search::MAX_RESULTS_CAP,
-            "description": "Maximum number of search results to return."
-          }
-        },
-        "required": ["query"],
-        "additionalProperties": false
-      }),
-    },
-  }
-}
-
-fn chat_tool_specs(
-  uses_infumap_data: bool,
-  uses_web_search: bool,
-  mcp_tools: &[mcp::MappedMcpTool],
-) -> Vec<OpenAiToolSpec> {
+fn chat_tool_specs(uses_infumap_data: bool, mcp_tools: &[mcp::MappedMcpTool]) -> Vec<OpenAiToolSpec> {
   let mut tools = Vec::new();
   if uses_infumap_data {
     tools.push(lexical_search_tool_spec());
     tools.push(get_fragment_tool_spec());
-  }
-  if uses_web_search {
-    tools.push(web_search_tool_spec());
-    tools.push(fetch_page_tool_spec());
   }
   for tool in mcp_tools {
     tools.push(OpenAiToolSpec {
@@ -1352,16 +1263,11 @@ async fn run_chat_model_round(
   Ok(CompletedChatModelRound { number: round, assistant_message, tool_calls })
 }
 
-fn chat_tool_requires_approval(
-  name: &str,
-  uses_web_search: bool,
-  name_map: &HashMap<String, (String, String)>,
-  config: &Config,
-) -> bool {
+fn chat_tool_requires_approval(name: &str, name_map: &HashMap<String, (String, String)>, config: &Config) -> bool {
   if let Some((server_id, _)) = name_map.get(name) {
     return mcp::server_requires_approval(config, server_id);
   }
-  uses_web_search && (name == "web_search" || name == "fetch_page")
+  false
 }
 
 fn web_tool_approval_prompt(name: &str, arguments: &Value) -> (Option<String>, Option<String>) {
@@ -1379,7 +1285,6 @@ async fn execute_chat_tool_round(
   session: &Session,
   config: &Config,
   uses_infumap_data: bool,
-  uses_web_search: bool,
   name_map: &HashMap<String, (String, String)>,
   round: usize,
   tool_calls: Vec<OpenAiToolCall>,
@@ -1388,7 +1293,7 @@ async fn execute_chat_tool_round(
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
   for tool_call in tool_calls {
     let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
-    if chat_tool_requires_approval(&tool_call.function.name, uses_web_search, name_map, config) {
+    if chat_tool_requires_approval(&tool_call.function.name, name_map, config) {
       let (query, url) = web_tool_approval_prompt(&tool_call.function.name, &arguments);
       progress
         .tool_approval_required(round, &tool_call.id, &tool_call.function.name, query, url, arguments.clone())
@@ -1413,8 +1318,7 @@ async fn execute_chat_tool_round(
     }
     progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
     let started_at = Instant::now();
-    let tool_result =
-      execute_chat_tool_call(db, session, config, &tool_call, uses_infumap_data, uses_web_search, name_map).await?;
+    let tool_result = execute_chat_tool_call(db, session, config, &tool_call, uses_infumap_data, name_map).await?;
     let duration_ms = started_at.elapsed().as_millis() as u64;
     let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
     progress
@@ -1442,13 +1346,11 @@ async fn run_chat_with_tools(
     return Err("Chat request did not contain any message text.".into());
   }
   let uses_infumap_data = request.uses_infumap_data();
-  let uses_web_search = request.uses_web_search();
-  messages.insert(0, OpenAiChatMessage::text("system", chat_system_prompt(uses_infumap_data, uses_web_search)));
-
-  let reserved = mcp::reserved_openai_names(uses_infumap_data, uses_web_search);
+  let reserved = mcp::reserved_openai_names(uses_infumap_data);
   let (mcp_tools, name_map) =
     mcp::mapped_tools_for_capabilities(config.as_ref(), &request.plugin_capabilities(), &reserved).await;
-  let tools = chat_tool_specs(uses_infumap_data, uses_web_search, &mcp_tools);
+  messages.insert(0, OpenAiChatMessage::text("system", chat_system_prompt(uses_infumap_data, !mcp_tools.is_empty())));
+  let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
@@ -1468,7 +1370,6 @@ async fn run_chat_with_tools(
         session,
         config.as_ref(),
         uses_infumap_data,
-        uses_web_search,
         &name_map,
         completed_round.number,
         completed_round.tool_calls,
@@ -1515,7 +1416,6 @@ async fn execute_chat_tool_call(
   config: &Config,
   tool_call: &OpenAiToolCall,
   uses_infumap_data: bool,
-  uses_web_search: bool,
   name_map: &HashMap<String, (String, String)>,
 ) -> InfuResult<String> {
   if let Some((server_id, mcp_name)) = name_map.get(&tool_call.function.name) {
@@ -1528,9 +1428,6 @@ async fn execute_chat_tool_call(
     }
     "lexical_search" => execute_lexical_search_tool_call(db, session, tool_call).await,
     "get_fragment" => execute_get_fragment_tool_call(db, session, tool_call).await,
-    "web_search" | "fetch_page" if !uses_web_search => Ok(tool_error_json("Web search is not enabled for this chat.")),
-    "web_search" => execute_web_search_tool_call(tool_call).await,
-    "fetch_page" => execute_fetch_page_tool_call(tool_call).await,
     name => Ok(tool_error_json(&format!("Unknown tool '{name}'."))),
   }
 }
@@ -1654,57 +1551,6 @@ async fn execute_get_fragment_tool_call(
     })
     .to_string(),
   )
-}
-
-async fn execute_web_search_tool_call(tool_call: &OpenAiToolCall) -> InfuResult<String> {
-  let arguments = match tool_call_arguments_value(tool_call) {
-    Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&e.to_string())),
-  };
-  let arguments: ChatWebSearchToolArguments = match serde_json::from_value(arguments) {
-    Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&format!("Could not parse web_search tool arguments: {}", e))),
-  };
-
-  let query = arguments.query.or(arguments.text).unwrap_or_default();
-  if query.trim().is_empty() {
-    return Ok(tool_error_json("web_search tool argument 'query' is required."));
-  }
-
-  let num_results = arguments
-    .num_results
-    .unwrap_or(web_search::DEFAULT_MAX_RESULTS as i64)
-    .clamp(1, web_search::MAX_RESULTS_CAP as i64) as usize;
-
-  match web_search::search_web_json(&query, num_results).await {
-    Ok(response) => Ok(response),
-    Err(e) => Ok(tool_error_json(&e.to_string())),
-  }
-}
-
-async fn execute_fetch_page_tool_call(tool_call: &OpenAiToolCall) -> InfuResult<String> {
-  let arguments = match tool_call_arguments_value(tool_call) {
-    Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&e.to_string())),
-  };
-  let arguments: ChatFetchPageToolArguments = match serde_json::from_value(arguments) {
-    Ok(arguments) => arguments,
-    Err(e) => return Ok(tool_error_json(&format!("Could not parse fetch_page tool arguments: {}", e))),
-  };
-
-  let url = arguments.url.unwrap_or_default();
-  if url.trim().is_empty() {
-    return Ok(tool_error_json("fetch_page tool argument 'url' is required."));
-  }
-
-  let max_chars =
-    arguments.max_chars.unwrap_or(web_search::DEFAULT_MAX_CHARS as i64).clamp(1, web_search::MAX_CHARS_CAP as i64)
-      as usize;
-
-  match web_search::fetch_page_json(&url, max_chars).await {
-    Ok(response) => Ok(response),
-    Err(e) => Ok(tool_error_json(&e.to_string())),
-  }
 }
 
 fn tool_call_arguments_value(tool_call: &OpenAiToolCall) -> InfuResult<Value> {

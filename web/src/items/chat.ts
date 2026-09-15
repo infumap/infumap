@@ -628,7 +628,7 @@ export function ensureTemporaryQueryChatPage(store: StoreContextModel, queryItem
   return page;
 }
 
-const CHAT_BUILTIN_CAPABILITIES: Array<ChatCapability> = ["infumap_data", "web_search"];
+const CHAT_BUILTIN_CAPABILITIES: Array<ChatCapability> = ["infumap_data"];
 const appliedDefaultPluginQueryIds = new Set<string>();
 
 export function queryChatCapabilities(store: StoreContextModel, queryItem: QueryItem): Array<ChatCapability> {
@@ -637,10 +637,6 @@ export function queryChatCapabilities(store: StoreContextModel, queryItem: Query
 
 export function queryChatUsesInfumapData(store: StoreContextModel, queryItem: QueryItem): boolean {
   return queryChatCapabilities(store, queryItem).includes("infumap_data");
-}
-
-export function queryChatUsesWebSearch(store: StoreContextModel, queryItem: QueryItem): boolean {
-  return queryChatCapabilities(store, queryItem).includes("web_search");
 }
 
 export function queryChatUsesCapability(
@@ -691,14 +687,6 @@ export function setQueryChatUsesInfumapData(
   enabled: boolean,
 ): void {
   setQueryChatCapability(store, queryItem, "infumap_data", enabled);
-}
-
-export function setQueryChatUsesWebSearch(
-  store: StoreContextModel,
-  queryItem: QueryItem,
-  enabled: boolean,
-): void {
-  setQueryChatCapability(store, queryItem, "web_search", enabled);
 }
 
 export function setQueryChatUsesCapability(

@@ -21,7 +21,7 @@ use serde::Deserialize;
 use crate::config::{CONFIG_CHAT_TOOL_SERVER, CONFIG_CHAT_TOOL_SERVERS};
 
 const SERVER_ID_MAX_LEN: usize = 32;
-const RESERVED_CAPABILITY_IDS: &[&str] = &["infumap_data", "web_search"];
+const RESERVED_CAPABILITY_IDS: &[&str] = &["infumap_data"];
 
 #[derive(Clone, Debug)]
 pub struct ChatToolServer {
@@ -154,14 +154,14 @@ mod tests {
     let servers = from_toml(
       r#"
 [[chat_tool_server]]
-id = "web_search_mcp"
+id = "web_search"
 url = "http://127.0.0.1:8791/mcp"
-label = "Web search (MCP)"
+label = "Web search"
 "#,
     );
     assert_eq!(servers.len(), 1);
-    assert_eq!(servers[0].id, "web_search_mcp");
-    assert_eq!(servers[0].label, "Web search (MCP)");
+    assert_eq!(servers[0].id, "web_search");
+    assert_eq!(servers[0].label, "Web search");
     assert!(!servers[0].enabled_by_default);
     assert!(servers[0].require_approval);
     assert!(servers[0].bearer_token.is_none());
@@ -173,7 +173,7 @@ label = "Web search (MCP)"
       .add_source(File::from_str(
         r#"
 [[chat_tool_server]]
-id = "web_search_mcp"
+id = "web_search"
 url = "http://127.0.0.1:8791/mcp"
 label = "From TOML"
 "#,
@@ -181,7 +181,7 @@ label = "From TOML"
       ))
       .set_override(
         CONFIG_CHAT_TOOL_SERVERS,
-        r#"[{"id":"web_search_mcp","url":"http://127.0.0.1:8792/mcp","label":"From JSON","require_approval":false}]"#,
+        r#"[{"id":"web_search","url":"http://127.0.0.1:8792/mcp","label":"From JSON","require_approval":false}]"#,
       )
       .unwrap()
       .build()
@@ -199,7 +199,7 @@ label = "From TOML"
       .add_source(File::from_str(
         r#"
 [[chat_tool_server]]
-id = "web_search"
+id = "infumap_data"
 url = "http://127.0.0.1:8791/mcp"
 "#,
         FileFormat::Toml,
@@ -207,6 +207,19 @@ url = "http://127.0.0.1:8791/mcp"
       .build()
       .unwrap();
     assert!(chat_tool_servers_from_config(&config).is_err());
+  }
+
+  #[test]
+  fn accepts_web_search_id() {
+    let servers = from_toml(
+      r#"
+[[chat_tool_server]]
+id = "web_search"
+url = "http://127.0.0.1:8791/mcp"
+"#,
+    );
+    assert_eq!(servers[0].id, "web_search");
+    assert_eq!(servers[0].label, "web_search");
   }
 
   #[test]
