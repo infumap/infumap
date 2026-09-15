@@ -84,6 +84,23 @@
 # they do.
 #chat_default_openrouter_model = ""
 
+# Optional MCP tool servers for Chat, spoken over Streamable HTTP. Infumap does
+# not start these processes; run the sidecar yourself (see tools/mcp/). Plugin
+# ids must not be infumap_data or web_search — those names are the built-in
+# capabilities. require_approval defaults to true; enabled_by_default to false.
+# Example:
+# [[chat_tool_server]]
+# id = "web_search_mcp"
+# url = "http://127.0.0.1:8791/mcp"
+# label = "Web search (MCP)"
+# # bearer_token = ""
+# # enabled_by_default = false
+# # require_approval = true
+#
+# JSON equivalent via INFUMAP_CHAT_TOOL_SERVERS (overrides TOML entries with
+# the same id):
+# chat_tool_servers = '[{"id":"web_search_mcp","url":"http://127.0.0.1:8791/mcp"}]'
+
 # Reverse geocoding service URL for GPS-tagged images. Used when geoapify_api_key
 # is set; this stage runs from successful image tag artifacts.
 #geoapify_url = "https://api.geoapify.com/v1/geocode/reverse"

@@ -55,6 +55,8 @@ pub const CONFIG_CHAT_DEFAULT_BACKEND: &'static str = "chat_default_backend";
 pub const CONFIG_CHAT_DEFAULT_BACKEND_DEFAULT: &'static str = CHAT_BACKEND_LLAMA;
 pub const CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL: &'static str = "chat_default_openrouter_model";
 pub const CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL_DEFAULT: &'static str = "";
+pub const CONFIG_CHAT_TOOL_SERVER: &'static str = "chat_tool_server";
+pub const CONFIG_CHAT_TOOL_SERVERS: &'static str = "chat_tool_servers";
 
 /// Chat backend identifiers, as accepted by chat_default_backend and sent by the web client.
 pub const CHAT_BACKEND_LLAMA: &'static str = "llama";

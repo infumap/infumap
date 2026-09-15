@@ -30,12 +30,14 @@ use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
 mod backend;
 mod markdown;
+mod mcp;
 mod web_search;
 use backend::{
   ChatBackend, ChatEndpoint, ChatModelSelection, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends,
   resolve_chat_endpoint,
 };
 use markdown::chat_response_items_json;
+pub(crate) use mcp::chat_tool_servers_from_config;
 
 const CHAT_MAX_TOOL_ROUNDS: usize = 10_000;
 const CHAT_TOOL_APPROVAL_TIMEOUT_SECS: u64 = 300;
@@ -145,6 +147,15 @@ impl ChatRequest {
   fn uses_web_search(&self) -> bool {
     self.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_WEB_SEARCH)
   }
+
+  fn plugin_capabilities(&self) -> Vec<String> {
+    self
+      .capabilities
+      .iter()
+      .filter(|capability| *capability != CHAT_CAPABILITY_INFUMAP_DATA && *capability != CHAT_CAPABILITY_WEB_SEARCH)
+      .cloned()
+      .collect()
+  }
 }
 
 #[derive(Serialize)]
@@ -181,6 +192,7 @@ enum ChatStreamEventKind {
     query: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     url: Option<String>,
+    arguments: Value,
   },
   ToolCallStarted {
     round: usize,
@@ -228,8 +240,9 @@ impl ChatStreamEventKind {
     name: &str,
     query: Option<String>,
     url: Option<String>,
+    arguments: Value,
   ) -> Self {
-    Self::ToolApprovalRequired { round, call_id: call_id.to_owned(), name: name.to_owned(), query, url }
+    Self::ToolApprovalRequired { round, call_id: call_id.to_owned(), name: name.to_owned(), query, url, arguments }
   }
 
   fn tool_call_started(round: usize, call_id: &str, name: &str, arguments: Value) -> Self {
@@ -317,8 +330,9 @@ impl ChatProgressReporter {
     name: &str,
     query: Option<String>,
     url: Option<String>,
+    arguments: Value,
   ) {
-    self.send(ChatStreamEventKind::tool_approval_required(round, call_id, name, query, url)).await;
+    self.send(ChatStreamEventKind::tool_approval_required(round, call_id, name, query, url, arguments)).await;
   }
 
   async fn tool_call_started(&self, round: usize, call_id: &str, name: &str, arguments: Value) {
@@ -984,13 +998,7 @@ fn legacy_wire_messages_from_chat_request(request: &ChatRequest) -> Vec<OpenAiCh
 
 fn chat_utc_today_line() -> String {
   let now = OffsetDateTime::now_utc();
-  format!(
-    "Today is {}, {:04}-{:02}-{:02} (UTC).",
-    now.weekday(),
-    now.year(),
-    u8::from(now.month()),
-    now.day()
-  )
+  format!("Today is {}, {:04}-{:02}-{:02} (UTC).", now.weekday(), now.year(), u8::from(now.month()), now.day())
 }
 
 fn chat_system_prompt(uses_infumap_data: bool, uses_web_search: bool) -> String {
@@ -1286,7 +1294,11 @@ fn web_search_tool_spec() -> OpenAiToolSpec {
   }
 }
 
-fn chat_tool_specs(uses_infumap_data: bool, uses_web_search: bool) -> Vec<OpenAiToolSpec> {
+fn chat_tool_specs(
+  uses_infumap_data: bool,
+  uses_web_search: bool,
+  mcp_tools: &[mcp::MappedMcpTool],
+) -> Vec<OpenAiToolSpec> {
   let mut tools = Vec::new();
   if uses_infumap_data {
     tools.push(lexical_search_tool_spec());
@@ -1295,6 +1307,16 @@ fn chat_tool_specs(uses_infumap_data: bool, uses_web_search: bool) -> Vec<OpenAi
   if uses_web_search {
     tools.push(web_search_tool_spec());
     tools.push(fetch_page_tool_spec());
+  }
+  for tool in mcp_tools {
+    tools.push(OpenAiToolSpec {
+      tool_type: "function".to_owned(),
+      function: OpenAiToolFunctionSpec {
+        name: tool.openai_name.clone(),
+        description: tool.description.clone(),
+        parameters: tool.parameters.clone(),
+      },
+    });
   }
   tools
 }
@@ -1330,8 +1352,16 @@ async fn run_chat_model_round(
   Ok(CompletedChatModelRound { number: round, assistant_message, tool_calls })
 }
 
-fn chat_tool_requires_approval(name: &str) -> bool {
-  name == "web_search" || name == "fetch_page"
+fn chat_tool_requires_approval(
+  name: &str,
+  uses_web_search: bool,
+  name_map: &HashMap<String, (String, String)>,
+  config: &Config,
+) -> bool {
+  if let Some((server_id, _)) = name_map.get(name) {
+    return mcp::server_requires_approval(config, server_id);
+  }
+  uses_web_search && (name == "web_search" || name == "fetch_page")
 }
 
 fn web_tool_approval_prompt(name: &str, arguments: &Value) -> (Option<String>, Option<String>) {
@@ -1347,8 +1377,10 @@ fn web_tool_approval_prompt(name: &str, arguments: &Value) -> (Option<String>, O
 async fn execute_chat_tool_round(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
+  config: &Config,
   uses_infumap_data: bool,
   uses_web_search: bool,
+  name_map: &HashMap<String, (String, String)>,
   round: usize,
   tool_calls: Vec<OpenAiToolCall>,
   progress: &ChatProgressReporter,
@@ -1356,9 +1388,11 @@ async fn execute_chat_tool_round(
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
   for tool_call in tool_calls {
     let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
-    if uses_web_search && chat_tool_requires_approval(&tool_call.function.name) {
+    if chat_tool_requires_approval(&tool_call.function.name, uses_web_search, name_map, config) {
       let (query, url) = web_tool_approval_prompt(&tool_call.function.name, &arguments);
-      progress.tool_approval_required(round, &tool_call.id, &tool_call.function.name, query, url).await;
+      progress
+        .tool_approval_required(round, &tool_call.id, &tool_call.function.name, query, url, arguments.clone())
+        .await;
       match wait_for_tool_approval(&progress.request_id, &tool_call.id, &session.user_id).await {
         ToolApprovalDecision::Approved => {}
         decision => {
@@ -1379,7 +1413,8 @@ async fn execute_chat_tool_round(
     }
     progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
     let started_at = Instant::now();
-    let tool_result = execute_chat_tool_call(db, session, &tool_call, uses_infumap_data, uses_web_search).await?;
+    let tool_result =
+      execute_chat_tool_call(db, session, config, &tool_call, uses_infumap_data, uses_web_search, name_map).await?;
     let duration_ms = started_at.elapsed().as_millis() as u64;
     let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
     progress
@@ -1410,7 +1445,10 @@ async fn run_chat_with_tools(
   let uses_web_search = request.uses_web_search();
   messages.insert(0, OpenAiChatMessage::text("system", chat_system_prompt(uses_infumap_data, uses_web_search)));
 
-  let tools = chat_tool_specs(uses_infumap_data, uses_web_search);
+  let reserved = mcp::reserved_openai_names(uses_infumap_data, uses_web_search);
+  let (mcp_tools, name_map) =
+    mcp::mapped_tools_for_capabilities(config.as_ref(), &request.plugin_capabilities(), &reserved).await;
+  let tools = chat_tool_specs(uses_infumap_data, uses_web_search, &mcp_tools);
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
@@ -1428,8 +1466,10 @@ async fn run_chat_with_tools(
       let tool_messages = execute_chat_tool_round(
         db,
         session,
+        config.as_ref(),
         uses_infumap_data,
         uses_web_search,
+        &name_map,
         completed_round.number,
         completed_round.tool_calls,
         progress,
@@ -1472,10 +1512,16 @@ fn execution_tool_calls(message: &OpenAiChatMessage, tool_round: usize) -> Vec<O
 async fn execute_chat_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
+  config: &Config,
   tool_call: &OpenAiToolCall,
   uses_infumap_data: bool,
   uses_web_search: bool,
+  name_map: &HashMap<String, (String, String)>,
 ) -> InfuResult<String> {
+  if let Some((server_id, mcp_name)) = name_map.get(&tool_call.function.name) {
+    let arguments = tool_call_arguments_value(tool_call).unwrap_or_else(|_| serde_json::json!({}));
+    return mcp::call_mapped_tool(config, server_id, mcp_name, arguments).await;
+  }
   match tool_call.function.name.as_str() {
     "lexical_search" | "get_fragment" if !uses_infumap_data => {
       Ok(tool_error_json("Infumap data is not enabled for this chat."))

@@ -30,14 +30,15 @@ import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
-import { server, type ChatMessage, type ChatModelSelection, type ChatStreamEvent, type ChatStreamPhase } from "../server";
+import { server, type ChatMessage, type ChatModelSelection, type ChatStreamEvent, type ChatStreamPhase, type ChatToolServerInfo } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import type {
-  ChatCapability,
-  QueryChatActivityModelRound,
-  QueryChatActivityToolCall,
-  QueryChatCompletedActivity,
+import {
+  setExtraDefaultChatCapabilities,
+  type ChatCapability,
+  type QueryChatActivityModelRound,
+  type QueryChatActivityToolCall,
+  type QueryChatCompletedActivity,
 } from "../store/StoreProvider_PerItem";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
@@ -297,6 +298,7 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
               name: event.name,
               status: "awaiting_approval" as const,
               summary: null,
+              arguments: event.arguments,
               query: event.query,
               url: event.url,
             },
@@ -626,7 +628,8 @@ export function ensureTemporaryQueryChatPage(store: StoreContextModel, queryItem
   return page;
 }
 
-const CHAT_CAPABILITY_ORDER: Array<ChatCapability> = ["infumap_data", "web_search"];
+const CHAT_BUILTIN_CAPABILITIES: Array<ChatCapability> = ["infumap_data", "web_search"];
+const appliedDefaultPluginQueryIds = new Set<string>();
 
 export function queryChatCapabilities(store: StoreContextModel, queryItem: QueryItem): Array<ChatCapability> {
   return getQueryRuntime(store, queryItem).chat.capabilities;
@@ -640,6 +643,14 @@ export function queryChatUsesWebSearch(store: StoreContextModel, queryItem: Quer
   return queryChatCapabilities(store, queryItem).includes("web_search");
 }
 
+export function queryChatUsesCapability(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  capability: ChatCapability,
+): boolean {
+  return queryChatCapabilities(store, queryItem).includes(capability);
+}
+
 function withQueryChatCapability(
   capabilities: Array<ChatCapability>,
   capability: ChatCapability,
@@ -651,7 +662,9 @@ function withQueryChatCapability(
   } else {
     next.delete(capability);
   }
-  return CHAT_CAPABILITY_ORDER.filter(item => next.has(item));
+  const builtins = CHAT_BUILTIN_CAPABILITIES.filter(item => next.has(item));
+  const plugins = [...next].filter(item => !CHAT_BUILTIN_CAPABILITIES.includes(item));
+  return [...builtins, ...plugins];
 }
 
 function setQueryChatCapability(
@@ -686,6 +699,36 @@ export function setQueryChatUsesWebSearch(
   enabled: boolean,
 ): void {
   setQueryChatCapability(store, queryItem, "web_search", enabled);
+}
+
+export function setQueryChatUsesCapability(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  capability: ChatCapability,
+  enabled: boolean,
+): void {
+  setQueryChatCapability(store, queryItem, capability, enabled);
+}
+
+export function applyQueryChatDefaultPluginCapabilities(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  toolServers: Array<ChatToolServerInfo>,
+): void {
+  const defaultIds = toolServers
+    .filter(server => server.enabledByDefault && server.available)
+    .map(server => server.id);
+  setExtraDefaultChatCapabilities(defaultIds);
+  if (appliedDefaultPluginQueryIds.has(queryItem.id)) {
+    return;
+  }
+  appliedDefaultPluginQueryIds.add(queryItem.id);
+  if (queryChatHasContent(store, queryItem)) {
+    return;
+  }
+  for (const id of defaultIds) {
+    setQueryChatCapability(store, queryItem, id, true);
+  }
 }
 
 /**

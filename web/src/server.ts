@@ -125,7 +125,7 @@ export interface ChatModelSelection {
 export interface ChatRequest {
   requestId: string,
   messages: Array<ChatMessage>,
-  capabilities: Array<"infumap_data" | "web_search">,
+  capabilities: Array<string>,
   model?: ChatModelSelection,
 }
 
@@ -154,9 +154,18 @@ export interface ChatBackendInfo {
   modelsError?: string,
 }
 
+export interface ChatToolServerInfo {
+  id: string,
+  label: string,
+  available: boolean,
+  unavailableReason?: string,
+  enabledByDefault: boolean,
+}
+
 export interface ChatBackends {
   backends: Array<ChatBackendInfo>,
   default: { backend: ChatBackendId, model?: string },
+  toolServers?: Array<ChatToolServerInfo>,
 }
 
 export interface ChatResponse {
@@ -185,7 +194,7 @@ export type ChatStreamEvent = ChatStreamEventBase & (
   { type: "model_round_started", round: number } |
   { type: "reasoning_delta", round: number, text: string } |
   { type: "answer_delta", round: number, text: string } |
-  { type: "tool_approval_required", round: number, callId: string, name: string, query?: string, url?: string } |
+  { type: "tool_approval_required", round: number, callId: string, name: string, query?: string, url?: string, arguments?: unknown } |
   { type: "tool_call_started", round: number, callId: string, name: string, arguments?: unknown } |
   { type: "tool_call_finished", round: number, callId: string, name: string, summary: string, durationMs?: number, resultPreview?: unknown } |
   { type: "materializing" } |

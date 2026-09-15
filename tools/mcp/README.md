@@ -12,5 +12,13 @@ Start web search:
 ./tools/mcp/web-search/run.sh
 ```
 
-It listens on `http://127.0.0.1:8791/mcp` by default. Infumap does not call this
-server yet; that wiring is a later change.
+It listens on `http://127.0.0.1:8791/mcp` by default. Point Infumap at it with:
+
+```toml
+[[chat_tool_server]]
+id = "web_search_mcp"
+url = "http://127.0.0.1:8791/mcp"
+label = "Web search (MCP)"
+```
+
+Do not use `web_search` as the plugin id; that name is the built-in capability.
