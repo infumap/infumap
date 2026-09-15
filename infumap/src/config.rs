@@ -50,6 +50,16 @@ pub const CONFIG_GPU_TOOLS_URL: &'static str = "gpu_tools_url";
 pub const CONFIG_TEXT_EMBED_URL: &'static str = "text_embed_url";
 pub const CONFIG_LLAMA_SERVER_URL: &'static str = "llama_server_url";
 pub const CONFIG_LLAMA_SERVER_URL_DEFAULT: &'static str = "";
+pub const CONFIG_OPENROUTER_API_KEY: &'static str = "openrouter_api_key";
+pub const CONFIG_CHAT_DEFAULT_BACKEND: &'static str = "chat_default_backend";
+pub const CONFIG_CHAT_DEFAULT_BACKEND_DEFAULT: &'static str = CHAT_BACKEND_LLAMA;
+pub const CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL: &'static str = "chat_default_openrouter_model";
+pub const CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL_DEFAULT: &'static str = "";
+
+/// Chat backend identifiers, as accepted by chat_default_backend and sent by the web client.
+pub const CHAT_BACKEND_LLAMA: &'static str = "llama";
+pub const CHAT_BACKEND_OPENROUTER: &'static str = "openrouter";
+pub const CHAT_BACKENDS: &[&'static str] = &[CHAT_BACKEND_LLAMA, CHAT_BACKEND_OPENROUTER];
 pub const CONFIG_GEOAPIFY_URL: &'static str = "geoapify_url";
 pub const CONFIG_GEOAPIFY_URL_DEFAULT: &'static str = "https://api.geoapify.com/v1/geocode/reverse";
 pub const CONFIG_GEOAPIFY_API_KEY: &'static str = "geoapify_api_key";

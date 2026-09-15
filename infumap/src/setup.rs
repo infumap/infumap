@@ -319,6 +319,27 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_LLAMA_SERVER_URL, "<not set>");
     }
   }
+  match config.get_string(CONFIG_OPENROUTER_API_KEY) {
+    Ok(v) if !v.trim().is_empty() => {
+      info!(" {} = {}", CONFIG_OPENROUTER_API_KEY, "<redacted>");
+    }
+    _ => {
+      info!(" {} = {}", CONFIG_OPENROUTER_API_KEY, "<not set>");
+    }
+  }
+  info!(
+    " {} = '{}'",
+    CONFIG_CHAT_DEFAULT_BACKEND,
+    config.get_string(CONFIG_CHAT_DEFAULT_BACKEND).map_err(|e| e.to_string())?
+  );
+  match config.get_string(CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL) {
+    Ok(v) if !v.trim().is_empty() => {
+      info!(" {} = '{}'", CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, v);
+    }
+    _ => {
+      info!(" {} = {}", CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, "<not set>");
+    }
+  }
   info!(" {} = '{}'", CONFIG_GEOAPIFY_URL, config.get_string(CONFIG_GEOAPIFY_URL).map_err(|e| e.to_string())?);
   info!(
     " {} = {}",
@@ -532,6 +553,18 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
   if result.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())? < 0 {
     return Err(format!("{} must be greater than or equal to zero.", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).into());
   }
+  let chat_default_backend = result.get_string(CONFIG_CHAT_DEFAULT_BACKEND).map_err(|e| e.to_string())?;
+  if !CHAT_BACKENDS.contains(&chat_default_backend.trim()) {
+    return Err(
+      format!(
+        "{} '{}' is not one of: {}.",
+        CONFIG_CHAT_DEFAULT_BACKEND,
+        chat_default_backend,
+        CHAT_BACKENDS.join(", ")
+      )
+      .into(),
+    );
+  }
   return Ok(result);
 }
 
@@ -561,6 +594,10 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_LLAMA_SERVER_URL, CONFIG_LLAMA_SERVER_URL_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_CHAT_DEFAULT_BACKEND, CONFIG_CHAT_DEFAULT_BACKEND_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_GEOAPIFY_URL, CONFIG_GEOAPIFY_URL_DEFAULT)
       .map_err(|e| e.to_string())?

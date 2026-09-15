@@ -69,6 +69,21 @@
 # server base URL or the full chat completions endpoint URL.
 #llama_server_url = "http://127.0.0.1:8080"
 
+# Optional OpenRouter API key, enabling the OpenRouter models in Chat. The key is
+# instance wide - every user of this instance shares (and spends from) the one
+# OpenRouter account.
+#openrouter_api_key = ""
+
+# Which backend Chat uses when the user has not picked one - "llama" or
+# "openrouter". If the chosen backend is not configured, the other is used.
+#chat_default_backend = "llama"
+
+# OpenRouter model preselected in Chat, e.g. "anthropic/claude-sonnet-4.5". Only
+# models that support tool calling are offered. If this is unset, users pick a
+# model themselves, and chat_default_backend = "openrouter" will not work until
+# they do.
+#chat_default_openrouter_model = ""
+
 # Reverse geocoding service URL for GPS-tagged images. Used when geoapify_api_key
 # is set; this stage runs from successful image tag artifacts.
 #geoapify_url = "https://api.geoapify.com/v1/geocode/reverse"

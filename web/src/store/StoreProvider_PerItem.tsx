@@ -18,7 +18,7 @@
 
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
-import type { ChatMessage, SearchResult } from "../server";
+import type { ChatMessage, ChatModelSelection, SearchResult } from "../server";
 import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
@@ -67,6 +67,8 @@ export interface QueryRuntime {
     rootItemIds: Array<Uid>,
     messages: Array<ChatMessage>,
     capabilities: Array<ChatCapability>,
+    /** The backend, model and reasoning effort to use. Null means the server's default. */
+    model: ChatModelSelection | null,
     completedActivities: Array<QueryChatCompletedActivity>,
     contextTokens: number | null,
     contextTokensExact: boolean,
@@ -157,6 +159,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
       rootItemIds: [],
       messages: [],
       capabilities: ["infumap_data"],
+      model: null,
       completedActivities: [],
       contextTokens: null,
       contextTokensExact: false,

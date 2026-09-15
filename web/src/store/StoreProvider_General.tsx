@@ -17,7 +17,7 @@
 */
 
 import { Accessor, createSignal } from "solid-js";
-import { post } from "../server";
+import { ChatBackends, ChatModelSelection, post, server } from "../server";
 import { NumberSignal, createNumberSignal } from "../util/signals";
 
 
@@ -36,6 +36,7 @@ interface InstallationState {
 interface LocalStorageData {
   prefer2fa?: boolean,
   searchResultsArrangeAlgorithm?: string,
+  chatModelSelection?: ChatModelSelection,
 }
 
 export type QueryInputMode = "search" | "chat";
@@ -53,6 +54,13 @@ export interface GeneralStoreContextModel {
   installationState: Accessor<InstallationState | null>,
   retrieveInstallationState: () => Promise<void>,
   clearInstallationState: () => void,
+
+  chatBackends: Accessor<ChatBackends | null>,
+  chatBackendsError: Accessor<string | null>,
+  retrieveChatBackends: () => Promise<void>,
+
+  chatModelSelection: () => ChatModelSelection | null,
+  setChatModelSelection: (selection: ChatModelSelection | null) => void,
 
   prefer2fa: () => boolean,
   setPrefer2fa: (prefer2fa: boolean) => void,
@@ -81,6 +89,10 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   const [localStorageDataString, setLocalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
 
   const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, { equals: false });
+
+  const [chatBackends, setChatBackends] = createSignal<ChatBackends | null>(null, { equals: false });
+  const [chatBackendsError, setChatBackendsError] = createSignal<string | null>(null);
+  let inProgressChatBackendsRequest: Promise<void> | null = null;
 
   const networkStatus = createNumberSignal(NETWORK_STATUS_OK);
 
@@ -192,6 +204,49 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   }
   const clearInstallationState = () => { setInstallationState(null); }
 
+  /**
+   * The chat backends and models this server offers. Fetched at most once per session (and once per
+   * concurrent caller), because the server caches the underlying model list anyway.
+   */
+  const retrieveChatBackends = async () => {
+    if (chatBackends() != null) { return; }
+    if (inProgressChatBackendsRequest != null) { return inProgressChatBackendsRequest; }
+    inProgressChatBackendsRequest = (async () => {
+      try {
+        setChatBackends(await server.chatBackends());
+        setChatBackendsError(null);
+      } catch (e) {
+        console.error("An error occurred retrieving chat backends. " + e);
+        setChatBackendsError("Could not load the list of chat models.");
+      } finally {
+        inProgressChatBackendsRequest = null;
+      }
+    })();
+    return inProgressChatBackendsRequest;
+  }
+
+  /**
+   * The model last chosen in the chat composer, used as the default for new chats. Read defensively:
+   * local storage is editable by hand, and a stale model id is possible.
+   */
+  const chatModelSelection = (): ChatModelSelection | null => {
+    const stored = readLocalStorageData().chatModelSelection;
+    if (stored == null || typeof stored != "object") { return null; }
+    const asString = (value: unknown) => typeof value == "string" && value != "" ? value : undefined;
+    const backend = stored.backend == "llama" || stored.backend == "openrouter" ? stored.backend : undefined;
+    if (backend == null) { return null; }
+    return { backend, model: asString(stored.model), reasoningEffort: asString(stored.reasoningEffort) };
+  };
+  const setChatModelSelection = (selection: ChatModelSelection | null) => {
+    const data = readLocalStorageData();
+    if (selection == null) {
+      delete data.chatModelSelection;
+      writeLocalStorageData(data);
+      return;
+    }
+    writeLocalStorageData({ ...data, chatModelSelection: selection });
+  };
+
   const prefer2fa = () => {
     return readLocalStorageData().prefer2fa ?? false;
   }
@@ -217,6 +272,8 @@ export function makeGeneralStore(): GeneralStoreContextModel {
 
   return {
     installationState, retrieveInstallationState, clearInstallationState,
+    chatBackends, chatBackendsError, retrieveChatBackends,
+    chatModelSelection, setChatModelSelection,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
     queryInputMode, setQueryInputMode,

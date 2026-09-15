@@ -28,12 +28,15 @@ use uuid::Uuid;
 
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
+mod backend;
 mod markdown;
 mod web_search;
+use backend::{
+  ChatBackend, ChatEndpoint, ChatModelSelection, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends,
+  resolve_chat_endpoint,
+};
 use markdown::chat_response_items_json;
 
-const CHAT_LLAMA_CONNECT_TIMEOUT_SECS: u64 = 30;
-const CHAT_LLAMA_READ_TIMEOUT_SECS: u64 = 120;
 const CHAT_MAX_TOOL_ROUNDS: usize = 10_000;
 const CHAT_TOOL_APPROVAL_TIMEOUT_SECS: u64 = 300;
 const CHAT_TOOL_APPROVAL_REQUEST_MAX_BYTES: usize = 16 * 1024;
@@ -73,6 +76,8 @@ struct ChatRequest {
   user_text: String,
   #[serde(default)]
   capabilities: Vec<String>,
+  #[serde(default)]
+  model: Option<ChatModelSelection>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -85,11 +90,11 @@ struct ChatHistoryMessage {
   #[serde(rename = "toolCallId", default, skip_serializing_if = "Option::is_none")]
   tool_call_id: Option<String>,
   #[serde(rename = "toolCalls", default, skip_serializing_if = "Option::is_none")]
-  tool_calls: Option<Vec<LlamaToolCall>>,
+  tool_calls: Option<Vec<OpenAiToolCall>>,
 }
 
 impl ChatHistoryMessage {
-  fn from_llama(message: &LlamaChatMessage) -> Self {
+  fn from_wire(message: &OpenAiChatMessage) -> Self {
     Self {
       role: message.role.clone(),
       content: message.content.clone(),
@@ -99,8 +104,8 @@ impl ChatHistoryMessage {
     }
   }
 
-  fn into_llama(&self, role: &str) -> LlamaChatMessage {
-    LlamaChatMessage {
+  fn into_wire(&self, role: &str) -> OpenAiChatMessage {
+    OpenAiChatMessage {
       role: role.to_owned(),
       content: self.content.clone(),
       reasoning_content: if role == "assistant" {
@@ -336,7 +341,7 @@ impl ChatProgressReporter {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-struct LlamaChatMessage {
+struct OpenAiChatMessage {
   #[serde(default)]
   role: String,
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -346,10 +351,17 @@ struct LlamaChatMessage {
   #[serde(rename = "tool_call_id", skip_serializing_if = "Option::is_none")]
   tool_call_id: Option<String>,
   #[serde(skip_serializing_if = "Option::is_none")]
-  tool_calls: Option<Vec<LlamaToolCall>>,
+  tool_calls: Option<Vec<OpenAiToolCall>>,
 }
 
-impl LlamaChatMessage {
+impl OpenAiChatMessage {
+  /// A copy without the reasoning stream. Reasoning is replayed to llama-server, which produced it
+  /// in this shape, but not to OpenRouter: providers there expect their own signed reasoning blocks
+  /// and can reject a foreign one.
+  fn without_reasoning(&self) -> Self {
+    Self { reasoning_content: None, ..self.clone() }
+  }
+
   fn text(role: &str, content: String) -> Self {
     Self {
       role: role.to_owned(),
@@ -372,103 +384,161 @@ impl LlamaChatMessage {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-struct LlamaToolCall {
+struct OpenAiToolCall {
   #[serde(default, skip_serializing_if = "String::is_empty")]
   id: String,
   #[serde(rename = "type", default, skip_serializing_if = "String::is_empty")]
   tool_type: String,
-  function: LlamaToolCallFunction,
+  function: OpenAiToolCallFunction,
 }
 
-fn default_llama_tool_call_type() -> String {
+fn default_tool_call_type() -> String {
   "function".to_owned()
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-struct LlamaToolCallFunction {
+struct OpenAiToolCallFunction {
   name: String,
   #[serde(default)]
   arguments: Value,
 }
 
 #[derive(Clone, Serialize)]
-struct LlamaToolSpec {
+struct OpenAiToolSpec {
   #[serde(rename = "type")]
   tool_type: String,
-  function: LlamaToolFunctionSpec,
+  function: OpenAiToolFunctionSpec,
 }
 
 #[derive(Clone, Serialize)]
-struct LlamaToolFunctionSpec {
+struct OpenAiToolFunctionSpec {
   name: String,
   description: String,
   parameters: Value,
 }
 
 #[derive(Serialize)]
-struct LlamaStreamOptions {
+struct OpenAiStreamOptions {
   include_usage: bool,
 }
 
 #[derive(Serialize)]
-struct LlamaChatCompletionRequest {
+struct OpenAiChatCompletionRequest {
   model: String,
-  messages: Vec<LlamaChatMessage>,
+  messages: Vec<OpenAiChatMessage>,
   stream: bool,
   #[serde(skip_serializing_if = "Option::is_none")]
-  stream_options: Option<LlamaStreamOptions>,
+  stream_options: Option<OpenAiStreamOptions>,
   #[serde(skip_serializing_if = "Vec::is_empty")]
-  tools: Vec<LlamaToolSpec>,
+  tools: Vec<OpenAiToolSpec>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  reasoning: Option<OpenAiReasoning>,
+}
+
+/// OpenRouter's unified reasoning control.
+#[derive(Serialize)]
+struct OpenAiReasoning {
+  #[serde(skip_serializing_if = "Option::is_none")]
+  effort: Option<&'static str>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  enabled: Option<bool>,
+  /// Infumap streams reasoning to the client as it arrives, so it must not be withheld.
+  exclude: bool,
+}
+
+impl OpenAiReasoning {
+  fn from_config(reasoning: ChatReasoning) -> Option<Self> {
+    match reasoning {
+      ChatReasoning::ModelDefault => None,
+      ChatReasoning::Disabled => Some(Self { effort: None, enabled: Some(false), exclude: false }),
+      ChatReasoning::Effort(effort) => Some(Self { effort: Some(effort), enabled: None, exclude: false }),
+    }
+  }
 }
 
 #[derive(Deserialize)]
-struct LlamaChatCompletionChunk {
+struct OpenAiChatCompletionChunk {
   #[serde(default)]
   id: Option<String>,
   #[serde(default)]
-  choices: Vec<LlamaChatCompletionChoice>,
+  choices: Vec<OpenAiChatCompletionChoice>,
   #[serde(default)]
-  usage: Option<LlamaChatCompletionUsage>,
+  usage: Option<OpenAiChatCompletionUsage>,
   #[serde(default)]
   error: Option<Value>,
 }
 
 #[derive(Deserialize)]
-struct LlamaChatCompletionChoice {
+struct OpenAiChatCompletionChoice {
   #[serde(default)]
   index: usize,
-  delta: LlamaChatCompletionDelta,
+  delta: OpenAiChatCompletionDelta,
   #[serde(default)]
   finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
-struct LlamaChatCompletionDelta {
+struct OpenAiChatCompletionDelta {
   #[serde(default)]
   role: Option<String>,
   #[serde(default)]
   content: Option<String>,
+  /// llama-server (and the Deepseek API it follows) names the reasoning stream this.
   #[serde(default)]
   reasoning_content: Option<String>,
+  /// OpenRouter's normalized reasoning text.
   #[serde(default)]
-  tool_calls: Vec<LlamaToolCallDelta>,
+  reasoning: Option<String>,
+  /// OpenRouter's structured reasoning, used by providers that return summaries or signed blocks.
+  #[serde(default)]
+  reasoning_details: Vec<OpenAiReasoningDetail>,
+  #[serde(default)]
+  tool_calls: Vec<OpenAiToolCallDelta>,
   #[serde(default)]
   finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
-struct LlamaToolCallDelta {
+struct OpenAiReasoningDetail {
+  #[serde(default)]
+  text: Option<String>,
+  #[serde(default)]
+  summary: Option<String>,
+}
+
+impl OpenAiChatCompletionDelta {
+  /// The reasoning text in this delta, whichever of the three shapes carried it. A provider can
+  /// send more than one of them describing the same tokens, so only the first is taken - showing
+  /// the reasoning twice would be worse than picking the wrong field.
+  fn reasoning_text(&mut self) -> Option<String> {
+    if let Some(text) = self.reasoning_content.take().filter(|text| !text.is_empty()) {
+      return Some(text);
+    }
+    if let Some(text) = self.reasoning.take().filter(|text| !text.is_empty()) {
+      return Some(text);
+    }
+    let details = std::mem::take(&mut self.reasoning_details)
+      .into_iter()
+      .filter_map(|detail| detail.text.or(detail.summary))
+      .filter(|text| !text.is_empty())
+      .collect::<Vec<_>>();
+    if details.is_empty() { None } else { Some(details.concat()) }
+  }
+}
+
+#[derive(Deserialize)]
+struct OpenAiToolCallDelta {
   index: usize,
   #[serde(default)]
   id: Option<String>,
   #[serde(rename = "type", default)]
   tool_type: Option<String>,
   #[serde(default)]
-  function: Option<LlamaToolCallFunctionDelta>,
+  function: Option<OpenAiToolCallFunctionDelta>,
 }
 
 #[derive(Deserialize)]
-struct LlamaToolCallFunctionDelta {
+struct OpenAiToolCallFunctionDelta {
   #[serde(default)]
   name: Option<String>,
   #[serde(default)]
@@ -476,7 +546,7 @@ struct LlamaToolCallFunctionDelta {
 }
 
 #[derive(Deserialize, Serialize)]
-struct LlamaChatCompletionUsage {
+struct OpenAiChatCompletionUsage {
   #[serde(rename = "prompt_tokens")]
   prompt_tokens: Option<i64>,
   #[serde(rename = "completion_tokens")]
@@ -720,6 +790,25 @@ pub async fn serve_chat_tool_approval_route(
   }
 }
 
+pub async fn serve_chat_models_route(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  if request.method() == "OPTIONS" {
+    debug!("Serving OPTIONS request for chat models, assuming CORS query.");
+    return cors_response();
+  }
+  if request.method() != "GET" {
+    return not_found_response();
+  }
+  if get_and_validate_session(&request, db).await.is_none() {
+    return forbidden_response();
+  }
+
+  json_response(&chat_backends(config.as_ref()).await)
+}
+
 fn single_chat_stream_event_response(
   request_id: String,
   event: ChatStreamEventKind,
@@ -742,27 +831,6 @@ fn chat_stream_response(
     .header(hyper::header::X_CONTENT_TYPE_OPTIONS, "nosniff")
     .body(body)
     .unwrap_or_else(|_| Response::builder().status(500).body(empty_body()).unwrap())
-}
-
-fn configured_llama_chat_url(config: &Config) -> InfuResult<reqwest::Url> {
-  let raw_url = config.get_string(CONFIG_LLAMA_SERVER_URL).map_err(|e| e.to_string())?;
-  let trimmed_url = raw_url.trim();
-  if trimmed_url.is_empty() {
-    return Err(format!("{} must be configured to use Chat.", CONFIG_LLAMA_SERVER_URL).into());
-  }
-
-  let endpoint_path = "/v1/chat/completions";
-  let parsed = reqwest::Url::parse(trimmed_url)
-    .map_err(|e| format!("Could not parse {} '{}': {}", CONFIG_LLAMA_SERVER_URL, trimmed_url, e))?;
-  if parsed.path().trim_end_matches('/').ends_with(endpoint_path) {
-    return Ok(parsed);
-  }
-
-  let base_url = reqwest::Url::parse(&format!("{}/", trimmed_url.trim_end_matches('/')))
-    .map_err(|e| format!("Could not parse {} '{}': {}", CONFIG_LLAMA_SERVER_URL, trimmed_url, e))?;
-  base_url
-    .join("v1/chat/completions")
-    .map_err(|e| format!("Could not build llama-server chat endpoint from '{}': {}", trimmed_url, e).into())
 }
 
 fn chat_item_id(item: &Value) -> Option<&str> {
@@ -832,16 +900,16 @@ fn clamp_text_chars(text: &str, max_chars: usize) -> (String, bool) {
   (truncated, chars.next().is_some())
 }
 
-fn message_content_chars(message: &LlamaChatMessage) -> usize {
+fn message_content_chars(message: &OpenAiChatMessage) -> usize {
   message.content.as_deref().map(text_char_count).unwrap_or(0)
 }
 
-fn message_reasoning_chars(message: &LlamaChatMessage) -> usize {
+fn message_reasoning_chars(message: &OpenAiChatMessage) -> usize {
   message.reasoning_content.as_deref().map(text_char_count).unwrap_or(0)
 }
 
-fn explicit_llama_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<LlamaChatMessage>> {
-  let mut llama_messages = Vec::with_capacity(messages.len());
+fn explicit_wire_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<OpenAiChatMessage>> {
+  let mut wire_messages = Vec::with_capacity(messages.len());
   for (index, message) in messages.iter().enumerate() {
     let role = message.role.trim().to_lowercase();
     if role == "system" {
@@ -853,20 +921,20 @@ fn explicit_llama_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<Ll
     if role == "tool" && message.tool_call_id.as_deref().unwrap_or("").trim().is_empty() {
       return Err(format!("Chat history message {} is missing toolCallId.", index).into());
     }
-    llama_messages.push(message.into_llama(&role));
+    wire_messages.push(message.into_wire(&role));
   }
-  Ok(llama_messages)
+  Ok(wire_messages)
 }
 
-fn chat_history_from_llama_messages(messages: &[LlamaChatMessage]) -> Vec<ChatHistoryMessage> {
+fn chat_history_from_wire_messages(messages: &[OpenAiChatMessage]) -> Vec<ChatHistoryMessage> {
   messages
     .iter()
     .filter(|message| !message.role.eq_ignore_ascii_case("system"))
-    .map(ChatHistoryMessage::from_llama)
+    .map(ChatHistoryMessage::from_wire)
     .collect()
 }
 
-fn legacy_llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaChatMessage> {
+fn legacy_wire_messages_from_chat_request(request: &ChatRequest) -> Vec<OpenAiChatMessage> {
   let mut ids = HashSet::new();
   let mut items_by_id: HashMap<String, &Value> = HashMap::new();
   for item in &request.context_items {
@@ -903,13 +971,13 @@ fn legacy_llama_messages_from_chat_request(request: &ChatRequest) -> Vec<LlamaCh
     collect_chat_text(item_id, &items_by_id, &children_by_parent_id, &mut visited, &mut text_parts);
     let content = text_parts.join("\n\n").trim().to_owned();
     if !content.is_empty() {
-      messages.push(LlamaChatMessage::text(role, content));
+      messages.push(OpenAiChatMessage::text(role, content));
     }
   }
 
   let current_user_text = request.user_text.trim();
   if !current_user_text.is_empty() {
-    messages.push(LlamaChatMessage::text("user", current_user_text.to_owned()));
+    messages.push(OpenAiChatMessage::text("user", current_user_text.to_owned()));
   }
   messages
 }
@@ -934,10 +1002,10 @@ fn chat_system_prompt(uses_infumap_data: bool, uses_web_search: bool) -> String 
   format!("{}\n\n{}", chat_utc_today_line(), parts.join("\n\n"))
 }
 
-fn llama_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<LlamaChatMessage>> {
+fn wire_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<OpenAiChatMessage>> {
   match request.messages.as_deref() {
-    Some(messages) => explicit_llama_messages(messages),
-    None => Ok(legacy_llama_messages_from_chat_request(request)),
+    Some(messages) => explicit_wire_messages(messages),
+    None => Ok(legacy_wire_messages_from_chat_request(request)),
   }
 }
 
@@ -950,6 +1018,15 @@ fn chat_failure_message(message: &str) -> String {
   }
   if message.contains("must be configured to use Chat") {
     return "The language model server is not configured.".to_owned();
+  }
+  if message.contains("named unknown backend") {
+    return "The requested chat backend is not available.".to_owned();
+  }
+  if message.contains("named unknown reasoning effort") {
+    return "The requested reasoning effort is not supported.".to_owned();
+  }
+  if message.contains("did not name an OpenRouter model") {
+    return "No OpenRouter model was selected.".to_owned();
   }
   if message.contains("Could not send chat request") || message.contains("[kind=connect]") {
     return "Could not reach the language model server.".to_owned();
@@ -969,7 +1046,7 @@ fn chat_failure_message(message: &str) -> String {
   if message.contains("streaming error") {
     return "The language model reported an error.".to_owned();
   }
-  if message.contains("llama-server chat endpoint") && message.contains("returned") {
+  if message.contains("chat endpoint") && message.contains("returned") {
     return "The language model server rejected the request.".to_owned();
   }
   if message.contains("Chat request did not contain any message text") {
@@ -1056,19 +1133,19 @@ fn approx_chars_to_tokens(chars: usize) -> i64 {
   ((chars + 3) / 4) as i64
 }
 
-fn request_char_counts(messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) -> (usize, usize, usize) {
+fn request_char_counts(messages: &[OpenAiChatMessage], tools: &[OpenAiToolSpec]) -> (usize, usize, usize) {
   let content_chars = messages.iter().map(message_content_chars).sum::<usize>();
   let reasoning_chars = messages.iter().map(message_reasoning_chars).sum::<usize>();
   let tool_schema_chars = serde_json::to_string(tools).map(|text| text_char_count(&text)).unwrap_or(0);
   (content_chars, reasoning_chars, tool_schema_chars)
 }
 
-fn approx_request_tokens(messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) -> i64 {
+fn approx_request_tokens(messages: &[OpenAiChatMessage], tools: &[OpenAiToolSpec]) -> i64 {
   let (content_chars, reasoning_chars, tool_schema_chars) = request_char_counts(messages, tools);
   approx_chars_to_tokens(content_chars + reasoning_chars + tool_schema_chars)
 }
 
-fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage], tools: &[LlamaToolSpec]) {
+fn append_llm_request_metrics_log(llm_turn: usize, messages: &[OpenAiChatMessage], tools: &[OpenAiToolSpec]) {
   let (content_chars, reasoning_chars, tool_schema_chars) = request_char_counts(messages, tools);
   let message_chars = content_chars + reasoning_chars;
   let total_request_chars = message_chars + tool_schema_chars;
@@ -1091,10 +1168,10 @@ fn append_llm_request_metrics_log(llm_turn: usize, messages: &[LlamaChatMessage]
   append_llm_json_log_section(&format!("LLM REQUEST METRICS {}", llm_turn), &metrics);
 }
 
-fn lexical_search_tool_spec() -> LlamaToolSpec {
-  LlamaToolSpec {
+fn lexical_search_tool_spec() -> OpenAiToolSpec {
+  OpenAiToolSpec {
     tool_type: "function".to_owned(),
-    function: LlamaToolFunctionSpec {
+    function: OpenAiToolFunctionSpec {
       name: "lexical_search".to_owned(),
       description: "Search workspace titles and document text using lexical matching. Use this as the default lookup and search tool.".to_owned(),
       parameters: serde_json::json!({
@@ -1127,10 +1204,10 @@ fn lexical_search_tool_spec() -> LlamaToolSpec {
   }
 }
 
-fn get_fragment_tool_spec() -> LlamaToolSpec {
-  LlamaToolSpec {
+fn get_fragment_tool_spec() -> OpenAiToolSpec {
+  OpenAiToolSpec {
     tool_type: "function".to_owned(),
-    function: LlamaToolFunctionSpec {
+    function: OpenAiToolFunctionSpec {
       name: "get_fragment".to_owned(),
       description:
         "Fetch bounded full text for a specific lexical_search result fragment by item id and fragment ordinal."
@@ -1155,10 +1232,10 @@ fn get_fragment_tool_spec() -> LlamaToolSpec {
   }
 }
 
-fn fetch_page_tool_spec() -> LlamaToolSpec {
-  LlamaToolSpec {
+fn fetch_page_tool_spec() -> OpenAiToolSpec {
+  OpenAiToolSpec {
     tool_type: "function".to_owned(),
-    function: LlamaToolFunctionSpec {
+    function: OpenAiToolFunctionSpec {
       name: "fetch_page".to_owned(),
       description: "Read an HTTP or HTTPS URL.".to_owned(),
       parameters: serde_json::json!({
@@ -1182,10 +1259,10 @@ fn fetch_page_tool_spec() -> LlamaToolSpec {
   }
 }
 
-fn web_search_tool_spec() -> LlamaToolSpec {
-  LlamaToolSpec {
+fn web_search_tool_spec() -> OpenAiToolSpec {
+  OpenAiToolSpec {
     tool_type: "function".to_owned(),
-    function: LlamaToolFunctionSpec {
+    function: OpenAiToolFunctionSpec {
       name: "web_search".to_owned(),
       description: "Search the public web.".to_owned(),
       parameters: serde_json::json!({
@@ -1209,7 +1286,7 @@ fn web_search_tool_spec() -> LlamaToolSpec {
   }
 }
 
-fn chat_tool_specs(uses_infumap_data: bool, uses_web_search: bool) -> Vec<LlamaToolSpec> {
+fn chat_tool_specs(uses_infumap_data: bool, uses_web_search: bool) -> Vec<OpenAiToolSpec> {
   let mut tools = Vec::new();
   if uses_infumap_data {
     tools.push(lexical_search_tool_spec());
@@ -1224,26 +1301,29 @@ fn chat_tool_specs(uses_infumap_data: bool, uses_web_search: bool) -> Vec<LlamaT
 
 struct CompletedChatModelRound {
   number: usize,
-  assistant_message: LlamaChatMessage,
-  tool_calls: Vec<LlamaToolCall>,
+  assistant_message: OpenAiChatMessage,
+  tool_calls: Vec<OpenAiToolCall>,
 }
 
 async fn run_chat_model_round(
-  config: &Config,
-  messages: &[LlamaChatMessage],
-  tools: &[LlamaToolSpec],
+  endpoint: &ChatEndpoint,
+  messages: &[OpenAiChatMessage],
+  tools: &[OpenAiToolSpec],
   round: usize,
   tool_rounds_completed: usize,
   progress: &ChatProgressReporter,
 ) -> InfuResult<CompletedChatModelRound> {
   progress.model_round_started(round).await;
 
-  let mut assistant_message = llama_chat_completion(config, messages, tools, round, progress).await?;
+  let mut assistant_message = chat_completion(endpoint, messages, tools, round, progress).await?;
   let response_role = assistant_message.role.trim();
   if response_role.is_empty() {
     assistant_message.role = "assistant".to_owned();
   } else if !response_role.eq_ignore_ascii_case("assistant") {
-    return Err(format!("llama-server returned unexpected chat response role '{}'.", assistant_message.role).into());
+    return Err(
+      format!("{} returned unexpected chat response role '{}'.", endpoint.backend.label(), assistant_message.role)
+        .into(),
+    );
   }
   let tool_calls = execution_tool_calls(&assistant_message, tool_rounds_completed);
 
@@ -1270,9 +1350,9 @@ async fn execute_chat_tool_round(
   uses_infumap_data: bool,
   uses_web_search: bool,
   round: usize,
-  tool_calls: Vec<LlamaToolCall>,
+  tool_calls: Vec<OpenAiToolCall>,
   progress: &ChatProgressReporter,
-) -> InfuResult<Vec<LlamaChatMessage>> {
+) -> InfuResult<Vec<OpenAiChatMessage>> {
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
   for tool_call in tool_calls {
     let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
@@ -1292,7 +1372,7 @@ async fn execute_chat_tool_round(
             .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, 0, result_preview)
             .await;
           append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
-          tool_messages.push(LlamaChatMessage::tool(tool_call.id, tool_result));
+          tool_messages.push(OpenAiChatMessage::tool(tool_call.id, tool_result));
           continue;
         }
       }
@@ -1306,7 +1386,7 @@ async fn execute_chat_tool_round(
       .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, duration_ms, result_preview)
       .await;
     append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
-    tool_messages.push(LlamaChatMessage::tool(tool_call.id, tool_result));
+    tool_messages.push(OpenAiChatMessage::tool(tool_call.id, tool_result));
   }
   Ok(tool_messages)
 }
@@ -1320,21 +1400,22 @@ async fn run_chat_with_tools(
 ) -> InfuResult<ChatRunResult> {
   reset_llm_log();
 
-  let mut messages = llama_messages_from_chat_request(request)?;
+  let endpoint =
+    resolve_chat_endpoint(config.as_ref(), request.model.as_ref().unwrap_or(&ChatModelSelection::default()))?;
+  let mut messages = wire_messages_from_chat_request(request)?;
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
   let uses_infumap_data = request.uses_infumap_data();
   let uses_web_search = request.uses_web_search();
-  messages.insert(0, LlamaChatMessage::text("system", chat_system_prompt(uses_infumap_data, uses_web_search)));
+  messages.insert(0, OpenAiChatMessage::text("system", chat_system_prompt(uses_infumap_data, uses_web_search)));
 
   let tools = chat_tool_specs(uses_infumap_data, uses_web_search);
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
   loop {
-    let completed_round =
-      run_chat_model_round(config.as_ref(), &messages, &tools, llm_turn, tool_rounds, progress).await?;
+    let completed_round = run_chat_model_round(&endpoint, &messages, &tools, llm_turn, tool_rounds, progress).await?;
     llm_turn += 1;
 
     if !completed_round.tool_calls.is_empty() {
@@ -1361,13 +1442,13 @@ async fn run_chat_with_tools(
     messages.push(completed_round.assistant_message);
     let assistant_text = messages.last().and_then(|message| message.content.clone()).unwrap_or_default();
     if assistant_text.trim().is_empty() {
-      return Err("llama-server returned an empty chat response.".into());
+      return Err(format!("{} returned an empty chat response.", endpoint.backend.label()).into());
     }
-    return Ok(ChatRunResult { assistant_text, messages: chat_history_from_llama_messages(&messages) });
+    return Ok(ChatRunResult { assistant_text, messages: chat_history_from_wire_messages(&messages) });
   }
 }
 
-fn execution_tool_calls(message: &LlamaChatMessage, tool_round: usize) -> Vec<LlamaToolCall> {
+fn execution_tool_calls(message: &OpenAiChatMessage, tool_round: usize) -> Vec<OpenAiToolCall> {
   let Some(tool_calls) = &message.tool_calls else {
     return Vec::new();
   };
@@ -1381,7 +1462,7 @@ fn execution_tool_calls(message: &LlamaChatMessage, tool_round: usize) -> Vec<Ll
         execution_call.id = format!("call_{}_{}", tool_round + 1, index + 1);
       }
       if execution_call.tool_type.trim().is_empty() {
-        execution_call.tool_type = default_llama_tool_call_type();
+        execution_call.tool_type = default_tool_call_type();
       }
       execution_call
     })
@@ -1391,7 +1472,7 @@ fn execution_tool_calls(message: &LlamaChatMessage, tool_round: usize) -> Vec<Ll
 async fn execute_chat_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
-  tool_call: &LlamaToolCall,
+  tool_call: &OpenAiToolCall,
   uses_infumap_data: bool,
   uses_web_search: bool,
 ) -> InfuResult<String> {
@@ -1411,7 +1492,7 @@ async fn execute_chat_tool_call(
 async fn execute_lexical_search_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
-  tool_call: &LlamaToolCall,
+  tool_call: &OpenAiToolCall,
 ) -> InfuResult<String> {
   let arguments = match tool_call_arguments_value(tool_call) {
     Ok(arguments) => arguments,
@@ -1443,7 +1524,7 @@ async fn execute_lexical_search_tool_call(
 async fn execute_get_fragment_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
-  tool_call: &LlamaToolCall,
+  tool_call: &OpenAiToolCall,
 ) -> InfuResult<String> {
   let arguments = match tool_call_arguments_value(tool_call) {
     Ok(arguments) => arguments,
@@ -1529,7 +1610,7 @@ async fn execute_get_fragment_tool_call(
   )
 }
 
-async fn execute_web_search_tool_call(tool_call: &LlamaToolCall) -> InfuResult<String> {
+async fn execute_web_search_tool_call(tool_call: &OpenAiToolCall) -> InfuResult<String> {
   let arguments = match tool_call_arguments_value(tool_call) {
     Ok(arguments) => arguments,
     Err(e) => return Ok(tool_error_json(&e.to_string())),
@@ -1555,7 +1636,7 @@ async fn execute_web_search_tool_call(tool_call: &LlamaToolCall) -> InfuResult<S
   }
 }
 
-async fn execute_fetch_page_tool_call(tool_call: &LlamaToolCall) -> InfuResult<String> {
+async fn execute_fetch_page_tool_call(tool_call: &OpenAiToolCall) -> InfuResult<String> {
   let arguments = match tool_call_arguments_value(tool_call) {
     Ok(arguments) => arguments,
     Err(e) => return Ok(tool_error_json(&e.to_string())),
@@ -1580,7 +1661,7 @@ async fn execute_fetch_page_tool_call(tool_call: &LlamaToolCall) -> InfuResult<S
   }
 }
 
-fn tool_call_arguments_value(tool_call: &LlamaToolCall) -> InfuResult<Value> {
+fn tool_call_arguments_value(tool_call: &OpenAiToolCall) -> InfuResult<Value> {
   match &tool_call.function.arguments {
     Value::String(arguments) if arguments.trim().is_empty() => Ok(serde_json::json!({})),
     Value::String(arguments) => serde_json::from_str(arguments).map_err(|e| {
@@ -1827,7 +1908,7 @@ fn get_fragment_tool_activity(parsed: Option<&Value>) -> (String, Value) {
 }
 
 #[derive(Default)]
-struct LlamaStreamingToolCall {
+struct OpenAiStreamingToolCall {
   id: String,
   tool_type: String,
   name: String,
@@ -1835,26 +1916,26 @@ struct LlamaStreamingToolCall {
 }
 
 #[derive(Default)]
-struct LlamaStreamingCompletion {
+struct OpenAiStreamingCompletion {
   completion_id: Option<String>,
   role: String,
   content: String,
   reasoning_content: String,
-  tool_calls: Vec<Option<LlamaStreamingToolCall>>,
+  tool_calls: Vec<Option<OpenAiStreamingToolCall>>,
   finish_reason: Option<String>,
-  usage: Option<LlamaChatCompletionUsage>,
+  usage: Option<OpenAiChatCompletionUsage>,
   saw_choice: bool,
 }
 
-enum LlamaVisibleDelta {
+enum VisibleDelta {
   Reasoning(String),
   Answer(String),
 }
 
-impl LlamaStreamingCompletion {
-  fn apply_chunk(&mut self, chunk: LlamaChatCompletionChunk) -> InfuResult<Vec<LlamaVisibleDelta>> {
+impl OpenAiStreamingCompletion {
+  fn apply_chunk(&mut self, chunk: OpenAiChatCompletionChunk) -> InfuResult<Vec<VisibleDelta>> {
     if let Some(error) = chunk.error {
-      return Err(format!("llama-server returned a streaming error: {}", error).into());
+      return Err(format!("The model server returned a streaming error: {}", error).into());
     }
     if let Some(completion_id) = chunk.id {
       self.completion_id = Some(completion_id);
@@ -1868,26 +1949,25 @@ impl LlamaStreamingCompletion {
       if choice.index != 0 {
         continue;
       }
+      let mut delta = choice.delta;
       self.saw_choice = true;
-      if let Some(finish_reason) = choice.finish_reason.or(choice.delta.finish_reason.clone()) {
+      if let Some(finish_reason) = choice.finish_reason.or(delta.finish_reason.clone()) {
         self.finish_reason = Some(finish_reason);
       }
-      if let Some(role) = choice.delta.role {
+      if let Some(role) = delta.role.take() {
         self.role = role;
       }
-      if let Some(reasoning_content) = choice.delta.reasoning_content {
+      if let Some(reasoning_content) = delta.reasoning_text() {
         self.reasoning_content.push_str(&reasoning_content);
-        if !reasoning_content.is_empty() {
-          visible_deltas.push(LlamaVisibleDelta::Reasoning(reasoning_content));
-        }
+        visible_deltas.push(VisibleDelta::Reasoning(reasoning_content));
       }
-      if let Some(content) = choice.delta.content {
+      if let Some(content) = delta.content {
         self.content.push_str(&content);
         if !content.is_empty() {
-          visible_deltas.push(LlamaVisibleDelta::Answer(content));
+          visible_deltas.push(VisibleDelta::Answer(content));
         }
       }
-      for tool_call_delta in choice.delta.tool_calls {
+      for tool_call_delta in delta.tool_calls {
         if self.tool_calls.len() <= tool_call_delta.index {
           self.tool_calls.resize_with(tool_call_delta.index + 1, || None);
         }
@@ -1933,23 +2013,23 @@ impl LlamaStreamingCompletion {
     })
   }
 
-  fn into_message(self) -> InfuResult<LlamaChatMessage> {
+  fn into_message(self) -> InfuResult<OpenAiChatMessage> {
     if !self.saw_choice {
-      return Err("llama-server returned no chat response choices.".into());
+      return Err("The model server returned no chat response choices.".into());
     }
 
     let tool_calls = self
       .tool_calls
       .into_iter()
       .flatten()
-      .map(|tool_call| LlamaToolCall {
+      .map(|tool_call| OpenAiToolCall {
         id: tool_call.id,
         tool_type: tool_call.tool_type,
-        function: LlamaToolCallFunction { name: tool_call.name, arguments: Value::String(tool_call.arguments) },
+        function: OpenAiToolCallFunction { name: tool_call.name, arguments: Value::String(tool_call.arguments) },
       })
       .collect::<Vec<_>>();
 
-    Ok(LlamaChatMessage {
+    Ok(OpenAiChatMessage {
       role: if self.role.is_empty() { "assistant".to_owned() } else { self.role },
       content: if self.content.is_empty() { None } else { Some(self.content) },
       reasoning_content: if self.reasoning_content.is_empty() { None } else { Some(self.reasoning_content) },
@@ -1960,12 +2040,12 @@ impl LlamaStreamingCompletion {
 }
 
 #[derive(Default)]
-struct LlamaSseDecoder {
+struct OpenAiSseDecoder {
   pending_bytes: Vec<u8>,
   data_lines: Vec<String>,
 }
 
-impl LlamaSseDecoder {
+impl OpenAiSseDecoder {
   fn push(&mut self, bytes: &[u8]) -> InfuResult<Vec<String>> {
     self.pending_bytes.extend_from_slice(bytes);
     self.consume_complete_lines(false)
@@ -1980,7 +2060,7 @@ impl LlamaSseDecoder {
     let mut consumed = 0usize;
     while let Some(relative_newline) = self.pending_bytes[consumed..].iter().position(|byte| *byte == b'\n') {
       let newline = consumed + relative_newline;
-      process_llama_sse_line(&self.pending_bytes[consumed..newline], &mut self.data_lines, &mut events)?;
+      process_sse_line(&self.pending_bytes[consumed..newline], &mut self.data_lines, &mut events)?;
       consumed = newline + 1;
     }
     if consumed > 0 {
@@ -1989,22 +2069,22 @@ impl LlamaSseDecoder {
 
     if flush {
       if !self.pending_bytes.is_empty() {
-        process_llama_sse_line(&self.pending_bytes, &mut self.data_lines, &mut events)?;
+        process_sse_line(&self.pending_bytes, &mut self.data_lines, &mut events)?;
         self.pending_bytes.clear();
       }
-      dispatch_llama_sse_event(&mut self.data_lines, &mut events);
+      dispatch_sse_event(&mut self.data_lines, &mut events);
     }
 
     Ok(events)
   }
 }
 
-fn process_llama_sse_line(raw_line: &[u8], data_lines: &mut Vec<String>, events: &mut Vec<String>) -> InfuResult<()> {
+fn process_sse_line(raw_line: &[u8], data_lines: &mut Vec<String>, events: &mut Vec<String>) -> InfuResult<()> {
   let raw_line = raw_line.strip_suffix(b"\r").unwrap_or(raw_line);
   let line = std::str::from_utf8(raw_line)
-    .map_err(|e| format!("llama-server SSE response contained invalid UTF-8: {}", error_chain_for_log(&e)))?;
+    .map_err(|e| format!("Chat SSE response contained invalid UTF-8: {}", error_chain_for_log(&e)))?;
   if line.is_empty() {
-    dispatch_llama_sse_event(data_lines, events);
+    dispatch_sse_event(data_lines, events);
     return Ok(());
   }
   if line.starts_with(':') {
@@ -2018,49 +2098,49 @@ fn process_llama_sse_line(raw_line: &[u8], data_lines: &mut Vec<String>, events:
   Ok(())
 }
 
-fn dispatch_llama_sse_event(data_lines: &mut Vec<String>, events: &mut Vec<String>) {
+fn dispatch_sse_event(data_lines: &mut Vec<String>, events: &mut Vec<String>) {
   if !data_lines.is_empty() {
     events.push(std::mem::take(data_lines).join("\n"));
   }
 }
 
-struct AppliedLlamaSseData {
+struct AppliedSseData {
   done: bool,
-  visible_deltas: Vec<LlamaVisibleDelta>,
+  visible_deltas: Vec<VisibleDelta>,
 }
 
-fn apply_llama_sse_data(data: &str, completion: &mut LlamaStreamingCompletion) -> InfuResult<AppliedLlamaSseData> {
+fn apply_sse_data(data: &str, completion: &mut OpenAiStreamingCompletion) -> InfuResult<AppliedSseData> {
   let trimmed = data.trim();
   if trimmed.is_empty() {
-    return Ok(AppliedLlamaSseData { done: false, visible_deltas: Vec::new() });
+    return Ok(AppliedSseData { done: false, visible_deltas: Vec::new() });
   }
   if trimmed == "[DONE]" {
-    return Ok(AppliedLlamaSseData { done: true, visible_deltas: Vec::new() });
+    return Ok(AppliedSseData { done: true, visible_deltas: Vec::new() });
   }
 
-  let chunk: LlamaChatCompletionChunk = serde_json::from_str(trimmed).map_err(|e| {
+  let chunk: OpenAiChatCompletionChunk = serde_json::from_str(trimmed).map_err(|e| {
     format!(
-      "Could not parse llama-server SSE data as a chat completion chunk: {}. Data: {}",
+      "Could not parse chat SSE data as a chat completion chunk: {}. Data: {}",
       error_chain_for_log(&e),
       truncate_for_error(trimmed, 1000),
     )
   })?;
   let visible_deltas = completion.apply_chunk(chunk)?;
-  Ok(AppliedLlamaSseData { done: false, visible_deltas })
+  Ok(AppliedSseData { done: false, visible_deltas })
 }
 
-async fn apply_llama_sse_events(
+async fn apply_sse_events(
   events: Vec<String>,
-  completion: &mut LlamaStreamingCompletion,
+  completion: &mut OpenAiStreamingCompletion,
   round: usize,
   progress: &ChatProgressReporter,
 ) -> InfuResult<bool> {
   for data in events {
-    let applied = apply_llama_sse_data(&data, completion)?;
+    let applied = apply_sse_data(&data, completion)?;
     for delta in applied.visible_deltas {
       match delta {
-        LlamaVisibleDelta::Reasoning(text) => progress.reasoning_delta(round, text).await,
-        LlamaVisibleDelta::Answer(text) => progress.answer_delta(round, text).await,
+        VisibleDelta::Reasoning(text) => progress.reasoning_delta(round, text).await,
+        VisibleDelta::Answer(text) => progress.answer_delta(round, text).await,
       }
     }
     if applied.done {
@@ -2070,67 +2150,76 @@ async fn apply_llama_sse_events(
   Ok(false)
 }
 
-async fn llama_chat_completion(
-  config: &Config,
-  messages: &[LlamaChatMessage],
-  tools: &[LlamaToolSpec],
+async fn chat_completion(
+  endpoint: &ChatEndpoint,
+  messages: &[OpenAiChatMessage],
+  tools: &[OpenAiToolSpec],
   llm_turn: usize,
   progress: &ChatProgressReporter,
-) -> InfuResult<LlamaChatMessage> {
-  let url = configured_llama_chat_url(config)?;
+) -> InfuResult<OpenAiChatMessage> {
+  let backend_label = endpoint.backend.label();
+  let url = &endpoint.url;
 
   let client = reqwest::ClientBuilder::new()
-    .connect_timeout(Duration::from_secs(CHAT_LLAMA_CONNECT_TIMEOUT_SECS))
-    .read_timeout(Duration::from_secs(CHAT_LLAMA_READ_TIMEOUT_SECS))
+    .connect_timeout(endpoint.connect_timeout)
+    .read_timeout(endpoint.read_timeout)
     .build()
-    .map_err(|e| format!("Could not build llama-server HTTP client: {}", reqwest_error_for_log(&e)))?;
-  let payload = LlamaChatCompletionRequest {
-    model: "default".to_owned(),
-    messages: messages.to_vec(),
+    .map_err(|e| format!("Could not build {} HTTP client: {}", backend_label, reqwest_error_for_log(&e)))?;
+  let payload = OpenAiChatCompletionRequest {
+    model: endpoint.model.clone(),
+    messages: match endpoint.backend {
+      ChatBackend::LlamaServer => messages.to_vec(),
+      ChatBackend::OpenRouter => messages.iter().map(OpenAiChatMessage::without_reasoning).collect(),
+    },
     stream: true,
-    stream_options: Some(LlamaStreamOptions { include_usage: true }),
+    stream_options: Some(OpenAiStreamOptions { include_usage: true }),
     tools: tools.to_vec(),
+    reasoning: OpenAiReasoning::from_config(endpoint.reasoning),
   };
   append_llm_request_metrics_log(llm_turn, messages, tools);
   append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &payload);
   progress.context_tokens(approx_request_tokens(messages, tools), false).await;
-  let response = client
-    .post(url.clone())
-    .header(reqwest::header::ACCEPT, "text/event-stream")
-    .json(&payload)
-    .send()
-    .await
-    .map_err(|e| format!("Could not send chat request to llama-server '{}': {}", url, reqwest_error_for_log(&e)))?;
+  let mut request = client.post(url.clone()).header(reqwest::header::ACCEPT, "text/event-stream").json(&payload);
+  if let Some(api_key) = endpoint.api_key.as_deref() {
+    request = request.bearer_auth(api_key);
+  }
+  if endpoint.backend == ChatBackend::OpenRouter {
+    request = request.header("X-Title", OPENROUTER_APP_TITLE);
+  }
+  let response = request.send().await.map_err(|e| {
+    format!("Could not send chat request to {} '{}': {}", backend_label, url, reqwest_error_for_log(&e))
+  })?;
 
   let status = response.status();
   if !status.is_success() {
     let body = response
       .text()
       .await
-      .map_err(|e| format!("Could not read llama-server error response body: {}", reqwest_error_for_log(&e)))?;
+      .map_err(|e| format!("Could not read {} error response body: {}", backend_label, reqwest_error_for_log(&e)))?;
     append_llm_log_section(&format!("LLM RESPONSE {}", llm_turn), &body);
     return Err(
-      format!("llama-server chat endpoint '{}' returned {}: {}", url, status, truncate_for_error(&body, 1000)).into(),
+      format!("{} chat endpoint '{}' returned {}: {}", backend_label, url, status, truncate_for_error(&body, 1000))
+        .into(),
     );
   }
 
   let mut response_stream = response.bytes_stream();
-  let mut decoder = LlamaSseDecoder::default();
-  let mut completion = LlamaStreamingCompletion::default();
+  let mut decoder = OpenAiSseDecoder::default();
+  let mut completion = OpenAiStreamingCompletion::default();
   let mut saw_done = false;
   while let Some(chunk) = futures_util::StreamExt::next(&mut response_stream).await {
-    let chunk =
-      chunk.map_err(|e| format!("Could not read llama-server SSE response body: {}", reqwest_error_for_log(&e)))?;
-    saw_done = apply_llama_sse_events(decoder.push(&chunk)?, &mut completion, llm_turn, progress).await?;
+    let chunk = chunk
+      .map_err(|e| format!("Could not read {} SSE response body: {}", backend_label, reqwest_error_for_log(&e)))?;
+    saw_done = apply_sse_events(decoder.push(&chunk)?, &mut completion, llm_turn, progress).await?;
     if saw_done {
       break;
     }
   }
   if !saw_done {
-    saw_done = apply_llama_sse_events(decoder.finish()?, &mut completion, llm_turn, progress).await?;
+    saw_done = apply_sse_events(decoder.finish()?, &mut completion, llm_turn, progress).await?;
   }
   if !saw_done {
-    return Err("llama-server SSE response ended before the [DONE] event.".into());
+    return Err(format!("{} SSE response ended before the [DONE] event.", backend_label).into());
   }
 
   append_llm_json_log_section(&format!("LLM RESPONSE {}", llm_turn), &completion.response_log_value());

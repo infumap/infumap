@@ -109,10 +109,54 @@ export interface ChatMessage {
   toolCalls?: Array<ChatToolCall>,
 }
 
+export type ChatBackendId = "llama" | "openrouter";
+
+/**
+ * The backend, model and reasoning effort a chat request should use. Omitted fields fall back to
+ * the server's defaults. Reasoning effort applies to OpenRouter only, and must be one of the
+ * efforts the chosen model reports; "none" turns reasoning off.
+ */
+export interface ChatModelSelection {
+  backend?: ChatBackendId,
+  model?: string,
+  reasoningEffort?: string,
+}
+
 export interface ChatRequest {
   requestId: string,
   messages: Array<ChatMessage>,
   capabilities: Array<"infumap_data" | "web_search">,
+  model?: ChatModelSelection,
+}
+
+export interface ChatModelInfo {
+  id: string,
+  name: string,
+  contextLength?: number,
+  /** Effort levels this model accepts. Empty for a model that does not reason. */
+  reasoningEfforts: Array<string>,
+  defaultEffort?: string,
+  reasoningMandatory: boolean,
+  /** US dollars per token, as OpenRouter reports it. */
+  promptPrice?: string,
+  completionPrice?: string,
+}
+
+export interface ChatBackendInfo {
+  id: ChatBackendId,
+  label: string,
+  available: boolean,
+  /** Why this backend cannot be used, when it cannot. */
+  unavailableReason?: string,
+  supportsModelSelection: boolean,
+  supportsReasoningEffort: boolean,
+  models: Array<ChatModelInfo>,
+  modelsError?: string,
+}
+
+export interface ChatBackends {
+  backends: Array<ChatBackendInfo>,
+  default: { backend: ChatBackendId, model?: string },
 }
 
 export interface ChatResponse {
@@ -777,6 +821,10 @@ export const server = {
     return streamChatCommand(payload, networkStatus, onEvent, signal);
   },
 
+  chatBackends: async (): Promise<ChatBackends> => {
+    return fetchChatBackends();
+  },
+
   submitChatToolApproval: async (
     payload: { requestId: string, callId: string, approved: boolean },
   ): Promise<void> => {
@@ -1172,6 +1220,17 @@ async function sendChatStream(
 
   buffer += decoder.decode();
   parseLine(buffer);
+}
+
+async function fetchChatBackends(): Promise<ChatBackends> {
+  const fetchResult = await fetch("/chat/models", {
+    method: "GET",
+    headers: { "Accept": "application/json" },
+  });
+  if (!fetchResult.ok) {
+    throw new Error(`Chat models request failed: ${fetchResult.status}`);
+  }
+  return await fetchResult.json();
 }
 
 async function submitChatToolApprovalCommand(

@@ -80,7 +80,6 @@ use crate::ai::upload_quiet_period::record_object_store_backed_item_upload;
 use crate::ai::vector_db::{
   FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,
 };
-use crate::config::CONFIG_LLAMA_SERVER_URL;
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
 use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};
@@ -98,7 +97,7 @@ mod chat;
 mod item_ops;
 mod search;
 
-pub use chat::{serve_chat_stream_route, serve_chat_tool_approval_route};
+pub use chat::{serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route};
 pub use item_ops::add_item_for_user;
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly

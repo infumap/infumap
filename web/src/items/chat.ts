@@ -30,7 +30,7 @@ import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
-import { server, type ChatMessage, type ChatStreamEvent, type ChatStreamPhase } from "../server";
+import { server, type ChatMessage, type ChatModelSelection, type ChatStreamEvent, type ChatStreamPhase } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import type {
@@ -688,6 +688,61 @@ export function setQueryChatUsesWebSearch(
   setQueryChatCapability(store, queryItem, "web_search", enabled);
 }
 
+/**
+ * The backend and model picked for this chat, else the last one picked anywhere, else null for the
+ * server's default. A chat that has never had a model picked for it follows the remembered default,
+ * including if that changes. This is the raw choice - it may name something the server no longer
+ * offers, so send effectiveQueryChatModelSelection rather than this.
+ */
+export function queryChatModelSelection(store: StoreContextModel, queryItem: QueryItem): ChatModelSelection | null {
+  return getQueryRuntime(store, queryItem).chat.model ?? store.general.chatModelSelection();
+}
+
+/**
+ * The selection to actually send, with anything the server no longer offers dropped so that the
+ * server's own default takes over. A remembered choice outlives the configuration it was made
+ * under: a key can be removed, and OpenRouter retires models. The server deliberately refuses to
+ * substitute a backend that was named explicitly, so a stale choice has to be dropped here or chat
+ * stops working until the user happens to open the picker.
+ */
+export function effectiveQueryChatModelSelection(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+): ChatModelSelection | null {
+  const selection = queryChatModelSelection(store, queryItem);
+  const backends = store.general.chatBackends();
+  if (selection == null || backends == null) {
+    // Without the catalog there is nothing to validate against; let the server judge.
+    return selection;
+  }
+
+  const backend = backends.backends.find(candidate => candidate.id == selection.backend);
+  if (backend == null || !backend.available) { return null; }
+  if (!backend.supportsModelSelection) { return { backend: backend.id }; }
+
+  const model = backend.models.find(candidate => candidate.id == selection.model);
+  if (model == null) { return { backend: backend.id }; }
+  const effort = selection.reasoningEffort;
+  return {
+    backend: backend.id,
+    model: model.id,
+    reasoningEffort: effort != null && model.reasoningEfforts.includes(effort) ? effort : undefined,
+  };
+}
+
+/** Sets the model for this chat, and remembers it as the default for new ones. */
+export function setQueryChatModelSelection(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  selection: ChatModelSelection | null,
+): void {
+  store.general.setChatModelSelection(selection);
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    chat: { ...current.chat, model: selection },
+  }));
+}
+
 function queryChatRootOrderings(store: StoreContextModel, queryItem: QueryItem): Array<Uint8Array> {
   return queryChatRootIds(store, queryItem)
     .map(id => itemState.get(id)?.ordering)
@@ -990,6 +1045,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
       requestId,
       messages,
       capabilities: queryChatCapabilities(store, queryItem),
+      model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
     }, store.general.networkStatus, (event) => {
       if (event.type == "context_tokens") {
         setQueryChatContextTokens(store, queryItem, event.tokens, event.exact);

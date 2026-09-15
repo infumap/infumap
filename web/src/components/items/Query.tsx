@@ -25,6 +25,7 @@ import { FIND_HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, SELECTION_HIGHLIGHT_COLOR } f
 import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { QueryChatModelButton } from "./QueryChatModelButton";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -141,6 +142,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryModeSelect: HTMLSelectElement | undefined;
   let querySendButton: HTMLButtonElement | undefined;
   let queryDiscardButton: HTMLButtonElement | undefined;
+  let queryModelButton: HTMLButtonElement | undefined;
   let queryInfumapDataCheckbox: HTMLInputElement | undefined;
   let queryWebSearchCheckbox: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
@@ -381,6 +383,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
+  const focusModelButton = () => {
+    if (!queryModelButton || queryModelButton.disabled) {
+      focusQueryInputControl();
+      return;
+    }
+    queryModelButton.focus();
+  };
+
   const focusInfumapDataCheckbox = () => {
     if (!queryInfumapDataCheckbox || queryInfumapDataCheckbox.disabled) {
       focusQueryInputControl();
@@ -397,7 +407,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryWebSearchCheckbox.focus();
   };
 
-  type QueryControlName = "mode" | "input" | "send" | "discard" | "infumap-data" | "web-search";
+  type QueryControlName = "mode" | "input" | "send" | "discard" | "model" | "infumap-data" | "web-search";
 
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = ["mode", "input", "send"];
@@ -405,6 +415,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       controls.push("discard");
     }
     if (selectedInputMode() == "chat") {
+      controls.push("model");
       controls.push("infumap-data");
       controls.push("web-search");
     }
@@ -420,6 +431,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       focusSendButton();
     } else if (control == "discard") {
       focusDiscardButton();
+    } else if (control == "model") {
+      focusModelButton();
     } else if (control == "web-search") {
       focusWebSearchCheckbox();
     } else {
@@ -996,6 +1009,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </div>
             </Show>
             <div class="ml-auto flex shrink-0 items-center gap-4 pl-3">
+              <QueryChatModelButton queryItem={queryItem} />
               <label
                 class="flex cursor-default items-center gap-2 opacity-60"
                 style="font-size: 13px; line-height: 20px;"
@@ -1240,6 +1254,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onMouseDown={(ev) => ev.stopPropagation()}
           onMouseUp={(ev) => ev.stopPropagation()}
           onClick={(ev) => ev.stopPropagation()}>
+          <QueryChatModelButton
+            queryItem={queryItem}
+            buttonRef={(el) => { queryModelButton = el; }}
+            onTabKey={(ev) => handleQueryControlTab(ev, "model")} />
           <label
             class="flex cursor-pointer items-center gap-2"
             title={queryChatUsesInfumapData(store, queryItem())
