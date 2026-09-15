@@ -61,8 +61,8 @@ const CHAT_CAPABILITY_INFUMAP_DATA: &str = "infumap_data";
 const CHAT_CAPABILITY_WEB_SEARCH: &str = "web_search";
 const CHAT_SYSTEM_PROMPT_CLOSING: &str = "Return a concise Markdown answer.";
 const CHAT_SYSTEM_PROMPT_WEB_SEARCH: &str = "\
-Use web_search to search the public web. The user must approve the exact query before the search runs.
-Use fetch_page to read an HTTP or HTTPS URL. The user must approve the exact URL before the request is sent.
+Use web_search to search the public web.
+Use fetch_page to read an HTTP or HTTPS URL.
 Cite web sources with URLs returned by those tools; do not invent links.";
 
 #[derive(Deserialize)]
@@ -1172,8 +1172,7 @@ fn fetch_page_tool_spec() -> LlamaToolSpec {
     tool_type: "function".to_owned(),
     function: LlamaToolFunctionSpec {
       name: "fetch_page".to_owned(),
-      description: "Read an HTTP or HTTPS URL. The user must approve the exact URL before the request is sent."
-        .to_owned(),
+      description: "Read an HTTP or HTTPS URL.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
@@ -1200,7 +1199,7 @@ fn web_search_tool_spec() -> LlamaToolSpec {
     tool_type: "function".to_owned(),
     function: LlamaToolFunctionSpec {
       name: "web_search".to_owned(),
-      description: "Search the public web. The user must approve the exact query before the search runs.".to_owned(),
+      description: "Search the public web.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
