@@ -401,6 +401,18 @@ impl OpenAiChatMessage {
     Self { reasoning_content: None, ..self.clone() }
   }
 
+  /// Some llama.cpp chat templates only permit a system/developer message at the start. Deep
+  /// research adds private stage instructions later in the conversation, where they are
+  /// semantically new user turns. Keep them as system messages internally so they are omitted
+  /// from persisted chat history, but send them to llama-server with a role its templates accept.
+  fn for_llama_server(&self, is_first: bool) -> Self {
+    let mut message = self.clone();
+    if !is_first && message.role.eq_ignore_ascii_case("system") {
+      message.role = "user".to_owned();
+    }
+    message
+  }
+
   fn text(role: &str, content: String) -> Self {
     Self {
       role: role.to_owned(),
@@ -2190,7 +2202,9 @@ async fn chat_completion(
   let payload = OpenAiChatCompletionRequest {
     model: endpoint.model.clone(),
     messages: match endpoint.backend {
-      ChatBackend::LlamaServer => messages.to_vec(),
+      ChatBackend::LlamaServer => {
+        messages.iter().enumerate().map(|(index, message)| message.for_llama_server(index == 0)).collect()
+      }
       ChatBackend::OpenRouter => messages.iter().map(OpenAiChatMessage::without_reasoning).collect(),
     },
     stream: true,
