@@ -50,6 +50,7 @@ pub struct MappedMcpTool {
   pub openai_name: String,
   pub description: String,
   pub parameters: Value,
+  pub read_only: bool,
 }
 
 #[derive(Clone)]
@@ -184,8 +185,9 @@ pub async fn mapped_tools_for_capabilities(
         .or_else(|| tool.title.map(|value| value.trim().to_owned()).filter(|value| !value.is_empty()))
         .unwrap_or_else(|| mcp_name.to_owned());
       let parameters = if tool.input_schema.is_object() { tool.input_schema } else { default_input_schema() };
+      let read_only = tool.annotations.as_ref().is_some_and(|annotations| annotations.read_only_hint);
       name_map.insert(openai_name.clone(), (server.id.clone(), mcp_name.to_owned()));
-      mapped.push(MappedMcpTool { openai_name, description, parameters });
+      mapped.push(MappedMcpTool { openai_name, description, parameters, read_only });
     }
   }
   (mapped, name_map)

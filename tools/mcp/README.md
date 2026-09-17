@@ -21,6 +21,11 @@ url = "http://127.0.0.1:8791/mcp"
 label = "Web search"
 ```
 
+Deep research only receives MCP tools whose tool definition declares
+`annotations.readOnlyHint: true`. Mark discovery, lookup, and fetch tools with
+that annotation so they are available to research; mutation tools remain
+available to ordinary chat under the configured approval policy.
+
 Infumap does not start this process. If the sidecar is down, the Web search
 checkbox is greyed out. There is no in-process fallback.
 
