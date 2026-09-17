@@ -202,6 +202,7 @@ export async function startQueryChat(
   queryItem: QueryItem,
   initialText: string,
   queryItemPath: VisualElementPath,
+  deepResearch: boolean = false,
 ): Promise<void> {
   clearQueryChat(store, queryItem);
   clearQuerySearchForModeSwitch(store, queryItem);
@@ -211,5 +212,5 @@ export async function startQueryChat(
   store.history.setFocus(queryItemPath);
   store.overlay.autoFocusChatInput.set(true);
   arrangeNow(store, "query-start-chat");
-  await submitQueryChatMessage(store, queryItem, initialText);
+  await submitQueryChatMessage(store, queryItem, initialText, deepResearch);
 }

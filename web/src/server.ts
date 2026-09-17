@@ -122,10 +122,13 @@ export interface ChatModelSelection {
   reasoningEffort?: string,
 }
 
+export type ChatRunMode = "chat" | "deep_research";
+
 export interface ChatRequest {
   requestId: string,
   messages: Array<ChatMessage>,
   capabilities: Array<string>,
+  mode: ChatRunMode,
   model?: ChatModelSelection,
 }
 

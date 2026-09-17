@@ -1045,7 +1045,12 @@ async function persistItems(store: StoreContextModel, items: Array<Item>): Promi
   }
 }
 
-export async function submitQueryChatMessage(store: StoreContextModel, queryItem: QueryItem, rawText: string): Promise<void> {
+export async function submitQueryChatMessage(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  rawText: string,
+  deepResearch: boolean = false,
+): Promise<void> {
   const text = rawText.trim();
   if (text == "") {
     return;
@@ -1076,6 +1081,7 @@ export async function submitQueryChatMessage(store: StoreContextModel, queryItem
       requestId,
       messages,
       capabilities: queryChatCapabilities(store, queryItem),
+      mode: deepResearch ? "deep_research" : "chat",
       model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
     }, store.general.networkStatus, (event) => {
       if (event.type == "context_tokens") {

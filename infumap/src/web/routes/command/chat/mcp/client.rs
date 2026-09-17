@@ -40,6 +40,14 @@ pub struct McpTool {
   pub description: Option<String>,
   #[serde(rename = "inputSchema")]
   pub input_schema: Value,
+  #[serde(default)]
+  pub annotations: Option<McpToolAnnotations>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct McpToolAnnotations {
+  #[serde(rename = "readOnlyHint", default)]
+  pub read_only_hint: bool,
 }
 
 #[derive(Clone, Debug)]
