@@ -17,8 +17,9 @@
 use infusdk::util::infu::InfuResult;
 use reqwest::Url;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::time::Duration;
 
 use super::config::ChatToolServer;
@@ -31,29 +32,51 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_REDIRECTS: usize = 5;
 const MAX_TOOLS_LIST_PAGES: usize = 20;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct McpTool {
   pub name: String,
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub title: Option<String>,
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub description: Option<String>,
   #[serde(rename = "inputSchema")]
   pub input_schema: Value,
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub annotations: Option<McpToolAnnotations>,
+  #[serde(flatten)]
+  pub extra: HashMap<String, Value>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct McpToolAnnotations {
   #[serde(rename = "readOnlyHint", default)]
   pub read_only_hint: bool,
+  #[serde(flatten)]
+  pub extra: HashMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct McpIcon {
+  pub src: String,
+  #[serde(rename = "mimeType", default, skip_serializing_if = "Option::is_none")]
+  pub mime_type: Option<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub sizes: Option<Vec<String>>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub theme: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct McpServerInfo {
+  #[serde(default)]
+  icons: Vec<McpIcon>,
 }
 
 #[derive(Clone, Debug)]
 pub struct McpSession {
   pub protocol_version: String,
   pub session_id: Option<String>,
+  pub icons: Vec<McpIcon>,
   pub tools: Vec<McpTool>,
 }
 
@@ -75,6 +98,8 @@ struct JsonRpcError {
 struct InitializeResult {
   #[serde(rename = "protocolVersion", default)]
   protocol_version: Option<String>,
+  #[serde(rename = "serverInfo", default)]
+  server_info: Option<McpServerInfo>,
 }
 
 #[derive(Deserialize)]
@@ -321,7 +346,12 @@ pub async fn initialize_and_list_tools(server: &ChatToolServer) -> InfuResult<Mc
     }
   }
 
-  Ok(McpSession { protocol_version, session_id, tools })
+  Ok(McpSession {
+    protocol_version,
+    session_id,
+    icons: initialize.server_info.map(|info| info.icons).unwrap_or_default(),
+    tools,
+  })
 }
 
 pub async fn call_tool(

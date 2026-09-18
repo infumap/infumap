@@ -1270,11 +1270,14 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
   }
 }
 
+fn infumap_tool_specs() -> Vec<OpenAiToolSpec> {
+  vec![lexical_search_tool_spec(), get_fragment_tool_spec()]
+}
+
 fn chat_tool_specs(uses_infumap_data: bool, mcp_tools: &[mcp::MappedMcpTool]) -> Vec<OpenAiToolSpec> {
   let mut tools = Vec::new();
   if uses_infumap_data {
-    tools.push(lexical_search_tool_spec());
-    tools.push(get_fragment_tool_spec());
+    tools.extend(infumap_tool_specs());
   }
   for tool in mcp_tools {
     tools.push(OpenAiToolSpec {

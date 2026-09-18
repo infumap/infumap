@@ -283,6 +283,8 @@ struct ChatDefaultSelection {
 pub struct ChatBackendsResponse {
   backends: Vec<ChatBackendInfo>,
   default: ChatDefaultSelection,
+  #[serde(rename = "infumapTools")]
+  infumap_tools: Vec<super::OpenAiToolSpec>,
   #[serde(rename = "toolServers")]
   tool_servers: Vec<ChatToolServerInfo>,
 }
@@ -344,6 +346,7 @@ pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
         ChatBackend::LlamaServer => None,
       },
     },
+    infumap_tools: super::infumap_tool_specs(),
     tool_servers: mcp::tool_server_catalog(config).await,
   }
 }

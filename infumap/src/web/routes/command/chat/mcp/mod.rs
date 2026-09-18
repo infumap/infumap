@@ -39,11 +39,14 @@ const CATALOG_TTL_ERR: Duration = Duration::from_secs(15);
 pub struct ChatToolServerInfo {
   pub id: String,
   pub label: String,
+  #[serde(skip_serializing_if = "Vec::is_empty")]
+  pub icons: Vec<client::McpIcon>,
   pub available: bool,
   #[serde(rename = "unavailableReason", skip_serializing_if = "Option::is_none")]
   pub unavailable_reason: Option<String>,
   #[serde(rename = "enabledByDefault")]
   pub enabled_by_default: bool,
+  pub tools: Vec<client::McpTool>,
 }
 
 pub struct MappedMcpTool {
@@ -136,12 +139,16 @@ pub async fn tool_server_catalog(config: &Config) -> Vec<ChatToolServerInfo> {
   };
   join_all(servers.into_iter().map(|server| async move {
     let snapshot = server_snapshot(&server).await;
+    let (icons, tools) =
+      snapshot.session.as_ref().map(|session| (session.icons.clone(), session.tools.clone())).unwrap_or_default();
     ChatToolServerInfo {
       id: server.id,
       label: server.label,
+      icons,
       available: snapshot.available,
       unavailable_reason: snapshot.unavailable_reason,
       enabled_by_default: server.enabled_by_default,
+      tools,
     }
   }))
   .await
