@@ -38,8 +38,12 @@ use backend::{
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
 
+// Both ceilings are backstops against a model that loops forever, not budgets:
+// a run reaches either only if something has gone wrong. The deep research
+// stages share one counter, so this is the ceiling for a whole run rather than
+// for each stage.
 const CHAT_MAX_TOOL_ROUNDS: usize = 10_000;
-const CHAT_DEEP_RESEARCH_MAX_TOOL_ROUNDS: usize = 32;
+const CHAT_DEEP_RESEARCH_MAX_TOOL_ROUNDS: usize = 10_000;
 const CHAT_TOOL_APPROVAL_TIMEOUT_SECS: u64 = 300;
 const CHAT_TOOL_APPROVAL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
