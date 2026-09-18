@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
+use futures_util::future::join_all;
 use http_body_util::{BodyExt as _, StreamBody};
 use hyper::body::Frame;
 use std::collections::{HashMap, HashSet};
@@ -1319,11 +1320,22 @@ async fn run_chat_model_round(
   Ok(CompletedChatModelRound { number: round, assistant_message, tool_calls })
 }
 
-fn chat_tool_requires_approval(name: &str, name_map: &HashMap<String, (String, String)>, config: &Config) -> bool {
-  if let Some((server_id, _)) = name_map.get(name) {
-    return mcp::server_requires_approval(config, server_id);
+fn chat_tool_requires_approval(
+  name: &str,
+  name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
+  config: &Config,
+) -> bool {
+  if let Some(target) = name_map.get(name) {
+    return mcp::server_requires_approval(config, &target.server_id);
   }
   false
+}
+
+fn chat_tool_can_run_concurrently(name: &str, name_map: &HashMap<String, mcp::MappedMcpToolTarget>) -> bool {
+  match name {
+    "lexical_search" | "get_fragment" => true,
+    _ => name_map.get(name).is_some_and(|target| target.read_only),
+  }
 }
 
 fn web_tool_approval_prompt(name: &str, arguments: &Value) -> (Option<String>, Option<String>) {
@@ -1336,52 +1348,89 @@ fn web_tool_approval_prompt(name: &str, arguments: &Value) -> (Option<String>, O
   }
 }
 
+async fn execute_chat_tool_call_with_progress(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  config: &Config,
+  uses_infumap_data: bool,
+  name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
+  round: usize,
+  tool_call: OpenAiToolCall,
+  progress: &ChatProgressReporter,
+) -> InfuResult<OpenAiChatMessage> {
+  let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
+  if chat_tool_requires_approval(&tool_call.function.name, name_map, config) {
+    let (query, url) = web_tool_approval_prompt(&tool_call.function.name, &arguments);
+    progress
+      .tool_approval_required(round, &tool_call.id, &tool_call.function.name, query, url, arguments.clone())
+      .await;
+    match wait_for_tool_approval(&progress.request_id, &tool_call.id, &session.user_id).await {
+      ToolApprovalDecision::Approved => {}
+      decision => {
+        let tool_result = tool_error_json(match decision {
+          ToolApprovalDecision::TimedOut => "Tool approval timed out.",
+          _ => "User declined.",
+        });
+        let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
+        progress.tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, 0, result_preview).await;
+        append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
+        return Ok(OpenAiChatMessage::tool(tool_call.id, tool_result));
+      }
+    }
+  }
+
+  progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
+  let started_at = Instant::now();
+  let tool_result = execute_chat_tool_call(db, session, config, &tool_call, uses_infumap_data, name_map).await?;
+  let duration_ms = started_at.elapsed().as_millis() as u64;
+  let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
+  progress
+    .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, duration_ms, result_preview)
+    .await;
+  append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
+  Ok(OpenAiChatMessage::tool(tool_call.id, tool_result))
+}
+
 async fn execute_chat_tool_round(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   config: &Config,
   uses_infumap_data: bool,
-  name_map: &HashMap<String, (String, String)>,
+  name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
   round: usize,
   tool_calls: Vec<OpenAiToolCall>,
   progress: &ChatProgressReporter,
 ) -> InfuResult<Vec<OpenAiChatMessage>> {
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
-  for tool_call in tool_calls {
-    let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
-    if chat_tool_requires_approval(&tool_call.function.name, name_map, config) {
-      let (query, url) = web_tool_approval_prompt(&tool_call.function.name, &arguments);
-      progress
-        .tool_approval_required(round, &tool_call.id, &tool_call.function.name, query, url, arguments.clone())
-        .await;
-      match wait_for_tool_approval(&progress.request_id, &tool_call.id, &session.user_id).await {
-        ToolApprovalDecision::Approved => {}
-        decision => {
-          let tool_result = tool_error_json(match decision {
-            ToolApprovalDecision::TimedOut => "Tool approval timed out.",
-            _ => "User declined.",
-          });
-          let (summary, result_preview) =
-            chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
-          progress
-            .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, 0, result_preview)
-            .await;
-          append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
-          tool_messages.push(OpenAiChatMessage::tool(tool_call.id, tool_result));
-          continue;
-        }
-      }
+  let mut tool_calls = tool_calls.into_iter().peekable();
+  while let Some(tool_call) = tool_calls.next() {
+    if !chat_tool_can_run_concurrently(&tool_call.function.name, name_map) {
+      tool_messages.push(
+        execute_chat_tool_call_with_progress(
+          db,
+          session,
+          config,
+          uses_infumap_data,
+          name_map,
+          round,
+          tool_call,
+          progress,
+        )
+        .await?,
+      );
+      continue;
     }
-    progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
-    let started_at = Instant::now();
-    let tool_result = execute_chat_tool_call(db, session, config, &tool_call, uses_infumap_data, name_map).await?;
-    let duration_ms = started_at.elapsed().as_millis() as u64;
-    let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
-    progress
-      .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, duration_ms, result_preview)
-      .await;
-    append_llm_log_section(&format!("TOOL RESULT {} {}", tool_call.function.name, tool_call.id), &tool_result);
-    tool_messages.push(OpenAiChatMessage::tool(tool_call.id, tool_result));
+
+    let mut concurrent_batch = vec![tool_call];
+    while tool_calls.peek().is_some_and(|tool_call| chat_tool_can_run_concurrently(&tool_call.function.name, name_map))
+    {
+      concurrent_batch.push(tool_calls.next().expect("peeked tool call must exist"));
+    }
+    let results = join_all(concurrent_batch.into_iter().map(|tool_call| {
+      execute_chat_tool_call_with_progress(db, session, config, uses_infumap_data, name_map, round, tool_call, progress)
+    }))
+    .await;
+    tool_messages.extend(results.into_iter().collect::<InfuResult<Vec<_>>>()?);
   }
   Ok(tool_messages)
 }
@@ -1392,7 +1441,7 @@ async fn run_chat_stage_with_tools(
   session: &Session,
   config: &Config,
   uses_infumap_data: bool,
-  name_map: &HashMap<String, (String, String)>,
+  name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
   messages: &mut Vec<OpenAiChatMessage>,
   tools: &[OpenAiToolSpec],
   llm_turn: &mut usize,
@@ -1562,11 +1611,11 @@ async fn execute_chat_tool_call(
   config: &Config,
   tool_call: &OpenAiToolCall,
   uses_infumap_data: bool,
-  name_map: &HashMap<String, (String, String)>,
+  name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
 ) -> InfuResult<String> {
-  if let Some((server_id, mcp_name)) = name_map.get(&tool_call.function.name) {
+  if let Some(target) = name_map.get(&tool_call.function.name) {
     let arguments = tool_call_arguments_value(tool_call).unwrap_or_else(|_| serde_json::json!({}));
-    return mcp::call_mapped_tool(config, server_id, mcp_name, arguments).await;
+    return mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments).await;
   }
   match tool_call.function.name.as_str() {
     "lexical_search" | "get_fragment" if !uses_infumap_data => {
