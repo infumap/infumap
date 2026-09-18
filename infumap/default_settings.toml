@@ -94,6 +94,7 @@
 # id = "web_search"
 # url = "http://127.0.0.1:8791/mcp"
 # label = "Web search"
+# The service may advertise its icon in initialize.serverInfo.icons.
 # # bearer_token = ""
 # # enabled_by_default = false
 # # require_approval = true
