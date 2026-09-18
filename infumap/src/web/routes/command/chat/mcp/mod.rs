@@ -53,6 +53,12 @@ pub struct MappedMcpTool {
   pub read_only: bool,
 }
 
+pub struct MappedMcpToolTarget {
+  pub server_id: String,
+  pub mcp_name: String,
+  pub read_only: bool,
+}
+
 #[derive(Clone)]
 struct CachedServer {
   fetched_at: Instant,
@@ -149,12 +155,12 @@ fn default_input_schema() -> Value {
   })
 }
 
-/// Tool specs for the plugin ids enabled on this chat, plus a reverse map from OpenAI name to (server, mcp name).
+/// Tool specs for the plugin ids enabled on this chat, plus execution metadata keyed by OpenAI name.
 pub async fn mapped_tools_for_capabilities(
   config: &Config,
   plugin_ids: &[String],
   reserved_openai_names: &[&str],
-) -> (Vec<MappedMcpTool>, HashMap<String, (String, String)>) {
+) -> (Vec<MappedMcpTool>, HashMap<String, MappedMcpToolTarget>) {
   let Ok(by_id) = servers_by_id(config) else {
     return (Vec::new(), HashMap::new());
   };
@@ -186,7 +192,10 @@ pub async fn mapped_tools_for_capabilities(
         .unwrap_or_else(|| mcp_name.to_owned());
       let parameters = if tool.input_schema.is_object() { tool.input_schema } else { default_input_schema() };
       let read_only = tool.annotations.as_ref().is_some_and(|annotations| annotations.read_only_hint);
-      name_map.insert(openai_name.clone(), (server.id.clone(), mcp_name.to_owned()));
+      name_map.insert(
+        openai_name.clone(),
+        MappedMcpToolTarget { server_id: server.id.clone(), mcp_name: mcp_name.to_owned(), read_only },
+      );
       mapped.push(MappedMcpTool { openai_name, description, parameters, read_only });
     }
   }
