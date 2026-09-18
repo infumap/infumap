@@ -160,14 +160,22 @@ export interface ChatBackendInfo {
 export interface ChatToolServerInfo {
   id: string,
   label: string,
+  icons?: Array<{
+    src: string,
+    mimeType?: string,
+    sizes?: Array<string>,
+    theme?: string,
+  }>,
   available: boolean,
   unavailableReason?: string,
   enabledByDefault: boolean,
+  tools: Array<Record<string, unknown>>,
 }
 
 export interface ChatBackends {
   backends: Array<ChatBackendInfo>,
   default: { backend: ChatBackendId, model?: string },
+  infumapTools?: Array<Record<string, unknown>>,
   toolServers?: Array<ChatToolServerInfo>,
 }
 

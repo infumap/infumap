@@ -166,7 +166,12 @@ fn initialize_result(params: &Value) -> Value {
     "capabilities": { "tools": {} },
     "serverInfo": {
       "name": SERVER_NAME,
-      "version": SERVER_VERSION
+      "version": SERVER_VERSION,
+      "icons": [{
+        "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.8'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='m15.4 15.4 5 5M4.5 10.5h12M10.5 4a10 10 0 0 1 0 13M10.5 4a10 10 0 0 0 0 13'/%3E%3C/svg%3E",
+        "mimeType": "image/svg+xml",
+        "sizes": ["any"]
+      }]
     }
   })
 }

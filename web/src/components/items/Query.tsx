@@ -25,7 +25,9 @@ import { FIND_HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, SELECTION_HIGHLIGHT_COLOR } f
 import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { QuickTooltip } from "../library/QuickTooltip";
 import { QueryChatModelButton } from "./QueryChatModelButton";
+import { QueryChatToolButtons } from "./QueryChatToolButtons";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -83,12 +85,8 @@ import {
   chatStreamingStateForQuery,
   materializeQueryChat,
   queryChatContextTokenDisplay,
-  queryChatUsesInfumapData,
-  queryChatUsesCapability,
   queryChatHasContent,
   resetQueryChatSession,
-  setQueryChatUsesInfumapData,
-  setQueryChatUsesCapability,
   applyQueryChatDefaultPluginCapabilities,
   submitQueryChatMessage,
 } from "../../items/chat";
@@ -146,7 +144,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryDiscardButton: HTMLButtonElement | undefined;
   let queryModelButton: HTMLButtonElement | undefined;
   let queryDeepResearchButton: HTMLButtonElement | undefined;
-  let queryInfumapDataCheckbox: HTMLInputElement | undefined;
+  let queryInfumapDataCheckbox: HTMLButtonElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
   let activeSearchRequestSerial = 0;
@@ -1025,55 +1023,31 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 {liveChatActivity()!.statusText}
               </div>
             </Show>
-            <div class="ml-auto flex shrink-0 items-center gap-4 pl-3">
+            <div class="ml-auto flex shrink-0 items-center gap-2 pl-3">
               <QueryChatModelButton queryItem={queryItem} />
-              <button
-                type="button"
-                class="shrink-0 rounded-full border px-2.5 py-0.5 hover:bg-slate-50"
-                classList={{
-                  "border-[#666] bg-[#e9eef8] text-black": deepResearch(),
-                  "border-[#aaa] bg-white text-[#555]": !deepResearch(),
-                  "cursor-pointer": !chatRequestActive(),
-                  "cursor-default opacity-60": chatRequestActive(),
-                }}
-                title="Use a multi-stage evidence gathering, review, and synthesis workflow for the next message"
-                style="font-size: 12px; line-height: 18px;"
-                aria-label="Deep research"
-                aria-pressed={deepResearch()}
-                disabled={chatRequestActive()}
-                onClick={() => setDeepResearch(!deepResearch())}>
-                Deep research
-              </button>
-              <label
-                class="flex cursor-default items-center gap-2 opacity-60"
-                style="font-size: 13px; line-height: 20px;"
-                title={queryChatUsesInfumapData(store, queryItem())
-                  ? "The assistant can search and read this Infumap instance. Start a new chat to change this setting."
-                  : "The assistant cannot search this Infumap instance. Start a new chat to change this setting."}>
-                <input
-                  type="checkbox"
-                  checked={queryChatUsesInfumapData(store, queryItem())}
-                  disabled={chatRequestActive() || queryChatHasContent(store, queryItem())}
-                  onChange={(ev) => setQueryChatUsesInfumapData(store, queryItem(), ev.currentTarget.checked)} />
-                <span>Use Infumap data</span>
-              </label>
-              <For each={store.general.chatBackends()?.toolServers ?? []}>{server =>
-                <label
-                  class="flex cursor-default items-center gap-2 opacity-60"
-                  style="font-size: 13px; line-height: 20px;"
-                  title={!server.available
-                    ? (server.unavailableReason ?? "Tool server is unavailable")
-                    : queryChatUsesCapability(store, queryItem(), server.id)
-                      ? `The assistant can use tools from ${server.label}. Start a new chat to change this setting.`
-                      : `The assistant cannot use tools from ${server.label}. Start a new chat to change this setting.`}>
-                  <input
-                    type="checkbox"
-                    checked={queryChatUsesCapability(store, queryItem(), server.id)}
-                    disabled={chatRequestActive() || queryChatHasContent(store, queryItem()) || !server.available}
-                    onChange={(ev) => setQueryChatUsesCapability(store, queryItem(), server.id, ev.currentTarget.checked)} />
-                  <span>{server.label}</span>
-                </label>
-              }</For>
+              <QuickTooltip text="Deep research">
+                <button
+                  type="button"
+                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border hover:bg-slate-50"
+                  classList={{
+                    "border-[#666] bg-[#e9eef8] text-black": deepResearch(),
+                    "border-[#aaa] bg-white text-[#555]": !deepResearch(),
+                    "cursor-pointer": !chatRequestActive(),
+                    "cursor-default opacity-60": chatRequestActive(),
+                  }}
+                  aria-label="Deep research"
+                  aria-pressed={deepResearch()}
+                  disabled={chatRequestActive()}
+                  onClick={() => setDeepResearch(!deepResearch())}>
+                  <i class="bi-binoculars text-[12px]" />
+                </button>
+              </QuickTooltip>
+              <div class="ml-2">
+                <QueryChatToolButtons
+                  queryItem={queryItem}
+                  togglesDisabled={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
+                  lockedTitleSuffix="Start a new chat to change tool selection." />
+              </div>
             </div>
           </div>
           <div class="flex items-end"
@@ -1287,7 +1261,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </div>
       <Show when={selectedInputMode() == "chat"}>
         <div
-          class="flex w-full items-center justify-end gap-4 px-1 text-[#555]"
+          class="flex w-full items-center justify-end gap-2 px-1 text-[#555]"
           style="height: 20px; margin-top: 4px; font-size: 13px; line-height: 20px;"
           onMouseDown={(ev) => ev.stopPropagation()}
           onMouseUp={(ev) => ev.stopPropagation()}
@@ -1296,81 +1270,47 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             queryItem={queryItem}
             buttonRef={(el) => { queryModelButton = el; }}
             onTabKey={(ev) => handleQueryControlTab(ev, "model")} />
-          <button
-            ref={queryDeepResearchButton}
-            type="button"
-            class="shrink-0 rounded-full border px-2.5 py-0.5 hover:bg-slate-50"
-            classList={{
-              "border-[#666] bg-[#e9eef8] text-black": deepResearch(),
-              "border-[#aaa] bg-white text-[#555]": !deepResearch(),
-              "cursor-pointer": !isStartingChat(),
-              "cursor-default opacity-60": isStartingChat(),
-            }}
-            title="Use a multi-stage evidence gathering, review, and synthesis workflow"
-            style="font-size: 12px; line-height: 18px;"
-            aria-label="Deep research"
-            aria-pressed={deepResearch()}
-            disabled={isStartingChat()}
-            onClick={() => {
-              setQueryText(store, queryItem(), readQueryTextFromDom());
-              setDeepResearch(!deepResearch());
-            }}
-            onKeyDown={(ev) => {
-              ev.stopPropagation();
-              if (ev.key == "Tab") {
-                handleQueryControlTab(ev, "deep-research");
-              }
-            }}>
-            Deep research
-          </button>
-          <label
-            class="flex cursor-pointer items-center gap-2"
-            title={queryChatUsesInfumapData(store, queryItem())
-              ? "The assistant can search and read this Infumap instance."
-              : "The assistant cannot search this Infumap instance."}>
-            <input
-              ref={queryInfumapDataCheckbox}
-              type="checkbox"
-              checked={queryChatUsesInfumapData(store, queryItem())}
+          <QuickTooltip text="Deep research">
+            <button
+              ref={queryDeepResearchButton}
+              type="button"
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border hover:bg-slate-50"
+              classList={{
+                "border-[#666] bg-[#e9eef8] text-black": deepResearch(),
+                "border-[#aaa] bg-white text-[#555]": !deepResearch(),
+                "cursor-pointer": !isStartingChat(),
+                "cursor-default opacity-60": isStartingChat(),
+              }}
+              aria-label="Deep research"
+              aria-pressed={deepResearch()}
               disabled={isStartingChat()}
-              onChange={(ev) => {
-                const enabled = ev.currentTarget.checked;
+              onClick={() => {
                 setQueryText(store, queryItem(), readQueryTextFromDom());
-                setQueryChatUsesInfumapData(store, queryItem(), enabled);
+                setDeepResearch(!deepResearch());
               }}
               onKeyDown={(ev) => {
                 ev.stopPropagation();
                 if (ev.key == "Tab") {
-                  handleQueryControlTab(ev, "infumap-data");
+                  handleQueryControlTab(ev, "deep-research");
                 }
-              }} />
-            <span>Use Infumap data</span>
-          </label>
-          <For each={store.general.chatBackends()?.toolServers ?? []}>{server =>
-            <label
-              class="flex items-center gap-2"
-              classList={{
-                "cursor-pointer": server.available && !isStartingChat(),
-                "cursor-default opacity-60": !server.available || isStartingChat(),
+              }}>
+              <i class="bi-binoculars text-[12px]" />
+            </button>
+          </QuickTooltip>
+          <div class="ml-2">
+            <QueryChatToolButtons
+              queryItem={queryItem}
+              togglesDisabled={isStartingChat}
+              lockedTitleSuffix="Wait for the chat to start."
+              beforeToggle={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+              infumapButtonRef={(el) => { queryInfumapDataCheckbox = el; }}
+              onInfumapTabKey={(ev) => {
+                if (ev.shiftKey) { handleQueryControlTab(ev, "infumap-data"); }
               }}
-              title={!server.available
-                ? (server.unavailableReason ?? "Tool server is unavailable")
-                : queryChatUsesCapability(store, queryItem(), server.id)
-                  ? `The assistant can use tools from ${server.label}.`
-                  : `The assistant cannot use tools from ${server.label}.`}>
-              <input
-                type="checkbox"
-                checked={queryChatUsesCapability(store, queryItem(), server.id)}
-                disabled={isStartingChat() || !server.available}
-                onChange={(ev) => {
-                  const enabled = ev.currentTarget.checked;
-                  setQueryText(store, queryItem(), readQueryTextFromDom());
-                  setQueryChatUsesCapability(store, queryItem(), server.id, enabled);
-                }}
-                onKeyDown={(ev) => ev.stopPropagation()} />
-              <span>{server.label}</span>
-            </label>
-          }</For>
+              onInspectorTabKey={(ev) => {
+                if (!ev.shiftKey) { handleQueryControlTab(ev, "infumap-data"); }
+              }} />
+          </div>
         </div>
       </Show>
     </>;
