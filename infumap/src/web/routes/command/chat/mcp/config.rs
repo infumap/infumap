@@ -17,10 +17,19 @@
 use config::Config;
 use infusdk::util::infu::InfuResult;
 use serde::Deserialize;
+use std::time::Duration;
 
 use crate::config::{CONFIG_CHAT_TOOL_SERVER, CONFIG_CHAT_TOOL_SERVERS};
 
 const SERVER_ID_MAX_LEN: usize = 32;
+/// How long a tool call may take before the client gives up. Most MCP tools
+/// answer in under a second, and a server that has stopped answering should not
+/// hang a chat, so the default is short.
+const DEFAULT_TIMEOUT_SECS: u64 = 60;
+/// A server doing real work behind one call - converting a document, running a
+/// model over it - legitimately takes minutes, which is what `timeout_secs`
+/// raises. The ceiling is there so a typo cannot hang a chat for a day.
+const MAX_TIMEOUT_SECS: u64 = 60 * 60;
 const RESERVED_CAPABILITY_IDS: &[&str] = &["infumap_data"];
 
 #[derive(Clone, Debug)]
@@ -31,6 +40,8 @@ pub struct ChatToolServer {
   pub bearer_token: Option<String>,
   pub enabled_by_default: bool,
   pub require_approval: bool,
+  /// How long to wait for one call to this server to complete.
+  pub timeout: Duration,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -45,6 +56,8 @@ struct ChatToolServerFile {
   enabled_by_default: Option<bool>,
   #[serde(default)]
   require_approval: Option<bool>,
+  #[serde(default)]
+  timeout_secs: Option<u64>,
 }
 
 fn default_require_approval() -> bool {
@@ -79,6 +92,13 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
   let label =
     entry.label.map(|label| label.trim().to_owned()).filter(|label| !label.is_empty()).unwrap_or_else(|| id.clone());
   let bearer_token = entry.bearer_token.map(|token| token.trim().to_owned()).filter(|token| !token.is_empty());
+  let timeout_secs = entry.timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS);
+  if timeout_secs == 0 || timeout_secs > MAX_TIMEOUT_SECS {
+    return Err(
+      format!("chat_tool_server '{id}' timeout_secs must be between 1 and {MAX_TIMEOUT_SECS}, got {timeout_secs}.")
+        .into(),
+    );
+  }
   Ok(ChatToolServer {
     id,
     url,
@@ -86,6 +106,7 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
     bearer_token,
     enabled_by_default: entry.enabled_by_default.unwrap_or(false),
     require_approval: entry.require_approval.unwrap_or_else(default_require_approval),
+    timeout: Duration::from_secs(timeout_secs),
   })
 }
 
@@ -165,6 +186,50 @@ label = "Web search"
     assert!(!servers[0].enabled_by_default);
     assert!(servers[0].require_approval);
     assert!(servers[0].bearer_token.is_none());
+    assert_eq!(servers[0].timeout, Duration::from_secs(DEFAULT_TIMEOUT_SECS));
+  }
+
+  #[test]
+  fn timeout_secs_is_per_server() {
+    // A server that reads documents behind one call takes minutes, where the
+    // default would cut it off and report it as a transport failure.
+    let servers = from_toml(
+      r#"
+[[chat_tool_server]]
+id = "reader"
+url = "http://127.0.0.1:8792/mcp"
+timeout_secs = 300
+
+[[chat_tool_server]]
+id = "quick"
+url = "http://127.0.0.1:8793/mcp"
+"#,
+    );
+    assert_eq!(servers[0].timeout, Duration::from_secs(300));
+    // Raising one server's timeout leaves the others where they were.
+    assert_eq!(servers[1].timeout, Duration::from_secs(DEFAULT_TIMEOUT_SECS));
+  }
+
+  #[test]
+  fn an_unusable_timeout_is_refused_rather_than_clamped() {
+    for secs in [0, MAX_TIMEOUT_SECS + 1] {
+      let config = Config::builder()
+        .add_source(File::from_str(
+          &format!(
+            r#"
+[[chat_tool_server]]
+id = "reader"
+url = "http://127.0.0.1:8792/mcp"
+timeout_secs = {secs}
+"#
+          ),
+          FileFormat::Toml,
+        ))
+        .build()
+        .unwrap();
+      let error = chat_tool_servers_from_config(&config).unwrap_err().to_string();
+      assert!(error.contains("timeout_secs"), "{error}");
+    }
   }
 
   #[test]

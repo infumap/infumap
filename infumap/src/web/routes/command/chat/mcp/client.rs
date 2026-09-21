@@ -27,8 +27,10 @@ use super::config::ChatToolServer;
 pub const PROTOCOL_VERSION: &str = "2025-06-18";
 const HEADER_PROTOCOL_VERSION: &str = "mcp-protocol-version";
 const HEADER_SESSION_ID: &str = "mcp-session-id";
+/// Kept short whatever a server's own timeout is: a host that cannot be
+/// reached at all should say so quickly, rather than spending the call's whole
+/// budget failing to connect.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_REDIRECTS: usize = 5;
 const MAX_TOOLS_LIST_PAGES: usize = 20;
 
@@ -148,7 +150,7 @@ fn http_client(server: &ChatToolServer) -> InfuResult<reqwest::Client> {
   reqwest::Client::builder()
     .redirect(same_host_redirects(server.url.clone()))
     .connect_timeout(CONNECT_TIMEOUT)
-    .timeout(REQUEST_TIMEOUT)
+    .timeout(server.timeout)
     .build()
     .map_err(|e| format!("Could not build MCP HTTP client for '{}': {e}", server.id).into())
 }
