@@ -141,6 +141,9 @@ pub(super) mod compact {
     pub title: Option<String>,
     pub score: f32,
     pub path: Vec<String>,
+    pub ancestors: Vec<SearchPathElement>,
+    #[serde(rename = "containingPageId")]
+    pub containing_page_id: Option<Uid>,
     #[serde(rename = "fragmentMatch", skip_serializing_if = "Option::is_none")]
     pub fragment_match: Option<CompactSearchFragmentMatch>,
     #[serde(rename = "additionalFragmentMatches", skip_serializing_if = "Vec::is_empty")]
@@ -179,6 +182,12 @@ pub(super) mod compact {
       title: item.title.clone(),
       score: result.score,
       path: result.path.iter().map(compact_search_path_label).collect(),
+      ancestors: result.path[..result.path.len() - 1].to_vec(),
+      containing_page_id: result.path[..result.path.len() - 1]
+        .iter()
+        .rev()
+        .find(|ancestor| ancestor.item_type == "page")
+        .map(|ancestor| ancestor.id.clone()),
       fragment_match: result.fragment_match.as_ref().map(compact_search_fragment_match),
       additional_fragment_matches: result
         .additional_fragment_matches

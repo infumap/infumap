@@ -42,6 +42,11 @@ pub struct ItemFragments {
   pub records: Vec<ItemFragmentRecord>,
 }
 
+pub struct ItemFragmentMetadata {
+  pub source_kind: String,
+  pub fragment_count: usize,
+}
+
 #[derive(Deserialize, Serialize)]
 struct FragmentsManifest {
   schema_version: u32,
@@ -160,6 +165,26 @@ pub async fn read_item_fragments(data_dir: &str, user_id: &str, item_id: &str) -
     .map_err(|e| format!("Could not read fragments file '{}': {}", fragments_path.display(), e))?;
   let records = parse_item_fragment_records(&contents)?;
   Ok(ItemFragments { source_kind, records })
+}
+
+/// Inspect readability without loading every document on a page into memory.
+pub async fn read_item_fragment_metadata(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<Option<ItemFragmentMetadata>> {
+  let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
+  let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
+  let Some(manifest) = read_fragments_manifest_if_present(&fragments_path, &manifest_path).await? else {
+    return Ok(None);
+  };
+  if manifest.schema_version != FRAGMENTS_SCHEMA_VERSION
+    || manifest.fragment_count == 0
+    || manifest.source_kind.trim().is_empty()
+  {
+    return Ok(None);
+  }
+  Ok(Some(ItemFragmentMetadata { source_kind: manifest.source_kind, fragment_count: manifest.fragment_count }))
 }
 
 fn parse_item_fragment_records(contents: &str) -> InfuResult<Vec<ItemFragmentRecord>> {

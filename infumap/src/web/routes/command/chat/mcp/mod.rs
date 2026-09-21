@@ -210,7 +210,7 @@ pub async fn mapped_tools_for_capabilities(
 }
 
 pub fn reserved_openai_names(uses_infumap_data: bool) -> Vec<&'static str> {
-  if uses_infumap_data { vec!["lexical_search", "get_fragment"] } else { Vec::new() }
+  if uses_infumap_data { vec!["lexical_search", "read_page", "get_fragment"] } else { Vec::new() }
 }
 
 pub fn server_requires_approval(config: &Config, server_id: &str) -> bool {
