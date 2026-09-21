@@ -46,8 +46,11 @@ import { EMPTY_UID, Uid, newUid } from "../util/uid";
 const MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE = "Chat";
 const MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS = 100;
 const MATERIALIZED_QUERY_CHAT_TITLE_PROMPT = "Give this conversation a concise, informative page title. " +
-  "Use plain text only, with no Markdown, quotation marks, or ending punctuation. " +
-  "Use no more than eight words. Reply with only the title.";
+  "Name the user's underlying topic or question, not the assistant's process, search method, sources, or caveats. " +
+  "Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually " +
+  "two to four words and never more than six. Use title case. Do not begin with words such as Finding, " +
+  "Researching, Searching, Exploring, or Analyzing. " +
+  "Use plain text only, with no Markdown, quotation marks, or ending punctuation. Reply with only the title.";
 
 export type QueryChatMaterializationPhase = "generating_title" | "creating_page";
 
