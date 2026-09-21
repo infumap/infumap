@@ -130,6 +130,8 @@ export interface ChatRequest {
   capabilities: Array<string>,
   mode: ChatRunMode,
   model?: ChatModelSelection,
+  /** Generate a short title from the supplied conversation without allowing tool calls. */
+  titleOnly?: boolean,
 }
 
 export interface ChatModelInfo {

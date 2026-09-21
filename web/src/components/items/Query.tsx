@@ -138,6 +138,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [deepResearch, setDeepResearch] = createSignal(false);
   const [isSendingChat, setIsSendingChat] = createSignal(false);
   const [isMaterializingChat, setIsMaterializingChat] = createSignal(false);
+  const [materializingChatStatus, setMaterializingChatStatus] = createSignal("Generating page title");
   const [queryTextareaHeightPx, setQueryTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatTextareaHeightPx, setChatTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatActivityNowMs, setChatActivityNowMs] = createSignal(Date.now());
@@ -605,8 +606,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return;
     }
     setIsMaterializingChat(true);
+    setMaterializingChatStatus("Generating page title");
     try {
-      const ok = await materializeQueryChat(store, queryItem());
+      const ok = await materializeQueryChat(store, queryItem(), phase => {
+        setMaterializingChatStatus(phase == "generating_title" ? "Generating page title" : "Creating page");
+      });
       if (ok) {
         resetLocalQuerySessionUi();
         setForceNonEditing(false);
@@ -1088,11 +1092,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              title="Create page from chat"
-              aria-label="Create page from chat"
+              title={isMaterializingChat() ? materializingChatStatus() : "Create page from chat"}
+              aria-label={isMaterializingChat() ? materializingChatStatus() : "Create page from chat"}
               disabled={chatRequestActive() || isMaterializingChat() || !queryChatHasContent(store, queryItem())}
               onClick={() => void materializeCurrentChat()}>
-              <i class="bi-file-earmark-plus" />
+              <i class={isMaterializingChat() ? "fa fa-circle-notch fa-spin" : "bi-file-earmark-plus"} />
+              <Show when={isMaterializingChat()}>
+                <span class="sr-only" role="status" aria-live="polite">{materializingChatStatus()}</span>
+              </Show>
             </button>
             <button
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
