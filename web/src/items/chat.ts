@@ -540,7 +540,6 @@ async function generateMaterializedQueryChatTitle(
     capabilities: queryChatCapabilities(store, queryItem),
     mode: "chat",
     model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
-    titleOnly: true,
   }, store.general.networkStatus, () => {});
   return titleFromModelResponse(response.assistantText);
 }
