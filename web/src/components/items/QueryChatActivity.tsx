@@ -332,7 +332,7 @@ export const QueryChatActivityRounds: Component<{
                     <details class="mt-1 text-[11px] text-slate-500">
                       <summary class="cursor-pointer select-none text-slate-400">Arguments</summary>
                       <pre
-                        class="mt-1 max-h-32 overflow-auto select-text whitespace-pre-wrap text-slate-600"
+                        class="mt-1 select-text whitespace-pre-wrap text-slate-600"
                         style="overflow-wrap: anywhere;">
                         {queryChatPrettyJson(toolCall().arguments)}
                       </pre>
@@ -342,7 +342,7 @@ export const QueryChatActivityRounds: Component<{
                     <details class="mt-1 text-[11px] text-slate-500">
                       <summary class="cursor-pointer select-none text-slate-400">Result</summary>
                       <pre
-                        class="mt-1 max-h-32 overflow-auto select-text whitespace-pre-wrap text-slate-600"
+                        class="mt-1 select-text whitespace-pre-wrap text-slate-600"
                         style="overflow-wrap: anywhere;">
                         {queryChatPrettyJson(toolCall().resultPreview)}
                       </pre>

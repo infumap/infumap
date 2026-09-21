@@ -118,6 +118,7 @@ const QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX = 34;
 const QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
 const QUERY_CHAT_ACTIVITY_FOLLOW_THRESHOLD_PX = 24;
+const QUERY_CHAT_ACTIVITY_EXPANDED_TOP_INSET_PX = 12;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
@@ -137,6 +138,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatTextareaHeightPx, setChatTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatActivityNowMs, setChatActivityNowMs] = createSignal(Date.now());
   const [chatActivityFollowingLatest, setChatActivityFollowingLatest] = createSignal(true);
+  const [chatActivityExpanded, setChatActivityExpanded] = createSignal(false);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
   let queryInput: HTMLTextAreaElement | undefined;
   let queryModeSelect: HTMLSelectElement | undefined;
@@ -178,6 +180,16 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return 0;
     }
     const headersPx = QUERY_CHAT_ACTIVITY_HEADER_HEIGHT_PX;
+    if (chatActivityExpanded()) {
+      const activityBottomPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
+        QUERY_CHAT_SETTINGS_HEIGHT_PX +
+        chatTextareaHeightPx() +
+        QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
+      return Math.max(
+        headersPx,
+        boundsPx().h - activityBottomPx - QUERY_CHAT_ACTIVITY_EXPANDED_TOP_INSET_PX,
+      );
+    }
     const reservedWithoutActivityPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
       QUERY_CHAT_SETTINGS_HEIGHT_PX +
       chatTextareaHeightPx() +
@@ -968,6 +980,18 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <span class="shrink-0 text-[11px] tabular-nums text-slate-500">
                 {formatChatActivityElapsed(liveChatActivity()!.startedAt, chatActivityNowMs())}
               </span>
+              <button
+                type="button"
+                class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                title={chatActivityExpanded() ? "Restore activity panel" : "Expand activity panel"}
+                aria-label={chatActivityExpanded() ? "Restore activity panel" : "Expand activity panel"}
+                aria-pressed={chatActivityExpanded()}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  setChatActivityExpanded(!chatActivityExpanded());
+                }}>
+                <i class={chatActivityExpanded() ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"} />
+              </button>
             </div>
             <div
               ref={chatActivityBody}
