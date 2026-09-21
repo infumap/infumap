@@ -22,7 +22,11 @@ import { LIGHT_BORDER_COLOR } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { Uid } from "../../util/uid";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
-import { submitQueryChatToolApproval } from "../../items/chat";
+import {
+  chatStreamingStateForQuery,
+  materializeQueryChatAssistantSection,
+  submitQueryChatToolApproval,
+} from "../../items/chat";
 import type { QueryChatActivityModelRound, QueryChatActivityToolCall, QueryChatCompletedActivity } from "../../store/StoreProvider_PerItem";
 import { useStore } from "../../store/StoreProvider";
 import {
@@ -375,15 +379,44 @@ export const QueryChatActivityRounds: Component<{
 
 export const QueryChatCompletedActivityTrace: Component<{
   queryId: Uid,
+  sectionRootId: Uid,
   activity: QueryChatCompletedActivity,
   turnNumber: number,
   boundsPx: BoundingBox,
 }> = (props) => {
   const store = useStore();
+  const [isMaterializing, setIsMaterializing] = createSignal(false);
+  const [materializingStatus, setMaterializingStatus] = createSignal("Generating page title");
   let measureEl: HTMLDivElement | undefined;
 
   const expanded = () => isQueryChatCompletedActivityExpanded(props.queryId, props.activity.requestId);
   const reservePx = () => queryChatCompletedActivityReservePx(props.queryId, props.activity.requestId);
+  const chatRequestActive = () => {
+    const phase = chatStreamingStateForQuery(props.queryId)?.phase;
+    return phase != null && queryChatActivityIsRunning(phase);
+  };
+
+  const materializeAssistantSection = async (ev: MouseEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (isMaterializing() || chatRequestActive()) {
+      return;
+    }
+    setIsMaterializing(true);
+    setMaterializingStatus("Generating page title");
+    try {
+      await materializeQueryChatAssistantSection(
+        store,
+        props.queryId,
+        props.sectionRootId,
+        props.activity.requestId,
+        props.turnNumber,
+        phase => setMaterializingStatus(phase == "generating_title" ? "Generating page title" : "Creating page"),
+      );
+    } finally {
+      setIsMaterializing(false);
+    }
+  };
 
   createEffect(() => {
     if (!expanded()) {
@@ -434,6 +467,22 @@ export const QueryChatCompletedActivityTrace: Component<{
         <span class="shrink-0 text-[11px] tabular-nums text-slate-500">
           {formatChatActivityElapsed(props.activity.startedAt, props.activity.completedAt)}
         </span>
+        <button
+          type="button"
+          class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#bbb] bg-white text-black disabled:cursor-default disabled:opacity-40"
+          title={isMaterializing()
+            ? materializingStatus()
+            : (chatRequestActive() ? "Wait for the current response" : "Create page from this response")}
+          aria-label={isMaterializing()
+            ? materializingStatus()
+            : (chatRequestActive() ? "Wait for the current response" : "Create page from this response")}
+          disabled={isMaterializing() || chatRequestActive()}
+          onClick={materializeAssistantSection}>
+          <i class={isMaterializing() ? "fa fa-circle-notch fa-spin" : "bi-file-earmark-plus"} />
+          <Show when={isMaterializing()}>
+            <span class="sr-only" role="status" aria-live="polite">{materializingStatus()}</span>
+          </Show>
+        </button>
         <i class={expanded() ? "bi-chevron-down" : "bi-chevron-right"} />
       </div>
       <Show when={expanded()}>
