@@ -44,6 +44,12 @@ import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 const MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE = "Chat";
+const MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS = 100;
+const MATERIALIZED_QUERY_CHAT_TITLE_PROMPT = "Give this conversation a concise, informative page title. " +
+  "Use plain text only, with no Markdown, quotation marks, or ending punctuation. " +
+  "Use no more than eight words. Reply with only the title.";
+
+export type QueryChatMaterializationPhase = "generating_title" | "creating_page";
 
 function markAsQueryChatPage(item: Item): void {
   item.clientOnly = true;
@@ -490,6 +496,50 @@ function titleFromPrompt(prompt: string): string {
     return MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE;
   }
   return titleWords.join(" ");
+}
+
+function titleFromModelResponse(response: string): string | null {
+  const firstLine = response.split(/\r?\n/).find(line => line.trim() != "");
+  if (firstLine == null) {
+    return null;
+  }
+  let title = firstLine
+    .replace(/^\s{0,3}#{1,6}\s+/, "")
+    .replace(/^title\s*:\s*/i, "")
+    .trim()
+    .replace(/^[*_"'`]+|[*_"'`]+$/g, "")
+    .replace(/[.!?]+$/, "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (title == "") {
+    return null;
+  }
+  const chars = [...title];
+  if (chars.length <= MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS) {
+    return title;
+  }
+  title = chars.slice(0, MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS).join("");
+  const lastSpace = title.lastIndexOf(" ");
+  return (lastSpace > 0 ? title.slice(0, lastSpace) : title).trim();
+}
+
+async function generateMaterializedQueryChatTitle(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+): Promise<string | null> {
+  const messages = queryChatMessages(store, queryItem);
+  if (messages.length == 0) {
+    return null;
+  }
+  const response = await server.chatStream({
+    requestId: newUid(),
+    messages: [...messages, { role: "user", content: MATERIALIZED_QUERY_CHAT_TITLE_PROMPT }],
+    capabilities: queryChatCapabilities(store, queryItem),
+    mode: "chat",
+    model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
+    titleOnly: true,
+  }, store.general.networkStatus, () => {});
+  return titleFromModelResponse(response.assistantText);
 }
 
 function queryChatRootIds(store: StoreContextModel, queryItem: QueryItem): Array<Uid> {
@@ -1252,7 +1302,11 @@ export function resetQueryChatSession(store: StoreContextModel, queryItem: Query
   }
 }
 
-export async function materializeQueryChat(store: StoreContextModel, queryItem: QueryItem): Promise<boolean> {
+export async function materializeQueryChat(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  onPhase?: (phase: QueryChatMaterializationPhase) => void,
+): Promise<boolean> {
   if (!queryChatHasContent(store, queryItem)) {
     return false;
   }
@@ -1262,12 +1316,21 @@ export async function materializeQueryChat(store: StoreContextModel, queryItem: 
     return false;
   }
   const sourceChatPage = ensureTemporaryQueryChatPage(store, queryItem);
+  const fallbackTitle = titleFromPrompt(firstPromptInQueryChat(store, queryItem));
+  let generatedTitle: string | null = null;
+  onPhase?.("generating_title");
+  try {
+    generatedTitle = await generateMaterializedQueryChatTitle(store, queryItem);
+  } catch (e) {
+    console.warn("Failed to generate a query chat page title; using the prompt-derived fallback:", e);
+  }
+  onPhase?.("creating_page");
 
   const materializedPage = PageFns.create(
     queryItem.ownerId,
     queryItem.parentId,
     RelationshipToParent.Child,
-    titleFromPrompt(firstPromptInQueryChat(store, queryItem)),
+    generatedTitle ?? fallbackTitle,
     itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id),
   );
   materializedPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
