@@ -28,7 +28,7 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
-import { QueryItem, getQueryRuntime, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
+import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import { server, type ChatMessage, type ChatModelSelection, type ChatStreamEvent, type ChatStreamPhase, type ChatToolServerInfo } from "../server";
 import { itemState } from "../store/ItemState";
@@ -529,6 +529,7 @@ function titleFromModelResponse(response: string): string | null {
 async function generateMaterializedQueryChatTitle(
   store: StoreContextModel,
   queryItem: QueryItem,
+  titlePrompt: string = MATERIALIZED_QUERY_CHAT_TITLE_PROMPT,
 ): Promise<string | null> {
   const messages = queryChatMessages(store, queryItem);
   if (messages.length == 0) {
@@ -536,12 +537,37 @@ async function generateMaterializedQueryChatTitle(
   }
   const response = await server.chatStream({
     requestId: newUid(),
-    messages: [...messages, { role: "user", content: MATERIALIZED_QUERY_CHAT_TITLE_PROMPT }],
+    messages: [...messages, { role: "user", content: titlePrompt }],
     capabilities: queryChatCapabilities(store, queryItem),
     mode: "chat",
     model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
   }, store.general.networkStatus, () => {});
   return titleFromModelResponse(response.assistantText);
+}
+
+function finalAnswerFromCompletedActivity(activity: QueryChatCompletedActivity): string {
+  for (let index = activity.rounds.length - 1; index >= 0; index--) {
+    const answer = activity.rounds[index].answer.trim();
+    if (answer != "") {
+      return answer;
+    }
+  }
+  return "";
+}
+
+function materializedAssistantSectionTitlePrompt(turnNumber: number, assistantText: string): string {
+  const excerptChars = [...assistantText.trim().replace(/\s+/g, " ")].slice(0, 180);
+  const excerpt = excerptChars.join("");
+  const target = excerpt == ""
+    ? `The target is assistant turn ${turnNumber}. `
+    : `The target is assistant turn ${turnNumber}, beginning with ${JSON.stringify(excerpt)}. `;
+  return "Give the selected assistant response in this conversation a concise, informative page title. " +
+    target +
+    "Name that response's underlying topic or answer, not the assistant's process, search method, sources, or caveats. " +
+    "Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually " +
+    "two to four words and never more than six. Use title case. Do not begin with words such as Finding, " +
+    "Researching, Searching, Exploring, or Analyzing. " +
+    "Use plain text only, with no Markdown, quotation marks, or ending punctuation. Reply with only the title.";
 }
 
 function queryChatRootIds(store: StoreContextModel, queryItem: QueryItem): Array<Uid> {
@@ -1363,6 +1389,87 @@ export async function materializeQueryChat(
     }
     itemState.delete(materializedPage.id);
     requestArrange(store, "query-chat-materialize-rollback");
+    return false;
+  }
+}
+
+export async function materializeQueryChatAssistantSection(
+  store: StoreContextModel,
+  queryId: Uid,
+  sectionRootId: Uid,
+  activityRequestId: string,
+  turnNumber: number,
+  onPhase?: (phase: QueryChatMaterializationPhase) => void,
+): Promise<boolean> {
+  const queryItemMaybe = itemState.get(queryId);
+  if (!queryItemMaybe || !isQueryItem(queryItemMaybe)) {
+    console.error("Failed to materialize query chat section: query item is missing.", queryId);
+    return false;
+  }
+  const queryItem = asQueryItem(queryItemMaybe);
+  const sectionRoot = itemState.get(sectionRootId);
+  const activity = getQueryRuntime(store, queryItem).chat.completedActivities
+    .find(candidate => candidate.requestId == activityRequestId);
+  if (!sectionRoot || !isContainer(sectionRoot) || !activity?.assistantRootIds.includes(sectionRootId)) {
+    console.error("Failed to materialize query chat section: assistant section is missing.", sectionRootId);
+    return false;
+  }
+  const parent = itemState.get(queryItem.parentId);
+  if (!parent || !isContainer(parent)) {
+    console.error("Failed to materialize query chat section: no valid parent container.", queryItem);
+    return false;
+  }
+
+  const assistantText = finalAnswerFromCompletedActivity(activity);
+  const cleanedFallbackText = titleFromModelResponse(assistantText) ?? assistantText;
+  const fallbackTitle = titleFromPrompt(cleanedFallbackText);
+  let generatedTitle: string | null = null;
+  onPhase?.("generating_title");
+  try {
+    generatedTitle = await generateMaterializedQueryChatTitle(
+      store,
+      queryItem,
+      materializedAssistantSectionTitlePrompt(turnNumber, assistantText),
+    );
+  } catch (e) {
+    console.warn("Failed to generate a query chat section page title; using the response-derived fallback:", e);
+  }
+  onPhase?.("creating_page");
+
+  const materializedPage = PageFns.create(
+    queryItem.ownerId,
+    queryItem.parentId,
+    RelationshipToParent.Child,
+    generatedTitle ?? fallbackTitle,
+    itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id),
+  );
+  materializedPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
+  materializedPage.flags |= PageFlags.HideDocumentTitle;
+  materializedPage.orderChildrenBy = "";
+  materializedPage.childrenLoaded = true;
+  markChildrenLoadAsInitiatedOrComplete(materializedPage.id);
+
+  itemState.add(materializedPage);
+  const clonedItems: Array<Item> = [];
+  cloneChildrenIntoMaterializedChat(sectionRoot, materializedPage.id, clonedItems);
+  requestArrange(store, "query-chat-section-materialize-local");
+
+  try {
+    await server.addItem(materializedPage, null, store.general.networkStatus);
+    await persistItems(store, clonedItems);
+    store.perItem.setSelectedListPageItem(
+      { itemId: materializedPage.parentId, linkIdMaybe: null },
+      { itemId: materializedPage.id, linkIdMaybe: null },
+    );
+    requestArrange(store, "query-chat-section-materialize-complete");
+    return true;
+  } catch (e) {
+    console.error("Failed to materialize query chat section:", e);
+    for (const item of clonedItems.reverse()) {
+      itemState.delete(item.id);
+    }
+    itemState.delete(materializedPage.id);
+    requestArrange(store, "query-chat-section-materialize-rollback");
     return false;
   }
 }

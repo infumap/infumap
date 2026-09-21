@@ -289,6 +289,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         <Show when={queryChatActivityPlacement() != null}>
           <QueryChatCompletedActivityTrace
             queryId={queryChatActivityPlacement()!.queryId}
+            sectionRootId={compositeItem().id}
             activity={queryChatActivityPlacement()!.activity}
             turnNumber={queryChatActivityPlacement()!.turnNumber}
             boundsPx={queryChatActivityBoundsPx()} />
