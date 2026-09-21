@@ -118,8 +118,6 @@ struct ChatRequest {
   mode: ChatRunMode,
   #[serde(default)]
   model: Option<ChatModelSelection>,
-  #[serde(rename = "titleOnly", default)]
-  title_only: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -1518,14 +1516,6 @@ async fn run_chat_with_tools(
     0,
     OpenAiChatMessage::text("system", chat_system_prompt(uses_infumap_data, !mcp_tools.is_empty(), request.mode)),
   );
-
-  if request.title_only {
-    progress.status("Generating page title").await;
-    let completed_round = run_chat_model_round(&endpoint, &messages, &[], 1, 0, progress).await?;
-    messages.push(completed_round.assistant_message);
-    return completed_chat_result(&messages, endpoint.backend);
-  }
-
   let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
