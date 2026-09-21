@@ -57,7 +57,9 @@ export interface GeneralStoreContextModel {
 
   chatBackends: Accessor<ChatBackends | null>,
   chatBackendsError: Accessor<string | null>,
+  chatBackendsRefreshing: Accessor<boolean>,
   retrieveChatBackends: () => Promise<void>,
+  refreshChatBackends: () => Promise<void>,
 
   chatModelSelection: () => ChatModelSelection | null,
   setChatModelSelection: (selection: ChatModelSelection | null) => void,
@@ -92,6 +94,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
 
   const [chatBackends, setChatBackends] = createSignal<ChatBackends | null>(null, { equals: false });
   const [chatBackendsError, setChatBackendsError] = createSignal<string | null>(null);
+  const [chatBackendsRefreshing, setChatBackendsRefreshing] = createSignal<boolean>(false);
   let inProgressChatBackendsRequest: Promise<void> | null = null;
 
   const networkStatus = createNumberSignal(NETWORK_STATUS_OK);
@@ -204,13 +207,10 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   }
   const clearInstallationState = () => { setInstallationState(null); }
 
-  /**
-   * The chat backends and models this server offers. Fetched at most once per session (and once per
-   * concurrent caller), because the server caches the underlying model list anyway.
-   */
-  const retrieveChatBackends = async () => {
-    if (chatBackends() != null) { return; }
+  /** One fetch at a time; concurrent callers share it. A failure leaves the last good list in place. */
+  const fetchChatBackends = async (): Promise<void> => {
     if (inProgressChatBackendsRequest != null) { return inProgressChatBackendsRequest; }
+    setChatBackendsRefreshing(true);
     inProgressChatBackendsRequest = (async () => {
       try {
         setChatBackends(await server.chatBackends());
@@ -220,10 +220,26 @@ export function makeGeneralStore(): GeneralStoreContextModel {
         setChatBackendsError("Could not load the list of chat models.");
       } finally {
         inProgressChatBackendsRequest = null;
+        setChatBackendsRefreshing(false);
       }
     })();
     return inProgressChatBackendsRequest;
   }
+
+  /**
+   * The chat backends and models this server offers, fetched once and then kept, because the server
+   * caches the underlying model list anyway.
+   */
+  const retrieveChatBackends = async () => {
+    if (chatBackends() != null) { return; }
+    return fetchChatBackends();
+  }
+
+  /**
+   * Fetches again even when a list is already held, which re-probes the tool servers: the server
+   * side caches an unreachable one for only a few seconds, so one that has since come up shows up.
+   */
+  const refreshChatBackends = async () => fetchChatBackends();
 
   /**
    * The model last chosen in the chat composer, used as the default for new chats. Read defensively:
@@ -272,7 +288,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
 
   return {
     installationState, retrieveInstallationState, clearInstallationState,
-    chatBackends, chatBackendsError, retrieveChatBackends,
+    chatBackends, chatBackendsError, chatBackendsRefreshing, retrieveChatBackends, refreshChatBackends,
     chatModelSelection, setChatModelSelection,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
