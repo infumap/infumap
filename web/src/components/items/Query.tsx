@@ -25,9 +25,7 @@ import { FIND_HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, SELECTION_HIGHLIGHT_COLOR } f
 import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { QuickTooltip } from "../library/QuickTooltip";
-import { QueryChatModelButton } from "./QueryChatModelButton";
-import { QueryChatToolButtons } from "./QueryChatToolButtons";
+import { QueryChatSetup } from "./QueryChatSetup";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -109,11 +107,17 @@ const QUERY_SEARCH_ARRANGE_OPTIONS = [
   { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
   { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
 ] as const;
+/**
+ * Deep research is a third entry here rather than a separate toggle: it is a choice about what the
+ * send does, which is what this selector already expresses.
+ */
 const QUERY_INPUT_MODE_OPTIONS = [
-  { mode: "search", label: "Search" },
-  { mode: "chat", label: "Chat" },
+  { value: "search", label: "Search" },
+  { value: "chat", label: "Chat" },
+  { value: "deep-research", label: "Deep research" },
 ] as const;
-const QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX = 104;
+type QueryInputModeOption = typeof QUERY_INPUT_MODE_OPTIONS[number]["value"];
+const QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX = 152;
 const QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX = 34;
 const QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
@@ -144,9 +148,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryModeSelect: HTMLSelectElement | undefined;
   let querySendButton: HTMLButtonElement | undefined;
   let queryDiscardButton: HTMLButtonElement | undefined;
-  let queryModelButton: HTMLButtonElement | undefined;
-  let queryDeepResearchButton: HTMLButtonElement | undefined;
-  let queryInfumapDataCheckbox: HTMLButtonElement | undefined;
+  let querySetupButton: HTMLButtonElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
   let activeSearchRequestSerial = 0;
@@ -399,31 +401,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  const focusModelButton = () => {
-    if (!queryModelButton || queryModelButton.disabled) {
+  const focusSetupButton = () => {
+    if (!querySetupButton || querySetupButton.disabled) {
       focusQueryInputControl();
       return;
     }
-    queryModelButton.focus();
+    querySetupButton.focus();
   };
 
-  const focusDeepResearchButton = () => {
-    if (!queryDeepResearchButton || queryDeepResearchButton.disabled) {
-      focusQueryInputControl();
-      return;
-    }
-    queryDeepResearchButton.focus();
-  };
-
-  const focusInfumapDataCheckbox = () => {
-    if (!queryInfumapDataCheckbox || queryInfumapDataCheckbox.disabled) {
-      focusQueryInputControl();
-      return;
-    }
-    queryInfumapDataCheckbox.focus();
-  };
-
-  type QueryControlName = "mode" | "input" | "send" | "discard" | "model" | "deep-research" | "infumap-data";
+  type QueryControlName = "mode" | "input" | "send" | "discard" | "setup";
 
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = ["mode", "input", "send"];
@@ -431,9 +417,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       controls.push("discard");
     }
     if (selectedInputMode() == "chat") {
-      controls.push("model");
-      controls.push("deep-research");
-      controls.push("infumap-data");
+      controls.push("setup");
     }
     return controls;
   };
@@ -447,12 +431,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       focusSendButton();
     } else if (control == "discard") {
       focusDiscardButton();
-    } else if (control == "model") {
-      focusModelButton();
-    } else if (control == "deep-research") {
-      focusDeepResearchButton();
     } else {
-      focusInfumapDataCheckbox();
+      focusSetupButton();
     }
   };
 
@@ -469,8 +449,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     focusAdjacentQueryControl(currentControl, ev.shiftKey ? -1 : 1);
   };
 
-  const setSelectedInputMode = (mode: QueryInputMode) => {
+  /** Deep research is chat plus a flag, so the three selector entries map onto two pieces of state. */
+  const selectedInputModeOption = (): QueryInputModeOption =>
+    selectedInputMode() == "chat" && deepResearch() ? "deep-research" : selectedInputMode();
+
+  const setSelectedInputModeOption = (option: QueryInputModeOption) => {
+    const mode: QueryInputMode = option == "search" ? "search" : "chat";
     store.general.setQueryInputMode(mode);
+    setDeepResearch(option == "deep-research");
   };
 
   const submitQueryInput = (editingElMaybe?: HTMLElement | null) => {
@@ -1047,31 +1033,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 {liveChatActivity()!.statusText}
               </div>
             </Show>
-            <div class="ml-auto flex shrink-0 items-center gap-2 pl-3">
-              <QueryChatModelButton queryItem={queryItem} />
-              <QuickTooltip text="Deep research">
-                <button
-                  type="button"
-                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border hover:bg-slate-50"
-                  classList={{
-                    "border-[#666] bg-[#e9eef8] text-black": deepResearch(),
-                    "border-[#aaa] bg-white text-[#555]": !deepResearch(),
-                    "cursor-pointer": !chatRequestActive(),
-                    "cursor-default opacity-60": chatRequestActive(),
-                  }}
-                  aria-label="Deep research"
-                  aria-pressed={deepResearch()}
-                  disabled={chatRequestActive()}
-                  onClick={() => setDeepResearch(!deepResearch())}>
-                  <i class="bi-binoculars text-[12px]" />
-                </button>
-              </QuickTooltip>
-              <div class="ml-2">
-                <QueryChatToolButtons
-                  queryItem={queryItem}
-                  togglesDisabled={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
-                  lockedTitleSuffix="Start a new chat to change tool selection." />
-              </div>
+            <div class="ml-auto shrink-0 pl-3">
+              <QueryChatSetup
+                queryItem={queryItem}
+                toolsLocked={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
+                lockedReason="fixed for this chat"
+                deepResearch={deepResearch}
+                setDeepResearch={setDeepResearch}
+                modeLocked={chatRequestActive} />
             </div>
           </div>
           <div class="flex items-end"
@@ -1176,9 +1145,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             ref={queryModeSelect}
             class="h-full w-full cursor-pointer appearance-none rounded-xs border border-[#999] bg-white pl-2 pr-[30px] text-black outline-hidden focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-40"
             style="font-size: 15px;"
-            value={selectedInputMode()}
+            value={selectedInputModeOption()}
             disabled={isStartingChat()}
-            onChange={(ev) => setSelectedInputMode(ev.currentTarget.value == "chat" ? "chat" : "search")}
+            onChange={(ev) => setSelectedInputModeOption(ev.currentTarget.value as QueryInputModeOption)}
             onMouseDown={(ev) => ev.stopPropagation()}
             onMouseUp={(ev) => ev.stopPropagation()}
             onClick={(ev) => ev.stopPropagation()}
@@ -1190,7 +1159,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             }}
             aria-label="Query mode">
             <For each={QUERY_INPUT_MODE_OPTIONS}>{option =>
-              <option value={option.mode}>{option.label}</option>
+              <option value={option.value}>{option.label}</option>
             }</For>
           </select>
           <i
@@ -1285,56 +1254,18 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </div>
       <Show when={selectedInputMode() == "chat"}>
         <div
-          class="flex w-full items-center justify-end gap-2 px-1 text-[#555]"
-          style="height: 20px; margin-top: 4px; font-size: 13px; line-height: 20px;"
+          class="flex w-full items-center justify-end gap-2 text-[#555]"
+          style="height: 22px; margin-top: 10px; font-size: 13px; line-height: 20px;"
           onMouseDown={(ev) => ev.stopPropagation()}
           onMouseUp={(ev) => ev.stopPropagation()}
           onClick={(ev) => ev.stopPropagation()}>
-          <QueryChatModelButton
+          <QueryChatSetup
             queryItem={queryItem}
-            buttonRef={(el) => { queryModelButton = el; }}
-            onTabKey={(ev) => handleQueryControlTab(ev, "model")} />
-          <QuickTooltip text="Deep research">
-            <button
-              ref={queryDeepResearchButton}
-              type="button"
-              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border hover:bg-slate-50"
-              classList={{
-                "border-[#666] bg-[#e9eef8] text-black": deepResearch(),
-                "border-[#aaa] bg-white text-[#555]": !deepResearch(),
-                "cursor-pointer": !isStartingChat(),
-                "cursor-default opacity-60": isStartingChat(),
-              }}
-              aria-label="Deep research"
-              aria-pressed={deepResearch()}
-              disabled={isStartingChat()}
-              onClick={() => {
-                setQueryText(store, queryItem(), readQueryTextFromDom());
-                setDeepResearch(!deepResearch());
-              }}
-              onKeyDown={(ev) => {
-                ev.stopPropagation();
-                if (ev.key == "Tab") {
-                  handleQueryControlTab(ev, "deep-research");
-                }
-              }}>
-              <i class="bi-binoculars text-[12px]" />
-            </button>
-          </QuickTooltip>
-          <div class="ml-2">
-            <QueryChatToolButtons
-              queryItem={queryItem}
-              togglesDisabled={isStartingChat}
-              lockedTitleSuffix="Wait for the chat to start."
-              beforeToggle={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
-              infumapButtonRef={(el) => { queryInfumapDataCheckbox = el; }}
-              onInfumapTabKey={(ev) => {
-                if (ev.shiftKey) { handleQueryControlTab(ev, "infumap-data"); }
-              }}
-              onInspectorTabKey={(ev) => {
-                if (!ev.shiftKey) { handleQueryControlTab(ev, "infumap-data"); }
-              }} />
-          </div>
+            toolsLocked={isStartingChat}
+            lockedReason="wait for the chat to start"
+            beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+            buttonRef={(el) => { querySetupButton = el; }}
+            onTabKey={(ev) => handleQueryControlTab(ev, "setup")} />
         </div>
       </Show>
     </>;

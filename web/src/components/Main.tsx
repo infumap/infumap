@@ -218,6 +218,10 @@ export const Main: Component = () => {
 
       await preloadDockForInitialArrange(store);
 
+      // Fetched up front, not when the chat composer first renders: arriving late makes the
+      // composer's setup control change size after the surrounding layout has settled.
+      void store.general.retrieveChatBackends();
+
       try {
         if (isText(item)) {
           await openTextDocumentProjection(store, asTextItem(item));
