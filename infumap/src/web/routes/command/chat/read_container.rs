@@ -29,14 +29,14 @@ const RESPONSE_CHARS: usize = 32_000;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Arguments {
-  page_id: Uid,
+  container_id: Uid,
   cursor: Option<String>,
   max_items: Option<usize>,
 }
 
 #[derive(Deserialize, Serialize)]
-struct PageCursor {
-  page_id: Uid,
+struct ContainerCursor {
+  container_id: Uid,
   snapshot: String,
   index: usize,
   title_offset: usize,
@@ -57,18 +57,18 @@ pub(super) fn tool_spec() -> OpenAiToolSpec {
   OpenAiToolSpec {
     tool_type: "function".to_owned(),
     function: OpenAiToolFunctionSpec {
-      name: "read_page".to_owned(),
-      description: "Inspect an Infumap page without a search query. Returns native note text in title, item IDs, \
-        ancestors, explicit groups, attachments, inline composites/tables, and layout. Child pages remain \
+      name: "read_container".to_owned(),
+      description: "Inspect an Infumap page, table, or composite without a search query. Returns native note text \
+        in title, item IDs, ancestors, explicit groups, attachments, nested composites/tables, and layout. Child pages remain \
         references; document bodies are not included. textSource tells how to fetch available document fragments. \
         Spatial coordinates are stored page-grid placement, not rendered pixels. Follow nextCursor with the same \
-        pageId until hasMore is false; long titles continue at titleOffset on the same placementPath. \
-        Group members can span responses. Use containingPageId from search to inspect an item's surroundings."
+        containerId until hasMore is false; long titles continue at titleOffset on the same placementPath. \
+        Group members can span responses. Use containingContainerId from search to inspect an item's surroundings."
         .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
-          "pageId": { "type": "string", "description": "ID of a page to inspect." },
+          "containerId": { "type": "string", "description": "ID of a page, table, or composite to inspect." },
           "cursor": {
             "type": ["string", "null"],
             "description": "Opaque nextCursor from the previous response. Omit for the first response."
@@ -78,7 +78,7 @@ pub(super) fn tool_spec() -> OpenAiToolSpec {
             "description": "Maximum item records per response; defaults to 100. A text budget also applies."
           }
         },
-        "required": ["pageId"],
+        "required": ["containerId"],
         "additionalProperties": false
       }),
     },
@@ -92,9 +92,9 @@ pub(super) async fn execute(
 ) -> InfuResult<String> {
   let result = async {
     let args: Arguments = serde_json::from_value(tool_call_arguments_value(tool_call)?)
-      .map_err(|e| format!("Could not parse read_page arguments: {e}"))?;
-    if !is_uid(&args.page_id) {
-      return Err("read_page requires a valid pageId.".into());
+      .map_err(|e| format!("Could not parse read_container arguments: {e}"))?;
+    if !is_uid(&args.container_id) {
+      return Err("read_container requires a valid containerId.".into());
     }
     let max_items = args.max_items.unwrap_or(DEFAULT_MAX_ITEMS);
     if !(1..=MAX_ITEMS).contains(&max_items) {
@@ -103,7 +103,7 @@ pub(super) async fn execute(
     let cursor = args.cursor.as_deref().map(decode_cursor).transpose()?;
     let (mut response, data_dir, sources) = {
       let db = db.lock().await;
-      build_outline(&db, &session.user_id, &args.page_id, cursor.as_ref(), max_items)?
+      build_outline(&db, &session.user_id, &args.container_id, cursor.as_ref(), max_items)?
     };
 
     // Only inspect manifests for returned records, outside the database lock. Repeated links share a lookup.
@@ -138,14 +138,14 @@ pub(super) async fn execute(
   Ok(result.unwrap_or_else(|e| tool_error_json(&e.to_string())))
 }
 
-fn decode_cursor(value: &str) -> InfuResult<PageCursor> {
+fn decode_cursor(value: &str) -> InfuResult<ContainerCursor> {
   if value.len() > 1024 {
-    return Err("Invalid read_page cursor; restart without a cursor.".into());
+    return Err("Invalid read_container cursor; restart without a cursor.".into());
   }
   let bytes = general_purpose::URL_SAFE_NO_PAD
     .decode(value)
-    .map_err(|_| "Invalid read_page cursor; restart without a cursor.")?;
-  serde_json::from_slice(&bytes).map_err(|_| "Invalid read_page cursor; restart without a cursor.".into())
+    .map_err(|_| "Invalid read_container cursor; restart without a cursor.")?;
+  serde_json::from_slice(&bytes).map_err(|_| "Invalid read_container cursor; restart without a cursor.".into())
 }
 
 fn readable(item: &Item, user_id: &str) -> bool {
@@ -223,7 +223,7 @@ fn collect_entries<'a>(
   entries: &mut Vec<Entry<'a>>,
 ) -> InfuResult<()> {
   if path.len() > MAX_DEPTH {
-    return Err("Page outline is too deeply nested.".into());
+    return Err("Container outline is too deeply nested.".into());
   }
   for attachments in [false, true] {
     if !attachments && !include_children {
@@ -235,7 +235,7 @@ fn collect_entries<'a>(
         continue;
       }
       if entries.len() >= MAX_OUTLINE_ITEMS {
-        return Err("Page outline exceeds 50000 placements; inspect a smaller page.".into());
+        return Err("Container outline exceeds 50000 placements; inspect a smaller container.".into());
       }
       let content = resolve_content(db, item, user_id);
       let mut child_path = path.to_vec();
@@ -297,7 +297,7 @@ fn entry_json(entry: &Entry<'_>, title_offset: usize) -> InfuResult<(Value, usiz
   let content = entry.content;
   let title = content.and_then(|content| content.title.as_deref()).unwrap_or("");
   if title_offset > title.chars().count() {
-    return Err("Invalid title offset in read_page cursor.".into());
+    return Err("Invalid title offset in read_container cursor.".into());
   }
   let mut chars = title.chars().skip(title_offset);
   let title_part: String = chars.by_ref().take(MAX_TITLE_CHARS).collect();
@@ -390,22 +390,30 @@ fn entry_json(entry: &Entry<'_>, title_offset: usize) -> InfuResult<(Value, usiz
 fn build_outline(
   db: &Db,
   user_id: &str,
-  page_id: &Uid,
-  cursor: Option<&PageCursor>,
+  container_id: &Uid,
+  cursor: Option<&ContainerCursor>,
   max_items: usize,
 ) -> InfuResult<(Value, String, HashSet<Uid>)> {
-  let page = db.item.get(page_id).map_err(|_| "Page was not found.")?;
-  if !readable(page, user_id) {
-    return Err("Page was not found.".into());
+  let container = db.item.get(container_id).map_err(|_| "Container was not found.")?;
+  if !readable(container, user_id) {
+    return Err("Container was not found.".into());
   }
-  if page.item_type != ItemType::Page {
-    return Err("read_page pageId must identify a page.".into());
+  if !is_container_item_type(container.item_type) {
+    return Err("read_container containerId must identify a page, table, or composite.".into());
   }
-  let ancestors = ancestors(db, page, user_id)?;
+  let ancestors = ancestors(db, container, user_id)?;
   let mut entries = Vec::new();
-  collect_entries(db, page, user_id, &[page.id.clone()], &mut HashSet::from([page.id.clone()]), true, &mut entries)?;
+  collect_entries(
+    db,
+    container,
+    user_id,
+    &[container.id.clone()],
+    &mut HashSet::from([container.id.clone()]),
+    true,
+    &mut entries,
+  )?;
   let mut hasher = Sha256::new();
-  for item in ancestors.iter().copied().chain(std::iter::once(page)) {
+  for item in ancestors.iter().copied().chain(std::iter::once(container)) {
     hasher.update(item.hash());
   }
   for entry in &entries {
@@ -420,11 +428,13 @@ fn build_outline(
   }
   let snapshot = format!("{:x}", hasher.finalize());
   if let Some(cursor) = cursor {
-    if cursor.page_id != *page_id || cursor.snapshot != snapshot {
-      return Err("The page outline changed or the cursor belongs to another page; restart without a cursor.".into());
+    if cursor.container_id != *container_id || cursor.snapshot != snapshot {
+      return Err(
+        "The container outline changed or the cursor belongs to another container; restart without a cursor.".into(),
+      );
     }
     if cursor.index >= entries.len() {
-      return Err("Invalid item offset in read_page cursor.".into());
+      return Err("Invalid item offset in read_container cursor.".into());
     }
   }
   let start = cursor.map(|cursor| cursor.index).unwrap_or(0);
@@ -455,8 +465,8 @@ fn build_outline(
   }
   let has_more = index < entries.len();
   let next_cursor = if has_more {
-    Some(general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_vec(&PageCursor {
-      page_id: page_id.clone(),
+    Some(general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_vec(&ContainerCursor {
+      container_id: container_id.clone(),
       snapshot: snapshot.clone(),
       index,
       title_offset,
@@ -467,7 +477,7 @@ fn build_outline(
   let returned_ids: HashSet<&str> = items.iter().filter_map(|item| item["itemId"].as_str()).collect();
   let mut groups = std::collections::BTreeMap::<&str, Vec<&str>>::new();
   for entry in &entries {
-    if entry.parent.id == page.id {
+    if entry.parent.id == container.id {
       if let Some(group_id) = entry.item.group_id.as_deref() {
         groups.entry(group_id).or_default().push(&entry.item.id);
       }
@@ -481,19 +491,19 @@ fn build_outline(
         return None;
       }
       Some(serde_json::json!({
-        "groupId": group_id, "parentId": page.id, "memberCount": members.len(),
+        "groupId": group_id, "parentId": container.id, "memberCount": members.len(),
         "returnedMemberIds": returned, "membershipComplete": returned.len() == members.len()
       }))
     })
     .collect();
-  let mut page_info = brief_item(page);
-  page_info["layout"] = layout(page);
+  let mut container_info = brief_item(container);
+  container_info["layout"] = layout(container);
   Ok((
     serde_json::json!({
-      "page": page_info,
+      "container": container_info,
       "ancestors": ancestors.into_iter().map(brief_item).collect::<Vec<_>>(),
       "scope": {
-        "includes": "page children, attachments, inline composites and tables",
+        "includes": "container children, attachments, nested composites and tables",
         "childPagesExpanded": false, "documentBodiesIncluded": false, "passwordItemsIncluded": false
       },
       "snapshot": snapshot, "totalItems": entries.len(), "startIndex": start,
@@ -505,8 +515,10 @@ fn build_outline(
 }
 
 pub(super) fn tool_activity(parsed: Option<&Value>) -> (String, Value) {
-  let title =
-    parsed.and_then(|result| result.get("page")).and_then(|page| json_object_str(page, "title")).unwrap_or("Page");
+  let title = parsed
+    .and_then(|result| result.get("container"))
+    .and_then(|container| json_object_str(container, "title"))
+    .unwrap_or("Container");
   let title = clamp_text_chars(title, CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS).0;
   let count = parsed.and_then(|result| result.get("items")).and_then(Value::as_array).map(Vec::len).unwrap_or(0);
   let has_more = parsed.and_then(|result| result.get("hasMore")).and_then(Value::as_bool).unwrap_or(false);
@@ -515,7 +527,7 @@ pub(super) fn tool_activity(parsed: Option<&Value>) -> (String, Value) {
   (
     summary,
     serde_json::json!({
-      "page": parsed.and_then(|result| result.get("page")), "returnedItems": count,
+      "container": parsed.and_then(|result| result.get("container")), "returnedItems": count,
       "totalItems": parsed.and_then(|result| result.get("totalItems")), "hasMore": has_more
     }),
   )

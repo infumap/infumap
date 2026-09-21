@@ -120,7 +120,7 @@ For simplicity, we will take the approach of doing only a musl build for release
 
 # Iterative Development
 
-The built-in LLM tools and page outline response are documented in [Chat tools](chat-tools.md).
+The built-in LLM tools and container outline response are documented in [Chat tools](chat-tools.md).
 
 From the repo `infumap` directory:
 

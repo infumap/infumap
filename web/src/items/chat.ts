@@ -177,8 +177,8 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
       }
       return "Waiting for approval";
     case "tool_call_started":
-      if (event.name == "read_page") {
-        return "Reading Infumap page";
+      if (event.name == "read_container") {
+        return "Reading Infumap container";
       }
       if (event.name == "find" || event.name == "lexical_search") {
         return "Finding items";
@@ -197,8 +197,8 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
       }
       return `Running ${event.name}`;
     case "tool_call_finished":
-      if (event.name == "read_page") {
-        return "Page outline loaded";
+      if (event.name == "read_container") {
+        return "Container outline loaded";
       }
       if (event.name == "find" || event.name == "lexical_search") {
         return "Find complete";

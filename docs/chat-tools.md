@@ -3,36 +3,39 @@
 Chats with the Infumap data source enabled have three built-in read-only tools:
 
 - `lexical_search`: find items using their titles and indexed document text.
-- `read_page`: inspect a page's items and their relationships without requiring a search match.
+- `read_container`: inspect a page, table, or composite and its relationships without requiring a search match.
 - `get_fragment`: read a bounded document fragment.
 
-Search results include `containingPageId` and `ancestors` with `id`, `itemType`, and `title`.
-`containingPageId` is the nearest ancestor page, excluding the result itself. For a page result,
-use its own `itemId` to inspect that page. The existing label-only `path` is also returned.
+Search results include `containingContainerId`, `containingPageId`, and `ancestors` with `id`,
+`itemType`, and `title`. `containingContainerId` is the nearest ancestor page, table, or composite,
+excluding the result itself. `containingPageId` is the nearest ancestor page. For a container result,
+use its own `itemId` to inspect it. The existing label-only `path` is also returned.
 
-## Reading a page
+## Reading a container
 
 ```json
 {
-  "pageId": "<page ID>",
+  "containerId": "<page, table, or composite ID>",
   "maxItems": 100
 }
 ```
 
-`pageId` is required. `maxItems` is optional, defaults to 100, and accepts 1–200.
+`containerId` is required and must identify a page, table, or composite. `maxItems` is optional,
+defaults to 100, and accepts 1–200.
 The tool reads stored workspace data, independently of which items are currently loaded or visible
 in the browser. It follows the chat tools' existing ownership scope and excludes password items.
 
 The response contains:
 
-- `page`: identity, title, citation link, and layout.
+- `container`: identity, title, citation link, type, and layout.
 - `ancestors`: navigable ancestor identities, from the root downwards.
-- `items`: page children, their attachments, and recursively expanded inline composites and tables.
+- `items`: container children, their attachments, and recursively expanded nested composites and tables.
 - `groups`: explicit groups represented by the returned items.
 - `totalItems`, `startIndex`, `hasMore`, `nextCursor`, and `snapshot`: coverage and continuation metadata.
 
 Child pages remain references, including embedded pages. Their `childrenStatus` is `reference`;
-call `read_page` with that page's ID to inspect its contents. Page attachments are included.
+call `read_container` with that page's ID to inspect its contents. Page attachments are included.
+Nested tables and composites are expanded inline, including when either is the requested root.
 Query results and chat transcripts are client-generated views and are not expanded by this tool.
 Document bodies are not included. The `scope` object makes these boundaries explicit.
 
@@ -80,11 +83,11 @@ seconds. Client sorting, scrolling, collapsing, and responsive layout are not a 
 
 ### Pagination and text availability
 
-Continue with the same page ID and the returned cursor:
+Continue with the same container ID and the returned cursor:
 
 ```json
 {
-  "pageId": "<same page ID>",
+  "containerId": "<same container ID>",
   "cursor": "<nextCursor>"
 }
 ```
@@ -93,12 +96,12 @@ Responses target a 32,000-character item budget, in addition to `maxItems`. Meta
 item may exceed that budget. Long item titles/native notes are split into 4,000-character chunks:
 `titleOffset` is a zero-based Unicode character offset and `titleTruncated` means more of that title
 remains. The next cursor continues the same placement before advancing to subsequent items.
-Reassemble chunks by `placementPath`. Page and ancestor labels are abbreviated at 500 characters
+Reassemble chunks by `placementPath`. Container and ancestor labels are abbreviated at 500 characters
 with an explicit `titleTruncated` flag.
 
 Follow all cursors until `hasMore` is false to cover the outline. A continuation detects changes
 to the stored outline and asks the caller to restart instead of silently skipping or duplicating
-items. Cursors are scoped to a page. Outlines exceeding 50,000 placements or 64 levels return an
+items. Cursors are scoped to a container. Outlines exceeding 50,000 placements or 64 levels return an
 explicit error instead of claiming complete coverage.
 
 For file, text, and image items, `textSource` reports document fragment availability:
