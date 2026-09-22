@@ -374,12 +374,13 @@ export const LinkFns = {
 
   getFingerprint: (linkItem: LinkItem): string => {
     const linkToId = LinkFns.getLinkToId(linkItem);
+    const remoteLoginStatus = linkItem.linkRequiresRemoteLogin ? "login-required" : "no-login-required";
     if (linkToId == EMPTY_UID) {
-      return "";
+      return remoteLoginStatus;
     }
     const linkedToItemMaybe = itemState.get(linkToId);
-    if (linkedToItemMaybe == null) { return "_" + linkToId + "_"; }
-    return linkToId + "_" + ItemFns.getFingerprint(linkedToItemMaybe!);
+    if (linkedToItemMaybe == null) { return "_" + linkToId + "_" + remoteLoginStatus; }
+    return linkToId + "_" + ItemFns.getFingerprint(linkedToItemMaybe!) + "_" + remoteLoginStatus;
   }
 };
 
