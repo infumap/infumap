@@ -37,7 +37,7 @@ import {
   markChildrenLoadAsInitiatedOrComplete,
 } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { ensureQueryItemUnderQueries, switchToNonPage, switchToPage } from "../layout/navigation";
+import { ensureQueryItemUnderQueries, preloadQueries, switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -232,6 +232,10 @@ export const Main: Component = () => {
         console.error(`Main.onMount switchToPage ${itemId} failed`, e);
         throw e;
       }
+
+      // Warm the Queries page only after the initially requested item has been displayed.
+      // The load helpers deduplicate this with navigation if the shortcut is used immediately.
+      void preloadQueries(store);
 
     } catch (e: any) {
       console.error(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
