@@ -270,6 +270,7 @@ pub(super) async fn run_search(
       &session.user_id,
       &search_root_id,
       None,
+      LexicalQueryMode::QuerySyntax,
       &request.text,
       start_result,
       end_result,
@@ -311,6 +312,7 @@ pub(super) async fn run_lexical_search(
     &session.user_id,
     &search_root_id,
     allowed_item_ids.as_deref(),
+    LexicalQueryMode::NaturalText,
     &request.text,
     start_result,
     end_result,
@@ -375,6 +377,7 @@ async fn indexed_search_results(
   user_id: &Uid,
   search_root_id: &Uid,
   allowed_item_ids: Option<&[Uid]>,
+  lexical_query_mode: LexicalQueryMode,
   search_text: &str,
   start_result: i64,
   end_result: i64,
@@ -390,6 +393,7 @@ async fn indexed_search_results(
       user_id,
       search_root_id,
       allowed_item_ids,
+      lexical_query_mode,
       search_text,
       fragment_result_limit,
     )
@@ -412,6 +416,7 @@ async fn indexed_search_results(
       user_id,
       search_root_id,
       allowed_item_ids,
+      lexical_query_mode,
       search_text,
       fragment_result_limit,
     )
@@ -495,13 +500,22 @@ async fn title_lexical_search_results(
   user_id: &Uid,
   search_root_id: &Uid,
   allowed_item_ids: Option<&[Uid]>,
+  query_mode: LexicalQueryMode,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
-  let result =
-    title_lexical_search_results_inner(db, data_dir, user_id, search_root_id, allowed_item_ids, search_text, limit)
-      .await;
+  let result = title_lexical_search_results_inner(
+    db,
+    data_dir,
+    user_id,
+    search_root_id,
+    allowed_item_ids,
+    query_mode,
+    search_text,
+    limit,
+  )
+  .await;
   record_search_backend_metrics("title", started, &result);
   result
 }
@@ -512,6 +526,7 @@ async fn title_lexical_search_results_inner(
   user_id: &Uid,
   search_root_id: &Uid,
   allowed_item_ids: Option<&[Uid]>,
+  query_mode: LexicalQueryMode,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
@@ -531,7 +546,7 @@ async fn title_lexical_search_results_inner(
     return Ok(Vec::new());
   }
 
-  let title_hits = title_index.search(search_text, limit, allowed_item_ids).await?;
+  let title_hits = title_index.search(search_text, limit, allowed_item_ids, query_mode).await?;
   if !title_hits.is_empty() {
     debug!(
       "Title lexical search top hits for user '{}': {}",
@@ -574,12 +589,22 @@ async fn lexical_search_results(
   user_id: &Uid,
   search_root_id: &Uid,
   allowed_item_ids: Option<&[Uid]>,
+  query_mode: LexicalQueryMode,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
-  let result =
-    lexical_search_results_inner(db, data_dir, user_id, search_root_id, allowed_item_ids, search_text, limit).await;
+  let result = lexical_search_results_inner(
+    db,
+    data_dir,
+    user_id,
+    search_root_id,
+    allowed_item_ids,
+    query_mode,
+    search_text,
+    limit,
+  )
+  .await;
   record_search_backend_metrics("lexical", started, &result);
   result
 }
@@ -590,6 +615,7 @@ async fn lexical_search_results_inner(
   user_id: &Uid,
   search_root_id: &Uid,
   allowed_item_ids: Option<&[Uid]>,
+  query_mode: LexicalQueryMode,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
@@ -611,7 +637,7 @@ async fn lexical_search_results_inner(
 
   let fragment_limit = limit.saturating_mul(SEARCH_LEXICAL_FRAGMENT_MULTIPLIER).max(limit);
   let fragment_hits = lexical_index
-    .search(search_text, fragment_limit, allowed_item_ids)
+    .search(search_text, fragment_limit, allowed_item_ids, query_mode)
     .await?
     .into_iter()
     .filter(|hit| hit.source_kind != ITEM_TITLE_SOURCE_KIND)
