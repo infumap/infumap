@@ -54,7 +54,7 @@ use crate::ai::fragment::{ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts
 use crate::ai::fragment_indexing::delete_item_search_index_entries;
 use crate::ai::geo::delete_item_geo_artifacts;
 use crate::ai::image_pipeline::{
-  dequeue_image_semantic_pipeline_item_if_active, enqueue_image_semantic_pipeline_item_if_active,
+  dequeue_image_background_pipeline_item_if_active, enqueue_image_background_pipeline_item_if_active,
 };
 use crate::ai::image_tagging::{delete_item_image_tag_dir, should_tag_image_item};
 use crate::ai::lexical_index::{

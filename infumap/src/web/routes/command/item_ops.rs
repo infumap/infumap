@@ -505,7 +505,7 @@ pub async fn add_item_for_user(
     }
     enqueue_item_title_index_update(&queued_item.owner_id, &queued_item.id);
     if should_tag_image_item(&queued_item) {
-      enqueue_image_semantic_pipeline_item_if_active(&queued_item);
+      enqueue_image_background_pipeline_item_if_active(&queued_item);
     }
     enqueue_pdf_item_if_active(&queued_item);
     enqueue_document_fragment_item_if_active(&queued_item);
@@ -613,12 +613,12 @@ pub(super) async fn handle_update_item(
     enqueue_item_title_index_update(&owner_id, &parent_id);
   }
   if should_tag_image_item(&item) {
-    enqueue_image_semantic_pipeline_item_if_active(&item);
+    enqueue_image_background_pipeline_item_if_active(&item);
   } else if should_tag_image_item(&old_item) {
-    dequeue_image_semantic_pipeline_item_if_active(&old_item.id);
+    dequeue_image_background_pipeline_item_if_active(&old_item.id);
   }
   for dependent in image_fragment_context_dependents {
-    enqueue_image_semantic_pipeline_item_if_active(&dependent);
+    enqueue_image_background_pipeline_item_if_active(&dependent);
   }
   if should_fragment_document_item(&item) {
     enqueue_document_fragment_item_if_active(&item);
@@ -713,7 +713,7 @@ pub(super) async fn handle_delete_item<'a>(
   let old_child_container_id = maybe_container_id_for_child_item(&item);
   let old_attachment_parent_id =
     if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
-  dequeue_image_semantic_pipeline_item_if_active(&request.id);
+  dequeue_image_background_pipeline_item_if_active(&request.id);
   dequeue_pdf_item_if_active(&request.id);
   dequeue_document_fragment_item_if_active(&request.id);
 
@@ -864,7 +864,7 @@ async fn delete_recursive(
     let old_child_container_id = maybe_container_id_for_child_item(&item);
     let old_attachment_parent_id =
       if item.relationship_to_parent == RelationshipToParent::Attachment { item.parent_id.clone() } else { None };
-    dequeue_image_semantic_pipeline_item_if_active(&item_id);
+    dequeue_image_background_pipeline_item_if_active(&item_id);
     dequeue_pdf_item_if_active(&item_id);
     dequeue_document_fragment_item_if_active(&item_id);
 

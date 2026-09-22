@@ -25,8 +25,6 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # suppression once the upstream package releases a fix.
 readonly REQUIREMENTS_FILES=(
   "gateway:tools/gpu/gateway/requirements.txt"
-  "text_embed:tools/gpu/text_embed/requirements.txt"
-  "text_embed (fastembed CPU):tools/gpu/text_embed/requirements-fastembed.txt"
   "image_extract:tools/gpu/image_extract/requirements.txt"
   "pdf_extract:tools/gpu/pdf_extract/requirements.txt"
 )
