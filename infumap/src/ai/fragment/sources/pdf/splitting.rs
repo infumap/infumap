@@ -4,7 +4,7 @@ use super::{
   PDF_FRAGMENT_SOFT_LIMIT_TOKENS,
 };
 
-const EMBEDDING_TOKEN_ESTIMATE_CHARS_PER_TOKEN: usize = 4;
+const FRAGMENT_TOKEN_ESTIMATE_CHARS_PER_TOKEN: usize = 4;
 
 pub(super) fn split_pdf_block_text(text: &str) -> Vec<String> {
   let text = text.trim();
@@ -12,7 +12,7 @@ pub(super) fn split_pdf_block_text(text: &str) -> Vec<String> {
     return vec![];
   }
   if text.len() <= PDF_FRAGMENT_HARD_LIMIT_CHARS
-    && estimate_embedding_token_count(text) <= PDF_FRAGMENT_HARD_LIMIT_TOKENS
+    && estimate_fragment_token_count(text) <= PDF_FRAGMENT_HARD_LIMIT_TOKENS
   {
     return vec![text.to_owned()];
   }
@@ -33,7 +33,7 @@ pub(super) fn split_pdf_block_text(text: &str) -> Vec<String> {
 
   for sentence in sentences {
     if sentence.len() > PDF_FRAGMENT_HARD_LIMIT_CHARS
-      || estimate_embedding_token_count(&sentence) > PDF_FRAGMENT_HARD_LIMIT_TOKENS
+      || estimate_fragment_token_count(&sentence) > PDF_FRAGMENT_HARD_LIMIT_TOKENS
     {
       if !current.is_empty() {
         out.push(current);
@@ -56,7 +56,7 @@ pub(super) fn split_pdf_block_text(text: &str) -> Vec<String> {
 
     let candidate = format!("{current} {sentence}");
     if candidate.len() > PDF_FRAGMENT_SOFT_LIMIT_CHARS
-      || estimate_embedding_token_count(&candidate) > PDF_FRAGMENT_SOFT_LIMIT_TOKENS
+      || estimate_fragment_token_count(&candidate) > PDF_FRAGMENT_SOFT_LIMIT_TOKENS
     {
       out.push(current);
       current = sentence;
@@ -131,7 +131,7 @@ fn split_text_by_words(
     }
 
     let candidate = format!("{current} {word}");
-    if candidate.len() > soft_limit_chars || estimate_embedding_token_count(&candidate) > soft_limit_tokens {
+    if candidate.len() > soft_limit_chars || estimate_fragment_token_count(&candidate) > soft_limit_tokens {
       out.push(current);
       current = word.to_owned();
     } else {
@@ -147,7 +147,7 @@ fn split_text_by_words(
   out
     .into_iter()
     .flat_map(|part| {
-      if part.len() > hard_limit_chars || estimate_embedding_token_count(&part) > hard_limit_tokens {
+      if part.len() > hard_limit_chars || estimate_fragment_token_count(&part) > hard_limit_tokens {
         split_oversized_word_fallback(&part, hard_limit_chars)
       } else {
         vec![part]
@@ -177,8 +177,8 @@ fn split_index_for_char_budget(text: &str, max_chars: usize) -> usize {
   text.char_indices().nth(max_chars).map(|(index, _)| index).unwrap_or(text.len())
 }
 
-pub(super) fn estimate_embedding_token_count(text: &str) -> usize {
-  let char_based = text.chars().count().div_ceil(EMBEDDING_TOKEN_ESTIMATE_CHARS_PER_TOKEN);
+pub(super) fn estimate_fragment_token_count(text: &str) -> usize {
+  let char_based = text.chars().count().div_ceil(FRAGMENT_TOKEN_ESTIMATE_CHARS_PER_TOKEN);
   let word_based = text.split_whitespace().count();
   char_based.max(word_based)
 }

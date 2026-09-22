@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
-use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
+use crate::ai::fragment::sources::{build_image_fragment_artifact, search_fragment_context_title_for_item};
 use crate::ai::fragment::{clear_item_fragments, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::geo::{
@@ -37,7 +37,7 @@ const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
 const STARTUP_RECONCILIATION_PROGRESS_LOG_SECS: u64 = 10;
 const ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE: bool = true;
 
-static IMAGE_SEMANTIC_PIPELINE_STATE: OnceCell<Arc<Mutex<ImageSemanticPipelineState>>> = OnceCell::new();
+static IMAGE_BACKGROUND_PIPELINE_STATE: OnceCell<Arc<Mutex<ImageBackgroundPipelineState>>> = OnceCell::new();
 
 #[derive(Clone)]
 struct ImagePipelineCandidate {
@@ -73,7 +73,7 @@ enum PipelineStage {
 }
 
 #[derive(Default)]
-struct ImageSemanticPipelineState {
+struct ImageBackgroundPipelineState {
   source: StageQueue,
   geo: StageQueue,
   fragment: StageQueue,
@@ -97,7 +97,7 @@ struct StartupReconciliationSummary {
 }
 
 #[derive(Clone)]
-struct ImageSemanticPipelineConfig {
+struct ImageBackgroundPipelineConfig {
   data_dir: String,
   gpu_tools_url: Option<String>,
   geo_api_key: Option<String>,
@@ -124,13 +124,13 @@ enum ImageFragmentReadiness {
 
 type SourceImagePrefetchHandle = task::JoinHandle<(ImagePipelineCandidate, InfuResult<LoadedImageTagging>)>;
 
-pub fn init_image_semantic_pipeline_loop(
+pub fn init_image_background_pipeline_loop(
   config: Arc<Config>,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
-  let pipeline_config = image_semantic_pipeline_config(config.as_ref())?;
-  if IMAGE_SEMANTIC_PIPELINE_STATE.get().is_some() {
+  let pipeline_config = image_background_pipeline_config(config.as_ref())?;
+  if IMAGE_BACKGROUND_PIPELINE_STATE.get().is_some() {
     enqueue_all_loaded_images(db, pipeline_config);
     return Ok(());
   }
@@ -143,8 +143,8 @@ pub fn init_image_semantic_pipeline_loop(
     return Ok(());
   }
 
-  let state = Arc::new(Mutex::new(ImageSemanticPipelineState::default()));
-  IMAGE_SEMANTIC_PIPELINE_STATE
+  let state = Arc::new(Mutex::new(ImageBackgroundPipelineState::default()));
+  IMAGE_BACKGROUND_PIPELINE_STATE
     .set(state.clone())
     .map_err(|_| "Image background pipeline loop is already running in this process.".to_owned())?;
 
@@ -186,8 +186,8 @@ pub fn init_image_semantic_pipeline_loop(
   Ok(())
 }
 
-pub fn enqueue_image_semantic_pipeline_item_if_active(item: &Item) {
-  let Some(state) = IMAGE_SEMANTIC_PIPELINE_STATE.get() else {
+pub fn enqueue_image_background_pipeline_item_if_active(item: &Item) {
+  let Some(state) = IMAGE_BACKGROUND_PIPELINE_STATE.get() else {
     return;
   };
   let Some(candidate) = ImagePipelineCandidate::from_item(item) else {
@@ -206,8 +206,8 @@ pub fn enqueue_image_semantic_pipeline_item_if_active(item: &Item) {
   });
 }
 
-pub fn dequeue_image_semantic_pipeline_item_if_active(item_id: &str) {
-  let Some(state) = IMAGE_SEMANTIC_PIPELINE_STATE.get() else {
+pub fn dequeue_image_background_pipeline_item_if_active(item_id: &str) {
+  let Some(state) = IMAGE_BACKGROUND_PIPELINE_STATE.get() else {
     return;
   };
   let item_id = item_id.to_owned();
@@ -224,11 +224,11 @@ pub fn dequeue_image_semantic_pipeline_item_if_active(item_id: &str) {
   });
 }
 
-fn image_semantic_pipeline_config(config: &Config) -> InfuResult<ImageSemanticPipelineConfig> {
+fn image_background_pipeline_config(config: &Config) -> InfuResult<ImageBackgroundPipelineConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let gpu_tools_url = gpu_tools_url_from_config(config)?;
   let geo_api_key = geoapify_api_key_from_config(config)?;
-  Ok(ImageSemanticPipelineConfig {
+  Ok(ImageBackgroundPipelineConfig {
     data_dir,
     gpu_tools_url,
     geo_api_key,
@@ -237,15 +237,15 @@ fn image_semantic_pipeline_config(config: &Config) -> InfuResult<ImageSemanticPi
   })
 }
 
-async fn image_tagging_endpoint_url(config: &ImageSemanticPipelineConfig) -> InfuResult<Option<String>> {
+async fn image_tagging_endpoint_url(config: &ImageBackgroundPipelineConfig) -> InfuResult<Option<String>> {
   Ok(resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_IMAGE_EXTRACT).await?.map(|url| url.to_string()))
 }
 
 async fn run_source_image_loop(
-  config: ImageSemanticPipelineConfig,
+  config: ImageBackgroundPipelineConfig,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
-  state: Arc<Mutex<ImageSemanticPipelineState>>,
+  state: Arc<Mutex<ImageBackgroundPipelineState>>,
 ) {
   let mut next_prefetch: Option<SourceImagePrefetchHandle> = None;
 
@@ -289,10 +289,10 @@ async fn run_source_image_loop(
 }
 
 async fn start_next_source_image_prefetch(
-  config: &ImageSemanticPipelineConfig,
+  config: &ImageBackgroundPipelineConfig,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
-  state: Arc<Mutex<ImageSemanticPipelineState>>,
+  state: Arc<Mutex<ImageBackgroundPipelineState>>,
 ) -> Option<SourceImagePrefetchHandle> {
   loop {
     let candidate = {
@@ -359,7 +359,7 @@ async fn await_source_image_prefetch(
 }
 
 async fn source_image_prefetch_readiness(
-  config: &ImageSemanticPipelineConfig,
+  config: &ImageBackgroundPipelineConfig,
   db: Arc<Mutex<Db>>,
   candidate: &ImagePipelineCandidate,
 ) -> InfuResult<SourceImagePrefetchReadiness> {
@@ -391,7 +391,7 @@ async fn source_image_prefetch_readiness(
 }
 
 async fn process_prefetched_source_image_item(
-  config: &ImageSemanticPipelineConfig,
+  config: &ImageBackgroundPipelineConfig,
   db: Arc<Mutex<Db>>,
   candidate: &ImagePipelineCandidate,
   loaded: LoadedImageTagging,
@@ -419,8 +419,8 @@ async fn process_prefetched_source_image_item(
 }
 
 fn enqueue_source_candidate_downstream_if_needed(
-  config: &ImageSemanticPipelineConfig,
-  state: &mut ImageSemanticPipelineState,
+  config: &ImageBackgroundPipelineConfig,
+  state: &mut ImageBackgroundPipelineState,
   candidate: ImagePipelineCandidate,
   reason: &str,
 ) {
@@ -432,9 +432,9 @@ fn enqueue_source_candidate_downstream_if_needed(
 }
 
 async fn run_reverse_geo_loop(
-  config: ImageSemanticPipelineConfig,
+  config: ImageBackgroundPipelineConfig,
   db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<ImageSemanticPipelineState>>,
+  state: Arc<Mutex<ImageBackgroundPipelineState>>,
 ) {
   let geo_api_key = config.geo_api_key.clone().expect("reverse geo loop requires geo_api_key");
   let geo_client = match reqwest::ClientBuilder::new().timeout(Duration::from_secs(30)).build() {
@@ -532,9 +532,9 @@ async fn run_reverse_geo_loop(
 }
 
 async fn run_image_fragment_loop(
-  config: ImageSemanticPipelineConfig,
+  config: ImageBackgroundPipelineConfig,
   db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<ImageSemanticPipelineState>>,
+  state: Arc<Mutex<ImageBackgroundPipelineState>>,
 ) {
   loop {
     let candidate = {
@@ -567,7 +567,7 @@ async fn run_image_fragment_loop(
 }
 
 async fn reconcile_image_fragment_item(
-  config: &ImageSemanticPipelineConfig,
+  config: &ImageBackgroundPipelineConfig,
   db: Arc<Mutex<Db>>,
   candidate: &ImagePipelineCandidate,
 ) -> InfuResult<Option<String>> {
@@ -586,7 +586,7 @@ async fn reconcile_image_fragment_item(
     ImageFragmentReadiness::Ready => {}
     ImageFragmentReadiness::Waiting => {
       sleep(Duration::from_millis(FRAGMENT_NOT_READY_WAIT_MILLIS)).await;
-      enqueue_image_semantic_pipeline_item_if_active(&item_snapshot);
+      enqueue_image_background_pipeline_item_if_active(&item_snapshot);
       return Ok(None);
     }
     ImageFragmentReadiness::Unavailable => {
@@ -605,7 +605,7 @@ async fn reconcile_image_fragment_item(
 
   let context_title = {
     let db = db.lock().await;
-    embedding_context_title_for_item(&db, &item_snapshot)
+    search_fragment_context_title_for_item(&db, &item_snapshot)
   };
   let fragment_result = build_image_fragment_artifact(&config.data_dir, &item_snapshot, context_title).await?;
   if fragment_result.outcome.wrote_fragments {
@@ -634,7 +634,7 @@ async fn reconcile_image_fragment_item(
 }
 
 async fn image_fragment_readiness(
-  config: &ImageSemanticPipelineConfig,
+  config: &ImageBackgroundPipelineConfig,
   item: &Item,
 ) -> InfuResult<ImageFragmentReadiness> {
   let image_tagging_available = image_tagging_endpoint_url(config).await?.is_some();
@@ -670,8 +670,8 @@ async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandi
   Ok(item.owner_id == candidate.user_id && should_tag_image_item(item))
 }
 
-fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineConfig) {
-  let Some(state) = IMAGE_SEMANTIC_PIPELINE_STATE.get() else {
+fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageBackgroundPipelineConfig) {
+  let Some(state) = IMAGE_BACKGROUND_PIPELINE_STATE.get() else {
     return;
   };
   let state = state.clone();
@@ -759,7 +759,7 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageSemanticPipelineCo
 }
 
 async fn startup_stage_for_candidate(
-  config: &ImageSemanticPipelineConfig,
+  config: &ImageBackgroundPipelineConfig,
   candidate: &ImagePipelineCandidate,
   summary: &mut StartupReconciliationSummary,
 ) -> InfuResult<Option<PipelineStage>> {
@@ -831,7 +831,7 @@ async fn startup_stage_for_candidate(
 }
 
 async fn startup_fragment_stage_if_needed(
-  config: &ImageSemanticPipelineConfig,
+  config: &ImageBackgroundPipelineConfig,
   candidate: &ImagePipelineCandidate,
   summary: &mut StartupReconciliationSummary,
 ) -> InfuResult<Option<PipelineStage>> {
@@ -852,12 +852,15 @@ async fn startup_fragment_stage_if_needed(
   }
 }
 
-fn enqueue_candidate_for_all_stages(state: &mut ImageSemanticPipelineState, candidate: ImagePipelineCandidate) -> bool {
+fn enqueue_candidate_for_all_stages(
+  state: &mut ImageBackgroundPipelineState,
+  candidate: ImagePipelineCandidate,
+) -> bool {
   enqueue_candidate(state, PipelineStage::Source, candidate)
 }
 
 fn enqueue_live_candidate_for_all_stages_with_log(
-  state: &mut ImageSemanticPipelineState,
+  state: &mut ImageBackgroundPipelineState,
   candidate: ImagePipelineCandidate,
 ) {
   let item_id = candidate.item_id.clone();
@@ -872,7 +875,7 @@ fn enqueue_live_candidate_for_all_stages_with_log(
   }
 }
 
-fn remove_candidate_from_all_stages_with_log(state: &mut ImageSemanticPipelineState, item_id: &str) {
+fn remove_candidate_from_all_stages_with_log(state: &mut ImageBackgroundPipelineState, item_id: &str) {
   let removed = remove_candidate(state, PipelineStage::Source, item_id)
     + remove_candidate(state, PipelineStage::Geo, item_id)
     + remove_candidate(state, PipelineStage::Fragment, item_id);
@@ -881,7 +884,7 @@ fn remove_candidate_from_all_stages_with_log(state: &mut ImageSemanticPipelineSt
   }
 }
 
-fn queue_for_stage_mut(state: &mut ImageSemanticPipelineState, stage: PipelineStage) -> &mut StageQueue {
+fn queue_for_stage_mut(state: &mut ImageBackgroundPipelineState, stage: PipelineStage) -> &mut StageQueue {
   match stage {
     PipelineStage::Source => &mut state.source,
     PipelineStage::Geo => &mut state.geo,
@@ -889,7 +892,7 @@ fn queue_for_stage_mut(state: &mut ImageSemanticPipelineState, stage: PipelineSt
   }
 }
 
-fn pop_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage) -> Option<ImagePipelineCandidate> {
+fn pop_candidate(state: &mut ImageBackgroundPipelineState, stage: PipelineStage) -> Option<ImagePipelineCandidate> {
   let queue = queue_for_stage_mut(state, stage);
   let candidate = queue.queue.pop_front()?;
   queue.queued_item_ids.remove(&candidate.item_id);
@@ -898,7 +901,7 @@ fn pop_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage) -
 }
 
 fn enqueue_candidate_with_log(
-  state: &mut ImageSemanticPipelineState,
+  state: &mut ImageBackgroundPipelineState,
   stage: PipelineStage,
   candidate: ImagePipelineCandidate,
   reason: &str,
@@ -930,7 +933,7 @@ fn enqueue_candidate_with_log(
 }
 
 fn enqueue_candidate(
-  state: &mut ImageSemanticPipelineState,
+  state: &mut ImageBackgroundPipelineState,
   stage: PipelineStage,
   candidate: ImagePipelineCandidate,
 ) -> bool {
@@ -945,7 +948,7 @@ fn enqueue_candidate(
 }
 
 fn enqueue_candidates(
-  state: &mut ImageSemanticPipelineState,
+  state: &mut ImageBackgroundPipelineState,
   stage: PipelineStage,
   candidates: Vec<ImagePipelineCandidate>,
 ) -> usize {
@@ -961,7 +964,7 @@ fn enqueue_candidates(
   enqueued_count
 }
 
-fn remove_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage, item_id: &str) -> usize {
+fn remove_candidate(state: &mut ImageBackgroundPipelineState, stage: PipelineStage, item_id: &str) -> usize {
   let queue = queue_for_stage_mut(state, stage);
   let before = queue.queue.len();
   queue.queue.retain(|candidate| candidate.item_id != item_id);
@@ -971,11 +974,11 @@ fn remove_candidate(state: &mut ImageSemanticPipelineState, stage: PipelineStage
   removed
 }
 
-fn queue_depth_summary(state: &ImageSemanticPipelineState) -> String {
+fn queue_depth_summary(state: &ImageBackgroundPipelineState) -> String {
   format!("tag={}, geo={}, fragment={}", state.source.queue.len(), state.geo.queue.len(), state.fragment.queue.len())
 }
 
-fn record_image_pipeline_queue_depths(state: &ImageSemanticPipelineState) {
+fn record_image_pipeline_queue_depths(state: &ImageBackgroundPipelineState) {
   METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH.with_label_values(&["tag"]).set(state.source.queue.len() as i64);
   METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH.with_label_values(&["geo"]).set(state.geo.queue.len() as i64);
   METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH.with_label_values(&["fragment"]).set(state.fragment.queue.len() as i64);

@@ -82,7 +82,7 @@ fn build_image_fragment_text(
   let mut upper_lines = Vec::new();
   let mut lower_lines = Vec::new();
 
-  let title = embedding_useful_image_title(title);
+  let title = useful_image_fragment_title(title);
   let context_title = normalized_text(context_title)
     .filter(|context| title.as_deref().map(|title| title.to_lowercase() != context.to_lowercase()).unwrap_or(true));
 
@@ -98,7 +98,7 @@ fn build_image_fragment_text(
     upper_lines.push(labeled_line("Tags", &tags.join(", ")));
   }
 
-  let ocr_text = embedding_visible_text(&image_tag_artifact.ocr_text, image_tag_artifact.document_confidence);
+  let ocr_text = search_fragment_visible_text(&image_tag_artifact.ocr_text, image_tag_artifact.document_confidence);
   if !ocr_text.is_empty() {
     lower_lines.push(labeled_line("Visible text", &ocr_text.join("; ")));
   }
@@ -143,7 +143,7 @@ fn labeled_line(label: &str, value: &str) -> String {
   format!("{label}: {trimmed}")
 }
 
-fn embedding_useful_image_title(title: Option<&str>) -> Option<String> {
+fn useful_image_fragment_title(title: Option<&str>) -> Option<String> {
   let title = normalized_text(title)?;
   (!looks_like_camera_generated_title(&title)).then_some(title)
 }
@@ -193,7 +193,7 @@ fn normalized_text_list(values: &[String]) -> Vec<String> {
   out
 }
 
-fn embedding_visible_text(values: &[String], document_confidence: f64) -> Vec<String> {
+fn search_fragment_visible_text(values: &[String], document_confidence: f64) -> Vec<String> {
   let mut out = normalized_text_list(values);
   if document_confidence < 0.85 && out.len() > 2 {
     out.truncate(2);

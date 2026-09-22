@@ -44,7 +44,7 @@ use tokio::{task, time};
 
 use crate::ai::document_pipeline::init_document_fragment_pipeline_loop;
 use crate::ai::fragment_indexing::init_fragment_indexing_loop;
-use crate::ai::image_pipeline::init_image_semantic_pipeline_loop;
+use crate::ai::image_pipeline::init_image_background_pipeline_loop;
 use crate::ai::text_extraction::init_text_extraction_processing_loop;
 use crate::ai::title_indexing::init_item_title_indexing_loop;
 use crate::config::*;
@@ -241,7 +241,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
   init_fragment_indexing_loop(config.as_ref(), db.clone())?;
   init_document_fragment_pipeline_loop(config.as_ref(), db.clone(), object_store.clone())?;
   init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone())?;
-  init_image_semantic_pipeline_loop(config.clone(), db.clone(), object_store.clone())?;
+  init_image_background_pipeline_loop(config.clone(), db.clone(), object_store.clone())?;
 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {
     let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();

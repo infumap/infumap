@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::ai::fragment::sources::{
   build_image_fragment_artifact, build_markdown_fragment_artifact, build_text_fragment_artifact,
-  embedding_context_title_for_item, pdf_fragment_source_for_item,
+  pdf_fragment_source_for_item, search_fragment_context_title_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
 use crate::ai::image_tagging::should_tag_image_item;
@@ -107,30 +107,28 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 
 fn make_image_subcommand() -> Command {
   Command::new("image")
-    .about(
-      "Build semantic text fragments for supported images using item metadata, image-tagging output, and geo output.",
-    )
+    .about("Build search fragments for supported images using item metadata, image-tagging output, and geo output.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this supported image item."))
 }
 
 fn make_markdown_subcommand() -> Command {
   Command::new("markdown")
-    .about("Build lexical text fragments directly from Markdown file items.")
+    .about("Build search fragments directly from Markdown file items.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this Markdown file item."))
 }
 
 fn make_text_subcommand() -> Command {
   Command::new("text")
-    .about("Build lexical text fragments directly from plain text file items.")
+    .about("Build search fragments directly from plain text file items.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this plain text file item."))
 }
 
 fn make_pdf_subcommand() -> Command {
   Command::new("pdf")
-    .about("Build semantic text fragments from extracted markdown for PDF file items.")
+    .about("Build search fragments from extracted Markdown for PDF file items.")
     .arg(settings_arg())
     .arg(item_id_arg("Build fragments only for this PDF item."))
 }
@@ -158,7 +156,7 @@ async fn execute_image(sub_matches: &ArgMatches) -> InfuResult<()> {
     progress.log_before_item(index, &item);
     let context_title = {
       let db = db.lock().await;
-      embedding_context_title_for_item(&db, &item)
+      search_fragment_context_title_for_item(&db, &item)
     };
     let build_result = build_image_fragment_artifact(&data_dir, &item, context_title).await?;
     let had_fragment_source = build_result.had_fragment_source;

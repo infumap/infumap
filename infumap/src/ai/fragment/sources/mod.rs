@@ -57,7 +57,7 @@ fn normalized_text(value: Option<&str>) -> Option<String> {
   if collapsed.is_empty() { None } else { Some(collapsed) }
 }
 
-pub fn embedding_context_title_for_item(db: &Db, item: &Item) -> Option<String> {
+pub fn search_fragment_context_title_for_item(db: &Db, item: &Item) -> Option<String> {
   parent_title_for_item(db, item, true)
 }
 

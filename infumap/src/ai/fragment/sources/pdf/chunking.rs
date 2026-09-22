@@ -2,7 +2,7 @@ use super::super::FragmentInput;
 use super::blocks::build_pdf_text_blocks;
 use super::pages::{resolve_pdf_pages, split_pdf_markdown_pages};
 use super::rendering::{heading_paths_equal, render_pdf_fragment_text};
-use super::splitting::{estimate_embedding_token_count, split_pdf_block_text};
+use super::splitting::{estimate_fragment_token_count, split_pdf_block_text};
 use super::types::PdfFragmentBlock;
 use super::{
   PDF_FRAGMENT_HARD_LIMIT_CHARS, PDF_FRAGMENT_HARD_LIMIT_TOKENS, PDF_FRAGMENT_MIN_CHARS, PDF_FRAGMENT_SOFT_LIMIT_CHARS,
@@ -155,7 +155,7 @@ fn rendered_pdf_fragment_token_estimate(
   if let Some(next_block) = next_block {
     candidate_blocks.push(next_block.clone());
   }
-  estimate_embedding_token_count(&render_pdf_fragment_text(page_start, page_end, &candidate_blocks))
+  estimate_fragment_token_count(&render_pdf_fragment_text(page_start, page_end, &candidate_blocks))
 }
 
 struct PdfFragmentAccumulator {
