@@ -21,7 +21,7 @@ import { ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isComposite } from "../../items/composite-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -155,7 +155,7 @@ export function arrange_spatial_page(
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
     const emitHitboxes = true;
     const childItemIsPopup = false; // never the case.
-    const childItemIsEmbeddedInteractive = isPage(childItem) && asPageItem(childItem).flags & PageFlags.EmbeddedInteractive;
+    const childItemIsEmbeddedInteractive = isPage(childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(childItem));
     const hasChildChanges = false; // it may do, but only matters for popups.
     const hasDefaultChanges = false;
     const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);

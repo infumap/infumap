@@ -21,7 +21,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { itemCanCopy, itemCanEdit, itemCanMove, itemCanResize } from "../items/base/capabilities-item";
-import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage, PageFns, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
@@ -39,7 +39,6 @@ import { arrangeNow } from "../layout/arrange";
 import { catalogResultControlsTopInsetPx, hasCatalogResultContext } from "../layout/catalog-display";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
-import { PageFlags } from "../items/base/flags-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { itemState } from "../store/ItemState";
@@ -1540,7 +1539,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "pointer";
     } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(HitInfoFns.getHitVe(hitInfo).displayItem)) &&
       ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) ||
-        ((asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem).flags & PageFlags.EmbeddedInteractive) &&
+        (pageUsesEmbeddedInteractiveMode(asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem)) &&
           !(hitInfo.hitboxType & HitboxFlags.ContentEditable) &&
           !(HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.InsideTable)))) {
       document.body.style.cursor = "move";

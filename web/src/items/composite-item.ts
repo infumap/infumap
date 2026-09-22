@@ -33,11 +33,11 @@ import { PositionalMixin } from './base/positional-item';
 import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
-import { CompositeFlags, FlagsMixin, PageFlags } from './base/flags-item';
+import { CompositeFlags, FlagsMixin } from './base/flags-item';
 import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { arrangeNow, requestArrange } from '../layout/arrange';
-import { PageFns, asPageItem, isPage } from './page-item';
+import { PageFns, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from './page-item';
 import { asImageItem, isImage } from './image-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { isNote, NoteFns } from './note-item';
@@ -174,7 +174,7 @@ export const CompositeFns = {
       const sizeBl = isNote(cloned)
         ? NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(cloned), true)
         : ItemFns.calcSpatialDimensionsBl(cloned);
-      if (isPage(cloned) && (asPageItem(cloned).flags & PageFlags.EmbeddedInteractive)) {
+      if (isPage(cloned) && pageUsesEmbeddedInteractiveMode(asPageItem(cloned))) {
         sizeBl.h += PageFns.embeddedInteractiveTitleHeightBl(asPageItem(cloned));
       }
       bh += sizeBl.h + COMPOSITE_ITEM_GAP_BL;

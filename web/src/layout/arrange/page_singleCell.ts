@@ -22,7 +22,7 @@ import { PageFlags } from "../../items/base/flags-item";
 import { ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asLinkItem, isLink, LinkItem } from "../../items/link-item";
-import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage, PageItem, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -148,7 +148,7 @@ export function arrange_single_cell_page(
       continue;
     }
 
-    const childItemIsEmbeddedInteractive = isPage(childItem) && !!(asPageItem(childItem).flags & PageFlags.EmbeddedInteractive);
+    const childItemIsEmbeddedInteractive = isPage(childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(childItem));
     const renderChildrenAsFull = arrangeFlagIsRoot(flags);
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());

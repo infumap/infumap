@@ -105,6 +105,12 @@ export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, Con
   pendingCellPopupWidthNorm: number | null;
 }
 
+export function pageUsesEmbeddedInteractiveMode(page: Pick<PageMeasurable, "arrangeAlgorithm" | "flags">): boolean {
+  // Nested calendars provide their own interactive preview and do not use the generic embedded-page mode.
+  return page.arrangeAlgorithm != ArrangeAlgorithm.Calendar &&
+    !!(page.flags & PageFlags.EmbeddedInteractive);
+}
+
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin, AspectMixin, AttachmentsMixin {
   innerSpatialWidthGr: number;
   arrangeAlgorithm: string;
@@ -824,7 +830,7 @@ export const PageFns = {
       h: sizeBl.h * blockSizePx.h + ITEM_BORDER_WIDTH_PX,
     };
 
-    if (!isPopup && !(page.flags & PageFlags.EmbeddedInteractive)) {
+    if (!isPopup && !pageUsesEmbeddedInteractiveMode(page)) {
       const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
       const popupClickBoundsPx = parentIsPopup
         ? cloneBoundingBox(innerBoundsPx)!
@@ -897,7 +903,7 @@ export const PageFns = {
     ignoreCellHeight: boolean, smallScreenMode: boolean): ItemGeometry => {
 
     const treatAsEmbeddedInteractive =
-      !!(page.flags & PageFlags.EmbeddedInteractive) ||
+      pageUsesEmbeddedInteractiveMode(page) ||
       (parentIsDock && dockForcesEmbeddedInteractiveArrangeAlgorithm(page.arrangeAlgorithm));
 
     if (!isPopup && !treatAsEmbeddedInteractive) {
@@ -1079,7 +1085,7 @@ export const PageFns = {
       h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
     };
     const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0);
-    if (!(measurable.flags & PageFlags.EmbeddedInteractive)) {
+    if (!pageUsesEmbeddedInteractiveMode(measurable)) {
       const result = ({
         boundsPx,
         blockSizePx,

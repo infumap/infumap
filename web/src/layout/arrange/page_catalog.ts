@@ -20,7 +20,7 @@ import { CursorEventState, MouseActionState } from "../../input/state";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -176,7 +176,7 @@ export function arrange_catalog_page(
 
   const childrenPaths: Array<VisualElementPath> = [];
   for (const child of childGeometries) {
-    const childItemIsEmbeddedInteractive = isPage(child.childItem) && !!(asPageItem(child.childItem).flags & PageFlags.EmbeddedInteractive);
+    const childItemIsEmbeddedInteractive = isPage(child.childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(child.childItem));
     const renderChildrenAsFull = isEmbeddedInteractive || !!(flags & ArrangeItemFlags.RenderChildrenAsFull |
       flags & ArrangeItemFlags.IsTopRoot |
       flags & ArrangeItemFlags.IsPopupRoot |

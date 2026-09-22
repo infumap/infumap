@@ -17,14 +17,14 @@
 */
 
 import { LINK_TRIANGLE_SIZE_PX, NATURAL_BLOCK_SIZE_PX, GRID_SIZE, PAGE_DOCUMENT_BOTTOM_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
-import { NoteFlags, PageFlags, noteHasListStyle, noteIndentLevelFromFlags } from "../../items/base/flags-item";
+import { NoteFlags, noteHasListStyle, noteIndentLevelFromFlags } from "../../items/base/flags-item";
 import { Item, ItemType, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
 import { DividerFns, isDivider } from "../../items/divider-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -191,7 +191,7 @@ export function arrange_document_page(
       linkItemMaybe: linkItemMaybe_childItem,
       actualLinkItemMaybe,
       displayWidthBl,
-      childItemIsEmbeddedInteractive: !!(isPage(childItem) && (asPageItem(childItem).flags & PageFlags.EmbeddedInteractive)),
+      childItemIsEmbeddedInteractive: isPage(childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(childItem)),
     });
   }
 
