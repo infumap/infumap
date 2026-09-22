@@ -62,7 +62,7 @@ use crate::ai::image_pipeline::{
 use crate::ai::image_tagging::{delete_item_image_tag_dir, should_tag_image_item};
 use crate::ai::indexing::delete_item_fragment_index_entries;
 use crate::ai::lexical_index::{
-  FragmentLexicalHit, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
+  FragmentLexicalHit, LexicalQueryMode, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
   user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,
 };
 use crate::ai::metrics::{METRIC_SEARCH_BACKEND_DURATION_SECONDS, METRIC_SEARCH_BACKEND_FAILURES_TOTAL};

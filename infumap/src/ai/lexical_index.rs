@@ -1,11 +1,12 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use infusdk::util::infu::InfuResult;
 use serde::{Deserialize, Serialize};
 use tantivy::collector::{Count, TopDocs};
-use tantivy::query::{BooleanQuery, QueryParser, TermQuery, TermSetQuery};
+use tantivy::query::{BooleanQuery, EmptyQuery, Query, QueryParser, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{Index, IndexWriter, TantivyDocument, Term};
+use tantivy::{Index, IndexWriter, Searcher, TantivyDocument, Term};
 use tokio::fs;
 
 use crate::ai::vector_db::user_index_dir;
@@ -29,8 +30,15 @@ const PAGE_START_FIELD: &str = "page_start";
 const PAGE_END_FIELD: &str = "page_end";
 const TEXT_FIELD: &str = "text";
 const INDEX_WRITER_HEAP_BYTES: usize = 50_000_000;
+const NATURAL_TEXT_QUERY_MAX_TERMS: usize = 12;
 const DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL: &str = "document fragment lexical index";
 const ITEM_TITLE_LEXICAL_INDEX_LABEL: &str = "item title lexical index";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LexicalQueryMode {
+  QuerySyntax,
+  NaturalText,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LexicalFragment {
@@ -144,12 +152,14 @@ impl TantivyDocumentFragmentIndex {
     query_text: &str,
     limit: usize,
     allowed_item_ids: Option<&[String]>,
+    query_mode: LexicalQueryMode,
   ) -> InfuResult<Vec<FragmentLexicalHit>> {
     search_index(
       &self.index_dir,
       query_text,
       limit,
       allowed_item_ids,
+      query_mode,
       DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
       DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
     )
@@ -191,12 +201,14 @@ impl TantivyItemTitleIndex {
     query_text: &str,
     limit: usize,
     allowed_item_ids: Option<&[String]>,
+    query_mode: LexicalQueryMode,
   ) -> InfuResult<Vec<FragmentLexicalHit>> {
     search_index(
       &self.index_dir,
       query_text,
       limit,
       allowed_item_ids,
+      query_mode,
       ITEM_TITLE_LEXICAL_METADATA_FILENAME,
       ITEM_TITLE_LEXICAL_INDEX_LABEL,
     )
@@ -443,6 +455,7 @@ async fn search_index(
   query_text: &str,
   limit: usize,
   allowed_item_ids: Option<&[String]>,
+  query_mode: LexicalQueryMode,
   metadata_filename: &str,
   index_label: &str,
 ) -> InfuResult<Vec<FragmentLexicalHit>> {
@@ -466,16 +479,18 @@ async fn search_index(
   let reader =
     index.reader().map_err(|e| format!("Could not open {} reader '{}': {}", index_label, index_dir.display(), e))?;
   let searcher = reader.searcher();
-  let mut query_parser = QueryParser::for_index(&index, vec![fields.text]);
-  query_parser.set_conjunction_by_default();
-  let (mut query, parse_errors) = query_parser.parse_query_lenient(query_text);
-  if parse_errors.len() > 0 {
-    log::debug!("{} query '{}' had {} lenient parser issue(s).", index_label, query_text, parse_errors.len());
-  }
-  if let Some(item_ids) = allowed_item_ids {
+  let query = match query_mode {
+    LexicalQueryMode::QuerySyntax => parsed_lexical_query(&index, fields.text, query_text, index_label),
+    LexicalQueryMode::NaturalText => {
+      natural_text_lexical_query(&index, &searcher, fields.text, query_text, index_label)?
+    }
+  };
+  let query = if let Some(item_ids) = allowed_item_ids {
     let item_terms: Vec<Term> = item_ids.iter().map(|item_id| Term::from_field_text(fields.item_id, item_id)).collect();
-    query = Box::new(BooleanQuery::intersection(vec![query, Box::new(TermSetQuery::new(item_terms))]));
-  }
+    Box::new(BooleanQuery::intersection(vec![query, Box::new(TermSetQuery::new(item_terms))])) as Box<dyn Query>
+  } else {
+    query
+  };
 
   let top_docs = searcher
     .search(&query, &TopDocs::with_limit(limit).order_by_score())
@@ -488,6 +503,58 @@ async fn search_index(
     hits.push(hit_from_document(fields, score, &doc, index_label)?);
   }
   Ok(hits)
+}
+
+fn parsed_lexical_query(index: &Index, text_field: Field, query_text: &str, index_label: &str) -> Box<dyn Query> {
+  let mut query_parser = QueryParser::for_index(index, vec![text_field]);
+  query_parser.set_conjunction_by_default();
+  let (query, parse_errors) = query_parser.parse_query_lenient(query_text);
+  if !parse_errors.is_empty() {
+    log::debug!("{} query '{}' had {} lenient parser issue(s).", index_label, query_text, parse_errors.len());
+  }
+  query
+}
+
+fn natural_text_lexical_query(
+  index: &Index,
+  searcher: &Searcher,
+  text_field: Field,
+  query_text: &str,
+  index_label: &str,
+) -> InfuResult<Box<dyn Query>> {
+  let mut analyzer = index
+    .tokenizer_for_field(text_field)
+    .map_err(|e| format!("Could not load {} text analyzer: {}", index_label, e))?;
+  let mut token_stream = analyzer.token_stream(query_text);
+  let mut seen = HashSet::new();
+  let mut token_texts = Vec::new();
+  token_stream.process(&mut |token| {
+    if seen.insert(token.text.clone()) {
+      token_texts.push(token.text.clone());
+    }
+  });
+
+  let mut candidates = Vec::new();
+  for (position, token_text) in token_texts.into_iter().enumerate() {
+    let term = Term::from_field_text(text_field, &token_text);
+    let document_frequency =
+      searcher.doc_freq(&term).map_err(|e| format!("Could not inspect {} term frequency: {}", index_label, e))?;
+    if document_frequency > 0 {
+      candidates.push((document_frequency, position, term));
+    }
+  }
+  candidates.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+  candidates.truncate(NATURAL_TEXT_QUERY_MAX_TERMS);
+  candidates.sort_by_key(|candidate| candidate.1);
+
+  if candidates.is_empty() {
+    return Ok(Box::new(EmptyQuery));
+  }
+  let term_queries = candidates
+    .into_iter()
+    .map(|(_, _, term)| Box::new(TermQuery::new(term, IndexRecordOption::WithFreqs)) as Box<dyn Query>)
+    .collect();
+  Ok(Box::new(BooleanQuery::union(term_queries)))
 }
 
 fn lexical_schema() -> (Schema, LexicalFields) {
