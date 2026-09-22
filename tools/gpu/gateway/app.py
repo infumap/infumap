@@ -277,16 +277,6 @@ def service_registry() -> dict[str, ServiceProxy]:
             ),
         ),
         ServiceProxy(
-            service_name="text_embed",
-            public_paths=("/text-embed",),
-            upstream_base_url=upstream_base_url(
-                "GPU_TEXT_EMBED_UPSTREAM_URL",
-                "127.0.0.1",
-                8789,
-            ),
-            uses_global_gpu_lock=False,
-        ),
-        ServiceProxy(
             service_name="pdf_extract",
             public_paths=("/pdf-extract",),
             upstream_base_url=upstream_base_url(
@@ -325,13 +315,6 @@ def gpu_tools_endpoints() -> list[dict[str, Any]]:
             "path": "/pdf-extract-caption-only",
             "service": "image_extract",
             "description": "Render the first page of a PDF and extract only a detailed visual caption.",
-        },
-        {
-            "id": "text_embed",
-            "method": "POST",
-            "path": "/text-embed",
-            "service": "text_embed",
-            "description": "Embed text for semantic fragment indexing and semantic search queries.",
         },
         {
             "id": "pdf_extract",
