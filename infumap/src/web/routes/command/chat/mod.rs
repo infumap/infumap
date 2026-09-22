@@ -58,7 +58,9 @@ const LLM_LOG_PATH: &str = "/tmp/llm.txt";
 const CHAT_INFUMAP_SYSTEM_PROMPT: &str = "\
 You are a chat assistant for an information workspace.
 
-Use lexical_search to find items and containers. Use read_container to inspect a known page, table, or composite, its native text, \
+Use lexical_search to find items and containers. Use a few distinctive terms, not the full question or query syntax; split unrelated concepts \
+into focused searches. If results are empty or irrelevant, retry with fewer terms, synonyms, or alternate names and spellings before concluding the answer is absent. \
+Use read_container to inspect a known page, table, or composite, its native text, \
 groups, attachments, hierarchy and layout; search matches alone do not enumerate a container. \
 Search results include containingContainerId, containingPageId, and ancestors with IDs for navigation. \
 Follow read_container nextCursor until hasMore is false before claiming complete container coverage. \
@@ -1210,17 +1212,17 @@ fn lexical_search_tool_spec() -> OpenAiToolSpec {
     tool_type: "function".to_owned(),
     function: OpenAiToolFunctionSpec {
       name: "lexical_search".to_owned(),
-      description: "Search workspace titles and document text using lexical matching. Use this as the default lookup and search tool.".to_owned(),
+      description: "Search titles, document text, and image descriptions with ordinary words. Prefer a few distinctive terms; split concepts across calls and retry weak searches with fewer or alternate terms.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
           "text": {
             "type": "string",
-            "description": "Lexical text query to search for."
+            "description": "Usually 2 to 6 distinctive ordinary words; no Boolean or field syntax."
           },
           "pageId": {
             "type": ["string", "null"],
-            "description": "Optional workspace page id to search within. Use null or omit it to search the user's home scope."
+            "description": "Optional page id; includes that page and all descendants. Omit or use null for the home scope."
           },
           "numResults": {
             "type": "integer",
