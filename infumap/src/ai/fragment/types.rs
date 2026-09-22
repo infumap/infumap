@@ -1,6 +1,7 @@
 pub const PDF_MARKDOWN_SOURCE_KIND: &str = "pdf_markdown";
 pub const PDF_FIRST_PAGE_CAPTION_SOURCE_KIND: &str = "pdf_first_page_caption";
 pub const ITEM_TITLE_SOURCE_KIND: &str = "item_title";
+pub const IMAGE_CONTENTS_SOURCE_KIND: &str = "image_contents";
 const MARKDOWN_SOURCE_KIND: &str = "markdown";
 const TEXT_SOURCE_KIND: &str = "text";
 pub const IMAGE_DOCUMENT_SOURCE_KIND: &str = "image_document_contents";
@@ -18,7 +19,7 @@ pub enum FragmentSourceKind {
 impl FragmentSourceKind {
   pub(super) fn as_str(&self) -> &'static str {
     match self {
-      FragmentSourceKind::ImageContents => "image_contents",
+      FragmentSourceKind::ImageContents => IMAGE_CONTENTS_SOURCE_KIND,
       FragmentSourceKind::ImageDocumentContents => IMAGE_DOCUMENT_SOURCE_KIND,
       FragmentSourceKind::Markdown => MARKDOWN_SOURCE_KIND,
       FragmentSourceKind::Text => TEXT_SOURCE_KIND,
@@ -36,8 +37,13 @@ pub fn is_lexical_search_source_kind(source_kind: &str) -> bool {
       | PDF_FIRST_PAGE_CAPTION_SOURCE_KIND
       | MARKDOWN_SOURCE_KIND
       | TEXT_SOURCE_KIND
+      | IMAGE_CONTENTS_SOURCE_KIND
       | IMAGE_DOCUMENT_SOURCE_KIND
   )
+}
+
+pub fn is_semantic_search_source_kind(source_kind: &str) -> bool {
+  source_kind == IMAGE_CONTENTS_SOURCE_KIND
 }
 
 pub fn is_markdown_document_source_kind(source_kind: &str) -> bool {

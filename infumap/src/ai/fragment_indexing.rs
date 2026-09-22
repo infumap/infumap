@@ -327,7 +327,7 @@ async fn rebuild_fragment_indexes_for_dirty_users(
         state.record_reindex_completed();
       }
       info!(
-        "{} fragment index reconciliation complete: users_seen={} users_rebuilt={} users_skipped_current={} semantic_image_embedded={} lexical_document_indexed={} semantic_image_reused={} removed_empty_indexes={}.",
+        "{} fragment index reconciliation complete: users_seen={} users_rebuilt={} users_skipped_current={} semantic_image_embedded={} lexical_indexed={} semantic_image_reused={} removed_empty_indexes={}.",
         title_case_index_kind_for_log(embed_url.is_some()),
         summary.users_seen,
         summary.users_rebuilt,
