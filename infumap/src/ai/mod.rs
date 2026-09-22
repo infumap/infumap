@@ -7,16 +7,13 @@ pub mod geo;
 pub mod gpu_tools;
 pub mod image_pipeline;
 pub mod image_tagging;
-pub mod indexing;
 pub mod lexical_index;
 pub mod metrics;
 pub mod search_index_paths;
 pub mod search_status;
-pub mod text_embedding;
 pub mod text_extraction;
 pub mod title_indexing;
 pub mod upload_quiet_period;
-pub mod vector_db;
 
 pub(crate) fn user_id_for_log(user_id: &str) -> String {
   let mut chars = user_id.chars();

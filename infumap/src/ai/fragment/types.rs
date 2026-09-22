@@ -42,10 +42,6 @@ pub fn is_lexical_search_source_kind(source_kind: &str) -> bool {
   )
 }
 
-pub fn is_semantic_search_source_kind(source_kind: &str) -> bool {
-  source_kind == IMAGE_CONTENTS_SOURCE_KIND
-}
-
 pub fn is_markdown_document_source_kind(source_kind: &str) -> bool {
   matches!(source_kind, PDF_MARKDOWN_SOURCE_KIND | MARKDOWN_SOURCE_KIND)
 }
