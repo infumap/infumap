@@ -10,6 +10,7 @@ pub mod image_tagging;
 pub mod indexing;
 pub mod lexical_index;
 pub mod metrics;
+pub mod search_index_paths;
 pub mod search_status;
 pub mod text_embedding;
 pub mod text_extraction;

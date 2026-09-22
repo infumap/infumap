@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
+use std::io::ErrorKind;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -6,16 +8,23 @@ use config::Config;
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, info, warn};
 use once_cell::sync::OnceCell;
+use serde::Deserialize;
+use tokio::fs;
 use tokio::sync::{Mutex, mpsc};
 use tokio::task;
 use tokio::time::{Instant, timeout_at};
 
-use crate::ai::indexing::load_item_lexical_fragments;
-use crate::ai::lexical_index::{LexicalFragment, open_user_document_fragment_lexical_index};
+use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path};
+use crate::ai::fragment::is_lexical_search_source_kind;
+use crate::ai::lexical_index::{
+  LexicalFragment, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
+  user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,
+};
+use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::user_id_for_log;
-use crate::ai::vector_db::ensure_user_index_dir;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
+use crate::util::fs::path_exists;
 
 const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 2;
 const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 10;
@@ -56,6 +65,113 @@ pub fn enqueue_fragment_lexical_index_update(user_id: &str, item_id: &str) {
   }
 }
 
+pub async fn load_item_search_fragments(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<Vec<LexicalFragment>> {
+  let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
+  let Some(manifest) = load_fragments_manifest(&manifest_path).await? else {
+    return Ok(Vec::new());
+  };
+  let source_kind = manifest
+    .source_kind
+    .map(|source_kind| source_kind.trim().to_owned())
+    .filter(|source_kind| !source_kind.is_empty())
+    .unwrap_or_else(|| "unknown".to_owned());
+  if !is_lexical_search_source_kind(&source_kind) {
+    return Ok(Vec::new());
+  }
+
+  let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
+  if !path_exists(&fragments_path).await {
+    return Ok(Vec::new());
+  }
+  let records = load_fragment_records(&fragments_path).await?;
+  if let Some(expected_count) = manifest.fragment_count
+    && expected_count != records.len()
+  {
+    return Err(
+      format!(
+        "Search fragment manifest for item '{}' says {} fragment(s), but '{}' contains {} non-empty fragment record(s).",
+        item_id,
+        expected_count,
+        fragments_path.display(),
+        records.len()
+      )
+      .into(),
+    );
+  }
+
+  Ok(
+    records
+      .into_iter()
+      .map(|record| LexicalFragment {
+        item_id: item_id.to_owned(),
+        ordinal: record.ordinal,
+        source_kind: source_kind.clone(),
+        text: record.text,
+        page_start: record.page_start,
+        page_end: record.page_end,
+      })
+      .collect(),
+  )
+}
+
+pub async fn delete_item_search_index_entries(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<usize> {
+  let mut deleted = 0;
+  if user_document_fragment_lexical_index_exists(data_dir, user_id).await? {
+    deleted += open_user_document_fragment_lexical_index(data_dir, user_id)?.delete_item_fragments(item_id).await?;
+  }
+  if user_item_title_lexical_index_exists(data_dir, user_id).await? {
+    deleted += open_user_item_title_lexical_index(data_dir, user_id)?.delete_item_title(item_id).await?;
+  }
+  Ok(deleted)
+}
+
+async fn load_fragment_records(path: &Path) -> InfuResult<Vec<StoredFragmentRecord>> {
+  let contents =
+    fs::read_to_string(path).await.map_err(|e| format!("Could not read fragments file '{}': {}", path.display(), e))?;
+  let mut records = Vec::new();
+  for (line_number, line) in contents.lines().enumerate() {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+      continue;
+    }
+    let record: StoredFragmentRecord = serde_json::from_str(trimmed).map_err(|e| {
+      format!("Could not parse search fragment record on line {} of fragments.jsonl: {}", line_number + 1, e)
+    })?;
+    if !record.text.trim().is_empty() {
+      records.push(record);
+    }
+  }
+  Ok(records)
+}
+
+async fn load_fragments_manifest(path: &Path) -> InfuResult<Option<StoredFragmentsManifest>> {
+  match fs::read_to_string(path).await {
+    Ok(contents) => serde_json::from_str(&contents)
+      .map(Some)
+      .map_err(|e| format!("Could not parse search fragment manifest '{}': {}", path.display(), e).into()),
+    Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
+    Err(e) => Err(format!("Could not read search fragment manifest '{}': {}", path.display(), e).into()),
+  }
+}
+
+#[derive(Deserialize)]
+struct StoredFragmentRecord {
+  ordinal: usize,
+  text: String,
+  page_start: Option<usize>,
+  page_end: Option<usize>,
+}
+
+#[derive(Deserialize)]
+struct StoredFragmentsManifest {
+  source_kind: Option<String>,
+  fragment_count: Option<usize>,
+}
+
 async fn run_fragment_indexing_loop(data_dir: String, mut receiver: mpsc::UnboundedReceiver<FragmentIndexingRequest>) {
   let mut queued = HashSet::new();
   while let Some(request) = receiver.recv().await {
@@ -87,7 +203,7 @@ async fn run_fragment_indexing_loop(data_dir: String, mut receiver: mpsc::Unboun
     for (user_id, item_ids) in item_ids_by_user {
       let mut updates = Vec::<(String, Vec<LexicalFragment>)>::new();
       for item_id in item_ids {
-        match load_item_lexical_fragments(&data_dir, &user_id, &item_id).await {
+        match load_item_search_fragments(&data_dir, &user_id, &item_id).await {
           Ok(fragments) => updates.push((item_id, fragments)),
           Err(e) => error!(
             "Could not load lexical fragments for item '{}' (user {}): {}",

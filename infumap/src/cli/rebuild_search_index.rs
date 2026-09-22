@@ -8,13 +8,13 @@ use sha2::{Digest, Sha256};
 use tokio::fs;
 
 use crate::ai::fragment::sources::item_title_fragment_for_item;
-use crate::ai::indexing::load_item_lexical_fragments;
+use crate::ai::fragment_indexing::load_item_search_fragments;
 use crate::ai::lexical_index::{
   LexicalFragment, TantivyDocumentFragmentIndex, TantivyItemTitleIndex, document_fragment_lexical_index_dir,
   document_fragment_lexical_index_temp_dir, item_title_lexical_index_dir, item_title_lexical_index_temp_dir,
 };
+use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::title_indexing::lexical_fragment_from_item_title_fragment;
-use crate::ai::vector_db::ensure_user_index_dir;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
 use crate::storage::db::Db;
@@ -132,7 +132,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     let mut document_updates = Vec::<(String, Vec<LexicalFragment>)>::new();
     let mut title_updates = Vec::<(String, Vec<LexicalFragment>)>::new();
     for item in &items[batch_start..batch_end] {
-      let document_fragments = load_item_lexical_fragments(&data_dir, &item.user_id, &item.item_id).await?;
+      let document_fragments = load_item_search_fragments(&data_dir, &item.user_id, &item.item_id).await?;
       indexed_fragments += document_fragments.len();
       document_updates.push((item.item_id.clone(), document_fragments));
 

@@ -20,8 +20,8 @@ use crate::ai::image_tagging::{
 use crate::ai::lexical_index::{
   FragmentLexicalIndexRebuildMetadata, LexicalFragment, document_fragment_lexical_index_temp_dir,
   open_user_document_fragment_lexical_index, remove_document_fragment_lexical_index_dirs,
-  user_document_fragment_lexical_index_exists,
 };
+use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::search_status::{SearchStatusArtifact, write_search_status_artifact};
 use crate::ai::text_embedding::{
   DEFAULT_TEXT_EMBEDDING_BATCH_SIZE, TextEmbeddingBatch, TextEmbeddingInput, embed_texts,
@@ -31,8 +31,8 @@ use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::user_id_for_log;
 use crate::ai::vector_db::{
   EmbeddedFragment, FragmentVectorDb, FragmentVectorDbBackend, FragmentVectorDbFragmentKey,
-  FragmentVectorDbRebuildMetadata, ensure_user_index_dir, fragment_vector_db_operation_lock, fragment_vector_db_path,
-  fragment_vector_db_temp_path, open_fragment_vector_db, open_user_fragment_vector_db, user_fragment_vector_db_exists,
+  FragmentVectorDbRebuildMetadata, fragment_vector_db_operation_lock, fragment_vector_db_path,
+  fragment_vector_db_temp_path, open_fragment_vector_db,
 };
 use crate::storage::db::Db;
 use crate::storage::db::item_db::ItemAndUserId;
@@ -91,63 +91,6 @@ async fn rebuild_fragment_index_plans(
   }
 
   Ok(summary)
-}
-
-pub async fn delete_item_fragment_index_entries(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<usize> {
-  let mut deleted = 0;
-  if user_fragment_vector_db_exists(data_dir, user_id).await? {
-    let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
-    deleted += vector_db.delete_item_fragments(item_id).await?;
-  }
-  if user_document_fragment_lexical_index_exists(data_dir, user_id).await? {
-    let lexical_index = open_user_document_fragment_lexical_index(data_dir, user_id)?;
-    deleted += lexical_index.delete_item_fragments(item_id).await?;
-  }
-  Ok(deleted)
-}
-
-pub async fn load_item_lexical_fragments(
-  data_dir: &str,
-  user_id: &str,
-  item_id: &str,
-) -> InfuResult<Vec<LexicalFragment>> {
-  let fragment_item = load_fragment_item_from_manifest(data_dir, user_id, item_id.to_owned()).await?;
-  let fragments = if is_lexical_search_source_kind(&fragment_item.source_kind) {
-    let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
-    if path_exists(&fragments_path).await {
-      let records = load_fragment_records(&fragments_path).await?;
-      if let Some(expected_count) = fragment_item.fragment_count
-        && expected_count != records.len()
-      {
-        return Err(
-          format!(
-            "Fragment manifest for item '{}' says {} fragment(s), but '{}' contains {} non-empty fragment record(s).",
-            item_id,
-            expected_count,
-            fragments_path.display(),
-            records.len()
-          )
-          .into(),
-        );
-      }
-      records
-        .into_iter()
-        .map(|record| LexicalFragment {
-          item_id: item_id.to_owned(),
-          ordinal: record.ordinal,
-          source_kind: fragment_item.source_kind.clone(),
-          text: record.text,
-          page_start: record.page_start,
-          page_end: record.page_end,
-        })
-        .collect::<Vec<_>>()
-    } else {
-      Vec::new()
-    }
-  } else {
-    Vec::new()
-  };
-  Ok(fragments)
 }
 
 async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmentIndexPlan>> {

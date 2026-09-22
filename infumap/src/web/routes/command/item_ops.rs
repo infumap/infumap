@@ -731,9 +731,9 @@ pub(super) async fn handle_delete_item<'a>(
   delete_item_image_tag_dir(&data_dir, &session.user_id, &request.id).await?;
   delete_item_geo_artifacts(&data_dir, &session.user_id, &request.id).await?;
   delete_item_fragment_artifacts(&data_dir, &session.user_id, &request.id).await?;
-  let deleted_index_fragments = delete_item_fragment_index_entries(&data_dir, &session.user_id, &request.id).await?;
-  if deleted_index_fragments > 0 {
-    debug!("Deleted {} fragment index row(s) for item '{}'.", deleted_index_fragments, request.id);
+  let deleted_search_index_entries = delete_item_search_index_entries(&data_dir, &session.user_id, &request.id).await?;
+  if deleted_search_index_entries > 0 {
+    debug!("Deleted {} search index entry/entries for item '{}'.", deleted_search_index_entries, request.id);
   }
 
   let _item = db.item.remove(&request.id).await?;
@@ -757,7 +757,6 @@ pub(super) async fn handle_delete_item<'a>(
   let title_parent_id = old_attachment_parent_id;
   debug!("Deleted item '{}' from database.", request.id);
   drop(db);
-  enqueue_item_title_index_update(&owner_id, &request.id);
   if let Some(parent_id) = title_parent_id {
     enqueue_item_title_index_update(&owner_id, &parent_id);
   }
@@ -885,13 +884,12 @@ async fn delete_recursive(
     delete_item_image_tag_dir(&data_dir, user_id, &item.id).await?;
     delete_item_geo_artifacts(&data_dir, user_id, &item.id).await?;
     delete_item_fragment_artifacts(&data_dir, user_id, &item.id).await?;
-    let deleted_index_fragments = delete_item_fragment_index_entries(&data_dir, user_id, &item.id).await?;
-    if deleted_index_fragments > 0 {
-      debug!("Deleted {} fragment index row(s) for item '{}'.", deleted_index_fragments, item.id);
+    let deleted_search_index_entries = delete_item_search_index_entries(&data_dir, user_id, &item.id).await?;
+    if deleted_search_index_entries > 0 {
+      debug!("Deleted {} search index entry/entries for item '{}'.", deleted_search_index_entries, item.id);
     }
 
     let _item = db.item.remove(&item_id).await?;
-    enqueue_item_title_index_update(user_id, &item_id);
     if let Some(parent_id) = old_attachment_parent_id.as_ref() {
       enqueue_item_title_index_update(user_id, parent_id);
     }

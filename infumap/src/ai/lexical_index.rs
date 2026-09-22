@@ -10,7 +10,7 @@ use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema,
 use tantivy::{Index, IndexWriter, Searcher, TantivyDocument, Term};
 use tokio::fs;
 
-use crate::ai::vector_db::user_index_dir;
+use crate::ai::search_index_paths::user_index_dir;
 use crate::util::fs::expand_tilde;
 
 pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_DIR_NAME: &str = "document_fragments_tantivy";
@@ -237,6 +237,17 @@ impl TantivyItemTitleIndex {
     replace_item_documents_in_index(
       &self.index_dir,
       updates,
+      ITEM_TITLE_LEXICAL_METADATA_FILENAME,
+      ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
+      ITEM_TITLE_LEXICAL_INDEX_LABEL,
+    )
+    .await
+  }
+
+  pub async fn delete_item_title(&self, item_id: &str) -> InfuResult<usize> {
+    delete_item_documents_from_index(
+      &self.index_dir,
+      item_id,
       ITEM_TITLE_LEXICAL_METADATA_FILENAME,
       ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
       ITEM_TITLE_LEXICAL_INDEX_LABEL,
