@@ -34,7 +34,7 @@ use tokio::time::{Duration, sleep};
 use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 
-use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
+use crate::ai::title_indexing::enqueue_item_title_index_update;
 use crate::config::CONFIG_BYPASS_TOTP_CHECK;
 use crate::storage::db::Db;
 use crate::storage::db::user::{ROOT_USER_NAME, User};
@@ -467,7 +467,9 @@ pub async fn register(
       error!("Error adding default query item: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    enqueue_item_title_index_reconcile_for_user(&user.id);
+    for item_key in db.item.all_loaded_items().into_iter().filter(|item_key| item_key.user_id == user.id) {
+      enqueue_item_title_index_update(&user.id, &item_key.item_id);
+    }
     info!("Created root user.");
   } else {
     if let Err(e) = db.pending_user.add(user.clone()).await {

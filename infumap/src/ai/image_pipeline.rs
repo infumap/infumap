@@ -13,7 +13,7 @@ use tokio::time::sleep;
 
 use crate::ai::fragment::sources::{build_image_fragment_artifact, embedding_context_title_for_item};
 use crate::ai::fragment::{clear_item_fragments, item_fragment_artifact_files_exist};
-use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
+use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::geo::{
   GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
   geo_manifest_status, geoapify_api_key_from_config, geoapify_max_requests_per_minute_from_config,
@@ -550,7 +550,7 @@ async fn run_image_fragment_loop(
     wait_for_object_store_upload_quiet_period("image fragment processing").await;
     match reconcile_image_fragment_item(&config, db.clone(), &candidate).await {
       Ok(Some(user_id)) => {
-        enqueue_fragment_index_rebuild_for_user(&user_id);
+        enqueue_fragment_lexical_index_update(&user_id, &candidate.item_id);
       }
       Ok(None) => {}
       Err(e) => {

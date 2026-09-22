@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
+use crate::ai::title_indexing::enqueue_item_title_index_update;
 use crate::storage::db::Db;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::web::routes::{
@@ -200,7 +200,9 @@ pub async fn approve_pending(
         error!("Error adding default query item: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
-      enqueue_item_title_index_reconcile_for_user(&pending_user.id);
+      for item_key in db.item.all_loaded_items().into_iter().filter(|item_key| item_key.user_id == pending_user.id) {
+        enqueue_item_title_index_update(&pending_user.id, &item_key.item_id);
+      }
     }
     Err(e) => {
       error!("An error occurred adding pending user: {}", e);
