@@ -2,7 +2,6 @@ use config::Config;
 use infusdk::util::infu::InfuResult;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::time::Instant;
 
 use crate::ai::gpu_tools::{GPU_TOOL_TEXT_EMBED, gpu_tools_url_from_config, resolve_gpu_tool_url};
@@ -11,29 +10,16 @@ use crate::config::{CONFIG_GPU_TOOLS_URL, CONFIG_TEXT_EMBED_URL};
 
 pub const DEFAULT_TEXT_EMBEDDING_MODEL: &str = "Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0";
 pub const DEFAULT_TEXT_EMBEDDING_BATCH_SIZE: usize = 256;
-pub const DEFAULT_RETRIEVAL_QUERY_INSTRUCTION: &str =
-  "Given a web search query, retrieve relevant passages that answer the query";
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TextEmbeddingInputRole {
-  RetrievalDocument,
-  RetrievalQuery,
-}
 
 #[derive(Clone)]
 pub struct TextEmbeddingInput {
   pub id: Option<String>,
   pub text: String,
-  pub role: TextEmbeddingInputRole,
 }
 
 impl TextEmbeddingInput {
   pub fn retrieval_document(id: Option<String>, text: String) -> Self {
-    Self { id, text, role: TextEmbeddingInputRole::RetrievalDocument }
-  }
-
-  pub fn retrieval_query(id: Option<String>, text: String) -> Self {
-    Self { id, text, role: TextEmbeddingInputRole::RetrievalQuery }
+    Self { id, text }
   }
 }
 
@@ -63,12 +49,7 @@ struct OpenAiEmbeddingResult {
 }
 
 fn format_text_embedding_input(input: &TextEmbeddingInput) -> String {
-  match input.role {
-    TextEmbeddingInputRole::RetrievalDocument => input.text.clone(),
-    TextEmbeddingInputRole::RetrievalQuery => {
-      format!("Instruct: {}\n Query:{}", DEFAULT_RETRIEVAL_QUERY_INSTRUCTION, input.text)
-    }
-  }
+  input.text.clone()
 }
 
 pub async fn resolve_text_embedding_service_url(
@@ -150,19 +131,6 @@ pub fn validate_text_embedding_vector(label: &str, embedding: &[f32]) -> InfuRes
   }
 
   Ok(())
-}
-
-pub fn text_embedding_vector_fingerprint(embedding: &[f32]) -> String {
-  let mut hasher = Sha256::new();
-  for value in embedding {
-    hasher.update(value.to_le_bytes());
-  }
-  let hex = format!("{:x}", hasher.finalize());
-  hex.chars().take(12).collect()
-}
-
-pub fn text_embedding_vector_norm(embedding: &[f32]) -> f64 {
-  embedding.iter().map(|value| f64::from(*value) * f64::from(*value)).sum::<f64>().sqrt()
 }
 
 pub async fn embed_texts(

@@ -50,10 +50,7 @@ use super::link_titles;
 use crate::ai::document_pipeline::{
   dequeue_document_fragment_item_if_active, enqueue_document_fragment_item_if_active, is_document_fragment_item,
 };
-use crate::ai::fragment::{
-  ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_markdown_document_source_kind,
-  is_semantic_search_source_kind,
-};
+use crate::ai::fragment::{ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_markdown_document_source_kind};
 use crate::ai::fragment_indexing::delete_item_search_index_entries;
 use crate::ai::geo::delete_item_geo_artifacts;
 use crate::ai::image_pipeline::{
@@ -69,16 +66,9 @@ use crate::ai::search_status::{
   SearchStatusArtifact, SearchStatusPageKind, read_search_status_artifact, search_failed_page_id,
   search_pending_page_id, search_status_link_id, search_status_page_id, search_status_page_kind_for_route_id,
 };
-use crate::ai::text_embedding::{
-  TextEmbeddingInput, embed_texts, resolve_configured_text_embedding_service_url, text_embedding_vector_fingerprint,
-  text_embedding_vector_norm, validate_text_embedding_vector,
-};
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::ai::title_indexing::enqueue_item_title_index_update;
 use crate::ai::upload_quiet_period::record_object_store_backed_item_upload;
-use crate::ai::vector_db::{
-  FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,
-};
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
 use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};
@@ -166,7 +156,6 @@ fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKin
 }
 
 pub async fn serve_command_route(
-  config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   object_store: &Arc<object::ObjectStore>,
   image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
@@ -214,7 +203,7 @@ pub async fn serve_command_route(
       item_ops::handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await
     }
     "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
-    "search" => search::handle_search(config, db, &request.json_data, &session_maybe).await,
+    "search" => search::handle_search(db, &request.json_data, &session_maybe).await,
     "empty-trash" => item_ops::handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     _ => {
       if let Some(session) = &session_maybe {

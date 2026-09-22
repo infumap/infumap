@@ -99,11 +99,6 @@ export function formatSearchEvidenceScore(match: SearchFragmentMatch): string | 
     return `(lexical: ${lexicalScore})`;
   }
 
-  const semanticDistance = formatRawSearchScoreValue(match.semanticDistance);
-  if (semanticDistance != null) {
-    return `(semantic: ${semanticDistance})`;
-  }
-
   return null;
 }
 
