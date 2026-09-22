@@ -43,9 +43,9 @@ pub mod ls;
 pub mod migrate;
 pub mod note;
 pub mod pending;
+pub mod rebuild_search_index;
 pub mod reconcile;
 pub mod restore;
-pub mod search_backfill;
 pub mod stats;
 pub mod upload;
 
