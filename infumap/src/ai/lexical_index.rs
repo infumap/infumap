@@ -11,7 +11,6 @@ use tantivy::{Index, IndexWriter, Searcher, TantivyDocument, Term};
 use tokio::fs;
 
 use crate::ai::search_index_paths::user_index_dir;
-use crate::util::fs::expand_tilde;
 
 pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_DIR_NAME: &str = "document_fragments_tantivy";
 pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "document_fragments_tantivy.tmp";
@@ -121,24 +120,6 @@ impl TantivyDocumentFragmentIndex {
     .await
   }
 
-  pub async fn rebuild_from_fragments(
-    &self,
-    temp_index_dir: &Path,
-    metadata: &FragmentLexicalIndexRebuildMetadata,
-    fragments: &[LexicalFragment],
-  ) -> InfuResult<FragmentLexicalIndexRebuildStatus> {
-    rebuild_fragments_into_index(
-      &self.index_dir,
-      temp_index_dir,
-      metadata,
-      fragments,
-      DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
-      DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION,
-      DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
-    )
-    .await
-  }
-
   pub async fn delete_item_fragments(&self, item_id: &str) -> InfuResult<usize> {
     delete_item_documents_from_index(
       &self.index_dir,
@@ -193,25 +174,6 @@ impl TantivyItemTitleIndex {
   pub async fn rebuild_status(&self) -> InfuResult<Option<FragmentLexicalIndexRebuildStatus>> {
     rebuild_status_for_index(&self.index_dir, ITEM_TITLE_LEXICAL_METADATA_FILENAME, ITEM_TITLE_LEXICAL_INDEX_LABEL)
       .await
-  }
-
-  #[allow(dead_code)]
-  pub async fn rebuild_from_fragments(
-    &self,
-    temp_index_dir: &Path,
-    metadata: &FragmentLexicalIndexRebuildMetadata,
-    fragments: &[LexicalFragment],
-  ) -> InfuResult<FragmentLexicalIndexRebuildStatus> {
-    rebuild_fragments_into_index(
-      &self.index_dir,
-      temp_index_dir,
-      metadata,
-      fragments,
-      ITEM_TITLE_LEXICAL_METADATA_FILENAME,
-      ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
-      ITEM_TITLE_LEXICAL_INDEX_LABEL,
-    )
-    .await
   }
 
   pub async fn search(
@@ -314,29 +276,6 @@ pub fn open_user_item_title_lexical_index(data_dir: &str, user_id: &str) -> Infu
   Ok(TantivyItemTitleIndex::new(item_title_lexical_index_dir(data_dir, user_id)?))
 }
 
-pub async fn remove_document_fragment_lexical_index_dirs(data_dir: &str, user_id: &str) -> InfuResult<usize> {
-  let mut removed = 0;
-  if remove_path_if_exists(&document_fragment_lexical_index_temp_dir(data_dir, user_id)?).await? {
-    removed += 1;
-  }
-  if remove_path_if_exists(&document_fragment_lexical_index_dir(data_dir, user_id)?).await? {
-    removed += 1;
-  }
-  Ok(removed)
-}
-
-#[allow(dead_code)]
-pub async fn remove_item_title_lexical_index_dirs(data_dir: &str, user_id: &str) -> InfuResult<usize> {
-  let mut removed = 0;
-  if remove_path_if_exists(&item_title_lexical_index_temp_dir(data_dir, user_id)?).await? {
-    removed += 1;
-  }
-  if remove_path_if_exists(&item_title_lexical_index_dir(data_dir, user_id)?).await? {
-    removed += 1;
-  }
-  Ok(removed)
-}
-
 async fn rebuild_status_for_index(
   index_dir: &Path,
   metadata_filename: &str,
@@ -362,77 +301,6 @@ async fn rebuild_status_for_index(
     indexed_fragment_count,
     complete: metadata.complete,
   }))
-}
-
-async fn rebuild_fragments_into_index(
-  index_dir: &Path,
-  temp_index_dir: &Path,
-  metadata: &FragmentLexicalIndexRebuildMetadata,
-  fragments: &[LexicalFragment],
-  metadata_filename: &str,
-  schema_version: u32,
-  index_label: &str,
-) -> InfuResult<FragmentLexicalIndexRebuildStatus> {
-  if metadata.expected_fragment_count != fragments.len() {
-    return Err(
-      format!(
-        "Cannot rebuild {} '{}': metadata expects {} fragment(s), got {}.",
-        index_label,
-        index_dir.display(),
-        metadata.expected_fragment_count,
-        fragments.len()
-      )
-      .into(),
-    );
-  }
-
-  remove_path_if_exists(temp_index_dir).await?;
-  if let Some(parent) = temp_index_dir.parent() {
-    fs::create_dir_all(parent)
-      .await
-      .map_err(|e| format!("Could not create {} temp parent directory '{}': {}", index_label, parent.display(), e))?;
-  }
-  fs::create_dir_all(temp_index_dir)
-    .await
-    .map_err(|e| format!("Could not create {} temp directory '{}': {}", index_label, temp_index_dir.display(), e))?;
-
-  let (schema, fields) = lexical_schema();
-  let index = Index::create_in_dir(temp_index_dir, schema)
-    .map_err(|e| format!("Could not create {} '{}': {}", index_label, temp_index_dir.display(), e))?;
-  let mut writer: IndexWriter<TantivyDocument> = index
-    .writer(INDEX_WRITER_HEAP_BYTES)
-    .map_err(|e| format!("Could not create {} writer '{}': {}", index_label, temp_index_dir.display(), e))?;
-
-  for fragment in fragments {
-    writer.add_document(tantivy_document_for_fragment(fields, fragment)).map_err(|e| {
-      format!(
-        "Could not add lexical fragment '{}:{}' to {} '{}': {}",
-        fragment.item_id,
-        fragment.ordinal,
-        index_label,
-        temp_index_dir.display(),
-        e
-      )
-    })?;
-  }
-  writer.commit().map_err(|e| format!("Could not commit {} '{}': {}", index_label, temp_index_dir.display(), e))?;
-
-  write_stored_metadata(temp_index_dir, metadata, true, metadata_filename, schema_version, index_label).await?;
-
-  remove_path_if_exists(index_dir).await?;
-  fs::rename(temp_index_dir, index_dir).await.map_err(|e| {
-    format!(
-      "Could not atomically replace {} '{}' with '{}': {}",
-      index_label,
-      index_dir.display(),
-      temp_index_dir.display(),
-      e
-    )
-  })?;
-
-  rebuild_status_for_index(index_dir, metadata_filename, index_label)
-    .await?
-    .ok_or_else(|| format!("{} '{}' is missing metadata after rebuild.", index_label, index_dir.display()).into())
 }
 
 async fn delete_item_documents_from_index(
@@ -848,25 +716,4 @@ fn compact_index(index_dir: &Path, index_label: &str) -> InfuResult<()> {
 
 async fn path_ref_exists(path: &Path) -> bool {
   fs::metadata(path).await.is_ok()
-}
-
-async fn remove_path_if_exists(path: &Path) -> InfuResult<bool> {
-  let Some(path_str) = path.to_str() else {
-    return Err(format!("Could not interpret path '{}'.", path.display()).into());
-  };
-  let Some(expanded_path) = expand_tilde(path_str) else {
-    return Err(format!("Could not expand path '{}'.", path.display()).into());
-  };
-  match fs::metadata(&expanded_path).await {
-    Ok(metadata) => {
-      if metadata.is_dir() {
-        fs::remove_dir_all(&expanded_path).await?;
-      } else {
-        fs::remove_file(&expanded_path).await?;
-      }
-      Ok(true)
-    }
-    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
-    Err(e) => Err(format!("Could not inspect '{}': {}", expanded_path.display(), e).into()),
-  }
 }

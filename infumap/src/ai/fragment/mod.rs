@@ -9,5 +9,5 @@ pub use artifacts::{
 };
 pub use types::{
   FragmentBuildOutcome, FragmentInput, FragmentSource, FragmentSourceKind, ITEM_TITLE_SOURCE_KIND,
-  is_lexical_search_source_kind, is_markdown_document_source_kind, is_semantic_search_source_kind,
+  is_lexical_search_source_kind, is_markdown_document_source_kind,
 };
