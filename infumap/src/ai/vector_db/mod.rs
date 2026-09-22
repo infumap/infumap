@@ -9,11 +9,10 @@ use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
 use tokio::fs;
 
-use crate::util::fs::{expand_tilde, path_exists};
+use crate::ai::search_index_paths::user_index_dir;
 
 pub mod sqlite_vec;
 
-pub const USER_INDEX_DIR_NAME: &str = "indexes";
 pub const FRAGMENT_VECTOR_DB_FILENAME: &str = "fragments.sqlite3";
 pub const FRAGMENT_VECTOR_DB_TEMP_FILENAME: &str = "fragments.sqlite3.tmp";
 
@@ -116,21 +115,6 @@ pub fn fragment_vector_db_operation_lock(db_path: &Path) -> Arc<tokio::sync::Mut
     Err(poisoned) => poisoned.into_inner(),
   };
   locks.entry(db_path.to_path_buf()).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
-}
-
-pub fn user_index_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push(USER_INDEX_DIR_NAME);
-  Ok(path)
-}
-
-pub async fn ensure_user_index_dir(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let index_dir = user_index_dir(data_dir, user_id)?;
-  if !path_exists(&index_dir).await {
-    fs::create_dir_all(&index_dir).await?;
-  }
-  Ok(index_dir)
 }
 
 pub fn fragment_vector_db_path(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {

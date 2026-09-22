@@ -54,12 +54,12 @@ use crate::ai::fragment::{
   ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_markdown_document_source_kind,
   is_semantic_search_source_kind,
 };
+use crate::ai::fragment_indexing::delete_item_search_index_entries;
 use crate::ai::geo::delete_item_geo_artifacts;
 use crate::ai::image_pipeline::{
   dequeue_image_semantic_pipeline_item_if_active, enqueue_image_semantic_pipeline_item_if_active,
 };
 use crate::ai::image_tagging::{delete_item_image_tag_dir, should_tag_image_item};
-use crate::ai::indexing::delete_item_fragment_index_entries;
 use crate::ai::lexical_index::{
   FragmentLexicalHit, LexicalQueryMode, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
   user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,

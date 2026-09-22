@@ -11,8 +11,8 @@ use tokio::time::{Instant, timeout_at};
 
 use crate::ai::fragment::sources::{ItemTitleFragment, item_title_fragment_for_item};
 use crate::ai::lexical_index::{LexicalFragment, open_user_item_title_lexical_index};
+use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::user_id_for_log;
-use crate::ai::vector_db::ensure_user_index_dir;
 use crate::storage::db::Db;
 
 const ITEM_TITLE_INDEXING_DEBOUNCE_SECS: u64 = 2;
