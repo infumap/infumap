@@ -298,20 +298,35 @@ export async function ensureQueryItemUnderQueries(store: StoreContextModel, quer
   }
 }
 
+export async function preloadQueries(store: StoreContextModel): Promise<void> {
+  const userMaybe = store.user.getUserMaybe();
+  if (!userMaybe) { return; }
+
+  const queriesPageId = userMaybe.queriesPageId;
+  let queriesPageMaybe = itemState.get(queriesPageId);
+  if (!queriesPageMaybe) {
+    const loadResult = await initiateLoadItemMaybe(store, queriesPageId);
+    if (loadResult == InitiateLoadResult.Failed) {
+      return;
+    }
+    queriesPageMaybe = itemState.get(queriesPageId);
+  }
+
+  if (!queriesPageMaybe || !isPage(queriesPageMaybe)) {
+    return;
+  }
+
+  await initiateLoadChildItemsMaybe(store, { itemId: queriesPageId, linkIdMaybe: null });
+}
+
 export async function navigateToQueries(store: StoreContextModel): Promise<void> {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) { return; }
   store.overlay.autoFocusSearchInput.set(true);
 
   const queriesPageId = userMaybe.queriesPageId;
-  let queriesPageMaybe = itemState.get(queriesPageId);
-  if (!queriesPageMaybe) {
-    const loadResult = await initiateLoadItemMaybe(store, queriesPageId);
-    if (loadResult == InitiateLoadResult.Failed || !itemState.get(queriesPageId)) {
-      return;
-    }
-    queriesPageMaybe = itemState.get(queriesPageId);
-  }
+  await preloadQueries(store);
+  const queriesPageMaybe = itemState.get(queriesPageId);
 
   if (!queriesPageMaybe || !isPage(queriesPageMaybe)) {
     return;
