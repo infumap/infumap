@@ -19,7 +19,7 @@
 import { Component, Show, createEffect } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
-import { ArrangeAlgorithm, asPageItem } from "../../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, pageUsesEmbeddedInteractiveMode } from "../../../items/page-item";
 import { itemState } from "../../../store/ItemState";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { InfuColorButton } from "../../library/InfuColorButton";
@@ -136,7 +136,7 @@ export const Toolbar_Page: Component = () => {
 
   const isInteractive = () => {
     store.touchToolbarDependency();
-    return !(!(pageItem().flags & PageFlags.EmbeddedInteractive));
+    return pageUsesEmbeddedInteractiveMode(pageItem());
   }
 
   const focusIsInDock = () => {
@@ -164,7 +164,8 @@ export const Toolbar_Page: Component = () => {
 
   const showInteractiveButton = () => {
     store.touchToolbarDependency();
-    return !isQueriesPage() && !focusIsInDock() && !focusIsInsideTable();
+    return pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar &&
+      !isQueriesPage() && !focusIsInDock() && !focusIsInsideTable();
   }
 
   const showOrderByButton = () => {

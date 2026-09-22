@@ -535,13 +535,13 @@ export function arrange_calendar_page(
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
+  // Nested calendars, including dock items and pages carrying the generic embedded-interactive flag,
+  // use the interactive mini-calendar. Only actual navigation roots use the full calendar layout.
   const rendersAsTranslucentPage =
     !(flags & (
       ArrangeItemFlags.IsTopRoot |
       ArrangeItemFlags.IsPopupRoot |
-      ArrangeItemFlags.IsListPageMainRoot |
-      ArrangeItemFlags.IsEmbeddedInteractiveRoot |
-      ArrangeItemFlags.IsDockRoot
+      ArrangeItemFlags.IsListPageMainRoot
     ));
 
   const childAreaBoundsPx = (() => {

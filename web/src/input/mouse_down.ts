@@ -34,8 +34,7 @@ import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { HitInfoFns } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { PageFlags } from "../items/base/flags-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { getToolbarFocusItem } from "../components/toolbar/toolbarFocus";
@@ -399,7 +398,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       const editingPageIsEmbeddedInteractive =
         editingItemType == ItemType.Page &&
         ((!!editingPageVe && !!(editingPageVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) ||
-          (!!editingItem && isPage(editingItem) && !!(asPageItem(editingItem).flags & PageFlags.EmbeddedInteractive)));
+          (!!editingItem && isPage(editingItem) && pageUsesEmbeddedInteractiveMode(asPageItem(editingItem))));
       const focusRootPageOnRightClick =
         buttonNumber != MOUSE_LEFT &&
         (editingItemType == ItemType.Note ||
@@ -545,7 +544,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     const shouldClearEmbeddedInteractiveFocus =
       isPage(focusItem) &&
       ((!!focusVe && !!(focusVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) ||
-        !!(asPageItem(focusItem).flags & PageFlags.EmbeddedInteractive)) &&
+        pageUsesEmbeddedInteractiveMode(asPageItem(focusItem))) &&
       currentPagePath != null &&
       focusPath !== currentPagePath;
 
@@ -971,7 +970,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
 
   if (currentRootPageItem &&
     isPage(currentRootPageItem) &&
-    !!(asPageItem(currentRootPageItem).flags & PageFlags.EmbeddedInteractive) &&
+    pageUsesEmbeddedInteractiveMode(asPageItem(currentRootPageItem)) &&
     store.history.currentPopupSpec() == null &&
     store.history.peekPrevPageVeid() != null) {
     if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }

@@ -17,8 +17,7 @@
 */
 
 import { itemCanEdit } from "../items/base/capabilities-item";
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
-import { PageFlags } from "../items/base/flags-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { TableFns, asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -107,7 +106,7 @@ function targetShouldKeepNativeKeyboardBehavior(ev: KeyboardEvent): boolean {
 function pageEmbeddedInteractiveStatusAppliesForEnter(ve: VisualElement): boolean {
   return isPage(ve.displayItem) &&
     !(ve.flags & VisualElementFlags.InsideTable) &&
-    !!(asPageItem(ve.displayItem).flags & PageFlags.EmbeddedInteractive);
+    pageUsesEmbeddedInteractiveMode(asPageItem(ve.displayItem));
 }
 
 interface ActiveSearchWorkspace {
