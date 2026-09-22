@@ -72,7 +72,6 @@ export interface SearchResultStats {
 export interface SearchFragmentMatch {
   fragmentOrdinal: number,
   sourceKind: string,
-  semanticDistance?: number,
   lexicalScore?: number,
   score?: number,
   text: string,

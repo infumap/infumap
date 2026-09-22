@@ -18,13 +18,10 @@ use super::*;
 
 const SEARCH_RRF_K: f64 = 60.0;
 const SEARCH_TITLE_LEXICAL_WEIGHT: f64 = 1.35;
-const SEARCH_LEXICAL_WEIGHT: f64 = 1.15;
-const SEARCH_SEMANTIC_WEIGHT: f64 = 1.0;
+const SEARCH_FRAGMENT_LEXICAL_WEIGHT: f64 = 1.15;
 const SEARCH_CANDIDATE_OVERFETCH: i64 = 50;
 const SEARCH_LEXICAL_FRAGMENT_MULTIPLIER: usize = 4;
 const SEARCH_LEXICAL_MATCHES_PER_RESULT: usize = 2;
-const SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER: usize = 4;
-const SEARCH_EMBEDDING_TIMEOUT_SECS: u64 = 30;
 const SEARCH_FRAGMENT_MATCH_MAX_CHARS: usize = 1250;
 const SEARCH_MATCH_SNIPPET_MAX_SENTENCES: usize = 3;
 const SEARCH_MATCH_SNIPPET_MAX_SENTENCE_CHARS: usize = 220;
@@ -86,8 +83,6 @@ pub struct SearchFragmentMatch {
   pub fragment_ordinal: usize,
   #[serde(rename = "sourceKind")]
   pub source_kind: String,
-  #[serde(rename = "semanticDistance", skip_serializing_if = "Option::is_none")]
-  pub semantic_distance: Option<f32>,
   #[serde(rename = "lexicalScore", skip_serializing_if = "Option::is_none")]
   pub lexical_score: Option<f32>,
   pub score: f32,
@@ -105,18 +100,6 @@ pub struct SearchResponse {
   pub results: Vec<SearchResult>,
   #[serde(rename = "hasMore")]
   pub has_more: bool,
-}
-
-#[derive(Clone, Copy)]
-struct IndexedSearchBackends {
-  title_lexical: bool,
-  document_lexical: bool,
-  semantic: bool,
-}
-
-impl IndexedSearchBackends {
-  const MIXED: Self = Self { title_lexical: true, document_lexical: true, semantic: true };
-  const LEXICAL: Self = Self { title_lexical: true, document_lexical: true, semantic: false };
 }
 
 #[allow(dead_code)]
@@ -227,7 +210,6 @@ pub(super) mod compact {
 }
 
 pub(super) async fn handle_search(
-  config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
   session_maybe: &Option<Session>,
@@ -240,7 +222,7 @@ pub(super) async fn handle_search(
   let request: SearchRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
 
-  let response = run_search(config, db, request, session).await?;
+  let response = run_search(db, request, session).await?;
   let serialized_results = serde_json::to_string(&response)?;
 
   debug!("Executed 'search' command for user '{}'.", session.user_id);
@@ -249,7 +231,6 @@ pub(super) async fn handle_search(
 }
 
 pub(super) async fn run_search(
-  config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   request: SearchRequest,
   session: &Session,
@@ -264,7 +245,6 @@ pub(super) async fn run_search(
 
   let results = if full_user_search {
     indexed_search_results(
-      Some(config),
       db,
       &data_dir,
       &session.user_id,
@@ -274,7 +254,6 @@ pub(super) async fn run_search(
       &request.text,
       start_result,
       end_result,
-      IndexedSearchBackends::MIXED,
     )
     .await?
   } else {
@@ -306,7 +285,6 @@ pub(super) async fn run_lexical_search(
   };
 
   let results = indexed_search_results(
-    None,
     db,
     &data_dir,
     &session.user_id,
@@ -316,7 +294,6 @@ pub(super) async fn run_lexical_search(
     &request.text,
     start_result,
     end_result,
-    IndexedSearchBackends::LEXICAL,
   )
   .await?;
 
@@ -371,7 +348,6 @@ fn search_scope_item_ids(db: &Db, search_root_id: &Uid, user_id: &Uid) -> InfuRe
 }
 
 async fn indexed_search_results(
-  config: Option<Arc<Config>>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
@@ -381,76 +357,52 @@ async fn indexed_search_results(
   search_text: &str,
   start_result: i64,
   end_result: i64,
-  backends: IndexedSearchBackends,
 ) -> InfuResult<Vec<SearchResult>> {
   let fragment_result_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
     .map_err(|_| "Search result limit is too large.")?;
 
-  let title_results = if backends.title_lexical {
-    match title_lexical_search_results(
-      db,
-      data_dir,
-      user_id,
-      search_root_id,
-      allowed_item_ids,
-      lexical_query_mode,
-      search_text,
-      fragment_result_limit,
-    )
-    .await
-    {
-      Ok(results) => results,
-      Err(e) => {
-        warn!("Title lexical search failed for user '{}'; falling back without title lexical results: {}", user_id, e);
-        Vec::new()
-      }
+  let title_results = match title_lexical_search_results(
+    db,
+    data_dir,
+    user_id,
+    search_root_id,
+    allowed_item_ids,
+    lexical_query_mode,
+    search_text,
+    fragment_result_limit,
+  )
+  .await
+  {
+    Ok(results) => results,
+    Err(e) => {
+      warn!("Title lexical search failed for user '{}'; falling back without title lexical results: {}", user_id, e);
+      Vec::new()
     }
-  } else {
-    Vec::new()
   };
 
-  let lexical_results = if backends.document_lexical {
-    match lexical_search_results(
-      db,
-      data_dir,
-      user_id,
-      search_root_id,
-      allowed_item_ids,
-      lexical_query_mode,
-      search_text,
-      fragment_result_limit,
-    )
-    .await
-    {
-      Ok(results) => results,
-      Err(e) => {
-        warn!(
-          "Lexical fragment search failed for user '{}'; falling back without lexical fragment results: {}",
-          user_id, e
-        );
-        Vec::new()
-      }
+  let search_fragment_results = match search_fragment_lexical_search_results(
+    db,
+    data_dir,
+    user_id,
+    search_root_id,
+    allowed_item_ids,
+    lexical_query_mode,
+    search_text,
+    fragment_result_limit,
+  )
+  .await
+  {
+    Ok(results) => results,
+    Err(e) => {
+      warn!(
+        "Search fragment lexical search failed for user '{}'; falling back without search fragment results: {}",
+        user_id, e
+      );
+      Vec::new()
     }
-  } else {
-    Vec::new()
   };
 
-  let semantic_results = if backends.semantic {
-    let config = config.ok_or("Semantic search requires configuration.")?;
-    match semantic_search_results(config, db, data_dir, user_id, search_root_id, search_text, fragment_result_limit)
-      .await
-    {
-      Ok(results) => results,
-      Err(e) => {
-        warn!("Semantic search failed for user '{}'; falling back without semantic fragment results: {}", user_id, e);
-        Vec::new()
-      }
-    }
-  } else {
-    Vec::new()
-  };
-
-  let mixed = mix_search_results(title_results, lexical_results, semantic_results);
+  let mixed = mix_search_results(title_results, search_fragment_results);
   Ok(paginate_mixed_results(mixed, start_result, end_result))
 }
 
@@ -583,7 +535,7 @@ async fn title_lexical_search_results_inner(
   Ok(results)
 }
 
-async fn lexical_search_results(
+async fn search_fragment_lexical_search_results(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
@@ -594,7 +546,7 @@ async fn lexical_search_results(
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
-  let result = lexical_search_results_inner(
+  let result = search_fragment_lexical_search_results_inner(
     db,
     data_dir,
     user_id,
@@ -609,7 +561,7 @@ async fn lexical_search_results(
   result
 }
 
-async fn lexical_search_results_inner(
+async fn search_fragment_lexical_search_results_inner(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
@@ -644,7 +596,7 @@ async fn lexical_search_results_inner(
     .collect::<Vec<_>>();
   if !fragment_hits.is_empty() {
     debug!(
-      "Lexical fragment search top hits for user '{}': {}",
+      "Search fragment lexical search top hits for user '{}': {}",
       user_id,
       fragment_hits
         .iter()
@@ -674,127 +626,6 @@ async fn lexical_search_results_inner(
     }
   }
   Ok(results)
-}
-
-async fn semantic_search_results(
-  config: Arc<Config>,
-  db: &Arc<tokio::sync::Mutex<Db>>,
-  data_dir: &str,
-  user_id: &Uid,
-  search_root_id: &Uid,
-  search_text: &str,
-  limit: usize,
-) -> InfuResult<Vec<SearchResult>> {
-  let started = Instant::now();
-  let result = semantic_search_results_inner(config, db, data_dir, user_id, search_root_id, search_text, limit).await;
-  record_search_backend_metrics("semantic", started, &result);
-  result
-}
-
-async fn semantic_search_results_inner(
-  config: Arc<Config>,
-  db: &Arc<tokio::sync::Mutex<Db>>,
-  data_dir: &str,
-  user_id: &Uid,
-  search_root_id: &Uid,
-  search_text: &str,
-  limit: usize,
-) -> InfuResult<Vec<SearchResult>> {
-  if limit == 0 || search_text.trim().is_empty() {
-    return Ok(Vec::new());
-  }
-
-  if !user_fragment_vector_db_exists(data_dir, user_id).await? {
-    return Ok(Vec::new());
-  }
-
-  let vector_db = open_user_fragment_vector_db(data_dir, user_id, FragmentVectorDbBackend::SqliteVec)?;
-  let Some(index_status) = vector_db.rebuild_status().await? else {
-    return Ok(Vec::new());
-  };
-  if !index_status.complete {
-    return Ok(Vec::new());
-  }
-
-  let Some(embed_url) = resolve_configured_text_embedding_service_url(config.as_ref()).await? else {
-    return Ok(Vec::new());
-  };
-  let client = reqwest::ClientBuilder::new()
-    .timeout(Duration::from_secs(SEARCH_EMBEDDING_TIMEOUT_SECS))
-    .build()
-    .map_err(|e| format!("Could not build semantic search HTTP client: {}", e))?;
-  let embedding_batch = embed_texts(
-    &client,
-    &embed_url,
-    &[TextEmbeddingInput::retrieval_query(Some("search-query".to_owned()), search_text.to_owned())],
-  )
-  .await?;
-  let query_embedding =
-    embedding_batch.embeddings.into_iter().next().ok_or("Text embedding service returned no query embedding.")?;
-  if query_embedding.is_empty() {
-    return Ok(Vec::new());
-  }
-  validate_text_embedding_vector("Text embedding service returned query embedding", &query_embedding)?;
-  debug!(
-    "Semantic search query embedding for user '{}': dims={}, norm={:.6}, fingerprint={}",
-    user_id,
-    query_embedding.len(),
-    text_embedding_vector_norm(&query_embedding),
-    text_embedding_vector_fingerprint(&query_embedding)
-  );
-
-  let fragment_limit = limit.saturating_mul(SEARCH_SEMANTIC_FRAGMENT_MULTIPLIER).max(limit);
-  let fragment_hits = vector_db
-    .search(&query_embedding, fragment_limit)
-    .await?
-    .into_iter()
-    .filter(|hit| is_semantic_search_source_kind(&hit.source_kind))
-    .collect::<Vec<_>>();
-  if !fragment_hits.is_empty() {
-    debug!(
-      "Semantic search top fragment hits for user '{}': {}",
-      user_id,
-      fragment_hits
-        .iter()
-        .take(8)
-        .map(|hit| format!("{}:{}@{:.6}", hit.item_id, hit.ordinal, hit.distance))
-        .collect::<Vec<_>>()
-        .join(", ")
-    );
-  }
-  let fragment_hits = select_best_fragment_hit_per_item(fragment_hits);
-
-  let mut results = Vec::new();
-  let db = db.lock().await;
-  for hit in fragment_hits {
-    if results.len() >= limit {
-      break;
-    }
-    if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
-      result.score = semantic_distance_to_search_score(hit.distance);
-      result.fragment_match = Some(search_fragment_match_for_hit(&hit, search_text));
-      results.push(result);
-    }
-  }
-  Ok(results)
-}
-
-fn select_best_fragment_hit_per_item(fragment_hits: Vec<FragmentVectorHit>) -> Vec<FragmentVectorHit> {
-  let mut best_by_item = HashMap::<String, FragmentVectorHit>::new();
-  for hit in fragment_hits {
-    match best_by_item.get(&hit.item_id) {
-      Some(best) if best.distance <= hit.distance => {}
-      _ => {
-        best_by_item.insert(hit.item_id.clone(), hit);
-      }
-    }
-  }
-
-  let mut hits = best_by_item.into_values().collect::<Vec<_>>();
-  hits.sort_by(|a, b| {
-    a.distance.total_cmp(&b.distance).then_with(|| a.item_id.cmp(&b.item_id)).then_with(|| a.ordinal.cmp(&b.ordinal))
-  });
-  hits
 }
 
 fn select_top_lexical_fragment_hits_per_item(
@@ -915,14 +746,12 @@ struct SearchMergeCandidate {
 
 fn mix_search_results(
   title_results: Vec<SearchResult>,
-  lexical_results: Vec<SearchResult>,
-  semantic_results: Vec<SearchResult>,
+  search_fragment_results: Vec<SearchResult>,
 ) -> Vec<SearchResult> {
   let mut candidates: HashMap<Uid, SearchMergeCandidate> = HashMap::new();
 
   add_ranked_search_results(&mut candidates, title_results, SEARCH_TITLE_LEXICAL_WEIGHT);
-  add_ranked_search_results(&mut candidates, lexical_results, SEARCH_LEXICAL_WEIGHT);
-  add_ranked_search_results(&mut candidates, semantic_results, SEARCH_SEMANTIC_WEIGHT);
+  add_ranked_search_results(&mut candidates, search_fragment_results, SEARCH_FRAGMENT_LEXICAL_WEIGHT);
 
   let mut candidates = candidates.into_values().collect::<Vec<_>>();
   candidates.sort_by(|a, b| {
@@ -992,10 +821,6 @@ fn merged_rank_score_to_search_score(rank_score: f64, max_rank_score: f64) -> f3
   clamp_search_score((rank_score / max_rank_score) as f32)
 }
 
-fn semantic_distance_to_search_score(distance: f32) -> f32 {
-  clamp_search_score(1.0 - distance)
-}
-
 fn bm25_score_to_search_score(score: f32) -> f32 {
   if score <= 0.0 {
     return 0.0;
@@ -1031,28 +856,8 @@ fn search_fragment_match_for_lexical_hit(hit: &FragmentLexicalHit, search_text: 
   SearchFragmentMatch {
     fragment_ordinal: hit.ordinal,
     source_kind: hit.source_kind.clone(),
-    semantic_distance: None,
     lexical_score: Some(hit.score),
     score: bm25_score_to_search_score(hit.score),
-    text,
-    text_truncated,
-    page_start: hit.page_start,
-    page_end: hit.page_end,
-  }
-}
-
-fn search_fragment_match_for_hit(
-  hit: &crate::ai::vector_db::FragmentVectorHit,
-  search_text: &str,
-) -> SearchFragmentMatch {
-  let (text, text_truncated) =
-    search_match_excerpt(&hit.source_kind, &hit.text, search_text, SEARCH_FRAGMENT_MATCH_MAX_CHARS);
-  SearchFragmentMatch {
-    fragment_ordinal: hit.ordinal,
-    source_kind: hit.source_kind.clone(),
-    semantic_distance: Some(hit.distance),
-    lexical_score: None,
-    score: semantic_distance_to_search_score(hit.distance),
     text,
     text_truncated,
     page_start: hit.page_start,
