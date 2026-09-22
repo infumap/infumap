@@ -61,10 +61,6 @@ impl FragmentIndexRebuildPolicy {
   fn manual(continue_rebuild: bool) -> FragmentIndexRebuildPolicy {
     FragmentIndexRebuildPolicy { continue_rebuild, skip_current: continue_rebuild }
   }
-
-  fn background() -> FragmentIndexRebuildPolicy {
-    FragmentIndexRebuildPolicy { continue_rebuild: false, skip_current: true }
-  }
 }
 
 pub async fn rebuild_all_fragment_indexes(
@@ -76,17 +72,6 @@ pub async fn rebuild_all_fragment_indexes(
   let plans = load_fragment_index_plans(data_dir).await?;
   rebuild_fragment_index_plans(data_dir, plans, client, embed_url, FragmentIndexRebuildPolicy::manual(continue_rebuild))
     .await
-}
-
-pub async fn reconcile_fragment_indexes_for_loaded_items(
-  data_dir: &str,
-  user_ids: &[String],
-  loaded_items: Vec<LoadedFragmentIndexItem>,
-  client: Option<&reqwest::Client>,
-  embed_url: Option<&Url>,
-) -> InfuResult<EmbedRebuildSummary> {
-  let plans = load_fragment_index_plans_for_loaded_items(data_dir, user_ids, loaded_items).await?;
-  rebuild_fragment_index_plans(data_dir, plans, client, embed_url, FragmentIndexRebuildPolicy::background()).await
 }
 
 async fn rebuild_fragment_index_plans(
@@ -119,6 +104,50 @@ pub async fn delete_item_fragment_index_entries(data_dir: &str, user_id: &str, i
     deleted += lexical_index.delete_item_fragments(item_id).await?;
   }
   Ok(deleted)
+}
+
+pub async fn load_item_lexical_fragments(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<Vec<LexicalFragment>> {
+  let fragment_item = load_fragment_item_from_manifest(data_dir, user_id, item_id.to_owned()).await?;
+  let fragments = if is_lexical_search_source_kind(&fragment_item.source_kind) {
+    let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
+    if path_exists(&fragments_path).await {
+      let records = load_fragment_records(&fragments_path).await?;
+      if let Some(expected_count) = fragment_item.fragment_count
+        && expected_count != records.len()
+      {
+        return Err(
+          format!(
+            "Fragment manifest for item '{}' says {} fragment(s), but '{}' contains {} non-empty fragment record(s).",
+            item_id,
+            expected_count,
+            fragments_path.display(),
+            records.len()
+          )
+          .into(),
+        );
+      }
+      records
+        .into_iter()
+        .map(|record| LexicalFragment {
+          item_id: item_id.to_owned(),
+          ordinal: record.ordinal,
+          source_kind: fragment_item.source_kind.clone(),
+          text: record.text,
+          page_start: record.page_start,
+          page_end: record.page_end,
+        })
+        .collect::<Vec<_>>()
+    } else {
+      Vec::new()
+    }
+  } else {
+    Vec::new()
+  };
+  Ok(fragments)
 }
 
 async fn load_fragment_index_plans(data_dir: &str) -> InfuResult<Vec<UserFragmentIndexPlan>> {

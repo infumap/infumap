@@ -44,6 +44,7 @@ async fn main() {
     .subcommand(cli::pending::make_clap_subcommand())
     .subcommand(cli::reconcile::make_clap_subcommand())
     .subcommand(cli::restore::make_clap_subcommand())
+    .subcommand(cli::search_backfill::make_clap_subcommand())
     .subcommand(cli::extract::make_clap_subcommand())
     .subcommand(cli::fragment::make_clap_subcommand())
     .subcommand(cli::geo::make_clap_subcommand())
@@ -70,6 +71,7 @@ async fn main() {
         "pending" => cli::pending::execute(&arg_sub_matches).await,
         "reconcile" => cli::reconcile::execute(&arg_sub_matches).await,
         "restore" => cli::restore::execute(&arg_sub_matches).await,
+        "search-backfill" => cli::search_backfill::execute(&arg_sub_matches).await,
         "extract" => cli::extract::execute(&arg_sub_matches).await,
         "fragment" => cli::fragment::execute(&arg_sub_matches).await,
         "geo" => cli::geo::execute(&arg_sub_matches).await,

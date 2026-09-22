@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use infusdk::util::infu::InfuResult;
 use serde::{Deserialize, Serialize};
 use tantivy::collector::{Count, TopDocs};
+use tantivy::indexer::NoMergePolicy;
 use tantivy::query::{BooleanQuery, EmptyQuery, Query, QueryParser, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, Searcher, TantivyDocument, Term};
@@ -30,6 +31,8 @@ const PAGE_START_FIELD: &str = "page_start";
 const PAGE_END_FIELD: &str = "page_end";
 const TEXT_FIELD: &str = "text";
 const INDEX_WRITER_HEAP_BYTES: usize = 50_000_000;
+const INCREMENTAL_INDEX_WRITER_HEAP_BYTES: usize = 20_000_000;
+const INCREMENTAL_SOURCE_DIGEST: &str = "incremental";
 const NATURAL_TEXT_QUERY_MAX_TERMS: usize = 12;
 const DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL: &str = "document fragment lexical index";
 const ITEM_TITLE_LEXICAL_INDEX_LABEL: &str = "item title lexical index";
@@ -147,6 +150,21 @@ impl TantivyDocumentFragmentIndex {
     .await
   }
 
+  pub async fn replace_items_fragments(&self, updates: &[(&str, &[LexicalFragment])]) -> InfuResult<usize> {
+    replace_item_documents_in_index(
+      &self.index_dir,
+      updates,
+      DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
+      DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION,
+      DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
+    )
+    .await
+  }
+
+  pub async fn compact(&self) -> InfuResult<()> {
+    compact_index(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL)
+  }
+
   pub async fn search(
     &self,
     query_text: &str,
@@ -213,6 +231,21 @@ impl TantivyItemTitleIndex {
       ITEM_TITLE_LEXICAL_INDEX_LABEL,
     )
     .await
+  }
+
+  pub async fn replace_items_titles(&self, updates: &[(&str, &[LexicalFragment])]) -> InfuResult<usize> {
+    replace_item_documents_in_index(
+      &self.index_dir,
+      updates,
+      ITEM_TITLE_LEXICAL_METADATA_FILENAME,
+      ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
+      ITEM_TITLE_LEXICAL_INDEX_LABEL,
+    )
+    .await
+  }
+
+  pub async fn compact(&self) -> InfuResult<()> {
+    compact_index(&self.index_dir, ITEM_TITLE_LEXICAL_INDEX_LABEL)
   }
 }
 
@@ -426,8 +459,9 @@ async fn delete_item_documents_from_index(
   }
 
   let mut writer: IndexWriter<TantivyDocument> = index
-    .writer(INDEX_WRITER_HEAP_BYTES)
+    .writer(INCREMENTAL_INDEX_WRITER_HEAP_BYTES)
     .map_err(|e| format!("Could not open {} writer '{}': {}", index_label, index_dir.display(), e))?;
+  writer.set_merge_policy(Box::new(NoMergePolicy));
   writer.delete_term(term);
   writer.commit().map_err(|e| format!("Could not commit {} delete '{}': {}", index_label, index_dir.display(), e))?;
 
@@ -448,6 +482,82 @@ async fn delete_item_documents_from_index(
   }
 
   Ok(deleted_count)
+}
+
+async fn replace_item_documents_in_index(
+  index_dir: &Path,
+  updates: &[(&str, &[LexicalFragment])],
+  metadata_filename: &str,
+  schema_version: u32,
+  index_label: &str,
+) -> InfuResult<usize> {
+  for (item_id, fragments) in updates {
+    if item_id.trim().is_empty() {
+      return Err(format!("Cannot update {} for an empty item id.", index_label).into());
+    }
+    if let Some(fragment) = fragments.iter().find(|fragment| fragment.item_id != *item_id) {
+      return Err(
+        format!("Cannot update {} item '{}': fragment belongs to item '{}'.", index_label, item_id, fragment.item_id)
+          .into(),
+      );
+    }
+  }
+
+  if !path_ref_exists(index_dir).await {
+    if updates.iter().all(|(_, fragments)| fragments.is_empty()) {
+      return Ok(0);
+    }
+    if let Some(parent) = index_dir.parent() {
+      fs::create_dir_all(parent)
+        .await
+        .map_err(|e| format!("Could not create {} parent directory '{}': {}", index_label, parent.display(), e))?;
+    }
+    fs::create_dir_all(index_dir)
+      .await
+      .map_err(|e| format!("Could not create {} directory '{}': {}", index_label, index_dir.display(), e))?;
+    let (schema, _) = lexical_schema();
+    Index::create_in_dir(index_dir, schema)
+      .map_err(|e| format!("Could not create {} '{}': {}", index_label, index_dir.display(), e))?;
+  }
+
+  let index = open_tantivy_index(index_dir, index_label)?;
+  let schema = index.schema();
+  let fields = fields_from_schema(&schema, index_label)?;
+  let mut writer: IndexWriter<TantivyDocument> = index
+    .writer(INCREMENTAL_INDEX_WRITER_HEAP_BYTES)
+    .map_err(|e| format!("Could not open {} writer '{}': {}", index_label, index_dir.display(), e))?;
+  writer.set_merge_policy(Box::new(NoMergePolicy));
+  for (item_id, fragments) in updates {
+    writer.delete_term(Term::from_field_text(fields.item_id, item_id));
+    for fragment in *fragments {
+      writer.add_document(tantivy_document_for_fragment(fields, fragment)).map_err(|e| {
+        format!(
+          "Could not add lexical fragment '{}:{}' to {} '{}': {}",
+          fragment.item_id,
+          fragment.ordinal,
+          index_label,
+          index_dir.display(),
+          e
+        )
+      })?;
+    }
+  }
+  writer.commit().map_err(|e| format!("Could not commit {} update '{}': {}", index_label, index_dir.display(), e))?;
+
+  let fragment_count = index_doc_count(&index, index_label)?;
+  write_stored_metadata(
+    index_dir,
+    &FragmentLexicalIndexRebuildMetadata {
+      source_digest: INCREMENTAL_SOURCE_DIGEST.to_owned(),
+      expected_fragment_count: fragment_count,
+    },
+    true,
+    metadata_filename,
+    schema_version,
+    index_label,
+  )
+  .await?;
+  Ok(updates.iter().map(|(_, fragments)| fragments.len()).sum())
 }
 
 async fn search_index(
@@ -699,6 +809,30 @@ fn open_tantivy_index(index_dir: &Path, index_label: &str) -> InfuResult<Index> 
 fn index_doc_count(index: &Index, index_label: &str) -> InfuResult<usize> {
   let reader = index.reader().map_err(|e| format!("Could not open {} reader: {}", index_label, e))?;
   usize::try_from(reader.searcher().num_docs()).map_err(|e| e.into())
+}
+
+fn compact_index(index_dir: &Path, index_label: &str) -> InfuResult<()> {
+  if !index_dir.exists() {
+    return Ok(());
+  }
+  let index = open_tantivy_index(index_dir, index_label)?;
+  let segment_ids = index
+    .searchable_segment_ids()
+    .map_err(|e| format!("Could not list {} segments '{}': {}", index_label, index_dir.display(), e))?;
+  if segment_ids.len() <= 1 {
+    return Ok(());
+  }
+  let mut writer: IndexWriter<TantivyDocument> = index
+    .writer(INDEX_WRITER_HEAP_BYTES)
+    .map_err(|e| format!("Could not open {} writer for compaction '{}': {}", index_label, index_dir.display(), e))?;
+  writer.set_merge_policy(Box::new(NoMergePolicy));
+  writer
+    .merge(&segment_ids)
+    .wait()
+    .map_err(|e| format!("Could not compact {} '{}': {}", index_label, index_dir.display(), e))?;
+  writer
+    .wait_merging_threads()
+    .map_err(|e| format!("Could not finish {} compaction '{}': {}", index_label, index_dir.display(), e).into())
 }
 
 async fn path_ref_exists(path: &Path) -> bool {

@@ -54,7 +54,6 @@ use crate::ai::fragment::{
   ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_markdown_document_source_kind,
   is_semantic_search_source_kind,
 };
-use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
 use crate::ai::geo::delete_item_geo_artifacts;
 use crate::ai::image_pipeline::{
   dequeue_image_semantic_pipeline_item_if_active, enqueue_image_semantic_pipeline_item_if_active,
@@ -75,7 +74,7 @@ use crate::ai::text_embedding::{
   text_embedding_vector_norm, validate_text_embedding_vector,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
-use crate::ai::title_indexing::enqueue_item_title_index_reconcile_for_user;
+use crate::ai::title_indexing::enqueue_item_title_index_update;
 use crate::ai::upload_quiet_period::record_object_store_backed_item_upload;
 use crate::ai::vector_db::{
   FragmentVectorDbBackend, FragmentVectorHit, open_user_fragment_vector_db, user_fragment_vector_db_exists,

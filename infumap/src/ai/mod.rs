@@ -22,7 +22,3 @@ pub(crate) fn user_id_for_log(user_id: &str) -> String {
   let prefix = chars.by_ref().take(5).collect::<String>();
   if chars.next().is_some() { format!("{}..", prefix) } else { prefix }
 }
-
-pub(crate) fn user_ids_for_log(user_ids: &[String]) -> String {
-  user_ids.iter().map(|user_id| user_id_for_log(user_id)).collect::<Vec<_>>().join(", ")
-}

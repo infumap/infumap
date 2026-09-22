@@ -1,419 +1,136 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use config::Config;
 use infusdk::util::infu::InfuResult;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use once_cell::sync::OnceCell;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
 use tokio::task;
-use tokio::time::{Instant as TokioInstant, sleep};
+use tokio::time::{Instant, timeout_at};
 
-use crate::ai::gpu_tools::gpu_tools_url_from_config;
-use crate::ai::indexing::{EmbedRebuildSummary, LoadedFragmentIndexItem, reconcile_fragment_indexes_for_loaded_items};
-use crate::ai::metrics::{METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS, METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL};
-use crate::ai::text_embedding::{resolve_optional_text_embedding_service_url, text_embed_url_from_config};
-use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
-use crate::ai::{user_id_for_log, user_ids_for_log};
+use crate::ai::indexing::load_item_lexical_fragments;
+use crate::ai::lexical_index::{LexicalFragment, open_user_document_fragment_lexical_index};
+use crate::ai::user_id_for_log;
+use crate::ai::vector_db::ensure_user_index_dir;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
 
-const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
-const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 60;
-const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 5 * 60;
-const FRAGMENT_INDEX_RETRY_DELAY_SECS: u64 = 60;
-const BACKGROUND_EMBEDDING_REQUEST_TIMEOUT_SECS: u64 = 60;
+const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 2;
+const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 10;
 
-static FRAGMENT_INDEXING_STATE: OnceCell<Arc<Mutex<DirtyFragmentIndexState>>> = OnceCell::new();
+static FRAGMENT_INDEXING_QUEUE: OnceCell<mpsc::UnboundedSender<FragmentIndexingRequest>> = OnceCell::new();
 
-#[derive(Clone)]
-struct FragmentIndexingConfig {
-  data_dir: String,
-  gpu_tools_url: Option<String>,
-  text_embed_url: Option<String>,
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct FragmentIndexingRequest {
+  user_id: String,
+  item_id: String,
 }
 
-#[derive(Default)]
-struct DirtyFragmentIndexState {
-  user_ids: HashSet<String>,
-  first_dirty_at: Option<TokioInstant>,
-  last_dirty_at: Option<TokioInstant>,
-  last_reindex_completed_at: Option<TokioInstant>,
-  semantic_enabled: bool,
-}
-
-impl DirtyFragmentIndexState {
-  fn new(semantic_enabled: bool) -> DirtyFragmentIndexState {
-    DirtyFragmentIndexState { semantic_enabled, ..Default::default() }
-  }
-
-  fn is_empty(&self) -> bool {
-    self.user_ids.is_empty()
-  }
-
-  fn record_users_immediate(&mut self, user_ids: Vec<String>) {
-    if user_ids.is_empty() {
-      return;
-    }
-    self.first_dirty_at = None;
-    self.last_dirty_at = None;
-    self.user_ids.extend(user_ids);
-  }
-
-  fn record_user(&mut self, user_id: String) {
-    let now = TokioInstant::now();
-    if self.user_ids.is_empty() {
-      self.first_dirty_at = Some(now);
-    }
-    self.last_dirty_at = Some(now);
-    self.user_ids.insert(user_id);
-  }
-
-  fn record_users(&mut self, user_ids: Vec<String>) {
-    for user_id in user_ids {
-      self.record_user(user_id);
-    }
-  }
-
-  fn should_rebuild(&self, now: TokioInstant) -> bool {
-    if self.user_ids.is_empty() {
-      return false;
-    }
-    let Some(first_dirty_at) = self.first_dirty_at else {
-      return true;
-    };
-    let Some(last_dirty_at) = self.last_dirty_at else {
-      return true;
-    };
-    let max_debounce_anchor = self.last_reindex_completed_at.unwrap_or(first_dirty_at);
-    now.duration_since(last_dirty_at) >= Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)
-      || now.duration_since(max_debounce_anchor) >= Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS)
-  }
-
-  fn drain_user_ids(&mut self) -> Vec<String> {
-    self.first_dirty_at = None;
-    self.last_dirty_at = None;
-    self.user_ids.drain().collect()
-  }
-
-  fn record_reindex_completed(&mut self) {
-    self.last_reindex_completed_at = Some(TokioInstant::now());
-  }
-}
-
-pub fn init_fragment_indexing_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuResult<()> {
-  let indexing_config = fragment_indexing_config(config)?;
-  if FRAGMENT_INDEXING_STATE.get().is_some() {
-    enqueue_all_loaded_users_for_fragment_index_rebuild(db);
+pub fn init_fragment_indexing_loop(config: &Config, _db: Arc<Mutex<Db>>) -> InfuResult<()> {
+  if FRAGMENT_INDEXING_QUEUE.get().is_some() {
     return Ok(());
   }
 
-  let semantic_enabled = false;
-  let state = Arc::new(Mutex::new(DirtyFragmentIndexState::new(semantic_enabled)));
-  FRAGMENT_INDEXING_STATE
-    .set(state.clone())
-    .map_err(|_| "Fragment index reconciliation loop is already running in this process.".to_owned())?;
+  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
+  let (sender, receiver) = mpsc::unbounded_channel();
+  FRAGMENT_INDEXING_QUEUE
+    .set(sender)
+    .map_err(|_| "Fragment lexical indexing loop is already running in this process.".to_owned())?;
 
-  info!(
-    "Starting fragment index reconciliation loop (lexical=document_fragments, semantic_service={}).",
-    if indexing_config.text_embed_url.is_some() || indexing_config.gpu_tools_url.is_some() { "on" } else { "off" }
-  );
-
+  info!("Starting item-level fragment lexical indexing loop; no startup index rebuild will run.");
   let _worker = task::spawn(async move {
-    run_fragment_indexing_loop(indexing_config, db, state).await;
+    run_fragment_indexing_loop(data_dir, receiver).await;
   });
   Ok(())
 }
 
-pub fn enqueue_fragment_index_rebuild_for_user(user_id: &str) {
-  let Some(state) = FRAGMENT_INDEXING_STATE.get() else {
+pub fn enqueue_fragment_lexical_index_update(user_id: &str, item_id: &str) {
+  let Some(sender) = FRAGMENT_INDEXING_QUEUE.get() else {
     return;
   };
-  let user_id = user_id.to_owned();
-
-  if let Ok(mut state) = state.try_lock() {
-    record_dirty_user_with_log(&mut state, user_id);
-    return;
-  }
-
-  let state = state.clone();
-  let _enqueue = task::spawn(async move {
-    let mut state = state.lock().await;
-    record_dirty_user_with_log(&mut state, user_id);
-  });
-}
-
-fn fragment_indexing_config(config: &Config) -> InfuResult<FragmentIndexingConfig> {
-  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  let gpu_tools_url = gpu_tools_url_from_config(config)?;
-  let text_embed_url = text_embed_url_from_config(config)?;
-  Ok(FragmentIndexingConfig { data_dir, gpu_tools_url, text_embed_url })
-}
-
-async fn run_fragment_indexing_loop(
-  config: FragmentIndexingConfig,
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<DirtyFragmentIndexState>>,
-) {
-  refresh_semantic_enabled(&config, state.clone()).await;
-  enqueue_all_loaded_users_for_fragment_index_rebuild_inner(db.clone(), state.clone()).await;
-
-  loop {
-    if should_rebuild_dirty_users(state.clone()).await {
-      wait_for_object_store_upload_quiet_period("fragment index reconciliation").await;
-      rebuild_fragment_indexes_for_dirty_users(&config, db.clone(), state.clone()).await;
-    }
-    sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
+  let request = FragmentIndexingRequest { user_id: user_id.to_owned(), item_id: item_id.to_owned() };
+  if let Err(e) = sender.send(request) {
+    warn!("Could not enqueue item-level fragment lexical index update: {}", e);
   }
 }
 
-fn enqueue_all_loaded_users_for_fragment_index_rebuild(db: Arc<Mutex<Db>>) {
-  let Some(state) = FRAGMENT_INDEXING_STATE.get() else {
-    return;
-  };
-  let state = state.clone();
-  let _enqueue_task = task::spawn(async move {
-    enqueue_all_loaded_users_for_fragment_index_rebuild_inner(db, state).await;
-  });
-}
+async fn run_fragment_indexing_loop(data_dir: String, mut receiver: mpsc::UnboundedReceiver<FragmentIndexingRequest>) {
+  let mut queued = HashSet::new();
+  while let Some(request) = receiver.recv().await {
+    queued.insert(request);
+    drain_pending(&mut receiver, &mut queued);
 
-async fn enqueue_all_loaded_users_for_fragment_index_rebuild_inner(
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<DirtyFragmentIndexState>>,
-) {
-  let mut user_ids = {
-    let db = db.lock().await;
-    db.user.all_user_ids().iter().map(|user_id| user_id.to_owned()).collect::<Vec<_>>()
-  };
-  user_ids.sort();
-  if user_ids.is_empty() {
-    return;
-  }
-
-  let semantic_enabled = {
-    let mut state = state.lock().await;
-    state.record_users_immediate(user_ids.clone());
-    state.semantic_enabled
-  };
-  info!(
-    "Scheduled startup {} fragment index reconciliation for {} user(s): {}.",
-    index_kind_for_log(semantic_enabled),
-    user_ids.len(),
-    user_ids_for_log(&user_ids)
-  );
-}
-
-async fn should_rebuild_dirty_users(state: Arc<Mutex<DirtyFragmentIndexState>>) -> bool {
-  let state = state.lock().await;
-  state.should_rebuild(TokioInstant::now())
-}
-
-async fn refresh_semantic_enabled(config: &FragmentIndexingConfig, state: Arc<Mutex<DirtyFragmentIndexState>>) {
-  match resolve_optional_text_embedding_service_url(config.text_embed_url.as_deref(), config.gpu_tools_url.as_deref())
-    .await
-  {
-    Ok(embed_url) => set_semantic_enabled(state, embed_url.is_some()).await,
-    Err(e) => {
-      error!("Could not resolve text embedding service endpoint during fragment indexing startup: {}", e);
-      set_semantic_enabled(state, false).await;
-    }
-  }
-}
-
-async fn set_semantic_enabled(state: Arc<Mutex<DirtyFragmentIndexState>>, semantic_enabled: bool) {
-  let mut state = state.lock().await;
-  state.semantic_enabled = semantic_enabled;
-}
-
-async fn rebuild_fragment_indexes_for_dirty_users(
-  config: &FragmentIndexingConfig,
-  db: Arc<Mutex<Db>>,
-  state: Arc<Mutex<DirtyFragmentIndexState>>,
-) {
-  let user_ids = {
-    let mut state = state.lock().await;
-    if !state.should_rebuild(TokioInstant::now()) {
-      return;
-    }
-    state.drain_user_ids()
-  };
-
-  if user_ids.is_empty() {
-    return;
-  }
-
-  let embed_url = match resolve_optional_text_embedding_service_url(
-    config.text_embed_url.as_deref(),
-    config.gpu_tools_url.as_deref(),
-  )
-  .await
-  {
-    Ok(embed_url) => embed_url,
-    Err(e) => {
-      error!("Could not resolve text embedding service endpoint: {}", e);
-      sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
-      record_dirty_users(state, user_ids).await;
-      return;
-    }
-  };
-  set_semantic_enabled(state.clone(), embed_url.is_some()).await;
-
-  let client = if embed_url.is_some() {
-    match reqwest::ClientBuilder::new().timeout(Duration::from_secs(BACKGROUND_EMBEDDING_REQUEST_TIMEOUT_SECS)).build()
-    {
-      Ok(client) => Some(client),
-      Err(e) => {
-        error!("Could not build embedding HTTP client for image semantic index: {}", e);
-        sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
-        record_dirty_users(state, user_ids).await;
-        return;
+    let max_deadline = Instant::now() + Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS);
+    loop {
+      let deadline = (Instant::now() + Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)).min(max_deadline);
+      match timeout_at(deadline, receiver.recv()).await {
+        Ok(Some(request)) => {
+          queued.insert(request);
+          drain_pending(&mut receiver, &mut queued);
+          if Instant::now() >= max_deadline {
+            break;
+          }
+        }
+        Ok(None) | Err(_) => break,
       }
     }
-  } else {
-    None
-  };
 
-  info!(
-    "Reconciling {} fragment indexes for {} user(s): {}; lexical=document_fragments, semantic={}.",
-    index_kind_for_log(embed_url.is_some()),
-    user_ids.len(),
-    user_ids_for_log(&user_ids),
-    semantic_scope_for_log(embed_url.is_some())
-  );
+    let mut requests = queued.drain().collect::<Vec<_>>();
+    requests.sort_by(|a, b| a.user_id.cmp(&b.user_id).then(a.item_id.cmp(&b.item_id)));
+    debug!("Applying {} item-level fragment lexical index update(s).", requests.len());
+    let mut item_ids_by_user = BTreeMap::<String, Vec<String>>::new();
+    for request in requests {
+      item_ids_by_user.entry(request.user_id).or_default().push(request.item_id);
+    }
+    for (user_id, item_ids) in item_ids_by_user {
+      let mut updates = Vec::<(String, Vec<LexicalFragment>)>::new();
+      for item_id in item_ids {
+        match load_item_lexical_fragments(&data_dir, &user_id, &item_id).await {
+          Ok(fragments) => updates.push((item_id, fragments)),
+          Err(e) => error!(
+            "Could not load lexical fragments for item '{}' (user {}): {}",
+            item_id,
+            user_id_for_log(&user_id),
+            e
+          ),
+        }
+      }
+      if updates.is_empty() {
+        continue;
+      }
+      if let Err(e) = commit_user_updates(&data_dir, &user_id, &updates).await {
+        error!("Fragment lexical index batch update failed for user {}: {}", user_id_for_log(&user_id), e);
+      }
+    }
+  }
+}
 
-  let user_id_set = user_ids.iter().cloned().collect::<HashSet<_>>();
-  let loaded_items = {
-    let db = db.lock().await;
-    db.item
-      .all_loaded_items()
-      .into_iter()
-      .filter(|item_key| user_id_set.contains(&item_key.user_id))
-      .filter_map(|item_key| {
-        db.item.get(&item_key.item_id).ok().map(|item| LoadedFragmentIndexItem {
-          user_id: item.owner_id.clone(),
-          item_id: item.id.clone(),
-          mime_type: item.mime_type.clone(),
-        })
-      })
-      .collect::<Vec<_>>()
-  };
+async fn commit_user_updates(
+  data_dir: &str,
+  user_id: &str,
+  updates: &[(String, Vec<LexicalFragment>)],
+) -> InfuResult<()> {
+  ensure_user_index_dir(data_dir, user_id).await?;
+  let update_refs =
+    updates.iter().map(|(item_id, fragments)| (item_id.as_str(), fragments.as_slice())).collect::<Vec<_>>();
+  let count =
+    open_user_document_fragment_lexical_index(data_dir, user_id)?.replace_items_fragments(&update_refs).await?;
   debug!(
-    "{} fragment index reconciliation using {} loaded item id(s) for {} user(s).",
-    title_case_index_kind_for_log(embed_url.is_some()),
-    loaded_items.len(),
-    user_ids.len()
+    "Updated {} fragment(s) for {} item(s) in the lexical index for user {}.",
+    count,
+    updates.len(),
+    user_id_for_log(user_id)
   );
-
-  let rebuild_started = Instant::now();
-  let rebuild_result = reconcile_fragment_indexes_for_loaded_items(
-    &config.data_dir,
-    &user_ids,
-    loaded_items,
-    client.as_ref(),
-    embed_url.as_ref(),
-  )
-  .await;
-  let rebuild_elapsed_secs = rebuild_started.elapsed().as_secs_f64();
-  match rebuild_result {
-    Ok(summary) => {
-      let metric_outcome = fragment_index_rebuild_metric_outcome(&summary);
-      METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&[metric_outcome]).inc();
-      METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS
-        .with_label_values(&[metric_outcome])
-        .observe(rebuild_elapsed_secs);
-      {
-        let mut state = state.lock().await;
-        state.record_reindex_completed();
-      }
-      info!(
-        "{} fragment index reconciliation complete: users_seen={} users_rebuilt={} users_skipped_current={} semantic_image_embedded={} lexical_indexed={} semantic_image_reused={} removed_empty_indexes={}.",
-        title_case_index_kind_for_log(embed_url.is_some()),
-        summary.users_seen,
-        summary.users_rebuilt,
-        summary.users_skipped_current,
-        summary.fragments_embedded,
-        summary.lexical_fragments_indexed,
-        summary.fragments_reused,
-        summary.empty_index_files_removed
-      );
-      if summary.search_status_artifacts_written > 0 {
-        info!(
-          "Search status reconciliation wrote {} artifact(s): failed={} pending={}.",
-          summary.search_status_artifacts_written,
-          summary.search_status_failed_items,
-          summary.search_status_pending_items
-        );
-      }
-    }
-    Err(e) => {
-      METRIC_AI_FRAGMENT_INDEX_REBUILDS_TOTAL.with_label_values(&["failed"]).inc();
-      METRIC_AI_FRAGMENT_INDEX_REBUILD_DURATION_SECONDS.with_label_values(&["failed"]).observe(rebuild_elapsed_secs);
-      error!("{} fragment index reconciliation failed: {}", title_case_index_kind_for_log(embed_url.is_some()), e);
-      sleep(Duration::from_secs(FRAGMENT_INDEX_RETRY_DELAY_SECS)).await;
-      record_dirty_users(state, user_ids).await;
-    }
-  }
+  Ok(())
 }
 
-async fn record_dirty_users(state: Arc<Mutex<DirtyFragmentIndexState>>, user_ids: Vec<String>) {
-  let mut state = state.lock().await;
-  state.record_users(user_ids);
-}
-
-fn record_dirty_user_with_log(state: &mut DirtyFragmentIndexState, user_id: String) {
-  let was_empty = state.is_empty();
-  let short_user_id = user_id_for_log(&user_id);
-  state.record_user(user_id);
-  if was_empty {
-    debug!(
-      "Scheduled {} fragment index reconciliation after {} quiet or {} max for user {}.",
-      index_kind_for_log(state.semantic_enabled),
-      format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)),
-      format_duration_for_log(Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS)),
-      short_user_id
-    );
+fn drain_pending(
+  receiver: &mut mpsc::UnboundedReceiver<FragmentIndexingRequest>,
+  queued: &mut HashSet<FragmentIndexingRequest>,
+) {
+  while let Ok(request) = receiver.try_recv() {
+    queued.insert(request);
   }
-}
-
-fn fragment_index_rebuild_metric_outcome(summary: &EmbedRebuildSummary) -> &'static str {
-  if summary.users_rebuilt > 0 {
-    "success"
-  } else if summary.users_skipped_current == summary.users_seen {
-    "skipped_current"
-  } else {
-    "success"
-  }
-}
-
-fn index_kind_for_log(semantic_enabled: bool) -> &'static str {
-  if semantic_enabled { "lexical + semantic" } else { "lexical" }
-}
-
-fn title_case_index_kind_for_log(semantic_enabled: bool) -> &'static str {
-  if semantic_enabled { "Lexical + semantic" } else { "Lexical" }
-}
-
-fn semantic_scope_for_log(semantic_enabled: bool) -> &'static str {
-  if semantic_enabled { "images" } else { "off" }
-}
-
-fn format_duration_for_log(duration: Duration) -> String {
-  if duration.as_secs() >= 24 * 60 * 60 && duration.as_secs() % (24 * 60 * 60) == 0 {
-    let days = duration.as_secs() / (24 * 60 * 60);
-    return if days == 1 { "1 day".to_owned() } else { format!("{} days", days) };
-  }
-  if duration.as_secs() >= 60 * 60 && duration.as_secs() % (60 * 60) == 0 {
-    let hours = duration.as_secs() / (60 * 60);
-    return if hours == 1 { "1 hour".to_owned() } else { format!("{} hours", hours) };
-  }
-  if duration.as_secs() >= 60 && duration.as_secs() % 60 == 0 {
-    let minutes = duration.as_secs() / 60;
-    return if minutes == 1 { "1 minute".to_owned() } else { format!("{} minutes", minutes) };
-  }
-  if duration.as_secs() > 0 && duration.subsec_nanos() == 0 {
-    let seconds = duration.as_secs();
-    return if seconds == 1 { "1 second".to_owned() } else { format!("{} seconds", seconds) };
-  }
-  format!("{:.3} seconds", duration.as_secs_f64())
 }

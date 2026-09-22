@@ -17,7 +17,7 @@ use crate::ai::fragment::sources::{
   build_markdown_fragment_artifact, build_pdf_fragment_artifact, build_text_fragment_artifact,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, clear_item_fragments, item_fragment_artifact_files_exist};
-use crate::ai::fragment_indexing::enqueue_fragment_index_rebuild_for_user;
+use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::gpu_tools::{
   GPU_TOOL_PDF_EXTRACT, GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY, gpu_tools_url_from_config, resolve_gpu_tool_url,
 };
@@ -230,7 +230,7 @@ async fn run_document_fragment_loop(
     match reconcile_document_fragment_item(&config, db.clone(), &candidate).await {
       Ok(DocumentFragmentReconcileOutcome::Changed(user_id)) => {
         record_document_fragment_processed("success");
-        enqueue_fragment_index_rebuild_for_user(&user_id);
+        enqueue_fragment_lexical_index_update(&user_id, &candidate.item_id);
       }
       Ok(DocumentFragmentReconcileOutcome::Skipped) => {
         record_document_fragment_processed("skipped");

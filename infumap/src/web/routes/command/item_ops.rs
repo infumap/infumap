@@ -503,7 +503,7 @@ pub async fn add_item_for_user(
     if is_data_item_type(queued_item.item_type) {
       record_object_store_backed_item_upload(&queued_item.id);
     }
-    enqueue_item_title_index_reconcile_for_user(&queued_item.owner_id);
+    enqueue_item_title_index_update(&queued_item.owner_id, &queued_item.id);
     if should_tag_image_item(&queued_item) {
       enqueue_image_semantic_pipeline_item_if_active(&queued_item);
     }
@@ -603,11 +603,15 @@ pub(super) async fn handle_update_item(
     flush_container_sync_changes(&mut db, &item.owner_id, deltas_by_container, snapshot_required_container_ids);
 
   let owner_id = item.owner_id.clone();
+  let old_title_parent_id = old_item.parent_id.clone().filter(|parent_id| item.parent_id.as_ref() != Some(parent_id));
   let image_fragment_context_dependents =
     image_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?;
   debug!("Executed 'update-item' command for item '{}'.", item.id);
   drop(db);
-  enqueue_item_title_index_reconcile_for_user(&owner_id);
+  enqueue_item_title_index_update(&owner_id, &item.id);
+  if let Some(parent_id) = old_title_parent_id {
+    enqueue_item_title_index_update(&owner_id, &parent_id);
+  }
   if should_tag_image_item(&item) {
     enqueue_image_semantic_pipeline_item_if_active(&item);
   } else if should_tag_image_item(&old_item) {
@@ -740,20 +744,23 @@ pub(super) async fn handle_delete_item<'a>(
     delta.add_child_delete(&item.id);
     merge_container_delta(&mut deltas_by_container, &container_id, delta);
   }
-  if let Some(parent_id) = old_attachment_parent_id {
+  if let Some(parent_id) = old_attachment_parent_id.as_ref() {
     if let Some(container_id) = maybe_container_id_for_attachment_parent(&db, &parent_id)? {
       let mut delta = ContainerSyncDelta::default();
-      add_attachment_snapshot_delta_for_parent(&db, &mut delta, &parent_id)?;
+      add_attachment_snapshot_delta_for_parent(&db, &mut delta, parent_id)?;
       merge_container_delta(&mut deltas_by_container, &container_id, delta);
     }
   }
   let sync_ack =
     flush_container_sync_changes(&mut db, &item.owner_id, deltas_by_container, snapshot_required_container_ids);
   let owner_id = item.owner_id.clone();
+  let title_parent_id = old_attachment_parent_id;
   debug!("Deleted item '{}' from database.", request.id);
   drop(db);
-  enqueue_item_title_index_reconcile_for_user(&owner_id);
-  enqueue_fragment_index_rebuild_for_user(&owner_id);
+  enqueue_item_title_index_update(&owner_id, &request.id);
+  if let Some(parent_id) = title_parent_id {
+    enqueue_item_title_index_update(&owner_id, &parent_id);
+  }
 
   json_with_sync_ack(sync_ack, None)
 }
@@ -797,10 +804,7 @@ pub(super) async fn handle_empty_trash<'a>(
   )
   .await?;
   let sync_ack = build_sync_ack(&db, &session.user_id, &touched_container_ids);
-  let user_id = session.user_id.clone();
   drop(db);
-  enqueue_item_title_index_reconcile_for_user(&user_id);
-  enqueue_fragment_index_rebuild_for_user(&user_id);
 
   let mut result = serde_json::Map::new();
   result.insert("itemCount".to_owned(), Value::Number(count.into()));
@@ -887,6 +891,10 @@ async fn delete_recursive(
     }
 
     let _item = db.item.remove(&item_id).await?;
+    enqueue_item_title_index_update(user_id, &item_id);
+    if let Some(parent_id) = old_attachment_parent_id.as_ref() {
+      enqueue_item_title_index_update(user_id, parent_id);
+    }
     if let Some(container_id) = old_child_container_id {
       record_container_snapshot_required(db, user_id, &container_id, touched_container_ids);
     }
