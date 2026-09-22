@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use infusdk::util::infu::InfuResult;
 use serde::{Deserialize, Serialize};
 use tantivy::collector::{Count, TopDocs};
-use tantivy::query::{QueryParser, TermQuery};
+use tantivy::query::{BooleanQuery, QueryParser, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, TantivyDocument, Term};
 use tokio::fs;
@@ -139,11 +139,17 @@ impl TantivyDocumentFragmentIndex {
     .await
   }
 
-  pub async fn search(&self, query_text: &str, limit: usize) -> InfuResult<Vec<FragmentLexicalHit>> {
+  pub async fn search(
+    &self,
+    query_text: &str,
+    limit: usize,
+    allowed_item_ids: Option<&[String]>,
+  ) -> InfuResult<Vec<FragmentLexicalHit>> {
     search_index(
       &self.index_dir,
       query_text,
       limit,
+      allowed_item_ids,
       DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
       DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
     )
@@ -180,11 +186,17 @@ impl TantivyItemTitleIndex {
     .await
   }
 
-  pub async fn search(&self, query_text: &str, limit: usize) -> InfuResult<Vec<FragmentLexicalHit>> {
+  pub async fn search(
+    &self,
+    query_text: &str,
+    limit: usize,
+    allowed_item_ids: Option<&[String]>,
+  ) -> InfuResult<Vec<FragmentLexicalHit>> {
     search_index(
       &self.index_dir,
       query_text,
       limit,
+      allowed_item_ids,
       ITEM_TITLE_LEXICAL_METADATA_FILENAME,
       ITEM_TITLE_LEXICAL_INDEX_LABEL,
     )
@@ -430,10 +442,15 @@ async fn search_index(
   index_dir: &Path,
   query_text: &str,
   limit: usize,
+  allowed_item_ids: Option<&[String]>,
   metadata_filename: &str,
   index_label: &str,
 ) -> InfuResult<Vec<FragmentLexicalHit>> {
-  if limit == 0 || query_text.trim().is_empty() || !path_ref_exists(index_dir).await {
+  if limit == 0
+    || query_text.trim().is_empty()
+    || allowed_item_ids.is_some_and(|item_ids| item_ids.is_empty())
+    || !path_ref_exists(index_dir).await
+  {
     return Ok(Vec::new());
   }
   let Some(status) = rebuild_status_for_index(index_dir, metadata_filename, index_label).await? else {
@@ -451,9 +468,13 @@ async fn search_index(
   let searcher = reader.searcher();
   let mut query_parser = QueryParser::for_index(&index, vec![fields.text]);
   query_parser.set_conjunction_by_default();
-  let (query, parse_errors) = query_parser.parse_query_lenient(query_text);
+  let (mut query, parse_errors) = query_parser.parse_query_lenient(query_text);
   if parse_errors.len() > 0 {
     log::debug!("{} query '{}' had {} lenient parser issue(s).", index_label, query_text, parse_errors.len());
+  }
+  if let Some(item_ids) = allowed_item_ids {
+    let item_terms: Vec<Term> = item_ids.iter().map(|item_id| Term::from_field_text(fields.item_id, item_id)).collect();
+    query = Box::new(BooleanQuery::intersection(vec![query, Box::new(TermSetQuery::new(item_terms))]));
   }
 
   let top_docs = searcher

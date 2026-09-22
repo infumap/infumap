@@ -269,6 +269,7 @@ pub(super) async fn run_search(
       &data_dir,
       &session.user_id,
       &search_root_id,
+      None,
       &request.text,
       start_result,
       end_result,
@@ -294,7 +295,14 @@ pub(super) async fn run_lexical_search(
 ) -> InfuResult<SearchResponse> {
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
+  let has_explicit_scope = request.page_id.is_some();
   let (data_dir, search_root_id) = resolve_search_scope(db, request.page_id, session).await?;
+  let allowed_item_ids = if has_explicit_scope {
+    let db = db.lock().await;
+    Some(search_scope_item_ids(&db, &search_root_id, &session.user_id)?)
+  } else {
+    None
+  };
 
   let results = indexed_search_results(
     None,
@@ -302,6 +310,7 @@ pub(super) async fn run_lexical_search(
     &data_dir,
     &session.user_id,
     &search_root_id,
+    allowed_item_ids.as_deref(),
     &request.text,
     start_result,
     end_result,
@@ -333,12 +342,39 @@ async fn resolve_search_scope(
   Ok((db.item.data_dir().to_owned(), page_id))
 }
 
+fn search_scope_item_ids(db: &Db, search_root_id: &Uid, user_id: &Uid) -> InfuResult<Vec<Uid>> {
+  let search_root = db.item.get(search_root_id).map_err(|_| "Search scope was not found.")?;
+  if &search_root.owner_id != user_id || search_root.item_type == ItemType::Password {
+    return Err("Search scope was not found.".into());
+  }
+
+  let mut pending = vec![search_root_id.clone()];
+  let mut seen = HashSet::new();
+  let mut item_ids = Vec::new();
+  while let Some(item_id) = pending.pop() {
+    if !seen.insert(item_id.clone()) {
+      continue;
+    }
+    let item = db.item.get(&item_id)?;
+    if &item.owner_id != user_id || item.item_type == ItemType::Password {
+      continue;
+    }
+
+    item_ids.push(item_id.clone());
+    pending.extend(db.item.get_children_ids(&item_id)?);
+    pending.extend(db.item.get_attachment_ids(&item_id)?);
+  }
+  item_ids.sort();
+  Ok(item_ids)
+}
+
 async fn indexed_search_results(
   config: Option<Arc<Config>>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
   search_root_id: &Uid,
+  allowed_item_ids: Option<&[Uid]>,
   search_text: &str,
   start_result: i64,
   end_result: i64,
@@ -348,7 +384,16 @@ async fn indexed_search_results(
     .map_err(|_| "Search result limit is too large.")?;
 
   let title_results = if backends.title_lexical {
-    match title_lexical_search_results(db, data_dir, user_id, search_root_id, search_text, fragment_result_limit).await
+    match title_lexical_search_results(
+      db,
+      data_dir,
+      user_id,
+      search_root_id,
+      allowed_item_ids,
+      search_text,
+      fragment_result_limit,
+    )
+    .await
     {
       Ok(results) => results,
       Err(e) => {
@@ -361,7 +406,17 @@ async fn indexed_search_results(
   };
 
   let lexical_results = if backends.document_lexical {
-    match lexical_search_results(db, data_dir, user_id, search_root_id, search_text, fragment_result_limit).await {
+    match lexical_search_results(
+      db,
+      data_dir,
+      user_id,
+      search_root_id,
+      allowed_item_ids,
+      search_text,
+      fragment_result_limit,
+    )
+    .await
+    {
       Ok(results) => results,
       Err(e) => {
         warn!(
@@ -439,11 +494,14 @@ async fn title_lexical_search_results(
   data_dir: &str,
   user_id: &Uid,
   search_root_id: &Uid,
+  allowed_item_ids: Option<&[Uid]>,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
-  let result = title_lexical_search_results_inner(db, data_dir, user_id, search_root_id, search_text, limit).await;
+  let result =
+    title_lexical_search_results_inner(db, data_dir, user_id, search_root_id, allowed_item_ids, search_text, limit)
+      .await;
   record_search_backend_metrics("title", started, &result);
   result
 }
@@ -453,6 +511,7 @@ async fn title_lexical_search_results_inner(
   data_dir: &str,
   user_id: &Uid,
   search_root_id: &Uid,
+  allowed_item_ids: Option<&[Uid]>,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
@@ -472,7 +531,7 @@ async fn title_lexical_search_results_inner(
     return Ok(Vec::new());
   }
 
-  let title_hits = title_index.search(search_text, limit).await?;
+  let title_hits = title_index.search(search_text, limit, allowed_item_ids).await?;
   if !title_hits.is_empty() {
     debug!(
       "Title lexical search top hits for user '{}': {}",
@@ -514,11 +573,13 @@ async fn lexical_search_results(
   data_dir: &str,
   user_id: &Uid,
   search_root_id: &Uid,
+  allowed_item_ids: Option<&[Uid]>,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
-  let result = lexical_search_results_inner(db, data_dir, user_id, search_root_id, search_text, limit).await;
+  let result =
+    lexical_search_results_inner(db, data_dir, user_id, search_root_id, allowed_item_ids, search_text, limit).await;
   record_search_backend_metrics("lexical", started, &result);
   result
 }
@@ -528,6 +589,7 @@ async fn lexical_search_results_inner(
   data_dir: &str,
   user_id: &Uid,
   search_root_id: &Uid,
+  allowed_item_ids: Option<&[Uid]>,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
@@ -549,7 +611,7 @@ async fn lexical_search_results_inner(
 
   let fragment_limit = limit.saturating_mul(SEARCH_LEXICAL_FRAGMENT_MULTIPLIER).max(limit);
   let fragment_hits = lexical_index
-    .search(search_text, fragment_limit)
+    .search(search_text, fragment_limit, allowed_item_ids)
     .await?
     .into_iter()
     .filter(|hit| hit.source_kind != ITEM_TITLE_SOURCE_KIND)
@@ -815,7 +877,7 @@ fn search_result_stats_for_item(db: &Db, item: &Item) -> InfuResult<Option<Searc
 }
 
 fn search_result_is_under_root_path(path: &[SearchPathElement], search_root_id: &Uid) -> bool {
-  path.first().is_some_and(|element| &element.id == search_root_id)
+  path.iter().any(|element| &element.id == search_root_id)
 }
 
 #[derive(Clone)]
