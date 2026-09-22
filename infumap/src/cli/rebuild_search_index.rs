@@ -21,11 +21,11 @@ use crate::storage::db::Db;
 use crate::util::fs::expand_tilde;
 
 const CHECKPOINT_VERSION: u32 = 1;
-const CHECKPOINT_FILENAME: &str = "search_backfill_checkpoint.json";
+const CHECKPOINT_FILENAME: &str = "rebuild_search_index_checkpoint.json";
 const DEFAULT_BATCH_SIZE: usize = 100;
 
 #[derive(Clone)]
-struct BackfillItem {
+struct RebuildItem {
   user_id: String,
   item_id: String,
 }
@@ -38,7 +38,7 @@ struct PendingInstall {
 }
 
 #[derive(Deserialize, Serialize)]
-struct BackfillCheckpoint {
+struct RebuildCheckpoint {
   version: u32,
   corpus_digest: String,
   next_item: usize,
@@ -46,8 +46,8 @@ struct BackfillCheckpoint {
 }
 
 pub fn make_clap_subcommand() -> Command {
-  Command::new("search-backfill")
-    .about("Build lexical search indexes explicitly, with resumable batch progress. Run while the web server is stopped.")
+  Command::new("rebuild-search-index")
+    .about("Rebuild lexical search indexes explicitly, with resumable batch progress. Run while the web server is stopped.")
     .arg(settings_arg())
     .arg(
       Arg::new("batch_size")
@@ -77,10 +77,10 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     .item
     .all_loaded_items()
     .into_iter()
-    .map(|key| BackfillItem { user_id: key.user_id, item_id: key.item_id })
+    .map(|key| RebuildItem { user_id: key.user_id, item_id: key.item_id })
     .collect::<Vec<_>>();
   items.sort_by(|a, b| a.user_id.cmp(&b.user_id).then(a.item_id.cmp(&b.item_id)));
-  let corpus_digest = backfill_corpus_digest(&user_ids, &items);
+  let corpus_digest = rebuild_corpus_digest(&user_ids, &items);
   let checkpoint_path = checkpoint_path(&data_dir)?;
   let mut checkpoint = load_checkpoint(&checkpoint_path).await?.filter(|checkpoint| {
     checkpoint.version == CHECKPOINT_VERSION
@@ -89,8 +89,8 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   });
 
   if checkpoint.is_none() {
-    remove_stale_backfill_dirs(&data_dir, &user_ids).await?;
-    checkpoint = Some(BackfillCheckpoint {
+    remove_stale_rebuild_dirs(&data_dir, &user_ids).await?;
+    checkpoint = Some(RebuildCheckpoint {
       version: CHECKPOINT_VERSION,
       corpus_digest: corpus_digest.clone(),
       next_item: 0,
@@ -108,7 +108,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   }
 
   println!(
-    "Lexical search backfill: {} item(s), {} user(s), batch size {}, resuming at item {}. Ctrl-C is safe; rerun this command to continue.",
+    "Lexical search index rebuild: {} item(s), {} user(s), batch size {}, resuming at item {}. Ctrl-C is safe; rerun this command to continue.",
     items.len(),
     user_ids.len(),
     batch_size,
@@ -180,7 +180,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   remove_path_if_exists(&checkpoint_path).await?;
   println!(
-    "Backfill complete: {} item(s) total, {} document fragment(s) processed this run, {:.1}s elapsed.",
+    "Search index rebuild complete: {} item(s) total, {} document fragment(s) processed this run, {:.1}s elapsed.",
     items.len(),
     indexed_fragments,
     started.elapsed().as_secs_f64()
@@ -241,7 +241,7 @@ where
     if path_exists(final_path).await {
       return Ok(());
     }
-    return Err(format!("Backfill index '{}' disappeared before installation.", temp.display()).into());
+    return Err(format!("Rebuilt index '{}' disappeared before installation.", temp.display()).into());
   }
 
   make_index().compact().await?;
@@ -249,7 +249,7 @@ where
 }
 
 async fn install_index_dir(temp: &Path, final_path: &Path) -> InfuResult<()> {
-  let old_path = path_with_suffix(final_path, ".backfill-old");
+  let old_path = path_with_suffix(final_path, ".rebuild-old");
   if path_exists(&old_path).await && path_exists(final_path).await {
     remove_path_if_exists(&old_path).await?;
   }
@@ -268,13 +268,13 @@ async fn install_index_dir(temp: &Path, final_path: &Path) -> InfuResult<()> {
   Ok(())
 }
 
-async fn remove_stale_backfill_dirs(data_dir: &str, user_ids: &[String]) -> InfuResult<()> {
+async fn remove_stale_rebuild_dirs(data_dir: &str, user_ids: &[String]) -> InfuResult<()> {
   for user_id in user_ids {
     for path in [
       document_fragment_lexical_index_temp_dir(data_dir, user_id)?,
       item_title_lexical_index_temp_dir(data_dir, user_id)?,
-      path_with_suffix(&document_fragment_lexical_index_dir(data_dir, user_id)?, ".backfill-old"),
-      path_with_suffix(&item_title_lexical_index_dir(data_dir, user_id)?, ".backfill-old"),
+      path_with_suffix(&document_fragment_lexical_index_dir(data_dir, user_id)?, ".rebuild-old"),
+      path_with_suffix(&item_title_lexical_index_dir(data_dir, user_id)?, ".rebuild-old"),
     ] {
       remove_path_if_exists(&path).await?;
     }
@@ -309,7 +309,7 @@ fn format_duration(duration: Duration) -> String {
   }
 }
 
-fn backfill_corpus_digest(user_ids: &[String], items: &[BackfillItem]) -> String {
+fn rebuild_corpus_digest(user_ids: &[String], items: &[RebuildItem]) -> String {
   let mut hasher = Sha256::new();
   for user_id in user_ids {
     hasher.update(user_id.as_bytes());
@@ -325,17 +325,17 @@ fn backfill_corpus_digest(user_ids: &[String], items: &[BackfillItem]) -> String
   format!("{:x}", hasher.finalize())
 }
 
-async fn load_checkpoint(path: &Path) -> InfuResult<Option<BackfillCheckpoint>> {
+async fn load_checkpoint(path: &Path) -> InfuResult<Option<RebuildCheckpoint>> {
   match fs::read(path).await {
     Ok(bytes) => serde_json::from_slice(&bytes)
       .map(Some)
-      .map_err(|e| format!("Could not parse search backfill checkpoint '{}': {}", path.display(), e).into()),
+      .map_err(|e| format!("Could not parse search index rebuild checkpoint '{}': {}", path.display(), e).into()),
     Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-    Err(e) => Err(format!("Could not read search backfill checkpoint '{}': {}", path.display(), e).into()),
+    Err(e) => Err(format!("Could not read search index rebuild checkpoint '{}': {}", path.display(), e).into()),
   }
 }
 
-async fn write_checkpoint(path: &Path, checkpoint: &BackfillCheckpoint) -> InfuResult<()> {
+async fn write_checkpoint(path: &Path, checkpoint: &RebuildCheckpoint) -> InfuResult<()> {
   let temp_path = path_with_suffix(path, ".tmp");
   fs::write(&temp_path, serde_json::to_vec_pretty(checkpoint)?).await?;
   fs::rename(&temp_path, path).await?;

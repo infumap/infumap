@@ -206,7 +206,7 @@ Options:
 
 Rebuild per-user fragment search indexes (semantic and lexical) from existing fragment artifacts.
 
-When the web server is running, fragment index reconciliation is scheduled automatically after item title changes and after image or PDF fragments are written. The CLI remains useful for offline full rebuilds, bulk backfills, or refreshing indexes after running `extract` and `fragment` without the web server.
+The web server updates lexical indexes for affected items as their titles or fragment artifacts change. It does not perform a full index rebuild at startup. Semantic embeddings are rebuilt explicitly with this command rather than as part of the live lexical update queue.
 
 Do not run this command at the same time as infumap web - it will compete for the same work and may result in bad state.
 
@@ -215,6 +215,37 @@ Options:
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--service-url (optional):** Override `text_embed_url` or the `text_embed` endpoint discovered from `gpu_tools_url` for this process.
 - **--continue (optional):** Resume a previous rebuild from `indexes/fragments.sqlite3.tmp`.
+
+### rebuild-search-index
+
+Build fresh per-user lexical search indexes from the current item database and fragment artifacts. This command rebuilds both item-title and document-fragment lexical indexes. It does not change or rebuild the semantic embedding database.
+
+Stop the Infumap web server before running this command. The existing lexical indexes remain in place while temporary replacements are built. After a user's temporary indexes are complete, they are compacted and installed for that user.
+
+The rebuild commits work and writes a checkpoint after each batch. It is safe to interrupt with Ctrl-C. Running the same command again resumes from a valid checkpoint. If the set of users or items changed after the checkpoint was written, the partial rebuild is discarded and a fresh one begins.
+
+When a rebuild finishes, its checkpoint is removed. Consequently, running `rebuild-search-index` again performs another fresh rebuild; a complete existing index does not make the command a no-op.
+
+Deleting `document_fragments_tantivy` or `item_titles_tantivy` is safe because both directories contain derived data. Search coverage for existing items is absent until `rebuild-search-index` recreates them. New or changed items only repopulate their own entries through live item-level indexing.
+
+Index files have these roles:
+
+- `document_fragments_tantivy`: lexical document and image-derived text.
+- `item_titles_tantivy`: lexical item titles and title context.
+- `fragments.sqlite3`: semantic embeddings; not touched by `rebuild-search-index`.
+
+Normal item additions, changes, and deletions update only the affected lexical documents and are batched per user. This still uses BM25: corpus statistics are evaluated from the current Tantivy index at query time, so adding an item does not require rebuilding old documents. Deleted documents stop matching immediately; their internal tombstones can make corpus statistics slightly approximate until the next compacting rebuild.
+
+Example:
+
+```
+infumap rebuild-search-index
+```
+
+Options:
+
+- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
+- **--batch-size (optional):** Number of items committed per checkpoint. Defaults to `100`. Smaller batches reduce repeated work after interruption; larger batches create fewer temporary index segments.
 
 ### geo
 
