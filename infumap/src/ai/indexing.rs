@@ -13,7 +13,7 @@ use tokio::fs;
 use tokio::task::JoinSet;
 
 use crate::ai::artifact_paths::{item_fragments_manifest_path, item_fragments_path, user_fragments_dir};
-use crate::ai::fragment::is_lexical_search_source_kind;
+use crate::ai::fragment::{is_lexical_search_source_kind, is_semantic_search_source_kind};
 use crate::ai::image_tagging::{
   ImageTagArtifactState, image_tagging_artifact_state, is_supported_image_tagging_mime_type,
 };
@@ -200,7 +200,7 @@ async fn load_fragment_index_plans_for_loaded_items(
     fragment_items.sort_by(|a, b| a.item_id.cmp(&b.item_id));
     let summary = FragmentCorpusSummary::from_items(&fragment_items);
     info!(
-      "User {} loaded fragment manifest plan: {} item(s), complete_manifests={}, lexical_document={} semantic_image={}, scan {:.3}s, manifest_load {:.3}s, total {:.3}s.",
+      "User {} loaded fragment manifest plan: {} item(s), complete_manifests={}, lexical={} semantic_image={}, scan {:.3}s, manifest_load {:.3}s, total {:.3}s.",
       user_id_for_log(&user_id),
       fragment_items.len(),
       manifest_complete_count,
@@ -631,7 +631,7 @@ async fn rebuild_user_fragment_index(
   ensure_user_index_dir(data_dir, &plan.user_id).await?;
 
   info!(
-    "User {} fragment lexical/semantic index manifest corpus: lexical_document={} semantic_image={} complete={}.",
+    "User {} fragment lexical/semantic index manifest corpus: lexical={} semantic_image={} complete={}.",
     user_id_for_log(&plan.user_id),
     plan.summary.lexical_fragment_count,
     plan.summary.vector_fragment_count,
@@ -1270,7 +1270,10 @@ fn indexed_search_item_ids(plan: &UserFragmentIndexPlan, semantic_enabled: bool)
     .iter()
     .filter(|item| item.has_complete_manifest())
     .filter(|item| item.fragment_count.unwrap_or(0) > 0)
-    .filter(|item| is_lexical_search_source_kind(&item.source_kind) || semantic_enabled)
+    .filter(|item| {
+      is_lexical_search_source_kind(&item.source_kind)
+        || (semantic_enabled && is_semantic_search_source_kind(&item.source_kind))
+    })
     .map(|item| item.item_id.clone())
     .collect()
 }
@@ -1444,7 +1447,7 @@ impl FragmentCorpusSummary {
       .sum();
     let vector_fragment_count = items
       .iter()
-      .filter(|item| !is_lexical_search_source_kind(&item.source_kind))
+      .filter(|item| is_semantic_search_source_kind(&item.source_kind))
       .map(|item| item.fragment_count.unwrap_or(0))
       .sum();
     let lexical_source_digest = if manifest_complete {
@@ -1456,7 +1459,7 @@ impl FragmentCorpusSummary {
     };
     let vector_source_digest = if manifest_complete {
       Some(manifest_fragment_corpus_digest(
-        items.iter().filter(|item| !is_lexical_search_source_kind(&item.source_kind)),
+        items.iter().filter(|item| is_semantic_search_source_kind(&item.source_kind)),
       ))
     } else {
       None
@@ -1502,13 +1505,13 @@ impl FragmentIndexSlice {
   fn includes_source_kind(&self, source_kind: &str) -> bool {
     match self {
       FragmentIndexSlice::Lexical => is_lexical_search_source_kind(source_kind),
-      FragmentIndexSlice::Vector => !is_lexical_search_source_kind(source_kind),
+      FragmentIndexSlice::Vector => is_semantic_search_source_kind(source_kind),
     }
   }
 
   fn label(&self) -> &'static str {
     match self {
-      FragmentIndexSlice::Lexical => "document-lexical",
+      FragmentIndexSlice::Lexical => "lexical",
       FragmentIndexSlice::Vector => "image-semantic",
     }
   }

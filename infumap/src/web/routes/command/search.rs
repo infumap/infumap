@@ -748,7 +748,7 @@ async fn semantic_search_results_inner(
     .search(&query_embedding, fragment_limit)
     .await?
     .into_iter()
-    .filter(|hit| !is_lexical_search_source_kind(&hit.source_kind))
+    .filter(|hit| is_semantic_search_source_kind(&hit.source_kind))
     .collect::<Vec<_>>();
   if !fragment_hits.is_empty() {
     debug!(
