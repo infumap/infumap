@@ -11,9 +11,12 @@ Each user lives under `user_<user_id>` in the configured data directory. In addi
 - `indexes/document_fragments_tantivy/` is the current text-fragment lexical index used by full-user search, including document text and image-derived captions, tags, OCR, locations, and dates.
 - `indexes/document_fragments_tantivy.tmp/` is the temp directory used while rebuilding the text-fragment lexical index.
 - `indexes/item_titles_tantivy/` is the current item-title lexical index used by full-user search.
-- `indexes/fragments.sqlite3` is the current fragment vector index used by semantic search.
-- `indexes/fragments.sqlite3.tmp` is the resumable temp database used by `infumap embed --continue`.
+- `indexes/item_titles_tantivy.tmp/` is the temp directory used while rebuilding the item-title lexical index.
+- `rebuild_search_index_checkpoint.json` records resumable `rebuild-search-index` progress and is removed after a successful rebuild.
+- `search_status.json` records items whose search fragments failed or are still pending. The web UI exposes these as virtual pages under the user's Queries page.
 
 Fragment files and search indexes are derived data. They can be deleted and regenerated from the source items and extraction/tagging artifacts.
+
+Older installations may still contain `indexes/fragments.sqlite3` or `indexes/fragments.sqlite3.tmp`. Infumap no longer reads these legacy semantic-search databases, so they can be deleted.
 
 ## Object Files

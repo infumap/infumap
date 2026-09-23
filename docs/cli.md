@@ -17,7 +17,7 @@ In addition to (or instead of) using a settings file, Infumap web server configu
 
 For more information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
 
-Searches from the user's home page mix title lexical matches, document fragment lexical matches, and semantic fragment matches when the corresponding indexes exist. Semantic search also requires either `text_embed_url` or a `gpu_tools_url` that reports a `text_embed` endpoint so the query can be embedded. Searches scoped to a specific page or container currently use exact title matching only.
+Searches from the user's home page combine lexical title matches with lexical search-fragment matches when the corresponding indexes exist. Search fragments contain derived document text and image descriptions. No embedding service is required. Searches scoped to a specific page or container currently use exact title matching only.
 
 
 Options:
@@ -190,10 +190,10 @@ Build on-disk fragment artifacts from text artifacts without starting the web se
 
 This command has four subcommands:
 
-- `fragment image` builds semantic text fragments from image-tagging and geo artifacts.
-- `fragment markdown` builds lexical text fragments directly from Markdown file objects.
-- `fragment text` builds lexical text fragments directly from plain text file objects.
-- `fragment pdf` builds semantic text fragments from PDF markdown produced by `extract pdf`.
+- `fragment image` builds search fragments from image-tagging and geo artifacts.
+- `fragment markdown` builds search fragments directly from Markdown file objects.
+- `fragment text` builds search fragments directly from plain text file objects.
+- `fragment pdf` builds search fragments from PDF Markdown produced by `extract pdf`.
 
 Do not run this command at the same time as infumap web - it will compete for the same work and may result in bad state.
 
@@ -202,23 +202,9 @@ Options:
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **--item-id (optional):** Build fragments only for this item.
 
-### embed
-
-Rebuild per-user fragment search indexes (semantic and lexical) from existing fragment artifacts.
-
-The web server updates lexical indexes for affected items as their titles or fragment artifacts change. It does not perform a full index rebuild at startup. Semantic embeddings are rebuilt explicitly with this command rather than as part of the live lexical update queue.
-
-Do not run this command at the same time as infumap web - it will compete for the same work and may result in bad state.
-
-Options:
-
-- **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **--service-url (optional):** Override `text_embed_url` or the `text_embed` endpoint discovered from `gpu_tools_url` for this process.
-- **--continue (optional):** Resume a previous rebuild from `indexes/fragments.sqlite3.tmp`.
-
 ### rebuild-search-index
 
-Build fresh per-user lexical search indexes from the current item database and fragment artifacts. This command rebuilds both item-title and document-fragment lexical indexes. It does not change or rebuild the semantic embedding database.
+Build fresh per-user lexical search indexes from the current item database and search-fragment artifacts. This command rebuilds both item-title and document-fragment lexical indexes.
 
 Stop the Infumap web server before running this command. The existing lexical indexes remain in place while temporary replacements are built. After a user's temporary indexes are complete, they are compacted and installed for that user.
 
@@ -232,9 +218,10 @@ Index files have these roles:
 
 - `document_fragments_tantivy`: lexical document and image-derived text.
 - `item_titles_tantivy`: lexical item titles and title context.
-- `fragments.sqlite3`: semantic embeddings; not touched by `rebuild-search-index`.
 
 Normal item additions, changes, and deletions update only the affected lexical documents and are batched per user. This still uses BM25: corpus statistics are evaluated from the current Tantivy index at query time, so adding an item does not require rebuilding old documents. Deleted documents stop matching immediately; their internal tombstones can make corpus statistics slightly approximate until the next compacting rebuild.
+
+After rebuilding, the command refreshes two virtual pages under the user's Queries page: `Search fragments failed` links to items whose prerequisite extraction or tagging failed, and `Search fragments pending` links to supported items that do not yet have search fragments. Their contents come from `search_status.json` in the user's data directory.
 
 Example:
 

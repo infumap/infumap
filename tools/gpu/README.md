@@ -1,13 +1,12 @@
 # GPU Services
 
-This folder contains the three HTTP tools plus a shared HTTP gateway:
+This folder contains two HTTP tools plus a shared HTTP gateway:
 
 - `gateway`
 - `image_extract`
-- `text_embed`
 - `pdf_extract`
 
-The `image_extract`, `text_embed`, `pdf_extract`, and `gateway`
+The `image_extract`, `pdf_extract`, and `gateway`
 launchers require Python 3.10 through 3.13 because the pinned API and ML
 dependencies do not install reliably on Python 3.9 or 3.14. By default they
 reuse a valid service `.venv`, then try common versioned `python3.x`
@@ -15,7 +14,7 @@ executables, Homebrew Python installs, and common macOS install locations before
 plain `python3`. Set `PYTHON_BIN=/path/to/python3.13` to force a specific
 interpreter.
 
-To start all three together from the repo root:
+To start all services together from the repo root:
 
 ```bash
 ./tools/gpu/run.sh
@@ -27,20 +26,16 @@ By default the gateway listens on `127.0.0.1:8787` and forwards:
 - `/image-extract` to the image extract service
 - `/image-extract-caption-only` to the image extract service
 - `/pdf-extract-caption-only` to the image extract service
-- `/text-embed` to the text embed service
 - `/pdf-extract` to the PDF extract service
 - `/pdf-extract/jobs` as the gateway-owned async PDF extraction job API
 
 The child services keep their own defaults:
 
 - `image_extract`: `127.0.0.1:8788`
-- `text_embed`: `127.0.0.1:8789`
 - `pdf_extract`: `127.0.0.1:8790`
 
 Infumap can use the gateway for discovery with
-`gpu_tools_url = "http://127.0.0.1:8787"`. To use a standalone text embedding
-service instead of the gateway-discovered endpoint, set
-`text_embed_url = "http://127.0.0.1:8789"`.
+`gpu_tools_url = "http://127.0.0.1:8787"`.
 
 Hugging Face, llama.cpp, PyTorch, Transformers, and Marker downloads use their
 standard library cache locations, such as `~/.cache/huggingface` and
@@ -53,12 +48,6 @@ the first `image_extract/run.sh` argument to select another model. You can also
 use `IMAGE_TAGGING_MODEL_REPO`, `IMAGE_TAGGING_MODEL_FILE`, and
 `IMAGE_TAGGING_MMPROJ_FILE` for separate fields.
 
-Note: `tools/gpu/text_embed` uses the fixed
-`Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0` model with `llama-server --embedding`.
-There is no environment variable or launcher argument to change this model.
-It requests GPU layers on NVIDIA and macOS hosts by default. Set
-`TEXT_EMBEDDING_LLAMA_NGL=0` to force CPU execution.
-
 The combined launcher keeps each service independent:
 
 - each child service uses its own `run.sh` for setup and local supervision
@@ -66,8 +55,7 @@ The combined launcher keeps each service independent:
 - the top-level launcher monitors all child launchers and restarts a service if its launcher exits
 - requests sent through the gateway to image/PDF extraction endpoints are
   serialized by a global GPU lock so only one heavy forwarded endpoint request
-  runs at a time; `/text-embed` bypasses this lock so search/query embedding can
-  run in parallel
+  runs at a time
 - gateway global-lock waits are bounded by `GPU_GATEWAY_LOCK_WAIT_TIMEOUT_SECS`
   and return HTTP 503 when the lock stays busy too long
 - the gateway lock is leased; if a holder is wedged past
@@ -104,9 +92,8 @@ Optional environment variables:
 - `GPU_GATEWAY_PDF_EXTRACT_JOB_UPSTREAM_TIMEOUT_SECS`
 - `GPU_GATEWAY_PDF_EXTRACT_JOB_RESULT_RETENTION_SECS`
 - `GPU_IMAGE_EXTRACT_UPSTREAM_URL`
-- `GPU_TEXT_EMBED_UPSTREAM_URL`
 - `GPU_PDF_EXTRACT_UPSTREAM_URL`
 - `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
-- all documented service-specific `IMAGE_TAGGING_*`, `TEXT_EMBEDDING_*`, and `TEXT_EXTRACTION_*` variables.
+- all documented service-specific `IMAGE_TAGGING_*` and `TEXT_EXTRACTION_*` variables.
