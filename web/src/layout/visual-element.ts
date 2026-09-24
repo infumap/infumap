@@ -115,7 +115,7 @@ export function isTableView(ve: Pick<VisualElement, "displayItem" | "linkItemMay
  * Returns true if the visual element is a translucent page.
  * TODO (low): this is overly complex. should review VisualElementFlags, can surely be simplified.
  */
-export function isVeTranslucentPage(ve: VisualElement): boolean {
+export function isVeTranslucentPage(ve: Pick<VisualElement, "displayItem" | "flags">): boolean {
   if (!isPage(ve.displayItem)) {
     return false;
   }

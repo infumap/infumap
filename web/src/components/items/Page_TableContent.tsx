@@ -24,7 +24,7 @@ import { ItemType } from "../../items/base/item";
 import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
 import { tabularColumnLayouts } from "../../layout/tabular";
 import { VesCache } from "../../layout/ves-cache";
-import { VeFns, VisualElement } from "../../layout/visual-element";
+import { VeFns, VisualElement, isVeTranslucentPage } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_LineItem } from "../VisualElement";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -41,7 +41,8 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   let pendingProgrammaticScrollTop: number | null = null;
 
   const page = () => props.visualElement.displayItem as PageItem;
-  const canEdit = () => itemCanEdit(page()) && itemCanEdit(VeFns.treeItem(props.visualElement));
+  const isTranslucent = () => isVeTranslucentPage(props.visualElement);
+  const canEdit = () => !isTranslucent() && itemCanEdit(page()) && itemCanEdit(VeFns.treeItem(props.visualElement));
   const pagePath = () => VeFns.veToPath(props.visualElement);
   const pageVeid = () => VeFns.veidFromVe(props.visualElement);
   const viewport = () => props.visualElement.viewportBoundsPx!;
@@ -114,7 +115,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
         `top: ${viewport().y - props.visualElement.boundsPx.y}px; ` +
         `width: ${viewport().w}px; height: ${viewport().h}px; overflow: hidden;`}>
       <Show when={headerHeightPx() > 0}>
-        <div class="absolute border border-[#999] bg-slate-300"
+        <div class={`absolute border border-[#999] bg-slate-300 ${isTranslucent() ? "pointer-events-none" : ""}`}
           style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${headerHeightPx()}px;`}>
           <For each={columns()}>{column =>
             <div id={`${pagePath()}:col${column.index}`}
@@ -130,7 +131,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
               onKeyDown={ev => edit_keyDownHandler(store, props.visualElement, ev)}
               onKeyUp={ev => edit_keyUpHandler(store, ev)}>
               {column.name}
-              <Show when={store.perVe.getMouseIsOver(pagePath()) && store.mouseOverTableHeaderColumnNumber.get() == column.index}>
+              <Show when={!isTranslucent() && store.perVe.getMouseIsOver(pagePath()) && store.mouseOverTableHeaderColumnNumber.get() == column.index}>
                 <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
                   <i class="fas fa-chevron-down" />
                 </div>
@@ -145,7 +146,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
           `width: ${bodyViewport().w}px; height: ${bodyViewport().h}px; ` +
           `overflow-y: auto; overflow-x: hidden;`}
         onscroll={scrollHandler}>
-        <div class="absolute"
+        <div class={`absolute ${isTranslucent() ? "pointer-events-none" : ""}`}
           style={`width: ${bodyViewport().w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
           <For each={rows()}>{childVe =>
             <>
