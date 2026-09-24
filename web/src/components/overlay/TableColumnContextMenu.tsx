@@ -20,7 +20,8 @@ import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
-import { TableFns, asTableItem } from "../../items/table-item";
+import { TableFns } from "../../items/table-item";
+import { asTabularItem } from "../../items/base/tabular-item";
 import { requestArrange } from "../../layout/arrange";
 import { VeFns } from "../../layout/visual-element";
 import { itemState } from "../../store/ItemState";
@@ -40,7 +41,7 @@ export const TableColumnContextMenu: Component = () => {
   const posPx = () => store.overlay.tableColumnContextMenuInfo.get()!.posPx;
   const tableVePath = () => store.overlay.tableColumnContextMenuInfo.get()!.tablePath;
   const tableId = () => VeFns.veidFromPath(tableVePath()).itemId;
-  const tableItem = () => asTableItem(itemState.get(tableId())!);
+  const tableItem = () => asTabularItem(itemState.get(tableId())!);
   const colNum = () => store.overlay.tableColumnContextMenuInfo.get()!.colNum;
 
   const newColToRight = () => {

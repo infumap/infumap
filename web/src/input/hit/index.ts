@@ -24,7 +24,7 @@ import { isContainer } from "../../items/base/container-item";
 import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
 import { getDockScrollYPx } from "../../layout/arrange/dock";
 import { VesCache } from "../../layout/ves-cache";
-import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns, isTableView } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, vectorAdd, vectorSubtract } from "../../util/geometry";
 import { assert, panic } from "../../util/lang";
@@ -82,9 +82,10 @@ export const HitInfoFns = {
     return null;
   },
   getTableContainerVe: (hitInfo: HitInfo): VisualElement | null => {
-    if (hitInfo.overVes && isTable(hitInfo.overVes!.get().displayItem)) { return hitInfo.overVes.get(); }
-    if (hitInfo.subSubRootVe && isTable(hitInfo.subSubRootVe.displayItem)) { return hitInfo.subSubRootVe; }
-    if (hitInfo.subRootVe && isTable(hitInfo.subRootVe.displayItem)) { return hitInfo.subRootVe; }
+    if (hitInfo.overVes && isTableView(hitInfo.overVes.get())) { return hitInfo.overVes.get(); }
+    if (hitInfo.subSubRootVe && isTableView(hitInfo.subSubRootVe)) { return hitInfo.subSubRootVe; }
+    if (hitInfo.subRootVe && isTableView(hitInfo.subRootVe)) { return hitInfo.subRootVe; }
+    if (isTableView(hitInfo.rootVes.get())) { return hitInfo.rootVes.get(); }
     return null;
   },
   isOverTableInComposite: (hitInfo: HitInfo): boolean => {
@@ -157,6 +158,7 @@ function pageContentScrollOffsetPx(store: StoreContextModel, pageVe: VisualEleme
   if (!isPage(pageVe.displayItem) || !pageVe.viewportBoundsPx || !pageVe.childAreaBoundsPx) {
     return { x: 0, y: 0 };
   }
+  if (pageVe.tableBodyViewportBoundsPx != null) { return { x: 0, y: 0 }; }
 
   const pageVeid = (pageVe.flags & VisualElementFlags.Popup)
     ? store.history.currentPopupSpec()?.actualVeid ?? VeFns.actualVeidFromVe(pageVe)
@@ -323,6 +325,38 @@ function getHitInfoUnderRoot(
   const { parentRootVe, rootVes, rootVe } = rootInfo;
   let { posRelativeToRootVeViewportPx } = rootInfo;
   const rootPageItem = asPageItem(rootVe.displayItem);
+
+  if (isTableView(rootVe) && rootVe.tableBodyViewportBoundsPx && rootVe.tableRowBlockSizePx) {
+    const headerHeightPx = rootVe.tableBodyViewportBoundsPx.y - rootVe.viewportBoundsPx!.y;
+    const bodyY = posRelativeToRootVeViewportPx.y - headerHeightPx;
+    if (posRelativeToRootVeViewportPx.x >= 0 &&
+      posRelativeToRootVeViewportPx.x < rootVe.tableBodyViewportBoundsPx.w &&
+      bodyY >= 0 && bodyY < rootVe.tableBodyViewportBoundsPx.h) {
+      const rowPos = {
+        x: posRelativeToRootVeViewportPx.x,
+        y: bodyY + store.perItem.getTableScrollYPos(VeFns.veidFromVe(rootVe)) * rootVe.tableRowBlockSizePx.h,
+      };
+      const rowVes = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
+      for (let i = rowVes.length - 1; i >= 0; --i) {
+        const rowVe = rowVes[i].get();
+        const attachmentHit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(rowVe))(), rowPos, ignoreItems, false, allowCopyMove);
+        if (attachmentHit) {
+          return new HitBuilder(parentRootVe, rootVes)
+            .over(attachmentHit.attachmentVes).hitboxes(attachmentHit.flags, HitboxFlags.None)
+            .meta(attachmentHit.meta).pos(rowPos).allowEmbeddedInteractive(false)
+            .createdAt("table-page-root-attachment").build();
+        }
+        if (!isInside(rowPos, rowVe.boundsPx) || isIgnored(rowVe.displayItem.id, ignoreItems)) { continue; }
+        const { flags, meta } = scanHitboxes(rowVe, rowPos, getBoundingBoxTopLeft(rowVe.boundsPx), allowCopyMove);
+        return new HitBuilder(parentRootVe, rootVes)
+          .over(rowVes[i]).hitboxes(flags, HitboxFlags.None).meta(meta).pos(rowPos)
+          .allowEmbeddedInteractive(false).createdAt("table-page-root-row").build();
+      }
+    }
+    return new HitBuilder(parentRootVe, rootVes).over(rootVes)
+      .hitboxes(HitboxFlags.None, HitboxFlags.None).meta(null).pos(posRelativeToRootVeViewportPx)
+      .allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("table-page-root-background").build();
+  }
 
   const posRelativeToRootChildAreaPx = (() => {
     if (rootPageItem.arrangeAlgorithm != ArrangeAlgorithm.Document) {
@@ -598,10 +632,12 @@ function determineTopLevelRoot(
   let currentPageVes = VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))()[0];
   let currentPageVe = currentPageVes.get();
   const currentPageVeid = store.history.currentPageVeid()!;
-  const posRelativeToTopLevelVePx = vectorAdd(posOnDesktopPx, {
-    x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
-    y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
-  });
+  const posRelativeToTopLevelVePx = currentPageVe.tableBodyViewportBoundsPx != null
+    ? posOnDesktopPx
+    : vectorAdd(posOnDesktopPx, {
+      x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
+      y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
+    });
   let posRelativeToRootVeBoundsPx = { ...posRelativeToTopLevelVePx };
   const dockWidthPx = store.getCurrentDockWidthPx();
   posRelativeToRootVeBoundsPx.x = posRelativeToRootVeBoundsPx.x - dockWidthPx;
@@ -803,8 +839,8 @@ function hitPageSelectedRootMaybe(
         rootVes = newRootVesMaybe;
         rootVe = newRootVeMaybe;
         let veid = VeFns.actualVeidFromVe(newRootVeMaybe);
-        const scrollPropX = store.perItem.getPageScrollXProp(veid);
-        const scrollPropY = store.perItem.getPageScrollYProp(veid);
+        const scrollPropX = newRootVeMaybe.tableBodyViewportBoundsPx != null ? 0 : store.perItem.getPageScrollXProp(veid);
+        const scrollPropY = newRootVeMaybe.tableBodyViewportBoundsPx != null ? 0 : store.perItem.getPageScrollYProp(veid);
 
         // For all pages, use childAreaBoundsPx for scroll calculation
         // List pages have childAreaBoundsPx == viewportBoundsPx, so scrollPropY effect is 0 here
@@ -862,8 +898,8 @@ function hitEmbeddedRootMaybe(
     if (!(childVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) { continue; }
     if (isInside(posRelativeToRootVeViewportPx, childVe.boundsPx!)) {
       const childVeid = VeFns.veidFromVe(childVe);
-      const scrollPropX = store.perItem.getPageScrollXProp(childVeid);
-      const scrollPropY = store.perItem.getPageScrollYProp(childVeid);
+      const scrollPropX = childVe.tableBodyViewportBoundsPx != null ? 0 : store.perItem.getPageScrollXProp(childVeid);
+      const scrollPropY = childVe.tableBodyViewportBoundsPx != null ? 0 : store.perItem.getPageScrollYProp(childVeid);
       const posRelativeToEmbeddedRootBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, {
         x: childVe.boundsPx.x,
         y: childVe.boundsPx.y,

@@ -17,14 +17,17 @@
 */
 
 import { Component, For, Show, createEffect, onCleanup, onMount } from "solid-js";
-import { LINE_HEIGHT_PX, PADDING_PROP } from "../../constants";
+import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { PageItem } from "../../items/page-item";
-import { requestArrange } from "../../layout/arrange";
+import { itemCanEdit } from "../../items/base/capabilities-item";
+import { ItemType } from "../../items/base/item";
+import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
 import { tabularColumnLayouts } from "../../layout/tabular";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_LineItem } from "../VisualElement";
+import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 
 interface PageTableContentProps {
   visualElement: VisualElement;
@@ -46,6 +49,9 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   const headerHeightPx = () => bodyViewport().y - viewport().y;
   const scale = () => blockSize().h / LINE_HEIGHT_PX;
   const columns = () => tabularColumnLayouts(page(), viewport().w / blockSize().w);
+  const isSortedByTitle = () => page().orderChildrenBy == "title[ASC]";
+  const moveOverRowY = () => headerHeightPx() +
+    (store.perVe.getMoveOverRowNumber(pagePath()) - store.perItem.getTableScrollYPos(pageVeid())) * blockSize().h;
 
   const syncScrollTop = () => {
     if (!bodyDiv) { return; }
@@ -83,7 +89,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
     const next = bodyDiv.scrollTop / blockSize().h;
     store.perItem.setTableScrollYPos(pageVeid(), next);
     if (Math.floor(previous) != Math.floor(next)) {
-      requestArrange(store, "table-page-scroll");
+      rearrangeTableAfterScroll(store, props.visualElement.parentPath!, pageVeid(), previous);
     }
     if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
     scrollDoneTimer = setTimeout(() => {
@@ -94,7 +100,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
       store.perItem.setTableScrollYPos(pageVeid(), snapped);
       bodyDiv.scrollTop = snapped * blockSize().h;
       if (Math.floor(beforeSnap) != snapped) {
-        requestArrange(store, "table-page-scroll-snap");
+        rearrangeTableAfterScroll(store, props.visualElement.parentPath!, pageVeid(), beforeSnap);
       }
     }, 600);
   };
@@ -115,7 +121,13 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
               style={`left: ${column.startBl * blockSize().w + PADDING_PROP * blockSize().w}px; top: 0px; ` +
                 `width: ${Math.max(0, (column.endBl - column.startBl) * blockSize().w - PADDING_PROP * blockSize().w) / scale()}px; ` +
                 `height: ${headerHeightPx() / scale()}px; line-height: ${LINE_HEIGHT_PX}px; ` +
-                `transform: scale(${scale()}); transform-origin: top left; outline: 0px solid transparent;`}>
+                `transform: scale(${scale()}); transform-origin: top left; outline: 0px solid transparent;`}
+              contentEditable={itemCanEdit(page()) && store.overlay.textEditInfo()?.itemPath == pagePath() &&
+                store.overlay.textEditInfo()?.itemType == ItemType.Page && store.overlay.textEditInfo()?.colNum == column.index}
+              spellcheck={itemCanEdit(page()) && store.overlay.textEditInfo()?.colNum == column.index}
+              onInput={ev => edit_inputListener(store, ev)}
+              onKeyDown={ev => edit_keyDownHandler(store, props.visualElement, ev)}
+              onKeyUp={ev => edit_keyUpHandler(store, ev)}>
               {column.name}
               <Show when={store.perVe.getMouseIsOver(pagePath()) && store.mouseOverTableHeaderColumnNumber.get() == column.index}>
                 <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
@@ -153,6 +165,18 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
           </Show>
         }</For>
       </div>
+      <Show when={store.perVe.getMovingItemIsOver(pagePath()) &&
+        store.perVe.getMoveOverRowNumber(pagePath()) >= 0 &&
+        store.perVe.getMoveOverChildContainerPath(pagePath()) == null &&
+        !isSortedByTitle()}>
+        <Show when={store.perVe.getMoveOverColAttachmentNumber(pagePath()) < 0}
+          fallback={<div class="absolute border border-black bg-black pointer-events-none"
+            style={`left: ${(columns()[Math.min(store.perVe.getMoveOverColAttachmentNumber(pagePath()), columns().length - 1)]?.endBl ?? 0) * blockSize().w}px; ` +
+              `top: ${moveOverRowY()}px; width: 4px; height: ${blockSize().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />}>
+          <div class="absolute border border-black pointer-events-none"
+            style={`left: 0px; top: ${moveOverRowY()}px; width: ${viewport().w}px; height: 1px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
+        </Show>
+      </Show>
     </div>
   );
 };

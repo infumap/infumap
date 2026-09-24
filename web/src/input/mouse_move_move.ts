@@ -41,7 +41,7 @@ import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, isTableView } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -634,6 +634,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     }
 
     if (!dockListPageIconMoveTarget &&
+      tableMoveTargetPath == null &&
       !hoveredPageInsideTable &&
       pageCanHostLiveMovingItem(hitMoveTargetVe) &&
       MouseActionState.readScaleDefiningElement()!.displayItem != hitMoveTargetVe.displayItem) {
@@ -828,7 +829,7 @@ function moving_handleOverTable(
   desktopPx: Vector,
   childContainerDropTargetPath: VisualElementPath | null,
 ) {
-  assert(isTable(overContainerVe.displayItem), "overContainerVe is not a table");
+  assert(isTableView(overContainerVe), "overContainerVe is not a table view");
   const tablePath = VeFns.veToPath(overContainerVe);
   const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overContainerVe, desktopPx);
   store.perVe.setMoveOverRowNumber(tablePath, insertRow);

@@ -171,6 +171,21 @@ function finalizeInsideTableChild(
 ): HitInfo {
   const overVe = overVes.get();
   const parentTableVe = parentVe(overVe);
+  if (parentTableVe.tableBodyViewportBoundsPx != null) {
+    return {
+      overVes,
+      rootVes,
+      parentRootVe,
+      subRootVe: parentTableVe,
+      subSubRootVe: null,
+      hitboxType,
+      compositeHitboxTypeMaybe: containerHitboxType,
+      overElementMeta,
+      overPositionableVe: parentTableVe,
+      overPositionGr: { x: 0, y: 0 },
+      debugCreatedAt: "finalize/tablePageChild " + debugCreatedAt,
+    };
+  }
   const tableParentVe = parentVe(parentTableVe);
   let overPositionableVe = tableParentVe;
   const overPositionGr = { x: 0, y: 0 };

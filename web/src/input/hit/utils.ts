@@ -169,11 +169,12 @@ export function toTableChildAreaPos(
   parentBoundsLocalPos: Vector,
 ): Vector {
   const tableBlockHeightPx = tableChildVe.boundsPx.h;
+  const viewport = tableVe.tableBodyViewportBoundsPx ?? tableVe.viewportBoundsPx!;
   return vectorSubtract(
     parentBoundsLocalPos,
     {
-      x: tableVe.viewportBoundsPx!.x,
-      y: tableVe.viewportBoundsPx!.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe)) * tableBlockHeightPx
+      x: viewport.x,
+      y: viewport.y - store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe)) * tableBlockHeightPx
     }
   );
 }

@@ -37,7 +37,7 @@ import { RelationshipToParent } from "../relationship-to-parent";
 import { TabularContainerItem, tabularAttachmentCellLayouts, tabularColumnLayouts, walkTabularRows } from "../tabular";
 
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isTableView } from "../visual-element";
 
 import { arrangeItemAttachments } from "./attachments";
 import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
@@ -570,7 +570,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
 
   const tableVePath = VeFns.addVeidToPath(tableVeid, parentPath);
   const tableVe = VesCache.current.readNode(tableVePath)!;
-  const displayItem_table = asTableItem(tableVe.displayItem);
+  if (!isTableView(tableVe)) { return; }
+  const displayItem_table = tableVe.displayItem as TabularContainerItem;
   const windowState = createTableRenderWindowState(
     VesCache.render.getChildren(tableVePath)(),
     VesCache.table.getRenderRows(tableVePath) ?? [],
@@ -594,13 +595,14 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     return;
   }
 
-  const blockSizePx = tableVe.blockSizePx ?? (() => {
+  const blockSizePx = tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx ?? (() => {
     const fallbackSizeBl = tableVeid.linkIdMaybe
       ? { w: tableVe.linkItemMaybe!.spatialWidthGr / GRID_SIZE, h: tableVe.linkItemMaybe!.spatialHeightGr / GRID_SIZE }
       : { w: asTableItem(tableVe.displayItem).spatialWidthGr / GRID_SIZE, h: asTableItem(tableVe.displayItem).spatialHeightGr / GRID_SIZE };
     return { w: tableVe.boundsPx.w / fallbackSizeBl.w, h: tableVe.boundsPx.h / fallbackSizeBl.h };
   })();
-  const sizeBl = { w: tableVe.boundsPx.w / blockSizePx.w, h: tableVe.boundsPx.h / blockSizePx.h };
+  const viewportPx = tableVe.tableBodyViewportBoundsPx ?? tableVe.boundsPx;
+  const sizeBl = { w: viewportPx.w / blockSizePx.w, h: viewportPx.h / blockSizePx.h };
 
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
   const firstItemIdx = Math.floor(scrollYPos);
@@ -637,7 +639,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     tableVe._arrangeFlags_useForPartialRearrangeOnly,
     sizeBl,
     blockSizePx,
-    getBoundingBoxSize(tableVe.boundsPx),
+    getBoundingBoxSize(viewportPx),
   );
 
   if (!applyTableWindowPlansAfterScroll(store, tableVePath, windowState, windowPlans, debugRowMapping)) {

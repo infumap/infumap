@@ -41,7 +41,7 @@ import { YSizableItem, YSizableMixin } from "./base/y-sizeable-item";
 import { ItemGeometry } from "../layout/item-geometry";
 import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
-import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, isTableView } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from "./base/item-common-fns";
 import { itemState } from "../store/ItemState";
@@ -57,7 +57,8 @@ import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
-import { TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularVisibleRows } from "../layout/tabular";
+import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularVisibleRows } from "../layout/tabular";
+import { asPageItem, isPage } from "./page-item";
 
 
 export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -82,7 +83,13 @@ export function tableHeaderHeightBl(table: FlagsMixin): number {
 
 
 function tableVisibleRows(store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> {
-  return tabularVisibleRows(store, asTableItem(tableVe.displayItem), VeFns.veToPath(tableVe));
+  return tabularVisibleRows(store, tabularViewItem(tableVe), VeFns.veToPath(tableVe));
+}
+
+function tabularViewItem(ve: VisualElement): TabularContainerItem {
+  if (isTable(ve.displayItem)) { return asTableItem(ve.displayItem); }
+  if (isTableView(ve) && isPage(ve.displayItem)) { return asPageItem(ve.displayItem); }
+  panic("expected a table item or Table-arranged page");
 }
 
 
@@ -389,6 +396,11 @@ export const TableFns = {
    * Determine if the desktopPx position is inside the table visual element's viewport.
    */
   desktopViewportBoundsPx(store: StoreContextModel, tableVe: VisualElement): BoundingBox {
+    if (tableVe.tableBodyViewportBoundsPx != null) {
+      const pageViewport = VeFns.veViewportBoundsRelativeToDesktopPx(store, tableVe);
+      const headerHeightPx = tableVe.tableBodyViewportBoundsPx.y - tableVe.viewportBoundsPx!.y;
+      return { ...pageViewport, y: pageViewport.y + headerHeightPx, h: tableVe.tableBodyViewportBoundsPx.h };
+    }
     const tableDesktopBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
     const viewportDesktopPx = cloneBoundingBox(tableVe.viewportBoundsPx)!;
     const headerHeightPx = tableVe.boundsPx.h - tableVe.viewportBoundsPx!.h;
@@ -429,6 +441,15 @@ export const TableFns = {
    * intentionally targeting the table's own top-right attachment insertion point.
    */
   normalizeMoveOverDesktopPx(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): Vector {
+    if (tableVe.tableBodyViewportBoundsPx != null && tableVe.tableRowBlockSizePx != null) {
+      const pageViewport = VeFns.veViewportBoundsRelativeToDesktopPx(store, tableVe);
+      const bodyViewport = TableFns.desktopViewportBoundsPx(store, tableVe);
+      if (!isInside(desktopPx, pageViewport) || desktopPx.y >= bodyViewport.y) { return desktopPx; }
+      return {
+        x: desktopPx.x,
+        y: bodyViewport.y + Math.min(Math.max(1, Math.round(tableVe.tableRowBlockSizePx.h * 0.25)), Math.max(0, Math.floor(bodyViewport.h - 1))),
+      };
+    }
     const tableDesktopBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
     if (!isInside(desktopPx, tableDesktopBoundsPx)) { return desktopPx; }
 
@@ -448,6 +469,20 @@ export const TableFns = {
    * This may or not have an existing associated item.
    */
   tableModifiableColRow(store: StoreContextModel, tableVe: VisualElement, desktopPx: Vector): { insertRow: number, attachmentPos: number } {
+    if (tableVe.tableBodyViewportBoundsPx != null && tableVe.tableRowBlockSizePx != null) {
+      const body = TableFns.desktopViewportBoundsPx(store, tableVe);
+      const block = tableVe.tableRowBlockSizePx;
+      const widthBl = body.w / block.w;
+      const colNumber = tabularColumnAtBl(tabularViewItem(tableVe), widthBl, (desktopPx.x - body.x) / block.w);
+      const attachmentPos = colNumber - 1;
+      const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
+      const row = (desktopPx.y - body.y) / block.h + scrollYPos;
+      const insertRow = Math.max(0, Math.min(
+        attachmentPos == -1 ? Math.round(row) : Math.floor(row),
+        TableFns.tableVisibleRowCount(store, tableVe),
+      ));
+      return { insertRow, attachmentPos };
+    }
     desktopPx = TableFns.normalizeMoveOverDesktopPx(store, tableVe, desktopPx);
     const tableItem = asTableItem(tableVe.displayItem);
     const tableDimensionsBl = tableVisualDimensionsBl(tableVe);
@@ -489,7 +524,7 @@ export const TableFns = {
   },
 
   tableInsertionTarget: (store: StoreContextModel, tableVe: VisualElement, insertRow: number): TableInsertionTarget => {
-    const tableItem = asTableItem(tableVe.displayItem);
+    const tableItem = tabularViewItem(tableVe);
     const rows = tableVisibleRows(store, tableVe);
     return tabularInsertionTarget(tableItem, rows, insertRow);
   },
@@ -503,7 +538,7 @@ export const TableFns = {
   },
 
   insertEmptyColAt(tableId: Uid, colPos: number, store: StoreContextModel) {
-    const tableItem = asTableItem(itemState.get(tableId)!);
+    const tableItem = itemState.get(tableId)! as TabularContainerItem;
     let ancestor: Item | null = tableItem;
     while (ancestor != null) {
       if (ancestor.itemType == ItemType.Page) {
@@ -535,7 +570,7 @@ export const TableFns = {
   },
 
   removeColItemsAt(tableId: Uid, colPos: number, store: StoreContextModel) {
-    const tableItem = asTableItem(itemState.get(tableId)!);
+    const tableItem = itemState.get(tableId)! as TabularContainerItem;
     for (let i = 0; i < tableItem.computed_children.length; ++i) {
       const child = itemState.get(tableItem.computed_children[i])!;
       if (!isAttachmentsItem(child)) { continue; }

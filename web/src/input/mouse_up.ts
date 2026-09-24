@@ -42,7 +42,7 @@ import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, isEmptyVeid, isVeTranslucentPage } from "../layout/visual-element";
+import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, isEmptyVeid, isVeTranslucentPage, isTableView } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
@@ -1164,7 +1164,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     case MouseAction.ResizingColumn:
       DoubleClickState.preventDoubleClick();
       const hitMeta = MouseActionState.getHitMeta()!;
-      const widthGr = activeVisualElement.linkItemMaybe == null
+      const widthGr = activeVisualElement.tableBodyViewportBoundsPx != null
+        ? asPageItem(activeVisualElement.displayItem).tableColumns[hitMeta.colNum!].widthGr
+        : activeVisualElement.linkItemMaybe == null
         ? asTableItem(activeItem).tableColumns[hitMeta.colNum!].widthGr
         : asTableItem(activeVisualElement.displayItem).tableColumns[hitMeta.colNum!].widthGr;
       if (MouseActionState.getStartWidthBl()! * GRID_SIZE != widthGr) {
@@ -1465,7 +1467,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     mouseUpHandler_moving_toOpaquePage(store, activeItem, overContainerVe);
     return;
   }
-  if (isTable(overContainerVe.displayItem)) {
+  if (isTableView(overContainerVe)) {
     mouseUpHandler_moving_toTable(store, activeItem, overContainerVe);
     return;
   }

@@ -435,7 +435,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           }
         }
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
-          asPageItem(item).title = trimNewline(newText);
+          const colNum = store.overlay.textEditInfo()!.colNum;
+          if (colNum == null) { asPageItem(item).title = trimNewline(newText); }
+          else { asPageItem(item).tableColumns[colNum].name = trimNewline(newText); }
         }
         else if (store.overlay.textEditInfo()!.itemType == ItemType.Composite) {
           asCompositeItem(item).title = trimNewline(newText);

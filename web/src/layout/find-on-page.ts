@@ -24,7 +24,7 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { Uid } from "../util/uid";
 import { requestArrange } from "./arrange";
 import { VesCache } from "./ves-cache";
-import { VeFns, VisualElementPath, isVeTranslucentPage } from "./visual-element";
+import { VeFns, VisualElementPath, isVeTranslucentPage, isTableView } from "./visual-element";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
 import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../constants";
@@ -167,8 +167,8 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
         return;
       }
 
-    if (isTable(parentVe.displayItem)) {
-      const tableItem = asTableItem(parentVe.displayItem);
+    if (isTableView(parentVe)) {
+      const tableItem = asContainerItem(parentVe.displayItem);
       const tableVeid = VeFns.veidFromVe(parentVe);
 
       let rowIndex = -1;
@@ -186,10 +186,11 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
         return;
       }
 
-      const sizeBl = parentVe.linkItemMaybe
-        ? { h: parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE }
-        : { h: tableItem.spatialHeightGr / GRID_SIZE };
-      const numVisibleRows = sizeBl.h - tableHeaderHeightBl(tableItem);
+      const numVisibleRows = parentVe.tableBodyViewportBoundsPx && parentVe.tableRowBlockSizePx
+        ? parentVe.tableBodyViewportBoundsPx.h / parentVe.tableRowBlockSizePx.h
+        : (parentVe.linkItemMaybe
+          ? parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE
+          : asTableItem(parentVe.displayItem).spatialHeightGr / GRID_SIZE) - tableHeaderHeightBl(asTableItem(parentVe.displayItem));
 
       const newScrollPos = Math.max(0, rowIndex - Math.floor(numVisibleRows / 2));
       store.perItem.setTableScrollYPos(tableVeid, newScrollPos);
@@ -304,7 +305,7 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
   if (ve.parentPath) {
     const parentVe = VesCache.current.readNode(ve.parentPath);
 
-    if (parentVe && isTable(parentVe.displayItem)) {
+    if (parentVe && isTableView(parentVe)) {
       const rowNumber = ve.row;
       if (rowNumber === null || rowNumber === undefined) {
         console.warn("Row number not found for table item");
@@ -312,12 +313,12 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
         return;
       }
 
-      const tableItem = asTableItem(parentVe.displayItem);
       const tableVeid = VeFns.veidFromVe(parentVe);
-      const sizeBl = parentVe.linkItemMaybe
-        ? { h: parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE }
-        : { h: tableItem.spatialHeightGr / GRID_SIZE };
-      const numVisibleRows = sizeBl.h - tableHeaderHeightBl(tableItem);
+      const numVisibleRows = parentVe.tableBodyViewportBoundsPx && parentVe.tableRowBlockSizePx
+        ? parentVe.tableBodyViewportBoundsPx.h / parentVe.tableRowBlockSizePx.h
+        : (parentVe.linkItemMaybe
+          ? parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE
+          : asTableItem(parentVe.displayItem).spatialHeightGr / GRID_SIZE) - tableHeaderHeightBl(asTableItem(parentVe.displayItem));
 
       const currentScrollPos = store.perItem.getTableScrollYPos(tableVeid);
       if (rowNumber < currentScrollPos || rowNumber >= currentScrollPos + numVisibleRows) {
@@ -344,8 +345,8 @@ export function performFind(store: StoreContextModel, findText: string) {
   const tableMatches: Array<VisualElementPath> = [];
 
   const checkTableForMatches = (ve: any, path: VisualElementPath) => {
-    if (isTable(ve.displayItem)) {
-      const tableItem = asTableItem(ve.displayItem);
+    if (isTableView(ve)) {
+      const tableItem = asContainerItem(ve.displayItem);
       const matches = findInTableDirectChildren(tableItem, findText);
 
       for (const match of matches) {

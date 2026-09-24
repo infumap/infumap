@@ -31,7 +31,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage, isTableView } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from './base/item-common-fns';
@@ -1198,6 +1198,35 @@ export const PageFns = {
   },
 
   handleClick: (visualElement: VisualElement, hitboxFlags: HitboxFlags, store: StoreContextModel, hitboxMeta: HitboxMeta | null = null): void => {
+    if (isTableView(visualElement) && hitboxMeta?.colNum != null && (hitboxFlags & HitboxFlags.ContentEditable)) {
+      const itemPath = VeFns.veToPath(visualElement);
+      if (!itemCanEdit(visualElement.displayItem)) {
+        store.history.setFocus(itemPath);
+        arrangeNow(store, "table-page-header-focus-only");
+        return;
+      }
+      store.overlay.setTextEditInfo(store.history, {
+        itemPath,
+        itemType: ItemType.Page,
+        colNum: hitboxMeta.colNum,
+        startBl: hitboxMeta.startBl!,
+        endBl: hitboxMeta.endBl!,
+      });
+      const editingPath = `${itemPath}:col${hitboxMeta.colNum}`;
+      const el = document.getElementById(editingPath);
+      if (el == null) {
+        store.overlay.setTextEditInfo(store.history, null);
+        store.history.setFocus(itemPath);
+        arrangeNow(store, "table-page-edit-target-missing");
+        return;
+      }
+      el.focus();
+      const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+      arrangeNow(store, "table-page-enter-column-edit");
+      const freshEl = document.getElementById(editingPath);
+      if (freshEl) { setCaretPosition(freshEl, closestIdx); }
+      return;
+    }
     const isRenderedEmbeddedInteractive = !!(visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot);
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (isRenderedEmbeddedInteractive && (hitboxFlags & HitboxFlags.ContentEditable)) {

@@ -274,7 +274,11 @@ export function commitActiveTextEdit(
       }
     }
     else if (textEditInfo.itemType == ItemType.Page) {
-      asPageItem(item).title = trimNewline(newText);
+      if (textEditInfo.colNum == null) {
+        asPageItem(item).title = trimNewline(newText);
+      } else {
+        asPageItem(item).tableColumns[textEditInfo.colNum].name = trimNewline(newText);
+      }
     }
     else if (textEditInfo.itemType == ItemType.Composite) {
       asCompositeItem(item).title = trimNewline(newText);
@@ -1346,7 +1350,8 @@ export const edit_inputListener = (store: StoreContextModel, _ev: InputEvent) =>
           item.text = newText;
         } else if (textEditInfo.itemType == ItemType.Page) {
           let item = asPageItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-          item.title = newText;
+          if (colNum == null) { item.title = newText; }
+          else { item.tableColumns[colNum].name = newText; }
         } else if (textEditInfo.itemType == ItemType.Composite) {
           let item = asCompositeItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
           item.title = newText;

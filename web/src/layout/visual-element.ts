@@ -202,6 +202,7 @@ function pageAncestorScrollOffsetPx(
       y: store.perItem.getTableScrollYPos(VeFns.veidFromVe(pageVe)) * pageVe.tableRowBlockSizePx.h,
     };
   }
+  if (pageVe.tableBodyViewportBoundsPx != null) { return { x: 0, y: 0 }; }
 
   const listScrollOffsetPx = listPageScrollOffsetPxForDescendant(store, pageVe, descendantVe);
   if (listScrollOffsetPx != null) {
@@ -996,10 +997,10 @@ export const VeFns = {
   isInTable: (visualElement: VisualElement): boolean => {
     if (visualElement.parentPath == null) { return false; }
     const parent = VesCache.current.readNode(visualElement.parentPath)!;
-    if (VeFns.treeItem(visualElement).relationshipToParent == RelationshipToParent.Child && isTable(parent.displayItem)) { return true; }
+    if (VeFns.treeItem(visualElement).relationshipToParent == RelationshipToParent.Child && isTableView(parent)) { return true; }
     if (VeFns.treeItem(visualElement).relationshipToParent != RelationshipToParent.Attachment) { return false; }
     const parentParent = VesCache.current.readNode(parent.parentPath!)!;
-    return isTable(parentParent.displayItem);
+    return isTableView(parentParent);
   },
 
   // Global stacking policy:
