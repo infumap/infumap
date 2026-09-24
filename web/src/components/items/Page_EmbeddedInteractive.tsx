@@ -39,6 +39,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
+import { Page_TableContent } from "./Page_TableContent";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -448,6 +449,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         {renderShadowMaybe()}
         {renderEmbeddedInteractiveBackground()}
         <Switch>
+          <Match when={props.visualElement.tableBodyViewportBoundsPx != null}>
+            <Page_TableContent visualElement={props.visualElement} />
+            {renderPopupRootMaybe()}
+          </Match>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
             {renderListPage()}
           </Match>

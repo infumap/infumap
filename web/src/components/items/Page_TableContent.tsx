@@ -1,0 +1,158 @@
+/*
+  Copyright (C) The Infumap Authors
+  This file is part of Infumap.
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as
+  published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+import { Component, For, Show, createEffect, onCleanup, onMount } from "solid-js";
+import { LINE_HEIGHT_PX, PADDING_PROP } from "../../constants";
+import { PageItem } from "../../items/page-item";
+import { requestArrange } from "../../layout/arrange";
+import { tabularColumnLayouts } from "../../layout/tabular";
+import { VesCache } from "../../layout/ves-cache";
+import { VeFns, VisualElement } from "../../layout/visual-element";
+import { useStore } from "../../store/StoreProvider";
+import { VisualElement_LineItem } from "../VisualElement";
+
+interface PageTableContentProps {
+  visualElement: VisualElement;
+}
+
+/** Table rows are positioned relative to a page-local body viewport, below the column header. */
+export const Page_TableContent: Component<PageTableContentProps> = props => {
+  const store = useStore();
+  let bodyDiv: HTMLDivElement | undefined;
+  let scrollDoneTimer: ReturnType<typeof setTimeout> | null = null;
+  let pendingProgrammaticScrollTop: number | null = null;
+
+  const page = () => props.visualElement.displayItem as PageItem;
+  const pagePath = () => VeFns.veToPath(props.visualElement);
+  const pageVeid = () => VeFns.veidFromVe(props.visualElement);
+  const viewport = () => props.visualElement.viewportBoundsPx!;
+  const bodyViewport = () => props.visualElement.tableBodyViewportBoundsPx!;
+  const blockSize = () => props.visualElement.tableRowBlockSizePx!;
+  const headerHeightPx = () => bodyViewport().y - viewport().y;
+  const scale = () => blockSize().h / LINE_HEIGHT_PX;
+  const columns = () => tabularColumnLayouts(page(), viewport().w / blockSize().w);
+
+  const syncScrollTop = () => {
+    if (!bodyDiv) { return; }
+    const scrollTop = store.perItem.getTableScrollYPos(pageVeid()) * blockSize().h;
+    if (Math.abs(bodyDiv.scrollTop - scrollTop) > 0.5) {
+      pendingProgrammaticScrollTop = scrollTop;
+      bodyDiv.scrollTop = scrollTop;
+    }
+  };
+
+  onMount(syncScrollTop);
+  createEffect(() => {
+    bodyViewport().h;
+    props.visualElement.childAreaBoundsPx?.h;
+    blockSize().h;
+    store.perItem.getTableScrollYPos(pageVeid());
+    syncScrollTop();
+  });
+  onCleanup(() => {
+    if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
+  });
+
+  const scrollHandler = () => {
+    if (!bodyDiv) { return; }
+    if (pendingProgrammaticScrollTop != null &&
+      Math.abs(bodyDiv.scrollTop - pendingProgrammaticScrollTop) < 0.5) {
+      pendingProgrammaticScrollTop = null;
+      return;
+    }
+    if (VesCache.arrange.isInProgress() || store.anItemIsMoving.get()) {
+      syncScrollTop();
+      return;
+    }
+    const previous = store.perItem.getTableScrollYPos(pageVeid());
+    const next = bodyDiv.scrollTop / blockSize().h;
+    store.perItem.setTableScrollYPos(pageVeid(), next);
+    if (Math.floor(previous) != Math.floor(next)) {
+      requestArrange(store, "table-page-scroll");
+    }
+    if (scrollDoneTimer != null) { clearTimeout(scrollDoneTimer); }
+    scrollDoneTimer = setTimeout(() => {
+      scrollDoneTimer = null;
+      if (!bodyDiv) { return; }
+      const beforeSnap = store.perItem.getTableScrollYPos(pageVeid());
+      const snapped = Math.round(beforeSnap);
+      store.perItem.setTableScrollYPos(pageVeid(), snapped);
+      bodyDiv.scrollTop = snapped * blockSize().h;
+      if (Math.floor(beforeSnap) != snapped) {
+        requestArrange(store, "table-page-scroll-snap");
+      }
+    }, 600);
+  };
+
+  const rows = () => VesCache.render.getChildren(pagePath())();
+
+  return (
+    <div class="absolute bg-white"
+      style={`left: ${viewport().x - props.visualElement.boundsPx.x}px; ` +
+        `top: ${viewport().y - props.visualElement.boundsPx.y}px; ` +
+        `width: ${viewport().w}px; height: ${viewport().h}px; overflow: hidden;`}>
+      <Show when={headerHeightPx() > 0}>
+        <div class="absolute border border-[#999] bg-slate-300"
+          style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${headerHeightPx()}px;`}>
+          <For each={columns()}>{column =>
+            <div id={`${pagePath()}:col${column.index}`}
+              class="absolute whitespace-nowrap overflow-hidden"
+              style={`left: ${column.startBl * blockSize().w + PADDING_PROP * blockSize().w}px; top: 0px; ` +
+                `width: ${Math.max(0, (column.endBl - column.startBl) * blockSize().w - PADDING_PROP * blockSize().w) / scale()}px; ` +
+                `height: ${headerHeightPx() / scale()}px; line-height: ${LINE_HEIGHT_PX}px; ` +
+                `transform: scale(${scale()}); transform-origin: top left; outline: 0px solid transparent;`}>
+              {column.name}
+              <Show when={store.perVe.getMouseIsOver(pagePath()) && store.mouseOverTableHeaderColumnNumber.get() == column.index}>
+                <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
+                  <i class="fas fa-chevron-down" />
+                </div>
+              </Show>
+            </div>
+          }</For>
+        </div>
+      </Show>
+      <div ref={bodyDiv}
+        class="absolute"
+        style={`left: 0px; top: ${headerHeightPx()}px; ` +
+          `width: ${bodyViewport().w}px; height: ${bodyViewport().h}px; ` +
+          `overflow-y: auto; overflow-x: hidden;`}
+        onscroll={scrollHandler}>
+        <div class="absolute"
+          style={`width: ${bodyViewport().w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+          <For each={rows()}>{childVe =>
+            <>
+              <VisualElement_LineItem visualElement={childVe.get()} />
+              <For each={VesCache.render.getAttachments(VeFns.veToPath(childVe.get()))()}>{attachment =>
+                <VisualElement_LineItem visualElement={attachment.get()} />
+              }</For>
+            </>
+          }</For>
+        </div>
+      </div>
+      <div class="absolute pointer-events-none"
+        style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${viewport().h}px;`}>
+        <For each={columns()}>{column =>
+          <Show when={!column.isLast}>
+            <div class="absolute bg-[#999]"
+              style={`left: ${column.endBl * blockSize().w}px; top: 0px; width: 1px; height: ${viewport().h}px;`} />
+          </Show>
+        }</For>
+      </div>
+    </div>
+  );
+};

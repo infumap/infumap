@@ -51,6 +51,7 @@ import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
+import { Page_TableContent } from "./Page_TableContent";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -73,6 +74,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   onMount(() => {
+    if (props.visualElement.tableBodyViewportBoundsPx != null) { return; }
     let veid = VeFns.veidFromVe(props.visualElement);
 
     if (pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List &&
@@ -600,6 +602,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       <div class="absolute"
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden;`}>
         <Switch>
+          <Match when={props.visualElement.tableBodyViewportBoundsPx != null}>
+            <Page_TableContent visualElement={props.visualElement} />
+          </Match>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
             {renderListPage()}
           </Match>
