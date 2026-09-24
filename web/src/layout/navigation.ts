@@ -33,6 +33,7 @@ import { RelationshipToParent } from "./relationship-to-parent";
 
 
 export function switchToNonPage(store: StoreContextModel, url: string) {
+  store.history.beginNavigationRequest();
   window.history.pushState(null, "", url);
   store.currentUrlPath.set(url);
 }
@@ -114,6 +115,7 @@ async function navigateToContainingPageOfItemWithOptions(
   itemId: Uid,
   options: { focusTarget: boolean, fallbackToItem: boolean },
 ): Promise<boolean> {
+  store.history.beginNavigationRequest();
   let currentItem = itemState.get(itemId);
   if (!currentItem) {
     const loadResult = await initiateLoadItemMaybe(store, itemId);
@@ -324,6 +326,7 @@ export async function preloadQueries(store: StoreContextModel): Promise<void> {
 export async function navigateToQueries(store: StoreContextModel): Promise<void> {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) { return; }
+  store.history.beginNavigationRequest();
   store.overlay.autoFocusSearchInput.set(true);
 
   const queriesPageId = userMaybe.queriesPageId;
@@ -356,6 +359,7 @@ export async function navigateToQueries(store: StoreContextModel): Promise<void>
 
 
 export async function navigateToLocalRoot(store: StoreContextModel): Promise<void> {
+  store.history.beginNavigationRequest();
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) {
     window.history.pushState(null, "", "/");
@@ -382,6 +386,7 @@ export async function navigateToLocalRoot(store: StoreContextModel): Promise<voi
 }
 
 export async function navigateBack(store: StoreContextModel, focusRootPageOnPopupClose: boolean = false): Promise<boolean> {
+  store.history.beginNavigationRequest();
   if (store.history.currentPopupSpec() != null) {
     store.history.popPopup(focusRootPageOnPopupClose);
     const currentPageVeid = store.history.currentPageVeid();
@@ -425,6 +430,7 @@ export async function navigateUp(store: StoreContextModel) {
   if (currentPageVeid == null) { return; }
 
   if (navigateUpInProgress) { return; }
+  store.history.beginNavigationRequest();
   navigateUpInProgress = true;
 
   const userMaybe = store.user.getUserMaybe();

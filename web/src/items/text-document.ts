@@ -1884,10 +1884,14 @@ export function persistVirtualTextDocumentPageOptions(store: StoreContextModel, 
 }
 
 export async function openTextDocumentProjection(store: StoreContextModel, textItem: TextItem): Promise<void> {
+  const navigationRequestId = store.history.beginNavigationRequest();
+  let navigationApplied = false;
   try {
     const text = await fetchTextItemContent(textItem);
+    if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
     const page = upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
     const pageVeid = { itemId: page.id, linkIdMaybe: null };
+    navigationApplied = true;
     if (store.history.currentPageVeid()?.itemId != page.id) {
       pushTextDocumentUrlIfNeeded(store, textItem);
       store.history.pushPageVeid(pageVeid);
@@ -1898,6 +1902,7 @@ export async function openTextDocumentProjection(store: StoreContextModel, textI
     store.overlay.setTextEditInfo(store.history, null, true);
     arrangeNow(store, "text-document-open");
   } catch (e) {
+    if (!navigationApplied && !store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
     console.error("Failed to open text document projection:", e);
     setTransientMessage(store, "could not open text document", TransientMessageType.Error);
   }
@@ -1941,6 +1946,7 @@ export async function materializeTextDocumentPage(store: StoreContextModel, text
 }
 
 export async function materializeTextDocumentPageAndOpen(store: StoreContextModel, textItem: TextItem): Promise<Uid | null> {
+  store.history.beginNavigationRequest();
   try {
     const pageId = await materializeTextDocumentPage(store, textItem);
     if (pageId != null && isPage(itemState.get(pageId))) {

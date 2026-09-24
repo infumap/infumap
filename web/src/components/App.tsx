@@ -139,6 +139,7 @@ const App: Component = () => {
   }
 
   const windowPopStateListener = (e: PopStateEvent) => {
+    store.history.beginNavigationRequest();
     const debug = false;
     if (debug) { console.debug("window popstate handler: called."); }
     store.overlay.clear();

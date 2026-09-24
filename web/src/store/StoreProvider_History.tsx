@@ -48,6 +48,8 @@ interface PageBreadcrumb {
 
 
 export interface HistoryStoreContextModel {
+  beginNavigationRequest: () => number,
+  isNavigationRequestCurrent: (requestId: number) => boolean,
   setHistoryToSinglePage: (currentPage: Veid, focusPath?: VisualElementPath) => void,
   pushPageVeid: (veid: Veid, focusPath?: VisualElementPath) => void,
   popPageVeid: () => boolean,
@@ -79,8 +81,13 @@ export interface HistoryStoreContextModel {
 
 export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
+  // Pending document opens use this to ignore results after another navigation starts.
+  let navigationRequestId = 0;
+  const beginNavigationRequest = (): number => ++navigationRequestId;
+  const isNavigationRequestCurrent = (requestId: number): boolean => requestId == navigationRequestId;
 
   const setHistoryToSinglePage = (pageVeid: Veid, focusPath?: VisualElementPath): void => {
+    beginNavigationRequest();
     const actualFocusPath = focusPath ?? VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
 
     setBreadcrumbs([{
@@ -92,6 +99,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
   const pushPageVeid = (pageVeid: Veid, focusPath?: VisualElementPath): void => {
+    beginNavigationRequest();
     const actualFocusPath = focusPath ?? VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
 
     breadcrumbs().push({
@@ -104,6 +112,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const popPageVeid = (): boolean => {
     if (breadcrumbs().length <= 1) { return false; }
+    beginNavigationRequest();
     breadcrumbs().pop();
     setBreadcrumbs(breadcrumbs());
     return true;
@@ -370,6 +379,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   };
 
   const clear = (): void => {
+    beginNavigationRequest();
     setBreadcrumbs([]);
   };
 
@@ -379,6 +389,8 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
 
   return ({
+    beginNavigationRequest,
+    isNavigationRequestCurrent,
     setHistoryToSinglePage,
     pushPageVeid,
     popPageVeid,
