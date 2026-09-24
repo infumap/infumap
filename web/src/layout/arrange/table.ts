@@ -19,7 +19,7 @@
 import { recoverWithFullArrange } from ".";
 import { GRID_SIZE } from "../../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
-import { ContainerItem, asContainerItem, isContainer } from "../../items/base/container-item";
+import { isContainer } from "../../items/base/container-item";
 import { itemCanExpandInLineItem } from "../../items/base/flags-item";
 import { Item, uniqueEmptyItem } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -34,6 +34,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
+import { TabularContainerItem, tabularAttachmentCellLayouts, tabularColumnLayouts, walkTabularRows } from "../tabular";
 
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -99,8 +100,9 @@ export const arrangeTable = (
     parentPath,
   };
 
-  const [windowState, numRows] = arrangeTableChildren(
-    store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags, sizeBl, blockSizePx);
+  const [windowState, numRows] = arrangeTabularChildren(
+    store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags, sizeBl, blockSizePx,
+    tableHeaderHeightBl(displayItem_Table));
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(tableGeometry.viewportBoundsPx)!);
   childAreaBoundsPx.h = numRows * blockSizePx.h;
@@ -121,19 +123,20 @@ export const arrangeTable = (
 }
 
 
-export function arrangeTableChildren(
+export function arrangeTabularChildren(
   store: StoreContextModel,
-  displayItem_table: TableItem,
+  displayItem_table: TabularContainerItem,
   linkItemMaybe_table: LinkItem | null,
   tableGeometry: ItemGeometry,
   tableVePath: VisualElementPath,
   flags: ArrangeItemFlags,
   sizeBl: Dimensions,
-  blockSizePx: Dimensions): [TableRenderWindowState, number] {
+  blockSizePx: Dimensions,
+  headerHeightBl: number): [TableRenderWindowState, number] {
 
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
   const firstItemIdx = Math.floor(scrollYPos);
-  const numVisibleRows = sizeBl.h - tableHeaderHeightBl(displayItem_table);
+  const numVisibleRows = sizeBl.h - headerHeightBl;
   let lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
 
@@ -339,76 +342,9 @@ function logTableRenderWindowInconsistencies(
 }
 
 
-function walkTableRowsInWindow(
-  store: StoreContextModel,
-  displayItem_table: TableItem,
-  tableVePath: VisualElementPath,
-  firstItemIdx: number,
-  lastItemIdx: number,
-  computeTotalRows: boolean,
-  onVisibleRow: (item: Item, rowIdx: number, indentBl: number) => void,
-  onFillerRow: (rowIdx: number) => void): number {
-
-  if (displayItem_table.computed_children.length == 0) {
-    return 0;
-  }
-
-  let iterIndices = [0];
-  let iterContainers: Array<ContainerItem> = [displayItem_table];
-  let rowIdx = 0;
-  let numRows = 0;
-
-  while (true) {
-    const itemId = iterContainers[iterContainers.length - 1].computed_children[iterIndices[iterIndices.length - 1]];
-    const item = itemState.get(itemId)!;
-
-    const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, item);
-    const itemVeid = VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem);
-    const itemPath = VeFns.addVeidToPath(itemVeid, tableVePath);
-
-    if (rowIdx >= firstItemIdx && rowIdx <= lastItemIdx) {
-      const indentBl = iterIndices.length - 1;
-      onVisibleRow(item, rowIdx, indentBl);
-    }
-
-    rowIdx += 1;
-    numRows += 1;
-
-    if (!computeTotalRows && rowIdx > lastItemIdx) {
-      break;
-    }
-
-    const expandable = isContainer(displayItem_childItem) && itemCanExpandInLineItem(displayItem_childItem);
-    if (expandable && store.perVe.getIsExpanded(itemPath)) {
-      initiateLoadChildItemsMaybe(store, itemVeid);
-    }
-    if (expandable && asContainerItem(displayItem_childItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
-      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
-      iterIndices.push(0);
-      iterContainers.push(asContainerItem(displayItem_childItem));
-    } else {
-      iterIndices[iterIndices.length - 1] = iterIndices[iterIndices.length - 1] + 1;
-      while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length - 1].computed_children.length) {
-        iterIndices.pop();
-        iterContainers.pop();
-      }
-      if (iterIndices.length == 0) {
-        while (rowIdx <= lastItemIdx) {
-          onFillerRow(rowIdx);
-          rowIdx += 1;
-        }
-        break;
-      }
-    }
-  }
-
-  return numRows;
-}
-
-
 function buildTableWindowPlans(
   store: StoreContextModel,
-  displayItem_table: TableItem,
+  displayItem_table: TabularContainerItem,
   tableVePath: VisualElementPath,
   firstItemIdx: number,
   lastItemIdx: number,
@@ -420,25 +356,23 @@ function buildTableWindowPlans(
   tableDimensionsPx: Dimensions): TableWindowPlanResult {
 
   const slots: Array<TableWindowSlotPlan> = [];
-  const numRows = walkTableRowsInWindow(
-    store,
-    displayItem_table,
-    tableVePath,
-    firstItemIdx,
-    lastItemIdx,
-    computeTotalRows,
-    (item, rowIdx, indentBl) => {
+  const numRows = walkTabularRows(store, displayItem_table, tableVePath, row => {
+    const { item, rowIdx, indentBl } = row;
+    if (rowIdx >= firstItemIdx && rowIdx <= lastItemIdx) {
       const outIdx = rowIdx % outCount;
       const rowPlan = buildTableRowRenderPlan(
         store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, tableDimensionsPx);
       slots.push({ kind: "row", rowIdx, outIdx, rowPlan });
-    },
-    (rowIdx) => {
+    }
+    return computeTotalRows || rowIdx < lastItemIdx;
+  });
+  if (displayItem_table.computed_children.length > 0) {
+    for (let rowIdx = numRows; rowIdx <= lastItemIdx; ++rowIdx) {
       const outIdx = rowIdx % outCount;
       const fillerPlan = buildFillerRowPlan(displayItem_table, tableVePath, rowIdx);
       slots.push({ kind: "filler", rowIdx, outIdx, fillerPlan });
-    },
-  );
+    }
+  }
 
   return {
     numRows,
@@ -464,7 +398,7 @@ function materializeTableWindowPlans(windowPlans: TableWindowPlanResult): TableR
 
 
 function buildFillerRowPlan(
-  di_Table: TableItem,
+  di_Table: TabularContainerItem,
   tableVePath: VisualElementPath,
   rowIdx: number,
 ): TableRenderPlan {
@@ -727,7 +661,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
 function buildTableRowRenderPlan(
   store: StoreContextModel,
   childItem: Item,
-  di_Table: TableItem,
+  di_Table: TabularContainerItem,
   tableVePath: VisualElementPath,
   flags: ArrangeItemFlags,
   rowIdx: number,
@@ -743,9 +677,8 @@ function buildTableRowRenderPlan(
     initiateLoadChildItemsMaybe(store, childVeid);
   }
 
-  let widthBl = di_Table.numberOfVisibleColumns == 1
-    ? sizeBl.w
-    : Math.min(di_Table.tableColumns[0].widthGr / GRID_SIZE, sizeBl.w);
+  const firstColumn = tabularColumnLayouts(di_Table, sizeBl.w)[0];
+  const widthBl = firstColumn == null ? sizeBl.w : firstColumn.endBl - firstColumn.startBl;
 
   const expandable = isContainer(displayItem_childItem) && itemCanExpandInLineItem(displayItem_childItem);
   const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, expandable, true);
@@ -777,17 +710,9 @@ function buildTableRowRenderPlan(
 
   if (isAttachmentsItem(displayItem_childItem)) {
     const attachmentsItem = asAttachmentsItem(displayItem_childItem);
-    let leftBl = di_Table.tableColumns[0].widthGr / GRID_SIZE;
-    let i = 0;
-    for (; i < di_Table.numberOfVisibleColumns - 1; ++i) {
-      if (i >= attachmentsItem.computed_attachments.length) { break; }
-      if (leftBl >= sizeBl.w) { break; }
-
-      let widthBl = i == di_Table.numberOfVisibleColumns - 2
-        ? sizeBl.w - leftBl
-        : di_Table.tableColumns[i + 1].widthGr / GRID_SIZE;
-
-      const attachmentId = attachmentsItem.computed_attachments[i];
+    const cells = tabularAttachmentCellLayouts(di_Table, sizeBl.w, attachmentsItem.computed_attachments.length);
+    for (const cell of cells) {
+      const attachmentId = attachmentsItem.computed_attachments[cell.index - 1];
       const attachmentItem = itemState.get(attachmentId)!;
       const { displayItem: displayItem_attachment, linkItemMaybe: linkItemMaybe_attachment } = getVePropertiesForItem(store, attachmentItem);
       const attachment_veid = VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment);
@@ -796,7 +721,9 @@ function buildTableRowRenderPlan(
         initiateLoadChildItemsMaybe(store, attachment_veid);
       }
 
-      const geometry = ItemFns.calcGeometry_ListItem(attachmentItem, blockSizePx, rowIdx, leftBl, widthBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true);
+      const geometry = ItemFns.calcGeometry_ListItem(
+        attachmentItem, blockSizePx, rowIdx, cell.startBl, cell.endBl - cell.startBl,
+        !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true);
 
       const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
 
@@ -813,7 +740,7 @@ function buildTableRowRenderPlan(
         tableDimensionsPx,
         indentBl,
         hitboxes: geometry.hitboxes,
-        col: i + 1,
+        col: cell.index,
         row: rowIdx,
         parentPath: tableChildVePath,
         blockSizePx
@@ -824,8 +751,6 @@ function buildTableRowRenderPlan(
         relationships: tableChildAttachmentRelationships,
         path: tableChildAttachmentVePath,
       });
-
-      leftBl += di_Table.tableColumns[i + 1].widthGr / GRID_SIZE;
     }
 
     tableChildRelationships.attachmentsPaths = attachmentPlans.map(attachmentPlan => attachmentPlan.path);

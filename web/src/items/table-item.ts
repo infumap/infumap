@@ -32,8 +32,8 @@ import {
   isAttachmentsItem
 } from "./base/attachments-item";
 import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
-import { ContainerItem, asContainerItem, isContainer } from "./base/container-item";
-import { itemCanAcceptManualChildren, itemCanExpandInLineItem } from "./base/flags-item";
+import { ContainerItem } from "./base/container-item";
+import { itemCanAcceptManualChildren } from "./base/flags-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
 import { TitledItem } from "./base/titled-item";
 import { XSizableItem, XSizableMixin } from "./base/x-sizeable-item";
@@ -56,8 +56,8 @@ import { CursorEventState } from "../input/state";
 import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
-import { initiateLoadChildItemsMaybe, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
-import { getVePropertiesForItem } from "../layout/arrange/util";
+import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
+import { TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularVisibleRows } from "../layout/tabular";
 
 
 export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
@@ -65,20 +65,8 @@ export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, Y
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin, TabularMixin, AttachmentsMixin {
 }
 
-export interface TableVisibleRowInfo {
-  item: Item,
-  displayItem: Item,
-  parentContainer: ContainerItem,
-  indexInParent: number,
-  rowIdx: number,
-  indentBl: number,
-  path: VisualElementPath,
-}
-
-export interface TableInsertionTarget {
-  parentContainer: ContainerItem,
-  insertIndex: number,
-}
+export type TableVisibleRowInfo = TabularVisibleRowInfo;
+export type TableInsertionTarget = TabularInsertionTarget;
 
 export function tableTitleHeaderHeightBl(table: FlagsMixin): number {
   return table.flags & TableFlags.HideTitle ? 0 : TABLE_TITLE_HEADER_HEIGHT_BL;
@@ -94,62 +82,7 @@ export function tableHeaderHeightBl(table: FlagsMixin): number {
 
 
 function tableVisibleRows(store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> {
-  const tableItem = asTableItem(tableVe.displayItem);
-  const tableVePath = VeFns.veToPath(tableVe);
-  const rows: Array<TableVisibleRowInfo> = [];
-
-  if (tableItem.computed_children.length == 0) {
-    return rows;
-  }
-
-  const iterIndices = [0];
-  const iterContainers: Array<ContainerItem> = [tableItem];
-  let rowIdx = 0;
-
-  while (iterIndices.length > 0) {
-    const parentContainer = iterContainers[iterContainers.length - 1];
-    const indexInParent = iterIndices[iterIndices.length - 1];
-    const itemId = parentContainer.computed_children[indexInParent];
-    const item = itemState.get(itemId);
-    if (item == null) {
-      panic(`tableVisibleRows: row item '${itemId}' not found.`);
-    }
-
-    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, item);
-    const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
-    const itemPath = VeFns.addVeidToPath(itemVeid, tableVePath);
-
-    rows.push({
-      item,
-      displayItem,
-      parentContainer,
-      indexInParent,
-      rowIdx,
-      indentBl: iterIndices.length - 1,
-      path: itemPath,
-    });
-
-    rowIdx += 1;
-
-    const expandable = isContainer(displayItem) && itemCanExpandInLineItem(displayItem);
-    if (expandable && store.perVe.getIsExpanded(itemPath)) {
-      initiateLoadChildItemsMaybe(store, itemVeid);
-    }
-    if (expandable && asContainerItem(displayItem).computed_children.length > 0 && store.perVe.getIsExpanded(itemPath)) {
-      iterIndices[iterIndices.length - 1] = indexInParent + 1;
-      iterIndices.push(0);
-      iterContainers.push(asContainerItem(displayItem));
-      continue;
-    }
-
-    iterIndices[iterIndices.length - 1] = indexInParent + 1;
-    while (iterIndices.length > 0 && iterIndices[iterIndices.length - 1] >= iterContainers[iterContainers.length - 1].computed_children.length) {
-      iterIndices.pop();
-      iterContainers.pop();
-    }
-  }
-
-  return rows;
+  return tabularVisibleRows(store, asTableItem(tableVe.displayItem), VeFns.veToPath(tableVe));
 }
 
 
@@ -449,18 +382,7 @@ export const TableFns = {
    * This may be wider than the tableColumn specification, if it's the last one.
    */
   columnWidthBl: (tableItem: TableItem, index: number): number => {
-    let colLen = tableItem.tableColumns.length;
-    if (colLen > tableItem.numberOfVisibleColumns) { colLen = tableItem.numberOfVisibleColumns; }
-    if (index >= colLen - 1) {
-      let accumBl = 0;
-      for (let i = 0; i < colLen - 1; ++i) {
-        accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
-      }
-      let result = tableItem.spatialWidthGr / GRID_SIZE - accumBl;
-      if (result < 1) { result = 1; } // naive sanitize.
-      return result;
-    }
-    return tableItem.tableColumns[index].widthGr / GRID_SIZE;
+    return tabularColumnWidthBl(tableItem, tableItem.spatialWidthGr / GRID_SIZE, index);
   },
 
   /**
@@ -533,24 +455,9 @@ export const TableFns = {
     const tableBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, tableVe);
 
     // col
-    let colLen = tableItem.tableColumns.length;
-    if (colLen > tableItem.numberOfVisibleColumns) { colLen = tableItem.numberOfVisibleColumns; }
     const mousePropX = (desktopPx.x - tableBoundsPx.x) / tableBoundsPx.w;
     const tableXBl = Math.floor(mousePropX * tableDimensionsBl.w * 2.0) / 2.0;
-
-    let accumBl = 0;
-    let colNumber = colLen - 1;
-    for (let i = 0; i < colLen; ++i) {
-      accumBl += tableItem.tableColumns[i].widthGr / GRID_SIZE;
-      if (accumBl >= tableDimensionsBl.w) {
-        colNumber = i;
-        break;
-      }
-      if (tableXBl < accumBl) {
-        colNumber = i;
-        break;
-      }
-    }
+    const colNumber = tabularColumnAtBl(tableItem, tableDimensionsBl.w, tableXBl);
     const attachmentPos = colNumber - 1;
 
     // row
@@ -584,27 +491,7 @@ export const TableFns = {
   tableInsertionTarget: (store: StoreContextModel, tableVe: VisualElement, insertRow: number): TableInsertionTarget => {
     const tableItem = asTableItem(tableVe.displayItem);
     const rows = tableVisibleRows(store, tableVe);
-    const clampedInsertRow = Math.max(0, Math.min(Math.floor(insertRow), rows.length));
-
-    if (clampedInsertRow >= rows.length) {
-      const previousRow = rows[rows.length - 1] ?? null;
-      if (previousRow != null && previousRow.parentContainer.id != tableItem.id) {
-        return {
-          parentContainer: previousRow.parentContainer,
-          insertIndex: previousRow.indexInParent + 1,
-        };
-      }
-      return {
-        parentContainer: tableItem,
-        insertIndex: tableItem.computed_children.length,
-      };
-    }
-
-    const nextRow = rows[clampedInsertRow];
-    return {
-      parentContainer: nextRow.parentContainer,
-      insertIndex: nextRow.indexInParent,
-    };
+    return tabularInsertionTarget(tableItem, rows, insertRow);
   },
 
   tableAttachmentTargetAtRow: (store: StoreContextModel, tableVe: VisualElement, rowNumber: number): AttachmentsItem | null => {
@@ -703,9 +590,6 @@ function calcTableGeometryImpl(
   blockSizePx: Dimensions,
   emitHitboxes: boolean,
   emitMove: boolean): ItemGeometry {
-  let colLen = table.tableColumns.length;
-  if (colLen > table.numberOfVisibleColumns) { colLen = table.numberOfVisibleColumns; }
-
   const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
   const titleHeaderHeightPxOrZero = tableTitleHeaderHeightBl(table) * blockSizePx.h;
   const titleBoundsPx = {
@@ -714,44 +598,11 @@ function calcTableGeometryImpl(
     h: titleHeaderHeightPxOrZero,
   };
   const colHeaderHeightPxOrZero = tableColHeaderHeightBl(table) * blockSizePx.h;
-  let accumBl = 0;
-  let colResizeHitboxes = [];
-  let colClickHitboxes = [];
-  for (let i = 0; i < colLen; ++i) {
-    const startBl = accumBl;
-    const startXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
-    accumBl += table.tableColumns[i].widthGr / GRID_SIZE;
-    let endXPx = accumBl * blockSizePx.w - RESIZE_BOX_SIZE_PX / 2;
-    let endBl = accumBl;
-    if (endXPx > innerBoundsPx.w) {
-      endXPx = innerBoundsPx.w;
-      endBl = table.spatialWidthGr / GRID_SIZE;
-    }
-    if (i == colLen - 1) {
-      endXPx = innerBoundsPx.w;
-      endBl = endBl = table.spatialWidthGr / GRID_SIZE;
-    }
-    if (accumBl < table.spatialWidthGr / GRID_SIZE && i < colLen - 1) {
-      colResizeHitboxes.push(HitboxFns.create(
-        HitboxFlags.HorizontalResize,
-        { x: endXPx, y: titleHeaderHeightPxOrZero, w: RESIZE_BOX_SIZE_PX, h: boundsPx.h - titleHeaderHeightPxOrZero },
-        HitboxFns.createMeta({ colNum: i })
-      ));
-    }
-    if (table.flags & TableFlags.ShowColHeader) {
-      colClickHitboxes.push(HitboxFns.create(
-        HitboxFlags.Click | HitboxFlags.ContentEditable,
-        { x: startXPx, y: titleHeaderHeightPxOrZero, w: endXPx - startXPx, h: colHeaderHeightPxOrZero },
-        HitboxFns.createMeta({ colNum: i, startBl, endBl })
-      ));
-      colClickHitboxes.push(HitboxFns.create(
-        HitboxFlags.TableColumnContextMenu,
-        { x: startXPx + (endBl - startBl - 1) * blockSizePx.w, y: titleHeaderHeightPxOrZero, w: blockSizePx.w, h: colHeaderHeightPxOrZero },
-        HitboxFns.createMeta({ colNum: i })
-      ));
-    }
-    if (accumBl >= table.spatialWidthGr / GRID_SIZE) { break; }
-  }
+  const columnHitboxes = tabularColumnHitboxes(
+    table, innerBoundsPx.w, boundsPx.h, blockSizePx,
+    titleHeaderHeightPxOrZero, colHeaderHeightPxOrZero,
+    !!(table.flags & TableFlags.ShowColHeader),
+  );
   const viewportBoundsPx = cloneBoundingBox(boundsPx)!;
   viewportBoundsPx.h -= titleHeaderHeightPxOrZero + colHeaderHeightPxOrZero;
   viewportBoundsPx.y += titleHeaderHeightPxOrZero + colHeaderHeightPxOrZero;
@@ -772,8 +623,8 @@ function calcTableGeometryImpl(
         HitboxFlags.Attach,
         calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, table.computed_attachments.length),
       ),
-      ...colResizeHitboxes,
-      ...colClickHitboxes,
+      ...columnHitboxes.resize,
+      ...columnHitboxes.header,
       ...titleHbMaybe,
       HitboxFns.create(HitboxFlags.Resize, { x: innerBoundsPx.w - RESIZE_BOX_SIZE_PX, y: innerBoundsPx.h - RESIZE_BOX_SIZE_PX, w: RESIZE_BOX_SIZE_PX, h: RESIZE_BOX_SIZE_PX }),
     ],

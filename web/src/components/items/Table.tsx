@@ -29,6 +29,7 @@ import { useStore } from "../../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
+import { tabularColumnLayouts } from "../../layout/tabular";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { itemState } from "../../store/ItemState";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
@@ -107,11 +108,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
   const insertBoundsPx = (): BoundingBox => {
     const colNum = store.perVe.getMoveOverColAttachmentNumber(vePath());
-    let offsetBl = 0;
-    for (let i = 0; i <= colNum; ++i) {
-      offsetBl += tableItem().tableColumns[i].widthGr / GRID_SIZE;
-    }
-    offsetBl = Math.min(offsetBl, displayWidthBl());
+    const columns = tabularColumnLayouts(tableItem(), displayWidthBl());
+    const offsetBl = columns[Math.min(colNum, columns.length - 1)]?.endBl ?? displayWidthBl();
     return {
       x: blockSizePx().w * offsetBl,
       y: overPosRowPx(),
@@ -176,31 +174,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const moveOverChildContainerPath = () => store.perVe.getMoveOverChildContainerPath(vePath());
 
   const columnSpecs = createMemo(() => {
-    // TODO (LOW): I believe this would be more optimized if this calc was done at arrange time.
-    const specsBl = [];
-    let accumBl = 0;
-    const tableWidthBl = displayWidthBl();
-    for (let i = 0; i < tableItem().numberOfVisibleColumns; ++i) {
-      if (accumBl >= tableWidthBl) {
-        break;
-      }
-      let tc = tableItem().tableColumns[i];
-      const prevAccumBl = accumBl;
-      accumBl += tc.widthGr / GRID_SIZE;
-      specsBl.push({
-        idx: i,
-        prevAccumBl,
-        accumBl: Math.min(accumBl, tableWidthBl),
-        name: tc.name,
-        isLast: i == tableItem().numberOfVisibleColumns - 1 || accumBl >= tableWidthBl,
-      });
-    }
-    return specsBl.map(s => ({
-      idx: s.idx,
-      startPosPx: s.prevAccumBl * blockSizePx().w,
-      endPosPx: s.isLast ? boundsPx().w : s.accumBl * blockSizePx().w,
-      name: s.name,
-      isLast: s.isLast
+    return tabularColumnLayouts(tableItem(), displayWidthBl()).map(column => ({
+      idx: column.index,
+      startPosPx: column.startBl * blockSizePx().w,
+      endPosPx: column.endBl * blockSizePx().w,
+      name: column.name,
+      isLast: column.isLast,
     }));
   });
 
