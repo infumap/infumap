@@ -372,7 +372,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
     },
 
     listColumnWidthBl: () => {
-      return asPageItem(props.visualElement.displayItem).tableColumns[0].widthGr / GRID_SIZE;
+      return asPageItem(props.visualElement.displayItem).listWidthGr / GRID_SIZE;
     },
 
     listViewportWidthPx: () => {

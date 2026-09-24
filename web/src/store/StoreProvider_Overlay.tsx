@@ -33,6 +33,7 @@ export enum ToolbarPopupType {
   PageAspect = "aspect",
   PageWidth = "width",
   PageNumCols = "numcols",
+  PageTableNumCols = "pagetablenumcols",
   PageDocWidth = "docwidth",
   PageCellAspect = "cellaspect",
   PageJustifiedRowAspect = "justifiedrowaspect",

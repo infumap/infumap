@@ -154,7 +154,7 @@ export const Toolbar: Component = () => {
     let r = [];
 
     let lPosPx = 0;
-    let rPosPx = (firstTopPage.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+    let rPosPx = (firstTopPage.listWidthGr / GRID_SIZE) * LINE_HEIGHT_PX;
     if (topPageVeids.length == 1) { rPosPx = -1; }
     r.push({
       title: firstTopPage.title,
@@ -180,7 +180,7 @@ export const Toolbar: Component = () => {
       }
       let page = asPageItem(pageMaybe);
       lPosPx = rPosPx;
-      rPosPx = lPosPx + (page.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX;
+      rPosPx = lPosPx + (page.listWidthGr / GRID_SIZE) * LINE_HEIGHT_PX;
       if (i == topPageVeids.length - 1) {
         rPosPx = -1;
       }

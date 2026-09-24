@@ -610,7 +610,7 @@ function changeMouseActionStateMaybe(
       MouseActionState.setStartWidthBl(asPageItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE);
       MouseActionState.setAction(MouseAction.ResizingColumn);
     } else if (isPage(activeVisualElement.displayItem)) {
-      MouseActionState.setStartWidthBl(asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr / GRID_SIZE);
+      MouseActionState.setStartWidthBl(asPageItem(activeVisualElement.displayItem).listWidthGr / GRID_SIZE);
       MouseActionState.setAction(MouseAction.ResizingListPageColumn);
     } else {
       const colNum = MouseActionState.getHitMeta()!.colNum!;
@@ -1086,7 +1086,7 @@ function mouseAction_resizingListPageColumn(deltaPx: Vector, store: StoreContext
   if (newWidthBl < 1) { newWidthBl = 1.0; }
   const newWidthGr = newWidthBl * GRID_SIZE;
 
-  asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr = newWidthGr;
+  asPageItem(activeVisualElement.displayItem).listWidthGr = newWidthGr;
   arrangeNow(store, "resize-list-page-column");
 }
 

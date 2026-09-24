@@ -46,6 +46,7 @@ import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-it
 import { isImage } from "../../items/image-item";
 import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
+import { ItemType } from "../../items/base/item";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "./toolbarFocus";
 import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
@@ -266,6 +267,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
   if (overlayType == ToolbarPopupType.PageNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.TableNumCols) { return 36; }
+  if (overlayType == ToolbarPopupType.PageTableNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
@@ -294,7 +296,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
     popupType != ToolbarPopupType.PageCalendarDisplayMode &&
     popupType != ToolbarPopupType.RatingType) {
-    const popupWidth = popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300 : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
+    const popupWidth = popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.PageTableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300 : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
     if (x > maxX) { x = maxX; }
@@ -322,7 +324,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: 96,
-      h: 190
+      h: 215
     }
   } else if (popupType == ToolbarPopupType.PageCalendarDisplayMode) {
     return {
@@ -368,13 +370,15 @@ export const Toolbar_Popup: Component = () => {
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const [sliderValue, setSliderValue] = createSignal(
-    isTable(getToolbarFocusItem(store))
-      ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
-      : isPage(getToolbarFocusItem(store))
-        ? asPageItem(getToolbarFocusItem(store)).gridNumberOfColumns.toString()
-        : isNote(getToolbarFocusItem(store))
-          ? (getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString()
-          : "1"
+    overlayTypeConst == ToolbarPopupType.PageTableNumCols
+      ? asPageItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
+      : isTable(getToolbarFocusItem(store))
+        ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
+        : isPage(getToolbarFocusItem(store))
+          ? asPageItem(getToolbarFocusItem(store)).gridNumberOfColumns.toString()
+          : isNote(getToolbarFocusItem(store))
+            ? (getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString()
+            : "1"
   );
   const [itemIconVisible, setItemIconVisible] = createSignal(
     overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(getToolbarFocusItem(store))
@@ -469,6 +473,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
+    if (overlayType() == ToolbarPopupType.PageTableNumCols) { return 190; }
     if (overlayType() == ToolbarPopupType.NoteIndent) { return 190; }
     return 200;
   }
@@ -478,6 +483,8 @@ export const Toolbar_Popup: Component = () => {
   onMount(() => {
     if (overlayType() == ToolbarPopupType.TableNumCols) {
       setSliderValue(asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString());
+    } else if (overlayType() == ToolbarPopupType.PageTableNumCols) {
+      setSliderValue(asPageItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString());
     } else if (overlayType() == ToolbarPopupType.NoteIndent) {
       setSliderValue((getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString());
     }
@@ -489,6 +496,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
       overlayType() != ToolbarPopupType.TableNumCols &&
+      overlayType() != ToolbarPopupType.PageTableNumCols &&
       overlayType() != ToolbarPopupType.NoteIndent &&
       overlayType() != ToolbarPopupType.PageNumCols &&
       overlayType() != ToolbarPopupType.RatingType) {
@@ -526,6 +534,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "Num Cols"; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
+    if (overlayType() == ToolbarPopupType.PageTableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.NoteIndent) { return "Indent"; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
@@ -885,6 +894,12 @@ export const Toolbar_Popup: Component = () => {
       return;
     }
     const targetPage = asPageItem(focusItem);
+    if (arrangeAlgorithm != ArrangeAlgorithm.Table &&
+      store.overlay.textEditInfo()?.itemType == ItemType.Page &&
+      store.overlay.textEditInfo()?.colNum != null &&
+      store.overlay.textEditInfo()?.itemPath == getToolbarFocusPathMaybe(store)) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
     targetPage.arrangeAlgorithm = arrangeAlgorithm;
     finalizeAAChange(targetPage);
   };
@@ -913,6 +928,7 @@ export const Toolbar_Popup: Component = () => {
   const aaCatalogClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Catalog); }
   const aaJustifiedClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Justified); }
   const aaListClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.List); }
+  const aaTableClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Table); }
   const aaDocumentClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Document); }
   const aaCalendarClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Calendar); }
   const pageArrangeAlgorithm = () => {
@@ -981,6 +997,11 @@ export const Toolbar_Popup: Component = () => {
       while (tableItem().tableColumns.length < newValue) {
         tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
       }
+    } else if (overlayTypeConst == ToolbarPopupType.PageTableNumCols) {
+      pageItem().numberOfVisibleColumns = newValue;
+      while (pageItem().tableColumns.length < newValue) {
+        pageItem().tableColumns.push({ name: `col ${pageItem().tableColumns.length}`, widthGr: 120 });
+      }
     } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
       pageItem().gridNumberOfColumns = newValue;
     } else if (overlayTypeConst == ToolbarPopupType.NoteIndent) {
@@ -1045,6 +1066,9 @@ export const Toolbar_Popup: Component = () => {
             </div>
             <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.List)} onClick={aaListClick}>
               List
+            </div>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Table)} onClick={aaTableClick}>
+              Table
             </div>
             <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Document)} onClick={aaDocumentClick}>
               Document
@@ -1250,7 +1274,7 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Show when={label() != null}>
-              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageNumCols || overlayType() == ToolbarPopupType.NoteIndent
+              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageTableNumCols || overlayType() == ToolbarPopupType.PageNumCols || overlayType() == ToolbarPopupType.NoteIndent
                 ? <div class="flex items-center mt-[7px]">
                   <div class="text-sm ml-2 mr-2">{label()}</div>
                   <input ref={textElement}
