@@ -69,7 +69,9 @@ export function pageTableConversionEligibility(
     if (ve.displayItem.id == SOLO_ITEM_HOLDER_PAGE_UID) {
       return { allowed: false, reason: "special-page" };
     }
-    if (ve.linkItemMaybe != null || ve.actualLinkItemMaybe != null) {
+    // List detail panes and popups use synthetic layout links. Only an actual
+    // user link on the item or an ancestor makes this a linked view.
+    if (ve.actualLinkItemMaybe != null) {
       return { allowed: false, reason: "linked-view" };
     }
     path = VeFns.parentPath(path);
