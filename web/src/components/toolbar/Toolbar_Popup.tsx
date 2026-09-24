@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch, createMemo, createSignal, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
-import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, autoPageAspect, isPage, PageItem } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
 import { BoundingBox } from "../../util/geometry";
 import { GRID_SIZE, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
@@ -897,7 +897,7 @@ export const Toolbar_Popup: Component = () => {
   };
 
   const handleAutoClick = (): void => {
-    const aspect = "" + Math.round(store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h * 1000) / 1000;
+    const aspect = "" + autoPageAspect(store);
     textElement!.value = aspect;
     if (!isPage(getToolbarFocusItem(store))) {
       panic(`unexpected item type ${getToolbarFocusItem(store).itemType} changing aspect (auto).`);

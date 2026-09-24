@@ -74,6 +74,11 @@ export const ArrangeAlgorithm = {
 
 export type ArrangeAlgorithm = typeof ArrangeAlgorithm[keyof typeof ArrangeAlgorithm];
 
+export function autoPageAspect(store: StoreContextModel): number {
+  const bounds = store.desktopMainAreaBoundsPx();
+  return Math.round(bounds.w / bounds.h * 1000) / 1000;
+}
+
 export const DEFAULT_DOCUMENT_WIDTH_BL = 30;
 
 export function dockForcesEmbeddedInteractiveArrangeAlgorithm(arrangeAlgorithm: string): boolean {
