@@ -31,6 +31,7 @@ import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem } from "../toolbarFocus";
 import { ItemType } from "../../../items/base/item";
+import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 
 
 export const Toolbar_Table: Component = () => {
@@ -153,6 +154,8 @@ export const Toolbar_Table: Component = () => {
         <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} title="Show column headers" />
         <InfuIconButton icon="bi-type" highlighted={showTitle()} clickHandler={handleChangeShowTitle} title="Show table title" />
       </Show>
+
+      <Toolbar_MoreActions />
 
       <Toolbar_ItemOrdering />
 

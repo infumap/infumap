@@ -38,6 +38,7 @@ import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
+import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 
 
 export const Toolbar_Page: Component = () => {
@@ -682,6 +683,8 @@ export const Toolbar_Page: Component = () => {
           <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
         </Show>
       </Show>
+
+      <Toolbar_MoreActions />
 
       <Toolbar_ItemOrdering />
 
