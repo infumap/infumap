@@ -29,9 +29,8 @@ import { requestArrange } from "../../../layout/arrange";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { GRID_SIZE } from "../../../constants";
 import { itemState } from "../../../store/ItemState";
-import { isTable } from "../../../items/table-item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
-import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "../toolbarFocus";
 import { toggleActiveNoteInlineMark } from "../../../input/edit";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
 import { VeFns } from "../../../layout/visual-element";
@@ -64,15 +63,7 @@ export const Toolbar_Note: Component = () => {
   };
 
   const isInTable = (): boolean => {
-    let parentId = noteItem().parentId;
-    while (parentId) {
-      const parentItem = itemState.get(parentId);
-      if (!parentItem) { return false; }
-      if (isTable(parentItem)) { return true; }
-      if (parentItem.parentId == null || parentItem.parentId === parentId) { return false; }
-      parentId = parentItem.parentId;
-    }
-    return false;
+    return toolbarFocusIsInTableView(store);
   };
 
   const isInDocumentPage = (): boolean => {
