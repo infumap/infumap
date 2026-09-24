@@ -101,6 +101,16 @@ export function veFlagIsRoot(flags: VisualElementFlags): boolean {
     flags & VisualElementFlags.EmbeddedInteractiveRoot);
 }
 
+/** A detailed table item or Table-arranged page that renders its children in columns. */
+export function isTableView(ve: Pick<VisualElement, "displayItem" | "linkItemMaybe" | "flags">): boolean {
+  if (!(ve.flags & VisualElementFlags.Detailed) ||
+    !(ve.flags & VisualElementFlags.ShowChildren) ||
+    (ve.flags & VisualElementFlags.LineItem)) { return false; }
+  if (isTable(ve.displayItem)) { return true; }
+  return isPage(ve.displayItem) &&
+    (ve.linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(ve.displayItem).arrangeAlgorithm) == ArrangeAlgorithm.Table;
+}
+
 /**
  * Returns true if the visual element is a translucent page.
  * TODO (low): this is overly complex. should review VisualElementFlags, can surely be simplified.
