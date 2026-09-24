@@ -676,17 +676,6 @@ pub(super) async fn handle_convert_page_table(
     if source.arrange_algorithm != Some(ArrangeAlgorithm::Table) {
       return Err(format!("Page '{}' must use table arrangement before conversion.", request.id).into());
     }
-    if source.permission_flags.unwrap_or(0) & PermissionFlags::Public as i64 != 0 {
-      return Err(format!("Public page '{}' cannot be converted.", request.id).into());
-    }
-  }
-  if source.item_type == ItemType::Table
-    && source
-      .saved_page_settings
-      .as_ref()
-      .is_some_and(|saved| saved.permission_flags & PermissionFlags::Public as i64 != 0)
-  {
-    return Err(format!("Table '{}' has public saved page settings and cannot be converted.", request.id).into());
   }
 
   let mut converted = source.clone();
