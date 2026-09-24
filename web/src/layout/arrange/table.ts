@@ -136,8 +136,9 @@ export function arrangeTabularChildren(
 
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
   const firstItemIdx = Math.floor(scrollYPos);
-  const numVisibleRows = sizeBl.h - headerHeightBl;
-  let lastItemIdx = firstItemIdx + numVisibleRows;
+  // A page viewport can contain a fractional row; keep the render window integral.
+  const numVisibleRows = Math.max(0, Math.ceil(sizeBl.h - headerHeightBl));
+  const lastItemIdx = firstItemIdx + numVisibleRows;
   const outCount = lastItemIdx - firstItemIdx + 1;
 
   // outIdx:          there are a fixed number of visual elements (outCount) created, generally less than the number of

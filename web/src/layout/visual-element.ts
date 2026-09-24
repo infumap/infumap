@@ -194,6 +194,15 @@ function pageAncestorScrollOffsetPx(
   descendantVe: VisualElement,
   context: string,
 ): Vector {
+  if (pageVe.tableBodyViewportBoundsPx != null &&
+    pageVe.tableRowBlockSizePx != null &&
+    (descendantVe.flags & VisualElementFlags.InsideTable)) {
+    return {
+      x: 0,
+      y: store.perItem.getTableScrollYPos(VeFns.veidFromVe(pageVe)) * pageVe.tableRowBlockSizePx.h,
+    };
+  }
+
   const listScrollOffsetPx = listPageScrollOffsetPxForDescendant(store, pageVe, descendantVe);
   if (listScrollOffsetPx != null) {
     return listScrollOffsetPx;
@@ -287,6 +296,12 @@ export interface VisualElement {
    * This may be larger than viewportBoundsPx, if the area scrolls.
    */
   childAreaBoundsPx: BoundingBox | null,
+
+  /** Row viewport of a Table-arranged page, below its optional column header. */
+  tableBodyViewportBoundsPx: BoundingBox | null,
+
+  /** Row and column block size of a Table-arranged page. */
+  tableRowBlockSizePx: Dimensions | null,
 
   /**
    * The (outer) bounds of the part of the list page visual element that contains list item visual elements.
@@ -429,6 +444,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   resizingFromBoundsPx: null,
   boundsPx: { x: 0, y: 0, w: 0, h: 0 },
   childAreaBoundsPx: null,
+  tableBodyViewportBoundsPx: null,
+  tableRowBlockSizePx: null,
   tableDimensionsPx: null,
   indentBl: null,
   viewportBoundsPx: null,
@@ -471,6 +488,8 @@ export interface VisualElementSpec {
   _arrangeFlags_useForPartialRearrangeOnly?: ArrangeItemFlags,
   boundsPx: BoundingBox,
   childAreaBoundsPx?: BoundingBox,
+  tableBodyViewportBoundsPx?: BoundingBox,
+  tableRowBlockSizePx?: Dimensions,
   viewportBoundsPx?: BoundingBox,
   listChildAreaBoundsPx?: BoundingBox,
   listViewportBoundsPx?: BoundingBox,
@@ -533,6 +552,8 @@ export const VeFns = {
       resizingFromBoundsPx: null,
       boundsPx: { x: 0, y: 0, w: 0, h: 0 },
       childAreaBoundsPx: null,
+      tableBodyViewportBoundsPx: null,
+      tableRowBlockSizePx: null,
       viewportBoundsPx: null,
       tableDimensionsPx: null,
       listChildAreaBoundsPx: null,
@@ -577,6 +598,8 @@ export const VeFns = {
     ve.resizingFromBoundsPx = null;
     ve.boundsPx = { x: 0, y: 0, w: 0, h: 0 };
     ve.childAreaBoundsPx = null;
+    ve.tableBodyViewportBoundsPx = null;
+    ve.tableRowBlockSizePx = null;
     ve.viewportBoundsPx = null;
     ve.listChildAreaBoundsPx = null;
     ve.listViewportBoundsPx = null;
@@ -862,11 +885,13 @@ export const VeFns = {
       if (!veParent) { return fallbackBounds(ve); }
       const veParentParent = resolveParentVe(veParent.parentPath!);
       if (!veParentParent) { return fallbackBounds(veParent); }
-      if (isTable(veParentParent.displayItem)) {
-        const tableItem = asTableItem(veParentParent.displayItem);
-        const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
-        const blockHeightPx = ve.boundsPx.h / fullHeightBl;
-        r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
+      if (isTableView(veParentParent)) {
+        if (isTable(veParentParent.displayItem)) {
+          const tableItem = asTableItem(veParentParent.displayItem);
+          const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
+          const blockHeightPx = ve.boundsPx.h / fullHeightBl;
+          r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
+        }
         // skip the item that is a child of the table - the attachment ve is relative to the table.
         // TODO (LOW): it would be better if the attachment were relative to the item, not the table.
         ve = veParent;
@@ -877,7 +902,10 @@ export const VeFns = {
     if (!ve) { return fallbackBounds(); }
     while (ve != null) {
       const ancestorIsFixed = !!(ve.flags & VisualElementFlags.Fixed);
-      r = vectorAdd(r, getBoundingBoxTopLeft(ve.viewportBoundsPx ? ve.viewportBoundsPx : ve.boundsPx));
+      const childViewport = ve.tableBodyViewportBoundsPx != null &&
+        (visualElement.flags & VisualElementFlags.InsideTable)
+        ? ve.tableBodyViewportBoundsPx : ve.viewportBoundsPx;
+      r = vectorAdd(r, getBoundingBoxTopLeft(childViewport ?? ve.boundsPx));
       if (isTable(ve.displayItem)) {
         const tableItem = asTableItem(ve.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
@@ -1059,11 +1087,13 @@ export const VeFns = {
       if (!veParent) { return fallbackBounds(ve); }
       const veParentParent = resolveParentVe(veParent.parentPath!);
       if (!veParentParent) { return fallbackBounds(veParent); }
-      if (isTable(veParentParent.displayItem)) {
-        const tableItem = asTableItem(veParentParent.displayItem);
-        const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
-        const blockHeightPx = ve.boundsPx.h / fullHeightBl;
-        r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
+      if (isTableView(veParentParent)) {
+        if (isTable(veParentParent.displayItem)) {
+          const tableItem = asTableItem(veParentParent.displayItem);
+          const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
+          const blockHeightPx = ve.boundsPx.h / fullHeightBl;
+          r.y -= blockHeightPx * store.perItem.getTableScrollYPos(VeFns.veidFromVe(ve));
+        }
         // skip the item that is a child of the table - the attachment ve is relative to the table.
         // TODO (LOW): it would be better if the attachment were relative to the item, not the table.
         ve = veParent;
@@ -1074,7 +1104,10 @@ export const VeFns = {
     if (!ve) { return fallbackBounds(); }
     while (ve != null) {
       const ancestorIsFixed = !!(ve.flags & VisualElementFlags.Fixed);
-      r = vectorAdd(r, getBoundingBoxTopLeft(ve.viewportBoundsPx ? ve.viewportBoundsPx : ve.boundsPx));
+      const childViewport = ve.tableBodyViewportBoundsPx != null &&
+        (visualElement.flags & VisualElementFlags.InsideTable)
+        ? ve.tableBodyViewportBoundsPx : ve.viewportBoundsPx;
+      r = vectorAdd(r, getBoundingBoxTopLeft(childViewport ?? ve.boundsPx));
       if (isTable(ve.displayItem)) {
         const tableItem = asTableItem(ve.displayItem);
         const fullHeightBl = tableItem.spatialHeightGr / GRID_SIZE;
@@ -1165,6 +1198,8 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override._arrangeFlags_useForPartialRearrangeOnly) != 'undefined') { result._arrangeFlags_useForPartialRearrangeOnly = override._arrangeFlags_useForPartialRearrangeOnly; }
   if (typeof (override.boundsPx) != 'undefined') { result.boundsPx = override.boundsPx; }
   if (typeof (override.childAreaBoundsPx) != 'undefined') { result.childAreaBoundsPx = override.childAreaBoundsPx; }
+  if (typeof (override.tableBodyViewportBoundsPx) != 'undefined') { result.tableBodyViewportBoundsPx = override.tableBodyViewportBoundsPx; }
+  if (typeof (override.tableRowBlockSizePx) != 'undefined') { result.tableRowBlockSizePx = override.tableRowBlockSizePx; }
   if (typeof (override.viewportBoundsPx) != 'undefined') { result.viewportBoundsPx = override.viewportBoundsPx; }
   if (typeof (override.listChildAreaBoundsPx) != 'undefined') { result.listChildAreaBoundsPx = override.listChildAreaBoundsPx; }
   if (typeof (override.listViewportBoundsPx) != 'undefined') { result.listViewportBoundsPx = override.listViewportBoundsPx; }
