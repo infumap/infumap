@@ -63,6 +63,7 @@ export const ArrangeAlgorithm = {
   Catalog: "catalog",
   Justified: "justified",
   List: "list",
+  Table: "table",
   Document: "document",
   Dock: "dock",
   Composite: "composite",
