@@ -77,6 +77,7 @@ export const DEFAULT_DOCUMENT_WIDTH_BL = 30;
 
 export function dockForcesEmbeddedInteractiveArrangeAlgorithm(arrangeAlgorithm: string): boolean {
   return arrangeAlgorithm == ArrangeAlgorithm.List ||
+    arrangeAlgorithm == ArrangeAlgorithm.Table ||
     arrangeAlgorithm == ArrangeAlgorithm.Grid ||
     arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
     arrangeAlgorithm == ArrangeAlgorithm.Justified;
@@ -84,6 +85,7 @@ export function dockForcesEmbeddedInteractiveArrangeAlgorithm(arrangeAlgorithm: 
 
 export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, ColorableMixin, AspectItem, Item {
   innerSpatialWidthGr: number;
+  listWidthGr: number;
   arrangeAlgorithm: string;
   gridNumberOfColumns: number;
   gridCellAspect: number;
@@ -114,6 +116,7 @@ export function pageUsesEmbeddedInteractiveMode(page: Pick<PageMeasurable, "arra
 
 export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin, TabularMixin, AspectMixin, AttachmentsMixin {
   innerSpatialWidthGr: number;
+  listWidthGr: number;
   arrangeAlgorithm: string;
   id: Uid;
   gridNumberOfColumns: number;
@@ -614,6 +617,7 @@ export const PageFns = {
       backgroundColorIndex: 0,
 
       innerSpatialWidthGr: 60.0 * GRID_SIZE,
+      listWidthGr: 8 * GRID_SIZE,
       arrangeAlgorithm: ArrangeAlgorithm.SpatialStretch,
       defaultPopupPositionGr: { x: 30.0 * GRID_SIZE, y: 15.0 * GRID_SIZE },
       defaultPopupWidthGr: 10.0 * GRID_SIZE,
@@ -678,6 +682,7 @@ export const PageFns = {
       backgroundColorIndex: o.backgroundColorIndex,
 
       innerSpatialWidthGr: o.innerSpatialWidthGr,
+      listWidthGr: o.listWidthGr ?? o.tableColumns?.[0]?.widthGr ?? 8 * GRID_SIZE,
       arrangeAlgorithm: o.arrangeAlgorithm,
       defaultPopupPositionGr: o.defaultPopupPositionGr,
       defaultPopupWidthGr: o.defaultPopupWidthGr,
@@ -737,6 +742,7 @@ export const PageFns = {
       backgroundColorIndex: p.backgroundColorIndex,
 
       innerSpatialWidthGr: p.innerSpatialWidthGr,
+      listWidthGr: p.listWidthGr,
       arrangeAlgorithm: p.arrangeAlgorithm,
       defaultPopupPositionGr: p.defaultPopupPositionGr,
       defaultPopupWidthGr: p.defaultPopupWidthGr,
@@ -1539,6 +1545,7 @@ export const PageFns = {
       spatialWidthGr: page.spatialWidthGr,
       naturalAspect: page.naturalAspect,
       innerSpatialWidthGr: page.innerSpatialWidthGr,
+      listWidthGr: page.listWidthGr,
       arrangeAlgorithm: page.arrangeAlgorithm,
       gridNumberOfColumns: page.gridNumberOfColumns,
       gridCellAspect: page.gridCellAspect,

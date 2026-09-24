@@ -242,7 +242,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         if (selectedIsListPage) {
           const selectedWidthPx =
             selectedVe.listViewportBoundsPx?.w ??
-            ((selectedPageItem.tableColumns[0].widthGr / GRID_SIZE) * LINE_HEIGHT_PX * (selectedVe.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w));
+            ((selectedPageItem.listWidthGr / GRID_SIZE) * LINE_HEIGHT_PX * (selectedVe.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w));
           result.push({
             ve: selectedVe,
             pageItem: selectedPageItem,

@@ -449,7 +449,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 55] = [
+const ALL_JSON_FIELDS: [&'static str; 56] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -466,6 +466,7 @@ const ALL_JSON_FIELDS: [&'static str; 55] = [
   "spatialPositionGr",
   "spatialWidthGr",
   "innerSpatialWidthGr",
+  "listWidthGr",
   "naturalAspect",
   "backgroundColorIndex",
   "defaultPopupPositionGr",
@@ -573,6 +574,7 @@ pub struct Item {
 
   // page
   pub inner_spatial_width_gr: Option<i64>,
+  pub list_width_gr: Option<i64>,
   pub arrange_algorithm: Option<ArrangeAlgorithm>,
   pub default_popup_position_gr: Option<Vector<i64>>,
   pub default_popup_width_gr: Option<i64>,
@@ -646,6 +648,7 @@ impl Clone for Item {
       flags: self.flags.clone(),
       permission_flags: self.permission_flags.clone(),
       inner_spatial_width_gr: self.inner_spatial_width_gr.clone(),
+      list_width_gr: self.list_width_gr.clone(),
       natural_aspect: self.natural_aspect.clone(),
       background_color_index: self.background_color_index.clone(),
       arrange_algorithm: self.arrange_algorithm.clone(),
@@ -1161,6 +1164,14 @@ impl JsonLogSerializable<Item> for Item {
           cannot_modify_err("innerSpatialWidthGr", &old.id)?;
         }
         result.insert(String::from("innerSpatialWidthGr"), Value::Number(new_inner_spatial_width_gr.into()));
+      }
+    }
+    if let Some(new_list_width_gr) = new.list_width_gr {
+      if old.list_width_gr != Some(new_list_width_gr) {
+        if old.item_type != ItemType::Page {
+          cannot_modify_err("listWidthGr", &old.id)?;
+        }
+        result.insert(String::from("listWidthGr"), Value::Number(new_list_width_gr.into()));
       }
     }
     if let Some(new_arrange_algorithm) = &new.arrange_algorithm {
@@ -1746,6 +1757,12 @@ impl JsonLogSerializable<Item> for Item {
       }
       self.inner_spatial_width_gr = Some(v);
     }
+    if let Some(v) = json::get_integer_field(map, "listWidthGr")? {
+      if self.item_type != ItemType::Page {
+        not_applicable_err("listWidthGr", self.item_type, &self.id)?;
+      }
+      self.list_width_gr = Some(v);
+    }
     if let Some(v) = json::get_string_field(map, "arrangeAlgorithm")? {
       if self.item_type != ItemType::Page {
         not_applicable_err("arrangeAlgorithm", self.item_type, &self.id)?;
@@ -2136,6 +2153,12 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
       unexpected_field_err("innerSpatialWidthGr", &item.id, item.item_type)?
     }
     result.insert(String::from("innerSpatialWidthGr"), Value::Number(inner_spatial_width_gr.into()));
+  }
+  if let Some(list_width_gr) = item.list_width_gr {
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("listWidthGr", &item.id, item.item_type)?
+    }
+    result.insert(String::from("listWidthGr"), Value::Number(list_width_gr.into()));
   }
   if let Some(arrange_algorithm) = &item.arrange_algorithm {
     if item.item_type != ItemType::Page {
@@ -2723,6 +2746,11 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
     }?,
+    list_width_gr: match json::get_integer_field(map, "listWidthGr")? {
+      Some(v) if item_type == ItemType::Page => Some(v),
+      Some(_) => return Err(not_applicable_err("listWidthGr", item_type, &id)),
+      None => None,
+    },
     arrange_algorithm: match &json::get_string_field(map, "arrangeAlgorithm")? {
       Some(v) => {
         if item_type == ItemType::Page {
@@ -3166,6 +3194,7 @@ impl Item {
       document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
+      list_width_gr: None,
       natural_aspect: None,
       background_color_index: None,
       arrange_algorithm: None,
@@ -3233,6 +3262,7 @@ impl Item {
       document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
+      list_width_gr: None,
       natural_aspect: None,
       background_color_index: None,
       arrange_algorithm: None,
@@ -3304,6 +3334,7 @@ impl Item {
       document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
+      list_width_gr: None,
       natural_aspect: None,
       background_color_index: None,
       arrange_algorithm: None,
@@ -3363,6 +3394,7 @@ impl Item {
       document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
+      list_width_gr: None,
       natural_aspect: None,
       background_color_index: None,
       arrange_algorithm: None,
@@ -3428,6 +3460,7 @@ impl Item {
       document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
+      list_width_gr: None,
       natural_aspect: None,
       background_color_index: None,
       arrange_algorithm: None,
@@ -3505,6 +3538,7 @@ impl Item {
       document_show_title: None,
       permission_flags: None,
       inner_spatial_width_gr: None,
+      list_width_gr: None,
       natural_aspect: None,
       background_color_index: None,
       arrange_algorithm: None,
@@ -3582,6 +3616,7 @@ impl Item {
       background_color_index: Some(background_color_index),
       natural_aspect: Some(natural_aspect),
       inner_spatial_width_gr: Some(inner_spatial_width_gr),
+      list_width_gr: Some(table_columns.first().map(|column| column.width_gr).unwrap_or(480)),
       arrange_algorithm: Some(arrange_algorithm),
       default_popup_position_gr: Some(default_popup_position_gr),
       default_popup_width_gr: Some(default_popup_width_gr),
@@ -3753,6 +3788,9 @@ impl Item {
     if self.item_type == ItemType::Page {
       if let Some(inner_spatial_width_gr) = self.inner_spatial_width_gr {
         hashes.push(hash_i64_to_uid(inner_spatial_width_gr));
+      }
+      if let Some(list_width_gr) = self.list_width_gr {
+        hashes.push(hash_i64_to_uid(list_width_gr));
       }
       if let Some(arrange_algorithm) = &self.arrange_algorithm {
         // Note: arrange_algorithm is an enum, not a string, so no empty check needed

@@ -108,6 +108,7 @@ export const Toolbar_Page: Component = () => {
     if (aa == ArrangeAlgorithm.Grid) { return "grid"; }
     if (aa == ArrangeAlgorithm.Catalog) { return "catalog"; }
     if (aa == ArrangeAlgorithm.List) { return "list"; }
+    if (aa == ArrangeAlgorithm.Table) { return "table"; }
     if (aa == ArrangeAlgorithm.Justified) { return "justified"; }
     if (aa == ArrangeAlgorithm.SingleCell) { return "single-cell"; }
     if (aa == ArrangeAlgorithm.Calendar) { return "calendar"; }
@@ -171,6 +172,7 @@ export const Toolbar_Page: Component = () => {
   const showOrderByButton = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List ||
+      pageItem().arrangeAlgorithm == ArrangeAlgorithm.Table ||
       pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
       pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
       pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
@@ -185,6 +187,29 @@ export const Toolbar_Page: Component = () => {
   const showGridButtons = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
+  }
+
+  const showTableButtons = () => {
+    store.touchToolbarDependency();
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Table;
+  }
+
+  const showTableHeader = () => {
+    store.touchToolbarDependency();
+    return !!(pageItem().flags & PageFlags.ShowTableColHeader);
+  }
+
+  const handleToggleTableHeader = () => {
+    if ((pageItem().flags & PageFlags.ShowTableColHeader) &&
+      store.overlay.textEditInfo()?.itemType == ItemType.Page &&
+      store.overlay.textEditInfo()?.itemPath == getToolbarFocusPathMaybe(store) &&
+      store.overlay.textEditInfo()?.colNum != null) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
+    pageItem().flags ^= PageFlags.ShowTableColHeader;
+    requestArrange(store, "toolbar-page-table-header-visibility");
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    store.touchToolbar();
   }
 
   const showJustifiedButtons = () => {
@@ -267,6 +292,11 @@ export const Toolbar_Page: Component = () => {
   const numColsText = () => {
     store.touchToolbarDependency();
     return pageItem().gridNumberOfColumns;
+  }
+
+  const tableNumColsText = () => {
+    store.touchToolbarDependency();
+    return pageItem().numberOfVisibleColumns;
   }
 
   const handleOrderChildrenBy = async () => {
@@ -449,6 +479,17 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(numColsDiv!.getBoundingClientRect());
   };
 
+  const handleTableNumColsClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.PageTableNumCols) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    store.overlay.toolbarPopupInfoMaybe.set({
+      topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 },
+      type: ToolbarPopupType.PageTableNumCols,
+    });
+  };
+
   // QR
   const handleQr = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
@@ -565,6 +606,19 @@ export const Toolbar_Page: Component = () => {
               {numColsText()}
             </div>
           </div>
+        </Show>
+        <Show when={showTableButtons()}>
+          <div ref={numColsDiv}
+            class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+            style="font-size: 13px;"
+            onClick={handleTableNumColsClick}
+            onMouseDown={handleNumColsDown}>
+            <i class="bi-layout-three-columns ml-[4px]" />
+            <div class="inline-block w-[20px] pl-[6px] text-right">
+              {tableNumColsText()}
+            </div>
+          </div>
+          <InfuIconButton icon="bi-table" highlighted={showTableHeader()} clickHandler={handleToggleTableHeader} title="Show column headers" />
         </Show>
         <Show when={showJustifiedButtons()}>
           <div ref={justifiedRowAspectDiv}

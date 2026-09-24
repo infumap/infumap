@@ -219,7 +219,7 @@ export function arrange_list_page(
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
-  const listWidthBl = displayItem_pageWithChildren.tableColumns[0].widthGr / GRID_SIZE;
+  const listWidthBl = displayItem_pageWithChildren.listWidthGr / GRID_SIZE;
 
   // Mark page as selection-highlighted when included in overlay selection
   const isSelectionHighlighted = (() => {
