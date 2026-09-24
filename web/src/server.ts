@@ -837,10 +837,11 @@ export const server = {
     id: Uid,
     expectedItemType: "page" | "table",
     targetItemType: "page" | "table",
+    defaultPageAspect: number | null,
     networkStatus: NumberSignal,
   ): Promise<object> => {
     return constructCommandPromise(
-      null, COMMAND_CONVERT_PAGE_TABLE, { id, expectedItemType, targetItemType }, null, false, networkStatus,
+      null, COMMAND_CONVERT_PAGE_TABLE, { id, expectedItemType, targetItemType, defaultPageAspect }, null, false, networkStatus,
     ).then((response: MutationCommandResponse) => {
       if (response?.item == null) {
         throw new Error(`Conversion of item '${id}' did not return the converted item.`);

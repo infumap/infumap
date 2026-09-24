@@ -30,7 +30,7 @@ import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "..
 import { itemCanEdit } from "./base/capabilities-item";
 import { SavedPageSettings, SavedTableSettings } from "./base/conversion-settings";
 import { PageFlags, TableFlags } from "./base/flags-item";
-import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "./page-item";
+import { ArrangeAlgorithm, PageItem, asPageItem, autoPageAspect, isPage } from "./page-item";
 import { TableItem, asTableItem, isTable } from "./table-item";
 
 export type PageTableConvertibleItem = PageItem | TableItem;
@@ -147,7 +147,11 @@ export async function convertPageTableAtPath(
     parent = rechecked.parent;
   }
   const convertedObject = await server.convertPageTable(
-    source.id, isPage(source) ? "page" : "table", targetType, store.general.networkStatus,
+    source.id,
+    isPage(source) ? "page" : "table",
+    targetType,
+    targetType == "page" && asTableItem(source).savedPageSettings == null ? autoPageAspect(store) : null,
+    store.general.networkStatus,
   );
   const returned = convertedObject as { id?: unknown, itemType?: unknown, parentId?: unknown, ownerId?: unknown };
   if (returned.id != source.id || returned.itemType != targetType ||

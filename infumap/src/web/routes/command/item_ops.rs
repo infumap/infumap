@@ -633,6 +633,7 @@ struct ConvertPageTableRequest {
   id: Uid,
   expected_item_type: String,
   target_item_type: String,
+  default_page_aspect: Option<f64>,
 }
 
 pub(super) async fn handle_convert_page_table(
@@ -682,7 +683,7 @@ pub(super) async fn handle_convert_page_table(
   converted.last_modified_date = unix_now_secs_i64()?.max(source.last_modified_date.saturating_add(1));
   match target_type {
     ItemType::Table => convert_page_to_table(&source, &parent, &mut converted)?,
-    ItemType::Page => convert_table_to_page(&source, &mut converted)?,
+    ItemType::Page => convert_table_to_page(&source, &mut converted, request.default_page_aspect)?,
     _ => unreachable!(),
   }
 
@@ -738,9 +739,17 @@ fn convert_page_to_table(page: &Item, parent: &Item, table: &mut Item) -> InfuRe
   Ok(())
 }
 
-fn convert_table_to_page(table: &Item, page: &mut Item) -> InfuResult<()> {
+fn convert_table_to_page(table: &Item, page: &mut Item, default_page_aspect: Option<f64>) -> InfuResult<()> {
   let saved_table = SavedTableSettings::from_table(table)?;
-  let saved_page = table.saved_page_settings.clone().unwrap_or_else(default_converted_page_settings);
+  let saved_page = if let Some(settings) = &table.saved_page_settings {
+    settings.clone()
+  } else {
+    let aspect = default_page_aspect.ok_or("A screen aspect is required to convert a table without saved page settings.")?;
+    if !aspect.is_finite() || aspect <= 0.0 {
+      return Err("Page/table conversion requires a positive screen aspect.".into());
+    }
+    default_converted_page_settings(aspect)
+  };
   let mut flags = saved_page.flags;
   if saved_table.flags & TableFlags::ShowColHeader.bits() != 0 {
     flags |= PAGE_SHOW_TABLE_COL_HEADER_FLAG;
@@ -776,12 +785,12 @@ fn convert_table_to_page(table: &Item, page: &mut Item) -> InfuResult<()> {
   Ok(())
 }
 
-fn default_converted_page_settings() -> SavedPageSettings {
+fn default_converted_page_settings(natural_aspect: f64) -> SavedPageSettings {
   SavedPageSettings {
     spatial_width_gr: 4 * GRID_SIZE,
     flags: 0,
     permission_flags: 0,
-    natural_aspect: 2.0,
+    natural_aspect,
     background_color_index: 0,
     inner_spatial_width_gr: 60 * GRID_SIZE,
     list_width_gr: Some(8 * GRID_SIZE),
