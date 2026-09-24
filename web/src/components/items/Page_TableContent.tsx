@@ -166,7 +166,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
         style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${viewport().h}px;`}>
         <For each={columns()}>{column =>
           <Show when={!column.isLast}>
-            <div class="absolute bg-[#999]"
+            <div class="absolute bg-slate-300"
               style={`left: ${column.endBl * blockSize().w}px; top: 0px; width: 1px; height: ${viewport().h}px;`} />
           </Show>
         }</For>
