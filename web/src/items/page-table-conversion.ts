@@ -30,7 +30,6 @@ import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "..
 import { itemCanEdit } from "./base/capabilities-item";
 import { SavedPageSettings, SavedTableSettings } from "./base/conversion-settings";
 import { PageFlags, TableFlags } from "./base/flags-item";
-import { PermissionFlags } from "./base/permission-flags-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "./page-item";
 import { TableItem, asTableItem, isTable } from "./table-item";
 
@@ -46,7 +45,6 @@ export type PageTableConversionRejection =
   | "read-only"
   | "not-owned"
   | "special-page"
-  | "public-page"
   | "not-page-child";
 
 export type PageTableConversionEligibility =
@@ -100,12 +98,6 @@ export function pageTableConversionEligibility(
       source.id == UMBRELLA_PAGE_UID || source.id == SOLO_ITEM_HOLDER_PAGE_UID) {
       return { allowed: false, reason: "special-page" };
     }
-    // A table item cannot carry a page's independent public-access permission.
-    if (asPageItem(source).permissionFlags & PermissionFlags.Public) {
-      return { allowed: false, reason: "public-page" };
-    }
-  } else if ((asTableItem(source).savedPageSettings?.permissionFlags ?? 0) & PermissionFlags.Public) {
-    return { allowed: false, reason: "public-page" };
   }
 
   if (source.relationshipToParent != RelationshipToParent.Child ||
