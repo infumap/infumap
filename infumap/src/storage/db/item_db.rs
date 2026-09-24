@@ -20,7 +20,7 @@ use infusdk::db::kv_store::LogReplayObserver;
 use infusdk::item::TableColumn;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
-use infusdk::item::{Item, RelationshipToParent};
+use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::geometry::Vector;
 use infusdk::util::infu::{InfuError, InfuResult};
@@ -253,6 +253,11 @@ impl LogReplayObserver<Item> for ContainerVersionReplayState {
   }
 
   fn on_update(&mut self, old: &Item, new: &Item, _update_record: &Map<String, Value>) -> InfuResult<()> {
+    self.apply_update(old, new);
+    Ok(())
+  }
+
+  fn on_replace(&mut self, old: &Item, new: &Item) -> InfuResult<()> {
     self.apply_update(old, new);
     Ok(())
   }
@@ -801,6 +806,37 @@ impl ItemDb {
       .await?;
     self.dirty_user_ids.insert(item.owner_id.clone());
     self.add_to_indexes(item)?;
+    self.record_loaded_container_versions_for_item_update(&old_item, item)
+  }
+
+  /// Replace an item's stored type while retaining the index-defining fields.
+  /// The underlying store writes the entire new item as a single log record.
+  pub async fn replace_type(&mut self, item: &Item) -> InfuResult<()> {
+    let old_item = self
+      .store_by_user_id
+      .get(&item.owner_id)
+      .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
+      .get(&item.id)
+      .ok_or(format!("Request was made to replace item '{}', but it does not exist.", item.id))?
+      .clone();
+    if !matches!(
+      (old_item.item_type, item.item_type),
+      (ItemType::Page, ItemType::Table) | (ItemType::Table, ItemType::Page)
+    ) || old_item.owner_id != item.owner_id
+      || old_item.parent_id != item.parent_id
+      || old_item.relationship_to_parent != item.relationship_to_parent
+    {
+      return Err(
+        format!("Replacement of item '{}' must change only its type and non-indexed fields.", item.id).into(),
+      );
+    }
+    self
+      .store_by_user_id
+      .get_mut(&item.owner_id)
+      .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
+      .replace(item.clone())
+      .await?;
+    self.dirty_user_ids.insert(item.owner_id.clone());
     self.record_loaded_container_versions_for_item_update(&old_item, item)
   }
 

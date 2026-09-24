@@ -24,14 +24,16 @@ use image::ImageFormat;
 use image::ImageReader;
 use image::imageops::FilterType;
 use infusdk::item::{
-  ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG, PermissionFlags,
-  RelationshipToParent, TableColumn, is_attachments_item_type, is_composite_item, is_container_item_type,
-  is_data_item_type, is_flags_item_type, is_image_item, is_page_item, is_permission_flags_item_type,
-  is_positionable_type, is_table_item,
+  ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG,
+  PAGE_SHOW_TABLE_COL_HEADER_FLAG, PermissionFlags, RelationshipToParent, SavedPageSettings, SavedTableSettings,
+  TableColumn, TableFlags, embedded_table_size_from_page, is_attachments_item_type, is_composite_item,
+  is_container_item_type, is_data_item_type, is_flags_item_type, is_image_item, is_page_item,
+  is_permission_flags_item_type, is_positionable_type, is_table_item, page_width_from_table,
 };
 use infusdk::util::geometry::{Dimensions, GRID_SIZE, Vector};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
+use infusdk::util::time::unix_now_secs_i64;
 use infusdk::util::time::unix_now_secs_u64;
 use infusdk::util::uid::{EMPTY_UID, Uid, is_empty_uid, is_uid, new_uid};
 use infusdk::web::WebApiJsonSerializable;
@@ -199,6 +201,7 @@ pub async fn serve_command_route(
       item_ops::handle_add_link_note(db, object_store.clone(), &request.json_data, &session_maybe).await
     }
     "update-item" => item_ops::handle_update_item(db, &request.json_data, &session_maybe).await,
+    "convert-page-table" => item_ops::handle_convert_page_table(db, &request.json_data, &session_maybe).await,
     "delete-item" => {
       item_ops::handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await
     }
