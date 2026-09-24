@@ -49,6 +49,8 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   const bodyViewport = () => props.visualElement.tableBodyViewportBoundsPx!;
   const blockSize = () => props.visualElement.tableRowBlockSizePx!;
   const headerHeightPx = () => bodyViewport().y - viewport().y;
+  const headerSharesToolbarBorder = () => store.topToolbarHeightPx() > 0 &&
+    store.topTitledPages.get().includes(pagePath());
   const scale = () => blockSize().h / LINE_HEIGHT_PX;
   const columns = () => tabularColumnLayouts(page(), viewport().w / blockSize().w);
   const isSortedByTitle = () => page().orderChildrenBy == "title[ASC]";
@@ -115,8 +117,10 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
         `top: ${viewport().y - props.visualElement.boundsPx.y}px; ` +
         `width: ${viewport().w}px; height: ${viewport().h}px; overflow: hidden;`}>
       <Show when={headerHeightPx() > 0}>
-        <div class={`absolute border border-[#999] bg-slate-300 ${isTranslucent() ? "pointer-events-none" : ""}`}
-          style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${headerHeightPx()}px;`}>
+        {/* Keep the label positions when the toolbar draws the top border one pixel above this header. */}
+        <div class={`absolute border-y border-[#999] bg-slate-300 ${isTranslucent() ? "pointer-events-none" : ""}`}
+          style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${headerHeightPx()}px; ` +
+            `border-top-color: ${headerSharesToolbarBorder() ? "transparent" : "#999"};`}>
           <For each={columns()}>{column =>
             <div id={`${pagePath()}:col${column.index}`}
               class="absolute whitespace-nowrap overflow-hidden"

@@ -211,6 +211,18 @@ export const Toolbar: Component = () => {
   const focusedSearchChrome = () => getFocusedSearchWorkspaceChromeSpec(store);
   const toolbarFocusItem = () => getToolbarFocusItem(store);
 
+  const tableHeaderBorderBounds = createMemo(() => {
+    const pages = store.topTitledPages.get();
+    const path = pages[pages.length - 1];
+    if (!path) { return null; }
+    const ve = VesCache.render.getNode(path)?.get();
+    if (!ve?.viewportBoundsPx || !ve.tableBodyViewportBoundsPx ||
+      ve.tableBodyViewportBoundsPx.y <= ve.viewportBoundsPx.y) {
+      return null;
+    }
+    return VeFns.veViewportBoundsRelativeToDesktopPx(store, ve);
+  });
+
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
     store.resetDesktopSizePx();
@@ -387,6 +399,12 @@ export const Toolbar: Component = () => {
     <>
       {dockToolbarAreaMaybe()}
       {mainToolbarArea()}
+      {/* Share the toolbar's bottom pixel with the table header, leaving one page-border pixel above it. */}
+      <Show when={tableHeaderBorderBounds()}>{bounds =>
+        <div class="fixed pointer-events-none bg-[#999]"
+          style={`left: ${bounds().x}px; top: ${store.topToolbarHeightPx() - 1}px; ` +
+            `width: ${bounds().w}px; height: 1px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY};`} />
+      }</Show>
       <Show when={focusedSearchChrome()}>
         <div class="fixed pointer-events-none"
           style={`left: ${Math.max(0, focusedSearchChrome()!.desktopBoundsPx.x - focusedSearchChrome()!.borderWidthPx)}px; ` +
