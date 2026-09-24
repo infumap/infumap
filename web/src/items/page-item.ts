@@ -54,6 +54,7 @@ import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { NoteFlags } from './base/flags-item';
 import { calcPopupActionStripLayout } from '../util/popupHeaderActions';
 import { LinkFns, asLinkItem, isLink } from './link-item';
+import { SavedTableSettings } from './base/conversion-settings';
 
 
 export const ArrangeAlgorithm = {
@@ -84,6 +85,7 @@ export function dockForcesEmbeddedInteractiveArrangeAlgorithm(arrangeAlgorithm: 
 }
 
 export interface PageItem extends PageMeasurable, TabularItem, XSizableItem, ContainerItem, AttachmentsItem, TitledItem, PermissionFlagsMixin, ColorableMixin, AspectItem, Item {
+  savedTableSettings: SavedTableSettings | null;
   innerSpatialWidthGr: number;
   listWidthGr: number;
   arrangeAlgorithm: string;
@@ -640,6 +642,7 @@ export const PageFns = {
       }],
 
       numberOfVisibleColumns: 1,
+      savedTableSettings: null,
       computed_children: [],
       computed_attachments: [],
       childrenLoaded: false,
@@ -701,6 +704,7 @@ export const PageFns = {
 
       tableColumns: o.tableColumns,
       numberOfVisibleColumns: o.numberOfVisibleColumns,
+      savedTableSettings: o.savedTableSettings ?? null,
 
       computed_children: [],
       computed_attachments: [],
@@ -759,6 +763,7 @@ export const PageFns = {
 
       tableColumns: p.tableColumns,
       numberOfVisibleColumns: p.numberOfVisibleColumns,
+      savedTableSettings: p.savedTableSettings ?? undefined,
       popupPositionGr: p.popupPositionGr ?? undefined,
       popupWidthGr: p.popupWidthGr ?? undefined,
       defaultCellPopupPositionNorm: p.defaultCellPopupPositionNorm,
