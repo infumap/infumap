@@ -58,6 +58,10 @@ pub trait LogReplayObserver<T> {
     Ok(())
   }
 
+  fn on_replace(&mut self, _old: &T, _new: &T) -> InfuResult<()> {
+    Ok(())
+  }
+
   fn on_delete(&mut self, _old: &T) -> InfuResult<()> {
     Ok(())
   }
@@ -191,6 +195,24 @@ where
     Ok(())
   }
 
+  /// Persist a complete value for an existing ID in one log record. This permits
+  /// changing fields that incremental updates deliberately cannot change.
+  pub async fn replace(&mut self, replacement: T) -> InfuResult<()> {
+    if !self.map.contains_key(replacement.get_id()) {
+      return Err(format!("Entry with id {} does not exist.", replacement.get_id()).into());
+    }
+    let mut record = replacement.to_json()?;
+    record.insert(String::from("__recordType"), Value::String(String::from("replace")));
+    let serialized = serde_json::to_string(&record)?;
+    let file = OpenOptions::new().append(true).open(&self.log_path).await?;
+    let mut writer = BufWriter::new(file);
+    writer.write_all(serialized.as_bytes()).await?;
+    writer.write_all("\n".as_bytes()).await?;
+    writer.flush().await?;
+    self.map.insert(replacement.get_id().clone(), replacement);
+    Ok(())
+  }
+
   fn read_log_record(
     result: &mut HashMap<String, T>,
     kvs: &Map<String, Value>,
@@ -249,6 +271,14 @@ where
           .get_mut(&String::from(id))
           .ok_or(InfuError::new(&format!("Update record has id '{}', but this is unknown.", id)))?;
         u.apply_json_update(&kvs)?;
+      }
+
+      "replace" => {
+        let u = T::from_json(&kvs)?;
+        if !result.contains_key(u.get_id()) {
+          return Err(format!("Replace record has id '{}', but this is unknown.", u.get_id()).into());
+        }
+        result.insert(u.get_id().clone(), u);
       }
 
       "delete" => {
@@ -367,6 +397,15 @@ where
               let old = u.clone();
               u.apply_json_update(&kvs)?;
               observer.on_update(&old, u, &kvs)?;
+            }
+
+            "replace" => {
+              let u = T::from_json(&kvs)?;
+              let old = result
+                .get(u.get_id())
+                .ok_or(format!("Replace record has id '{}', but this is unknown.", u.get_id()))?;
+              observer.on_replace(old, &u)?;
+              result.insert(u.get_id().clone(), u);
             }
 
             "delete" => {

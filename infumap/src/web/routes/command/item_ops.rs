@@ -627,6 +627,191 @@ pub(super) async fn handle_update_item(
   json_with_sync_ack(sync_ack, None)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ConvertPageTableRequest {
+  id: Uid,
+  expected_item_type: String,
+  target_item_type: String,
+}
+
+pub(super) async fn handle_convert_page_table(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to convert an item.")?;
+  let request: ConvertPageTableRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("Could not parse page/table conversion request: {}", e))?;
+  let expected_type = ItemType::from_str(&request.expected_item_type)?;
+  let target_type = ItemType::from_str(&request.target_item_type)?;
+  if !matches!((expected_type, target_type), (ItemType::Page, ItemType::Table) | (ItemType::Table, ItemType::Page)) {
+    return Err("Page/table conversion requires opposite page and table types.".into());
+  }
+
+  let mut db = db.lock().await;
+  let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
+  let protected_ids =
+    [user.home_page_id.clone(), user.trash_page_id.clone(), user.dock_page_id.clone(), user.queries_page_id.clone()];
+  if protected_ids.contains(&request.id) || search_status_page_kind_for_id(&session.user_id, &request.id).is_some() {
+    return Err(format!("Special page '{}' cannot be converted.", request.id).into());
+  }
+
+  let source = db.item.get(&request.id)?.clone();
+  if source.owner_id != session.user_id || source.item_type != expected_type {
+    return Err(format!("Item '{}' is not an owned '{}' item.", request.id, request.expected_item_type).into());
+  }
+  if source.relationship_to_parent != RelationshipToParent::Child {
+    return Err(format!("Item '{}' must be an ordinary child to be converted.", request.id).into());
+  }
+  let parent_id = source.parent_id.as_ref().ok_or(format!("Item '{}' has no parent.", request.id))?;
+  if protected_ids[1..].contains(parent_id) {
+    return Err(format!("Item '{}' is inside a special page and cannot be converted.", request.id).into());
+  }
+  let parent = db.item.get(parent_id)?.clone();
+  if parent.item_type != ItemType::Page || parent.owner_id != session.user_id {
+    return Err(format!("Item '{}' must have an owned page as its parent.", request.id).into());
+  }
+  if source.item_type == ItemType::Page {
+    if source.arrange_algorithm != Some(ArrangeAlgorithm::Table) {
+      return Err(format!("Page '{}' must use table arrangement before conversion.", request.id).into());
+    }
+    if source.permission_flags.unwrap_or(0) & PermissionFlags::Public as i64 != 0 {
+      return Err(format!("Public page '{}' cannot be converted.", request.id).into());
+    }
+  }
+  if source.item_type == ItemType::Table
+    && source
+      .saved_page_settings
+      .as_ref()
+      .is_some_and(|saved| saved.permission_flags & PermissionFlags::Public as i64 != 0)
+  {
+    return Err(format!("Table '{}' has public saved page settings and cannot be converted.", request.id).into());
+  }
+
+  let mut converted = source.clone();
+  converted.last_modified_date = unix_now_secs_i64()?.max(source.last_modified_date.saturating_add(1));
+  match target_type {
+    ItemType::Table => convert_page_to_table(&source, &parent, &mut converted)?,
+    ItemType::Page => convert_table_to_page(&source, &mut converted)?,
+    _ => unreachable!(),
+  }
+
+  // Validate the complete destination and prepare the response before persisting.
+  let item_json = item_to_api_json_map(&converted)?;
+  let parent_delta = build_child_upsert_delta(&db, &converted)?;
+  db.item.replace_type(&converted).await?;
+  let mut deltas_by_container = HashMap::new();
+  merge_container_delta(&mut deltas_by_container, parent_id, parent_delta);
+  let sync_ack = flush_container_sync_changes(&mut db, &source.owner_id, deltas_by_container, HashSet::new());
+
+  debug!("Executed 'convert-page-table' command for item '{}'.", source.id);
+  drop(db);
+  enqueue_item_title_index_update(&source.owner_id, &source.id);
+  json_with_sync_ack(sync_ack, Some(item_json))
+}
+
+fn convert_page_to_table(page: &Item, parent: &Item, table: &mut Item) -> InfuResult<()> {
+  let size = embedded_table_size_from_page(page, parent)?;
+  let saved_page = SavedPageSettings::from_page(page)?;
+  let mut flags = page.saved_table_settings.as_ref().map(|saved| saved.flags).unwrap_or(0);
+  if saved_page.flags & PAGE_SHOW_TABLE_COL_HEADER_FLAG != 0 {
+    flags |= TableFlags::ShowColHeader.bits();
+  } else {
+    flags &= !TableFlags::ShowColHeader.bits();
+  }
+
+  table.item_type = ItemType::Table;
+  table.spatial_width_gr = Some(size.w);
+  table.spatial_height_gr = Some(size.h);
+  table.flags = Some(flags);
+  table.saved_page_settings = Some(saved_page);
+  table.saved_table_settings = None;
+  table.permission_flags = None;
+  table.background_color_index = None;
+  table.natural_aspect = None;
+  table.inner_spatial_width_gr = None;
+  table.list_width_gr = None;
+  table.arrange_algorithm = None;
+  table.default_popup_position_gr = None;
+  table.default_popup_width_gr = None;
+  table.popup_position_gr = None;
+  table.popup_width_gr = None;
+  table.default_cell_popup_position_norm = None;
+  table.default_cell_popup_width_norm = None;
+  table.cell_popup_position_norm = None;
+  table.cell_popup_width_norm = None;
+  table.grid_number_of_columns = None;
+  table.grid_cell_aspect = None;
+  table.doc_width_bl = None;
+  table.justified_row_aspect = None;
+  table.calendar_day_row_height_bl = None;
+  Ok(())
+}
+
+fn convert_table_to_page(table: &Item, page: &mut Item) -> InfuResult<()> {
+  let saved_table = SavedTableSettings::from_table(table)?;
+  let saved_page = table.saved_page_settings.clone().unwrap_or_else(default_converted_page_settings);
+  let mut flags = saved_page.flags;
+  if saved_table.flags & TableFlags::ShowColHeader.bits() != 0 {
+    flags |= PAGE_SHOW_TABLE_COL_HEADER_FLAG;
+  } else {
+    flags &= !PAGE_SHOW_TABLE_COL_HEADER_FLAG;
+  }
+
+  page.item_type = ItemType::Page;
+  page.spatial_width_gr = Some(page_width_from_table(table)?);
+  page.spatial_height_gr = None;
+  page.flags = Some(flags);
+  page.saved_page_settings = None;
+  page.saved_table_settings = Some(saved_table);
+  page.permission_flags = Some(saved_page.permission_flags);
+  page.background_color_index = Some(saved_page.background_color_index);
+  page.natural_aspect = Some(saved_page.natural_aspect);
+  page.inner_spatial_width_gr = Some(saved_page.inner_spatial_width_gr);
+  page.list_width_gr = saved_page.list_width_gr;
+  page.arrange_algorithm = Some(ArrangeAlgorithm::Table);
+  page.default_popup_position_gr = Some(saved_page.default_popup_position_gr);
+  page.default_popup_width_gr = Some(saved_page.default_popup_width_gr);
+  page.popup_position_gr = saved_page.popup_position_gr;
+  page.popup_width_gr = saved_page.popup_width_gr;
+  page.default_cell_popup_position_norm = saved_page.default_cell_popup_position_norm;
+  page.default_cell_popup_width_norm = saved_page.default_cell_popup_width_norm;
+  page.cell_popup_position_norm = saved_page.cell_popup_position_norm;
+  page.cell_popup_width_norm = saved_page.cell_popup_width_norm;
+  page.grid_number_of_columns = Some(saved_page.grid_number_of_columns);
+  page.grid_cell_aspect = Some(saved_page.grid_cell_aspect);
+  page.doc_width_bl = Some(saved_page.doc_width_bl);
+  page.justified_row_aspect = Some(saved_page.justified_row_aspect);
+  page.calendar_day_row_height_bl = saved_page.calendar_day_row_height_bl;
+  Ok(())
+}
+
+fn default_converted_page_settings() -> SavedPageSettings {
+  SavedPageSettings {
+    spatial_width_gr: 4 * GRID_SIZE,
+    flags: 0,
+    permission_flags: 0,
+    natural_aspect: 2.0,
+    background_color_index: 0,
+    inner_spatial_width_gr: 60 * GRID_SIZE,
+    list_width_gr: Some(8 * GRID_SIZE),
+    default_popup_position_gr: Vector { x: 30 * GRID_SIZE, y: 15 * GRID_SIZE },
+    default_popup_width_gr: 10 * GRID_SIZE,
+    popup_position_gr: None,
+    popup_width_gr: None,
+    default_cell_popup_position_norm: Some(Vector { x: 0.5, y: 0.5 }),
+    default_cell_popup_width_norm: Some(0.6),
+    cell_popup_position_norm: None,
+    cell_popup_width_norm: None,
+    grid_number_of_columns: 6,
+    grid_cell_aspect: 1.5,
+    doc_width_bl: 30,
+    justified_row_aspect: 7.0,
+    calendar_day_row_height_bl: Some(1.0),
+  }
+}
+
 fn image_fragment_context_dependents_for_parent_title_change(
   db: &Db,
   old_item: &Item,
