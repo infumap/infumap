@@ -52,6 +52,7 @@ import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
+import { Page_TableContent } from "./Page_TableContent";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -838,6 +839,11 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `background-color: #ffffff; ${desktopStackRootStyle(props.visualElement)}`}>
         <Switch>
+          <Match when={props.visualElement.tableBodyViewportBoundsPx != null}>
+            <Page_TableContent visualElement={props.visualElement} />
+            {renderPopupRootMaybe()}
+            {renderBorderOverlay()}
+          </Match>
           <Match when={pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
             {renderListPage()}
           </Match>
