@@ -59,9 +59,12 @@ import { newOrdering } from "../util/ordering";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularVisibleRows } from "../layout/tabular";
 import { asPageItem, isPage } from "./page-item";
+import { SavedPageSettings } from "./base/conversion-settings";
 
 
-export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem { }
+export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem {
+  savedPageSettings: SavedPageSettings | null;
+}
 
 export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, YSizableMixin, FlagsMixin, TabularMixin, AttachmentsMixin {
 }
@@ -122,6 +125,7 @@ export const TableFns = {
         widthGr: 8 * GRID_SIZE,
       }],
       numberOfVisibleColumns: 1,
+      savedPageSettings: null,
 
       flags: TableFlags.None,
 
@@ -159,6 +163,7 @@ export const TableFns = {
 
       tableColumns: o.tableColumns,
       numberOfVisibleColumns: o.numberOfVisibleColumns,
+      savedPageSettings: o.savedPageSettings ?? null,
 
       flags: o.flags,
 
@@ -192,6 +197,7 @@ export const TableFns = {
 
       tableColumns: t.tableColumns,
       numberOfVisibleColumns: t.numberOfVisibleColumns,
+      savedPageSettings: t.savedPageSettings ?? undefined,
 
       flags: t.flags,
 

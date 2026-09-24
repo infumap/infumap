@@ -17,12 +17,14 @@
 */
 
 import { RelationshipToParent } from "../layout/relationship-to-parent";
+import { GRID_SIZE } from "../constants";
 import { VeFns, VisualElementPath } from "../layout/visual-element";
 import { VesCache } from "../layout/ves-cache";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID } from "../util/uid";
 import { itemCanEdit } from "./base/capabilities-item";
+import { SavedPageSettings, SavedTableSettings } from "./base/conversion-settings";
 import { PageFlags, TableFlags } from "./base/flags-item";
 import { PermissionFlags } from "./base/permission-flags-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "./page-item";
@@ -154,4 +156,60 @@ export function pageTableConvertedHeaderFlags(source: PageTableConvertibleItem, 
   return source.flags & sourceHeaderFlag
     ? destinationFlags | destinationHeaderFlag
     : destinationFlags & ~destinationHeaderFlag;
+}
+
+export function savedPageSettingsFromPage(page: PageItem): SavedPageSettings {
+  return {
+    spatialWidthGr: page.spatialWidthGr,
+    flags: page.flags,
+    permissionFlags: page.permissionFlags,
+    naturalAspect: page.naturalAspect,
+    backgroundColorIndex: page.backgroundColorIndex,
+    innerSpatialWidthGr: page.innerSpatialWidthGr,
+    listWidthGr: page.listWidthGr,
+    defaultPopupPositionGr: { ...page.defaultPopupPositionGr },
+    defaultPopupWidthGr: page.defaultPopupWidthGr,
+    popupPositionGr: page.popupPositionGr && { ...page.popupPositionGr },
+    popupWidthGr: page.popupWidthGr,
+    defaultCellPopupPositionNorm: { ...page.defaultCellPopupPositionNorm },
+    defaultCellPopupWidthNorm: page.defaultCellPopupWidthNorm,
+    cellPopupPositionNorm: page.cellPopupPositionNorm && { ...page.cellPopupPositionNorm },
+    cellPopupWidthNorm: page.cellPopupWidthNorm,
+    gridNumberOfColumns: page.gridNumberOfColumns,
+    gridCellAspect: page.gridCellAspect,
+    docWidthBl: page.docWidthBl,
+    justifiedRowAspect: page.justifiedRowAspect,
+    calendarDayRowHeightBl: page.calendarDayRowHeightBl,
+  };
+}
+
+export function savedTableSettingsFromTable(table: TableItem): SavedTableSettings {
+  return {
+    spatialWidthGr: table.spatialWidthGr,
+    spatialHeightGr: table.spatialHeightGr,
+    flags: table.flags,
+  };
+}
+
+/** Fit configured columns where possible, without creating a table wider than the parent page. */
+export function embeddedTableSizeFromPage(page: PageItem, parent: PageItem): { w: number; h: number } {
+  if (page.savedTableSettings != null) {
+    return {
+      w: page.savedTableSettings.spatialWidthGr,
+      h: page.savedTableSettings.spatialHeightGr,
+    };
+  }
+
+  const visibleCount = Math.max(0, Math.min(page.numberOfVisibleColumns, page.tableColumns.length));
+  const columnsWidthGr = page.tableColumns.slice(0, visibleCount)
+    .reduce((width, column) => width + column.widthGr, 0);
+  const minimumWidthGr = 8 * GRID_SIZE;
+  return {
+    w: Math.min(Math.max(minimumWidthGr, columnsWidthGr), Math.max(minimumWidthGr, parent.innerSpatialWidthGr)),
+    h: 6 * GRID_SIZE,
+  };
+}
+
+export function pageWidthFromTable(table: TableItem): number {
+  return table.savedPageSettings?.spatialWidthGr ?? 4 * GRID_SIZE;
 }

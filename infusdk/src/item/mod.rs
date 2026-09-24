@@ -220,6 +220,111 @@ pub struct TableColumn {
   pub name: String,
 }
 
+/// Page-only values retained while a Table-arranged page is represented as a table item.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SavedPageSettings {
+  pub spatial_width_gr: i64,
+  pub flags: i64,
+  pub permission_flags: i64,
+  pub natural_aspect: f64,
+  pub background_color_index: i64,
+  pub inner_spatial_width_gr: i64,
+  pub list_width_gr: Option<i64>,
+  pub default_popup_position_gr: Vector<i64>,
+  pub default_popup_width_gr: i64,
+  pub popup_position_gr: Option<Vector<i64>>,
+  pub popup_width_gr: Option<i64>,
+  pub default_cell_popup_position_norm: Option<Vector<f64>>,
+  pub default_cell_popup_width_norm: Option<f64>,
+  pub cell_popup_position_norm: Option<Vector<f64>>,
+  pub cell_popup_width_norm: Option<f64>,
+  pub grid_number_of_columns: i64,
+  pub grid_cell_aspect: f64,
+  pub doc_width_bl: i64,
+  pub justified_row_aspect: f64,
+  pub calendar_day_row_height_bl: Option<f64>,
+}
+
+/// Table-only values retained while a table item is represented as a page.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SavedTableSettings {
+  pub spatial_width_gr: i64,
+  pub spatial_height_gr: i64,
+  pub flags: i64,
+}
+
+impl SavedPageSettings {
+  pub fn from_page(page: &Item) -> InfuResult<Self> {
+    if page.item_type != ItemType::Page {
+      return Err("Cannot save page settings from a non-page item.".into());
+    }
+    Ok(Self {
+      spatial_width_gr: page.spatial_width_gr.ok_or("Page has no spatialWidthGr.")?,
+      flags: page.flags.ok_or("Page has no flags.")?,
+      permission_flags: page.permission_flags.ok_or("Page has no permissionFlags.")?,
+      natural_aspect: page.natural_aspect.ok_or("Page has no naturalAspect.")?,
+      background_color_index: page.background_color_index.ok_or("Page has no backgroundColorIndex.")?,
+      inner_spatial_width_gr: page.inner_spatial_width_gr.ok_or("Page has no innerSpatialWidthGr.")?,
+      list_width_gr: page.list_width_gr,
+      default_popup_position_gr: page.default_popup_position_gr.clone().ok_or("Page has no defaultPopupPositionGr.")?,
+      default_popup_width_gr: page.default_popup_width_gr.ok_or("Page has no defaultPopupWidthGr.")?,
+      popup_position_gr: page.popup_position_gr.clone(),
+      popup_width_gr: page.popup_width_gr,
+      default_cell_popup_position_norm: page.default_cell_popup_position_norm.clone(),
+      default_cell_popup_width_norm: page.default_cell_popup_width_norm,
+      cell_popup_position_norm: page.cell_popup_position_norm.clone(),
+      cell_popup_width_norm: page.cell_popup_width_norm,
+      grid_number_of_columns: page.grid_number_of_columns.ok_or("Page has no gridNumberOfColumns.")?,
+      grid_cell_aspect: page.grid_cell_aspect.ok_or("Page has no gridCellAspect.")?,
+      doc_width_bl: page.doc_width_bl.ok_or("Page has no docWidthBl.")?,
+      justified_row_aspect: page.justified_row_aspect.ok_or("Page has no justifiedRowAspect.")?,
+      calendar_day_row_height_bl: page.calendar_day_row_height_bl,
+    })
+  }
+}
+
+impl SavedTableSettings {
+  pub fn from_table(table: &Item) -> InfuResult<Self> {
+    if table.item_type != ItemType::Table {
+      return Err("Cannot save table settings from a non-table item.".into());
+    }
+    Ok(Self {
+      spatial_width_gr: table.spatial_width_gr.ok_or("Table has no spatialWidthGr.")?,
+      spatial_height_gr: table.spatial_height_gr.ok_or("Table has no spatialHeightGr.")?,
+      flags: table.flags.ok_or("Table has no flags.")?,
+    })
+  }
+}
+
+/// Initial item size for a Table-arranged page. Restored table dimensions take priority.
+pub fn embedded_table_size_from_page(page: &Item, parent: &Item) -> InfuResult<Dimensions<i64>> {
+  if page.item_type != ItemType::Page || parent.item_type != ItemType::Page {
+    return Err("An embedded table requires a page and a parent page.".into());
+  }
+  if let Some(saved) = &page.saved_table_settings {
+    return Ok(Dimensions { w: saved.spatial_width_gr, h: saved.spatial_height_gr });
+  }
+
+  let columns = page.table_columns.as_ref().ok_or("Page has no tableColumns.")?;
+  let visible_count = page.number_of_visible_columns.ok_or("Page has no numberOfVisibleColumns.")?.max(0) as usize;
+  let columns_width_gr = columns.iter().take(visible_count).fold(0_i64, |width, col| width.saturating_add(col.width_gr));
+  let minimum_width_gr = 8 * GRID_SIZE;
+  let parent_width_gr = parent.inner_spatial_width_gr.unwrap_or(minimum_width_gr).max(minimum_width_gr);
+  Ok(Dimensions {
+    w: columns_width_gr.max(minimum_width_gr).min(parent_width_gr),
+    h: 6 * GRID_SIZE,
+  })
+}
+
+pub fn page_width_from_table(table: &Item) -> InfuResult<i64> {
+  if table.item_type != ItemType::Table {
+    return Err("Cannot select a page width from a non-table item.".into());
+  }
+  Ok(table.saved_page_settings.as_ref().map(|saved| saved.spatial_width_gr).unwrap_or(4 * GRID_SIZE))
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteUrl {
   pub start: i64,
@@ -449,7 +554,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 56] = [
+const ALL_JSON_FIELDS: [&'static str; 58] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -506,6 +611,8 @@ const ALL_JSON_FIELDS: [&'static str; 56] = [
   "justifiedRowAspect",
   "calendarDayRowHeightBl",
   "numberOfVisibleColumns",
+  "savedPageSettings",
+  "savedTableSettings",
 ];
 
 /// All-encompassing Item type and corresponding serialization / validation logic.
@@ -590,6 +697,10 @@ pub struct Item {
   pub justified_row_aspect: Option<f64>,
   pub calendar_day_row_height_bl: Option<f64>,
 
+  // Inactive presentation settings for page/table conversion.
+  pub saved_page_settings: Option<SavedPageSettings>,
+  pub saved_table_settings: Option<SavedTableSettings>,
+
   // note
   // `url` is retained as a legacy input field only. New note data uses `urls`.
   pub url: Option<String>,
@@ -665,6 +776,8 @@ impl Clone for Item {
       doc_width_bl: self.doc_width_bl.clone(),
       justified_row_aspect: self.justified_row_aspect.clone(),
       calendar_day_row_height_bl: self.calendar_day_row_height_bl.clone(),
+      saved_page_settings: self.saved_page_settings.clone(),
+      saved_table_settings: self.saved_table_settings.clone(),
       url: self.url.clone(),
       urls: self.urls.clone(),
       emoji: self.emoji.clone(),
@@ -901,6 +1014,15 @@ impl JsonLogSerializable<Item> for Item {
     }
     if old.owner_id != new.owner_id {
       return Err("An attempt was made to create an item update from instances with non-matching owner_ids.".into());
+    }
+    if old.item_type != new.item_type {
+      cannot_modify_err("itemType", &old.id)?;
+    }
+    if old.saved_page_settings != new.saved_page_settings {
+      cannot_modify_err("savedPageSettings", &old.id)?;
+    }
+    if old.saved_table_settings != new.saved_table_settings {
+      cannot_modify_err("savedTableSettings", &old.id)?;
     }
     validate_datetime_range(new.item_type, new.datetime, new.end_datetime, &new.id)?;
 
@@ -1551,6 +1673,12 @@ impl JsonLogSerializable<Item> for Item {
     if json::get_string_field(map, "itemType")?.is_some() {
       cannot_update_err("itemType", &self.id)?;
     }
+    if map.contains_key("savedPageSettings") {
+      cannot_update_err("savedPageSettings", &self.id)?;
+    }
+    if map.contains_key("savedTableSettings") {
+      cannot_update_err("savedTableSettings", &self.id)?;
+    }
     if json::get_string_field(map, "ownerId")?.is_some() {
       cannot_update_err("ownerId", &self.id)?;
     }
@@ -2111,6 +2239,18 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     }
     result.insert(String::from("numberOfVisibleColumns"), Value::Number(number_of_visible_columns.into()));
   }
+  if let Some(saved_page_settings) = &item.saved_page_settings {
+    if item.item_type != ItemType::Table {
+      unexpected_field_err("savedPageSettings", &item.id, item.item_type)?
+    }
+    result.insert(String::from("savedPageSettings"), serde_json::to_value(saved_page_settings)?);
+  }
+  if let Some(saved_table_settings) = &item.saved_table_settings {
+    if item.item_type != ItemType::Page {
+      unexpected_field_err("savedTableSettings", &item.id, item.item_type)?
+    }
+    result.insert(String::from("savedTableSettings"), serde_json::to_value(saved_table_settings)?);
+  }
 
   // flags
   if let Some(flags) = item.flags {
@@ -2650,6 +2790,16 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
     }?,
+    saved_page_settings: match map.get("savedPageSettings") {
+      Some(value) if item_type == ItemType::Table => Some(serde_json::from_value(value.clone())?),
+      Some(_) => return Err(not_applicable_err("savedPageSettings", item_type, &id)),
+      None => None,
+    },
+    saved_table_settings: match map.get("savedTableSettings") {
+      Some(value) if item_type == ItemType::Page => Some(serde_json::from_value(value.clone())?),
+      Some(_) => return Err(not_applicable_err("savedTableSettings", item_type, &id)),
+      None => None,
+    },
 
     // flags
     flags: match json::get_integer_field(map, "flags")? {
@@ -3211,6 +3361,8 @@ impl Item {
       doc_width_bl: None,
       justified_row_aspect: None,
       calendar_day_row_height_bl: None,
+      saved_page_settings: None,
+      saved_table_settings: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -3279,6 +3431,8 @@ impl Item {
       doc_width_bl: None,
       justified_row_aspect: None,
       calendar_day_row_height_bl: None,
+      saved_page_settings: None,
+      saved_table_settings: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -3351,6 +3505,8 @@ impl Item {
       doc_width_bl: None,
       justified_row_aspect: None,
       calendar_day_row_height_bl: None,
+      saved_page_settings: None,
+      saved_table_settings: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -3411,6 +3567,8 @@ impl Item {
       doc_width_bl: None,
       justified_row_aspect: None,
       calendar_day_row_height_bl: None,
+      saved_page_settings: None,
+      saved_table_settings: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -3477,6 +3635,8 @@ impl Item {
       doc_width_bl: None,
       justified_row_aspect: None,
       calendar_day_row_height_bl: None,
+      saved_page_settings: None,
+      saved_table_settings: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -3555,6 +3715,8 @@ impl Item {
       doc_width_bl: None,
       justified_row_aspect: None,
       calendar_day_row_height_bl: None,
+      saved_page_settings: None,
+      saved_table_settings: None,
       text: None,
       image_size_px: None,
       thumbnail: None,
@@ -3625,6 +3787,8 @@ impl Item {
       doc_width_bl: Some(doc_width_bl),
       justified_row_aspect: Some(justified_row_aspect),
       calendar_day_row_height_bl: Some(calendar_day_row_height_bl),
+      saved_page_settings: None,
+      saved_table_settings: None,
       table_columns: Some(table_columns),
       number_of_visible_columns: Some(number_of_visible_columns),
 
