@@ -69,6 +69,7 @@ pub const LIST_PAGE_PIN_TOP_FLAG: i64 = 0x100000;
 pub const LIST_PAGE_PIN_BOTTOM_FLAG: i64 = 0x200000;
 pub const PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG: i64 = 0x100;
 pub const PAGE_DISABLE_MANUAL_CHILD_ADD_FLAG: i64 = 0x200;
+pub const PAGE_SHOW_TABLE_COL_HEADER_FLAG: i64 = 0x400;
 
 bitflags! {
   pub struct FileFlags: i64 {
@@ -134,6 +135,7 @@ pub enum ArrangeAlgorithm {
   Catalog,
   Justified,
   List,
+  Table,
   Document,
   SingleCell,
   // Gallery,
@@ -148,6 +150,7 @@ impl ArrangeAlgorithm {
       ArrangeAlgorithm::Catalog => "catalog",
       ArrangeAlgorithm::Justified => "justified",
       ArrangeAlgorithm::List => "list",
+      ArrangeAlgorithm::Table => "table",
       ArrangeAlgorithm::Document => "document",
       ArrangeAlgorithm::SingleCell => "single-cell",
       // ArrangeAlgorithm::Gallery => "gallery",
@@ -162,6 +165,7 @@ impl ArrangeAlgorithm {
       "catalog" => Ok(ArrangeAlgorithm::Catalog),
       "justified" => Ok(ArrangeAlgorithm::Justified),
       "list" => Ok(ArrangeAlgorithm::List),
+      "table" => Ok(ArrangeAlgorithm::Table),
       "document" => Ok(ArrangeAlgorithm::Document),
       "single-cell" => Ok(ArrangeAlgorithm::SingleCell),
       // "gallery" => Ok(ArrangeAlgorithm::Gallery),

@@ -127,6 +127,7 @@ export enum PageFlags {
   UnusedChat = 0x080,
   UnusedDisableLineItemExpand = 0x100,
   UnusedDisableManualChildAdd = 0x200,
+  ShowTableColHeader = 0x400,
   ListPagePinTop = ListPageFlags.PinTop,
   ListPagePinBottom = ListPageFlags.PinBottom,
 };
