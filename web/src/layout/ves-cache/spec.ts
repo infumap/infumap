@@ -41,6 +41,8 @@ export function cloneVisualElementSnapshot(ve: VisualElement): VisualElement {
     boundsPx: { ...ve.boundsPx },
     viewportBoundsPx: ve.viewportBoundsPx ? { ...ve.viewportBoundsPx } : null,
     childAreaBoundsPx: ve.childAreaBoundsPx ? { ...ve.childAreaBoundsPx } : null,
+    tableBodyViewportBoundsPx: ve.tableBodyViewportBoundsPx ? { ...ve.tableBodyViewportBoundsPx } : null,
+    tableRowBlockSizePx: ve.tableRowBlockSizePx ? { ...ve.tableRowBlockSizePx } : null,
     listViewportBoundsPx: ve.listViewportBoundsPx ? { ...ve.listViewportBoundsPx } : null,
     listChildAreaBoundsPx: ve.listChildAreaBoundsPx ? { ...ve.listChildAreaBoundsPx } : null,
     tableDimensionsPx: ve.tableDimensionsPx ? { ...ve.tableDimensionsPx } : null,
@@ -160,6 +162,8 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if (compareBoundingBox(existingVe.boundsPx, preparedSpec.boundsPx) !== 0) { return false; }
   if (compareBoundingBox(existingVe.viewportBoundsPx, specValueOrDefault(preparedSpec.viewportBoundsPx, NONE_VISUAL_ELEMENT.viewportBoundsPx)) !== 0) { return false; }
   if (compareBoundingBox(existingVe.childAreaBoundsPx, specValueOrDefault(preparedSpec.childAreaBoundsPx, NONE_VISUAL_ELEMENT.childAreaBoundsPx)) !== 0) { return false; }
+  if (compareBoundingBox(existingVe.tableBodyViewportBoundsPx, specValueOrDefault(preparedSpec.tableBodyViewportBoundsPx, NONE_VISUAL_ELEMENT.tableBodyViewportBoundsPx)) !== 0) { return false; }
+  if (compareDimensions(existingVe.tableRowBlockSizePx, specValueOrDefault(preparedSpec.tableRowBlockSizePx, NONE_VISUAL_ELEMENT.tableRowBlockSizePx)) !== 0) { return false; }
   if (compareBoundingBox(existingVe.listViewportBoundsPx, specValueOrDefault(preparedSpec.listViewportBoundsPx, NONE_VISUAL_ELEMENT.listViewportBoundsPx)) !== 0) { return false; }
   if (compareBoundingBox(existingVe.listChildAreaBoundsPx, specValueOrDefault(preparedSpec.listChildAreaBoundsPx, NONE_VISUAL_ELEMENT.listChildAreaBoundsPx)) !== 0) { return false; }
   if (compareDimensions(existingVe.tableDimensionsPx, specValueOrDefault(preparedSpec.tableDimensionsPx, NONE_VISUAL_ELEMENT.tableDimensionsPx)) !== 0) { return false; }

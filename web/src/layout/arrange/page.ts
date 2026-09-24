@@ -34,6 +34,7 @@ import { arrange_grid_page } from "./page_grid";
 import { arrange_justified_page } from "./page_justified";
 import { arrange_list_page } from "./page_list";
 import { arrange_spatial_page } from "./page_spatial";
+import { arrange_table_page } from "./page_table";
 import { arrange_single_cell_page } from "./page_singleCell";
 
 export const arrangePageWithChildren = (
@@ -47,6 +48,7 @@ export const arrangePageWithChildren = (
 
   let pageSpec: VisualElementSpec;
   let pageRelationships: VisualElementRelationships;
+  let tableRenderRows: Array<number> | null = null;
 
   const arrangeAlgOverride = linkItemMaybe_pageWithChildren?.overrideArrangeAlgorithm || null;
   const effectiveArrange = arrangeAlgOverride || displayItem_pageWithChildren.arrangeAlgorithm;
@@ -69,6 +71,9 @@ export const arrangePageWithChildren = (
       break;
     case ArrangeAlgorithm.List:
       ({ spec: pageSpec, relationships: pageRelationships } = arrange_list_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
+      break;
+    case ArrangeAlgorithm.Table:
+      ({ spec: pageSpec, relationships: pageRelationships, renderRows: tableRenderRows } = arrange_table_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
       break;
     case ArrangeAlgorithm.SingleCell:
       ({ spec: pageSpec, relationships: pageRelationships } = arrange_single_cell_page(store, parentPath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren, actualLinkItemMaybe_pageWithChildren, geometry, flags));
@@ -96,5 +101,9 @@ export const arrangePageWithChildren = (
   }
 
   pageSpec.evaluatedTitle = linkItemMaybe_pageWithChildren?.overrideTitle ?? null;
-  return VesCache.arrange.writeVisualElementSignal(pageSpec, pageRelationships, pageWithChildrenVePath);
+  const pageSignal = VesCache.arrange.writeVisualElementSignal(pageSpec, pageRelationships, pageWithChildrenVePath);
+  if (tableRenderRows != null) {
+    VesCache.table.setRenderRows(pageWithChildrenVePath, tableRenderRows);
+  }
+  return pageSignal;
 }
