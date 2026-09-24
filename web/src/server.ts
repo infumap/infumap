@@ -17,7 +17,7 @@
 */
 
 import { logout } from "./components/Main";
-import { Item } from "./items/base/item";
+import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
 import { NumberSignal } from "./util/signals";
@@ -242,6 +242,8 @@ export interface SyncContainerSubscription {
   id: Uid,
   knownEpoch: number | null,
   knownVersion: number | null,
+  knownItemType: string,
+  knownLastModifiedDate: number,
 }
 
 export interface SyncContainerSnapshot {
@@ -254,6 +256,7 @@ export interface SyncContainerUpdate {
   epoch: number,
   version: number,
   strategy: "delta" | "snapshot",
+  item?: object,
   children?: Array<object>,
   childDeletes?: Array<Uid>,
   attachmentUpserts?: { [id: string]: Array<object> },
@@ -737,6 +740,9 @@ function applyContainerSyncDelta(update: SyncContainerUpdate): boolean {
 }
 
 function applyContainerSyncUpdate(update: SyncContainerUpdate): boolean {
+  if (update.item) {
+    itemState.upsertItemFromServerObject(update.item, null);
+  }
   const container = itemState.get(update.id);
   if (!container || !isContainer(container)) {
     setLocalContainerSyncVersion(update.id, update.epoch, update.version, true);
@@ -785,6 +791,8 @@ function getTrackedLocalContainerSubscriptions(): Array<SyncContainerSubscriptio
         id: containerId,
         knownEpoch: localContainerSyncVersions.get(containerId)?.epoch ?? null,
         knownVersion: localContainerSyncVersions.get(containerId)?.version ?? null,
+        knownItemType: itemState.get(containerId)!.itemType,
+        knownLastModifiedDate: itemState.get(containerId)!.lastModifiedDate,
       };
     });
 }
@@ -1112,15 +1120,57 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
       return;
     }
 
+    const popupItemId = store.history.currentPopupSpecVeid()?.itemId;
+    const popupItemType = popupItemId == null ? null : itemState.get(popupItemId)?.itemType;
+    const pageIdBeforeSync = store.history.currentPageVeid()?.itemId;
+    const pageTypeBeforeSync = pageIdBeforeSync == null ? null : itemState.get(pageIdBeforeSync)?.itemType;
+    const soloItemIdBeforeSync = pageIdBeforeSync == SOLO_ITEM_HOLDER_PAGE_UID
+      ? itemState.getAsContainerItem(SOLO_ITEM_HOLDER_PAGE_UID)?.computed_children[0]
+      : null;
+    const soloItemTypeBeforeSync = soloItemIdBeforeSync == null ? null : itemState.get(soloItemIdBeforeSync)?.itemType;
     let shouldArrange = false;
+    let didChange = false;
     for (const update of updates) {
       if (applyContainerSyncUpdate(update)) {
         shouldArrange = true;
+        didChange = true;
+      }
+    }
+
+    if (popupItemId != null && popupItemType == ItemType.Page &&
+      itemState.get(popupItemId)?.itemType == ItemType.Table) {
+      store.history.popAllPopups();
+      shouldArrange = true;
+    }
+
+    const currentPageId = store.history.currentPageVeid()?.itemId;
+    if (currentPageId && currentPageId == pageIdBeforeSync && pageTypeBeforeSync == ItemType.Page &&
+      itemState.get(currentPageId)?.itemType == ItemType.Table) {
+      const convertedTable = itemState.get(currentPageId)!;
+      const parent = itemState.get(convertedTable.parentId);
+      const { switchToItem, switchToPage } = await import("./layout/navigation");
+      if (parent?.itemType == ItemType.Page) {
+        switchToPage(store, { itemId: parent.id, linkIdMaybe: null }, true, true, false);
+        const { initiateLoadChildItemsMaybe } = await import("./layout/load");
+        await initiateLoadChildItemsMaybe(store, { itemId: parent.id, linkIdMaybe: null });
+      } else {
+        switchToItem(store, convertedTable.id, true, false);
+      }
+      shouldArrange = false;
+    } else if (currentPageId == SOLO_ITEM_HOLDER_PAGE_UID && soloItemTypeBeforeSync == ItemType.Table) {
+      const soloItemId = itemState.getAsContainerItem(SOLO_ITEM_HOLDER_PAGE_UID)?.computed_children[0];
+      if (soloItemId && soloItemId == soloItemIdBeforeSync && itemState.get(soloItemId)?.itemType == ItemType.Page) {
+        const { switchToPage } = await import("./layout/navigation");
+        switchToPage(store, { itemId: soloItemId, linkIdMaybe: null }, false, true, false);
+        shouldArrange = false;
       }
     }
 
     if (shouldArrange) {
       requestArrange(store, "container-sync");
+    }
+    if (didChange) {
+      store.touchToolbar();
     }
   } catch (error) {
     console.error("Container sync failed:", error);

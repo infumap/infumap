@@ -17,7 +17,7 @@
 */
 
 import { batch } from "solid-js";
-import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, PageFns } from "../../items/page-item";
 import { isContainer } from "../../items/base/container-item";
 import { mouseMove_handleNoButtonDown } from "../../input/mouse_move";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -197,6 +197,18 @@ export function fullArrange(store: StoreContextModel, virtualPageVeid?: Veid): v
     // console.timeEnd("fullArrange-finalizeArrange");
     if (currentPage.id !== SOLO_ITEM_HOLDER_PAGE_UID && isContainer(currentPage)) {
       VesCache.watch.addContainerUid(currentPage.id, currentPage.origin);
+    }
+    if (currentPage.id === SOLO_ITEM_HOLDER_PAGE_UID) {
+      const soloItemId = asPageItem(currentPage).computed_children[0];
+      const soloItem = soloItemId == null ? null : itemState.get(soloItemId);
+      if (soloItem && isContainer(soloItem)) {
+        VesCache.watch.addContainerUid(soloItem.id, soloItem.origin);
+      }
+    }
+    const popupItemId = store.history.currentPopupSpecVeid()?.itemId;
+    const popupItem = popupItemId == null ? null : itemState.get(popupItemId);
+    if (popupItem && isContainer(popupItem)) {
+      VesCache.watch.addContainerUid(popupItem.id, popupItem.origin);
     }
   }
 

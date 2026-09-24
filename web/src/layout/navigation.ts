@@ -71,7 +71,7 @@ function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): strin
   return `/${user.username}`;
 }
 
-export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory: boolean) {
+export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory: boolean, updateHistory: boolean = true) {
   const selectedItem = itemState.get(itemId)!;
   assert(!isPage(selectedItem), "cannot call switchToItem on page item");
 
@@ -86,7 +86,9 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   requestContainerSyncSoon(store);
 
   const url = currentUrl(store, itemId);
-  window.history.pushState(null, "", url);
+  if (updateHistory) {
+    window.history.pushState(null, "", url);
+  }
   store.currentUrlPath.set(url);
 }
 
@@ -251,7 +253,7 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   requestContainerSyncSoon(store);
 
   const url = currentUrl(store, null);
-  if ((!replace && updateHistory) || clearHistory) {
+  if (updateHistory && (!replace || clearHistory)) {
     window.history.pushState(null, "", url);
   }
   store.currentUrlPath.set(url);
