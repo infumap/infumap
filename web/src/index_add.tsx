@@ -159,16 +159,20 @@ function handleImageSubmit() {
 
 
 async function handleSubmit() {
+  const noteElement = document.getElementById("note")! as HTMLTextAreaElement;
+  const title = noteElement.value;
   const jsonData = JSON.stringify({
     itemType: "note",
-    title: (document.getElementById("note")! as HTMLInputElement).value,
+    title,
     urls: [],
     spatialWidthGr: 8 * 60,
   });
   setStatus("status", "adding");
-  (document.getElementById("note")! as HTMLInputElement).value = "";
   try {
     const response = await postCommand("add-item", jsonData);
+    if (response.success && noteElement.value == title) {
+      noteElement.value = "";
+    }
     showTimedStatus("status", response.success ? "added" : "error");
   } catch (e) {
     console.warn("Could not add note:", e);
