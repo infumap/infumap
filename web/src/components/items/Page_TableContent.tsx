@@ -41,6 +41,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   let pendingProgrammaticScrollTop: number | null = null;
 
   const page = () => props.visualElement.displayItem as PageItem;
+  const canEdit = () => itemCanEdit(page()) && itemCanEdit(VeFns.treeItem(props.visualElement));
   const pagePath = () => VeFns.veToPath(props.visualElement);
   const pageVeid = () => VeFns.veidFromVe(props.visualElement);
   const viewport = () => props.visualElement.viewportBoundsPx!;
@@ -122,9 +123,9 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
                 `width: ${Math.max(0, (column.endBl - column.startBl) * blockSize().w - PADDING_PROP * blockSize().w) / scale()}px; ` +
                 `height: ${headerHeightPx() / scale()}px; line-height: ${LINE_HEIGHT_PX}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left; outline: 0px solid transparent;`}
-              contentEditable={itemCanEdit(page()) && store.overlay.textEditInfo()?.itemPath == pagePath() &&
+              contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == pagePath() &&
                 store.overlay.textEditInfo()?.itemType == ItemType.Page && store.overlay.textEditInfo()?.colNum == column.index}
-              spellcheck={itemCanEdit(page()) && store.overlay.textEditInfo()?.colNum == column.index}
+              spellcheck={canEdit() && store.overlay.textEditInfo()?.colNum == column.index}
               onInput={ev => edit_inputListener(store, ev)}
               onKeyDown={ev => edit_keyDownHandler(store, props.visualElement, ev)}
               onKeyUp={ev => edit_keyUpHandler(store, ev)}>

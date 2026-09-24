@@ -1308,7 +1308,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         store.history.setFocus(focusPath);
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TableColumnContextMenu)) {
-        if (itemCanEdit(activeVisualElement.displayItem)) {
+        if (itemCanEdit(activeVisualElement.displayItem) && itemCanEdit(VeFns.treeItem(activeVisualElement))) {
           const hitMeta = MouseActionState.getHitMeta();
           store.overlay.tableColumnContextMenuInfo.set({
             posPx: CursorEventState.getLatestDesktopPx(store),

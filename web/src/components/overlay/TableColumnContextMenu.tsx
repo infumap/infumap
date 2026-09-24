@@ -21,9 +21,11 @@ import { useStore } from "../../store/StoreProvider";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { TableFns } from "../../items/table-item";
-import { asTabularItem } from "../../items/base/tabular-item";
+import { asTabularItem, isTabularItem } from "../../items/base/tabular-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { requestArrange } from "../../layout/arrange";
-import { VeFns } from "../../layout/visual-element";
+import { VeFns, isTableView } from "../../layout/visual-element";
+import { VesCache } from "../../layout/ves-cache";
 import { itemState } from "../../store/ItemState";
 import { serverOrRemote } from "../../server";
 
@@ -43,49 +45,63 @@ export const TableColumnContextMenu: Component = () => {
   const tableId = () => VeFns.veidFromPath(tableVePath()).itemId;
   const tableItem = () => asTabularItem(itemState.get(tableId())!);
   const colNum = () => store.overlay.tableColumnContextMenuInfo.get()!.colNum;
+  const canChangeColumns = () => {
+    const ve = VesCache.current.readNode(tableVePath());
+    const item = itemState.get(tableId());
+    return ve != null && isTableView(ve) && item != null && isTabularItem(item) &&
+      itemCanEdit(item) && itemCanEdit(VeFns.treeItem(ve)) &&
+      colNum() >= 0 && colNum() < asTabularItem(item).numberOfVisibleColumns &&
+      colNum() < asTabularItem(item).tableColumns.length;
+  };
+  const finishChange = (reason: string) => {
+    requestArrange(store, reason);
+    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    store.overlay.tableColumnContextMenuInfo.set(null);
+    store.touchToolbar();
+  };
+  const menuPosPx = () => ({
+    x: Math.max(0, Math.min(posPx().x + 10, store.desktopBoundsPx().w - 170)),
+    y: Math.max(0, Math.min(posPx().y - 12, store.desktopBoundsPx().h - (colNum() == 0 ? 65 : 125))),
+  });
 
   const newColToRight = () => {
+    if (!canChangeColumns()) { store.overlay.tableColumnContextMenuInfo.set(null); return; }
     const insertHeaderIdx = Math.min(colNum() + 1, tableItem().tableColumns.length);
     tableItem().tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
     TableFns.insertEmptyColAt(tableId(), colNum(), store);
     tableItem().numberOfVisibleColumns += 1;
-    requestArrange(store, "table-column-insert-right");
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
-    store.overlay.tableColumnContextMenuInfo.set(null);
+    finishChange("table-column-insert-right");
   };
 
   const newHeaderOnlyToRight = () => {
+    if (!canChangeColumns()) { store.overlay.tableColumnContextMenuInfo.set(null); return; }
     const insertHeaderIdx = Math.min(colNum() + 1, tableItem().tableColumns.length);
     tableItem().tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
     tableItem().numberOfVisibleColumns += 1;
-    requestArrange(store, "table-column-insert-header-right");
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
-    store.overlay.tableColumnContextMenuInfo.set(null);
+    finishChange("table-column-insert-header-right");
   };
 
   const deleteColumn = () => {
+    if (!canChangeColumns() || colNum() == 0) { store.overlay.tableColumnContextMenuInfo.set(null); return; }
     TableFns.removeColItemsAt(tableId(), colNum()-1, store);
     tableItem().tableColumns.splice(colNum(), 1);
     tableItem().numberOfVisibleColumns -= 1;
-    requestArrange(store, "table-column-delete");
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
-    store.overlay.tableColumnContextMenuInfo.set(null);
+    finishChange("table-column-delete");
   }
 
   const deleteColumnHeaderOnly = () => {
+    if (!canChangeColumns() || colNum() == 0) { store.overlay.tableColumnContextMenuInfo.set(null); return; }
     tableItem().tableColumns.splice(colNum(), 1);
     tableItem().numberOfVisibleColumns -= 1;
-    requestArrange(store, "table-column-delete-header");
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
-    store.overlay.tableColumnContextMenuInfo.set(null);
+    finishChange("table-column-delete-header");
   }
 
   return (
     <div class="absolute"
-         style={`left: ${posPx().x+10}px; top: ${posPx().y-12}px; ` +
+         style={`left: ${menuPosPx().x}px; top: ${menuPosPx().y}px; ` +
                 `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onMouseDown={mouseDownListener}>
-      <div class={`border rounded w-[160px] h-[${colNum() == 0 ? '60' : '120'}px] bg-slate-50 mb-1 shadow-lg`}>
+      <div class="border rounded w-[160px] bg-slate-50 mb-1 shadow-lg">
         <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newColToRight}>
           Insert 1 Column Right
         </div>

@@ -211,6 +211,7 @@ export function tabularColumnHitboxes(
       ));
     }
     if (showHeader) {
+      const menuWidthPx = Math.min(blockSizePx.w, (column.endBl - column.startBl) * blockSizePx.w);
       header.push(HitboxFns.create(
         HitboxFlags.Click | HitboxFlags.ContentEditable,
         { x: startXPx, y: headerTopPx, w: endXPx - startXPx, h: headerHeightPx },
@@ -218,7 +219,7 @@ export function tabularColumnHitboxes(
       ));
       header.push(HitboxFns.create(
         HitboxFlags.TableColumnContextMenu,
-        { x: startXPx + (column.endBl - column.startBl - 1) * blockSizePx.w, y: headerTopPx, w: blockSizePx.w, h: headerHeightPx },
+        { x: column.endBl * blockSizePx.w - menuWidthPx, y: headerTopPx, w: menuWidthPx, h: headerHeightPx },
         HitboxFns.createMeta({ colNum: column.index }),
       ));
     }

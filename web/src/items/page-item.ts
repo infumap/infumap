@@ -1206,7 +1206,7 @@ export const PageFns = {
   handleClick: (visualElement: VisualElement, hitboxFlags: HitboxFlags, store: StoreContextModel, hitboxMeta: HitboxMeta | null = null): void => {
     if (isTableView(visualElement) && hitboxMeta?.colNum != null && (hitboxFlags & HitboxFlags.ContentEditable)) {
       const itemPath = VeFns.veToPath(visualElement);
-      if (!itemCanEdit(visualElement.displayItem)) {
+      if (!itemCanEdit(visualElement.displayItem) || !itemCanEdit(VeFns.treeItem(visualElement))) {
         store.history.setFocus(itemPath);
         arrangeNow(store, "table-page-header-focus-only");
         return;

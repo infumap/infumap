@@ -18,7 +18,7 @@
 
 import { Item } from "../../items/base/item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
-import { VeFns, VisualElement, VisualElementPath } from "../../layout/visual-element";
+import { VeFns, VisualElement, VisualElementPath, isTableView } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -70,4 +70,18 @@ export function getToolbarFocusPathMaybe(store: StoreContextModel): VisualElemen
 
   const childVe = soloItemHolderChildVeMaybe(store);
   return childVe == null ? store.history.getFocusPathMaybe() : VeFns.veToPath(childVe);
+}
+
+export function toolbarFocusIsInTableView(store: StoreContextModel): boolean {
+  const focusPath = getToolbarFocusPathMaybe(store);
+  if (focusPath == null) { return false; }
+
+  let parentPath = VeFns.parentPath(focusPath);
+  while (parentPath != "") {
+    const parentVe = VesCache.current.readNode(parentPath);
+    if (parentVe == null) { return false; }
+    if (isTableView(parentVe)) { return true; }
+    parentPath = VeFns.parentPath(parentPath);
+  }
+  return false;
 }

@@ -47,7 +47,7 @@ import { isImage } from "../../items/image-item";
 import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { ItemType } from "../../items/base/item";
-import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "./toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "./toolbarFocus";
 import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
@@ -240,21 +240,9 @@ const NOTE_TEXT_STYLE_OPTIONS: Array<NoteTextStyleOption> = [
   { textStyle: NoteTextStyle.Code, label: "Code", icon: "fa fa-code", selectedTextStyle: NoteTextStyle.Code },
 ];
 
-function noteIsInTable(note: ReturnType<typeof asNoteItem>): boolean {
-  let parentId = note.parentId;
-  while (parentId) {
-    const parentItem = itemState.get(parentId);
-    if (!parentItem) { return false; }
-    if (isTable(parentItem)) { return true; }
-    if (parentItem.parentId == null || parentItem.parentId === parentId) { return false; }
-    parentId = parentItem.parentId;
-  }
-  return false;
-}
-
 function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextStyleOption> {
   const focusItem = getToolbarFocusItem(store);
-  const inTable = isNote(focusItem) && noteIsInTable(asNoteItem(focusItem));
+  const inTable = isNote(focusItem) && toolbarFocusIsInTableView(store);
   return NOTE_TEXT_STYLE_OPTIONS.filter(option => !option.hideInTable || !inTable);
 }
 
