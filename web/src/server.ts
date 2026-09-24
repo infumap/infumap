@@ -302,6 +302,7 @@ function shouldSkipClientOnlyItemUpdate(item: Item): boolean {
 const COMMAND_GET_ITEMS = "get-items";
 const COMMAND_ADD_ITEM = "add-item";
 const COMMAND_UPDATE_ITEM = "update-item";
+const COMMAND_CONVERT_PAGE_TABLE = "convert-page-table";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_CHAT = "chat";
@@ -331,6 +332,9 @@ function getCommandDescription(command: string, payload: any): { description: st
     case COMMAND_UPDATE_ITEM:
       description = `Updating ${payload.itemType || 'item'}`;
       break;
+    case COMMAND_CONVERT_PAGE_TABLE:
+      description = `Converting ${payload.expectedItemType} to ${payload.targetItemType}`;
+      break;
     case COMMAND_DELETE_ITEM:
       description = "Deleting item";
       break;
@@ -358,7 +362,9 @@ const commandQueue: Array<ServerCommand> = [];
 let inProgressNonGet: ServerCommand | null = null; // any non-read command currently running
 const inProgressReadCommands: Array<ServerCommand> = [];
 const inProgressStreamingCommands: Array<ServerCommand> = [];
-const MUTATION_COMMANDS = new Set<string>([COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH]);
+const MUTATION_COMMANDS = new Set<string>([
+  COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_CONVERT_PAGE_TABLE, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH,
+]);
 let pendingMutationCommands = 0;
 let nextNetworkRequestId = 1;
 let activeContainerSyncStore: StoreContextModel | null = null;
@@ -817,6 +823,23 @@ export const server = {
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
       });
+  },
+
+  convertPageTable: async (
+    id: Uid,
+    expectedItemType: "page" | "table",
+    targetItemType: "page" | "table",
+    networkStatus: NumberSignal,
+  ): Promise<object> => {
+    return constructCommandPromise(
+      null, COMMAND_CONVERT_PAGE_TABLE, { id, expectedItemType, targetItemType }, null, false, networkStatus,
+    ).then((response: MutationCommandResponse) => {
+      if (response?.item == null) {
+        throw new Error(`Conversion of item '${id}' did not return the converted item.`);
+      }
+      applySyncAck(response.syncAck);
+      return response.item;
+    });
   },
 
   deleteItem: async (id: Uid, networkStatus: NumberSignal, panicLogoutOnError: boolean = true): Promise<void> => {
