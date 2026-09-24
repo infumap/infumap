@@ -25,7 +25,7 @@ import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { tabularColumnHitboxes } from "../tabular";
 import { VesCache } from "../ves-cache";
-import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isVeTranslucentPage } from "../visual-element";
 import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { arrangeTabularChildren } from "./table";
@@ -96,16 +96,19 @@ export function arrange_table_page(
       VeFns.pathDepth(parentPath) >= 2 &&
       !(flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot)));
 
+  const visualFlags = VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
+    getCommonVisualElementFlags(flags) |
+    (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+    (highlightedPath === pagePath ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+    (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None);
+  const isTranslucent = isVeTranslucentPage({ displayItem: page, flags: visualFlags });
+
   const spec: VisualElementSpec = {
     displayItem: page,
     linkItemMaybe,
     actualLinkItemMaybe,
-    flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
-      getCommonVisualElementFlags(flags) |
-      (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
-      (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
-      (highlightedPath === pagePath ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
-      (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
+    flags: visualFlags,
     _arrangeFlags_useForPartialRearrangeOnly: flags,
     boundsPx: geometry.boundsPx,
     viewportBoundsPx: contentViewportPx,
@@ -113,7 +116,10 @@ export function arrange_table_page(
     tableRowBlockSizePx: rowBlockSizePx,
     childAreaBoundsPx,
     blockSizePx: rowBlockSizePx,
-    hitboxes: [...geometry.hitboxes, ...columnHitboxes.resize, ...columnHitboxes.header],
+    // Column editing and resizing are available only when the page is interactive.
+    hitboxes: isTranslucent
+      ? geometry.hitboxes
+      : [...geometry.hitboxes, ...columnHitboxes.resize, ...columnHitboxes.header],
     parentPath,
   };
   const relationships: VisualElementRelationships = {

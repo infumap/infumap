@@ -23,7 +23,7 @@ import { isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy } from "../../util/geometry";
 import { VesCache } from "../../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementFlags, isTableView } from "../../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, isTableView, isVeTranslucentPage } from "../../layout/visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { HitHandler, HitInfo, HitTraversalContext } from "./types";
 import { HitBuilder } from "./builder";
@@ -41,7 +41,8 @@ function lastResizeHitboxMaybe(ve: VisualElement) {
 export const HitHandlers: Array<HitHandler> = [];
 
 const _tableHandler: HitHandler = {
-  canHandle: (ve: VisualElement) => isTableView(ve),
+  // Translucent table pages display rows but hit as pages, like other translucent layouts.
+  canHandle: (ve: VisualElement) => isTableView(ve) && !isVeTranslucentPage(ve),
   handle: (childVe: VisualElement, childVes: VisualElementSignal, ctx: HitTraversalContext): HitInfo | null => {
     const { store, rootVes, parentRootVe, posRelativeToRootVeViewportPx, ignoreItems, allowOutsideBoundsHitboxes, allowCopyMove } = ctx;
     if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes, allowCopyMove)) { return null; }
