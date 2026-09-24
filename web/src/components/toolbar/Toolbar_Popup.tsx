@@ -52,6 +52,7 @@ import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
 import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../items/text-document";
+import { convertPageTableAtPath, pageTableConversionEligibility } from "../../items/page-table-conversion";
 
 
 const EMOJI_CATEGORIES = [
@@ -292,7 +293,8 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x,
       y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
       w: popupWidth,
-      h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
+      h: toolbarPopupHeight(popupType, showSeparateCompositeSection()) +
+        (popupType == ToolbarPopupType.QrLink && pageTableConversionEligibility(store, getToolbarFocusPathMaybe(store)).allowed ? 42 : 0)
     }
   } else if (popupType == ToolbarPopupType.PageColor) {
     return {
@@ -816,6 +818,39 @@ export const Toolbar_Popup: Component = () => {
     return currentItem;
   };
 
+  const conversionEligibility = () => pageTableConversionEligibility(store, getToolbarFocusPathMaybe(store));
+  const conversionLabel = () => {
+    const eligibility = conversionEligibility();
+    if (!eligibility.allowed) { return ""; }
+    return eligibility.targetType == "table" ? "Convert to table item" : "Convert to page";
+  };
+
+  const handleConversionClick = async (): Promise<void> => {
+    const focusPath = getToolbarFocusPathMaybe(store);
+    if (focusPath == null || !conversionEligibility().allowed) { return; }
+    const targetLabel = conversionLabel();
+    if (store.overlay.textEditInfo() != null) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+      await Promise.resolve();
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    store.overlay.toolbarTransientMessage.set({ text: "converting item…", type: TransientMessageType.Info });
+    let resultMessage;
+    try {
+      await convertPageTableAtPath(store, focusPath);
+      resultMessage = { text: targetLabel.replace("Convert to", "Converted to"), type: TransientMessageType.Info };
+    } catch (e) {
+      console.error("Page/table conversion failed:", e);
+      resultMessage = { text: "could not convert item; refresh and try again", type: TransientMessageType.Error };
+    }
+    store.overlay.toolbarTransientMessage.set(resultMessage);
+    setTimeout(() => {
+      if (store.overlay.toolbarTransientMessage.get() === resultMessage) {
+        store.overlay.toolbarTransientMessage.set(null);
+      }
+    }, 2500);
+  };
+
   const isDebugSupportedItem = () => {
     const currentItem = qrInfoItem();
     return isFile(currentItem) || isText(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
@@ -1160,6 +1195,15 @@ export const Toolbar_Popup: Component = () => {
                     </>
                   );
                 })()}
+              </div>
+            </Show>
+            <Show when={conversionEligibility().allowed}>
+              <div class="border-t border-slate-200 mx-[14px] mt-[8px] pt-[7px]">
+                <button type="button"
+                  class="w-full rounded px-[8px] py-[5px] text-left text-sm text-blue-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                  onClick={() => { void handleConversionClick(); }}>
+                  {conversionLabel()}
+                </button>
               </div>
             </Show>
           </div>
