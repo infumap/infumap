@@ -42,6 +42,7 @@ export enum ToolbarPopupType {
   RatingType = "ratingtype",
   TableNumCols = "tablenumcols",
   QrLink = "qrlink",
+  MoreActions = "moreactions",
 }
 
 export interface ToolbarPopupInfo {

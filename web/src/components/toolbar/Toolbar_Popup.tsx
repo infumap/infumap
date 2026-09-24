@@ -261,6 +261,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return 138; }
+  if (overlayType == ToolbarPopupType.MoreActions) { return 42; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
       return 500;
@@ -271,7 +272,11 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
 }
 
 export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
-  const popupType = store.overlay.toolbarPopupInfoMaybe.get()!.type;
+  const popupInfo = store.overlay.toolbarPopupInfoMaybe.get();
+  if (popupInfo == null) {
+    return { x: 0, y: 0, w: 0, h: 0 };
+  }
+  const popupType = popupInfo.type;
   const compositeItemMaybe = () => {
     const focusItem = getToolbarFocusItem(store);
     if (!isComposite(focusItem)) { return null; }
@@ -285,48 +290,49 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
     popupType != ToolbarPopupType.PageCalendarDisplayMode &&
     popupType != ToolbarPopupType.RatingType) {
-    const popupWidth = popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.PageTableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300 : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
+    const popupWidth = popupType == ToolbarPopupType.MoreActions ? 220
+      : popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.PageTableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300
+        : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
-    let x = store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x;
+    let x = popupInfo.topLeftPx.x;
     if (x > maxX) { x = maxX; }
     return {
       x,
-      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      y: popupInfo.topLeftPx.y,
       w: popupWidth,
-      h: toolbarPopupHeight(popupType, showSeparateCompositeSection()) +
-        (popupType == ToolbarPopupType.QrLink && pageTableConversionEligibility(store, getToolbarFocusPathMaybe(store)).allowed ? 42 : 0)
+      h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
     }
   } else if (popupType == ToolbarPopupType.PageColor) {
     return {
-      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
-      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      x: popupInfo.topLeftPx.x,
+      y: popupInfo.topLeftPx.y,
       w: 96, h: 56
     }
   } else if (popupType == ToolbarPopupType.NoteTextStyle) {
     return {
-      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
-      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      x: popupInfo.topLeftPx.x,
+      y: popupInfo.topLeftPx.y,
       w: 136,
       h: visibleNoteTextStyleOptions(store).length * 25 + 15
     }
   } else if (popupType == ToolbarPopupType.PageArrangeAlgorithm) {
     return {
-      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
-      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      x: popupInfo.topLeftPx.x,
+      y: popupInfo.topLeftPx.y,
       w: 96,
       h: 215
     }
   } else if (popupType == ToolbarPopupType.PageCalendarDisplayMode) {
     return {
-      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
-      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      x: popupInfo.topLeftPx.x,
+      y: popupInfo.topLeftPx.y,
       w: 112,
       h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
     }
   } else if (popupType == ToolbarPopupType.RatingType) {
     return {
-      x: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.x,
-      y: store.overlay.toolbarPopupInfoMaybe.get()!.topLeftPx.y,
+      x: popupInfo.topLeftPx.x,
+      y: popupInfo.topLeftPx.y,
       w: 140,
       h: 128
     }
@@ -341,6 +347,7 @@ export const Toolbar_Popup: Component = () => {
 
   let textElement: HTMLInputElement | undefined;
   let emojiInputElement: HTMLInputElement | undefined;
+  let conversionButton: HTMLButtonElement | undefined;
 
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const noteItem = () => asNoteItem(getToolbarFocusItem(store));
@@ -358,7 +365,7 @@ export const Toolbar_Popup: Component = () => {
     compositeItemMaybe() != null && compositeItemMaybe()!.id != getToolbarFocusItem(store).id;
 
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
-  const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()!.type;
+  const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()?.type ?? overlayTypeConst;
   const [sliderValue, setSliderValue] = createSignal(
     overlayTypeConst == ToolbarPopupType.PageTableNumCols
       ? asPageItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
@@ -482,6 +489,7 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() != ToolbarPopupType.PageColor &&
       overlayType() != ToolbarPopupType.ItemIcon &&
       overlayType() != ToolbarPopupType.QrLink &&
+      overlayType() != ToolbarPopupType.MoreActions &&
       overlayType() != ToolbarPopupType.NoteTextStyle &&
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
       overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
@@ -825,30 +833,36 @@ export const Toolbar_Popup: Component = () => {
     return eligibility.targetType == "table" ? "Convert to table item" : "Convert to page";
   };
 
+  const dismissMoreActions = () => {
+    const openPopup = store.overlay.toolbarPopupInfoMaybe.get();
+    if (openPopup == null || openPopup.type == ToolbarPopupType.MoreActions) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+    }
+  };
+
   const handleConversionClick = async (): Promise<void> => {
     const focusPath = getToolbarFocusPathMaybe(store);
-    if (focusPath == null || !conversionEligibility().allowed) { return; }
-    const targetLabel = conversionLabel();
+    if (focusPath == null || !conversionEligibility().allowed) {
+      dismissMoreActions();
+      return;
+    }
+    dismissMoreActions();
     if (store.overlay.textEditInfo() != null) {
       store.overlay.setTextEditInfo(store.history, null, true);
       await Promise.resolve();
     }
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.toolbarTransientMessage.set({ text: "converting item…", type: TransientMessageType.Info });
-    let resultMessage;
     try {
       await convertPageTableAtPath(store, focusPath);
-      resultMessage = { text: targetLabel.replace("Convert to", "Converted to"), type: TransientMessageType.Info };
     } catch (e) {
       console.error("Page/table conversion failed:", e);
-      resultMessage = { text: "could not convert item; refresh and try again", type: TransientMessageType.Error };
+      const errorMessage = { text: "could not convert item; refresh and try again", type: TransientMessageType.Error };
+      store.overlay.toolbarTransientMessage.set(errorMessage);
+      setTimeout(() => {
+        if (store.overlay.toolbarTransientMessage.get() === errorMessage) {
+          store.overlay.toolbarTransientMessage.set(null);
+        }
+      }, 2500);
     }
-    store.overlay.toolbarTransientMessage.set(resultMessage);
-    setTimeout(() => {
-      if (store.overlay.toolbarTransientMessage.get() === resultMessage) {
-        store.overlay.toolbarTransientMessage.set(null);
-      }
-    }, 2500);
   };
 
   const isDebugSupportedItem = () => {
@@ -1002,6 +1016,10 @@ export const Toolbar_Popup: Component = () => {
   const handleMouseMove = (e: MouseEvent) => { e.stopPropagation(); }
 
   onMount(() => {
+    if (overlayTypeConst == ToolbarPopupType.MoreActions) {
+      conversionButton?.focus();
+      return;
+    }
     if (overlayTypeConst != ToolbarPopupType.QrLink) { return; }
     const canvas = document.getElementById('qrcanvas');
     if (canvas == null) { return; }
@@ -1197,14 +1215,19 @@ export const Toolbar_Popup: Component = () => {
                 })()}
               </div>
             </Show>
+          </div>
+        </Match>
+        <Match when={store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.MoreActions}>
+          <div class="absolute border rounded bg-white shadow-md border-slate-400 p-[4px]"
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
             <Show when={conversionEligibility().allowed}>
-              <div class="border-t border-slate-200 mx-[14px] mt-[8px] pt-[7px]">
-                <button type="button"
-                  class="w-full rounded px-[8px] py-[5px] text-left text-sm text-blue-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
-                  onClick={() => { void handleConversionClick(); }}>
-                  {conversionLabel()}
-                </button>
-              </div>
+              <button ref={conversionButton} type="button"
+                class="w-full rounded px-[8px] py-[5px] text-left text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                onClick={event => { event.stopPropagation(); void handleConversionClick(); }}>
+                {conversionLabel()}
+              </button>
             </Show>
           </div>
         </Match>
