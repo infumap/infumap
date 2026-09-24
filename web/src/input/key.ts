@@ -27,7 +27,7 @@ import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics"
 import { catalogResultControlsTopInsetPx } from "../layout/catalog-display";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
 import { navigateToContainingPageOfItem, navigateToQueries, switchToPage } from "../layout/navigation";
-import { isEmptyVeid, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot, type ListPageRowBand, type VisualElementPath } from "../layout/visual-element";
+import { isEmptyVeid, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRoot, isTableView, type ListPageRowBand, type VisualElementPath } from "../layout/visual-element";
 
 
 import { StoreContextModel } from "../store/StoreProvider";
@@ -1185,7 +1185,7 @@ function tablePageHorizontalNeighborPathMaybe(
   if (direction != FindDirection.Right) { return null; }
   if (!currentVe.parentPath) { return null; }
   const tableVe = scene.readNode(currentVe.parentPath);
-  if (!tableVe || !isTable(tableVe.displayItem)) { return null; }
+  if (!tableVe || !isTableView(tableVe)) { return null; }
 
   const firstAttachmentVe = sortedTableAttachmentVes(scene, currentPath)[0];
   return firstAttachmentVe && isPage(firstAttachmentVe.displayItem)
@@ -1202,6 +1202,9 @@ function containingPageVeidForTableRootNavigationMaybe(currentPageVeid: Veid): V
   while (parentId && parentId != EMPTY_UID) {
     const parentItem = itemState.get(parentId);
     if (!parentItem) { return null; }
+    if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Table) {
+      return { itemId: parentItem.id, linkIdMaybe: null };
+    }
     if (isTable(parentItem)) {
       tableParentId = parentItem.parentId;
       break;
@@ -1586,10 +1589,10 @@ function handleVirtualizedTableVerticalNavigationMaybe(
   if (!tablePath) { return false; }
 
   const tableVe = VesCache.current.readNode(tablePath);
-  if (!tableVe || !isTable(tableVe.displayItem) || !tableVe.blockSizePx) { return false; }
+  if (!tableVe || !isTableView(tableVe) || !(tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx)) { return false; }
 
   const tableVeid = VeFns.veidFromVe(tableVe);
-  const tableItem = asTableItem(tableVe.displayItem);
+  const rows = TableFns.tableVisibleRows(store, tableVe);
   const delta = direction == FindDirection.Up ? -1 : 1;
 
   let targetPath: string | null = null;
@@ -1597,25 +1600,21 @@ function handleVirtualizedTableVerticalNavigationMaybe(
 
   if (!isAttachment) {
     targetRow = focusVe.row + delta;
-    if (targetRow < 0 || targetRow >= tableItem.computed_children.length) { return false; }
+    if (targetRow < 0 || targetRow >= rows.length) { return false; }
 
-    const childItem = itemState.get(tableItem.computed_children[targetRow]);
-    if (!childItem) { return false; }
-    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
-    targetPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), tablePath);
+    targetPath = rows[targetRow].path;
   } else {
     if (focusVe.col == null || focusVe.col < 1) { return false; }
     const attachmentColPos = focusVe.col - 1;
 
-    for (let rowIdx = focusVe.row + delta; rowIdx >= 0 && rowIdx < tableItem.computed_children.length; rowIdx += delta) {
-      const childItem = itemState.get(tableItem.computed_children[rowIdx]);
+    for (let rowIdx = focusVe.row + delta; rowIdx >= 0 && rowIdx < rows.length; rowIdx += delta) {
+      const childItem = rows[rowIdx].item;
       if (!childItem || !isAttachmentsItem(childItem)) { continue; }
 
       const attachments = asAttachmentsItem(childItem).computed_attachments;
       if (attachmentColPos >= attachments.length) { continue; }
 
-      const { displayItem: rowDisplayItem, linkItemMaybe: rowLinkItemMaybe } = getVePropertiesForItem(store, childItem);
-      const rowTargetPath = VeFns.addVeidToPath(VeFns.veidFromItems(rowDisplayItem, rowLinkItemMaybe), tablePath);
+      const rowTargetPath = rows[rowIdx].path;
 
       const attachmentItem = itemState.get(attachments[attachmentColPos]);
       if (!attachmentItem) { continue; }
@@ -1630,7 +1629,10 @@ function handleVirtualizedTableVerticalNavigationMaybe(
   if (!targetPath) { return false; }
 
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
-  const numVisibleRows = Math.max(1, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - tableHeaderHeightBl(tableItem)));
+  const blockHeightPx = (tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx)!.h;
+  const numVisibleRows = tableVe.tableBodyViewportBoundsPx != null
+    ? Math.max(1, Math.floor(tableVe.tableBodyViewportBoundsPx.h / blockHeightPx))
+    : Math.max(1, Math.floor(tableVe.boundsPx.h / blockHeightPx - tableHeaderHeightBl(asTableItem(tableVe.displayItem))));
   const firstVisibleRow = Math.floor(scrollYPos);
   const lastVisibleRow = firstVisibleRow + numVisibleRows - 1;
 
@@ -1641,7 +1643,7 @@ function handleVirtualizedTableVerticalNavigationMaybe(
     nextScrollYPos = targetRow - (numVisibleRows - 1);
   }
 
-  const maxFirstVisibleRow = Math.max(0, tableItem.computed_children.length - numVisibleRows);
+  const maxFirstVisibleRow = Math.max(0, rows.length - numVisibleRows);
   nextScrollYPos = Math.max(0, Math.min(nextScrollYPos, maxFirstVisibleRow));
 
   if (nextScrollYPos !== scrollYPos) {

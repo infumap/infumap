@@ -35,7 +35,7 @@ import { TextFns, isClipboardTextCreateItem } from "../items/text-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, isTableView } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -319,10 +319,12 @@ function focusNewItemTitleForEditing(el: HTMLElement): void {
 }
 
 function scrollTableToIncludeRow(store: StoreContextModel, tableVe: VisualElement, rowNumber: number): void {
-  if (!tableVe.blockSizePx || tableVe.blockSizePx.h <= 0) { return; }
+  const block = tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx;
+  if (!block || block.h <= 0) { return; }
 
-  const tableItem = asTableItem(tableVe.displayItem);
-  const visibleRows = Math.max(1, Math.floor(tableVe.boundsPx.h / tableVe.blockSizePx.h - tableHeaderHeightBl(tableItem)));
+  const visibleRows = tableVe.tableBodyViewportBoundsPx != null
+    ? Math.max(1, Math.floor(tableVe.tableBodyViewportBoundsPx.h / block.h))
+    : Math.max(1, Math.floor(tableVe.boundsPx.h / block.h - tableHeaderHeightBl(asTableItem(tableVe.displayItem))));
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
   const firstVisibleRow = Math.floor(scrollYPos);
   const lastVisibleRow = firstVisibleRow + visibleRows - 1;
@@ -502,7 +504,12 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     return;
   }
 
-  const overElementVe = findPlaceholderAtDesktopPos(store, hitInfo, desktopPosPx) ?? HitInfoFns.getHitVe(hitInfo);
+  let overElementVe = findPlaceholderAtDesktopPos(store, hitInfo, desktopPosPx) ?? HitInfoFns.getHitVe(hitInfo);
+  const tableViewVe = HitInfoFns.getTableContainerVe(hitInfo);
+  if (!isPlaceholder(overElementVe.displayItem) && tableViewVe != null &&
+    TableFns.isInsideViewport(store, tableViewVe, desktopPosPx)) {
+    overElementVe = tableViewVe;
+  }
   const focusedListPageVe = focusedListPageCreateTarget(store, desktopPosPx);
 
   let newItem;
@@ -531,7 +538,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, overElementVe.parentPath! );
   }
 
-  else if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren)) {
+  else if (isPage(overElementVe.displayItem) && (overElementVe.flags & VisualElementFlags.ShowChildren) && !isTableView(overElementVe)) {
     const targetPageVe = focusedListPageVe ?? overElementVe;
     const created = createItemInPage(
       store,
@@ -545,9 +552,10 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     ({ newItem, newItemPath } = created);
   }
 
-  else if (isTable(overElementVe.displayItem)) {
+  else if (isTableView(overElementVe)) {
 
-    if (TableFns.isInsideViewport(store, overElementVe, desktopPosPx)) {
+    if (TableFns.isInsideViewport(store, overElementVe, desktopPosPx) ||
+      overElementVe.tableBodyViewportBoundsPx != null) {
       const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, overElementVe, desktopPosPx);
       const rowInfo = TableFns.tableVisibleRowAt(store, overElementVe, insertRow);
       const displayedChild = TableFns.tableAttachmentTargetAtRow(store, overElementVe, insertRow);
@@ -603,7 +611,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     }
 
     else {
-      // not inside child area: create item in the page containing the table.
+      // Outside a table item's child area, create in the containing page.
       const parentVe = VesCache.current.readNode(overElementVe.parentPath!)!;
       const created = createItemInPage(
         store,

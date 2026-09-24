@@ -605,6 +605,10 @@ function changeMouseActionStateMaybe(
         : null;
       MouseActionState.setStartCalendarMonthResize(startResize);
       MouseActionState.setAction(MouseAction.ResizingCalendarMonth);
+    } else if (isPage(activeVisualElement.displayItem) && activeVisualElement.tableBodyViewportBoundsPx != null) {
+      const colNum = MouseActionState.getHitMeta()!.colNum!;
+      MouseActionState.setStartWidthBl(asPageItem(activeVisualElement.displayItem).tableColumns[colNum].widthGr / GRID_SIZE);
+      MouseActionState.setAction(MouseAction.ResizingColumn);
     } else if (isPage(activeVisualElement.displayItem)) {
       MouseActionState.setStartWidthBl(asPageItem(activeVisualElement.displayItem).tableColumns[0].widthGr / GRID_SIZE);
       MouseActionState.setAction(MouseAction.ResizingListPageColumn);
@@ -1263,6 +1267,18 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   }
   const activeVisualElement = columnSignal.get();
   const activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
+
+  if (activeVisualElement.tableBodyViewportBoundsPx != null && activeVisualElement.tableRowBlockSizePx != null) {
+    const colNum = MouseActionState.getHitMeta()!.colNum!;
+    const page = asPageItem(activeVisualElement.displayItem);
+    const nextWidthBl = Math.max(1, Math.round((MouseActionState.getStartWidthBl()! + deltaPx.x / activeVisualElement.tableRowBlockSizePx.w) * 2) / 2);
+    const nextWidthGr = nextWidthBl * GRID_SIZE;
+    if (page.tableColumns[colNum].widthGr != nextWidthGr) {
+      page.tableColumns[colNum].widthGr = nextWidthGr;
+      arrangeNow(store, "resize-table-page-column");
+    }
+    return;
+  }
 
   const columnOnePxSizeBl = MouseActionState.getOnePxSizeBl()!;
   const deltaBl = {
