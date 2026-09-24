@@ -486,6 +486,10 @@ pub struct SyncContainersSubscription {
   pub known_epoch: Option<u64>,
   #[serde(rename = "knownVersion")]
   pub known_version: Option<u64>,
+  #[serde(rename = "knownItemType")]
+  pub known_item_type: Option<String>,
+  #[serde(rename = "knownLastModifiedDate")]
+  pub known_last_modified_date: Option<i64>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -505,6 +509,8 @@ pub struct SyncContainerUpdate {
   pub epoch: u64,
   pub version: u64,
   pub strategy: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub item: Option<serde_json::Map<String, serde_json::Value>>,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub children: Option<Vec<serde_json::Map<String, serde_json::Value>>>,
   #[serde(rename = "childDeletes", skip_serializing_if = "Option::is_none")]
@@ -920,6 +926,7 @@ async fn handle_sync_containers(
         epoch,
         version,
         strategy: String::from("snapshot"),
+        item: None,
         children: None,
         child_deletes: None,
         attachment_upserts: None,
@@ -932,6 +939,41 @@ async fn handle_sync_containers(
         )?),
       });
       continue;
+    }
+
+    // A container's own type can change without advancing its children/attachments
+    // version. Send the authoritative item as well as a snapshot in that case.
+    if subscription.known_item_type.is_some() || subscription.known_last_modified_date.is_some() {
+      let item_json = item_to_api_json_map_with_capabilities(db, &item)?;
+      let type_changed = subscription.known_item_type.as_deref().is_some_and(|known| {
+        item_json.get("itemType").and_then(Value::as_str) != Some(known)
+      });
+      let modified_date_changed = subscription.known_last_modified_date.is_some_and(|known| {
+        item_json.get("lastModifiedDate").and_then(Value::as_i64) != Some(known)
+      });
+      if type_changed || modified_date_changed {
+        let epoch = db.container_sync.epoch_for_user(&item.owner_id);
+        let version = db.container_sync.version_for_container(&item.owner_id, &subscription.id);
+        db.container_sync.mark_client_access(&item.owner_id, &subscription.id);
+        updates.push(SyncContainerUpdate {
+          id: subscription.id.clone(),
+          epoch,
+          version,
+          strategy: String::from("snapshot"),
+          item: Some(item_json),
+          children: None,
+          child_deletes: None,
+          attachment_upserts: None,
+          attachment_deletes: None,
+          snapshot: Some(build_authoritative_child_attachment_snapshot(
+            db,
+            &subscription.id,
+            &session_user_id_maybe,
+            None,
+          )?),
+        });
+        continue;
+      }
     }
 
     match db.container_sync.sync_lookup(
@@ -951,6 +993,7 @@ async fn handle_sync_containers(
           epoch,
           version,
           strategy: String::from("delta"),
+          item: None,
           children: if children.is_empty() { None } else { Some(children) },
           child_deletes: if child_deletes.is_empty() { None } else { Some(child_deletes) },
           attachment_upserts: if attachment_upserts.is_empty() { None } else { Some(attachment_upserts) },
@@ -965,6 +1008,7 @@ async fn handle_sync_containers(
           epoch,
           version,
           strategy: String::from("snapshot"),
+          item: None,
           children: None,
           child_deletes: None,
           attachment_upserts: None,
@@ -1001,6 +1045,7 @@ fn virtual_search_status_sync_update(
     epoch,
     version,
     strategy: String::from("snapshot"),
+    item: None,
     children: None,
     child_deletes: None,
     attachment_upserts: None,

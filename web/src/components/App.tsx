@@ -21,7 +21,7 @@ import { SignUp } from './SignUp';
 import { Login } from './Login';
 import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
-import { switchToNonPage, switchToPage } from '../layout/navigation';
+import { switchToItem, switchToNonPage, switchToPage } from '../layout/navigation';
 import { isEmptyVeid, VeFns, type Veid } from '../layout/visual-element';
 import { ArrangeAlgorithm, asPageItem, isPage } from '../items/page-item';
 import { isUid, POPUP_LINK_UID } from '../util/uid';
@@ -130,7 +130,11 @@ const App: Component = () => {
       void openTextDocumentProjection(store, asTextItem(item));
       return true;
     }
-    switchToPage(store, { itemId, linkIdMaybe: null }, false, false, false);
+    if (isPage(item)) {
+      switchToPage(store, { itemId, linkIdMaybe: null }, false, false, false);
+    } else {
+      switchToItem(store, itemId, true, false);
+    }
     return true;
   }
 
@@ -176,7 +180,8 @@ const App: Component = () => {
         }
       } else {
         e.preventDefault();
-        if (currentUrlPageIdMaybe != null && prevHistoryVeid.itemId == currentUrlPageIdMaybe) {
+        if (currentUrlPageIdMaybe != null && prevHistoryVeid.itemId == currentUrlPageIdMaybe &&
+          isPage(itemState.get(currentUrlPageIdMaybe))) {
           if (debug) { console.debug("window popstate handler: prevHistoryVeid and currentUrlUid match, moving back in history."); }
           const poppedPageVeid = store.history.currentPageVeid();
           store.history.popPageVeid();
