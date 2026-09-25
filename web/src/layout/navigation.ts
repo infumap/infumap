@@ -255,8 +255,12 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   requestContainerSyncSoon(store);
 
   const url = currentUrl(store, null);
-  if (updateHistory && (!replace || clearHistory)) {
-    window.history.pushState(null, "", url);
+  if (updateHistory) {
+    if (replace && !clearHistory) {
+      window.history.replaceState(null, "", url);
+    } else {
+      window.history.pushState(null, "", url);
+    }
   }
   store.currentUrlPath.set(url);
 }
@@ -381,7 +385,7 @@ export async function navigateToLocalRoot(store: StoreContextModel): Promise<voi
     homePageItem = itemState.get(user.homePageId);
   }
   if (homePageItem) {
-    switchToPage(store, { itemId: user.homePageId, linkIdMaybe: null }, false, true, false);
+    switchToPage(store, { itemId: user.homePageId, linkIdMaybe: null }, true, true, false);
   }
 }
 
