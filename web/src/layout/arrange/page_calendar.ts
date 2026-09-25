@@ -45,6 +45,7 @@ import {
   calendarMiniTitleHeightPx,
   calendarMiniTitleTopPx,
   calendarDateKey,
+  calendarDayDifference,
   compareCalendarDates,
   CALENDAR_LAYOUT_CONSTANTS,
   getCalendarDayMetrics,
@@ -170,7 +171,41 @@ function calendarRangeResizeHitboxes(
   rangeLayouts: ReadonlyArray<CalendarRangeLayout>,
   yOffsetPx: number = 0,
 ): Array<ReturnType<typeof HitboxFns.create>> {
-  return rangeLayouts.flatMap(rangeLayout => {
+  const existingRanges = rangeLayouts.filter(rangeLayout =>
+    rangeLayout.endDateTime != null &&
+    compareCalendarDates(
+      calendarDateFromDateTime(rangeLayout.endDateTime),
+      calendarDateFromDateTime(rangeLayout.dateTime),
+    ) > 0,
+  );
+  const resizeLayouts = rangeLayouts.filter(rangeLayout => {
+    if (rangeLayout.endpointResizeBoundsPx == null) { return false; }
+    if (rangeLayout.endDateTime != null) { return true; }
+
+    const startDate = calendarDateFromDateTime(rangeLayout.dateTime);
+    return !existingRanges.some(existingRange =>
+      compareCalendarDates(startDate, calendarDateFromDateTime(existingRange.dateTime)) >= 0 &&
+      compareCalendarDates(startDate, calendarDateFromDateTime(existingRange.endDateTime!)) <= 0,
+    );
+  });
+
+  // scanHitboxes keeps the first matching metadata when endpoints coincide.
+  // The shorter range is more specific, so its end remains adjustable inside a longer range.
+  resizeLayouts.sort((a, b) => {
+    if (a.endDateTime == null || b.endDateTime == null) {
+      if (a.endDateTime == null && b.endDateTime != null) { return 1; }
+      if (b.endDateTime == null && a.endDateTime != null) { return -1; }
+    } else {
+      const aDuration = calendarDayDifference(
+        calendarDateFromDateTime(a.dateTime), calendarDateFromDateTime(a.endDateTime));
+      const bDuration = calendarDayDifference(
+        calendarDateFromDateTime(b.dateTime), calendarDateFromDateTime(b.endDateTime));
+      if (aDuration != bDuration) { return aDuration - bDuration; }
+    }
+    return a.itemId.localeCompare(b.itemId);
+  });
+
+  return resizeLayouts.flatMap(rangeLayout => {
     if (rangeLayout.endpointResizeBoundsPx == null) { return []; }
     return [HitboxFns.create(
       HitboxFlags.CalendarRangeResize,
