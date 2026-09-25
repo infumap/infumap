@@ -343,8 +343,15 @@ export let MouseActionState = {
       normalizeMouseActionState(state);
     } else {
       activeElementSignalCache = null;
+      MouseActionState.setMoveBlockedCursor(false);
     }
     mouseActionState = state;
+  },
+
+  setMoveBlockedCursor: (blocked: boolean): void => {
+    if (typeof document !== "undefined") {
+      document.body.classList.toggle("infumap-blocked-move-cursor", blocked);
+    }
   },
 
   begin: (init: MouseActionStateInit): void => {

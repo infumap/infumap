@@ -96,7 +96,7 @@ function removeRelationshipSubtreeIfCurrent(
   items.delete(id);
 }
 
-function wouldCreateRelationshipCycle(itemId: Uid, moveToParentId: Uid): boolean {
+export function wouldCreateRelationshipCycle(itemId: Uid, moveToParentId: Uid): boolean {
   if (itemId == moveToParentId) {
     return true;
   }
