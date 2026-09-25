@@ -27,10 +27,14 @@ import { ArrangeAlgorithm, asPageItem, isPage } from '../items/page-item';
 import { isUid, POPUP_LINK_UID } from '../util/uid';
 import { arrangeNow } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
-import { GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, requestContainerSyncSoon, server } from '../server';
+import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, remote, requestContainerSyncSoon, server } from '../server';
 import { asTextItem, isText } from '../items/text-item';
 import { openTextDocumentProjection } from '../items/text-document';
 import { TransientMessageType } from '../store/StoreProvider_Overlay';
+import { isAttachmentsItem } from '../items/base/attachments-item';
+import { asContainerItem, isContainer } from '../items/base/container-item';
+import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
+import { Toolbar_TransientMessage } from './toolbar/Toolbar_TransientMessage';
 
 
 const App: Component = () => {
@@ -141,10 +145,50 @@ const App: Component = () => {
     return true;
   }
 
+  const loadHistoryItem = async (requestItemId: string, origin: string | null, navigationRequestId: number): Promise<string | null> => {
+    const mode = GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS;
+    const result = origin == null
+      ? await server.fetchItems(requestItemId, mode, store.general.networkStatus)
+      : await remote.fetchItems(origin, requestItemId, mode, store.general.networkStatus);
+    if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return null; }
+
+    const itemId = (result.item as { id: string }).id;
+    const existingItem = itemState.get(itemId);
+    if (!existingItem || existingItem.origin !== origin) {
+      const item = itemState.upsertItemFromServerObject(result.item, origin);
+      if (isAttachmentsItem(item)) {
+        itemState.applyAttachmentItemsSnapshotFromServerObjects(itemId, result.attachments[itemId] ?? [], origin);
+      }
+      if (isContainer(item)) {
+        itemState.applyContainerSnapshotFromServerObjects(itemId, result.children, result.attachments, origin);
+        asContainerItem(item).childrenLoaded = true;
+        markChildrenLoadAsInitiatedOrComplete(itemId);
+      }
+    }
+    return itemId;
+  };
+
+  const showHistoryLoadError = (urlPath: string, origin: string | null, error: unknown): void => {
+    console.error(`Could not restore '${urlPath}'.`, error);
+    const message = error instanceof Error ? error.message : String(error);
+    let text = "Could not load this page. Check your connection and try again.";
+    if (message.includes("Reason: auth")) {
+      if (origin == null && store.user.getUserMaybe() == null) {
+        // Replace the inaccessible destination so Forward history remains available.
+        window.history.replaceState(null, "", `/login?redirect=${encodeURIComponent(urlPath)}`);
+        store.currentUrlPath.set("/login");
+        text = "Sign in to open this page.";
+      } else {
+        text = "You do not have access to this page.";
+      }
+    } else if (message.includes("Reason: not-found")) {
+      text = "This page could not be found. It may have been deleted.";
+    }
+    store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
+  };
+
   const windowPopStateListener = async (_e: PopStateEvent) => {
     const navigationRequestId = store.history.beginNavigationRequest();
-    const debug = false;
-    if (debug) { console.debug("window popstate handler: called."); }
     store.overlay.clear();
 
     const p = window.location.pathname;
@@ -154,107 +198,58 @@ const App: Component = () => {
       return;
     }
 
-    const parts = p.split("/");
-    let currentUrlUidMaybe: string | null = null;
+    let origin: string | null = null;
+    let itemId: string | null;
+    try {
+      const parts = p.split("/");
+      let urlItemId = parts[parts.length - 1];
+      if (parts.length >= 4 && parts[1] == "remote") {
+        origin = decodeURIComponent(parts[2]);
+        urlItemId = parts[3];
+      }
 
-    if (parts.length >= 4 && parts[1] == "remote") {
-      currentUrlUidMaybe = parts[3];
-    } else {
-      currentUrlUidMaybe = parts[parts.length - 1];
+      if (parts.length == 2 && urlItemId != "" && !isUid(urlItemId)) {
+        const userMaybe = store.user.getUserMaybe();
+        itemId = userMaybe && userMaybe.username.toLowerCase() == urlItemId.toLowerCase()
+          ? userMaybe.homePageId
+          : await loadHistoryItem(urlItemId, null, navigationRequestId);
+        if (itemId == null) { return; }
+      } else if (isUid(urlItemId) || urlItemId == "") {
+        itemId = urlItemId == "" ? store.user.getUserMaybe()?.homePageId ?? null : urlItemId;
+      } else {
+        store.currentUrlPath.set(p);
+        return;
+      }
+
+      const cachedItem = itemId == null ? null : itemState.get(itemId);
+      if (!cachedItem || cachedItem.origin !== origin) {
+        itemId = await loadHistoryItem(itemId ?? "", origin, navigationRequestId);
+        if (itemId == null) { return; }
+      }
+    } catch (error) {
+      if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
+      showHistoryLoadError(p, origin, error);
+      return;
     }
 
-    if (parts.length == 2 && currentUrlUidMaybe != "" && !isUid(currentUrlUidMaybe)) {
-      const username = currentUrlUidMaybe;
-      const userMaybe = store.user.getUserMaybe();
-      if (userMaybe && userMaybe.username.toLowerCase() == username.toLowerCase() &&
-        itemState.get(userMaybe.homePageId)) {
-        currentUrlUidMaybe = userMaybe.homePageId;
-      } else {
-        try {
-          const result = await server.fetchItems(username, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus);
-          if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
-          currentUrlUidMaybe = (result.item as { id: string }).id;
-          if (!itemState.get(currentUrlUidMaybe)) {
-            itemState.setItemFromServerObject(result.item, null);
-            itemState.applyAttachmentItemsSnapshotFromServerObjects(currentUrlUidMaybe, result.attachments[currentUrlUidMaybe] ?? [], null);
-          }
-        } catch (error) {
-          if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
-          console.error(`Could not restore homepage for '${username}'.`, error);
-          store.overlay.toolbarTransientMessage.set({ text: "could not restore page", type: TransientMessageType.Error });
-          return;
-        }
+    if (!store.history.isNavigationRequestCurrent(navigationRequestId) || itemId == null) { return; }
+    const prevHistoryVeid = store.history.peekPrevPageVeid();
+    if (prevHistoryVeid?.itemId == itemId && isPage(itemState.get(itemId))) {
+      const poppedPageVeid = store.history.currentPageVeid();
+      store.history.popPageVeid();
+      const focusCandidate =
+        store.history.getFocusPathMaybe() ??
+        store.history.currentPopupSpec()?.vePath ??
+        store.history.currentPagePath();
+      const restoredFocusPath = resolveFocusAfterPageBack(focusCandidate, poppedPageVeid);
+      if (restoredFocusPath != null) {
+        store.history.setFocus(restoredFocusPath);
       }
-    }
-
-    const currentUrlPageIdMaybe = currentUrlUidMaybe === ""
-      ? store.user.getUserMaybe()?.homePageId ?? null
-      : currentUrlUidMaybe;
-
-    if (isUid(currentUrlUidMaybe) || currentUrlUidMaybe == "") {
-      const prevHistoryVeid = store.history.peekPrevPageVeid();
-      if (!prevHistoryVeid) {
-        if (currentUrlPageIdMaybe && itemState.get(currentUrlPageIdMaybe)) {
-          if (debug) {
-            console.debug(
-              currentUrlUidMaybe == ""
-                ? "window popstate handler: no prevHistoryVeid, switching to root page."
-                : "window popstate handler: no prevHistoryVeid, switching to page."
-            );
-          }
-          switchToUrlItem(currentUrlPageIdMaybe, p);
-        } else {
-          if (debug) {
-            console.debug(
-              currentUrlUidMaybe == ""
-                ? "window popstate handler: root page not available, doing nothing."
-                : `window popstate handler: page ${currentUrlUidMaybe} not available, doing nothing.`
-            );
-          }
-        }
-      } else {
-        if (currentUrlPageIdMaybe != null && prevHistoryVeid.itemId == currentUrlPageIdMaybe &&
-          isPage(itemState.get(currentUrlPageIdMaybe))) {
-          if (debug) { console.debug("window popstate handler: prevHistoryVeid and currentUrlUid match, moving back in history."); }
-          const poppedPageVeid = store.history.currentPageVeid();
-          store.history.popPageVeid();
-          const focusCandidate =
-            store.history.getFocusPathMaybe() ??
-            store.history.currentPopupSpec()?.vePath ??
-            store.history.currentPagePath();
-          const restoredFocusPath = resolveFocusAfterPageBack(focusCandidate, poppedPageVeid);
-          if (restoredFocusPath != null) {
-            store.history.setFocus(restoredFocusPath);
-          }
-          arrangeNow(store, "popstate-back-in-history");
-          store.currentUrlPath.set(p);
-          requestContainerSyncSoon(store);
-        } else {
-          if (currentUrlPageIdMaybe && itemState.get(currentUrlPageIdMaybe)) {
-            if (debug) {
-              console.debug(
-                currentUrlUidMaybe == ""
-                  ? "window popstate handler: prevHistoryUid and root page do not match, switching to root page."
-                  : "window popstate handler: prevHistoryUid and urlUid do not match, switching to urlUid.",
-                prevHistoryVeid.itemId,
-                currentUrlUidMaybe
-              );
-            }
-            switchToUrlItem(currentUrlPageIdMaybe, p);
-          } else {
-            if (debug) {
-              console.debug(
-                currentUrlUidMaybe == ""
-                  ? "window popstate handler: root page not available, doing nothing."
-                  : `window popstate handler: page ${currentUrlUidMaybe} not available, doing nothing.`
-              );
-            }
-          }
-        }
-      }
-    } else {
-      if (debug) { console.debug("window popstate handler: url path is not an infumap page, switching to non-page."); }
+      arrangeNow(store, "popstate-back-in-history");
       store.currentUrlPath.set(p);
+      requestContainerSyncSoon(store);
+    } else {
+      switchToUrlItem(itemId, p);
     }
   }
 
@@ -293,12 +288,17 @@ const App: Component = () => {
 
   // Reminder: When adding a route here, also update generate_dist_handlers.py or serve.rs
   return (
-    <Switch>
-      <Match when={store.currentUrlPath.get() == "/login"}><LoginPath /></Match>
-      <Match when={store.currentUrlPath.get() == "/signup"}><SignUpPath /></Match>
-      <Match when={store.currentUrlPath.get() == "/setup"}><SetupPath /></Match>
-      <Match when={true}><MainPath /></Match>
-    </Switch>
+    <>
+      <Switch>
+        <Match when={store.currentUrlPath.get() == "/login"}><LoginPath /></Match>
+        <Match when={store.currentUrlPath.get() == "/signup"}><SignUpPath /></Match>
+        <Match when={store.currentUrlPath.get() == "/setup"}><SetupPath /></Match>
+        <Match when={true}><MainPath /></Match>
+      </Switch>
+      <Show when={store.overlay.toolbarTransientMessage.get() != null}>
+        <Toolbar_TransientMessage />
+      </Show>
+    </>
   );
 };
 

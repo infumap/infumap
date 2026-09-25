@@ -54,7 +54,6 @@ import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 import { textEditSelectionChangeListener } from "../input/edit";
-import { Toolbar_TransientMessage } from "./toolbar/Toolbar_TransientMessage";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { asPageItem, isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
@@ -651,9 +650,6 @@ export const Main: Component = () => {
       {/* global overlays */}
       <Show when={store.overlay.toolbarPopupInfoMaybe.get() != null}>
         <Toolbar_Popup />
-      </Show>
-      <Show when={store.overlay.toolbarTransientMessage.get() != null}>
-        <Toolbar_TransientMessage />
       </Show>
       <Show when={store.overlay.findOverlayVisible.get()}>
         <FindOverlay />
