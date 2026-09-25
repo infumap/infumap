@@ -29,7 +29,7 @@ import { arrangeNow } from '../layout/arrange';
 import { itemState } from '../store/ItemState';
 import { GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, remote, requestContainerSyncSoon, server } from '../server';
 import { asTextItem, isText } from '../items/text-item';
-import { openTextDocumentProjection } from '../items/text-document';
+import { prepareTextDocumentProjection } from '../items/text-document';
 import { TransientMessageType } from '../store/StoreProvider_Overlay';
 import { isAttachmentsItem } from '../items/base/attachments-item';
 import { asContainerItem, isContainer } from '../items/base/container-item';
@@ -118,6 +118,7 @@ const App: Component = () => {
   };
 
   onMount(async () => {
+    store.history.initializeBrowserEntry();
     store.currentUrlPath.set(window.location.pathname);
     await store.user.hydrateFromServer();
     await store.general.retrieveInstallationState();
@@ -127,23 +128,6 @@ const App: Component = () => {
   onCleanup(() => {
     window.removeEventListener('popstate', windowPopStateListener);
   });
-
-  const switchToUrlItem = (itemId: string, urlPath: string): boolean => {
-    const item = itemState.get(itemId);
-    if (item == null) { return false; }
-    if (isText(item)) {
-      void openTextDocumentProjection(store, asTextItem(item));
-      return true;
-    }
-    if (isPage(item)) {
-      switchToPage(store, { itemId, linkIdMaybe: null }, false, false, false);
-    } else {
-      switchToItem(store, itemId, true, false);
-    }
-    // Keep the traversed URL, including a username alias, as the active route.
-    store.currentUrlPath.set(urlPath);
-    return true;
-  }
 
   const loadHistoryItem = async (requestItemId: string, origin: string | null, navigationRequestId: number): Promise<string | null> => {
     const mode = GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS;
@@ -175,7 +159,7 @@ const App: Component = () => {
     if (message.includes("Reason: auth")) {
       if (origin == null && store.user.getUserMaybe() == null) {
         // Replace the inaccessible destination so Forward history remains available.
-        window.history.replaceState(null, "", `/login?redirect=${encodeURIComponent(urlPath)}`);
+        store.history.writeBrowserEntry(`/login?redirect=${encodeURIComponent(urlPath)}`, "replace", false);
         store.currentUrlPath.set("/login");
         text = "Sign in to open this page.";
       } else {
@@ -187,20 +171,51 @@ const App: Component = () => {
     store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
   };
 
-  const windowPopStateListener = async (_e: PopStateEvent) => {
+  const windowPopStateListener = async (e: PopStateEvent) => {
     const navigationRequestId = store.history.beginNavigationRequest();
+    const departedPageVeid = store.history.currentPageVeid();
+    const direction = store.history.activateBrowserEntry(e.state);
     store.overlay.clear();
 
     const p = window.location.pathname;
+    if (direction == null) {
+      store.overlay.toolbarTransientMessage.set({
+        text: "This history entry has no valid ID. Reload to open this page.",
+        type: TransientMessageType.Error,
+      });
+      return;
+    }
     if (p == "/login" || p == "/signup" || p == "/setup") {
       // The browser has already changed entries; restoring a route must not push one.
+      store.history.writeBrowserEntry(p, "restore", false);
       store.currentUrlPath.set(p);
       return;
     }
 
+    let navigationApplied = false;
+    const restoreSavedPage = (): boolean => {
+      if (!store.history.restoreBrowserEntry()) { return false; }
+      navigationApplied = true;
+      if (direction == "back") {
+        const focusCandidate =
+          store.history.getFocusPathMaybe() ??
+          store.history.currentPopupSpec()?.vePath ??
+          store.history.currentPagePath();
+        const restoredFocusPath = resolveFocusAfterPageBack(focusCandidate, departedPageVeid);
+        if (restoredFocusPath != null) {
+          store.history.setFocus(restoredFocusPath);
+        }
+      }
+      arrangeNow(store, "popstate-restore-entry");
+      store.currentUrlPath.set(p);
+      requestContainerSyncSoon(store);
+      return true;
+    };
+
     let origin: string | null = null;
     let itemId: string | null;
     try {
+      if (restoreSavedPage()) { return; }
       const parts = p.split("/");
       let urlItemId = parts[parts.length - 1];
       if (parts.length >= 4 && parts[1] == "remote") {
@@ -226,30 +241,33 @@ const App: Component = () => {
         itemId = await loadHistoryItem(itemId ?? "", origin, navigationRequestId);
         if (itemId == null) { return; }
       }
-    } catch (error) {
-      if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
-      showHistoryLoadError(p, origin, error);
-      return;
-    }
 
-    if (!store.history.isNavigationRequestCurrent(navigationRequestId) || itemId == null) { return; }
-    const prevHistoryVeid = store.history.peekPrevPageVeid();
-    if (prevHistoryVeid?.itemId == itemId && isPage(itemState.get(itemId))) {
-      const poppedPageVeid = store.history.currentPageVeid();
-      store.history.popPageVeid();
-      const focusCandidate =
-        store.history.getFocusPathMaybe() ??
-        store.history.currentPopupSpec()?.vePath ??
-        store.history.currentPagePath();
-      const restoredFocusPath = resolveFocusAfterPageBack(focusCandidate, poppedPageVeid);
-      if (restoredFocusPath != null) {
-        store.history.setFocus(restoredFocusPath);
+      if (!store.history.isNavigationRequestCurrent(navigationRequestId) || itemId == null) { return; }
+      const item = itemState.get(itemId)!;
+      const textPage = isText(item)
+        ? await prepareTextDocumentProjection(store, asTextItem(item), navigationRequestId)
+        : null;
+      if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
+      if (restoreSavedPage()) { return; }
+
+      // A reload can retain the entry ID without retaining its in-memory context.
+      // Rebuild that entry from its URL, starting a new breadcrumb chain.
+      navigationApplied = true;
+      if (textPage != null) {
+        store.history.setHistoryToSinglePage({ itemId: textPage.id, linkIdMaybe: null }, undefined, itemId);
+        store.history.writeBrowserEntry(p, "restore");
+        arrangeNow(store, "popstate-load-text-document");
+        requestContainerSyncSoon(store);
+      } else if (isPage(item)) {
+        switchToPage(store, { itemId, linkIdMaybe: null }, false, true, false);
+      } else {
+        switchToItem(store, itemId, true, false);
       }
-      arrangeNow(store, "popstate-back-in-history");
+      // Preserve username aliases and remote URLs exactly as traversed.
       store.currentUrlPath.set(p);
-      requestContainerSyncSoon(store);
-    } else {
-      switchToUrlItem(itemId, p);
+    } catch (error) {
+      if (!navigationApplied && !store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
+      showHistoryLoadError(p, origin, error);
     }
   }
 

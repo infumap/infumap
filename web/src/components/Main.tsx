@@ -37,7 +37,7 @@ import {
   markChildrenLoadAsInitiatedOrComplete,
 } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { ensureQueryItemUnderQueries, preloadQueries, switchToNonPage, switchToPage } from "../layout/navigation";
+import { ensureQueryItemUnderQueries, preloadQueries, switchToItem, switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -55,12 +55,11 @@ import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 import { textEditSelectionChangeListener } from "../input/edit";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
-import { asPageItem, isPage } from "../items/page-item";
+import { isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asTextItem, isText } from "../items/text-item";
 import { openTextDocumentProjection } from "../items/text-document";
-import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
 
@@ -118,13 +117,17 @@ export const Main: Component = () => {
   const store = useStore();
 
   let mainDiv: HTMLDivElement | undefined;
+  let disposed = false;
   let clearExternalUploadHoverTimeoutId: number | null = null;
   const touchListenerOptions: AddEventListenerOptions = { passive: false };
   const externalFileDragListenerOptions: AddEventListenerOptions = { capture: true, passive: false };
 
-  onMount(async () => {
+  const loadInitialPage = async (): Promise<void> => {
+    const navigationRequestId = store.history.beginNavigationRequest();
+    const isCurrent = () => !disposed && store.history.isNavigationRequestCurrent(navigationRequestId);
     if (!store.general.installationState()!.hasRootUser) {
       switchToNonPage(store, '/setup');
+      return;
     }
 
     let id;
@@ -159,6 +162,7 @@ export const Main: Component = () => {
           result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, store.general.networkStatus);
         }
       } catch (e: any) {
+        if (!isCurrent()) { return; }
         console.error(`Main.onMount fetchItems failed ${id}`, e);
         if (window.location.pathname == "/") {
           location.href = window.location.protocol + "//" + window.location.host + "/login";
@@ -167,23 +171,16 @@ export const Main: Component = () => {
         }
         return;
       }
+      if (!isCurrent()) { return; }
 
       const itemObject = result.item as any;
       const itemId = itemObject.id;
-
-      if (itemObject.itemType != ItemType.Page) {
-        itemState.addSoloItemHolderPage(itemObject.ownerId!);
-      }
 
       try {
         itemState.setItemFromServerObject(itemObject, origin);
       } catch (e: any) {
         console.error(`Main.onMount setItemFromServerObject failed ${id}`, e);
         throw e;
-      }
-
-      if (itemObject.itemType != ItemType.Page) {
-        asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [itemId];
       }
 
       if (isAttachmentsItem(itemState.get(itemId)!)) {
@@ -209,6 +206,7 @@ export const Main: Component = () => {
       const userMaybe = store.user.getUserMaybe();
       if (origin == null && userMaybe && itemId == userMaybe.queriesPageId) {
         const queryItemId = await ensureQueryItemUnderQueries(store, itemId);
+        if (!isCurrent()) { return; }
         if (queryItemId != null) {
           store.perItem.setSelectedListPageItem({ itemId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
           store.overlay.autoFocusSearchInput.set(true);
@@ -216,33 +214,42 @@ export const Main: Component = () => {
       }
 
       await preloadDockForInitialArrange(store);
-
-      // Fetched up front, not when the chat composer first renders: arriving late makes the
-      // composer's setup control change size after the surrounding layout has settled.
-      void store.general.retrieveChatBackends();
+      if (!isCurrent()) { return; }
 
       try {
         if (isText(item)) {
-          await openTextDocumentProjection(store, asTextItem(item));
+          await openTextDocumentProjection(store, asTextItem(item), false, true);
+        } else if (isPage(item)) {
+          switchToPage(store, { itemId, linkIdMaybe: null }, false, true, false);
         } else {
-          switchToPage(store, isPage(item) ? { itemId, linkIdMaybe: null } : { itemId: SOLO_ITEM_HOLDER_PAGE_UID, linkIdMaybe: null }, false, false, false);
+          switchToItem(store, itemId, true, false);
         }
       } catch (e: any) {
         console.error(`Main.onMount switchToPage ${itemId} failed`, e);
         throw e;
       }
 
-      // Warm the Queries page only after the initially requested item has been displayed.
-      // The load helpers deduplicate this with navigation if the shortcut is used immediately.
-      void preloadQueries(store);
-
     } catch (e: any) {
+      if (!isCurrent()) { return; }
       console.error(`An error occurred loading root page, clearing user session: ${e.message}.`, e);
       store.general.clearInstallationState();
       await store.general.retrieveInstallationState();
+      if (!isCurrent()) { return; }
       switchToNonPage(store, '/login');
     }
+  };
 
+  onMount(async () => {
+    // Fetch before the chat composer renders so its setup control has a stable size.
+    void store.general.retrieveChatBackends();
+    // App may have restored a page before switching away from an auth route.
+    if (!store.history.isCurrentBrowserEntryReady()) {
+      await loadInitialPage();
+    }
+    if (disposed) { return; }
+
+    // Also warm Queries when App has already restored the initial page.
+    void preloadQueries(store);
     startContainerSyncLoop(store);
 
     mainDiv!.addEventListener('contextmenu', contextMenuListener);
@@ -264,6 +271,7 @@ export const Main: Component = () => {
   });
 
   onCleanup(() => {
+    disposed = true;
     stopContainerSyncLoop();
     cancelExternalFileDragLeaveClear();
 
