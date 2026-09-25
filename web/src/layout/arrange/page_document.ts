@@ -43,6 +43,7 @@ import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 import { queryChatCompositeActivityLayoutPx } from "../../items/query-chat-activity-ui";
+import { isLinkInTrash } from "../../items/trash-link";
 
 
 const pxToBl = (px: number): number => px / NATURAL_BLOCK_SIZE_PX.h;
@@ -492,6 +493,9 @@ function arrangeDocumentChildItemPath(
   flags: ArrangeItemFlags): VisualElementPath {
 
   const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+  if (isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId)) {
+    return arrangeItemPath(store, parentPath, ArrangeAlgorithm.Document, childItem, actualLinkItemMaybe, geometry, flags);
+  }
   const shouldRenderTableChildren =
     childItem.parentId == store.history.currentPageVeid()?.itemId ||
     !!(flags & ArrangeItemFlags.RenderChildrenAsFull);
