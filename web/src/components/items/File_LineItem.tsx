@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { edit_inputListener } from "../../input/edit";
 import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
@@ -151,8 +152,9 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
       </div>
     </Show>;
 
-  const inputListener = (_ev: InputEvent) => {
-    // fullArrange is not required in the line item case, because the ve geometry does not change.
+  const inputListener = (ev: InputEvent) => {
+    ev.stopPropagation();
+    edit_inputListener(store, ev, false);
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {

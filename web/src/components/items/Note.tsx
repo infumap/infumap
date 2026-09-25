@@ -65,7 +65,7 @@ import { asLinkItem, isLink } from "../../items/link-item";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
-import { edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler } from "../../input/edit";
+import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler } from "../../input/edit";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -284,8 +284,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       case "Escape":
         ev.preventDefault();
         ev.stopPropagation();
-        store.overlay.setTextEditInfo(store.history, null, true);
-        arrangeNow(store, "note-escape-exit-edit");
+        commitActiveTextEdit(store, true, "note-escape-exit-edit");
         return;
     }
   }

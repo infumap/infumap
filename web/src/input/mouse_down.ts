@@ -20,7 +20,7 @@ import { AttachmentsItem, asAttachmentsItem } from "../items/base/attachments-it
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { ClientOnlyItemKind, Item, ItemType } from "../items/base/item";
 import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
-import { asTableItem, isTable, TableFns } from "../items/table-item";
+import { isTable, TableFns } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp } from "../layout/navigation";
@@ -39,22 +39,21 @@ import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DO
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { getToolbarFocusItem } from "../components/toolbar/toolbarFocus";
 import { serverOrRemote } from "../server";
-import { trimNewline } from "../util/string";
+import { commitActiveTextEdit } from "./edit";
 import { isRating } from "../items/rating-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
-import { asNoteItem, isNote, NoteFns, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
-import { asFileItem, FileFns, isFile } from "../items/file-item";
-import { asTextItem, TextFns, isText } from "../items/text-item";
+import { isNote, NoteFns } from "../items/note-item";
+import { FileFns, isFile } from "../items/file-item";
+import { TextFns, isText } from "../items/text-item";
 import { getCaretPosition, setCaretPosition } from "../util/caret";
-import { asPasswordItem, isPassword, PasswordFns } from "../items/password-item";
+import { isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
-import { finishPendingClipboardTextItem } from "./text_clipboard_create";
-import { isQueryItem, setQueryText } from "../items/query-item";
+import { isQueryItem } from "../items/query-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -409,9 +408,8 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           editingPageIsEmbeddedInteractive);
 
       if (!editingDomEl) {
-        // Element was removed during rearrangement, clear text edit state
-        store.overlay.toolbarPopupInfoMaybe.set(null);
-        store.overlay.setTextEditInfo(store.history, null);
+        // The session retains captured input even if rearrangement removed the DOM.
+        commitActiveTextEdit(store, false, "mouse-down-end-text-edit-missing-dom", false);
 
         // For most items, a right-click exits edit mode but leaves the item focused.
         // Notes, files, and passwords now skip that intermediate focus-only state.
@@ -423,60 +421,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         if (buttonNumber != MOUSE_LEFT) { return defaultResult; }
         defaultResult = MouseEventActionFlags.None;
       } else {
-        const newText = editingDomEl instanceof HTMLInputElement ? editingDomEl.value : editingDomEl.innerText;
-        const item = itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!;
-        let handledPendingClipboardText = false;
-
-        if (store.overlay.textEditInfo()!.itemType == ItemType.Table) {
-          if (store.overlay.textEditInfo()!.colNum == null) {
-            asTableItem(item).title = trimNewline(newText);
-          } else {
-            asTableItem(item).tableColumns[store.overlay.textEditInfo()!.colNum!].name = trimNewline(newText);
-          }
-        }
-        else if (store.overlay.textEditInfo()!.itemType == ItemType.Page) {
-          const colNum = store.overlay.textEditInfo()!.colNum;
-          if (colNum == null) { asPageItem(item).title = trimNewline(newText); }
-          else { asPageItem(item).tableColumns[colNum].name = trimNewline(newText); }
-        }
-        else if (store.overlay.textEditInfo()!.itemType == ItemType.Composite) {
-          asCompositeItem(item).title = trimNewline(newText);
-        }
-        else if (store.overlay.textEditInfo()!.itemType == ItemType.Note) {
-          editingDomEl.parentElement!.scrollLeft = 0;
-          const noteItem = asNoteItem(item);
-          const nextTitle = trimNewline(newText);
-          if (noteItem.title != nextTitle) {
-            noteItem.inlineMarks = updateNoteInlineMarksForTextChange(noteItem.inlineMarks, noteItem.title, nextTitle, 0);
-            noteItem.urls = updateNoteUrlsForTextChange(noteItem.urls, noteItem.title, nextTitle);
-          }
-          noteItem.title = nextTitle;
-          NoteFns.ensureTitleUrl(noteItem);
-        }
-        else if (store.overlay.textEditInfo()!.itemType == ItemType.File) {
-          editingDomEl.parentElement!.scrollLeft = 0;
-          asFileItem(item).title = trimNewline(newText);
-        }
-        else if (store.overlay.textEditInfo()!.itemType == ItemType.Text) {
-          editingDomEl.parentElement!.scrollLeft = 0;
-          asTextItem(item).title = trimNewline(newText);
-          handledPendingClipboardText = finishPendingClipboardTextItem(store, editingItemPath, newText);
-        }
-        else if (store.overlay.textEditInfo()!.itemType == ItemType.Password) {
-          editingDomEl.parentElement!.scrollLeft = 0;
-          asPasswordItem(item).text = trimNewline(newText);
-        }
-        else if (store.overlay.textEditInfo()!.itemType == ItemType.Search) {
-          setQueryText(store, item.id, trimNewline(newText).replace(/\u200B/g, ""));
-        }
-
-        itemState.sortParentChildrenIfTitleOrdered(item);
-
-        if (editingItemType != ItemType.Search && !handledPendingClipboardText) {
-          serverOrRemote.updateItem(item, store.general.networkStatus);
-        }
-        store.overlay.toolbarPopupInfoMaybe.set(null);
-        store.overlay.setTextEditInfo(store.history, null);
+        commitActiveTextEdit(store, false, "mouse-down-end-text-edit", false);
 
         const keepFocusedOnRightClick =
           editingItemType == ItemType.Search ||
