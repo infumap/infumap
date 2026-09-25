@@ -77,6 +77,21 @@ export interface NoteInlineTextSegment {
   url: string | null,
 }
 
+export function safeNoteLinkUrl(url: string | null | undefined): string | null {
+  if (url == null) { return null; }
+  const trimmed = url.trim();
+  if (trimmed == "" || /[\u0000-\u001f\u007f]/.test(trimmed)) { return null; }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol == "http:" || parsed.protocol == "https:") { return trimmed; }
+    if (parsed.protocol == "infumap:" && itemIdFromInfumapUrl(trimmed) != null) { return trimmed; }
+  } catch (_e) {
+    // Relative and malformed destinations are not actionable note links.
+  }
+  return null;
+}
+
 export const NoteTextStyle = {
   Normal: "normal",
   Heading1: "h1",
@@ -572,8 +587,8 @@ function noteInlineTextMeasureSegments(note: NoteMeasurable): Array<InlineTextMe
 
 function noteFaviconUrl(note: NoteMeasurable): string | null {
   const firstUrl = normalizeNoteUrls(note.urls, note.title)[0];
-  if (firstUrl == null || firstUrl.start != 0 || firstUrl.url.trim() == "") { return null; }
-  return firstUrl.url;
+  if (firstUrl == null || firstUrl.start != 0) { return null; }
+  return safeNoteLinkUrl(firstUrl.url);
 }
 
 function noteIconKind(note: NoteMeasurable, context: ItemIconRenderContext): ItemIconMode.None | ItemIconMode.Symbol | ItemIconMode.Favicon {
@@ -982,16 +997,18 @@ export const NoteFns = {
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     const clickedUrl = ClickState.getLinkClickUrl();
     if (clickedUrl != null && clickedUrl.trim() != "") {
-      if (itemIdFromInfumapUrl(clickedUrl) != null) {
-        void navigateToInfumapItemUrl(store, clickedUrl);
+      const safeUrl = safeNoteLinkUrl(clickedUrl);
+      if (safeUrl == null) { return; }
+      if (itemIdFromInfumapUrl(safeUrl) != null) {
+        void navigateToInfumapItemUrl(store, safeUrl);
       } else {
-        window.open(clickedUrl, '_blank');
+        window.open(safeUrl, '_blank', 'noopener');
       }
       return;
     }
     const fallbackUrl = noteFaviconUrl(asNoteItem(visualElement.displayItem));
     if (fallbackUrl != null) {
-      window.open(fallbackUrl, '_blank');
+      window.open(fallbackUrl, '_blank', 'noopener');
     }
   },
 
