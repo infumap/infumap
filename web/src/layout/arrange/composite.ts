@@ -37,10 +37,11 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { arrangeItemAttachments } from "./attachments";
-import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeItemNoChildrenPath, getCommonVisualElementFlags } from "./item";
 import { arrangePageWithChildren } from "./page";
 import { arrangeTable } from "./table";
 import { addContiguousStackedGapHitboxes, getVePropertiesForItem } from "./util";
+import { isLinkInTrash } from "../../items/trash-link";
 
 
 export const arrangeComposite = (
@@ -187,6 +188,12 @@ function arrangeCompositeChildItemPath(
   geometry: ItemGeometry,
   blockSizePx: Dimensions,
   compositeWidthBl: number): VisualElementPath {
+
+  if (isLinkInTrash(linkItemMaybe_childItem, store.user.getUserMaybe()?.trashPageId)) {
+    return arrangeItemNoChildrenPath(
+      store, parentPath, displayItem_childItem, linkItemMaybe_childItem, linkItemMaybe_childItem,
+      geometry, ArrangeItemFlags.InsideCompositeOrDoc);
+  }
 
   if (isTable(displayItem_childItem)) {
     initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem));

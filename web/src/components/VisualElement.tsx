@@ -31,7 +31,7 @@ import { Table_Desktop } from "./items/Table";
 import { Image_Desktop } from "./items/Image";
 import { File } from "./items/File";
 import { Text } from "./items/Text";
-import { VisualElement } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { Placeholder_Desktop } from "./items/Placeholder";
 import { Page_LineItem } from "./items/Page_LineItem";
 import { EMPTY_ITEM, isEmptyItem } from "../items/base/item";
@@ -58,6 +58,9 @@ import { isQueryItem } from "../items/query-item";
 import { Divider_Desktop } from "./items/Divider";
 import { Divider_LineItem } from "./items/Divider_LineItem";
 import { isDivider } from "../items/divider-item";
+import { TrashLink_Desktop, TrashLink_LineItem } from "./items/TrashLink";
+import { isLinkInTrash } from "../items/trash-link";
+import { useStore } from "../store/StoreProvider";
 
 
 export interface VisualElementProps {
@@ -66,9 +69,16 @@ export interface VisualElementProps {
 }
 
 export const VisualElement_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+  const isTrashLink = () =>
+    !(props.visualElement.flags & (VisualElementFlags.Popup | VisualElementFlags.TopLevelRoot)) &&
+    isLinkInTrash(props.visualElement.actualLinkItemMaybe ??
+      (props.visualElement.flags & VisualElementFlags.ListPageRoot ? null : props.visualElement.linkItemMaybe),
+      store.user.getUserMaybe()?.trashPageId);
   return (
     <Switch fallback={<div>VisualElement_Desktop: unknown display item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
+      <Match when={isTrashLink()}><TrashLink_Desktop {...props} /></Match>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_Desktop {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_Desktop {...props} /></Match>
       <Match when={isComposite(props.visualElement.displayItem)}><Composite_Desktop {...props} /></Match>
@@ -87,9 +97,15 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
 }
 
 export const VisualElement_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
+  const store = useStore();
+  const isTrashLink = () =>
+    !(props.visualElement.flags & VisualElementFlags.Popup) &&
+    isLinkInTrash(props.visualElement.actualLinkItemMaybe ?? props.visualElement.linkItemMaybe,
+      store.user.getUserMaybe()?.trashPageId);
   return (
     <Switch fallback={<div>VisualElement_LineItem: unknown display item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
+      <Match when={isTrashLink()}><TrashLink_LineItem {...props} /></Match>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_LineItem {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_LineItem {...props} /></Match>
       <Match when={isTable(props.visualElement.displayItem)}><Table_LineItem {...props} /></Match>

@@ -43,6 +43,7 @@ import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, Visual
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
+import { isLinkInTrash } from "../../items/trash-link";
 
 
 function listPageScrollOffsetPx(
@@ -305,8 +306,9 @@ export function arrange_list_page(
         continue;
       }
 
-      const expandable = isContainer(displayItem) && itemCanExpandInLineItem(displayItem);
-      if (isComposite(displayItem) || (expandable && store.perVe.getIsExpanded(childPath))) {
+      const trashLink = linkItemMaybe && isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId);
+      const expandable = !trashLink && isContainer(displayItem) && itemCanExpandInLineItem(displayItem);
+      if (!trashLink && (isComposite(displayItem) || (expandable && store.perVe.getIsExpanded(childPath)))) {
         initiateLoadChildItemsMaybe(store, childVeid);
       }
 

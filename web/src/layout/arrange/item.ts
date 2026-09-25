@@ -29,6 +29,7 @@ import { panic } from "../../util/lang";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { ItemGeometry } from "../item-geometry";
+import { HitboxFlags } from "../hitbox";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { arrangeItemAttachments } from "./attachments";
 import { getVePropertiesForItem } from "./util";
@@ -39,6 +40,7 @@ import { arrangePageWithChildren } from "./page";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { arrangeQueryWorkspacePathMaybe } from "./search";
+import { isLinkInTrash } from "../../items/trash-link";
 
 
 export enum ArrangeItemFlags {
@@ -121,6 +123,14 @@ export const arrangeItem = (
 
   flags |= (isMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None);
 
+  const trashLink = actualLinkItemMaybe ??
+    (!(flags & ArrangeItemFlags.IsListPageMainRoot) && isLink(itemWhichMightBeLink)
+      ? itemWhichMightBeLink as LinkItem : null);
+  if (!(flags & (ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsTopRoot)) &&
+    isLinkInTrash(trashLink, store.user.getUserMaybe()?.trashPageId)) {
+    return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
+  }
+
   const renderPageWithChildren = (() => {
     if (!isPage(displayItem)) { return false; }
     if (arrangeFlagIsRoot(flags)) { return true; }
@@ -194,6 +204,18 @@ export const arrangeItemNoChildren = (
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === currentVePath;
+  const trashLink = actualLinkItemMaybe ??
+    (flags & ArrangeItemFlags.IsListPageMainRoot ? null : linkItemMaybe);
+  const shallowTrashLink = !(flags & (ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsTopRoot)) &&
+    isLinkInTrash(trashLink, store.user.getUserMaybe()?.trashPageId);
+  const safeTrashLinkHitboxFlags = HitboxFlags.Click | HitboxFlags.Move | HitboxFlags.Resize |
+    HitboxFlags.OpenPopup | HitboxFlags.ShowPointer | HitboxFlags.TriangleLinkSettings | HitboxFlags.ShiftLeft;
+  const hitboxes = shallowTrashLink
+    ? itemGeometry.hitboxes.flatMap(hitbox => {
+      const type = hitbox.type & safeTrashLinkHitboxFlags;
+      return type == HitboxFlags.None ? [] : [{ ...hitbox, type }];
+    })
+    : itemGeometry.hitboxes;
 
   const itemVisualElementSpec: VisualElementSpec = {
     displayItem,
@@ -208,7 +230,7 @@ export const arrangeItemNoChildren = (
     row: itemGeometry.row,
     col: itemGeometry.col,
     listItemNumber: itemGeometry.listItemNumber ?? null,
-    hitboxes: itemGeometry.hitboxes,
+    hitboxes,
     parentPath: parentVePath,
   };
 
@@ -228,13 +250,14 @@ export const arrangeItemNoChildren = (
   // TODO (MEDIUM): reconcile, don't override.
   // TODO (MEDIUM): perhaps attachments is a sub-signal.
   const itemRelationships: VisualElementRelationships = {};
-  if (isAttachmentsItem(displayItem)) {
+  if (isAttachmentsItem(displayItem) &&
+    !shallowTrashLink) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe == null ? displayItem : linkItemMaybe);
     itemRelationships.attachmentsPaths = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath);
   } else {
     itemRelationships.attachmentsPaths = [];
   }
-  if (isQueryItem(displayItem) && (flags & ArrangeItemFlags.RenderChildrenAsFull)) {
+  if (!shallowTrashLink && isQueryItem(displayItem) && (flags & ArrangeItemFlags.RenderChildrenAsFull)) {
     const workspacePath = arrangeQueryWorkspacePathMaybe(store, asQueryItem(displayItem), currentVePath, itemGeometry);
     itemRelationships.childrenPaths = workspacePath == null ? [] : [workspacePath];
   }

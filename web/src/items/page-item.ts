@@ -54,6 +54,7 @@ import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { NoteFlags } from './base/flags-item';
 import { calcPopupActionStripLayout } from '../util/popupHeaderActions';
 import { LinkFns, asLinkItem, isLink } from './link-item';
+import { isLinkInTrash } from './trash-link';
 import { SavedTableSettings } from './base/conversion-settings';
 
 
@@ -233,7 +234,10 @@ function getListPageVisibleRowsImpl(
       rows.push(row);
 
       const rowPath = VeFns.addVeidToPath(row.veid, listPagePath);
-      if (isContainer(row.displayItem) && itemCanExpandInLineItem(row.displayItem) && store.perVe.getIsExpanded(rowPath)) {
+      const rowItem = itemState.get(row.treeItemId);
+      const trashLink = rowItem && isLink(rowItem) &&
+        isLinkInTrash(asLinkItem(rowItem), store.user.getUserMaybe()?.trashPageId);
+      if (!trashLink && isContainer(row.displayItem) && itemCanExpandInLineItem(row.displayItem) && store.perVe.getIsExpanded(rowPath)) {
         walk(
           asContainerItem(row.displayItem),
           depth + 1,
