@@ -22,9 +22,11 @@ import { HitboxFlags } from "../layout/hitbox";
 import { isQuerySearchResultsPage } from "../items/query-item";
 import { VesCache } from "../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VisualElementPath, VeFns } from "../layout/visual-element";
+import { wouldCreateRelationshipCycle } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
+import { getGroupMoveEntriesInParent, type GroupMoveItem } from "./move_group";
 
 
 export type InternalMoveTargetValidity =
@@ -41,6 +43,35 @@ export interface ResolvedInternalMoveTarget {
   displayedInTransientUi: boolean,
   backedByPersistentContainer: boolean,
   validity: InternalMoveTargetValidity,
+}
+
+export function moveTargetWouldCreateRelationshipCycle(
+  hitInfo: HitInfo,
+  target: ResolvedInternalMoveTarget,
+  activeVe: VisualElement,
+  group: Array<GroupMoveItem> | null | undefined,
+): boolean {
+  // Use the items actually being moved, not the displayed targets of links.
+  const activeItem = VeFns.treeItem(activeVe);
+  const groupEntries = getGroupMoveEntriesInParent(group, activeItem.parentId);
+  const movingIds = groupEntries.some(({ item }) => item.id == activeItem.id)
+    ? groupEntries.map(({ item }) => item.id)
+    : [activeItem.id];
+  const parentIds = new Set<Uid>([
+    target.hoverContainerVe.displayItem.id,
+    target.positioningPageVe.displayItem.id,
+    // An ignored item can still be the popup root. Reject the whole surface,
+    // including its header and children, rather than falling through it.
+    hitInfo.rootVes.get().displayItem.id,
+  ]);
+  if (hitInfo.subRootVe) { parentIds.add(hitInfo.subRootVe.displayItem.id); }
+  if (hitInfo.subSubRootVe) { parentIds.add(hitInfo.subSubRootVe.displayItem.id); }
+  if (hitInfo.overVes &&
+    (hitInfo.hitboxType & (HitboxFlags.Attach | HitboxFlags.AttachComposite | HitboxFlags.OpenPopup))) {
+    parentIds.add(hitInfo.overVes.get().displayItem.id);
+  }
+  return movingIds.some(itemId =>
+    [...parentIds].some(parentId => wouldCreateRelationshipCycle(itemId, parentId)));
 }
 
 export function resolveMoveTargetPageVe(moveToVe: VisualElement): VisualElement {

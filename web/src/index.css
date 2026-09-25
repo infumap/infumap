@@ -30,6 +30,11 @@ body.infumap-copy-move-cursor * {
   cursor: pointer !important;
 }
 
+body.infumap-blocked-move-cursor,
+body.infumap-blocked-move-cursor * {
+  cursor: not-allowed !important;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }

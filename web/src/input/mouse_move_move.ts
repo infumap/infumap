@@ -48,7 +48,7 @@ import { itemState } from "../store/ItemState";
 import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract } from "../util/geometry";
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
-import { dockListPageIconMoveTargetMaybe, resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
+import { dockListPageIconMoveTargetMaybe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "../layout/arrange/dock";
 import { asContainerItem } from "../items/base/container-item";
@@ -509,6 +509,7 @@ function pageCanHostLiveMovingItem(pageVe: VisualElement): boolean {
 }
 
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
+  MouseActionState.setMoveBlockedCursor(false);
   const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeVisualElementSignal) {
     store.anItemIsMoving.set(false);
@@ -543,6 +544,14 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       : null;
   const dockListPageIconMoveTarget = dockListPageIconMoveTargetMaybe(hitInfo, ignoreIds);
   const resolvedMoveTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
+  if (moveTargetWouldCreateRelationshipCycle(hitInfo, resolvedMoveTarget, activeVisualElement, MouseActionState.getGroupMoveItems())) {
+    clearMoveOverTargetState(store);
+    store.movingItemTargetCalendarInfo.set(null);
+    MouseActionState.setMoveBlockedCursor(true);
+    // Keep the last valid position and the original mouse/grab offset. Movement
+    // resumes from that offset as soon as the pointer leaves the invalid target.
+    return;
+  }
   const hasValidMoveTarget = resolvedMoveTarget.validity == "valid";
   const hitMoveTargetVe = isPage(resolvedMoveTarget.hoverContainerVe.displayItem)
     ? resolvedMoveTarget.hoverContainerVe

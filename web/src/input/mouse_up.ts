@@ -64,7 +64,7 @@ import {
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
-import { isDockListPageIconMoveTargetVe, resolveInternalMoveTarget } from "./move_target";
+import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
@@ -987,6 +987,9 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
     false,
   );
   const resolvedTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
+  if (moveTargetWouldCreateRelationshipCycle(hitInfo, resolvedTarget, activeVisualElement, MouseActionState.getGroupMoveItems())) {
+    return true;
+  }
   if (resolvedTarget.validity != "valid") {
     return true;
   }
@@ -1061,6 +1064,7 @@ function moveCalendarSelectionToDate(
 
 
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
+  MouseActionState.setMoveBlockedCursor(false);
   NativeTextSelectionState.clear();
 
   if (document.activeElement!.id.includes("toolbarTitleDiv")) {
