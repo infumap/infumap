@@ -16,6 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "./toolbarPopupStyle";
+
 import { Component, For, Show } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
 import { NETWORK_STATUS_IN_PROGRESS } from "../../store/StoreProvider_General";
@@ -95,8 +97,8 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
 
   return (
     <Show when={store.overlay.networkOverlayVisible.get()}>
-      <div class={`absolute rounded border-slate-500 border bg-white shadow-lg`}
-        style={`top: 45px; right: 5px; min-width: 300px; max-width: 400px; ` +
+      <div class={TOOLBAR_POPUP_CLASS}
+        style={`top: ${toolbarPopupTopPx(store)}px; right: 5px; min-width: 300px; max-width: 400px; ` +
           `padding: 12px 12px 9px 12px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
         onMouseDown={(e: MouseEvent) => { e.stopPropagation(); }}
         onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>

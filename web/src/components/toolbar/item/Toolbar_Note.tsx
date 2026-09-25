@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 import { Component, Match, Show, Switch } from "solid-js";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
@@ -168,7 +169,7 @@ export const Toolbar_Note: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: popupIconDiv!.getBoundingClientRect().x, y: popupIconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.ItemIcon });
+      { topLeftPx: { x: popupIconDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.ItemIcon });
   };
   const handlePopupIconDown = () => {
     ClickState.setButtonClickBoundsPx(popupIconDiv!.getBoundingClientRect());
@@ -181,7 +182,7 @@ export const Toolbar_Note: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.QrLink });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
   }
   const handleQrDown = () => {
     ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
@@ -200,7 +201,7 @@ export const Toolbar_Note: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: beforeUrlElement!.getBoundingClientRect().x, y: beforeUrlElement!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.NoteUrl });
+      { topLeftPx: { x: beforeUrlElement!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.NoteUrl });
   }
   const handleUrlDown = () => {
     ClickState.setButtonClickBoundsPx(urlDiv!.getBoundingClientRect());
@@ -212,7 +213,7 @@ export const Toolbar_Note: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: textStyleDiv!.getBoundingClientRect().x, y: textStyleDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.NoteTextStyle });
+      { topLeftPx: { x: textStyleDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.NoteTextStyle });
   };
   const handleTextStyleDown = () => {
     ClickState.setButtonClickBoundsPx(textStyleDiv!.getBoundingClientRect());
@@ -224,7 +225,7 @@ export const Toolbar_Note: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: indentDiv!.getBoundingClientRect().x, y: indentDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.NoteIndent });
+      { topLeftPx: { x: indentDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.NoteIndent });
   };
   const handleIndentDown = () => {
     ClickState.setButtonClickBoundsPx(indentDiv!.getBoundingClientRect());

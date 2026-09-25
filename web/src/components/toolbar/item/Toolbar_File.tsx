@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 import { Component, Show } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
@@ -47,7 +48,7 @@ export const Toolbar_File: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: iconDiv!.getBoundingClientRect().x, y: iconDiv!.getBoundingClientRect().y + 20 }, type: ToolbarPopupType.ItemIcon });
+      { topLeftPx: { x: iconDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.ItemIcon });
   };
   const handleIconDown = () => {
     ClickState.setButtonClickBoundsPx(iconDiv!.getBoundingClientRect());
@@ -59,7 +60,7 @@ export const Toolbar_File: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.QrLink });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
   }
   const handleQrDown = () => {
     ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
