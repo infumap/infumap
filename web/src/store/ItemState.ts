@@ -31,6 +31,11 @@ import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrdering
 import { EMPTY_UID, Uid } from "../util/uid";
 
 let items = new Map<Uid, Item>();
+let preserveUnsavedTextFields: (item: Item) => void = () => {};
+
+export function setUnsavedTextFieldsRestorer(restorer: (item: Item) => void): void {
+  preserveUnsavedTextFields = restorer;
+}
 
 /**
  * Preserve pending popup position fields from an existing item to a new item.
@@ -190,6 +195,7 @@ export const itemState = {
       preservePendingPopupFields(existingItem, newItem);
       preserveComputedRelationshipFields(existingItem, newItem);
     }
+    preserveUnsavedTextFields(newItem);
     items.set(newItem.id, newItem);
     TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
     return newItem;

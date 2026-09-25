@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { edit_inputListener } from "../../input/edit";
 import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -270,7 +271,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               `outline: 0px solid transparent;`}
             contentEditable={canEdit() && store.overlay.textEditInfo() != null}
             spellcheck={canEdit() && store.overlay.textEditInfo() != null}
-            onKeyDown={keyDownHandler}>
+            onKeyDown={keyDownHandler}
+            onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev, false); }}>
             {tableItem().title}
           </div>
         </Show>
@@ -311,7 +313,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 `outline: 0px solid transparent;`}
               contentEditable={canEdit() && store.overlay.textEditInfo() != null}
               spellcheck={canEdit() && store.overlay.textEditInfo() != null}
-              onKeyDown={keyDownHandler}>
+              onKeyDown={keyDownHandler}
+              onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev, false); }}>
               {spec.name}
               <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>
                 <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">

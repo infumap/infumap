@@ -53,7 +53,8 @@ import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
-import { textEditSelectionChangeListener } from "../input/edit";
+import { commitActiveTextEdit, textEditSelectionChangeListener } from "../input/edit";
+import { commitActiveToolbarTitleEdit } from "../input/toolbar_title";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
@@ -261,6 +262,9 @@ export const Main: Component = () => {
     document.addEventListener('keyup', keyUpListener);
     window.addEventListener('resize', windowResizeListener);
     document.addEventListener('selectionchange', selectionChangeListener);
+    document.addEventListener('visibilitychange', textEditVisibilityListener);
+    window.addEventListener('online', retryTextSaves);
+    window.addEventListener('beforeunload', textEditBeforeUnloadListener);
     window.addEventListener('dragenter', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.addEventListener('dragover', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.addEventListener('drop', externalFileDragGuardListener, externalFileDragListenerOptions);
@@ -284,6 +288,9 @@ export const Main: Component = () => {
     document.removeEventListener('keyup', keyUpListener);
     window.removeEventListener('resize', windowResizeListener);
     document.removeEventListener('selectionchange', selectionChangeListener)
+    document.removeEventListener('visibilitychange', textEditVisibilityListener);
+    window.removeEventListener('online', retryTextSaves);
+    window.removeEventListener('beforeunload', textEditBeforeUnloadListener);
     window.removeEventListener('dragenter', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.removeEventListener('dragover', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.removeEventListener('drop', externalFileDragGuardListener, externalFileDragListenerOptions);
@@ -296,6 +303,22 @@ export const Main: Component = () => {
   const selectionChangeListener = () => {
     textEditSelectionChangeListener(store);
   }
+
+  const retryTextSaves = () => {
+    commitActiveToolbarTitleEdit(store);
+    void store.textEdit.flush();
+  };
+  const textEditVisibilityListener = () => {
+    if (document.hidden) { retryTextSaves(); }
+  };
+  const textEditBeforeUnloadListener = (ev: BeforeUnloadEvent) => {
+    commitActiveToolbarTitleEdit(store);
+    store.textEdit.flushActive();
+    if (store.textEdit.unsavedCount() > 0) {
+      ev.preventDefault();
+      ev.returnValue = "";
+    }
+  };
 
   const cancelExternalFileDragLeaveClear = () => {
     if (clearExternalUploadHoverTimeoutId == null) {
@@ -406,6 +429,12 @@ export const Main: Component = () => {
   };
 
   logout = async () => {
+    commitActiveToolbarTitleEdit(store);
+    commitActiveTextEdit(store, true, "text-edit-logout");
+    if (!await store.textEdit.flush()) {
+      store.overlay.networkOverlayVisible.set(true);
+      return;
+    }
     store.clear();
     itemState.clear();
     VesCache.clear();

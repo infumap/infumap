@@ -20,6 +20,7 @@ import imgUrl from '../../assets/circle.png'
 
 import { Component, Index, Match, Show, Switch, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
+import { commitActiveToolbarTitleEdit } from "../../input/toolbar_title";
 import { NONE_VISUAL_ELEMENT, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
@@ -369,6 +370,7 @@ export const Toolbar: Component = () => {
             <div id={`toolbarTitleDiv-${tSpec().idx}`}
               class={`p-[3px] inline-block border-b grow-0 overflow-hidden whitespace-nowrap ${tSpec().canEdit ? "cursor-text" : "cursor-pointer"}`}
               contentEditable={tSpec().canEdit}
+              onInput={() => { commitActiveToolbarTitleEdit(store, false); }}
               style={`font-size: 22px; color: ${tSpec().col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                 `${tSpec().bg} ` +
                 `border-top-color: ${tSpec().borderColor};` +

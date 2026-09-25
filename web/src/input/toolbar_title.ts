@@ -20,7 +20,6 @@ import { itemCanEdit } from "../items/base/capabilities-item";
 import { asPageItem, isPage } from "../items/page-item";
 import type { PageItem } from "../items/page-item";
 import { VeFns } from "../layout/visual-element";
-import { serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
@@ -47,7 +46,7 @@ function toolbarTitlePageItem(store: StoreContextModel, element: Element | null)
   return asPageItem(titleItem);
 }
 
-export function commitActiveToolbarTitleEdit(store: StoreContextModel): boolean {
+export function commitActiveToolbarTitleEdit(store: StoreContextModel, immediately: boolean = true): boolean {
   const activeElement = document.activeElement;
   if (!(activeElement instanceof HTMLElement) || !activeElement.isContentEditable) {
     return false;
@@ -61,8 +60,12 @@ export function commitActiveToolbarTitleEdit(store: StoreContextModel): boolean 
     return false;
   }
 
-  pageItem.title = activeElement.innerText;
-  itemState.sortParentChildrenIfTitleOrdered(pageItem);
-  serverOrRemote.updateItem(pageItem, store.general.networkStatus);
+  if (pageItem.title != activeElement.innerText) {
+    pageItem.title = activeElement.innerText;
+    itemState.sortParentChildrenIfTitleOrdered(pageItem);
+    store.textEdit.saveItem(pageItem, immediately);
+  } else if (immediately) {
+    void store.textEdit.flush();
+  }
   return true;
 }

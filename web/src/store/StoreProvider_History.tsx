@@ -124,7 +124,7 @@ export interface HistoryStoreContextModel {
 }
 
 
-export function makeHistoryStore(): HistoryStoreContextModel {
+export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
   const browserEntries = new Map<Uid, BrowserEntry>();
   let activeBrowserEntry: BrowserEntryState | null = null;
@@ -133,7 +133,10 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   let pendingTraversalId: Uid | null = null;
   // Pending document opens use this to ignore results after another navigation starts.
   let navigationRequestId = 0;
-  const beginNavigationRequest = (): number => ++navigationRequestId;
+  const beginNavigationRequest = (): number => {
+    beforeNavigation();
+    return ++navigationRequestId;
+  };
   const isNavigationRequestCurrent = (requestId: number): boolean => requestId == navigationRequestId;
 
   const flushBrowserActions = (): void => {

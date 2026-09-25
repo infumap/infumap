@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { commitActiveTextEdit, edit_inputListener } from "../../input/edit";
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { TextFns, asTextItem, clipboardTextCreateShowsPlaceholder, textDisplayTitle } from "../../items/text-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -41,7 +42,7 @@ import { CompositeFns, isComposite } from "../../items/composite-item";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { getCaretPosition, setCaretPosition } from "../../util/caret";
 import { arrangeNow } from "../../layout/arrange";
-import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
+import { appendNewlineIfEmpty } from "../../util/string";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 import { panic } from "../../util/lang";
@@ -185,27 +186,9 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
   const aHrefClick = (ev: MouseEvent) => { ev.preventDefault(); };
   const aHrefMouseUp = (ev: MouseEvent) => { ev.preventDefault(); };
 
-  const inputListener = (_ev: InputEvent) => {
-    setTimeout(() => {
-      if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-        const editingItemPath = store.overlay.textEditInfo()!.itemPath;
-        let editingDomId = editingItemPath + ":title";
-        let el = document.getElementById(editingDomId);
-        if (!(el instanceof HTMLElement)) { return; }
-        let newText = el!.innerText;
-        let item = asTextItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-        item.title = trimNewline(newText);
-        const caretPosition = getCaretPosition(el!);
-        arrangeNow(store, "text-input-preserve-caret");
-        const freshEl = document.getElementById(editingDomId);
-        if (freshEl instanceof HTMLElement) {
-          if (document.activeElement !== freshEl) {
-            freshEl.focus();
-          }
-          setCaretPosition(freshEl, caretPosition);
-        }
-      }
-    }, 0);
+  const inputListener = (ev: InputEvent) => {
+    ev.stopPropagation();
+    edit_inputListener(store, ev);
   }
 
   const beforeInputListener = (ev: InputEvent) => {
@@ -241,13 +224,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
       case "Escape":
         ev.preventDefault();
         ev.stopPropagation();
-        if (finishActivePendingClipboardTextItem(store)) {
-          store.overlay.setTextEditInfo(store.history, null);
-          arrangeNow(store, "clipboard-text-escape-exit-edit");
-          return;
-        }
-        store.overlay.setTextEditInfo(store.history, null, true);
-        arrangeNow(store, "text-escape-exit-edit");
+        commitActiveTextEdit(store, true, "text-escape-exit-edit");
         return;
     }
   }

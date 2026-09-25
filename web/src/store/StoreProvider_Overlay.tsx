@@ -17,7 +17,8 @@
 */
 
 import { HitInfo } from "../input/hit";
-import { Veid, VisualElementPath } from "../layout/visual-element";
+import { VeFns, Veid, VisualElementPath } from "../layout/visual-element";
+import { itemState } from "./ItemState";
 import { BoundingBox, Vector } from "../util/geometry";
 import { Uid } from "../util/uid";
 import { InfuSignal, createInfuSignal } from "../util/signals";
@@ -134,7 +135,7 @@ export interface OverlayStoreContextModel {
 }
 
 
-export function makeOverlayStore(): OverlayStoreContextModel {
+export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) => void): OverlayStoreContextModel {
   const textEditInfo_ = createInfuSignal<TextEditInfo | null>(null);
   const noteTextSelectionInfo = createInfuSignal<NoteTextSelectionInfo | null>(null);
 
@@ -155,6 +156,7 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const emptyTrashInProgress = createInfuSignal<boolean>(false);
 
   function clear() {
+    onTextEditChange(null);
     textEditInfo_.set(null);
     noteTextSelectionInfo.set(null);
     toolbarPopupInfoMaybe.set(null);
@@ -190,8 +192,10 @@ export function makeOverlayStore(): OverlayStoreContextModel {
   const textEditInfo = (): TextEditInfo | null => textEditInfo_.get();
 
   const setTextEditInfo = (historyStore: HistoryStoreContextModel, info: TextEditInfo | null, preserveFocus?: boolean) => {
+    // Flush the previous editor while its DOM and item path are still available.
+    onTextEditChange(info);
     if (info == null) {
-      if (preserveFocus && textEditInfo_.get() != null) {
+      if (preserveFocus && textEditInfo_.get() != null && itemState.get(VeFns.itemIdFromPath(textEditInfo_.get()!.itemPath)) != null) {
         // Keep focus on the item that was being edited
         historyStore.setFocus(textEditInfo_.get()!.itemPath);
       } else if (historyStore.currentPopupSpec()) {

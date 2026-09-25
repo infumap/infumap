@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { commitActiveTextEdit, edit_inputListener } from "../../input/edit";
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -32,9 +33,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
-import { appendNewlineIfEmpty, trimNewline } from "../../util/string";
-import { getCaretPosition, setCaretPosition } from "../../util/caret";
-import { arrangeNow } from "../../layout/arrange";
+import { appendNewlineIfEmpty } from "../../util/string";
 import { HitboxFlags } from "../../layout/hitbox";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
@@ -267,27 +266,9 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
 
-  const inputListener = (_ev: InputEvent) => {
-    setTimeout(() => {
-      if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
-        const editingItemPath = store.overlay.textEditInfo()!.itemPath;
-        let editingDomId = editingItemPath + ":title";
-        let el = document.getElementById(editingDomId);
-        if (!(el instanceof HTMLElement)) { return; }
-        let newText = el!.innerText;
-        let item = asPasswordItem(itemState.get(VeFns.veidFromPath(editingItemPath).itemId)!);
-        item.text = trimNewline(newText);
-        const caretPosition = getCaretPosition(el!);
-        arrangeNow(store, "password-input-preserve-caret");
-        const freshEl = document.getElementById(editingDomId);
-        if (freshEl instanceof HTMLElement) {
-          if (document.activeElement !== freshEl) {
-            freshEl.focus();
-          }
-          setCaretPosition(freshEl, caretPosition);
-        }
-      }
-    }, 0);
+  const inputListener = (ev: InputEvent) => {
+    ev.stopPropagation();
+    edit_inputListener(store, ev);
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
@@ -299,8 +280,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       case "Escape":
         ev.preventDefault();
         ev.stopPropagation();
-        store.overlay.setTextEditInfo(store.history, null, true);
-        arrangeNow(store, "password-escape-exit-edit");
+        commitActiveTextEdit(store, true, "password-escape-exit-edit");
         return;
     }
   }

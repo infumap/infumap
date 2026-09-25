@@ -29,9 +29,9 @@ export const Toolbar_NetworkStatus: Component = () => {
   const hasUnacknowledgedErrors = () => store.general.hasUnacknowledgedNetworkErrors();
 
   const col = () => {
-    if (hasUnacknowledgedErrors()) { return "#bb7373"; }
+    if (hasUnacknowledgedErrors() || store.textEdit.failedSaveCount() > 0) { return "#bb7373"; }
     const status = store.general.networkStatus.get();
-    if (status == NETWORK_STATUS_IN_PROGRESS) { return "#babb73"; }
+    if (status == NETWORK_STATUS_IN_PROGRESS || store.textEdit.unsavedCount() > 0) { return "#babb73"; }
     return "#7bbb73";
   };
 
@@ -107,6 +107,17 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <button onClick={handleClose} class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
         </div>
 
+        <Show when={store.textEdit.unsavedCount() > 0}>
+          <div class="mb-3 text-sm px-2 py-2 bg-yellow-50 rounded">
+            <div>{store.textEdit.unsavedCount()} item(s) with unsaved text changes</div>
+            <Show when={store.textEdit.failedSaveCount() > 0}>
+              <div class="text-xs text-red-700 mt-1">Some changes could not be saved. Keep this tab open and retry.</div>
+              <button onClick={() => { void store.textEdit.flush(); }}
+                class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer mt-1">Retry saving</button>
+            </Show>
+          </div>
+        </Show>
+
         <Show when={hasUnacknowledgedErrors() && erroredRequests().length > 0}>
           <div class="mb-3 text-xs text-red-700 bg-red-50 rounded px-2 py-2">
             Errors stay red until you acknowledge them here.
@@ -168,7 +179,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           </div>
         </Show>
 
-        <Show when={inProgressRequests().length === 0 && recentRequests().length === 0 && queuedRequests().length === 0 && erroredRequests().length === 0}>
+        <Show when={store.textEdit.unsavedCount() === 0 && inProgressRequests().length === 0 && recentRequests().length === 0 && queuedRequests().length === 0 && erroredRequests().length === 0}>
           <div class="text-sm text-slate-500 text-center py-2">All Operations Complete</div>
         </Show>
       </div>

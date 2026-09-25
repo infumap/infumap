@@ -63,7 +63,7 @@ import {
 } from "../items/query-item";
 import type { SearchResult } from "../server";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
-import { finishActivePendingClipboardTextItem } from "./text_clipboard_create";
+import { commitActiveTextEdit } from "./edit";
 
 
 /**
@@ -547,13 +547,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   if (store.overlay.textEditInfo() && !store.overlay.toolbarPopupInfoMaybe.get()) {
     if (ev.code == "Escape") {
       ev.preventDefault();
-      if (finishActivePendingClipboardTextItem(store)) {
-        store.overlay.setTextEditInfo(store.history, null);
-        arrangeNow(store, "key-escape-clipboard-text-exit");
-        return;
-      }
-      store.overlay.setTextEditInfo(store.history, null, true);
-      arrangeNow(store, "key-escape-cancel-edit");
+      commitActiveTextEdit(store, true, "key-escape-exit-edit");
       return;
     }
 
@@ -627,8 +621,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     }
     // Exit text edit mode while keeping focus on the item
     if (store.overlay.textEditInfo()) {
-      store.overlay.setTextEditInfo(store.history, null, true);
-      arrangeNow(store, "key-escape-exit-edit");
+      commitActiveTextEdit(store, true, "key-escape-exit-edit");
       return;
     }
     if (handleSearchWorkspaceEscapeMaybe(store)) {
