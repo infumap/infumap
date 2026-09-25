@@ -386,7 +386,7 @@ export const QueryChatCompletedActivityTrace: Component<{
 }> = (props) => {
   const store = useStore();
   const [isMaterializing, setIsMaterializing] = createSignal(false);
-  const [materializingStatus, setMaterializingStatus] = createSignal("Generating page title");
+  const [materializingStatus, setMaterializingStatus] = createSignal("Generating document title");
   let measureEl: HTMLDivElement | undefined;
 
   const expanded = () => isQueryChatCompletedActivityExpanded(props.queryId, props.activity.requestId);
@@ -403,7 +403,7 @@ export const QueryChatCompletedActivityTrace: Component<{
       return;
     }
     setIsMaterializing(true);
-    setMaterializingStatus("Generating page title");
+    setMaterializingStatus("Generating document title");
     try {
       await materializeQueryChatAssistantSection(
         store,
@@ -411,7 +411,7 @@ export const QueryChatCompletedActivityTrace: Component<{
         props.sectionRootId,
         props.activity.requestId,
         props.turnNumber,
-        phase => setMaterializingStatus(phase == "generating_title" ? "Generating page title" : "Creating page"),
+        phase => setMaterializingStatus(phase == "generating_title" ? "Generating document title" : "Creating Markdown item"),
       );
     } finally {
       setIsMaterializing(false);
@@ -472,10 +472,10 @@ export const QueryChatCompletedActivityTrace: Component<{
           class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#bbb] bg-white text-black disabled:cursor-default disabled:opacity-40"
           title={isMaterializing()
             ? materializingStatus()
-            : (chatRequestActive() ? "Wait for the current response" : "Create page from this response")}
+            : (chatRequestActive() ? "Wait for the current response" : "Create Markdown from this response")}
           aria-label={isMaterializing()
             ? materializingStatus()
-            : (chatRequestActive() ? "Wait for the current response" : "Create page from this response")}
+            : (chatRequestActive() ? "Wait for the current response" : "Create Markdown from this response")}
           disabled={isMaterializing() || chatRequestActive()}
           onClick={materializeAssistantSection}>
           <i class={isMaterializing() ? "fa fa-circle-notch fa-spin" : "bi-file-earmark-plus"} />
