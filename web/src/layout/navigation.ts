@@ -379,6 +379,8 @@ export async function navigateToLocalRoot(store: StoreContextModel): Promise<voi
   }
 }
 
+// Browser Back and in-app Back both close the top popup before leaving its page.
+// Closing traverses to the popup's parent entry; Forward can reopen the popup.
 export async function navigateBack(store: StoreContextModel, focusRootPageOnPopupClose: boolean = false): Promise<boolean> {
   store.history.beginNavigationRequest();
   if (store.history.currentPopupSpec() != null) {
@@ -401,7 +403,7 @@ export async function navigateBack(store: StoreContextModel, focusRootPageOnPopu
   }
 
   if (store.history.peekPrevPageVeid() != null) {
-    window.history.back();
+    store.history.back();
     return true;
   }
 

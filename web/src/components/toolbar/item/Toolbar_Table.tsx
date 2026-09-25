@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 import { Component, Show } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
@@ -89,7 +90,7 @@ export const Toolbar_Table: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.QrLink });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
   }
   const handleQrDown = () => {
     ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
@@ -107,7 +108,7 @@ export const Toolbar_Table: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.TableNumCols });
+      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.TableNumCols });
   };
   const handleNumColsDown = () => {
     ClickState.setButtonClickBoundsPx(numColsDiv!.getBoundingClientRect());

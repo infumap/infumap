@@ -22,6 +22,7 @@ import { pageTableConversionEligibility } from "../../../items/page-table-conver
 import { useStore } from "../../../store/StoreProvider";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { getToolbarFocusPathMaybe } from "../toolbarFocus";
+import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 
 export const Toolbar_MoreActions: Component = () => {
   const store = useStore();
@@ -43,7 +44,7 @@ export const Toolbar_MoreActions: Component = () => {
     const bounds = button!.getBoundingClientRect();
     store.overlay.toolbarPopupInfoMaybe.set({
       type: ToolbarPopupType.MoreActions,
-      topLeftPx: { x: bounds.x, y: bounds.y + 38 },
+      topLeftPx: { x: bounds.x, y: toolbarPopupTopPx(store) },
     });
   };
 

@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { TOOLBAR_MENU_CLASS, TOOLBAR_POPUP_CLASS, toolbarMenuHeightPx, toolbarMenuItemClass } from "./toolbarPopupStyle";
 import { Component, For, Match, Show, Switch, createMemo, createSignal, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, autoPageAspect, isPage, PageItem } from "../../items/page-item";
@@ -261,9 +262,9 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
-  if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return 138; }
-  if (overlayType == ToolbarPopupType.ChildSortOrder) { return 100; }
-  if (overlayType == ToolbarPopupType.MoreActions) { return 42; }
+  if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return toolbarMenuHeightPx(5); }
+  if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(3); }
+  if (overlayType == ToolbarPopupType.MoreActions) { return toolbarMenuHeightPx(1); }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
       return 500;
@@ -316,14 +317,14 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: popupInfo.topLeftPx.x,
       y: popupInfo.topLeftPx.y,
       w: 136,
-      h: visibleNoteTextStyleOptions(store).length * 25 + 15
+      h: toolbarMenuHeightPx(visibleNoteTextStyleOptions(store).length)
     }
   } else if (popupType == ToolbarPopupType.PageArrangeAlgorithm) {
     return {
       x: popupInfo.topLeftPx.x,
       y: popupInfo.topLeftPx.y,
       w: 96,
-      h: 215
+      h: toolbarMenuHeightPx(8)
     }
   } else if (popupType == ToolbarPopupType.ChildSortOrder) {
     return {
@@ -344,7 +345,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: popupInfo.topLeftPx.x,
       y: popupInfo.topLeftPx.y,
       w: 140,
-      h: 128
+      h: toolbarMenuHeightPx(4)
     }
   } else {
     panic("unexpected popup type: " + popupType);
@@ -566,12 +567,12 @@ export const Toolbar_Popup: Component = () => {
 
   const selectedEmoji = () => selectedEmojiValue();
   const itemIconChoiceClass = (selected: boolean): string =>
-    `inline-flex items-center justify-center w-[32px] h-[32px] border rounded-md text-[18px] leading-none cursor-pointer focus:outline-none ` +
+    `inline-flex items-center justify-center w-[32px] h-[32px] border rounded text-[18px] leading-none cursor-pointer focus:outline-none ` +
     `disabled:cursor-not-allowed disabled:opacity-40 disabled:bg-slate-50 disabled:text-slate-400 disabled:hover:bg-slate-50 disabled:hover:border-slate-200 ` +
-    (selected ? `bg-blue-50 border-blue-500 shadow-inner` : `bg-white border-slate-200 hover:bg-slate-100 hover:border-slate-300`);
+    (selected ? `bg-slate-200 border-slate-400` : `bg-white border-slate-300 hover:bg-slate-300 hover:border-slate-400`);
   const emojiChoiceClass = (selected: boolean): string =>
-    `inline-flex items-center justify-center w-[32px] h-[32px] rounded-md text-[18px] leading-none cursor-pointer focus:outline-none ` +
-    (selected ? `bg-blue-50 ring-1 ring-blue-500 shadow-inner` : `bg-transparent hover:bg-slate-100`);
+    `inline-flex items-center justify-center w-[32px] h-[32px] rounded text-[18px] leading-none cursor-pointer focus:outline-none ` +
+    (selected ? `bg-slate-200 ring-1 ring-slate-400` : `bg-transparent hover:bg-slate-300`);
   const emojiFontStyle = () =>
     `font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;`;
   const defaultItemIconText = (): string =>
@@ -970,7 +971,7 @@ export const Toolbar_Popup: Component = () => {
   };
   const noteTextStyleChoiceClass = (option: NoteTextStyleOption): string => {
     const selected = option.selectedTextStyle != null && noteTextStyle() == option.selectedTextStyle;
-    return `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${selected ? "font-bold text-slate-900" : ""}`;
+    return toolbarMenuItemClass(selected);
   };
   const aaSpatialClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.SpatialStretch); }
   const aaGridClick = () => { handlePageArrangeAlgorithmChange(ArrangeAlgorithm.Grid); }
@@ -985,7 +986,7 @@ export const Toolbar_Popup: Component = () => {
     return isPage(focusItem) ? asPageItem(focusItem).arrangeAlgorithm : ArrangeAlgorithm.None;
   };
   const pageArrangeAlgorithmChoiceClass = (arrangeAlgorithm: ArrangeAlgorithm): string =>
-    `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${pageArrangeAlgorithm() == arrangeAlgorithm ? "font-bold text-slate-900" : ""}`;
+    toolbarMenuItemClass(pageArrangeAlgorithm() == arrangeAlgorithm);
   const sortOrder = () => {
     const focusItem = getToolbarFocusItem(store);
     return isPage(focusItem) || isTable(focusItem) ? asContainerItem(focusItem).orderChildrenBy : "";
@@ -1007,7 +1008,7 @@ export const Toolbar_Popup: Component = () => {
     store.overlay.toolbarPopupInfoMaybe.set(null);
   };
   const sortOrderChoiceClass = (order: "" | "title[ASC]" | "title[DESC]"): string =>
-    `block w-full text-left text-sm hover:bg-slate-300 rounded px-[7px] py-[4px] ${sortOrder() == order ? "font-bold text-slate-900" : ""}`;
+    toolbarMenuItemClass(sortOrder() == order);
   const handleSortOrderKeyDown = (event: KeyboardEvent) => {
     event.stopPropagation();
     if (event.key == "Escape") {
@@ -1049,7 +1050,7 @@ export const Toolbar_Popup: Component = () => {
     serverOrRemote.updateItem(targetPage, store.general.networkStatus);
   };
   const calendarDisplayModeChoiceClass = (displayMode: PageCalendarDisplayMode): string =>
-    `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${calendarDisplayMode() == displayMode ? "font-bold text-slate-900" : ""}`;
+    toolbarMenuItemClass(calendarDisplayMode() == displayMode);
   const handleRatingTypeChange = (newRatingType: "Star" | "Number" | "HorizontalBar" | "VerticalBar") => {
     ratingItem().ratingType = newRatingType;
     store.touchToolbar();
@@ -1109,7 +1110,7 @@ export const Toolbar_Popup: Component = () => {
     <>
       <Switch>
         <Match when={overlayType() == ToolbarPopupType.PageColor}>
-          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+          <div class={TOOLBAR_POPUP_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
@@ -1128,12 +1129,12 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.NoteTextStyle}>
-          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
+          <div class={TOOLBAR_MENU_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <For each={visibleNoteTextStyleOptions(store)}>{(option, index) =>
-              <div class={noteTextStyleChoiceClass(option) + (index() == 0 ? " mt-[3px]" : "")}
+            <For each={visibleNoteTextStyleOptions(store)}>{option =>
+              <div class={noteTextStyleChoiceClass(option)}
                 onClick={() => { handleNoteTextStyleChange(option.textStyle); }}>
                 <i class={`${option.icon} inline-block w-[20px] text-center mr-[7px]`} />
                 {option.label}
@@ -1142,11 +1143,11 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageArrangeAlgorithm}>
-          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
+          <div class={TOOLBAR_MENU_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.SpatialStretch) + " mt-[3px]"} onClick={aaSpatialClick}>
+            <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.SpatialStretch)} onClick={aaSpatialClick}>
               Spatial
             </div>
             <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Grid)} onClick={aaGridClick}>
@@ -1173,7 +1174,7 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.ChildSortOrder}>
-          <div ref={sortOrderMenu} class="absolute border rounded bg-slate-50 shadow-lg p-[3px]"
+          <div ref={sortOrderMenu} class={TOOLBAR_MENU_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
@@ -1187,11 +1188,11 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageCalendarDisplayMode}>
-          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
+          <div class={TOOLBAR_MENU_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class={calendarDisplayModeChoiceClass(PageCalendarDisplayMode.Month) + " mt-[3px]"}
+            <div class={calendarDisplayModeChoiceClass(PageCalendarDisplayMode.Month)}
               onClick={() => { handleCalendarDisplayModeChange(PageCalendarDisplayMode.Month); }}>
               Month
             </div>
@@ -1214,26 +1215,26 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.RatingType}>
-          <div class="absolute border rounded bg-slate-50 mb-1 shadow-lg"
+          <div class={TOOLBAR_MENU_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={() => { handleRatingTypeChange("Star"); }}>
+            <div class={toolbarMenuItemClass(ratingItem().ratingType == "Star")} onClick={() => { handleRatingTypeChange("Star"); }}>
               Star
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { handleRatingTypeChange("Number"); }}>
+            <div class={toolbarMenuItemClass(ratingItem().ratingType == "Number")} onClick={() => { handleRatingTypeChange("Number"); }}>
               Number
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { handleRatingTypeChange("HorizontalBar"); }}>
+            <div class={toolbarMenuItemClass(ratingItem().ratingType == "HorizontalBar")} onClick={() => { handleRatingTypeChange("HorizontalBar"); }}>
               Horizontal Bar
             </div>
-            <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={() => { handleRatingTypeChange("VerticalBar"); }}>
+            <div class={toolbarMenuItemClass(ratingItem().ratingType == "VerticalBar")} onClick={() => { handleRatingTypeChange("VerticalBar"); }}>
               Vertical Bar
             </div>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.QrLink}>
-          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+          <div class={TOOLBAR_POPUP_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
@@ -1285,13 +1286,13 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.MoreActions}>
-          <div class="absolute border rounded bg-white shadow-md border-slate-400 p-[4px]"
+          <div class={TOOLBAR_MENU_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Show when={conversionEligibility().allowed}>
               <button ref={conversionButton} type="button"
-                class="w-full rounded px-[8px] py-[5px] text-left text-sm text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                class={toolbarMenuItemClass()}
                 onClick={event => { event.stopPropagation(); void handleConversionClick(); }}>
                 {conversionLabel()}
               </button>
@@ -1299,7 +1300,7 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.ItemIcon}>
-          <div class="absolute border rounded-md bg-slate-50 mb-1 shadow-lg border-slate-400 overflow-hidden"
+          <div class={`${TOOLBAR_POPUP_CLASS} overflow-hidden`}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
@@ -1391,7 +1392,7 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={true}>
-          <div class="absolute border rounded bg-white mb-1 shadow-md border-black"
+          <div class={TOOLBAR_POPUP_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>

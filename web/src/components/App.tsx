@@ -21,7 +21,7 @@ import { SignUp } from './SignUp';
 import { Login } from './Login';
 import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
-import { switchToItem, switchToNonPage, switchToPage } from '../layout/navigation';
+import { navigateBack, switchToItem, switchToNonPage, switchToPage } from '../layout/navigation';
 import { isEmptyVeid, VeFns, type Veid } from '../layout/visual-element';
 import { ArrangeAlgorithm, asPageItem, isPage } from '../items/page-item';
 import { isUid, POPUP_LINK_UID } from '../util/uid';
@@ -172,6 +172,11 @@ const App: Component = () => {
   };
 
   const windowPopStateListener = async (e: PopStateEvent) => {
+    if (store.history.finishBrowserTraversal(e.state)) { return; }
+    if (store.history.shouldClosePopupOnBrowserBack(e.state)) {
+      await navigateBack(store);
+      return;
+    }
     const navigationRequestId = store.history.beginNavigationRequest();
     const departedPageVeid = store.history.currentPageVeid();
     const direction = store.history.activateBrowserEntry(e.state);

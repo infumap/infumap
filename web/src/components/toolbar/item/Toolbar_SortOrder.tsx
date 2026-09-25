@@ -22,6 +22,7 @@ import { asContainerItem } from "../../../items/base/container-item";
 import { useStore } from "../../../store/StoreProvider";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { getToolbarFocusItem } from "../toolbarFocus";
+import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 
 export const Toolbar_SortOrder: Component = () => {
   const store = useStore();
@@ -40,7 +41,7 @@ export const Toolbar_SortOrder: Component = () => {
     const bounds = button!.getBoundingClientRect();
     store.overlay.toolbarPopupInfoMaybe.set({
       type: ToolbarPopupType.ChildSortOrder,
-      topLeftPx: { x: bounds.x, y: bounds.y + 35 },
+      topLeftPx: { x: bounds.x, y: toolbarPopupTopPx(store) },
     });
   };
 

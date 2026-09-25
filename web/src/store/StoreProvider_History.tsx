@@ -57,8 +57,15 @@ interface BrowserEntryState {
 
 interface BrowserEntry {
   position: number,
+  url: string,
   breadcrumbs: Array<PageBreadcrumb>,
+  popupParentEntryId: Uid | null,
 }
+
+type BrowserAction =
+  { type: "push" | "replace", state: BrowserEntryState, url: string } |
+  { type: "traverse", state: BrowserEntryState } |
+  { type: "back" };
 
 function browserEntryState(value: unknown): BrowserEntryState | null {
   if (value == null || typeof value !== "object" || !("infumapHistory" in value)) { return null; }
@@ -82,6 +89,9 @@ export interface HistoryStoreContextModel {
   isNavigationRequestCurrent: (requestId: number) => boolean,
   initializeBrowserEntry: () => void,
   activateBrowserEntry: (state: unknown) => BrowserEntryDirection | null,
+  finishBrowserTraversal: (state: unknown) => boolean,
+  shouldClosePopupOnBrowserBack: (state: unknown) => boolean,
+  back: () => void,
   restoreBrowserEntry: () => boolean,
   writeBrowserEntry: (url: string, mode: BrowserEntryWrite, hasPage?: boolean) => void,
   isCurrentBrowserEntryReady: () => boolean,
@@ -119,10 +129,64 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   const browserEntries = new Map<Uid, BrowserEntry>();
   let activeBrowserEntry: BrowserEntryState | null = null;
   let displayedBrowserEntryId: Uid | null = null;
+  const browserActions: Array<BrowserAction> = [];
+  let pendingTraversalId: Uid | null = null;
   // Pending document opens use this to ignore results after another navigation starts.
   let navigationRequestId = 0;
   const beginNavigationRequest = (): number => ++navigationRequestId;
   const isNavigationRequestCurrent = (requestId: number): boolean => requestId == navigationRequestId;
+
+  const flushBrowserActions = (): void => {
+    if (pendingTraversalId != null) { return; }
+    while (browserActions.length > 0) {
+      const action = browserActions.shift()!;
+      if (action.type == "back") {
+        window.history.back();
+        return;
+      }
+      if (action.type == "traverse") {
+        const actual = browserEntryState(window.history.state);
+        if (actual?.infumapHistory.entryId == action.state.infumapHistory.entryId) { continue; }
+        if (actual == null) { throw new Error("Cannot traverse history without a valid ID."); }
+        pendingTraversalId = action.state.infumapHistory.entryId;
+        window.history.go(action.state.infumapHistory.position - actual.infumapHistory.position);
+        return;
+      }
+      if (action.type == "push") {
+        window.history.pushState(action.state, "", action.url);
+      } else {
+        window.history.replaceState(action.state, "", action.url);
+      }
+    }
+  };
+
+  const queueBrowserAction = (action: BrowserAction): void => {
+    // A newer interaction supersedes a page Back waiting behind a popup close.
+    // Keep Back last so no writes run against a page traversal still in flight.
+    for (let i = browserActions.length - 1; i >= 0; --i) {
+      if (browserActions[i].type == "back") { browserActions.splice(i, 1); }
+    }
+    browserActions.push(action);
+    flushBrowserActions();
+  };
+
+  // Popup close is synchronous for callers that immediately set focus or navigate.
+  // Native traversal is asynchronous, so defer subsequent writes until it arrives.
+  const finishBrowserTraversal = (state: unknown): boolean => {
+    if (pendingTraversalId == null) { return false; }
+    const isExpected = browserEntryState(state)?.infumapHistory.entryId == pendingTraversalId;
+    pendingTraversalId = null;
+    if (!isExpected) {
+      // A separate browser action superseded the pending application traversal.
+      browserActions.length = 0;
+      displayedBrowserEntryId = null;
+      return false;
+    }
+    flushBrowserActions();
+    return true;
+  };
+
+  const back = (): void => queueBrowserAction({ type: "back" });
 
   const initializeBrowserEntry = (): void => {
     activeBrowserEntry = browserEntryState(window.history.state);
@@ -142,7 +206,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     return position < previousPosition ? "back" : "forward";
   };
 
-  const writeBrowserEntry = (url: string, mode: BrowserEntryWrite, hasPage: boolean = true): void => {
+  const writeBrowserEntry = (url: string, mode: BrowserEntryWrite, hasPage: boolean = true, popupParentEntryId: Uid | null = null): void => {
     if (mode == "push") {
       const position = activeBrowserEntry?.infumapHistory.position ?? -1;
       // A push after Back abandons the browser's Forward branch.
@@ -150,18 +214,23 @@ export function makeHistoryStore(): HistoryStoreContextModel {
         if (entry.position > position) { browserEntries.delete(id); }
       }
       activeBrowserEntry = { infumapHistory: { version: 1, entryId: newUid(), position: position + 1 } };
-      window.history.pushState(activeBrowserEntry, "", url);
+      queueBrowserAction({ type: "push", state: activeBrowserEntry, url });
     } else {
       if (activeBrowserEntry == null) {
         if (mode == "restore") { throw new Error("Cannot restore a history entry without a valid ID."); }
         initializeBrowserEntry();
       }
-      if (mode == "replace") { window.history.replaceState(activeBrowserEntry, "", url); }
+      if (mode == "replace") { queueBrowserAction({ type: "replace", state: activeBrowserEntry!, url }); }
     }
     const { entryId, position } = activeBrowserEntry!.infumapHistory;
     // Copy the chain, retaining each visit's mutable focus and popup context.
     // Later pushes/replacements must not change the saved chain's length.
-    browserEntries.set(entryId, { position, breadcrumbs: hasPage ? breadcrumbs().slice() : [] });
+    browserEntries.set(entryId, {
+      position,
+      url: mode == "restore" ? window.location.href : new URL(url, window.location.href).href,
+      breadcrumbs: hasPage ? breadcrumbs().slice() : [],
+      popupParentEntryId,
+    });
     displayedBrowserEntryId = hasPage ? entryId : null;
   };
 
@@ -212,6 +281,48 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const isCurrentBrowserEntryReady = (): boolean =>
     displayedBrowserEntryId != null && displayedBrowserEntryId == activeBrowserEntry?.infumapHistory.entryId;
+
+  const currentBrowserEntry = (): BrowserEntry | undefined => {
+    const id = activeBrowserEntry?.infumapHistory.entryId;
+    return id == null ? undefined : browserEntries.get(id);
+  };
+
+  const shouldClosePopupOnBrowserBack = (state: unknown): boolean => {
+    const destination = browserEntryState(state);
+    return destination != null && activeBrowserEntry != null && isCurrentBrowserEntryReady() &&
+      destination.infumapHistory.position < activeBrowserEntry.infumapHistory.position &&
+      currentPopupSpec() != null && currentBrowserEntry()?.popupParentEntryId != null;
+  };
+
+  const popupParentEntryId = (closeAll: boolean): Uid | null => {
+    let parentId = currentBrowserEntry()?.popupParentEntryId ?? null;
+    if (closeAll) {
+      while (parentId != null) {
+        const nextParentId = browserEntries.get(parentId)?.popupParentEntryId;
+        if (nextParentId == null) { break; }
+        parentId = nextParentId;
+      }
+    }
+    return parentId;
+  };
+
+  const detachCurrentBreadcrumb = (): PageBreadcrumb => {
+    const chain = breadcrumbs().slice();
+    const current = chain[chain.length - 1];
+    const detached = { ...current, popupBreadcrumbs: current.popupBreadcrumbs.slice() };
+    chain[chain.length - 1] = detached;
+    setBreadcrumbs(chain);
+    return detached;
+  };
+
+  const returnFromPopup = (parentId: Uid | null): void => {
+    const parent = parentId == null ? null : browserEntries.get(parentId);
+    if (parent == null || parentId == null) { return; }
+    activeBrowserEntry = { infumapHistory: { version: 1, entryId: parentId, position: parent.position } };
+    parent.breadcrumbs = breadcrumbs().slice();
+    displayedBrowserEntryId = parentId;
+    queueBrowserAction({ type: "traverse", state: activeBrowserEntry });
+  };
 
   const setHistoryToSinglePage = (pageVeid: Veid, focusPath?: VisualElementPath, sourceItemId: Uid = pageVeid.itemId): void => {
     beginNavigationRequest();
@@ -289,6 +400,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const pushPopup = (popupSpec: PopupSpec): void => {
     if (breadcrumbs().length == 0) { panic("pushPopup: no breadcrumbs."); }
+    if (!isCurrentBrowserEntryReady()) { return; }
 
     if (popupSpec.vePath && (popupSpec.vePath.startsWith("-") || popupSpec.vePath.includes("--"))) {
       console.error("MALFORMED PATH DETECTION: pushPopup received malformed vePath");
@@ -298,7 +410,10 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       panic(`pushPopup: malformed vePath received: "${popupSpec.vePath}"`);
     }
 
-    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
+    const parentId = activeBrowserEntry!.infumapHistory.entryId;
+    const url = currentBrowserEntry()!.url;
+    beginNavigationRequest();
+    const breadcrumb = detachCurrentBreadcrumb();
     const popupSpecWithRestoreFocusPath: PopupSpec = {
       ...popupSpec,
       restoreFocusPath: popupSpec.restoreFocusPath ?? breadcrumb.focusPath,
@@ -306,10 +421,16 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     breadcrumb.popupBreadcrumbs.push(popupSpecWithRestoreFocusPath);
     breadcrumb.focusPath = popupSpecWithRestoreFocusPath.vePath;
     setBreadcrumbs(breadcrumbs());
+    writeBrowserEntry(url, "push", true, parentId);
   };
 
   const replacePopup = (popupSpec: PopupSpec): void => {
     if (breadcrumbs().length == 0) { panic("replacePopup: no breadcrumbs."); }
+    if (!isCurrentBrowserEntryReady()) { return; }
+    if (currentPopupSpec() == null) {
+      pushPopup(popupSpec);
+      return;
+    }
 
     if (popupSpec.vePath && (popupSpec.vePath.startsWith("-") || popupSpec.vePath.includes("--"))) {
       console.error("MALFORMED PATH DETECTION: replacePopup received malformed vePath");
@@ -319,7 +440,10 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       panic(`replacePopup: malformed vePath received: "${popupSpec.vePath}"`);
     }
 
-    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
+    const parentId = popupParentEntryId(true);
+    const url = currentBrowserEntry()!.url;
+    beginNavigationRequest();
+    const breadcrumb = detachCurrentBreadcrumb();
     const popupSpecWithRestoreFocusPath: PopupSpec = {
       ...popupSpec,
       restoreFocusPath:
@@ -330,12 +454,15 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     breadcrumb.popupBreadcrumbs = [popupSpecWithRestoreFocusPath];
     breadcrumb.focusPath = popupSpecWithRestoreFocusPath.vePath;
     setBreadcrumbs(breadcrumbs());
+    writeBrowserEntry(url, "replace", true, parentId);
   };
 
   const popPopup = (focusRootPage?: boolean): void => {
     if (breadcrumbs().length == 0) { panic("popPopup: no breadcrumbs."); }
-    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
-    if (breadcrumb.popupBreadcrumbs.length == 0) { return; }
+    if (currentPopupSpec() == null) { return; }
+    beginNavigationRequest();
+    const parentId = popupParentEntryId(false);
+    const breadcrumb = detachCurrentBreadcrumb();
     const popupSpec = breadcrumb.popupBreadcrumbs.pop();
 
     // Clear pending popup position fields from the popup item (not persisted changes are discarded)
@@ -383,12 +510,15 @@ export function makeHistoryStore(): HistoryStoreContextModel {
       breadcrumb.focusPath = nextVePath;
     }
     setBreadcrumbs(breadcrumbs());
+    returnFromPopup(parentId);
   };
 
   const popAllPopups = (): void => {
     if (breadcrumbs().length == 0) { panic("popAllPopups: no breadcrumbs."); }
-
-    const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
+    if (currentPopupSpec() == null) { return; }
+    beginNavigationRequest();
+    const parentId = popupParentEntryId(true);
+    const breadcrumb = detachCurrentBreadcrumb();
 
     // Clear pending popup position fields from all popup items
     for (const popupSpec of breadcrumb.popupBreadcrumbs) {
@@ -415,6 +545,7 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     breadcrumb.popupBreadcrumbs = [];
     breadcrumb.focusPath = focusPath;
     setBreadcrumbs(breadcrumbs());
+    returnFromPopup(parentId);
   };
 
   const currentPopupSpec = (): PopupSpec | null => {
@@ -526,6 +657,9 @@ export function makeHistoryStore(): HistoryStoreContextModel {
     isNavigationRequestCurrent,
     initializeBrowserEntry,
     activateBrowserEntry,
+    finishBrowserTraversal,
+    shouldClosePopupOnBrowserBack,
+    back,
     restoreBrowserEntry,
     writeBrowserEntry,
     isCurrentBrowserEntryReady,

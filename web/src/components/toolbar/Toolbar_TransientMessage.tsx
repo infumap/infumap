@@ -16,6 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "./toolbarPopupStyle";
+
 import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
@@ -29,12 +31,12 @@ export const Toolbar_TransientMessage: Component = () => {
   const isError = () => message()?.type === TransientMessageType.Error;
 
   return (
-    <div class="absolute border rounded mb-1 shadow-md pl-[12px] pr-[12px] pt-[6px] pb-[6px] text-sm"
+    <div class={`${TOOLBAR_POPUP_CLASS} px-[12px] py-[6px] text-sm`}
          classList={{
-           "bg-white border-black text-slate-800": !isError(),
-           "border-black text-white font-semibold": isError()
+           "text-slate-800": !isError(),
+           "text-white font-semibold": isError()
          }}
-         style={`right: ${5}px; top: ${47}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; ${isError() ? 'background-color: #dc2626;' : ''}`}>
+         style={`right: ${5}px; top: ${toolbarPopupTopPx(store)}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; ${isError() ? 'background-color: #dc2626;' : ''}`}>
       {message()?.text}
     </div>
   );

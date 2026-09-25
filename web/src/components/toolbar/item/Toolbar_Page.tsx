@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 import { Component, Show, createEffect } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
@@ -76,7 +77,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: arrangeAlgoDiv!.getBoundingClientRect().x, y: arrangeAlgoDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageArrangeAlgorithm });
+      { topLeftPx: { x: arrangeAlgoDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageArrangeAlgorithm });
   };
   const handleArrangeAlgoDown = () => {
     if (isQueriesPage()) {
@@ -91,7 +92,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: calendarDisplayModeDiv!.getBoundingClientRect().x, y: calendarDisplayModeDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCalendarDisplayMode });
+      { topLeftPx: { x: calendarDisplayModeDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageCalendarDisplayMode });
   };
   const handleCalendarDisplayModeDown = () => {
     ClickState.setButtonClickBoundsPx(calendarDisplayModeDiv!.getBoundingClientRect());
@@ -379,7 +380,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: divBeforeColorSelect!.getBoundingClientRect().x + 8, y: divBeforeColorSelect!.getBoundingClientRect().y + 19 }, type: ToolbarPopupType.PageColor });
+      { topLeftPx: { x: divBeforeColorSelect!.getBoundingClientRect().x + 8, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageColor });
   };
   const handleColorDown = () => {
     ClickState.setButtonClickBoundsPx(colorSelectDiv!.getBoundingClientRect());
@@ -392,7 +393,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: aspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageAspect });
+      { topLeftPx: { x: aspectDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageAspect });
   };
   const handleAspectDown = () => {
     ClickState.setButtonClickBoundsPx(aspectDiv!.getBoundingClientRect());
@@ -405,7 +406,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: cellAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageCellAspect });
+      { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageCellAspect });
   };
   const handleCellAspectDown = () => {
     ClickState.setButtonClickBoundsPx(cellAspectDiv!.getBoundingClientRect());
@@ -418,7 +419,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: justifiedRowAspectDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageJustifiedRowAspect });
+      { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageJustifiedRowAspect });
   };
   const handleJustifiedRowAspectDown = () => {
     ClickState.setButtonClickBoundsPx(justifiedRowAspectDiv!.getBoundingClientRect());
@@ -431,7 +432,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: widthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageWidth });
+      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageWidth });
   };
   const handleWidthDown = () => {
     ClickState.setButtonClickBoundsPx(widthDiv!.getBoundingClientRect());
@@ -444,7 +445,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: docWidthDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageDocWidth });
+      { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageDocWidth });
   };
   const handlePageDocWidthDown = () => {
     ClickState.setButtonClickBoundsPx(docWidthDiv!.getBoundingClientRect());
@@ -457,7 +458,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 }, type: ToolbarPopupType.PageNumCols });
+      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageNumCols });
   };
   const handleNumColsDown = () => {
     ClickState.setButtonClickBoundsPx(numColsDiv!.getBoundingClientRect());
@@ -469,7 +470,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set({
-      topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: numColsDiv!.getBoundingClientRect().y + 35 },
+      topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) },
       type: ToolbarPopupType.PageTableNumCols,
     });
   };
@@ -481,7 +482,7 @@ export const Toolbar_Page: Component = () => {
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: qrDiv!.getBoundingClientRect().y + 38 }, type: ToolbarPopupType.QrLink });
+      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
   }
   const handleQrDown = () => {
     ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
