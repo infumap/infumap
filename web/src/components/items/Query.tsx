@@ -138,7 +138,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [deepResearch, setDeepResearch] = createSignal(false);
   const [isSendingChat, setIsSendingChat] = createSignal(false);
   const [isMaterializingChat, setIsMaterializingChat] = createSignal(false);
-  const [materializingChatStatus, setMaterializingChatStatus] = createSignal("Generating page title");
+  const [materializingChatStatus, setMaterializingChatStatus] = createSignal("Generating document title");
   const [queryTextareaHeightPx, setQueryTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatTextareaHeightPx, setChatTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatActivityNowMs, setChatActivityNowMs] = createSignal(Date.now());
@@ -606,17 +606,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return;
     }
     setIsMaterializingChat(true);
-    setMaterializingChatStatus("Generating page title");
+    setMaterializingChatStatus("Generating document title");
     try {
-      const ok = await materializeQueryChat(store, queryItem(), phase => {
-        setMaterializingChatStatus(phase == "generating_title" ? "Generating page title" : "Creating page");
+      await materializeQueryChat(store, queryItem(), phase => {
+        setMaterializingChatStatus(phase == "generating_title" ? "Generating document title" : "Creating Markdown item");
       });
-      if (ok) {
-        resetLocalQuerySessionUi();
-        setForceNonEditing(false);
-      } else {
-        focusChatTextareaSoon();
-      }
+      focusChatTextareaSoon();
     } finally {
       setIsMaterializingChat(false);
     }
@@ -1092,8 +1087,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              title={isMaterializingChat() ? materializingChatStatus() : "Create page from chat"}
-              aria-label={isMaterializingChat() ? materializingChatStatus() : "Create page from chat"}
+              title={isMaterializingChat() ? materializingChatStatus() : "Create Markdown from chat"}
+              aria-label={isMaterializingChat() ? materializingChatStatus() : "Create Markdown from chat"}
               disabled={chatRequestActive() || isMaterializingChat() || !queryChatHasContent(store, queryItem())}
               onClick={() => void materializeCurrentChat()}>
               <i class={isMaterializingChat() ? "fa fa-circle-notch fa-spin" : "bi-file-earmark-plus"} />

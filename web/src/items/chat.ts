@@ -29,10 +29,13 @@ import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
+import { TextFns } from "./text-item";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import { server, type ChatMessage, type ChatModelSelection, type ChatStreamEvent, type ChatStreamPhase, type ChatToolServerInfo } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { TransientMessageType } from "../store/StoreProvider_Overlay";
+import { base64ArrayBuffer } from "../util/base64ArrayBuffer";
 import {
   setExtraDefaultChatCapabilities,
   type ChatCapability,
@@ -45,14 +48,14 @@ import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 const MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE = "Chat";
 const MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS = 100;
-const MATERIALIZED_QUERY_CHAT_TITLE_PROMPT = "Give this conversation a concise, informative page title. " +
+const MATERIALIZED_QUERY_CHAT_TITLE_PROMPT = "Give this conversation a concise, informative document title. " +
   "Name the user's underlying topic or question, not the assistant's process, search method, sources, or caveats. " +
   "Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually " +
   "two to four words and never more than six. Use title case. Do not begin with words such as Finding, " +
   "Researching, Searching, Exploring, or Analyzing. " +
   "Use plain text only, with no Markdown, quotation marks, or ending punctuation. Reply with only the title.";
 
-export type QueryChatMaterializationPhase = "generating_title" | "creating_page";
+export type QueryChatMaterializationPhase = "generating_title" | "creating_markdown";
 
 function markAsQueryChatPage(item: Item): void {
   item.clientOnly = true;
@@ -545,23 +548,13 @@ async function generateMaterializedQueryChatTitle(
   return titleFromModelResponse(response.assistantText);
 }
 
-function finalAnswerFromCompletedActivity(activity: QueryChatCompletedActivity): string {
-  for (let index = activity.rounds.length - 1; index >= 0; index--) {
-    const answer = activity.rounds[index].answer.trim();
-    if (answer != "") {
-      return answer;
-    }
-  }
-  return "";
-}
-
 function materializedAssistantSectionTitlePrompt(turnNumber: number, assistantText: string): string {
   const excerptChars = [...assistantText.trim().replace(/\s+/g, " ")].slice(0, 180);
   const excerpt = excerptChars.join("");
   const target = excerpt == ""
     ? `The target is assistant turn ${turnNumber}. `
     : `The target is assistant turn ${turnNumber}, beginning with ${JSON.stringify(excerpt)}. `;
-  return "Give the selected assistant response in this conversation a concise, informative page title. " +
+  return "Give the selected assistant response in this conversation a concise, informative document title. " +
     target +
     "Name that response's underlying topic or answer, not the assistant's process, search method, sources, or caveats. " +
     "Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually " +
@@ -1086,6 +1079,7 @@ function finalizeServerReturnedQueryItems(
       const completedActivity: QueryChatCompletedActivity = {
         requestId: streamingState.requestId,
         assistantRootIds: [...staged.rootIds],
+        assistantText,
         rounds: cloneCompletedRounds(streamingState.rounds),
         startedAt: streamingState.startedAt,
         completedAt: Date.now(),
@@ -1121,12 +1115,6 @@ function finalizeServerReturnedQueryItems(
   }
 
   return insertedItems;
-}
-
-async function persistItems(store: StoreContextModel, items: Array<Item>): Promise<void> {
-  for (const item of items) {
-    await server.addItem(item, null, store.general.networkStatus);
-  }
 }
 
 export async function submitQueryChatMessage(
@@ -1252,44 +1240,82 @@ export function queryChatHasContent(store: StoreContextModel, queryItem: QueryIt
   return queryChatRootIds(store, queryItem).length > 0;
 }
 
-function cloneItemForMaterializedChat(source: Item, parentId: Uid, relationshipToParent: RelationshipToParent): Item {
-  const clone = ItemFns.fromObject(ItemFns.toObject(source), null);
-  clone.id = newUid();
-  clone.parentId = parentId;
-  clone.relationshipToParent = relationshipToParent;
-  clone.groupId = null;
-  clone.capabilities = null;
-  delete clone.clientOnly;
-  delete clone.clientOnlyKind;
-  if (isContainer(clone)) {
-    asContainerItem(clone).computed_children = [];
-    asContainerItem(clone).childrenLoaded = true;
-    markChildrenLoadAsInitiatedOrComplete(clone.id);
+function queryChatMarkdown(store: StoreContextModel, queryItem: QueryItem): string {
+  const chat = getQueryRuntime(store, queryItem).chat;
+  const activityByRootId = new Map<Uid, QueryChatCompletedActivity>();
+  for (const activity of chat.completedActivities) {
+    for (const rootId of activity.assistantRootIds) {
+      activityByRootId.set(rootId, activity);
+    }
   }
-  return clone;
+
+  const sections: Array<string> = [];
+  const exportedActivities = new Set<string>();
+  // Follow the visible turns, not the model transcript, which also contains tool exchanges.
+  for (const rootId of chat.rootItemIds) {
+    const activity = activityByRootId.get(rootId);
+    if (activity != null) {
+      if (!exportedActivities.has(activity.requestId)) {
+        sections.push(`**Assistant**\n\n${activity.assistantText}`);
+        exportedActivities.add(activity.requestId);
+      }
+      continue;
+    }
+
+    const root = itemState.get(rootId);
+    if (root == null) { continue; }
+    const notes = isContainer(root)
+      ? asContainerItem(root).computed_children.map(id => itemState.get(id))
+      : [root];
+    const text = notes.filter(item => item != null && isNote(item))
+      .map(item => asNoteItem(item!).title).join("\n\n");
+    if (text != "") {
+      sections.push(`**You**\n\n${text}`);
+    }
+  }
+  return sections.join("\n\n---\n\n");
 }
 
-function cloneChildrenIntoMaterializedChat(sourceParent: Item, targetParentId: Uid, result: Array<Item>): void {
-  const cloneChildSubtree = (sourceId: Uid, relationshipToParent: RelationshipToParent) => {
-    const child = itemState.get(sourceId);
-    if (!child) { return; }
-    const clone = cloneItemForMaterializedChat(child, targetParentId, relationshipToParent);
-    itemState.add(clone);
-    result.push(clone);
-    cloneChildrenIntoMaterializedChat(child, clone.id, result);
-  };
+async function createQueryChatMarkdownItem(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  title: string,
+  markdown: string,
+): Promise<boolean> {
+  // The server uses the extension to recognize Markdown when detecting the data's MIME type.
+  const filename = /\.(md|markdown)$/i.test(title) ? title : `${title}.md`;
+  const textItem = TextFns.create(
+    queryItem.ownerId,
+    queryItem.parentId,
+    RelationshipToParent.Child,
+    filename,
+    itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id),
+  );
+  const bytes = new TextEncoder().encode(markdown);
+  textItem.mimeType = "text/markdown";
+  textItem.fileSizeBytes = bytes.byteLength;
 
-  if (isContainer(sourceParent)) {
-    for (const childId of asContainerItem(sourceParent).computed_children) {
-      cloneChildSubtree(childId, RelationshipToParent.Child);
-    }
+  try {
+    const returnedItem = await server.addItem(textItem, base64ArrayBuffer(bytes.buffer), store.general.networkStatus);
+    itemState.add(ItemFns.fromObject(returnedItem, null));
+    requestArrange(store, "query-chat-markdown-created");
+    showChatMarkdownMessage(store, "Markdown item created", TransientMessageType.Info);
+    return true;
+  } catch (e) {
+    console.error("Failed to create Markdown from chat:", e);
+    showChatMarkdownMessage(store, "Could not create Markdown item", TransientMessageType.Error);
+    return false;
   }
+}
 
-  if (isAttachmentsItem(sourceParent)) {
-    for (const attachmentId of asAttachmentsItem(sourceParent).computed_attachments) {
-      cloneChildSubtree(attachmentId, RelationshipToParent.Attachment);
+function showChatMarkdownMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
+  const message = { text, type };
+  store.overlay.toolbarTransientMessage.set(message);
+  setTimeout(() => {
+    if (store.overlay.toolbarTransientMessage.get() === message) {
+      store.overlay.toolbarTransientMessage.set(null);
     }
-  }
+  }, 3000);
 }
 
 export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): void {
@@ -1343,54 +1369,20 @@ export async function materializeQueryChat(
     console.error("Failed to materialize query chat: no valid parent container.", queryItem);
     return false;
   }
-  const sourceChatPage = ensureTemporaryQueryChatPage(store, queryItem);
+  const markdown = queryChatMarkdown(store, queryItem);
+  if (markdown == "") {
+    return false;
+  }
   const fallbackTitle = titleFromPrompt(firstPromptInQueryChat(store, queryItem));
   let generatedTitle: string | null = null;
   onPhase?.("generating_title");
   try {
     generatedTitle = await generateMaterializedQueryChatTitle(store, queryItem);
   } catch (e) {
-    console.warn("Failed to generate a query chat page title; using the prompt-derived fallback:", e);
+    console.warn("Failed to generate a query chat document title; using the prompt-derived fallback:", e);
   }
-  onPhase?.("creating_page");
-
-  const materializedPage = PageFns.create(
-    queryItem.ownerId,
-    queryItem.parentId,
-    RelationshipToParent.Child,
-    generatedTitle ?? fallbackTitle,
-    itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id),
-  );
-  materializedPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
-  materializedPage.flags |= PageFlags.HideDocumentTitle;
-  materializedPage.orderChildrenBy = "";
-  materializedPage.childrenLoaded = true;
-  markChildrenLoadAsInitiatedOrComplete(materializedPage.id);
-
-  itemState.add(materializedPage);
-  const clonedItems: Array<Item> = [];
-  cloneChildrenIntoMaterializedChat(sourceChatPage, materializedPage.id, clonedItems);
-  requestArrange(store, "query-chat-materialize-local");
-
-  try {
-    await server.addItem(materializedPage, null, store.general.networkStatus);
-    await persistItems(store, clonedItems);
-    resetQueryChatSession(store, queryItem);
-    store.perItem.setSelectedListPageItem(
-      { itemId: materializedPage.parentId, linkIdMaybe: null },
-      { itemId: materializedPage.id, linkIdMaybe: null },
-    );
-    requestArrange(store, "query-chat-materialize-complete");
-    return true;
-  } catch (e) {
-    console.error("Failed to materialize query chat:", e);
-    for (const item of clonedItems.reverse()) {
-      itemState.delete(item.id);
-    }
-    itemState.delete(materializedPage.id);
-    requestArrange(store, "query-chat-materialize-rollback");
-    return false;
-  }
+  onPhase?.("creating_markdown");
+  return createQueryChatMarkdownItem(store, queryItem, generatedTitle ?? fallbackTitle, markdown);
 }
 
 export async function materializeQueryChatAssistantSection(
@@ -1420,7 +1412,7 @@ export async function materializeQueryChatAssistantSection(
     return false;
   }
 
-  const assistantText = finalAnswerFromCompletedActivity(activity);
+  const assistantText = activity.assistantText;
   const cleanedFallbackText = titleFromModelResponse(assistantText) ?? assistantText;
   const fallbackTitle = titleFromPrompt(cleanedFallbackText);
   let generatedTitle: string | null = null;
@@ -1432,44 +1424,8 @@ export async function materializeQueryChatAssistantSection(
       materializedAssistantSectionTitlePrompt(turnNumber, assistantText),
     );
   } catch (e) {
-    console.warn("Failed to generate a query chat section page title; using the response-derived fallback:", e);
+    console.warn("Failed to generate a query chat response document title; using the response-derived fallback:", e);
   }
-  onPhase?.("creating_page");
-
-  const materializedPage = PageFns.create(
-    queryItem.ownerId,
-    queryItem.parentId,
-    RelationshipToParent.Child,
-    generatedTitle ?? fallbackTitle,
-    itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id),
-  );
-  materializedPage.arrangeAlgorithm = ArrangeAlgorithm.Document;
-  materializedPage.flags |= PageFlags.HideDocumentTitle;
-  materializedPage.orderChildrenBy = "";
-  materializedPage.childrenLoaded = true;
-  markChildrenLoadAsInitiatedOrComplete(materializedPage.id);
-
-  itemState.add(materializedPage);
-  const clonedItems: Array<Item> = [];
-  cloneChildrenIntoMaterializedChat(sectionRoot, materializedPage.id, clonedItems);
-  requestArrange(store, "query-chat-section-materialize-local");
-
-  try {
-    await server.addItem(materializedPage, null, store.general.networkStatus);
-    await persistItems(store, clonedItems);
-    store.perItem.setSelectedListPageItem(
-      { itemId: materializedPage.parentId, linkIdMaybe: null },
-      { itemId: materializedPage.id, linkIdMaybe: null },
-    );
-    requestArrange(store, "query-chat-section-materialize-complete");
-    return true;
-  } catch (e) {
-    console.error("Failed to materialize query chat section:", e);
-    for (const item of clonedItems.reverse()) {
-      itemState.delete(item.id);
-    }
-    itemState.delete(materializedPage.id);
-    requestArrange(store, "query-chat-section-materialize-rollback");
-    return false;
-  }
+  onPhase?.("creating_markdown");
+  return createQueryChatMarkdownItem(store, queryItem, generatedTitle ?? fallbackTitle, assistantText);
 }

@@ -54,6 +54,7 @@ export interface QueryChatActivityModelRound {
 export interface QueryChatCompletedActivity {
   requestId: string,
   assistantRootIds: Array<Uid>,
+  assistantText: string,
   rounds: Array<QueryChatActivityModelRound>,
   startedAt: number,
   completedAt: number,
