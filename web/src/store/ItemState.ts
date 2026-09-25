@@ -217,7 +217,8 @@ export const itemState = {
         if (cmp !== 0) { return cmp; }
         return a < b ? -1 : (a > b ? 1 : 0);
       });
-    } else if (container.orderChildrenBy == "title[ASC]") {
+    } else if (container.orderChildrenBy == "title[ASC]" || container.orderChildrenBy == "title[DESC]") {
+      const descending = container.orderChildrenBy == "title[DESC]";
       container.computed_children.sort((a, b) => {
         const aItemOriginal = itemState.get(a)!;
         const bItemOriginal = itemState.get(b)!;
@@ -238,7 +239,7 @@ export const itemState = {
         const aTitle = isTitledItem(aForSort) ? asTitledItem(aForSort).title.toLocaleLowerCase() : "";
         const bTitle = isTitledItem(bForSort) ? asTitledItem(bForSort).title.toLocaleLowerCase() : "";
         const cmp = aTitle.localeCompare(bTitle);
-        if (cmp !== 0) { return cmp; }
+        if (cmp !== 0) { return descending ? -cmp : cmp; }
         return a < b ? -1 : (a > b ? 1 : 0);
       });
     }
@@ -251,7 +252,7 @@ export const itemState = {
     if (!parentItem || !isContainer(parentItem)) { return; }
 
     const parentContainer = asContainerItem(parentItem);
-    if (parentContainer.orderChildrenBy == "title[ASC]") {
+    if (parentContainer.orderChildrenBy == "title[ASC]" || parentContainer.orderChildrenBy == "title[DESC]") {
       itemState.sortChildren(parentContainer.id);
     }
   },
