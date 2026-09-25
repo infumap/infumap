@@ -169,7 +169,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
   const isSortedByTitle = () => {
     store.touchToolbarDependency();
-    return tableItem().orderChildrenBy == "title[ASC]";
+    return tableItem().orderChildrenBy == "title[ASC]" || tableItem().orderChildrenBy == "title[DESC]";
   }
   const moveOverChildContainerPath = () => store.perVe.getMoveOverChildContainerPath(vePath());
 

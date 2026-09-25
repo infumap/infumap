@@ -32,6 +32,7 @@ import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem } from "../toolbarFocus";
 import { ItemType } from "../../../items/base/item";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
+import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
 
 
 export const Toolbar_Table: Component = () => {
@@ -42,24 +43,6 @@ export const Toolbar_Table: Component = () => {
 
   const tableItem = () => asTableItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(tableItem());
-
-  const isSortedByTitle = () => {
-    store.touchToolbarDependency();
-    return tableItem().orderChildrenBy == "title[ASC]";
-  }
-
-  const handleOrderChildrenBy = async () => {
-    const orderByTitle = tableItem().orderChildrenBy;
-    if (orderByTitle == "") {
-      tableItem().orderChildrenBy = "title[ASC]";
-    } else {
-      tableItem().orderChildrenBy = "";
-    }
-    itemState.sortChildren(tableItem().id);
-    requestArrange(store, "toolbar-table-order-children");
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
-    store.touchToolbar();
-  }
 
   const showHeader = () => {
     store.touchToolbarDependency();
@@ -150,7 +133,7 @@ export const Toolbar_Table: Component = () => {
             {numColsText()}
           </div>
         </div>
-        <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
+        <Toolbar_SortOrder />
         <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} title="Show column headers" />
         <InfuIconButton icon="bi-type" highlighted={showTitle()} clickHandler={handleChangeShowTitle} title="Show table title" />
       </Show>

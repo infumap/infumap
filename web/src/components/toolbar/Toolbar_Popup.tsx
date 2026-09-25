@@ -46,6 +46,7 @@ import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-it
 import { isImage } from "../../items/image-item";
 import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "./toolbarFocus";
 import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
@@ -261,6 +262,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return 138; }
+  if (overlayType == ToolbarPopupType.ChildSortOrder) { return 100; }
   if (overlayType == ToolbarPopupType.MoreActions) { return 42; }
   if (overlayType == ToolbarPopupType.QrLink) {
     if (isComposite) {
@@ -288,6 +290,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
   if (popupType != ToolbarPopupType.PageColor &&
     popupType != ToolbarPopupType.NoteTextStyle &&
     popupType != ToolbarPopupType.PageArrangeAlgorithm &&
+    popupType != ToolbarPopupType.ChildSortOrder &&
     popupType != ToolbarPopupType.PageCalendarDisplayMode &&
     popupType != ToolbarPopupType.RatingType) {
     const popupWidth = popupType == ToolbarPopupType.MoreActions ? 220
@@ -322,6 +325,13 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       w: 96,
       h: 215
     }
+  } else if (popupType == ToolbarPopupType.ChildSortOrder) {
+    return {
+      x: Math.max(0, Math.min(popupInfo.topLeftPx.x, store.desktopBoundsPx().w - 205)),
+      y: popupInfo.topLeftPx.y,
+      w: 185,
+      h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
+    }
   } else if (popupType == ToolbarPopupType.PageCalendarDisplayMode) {
     return {
       x: popupInfo.topLeftPx.x,
@@ -348,6 +358,7 @@ export const Toolbar_Popup: Component = () => {
   let textElement: HTMLInputElement | undefined;
   let emojiInputElement: HTMLInputElement | undefined;
   let conversionButton: HTMLButtonElement | undefined;
+  let sortOrderMenu: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const noteItem = () => asNoteItem(getToolbarFocusItem(store));
@@ -492,6 +503,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.MoreActions &&
       overlayType() != ToolbarPopupType.NoteTextStyle &&
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
+      overlayType() != ToolbarPopupType.ChildSortOrder &&
       overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
       overlayType() != ToolbarPopupType.TableNumCols &&
       overlayType() != ToolbarPopupType.PageTableNumCols &&
@@ -974,6 +986,43 @@ export const Toolbar_Popup: Component = () => {
   };
   const pageArrangeAlgorithmChoiceClass = (arrangeAlgorithm: ArrangeAlgorithm): string =>
     `text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px] ${pageArrangeAlgorithm() == arrangeAlgorithm ? "font-bold text-slate-900" : ""}`;
+  const sortOrder = () => {
+    const focusItem = getToolbarFocusItem(store);
+    return isPage(focusItem) || isTable(focusItem) ? asContainerItem(focusItem).orderChildrenBy : "";
+  };
+  const handleSortOrderChange = (order: "" | "title[ASC]" | "title[DESC]") => {
+    const focusItem = getToolbarFocusItem(store);
+    if ((!isPage(focusItem) && !isTable(focusItem)) || !itemCanEdit(focusItem)) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    const container = asContainerItem(focusItem);
+    if (container.orderChildrenBy != order) {
+      container.orderChildrenBy = order;
+      itemState.sortChildren(container.id);
+      requestArrange(store, "toolbar-popup-child-sort-order");
+      serverOrRemote.updateItem(container, store.general.networkStatus);
+      store.touchToolbar();
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+  };
+  const sortOrderChoiceClass = (order: "" | "title[ASC]" | "title[DESC]"): string =>
+    `block w-full text-left text-sm hover:bg-slate-300 rounded px-[7px] py-[4px] ${sortOrder() == order ? "font-bold text-slate-900" : ""}`;
+  const handleSortOrderKeyDown = (event: KeyboardEvent) => {
+    event.stopPropagation();
+    if (event.key == "Escape") {
+      event.preventDefault();
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      document.getElementById("toolbarSortOrderButton")?.focus();
+    } else if (event.key == "ArrowUp" || event.key == "ArrowDown") {
+      event.preventDefault();
+      const buttons = sortOrderMenu?.querySelectorAll<HTMLButtonElement>("button");
+      if (!buttons?.length) { return; }
+      const current = Array.from(buttons).indexOf(document.activeElement as HTMLButtonElement);
+      const direction = event.key == "ArrowDown" ? 1 : -1;
+      buttons[(current + direction + buttons.length) % buttons.length].focus();
+    }
+  };
   const calendarDisplayMode = () => getPageCalendarDisplayMode(pageItem());
   const handleCalendarDisplayModeChange = (displayMode: PageCalendarDisplayMode) => {
     const focusItem = getToolbarFocusItem(store);
@@ -1018,6 +1067,10 @@ export const Toolbar_Popup: Component = () => {
   onMount(() => {
     if (overlayTypeConst == ToolbarPopupType.MoreActions) {
       conversionButton?.focus();
+      return;
+    }
+    if (overlayTypeConst == ToolbarPopupType.ChildSortOrder) {
+      sortOrderMenu?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus();
       return;
     }
     if (overlayTypeConst != ToolbarPopupType.QrLink) { return; }
@@ -1117,6 +1170,20 @@ export const Toolbar_Popup: Component = () => {
             <div class={pageArrangeAlgorithmChoiceClass(ArrangeAlgorithm.Calendar)} onClick={aaCalendarClick}>
               Calendar
             </div>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.ChildSortOrder}>
+          <div ref={sortOrderMenu} class="absolute border rounded bg-slate-50 shadow-lg p-[3px]"
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onKeyDown={handleSortOrderKeyDown}>
+            <button type="button" class={sortOrderChoiceClass("")} aria-pressed={sortOrder() == ""}
+              onClick={() => handleSortOrderChange("")}>Manual order</button>
+            <button type="button" class={sortOrderChoiceClass("title[ASC]")} aria-pressed={sortOrder() == "title[ASC]"}
+              onClick={() => handleSortOrderChange("title[ASC]")}>Title: A → Z</button>
+            <button type="button" class={sortOrderChoiceClass("title[DESC]")} aria-pressed={sortOrder() == "title[DESC]"}
+              onClick={() => handleSortOrderChange("title[DESC]")}>Title: Z → A</button>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageCalendarDisplayMode}>

@@ -53,7 +53,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
     store.topTitledPages.get().includes(pagePath());
   const scale = () => blockSize().h / LINE_HEIGHT_PX;
   const columns = () => tabularColumnLayouts(page(), viewport().w / blockSize().w);
-  const isSortedByTitle = () => page().orderChildrenBy == "title[ASC]";
+  const isSortedByTitle = () => page().orderChildrenBy == "title[ASC]" || page().orderChildrenBy == "title[DESC]";
   const moveOverRowY = () => headerHeightPx() +
     (store.perVe.getMoveOverRowNumber(pagePath()) - store.perItem.getTableScrollYPos(pageVeid())) * blockSize().h;
 

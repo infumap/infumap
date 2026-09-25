@@ -39,6 +39,7 @@ import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
+import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
 
 
 export const Toolbar_Page: Component = () => {
@@ -124,11 +125,6 @@ export const Toolbar_Page: Component = () => {
     if (displayMode == PageCalendarDisplayMode.HalfYear) { return "Half-Year"; }
     if (displayMode == PageCalendarDisplayMode.Year) { return "Year"; }
     return "Auto";
-  }
-
-  const isSortedByTitle = () => {
-    store.touchToolbarDependency();
-    return pageItem().orderChildrenBy == "title[ASC]";
   }
 
   const isPublic = () => {
@@ -298,19 +294,6 @@ export const Toolbar_Page: Component = () => {
   const tableNumColsText = () => {
     store.touchToolbarDependency();
     return pageItem().numberOfVisibleColumns;
-  }
-
-  const handleOrderChildrenBy = async () => {
-    const orderByTitle = pageItem().orderChildrenBy;
-    if (orderByTitle == "") {
-      pageItem().orderChildrenBy = "title[ASC]";
-    } else {
-      pageItem().orderChildrenBy = "";
-    }
-    itemState.sortChildren(pageItem().id);
-    requestArrange(store, "toolbar-page-order-children");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
-    store.touchToolbar();
   }
 
   const handleChangePermissions = () => {
@@ -649,7 +632,7 @@ export const Toolbar_Page: Component = () => {
         </Show>
         <Show when={showOrderByButton()}>
           <div class="inline-block ml-[10px]">
-            <InfuIconButton icon="bi-sort-alpha-down" highlighted={isSortedByTitle()} clickHandler={handleOrderChildrenBy} />
+            <Toolbar_SortOrder />
           </div>
         </Show>
         <Show when={!isQueriesPage()}>
