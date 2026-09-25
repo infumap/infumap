@@ -240,7 +240,7 @@ export const Toolbar: Component = () => {
   }
 
   const handleLogoClick = () => {
-    window.history.pushState(null, "", "/");
+    store.history.writeBrowserEntry("/", "push", false);
     window.location.reload();
   }
 

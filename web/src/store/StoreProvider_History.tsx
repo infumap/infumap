@@ -21,7 +21,7 @@ import { VeFns, Veid, VisualElementPath } from "../layout/visual-element";
 import { panic } from "../util/lang";
 import { EMPTY_ITEM, Item, ItemType } from "../items/base/item";
 import { itemState } from "./ItemState";
-import { UMBRELLA_PAGE_UID } from "../util/uid";
+import { isUid, newUid, POPUP_LINK_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "../util/uid";
 import { isImage, asImageItem } from "../items/image-item";
 import { isPage, asPageItem } from "../items/page-item";
 
@@ -42,17 +42,52 @@ export interface PopupSpec {
 
 interface PageBreadcrumb {
   pageVeid: Veid,
+  sourceItemId: Uid,
   focusPath: VisualElementPath | null,
   popupBreadcrumbs: Array<PopupSpec>,
 }
+
+interface BrowserEntryState {
+  infumapHistory: {
+    version: 1,
+    entryId: Uid,
+    position: number,
+  },
+}
+
+interface BrowserEntry {
+  position: number,
+  breadcrumbs: Array<PageBreadcrumb>,
+}
+
+function browserEntryState(value: unknown): BrowserEntryState | null {
+  if (value == null || typeof value !== "object" || !("infumapHistory" in value)) { return null; }
+  const entry = value.infumapHistory;
+  if (entry == null || typeof entry !== "object" ||
+    !("version" in entry) || entry.version !== 1 ||
+    !("entryId" in entry) || typeof entry.entryId !== "string" || !isUid(entry.entryId) ||
+    !("position" in entry) || typeof entry.position !== "number" ||
+    !Number.isSafeInteger(entry.position) || entry.position < 0) {
+    return null;
+  }
+  return value as BrowserEntryState;
+}
+
+export type BrowserEntryWrite = "push" | "replace" | "restore";
+export type BrowserEntryDirection = "back" | "forward" | "same";
 
 
 export interface HistoryStoreContextModel {
   beginNavigationRequest: () => number,
   isNavigationRequestCurrent: (requestId: number) => boolean,
-  setHistoryToSinglePage: (currentPage: Veid, focusPath?: VisualElementPath) => void,
-  pushPageVeid: (veid: Veid, focusPath?: VisualElementPath) => void,
-  popPageVeid: () => boolean,
+  initializeBrowserEntry: () => void,
+  activateBrowserEntry: (state: unknown) => BrowserEntryDirection | null,
+  restoreBrowserEntry: () => boolean,
+  writeBrowserEntry: (url: string, mode: BrowserEntryWrite, hasPage?: boolean) => void,
+  isCurrentBrowserEntryReady: () => boolean,
+  setHistoryToSinglePage: (currentPage: Veid, focusPath?: VisualElementPath, sourceItemId?: Uid) => void,
+  pushPageVeid: (veid: Veid, focusPath?: VisualElementPath, sourceItemId?: Uid) => void,
+  replacePageVeid: (veid: Veid, focusPath?: VisualElementPath, sourceItemId?: Uid) => void,
   currentPageVeid: () => Veid | null,
   currentPagePath: () => string | null,
   peekPrevPageVeid: () => Veid | null,
@@ -81,41 +116,137 @@ export interface HistoryStoreContextModel {
 
 export function makeHistoryStore(): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
+  const browserEntries = new Map<Uid, BrowserEntry>();
+  let activeBrowserEntry: BrowserEntryState | null = null;
+  let displayedBrowserEntryId: Uid | null = null;
   // Pending document opens use this to ignore results after another navigation starts.
   let navigationRequestId = 0;
   const beginNavigationRequest = (): number => ++navigationRequestId;
   const isNavigationRequestCurrent = (requestId: number): boolean => requestId == navigationRequestId;
 
-  const setHistoryToSinglePage = (pageVeid: Veid, focusPath?: VisualElementPath): void => {
+  const initializeBrowserEntry = (): void => {
+    activeBrowserEntry = browserEntryState(window.history.state);
+    if (activeBrowserEntry == null) {
+      activeBrowserEntry = { infumapHistory: { version: 1, entryId: newUid(), position: 0 } };
+      window.history.replaceState(activeBrowserEntry, "");
+    }
+  };
+
+  const activateBrowserEntry = (state: unknown): BrowserEntryDirection | null => {
+    const previousPosition = activeBrowserEntry?.infumapHistory.position;
+    activeBrowserEntry = browserEntryState(state);
+    displayedBrowserEntryId = null;
+    if (activeBrowserEntry == null) { return null; }
+    const position = activeBrowserEntry.infumapHistory.position;
+    if (previousPosition == null || position == previousPosition) { return "same"; }
+    return position < previousPosition ? "back" : "forward";
+  };
+
+  const writeBrowserEntry = (url: string, mode: BrowserEntryWrite, hasPage: boolean = true): void => {
+    if (mode == "push") {
+      const position = activeBrowserEntry?.infumapHistory.position ?? -1;
+      // A push after Back abandons the browser's Forward branch.
+      for (const [id, entry] of browserEntries) {
+        if (entry.position > position) { browserEntries.delete(id); }
+      }
+      activeBrowserEntry = { infumapHistory: { version: 1, entryId: newUid(), position: position + 1 } };
+      window.history.pushState(activeBrowserEntry, "", url);
+    } else {
+      if (activeBrowserEntry == null) {
+        if (mode == "restore") { throw new Error("Cannot restore a history entry without a valid ID."); }
+        initializeBrowserEntry();
+      }
+      if (mode == "replace") { window.history.replaceState(activeBrowserEntry, "", url); }
+    }
+    const { entryId, position } = activeBrowserEntry!.infumapHistory;
+    // Copy the chain, retaining each visit's mutable focus and popup context.
+    // Later pushes/replacements must not change the saved chain's length.
+    browserEntries.set(entryId, { position, breadcrumbs: hasPage ? breadcrumbs().slice() : [] });
+    displayedBrowserEntryId = hasPage ? entryId : null;
+  };
+
+  const pathItemsAreAvailable = (path: VisualElementPath | null): boolean => {
+    while (path && path != UMBRELLA_PAGE_UID) {
+      const veid = VeFns.veidFromPath(path);
+      if (!itemState.get(veid.itemId) ||
+        (veid.linkIdMaybe && veid.linkIdMaybe != POPUP_LINK_UID && !itemState.get(veid.linkIdMaybe))) {
+        return false;
+      }
+      path = VeFns.parentPath(path);
+    }
+    return true;
+  };
+
+  const restoreBrowserEntry = (): boolean => {
+    const entryId = activeBrowserEntry?.infumapHistory.entryId;
+    const entry = entryId == null ? null : browserEntries.get(entryId);
+    const current = entry?.breadcrumbs[entry.breadcrumbs.length - 1];
+    if (!entry || !current) { return false; }
+    // Ancestors are used by keyboard navigation as well as the current page.
+    // If they were evicted, the URL loader will rebuild a safe single-page chain.
+    if (entry.breadcrumbs.some(breadcrumb =>
+      !itemState.get(breadcrumb.sourceItemId) ||
+      (breadcrumb.pageVeid.itemId != SOLO_ITEM_HOLDER_PAGE_UID && !isPage(itemState.get(breadcrumb.pageVeid.itemId))) ||
+      (breadcrumb.pageVeid.linkIdMaybe && !itemState.get(breadcrumb.pageVeid.linkIdMaybe)))) {
+      return false;
+    }
+    const sourceItem = itemState.get(current.sourceItemId);
+    if (!sourceItem) { return false; }
+    if (current.pageVeid.itemId == SOLO_ITEM_HOLDER_PAGE_UID) {
+      itemState.addSoloItemHolderPage(sourceItem.ownerId);
+      asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [sourceItem.id];
+    }
+    if (!isPage(itemState.get(current.pageVeid.itemId)) ||
+      (current.pageVeid.linkIdMaybe && !itemState.get(current.pageVeid.linkIdMaybe)) ||
+      !pathItemsAreAvailable(current.focusPath) ||
+      current.popupBreadcrumbs.some(popup =>
+        !itemState.get(popup.actualVeid.itemId) ||
+        (popup.actualVeid.linkIdMaybe && popup.actualVeid.linkIdMaybe != POPUP_LINK_UID && !itemState.get(popup.actualVeid.linkIdMaybe)) ||
+        !pathItemsAreAvailable(popup.vePath))) {
+      return false;
+    }
+    setBreadcrumbs(entry.breadcrumbs.slice());
+    displayedBrowserEntryId = entryId!;
+    return true;
+  };
+
+  const isCurrentBrowserEntryReady = (): boolean =>
+    displayedBrowserEntryId != null && displayedBrowserEntryId == activeBrowserEntry?.infumapHistory.entryId;
+
+  const setHistoryToSinglePage = (pageVeid: Veid, focusPath?: VisualElementPath, sourceItemId: Uid = pageVeid.itemId): void => {
     beginNavigationRequest();
     const actualFocusPath = focusPath ?? VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
 
     setBreadcrumbs([{
       pageVeid,
-      parentPageChanged: true,
+      sourceItemId,
       popupBreadcrumbs: [],
       focusPath: actualFocusPath
     }]);
   };
 
-  const pushPageVeid = (pageVeid: Veid, focusPath?: VisualElementPath): void => {
+  const pushPageVeid = (pageVeid: Veid, focusPath?: VisualElementPath, sourceItemId: Uid = pageVeid.itemId): void => {
     beginNavigationRequest();
     const actualFocusPath = focusPath ?? VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
 
     breadcrumbs().push({
       pageVeid,
+      sourceItemId,
       popupBreadcrumbs: [],
       focusPath: actualFocusPath
     });
     setBreadcrumbs(breadcrumbs());
   };
 
-  const popPageVeid = (): boolean => {
-    if (breadcrumbs().length <= 1) { return false; }
+  const replacePageVeid = (pageVeid: Veid, focusPath?: VisualElementPath, sourceItemId: Uid = pageVeid.itemId): void => {
     beginNavigationRequest();
-    breadcrumbs().pop();
-    setBreadcrumbs(breadcrumbs());
-    return true;
+    const replacement = {
+      pageVeid,
+      sourceItemId,
+      focusPath: focusPath ?? VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID),
+      popupBreadcrumbs: [],
+    };
+    setBreadcrumbs([...breadcrumbs().slice(0, -1), replacement]);
   };
 
   const currentPageVeid = (): Veid | null => {
@@ -380,6 +511,8 @@ export function makeHistoryStore(): HistoryStoreContextModel {
 
   const clear = (): void => {
     beginNavigationRequest();
+    browserEntries.clear();
+    displayedBrowserEntryId = null;
     setBreadcrumbs([]);
   };
 
@@ -391,9 +524,14 @@ export function makeHistoryStore(): HistoryStoreContextModel {
   return ({
     beginNavigationRequest,
     isNavigationRequestCurrent,
+    initializeBrowserEntry,
+    activateBrowserEntry,
+    restoreBrowserEntry,
+    writeBrowserEntry,
+    isCurrentBrowserEntryReady,
     setHistoryToSinglePage,
     pushPageVeid,
-    popPageVeid,
+    replacePageVeid,
     currentPageVeid,
     currentPagePath,
     peekPrevPageVeid,

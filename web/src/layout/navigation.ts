@@ -34,8 +34,8 @@ import { RelationshipToParent } from "./relationship-to-parent";
 
 export function switchToNonPage(store: StoreContextModel, url: string) {
   store.history.beginNavigationRequest();
-  window.history.pushState(null, "", url);
-  store.currentUrlPath.set(url);
+  store.history.writeBrowserEntry(url, "push", false);
+  store.currentUrlPath.set(new URL(url, window.location.href).pathname);
 }
 
 function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): string {
@@ -79,18 +79,16 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   itemState.addSoloItemHolderPage(selectedItem!.ownerId);
   asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [itemId];
   if (clearHistory) {
-    store.history.setHistoryToSinglePage(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
+    store.history.setHistoryToSinglePage(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID), undefined, itemId);
   } else {
-    store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID));
+    store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID), undefined, itemId);
   }
   arrangeNow(store, "switch-to-item");
   requestContainerSyncSoon(store);
 
   const url = currentUrl(store, itemId);
-  if (updateHistory) {
-    window.history.pushState(null, "", url);
-  }
-  store.currentUrlPath.set(url);
+  store.history.writeBrowserEntry(url, updateHistory ? "push" : "restore");
+  store.currentUrlPath.set(updateHistory ? url : window.location.pathname);
 }
 
 function fallbackToItem(store: StoreContextModel, item: Item): boolean {
@@ -244,10 +242,9 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
 
   if (clearHistory) {
     store.history.setHistoryToSinglePage(pageVeid, focusPath);
+  } else if (replace) {
+    store.history.replacePageVeid(pageVeid, focusPath);
   } else {
-    if (replace) {
-      store.history.popPageVeid();
-    }
     store.history.pushPageVeid(pageVeid, focusPath);
   }
 
@@ -255,14 +252,8 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
   requestContainerSyncSoon(store);
 
   const url = currentUrl(store, null);
-  if (updateHistory) {
-    if (replace && !clearHistory) {
-      window.history.replaceState(null, "", url);
-    } else {
-      window.history.pushState(null, "", url);
-    }
-  }
-  store.currentUrlPath.set(url);
+  store.history.writeBrowserEntry(url, updateHistory ? (replace && !clearHistory ? "replace" : "push") : "restore");
+  store.currentUrlPath.set(updateHistory ? url : window.location.pathname);
 }
 
 export async function ensureQueryItemUnderQueries(store: StoreContextModel, queriesPageId: Uid): Promise<Uid | null> {
@@ -366,8 +357,7 @@ export async function navigateToLocalRoot(store: StoreContextModel): Promise<voi
   store.history.beginNavigationRequest();
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) {
-    window.history.pushState(null, "", "/");
-    store.currentUrlPath.set("/");
+    switchToNonPage(store, "/");
     return;
   }
   const user = userMaybe;

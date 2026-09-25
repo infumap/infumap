@@ -240,14 +240,6 @@ function textDocumentUrl(textItem: TextItem): string {
   return `/remote/${encodeURIComponent(textItem.origin)}/${textItem.id}`;
 }
 
-function pushTextDocumentUrlIfNeeded(store: StoreContextModel, textItem: TextItem): void {
-  const url = textDocumentUrl(textItem);
-  if (window.location.pathname != url) {
-    window.history.pushState(null, "", url);
-  }
-  store.currentUrlPath.set(url);
-}
-
 async function fetchLocalFileText(itemId: string): Promise<string> {
   const response = await fetch(`/files/${itemId}`, { method: "GET" });
   if (!response.ok || response.status !== 200) {
@@ -1883,22 +1875,30 @@ export function persistVirtualTextDocumentPageOptions(store: StoreContextModel, 
     });
 }
 
-export async function openTextDocumentProjection(store: StoreContextModel, textItem: TextItem): Promise<void> {
+export async function prepareTextDocumentProjection(store: StoreContextModel, textItem: TextItem, navigationRequestId: number): Promise<PageItem | null> {
+  const text = await fetchTextItemContent(textItem);
+  if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return null; }
+  return upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
+}
+
+export async function openTextDocumentProjection(store: StoreContextModel, textItem: TextItem, updateHistory: boolean = true, clearHistory: boolean = false): Promise<void> {
   const navigationRequestId = store.history.beginNavigationRequest();
   let navigationApplied = false;
   try {
-    const text = await fetchTextItemContent(textItem);
-    if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
-    const page = upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
+    const page = await prepareTextDocumentProjection(store, textItem, navigationRequestId);
+    if (page == null) { return; }
     const pageVeid = { itemId: page.id, linkIdMaybe: null };
     navigationApplied = true;
-    if (store.history.currentPageVeid()?.itemId != page.id) {
-      pushTextDocumentUrlIfNeeded(store, textItem);
-      store.history.pushPageVeid(pageVeid);
+    if (clearHistory) {
+      store.history.setHistoryToSinglePage(pageVeid, undefined, textItem.id);
+    } else if (store.history.currentPageVeid()?.itemId != page.id) {
+      store.history.pushPageVeid(pageVeid, undefined, textItem.id);
     } else {
-      pushTextDocumentUrlIfNeeded(store, textItem);
       store.history.setFocus(store.history.currentPagePath()!);
     }
+    const url = textDocumentUrl(textItem);
+    store.history.writeBrowserEntry(url, updateHistory && window.location.pathname != url ? "push" : "restore");
+    store.currentUrlPath.set(updateHistory ? url : window.location.pathname);
     store.overlay.setTextEditInfo(store.history, null, true);
     arrangeNow(store, "text-document-open");
   } catch (e) {
