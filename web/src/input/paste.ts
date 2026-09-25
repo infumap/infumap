@@ -21,6 +21,12 @@ import { acceptClipboardTextForPendingTextItem } from "./text_clipboard_create";
 
 
 export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
+  const target = ev.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
+      !(target instanceof HTMLElement) || !target.isContentEditable) {
+    return;
+  }
+
   const clipboardData = ev.clipboardData;
   const editInfo = store.overlay.textEditInfo();
   if (clipboardData != null && editInfo != null) {
@@ -32,7 +38,6 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
   }
 
   if (clipboardData == null) {
-    ev.preventDefault();
     return;
   }
 
@@ -40,6 +45,6 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
   text = text.replace('\n', ' ');
   text = text.replace('\r', ' ');
   text = text.replace('\t', ' ');
-  document.execCommand("insertHTML", false, text);
+  document.execCommand("insertText", false, text);
   ev.preventDefault();
 }
