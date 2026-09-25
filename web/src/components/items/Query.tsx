@@ -1312,11 +1312,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               type="button"
               title="Create page from results"
               aria-label="Create page from results"
-              disabled={!hasSearchResults() || isEditing()}
+              disabled={!hasSearchResults()}
               onMouseDown={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
-                if (hasSearchResults() && !isEditing()) {
+                if (hasSearchResults()) {
                   void materializeCurrentResults();
                 }
               }}
