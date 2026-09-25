@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Show } from "solid-js";
-import { NoteInlineMark, NoteInlineMarkFlags, NoteUrl, noteInlineTextSegments } from "../../items/note-item";
+import { NoteInlineMark, NoteInlineMarkFlags, NoteUrl, noteInlineTextSegments, safeNoteLinkUrl } from "../../items/note-item";
 import { EMPTY_CONTENT_EDITABLE_PLACEHOLDER } from "../../util/string";
 import { ClickState } from "../../input/state";
 import { MOUSE_LEFT } from "../../input/mouse_down";
@@ -46,7 +46,8 @@ export const NoteInlineText: Component<{
   inactiveLinksStyled?: boolean,
   onLinkMouseDown?: (url: string, ev: MouseEvent) => void,
 }> = (props) => {
-  const segments = () => noteInlineTextSegments(props.inlineMarks, props.urls, props.text);
+  const segments = () => noteInlineTextSegments(props.inlineMarks, props.urls, props.text)
+    .map(segment => ({ ...segment, url: safeNoteLinkUrl(segment.url) }));
 
   const linkMouseDown = (url: string) => (ev: MouseEvent) => {
     if (props.onLinkMouseDown) {

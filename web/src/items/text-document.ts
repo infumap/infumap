@@ -32,7 +32,7 @@ import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { titleWithCopySuffix } from "./base/titled-item";
 import { PlaceholderFns } from "./placeholder-item";
-import { ItemIconMode, NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls } from "./note-item";
+import { ItemIconMode, NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls, safeNoteLinkUrl } from "./note-item";
 import { DividerFns } from "./divider-item";
 import { ArrangeAlgorithm, DEFAULT_DOCUMENT_WIDTH_BL, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { TableFns } from "./table-item";
@@ -907,7 +907,7 @@ function parseMarkdownInline(text: string): TextDocumentInlineText {
   return {
     title,
     inlineMarks: flattenedInlineMarks(rawSpans, title),
-    urls: normalizeNoteUrls(rawUrls, title),
+    urls: normalizeNoteUrls(rawUrls.filter(url => safeNoteLinkUrl(url.url) != null), title),
     linkIconHints: normalizeTextDocumentLinkIconHints(rawLinkIconHints, title),
   };
 }
