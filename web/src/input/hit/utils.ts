@@ -27,6 +27,7 @@ import { BoundingBox } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
 import { itemState } from "../../store/ItemState";
+import { HitboxScanOptions } from "./types";
 
 
 export function isIgnored(id: Uid, ignoreItems: Set<Uid>): boolean {
@@ -37,12 +38,12 @@ export function scanHitboxes(
   ve: VisualElement,
   localPos: Vector,
   offsetTopLeft?: Vector,
-  allowCopyMove: boolean = false,
+  hitboxOptions: HitboxScanOptions = {},
 ): { flags: HitboxFlags, meta: HitboxMeta | null } {
   let flags = HitboxFlags.None;
   let meta: HitboxMeta | null = null;
   for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
-    const type = filteredHitboxType(ve, ve.hitboxes[i].type, ve.hitboxes[i].meta, allowCopyMove);
+    const type = filteredHitboxType(ve, ve.hitboxes[i].type, ve.hitboxes[i].meta, hitboxOptions);
     if (type == HitboxFlags.None) { continue; }
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
@@ -68,7 +69,7 @@ export function isInsideBoundsOrAllowedHitbox(
   localPos: Vector,
   offsetTopLeft?: Vector,
   allowOutsideBoundsHitboxes: boolean = true,
-  allowCopyMove: boolean = false,
+  hitboxOptions: HitboxScanOptions = {},
 ): boolean {
   if (isInside(localPos, ve.boundsPx)) {
     return true;
@@ -78,7 +79,7 @@ export function isInsideBoundsOrAllowedHitbox(
   }
   for (let i = ve.hitboxes.length - 1; i >= 0; --i) {
     if (!ve.hitboxes[i].meta?.allowOutsideBounds) { continue; }
-    const type = filteredHitboxType(ve, ve.hitboxes[i].type, ve.hitboxes[i].meta, allowCopyMove);
+    const type = filteredHitboxType(ve, ve.hitboxes[i].type, ve.hitboxes[i].meta, hitboxOptions);
     if (type == HitboxFlags.None) { continue; }
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
@@ -101,7 +102,7 @@ export function findAttachmentHit(
   localPos: Vector,
   ignoreItems: Set<Uid>,
   reverse: boolean,
-  allowCopyMove: boolean = false,
+  hitboxOptions: HitboxScanOptions = {},
 ): { attachmentVes: VisualElementSignal, flags: HitboxFlags, meta: HitboxMeta | null } | null {
   if (attachmentsVes.length === 0) { return null; }
   const start = reverse ? attachmentsVes.length - 1 : 0;
@@ -118,15 +119,21 @@ export function findAttachmentHit(
       attachmentVe,
       localPos,
       getBoundingBoxTopLeft(attachmentVe.boundsPx),
-      allowCopyMove
+      hitboxOptions
     );
     return { attachmentVes, flags, meta };
   }
   return null;
 }
 
-function filteredHitboxType(ve: VisualElement, type: HitboxFlags, meta: HitboxMeta | null, allowCopyMove: boolean): HitboxFlags {
+function filteredHitboxType(ve: VisualElement, type: HitboxFlags, meta: HitboxMeta | null, hitboxOptions: HitboxScanOptions): HitboxFlags {
   let result = type;
+
+  // Filter before traversal and metadata resolution: drop regions must not
+  // capture clicks or take precedence over the text/control underneath them.
+  if (!hitboxOptions.includeDropTargets) {
+    result &= ~(HitboxFlags.Attach | HitboxFlags.AttachComposite);
+  }
 
   if (result & HitboxFlags.CalendarRangeResize) {
     const rangeItem = meta?.calendarRangeItemId == null ? null : itemState.get(meta.calendarRangeItemId);
@@ -142,7 +149,7 @@ function filteredHitboxType(ve: VisualElement, type: HitboxFlags, meta: HitboxMe
 
   // Capabilities apply to the draggable tree item, not the rendered display target.
   if ((result & HitboxFlags.Move) && !itemCanMove(VeFns.treeItem(ve))) {
-    if (allowCopyMove && itemCanCopy(VeFns.treeItem(ve))) {
+    if (hitboxOptions.allowCopyMove && itemCanCopy(VeFns.treeItem(ve))) {
       return result;
     }
     result = (result & ~HitboxFlags.Move) as HitboxFlags;

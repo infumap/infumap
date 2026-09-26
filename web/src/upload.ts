@@ -285,7 +285,7 @@ function resolveExternalUploadTarget(
   desktopPx: Vector,
   syncHoverState: boolean,
 ): UploadTarget | null {
-  const hitInfo = HitInfoFns.hit(store, desktopPx, [], false);
+  const hitInfo = HitInfoFns.hitForDrop(store, desktopPx, [], false);
   const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);
   const rootPageVeMaybe = isPage(hitInfo.rootVes.get().displayItem) ? hitInfo.rootVes.get() : null;
   const orderedPageTargetVeMaybe =
@@ -440,7 +440,7 @@ function uploadPositionForPage(
     return { x: 0.0, y: 0.0 };
   }
 
-  const hitInfo = HitInfoFns.hit(store, desktopPx, [], false);
+  const hitInfo = HitInfoFns.hitForDrop(store, desktopPx, [], false);
   if (hitInfo.overPositionGr != null) {
     return hitInfo.overPositionGr;
   }
@@ -720,7 +720,7 @@ export async function handleExternalUploadDrop(
     }
 
     if (target == null) {
-      const hitInfo = HitInfoFns.hit(store, desktopPx, [], false);
+      const hitInfo = HitInfoFns.hitForDrop(store, desktopPx, [], false);
       if (hitInfo.hitboxType != HitboxFlags.None) {
         showTransientMessage(store, "Must upload on background");
       } else {

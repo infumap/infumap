@@ -126,8 +126,6 @@ function noteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoF
   const blockedHitboxes =
     HitboxFlags.Move |
     HitboxFlags.Resize |
-    HitboxFlags.Attach |
-    HitboxFlags.AttachComposite |
     HitboxFlags.OpenPopup |
     HitboxFlags.OpenAttachment |
     HitboxFlags.TriangleLinkSettings;

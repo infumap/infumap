@@ -55,7 +55,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         await handleExternalUploadDrop(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
         return;
       }
-      let hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
+      let hitInfo = HitInfoFns.hitForDrop(store, CursorEventState.getLatestDesktopPx(store), [], false);
       if (hitInfo.hitboxType != HitboxFlags.None) {
         store.overlay.toolbarTransientMessage.set({ text: "Must upload on background", type: TransientMessageType.Error });
         setTimeout(() => {
