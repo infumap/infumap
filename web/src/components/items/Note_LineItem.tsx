@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Show, Switch } from "solid-js";
+import { Component, createRenderEffect, Match, Show, Switch, untrack } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { asNoteItem, NoteFns } from "../../items/note-item";
@@ -45,6 +45,7 @@ import { NoteIconGlyph } from "./NoteIconGlyph";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteInlineText } from "./NoteInlineText";
 import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
+import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
 
 
 export const Note_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -198,11 +199,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       </div>
     </Show>;
 
-  const editingTextRenderKey = () => isTextEditTarget()
-    ? JSON.stringify([renderedTitle(), renderedInlineMarks(), renderedUrls()])
-    : null;
-
-  const renderTitle = (editing: boolean) =>
+  const renderTitle = (editing: boolean) => {
+    const element =
     <span id={VeFns.veToPath(props.visualElement) + ":title"}
       class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
       style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
@@ -212,13 +210,22 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       onKeyDown={keyDownHandler}
       onBeforeInput={beforeInputListener}
       onInput={inputListener}>
-      <NoteInlineText
+      {!editing && <NoteInlineText
         text={renderedTitle()}
         inlineMarks={renderedInlineMarks()}
         urls={renderedUrls()}
         linksEnabled={!editing}
-        inactiveLinksStyled={editing} />
+        inactiveLinksStyled={editing} />}
     </span>;
+    if (editing) {
+      createRenderEffect(() => {
+        const note = noteItem();
+        if (store.textEdit.activeSession()?.isComposing) { return; }
+        untrack(() => reconcileNoteEditableDom(element as HTMLElement, note));
+      });
+    }
+    return element;
+  };
 
   const renderText = () =>
     <>
@@ -231,8 +238,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             `width: ${lineItemTextClippedWidthCssPx(props.visualElement, textWidthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
             `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
             `padding-left: ${textPaddingLeftPx()}px; padding-right: ${textPaddingRightCssPx()}px;`}>
-          <Show keyed when={editingTextRenderKey()} fallback={renderTitle(false)}>
-            {(_renderKey) => renderTitle(true)}
+          <Show when={isTextEditTarget()} fallback={renderTitle(false)}>
+            {renderTitle(true)}
           </Show>
         </div>
       </Show>

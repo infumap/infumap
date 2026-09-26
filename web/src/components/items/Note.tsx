@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, createRenderEffect, For, Show, untrack } from "solid-js";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, asNoteItem, splitNoteInlineMarks, splitNoteUrls } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -66,6 +66,7 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveO
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler } from "../../input/edit";
+import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -456,11 +457,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
 
-  const editingTextRenderKey = () => isTextEditTarget()
-    ? JSON.stringify([renderedTitle(), renderedInlineMarks(), renderedUrls()])
-    : null;
-
-  const renderTitle = (editing: boolean) =>
+  const renderTitle = (editing: boolean) => {
+    const element =
     <span id={VeFns.veToPath(props.visualElement) + ":title"}
       class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
         `${editing || isSelectableReadOnlyDocumentText() ? ' select-text cursor-text' : ''}`}
@@ -486,13 +484,22 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       onKeyDown={keyDownHandler}
       onBeforeInput={beforeInputListener}
       onInput={inputListener}>
-      <NoteInlineText
+      {!editing && <NoteInlineText
         text={renderedTitle()}
         inlineMarks={renderedInlineMarks()}
         urls={renderedUrls()}
         linksEnabled={!editing}
-        inactiveLinksStyled={editing} />
+        inactiveLinksStyled={editing} />}
     </span>;
+    if (editing) {
+      createRenderEffect(() => {
+        const note = noteItem();
+        if (store.textEdit.activeSession()?.isComposing) { return; }
+        untrack(() => reconcileNoteEditableDom(element as HTMLElement, note));
+      });
+    }
+    return element;
+  };
 
   const renderDetailed = () =>
     <>
@@ -520,8 +527,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           </div>
         </Show>
         {renderListMarkerMaybe()}
-        <Show keyed when={editingTextRenderKey()} fallback={renderTitle(false)}>
-          {(_renderKey) => renderTitle(true)}
+        <Show when={isTextEditTarget()} fallback={renderTitle(false)}>
+          {renderTitle(true)}
         </Show>
         <Show when={isInDocumentPage()}>
           <div

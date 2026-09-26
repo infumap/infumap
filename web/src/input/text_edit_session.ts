@@ -48,6 +48,7 @@ export interface TextEditSession {
   lastText: string,
   typingFlags: number,
   inputRevision: number,
+  isComposing: boolean,
 }
 
 interface PendingSave {
@@ -63,6 +64,8 @@ export interface TextEditStore {
   activeSession: () => TextEditSession | null,
   changeTarget: (info: TextEditInfo | null) => void,
   captureInput: (element: HTMLElement, typingFlags: number) => TextEditSession | null,
+  beginComposition: (element: HTMLElement, typingFlags: number) => void,
+  endComposition: (element: HTMLElement) => TextEditSession | null,
   flushActive: () => void,
   saveItem: (item: Item, immediately?: boolean) => void,
   preserveUnsavedFields: (item: Item) => void,
@@ -170,6 +173,9 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
   const captureInput = (element: HTMLElement, typingFlags: number): TextEditSession | null => {
     const session = active;
     if (session == null || element.id != textEditElementId(session.info)) { return null; }
+    // Candidate text belongs to the IME until compositionend. In particular,
+    // do not diff formatting or persist a series of partial candidate strings.
+    if (session.isComposing) { return session; }
     const item = itemState.get(session.itemId);
     if (item == null || !itemCanEdit(item)) { return null; }
 
@@ -232,6 +238,9 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     if (active != null && info?.itemPath == active.info.itemPath && info.colNum == active.info.colNum && info.itemType == active.info.itemType) {
       return;
     }
+    // Navigation may end an edit before the browser delivers compositionend.
+    // Capture the current DOM once while the old host still exists.
+    if (active != null) { active.isComposing = false; }
     flushActive();
     if (active != null) {
       const item = itemState.get(active.itemId);
@@ -247,7 +256,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     active = {
       info: { ...info }, itemId,
       field: info.colNum != null ? `column:${info.colNum}` : info.itemType == ItemType.Password ? "text" : "title",
-      selection: null, lastText: modelText(getStore(), item, info), typingFlags: 0, inputRevision: 0,
+      selection: null, lastText: modelText(getStore(), item, info), typingFlags: 0, inputRevision: 0, isComposing: false,
     };
   };
 
@@ -267,6 +276,17 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     activeSession: () => active,
     changeTarget,
     captureInput,
+    beginComposition: (element, typingFlags) => {
+      if (active == null || element.id != textEditElementId(active.info) || active.isComposing) { return; }
+      active.typingFlags = typingFlags;
+      active.isComposing = true;
+      ++active.inputRevision;
+    },
+    endComposition: element => {
+      if (active == null || element.id != textEditElementId(active.info) || !active.isComposing) { return null; }
+      active.isComposing = false;
+      return captureInput(element, active.typingFlags);
+    },
     flushActive,
     saveItem: (item, immediately = true) => {
       markDirty(item);
