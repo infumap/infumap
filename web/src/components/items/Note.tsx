@@ -18,7 +18,7 @@
 
 import { Component, createRenderEffect, For, Show, untrack } from "solid-js";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
-import { NoteFns, asNoteItem, splitNoteInlineMarks, splitNoteUrls } from "../../items/note-item";
+import { NoteFns, asNoteItem } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
@@ -50,12 +50,11 @@ import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { VesCache } from "../../layout/ves-cache";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { arrangeNow } from "../../layout/arrange";
-import { getCaretPosition, setCaretPosition } from "../../util/caret";
+import { setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
-import { asPositionalItem } from "../../items/base/positional-item";
-import { server, serverOrRemote } from "../../server";
+import { server } from "../../server";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { newOrdering } from "../../util/ordering";
 import { panic } from "../../util/lang";
@@ -65,9 +64,8 @@ import { asLinkItem, isLink } from "../../items/link-item";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
-import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler } from "../../input/edit";
+import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler, prepareNoteParagraphSplit } from "../../input/edit";
 import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
-import { readNoteEditableText } from "../../util/editable_text";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -295,45 +293,39 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (store.user.getUserMaybe() == null || noteItem().ownerId != store.user.getUser().userId) { return; }
     if (!parentChainAcceptsManualChildAdd(props.visualElement.displayItem.parentId)) { return; }
 
-    NoteFns.ensureTitleUrl(noteItem());
-
     const ve = props.visualElement;
     const editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
     const textElement = document.getElementById(editingDomId);
-    const caretPosition = getCaretPosition(textElement!);
-
-    const sourceNote = asNoteItem(ve.displayItem);
-    const editedText = readNoteEditableText(textElement!);
-    const beforeText = editedText.substring(0, caretPosition);
-    const afterText = editedText.substring(caretPosition);
-    const continuationFlags = NoteFns.listContinuationFlagsForEnter(sourceNote, editedText, caretPosition);
-    const splitMarks = splitNoteInlineMarks(sourceNote.inlineMarks, sourceNote.title, caretPosition);
-    const splitUrls = splitNoteUrls(sourceNote.urls, sourceNote.title, caretPosition);
+    if (!(textElement instanceof HTMLElement)) { return; }
+    const split = prepareNoteParagraphSplit(store, textElement);
+    if (split == null) { return; }
+    const sourceNote = split.note;
 
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
     } else {
-      // single note on a page.
-      const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;
-      const spatialWidthGr = asXSizableItem(ve.displayItem).spatialWidthGr;
-      const composite = CompositeFns.create(ve.displayItem.ownerId, ve.displayItem.parentId, ve.displayItem.relationshipToParent, ve.displayItem.ordering);
+      // Finish the old edit before moving the note into a new composite.
+      store.overlay.setTextEditInfo(store.history, null);
+      const spatialPositionGr = sourceNote.spatialPositionGr;
+      const spatialWidthGr = sourceNote.spatialWidthGr;
+      const composite = CompositeFns.create(sourceNote.ownerId, sourceNote.parentId, sourceNote.relationshipToParent, sourceNote.ordering);
       composite.spatialPositionGr = spatialPositionGr;
       composite.spatialWidthGr = spatialWidthGr;
       itemState.add(composite);
       server.addItem(composite, null, store.general.networkStatus);
-      itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
-      asNoteItem(ve.displayItem).title = beforeText;
-      asNoteItem(ve.displayItem).inlineMarks = splitMarks[0];
-      asNoteItem(ve.displayItem).urls = splitUrls[0];
-      NoteFns.ensureTitleUrl(asNoteItem(ve.displayItem));
-      serverOrRemote.updateItem(ve.displayItem, store.general.networkStatus);
+      itemState.moveToNewParent(sourceNote, composite.id, RelationshipToParent.Child, newOrdering());
+      sourceNote.title = split.beforeText;
+      sourceNote.inlineMarks = split.beforeInlineMarks;
+      sourceNote.urls = split.beforeUrls;
+      NoteFns.ensureTitleUrl(sourceNote);
+      store.textEdit.saveItem(sourceNote, true);
 
-      const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
-      const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
-      note.title = afterText;
-      note.flags = continuationFlags;
-      note.inlineMarks = splitMarks[1];
-      note.urls = splitUrls[1];
+      const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, sourceNote.id);
+      const note = NoteFns.create(sourceNote.ownerId, composite.id, RelationshipToParent.Child, split.afterText, ordering);
+      note.flags = split.continuationFlags;
+      note.inlineMarks = split.afterInlineMarks;
+      note.urls = split.afterUrls;
+      NoteFns.ensureTitleUrl(note);
       itemState.add(note);
       server.addItem(note, null, store.general.networkStatus);
 
