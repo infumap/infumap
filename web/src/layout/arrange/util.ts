@@ -28,7 +28,6 @@ import { RemoteSessions } from "../../store/RemoteSessions";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VeFns } from "../visual-element";
-import { RelationshipToParent } from "../relationship-to-parent";
 
 
 export interface VePropertiesForItem {
@@ -133,27 +132,6 @@ export function getMovingTreeItemInParentMaybe(parentId: string): Item | null {
   }
 
   return movingItem;
-}
-
-/**
- * The moving item, if it is parented where it is only for the duration of the move: it was
- * picked up as an attachment or from another container, or was created at move start (clone / link).
- * Such an item has no position in its current parent's ordered children yet.
- */
-export function getUnplacedMovingTreeItemMaybe(): Item | null {
-  if (MouseActionState.empty() || !MouseActionState.isAction(MouseAction.Moving)) {
-    return null;
-  }
-  const activeElementPath = MouseActionState.getActiveElementPath();
-  if (activeElementPath == null) { return null; }
-  const movingItem = VeFns.treeItemFromPath(activeElementPath);
-  if (movingItem == null) { return null; }
-  const original = MouseActionState.getMoveRollback()?.find(entry => entry.id == movingItem.id);
-  const wasChildOfCurrentParent =
-    original != null &&
-    original.parentId == movingItem.parentId &&
-    original.relationshipToParent == RelationshipToParent.Child;
-  return wasChildOfCurrentParent ? null : movingItem;
 }
 
 export function addContiguousStackedGapHitboxes(
