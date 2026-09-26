@@ -42,7 +42,7 @@ import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret'
 import { ClickState, CursorEventState } from '../input/state';
 import { VesCache } from '../layout/ves-cache';
 import { IconMixin, ItemIconMode, ItemIconRenderContext, iconRenderContextFromVisualElement, itemIconKind, itemIconModeFromObject, listItemIconRenderContext } from './base/icon-item';
-import { isUrl, trimNewline } from '../util/string';
+import { isUrl } from '../util/string';
 
 
 export interface NoteItem extends NoteMeasurable, XSizableItem, YSizableItem, AttachmentsItem, TitledItem {}
@@ -1128,9 +1128,9 @@ export const NoteFns = {
     }
   },
 
-  listContinuationFlagsForEnter: (noteItem: NoteItem, editedText: string, caretPosition: number): number => {
+  listContinuationFlagsForEnter: (noteItem: NoteItem): number => {
     if ((noteItem.flags & (NoteFlags.Bullet1 | NoteFlags.Numbered)) == 0) { return NoteFlags.None; }
-    if (caretPosition < trimNewline(editedText).length) { return NoteFlags.None; }
+    // Splitting in the middle of a list item continues the list too.
     return noteItem.flags & NOTE_LIST_CONTINUATION_FLAGS;
   },
 

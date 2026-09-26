@@ -51,12 +51,13 @@ import { VeFns, VisualElement } from "../layout/visual-element";
 import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { itemCanAcceptManualChildren, PageFlags } from "../items/base/flags-item";
+import { itemCanAcceptManualChildren, NoteFlags, PageFlags } from "../items/base/flags-item";
 import { textEditElementId, type TextEditSession } from "./text_edit_session";
 import { structuralTextContainerIsEditable, structuralTextNote } from "./structural_text_edit";
 import { asContainerItem } from "../items/base/container-item";
 import { itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
 import { reconcileNoteEditableDom } from "./note_editable_dom";
+import { planNoteParagraphSplit } from "./note_paragraph";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
 
 
@@ -370,17 +371,6 @@ function structuralPathsInLinearContainer(context: LinearEditContext): Array<str
   return orderedPaths;
 }
 
-function textForLinearSelectionDeletePath(context: LinearEditContext, path: string): string | null {
-  if (path == context.containerPath) {
-    if (!isPage(context.containerVe.displayItem)) { return null; }
-    return asPageItem(context.containerVe.displayItem).title;
-  }
-
-  const item = itemState.get(VeFns.veidFromPath(path).itemId);
-  if (item == null || (!isNote(item) && !isFile(item) && !isText(item))) { return null; }
-  return asTitledItem(item).title;
-}
-
 function linearSelectionBoundaryFromRangeBoundary(node: Node, offset: number): LinearSelectionBoundary | null {
   const pathInfo = getEditPathInfoForNode(node);
   if (pathInfo == null || pathInfo.type != EditElementType.Title) { return null; }
@@ -515,12 +505,8 @@ function guardLinearBoundaryDeletion(store: StoreContextModel, ev: Event, elemen
   if (context == null) { return true; }
   const adjacentPath = adjacentStructuralPath(context, backward);
   if (adjacentPath == null) { return true; }
-  if (backward && joinItemsMaybeHandler(store)) { return true; }
-  return blockStructuralTextEvent(store, ev,
-    !backward && structuralTextNote(store, context.editingVe, context.containerVe) != null &&
-      structuralTextNote(store, VesCache.current.readNode(adjacentPath), context.containerVe) != null
-      ? "To join these notes, press Backspace at the start of the next note."
-      : STRUCTURAL_TEXT_BOUNDARY_MESSAGE);
+  if (joinItemsMaybeHandler(store, backward)) { return true; }
+  return blockStructuralTextEvent(store, ev, STRUCTURAL_TEXT_BOUNDARY_MESSAGE);
 }
 
 function guardLinearEnter(store: StoreContextModel, ev: Event): boolean {
@@ -542,6 +528,11 @@ function guardLinearEnter(store: StoreContextModel, ev: Event): boolean {
 /** Capture before local item handlers or native contenteditable can alter structure. */
 export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: KeyboardEvent): boolean {
   if (edit_compositionKeyGuard(store, ev)) { return true; }
+  if (ev.defaultPrevented) { return false; }
+  if (ev.key == "Enter") {
+    if (ev.shiftKey && edit_replaceNoteSelection(store, ev, "\n")) { return true; }
+    if (!ev.shiftKey && exitEmptyNoteList(store, ev)) { return true; }
+  }
   const element = linearEditorForEvent(store, ev);
   if (element == null || ev.defaultPrevented) { return false; }
   const deleting = ev.key == "Backspace" || ev.key == "Delete";
@@ -553,9 +544,14 @@ export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: Keyboa
 }
 
 export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: InputEvent): void {
+  if (ev.defaultPrevented) { return; }
+  const composing = ev.isComposing || store.textEdit.activeSession()?.isComposing;
+  if (!composing) {
+    if (ev.inputType == "insertLineBreak" && edit_replaceNoteSelection(store, ev, "\n")) { return; }
+    if (ev.inputType == "insertParagraph" && exitEmptyNoteList(store, ev)) { return; }
+  }
   const element = linearEditorForEvent(store, ev);
   if (element == null || ev.defaultPrevented) { return; }
-  const composing = ev.isComposing || store.textEdit.activeSession()?.isComposing;
   const deleting = !composing && (ev.inputType == "deleteContentBackward" || ev.inputType == "deleteContentForward" || ev.inputType == "deleteContent");
   if (guardLinearSelection(store, ev, element, currentSelectionRanges(), deleting)) { return; }
   // Word/line deletion and mobile input may target more than the visible selection.
@@ -586,66 +582,6 @@ export function edit_structuralDropGuard(store: StoreContextModel, ev: DragEvent
   }
 }
 
-function focusAfterLinearSelectionDelete(
-  store: StoreContextModel,
-  deleteSpec: LinearSelectionDeleteSpec,
-  keepStartPath: boolean,
-  startCaretPosition: number,
-): void {
-  arrangeNow(store, "linear-delete-selection");
-
-  if (keepStartPath && focusTextEditPathInfo(store, deleteSpec.start.pathInfo, startCaretPosition)) {
-    return;
-  }
-
-  const prevPath = deleteSpec.startIndex > 0
-    ? deleteSpec.orderedPaths[deleteSpec.startIndex - 1]
-    : null;
-  if (prevPath != null && structuralTextNote(store, VesCache.current.readNode(prevPath), deleteSpec.context.containerVe) != null) {
-    const prevText = textForLinearSelectionDeletePath(deleteSpec.context, prevPath);
-    if (prevText != null && focusTextEditPathInfo(store, {
-      path: prevPath,
-      type: EditElementType.Title,
-      colNumMaybe: null,
-    }, prevText.length)) {
-      return;
-    }
-  }
-
-  const nextPath = deleteSpec.endIndex + 1 < deleteSpec.orderedPaths.length
-    ? deleteSpec.orderedPaths[deleteSpec.endIndex + 1]
-    : null;
-  if (nextPath != null && structuralTextNote(store, VesCache.current.readNode(nextPath), deleteSpec.context.containerVe) != null && focusTextEditPathInfo(store, {
-    path: nextPath,
-    type: EditElementType.Title,
-    colNumMaybe: null,
-  }, 0)) {
-    return;
-  }
-
-  store.overlay.setTextEditInfo(store.history, null);
-  arrangeNow(store, "linear-delete-selection-exit-edit");
-}
-
-function temporaryFocusPathAfterLinearSelectionDelete(
-  deleteSpec: LinearSelectionDeleteSpec,
-  keepStartPath: boolean,
-): string {
-  if (keepStartPath) {
-    return deleteSpec.start.pathInfo.path;
-  }
-
-  if (deleteSpec.startIndex > 0) {
-    return deleteSpec.orderedPaths[deleteSpec.startIndex - 1];
-  }
-
-  if (deleteSpec.endIndex + 1 < deleteSpec.orderedPaths.length) {
-    return deleteSpec.orderedPaths[deleteSpec.endIndex + 1];
-  }
-
-  return deleteSpec.context.containerPath;
-}
-
 function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: LinearSelectionDeleteSpec): boolean {
   const startPath = deleteSpec.start.pathInfo.path;
   const endPath = deleteSpec.end.pathInfo.path;
@@ -662,29 +598,24 @@ function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: Linear
   const mergedText = startText.substring(0, startOffset) + endText.substring(endOffset);
 
   const pathsToDelete = deleteSpec.orderedPaths.slice(deleteSpec.startIndex + 1, deleteSpec.endIndex + 1);
-  let keepStartPath = true;
-  if (startPath != deleteSpec.context.containerPath && mergedText.length == 0) {
-    keepStartPath = false;
-    pathsToDelete.unshift(startPath);
-  } else {
-    const prefix = startText.substring(0, startOffset);
-    const suffix = endText.substring(endOffset);
-    startNote.inlineMarks = concatNoteInlineMarks(
-      splitNoteInlineMarks(startNote.inlineMarks, startText, startOffset)[0], prefix,
-      splitNoteInlineMarks(endNote.inlineMarks, endText, endOffset)[1], suffix,
-    );
-    startNote.urls = concatNoteUrls(
-      splitNoteUrls(startNote.urls, startText, startOffset)[0], prefix,
-      splitNoteUrls(endNote.urls, endText, endOffset)[1], suffix,
-    );
-    startNote.title = mergedText;
-    NoteFns.ensureTitleUrl(startNote);
-    store.textEdit.saveItem(startNote, true);
-  }
+  // Keep the first paragraph even when the entire selection is removed. The
+  // user can keep typing, and the container never loses its last editing target.
+  const prefix = startText.substring(0, startOffset);
+  const suffix = endText.substring(endOffset);
+  startNote.inlineMarks = concatNoteInlineMarks(
+    splitNoteInlineMarks(startNote.inlineMarks, startText, startOffset)[0], prefix,
+    splitNoteInlineMarks(endNote.inlineMarks, endText, endOffset)[1], suffix,
+  );
+  startNote.urls = concatNoteUrls(
+    splitNoteUrls(startNote.urls, startText, startOffset)[0], prefix,
+    splitNoteUrls(endNote.urls, endText, endOffset)[1], suffix,
+  );
+  startNote.title = mergedText;
+  NoteFns.ensureTitleUrl(startNote);
+  store.textEdit.saveItem(startNote, true);
 
-  // Move focus and edit state off any soon-to-be-deleted note before itemState.delete()
-  // triggers reactive reads like the toolbar.
-  store.history.setFocus(temporaryFocusPathAfterLinearSelectionDelete(deleteSpec, keepStartPath));
+  // Move focus off any soon-to-be-deleted note before reactive reads occur.
+  store.history.setFocus(startPath);
 
   for (const path of pathsToDelete) {
     if (path == deleteSpec.context.containerPath) { continue; }
@@ -694,7 +625,8 @@ function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: Linear
     server.deleteItem(item.id, store.general.networkStatus);
   }
 
-  focusAfterLinearSelectionDelete(store, deleteSpec, keepStartPath, startOffset);
+  arrangeNow(store, "linear-delete-selection");
+  focusTextEditPathInfo(store, deleteSpec.start.pathInfo, startOffset);
   return true;
 }
 
@@ -915,7 +847,9 @@ export function splitDocumentTitleToFirstNote(
   titleElement: HTMLElement,
 ): boolean {
   if (!isPage(documentPageVe.displayItem)) { return false; }
-  const page = asPageItem(documentPageVe.displayItem);
+  const pageItem = itemState.get(documentPageVe.displayItem.id);
+  if (pageItem == null || !isPage(pageItem)) { return false; }
+  const page = asPageItem(pageItem);
   if (page.arrangeAlgorithm != ArrangeAlgorithm.Document ||
       (page.flags & PageFlags.HideDocumentTitle) ||
       page.clientOnly === true ||
@@ -924,12 +858,16 @@ export function splitDocumentTitleToFirstNote(
   }
 
   const titleText = trimNewline(titleElement.innerText);
-  const caretPosition = Math.min(getCaretPosition(titleElement), titleText.length);
-  const beforeText = titleText.substring(0, caretPosition);
-  const afterText = titleText.substring(caretPosition);
+  const selection = textSelectionOffsets(titleElement);
+  if (selection == null || store.textEdit.activeSession()?.isComposing) { return false; }
+  const start = Math.min(selection.anchor, selection.focus, titleText.length);
+  const end = Math.min(Math.max(selection.anchor, selection.focus), titleText.length);
+  const beforeText = titleText.substring(0, start);
+  const afterText = titleText.substring(end);
 
+  store.overlay.setTextEditInfo(store.history, null);
   page.title = beforeText;
-  serverOrRemote.updateItem(page, store.general.networkStatus);
+  store.textEdit.saveItem(page, true);
 
   const note = NoteFns.create(
     page.ownerId,
@@ -1202,30 +1140,34 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
   }
 }
 
-const joinItemsMaybeHandler = (store: StoreContextModel): boolean => {
+const joinItemsMaybeHandler = (store: StoreContextModel, backward: boolean): boolean => {
   const context = currentLinearEditContext(store);
   if (context == null) { return false; }
-  const initialEditingItem = structuralTextNote(store, context.editingVe, context.containerVe);
-  const upPath = adjacentStructuralPath(context, true);
-  if (initialEditingItem == null || upPath == null) { return false; }
-  const upFocusItem = structuralTextNote(store, VesCache.current.readNode(upPath), context.containerVe);
-  if (upFocusItem == null) { return false; }
+  const adjacentPath = adjacentStructuralPath(context, backward);
+  if (adjacentPath == null) { return false; }
+  // Both directions keep the earlier note's identity and paragraph style.
+  const leftPath = backward ? adjacentPath : context.editingPath;
+  const removedPath = backward ? context.editingPath : adjacentPath;
+  const rightNote = structuralTextNote(store, VesCache.current.readNode(removedPath), context.containerVe);
+  if (rightNote == null) { return false; }
+  const leftNote = structuralTextNote(store, VesCache.current.readNode(leftPath), context.containerVe);
+  if (leftNote == null) { return false; }
 
   store.overlay.setTextEditInfo(store.history, null);
-  const upTextLength = upFocusItem.title.length;
-  upFocusItem.inlineMarks = concatNoteInlineMarks(
-    upFocusItem.inlineMarks, upFocusItem.title, initialEditingItem.inlineMarks, initialEditingItem.title,
+  const joinOffset = leftNote.title.length;
+  leftNote.inlineMarks = concatNoteInlineMarks(
+    leftNote.inlineMarks, leftNote.title, rightNote.inlineMarks, rightNote.title,
   );
-  upFocusItem.urls = concatNoteUrls(
-    upFocusItem.urls, upFocusItem.title, initialEditingItem.urls, initialEditingItem.title,
+  leftNote.urls = concatNoteUrls(
+    leftNote.urls, leftNote.title, rightNote.urls, rightNote.title,
   );
-  upFocusItem.title += initialEditingItem.title;
-  NoteFns.ensureTitleUrl(upFocusItem);
+  leftNote.title += rightNote.title;
+  NoteFns.ensureTitleUrl(leftNote);
 
-  store.history.setFocus(upPath);
-  store.textEdit.saveItem(upFocusItem, true);
-  itemState.delete(initialEditingItem.id);
-  server.deleteItem(initialEditingItem.id, store.general.networkStatus);
+  store.history.setFocus(leftPath);
+  store.textEdit.saveItem(leftNote, true);
+  itemState.delete(rightNote.id);
+  server.deleteItem(rightNote.id, store.general.networkStatus);
 
   if (isComposite(context.containerVe.displayItem)) {
     const compositeItem = asCompositeItem(itemState.get(context.containerVe.displayItem.id)!);
@@ -1240,22 +1182,27 @@ const joinItemsMaybeHandler = (store: StoreContextModel): boolean => {
 
       const posGr = compositeItem.spatialPositionGr;
       const widthGr = compositeItem.spatialWidthGr;
-      itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child, compositeItem.ordering);
-      asPositionalItem(upFocusItem).spatialPositionGr = posGr;
+      itemState.moveToNewParent(leftNote, compositeItem.parentId, RelationshipToParent.Child, compositeItem.ordering);
+      asPositionalItem(leftNote).spatialPositionGr = posGr;
 
-      asXSizableItem(upFocusItem).spatialWidthGr = widthGr;
-      store.textEdit.saveItem(upFocusItem, true);
+      asXSizableItem(leftNote).spatialWidthGr = widthGr;
+      // Queue the parent change now, even if a text autosave is in flight.
+      // Deleting the composite before that move reaches the server would fail
+      // because the server would still see its surviving child inside it.
+      store.textEdit.saveItem(leftNote, false);
+      const saveMove = server.updateItem(leftNote, store.general.networkStatus);
       store.history.setFocus(compositeParentPath);
       itemState.delete(compositeItem.id);
-      server.deleteItem(compositeItem.id, store.general.networkStatus);
+      void saveMove.then(() => server.deleteItem(compositeItem.id, store.general.networkStatus))
+        .catch(error => console.warn("Failed to persist composite collapse after joining notes:", error));
       arrangeNow(store, "join-items-collapse-composite");
-      focusItemInLinearContainer(store, compositeParentPath, upFocusItem.id, upTextLength);
+      focusItemInLinearContainer(store, compositeParentPath, leftNote.id, joinOffset);
       return true;
     }
   }
 
   arrangeNow(store, "join-items-restore-edit-focus");
-  focusItemInLinearContainer(store, context.containerPath, upFocusItem.id, upTextLength);
+  focusItemInLinearContainer(store, context.containerPath, leftNote.id, joinOffset);
   return true;
 }
 
@@ -1273,49 +1220,27 @@ const enterKeyHandler = (store: StoreContextModel) => {
 
   if (visualAncestorPageIsClientOnly(context.containerPath)) { return; }
 
-  const noteVeid = VeFns.veidFromPath(context.editingPath);
   const item = structuralTextNote(store, context.editingVe, context.containerVe);
   if (item == null) { return; }
-  const titledItem = asTitledItem(item);
+  const textElement = document.getElementById(context.editingPath + ":title");
+  if (!(textElement instanceof HTMLElement)) { return; }
+  const split = prepareNoteParagraphSplit(store, textElement);
+  if (split == null) { return; }
 
-  const editingDomId = context.editingPath + ":title";
-  const textElement = document.getElementById(editingDomId);
-  const caretPosition = getCaretPosition(textElement!);
+  // Finish the old session while it still owns the unsplit DOM.
+  store.overlay.setTextEditInfo(store.history, null);
+  item.title = split.beforeText;
+  item.inlineMarks = split.beforeInlineMarks;
+  item.urls = split.beforeUrls;
+  NoteFns.ensureTitleUrl(item);
+  store.textEdit.saveItem(item, true);
 
-  const editedText = readEditableText(textElement!);
-  const beforeText = editedText.substring(0, caretPosition);
-  const afterText = editedText.substring(caretPosition);
-  const continuationFlags = isNote(item)
-    ? NoteFns.listContinuationFlagsForEnter(asNoteItem(item), editedText, caretPosition)
-    : 0;
-  let afterInlineMarks = null;
-  let afterUrls = null;
-  if (isNote(item)) {
-    const splitMarks = splitNoteInlineMarks(asNoteItem(item).inlineMarks, titledItem.title, caretPosition);
-    asNoteItem(item).inlineMarks = splitMarks[0];
-    afterInlineMarks = splitMarks[1];
-    const splitUrls = splitNoteUrls(asNoteItem(item).urls, titledItem.title, caretPosition);
-    asNoteItem(item).urls = splitUrls[0];
-    afterUrls = splitUrls[1];
-  }
-
-  titledItem.title = beforeText;
-  if (isNote(item)) {
-    NoteFns.ensureTitleUrl(asNoteItem(item));
-  }
-
-  serverOrRemote.updateItem(titledItem, store.general.networkStatus);
-
-  const ordering = itemState.newOrderingDirectlyAfterChild(context.containerVe.displayItem.id, VeFns.treeItemFromVeid(noteVeid)!.id);
-  const note = NoteFns.create(titledItem.ownerId, context.containerVe.displayItem.id, RelationshipToParent.Child, "", ordering);
-  note.title = afterText;
-  note.flags = continuationFlags;
-  if (afterInlineMarks != null) {
-    note.inlineMarks = afterInlineMarks;
-  }
-  if (afterUrls != null) {
-    note.urls = afterUrls;
-  }
+  const ordering = itemState.newOrderingDirectlyAfterChild(context.containerVe.displayItem.id, item.id);
+  const note = NoteFns.create(item.ownerId, context.containerVe.displayItem.id, RelationshipToParent.Child, split.afterText, ordering);
+  note.flags = split.continuationFlags;
+  note.inlineMarks = split.afterInlineMarks;
+  note.urls = split.afterUrls;
+  NoteFns.ensureTitleUrl(note);
   itemState.add(note);
   server.addItem(note, null, store.general.networkStatus);
   arrangeNow(store, "enter-key-create-note");
@@ -1353,20 +1278,50 @@ function textEditElementForEvent(store: StoreContextModel, ev: Event): HTMLEleme
   return element;
 }
 
-/** Paste is one explicit replacement in the active note; newlines remain text
- * within that note. Keeping this in the edit session also gives future history
- * commands an exact range instead of a guessed diff or browser HTML mutation.
+/** Read the ordered selection once, including backward selections, before a
+ * structural command changes focus or replaces DOM nodes.
  */
-export function edit_pasteNoteText(store: StoreContextModel, ev: ClipboardEvent, text: string): boolean {
+export function prepareNoteParagraphSplit(store: StoreContextModel, element: HTMLElement) {
+  const info = store.overlay.textEditInfo();
+  if (info?.itemType != ItemType.Note || info.colNum != null ||
+      element.id != textEditElementId(info) || store.textEdit.activeSession()?.isComposing) { return null; }
+  const ranges = currentSelectionRanges();
+  if (ranges.length != 1 || !rangeIsInsideEditor(ranges[0], element)) { return null; }
+  const item = itemState.get(VeFns.veidFromPath(info.itemPath).itemId);
+  const ve = VesCache.current.readNode(info.itemPath);
+  if (item == null || !isNote(item) || !itemCanEdit(item) || ve == null || !itemCanEdit(ve.displayItem)) { return null; }
+  store.textEdit.captureInput(element, noteInputTypingFlags(store, info.itemPath));
+  return planNoteParagraphSplit(asNoteItem(item),
+    getTextOffsetWithinElement(element, ranges[0].startContainer, ranges[0].startOffset),
+    getTextOffsetWithinElement(element, ranges[0].endContainer, ranges[0].endOffset));
+}
+
+function exitEmptyNoteList(store: StoreContextModel, ev: Event): boolean {
+  const element = textEditElementForEvent(store, ev);
+  if (element == null) { return false; }
+  const split = prepareNoteParagraphSplit(store, element);
+  if (split == null || split.note.title != "" ||
+      (split.note.flags & (NoteFlags.Bullet1 | NoteFlags.Numbered)) == 0) { return false; }
+  stopStructuralTextEvent(ev);
+  split.note.flags &= ~(NoteFlags.Bullet1 | NoteFlags.Numbered | NoteFlags.Indent1 | NoteFlags.Indent2);
+  store.textEdit.saveItem(split.note, true);
+  arrangeNow(store, "note-exit-empty-list");
+  const currentElement = document.getElementById(element.id);
+  if (currentElement instanceof HTMLElement) { setCaretPosition(currentElement, 0); }
+  return true;
+}
+
+/** Paste and soft line breaks share an explicit note replacement command. */
+export function edit_replaceNoteSelection(store: StoreContextModel, ev: Event, text: string): boolean {
   const element = textEditElementForEvent(store, ev);
   const info = store.overlay.textEditInfo();
   if (element == null || info?.itemType != ItemType.Note || info.colNum != null) { return false; }
   if (store.textEdit.activeSession()?.isComposing) {
-    return blockStructuralTextEvent(store, ev, "Finish composing text before pasting.");
+    return blockStructuralTextEvent(store, ev, "Finish composing text before replacing the selection.");
   }
   const ranges = currentSelectionRanges();
   if (ranges.length != 1 || !rangeIsInsideEditor(ranges[0], element)) {
-    return blockStructuralTextEvent(store, ev, "Paste within one item at a time.");
+    return blockStructuralTextEvent(store, ev, "Replace text within one item at a time.");
   }
   const ve = VesCache.current.readNode(info.itemPath);
   const item = itemState.get(VeFns.veidFromPath(info.itemPath).itemId);
@@ -1382,7 +1337,7 @@ export function edit_pasteNoteText(store: StoreContextModel, ev: ClipboardEvent,
   const end = getTextOffsetWithinElement(element, range.endContainer, range.endOffset);
   const session = store.textEdit.replaceNoteText(start, end, text, flags);
   if (session == null) {
-    return blockStructuralTextEvent(store, ev, "The text selection changed. Select where to paste and try again.");
+    return blockStructuralTextEvent(store, ev, "The text selection changed. Select the text and try again.");
   }
   stopStructuralTextEvent(ev);
   beforeInputNoteTypingFlags = null;

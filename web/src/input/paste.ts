@@ -18,7 +18,7 @@
 
 import { StoreContextModel } from "../store/StoreProvider";
 import { acceptClipboardTextForPendingTextItem } from "./text_clipboard_create";
-import { edit_pasteNoteText, edit_structuralClipboardGuard } from "./edit";
+import { edit_replaceNoteSelection, edit_structuralClipboardGuard } from "./edit";
 import { clipboardTextForSingleLine, normalizeClipboardLineEndings } from "../util/editable_text";
 import { textEditElementId } from "./text_edit_session";
 
@@ -50,6 +50,6 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
     }
   }
 
-  if (edit_pasteNoteText(store, ev, normalizeClipboardLineEndings(clipboardText))) { return; }
+  if (edit_replaceNoteSelection(store, ev, normalizeClipboardLineEndings(clipboardText))) { return; }
   document.execCommand("insertText", false, clipboardTextForSingleLine(clipboardText));
 }
