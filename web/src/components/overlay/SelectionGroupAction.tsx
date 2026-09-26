@@ -33,7 +33,6 @@ import { LIGHT_BORDER_COLOR } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { Uid, newUid } from "../../util/uid";
 import { arrangeNow } from "../../layout/arrange";
-import { MouseAction, MouseActionState } from "../../input/state";
 
 
 type SelectionGroupActionKind = "group" | "ungroup";
@@ -102,7 +101,7 @@ export const SelectionGroupAction: Component = () => {
   const store = useStore();
 
   const selectedItems = (): Array<Item> | null => {
-    if (store.overlay.selectionMarqueePx.get() != null) {
+    if (store.anItemIsMoving.get() || store.overlay.selectionMarqueePx.get() != null) {
       return null;
     }
 
@@ -216,7 +215,6 @@ export const SelectionGroupAction: Component = () => {
       `border: 1px solid ${LIGHT_BORDER_COLOR}; ` +
       `border-radius: 5px; ` +
       `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); ` +
-      `pointer-events: ${store.anItemIsMoving.get() && MouseActionState.isAction(MouseAction.Moving) ? "none" : "auto"}; ` +
       `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`;
   };
 

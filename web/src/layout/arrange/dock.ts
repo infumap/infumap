@@ -17,7 +17,8 @@
 */
 
 import { ATTACH_AREA_SIZE_PX, DOCK_GAP_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
-import { CursorEventState } from "../../input/state";
+import { getGroupMoveEntriesInParent } from "../../input/move_group";
+import { CursorEventState, MouseActionState } from "../../input/state";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -33,6 +34,18 @@ import { VesCache } from "../ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem } from "./item";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
+
+
+/** All items participating in this dock drag, in their drop order. */
+export function getMovingDockItems(activeItem: Item): Array<Item> {
+  const entries = getGroupMoveEntriesInParent(MouseActionState.getGroupMoveItems(), activeItem.parentId);
+  if (!entries.some(({ item }) => item.id == activeItem.id)) {
+    return [activeItem];
+  }
+  return entries
+    .sort((a, b) => a.entry.startPosGr.y - b.entry.startPosGr.y || a.entry.startPosGr.x - b.entry.startPosGr.x)
+    .map(({ item }) => item);
+}
 
 
 export function getDockScrollYPx(store: StoreContextModel, dockVe: VisualElement): number {
@@ -67,6 +80,8 @@ export const renderDockMaybe = (
   const dockPath = VeFns.addVeidToPath({ itemId: dockPageId, linkIdMaybe: null }, parentPath);
 
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(dockPage.id);
+  const movingItems = movingItemInThisPage ? getMovingDockItems(movingItemInThisPage) : [];
+  const movingIds = new Set(movingItems.map(item => item.id));
 
   const dockWidthPx = store.getCurrentDockWidthPx();
   const dockSideMarginPx = DOCK_GAP_PX * 1.25;
@@ -100,7 +115,7 @@ export const renderDockMaybe = (
     const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
     const childPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), dockPath);
 
-    if (movingItemInThisPage && childItem.id == movingItemInThisPage!.id) {
+    if (movingIds.has(childItem.id)) {
       continue;
     }
 
@@ -146,10 +161,6 @@ export const renderDockMaybe = (
   );
 
   if (movingItemInThisPage) {
-    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItemInThisPage);
-    const actualLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
-    const movingPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), dockPath);
-
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
     const dockScrollYPx = store.perItem.getPageScrollYProp({ itemId: dockPageId, linkIdMaybe: null }) *
       Math.max(0, dockChildAreaHeightPx - dockViewportBoundsPx.h);
@@ -157,11 +168,23 @@ export const renderDockMaybe = (
       x: mouseDesktopPosPx.x - dockBoundsPx.x,
       y: mouseDesktopPosPx.y - dockBoundsPx.y + dockScrollYPx,
     };
-    const cellGeometry = ItemFns.calcGeometry_Natural(movingItemInThisPage, mouseDockChildAreaPosPx);
-    arrangeItem(
-      store, dockPath, ArrangeAlgorithm.Dock, movingItemInThisPage, actualLinkItemMaybe, cellGeometry,
-      ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsMoving);
-    dockChildren.push(movingPath);
+    // Stack the whole selection around the grabbed item, keeping it under the cursor.
+    const movingGeometries = movingItems.map(item => ItemFns.calcGeometry_Natural(item, { x: 0, y: 0 }));
+    const activeIndex = movingItems.findIndex(item => item.id == movingItemInThisPage.id);
+    let movingYPx = mouseDockChildAreaPosPx.y - movingGeometries.slice(0, activeIndex)
+      .reduce((height, geometry) => height + geometry.boundsPx.h + DOCK_GAP_PX, 0);
+    for (let i = 0; i < movingItems.length; ++i) {
+      const movingItem = movingItems[i];
+      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItem);
+      const actualLinkItemMaybe = isLink(movingItem) ? asLinkItem(movingItem) : null;
+      const movingPath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), dockPath);
+      const cellGeometry = ItemFns.calcGeometry_Natural(movingItem, { x: mouseDockChildAreaPosPx.x, y: movingYPx });
+      movingYPx += cellGeometry.boundsPx.h + DOCK_GAP_PX;
+      arrangeItem(
+        store, dockPath, ArrangeAlgorithm.Dock, movingItem, actualLinkItemMaybe, cellGeometry,
+        ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsMoving);
+      dockChildren.push(movingPath);
+    }
   }
 
   const resizeBoundsPx = zeroBoundingBoxTopLeft(dockBoundsPx);
@@ -230,14 +253,14 @@ export function dockInsertIndexAndPositionFromDockChildAreaY(
   dockChildAreaYPx: number,
 ): IndexAndPosition {
   const dockSideMarginPx = DOCK_GAP_PX * 1.25;
+  const movingIds = new Set(getMovingDockItems(movingItem).map(item => item.id));
   let positionIndex = 0;
   let yCurrentPx = 0;
   for (let i = 0; i < dockItem.computed_children.length; ++i) {
-    positionIndex = i;
     const childId = dockItem.computed_children[i];
     const childItem = itemState.get(childId)!;
 
-    if (childItem.id == movingItem!.id) {
+    if (movingIds.has(childItem.id)) {
       continue;
     }
 
@@ -259,6 +282,7 @@ export function dockInsertIndexAndPositionFromDockChildAreaY(
     const newYPx = yCurrentPx + geometry.boundsPx.h + DOCK_GAP_PX;
     if (newYPx > dockChildAreaYPx) { break; }
     yCurrentPx = newYPx;
+    ++positionIndex;
   }
 
   return { index: positionIndex, position: yCurrentPx + 1 };
