@@ -494,7 +494,11 @@ export const itemState = {
     }
   },
 
-  moveToNewParent: (item: Item, moveToParentId: Uid, newRelationshipToParent: string, ordering?: Uint8Array) => {
+  /**
+   * The item's groupId is cleared if it leaves its parent, unless keepGroupId is set (because its
+   * entire group is moving with it) and it remains a child of a page.
+   */
+  moveToNewParent: (item: Item, moveToParentId: Uid, newRelationshipToParent: string, ordering?: Uint8Array, keepGroupId: boolean = false) => {
     if (wouldCreateRelationshipCycle(item.id, moveToParentId)) {
       console.error("moveToNewParent: refusing to create relationship cycle", {
         itemId: item.id,
@@ -506,7 +510,10 @@ export const itemState = {
 
     const prevParentId = item.parentId;
     const prevRelationshipToParent = item.relationshipToParent;
-    if (newRelationshipToParent != RelationshipToParent.Child || prevParentId != moveToParentId) {
+    const groupIdCanBeKept = keepGroupId &&
+      newRelationshipToParent == RelationshipToParent.Child &&
+      isPage(itemState.get(moveToParentId));
+    if ((newRelationshipToParent != RelationshipToParent.Child || prevParentId != moveToParentId) && !groupIdCanBeKept) {
       item.groupId = null;
     }
     if (ordering) {

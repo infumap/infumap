@@ -21,6 +21,7 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
+import { GroupFns } from "../items/base/group-item";
 import { ClientOnlyItemKind, Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
@@ -1489,9 +1490,11 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
       if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
         const newDateTime = calendarDropDateTime(store, overContainerVe, activeItem);
         const calendarMove = moveCalendarSelectionToDate(activeItem, newDateTime);
+        const wholeGroupIds = GroupFns.wholeGroupIds(activeItem.parentId, calendarMove.items.map(item => item.id));
         for (const item of calendarMove.items) {
           item.spatialPositionGr = { x: 0.0, y: 0.0 };
-          itemState.moveToNewParent(item, targetPageItem.id, RelationshipToParent.Child);
+          const keepGroupId = item.groupId != null && wholeGroupIds.has(item.groupId);
+          itemState.moveToNewParent(item, targetPageItem.id, RelationshipToParent.Child, undefined, keepGroupId);
         }
         const ops: Array<MovePersistOperation> = [];
         enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
