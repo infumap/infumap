@@ -34,7 +34,7 @@ import { trimNewline, restoreContentEditablePlaceholderIfEmpty } from "../util/s
 import { arrangeNow } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { assert, panic } from "../util/lang";
+import { panic } from "../util/lang";
 import { isFile } from "../items/file-item";
 import { isText } from "../items/text-item";
 import { ItemType } from "../items/base/item";
@@ -43,7 +43,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { isTable } from "../items/table-item";
-import { closestCaretPositionToClientPx, currentCaretElement, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setTextSelection } from "../util/caret";
+import { closestCaretPositionToClientPx, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setTextSelection } from "../util/caret";
 import { asCompositeItem, CompositeFns, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -51,8 +51,11 @@ import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { itemCanAcceptManualChildren, PageFlags } from "../items/base/flags-item";
-import { finishPendingClipboardTextItem } from "./text_clipboard_create";
-import { setNoteTitleFromEditedText, textEditElementId } from "./text_edit_session";
+import { textEditElementId } from "./text_edit_session";
+import { structuralTextContainerIsEditable, structuralTextNote } from "./structural_text_edit";
+import { asContainerItem } from "../items/base/container-item";
+import { itemCanMove } from "../items/base/capabilities-item";
+import { TransientMessageType } from "../store/StoreProvider_Overlay";
 
 
 let arrowKeyDown_caretPosition: number | null = null;
@@ -345,7 +348,7 @@ function currentLinearEditContext(store: StoreContextModel): LinearEditContext |
   };
 }
 
-function editablePathsInLinearContainer(context: LinearEditContext): Array<string> {
+function structuralPathsInLinearContainer(context: LinearEditContext): Array<string> {
   const orderedPaths: Array<string> = [];
   if (isPage(context.containerVe.displayItem) &&
     asPageItem(context.containerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
@@ -354,28 +357,15 @@ function editablePathsInLinearContainer(context: LinearEditContext): Array<strin
   }
 
   const childVes = VesCache.current.readStructuralChildren(context.containerPath);
-  for (const childVe of childVes) {
-    if (editableItemType(childVe) == null) { continue; }
-    orderedPaths.push(VeFns.veToPath(childVe));
+  const container = itemState.get(context.containerVe.displayItem.id);
+  if (container == null) { return []; }
+  // Include every model child, even blocks with no editable title or no rendered
+  // node. Such blocks must remain boundaries rather than disappear from a range.
+  for (const childId of asContainerItem(container).computed_children) {
+    const childVe = childVes.find(ve => (ve.actualLinkItemMaybe?.id ?? VeFns.treeItem(ve).id) == childId);
+    orderedPaths.push(childVe ? VeFns.veToPath(childVe) : VeFns.addVeidToPath({ itemId: childId, linkIdMaybe: null }, context.containerPath));
   }
-
   return orderedPaths;
-}
-
-function supportsLinearSelectionDeletePath(
-  context: LinearEditContext,
-  path: string,
-  allowContainerTitle: boolean,
-): boolean {
-  if (path == context.containerPath) {
-    return allowContainerTitle &&
-      isPage(context.containerVe.displayItem) &&
-      asPageItem(context.containerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
-      !(asPageItem(context.containerVe.displayItem).flags & PageFlags.HideDocumentTitle);
-  }
-
-  const item = itemState.get(VeFns.veidFromPath(path).itemId);
-  return !!item && (isNote(item) || isFile(item) || isText(item));
 }
 
 function textForLinearSelectionDeletePath(context: LinearEditContext, path: string): string | null {
@@ -387,39 +377,6 @@ function textForLinearSelectionDeletePath(context: LinearEditContext, path: stri
   const item = itemState.get(VeFns.veidFromPath(path).itemId);
   if (item == null || (!isNote(item) && !isFile(item) && !isText(item))) { return null; }
   return asTitledItem(item).title;
-}
-
-function setTextForLinearSelectionDeletePath(context: LinearEditContext, path: string, text: string): boolean {
-  if (path == context.containerPath) {
-    const pageItem = itemState.get(context.containerVe.displayItem.id);
-    if (pageItem == null || !isPage(pageItem)) { return false; }
-    asPageItem(pageItem).title = text;
-    return true;
-  }
-
-  const item = itemState.get(VeFns.veidFromPath(path).itemId);
-  if (item == null || (!isNote(item) && !isFile(item) && !isText(item))) { return false; }
-  if (isNote(item)) {
-    setNoteTitleFromEditedText(asNoteItem(item), text, 0);
-  } else {
-    asTitledItem(item).title = text;
-  }
-  return true;
-}
-
-function persistLinearSelectionDeletePath(store: StoreContextModel, context: LinearEditContext, path: string): void {
-  if (path == context.containerPath) {
-    const pageItem = itemState.get(context.containerVe.displayItem.id);
-    if (pageItem != null) {
-      serverOrRemote.updateItem(pageItem, store.general.networkStatus);
-    }
-    return;
-  }
-
-  const item = itemState.get(VeFns.veidFromPath(path).itemId);
-  if (item != null) {
-    serverOrRemote.updateItem(item, store.general.networkStatus);
-  }
 }
 
 function linearSelectionBoundaryFromRangeBoundary(node: Node, offset: number): LinearSelectionBoundary | null {
@@ -435,27 +392,20 @@ function linearSelectionBoundaryFromRangeBoundary(node: Node, offset: number): L
   };
 }
 
-function maybeBuildLinearSelectionDeleteSpec(store: StoreContextModel, key: string): LinearSelectionDeleteSpec | null {
-  if (key != "Backspace" && key != "Delete") { return null; }
-
+function maybeBuildLinearSelectionDeleteSpec(store: StoreContextModel, range: AbstractRange): LinearSelectionDeleteSpec | null {
   const context = currentLinearEditContext(store);
-  if (context == null) { return null; }
-
-  const selection = window.getSelection();
-  if (selection == null || selection.rangeCount == 0 || selection.isCollapsed) { return null; }
-
-  const range = selection.getRangeAt(0);
+  if (context == null || range.collapsed) { return null; }
   const start = linearSelectionBoundaryFromRangeBoundary(range.startContainer, range.startOffset);
   const end = linearSelectionBoundaryFromRangeBoundary(range.endContainer, range.endOffset);
   if (start == null || end == null) { return null; }
 
-  const orderedPaths = editablePathsInLinearContainer(context);
+  const orderedPaths = structuralPathsInLinearContainer(context);
   const startIndex = orderedPaths.indexOf(start.pathInfo.path);
   const endIndex = orderedPaths.indexOf(end.pathInfo.path);
   if (startIndex < 0 || endIndex < 0 || startIndex >= endIndex) { return null; }
 
   for (let i = startIndex; i <= endIndex; ++i) {
-    if (!supportsLinearSelectionDeletePath(context, orderedPaths[i], i == startIndex)) {
+    if (structuralTextNote(store, VesCache.current.readNode(orderedPaths[i]), context.containerVe) == null) {
       return null;
     }
   }
@@ -468,6 +418,169 @@ function maybeBuildLinearSelectionDeleteSpec(store: StoreContextModel, key: stri
     startIndex,
     endIndex,
   };
+}
+
+const STRUCTURAL_TEXT_BOUNDARY_MESSAGE = "Only adjacent, directly editable local notes without attachments or groups can be joined or deleted together.";
+
+function stopStructuralTextEvent(ev: Event): void {
+  ev.preventDefault();
+  ev.stopImmediatePropagation();
+}
+
+function blockStructuralTextEvent(store: StoreContextModel, ev: Event, text: string): true {
+  stopStructuralTextEvent(ev);
+  // Pending input rendering must not replace the selection we just protected.
+  const session = store.textEdit.activeSession();
+  if (session != null) { ++session.inputRevision; }
+  clearArrowKeyTracking();
+  const message = { text, type: TransientMessageType.Info };
+  store.overlay.toolbarTransientMessage.set(message);
+  setTimeout(() => {
+    if (store.overlay.toolbarTransientMessage.get() === message) {
+      store.overlay.toolbarTransientMessage.set(null);
+    }
+  }, 3000);
+  return true;
+}
+
+function linearEditorForEvent(store: StoreContextModel, ev: Event): HTMLElement | null {
+  const info = store.overlay.textEditInfo();
+  if (info == null || !(ev.target instanceof HTMLElement) || !ev.target.isContentEditable ||
+      ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement) { return null; }
+  const element = document.getElementById(textEditElementId(info));
+  if (!(element instanceof HTMLElement) ||
+      (!element.contains(ev.target) && !ev.target.contains(element))) { return null; }
+
+  // Include nested editors (e.g. table cells) when checking selection boundaries.
+  // They cannot participate in a note operation, but their DOM still needs protection.
+  let path: string | null = info.itemPath;
+  while (path) {
+    const ve = VesCache.current.readNode(path);
+    if (ve == null) { return null; }
+    if (isLinearEditableContainer(ve)) { return element; }
+    if (isPage(ve.displayItem)) { return null; }
+    path = VeFns.parentPath(path);
+  }
+  return null;
+}
+
+function rangeIsInsideEditor(range: AbstractRange, element: HTMLElement): boolean {
+  return nodeIsInsideElement(element, range.startContainer) && nodeIsInsideElement(element, range.endContainer);
+}
+
+function guardLinearSelection(
+  store: StoreContextModel,
+  ev: Event,
+  element: HTMLElement,
+  ranges: ReadonlyArray<AbstractRange>,
+  allowNoteDeletion: boolean,
+): boolean {
+  if (ranges.length == 1 && rangeIsInsideEditor(ranges[0], element)) { return false; }
+  if (ranges.length == 1 && allowNoteDeletion) {
+    const spec = maybeBuildLinearSelectionDeleteSpec(store, ranges[0]);
+    if (spec != null) {
+      stopStructuralTextEvent(ev);
+      deleteLinearSelectionMaybe(store, spec);
+      return true;
+    }
+  }
+  return blockStructuralTextEvent(store, ev, allowNoteDeletion
+    ? STRUCTURAL_TEXT_BOUNDARY_MESSAGE
+    : "Edit one item at a time. This selection crosses an item boundary.");
+}
+
+function currentSelectionRanges(): Array<Range> {
+  const selection = window.getSelection();
+  return selection == null ? [] : Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i));
+}
+
+function adjacentStructuralPath(context: LinearEditContext, backward: boolean): string | null {
+  const paths = structuralPathsInLinearContainer(context);
+  const index = paths.indexOf(context.editingPath);
+  return index < 0 ? null : paths[index + (backward ? -1 : 1)] ?? null;
+}
+
+function guardLinearBoundaryDeletion(store: StoreContextModel, ev: Event, element: HTMLElement, backward: boolean): boolean {
+  const ranges = currentSelectionRanges();
+  if (ranges.length != 1 || !ranges[0].collapsed || !rangeIsInsideEditor(ranges[0], element)) { return false; }
+  const textLength = trimNewline(element.innerText).length;
+  const offset = Math.min(textLength, getTextOffsetWithinElement(element, ranges[0].startContainer, ranges[0].startOffset));
+  if (backward ? offset > 0 : offset < textLength) { return false; }
+
+  // Never let contenteditable merge DOM blocks, including nested unsupported editors.
+  stopStructuralTextEvent(ev);
+  const context = currentLinearEditContext(store);
+  if (context == null) { return true; }
+  const adjacentPath = adjacentStructuralPath(context, backward);
+  if (adjacentPath == null) { return true; }
+  if (backward && joinItemsMaybeHandler(store)) { return true; }
+  return blockStructuralTextEvent(store, ev,
+    !backward && structuralTextNote(store, context.editingVe, context.containerVe) != null &&
+      structuralTextNote(store, VesCache.current.readNode(adjacentPath), context.containerVe) != null
+      ? "To join these notes, press Backspace at the start of the next note."
+      : STRUCTURAL_TEXT_BOUNDARY_MESSAGE);
+}
+
+function guardLinearEnter(store: StoreContextModel, ev: Event): boolean {
+  const context = currentLinearEditContext(store);
+  const info = store.overlay.textEditInfo();
+  if (context != null && info?.colNum == null &&
+      ((context.editingPath == context.containerPath && isPage(context.containerVe.displayItem) &&
+        structuralTextContainerIsEditable(store, context.containerVe)) ||
+       structuralTextNote(store, context.editingVe, context.containerVe) != null)) { return false; }
+  // File/text titles are labels: Enter finishes renaming without splitting the asset.
+  if (context != null && (isFile(context.editingVe.displayItem) || isText(context.editingVe.displayItem))) {
+    stopStructuralTextEvent(ev);
+    commitActiveTextEdit(store, true, "linear-title-enter-commit");
+    return true;
+  }
+  return blockStructuralTextEvent(store, ev, "This item cannot be split into paragraphs. Use an editable note without attachments.");
+}
+
+/** Capture before local item handlers or native contenteditable can alter structure. */
+export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  const element = linearEditorForEvent(store, ev);
+  if (element == null || ev.defaultPrevented) { return false; }
+  const deleting = ev.key == "Backspace" || ev.key == "Delete";
+  const typing = ev.key.length == 1 && ((!ev.ctrlKey && !ev.metaKey) || ev.getModifierState("AltGraph"));
+  if (!deleting && !typing && ev.key != "Enter") { return false; }
+  if (guardLinearSelection(store, ev, element, currentSelectionRanges(), deleting)) { return true; }
+  // IME confirmation must not split a note; the composition owns this keystroke.
+  if (ev.isComposing || ev.keyCode == 229) { return false; }
+  if (deleting) { return guardLinearBoundaryDeletion(store, ev, element, ev.key == "Backspace"); }
+  return ev.key == "Enter" && guardLinearEnter(store, ev);
+}
+
+export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: InputEvent): void {
+  const element = linearEditorForEvent(store, ev);
+  if (element == null || ev.defaultPrevented) { return; }
+  const deleting = ev.inputType == "deleteContentBackward" || ev.inputType == "deleteContentForward" || ev.inputType == "deleteContent";
+  if (guardLinearSelection(store, ev, element, currentSelectionRanges(), deleting)) { return; }
+  // Word/line deletion and mobile input may target more than the visible selection.
+  const targetRanges = ev.getTargetRanges?.() ?? [];
+  if (targetRanges.length > 0 && guardLinearSelection(store, ev, element, targetRanges, deleting)) { return; }
+  if (ev.inputType == "insertFromDrop" || ev.inputType == "deleteByDrag") {
+    blockStructuralTextEvent(store, ev, "Move text within one item using cut and paste.");
+    return;
+  }
+  if (ev.inputType.startsWith("delete") && (ev.inputType.endsWith("Backward") || ev.inputType.endsWith("Forward"))) {
+    guardLinearBoundaryDeletion(store, ev, element, ev.inputType.endsWith("Backward"));
+  } else if (ev.inputType == "insertParagraph" || ev.inputType == "insertLineBreak") {
+    if (guardLinearEnter(store, ev)) { return; }
+    stopStructuralTextEvent(ev);
+    enterKeyHandler(store);
+  }
+}
+
+export function edit_structuralClipboardGuard(store: StoreContextModel, ev: ClipboardEvent): boolean {
+  const element = linearEditorForEvent(store, ev);
+  return element != null && guardLinearSelection(store, ev, element, currentSelectionRanges(), false);
+}
+
+export function edit_structuralDropGuard(store: StoreContextModel, ev: DragEvent): void {
+  if (linearEditorForEvent(store, ev) != null) {
+    blockStructuralTextEvent(store, ev, "Move text within one item using cut and paste.");
+  }
 }
 
 function focusAfterLinearSelectionDelete(
@@ -485,7 +598,7 @@ function focusAfterLinearSelectionDelete(
   const prevPath = deleteSpec.startIndex > 0
     ? deleteSpec.orderedPaths[deleteSpec.startIndex - 1]
     : null;
-  if (prevPath != null) {
+  if (prevPath != null && structuralTextNote(store, VesCache.current.readNode(prevPath), deleteSpec.context.containerVe) != null) {
     const prevText = textForLinearSelectionDeletePath(deleteSpec.context, prevPath);
     if (prevText != null && focusTextEditPathInfo(store, {
       path: prevPath,
@@ -499,7 +612,7 @@ function focusAfterLinearSelectionDelete(
   const nextPath = deleteSpec.endIndex + 1 < deleteSpec.orderedPaths.length
     ? deleteSpec.orderedPaths[deleteSpec.endIndex + 1]
     : null;
-  if (nextPath != null && focusTextEditPathInfo(store, {
+  if (nextPath != null && structuralTextNote(store, VesCache.current.readNode(nextPath), deleteSpec.context.containerVe) != null && focusTextEditPathInfo(store, {
     path: nextPath,
     type: EditElementType.Title,
     colNumMaybe: null,
@@ -533,9 +646,13 @@ function temporaryFocusPathAfterLinearSelectionDelete(
 function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: LinearSelectionDeleteSpec): boolean {
   const startPath = deleteSpec.start.pathInfo.path;
   const endPath = deleteSpec.end.pathInfo.path;
-  const startText = textForLinearSelectionDeletePath(deleteSpec.context, startPath);
-  const endText = textForLinearSelectionDeletePath(deleteSpec.context, endPath);
-  if (startText == null || endText == null) { return false; }
+  const startNote = structuralTextNote(store, VesCache.current.readNode(startPath), deleteSpec.context.containerVe);
+  const endNote = structuralTextNote(store, VesCache.current.readNode(endPath), deleteSpec.context.containerVe);
+  if (startNote == null || endNote == null) { return false; }
+  // Finish the active session before changing or deleting its model item.
+  store.overlay.setTextEditInfo(store.history, null);
+  const startText = startNote.title;
+  const endText = endNote.title;
 
   const startOffset = Math.max(0, Math.min(deleteSpec.start.offset, startText.length));
   const endOffset = Math.max(0, Math.min(deleteSpec.end.offset, endText.length));
@@ -547,15 +664,23 @@ function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: Linear
     keepStartPath = false;
     pathsToDelete.unshift(startPath);
   } else {
-    if (!setTextForLinearSelectionDeletePath(deleteSpec.context, startPath, mergedText)) {
-      return false;
-    }
-    persistLinearSelectionDeletePath(store, deleteSpec.context, startPath);
+    const prefix = startText.substring(0, startOffset);
+    const suffix = endText.substring(endOffset);
+    startNote.inlineMarks = concatNoteInlineMarks(
+      splitNoteInlineMarks(startNote.inlineMarks, startText, startOffset)[0], prefix,
+      splitNoteInlineMarks(endNote.inlineMarks, endText, endOffset)[1], suffix,
+    );
+    startNote.urls = concatNoteUrls(
+      splitNoteUrls(startNote.urls, startText, startOffset)[0], prefix,
+      splitNoteUrls(endNote.urls, endText, endOffset)[1], suffix,
+    );
+    startNote.title = mergedText;
+    NoteFns.ensureTitleUrl(startNote);
+    store.textEdit.saveItem(startNote, true);
   }
 
   // Move focus and edit state off any soon-to-be-deleted note before itemState.delete()
   // triggers reactive reads like the toolbar.
-  store.overlay.setTextEditInfo(store.history, null);
   store.history.setFocus(temporaryFocusPathAfterLinearSelectionDelete(deleteSpec, keepStartPath));
 
   for (const path of pathsToDelete) {
@@ -791,7 +916,7 @@ export function splitDocumentTitleToFirstNote(
   if (page.arrangeAlgorithm != ArrangeAlgorithm.Document ||
       (page.flags & PageFlags.HideDocumentTitle) ||
       page.clientOnly === true ||
-      !itemCanAcceptManualChildren(page)) {
+      !structuralTextContainerIsEditable(store, documentPageVe)) {
     return false;
   }
 
@@ -1023,6 +1148,8 @@ const keyUp_Arrow = (store: StoreContextModel) => {
 }
 
 export const edit_keyDownHandler = (store: StoreContextModel, visualElement: VisualElement, ev: KeyboardEvent) => {
+  if (ev.defaultPrevented || edit_structuralKeyDownGuard(store, ev)) { return; }
+  if (ev.isComposing || ev.keyCode == 229) { return; }
   if (isArrowKey(ev.key)) {
     const itemPath = store.overlay.textEditInfo()!.itemPath;
     const editingDomId = itemPath + ":title";
@@ -1057,100 +1184,73 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
     return;
   }
 
-  const linearSelectionDeleteSpec = maybeBuildLinearSelectionDeleteSpec(store, ev.key);
-  if (linearSelectionDeleteSpec != null) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    deleteLinearSelectionMaybe(store, linearSelectionDeleteSpec);
-    return;
-  }
-
   switch (ev.key) {
-    case "Backspace":
-      const el = currentCaretElement();
-      if (!(el instanceof HTMLElement)) { return; }
-      const position = getCaretPosition(el!);
-      if (position > 0) { return; }
-      ev.preventDefault();
-      ev.stopPropagation();
-      joinItemsMaybeHandler(store, visualElement);
-      return;
     case "Enter":
-      enterKeyHandler(store, visualElement);
+      enterKeyHandler(store);
       ev.preventDefault();
       ev.stopPropagation();
       return;
   }
 }
 
-const joinItemsMaybeHandler = (store: StoreContextModel, _visualElement: VisualElement) => {
+const joinItemsMaybeHandler = (store: StoreContextModel): boolean => {
   const context = currentLinearEditContext(store);
-  if (context == null) { return; }
+  if (context == null) { return false; }
+  const initialEditingItem = structuralTextNote(store, context.editingVe, context.containerVe);
+  const upPath = adjacentStructuralPath(context, true);
+  if (initialEditingItem == null || upPath == null) { return false; }
+  const upFocusItem = structuralTextNote(store, VesCache.current.readNode(upPath), context.containerVe);
+  if (upFocusItem == null) { return false; }
 
-  const initialEditingItem = VeFns.treeItem(context.editingVe);
-  if (!isNote(initialEditingItem)) { return; }
-
-  const upPath = adjacentEditableChildPathInCurrentLinearContext(context, "ArrowUp");
-  if (upPath == null) { return; }
-
-  const upVeid = VeFns.veidFromPath(upPath);
-  const upFocusItem = asTitledItem(itemState.get(upVeid.itemId)!);
-
-  if (!isNote(upFocusItem) && !isFile(upFocusItem) && !isText(upFocusItem)) { return; }
+  store.overlay.setTextEditInfo(store.history, null);
   const upTextLength = upFocusItem.title.length;
-  if (isNote(upFocusItem)) {
-    const upNote = asNoteItem(upFocusItem);
-    const initialNote = asNoteItem(initialEditingItem);
-    const initialText = asTitledItem(context.editingVe.displayItem).title;
-    upNote.inlineMarks = concatNoteInlineMarks(
-      upNote.inlineMarks,
-      upFocusItem.title,
-      initialNote.inlineMarks,
-      initialText,
-    );
-    upNote.urls = concatNoteUrls(
-      upNote.urls,
-      upFocusItem.title,
-      initialNote.urls,
-      initialText,
-    );
-  }
-  upFocusItem.title = upFocusItem.title + asTitledItem(context.editingVe.displayItem).title;
+  upFocusItem.inlineMarks = concatNoteInlineMarks(
+    upFocusItem.inlineMarks, upFocusItem.title, initialEditingItem.inlineMarks, initialEditingItem.title,
+  );
+  upFocusItem.urls = concatNoteUrls(
+    upFocusItem.urls, upFocusItem.title, initialEditingItem.urls, initialEditingItem.title,
+  );
+  upFocusItem.title += initialEditingItem.title;
+  NoteFns.ensureTitleUrl(upFocusItem);
 
   store.history.setFocus(upPath);
-  arrangeNow(store, "join-items-focus-up-item");
-
-  server.updateItem(upFocusItem, store.general.networkStatus);
+  store.textEdit.saveItem(upFocusItem, true);
   itemState.delete(initialEditingItem.id);
   server.deleteItem(initialEditingItem.id, store.general.networkStatus);
 
   if (isComposite(context.containerVe.displayItem)) {
-    const compositeItem = asCompositeItem(context.containerVe.displayItem);
-    assert(compositeItem.computed_children.length != 0, "composite item does not have any children.");
-    if (compositeItem.computed_children.length == 1 && !CompositeFns.hasOwnTitle(compositeItem)) {
-      const compositeParentPath = VeFns.parentPath(context.containerPath);
-      if (compositeParentPath == null) { return; }
+    const compositeItem = asCompositeItem(itemState.get(context.containerVe.displayItem.id)!);
+    const compositeParentPath = VeFns.parentPath(context.containerPath);
+    const parentVe = compositeParentPath ? VesCache.current.readNode(compositeParentPath) : null;
+    if (compositeItem.computed_children.length == 1 && !CompositeFns.hasOwnTitle(compositeItem) && compositeItem.groupId == null &&
+        compositeItem.computed_attachments.length == 0 && itemCanMove(compositeItem) &&
+        itemCanMove(context.containerVe.displayItem) &&
+        compositeItem.relationshipToParent == RelationshipToParent.Child &&
+        parentVe != null && compositeParentPath != null &&
+        parentVe.displayItem.id == compositeItem.parentId && structuralTextContainerIsEditable(store, parentVe)) {
 
       const posGr = compositeItem.spatialPositionGr;
       const widthGr = compositeItem.spatialWidthGr;
-      itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child);
+      itemState.moveToNewParent(upFocusItem, compositeItem.parentId, RelationshipToParent.Child, compositeItem.ordering);
       asPositionalItem(upFocusItem).spatialPositionGr = posGr;
 
       asXSizableItem(upFocusItem).spatialWidthGr = widthGr;
-      server.updateItem(upFocusItem, store.general.networkStatus);
+      store.textEdit.saveItem(upFocusItem, true);
+      store.history.setFocus(compositeParentPath);
       itemState.delete(compositeItem.id);
       server.deleteItem(compositeItem.id, store.general.networkStatus);
       arrangeNow(store, "join-items-collapse-composite");
       focusItemInLinearContainer(store, compositeParentPath, upFocusItem.id, upTextLength);
-      return;
+      return true;
     }
   }
 
   arrangeNow(store, "join-items-restore-edit-focus");
   focusItemInLinearContainer(store, context.containerPath, upFocusItem.id, upTextLength);
+  return true;
 }
 
-const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement) => {
+const enterKeyHandler = (store: StoreContextModel) => {
   const context = currentLinearEditContext(store);
   if (context == null) { return; }
 
@@ -1165,13 +1265,8 @@ const enterKeyHandler = (store: StoreContextModel, _visualElement: VisualElement
   if (visualAncestorPageIsClientOnly(context.containerPath)) { return; }
 
   const noteVeid = VeFns.veidFromPath(context.editingPath);
-  const item = itemState.get(noteVeid.itemId)!;
-  if (!isNote(item) && !isFile(item) && !isText(item)) { return; }
-  if (isText(item) && finishPendingClipboardTextItem(store, context.editingPath, document.getElementById(context.editingPath + ":title")?.textContent ?? "")) {
-    store.overlay.setTextEditInfo(store.history, null, false);
-    arrangeNow(store, "clipboard-text-enter-commit");
-    return;
-  }
+  const item = structuralTextNote(store, context.editingVe, context.containerVe);
+  if (item == null) { return; }
   const titledItem = asTitledItem(item);
 
   const editingDomId = context.editingPath + ":title";
@@ -1266,6 +1361,10 @@ export const edit_inputListener = (store: StoreContextModel, ev: InputEvent, arr
         store.overlay.toolbarPopupInfoMaybe.get() != null) { return; }
     const currentElement = document.getElementById(editingDomId);
     if (!(currentElement instanceof HTMLElement)) { return; }
+    // A selection made after input (including a blocked cross-item edit) belongs
+    // to the user. A pending render must not replace it with the old caret.
+    const liveSelection = window.getSelection();
+    if (liveSelection != null && !liveSelection.isCollapsed) { return; }
     const item = itemState.get(session.itemId);
     if (item == null) { return; }
     // A split/join may have updated the model before this rendering callback.
