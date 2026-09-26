@@ -1996,7 +1996,9 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
   } else {
     const insertionTarget = TableFns.tableInsertionTarget(store, overContainerVe, store.perVe.getMoveOverRowNumber(tablePath));
     const moveToParentId = insertionTarget.parentContainer.id;
-    const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveToParentId, insertionTarget.insertIndex, activeItem.id);
+    // insertIndex indexes the unfiltered children, which may include the moving item itself (a
+    // table page row being reordered), so don't ignore it: ordering next to its old self is harmless.
+    const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveToParentId, insertionTarget.insertIndex, null);
     if (activeItem.parentId != moveToParentId) {
       itemState.moveToNewParent(activeItem, moveToParentId, RelationshipToParent.Child, moveToOrdering);
     } else {
