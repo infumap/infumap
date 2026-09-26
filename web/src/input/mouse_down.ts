@@ -115,8 +115,8 @@ function isNoteInsideDocumentArrangedPage(visualElement: VisualElement): boolean
   return isInsideDocumentPageClickContext(visualElement);
 }
 
-function documentNoteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  if (!isNoteInsideDocumentArrangedPage(hitVe)) {
+function noteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  if (!isNote(hitVe.displayItem)) {
     return false;
   }
   if (hitInfo.overElementMeta?.compositeMoveOut) {
@@ -136,6 +136,10 @@ function documentNoteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof 
     !(hitInfo.hitboxType & blockedHitboxes);
 }
 
+function documentNoteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  return isNoteInsideDocumentArrangedPage(hitVe) && noteBodyClick(hitVe, hitInfo);
+}
+
 function shouldAllowReadOnlyDocumentNoteTextSelection(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
   return !CursorEventState.get().shiftDown &&
     !itemCanEdit(VeFns.treeItem(hitVe)) &&
@@ -148,7 +152,7 @@ function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: Return
     documentNoteBodyClick(hitVe, hitInfo);
 }
 
-function extendDocumentTextSelectionOnShiftClick(store: StoreContextModel): boolean {
+function extendLinearTextSelectionOnShiftClick(store: StoreContextModel): boolean {
   if (!CursorEventState.get().shiftDown ||
       store.overlay.contextMenuInfo.get() != null ||
       store.overlay.tableColumnContextMenuInfo.get() != null ||
@@ -162,12 +166,16 @@ function extendDocumentTextSelectionOnShiftClick(store: StoreContextModel): bool
   const anchorPath = getEditPathInfoForNode(selection.anchorNode);
   if (anchorPath == null || anchorPath.type != EditElementType.Title) { return false; }
   const anchorVe = VesCache.current.readNode(anchorPath.path);
-  if (anchorVe == null || !isNoteInsideDocumentArrangedPage(anchorVe)) { return false; }
+  if (anchorVe == null || !isNote(anchorVe.displayItem)) { return false; }
+  const parentVe = anchorVe.parentPath == null ? null : VesCache.current.readNode(anchorVe.parentPath);
+  if (!isNoteInsideDocumentArrangedPage(anchorVe) &&
+      (parentVe == null || !isComposite(parentVe.displayItem))) {
+    return false;
+  }
 
   const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false, true, true);
   const hitVe = HitInfoFns.getHitVe(hitInfo);
-  if (!documentNoteBodyClick(hitVe, hitInfo) ||
-      (hitInfo.hitboxType & HitboxFlags.TriangleLinkSettings) ||
+  if (!noteBodyClick(hitVe, hitInfo) ||
       hitVe.parentPath != anchorVe.parentPath) {
     return false;
   }
@@ -410,7 +418,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
 
   // Extend from the live anchor before leaving an editor clears its selection.
-  if (buttonNumber == MOUSE_LEFT && extendDocumentTextSelectionOnShiftClick(store)) {
+  if (buttonNumber == MOUSE_LEFT && extendLinearTextSelectionOnShiftClick(store)) {
     return MouseEventActionFlags.PreventDefault;
   }
 
