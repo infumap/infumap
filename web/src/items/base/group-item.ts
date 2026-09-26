@@ -35,6 +35,25 @@ export const GroupFns = {
     return parent.computed_children.filter(childId => itemState.get(childId)?.groupId == groupId);
   },
 
+  /**
+   * The groups in parentId all of whose members are in itemIds. When items are moved to a new
+   * parent together, those in one of these groups retain their groupId.
+   */
+  wholeGroupIds: (parentId: Uid, itemIds: Array<Uid>): Set<Uid> => {
+    const itemIdSet = new Set(itemIds);
+    const result = new Set<Uid>();
+    for (const itemId of itemIdSet) {
+      const item = itemState.get(itemId);
+      if (item == null || item.parentId != parentId) { continue; }
+      const groupId = GroupFns.effectiveGroupId(item);
+      if (groupId == null || result.has(groupId)) { continue; }
+      if (GroupFns.memberIds(parentId, groupId).every(memberId => itemIdSet.has(memberId))) {
+        result.add(groupId);
+      }
+    }
+    return result;
+  },
+
   effectiveGroupId: (item: Item): Uid | null => {
     if (item.groupId == null || item.relationshipToParent != RelationshipToParent.Child) { return null; }
     return GroupFns.memberIds(item.parentId, item.groupId).length >= 2 ? item.groupId : null;

@@ -19,6 +19,7 @@
 import { GRID_SIZE } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ItemFns } from "../items/base/item-polymorphism";
+import { GroupFns } from "../items/base/group-item";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
@@ -183,13 +184,15 @@ export function moveGroupToChildParentPreservingOffsets(
     y: activePosGr.y - activeEntry.startPosGr.y,
   };
 
+  const wholeGroupIds = GroupFns.wholeGroupIds(sourceParentId, groupEntries.map(({ item }) => item.id));
   const movedIds: Array<string> = [];
   for (const { entry, item } of groupEntries) {
     item.spatialPositionGr = {
       x: entry.startPosGr.x + deltaFromStart.x,
       y: entry.startPosGr.y + deltaFromStart.y,
     };
-    itemState.moveToNewParent(item, targetParentId, RelationshipToParent.Child);
+    const keepGroupId = item.groupId != null && wholeGroupIds.has(item.groupId);
+    itemState.moveToNewParent(item, targetParentId, RelationshipToParent.Child, undefined, keepGroupId);
     movedIds.push(item.id);
   }
   return movedIds;
