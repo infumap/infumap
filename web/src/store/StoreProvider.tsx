@@ -33,6 +33,7 @@ import { PerVeStoreContextModel, makePerVeStore } from "./StoreProvider_PerVe";
 import { FindStoreContextModel, makeFindStore } from "./StoreProvider_Find";
 import { setGlobalRequestTracker } from "../server";
 import { makeTextEditStore, type TextEditStore } from "../input/text_edit_session";
+import { makeEditorHistory, type EditorHistoryStore } from "../input/editor_history";
 import { commitActiveTextEdit } from "../input/edit";
 import { setUnsavedTextFieldsRestorer } from "./ItemState";
 import { commitActiveToolbarTitleEdit } from "../input/toolbar_title";
@@ -81,6 +82,7 @@ export interface StoreContextModel {
   user: UserStoreContextModel,
   find: FindStoreContextModel,
   textEdit: TextEditStore,
+  editorHistory: EditorHistoryStore,
 }
 
 
@@ -157,16 +159,19 @@ export function StoreProvider(props: StoreContextProps) {
   const perVe = makePerVeStore();
   const perItem = makePerItemStore();
   const textEdit = makeTextEditStore(() => value);
+  const editorHistory = makeEditorHistory(() => value);
   setUnsavedTextFieldsRestorer(textEdit.preserveUnsavedFields);
   const overlay = makeOverlayStore(info => textEdit.changeTarget(info));
   const history = makeHistoryStore(() => {
     commitActiveToolbarTitleEdit(value);
     commitActiveTextEdit(value, true, "text-edit-navigation", false);
+    editorHistory.clear();
   });
   const find = makeFindStore();
 
   const clear = (): void => {
     textEdit.clear();
+    editorHistory.reset();
     currentVisiblePassword.set(null);
     umbrellaVisualElement.set(NONE_VISUAL_ELEMENT);
     history.clear();
@@ -222,6 +227,7 @@ export function StoreProvider(props: StoreContextProps) {
     user: userStore,
     find,
     textEdit,
+    editorHistory,
   };
 
   // Initialize global request tracker for server.ts

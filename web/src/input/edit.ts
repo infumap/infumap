@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { historyOwnsTextEdit } from "./editor_history";
 import { server, serverOrRemote } from "../server";
 import {
   NoteFns,
@@ -525,9 +526,25 @@ function guardLinearEnter(store: StoreContextModel, ev: Event): boolean {
   return blockStructuralTextEvent(store, ev, "This item cannot be split into paragraphs. Use an editable note without attachments.");
 }
 
+function historyHandlesEvent(store: StoreContextModel, ev: Event): boolean {
+  const target = ev.target instanceof Element ? ev.target : null;
+  const editor = textEditElementForEvent(store, ev);
+  if (editor && historyOwnsTextEdit(store.overlay.textEditInfo())) { return true; }
+  if (target?.closest("input, textarea, select, [contenteditable='true']")) { return false; }
+  return store.editorHistory.undoLabel() != null || store.editorHistory.redoLabel() != null;
+}
+
 /** Capture before local item handlers or native contenteditable can alter structure. */
 export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (store.editorHistory.busy()) { stopStructuralTextEvent(ev); return true; }
   if (edit_compositionKeyGuard(store, ev)) { return true; }
+  const key = ev.key.toLowerCase();
+  if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && (key == "z" || (ev.ctrlKey && key == "y")) && historyHandlesEvent(store, ev)) {
+    stopStructuralTextEvent(ev);
+    void (key == "y" || ev.shiftKey ? store.editorHistory.redo() : store.editorHistory.undo());
+    return true;
+  }
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(ev.key)) { store.editorHistory.breakGroup(); }
   if (ev.defaultPrevented) { return false; }
   if (ev.key == "Enter") {
     if (ev.shiftKey && edit_replaceNoteSelection(store, ev, "\n")) { return true; }
@@ -544,6 +561,23 @@ export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: Keyboa
 }
 
 export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: InputEvent): void {
+  if (store.editorHistory.busy()) { stopStructuralTextEvent(ev); return; }
+  if ((ev.inputType == "historyUndo" || ev.inputType == "historyRedo") && historyHandlesEvent(store, ev)) {
+    stopStructuralTextEvent(ev);
+    void (ev.inputType == "historyRedo" ? store.editorHistory.redo() : store.editorHistory.undo());
+    return;
+  }
+  const activeElement = textEditElementForEvent(store, ev);
+  // Native formatting would change only the DOM; use the recorded note command.
+  if (activeElement && (ev.inputType == "formatBold" || ev.inputType == "formatItalic")) {
+    stopStructuralTextEvent(ev);
+    if (store.overlay.textEditInfo()?.itemType == ItemType.Note) {
+      updateNoteTextSelectionInfoFromDom(store, true);
+      toggleActiveNoteInlineMark(store, ev.inputType == "formatBold" ? NoteInlineMarkFlags.Bold : NoteInlineMarkFlags.Italic);
+    }
+    return;
+  }
+  if (activeElement) { store.textEdit.beforeInput(activeElement, ev.inputType); }
   if (ev.defaultPrevented) { return; }
   const composing = ev.isComposing || store.textEdit.activeSession()?.isComposing;
   if (!composing) {
@@ -572,11 +606,13 @@ export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: In
 }
 
 export function edit_structuralClipboardGuard(store: StoreContextModel, ev: ClipboardEvent): boolean {
+  if (store.editorHistory.busy()) { stopStructuralTextEvent(ev); return true; }
   const element = linearEditorForEvent(store, ev);
   return element != null && guardLinearSelection(store, ev, element, currentSelectionRanges(), false);
 }
 
 export function edit_structuralDropGuard(store: StoreContextModel, ev: DragEvent): void {
+  if (store.editorHistory.busy()) { stopStructuralTextEvent(ev); return; }
   if (linearEditorForEvent(store, ev) != null) {
     blockStructuralTextEvent(store, ev, "Move text within one item using cut and paste.");
   }
@@ -588,6 +624,11 @@ function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: Linear
   const startNote = structuralTextNote(store, VesCache.current.readNode(startPath), deleteSpec.context.containerVe);
   const endNote = structuralTextNote(store, VesCache.current.readNode(endPath), deleteSpec.context.containerVe);
   if (startNote == null || endNote == null) { return false; }
+  store.textEdit.flushActive();
+  const token = store.editorHistory.begin([
+    deleteSpec.context.containerVe.displayItem.id,
+    ...deleteSpec.orderedPaths.slice(deleteSpec.startIndex, deleteSpec.endIndex + 1).map(path => VeFns.veidFromPath(path).itemId),
+  ], "Delete paragraphs");
   // Finish the active session before changing or deleting its model item.
   store.overlay.setTextEditInfo(store.history, null);
   const startText = startNote.title;
@@ -622,11 +663,12 @@ function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: Linear
     const item = itemState.get(VeFns.veidFromPath(path).itemId);
     if (item == null) { continue; }
     itemState.delete(item.id);
-    server.deleteItem(item.id, store.general.networkStatus);
+    store.editorHistory.track(server.deleteItem(item.id, store.general.networkStatus));
   }
 
   arrangeNow(store, "linear-delete-selection");
   focusTextEditPathInfo(store, deleteSpec.start.pathInfo, startOffset);
+  store.editorHistory.commit(token);
   return true;
 }
 
@@ -865,6 +907,8 @@ export function splitDocumentTitleToFirstNote(
   const beforeText = titleText.substring(0, start);
   const afterText = titleText.substring(end);
 
+  store.textEdit.flushActive();
+  const token = store.editorHistory.begin([page.id], "Split document title");
   store.overlay.setTextEditInfo(store.history, null);
   page.title = beforeText;
   store.textEdit.saveItem(page, true);
@@ -876,10 +920,12 @@ export function splitDocumentTitleToFirstNote(
     afterText,
     itemState.newOrderingAtBeginningOfChildren(page.id),
   );
+  store.editorHistory.include(token, note.id);
   itemState.add(note);
-  server.addItem(note, null, store.general.networkStatus);
+  store.editorHistory.track(server.addItem(note, null, store.general.networkStatus));
   arrangeNow(store, "document-title-enter-create-first-note");
   focusItemInLinearContainer(store, VeFns.veToPath(documentPageVe), note.id, 0);
+  store.editorHistory.commit(token);
   return true;
 }
 
@@ -1025,6 +1071,7 @@ export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteI
   const note = asNoteItem(item);
 
   if (selectionInfo.start == selectionInfo.end) {
+    store.editorHistory.breakGroup();
     const typingFlags = selectionInfo.typingFlags ^ flag;
     store.overlay.noteTextSelectionInfo.set({ ...selectionInfo, typingFlags });
     restoreNoteTextSelection(store, target.itemPath, selectionInfo.start, selectionInfo.end, true);
@@ -1032,12 +1079,15 @@ export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteI
     return;
   }
 
+  store.textEdit.flushActive();
+  const token = store.editorHistory.begin([note.id], "Format text");
   note.inlineMarks = toggleNoteInlineMarkFlag(note.inlineMarks, note.title, selectionInfo.start, selectionInfo.end, flag);
   const typingFlags = noteInlineFlagsForRange(note.inlineMarks, note.title, selectionInfo.start, selectionInfo.end);
   store.overlay.noteTextSelectionInfo.set({ ...selectionInfo, typingFlags });
-  serverOrRemote.updateItem(note, store.general.networkStatus);
+  store.textEdit.saveItem(note, true);
   arrangeNow(store, "toolbar-note-inline-mark");
   restoreNoteTextSelection(store, target.itemPath, selectionInfo.start, selectionInfo.end, false, backward);
+  store.editorHistory.commit(token);
 }
 
 export const edit_keyUpHandler = (store: StoreContextModel, ev: KeyboardEvent) => {
@@ -1153,6 +1203,9 @@ const joinItemsMaybeHandler = (store: StoreContextModel, backward: boolean): boo
   const leftNote = structuralTextNote(store, VesCache.current.readNode(leftPath), context.containerVe);
   if (leftNote == null) { return false; }
 
+  store.textEdit.flushActive();
+  const container = context.containerVe.displayItem;
+  const token = store.editorHistory.begin([leftNote.id, rightNote.id, container.id, container.parentId], "Join paragraphs");
   store.overlay.setTextEditInfo(store.history, null);
   const joinOffset = leftNote.title.length;
   leftNote.inlineMarks = concatNoteInlineMarks(
@@ -1167,7 +1220,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, backward: boolean): boo
   store.history.setFocus(leftPath);
   store.textEdit.saveItem(leftNote, true);
   itemState.delete(rightNote.id);
-  server.deleteItem(rightNote.id, store.general.networkStatus);
+  store.editorHistory.track(server.deleteItem(rightNote.id, store.general.networkStatus));
 
   if (isComposite(context.containerVe.displayItem)) {
     const compositeItem = asCompositeItem(itemState.get(context.containerVe.displayItem.id)!);
@@ -1193,16 +1246,18 @@ const joinItemsMaybeHandler = (store: StoreContextModel, backward: boolean): boo
       const saveMove = server.updateItem(leftNote, store.general.networkStatus);
       store.history.setFocus(compositeParentPath);
       itemState.delete(compositeItem.id);
-      void saveMove.then(() => server.deleteItem(compositeItem.id, store.general.networkStatus))
+      void store.editorHistory.track(saveMove.then(() => server.deleteItem(compositeItem.id, store.general.networkStatus)))
         .catch(error => console.warn("Failed to persist composite collapse after joining notes:", error));
       arrangeNow(store, "join-items-collapse-composite");
       focusItemInLinearContainer(store, compositeParentPath, leftNote.id, joinOffset);
+      store.editorHistory.commit(token);
       return true;
     }
   }
 
   arrangeNow(store, "join-items-restore-edit-focus");
   focusItemInLinearContainer(store, context.containerPath, leftNote.id, joinOffset);
+  store.editorHistory.commit(token);
   return true;
 }
 
@@ -1227,6 +1282,7 @@ const enterKeyHandler = (store: StoreContextModel) => {
   const split = prepareNoteParagraphSplit(store, textElement);
   if (split == null) { return; }
 
+  const token = store.editorHistory.begin([item.id, context.containerVe.displayItem.id], "Split paragraph");
   // Finish the old session while it still owns the unsplit DOM.
   store.overlay.setTextEditInfo(store.history, null);
   item.title = split.beforeText;
@@ -1241,11 +1297,13 @@ const enterKeyHandler = (store: StoreContextModel) => {
   note.inlineMarks = split.afterInlineMarks;
   note.urls = split.afterUrls;
   NoteFns.ensureTitleUrl(note);
+  store.editorHistory.include(token, note.id);
   itemState.add(note);
-  server.addItem(note, null, store.general.networkStatus);
+  store.editorHistory.track(server.addItem(note, null, store.general.networkStatus));
   arrangeNow(store, "enter-key-create-note");
 
   focusItemInLinearContainer(store, context.containerPath, note.id, 0);
+  store.editorHistory.commit(token);
 }
 
 function revealCaretHorizontallyIfClipped(el: HTMLElement, caretPosition: number): void {
@@ -1303,16 +1361,18 @@ function exitEmptyNoteList(store: StoreContextModel, ev: Event): boolean {
   if (split == null || split.note.title != "" ||
       (split.note.flags & (NoteFlags.Bullet1 | NoteFlags.Numbered)) == 0) { return false; }
   stopStructuralTextEvent(ev);
+  const token = store.editorHistory.begin([split.note.id], "Exit list");
   split.note.flags &= ~(NoteFlags.Bullet1 | NoteFlags.Numbered | NoteFlags.Indent1 | NoteFlags.Indent2);
   store.textEdit.saveItem(split.note, true);
   arrangeNow(store, "note-exit-empty-list");
   const currentElement = document.getElementById(element.id);
   if (currentElement instanceof HTMLElement) { setCaretPosition(currentElement, 0); }
+  store.editorHistory.commit(token);
   return true;
 }
 
 /** Paste and soft line breaks share an explicit note replacement command. */
-export function edit_replaceNoteSelection(store: StoreContextModel, ev: Event, text: string): boolean {
+export function edit_replaceNoteSelection(store: StoreContextModel, ev: Event, text: string, label?: string): boolean {
   const element = textEditElementForEvent(store, ev);
   const info = store.overlay.textEditInfo();
   if (element == null || info?.itemType != ItemType.Note || info.colNum != null) { return false; }
@@ -1335,7 +1395,7 @@ export function edit_replaceNoteSelection(store: StoreContextModel, ev: Event, t
   const range = ranges[0];
   const start = getTextOffsetWithinElement(element, range.startContainer, range.startOffset);
   const end = getTextOffsetWithinElement(element, range.endContainer, range.endOffset);
-  const session = store.textEdit.replaceNoteText(start, end, text, flags);
+  const session = store.textEdit.replaceNoteText(start, end, text, flags, label);
   if (session == null) {
     return blockStructuralTextEvent(store, ev, "The text selection changed. Select the text and try again.");
   }

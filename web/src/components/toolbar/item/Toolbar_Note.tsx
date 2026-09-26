@@ -33,6 +33,7 @@ import { itemState } from "../../../store/ItemState";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "../toolbarFocus";
 import { toggleActiveNoteInlineMark } from "../../../input/edit";
+import { applyEditorFormatCommand } from "../../../input/editor_history";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
 import { VeFns } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
@@ -59,10 +60,6 @@ export const Toolbar_Note: Component = () => {
     return asCompositeItem(parentItem);
   };
 
-  const touchToolbar = () => {
-    store.touchToolbar();
-  };
-
   const isInTable = (): boolean => {
     return toolbarFocusIsInTableView(store);
   };
@@ -84,10 +81,18 @@ export const Toolbar_Note: Component = () => {
     return false;
   };
 
-  const selectAlignLeft = () => { NoteFns.clearAlignmentFlags(noteItem()); requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
-  const selectAlignCenter = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignCenter; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
-  const selectAlignRight = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignRight; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
-  const selectAlignJustify = () => { NoteFns.clearAlignmentFlags(noteItem()); noteItem().flags |= NoteFlags.AlignJustify; requestArrange(store, "toolbar-note-alignment"); touchToolbar(); };
+  const selectAlignment = (flag: NoteFlags | null) => {
+    const note = noteItem();
+    applyEditorFormatCommand(store, [note], "Align text", () => {
+      NoteFns.clearAlignmentFlags(note);
+      if (flag != null) { note.flags |= flag; }
+    });
+    requestArrange(store, "toolbar-note-alignment");
+  };
+  const selectAlignLeft = () => { selectAlignment(null); };
+  const selectAlignCenter = () => { selectAlignment(NoteFlags.AlignCenter); };
+  const selectAlignRight = () => { selectAlignment(NoteFlags.AlignRight); };
+  const selectAlignJustify = () => { selectAlignment(NoteFlags.AlignJustify); };
   const toggleBold = () => { toggleActiveNoteInlineMark(store, NoteInlineMarkFlags.Bold); };
   const toggleItalic = () => { toggleActiveNoteInlineMark(store, NoteInlineMarkFlags.Italic); };
   const inlineMarkHighlighted = (flag: NoteInlineMarkFlags): boolean => {
@@ -115,31 +120,20 @@ export const Toolbar_Note: Component = () => {
   }
 
   const copyButtonHandler = (): void => {
-    if (noteItem().flags & NoteFlags.ShowCopyIcon) {
-      noteItem().flags &= ~NoteFlags.ShowCopyIcon;
-    } else {
-      noteItem().flags |= NoteFlags.ShowCopyIcon;
-    }
+    const note = noteItem();
+    applyEditorFormatCommand(store, [note], "Toggle copy icon", () => { note.flags ^= NoteFlags.ShowCopyIcon; });
     requestArrange(store, "toolbar-note-copy-icon");
-    touchToolbar();
   };
 
   const borderButtonHandler = (): void => {
-    if (compositeItemMaybe() != null) {
-      if (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) {
-        compositeItemMaybe()!.flags &= ~CompositeFlags.HideBorder;
-      } else {
-        compositeItemMaybe()!.flags |= CompositeFlags.HideBorder;
-      }
+    const composite = compositeItemMaybe();
+    if (composite != null) {
+      applyEditorFormatCommand(store, [composite], "Toggle border", () => { composite.flags ^= CompositeFlags.HideBorder; });
     } else {
-      if (noteItem().flags & NoteFlags.HideBorder) {
-        noteItem().flags &= ~NoteFlags.HideBorder;
-      } else {
-        noteItem().flags |= NoteFlags.HideBorder;
-      }
+      const note = noteItem();
+      applyEditorFormatCommand(store, [note], "Toggle border", () => { note.flags ^= NoteFlags.HideBorder; });
     }
     requestArrange(store, "toolbar-note-border");
-    touchToolbar();
   };
 
   const explicitHeightEnabled = (): boolean => {
@@ -151,16 +145,18 @@ export const Toolbar_Note: Component = () => {
   }
 
   const explicitHeightButtonHandler = (): void => {
-    if (noteItem().flags & NoteFlags.ExplicitHeight) {
-      noteItem().flags &= ~NoteFlags.ExplicitHeight;
-      noteItem().spatialHeightGr = 0;
-    } else {
-      const naturalDims = NoteFns.calcSpatialDimensionsBl(noteItem());
-      noteItem().flags |= NoteFlags.ExplicitHeight;
-      noteItem().spatialHeightGr = naturalDims.h * GRID_SIZE;
-    }
+    const note = noteItem();
+    applyEditorFormatCommand(store, [note], "Toggle fixed height", () => {
+      if (note.flags & NoteFlags.ExplicitHeight) {
+        note.flags &= ~NoteFlags.ExplicitHeight;
+        note.spatialHeightGr = 0;
+      } else {
+        const naturalDims = NoteFns.calcSpatialDimensionsBl(note);
+        note.flags |= NoteFlags.ExplicitHeight;
+        note.spatialHeightGr = naturalDims.h * GRID_SIZE;
+      }
+    });
     requestArrange(store, "toolbar-note-explicit-height");
-    touchToolbar();
   };
 
   const popupIconButtonHandler = (): void => {

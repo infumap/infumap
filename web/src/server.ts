@@ -1044,7 +1044,7 @@ let containerSyncRerunRequested = false;
 let containerSyncVisibilityHandler: (() => void) | null = null;
 
 function textEditInProgressForContainerSync(store: StoreContextModel | null | undefined): boolean {
-  return store?.overlay.textEditInfo() != null || (store?.textEdit.unsavedCount() ?? 0) > 0;
+  return store?.overlay.textEditInfo() != null || (store?.textEdit.unsavedCount() ?? 0) > 0 || (store?.editorHistory.busy() ?? false);
 }
 
 function clearContainerSyncRetryTimeout(): void {

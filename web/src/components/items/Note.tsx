@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { historyCaret } from "../../input/editor_history";
 import { Component, createRenderEffect, For, Show, untrack } from "solid-js";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, asNoteItem } from "../../items/note-item";
@@ -304,6 +305,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null) {
       console.log("ve.flags & VisualElementFlags.InsideTable || props.visualElement.actualLinkItemMaybe != null")
     } else {
+      const token = store.editorHistory.begin([sourceNote.id, sourceNote.parentId], "Split paragraph");
       // Finish the old edit before moving the note into a new composite.
       store.overlay.setTextEditInfo(store.history, null);
       const spatialPositionGr = sourceNote.spatialPositionGr;
@@ -311,8 +313,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       const composite = CompositeFns.create(sourceNote.ownerId, sourceNote.parentId, sourceNote.relationshipToParent, sourceNote.ordering);
       composite.spatialPositionGr = spatialPositionGr;
       composite.spatialWidthGr = spatialWidthGr;
+      store.editorHistory.include(token, composite.id);
       itemState.add(composite);
-      server.addItem(composite, null, store.general.networkStatus);
+      store.editorHistory.track(server.addItem(composite, null, store.general.networkStatus));
       itemState.moveToNewParent(sourceNote, composite.id, RelationshipToParent.Child, newOrdering());
       sourceNote.title = split.beforeText;
       sourceNote.inlineMarks = split.beforeInlineMarks;
@@ -326,8 +329,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       note.inlineMarks = split.afterInlineMarks;
       note.urls = split.afterUrls;
       NoteFns.ensureTitleUrl(note);
+      store.editorHistory.include(token, note.id);
       itemState.add(note);
-      server.addItem(note, null, store.general.networkStatus);
+      store.editorHistory.track(server.addItem(note, null, store.general.networkStatus));
 
       arrangeNow(store, "note-enter-create-composite");
 
@@ -343,7 +347,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
       const veid = { itemId: note.id, linkIdMaybe: null };
 
+      const pagePath = store.history.currentPagePath();
       const attemptToSetEditFocus = (attempt: number = 0) => {
+        if (itemState.get(note.id) == null || store.editorHistory.busy() || store.history.currentPagePath() != pagePath) { return; }
         const foundVes = VesCache.render.find(veid);
         if (foundVes.length > 0) {
           store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(foundVes[0].get()), itemType: ItemType.Note });
@@ -363,6 +369,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       };
 
       attemptToSetEditFocus();
+      const compositePath = VeFns.addVeidToPath({ itemId: composite.id, linkIdMaybe: null }, ve.parentPath!);
+      const notePath = VeFns.addVeidToPath(veid, compositePath);
+      store.editorHistory.commit(token, historyCaret({ itemPath: notePath, itemType: ItemType.Note }, 0));
     }
   }
 
