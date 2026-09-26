@@ -474,7 +474,6 @@ fn build_outline(
   } else {
     None
   };
-  let returned_ids: HashSet<&str> = items.iter().filter_map(|item| item["itemId"].as_str()).collect();
   let mut groups = std::collections::BTreeMap::<&str, Vec<&str>>::new();
   for entry in &entries {
     if entry.parent.id == container.id {
@@ -483,6 +482,17 @@ fn build_outline(
       }
     }
   }
+  // A groupId held by only one child is not a group (the other members were moved or deleted).
+  groups.retain(|_, members| members.len() >= 2);
+  for item in items.iter_mut() {
+    let is_group_member = item["groupId"].as_str().is_some_and(|group_id| groups.contains_key(group_id));
+    if !is_group_member {
+      if let Some(item) = item.as_object_mut() {
+        item.remove("groupId");
+      }
+    }
+  }
+  let returned_ids: HashSet<&str> = items.iter().filter_map(|item| item["itemId"].as_str()).collect();
   let groups: Vec<Value> = groups
     .into_iter()
     .filter_map(|(group_id, members)| {

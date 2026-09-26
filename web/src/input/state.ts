@@ -58,6 +58,7 @@ export interface MoveRollbackSnapshotEntry {
   spatialPositionGr: Vector,
   dateTime: number,
   endDateTime: number | null,
+  groupId: string | null,
   rollbackFlags?: number | null,
 }
 
