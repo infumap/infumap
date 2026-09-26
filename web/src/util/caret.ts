@@ -108,6 +108,23 @@ export function setTextSelection(el: HTMLElement, startPosition: number, endPosi
   sel.addRange(range);
 }
 
+export function textSelectionOffsets(el: HTMLElement): { anchor: number, focus: number } | null {
+  const selection = window.getSelection();
+  if (!selection?.anchorNode || !selection.focusNode ||
+      !el.contains(selection.anchorNode) || !el.contains(selection.focusNode)) { return null; }
+  return {
+    anchor: getTextOffsetWithinElement(el, selection.anchorNode, selection.anchorOffset),
+    focus: getTextOffsetWithinElement(el, selection.focusNode, selection.focusOffset),
+  };
+}
+
+/** Preserve direction as well as extent, so subsequent Shift+Arrow behaves naturally. */
+export function setDirectionalTextSelection(el: HTMLElement, anchorPosition: number, focusPosition: number): void {
+  const anchor = resolveTextRangePosition(el, anchorPosition);
+  const focus = resolveTextRangePosition(el, focusPosition);
+  window.getSelection()?.setBaseAndExtent(anchor.node, anchor.offset, focus.node, focus.offset);
+}
+
 
 /**
  * Get the caret position in contentEditable @param el.

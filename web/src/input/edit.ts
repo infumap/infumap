@@ -43,7 +43,7 @@ import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { isTable } from "../items/table-item";
-import { closestCaretPositionToClientPx, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setTextSelection } from "../util/caret";
+import { closestCaretPositionToClientPx, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setDirectionalTextSelection, textSelectionOffsets } from "../util/caret";
 import { asCompositeItem, CompositeFns, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
 import { VeFns, VisualElement } from "../layout/visual-element";
@@ -51,7 +51,7 @@ import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { itemCanAcceptManualChildren, PageFlags } from "../items/base/flags-item";
-import { textEditElementId } from "./text_edit_session";
+import { textEditElementId, type TextEditSession } from "./text_edit_session";
 import { structuralTextContainerIsEditable, structuralTextNote } from "./structural_text_edit";
 import { asContainerItem } from "../items/base/container-item";
 import { itemCanMove } from "../items/base/capabilities-item";
@@ -219,13 +219,13 @@ function noteInputTypingFlags(store: StoreContextModel, itemPath: string): numbe
   return 0;
 }
 
-function restoreNoteTextSelection(store: StoreContextModel, itemPath: string, start: number, end: number, preserveCollapsedTypingFlags: boolean): void {
+function restoreNoteTextSelection(store: StoreContextModel, itemPath: string, start: number, end: number, preserveCollapsedTypingFlags: boolean, backward: boolean = false): void {
   const element = document.getElementById(itemPath + ":title");
   if (!(element instanceof HTMLElement)) { return; }
   if (document.activeElement !== element) {
     element.focus();
   }
-  setTextSelection(element, start, end);
+  setDirectionalTextSelection(element, backward ? end : start, backward ? start : end);
   updateNoteTextSelectionInfoFromDom(store, preserveCollapsedTypingFlags);
 }
 
@@ -539,14 +539,13 @@ function guardLinearEnter(store: StoreContextModel, ev: Event): boolean {
 
 /** Capture before local item handlers or native contenteditable can alter structure. */
 export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (edit_compositionKeyGuard(store, ev)) { return true; }
   const element = linearEditorForEvent(store, ev);
   if (element == null || ev.defaultPrevented) { return false; }
   const deleting = ev.key == "Backspace" || ev.key == "Delete";
   const typing = ev.key.length == 1 && ((!ev.ctrlKey && !ev.metaKey) || ev.getModifierState("AltGraph"));
   if (!deleting && !typing && ev.key != "Enter") { return false; }
   if (guardLinearSelection(store, ev, element, currentSelectionRanges(), deleting)) { return true; }
-  // IME confirmation must not split a note; the composition owns this keystroke.
-  if (ev.isComposing || ev.keyCode == 229) { return false; }
   if (deleting) { return guardLinearBoundaryDeletion(store, ev, element, ev.key == "Backspace"); }
   return ev.key == "Enter" && guardLinearEnter(store, ev);
 }
@@ -554,11 +553,13 @@ export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: Keyboa
 export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: InputEvent): void {
   const element = linearEditorForEvent(store, ev);
   if (element == null || ev.defaultPrevented) { return; }
-  const deleting = ev.inputType == "deleteContentBackward" || ev.inputType == "deleteContentForward" || ev.inputType == "deleteContent";
+  const composing = ev.isComposing || store.textEdit.activeSession()?.isComposing;
+  const deleting = !composing && (ev.inputType == "deleteContentBackward" || ev.inputType == "deleteContentForward" || ev.inputType == "deleteContent");
   if (guardLinearSelection(store, ev, element, currentSelectionRanges(), deleting)) { return; }
   // Word/line deletion and mobile input may target more than the visible selection.
   const targetRanges = ev.getTargetRanges?.() ?? [];
   if (targetRanges.length > 0 && guardLinearSelection(store, ev, element, targetRanges, deleting)) { return; }
+  if (composing) { return; }
   if (ev.inputType == "insertFromDrop" || ev.inputType == "deleteByDrag") {
     blockStructuralTextEvent(store, ev, "Move text within one item using cut and paste.");
     return;
@@ -1024,6 +1025,7 @@ function applyLinearBoundaryNavigation(store: StoreContextModel, navigation: Pen
 }
 
 export function textEditSelectionChangeListener(store: StoreContextModel) {
+  if (store.textEdit.activeSession()?.isComposing) { return; }
   if (arrowKeyDown_pendingBoundaryNavigation != null) {
     logLinearEdit("selectionchange-skip-restore-during-boundary-navigation", {
       targetPath: arrowKeyDown_pendingBoundaryNavigation.targetPath,
@@ -1049,7 +1051,8 @@ export function textEditSelectionChangeListener(store: StoreContextModel) {
   updateNoteTextSelectionInfoFromDom(store, true);
 }
 
-export const edit_beforeInputHandler = (store: StoreContextModel, _ev: InputEvent) => {
+export const edit_beforeInputHandler = (store: StoreContextModel, ev: InputEvent) => {
+  if (ev.isComposing || store.textEdit.activeSession()?.isComposing) { return; }
   const target = activeNoteTextEditTarget(store);
   if (target == null) {
     beforeInputNoteTypingFlags = null;
@@ -1064,8 +1067,11 @@ export const edit_beforeInputHandler = (store: StoreContextModel, _ev: InputEven
 }
 
 export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteInlineMarkFlags): void {
+  if (store.textEdit.activeSession()?.isComposing) { return; }
   const target = activeNoteTextEditTarget(store);
   if (target == null) { return; }
+  const selection = textSelectionOffsets(target.element);
+  const backward = selection != null && selection.anchor > selection.focus;
 
   let selectionInfo = store.overlay.noteTextSelectionInfo.get();
   if (selectionInfo == null || selectionInfo.itemPath != target.itemPath) {
@@ -1091,10 +1097,11 @@ export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteI
   store.overlay.noteTextSelectionInfo.set({ ...selectionInfo, typingFlags });
   serverOrRemote.updateItem(note, store.general.networkStatus);
   arrangeNow(store, "toolbar-note-inline-mark");
-  restoreNoteTextSelection(store, target.itemPath, selectionInfo.start, selectionInfo.end, false);
+  restoreNoteTextSelection(store, target.itemPath, selectionInfo.start, selectionInfo.end, false, backward);
 }
 
 export const edit_keyUpHandler = (store: StoreContextModel, ev: KeyboardEvent) => {
+  if (edit_compositionKeyGuard(store, ev)) { return; }
   if (isArrowKey(ev.key)) {
     keyUp_Arrow(store);
   }
@@ -1333,63 +1340,98 @@ function revealCaretHorizontallyIfClipped(el: HTMLElement, caretPosition: number
   }
 }
 
+function textEditElementForEvent(store: StoreContextModel, ev: Event): HTMLElement | null {
+  const info = store.overlay.textEditInfo();
+  if (info == null) { return null; }
+  const element = document.getElementById(textEditElementId(info));
+  if (!(element instanceof HTMLElement) || !(ev.target instanceof Node) ||
+      (ev.target !== element && !element.contains(ev.target) &&
+       !(ev.target instanceof HTMLElement && ev.target.isContentEditable && ev.target.contains(element)))) { return null; }
+  return element;
+}
+
+/** Let the browser handle IME keys without running app shortcuts or paragraph commands. */
+export function edit_compositionKeyGuard(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (!(ev.isComposing || ev.keyCode == 229 || store.textEdit.activeSession()?.isComposing) ||
+      textEditElementForEvent(store, ev) == null) { return false; }
+  clearArrowKeyTracking();
+  ev.stopImmediatePropagation();
+  return true;
+}
+
+export function edit_compositionStartHandler(store: StoreContextModel, ev: CompositionEvent): void {
+  const element = textEditElementForEvent(store, ev);
+  const info = store.overlay.textEditInfo();
+  if (element == null || info == null) { return; }
+  clearArrowKeyTracking();
+  updateNoteTextSelectionInfoFromDom(store, true);
+  store.textEdit.beginComposition(element, noteInputTypingFlags(store, info.itemPath));
+  beforeInputNoteTypingFlags = null;
+}
+
+export function edit_compositionEndHandler(store: StoreContextModel, ev: CompositionEvent): void {
+  const element = textEditElementForEvent(store, ev);
+  if (element == null) { return; }
+  const session = store.textEdit.endComposition(element);
+  beforeInputNoteTypingFlags = null;
+  if (session != null) { scheduleTextEditArrange(store, session); }
+}
+
+function scheduleTextEditArrange(store: StoreContextModel, session: TextEditSession): void {
+  const inputRevision = ++session.inputRevision;
+  const textAtInput = session.lastText;
+  const editingDomId = textEditElementId(session.info);
+  setTimeout(() => {
+    if (store.textEdit.activeSession() !== session || session.inputRevision != inputRevision || session.isComposing ||
+        store.overlay.toolbarPopupInfoMaybe.get() != null) { return; }
+    const currentElement = document.getElementById(editingDomId);
+    if (!(currentElement instanceof HTMLElement)) { return; }
+    // Read the live selection at render time. Typing may have been followed by
+    // a click or Shift+Arrow before this callback; those changes belong to the user.
+    const selectionBefore = textSelectionOffsets(currentElement);
+    if (selectionBefore == null) { return; }
+    const activeElement = document.activeElement;
+    if (activeElement !== currentElement && !currentElement.contains(activeElement) &&
+        !(activeElement instanceof HTMLElement && activeElement.isContentEditable && activeElement.contains(currentElement))) { return; }
+    const item = itemState.get(session.itemId);
+    if (item == null) { return; }
+    // A split/join may have updated the model before this rendering callback.
+    if (session.info.itemType == ItemType.Note && asNoteItem(item).title != textAtInput) { return; }
+    if (textAtInput == "" && session.info.itemType != ItemType.Note) {
+      restoreContentEditablePlaceholderIfEmpty(currentElement);
+    }
+    arrangeNow(store, "text-edit-input-preserve-selection");
+    if (store.textEdit.activeSession() !== session || session.isComposing) { return; }
+    const renderedElement = document.getElementById(editingDomId);
+    if (!(renderedElement instanceof HTMLElement)) { return; }
+    const anchor = Math.min(selectionBefore.anchor, textAtInput.length);
+    const focus = Math.min(selectionBefore.focus, textAtInput.length);
+    const selectionAfter = textSelectionOffsets(renderedElement);
+    // A stable note host normally needs neither focus nor selection restoration.
+    // Keep the fallback for other item editors and deliberate markup changes.
+    if (renderedElement !== currentElement) { renderedElement.focus(); }
+    if (selectionAfter?.anchor !== anchor || selectionAfter?.focus !== focus) {
+      setDirectionalTextSelection(renderedElement, anchor, focus);
+    }
+    if (anchor == focus) { revealCaretHorizontallyIfClipped(renderedElement, focus); }
+    if (session.info.itemType == ItemType.Note) {
+      updateNoteTextSelectionInfoFromDom(store, true);
+    }
+  }, 0);
+}
+
 export const edit_inputListener = (store: StoreContextModel, ev: InputEvent, arrange: boolean = true) => {
   const textEditInfo = store.overlay.textEditInfo();
-  if (textEditInfo == null) { return; }
-  const editingDomId = textEditElementId(textEditInfo);
-  const el = document.getElementById(editingDomId);
-  if (!(el instanceof HTMLElement)) { return; }
-  // Ignore inputs from toolbar controls or nested editors which own their state.
-  if (ev.target instanceof Node && ev.target !== el && !el.contains(ev.target) &&
-      !(ev.target instanceof HTMLElement && ev.target.contains(el))) { return; }
-
+  const el = textEditElementForEvent(store, ev);
+  if (textEditInfo == null || el == null) { return; }
   const capturedFlags = beforeInputNoteTypingFlags;
   const typingFlags = capturedFlags?.itemPath == textEditInfo.itemPath
     ? capturedFlags.flags
     : noteInputTypingFlags(store, textEditInfo.itemPath);
-  // Input has already changed the DOM. Capture its target and text now, before
-  // an Escape, click, or structural edit can replace the active editing target.
+  // Also tolerate browsers which expose composing input without compositionstart.
+  if (ev.isComposing) { store.textEdit.beginComposition(el, typingFlags); }
   const session = store.textEdit.captureInput(el, typingFlags);
   beforeInputNoteTypingFlags = null;
-  if (session == null || !arrange) { return; }
-  const inputRevision = ++session.inputRevision;
-  const textAtInput = session.lastText;
-  const caretPosition = textAtInput == "" ? 0 : session.selection?.focus ?? 0;
-
-  setTimeout(() => {
-    if (store.textEdit.activeSession() !== session || session.inputRevision != inputRevision ||
-        store.overlay.toolbarPopupInfoMaybe.get() != null) { return; }
-    const currentElement = document.getElementById(editingDomId);
-    if (!(currentElement instanceof HTMLElement)) { return; }
-    // A selection made after input (including a blocked cross-item edit) belongs
-    // to the user. A pending render must not replace it with the old caret.
-    const liveSelection = window.getSelection();
-    if (liveSelection != null && !liveSelection.isCollapsed) { return; }
-    const item = itemState.get(session.itemId);
-    if (item == null) { return; }
-    // A split/join may have updated the model before this rendering callback.
-    if (textEditInfo.itemType == ItemType.Note && asNoteItem(item).title != textAtInput) { return; }
-    if (textAtInput == "" && textEditInfo.itemType != ItemType.Note) {
-      restoreContentEditablePlaceholderIfEmpty(currentElement);
-    }
-    arrangeNow(store, "text-edit-input-preserve-caret");
-    if (store.textEdit.activeSession() !== session) { return; }
-    const renderedElement = document.getElementById(editingDomId);
-    if (!(renderedElement instanceof HTMLElement)) { return; }
-    const selection = window.getSelection();
-    const selectionInsideEditTarget = selection != null && selection.rangeCount > 0 &&
-      selection.anchorNode != null && selection.focusNode != null &&
-      nodeIsInsideElement(renderedElement, selection.anchorNode) &&
-      nodeIsInsideElement(renderedElement, selection.focusNode);
-    const currentCaretPosition = selectionInsideEditTarget && selection?.isCollapsed
-      ? getCaretPosition(renderedElement) : null;
-    if (document.activeElement !== renderedElement) { renderedElement.focus(); }
-    if (!selectionInsideEditTarget || currentCaretPosition !== caretPosition) {
-      setCaretPosition(renderedElement, caretPosition);
-    }
-    revealCaretHorizontallyIfClipped(renderedElement, caretPosition);
-    if (textEditInfo.itemType == ItemType.Note) {
-      updateNoteTextSelectionInfoFromDom(store, false);
-    }
-  }, 0);
+  if (session == null || session.isComposing || !arrange) { return; }
+  scheduleTextEditArrange(store, session);
 }

@@ -53,7 +53,7 @@ import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
-import { commitActiveTextEdit, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
+import { commitActiveTextEdit, edit_compositionEndHandler, edit_compositionKeyGuard, edit_compositionStartHandler, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
 import { commitActiveToolbarTitleEdit } from "../input/toolbar_title";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { isPage } from "../items/page-item";
@@ -260,6 +260,9 @@ export const Main: Component = () => {
     mainDiv!.addEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.addEventListener('keydown', keyDownListener);
     window.addEventListener('keydown', structuralKeyDownListener, true);
+    window.addEventListener('keyup', compositionKeyUpListener, true);
+    window.addEventListener('compositionstart', compositionStartListener, true);
+    window.addEventListener('compositionend', compositionEndListener, true);
     window.addEventListener('beforeinput', structuralBeforeInputListener, true);
     window.addEventListener('cut', structuralClipboardListener, true);
     window.addEventListener('paste', structuralClipboardListener, true);
@@ -291,6 +294,9 @@ export const Main: Component = () => {
     mainDiv!.removeEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.removeEventListener('keydown', keyDownListener);
     window.removeEventListener('keydown', structuralKeyDownListener, true);
+    window.removeEventListener('keyup', compositionKeyUpListener, true);
+    window.removeEventListener('compositionstart', compositionStartListener, true);
+    window.removeEventListener('compositionend', compositionEndListener, true);
     window.removeEventListener('beforeinput', structuralBeforeInputListener, true);
     window.removeEventListener('cut', structuralClipboardListener, true);
     window.removeEventListener('paste', structuralClipboardListener, true);
@@ -315,6 +321,9 @@ export const Main: Component = () => {
   }
 
   const structuralKeyDownListener = (ev: KeyboardEvent) => { edit_structuralKeyDownGuard(store, ev); };
+  const compositionKeyUpListener = (ev: KeyboardEvent) => { edit_compositionKeyGuard(store, ev); };
+  const compositionStartListener = (ev: CompositionEvent) => { edit_compositionStartHandler(store, ev); };
+  const compositionEndListener = (ev: CompositionEvent) => { edit_compositionEndHandler(store, ev); };
   const structuralBeforeInputListener = (ev: InputEvent) => { edit_structuralBeforeInputGuard(store, ev); };
   const structuralClipboardListener = (ev: ClipboardEvent) => { edit_structuralClipboardGuard(store, ev); };
   const structuralDropListener = (ev: DragEvent) => {
@@ -331,7 +340,7 @@ export const Main: Component = () => {
   const textEditBeforeUnloadListener = (ev: BeforeUnloadEvent) => {
     commitActiveToolbarTitleEdit(store);
     store.textEdit.flushActive();
-    if (store.textEdit.unsavedCount() > 0) {
+    if (store.textEdit.unsavedCount() > 0 || store.textEdit.activeSession()?.isComposing) {
       ev.preventDefault();
       ev.returnValue = "";
     }
