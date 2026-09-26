@@ -37,6 +37,11 @@ export interface HitInfo {
   debugCreatedAt: string,
 }
 
+export interface HitboxScanOptions {
+  allowCopyMove?: boolean,
+  includeDropTargets?: boolean,
+}
+
 export interface HitTraversalContext {
   store: StoreContextModel,
   rootVes: VisualElementSignal,
@@ -46,7 +51,7 @@ export interface HitTraversalContext {
   posOnDesktopPx: Vector,
   canHitEmbeddedInteractive: boolean,
   allowOutsideBoundsHitboxes: boolean,
-  allowCopyMove: boolean,
+  hitboxOptions: HitboxScanOptions,
 }
 
 export interface HitHandler {

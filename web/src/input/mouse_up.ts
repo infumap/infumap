@@ -1000,7 +1000,7 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
   }
 
   const ignoreIds = movingIgnoreIds(activeVisualElement);
-  const hitInfo = HitInfoFns.hit(
+  const hitInfo = HitInfoFns.hitForDrop(
     store,
     CursorEventState.getLatestDesktopPx(store),
     ignoreIds,

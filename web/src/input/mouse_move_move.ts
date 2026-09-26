@@ -302,13 +302,13 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     arrangeNow(store, "moving-init-out-of-table");
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
-    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
+    const hitInfo = HitInfoFns.hitForDrop(store, desktopPosPx, [], false, false);
     if (!moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone)) { return; }
     MouseActionState.setAction(MouseAction.Moving); // arrange must treat the re-parented item as moving.
     arrangeNow(store, "moving-init-out-of-attachment");
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
-    const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false, false);
+    const hitInfo = HitInfoFns.hitForDrop(store, desktopPosPx, [activeItem.id], false, false);
     if (!moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone)) { return; }
     MouseActionState.setAction(MouseAction.Moving); // arrange must treat the re-parented item as moving.
     arrangeNow(store, "moving-init-out-of-composite");
@@ -525,7 +525,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   const ignoreIds = movingHitIgnoreIds(activeVisualElement, MouseActionState.getGroupMoveItems());
 
-  const hitInfo = HitInfoFns.hit(store, desktopPosPx, ignoreIds, MouseActionState.usesEmbeddedInteractiveHitTesting(), false);
+  const hitInfo = HitInfoFns.hitForDrop(store, desktopPosPx, ignoreIds, MouseActionState.usesEmbeddedInteractiveHitTesting(), false);
   const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);
   const normalizedTableMoveDesktopPx = tableContainerVeMaybe != null
     ? TableFns.normalizeMoveOverDesktopPx(store, tableContainerVeMaybe, desktopPosPx)
