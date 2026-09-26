@@ -34,6 +34,7 @@ import type { StoreContextModel } from "../store/StoreProvider";
 import type { TextEditInfo } from "../store/StoreProvider_Overlay";
 import { getTextOffsetWithinElement } from "../util/caret";
 import { readEditableText } from "../util/editable_text";
+import { appendNewlineIfEmpty } from "../util/string";
 import { finishPendingClipboardTextItem } from "./text_clipboard_create";
 
 import { captureEditorSelection, historyCaret, historyOwnsTextEdit, type EditorSelection } from "./editor_history";
@@ -100,6 +101,24 @@ function modelText(store: StoreContextModel, item: Item, info: TextEditInfo): st
     return columns[info.colNum]?.name ?? "";
   }
   return info.itemType == ItemType.Password ? asPasswordItem(item).text : asTitledItem(item).title;
+}
+
+/**
+ * innerText omits rendered-collapsed whitespace (e.g. a trailing space), so the model
+ * can differ from the edited DOM. Solid only rewrites text when the model changes,
+ * so without this the stale DOM text would remain visible and be re-edited later.
+ * Updates the rendered text node in place, which Solid continues to own.
+ */
+function resyncPlainEditorDom(element: HTMLElement, text: string): void {
+  if (element.hasAttribute("data-note-editor")) { return; }
+  const first = element.firstChild;
+  if (!(first instanceof Text)) { return; }
+  const expected = appendNewlineIfEmpty(text);
+  for (const child of Array.from(element.childNodes).slice(1)) {
+    // Browser editing can leave extra text nodes and filler breaks. Rendered elements remain.
+    if (child instanceof Text || (child instanceof HTMLElement && child.tagName == "BR")) { child.remove(); }
+  }
+  if (first.data != expected) { first.data = expected; }
 }
 
 /** Owns text-edit lifetime and pending saves independently of the rendered editor. */
@@ -262,6 +281,10 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     flushActive();
     if (active != null) {
       const item = itemState.get(active.itemId);
+      const element = document.getElementById(textEditElementId(active.info));
+      if (item != null && element instanceof HTMLElement && active.info.itemType != ItemType.Search) {
+        resyncPlainEditorDom(element, modelText(getStore(), item, active.info));
+      }
       if (isClipboardTextCreateItem(item)) {
         finishPendingClipboardTextItem(getStore(), active.info.itemPath, active.lastText);
       }

@@ -1463,8 +1463,13 @@ function scheduleTextEditArrange(store: StoreContextModel, session: TextEditSess
     if (store.textEdit.activeSession() !== session || session.isComposing) { return; }
     const renderedElement = document.getElementById(editingDomId);
     if (!(renderedElement instanceof HTMLElement)) { return; }
-    const anchor = Math.min(selectionBefore.anchor, textAtInput.length);
-    const focus = Math.min(selectionBefore.focus, textAtInput.length);
+    // Selection offsets are DOM text offsets. innerText (and so textAtInput) can omit
+    // rendered-collapsed whitespace, e.g. a trailing space in a flex-centered title.
+    const maxOffset = textAtInput == ""
+      ? 0
+      : getTextOffsetWithinElement(renderedElement, renderedElement, renderedElement.childNodes.length);
+    const anchor = Math.min(selectionBefore.anchor, maxOffset);
+    const focus = Math.min(selectionBefore.focus, maxOffset);
     const selectionAfter = textSelectionOffsets(renderedElement);
     // A stable note host normally needs neither focus nor selection restoration.
     // Keep the fallback for other item editors and deliberate markup changes.
