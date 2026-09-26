@@ -66,7 +66,7 @@ type TextRangePosition = {
   offset: number,
 };
 
-function resolveTextRangePosition(root: Node, targetPosition: number): TextRangePosition {
+export function resolveTextRangePosition(root: Node, targetPosition: number): TextRangePosition {
   const clampedTargetPosition = Math.max(0, targetPosition);
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let remaining = clampedTargetPosition;

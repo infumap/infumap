@@ -50,6 +50,6 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
     }
   }
 
-  if (edit_replaceNoteSelection(store, ev, normalizeClipboardLineEndings(clipboardText))) { return; }
+  if (edit_replaceNoteSelection(store, ev, normalizeClipboardLineEndings(clipboardText), "Paste")) { return; }
   document.execCommand("insertText", false, clipboardTextForSingleLine(clipboardText));
 }

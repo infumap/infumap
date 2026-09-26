@@ -36,9 +36,11 @@ import { getTextOffsetWithinElement } from "../util/caret";
 import { readEditableText } from "../util/editable_text";
 import { finishPendingClipboardTextItem } from "./text_clipboard_create";
 
+import { captureEditorSelection, historyCaret, historyOwnsTextEdit, type EditorSelection } from "./editor_history";
+
 const SAVE_DELAY_MS = 500;
 
-type TextEditField = "title" | "text" | `column:${number}`;
+type TextEditField = "flags" | "title" | "text" | `column:${number}`;
 
 export interface TextEditSession {
   info: TextEditInfo,
@@ -63,10 +65,11 @@ interface PendingSave {
 export interface TextEditStore {
   activeSession: () => TextEditSession | null,
   changeTarget: (info: TextEditInfo | null) => void,
+  beforeInput: (element: HTMLElement, inputType: string) => void,
   captureInput: (element: HTMLElement, typingFlags: number) => TextEditSession | null,
   beginComposition: (element: HTMLElement, typingFlags: number) => void,
   endComposition: (element: HTMLElement) => TextEditSession | null,
-  replaceNoteText: (start: number, end: number, text: string, typingFlags: number) => TextEditSession | null,
+  replaceNoteText: (start: number, end: number, text: string, typingFlags: number, label?: string) => TextEditSession | null,
   flushActive: () => void,
   saveItem: (item: Item, immediately?: boolean) => void,
   preserveUnsavedFields: (item: Item) => void,
@@ -102,6 +105,13 @@ function modelText(store: StoreContextModel, item: Item, info: TextEditInfo): st
 /** Owns text-edit lifetime and pending saves independently of the rendered editor. */
 export function makeTextEditStore(getStore: () => StoreContextModel): TextEditStore {
   let active: TextEditSession | null = null;
+  let historyBefore: EditorSelection | undefined;
+  let historyInputType = "";
+  const beforeInput = (element: HTMLElement, inputType: string) => {
+    if (!active || active.isComposing || element.id != textEditElementId(active.info)) { return; }
+    historyBefore = captureEditorSelection(getStore());
+    historyInputType = inputType;
+  };
   const pending = new Map<string, PendingSave>();
   const [unsavedCount, setUnsavedCount] = createSignal(0);
   const [failedSaveCount, setFailedSaveCount] = createSignal(0);
@@ -199,6 +209,12 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     }
 
     const info = session.info;
+    const history = getStore().editorHistory;
+    const grouped = ["insertText", "deleteContentBackward", "deleteContentForward"].includes(historyInputType);
+    const token = historyOwnsTextEdit(info) ? history.begin([item.id], historyInputType.startsWith("delete") ? "Delete text" : "Type text",
+      historyBefore, grouped ? `${item.id}:${historyInputType}:${typingFlags}` : undefined) : null;
+    historyBefore = undefined;
+    historyInputType = "";
     if (info.itemType == ItemType.Search) {
       setQueryText(getStore(), item.id, newText.replace(/\u200B/g, ""));
     } else if (info.colNum != null) {
@@ -213,6 +229,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       asTitledItem(item).title = newText;
     }
     markDirty(item, session.field);
+    history.commit(token);
     return session;
   };
 
@@ -250,6 +267,9 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       }
     }
     active = null;
+    historyBefore = undefined;
+    historyInputType = "";
+    getStore().editorHistory.breakGroup();
     if (info == null) { return; }
     const itemId = VeFns.veidFromPath(info.itemPath).itemId;
     const item = itemState.get(itemId);
@@ -277,8 +297,10 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     activeSession: () => active,
     changeTarget,
     captureInput,
+    beforeInput,
     beginComposition: (element, typingFlags) => {
       if (active == null || element.id != textEditElementId(active.info) || active.isComposing) { return; }
+      beforeInput(element, "composition");
       active.typingFlags = typingFlags;
       active.isComposing = true;
       ++active.inputRevision;
@@ -288,13 +310,14 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       active.isComposing = false;
       return captureInput(element, active.typingFlags);
     },
-    replaceNoteText: (start, end, text, typingFlags) => {
+    replaceNoteText: (start, end, text, typingFlags, label) => {
       const session = active;
       if (session == null || session.isComposing || session.info.itemType != ItemType.Note || session.info.colNum != null) { return null; }
       const item = itemState.get(session.itemId);
       if (item == null || !itemCanEdit(item)) { return null; }
       const note = asNoteItem(item);
       if (start < 0 || start > end || end > note.title.length) { return null; }
+      const token = getStore().editorHistory.begin([note.id], label ?? (text == "\n" ? "Insert line break" : "Insert text"));
       const oldText = note.title;
       const prefix = oldText.substring(0, start);
       const suffix = oldText.substring(end);
@@ -311,11 +334,15 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       session.typingFlags = typingFlags;
       session.selection = { anchor: start + text.length, focus: start + text.length };
       markDirty(note);
+      historyBefore = undefined;
+      historyInputType = "";
+      getStore().editorHistory.commit(token, historyCaret(session.info, start + text.length));
       return session;
     },
     flushActive,
     saveItem: (item, immediately = true) => {
       markDirty(item);
+      if (item.itemType == ItemType.Note) { markDirty(item, "flags"); }
       if (immediately) { void savePending(item.id); }
     },
     preserveUnsavedFields: item => {
@@ -324,7 +351,9 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       // A page load can refresh items even while periodic container sync is paused.
       // Keep only the locally edited fields; accept unrelated server updates.
       for (const field of save.fields) {
-        if (field == "title") {
+        if (field == "flags") {
+          asNoteItem(item).flags = asNoteItem(save.item).flags;
+        } else if (field == "title") {
           asTitledItem(item).title = asTitledItem(save.item).title;
           if (item.itemType == ItemType.Note) {
             asNoteItem(item).inlineMarks = asNoteItem(save.item).inlineMarks.map(mark => ({ ...mark }));
@@ -346,6 +375,8 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     failedSaveCount,
     clear: () => {
       active = null;
+      historyBefore = undefined;
+      historyInputType = "";
       for (const save of pending.values()) { cancelTimer(save); }
       pending.clear();
       updateStatus();

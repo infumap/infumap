@@ -32,6 +32,7 @@ import { NoteFaviconLoadStatus, clearNoteFaviconStatus, noteFaviconStatus } from
 import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { serverOrRemote } from "../../server";
+import { applyEditorFormatCommand } from "../../input/editor_history";
 import { panic } from "../../util/lang";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asTableItem, isTable } from "../../items/table-item";
@@ -459,7 +460,10 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.PageJustifiedRowAspect) {
       pageItem().justifiedRowAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
-      NoteFns.setUrlForToolbarEdit(noteItem(), noteUrlSelection(), textElement!.value);
+      const note = noteItem();
+      const selection = noteUrlSelection();
+      const url = textElement!.value;
+      applyEditorFormatCommand(store, [note], "Edit link", () => { NoteFns.setUrlForToolbarEdit(note, selection, url); });
     } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
       const docWidthBl = Math.round(parseFloat(textElement!.value));
       if (!Number.isFinite(docWidthBl)) { return; }
@@ -960,7 +964,8 @@ export const Toolbar_Popup: Component = () => {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
-    NoteFns.setTextStyle(asNoteItem(focusItem), textStyle);
+    const note = asNoteItem(focusItem);
+    applyEditorFormatCommand(store, [note], "Change text style", () => { NoteFns.setTextStyle(note, textStyle); });
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-note-text-style");
@@ -1100,7 +1105,8 @@ export const Toolbar_Popup: Component = () => {
     } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
       pageItem().gridNumberOfColumns = newValue;
     } else if (overlayTypeConst == ToolbarPopupType.NoteIndent) {
-      setNoteIndentLevel(noteItem(), newValue - 1);
+      const note = noteItem();
+      applyEditorFormatCommand(store, [note], "Change indent", () => { setNoteIndentLevel(note, newValue - 1); }, "indent");
     }
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-slider");

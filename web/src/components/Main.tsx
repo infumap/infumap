@@ -260,6 +260,9 @@ export const Main: Component = () => {
     mainDiv!.addEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.addEventListener('keydown', keyDownListener);
     window.addEventListener('keydown', structuralKeyDownListener, true);
+    for (const event of ['pointerdown', 'mousedown', 'click', 'touchstart', 'dragstart', 'drop']) {
+      window.addEventListener(event, historyInteractionGuard, { capture: true, passive: false });
+    }
     window.addEventListener('keyup', compositionKeyUpListener, true);
     window.addEventListener('compositionstart', compositionStartListener, true);
     window.addEventListener('compositionend', compositionEndListener, true);
@@ -294,6 +297,9 @@ export const Main: Component = () => {
     mainDiv!.removeEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.removeEventListener('keydown', keyDownListener);
     window.removeEventListener('keydown', structuralKeyDownListener, true);
+    for (const event of ['pointerdown', 'mousedown', 'click', 'touchstart', 'dragstart', 'drop']) {
+      window.removeEventListener(event, historyInteractionGuard, true);
+    }
     window.removeEventListener('keyup', compositionKeyUpListener, true);
     window.removeEventListener('compositionstart', compositionStartListener, true);
     window.removeEventListener('compositionend', compositionEndListener, true);
@@ -320,6 +326,15 @@ export const Main: Component = () => {
     textEditSelectionChangeListener(store);
   }
 
+  const historyInteractionGuard = (ev: Event) => {
+    if (!store.editorHistory.busy()) {
+      if (ev.type == "pointerdown") { store.editorHistory.breakGroup(); }
+      return;
+    }
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  };
+
   const structuralKeyDownListener = (ev: KeyboardEvent) => { edit_structuralKeyDownGuard(store, ev); };
   const compositionKeyUpListener = (ev: KeyboardEvent) => { edit_compositionKeyGuard(store, ev); };
   const compositionStartListener = (ev: CompositionEvent) => { edit_compositionStartHandler(store, ev); };
@@ -340,7 +355,7 @@ export const Main: Component = () => {
   const textEditBeforeUnloadListener = (ev: BeforeUnloadEvent) => {
     commitActiveToolbarTitleEdit(store);
     store.textEdit.flushActive();
-    if (store.textEdit.unsavedCount() > 0 || store.textEdit.activeSession()?.isComposing) {
+    if (store.textEdit.unsavedCount() > 0 || store.textEdit.activeSession()?.isComposing || store.editorHistory.busy()) {
       ev.preventDefault();
       ev.returnValue = "";
     }
