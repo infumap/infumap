@@ -132,11 +132,9 @@ export function arrange_list_page(
   const focusVeid = VeFns.veidFromPath(store.history.getFocusPath());
   const focusPath = store.history.getFocusPath();
   const pages = store.topTitledPages.get();
-  const activeMovingVe = MouseActionState.isAction(MouseAction.Moving)
-    ? MouseActionState.getActiveVisualElement()
-    : null;
-  const activeMovingChildId = activeMovingVe
-    ? activeMovingVe.actualLinkItemMaybe?.id ?? activeMovingVe.displayItem.id
+  const activeMovingVeid = activeMovingActualVeidMaybe();
+  const activeMovingChildId = activeMovingVeid
+    ? activeMovingVeid.linkIdMaybe ?? activeMovingVeid.itemId
     : null;
   const visibleRows = PageFns.getListPageVisibleRows(store, displayItem_pageWithChildren, pageWithChildrenVePath);
   const movingItemInThisPage = (() => {
@@ -164,7 +162,7 @@ export function arrange_list_page(
       : null,
     visibleRows,
   );
-  if (activeMovingVe && VeFns.compareVeids(selectedVeid, VeFns.actualVeidFromVe(activeMovingVe)) == 0) {
+  if (activeMovingVeid && VeFns.compareVeids(selectedVeid, activeMovingVeid) == 0) {
     selectedVeid = PageFns.resolveListPageSelectedItem(
       displayItem_pageWithChildren,
       selectedVeid,
@@ -512,6 +510,22 @@ export function arrange_list_page(
 
 export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
+/**
+ * The moving element's actual veid, read from the active path. Arrange must not resolve the active
+ * visual element: while a moved item's new visual element is not arranged yet, resolution falls back
+ * to its previous one (e.g. the table cell it was dragged from) and rewrites the active path to it.
+ */
+function activeMovingActualVeidMaybe(): Veid | null {
+  if (!MouseActionState.isAction(MouseAction.Moving)) { return null; }
+  const activeElementPath = MouseActionState.getActiveElementPath();
+  if (activeElementPath == null) { return null; }
+  const veid = VeFns.veidFromPath(activeElementPath);
+  return {
+    itemId: veid.itemId,
+    linkIdMaybe: veid.linkIdMaybe == LIST_PAGE_MAIN_ITEM_LINK_ITEM ? null : veid.linkIdMaybe,
+  };
+}
+
 export function arrangeSelectedListItem(
   store: StoreContextModel,
   veid: Veid,
@@ -643,11 +657,9 @@ export function arrange_dock_list_page(
   };
 
   const pageRelationships: VisualElementRelationships = {};
-  const activeMovingVe = MouseActionState.isAction(MouseAction.Moving)
-    ? MouseActionState.getActiveVisualElement()
-    : null;
-  const activeMovingChildId = activeMovingVe
-    ? activeMovingVe.actualLinkItemMaybe?.id ?? activeMovingVe.displayItem.id
+  const activeMovingVeid = activeMovingActualVeidMaybe();
+  const activeMovingChildId = activeMovingVeid
+    ? activeMovingVeid.linkIdMaybe ?? activeMovingVeid.itemId
     : null;
   const movingItemInThisPage = (() => {
     const activeMovingChildItem = activeMovingChildId
