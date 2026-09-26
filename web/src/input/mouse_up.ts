@@ -561,6 +561,7 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
     } else {
       item.ordering = new Uint8Array(entry.ordering);
     }
+    item.groupId = entry.groupId;
   }
 
   for (const parentId of parentsToSort) {

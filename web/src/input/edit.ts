@@ -40,6 +40,7 @@ import { panic } from "../util/lang";
 import { isFile } from "../items/file-item";
 import { isText } from "../items/text-item";
 import { ItemType } from "../items/base/item";
+import { GroupFns } from "../items/base/group-item";
 import { asPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
@@ -1226,7 +1227,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, backward: boolean): boo
     const compositeItem = asCompositeItem(itemState.get(context.containerVe.displayItem.id)!);
     const compositeParentPath = VeFns.parentPath(context.containerPath);
     const parentVe = compositeParentPath ? VesCache.current.readNode(compositeParentPath) : null;
-    if (compositeItem.computed_children.length == 1 && !CompositeFns.hasOwnTitle(compositeItem) && compositeItem.groupId == null &&
+    if (compositeItem.computed_children.length == 1 && !CompositeFns.hasOwnTitle(compositeItem) && GroupFns.effectiveGroupId(compositeItem) == null &&
         compositeItem.computed_attachments.length == 0 && itemCanMove(compositeItem) &&
         itemCanMove(context.containerVe.displayItem) &&
         compositeItem.relationshipToParent == RelationshipToParent.Child &&

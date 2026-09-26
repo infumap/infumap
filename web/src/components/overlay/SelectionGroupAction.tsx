@@ -20,8 +20,8 @@ import { Component, Show, createMemo } from "solid-js";
 
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
-import { asContainerItem } from "../../items/base/container-item";
 import { Item } from "../../items/base/item";
+import { GroupFns } from "../../items/base/group-item";
 import { isPage } from "../../items/page-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { VesCache } from "../../layout/ves-cache";
@@ -145,12 +145,13 @@ export const SelectionGroupAction: Component = () => {
   };
 
   const actionKind = (items: Array<Item>): SelectionGroupActionKind | null => {
-    const nonNullGroupIds = new Set(items.map(item => item.groupId).filter((groupId): groupId is Uid => groupId != null));
+    const groupIds = items.map(item => GroupFns.effectiveGroupId(item));
+    const nonNullGroupIds = new Set(groupIds.filter((groupId): groupId is Uid => groupId != null));
     if (nonNullGroupIds.size == 0) {
       return items.length >= 2 ? "group" : null;
     }
 
-    if (nonNullGroupIds.size != 1 || items.some(item => item.groupId == null)) {
+    if (nonNullGroupIds.size != 1 || groupIds.some(groupId => groupId == null)) {
       return null;
     }
 
@@ -161,7 +162,7 @@ export const SelectionGroupAction: Component = () => {
     }
 
     const selectedItemIds = new Set(items.map(item => item.id));
-    const groupMemberIds = asContainerItem(parentItem).computed_children.filter(childId => itemState.get(childId)?.groupId == groupId);
+    const groupMemberIds = GroupFns.memberIds(parentItem.id, groupId);
     if (groupMemberIds.length != selectedItemIds.size) {
       return null;
     }

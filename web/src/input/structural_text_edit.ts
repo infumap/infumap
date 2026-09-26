@@ -20,6 +20,7 @@ import { itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
+import { GroupFns } from "../items/base/group-item";
 import { asNoteItem, isNote, type NoteItem } from "../items/note-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VeFns, type VisualElement } from "../layout/visual-element";
@@ -53,7 +54,7 @@ export function structuralTextNote(
       noteVe.actualLinkItemMaybe != null || VeFns.treeItem(noteVe).id != item.id ||
       VeFns.parentPath(VeFns.veToPath(noteVe)) != VeFns.veToPath(containerVe) ||
       item.parentId != containerVe.displayItem.id || item.relationshipToParent != RelationshipToParent.Child ||
-      item.groupId != null) {
+      GroupFns.effectiveGroupId(item) != null) {
     return null;
   }
   const container = asContainerItem(itemState.get(containerVe.displayItem.id)!);
