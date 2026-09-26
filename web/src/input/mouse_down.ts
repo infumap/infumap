@@ -46,7 +46,7 @@ import { MouseEventActionFlags } from "./enums";
 import { isNote, NoteFns } from "../items/note-item";
 import { FileFns, isFile } from "../items/file-item";
 import { TextFns, isText } from "../items/text-item";
-import { getCaretPosition, setCaretPosition } from "../util/caret";
+import { closestCaretPositionToClientPx, EditElementType, getCaretPosition, getEditPathInfoForNode, resolveTextRangePosition, setCaretPosition } from "../util/caret";
 import { isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
@@ -146,6 +146,54 @@ function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: Return
   return !CursorEventState.get().shiftDown &&
     itemCanEdit(VeFns.treeItem(hitVe)) &&
     documentNoteBodyClick(hitVe, hitInfo);
+}
+
+function extendDocumentTextSelectionOnShiftClick(store: StoreContextModel): boolean {
+  if (!CursorEventState.get().shiftDown ||
+      store.overlay.contextMenuInfo.get() != null ||
+      store.overlay.tableColumnContextMenuInfo.get() != null ||
+      store.overlay.editUserSettingsInfo.get() != null ||
+      isInsideToolbarControlArea()) {
+    return false;
+  }
+
+  const selection = window.getSelection();
+  if (selection?.anchorNode == null) { return false; }
+  const anchorPath = getEditPathInfoForNode(selection.anchorNode);
+  if (anchorPath == null || anchorPath.type != EditElementType.Title) { return false; }
+  const anchorVe = VesCache.current.readNode(anchorPath.path);
+  if (anchorVe == null || !isNoteInsideDocumentArrangedPage(anchorVe)) { return false; }
+
+  const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false, true, true);
+  const hitVe = HitInfoFns.getHitVe(hitInfo);
+  if (!documentNoteBodyClick(hitVe, hitInfo) ||
+      (hitInfo.hitboxType & HitboxFlags.TriangleLinkSettings) ||
+      hitVe.parentPath != anchorVe.parentPath) {
+    return false;
+  }
+
+  // Keep the existing edit session so cross-paragraph editing still goes through
+  // the structural text guards. Never carry a selection into a different editor.
+  const editingInfo = store.overlay.textEditInfo();
+  if (editingInfo != null &&
+      (editingInfo.itemType != ItemType.Note || editingInfo.itemPath != anchorPath.path)) {
+    return false;
+  }
+
+  const targetElement = document.getElementById(VeFns.veToPath(hitVe) + ":title");
+  if (targetElement == null) { return false; }
+  const focusOffset = closestCaretPositionToClientPx(targetElement, CursorEventState.getLatestClientPx());
+  const focus = resolveTextRangePosition(targetElement, focusOffset);
+
+  // Preserve the anchor (not the ordered range start) for backward selections
+  // and repeated Shift-clicks. Do not focus or re-render either paragraph here.
+  selection.setBaseAndExtent(selection.anchorNode, selection.anchorOffset, focus.node, focus.offset);
+  ClickState.setLinkWasClicked(false);
+  DoubleClickState.preventDoubleClick();
+  MouseActionState.set(null);
+  store.anItemIsMoving.set(false);
+  store.anItemIsResizing.set(false);
+  return true;
 }
 
 function toggleCompositeCollapseOnMouseDownMaybe(store: StoreContextModel, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
@@ -360,6 +408,11 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
+
+  // Extend from the live anchor before leaving an editor clears its selection.
+  if (buttonNumber == MOUSE_LEFT && extendDocumentTextSelectionOnShiftClick(store)) {
+    return MouseEventActionFlags.PreventDefault;
+  }
 
   // Editing text using a content editable div (variety of item types).
   if (store.overlay.textEditInfo()) {
