@@ -173,14 +173,19 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
       </div>
       <Show when={store.perVe.getMovingItemIsOver(pagePath()) &&
         store.perVe.getMoveOverRowNumber(pagePath()) >= 0 &&
-        store.perVe.getMoveOverChildContainerPath(pagePath()) == null &&
-        !isSortedByTitle()}>
+        store.perVe.getMoveOverChildContainerPath(pagePath()) == null}>
+        {/* Attachment cells are positional even when rows are sorted; a new row's position is not. */}
         <Show when={store.perVe.getMoveOverColAttachmentNumber(pagePath()) < 0}
           fallback={<div class="absolute border border-black bg-black pointer-events-none"
             style={`left: ${(columns()[Math.min(store.perVe.getMoveOverColAttachmentNumber(pagePath()), columns().length - 1)]?.endBl ?? 0) * blockSize().w}px; ` +
               `top: ${moveOverRowY()}px; width: 4px; height: ${blockSize().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />}>
-          <div class="absolute border border-black pointer-events-none"
-            style={`left: 0px; top: ${moveOverRowY()}px; width: ${viewport().w}px; height: 1px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
+          <Show when={!isSortedByTitle()}
+            fallback={<div class="absolute pointer-events-none"
+              style={`background-color: #0044ff0a; left: 1px; top: ${headerHeightPx() + 1}px; ` +
+                `width: ${Math.max(0, bodyViewport().w - 2)}px; height: ${Math.max(0, bodyViewport().h - 2)}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />}>
+            <div class="absolute border border-black pointer-events-none"
+              style={`left: 0px; top: ${moveOverRowY()}px; width: ${viewport().w}px; height: 1px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
+          </Show>
         </Show>
       </Show>
     </div>

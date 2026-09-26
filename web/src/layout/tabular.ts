@@ -28,7 +28,7 @@ import { panic } from "../util/lang";
 import { Hitbox, HitboxFlags, HitboxFns } from "./hitbox";
 import { initiateLoadChildItemsMaybe } from "./load";
 import { VeFns, VisualElementPath } from "./visual-element";
-import { getVePropertiesForItem } from "./arrange/util";
+import { getUnplacedMovingTreeItemMaybe, getVePropertiesForItem } from "./arrange/util";
 
 export type TabularContainerItem = ContainerItem & TabularItem;
 
@@ -47,7 +47,10 @@ export interface TabularInsertionTarget {
   insertIndex: number;
 }
 
-/** Walk the same expanded row tree for rendering, navigation, and insertion. Return false to stop early. */
+/**
+ * Walk the same expanded row tree for rendering, navigation, and insertion. Return false to stop early.
+ * indexInParent is an index into the unfiltered computed_children, even when a row is skipped.
+ */
 export function walkTabularRows(
   store: StoreContextModel,
   container: TabularContainerItem,
@@ -57,6 +60,9 @@ export function walkTabularRows(
   const iterIndices = [0];
   const iterContainers: Array<ContainerItem> = [container];
   let rowIdx = 0;
+  // An item dragged out of an attachment cell is parented here during the move, but has no row
+  // until it is dropped. Showing it would add a row (or shift sorted rows) under the pointer.
+  const unplacedMovingItem = getUnplacedMovingTreeItemMaybe();
 
   while (iterIndices.length > 0) {
     const depth = iterIndices.length - 1;
@@ -69,6 +75,10 @@ export function walkTabularRows(
     }
 
     const itemId = parentContainer.computed_children[indexInParent];
+    if (unplacedMovingItem != null && itemId == unplacedMovingItem.id) {
+      iterIndices[depth] = indexInParent + 1;
+      continue;
+    }
     const item = itemState.get(itemId);
     if (item == null) { panic(`walkTabularRows: row item '${itemId}' not found.`); }
 
