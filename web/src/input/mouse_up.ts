@@ -37,6 +37,8 @@ import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
+import { getMovingDockItems } from "../layout/arrange/dock";
+import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
@@ -1515,7 +1517,20 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     const pageItem = asPageItem(overContainerVe.displayItem);
     if (overContainerVe.flags & VisualElementFlags.IsDock) {
       const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
-      activeItem.ordering = itemState.newOrderingAtChildrenPosition(pageItem.id, ip.index, activeItem.id);
+      const movingItems = getMovingDockItems(activeItem);
+      const movingIds = new Set(movingItems.map(item => item.id));
+      const orderings = pageItem.computed_children
+        .filter(id => !movingIds.has(id))
+        .map(id => itemState.get(id)!.ordering);
+      let insertIndex = Math.max(0, Math.min(ip.index, orderings.length));
+      for (const item of movingItems) {
+        item.ordering = insertIndex == 0
+          ? newOrderingAtBeginning(orderings)
+          : insertIndex == orderings.length
+            ? newOrderingAtEnd(orderings)
+            : newOrderingBetween(orderings[insertIndex - 1], orderings[insertIndex]);
+        orderings.splice(insertIndex++, 0, item.ordering);
+      }
       itemState.sortChildren(pageItem.id);
       enqueuePersistMovedItems(ops, store, [activeItem.id], overContainerVe);
     }
