@@ -18,17 +18,22 @@
 
 import { LINE_HEIGHT_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, TABLE_COL_HEADER_HEIGHT_BL } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
+import { Item } from "../../items/base/item";
+import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
-import { tabularColumnHitboxes } from "../tabular";
+import { tabularColumnHitboxes, tabularColumnLayouts } from "../tabular";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isVeTranslucentPage } from "../visual-element";
 import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
+import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeTabularChildren } from "./table";
+import { getUnplacedMovingTreeItemMaybe, getVePropertiesForItem } from "./util";
 
 export function arrange_table_page(
   store: StoreContextModel,
@@ -126,6 +131,13 @@ export function arrange_table_page(
     childrenVes: windowState.childrenVes,
   };
 
+  // The item has no row until it is dropped (see walkTabularRows), so show it as a row under the cursor.
+  const movingItem = getUnplacedMovingTreeItemMaybe();
+  if (movingItem != null && movingItem.parentId == page.id) {
+    relationships.childrenVes!.push(arrangeUnplacedMovingRow(
+      store, page, pagePath, geometry, contentViewportPx, rowBlockSizePx, movingItem, flags));
+  }
+
   if (flags & ArrangeItemFlags.IsTopRoot && store.history.currentPopupSpec() != null) {
     relationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
       ? arrangeSourceAnchoredPopupPath(store, page, pagePath, ArrangeAlgorithm.Table, contentViewportPx)
@@ -133,4 +145,52 @@ export function arrange_table_page(
   }
 
   return { spec, relationships, renderRows: windowState.rowSlots };
+}
+
+/**
+ * Arrange the moving item as a first-column-width line item positioned relative to the page viewport
+ * (not the scrolled table body). It is not part of the row window (renderRows).
+ */
+function arrangeUnplacedMovingRow(
+  store: StoreContextModel,
+  page: PageItem,
+  pagePath: VisualElementPath,
+  pageGeometry: ItemGeometry,
+  contentViewportPx: BoundingBox,
+  rowBlockSizePx: Dimensions,
+  movingItem: Item,
+  flags: ArrangeItemFlags,
+): VisualElementSignal {
+  const widthBl = contentViewportPx.w / rowBlockSizePx.w;
+  const firstColumn = tabularColumnLayouts(page, widthBl)[0];
+  const rowWidthBl = firstColumn == null ? widthBl : firstColumn.endBl - firstColumn.startBl;
+  const cellBoundsPx = movingItemCellBoundsInPagePx(
+    store,
+    pagePath,
+    pageGeometry,
+    zeroBoundingBoxTopLeft(contentViewportPx),
+    VeFns.veidFromPath(pagePath),
+    { w: rowWidthBl * rowBlockSizePx.w, h: rowBlockSizePx.h },
+    flags,
+  );
+
+  const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, movingItem);
+  const rowGeometry = ItemFns.calcGeometry_ListItem(
+    movingItem, rowBlockSizePx, 0, 0, rowWidthBl,
+    !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true);
+  const spec: VisualElementSpec = {
+    displayItem,
+    linkItemMaybe,
+    actualLinkItemMaybe: linkItemMaybe,
+    flags: VisualElementFlags.LineItem | VisualElementFlags.Moving,
+    _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
+    boundsPx: { ...rowGeometry.boundsPx, x: cellBoundsPx.x, y: cellBoundsPx.y },
+    hitboxes: [],
+    parentPath: pagePath,
+    col: 0,
+    row: 0,
+    blockSizePx: rowBlockSizePx,
+  };
+  const path = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem, linkItemMaybe), pagePath);
+  return VesCache.arrange.writeVisualElementSignal(spec, {}, path);
 }

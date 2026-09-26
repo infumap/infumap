@@ -24,7 +24,7 @@ import { ItemType } from "../../items/base/item";
 import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
 import { tabularColumnLayouts } from "../../layout/tabular";
 import { VesCache } from "../../layout/ves-cache";
-import { VeFns, VisualElement, isVeTranslucentPage } from "../../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_LineItem } from "../VisualElement";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -109,7 +109,10 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
     }, 600);
   };
 
-  const rows = () => VesCache.render.getChildren(pagePath())();
+  const rows = () => VesCache.render.getNonMovingChildren(pagePath())();
+  // An item being moved that has no row yet, positioned relative to the page viewport.
+  const movingRows = () => VesCache.render.getChildren(pagePath())()
+    .filter(childVe => !!(childVe.get().flags & VisualElementFlags.Moving));
 
   return (
     <div class="absolute bg-white"
@@ -188,6 +191,16 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
           </Show>
         </Show>
       </Show>
+      <For each={movingRows()}>{movingVe =>
+        <div class="absolute pointer-events-none"
+          style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${viewport().h}px; ` +
+            `z-index: ${Z_INDEX_LOCAL_OVERLAY};${VeFns.opacityStyle(movingVe.get())}`}>
+          <div class="absolute border border-slate-400 bg-white"
+            style={`left: ${movingVe.get().boundsPx.x}px; top: ${movingVe.get().boundsPx.y}px; ` +
+              `width: ${movingVe.get().boundsPx.w}px; height: ${movingVe.get().boundsPx.h}px;`} />
+          <VisualElement_LineItem visualElement={movingVe.get()} />
+        </div>
+      }</For>
     </div>
   );
 };
