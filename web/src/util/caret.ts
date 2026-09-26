@@ -50,7 +50,7 @@ export const setCaretPosition = (el: HTMLElement, targetPosition: number) => {
       }
     }
     // The target position is greater than the length of the contenteditable element.
-    range.setEnd(node, node.childNodes.length);
+    range.setEnd(node, targetPosition <= 0 ? 0 : node.childNodes.length);
     return range;
   };
 
@@ -89,7 +89,8 @@ function resolveTextRangePosition(root: Node, targetPosition: number): TextRange
     };
   }
 
-  return { node: root, offset: root.childNodes.length };
+  // An empty editor may contain only a filler BR. Start before that break.
+  return { node: root, offset: 0 };
 }
 
 function createTextRange(root: HTMLElement, startPosition: number, endPosition: number): Range {

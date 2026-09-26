@@ -206,6 +206,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
         `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
       contentEditable={canEdit() && editing ? "plaintext-only" : undefined}
+      data-note-editor={editing ? "" : undefined}
       spellcheck={canEdit() && editing}
       onKeyDown={keyDownHandler}
       onBeforeInput={beforeInputListener}

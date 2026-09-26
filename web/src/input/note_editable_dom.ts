@@ -18,7 +18,6 @@
 
 import { NoteInlineMarkFlags, noteInlineTextSegments, safeNoteLinkUrl, type NoteItem } from "../items/note-item";
 import { setDirectionalTextSelection, textSelectionOffsets } from "../util/caret";
-import { EMPTY_CONTENT_EDITABLE_PLACEHOLDER } from "../util/string";
 
 /** The editor owns its children; Solid owns only the host and its layout/styles.
  * Leave native text nodes alone when their contents and formatting already match.
@@ -37,7 +36,11 @@ export function reconcileNoteEditableDom(element: HTMLElement, note: NoteItem): 
     span.textContent = segment.text;
     content.append(span);
   }
-  if (note.title == "") { content.append(document.createTextNode(EMPTY_CONTENT_EDITABLE_PLACEHOLDER)); }
+  if (note.title == "" || note.title.endsWith("\n")) {
+    const placeholder = document.createElement("br");
+    placeholder.setAttribute("data-note-placeholder", "");
+    content.append(placeholder);
+  }
   const children = Array.from(content.childNodes);
   if (element.childNodes.length == children.length &&
       children.every((child, index) => child.isEqualNode(element.childNodes[index]))) { return; }

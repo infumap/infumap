@@ -67,6 +67,7 @@ import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler } from "../../input/edit";
 import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
+import { readNoteEditableText } from "../../util/editable_text";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -302,9 +303,10 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     const caretPosition = getCaretPosition(textElement!);
 
     const sourceNote = asNoteItem(ve.displayItem);
-    const beforeText = textElement!.innerText.substring(0, caretPosition);
-    const afterText = textElement!.innerText.substring(caretPosition);
-    const continuationFlags = NoteFns.listContinuationFlagsForEnter(sourceNote, textElement!.innerText, caretPosition);
+    const editedText = readNoteEditableText(textElement!);
+    const beforeText = editedText.substring(0, caretPosition);
+    const afterText = editedText.substring(caretPosition);
+    const continuationFlags = NoteFns.listContinuationFlagsForEnter(sourceNote, editedText, caretPosition);
     const splitMarks = splitNoteInlineMarks(sourceNote.inlineMarks, sourceNote.title, caretPosition);
     const splitUrls = splitNoteUrls(sourceNote.urls, sourceNote.title, caretPosition);
 
@@ -480,6 +482,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             ? readOnlyDocumentSelectableTextStyle()
             : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
       contentEditable={canEdit() && editing ? "plaintext-only" : undefined}
+      data-note-editor={editing ? "" : undefined}
       spellcheck={canEdit() && editing}
       onKeyDown={keyDownHandler}
       onBeforeInput={beforeInputListener}

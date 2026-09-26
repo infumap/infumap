@@ -25,7 +25,7 @@ import { asPageItem } from "../items/page-item";
 import { asTableItem } from "../items/table-item";
 import { asPasswordItem } from "../items/password-item";
 import { isClipboardTextCreateItem } from "../items/text-item";
-import { asNoteItem, NoteFns, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
+import { asNoteItem, concatNoteInlineMarks, concatNoteUrls, NoteFns, splitNoteInlineMarks, splitNoteUrls, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
 import { getQueryText, setQueryText } from "../items/query-item";
 import { VeFns } from "../layout/visual-element";
 import { serverOrRemote } from "../server";
@@ -33,7 +33,7 @@ import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
 import type { TextEditInfo } from "../store/StoreProvider_Overlay";
 import { getTextOffsetWithinElement } from "../util/caret";
-import { trimNewline } from "../util/string";
+import { readEditableText } from "../util/editable_text";
 import { finishPendingClipboardTextItem } from "./text_clipboard_create";
 
 const SAVE_DELAY_MS = 500;
@@ -66,6 +66,7 @@ export interface TextEditStore {
   captureInput: (element: HTMLElement, typingFlags: number) => TextEditSession | null,
   beginComposition: (element: HTMLElement, typingFlags: number) => void,
   endComposition: (element: HTMLElement) => TextEditSession | null,
+  replaceNoteText: (start: number, end: number, text: string, typingFlags: number) => TextEditSession | null,
   flushActive: () => void,
   saveItem: (item: Item, immediately?: boolean) => void,
   preserveUnsavedFields: (item: Item) => void,
@@ -188,7 +189,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       };
     }
     session.typingFlags = typingFlags;
-    const newText = trimNewline(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element.value : element.innerText);
+    const newText = readEditableText(element);
     // Do not overwrite a split/join or toolbar change with unchanged, stale DOM.
     if (newText == session.lastText) { return session; }
     session.lastText = newText;
@@ -286,6 +287,31 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       if (active == null || element.id != textEditElementId(active.info) || !active.isComposing) { return null; }
       active.isComposing = false;
       return captureInput(element, active.typingFlags);
+    },
+    replaceNoteText: (start, end, text, typingFlags) => {
+      const session = active;
+      if (session == null || session.isComposing || session.info.itemType != ItemType.Note || session.info.colNum != null) { return null; }
+      const item = itemState.get(session.itemId);
+      if (item == null || !itemCanEdit(item)) { return null; }
+      const note = asNoteItem(item);
+      if (start < 0 || start > end || end > note.title.length) { return null; }
+      const oldText = note.title;
+      const prefix = oldText.substring(0, start);
+      const suffix = oldText.substring(end);
+      // Use the actual replacement range. A text diff cannot distinguish a paste
+      // from its neighbours when they contain the same letters or words.
+      const insertedMarks = text.length > 0 && typingFlags != 0
+        ? [{ start: 0, end: text.length, flags: typingFlags }] : [];
+      const prefixMarks = concatNoteInlineMarks(splitNoteInlineMarks(note.inlineMarks, oldText, start)[0], prefix, insertedMarks, text);
+      note.inlineMarks = concatNoteInlineMarks(prefixMarks, prefix + text, splitNoteInlineMarks(note.inlineMarks, oldText, end)[1], suffix);
+      note.urls = concatNoteUrls(splitNoteUrls(note.urls, oldText, start)[0], prefix + text, splitNoteUrls(note.urls, oldText, end)[1], suffix);
+      note.title = prefix + text + suffix;
+      NoteFns.ensureTitleUrl(note);
+      session.lastText = note.title;
+      session.typingFlags = typingFlags;
+      session.selection = { anchor: start + text.length, focus: start + text.length };
+      markDirty(note);
+      return session;
     },
     flushActive,
     saveItem: (item, immediately = true) => {
