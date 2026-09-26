@@ -28,7 +28,7 @@ import { panic } from "../util/lang";
 import { Hitbox, HitboxFlags, HitboxFns } from "./hitbox";
 import { initiateLoadChildItemsMaybe } from "./load";
 import { VeFns, VisualElementPath } from "./visual-element";
-import { getUnplacedMovingTreeItemMaybe, getVePropertiesForItem } from "./arrange/util";
+import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./arrange/util";
 
 export type TabularContainerItem = ContainerItem & TabularItem;
 
@@ -60,9 +60,10 @@ export function walkTabularRows(
   const iterIndices = [0];
   const iterContainers: Array<ContainerItem> = [container];
   let rowIdx = 0;
-  // An item dragged out of an attachment cell is parented here during the move, but has no row
-  // until it is dropped. Showing it would add a row (or shift sorted rows) under the pointer.
-  const unplacedMovingItem = getUnplacedMovingTreeItemMaybe();
+  // Like an item dragged out of a table, a moving direct child has no row until it is dropped: it is
+  // drawn under the pointer instead. This includes an item dragged out of an attachment cell, which
+  // is parented here during the move - showing it would add a row (or shift sorted rows).
+  const movingItem = getMovingTreeItemInParentMaybe(container.id);
 
   while (iterIndices.length > 0) {
     const depth = iterIndices.length - 1;
@@ -75,7 +76,7 @@ export function walkTabularRows(
     }
 
     const itemId = parentContainer.computed_children[indexInParent];
-    if (unplacedMovingItem != null && itemId == unplacedMovingItem.id) {
+    if (depth == 0 && movingItem != null && itemId == movingItem.id) {
       iterIndices[depth] = indexInParent + 1;
       continue;
     }
