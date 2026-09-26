@@ -129,7 +129,8 @@ function documentNoteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof 
     HitboxFlags.Attach |
     HitboxFlags.AttachComposite |
     HitboxFlags.OpenPopup |
-    HitboxFlags.OpenAttachment;
+    HitboxFlags.OpenAttachment |
+    HitboxFlags.TriangleLinkSettings;
 
   return !!(hitInfo.hitboxType & HitboxFlags.Click) &&
     !(hitInfo.hitboxType & blockedHitboxes);
