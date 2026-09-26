@@ -297,16 +297,19 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   }
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
     if (!moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone)) { return; }
+    MouseActionState.setAction(MouseAction.Moving); // arrange must treat the re-parented item as moving.
     arrangeNow(store, "moving-init-out-of-table");
   }
   else if (activeItem.relationshipToParent == RelationshipToParent.Attachment) {
     const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, false);
     if (!moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Attachment, shouldCreateLink, shouldClone)) { return; }
+    MouseActionState.setAction(MouseAction.Moving); // arrange must treat the re-parented item as moving.
     arrangeNow(store, "moving-init-out-of-attachment");
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
     const hitInfo = HitInfoFns.hit(store, desktopPosPx, [activeItem.id], false, false);
     if (!moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone)) { return; }
+    MouseActionState.setAction(MouseAction.Moving); // arrange must treat the re-parented item as moving.
     arrangeNow(store, "moving-init-out-of-composite");
   }
   else {
