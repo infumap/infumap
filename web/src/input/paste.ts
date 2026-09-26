@@ -18,33 +18,38 @@
 
 import { StoreContextModel } from "../store/StoreProvider";
 import { acceptClipboardTextForPendingTextItem } from "./text_clipboard_create";
+import { edit_pasteNoteText, edit_structuralClipboardGuard } from "./edit";
+import { clipboardTextForSingleLine, normalizeClipboardLineEndings } from "../util/editable_text";
+import { textEditElementId } from "./text_edit_session";
 
 
 export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
+  if (ev.defaultPrevented) { return; }
   const target = ev.target;
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
       !(target instanceof HTMLElement) || !target.isContentEditable) {
     return;
   }
+  if (edit_structuralClipboardGuard(store, ev)) { return; }
 
   const clipboardData = ev.clipboardData;
+  if (clipboardData == null) { return; }
+  // Do not let HTML-only or image clipboard contents replace selected text.
+  // Native inputs/textareas above continue to own their clipboard behaviour.
+  ev.preventDefault();
+  if (!clipboardData.types.includes("text/plain")) { return; }
+  const clipboardText = clipboardData.getData("text/plain");
+  if (clipboardText.length == 0) { return; }
   const editInfo = store.overlay.textEditInfo();
-  if (clipboardData != null && editInfo != null) {
-    const clipboardText = clipboardData.getData('text/plain');
+  const editingElement = editInfo == null ? null : document.getElementById(textEditElementId(editInfo));
+  if (editInfo != null && editingElement != null &&
+      (target.contains(editingElement) || editingElement.contains(target))) {
+    // A clipboard-created text file receives the original bytes, not note/title normalization.
     if (acceptClipboardTextForPendingTextItem(store, editInfo.itemPath, clipboardText)) {
-      ev.preventDefault();
       return;
     }
   }
 
-  if (clipboardData == null) {
-    return;
-  }
-
-  let text = clipboardData.getData('text/plain');
-  text = text.replace('\n', ' ');
-  text = text.replace('\r', ' ');
-  text = text.replace('\t', ' ');
-  document.execCommand("insertText", false, text);
-  ev.preventDefault();
+  if (edit_pasteNoteText(store, ev, normalizeClipboardLineEndings(clipboardText))) { return; }
+  document.execCommand("insertText", false, clipboardTextForSingleLine(clipboardText));
 }

@@ -31,6 +31,7 @@ import {
   toggleNoteInlineMarkFlag,
 } from "../items/note-item";
 import { trimNewline, restoreContentEditablePlaceholderIfEmpty } from "../util/string";
+import { readEditableText } from "../util/editable_text";
 import { arrangeNow } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -54,7 +55,8 @@ import { itemCanAcceptManualChildren, PageFlags } from "../items/base/flags-item
 import { textEditElementId, type TextEditSession } from "./text_edit_session";
 import { structuralTextContainerIsEditable, structuralTextNote } from "./structural_text_edit";
 import { asContainerItem } from "../items/base/container-item";
-import { itemCanMove } from "../items/base/capabilities-item";
+import { itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
+import { reconcileNoteEditableDom } from "./note_editable_dom";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
 
 
@@ -503,7 +505,7 @@ function adjacentStructuralPath(context: LinearEditContext, backward: boolean): 
 function guardLinearBoundaryDeletion(store: StoreContextModel, ev: Event, element: HTMLElement, backward: boolean): boolean {
   const ranges = currentSelectionRanges();
   if (ranges.length != 1 || !ranges[0].collapsed || !rangeIsInsideEditor(ranges[0], element)) { return false; }
-  const textLength = trimNewline(element.innerText).length;
+  const textLength = readEditableText(element).length;
   const offset = Math.min(textLength, getTextOffsetWithinElement(element, ranges[0].startContainer, ranges[0].startOffset));
   if (backward ? offset > 0 : offset < textLength) { return false; }
 
@@ -744,7 +746,7 @@ function currentSelectionIsCollapsed(): boolean {
 }
 
 function isCaretAtHorizontalBoundary(textElement: HTMLElement, caretPosition: number, key: LinearBoundaryNavigationKey): boolean {
-  const textLength = trimNewline(textElement.innerText).length;
+  const textLength = readEditableText(textElement).length;
   const isBoundary = key == "ArrowLeft"
     ? caretPosition <= 0
     : caretPosition >= textLength;
@@ -840,7 +842,7 @@ function targetCaretPositionForLinearBoundaryNavigation(
     ? 0
     : textLengthForLinearPath(context, targetPath) ?? Number.MAX_SAFE_INTEGER;
   const targetElement = document.getElementById(targetPath + ":title");
-  if (!(targetElement instanceof HTMLElement) || trimNewline(targetElement.innerText) == "") {
+  if (!(targetElement instanceof HTMLElement) || readEditableText(targetElement) == "") {
     return fallbackPosition;
   }
 
@@ -878,7 +880,7 @@ function documentEdgeBoundaryCaretPositionMaybe(
   if (key == "ArrowUp" && currentIndex != 0) { return null; }
   if (key == "ArrowDown" && currentIndex != childVes.length - 1) { return null; }
 
-  return key == "ArrowUp" ? 0 : trimNewline(textElement.innerText).length;
+  return key == "ArrowUp" ? 0 : readEditableText(textElement).length;
 }
 
 function itemPathInLinearContainer(itemId: string, containerPath: string): string | null {
@@ -1280,10 +1282,11 @@ const enterKeyHandler = (store: StoreContextModel) => {
   const textElement = document.getElementById(editingDomId);
   const caretPosition = getCaretPosition(textElement!);
 
-  const beforeText = textElement!.innerText.substring(0, caretPosition);
-  const afterText = textElement!.innerText.substring(caretPosition);
+  const editedText = readEditableText(textElement!);
+  const beforeText = editedText.substring(0, caretPosition);
+  const afterText = editedText.substring(caretPosition);
   const continuationFlags = isNote(item)
-    ? NoteFns.listContinuationFlagsForEnter(asNoteItem(item), textElement!.innerText, caretPosition)
+    ? NoteFns.listContinuationFlagsForEnter(asNoteItem(item), editedText, caretPosition)
     : 0;
   let afterInlineMarks = null;
   let afterUrls = null;
@@ -1348,6 +1351,46 @@ function textEditElementForEvent(store: StoreContextModel, ev: Event): HTMLEleme
       (ev.target !== element && !element.contains(ev.target) &&
        !(ev.target instanceof HTMLElement && ev.target.isContentEditable && ev.target.contains(element)))) { return null; }
   return element;
+}
+
+/** Paste is one explicit replacement in the active note; newlines remain text
+ * within that note. Keeping this in the edit session also gives future history
+ * commands an exact range instead of a guessed diff or browser HTML mutation.
+ */
+export function edit_pasteNoteText(store: StoreContextModel, ev: ClipboardEvent, text: string): boolean {
+  const element = textEditElementForEvent(store, ev);
+  const info = store.overlay.textEditInfo();
+  if (element == null || info?.itemType != ItemType.Note || info.colNum != null) { return false; }
+  if (store.textEdit.activeSession()?.isComposing) {
+    return blockStructuralTextEvent(store, ev, "Finish composing text before pasting.");
+  }
+  const ranges = currentSelectionRanges();
+  if (ranges.length != 1 || !rangeIsInsideEditor(ranges[0], element)) {
+    return blockStructuralTextEvent(store, ev, "Paste within one item at a time.");
+  }
+  const ve = VesCache.current.readNode(info.itemPath);
+  const item = itemState.get(VeFns.veidFromPath(info.itemPath).itemId);
+  if (item == null || !isNote(item) || !itemCanEdit(item) || ve == null || !itemCanEdit(ve.displayItem)) {
+    return blockStructuralTextEvent(store, ev, "This note is read-only.");
+  }
+
+  updateNoteTextSelectionInfoFromDom(store, true);
+  const flags = noteInputTypingFlags(store, info.itemPath);
+  store.textEdit.captureInput(element, flags);
+  const range = ranges[0];
+  const start = getTextOffsetWithinElement(element, range.startContainer, range.startOffset);
+  const end = getTextOffsetWithinElement(element, range.endContainer, range.endOffset);
+  const session = store.textEdit.replaceNoteText(start, end, text, flags);
+  if (session == null) {
+    return blockStructuralTextEvent(store, ev, "The text selection changed. Select where to paste and try again.");
+  }
+  stopStructuralTextEvent(ev);
+  beforeInputNoteTypingFlags = null;
+  reconcileNoteEditableDom(element, asNoteItem(item));
+  setCaretPosition(element, start + text.length);
+  updateNoteTextSelectionInfoFromDom(store, false);
+  scheduleTextEditArrange(store, session);
+  return true;
 }
 
 /** Let the browser handle IME keys without running app shortcuts or paragraph commands. */
