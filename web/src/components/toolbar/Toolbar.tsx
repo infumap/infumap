@@ -293,20 +293,6 @@ export const Toolbar: Component = () => {
         `align-items: baseline;`}>
 
       <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
-        <div class="flex shrink-0 gap-1 mr-2" aria-label="Editor history" aria-busy={store.editorHistory.busy()}>
-          <button type="button" class="px-1 disabled:opacity-30 disabled:cursor-default"
-            aria-label="Undo" title={store.editorHistory.undoLabel() ? `Undo: ${store.editorHistory.undoLabel()} (Ctrl/⌘ Z)` : "Nothing to undo"}
-            disabled={!store.editorHistory.undoLabel() || store.editorHistory.busy()}
-            onMouseDown={ev => ev.preventDefault()} onClick={() => { void store.editorHistory.undo(); }}>
-            <i class="fa fa-undo" aria-hidden="true" />
-          </button>
-          <button type="button" class="px-1 disabled:opacity-30 disabled:cursor-default"
-            aria-label="Redo" title={store.editorHistory.redoLabel() ? `Redo: ${store.editorHistory.redoLabel()} (Ctrl/⌘ Shift Z)` : "Nothing to redo"}
-            disabled={!store.editorHistory.redoLabel() || store.editorHistory.busy()}
-            onMouseDown={ev => ev.preventDefault()} onClick={() => { void store.editorHistory.redo(); }}>
-            <i class="fa fa-repeat" aria-hidden="true" />
-          </button>
-        </div>
         <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
           <Match when={isPage(toolbarFocusItem())}>
             <Show when={asPageItem(toolbarFocusItem()).arrangeAlgorithm != ArrangeAlgorithm.SingleCell}>
