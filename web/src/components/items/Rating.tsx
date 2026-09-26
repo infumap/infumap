@@ -38,9 +38,14 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const ratingItem = () => asRatingItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const boundsPx = () => props.visualElement.boundsPx;
+  const valueWidthPx = () => {
+    if (!(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)) { return boundsPx().w; }
+    return Math.min(boundsPx().w, props.visualElement.blockSizePx?.w ?? boundsPx().w);
+  };
+  const valueSizePx = () => Math.min(valueWidthPx(), boundsPx().h) - 2;
   const naturalHeightPx = () => LINE_HEIGHT_PX;
   const naturalWidthPx = () => LINE_HEIGHT_PX;
-  const widthScale = () => boundsPx().w / naturalWidthPx();
+  const widthScale = () => valueWidthPx() / naturalWidthPx();
   const heightScale = () => boundsPx().h / naturalHeightPx();
   const scale = () => Math.min(heightScale(), widthScale());
   const starSizeProp = () => ratingItem().rating / 5 * 1.2;
@@ -80,35 +85,35 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
       <Show when={ratingType() == "Star"}>
         <div class={`fas fa-star text-gray-400 absolute`}
              style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; ` +
-                    `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
+                    `width: ${valueWidthPx()-2}px; height: ${boundsPx().h-2}px; ` +
                     `text-align: center; vertical-align: bottom;`} />
         <div class={`fas fa-star text-yellow-400 absolute`}
              style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; ` +
-                    `width: ${boundsPx().w-2}px; height: ${boundsPx().h-2}px; ` +
+                    `width: ${valueWidthPx()-2}px; height: ${boundsPx().h-2}px; ` +
                     `text-align: center; vertical-align: bottom;`} />
       </Show>
       <Show when={ratingType() == "Number"}>
         <div class="absolute rounded-full bg-slate-300 text-center text-gray-800"
-             style={`left: ${(boundsPx().w - (Math.min(boundsPx().w, boundsPx().h) - 2)) / 2}px; ` +
-                    `top: ${(boundsPx().h - (Math.min(boundsPx().w, boundsPx().h) - 2)) / 2}px; ` +
-                    `width: ${Math.min(boundsPx().w, boundsPx().h) - 2}px; ` +
-                    `height: ${Math.min(boundsPx().w, boundsPx().h) - 2}px; ` +
+             style={`left: ${(valueWidthPx() - valueSizePx()) / 2}px; ` +
+                    `top: ${(boundsPx().h - valueSizePx()) / 2}px; ` +
+                    `width: ${valueSizePx()}px; ` +
+                    `height: ${valueSizePx()}px; ` +
                     `font-size: ${FONT_SIZE_PX * 1.0 * scale()}px; ` +
-                    `line-height: ${Math.min(boundsPx().w, boundsPx().h) - 2}px;`}>
+                    `line-height: ${valueSizePx()}px;`}>
           {ratingItem().rating}
         </div>
       </Show>
       <Show when={ratingType() == "HorizontalBar"}>
         <div class="absolute bg-slate-300"
-             style={`left: 3px; right: 3px; top: ${boundsPx().h/2 - 6}px; height: 12px;`} />
+             style={`left: 3px; top: ${boundsPx().h/2 - 6}px; width: ${valueWidthPx()-6}px; height: 12px;`} />
         <div class="absolute bg-blue-700"
-             style={`left: 3px; top: ${boundsPx().h/2 - 6}px; height: 12px; width: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().w-6)}px;`} />
+             style={`left: 3px; top: ${boundsPx().h/2 - 6}px; height: 12px; width: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (valueWidthPx()-6)}px;`} />
       </Show>
       <Show when={ratingType() == "VerticalBar"}>
         <div class="absolute bg-slate-300"
-             style={`top: 2px; bottom: 2px; left: ${boundsPx().w/2 - 6}px; width: 12px;`} />
+             style={`top: 2px; bottom: 2px; left: ${valueWidthPx()/2 - 6}px; width: 12px;`} />
         <div class="absolute bg-blue-700"
-             style={`left: ${boundsPx().w/2 - 6}px; bottom: 2px; width: 12px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4)}px;`} />
+             style={`left: ${valueWidthPx()/2 - 6}px; bottom: 2px; width: 12px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4)}px;`} />
       </Show>
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />

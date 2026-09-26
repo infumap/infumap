@@ -158,7 +158,7 @@ export const RatingFns = {
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
     const valueClickBoundsPx = {
-      x: Math.max(0, (innerBoundsPx.w - blockSizePx.w) / 2),
+      x: innerBoundsPx.x,
       y: innerBoundsPx.y,
       w: Math.min(blockSizePx.w, innerBoundsPx.w),
       h: innerBoundsPx.h,
