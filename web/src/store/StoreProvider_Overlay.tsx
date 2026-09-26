@@ -104,6 +104,12 @@ export interface TransientMessage {
   type: TransientMessageType;
 }
 
+export interface GroupInspection {
+  pageItemId: Uid;
+  groupId: Uid;
+  ownerId: string;
+}
+
 export interface OverlayStoreContextModel {
   // Desktop overlays. TODO (MEDIUM): move all these to Main.
   editUserSettingsInfo: InfuSignal<EditUserSettingsInfo | null>,
@@ -111,6 +117,8 @@ export interface OverlayStoreContextModel {
   tableColumnContextMenuInfo: InfuSignal<TableColumnContextMenuInfo | null>,
   selectionMarqueePx: InfuSignal<BoundingBox | null>,
   selectedVeids: InfuSignal<Array<Veid>>,
+  hoveredGroup: InfuSignal<GroupInspection | null>,
+  focusedGroup: InfuSignal<GroupInspection | null>,
 
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
@@ -144,6 +152,8 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
   const tableColumnContextMenuInfo = createInfuSignal<TableColumnContextMenuInfo | null>(null);
   const selectionMarqueePx = createInfuSignal<BoundingBox | null>(null);
   const selectedVeids = createInfuSignal<Array<Veid>>([]);
+  const hoveredGroup = createInfuSignal<GroupInspection | null>(null);
+  const focusedGroup = createInfuSignal<GroupInspection | null>(null);
 
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
   const toolbarTransientMessage = createInfuSignal<TransientMessage | null>(null);
@@ -166,6 +176,8 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     tableColumnContextMenuInfo.set(null);
     selectionMarqueePx.set(null);
     selectedVeids.set([]);
+    hoveredGroup.set(null);
+    focusedGroup.set(null);
     autoFocusSearchInput.set(false);
     autoFocusChatInput.set(false);
     findOverlayVisible.set(false);
@@ -223,6 +235,8 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     tableColumnContextMenuInfo,
     selectionMarqueePx,
     selectedVeids,
+    hoveredGroup,
+    focusedGroup,
 
     isPanicked: createInfuSignal<boolean>(false),
 
