@@ -22,7 +22,7 @@ import { MouseAction, MouseActionState } from "../input/state";
 import { isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { VesCache } from "../layout/ves-cache";
-import { isVeTranslucentPage, VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { isTableView, isVeTranslucentPage, VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { StoreContextModel, useStore } from "../store/StoreProvider";
 import { BoundingBox } from "../util/geometry";
 import { VisualElement_Desktop, VisualElement_LineItem } from "./VisualElement";
@@ -79,6 +79,17 @@ function movingOverlayShouldYieldToTranslucentPage(visualElement: VisualElement)
   return true;
 }
 
+/** Table pages render their moving item themselves (Page_TableContent), like translucent pages. */
+function movingOverlayShouldYieldToTablePage(visualElement: VisualElement): boolean {
+  if (!visualElement.parentPath) { return false; }
+  const parentVisualElement = VesCache.render.getNode(visualElement.parentPath)?.get() ??
+    VesCache.current.readNode(visualElement.parentPath) ??
+    null;
+  return parentVisualElement != null &&
+    isPage(parentVisualElement.displayItem) &&
+    isTableView(parentVisualElement);
+}
+
 function movingOverlayPath(visualElement: VisualElement): string {
   return VeFns.veToPath(visualElement);
 }
@@ -115,7 +126,8 @@ function movingOverlayVisualElements(store: StoreContextModel): Array<VisualElem
   const seenVeids = new Set<string>();
 
   const activeVisualElement = MouseActionState.getActiveVisualElement();
-  if (activeVisualElement && movingOverlayShouldYieldToTranslucentPage(activeVisualElement)) {
+  if (activeVisualElement &&
+    (movingOverlayShouldYieldToTranslucentPage(activeVisualElement) || movingOverlayShouldYieldToTablePage(activeVisualElement))) {
     return [];
   }
 

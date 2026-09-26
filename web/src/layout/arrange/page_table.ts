@@ -131,7 +131,7 @@ export function arrange_table_page(
     childrenVes: windowState.childrenVes,
   };
 
-  // The item has no row until it is dropped (see walkTabularRows), so show it under the cursor.
+  // The item has no row until it is dropped (see walkTabularRows). Arrange it under the cursor, for MovingItemsOverlay.
   const movingItem = getMovingTreeItemInParentMaybe(page.id);
   if (movingItem != null) {
     relationships.childrenVes!.push(arrangeMovingItem(

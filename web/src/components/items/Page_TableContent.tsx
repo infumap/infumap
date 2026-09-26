@@ -110,7 +110,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   };
 
   const rows = () => VesCache.render.getNonMovingChildren(pagePath())();
-  // An item being moved has no row: it is rendered spatially, relative to the page viewport.
+  // A moving item has no row. It is rendered here (MovingItemsOverlay yields to table pages), relative to the page viewport.
   const movingItems = () => VesCache.render.getChildren(pagePath())()
     .filter(childVe => !!(childVe.get().flags & VisualElementFlags.Moving));
 
