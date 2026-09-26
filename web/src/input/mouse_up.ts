@@ -941,6 +941,22 @@ async function commitMoveOperations(
   }
 }
 
+// Selection is only ever made over children of a single page. If a move takes any selected item
+// out of its parent (e.g. into another page), the selection no longer describes anything the user
+// selected, so clear it.
+function clearSelectionIfMovedToNewParent(store: StoreContextModel): void {
+  const selectedIds = new Set(store.overlay.selectedVeids.get().map(veid => veid.linkIdMaybe ?? veid.itemId));
+  if (selectedIds.size == 0) { return; }
+  const movedToNewParent = (MouseActionState.getMoveRollback() ?? []).some(entry => {
+    if (!selectedIds.has(entry.id)) { return false; }
+    const item = itemState.get(entry.id);
+    return item == null || item.parentId != entry.parentId || item.relationshipToParent != entry.relationshipToParent;
+  });
+  if (movedToNewParent) {
+    store.overlay.selectedVeids.set([]);
+  }
+}
+
 function scheduleMoveCommit(
   store: StoreContextModel,
   ops: Array<MovePersistOperation>,
@@ -950,6 +966,7 @@ function scheduleMoveCommit(
   const rollbackContext = captureMoveRollbackContext(options?.rollbackExtras ?? null);
   const finalizeContext = captureMoveFinalizeContext();
   const finalOps = [...ops, ...buildFinalizeMoveOperations(store, finalizeContext)];
+  clearSelectionIfMovedToNewParent(store);
   MouseActionState.set(null);
   arrangeNow(store, arrangeReason);
   void commitMoveOperations(store, finalOps, rollbackContext, `${arrangeReason}-post-commit`);
