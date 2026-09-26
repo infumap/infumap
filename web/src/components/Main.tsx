@@ -53,7 +53,7 @@ import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
-import { commitActiveTextEdit, textEditSelectionChangeListener } from "../input/edit";
+import { commitActiveTextEdit, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
 import { commitActiveToolbarTitleEdit } from "../input/toolbar_title";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { isPage } from "../items/page-item";
@@ -259,6 +259,11 @@ export const Main: Component = () => {
     mainDiv!.addEventListener('touchend', touchEndListener, touchListenerOptions);
     mainDiv!.addEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.addEventListener('keydown', keyDownListener);
+    window.addEventListener('keydown', structuralKeyDownListener, true);
+    window.addEventListener('beforeinput', structuralBeforeInputListener, true);
+    window.addEventListener('cut', structuralClipboardListener, true);
+    window.addEventListener('paste', structuralClipboardListener, true);
+    window.addEventListener('drop', structuralDropListener, true);
     document.addEventListener('keyup', keyUpListener);
     window.addEventListener('resize', windowResizeListener);
     document.addEventListener('selectionchange', selectionChangeListener);
@@ -285,6 +290,11 @@ export const Main: Component = () => {
     mainDiv!.removeEventListener('touchend', touchEndListener, touchListenerOptions);
     mainDiv!.removeEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.removeEventListener('keydown', keyDownListener);
+    window.removeEventListener('keydown', structuralKeyDownListener, true);
+    window.removeEventListener('beforeinput', structuralBeforeInputListener, true);
+    window.removeEventListener('cut', structuralClipboardListener, true);
+    window.removeEventListener('paste', structuralClipboardListener, true);
+    window.removeEventListener('drop', structuralDropListener, true);
     document.removeEventListener('keyup', keyUpListener);
     window.removeEventListener('resize', windowResizeListener);
     document.removeEventListener('selectionchange', selectionChangeListener)
@@ -303,6 +313,13 @@ export const Main: Component = () => {
   const selectionChangeListener = () => {
     textEditSelectionChangeListener(store);
   }
+
+  const structuralKeyDownListener = (ev: KeyboardEvent) => { edit_structuralKeyDownGuard(store, ev); };
+  const structuralBeforeInputListener = (ev: InputEvent) => { edit_structuralBeforeInputGuard(store, ev); };
+  const structuralClipboardListener = (ev: ClipboardEvent) => { edit_structuralClipboardGuard(store, ev); };
+  const structuralDropListener = (ev: DragEvent) => {
+    if (!dataTransferContainsFiles(ev.dataTransfer)) { edit_structuralDropGuard(store, ev); }
+  };
 
   const retryTextSaves = () => {
     commitActiveToolbarTitleEdit(store);
