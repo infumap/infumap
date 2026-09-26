@@ -169,8 +169,11 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
         style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${viewport().h}px;`}>
         <For each={columns()}>{column =>
           <Show when={!column.isLast}>
+            {/* The header background matches the body divider color, so the header segment uses the header border color. */}
+            <div class="absolute bg-[#999]"
+              style={`left: ${column.endBl * blockSize().w}px; top: 0px; width: 1px; height: ${headerHeightPx()}px;`} />
             <div class="absolute bg-slate-300"
-              style={`left: ${column.endBl * blockSize().w}px; top: 0px; width: 1px; height: ${viewport().h}px;`} />
+              style={`left: ${column.endBl * blockSize().w}px; top: ${headerHeightPx()}px; width: 1px; height: ${viewport().h - headerHeightPx()}px;`} />
           </Show>
         }</For>
       </div>
