@@ -135,6 +135,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const moveOverInsertLineBoundsPx = (): BoundingBox | null => {
     const moveOverIndex = store.perVe.getMoveOverIndex(vePath());
+    if (moveOverIndex >= 0 && compositeIsCollapsed()) {
+      return attachCompositeBoundsPx();
+    }
     const activeItemId = MouseActionState.isAction(MouseAction.Moving)
       ? MouseActionState.getActiveVisualElement()?.displayItem.id ?? null
       : null;

@@ -19,7 +19,7 @@
 import { HitboxFlags } from "../../layout/hitbox";
 import { TableFlags } from "../../items/base/flags-item";
 import { isComposite } from "../../items/composite-item";
-import { isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy } from "../../util/geometry";
 import { VesCache } from "../../layout/ves-cache";
@@ -160,6 +160,23 @@ const _compositeHandler: HitHandler = {
       return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-resize").build();
     }
     const { flags: compositeHitboxType, meta: compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(compositeVe.boundsPx!), hitboxOptions);
+    const compositeParentVe = parentVe(compositeVe);
+    if (hitboxOptions.includeDropTargets &&
+      (compositeHitboxType & HitboxFlags.AttachComposite) &&
+      isPage(compositeParentVe.displayItem) &&
+      asPageItem(compositeParentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+      !ignoreItems.has(compositeVe.displayItem.id)) {
+      // The strip inside the bottom edge appends to the composite, even when
+      // its last child is a container. Below its bounds, drops belong to the page.
+      return new HitBuilder(parentRootVe, rootVes)
+        .over(compositeVes)
+        .hitboxes(compositeHitboxType, HitboxFlags.None)
+        .meta(compositeMeta)
+        .pos(posRelativeToRootVeViewportPx)
+        .allowEmbeddedInteractive(false)
+        .createdAt("composite-handler-document-append")
+        .build();
+    }
     const compositeVeChildren = VesCache.render.getChildren(VeFns.veToPath(compositeVe))();
     for (let j = 0; j < compositeVeChildren.length; ++j) {
       const compositeChildVes = compositeVeChildren[j];
