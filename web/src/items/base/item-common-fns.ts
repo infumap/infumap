@@ -83,9 +83,10 @@ export function isInsideDocumentPageClickContext(visualElement: VisualElement): 
     const currentVe = VesCache.current.readNode(currentPath);
     if (!currentVe) { return false; }
 
-    if (isPage(currentVe.displayItem) &&
-      asPageItem(currentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
-      return true;
+    // A containing page owns its children's interactions, including when it is
+    // popped up over a document. Do not inherit the outer page's document mode.
+    if (isPage(currentVe.displayItem)) {
+      return asPageItem(currentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
     }
 
     currentPath = currentVe.parentPath;

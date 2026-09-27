@@ -150,7 +150,7 @@ function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: Return
     documentNoteBodyClick(hitVe, hitInfo);
 }
 
-function startDocumentNoteTextSelection(hitVe: VisualElement): MouseEventActionFlags {
+function startLinearNoteTextSelection(hitVe: VisualElement): MouseEventActionFlags {
   const element = document.getElementById(VeFns.veToPath(hitVe) + ":title");
   if (element == null) { return MouseEventActionFlags.PreventDefault; }
   const clientPx = CursorEventState.getLatestClientPx();
@@ -164,6 +164,38 @@ function startDocumentNoteTextSelection(hitVe: VisualElement): MouseEventActionF
   setCaretPosition(element, closestCaretPositionToClientPx(element, clientPx));
   NativeTextSelectionState.startMarginSelectionDrag(element);
   return MouseEventActionFlags.PreventDefault;
+}
+
+function continueCompositeNoteEditingOnMouseDown(store: StoreContextModel): MouseEventActionFlags | null {
+  const editingInfo = store.overlay.textEditInfo();
+  if (editingInfo?.itemType != ItemType.Note || CursorEventState.get().shiftDown ||
+      ClickState.getLinkWasClicked() || store.overlay.contextMenuInfo.get() != null ||
+      store.overlay.tableColumnContextMenuInfo.get() != null || store.overlay.editUserSettingsInfo.get() != null) {
+    return null;
+  }
+  const parentPath = VeFns.parentPath(editingInfo.itemPath);
+  const parentVe = parentPath == null ? null : VesCache.current.readNode(parentPath);
+  if (parentVe == null || !isComposite(parentVe.displayItem)) { return null; }
+
+  const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
+  const hitVe = HitInfoFns.getHitVe(hitInfo);
+  if (hitVe.parentPath != parentPath || !noteBodyClick(hitVe, hitInfo) ||
+      !itemCanEdit(hitVe.displayItem) || !itemCanEdit(VeFns.treeItem(hitVe))) {
+    return null;
+  }
+
+  ClickState.setLinkWasClicked(false);
+  DoubleClickState.preventDoubleClick();
+  MouseActionState.set(null);
+  store.anItemIsMoving.set(false);
+  store.anItemIsResizing.set(false);
+  if (store.overlay.selectedVeids.get()?.length) {
+    store.overlay.selectedVeids.set([]);
+  }
+  // Switching the edit target flushes the previous note while keeping the
+  // composite in text-edit mode, before its body can start a composite drag.
+  NoteFns.handleClick(hitVe, store, true);
+  return startLinearNoteTextSelection(hitVe);
 }
 
 function extendLinearTextSelectionOnShiftClick(store: StoreContextModel): boolean {
@@ -464,10 +496,15 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           store.anItemIsResizing.set(false);
           MouseActionState.set(null);
           if (shouldEditDocumentNoteOnMouseDown(HitInfoFns.getHitVe(hitInfo), hitInfo)) {
-            return startDocumentNoteTextSelection(HitInfoFns.getHitVe(hitInfo));
+            return startLinearNoteTextSelection(HitInfoFns.getHitVe(hitInfo));
           }
           return MouseEventActionFlags.None;
         }
+      }
+
+      if (buttonNumber == MOUSE_LEFT) {
+        const compositeEditResult = continueCompositeNoteEditingOnMouseDown(store);
+        if (compositeEditResult != null) { return compositeEditResult; }
       }
 
       const editingItemType = store.overlay.textEditInfo()!.itemType;
@@ -653,7 +690,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   if (!ClickState.getLinkWasClicked() && shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
     ClickState.setLinkWasClicked(false);
     NativeTextSelectionState.startReadOnlyDocumentTextSelection();
-    return startDocumentNoteTextSelection(hitVe);
+    return startLinearNoteTextSelection(hitVe);
   }
 
   if (!ClickState.getLinkWasClicked() && shouldEditDocumentNoteOnMouseDown(hitVe, hitInfo)) {
@@ -662,7 +699,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       store.overlay.selectedVeids.set([]);
     }
     NoteFns.handleClick(hitVe, store, true);
-    return startDocumentNoteTextSelection(hitVe);
+    return startLinearNoteTextSelection(hitVe);
   }
 
   // If clicking a child inside a composite and that composite is in the current selection,

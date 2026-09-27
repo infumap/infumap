@@ -395,8 +395,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       seenParentIds.add(parentId);
       const parentItem = itemState.get(parentId);
       if (parentItem == null) { return false; }
-      if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document) {
-        return true;
+      // Match the input handler: document selection stops at the nearest page.
+      if (isPage(parentItem)) {
+        return asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
       }
       parentId = parentItem.parentId;
     }
