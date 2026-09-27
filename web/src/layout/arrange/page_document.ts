@@ -17,8 +17,7 @@
 */
 
 import { LINK_TRIANGLE_SIZE_PX, NATURAL_BLOCK_SIZE_PX, GRID_SIZE, PAGE_DOCUMENT_BOTTOM_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
-import { NoteFlags, noteHasListStyle, noteIndentLevelFromFlags } from "../../items/base/flags-item";
-import { Item, ItemType, Measurable } from "../../items/base/item";
+import { Item, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
 import { DividerFns, isDivider } from "../../items/divider-item";
@@ -30,6 +29,7 @@ import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { compositeMoveOutHitboxBoundsPx, documentPageMoveOutBoxPx } from "../composite-move-out";
+import { DOCUMENT_GAP_16PX_BL, DOCUMENT_PAGE_TITLE_GAP_BL, documentGapBetweenBl } from "../document-spacing";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
 import { assignFlowListItemNumbers } from "../list-numbering";
@@ -44,86 +44,6 @@ import { arrangeComposite } from "./composite";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 import { queryChatCompositeActivityLayoutPx } from "../../items/query-chat-activity-ui";
 import { isLinkInTrash } from "../../items/trash-link";
-
-
-const pxToBl = (px: number): number => px / NATURAL_BLOCK_SIZE_PX.h;
-
-const DOCUMENT_GAP_4PX_BL = pxToBl(4);
-const DOCUMENT_GAP_8PX_BL = pxToBl(8);
-const DOCUMENT_GAP_12PX_BL = pxToBl(12);
-const DOCUMENT_GAP_16PX_BL = pxToBl(16);
-const DOCUMENT_GAP_24PX_BL = pxToBl(24);
-const DOCUMENT_GAP_32PX_BL = pxToBl(32);
-const DOCUMENT_PAGE_TITLE_GAP_BL = DOCUMENT_GAP_24PX_BL;
-
-function noteHeadingLevel(item: Item): number | null {
-  if (!isNote(item)) { return null; }
-  const flags = asNoteItem(item).flags;
-  if (flags & NoteFlags.Heading1) { return 1; }
-  if (flags & NoteFlags.Heading2) { return 2; }
-  if (flags & NoteFlags.Heading3) { return 3; }
-  if (flags & NoteFlags.Heading4) { return 4; }
-  return null;
-}
-
-function noteIsListItem(item: Item): boolean {
-  return isNote(item) && noteHasListStyle(asNoteItem(item).flags);
-}
-
-function noteIsCode(item: Item): boolean {
-  return isNote(item) && !!(asNoteItem(item).flags & NoteFlags.Code);
-}
-
-function sameListRun(prev: Item, next: Item): boolean {
-  if (!noteIsListItem(prev) || !noteIsListItem(next)) { return false; }
-  return noteIndentLevelFromFlags(asNoteItem(prev).flags) == noteIndentLevelFromFlags(asNoteItem(next).flags);
-}
-
-function gapBeforeHeadingBl(level: number): number {
-  if (level == 1) { return DOCUMENT_GAP_32PX_BL; }
-  if (level == 2) { return DOCUMENT_GAP_24PX_BL; }
-  if (level == 3) { return DOCUMENT_GAP_16PX_BL; }
-  return DOCUMENT_GAP_12PX_BL;
-}
-
-function gapAfterHeadingBl(level: number, next: Item): number {
-  if (isTable(next)) { return DOCUMENT_GAP_12PX_BL; }
-  return level <= 2 ? DOCUMENT_GAP_12PX_BL : DOCUMENT_GAP_8PX_BL;
-}
-
-function itemIsLargeDocumentObject(item: Item): boolean {
-  return item.itemType == ItemType.Image ||
-    item.itemType == ItemType.Page ||
-    item.itemType == ItemType.Composite;
-}
-
-function itemIsCompactDocumentRow(item: Item): boolean {
-  return item.itemType == ItemType.File ||
-    item.itemType == ItemType.Text ||
-    item.itemType == ItemType.Password ||
-    item.itemType == ItemType.Rating ||
-    item.itemType == ItemType.Search;
-}
-
-function documentGapBetweenBl(prev: Item, next: Item): number {
-  const nextHeadingLevel = noteHeadingLevel(next);
-  if (nextHeadingLevel != null) { return gapBeforeHeadingBl(nextHeadingLevel); }
-
-  const prevHeadingLevel = noteHeadingLevel(prev);
-  if (prevHeadingLevel != null) { return gapAfterHeadingBl(prevHeadingLevel, next); }
-
-  if (sameListRun(prev, next)) { return DOCUMENT_GAP_4PX_BL; }
-  if (noteIsListItem(prev) && noteIsListItem(next)) { return DOCUMENT_GAP_8PX_BL; }
-  if (noteIsListItem(prev) || noteIsListItem(next)) { return DOCUMENT_GAP_16PX_BL; }
-
-  if (noteIsCode(prev) || noteIsCode(next)) { return DOCUMENT_GAP_16PX_BL; }
-  if (isTable(prev) || isTable(next)) { return DOCUMENT_GAP_24PX_BL; }
-  if (isDivider(prev) || isDivider(next)) { return DOCUMENT_GAP_16PX_BL; }
-  if (itemIsLargeDocumentObject(prev) || itemIsLargeDocumentObject(next)) { return DOCUMENT_GAP_24PX_BL; }
-  if (itemIsCompactDocumentRow(prev) || itemIsCompactDocumentRow(next)) { return DOCUMENT_GAP_12PX_BL; }
-
-  return DOCUMENT_GAP_16PX_BL;
-}
 
 
 export function arrange_document_page(

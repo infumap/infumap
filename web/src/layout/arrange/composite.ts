@@ -32,6 +32,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
+import { documentGapBetweenBl } from "../document-spacing";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { assignFlowListItemNumbers } from "../list-numbering";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -145,6 +146,14 @@ export const arrangeComposite = (
 
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
 
+    const previousChild = compositeChildArrangeData[compositeChildArrangeData.length - 1];
+    if (previousChild != null) {
+      const gapBl = useDocumentTypography
+        ? documentGapBetweenBl(previousChild.displayItem_childItem, displayItem_childItem)
+        : COMPOSITE_ITEM_GAP_BL;
+      topPx += gapBl * blockSizePx.h;
+    }
+
     const geometry = useDocumentTypography && isNote(displayItem_childItem)
       ? NoteFns.calcGeometry_InDocument(
         NoteFns.asNoteMeasurable(displayItem_childItem), blockSizePx, compositeSizeBl.w, 0, topPx)
@@ -166,7 +175,7 @@ export const arrangeComposite = (
       col: 0,
     };
 
-    topPx += geometry.boundsPx.h + COMPOSITE_ITEM_GAP_BL * blockSizePx.h;
+    topPx += geometry.boundsPx.h;
     compositeChildArrangeData.push({
       displayItem_childItem,
       linkItemMaybe_childItem,

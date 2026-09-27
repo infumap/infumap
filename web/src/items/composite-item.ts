@@ -19,13 +19,14 @@
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
 import { Hitbox, HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
+import { documentGapBetweenBl } from '../layout/document-spacing';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, Uid } from '../util/uid';
 import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
 import { ContainerItem } from './base/container-item';
-import { ItemType, ItemTypeMixin } from './base/item';
+import { Item, ItemType, ItemTypeMixin } from './base/item';
 import { TitledItem, TitledMixin } from './base/titled-item';
 import { XSizableItem, XSizableMixin, asXSizableItem, isXSizableItem } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
@@ -161,15 +162,28 @@ export const CompositeFns = {
       return CompositeFns.calcCollapsedSpatialDimensionsBl(composite);
     }
 
-    let bh = CompositeFns.showTitle(composite) ? 1.0 + COMPOSITE_ITEM_GAP_BL : 0.0;
+    const showTitle = CompositeFns.showTitle(composite);
+    let bh = showTitle ? 1.0 : 0.0;
+    let previousDisplayItem: Item | null = null;
     for (let childId of composite.computed_children) {
       let item = itemState.get(childId)!;
       if (!item) { continue; }
+      let displayItem = item;
       if (useDocumentTypography && isLink(item)) {
         const linkedItem = itemState.get(LinkFns.getLinkToId(asLinkItem(item)));
-        if (linkedItem != null && isNote(linkedItem)) {
-          item = linkedItem;
+        if (linkedItem != null) {
+          displayItem = linkedItem;
+          if (isNote(linkedItem)) {
+            item = linkedItem;
+          }
         }
+      }
+      if (previousDisplayItem != null) {
+        bh += useDocumentTypography
+          ? documentGapBetweenBl(previousDisplayItem, displayItem)
+          : COMPOSITE_ITEM_GAP_BL;
+      } else if (showTitle) {
+        bh += COMPOSITE_ITEM_GAP_BL;
       }
       let cloned = ItemFns.cloneMeasurableFields(item);
       if (isPage(cloned)) {
@@ -191,9 +205,9 @@ export const CompositeFns = {
       if (isPage(cloned) && pageUsesEmbeddedInteractiveMode(asPageItem(cloned))) {
         sizeBl.h += PageFns.embeddedInteractiveTitleHeightBl(asPageItem(cloned));
       }
-      bh += sizeBl.h + COMPOSITE_ITEM_GAP_BL;
+      bh += sizeBl.h;
+      previousDisplayItem = displayItem;
     }
-    bh -= COMPOSITE_ITEM_GAP_BL;
     const heightQuantumBl = useDocumentTypography ? DOCUMENT_NOTE_HEIGHT_QUANTUM_PX / LINE_HEIGHT_PX : 0.5;
     bh = Math.ceil(bh / heightQuantumBl) * heightQuantumBl;
     return { w: composite.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
