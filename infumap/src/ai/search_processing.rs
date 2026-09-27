@@ -35,7 +35,7 @@ impl SearchContentKind {
 
 /// Identifies the desired search input, including the relevant source/context
 /// and processing versions. It is not an item timestamp or an artifact path.
-/// Allocation and persistence of revisions belong to the durable processing layer.
+/// Future artifact manifests will identify the relevant inputs and indexed output.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SearchInputRevision(String);
 
