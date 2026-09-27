@@ -80,6 +80,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const parentDocumentPage = () => parentDocumentPageMaybe(props.visualElement);
   const isInDocumentFlow = () => parentDocumentPage() != null;
+  const usesDocumentTypography = () => isInDocumentFlow() || !!(props.visualElement.flags & VisualElementFlags.DocumentTypography);
   const boundsPx = () => props.visualElement.boundsPx;
   const positionClass = () => (props.visualElement.flags & VisualElementFlags.Fixed) ? 'fixed' : 'absolute';
   const sizeBl = () => {
@@ -102,7 +103,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       const effectiveWidthGr = effectiveFlowItemWidthGrMaybe(props.visualElement);
       if (effectiveWidthGr != null) {
         cloned.spatialWidthGr = effectiveWidthGr;
-        return NoteFns.calcSpatialDimensionsBl(cloned, true);
+        return usesDocumentTypography()
+          ? NoteFns.calcDocumentSpatialDimensionsBl(cloned)
+          : NoteFns.calcSpatialDimensionsBl(cloned, true);
       }
       if (isPage(parentDisplayItem)) {
         cloned.spatialWidthGr = asPageItem(parentDisplayItem).docWidthBl * GRID_SIZE;
@@ -125,9 +128,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
   const widthScale = () => (boundsPx().w - NOTE_PADDING_PX * 2) / naturalWidthPx();
   const heightScale = () => (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
-  const textBlockScale = () => widthScale();
-  const lineHeightScale = () => isPopup() || isInDocumentFlow() ? 1.0 : heightScale() / widthScale();
-  const titleLineHeightPx = () => isInDocumentFlow()
+  const textBlockScale = () => usesDocumentTypography() && props.visualElement.blockSizePx != null
+    ? props.visualElement.blockSizePx.w / LINE_HEIGHT_PX
+    : widthScale();
+  const lineHeightScale = () => isPopup() || usesDocumentTypography() ? 1.0 : heightScale() / widthScale();
+  const titleLineHeightPx = () => usesDocumentTypography()
     ? documentLineHeightPxForNote(noteItem().flags)
     : LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier;
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;

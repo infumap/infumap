@@ -41,6 +41,8 @@ import { PageFns, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from './
 import { asImageItem, isImage } from './image-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { isNote, NoteFns } from './note-item';
+import { asLinkItem, isLink, LinkFns } from './link-item';
+import { DOCUMENT_NOTE_HEIGHT_QUANTUM_PX } from '../layout/text';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
 
@@ -150,7 +152,11 @@ export const CompositeFns = {
     };
   },
 
-  calcSpatialDimensionsBl: (composite: CompositeMeasurable, collapsed: boolean = false): Dimensions => {
+  calcDocumentSpatialDimensionsBl: (composite: CompositeMeasurable, collapsed: boolean = false): Dimensions => {
+    return CompositeFns.calcSpatialDimensionsBl(composite, collapsed, true);
+  },
+
+  calcSpatialDimensionsBl: (composite: CompositeMeasurable, collapsed: boolean = false, useDocumentTypography: boolean = false): Dimensions => {
     if (collapsed) {
       return CompositeFns.calcCollapsedSpatialDimensionsBl(composite);
     }
@@ -159,6 +165,12 @@ export const CompositeFns = {
     for (let childId of composite.computed_children) {
       let item = itemState.get(childId)!;
       if (!item) { continue; }
+      if (useDocumentTypography && isLink(item)) {
+        const linkedItem = itemState.get(LinkFns.getLinkToId(asLinkItem(item)));
+        if (linkedItem != null && isNote(linkedItem)) {
+          item = linkedItem;
+        }
+      }
       let cloned = ItemFns.cloneMeasurableFields(item);
       if (isPage(cloned)) {
         if (asPageItem(cloned).spatialWidthGr > composite.spatialWidthGr) {
@@ -172,7 +184,9 @@ export const CompositeFns = {
         asXSizableItem(cloned).spatialWidthGr = composite.spatialWidthGr;
       }
       const sizeBl = isNote(cloned)
-        ? NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(cloned), true)
+        ? useDocumentTypography
+          ? NoteFns.calcDocumentSpatialDimensionsBl(NoteFns.asNoteMeasurable(cloned))
+          : NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(cloned), true)
         : ItemFns.calcSpatialDimensionsBl(cloned);
       if (isPage(cloned) && pageUsesEmbeddedInteractiveMode(asPageItem(cloned))) {
         sizeBl.h += PageFns.embeddedInteractiveTitleHeightBl(asPageItem(cloned));
@@ -180,7 +194,8 @@ export const CompositeFns = {
       bh += sizeBl.h + COMPOSITE_ITEM_GAP_BL;
     }
     bh -= COMPOSITE_ITEM_GAP_BL;
-    bh = Math.ceil(bh * 2) / 2;
+    const heightQuantumBl = useDocumentTypography ? DOCUMENT_NOTE_HEIGHT_QUANTUM_PX / LINE_HEIGHT_PX : 0.5;
+    bh = Math.ceil(bh / heightQuantumBl) * heightQuantumBl;
     return { w: composite.spatialWidthGr / GRID_SIZE, h: bh < 0.5 ? 0.5 : bh };
   },
 
@@ -244,12 +259,13 @@ export const CompositeFns = {
 
   calcGeometry_InDocument: (composite: CompositeMeasurable, blockSizePx: Dimensions, documentWidthBl: number, leftMarginBl: number, topPx: number, collapsed: boolean = false, extraHeightPx: number = 0): ItemGeometry => {
     const cloned = CompositeFns.asCompositeMeasurable(ItemFns.cloneMeasurableFields(composite));
-    cloned.spatialWidthGr = documentWidthBl * GRID_SIZE;
-    const sizeBl = CompositeFns.calcSpatialDimensionsBl(cloned, collapsed);
+    const contentWidthPx = documentWidthBl * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2;
+    cloned.spatialWidthGr = contentWidthPx / blockSizePx.w * GRID_SIZE;
+    const sizeBl = CompositeFns.calcDocumentSpatialDimensionsBl(cloned, collapsed);
     const boundsPx = {
       x: leftMarginBl * blockSizePx.w + CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: topPx,
-      w: documentWidthBl * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2,
+      w: contentWidthPx,
       h: sizeBl.h * blockSizePx.h + Math.max(0, extraHeightPx)
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
