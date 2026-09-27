@@ -26,7 +26,7 @@ import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/bas
 import { appendCopySuffixToTitledItem } from "../items/base/titled-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { isComposite } from "../items/composite-item";
+import { asCompositeItem, isComposite } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
 import { asTextItem, isText, type TextItem } from "../items/text-item";
 import { createPendingTextDocumentPage, isMarkdownTextDocumentPage } from "../items/text-document";
@@ -567,6 +567,8 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   const moveTargetIsDocumentPage =
     isPage(hitMoveTargetVe.displayItem) &&
     asPageItem(hitMoveTargetVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  const moveTargetIsDocumentComposite =
+    moveTargetIsDocumentPage && isComposite(resolvedMoveTarget.hoverContainerVe.displayItem);
   const tableContainerIsIgnored =
     tableContainerVeMaybe != null &&
     (ignoreIds.includes(tableContainerVeMaybe.displayItem.id) ||
@@ -586,7 +588,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     // update move over element state.
     const moveOverContainerPath = tableMoveTargetPath != null
       ? tableMoveTargetPath
-      : moveTargetIsDocumentPage
+      : moveTargetIsDocumentPage && !moveTargetIsDocumentComposite
         ? hitMoveTargetPath
         : resolvedMoveTarget.hoverContainerPath;
     if (MouseActionState.getMoveOverContainerPath() == null ||
@@ -662,14 +664,17 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
     if (tableMoveTargetPath == null) {
       const moveOverContainerVe = MouseActionState.readMoveOverContainer()!;
-      if (!moveTargetIsDocumentPage && isComposite(moveOverContainerVe.displayItem)) {
+      if (isComposite(moveOverContainerVe.displayItem)) {
         if (
           MouseActionState.getMoveOverAttachHitboxPath() != null ||
           MouseActionState.getMoveOverAttachCompositePath() != null
         ) {
           store.perVe.setMoveOverIndex(VeFns.veToPath(moveOverContainerVe), -1);
         } else {
-          moving_handleOverComposite(store, moveOverContainerVe, desktopPosPx);
+          const appendToDocumentComposite = moveTargetIsDocumentComposite &&
+            hitInfo.overVes?.get() == moveOverContainerVe &&
+            !!(hitInfo.hitboxType & HitboxFlags.AttachComposite);
+          moving_handleOverComposite(store, moveOverContainerVe, desktopPosPx, appendToDocumentComposite);
         }
       }
     }
@@ -747,7 +752,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Document) {
     const inElementPath = VeFns.veToPath(inElementVe);
-    if (attachmentDropTargetIsActive) {
+    if (attachmentDropTargetIsActive || moveTargetIsDocumentComposite) {
       store.perVe.setMoveOverIndex(inElementPath, -1);
     } else {
       const documentChildren = VesCache.render.getNonMovingChildren(inElementPath)()
@@ -855,16 +860,25 @@ function moving_handleOverTable(
   }
 }
 
-function moving_handleOverComposite(store: StoreContextModel, overContainerVe: VisualElement, desktopPx: Vector) {
+function moving_handleOverComposite(store: StoreContextModel, overContainerVe: VisualElement, desktopPx: Vector, append: boolean) {
   assert(isComposite(overContainerVe.displayItem), "overContainerVe is not a composite");
+  if (store.perItem.getCompositeIsCollapsed(VeFns.veidFromVe(overContainerVe))) {
+    store.perVe.setMoveOverIndex(
+      VeFns.veToPath(overContainerVe),
+      asCompositeItem(overContainerVe.displayItem).computed_children.length,
+    );
+    return;
+  }
   const activeItemId = MouseActionState.getActiveVisualElement()?.displayItem.id ?? null;
   const compositeChildren = VesCache.render.getChildren(VeFns.veToPath(overContainerVe))()
     .filter(childVe => childVe.get().displayItem.id !== activeItemId);
-  const insertIndex = stackedInsertionIndexFromDesktopPx(
-    store,
-    compositeChildren.map(childVe => childVe.get()),
-    desktopPx,
-  );
+  const insertIndex = append
+    ? compositeChildren.length
+    : stackedInsertionIndexFromDesktopPx(
+      store,
+      compositeChildren.map(childVe => childVe.get()),
+      desktopPx,
+    );
   store.perVe.setMoveOverIndex(VeFns.veToPath(overContainerVe), insertIndex);
 }
 
