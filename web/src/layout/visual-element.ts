@@ -91,6 +91,7 @@ export enum VisualElementFlags {
   FindHighlighted = 0x100000, // The item is highlighted by find-on-page.
   SelectionHighlighted = 0x200000, // Highlighted by selection marquee.
   DisableLineItemExpand = 0x400000, // The line item should not show or handle contextual expansion.
+  DocumentTypography = 0x800000, // Text inside a composite rendered in document flow.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {

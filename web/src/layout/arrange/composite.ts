@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINK_TRIANGLE_SIZE_PX } from "../../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -32,6 +32,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 import { assignFlowListItemNumbers } from "../list-numbering";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
@@ -52,7 +53,8 @@ export const arrangeComposite = (
   actualLinkItemMaybe_Composite: LinkItem | null,
   compositeGeometry: ItemGeometry,
   flags: ArrangeItemFlags,
-  widthBlOverride?: number): VisualElementSignal => {
+  widthBlOverride?: number,
+  useDocumentTypography: boolean = false): VisualElementSignal => {
 
   const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
   const compositeVeid = VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite);
@@ -97,15 +99,22 @@ export const arrangeComposite = (
   if (linkItemMaybe_Composite != null) {
     measuredComposite.spatialWidthGr = linkItemMaybe_Composite.spatialWidthGr;
   }
-  let compositeSizeBl = CompositeFns.calcSpatialDimensionsBl(measuredComposite, compositeIsCollapsed);
   if (widthBlOverride != null) {
     measuredComposite.spatialWidthGr = widthBlOverride * GRID_SIZE;
-    compositeSizeBl = CompositeFns.calcSpatialDimensionsBl(measuredComposite, compositeIsCollapsed);
   }
+  if (useDocumentTypography) {
+    // Keep the document's type scale; composite padding reduces wrapping width.
+    measuredComposite.spatialWidthGr = compositeGeometry.boundsPx.w / compositeGeometry.blockSizePx.w * GRID_SIZE;
+  }
+  const compositeSizeBl = useDocumentTypography
+    ? CompositeFns.calcDocumentSpatialDimensionsBl(measuredComposite, compositeIsCollapsed)
+    : CompositeFns.calcSpatialDimensionsBl(measuredComposite, compositeIsCollapsed);
   const blockSizePx = {
-    w: widthBlOverride != null
-      ? compositeGeometry.boundsPx.w / widthBlOverride
-      : compositeGeometry.boundsPx.w / compositeSizeBl.w,
+    w: useDocumentTypography
+      ? compositeGeometry.blockSizePx.w
+      : widthBlOverride != null
+        ? compositeGeometry.boundsPx.w / widthBlOverride
+        : compositeGeometry.boundsPx.w / compositeSizeBl.w,
     h: compositeGeometry.blockSizePx.h,
   };
 
@@ -136,13 +145,21 @@ export const arrangeComposite = (
 
     const { displayItem: displayItem_childItem, linkItemMaybe: linkItemMaybe_childItem } = getVePropertiesForItem(store, childItem);
 
-    const geometry = ItemFns.calcGeometry_InComposite(
-      linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
-      blockSizePx,
-      compositeSizeBl.w,
-      0,
-      topPx,
-      store.smallScreenMode());
+    const geometry = useDocumentTypography && isNote(displayItem_childItem)
+      ? NoteFns.calcGeometry_InDocument(
+        NoteFns.asNoteMeasurable(displayItem_childItem), blockSizePx, compositeSizeBl.w, 0, topPx)
+      : ItemFns.calcGeometry_InComposite(
+        linkItemMaybe_childItem ? linkItemMaybe_childItem : displayItem_childItem,
+        blockSizePx,
+        compositeSizeBl.w,
+        0,
+        topPx,
+        store.smallScreenMode());
+    if (useDocumentTypography && isNote(displayItem_childItem) && linkItemMaybe_childItem != null) {
+      geometry.hitboxes.push(HitboxFns.create(HitboxFlags.TriangleLinkSettings, {
+        x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2,
+      }));
+    }
     const compositeChildGeometry: ItemGeometry = {
       ...geometry,
       row: idx,
@@ -167,7 +184,7 @@ export const arrangeComposite = (
     const compositeChildPath = arrangeCompositeChildItemPath(
       store, compositeVePath,
       child.displayItem_childItem, child.linkItemMaybe_childItem,
-      child.geometry, blockSizePx, compositeSizeBl.w);
+      child.geometry, blockSizePx, compositeSizeBl.w, useDocumentTypography);
     compositeChildPaths.push(compositeChildPath);
   }
 
@@ -187,7 +204,8 @@ function arrangeCompositeChildItemPath(
   linkItemMaybe_childItem: LinkItem | null,
   geometry: ItemGeometry,
   blockSizePx: Dimensions,
-  compositeWidthBl: number): VisualElementPath {
+  compositeWidthBl: number,
+  useDocumentTypography: boolean): VisualElementPath {
 
   if (isLinkInTrash(linkItemMaybe_childItem, store.user.getUserMaybe()?.trashPageId)) {
     return arrangeItemNoChildrenPath(
@@ -235,6 +253,7 @@ function arrangeCompositeChildItemPath(
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
     flags: VisualElementFlags.InsideCompositeOrDoc | VisualElementFlags.Detailed |
+      (useDocumentTypography && isNote(displayItem_childItem) ? VisualElementFlags.DocumentTypography : VisualElementFlags.None) |
       (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
       (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
@@ -254,9 +273,11 @@ function arrangeCompositeChildItemPath(
 
   const compositeChildRelationships: VisualElementRelationships = {};
   if (isAttachmentsItem(displayItem_childItem)) {
-    const parentItemSizeBl = isNote(displayItem_childItem) && linkItemMaybe_childItem == null
-      ? NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(displayItem_childItem), true)
-      : ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
+    const parentItemSizeBl = useDocumentTypography && isNote(displayItem_childItem)
+      ? { w: compositeWidthBl, h: geometry.boundsPx.h / blockSizePx.h }
+      : isNote(displayItem_childItem) && linkItemMaybe_childItem == null
+        ? NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(displayItem_childItem), true)
+        : ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
     if (!isPage(displayItem_childItem) && !isImage(displayItem_childItem)) {
       parentItemSizeBl.w = compositeWidthBl;
     }
