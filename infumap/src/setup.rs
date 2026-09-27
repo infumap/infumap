@@ -303,12 +303,12 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_GPU_TOOLS_URL, "<not set>");
     }
   }
-  match config.get_string(CONFIG_LLAMA_SERVER_URL) {
-    Ok(v) if !v.trim().is_empty() => {
-      info!(" {} = '{}'", CONFIG_LLAMA_SERVER_URL, v);
-    }
-    _ => {
-      info!(" {} = {}", CONFIG_LLAMA_SERVER_URL, "<not set>");
+  let llama_servers = crate::web::routes::command::llama_servers_from_config(&config)?;
+  if llama_servers.is_empty() {
+    info!(" {} = {}", CONFIG_LLAMA_SERVER, "<not set>");
+  } else {
+    for server in &llama_servers {
+      info!(" {} name='{}' url='{}'", CONFIG_LLAMA_SERVER, server.name, server.url);
     }
   }
   match config.get_string(CONFIG_OPENROUTER_API_KEY) {
@@ -562,18 +562,7 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
   if result.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())? < 0 {
     return Err(format!("{} must be greater than or equal to zero.", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).into());
   }
-  let chat_default_backend = result.get_string(CONFIG_CHAT_DEFAULT_BACKEND).map_err(|e| e.to_string())?;
-  if !CHAT_BACKENDS.contains(&chat_default_backend.trim()) {
-    return Err(
-      format!(
-        "{} '{}' is not one of: {}.",
-        CONFIG_CHAT_DEFAULT_BACKEND,
-        chat_default_backend,
-        CHAT_BACKENDS.join(", ")
-      )
-      .into(),
-    );
-  }
+  crate::web::routes::command::validate_chat_backend_config(&result)?;
   crate::web::routes::command::chat_tool_servers_from_config(&result)?;
   return Ok(result);
 }

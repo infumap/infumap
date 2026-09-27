@@ -37,6 +37,7 @@ use backend::{
   ChatBackend, ChatEndpoint, ChatModelSelection, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends,
   resolve_chat_endpoint,
 };
+pub(crate) use backend::{llama_servers_from_config, validate_chat_backend_config};
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
 
@@ -1315,8 +1316,7 @@ async fn run_chat_model_round(
     assistant_message.role = "assistant".to_owned();
   } else if !response_role.eq_ignore_ascii_case("assistant") {
     return Err(
-      format!("{} returned unexpected chat response role '{}'.", endpoint.backend.label(), assistant_message.role)
-        .into(),
+      format!("{} returned unexpected chat response role '{}'.", endpoint.label, assistant_message.role).into(),
     );
   }
   let tool_calls = execution_tool_calls(&assistant_message, tool_rounds_completed);
@@ -1482,10 +1482,10 @@ async fn run_chat_stage_with_tools(
   }
 }
 
-fn completed_chat_result(messages: &[OpenAiChatMessage], backend: ChatBackend) -> InfuResult<ChatRunResult> {
+fn completed_chat_result(messages: &[OpenAiChatMessage], backend_label: &str) -> InfuResult<ChatRunResult> {
   let assistant_text = messages.last().and_then(|message| message.content.clone()).unwrap_or_default();
   if assistant_text.trim().is_empty() {
-    return Err(format!("{} returned an empty chat response.", backend.label()).into());
+    return Err(format!("{} returned an empty chat response.", backend_label).into());
   }
   Ok(ChatRunResult { assistant_text, messages: chat_history_from_wire_messages(messages) })
 }
@@ -1538,7 +1538,7 @@ async fn run_chat_with_tools(
       progress,
     )
     .await?;
-    return completed_chat_result(&messages, endpoint.backend);
+    return completed_chat_result(&messages, &endpoint.label);
   }
 
   progress.status("Researching sources").await;
@@ -1580,12 +1580,10 @@ async fn run_chat_with_tools(
   messages.push(OpenAiChatMessage::text("system", CHAT_DEEP_RESEARCH_FINAL_PROMPT.to_owned()));
   let final_round = run_chat_model_round(&endpoint, &messages, &[], llm_turn, tool_rounds, progress).await?;
   if !final_round.tool_calls.is_empty() {
-    return Err(
-      format!("{} attempted to call a tool while writing the final research report.", endpoint.backend.label()).into(),
-    );
+    return Err(format!("{} attempted to call a tool while writing the final research report.", endpoint.label).into());
   }
   messages.push(final_round.assistant_message);
-  completed_chat_result(&messages, endpoint.backend)
+  completed_chat_result(&messages, &endpoint.label)
 }
 
 fn execution_tool_calls(message: &OpenAiChatMessage, tool_round: usize) -> Vec<OpenAiToolCall> {
@@ -2250,7 +2248,7 @@ async fn chat_completion(
   llm_turn: usize,
   progress: &ChatProgressReporter,
 ) -> InfuResult<OpenAiChatMessage> {
-  let backend_label = endpoint.backend.label();
+  let backend_label = endpoint.label.as_str();
   let url = &endpoint.url;
 
   let client = reqwest::ClientBuilder::new()

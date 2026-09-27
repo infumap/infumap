@@ -61,9 +61,16 @@
 # not this URL.
 #gpu_tools_url = "http://127.0.0.1:8787"
 
-# Optional llama.cpp llama-server URL for Chat. Infumap calls the
-# OpenAI-compatible /v1/chat/completions endpoint. You may provide either the
-# server base URL or the full chat completions endpoint URL.
+# Optional llama.cpp llama-server instances for Chat, each offered to users
+# under its name. Infumap calls the OpenAI-compatible /v1/chat/completions
+# endpoint; url may be either the server base URL or the full endpoint URL.
+# The same list can be given as JSON in llama_servers (INFUMAP_LLAMA_SERVERS),
+# whose entries replace TOML entries with the same name.
+# [[llama_server]]
+# name = "Local"
+# url = "http://127.0.0.1:8080"
+#
+# Shorthand for a single server, which is named "llama-server".
 #llama_server_url = "http://127.0.0.1:8080"
 
 # Optional OpenRouter API key, enabling the OpenRouter models in Chat. The key is
@@ -71,8 +78,9 @@
 # OpenRouter account.
 #openrouter_api_key = ""
 
-# Which backend Chat uses when the user has not picked one - "llama" or
-# "openrouter". If the chosen backend is not configured, the other is used.
+# Which backend Chat uses when the user has not picked one - "llama" (the first
+# llama server), "llama:<name>" (a specific one), or "openrouter". If the chosen
+# backend is not configured, another configured one is used.
 #chat_default_backend = "llama"
 
 # OpenRouter model preselected in Chat, e.g. "anthropic/claude-sonnet-4.5". Only

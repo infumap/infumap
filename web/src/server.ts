@@ -108,7 +108,8 @@ export interface ChatMessage {
   toolCalls?: Array<ChatToolCall>,
 }
 
-export type ChatBackendId = "llama" | "openrouter";
+/** "openrouter", or "llama:<name>" for one of the configured llama servers. */
+export type ChatBackendId = string;
 
 /**
  * The backend, model and reasoning effort a chat request should use. Omitted fields fall back to

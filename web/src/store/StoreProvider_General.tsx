@@ -249,7 +249,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     const stored = readLocalStorageData().chatModelSelection;
     if (stored == null || typeof stored != "object") { return null; }
     const asString = (value: unknown) => typeof value == "string" && value != "" ? value : undefined;
-    const backend = stored.backend == "llama" || stored.backend == "openrouter" ? stored.backend : undefined;
+    const backend = asString(stored.backend);
     if (backend == null) { return null; }
     return { backend, model: asString(stored.model), reasoningEffort: asString(stored.reasoningEffort) };
   };

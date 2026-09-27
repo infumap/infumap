@@ -187,8 +187,8 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
   onMount(() => { void store.general.retrieveChatBackends(); });
 
   const backends = () => store.general.chatBackends();
-  const backend = (id: ChatBackendId): ChatBackendInfo | undefined =>
-    backends()?.backends.find(candidate => candidate.id == id);
+  const backend = (id: ChatBackendId | null): ChatBackendInfo | undefined =>
+    id == null ? undefined : backends()?.backends.find(candidate => candidate.id == id);
   const listedBackends = (): Array<ChatBackendInfo> => backends()?.backends ?? [];
   const anyBackendAvailable = (): boolean => listedBackends().some(candidate => candidate.available);
 
@@ -216,7 +216,7 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
 
   /** The efforts the selected model offers. Empty when effort is not a choice here. */
   const availableEfforts = createMemo((): Array<string> => {
-    if (backend(selectedBackendId() ?? "llama")?.supportsReasoningEffort != true) { return []; }
+    if (backend(selectedBackendId())?.supportsReasoningEffort != true) { return []; }
     return sortedEfforts(selectedModel()?.reasoningEfforts ?? []);
   });
 
@@ -291,7 +291,7 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
     if (store.general.chatBackendsError() != null) { return store.general.chatBackendsError()!; }
     const lines: Array<string> = [];
     const modelId = selectedModelId();
-    const backendLabel = backend(selectedBackendId() ?? "llama")?.label;
+    const backendLabel = backend(selectedBackendId())?.label;
     lines.push(modelId != null
       ? `Model: ${modelId} (${backendLabel})`
       : (backendLabel != null ? `Model: ${backendLabel}` : "Choose the model that answers."));
