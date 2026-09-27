@@ -34,6 +34,12 @@ export function isIgnored(id: Uid, ignoreItems: Set<Uid>): boolean {
   return ignoreItems.has(id);
 }
 
+function isInsideHitboxBounds(point: Vector, bounds: BoundingBox, meta: HitboxMeta | null): boolean {
+  if (!meta?.includeEdges) { return isInside(point, bounds); }
+  return point.x >= bounds.x && point.x <= bounds.x + bounds.w &&
+    point.y >= bounds.y && point.y <= bounds.y + bounds.h;
+}
+
 export function scanHitboxes(
   ve: VisualElement,
   localPos: Vector,
@@ -48,7 +54,7 @@ export function scanHitboxes(
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
       : offsetBoundingBoxTopLeftBy(ve.hitboxes[i].boundsPx, offsetTopLeft);
-    let inside = isInside(localPos, hbBounds);
+    let inside = isInsideHitboxBounds(localPos, hbBounds, ve.hitboxes[i].meta);
     if (inside) {
       if (type & HitboxFlags.TriangleLinkSettings) {
         inside = isInsideTopLeftTriangle(localPos, hbBounds);
@@ -84,7 +90,7 @@ export function isInsideBoundsOrAllowedHitbox(
     const hbBounds = typeof offsetTopLeft === 'undefined'
       ? ve.hitboxes[i].boundsPx
       : offsetBoundingBoxTopLeftBy(ve.hitboxes[i].boundsPx, offsetTopLeft);
-    let inside = isInside(localPos, hbBounds);
+    let inside = isInsideHitboxBounds(localPos, hbBounds, ve.hitboxes[i].meta);
     if (inside) {
       if (type & HitboxFlags.TriangleLinkSettings) {
         inside = isInsideTopLeftTriangle(localPos, hbBounds);

@@ -150,6 +150,22 @@ function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: Return
     documentNoteBodyClick(hitVe, hitInfo);
 }
 
+function startDocumentNoteTextSelection(hitVe: VisualElement): MouseEventActionFlags {
+  const element = document.getElementById(VeFns.veToPath(hitVe) + ":title");
+  if (element == null) { return MouseEventActionFlags.PreventDefault; }
+  const clientPx = CursorEventState.getLatestClientPx();
+  const target = document.elementFromPoint(clientPx.x, clientPx.y);
+  if (target != null && element.contains(target)) {
+    return MouseEventActionFlags.None;
+  }
+
+  // Guards and inter-paragraph gaps must not put the caret in the page itself.
+  // Start an explicit selection drag from the nearest text position instead.
+  setCaretPosition(element, closestCaretPositionToClientPx(element, clientPx));
+  NativeTextSelectionState.startMarginSelectionDrag(element);
+  return MouseEventActionFlags.PreventDefault;
+}
+
 function extendLinearTextSelectionOnShiftClick(store: StoreContextModel): boolean {
   if (!CursorEventState.get().shiftDown ||
       store.overlay.contextMenuInfo.get() != null ||
@@ -447,6 +463,9 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           store.anItemIsMoving.set(false);
           store.anItemIsResizing.set(false);
           MouseActionState.set(null);
+          if (shouldEditDocumentNoteOnMouseDown(HitInfoFns.getHitVe(hitInfo), hitInfo)) {
+            return startDocumentNoteTextSelection(HitInfoFns.getHitVe(hitInfo));
+          }
           return MouseEventActionFlags.None;
         }
       }
@@ -634,7 +653,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   if (!ClickState.getLinkWasClicked() && shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
     ClickState.setLinkWasClicked(false);
     NativeTextSelectionState.startReadOnlyDocumentTextSelection();
-    return MouseEventActionFlags.None;
+    return startDocumentNoteTextSelection(hitVe);
   }
 
   if (!ClickState.getLinkWasClicked() && shouldEditDocumentNoteOnMouseDown(hitVe, hitInfo)) {
@@ -643,18 +662,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       store.overlay.selectedVeids.set([]);
     }
     NoteFns.handleClick(hitVe, store, true);
-    // Native selection is useful over the title, but a non-editable document
-    // guard would replace the caret above with one in the page container.
-    const editingElement = document.getElementById(VeFns.veToPath(hitVe) + ":title");
-    const clientPx = CursorEventState.getLatestClientPx();
-    const nativeSelectionTarget = document.elementFromPoint(clientPx.x, clientPx.y);
-    const nativeSelectionWillStayInNote =
-      editingElement != null &&
-      nativeSelectionTarget != null &&
-      (nativeSelectionTarget == editingElement || editingElement.contains(nativeSelectionTarget));
-    return nativeSelectionWillStayInNote
-      ? MouseEventActionFlags.None
-      : MouseEventActionFlags.PreventDefault;
+    return startDocumentNoteTextSelection(hitVe);
   }
 
   // If clicking a child inside a composite and that composite is in the current selection,
