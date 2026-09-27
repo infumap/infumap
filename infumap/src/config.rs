@@ -49,6 +49,8 @@ pub const CONFIG_CACHE_DIR_DEFAULT: &'static str = "~/.infumap/cache";
 pub const CONFIG_GPU_TOOLS_URL: &'static str = "gpu_tools_url";
 pub const CONFIG_LLAMA_SERVER_URL: &'static str = "llama_server_url";
 pub const CONFIG_LLAMA_SERVER_URL_DEFAULT: &'static str = "";
+pub const CONFIG_LLAMA_SERVER: &'static str = "llama_server";
+pub const CONFIG_LLAMA_SERVERS: &'static str = "llama_servers";
 pub const CONFIG_OPENROUTER_API_KEY: &'static str = "openrouter_api_key";
 pub const CONFIG_CHAT_DEFAULT_BACKEND: &'static str = "chat_default_backend";
 pub const CONFIG_CHAT_DEFAULT_BACKEND_DEFAULT: &'static str = CHAT_BACKEND_LLAMA;
@@ -57,10 +59,11 @@ pub const CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL_DEFAULT: &'static str = "";
 pub const CONFIG_CHAT_TOOL_SERVER: &'static str = "chat_tool_server";
 pub const CONFIG_CHAT_TOOL_SERVERS: &'static str = "chat_tool_servers";
 
-/// Chat backend identifiers, as accepted by chat_default_backend and sent by the web client.
+/// Chat backend identifiers, as accepted by chat_default_backend and sent by the web client. A
+/// specific llama server is "llama:<name>"; plain "llama" means the first configured one.
 pub const CHAT_BACKEND_LLAMA: &'static str = "llama";
+pub const CHAT_BACKEND_LLAMA_PREFIX: &'static str = "llama:";
 pub const CHAT_BACKEND_OPENROUTER: &'static str = "openrouter";
-pub const CHAT_BACKENDS: &[&'static str] = &[CHAT_BACKEND_LLAMA, CHAT_BACKEND_OPENROUTER];
 pub const CONFIG_GEOAPIFY_URL: &'static str = "geoapify_url";
 pub const CONFIG_GEOAPIFY_URL_DEFAULT: &'static str = "https://api.geoapify.com/v1/geocode/reverse";
 pub const CONFIG_GEOAPIFY_API_KEY: &'static str = "geoapify_api_key";
