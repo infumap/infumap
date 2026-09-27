@@ -139,6 +139,8 @@ export function addContiguousStackedGapHitboxes(
   bandWidthPx: number,
   focusOnly: boolean = true,
 ): void {
+  // Adjacent bands must claim their shared edges; strict rectangle containment
+  // otherwise leaves a seam that falls through to page-background selection.
   for (let i = 0; i < childGeometries.length; ++i) {
     const geometry = childGeometries[i];
     const prevGeometry = i > 0 ? childGeometries[i - 1] : null;
@@ -158,7 +160,7 @@ export function addContiguousStackedGapHitboxes(
         y: bandTopPx - geometry.boundsPx.y,
         w: bandWidthPx,
         h: gapAboveHeightPx,
-      }, { focusOnly, allowOutsideBounds: true }));
+      }, { focusOnly, allowOutsideBounds: true, includeEdges: true }));
     }
 
     const gapBelowHeightPx = bandBottomPx - (geometry.boundsPx.y + geometry.boundsPx.h);
@@ -168,7 +170,7 @@ export function addContiguousStackedGapHitboxes(
         y: geometry.boundsPx.h,
         w: bandWidthPx,
         h: gapBelowHeightPx,
-      }, { focusOnly, allowOutsideBounds: true }));
+      }, { focusOnly, allowOutsideBounds: true, includeEdges: true }));
     }
   }
 }
@@ -187,7 +189,7 @@ export function addContiguousStackedRowMarginHitboxes(
         y: 0,
         w: geometry.boundsPx.x,
         h: geometry.boundsPx.h,
-      }, { focusOnly, allowOutsideBounds: true }));
+      }, { focusOnly, allowOutsideBounds: true, includeEdges: true }));
     }
 
     const rightMarginWidthPx = bandWidthPx - (geometry.boundsPx.x + geometry.boundsPx.w);
@@ -197,7 +199,7 @@ export function addContiguousStackedRowMarginHitboxes(
         y: 0,
         w: rightMarginWidthPx,
         h: geometry.boundsPx.h,
-      }, { focusOnly, allowOutsideBounds: true }));
+      }, { focusOnly, allowOutsideBounds: true, includeEdges: true }));
     }
   }
 }

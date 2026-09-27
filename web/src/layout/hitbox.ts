@@ -85,6 +85,7 @@ export interface HitboxMeta {
   openActualItem?: boolean,
   openContainingPageOfItemId?: Uid,
   allowOutsideBounds?: boolean,
+  includeEdges?: boolean,
   compositeMoveOut?: boolean,
   compositeContentCollapse?: boolean,
   popupTitleTargetPath?: VisualElementPath,
@@ -137,6 +138,9 @@ export const HitboxFns = {
     if (typeof (meta.allowOutsideBounds) != 'undefined') {
       result.allowOutsideBounds = meta.allowOutsideBounds;
     }
+    if (typeof (meta.includeEdges) != 'undefined') {
+      result.includeEdges = meta.includeEdges;
+    }
     if (typeof (meta.compositeMoveOut) != 'undefined') {
       result.compositeMoveOut = meta.compositeMoveOut;
     }
@@ -166,6 +170,7 @@ export const HitboxFns = {
     if (a.meta != b.meta) {
       if (a.meta == null || b.meta == null) { return 1; }
       if (a.meta.colNum != b.meta.colNum) { return 1; }
+      if (a.meta.includeEdges != b.meta.includeEdges) { return 1; }
       if (a.meta.calendarRangeItemId != b.meta.calendarRangeItemId) { return 1; }
       if (a.meta.calendarRangeOccurrenceItemId != b.meta.calendarRangeOccurrenceItemId) { return 1; }
       if (a.meta.calendarRangeStartDateTime != b.meta.calendarRangeStartDateTime) { return 1; }
@@ -193,7 +198,8 @@ export const HitboxFns = {
       (meta.startBl ? meta.startBl : "undefined") + ", endBl: " +
       (meta.endBl ? meta.endBl : "undefined") + ", openActualItem: " +
       (meta.openActualItem ? meta.openActualItem : "undefined") + ", allowOutsideBounds: " +
-      (meta.allowOutsideBounds ? meta.allowOutsideBounds : "undefined") + ", compositeMoveOut: " +
+      (meta.allowOutsideBounds ? meta.allowOutsideBounds : "undefined") + ", includeEdges: " +
+      (meta.includeEdges ?? "undefined") + ", compositeMoveOut: " +
       (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", compositeContentCollapse: " +
       (meta.compositeContentCollapse ? meta.compositeContentCollapse : "undefined") + ", popupTitleTargetPath: " +
       (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", dividerMonth: " +
