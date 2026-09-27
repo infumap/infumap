@@ -62,6 +62,10 @@ impl SessionDb {
         warn!("Unexpected directory in store directory: '{}'.", entry.path().display());
         continue;
       };
+      // Ignore leftover metadata from the retired search processing store.
+      if dirname == "search_processing" {
+        continue;
+      }
       let parts = dirname.split('_').collect::<Vec<&str>>();
       if parts.len() != 2 {
         warn!("Unexpected directory in data directory: '{}'.", dirname);
