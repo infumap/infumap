@@ -30,6 +30,8 @@ import { itemState } from "./store/ItemState";
 import { MouseActionState } from "./input/state";
 import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./util/remoteSession";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
+import { switchToItem, switchToPage } from "./layout/navigation";
+import { initiateLoadChildItemsMaybe } from "./layout/load";
 
 // Global request tracking - will be set by store initialization
 let globalRequestTracker: {
@@ -1150,10 +1152,8 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
       itemState.get(currentPageId)?.itemType == ItemType.Table) {
       const convertedTable = itemState.get(currentPageId)!;
       const parent = itemState.get(convertedTable.parentId);
-      const { switchToItem, switchToPage } = await import("./layout/navigation");
       if (parent?.itemType == ItemType.Page) {
         switchToPage(store, { itemId: parent.id, linkIdMaybe: null }, true, true, false);
-        const { initiateLoadChildItemsMaybe } = await import("./layout/load");
         await initiateLoadChildItemsMaybe(store, { itemId: parent.id, linkIdMaybe: null });
       } else {
         switchToItem(store, convertedTable.id, true, false);
@@ -1162,7 +1162,6 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
     } else if (currentPageId == SOLO_ITEM_HOLDER_PAGE_UID && soloItemTypeBeforeSync == ItemType.Table) {
       const soloItemId = itemState.getAsContainerItem(SOLO_ITEM_HOLDER_PAGE_UID)?.computed_children[0];
       if (soloItemId && soloItemId == soloItemIdBeforeSync && itemState.get(soloItemId)?.itemType == ItemType.Page) {
-        const { switchToPage } = await import("./layout/navigation");
         switchToPage(store, { itemId: soloItemId, linkIdMaybe: null }, false, true, false);
         shouldArrange = false;
       }

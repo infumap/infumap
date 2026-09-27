@@ -122,6 +122,9 @@ For simplicity, we will take the approach of doing only a musl build for release
 
 The built-in LLM tools and container outline response are documented in [Chat tools](chat-tools.md).
 
+The shared search status definitions and their staged adoption are documented in
+[Search processing lifecycle](search-processing.md).
+
 From the repo `infumap` directory:
 
 ```

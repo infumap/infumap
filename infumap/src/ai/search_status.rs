@@ -1,3 +1,7 @@
+//! Legacy fragment-status snapshot used by the current virtual pages.
+//! The full lifecycle contract lives in `search_processing`; this snapshot has
+//! insufficient information to establish content/index completion under that model.
+
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -9,9 +13,8 @@ use sha2::{Digest, Sha256};
 use tokio::fs;
 
 use crate::ai::fragment::{is_lexical_search_source_kind, read_item_fragment_metadata};
-use crate::ai::image_tagging::{
-  ImageTagArtifactState, image_tagging_artifact_state, is_supported_image_tagging_mime_type,
-};
+use crate::ai::image_tagging::{ImageTagArtifactState, image_tagging_artifact_state};
+use crate::ai::search_processing::SearchContentKind;
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
@@ -23,10 +26,6 @@ pub const SEARCH_FAILED_PAGE_TITLE: &str = "Search fragments failed";
 pub const SEARCH_PENDING_PAGE_TITLE: &str = "Search fragments pending";
 pub const SEARCH_FAILED_PAGE_ROUTE_ID: &str = "search/failed";
 pub const SEARCH_PENDING_PAGE_ROUTE_ID: &str = "search/pending";
-
-const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
-const MARKDOWN_SOURCE_MIME_TYPE: &str = "text/markdown";
-const TEXT_SOURCE_MIME_TYPE: &str = "text/plain";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SearchStatusPageKind {
@@ -148,7 +147,7 @@ pub async fn refresh_user_search_fragment_status(
   let mut pending_item_ids = Vec::new();
   for item_id in item_ids {
     let item = db.item.get(&item_id)?;
-    let Some(kind) = search_status_candidate_kind(item.mime_type.as_deref()) else {
+    let Some(kind) = SearchContentKind::from_mime_type(item.mime_type.as_deref()) else {
       continue;
     };
     let has_search_fragments = read_item_fragment_metadata(data_dir, user_id, &item_id)
@@ -210,29 +209,19 @@ fn deterministic_uid(parts: &[&str]) -> Uid {
   hasher.finalize().iter().take(16).map(|byte| format!("{:02x}", byte)).collect()
 }
 
-fn search_status_candidate_kind(mime_type: Option<&str>) -> Option<SearchStatusCandidateKind> {
-  match mime_type? {
-    PDF_SOURCE_MIME_TYPE => Some(SearchStatusCandidateKind::Pdf),
-    MARKDOWN_SOURCE_MIME_TYPE => Some(SearchStatusCandidateKind::Markdown),
-    TEXT_SOURCE_MIME_TYPE => Some(SearchStatusCandidateKind::Text),
-    mime_type if is_supported_image_tagging_mime_type(Some(mime_type)) => Some(SearchStatusCandidateKind::Image),
-    _ => None,
-  }
-}
-
 async fn classify_missing_search_fragments(
   data_dir: &str,
   user_id: &str,
   item_id: &str,
-  kind: SearchStatusCandidateKind,
+  kind: SearchContentKind,
 ) -> InfuResult<SearchStatusClassification> {
   Ok(match kind {
-    SearchStatusCandidateKind::Pdf => match pdf_text_artifact_state(data_dir, user_id, item_id).await? {
+    SearchContentKind::Pdf => match pdf_text_artifact_state(data_dir, user_id, item_id).await? {
       PdfTextArtifactState::Failed => SearchStatusClassification::Failed,
       PdfTextArtifactState::Blocked => SearchStatusClassification::Blocked,
       PdfTextArtifactState::Succeeded | PdfTextArtifactState::Pending => SearchStatusClassification::Pending,
     },
-    SearchStatusCandidateKind::Image => match image_tagging_artifact_state(data_dir, user_id, item_id).await? {
+    SearchContentKind::Image => match image_tagging_artifact_state(data_dir, user_id, item_id).await? {
       ImageTagArtifactState::Failed | ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
         SearchStatusClassification::Failed
       }
@@ -241,16 +230,8 @@ async fn classify_missing_search_fragments(
       | ImageTagArtifactState::Incomplete(_)
       | ImageTagArtifactState::RetryableFailed => SearchStatusClassification::Pending,
     },
-    SearchStatusCandidateKind::Markdown | SearchStatusCandidateKind::Text => SearchStatusClassification::Pending,
+    SearchContentKind::Markdown | SearchContentKind::Text => SearchStatusClassification::Pending,
   })
-}
-
-#[derive(Clone, Copy)]
-enum SearchStatusCandidateKind {
-  Pdf,
-  Image,
-  Markdown,
-  Text,
 }
 
 #[derive(Clone, Copy)]
