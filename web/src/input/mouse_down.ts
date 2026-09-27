@@ -277,16 +277,6 @@ function toggleCompositeCollapseOnMouseDownMaybe(store: StoreContextModel, hitIn
   return true;
 }
 
-function shouldFocusDocumentDragBarOnMouseDown(
-  hitVe: VisualElement,
-  hitInfo: ReturnType<typeof HitInfoFns.hit>,
-  documentRowMoveOut: boolean,
-): boolean {
-  return isInsideDocumentPageClickContext(hitVe) &&
-    (documentRowMoveOut ||
-      (!!hitInfo.overElementMeta?.compositeMoveOut && !!(hitInfo.hitboxType & HitboxFlags.Move)));
-}
-
 function onePxSizeBlForPageChild(parentPage: ReturnType<typeof asPageItem>, parentVe: VisualElement) {
   if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.Document && parentVe.childAreaBoundsPx != null) {
     const totalWidthBl = parentPage.docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
@@ -774,8 +764,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     isDirectChildOfDocumentArrangedPage(hitVe) &&
     !!(hitInfo.hitboxType & HitboxFlags.Move) &&
     (!!hitInfo.overElementMeta?.compositeMoveOut || clickOffsetProp.x > 1);
-  const focusDocumentDragBar =
-    shouldFocusDocumentDragBarOnMouseDown(hitVe, hitInfo, documentRowMoveOut);
   if (hitInfo.overElementMeta?.compositeMoveOut || documentRowMoveOut) {
     // Composite move-out can start from a synthetic gutter outside the item's visible bounds.
     const clampOffsetProp = {
@@ -884,12 +872,6 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       }
     }
   } catch { }
-
-  if (focusDocumentDragBar) {
-    ClickState.setLinkWasClicked(false);
-    store.history.setFocus(activeElementPath);
-    arrangeNow(store, "mouse-down-focus-document-drag-bar");
-  }
 
   if (hitInfo.hitboxType & HitboxFlags.ContentEditable) {
     // make sure not PreventDefault in the case of clicking on a contenteditable.

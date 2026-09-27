@@ -21,6 +21,7 @@ import { Item, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
 import { DividerFns, isDivider } from "../../items/divider-item";
+import { isImage } from "../../items/image-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
@@ -136,7 +137,7 @@ export function arrange_document_page(
       PAGE_DOCUMENT_LEFT_MARGIN_BL,
       topPx,
       store.smallScreenMode());
-    if (isPage(child.displayItem)) {
+    if (isPage(child.displayItem) || isImage(child.displayItem)) {
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
     if (isDivider(child.displayItem)) {
