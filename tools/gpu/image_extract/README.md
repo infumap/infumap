@@ -103,7 +103,8 @@ Default llama-server runtime flags:
 - `IMAGE_TAGGING_LLAMA_FLASH_ATTN` default `auto` when `nvidia-smi` is present
 - `IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS` optional pass-through to `llama-server`
 - `IMAGE_TAGGING_LLAMA_IMAGE_MAX_TOKENS` optional pass-through to `llama-server`
-- `IMAGE_TAGGING_LLAMA_REASONING_FORMAT` default `none`
+- `IMAGE_TAGGING_LLAMA_REASONING` default `off`
+- `IMAGE_TAGGING_LLAMA_REASONING_FORMAT` optional pass-through to `llama-server`
 
 ## Common Examples
 
@@ -139,7 +140,7 @@ IMAGE_TAGGING_LLAMA_EXTRA_ARGS='--chat-template-kwargs {"enable_thinking":false}
 Pass extra flags straight through to `llama-server`:
 
 ```bash
-IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --reasoning-format none" ./tools/gpu/image_extract/run.sh
+IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --no-mmap" ./tools/gpu/image_extract/run.sh
 ```
 
 ## Endpoints
@@ -196,9 +197,12 @@ Password-protected PDFs sent to `POST /pdf-extract-caption-only` return HTTP
 - The HTTP service uses the multimodal chat model running behind
   `llama-server`, plus a local DINOv2 image-embedding model in the FastAPI
   process.
-- When `run.sh` manages `llama-server`, it now defaults to
-  `--reasoning-format none` so the model returns final JSON instead of
-  spending the token budget on reasoning traces.
+- When `run.sh` manages `llama-server`, it defaults to `--reasoning off`, and
+  requests also send `chat_template_kwargs.enable_thinking=false`, so the
+  model returns final JSON instead of spending the token budget on reasoning
+  traces. Do not use `--reasoning-format none` with Qwen3.5: recent
+  `llama-server` builds fail with "Failed to initialize samplers" because the
+  JSON grammar rejects the template's `<think>` generation prompt.
 - The wrapper first tries the standard OpenAI `image_url` chat format. If the
   running `llama-server` build rejects that format, it automatically retries
   using the older `image_data` payload style.

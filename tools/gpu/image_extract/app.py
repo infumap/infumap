@@ -765,7 +765,7 @@ def extract_message_text(payload: dict[str, Any]) -> str:
             if finish_reason == "length":
                 raise ValueError(
                     "llama-server consumed its token budget in reasoning_content without returning final JSON content. "
-                    "Disable reasoning, for example with --reasoning-format none."
+                    "Disable reasoning, for example with --reasoning off."
                 )
 
     text = choice0.get("text")
@@ -1170,6 +1170,7 @@ def build_openai_payload(data_url: str, prompt: str) -> dict[str, Any]:
         "response_format": {
             "type": "json_object",
         },
+        "chat_template_kwargs": {"enable_thinking": False},
         "temperature": env_float("IMAGE_TAGGING_TEMPERATURE", 0.1),
         "top_p": env_float("IMAGE_TAGGING_TOP_P", 0.9),
         "max_tokens": max(256, env_int("IMAGE_TAGGING_MAX_TOKENS", DEFAULT_MAX_TOKENS)),
@@ -1196,6 +1197,7 @@ def build_legacy_payload(image_base64: str, prompt: str) -> dict[str, Any]:
         "response_format": {
             "type": "json_object",
         },
+        "chat_template_kwargs": {"enable_thinking": False},
         "temperature": env_float("IMAGE_TAGGING_TEMPERATURE", 0.1),
         "top_p": env_float("IMAGE_TAGGING_TOP_P", 0.9),
         "max_tokens": max(256, env_int("IMAGE_TAGGING_MAX_TOKENS", DEFAULT_MAX_TOKENS)),
