@@ -6,7 +6,7 @@ Intended for burst or long running use.
 
 ## What It Does
 
-- accepts multipart file uploads at `POST /pdf-extract`
+- accepts a multipart `file` upload at `POST /pdf-extract`; other fields are ignored
 - returns markdown and Marker metadata as JSON
 - loads Marker predictor clients when the service starts; the Surya VLM
   `llama-server` is spawned on first layout or OCR use
@@ -75,8 +75,8 @@ The service uses a fixed extraction policy:
 - `force_ocr=false`
 - `paginate_output=true`
 - `use_llm=true` only when `GOOGLE_API_KEY` is present in the environment at startup
-- `mode=balanced` unless `TEXT_EXTRACTION_MODE=fast`. An optional multipart
-  field `mode=balanced|fast` overrides this for one request.
+- `mode=balanced` unless `TEXT_EXTRACTION_MODE=fast`; this is service
+  configuration and cannot be overridden by a request.
 - `SURYA_GUIDED_LAYOUT=0` unless overridden
 
 ## Access Over SSH
@@ -122,15 +122,6 @@ Example upload request:
 
 ```bash
 curl -sS \
-  -F "file=@/path/to/document.pdf" \
-  http://127.0.0.1:8790/pdf-extract
-```
-
-Force Marker's lighter `fast` path for one request (omitted `mode` uses `TEXT_EXTRACTION_MODE`):
-
-```bash
-curl -sS \
-  -F "mode=fast" \
   -F "file=@/path/to/document.pdf" \
   http://127.0.0.1:8790/pdf-extract
 ```
