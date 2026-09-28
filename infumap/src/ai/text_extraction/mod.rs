@@ -30,11 +30,13 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::{task, time};
 
+use crate::ai::artifact_paths::item_text_manifest_path;
 use crate::ai::document_pipeline::enqueue_pdf_fragment_ids_if_active;
 use crate::ai::gpu_tools::{
   GPU_TOOL_PDF_EXTRACT, GPU_TOOL_PDF_EXTRACT_JOBS, gpu_tools_url_from_config, resolve_gpu_tool_url,
 };
 use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
+use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, record_manifest_retry};
 use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_GPU_TOOLS_URL};
@@ -55,11 +57,9 @@ use self::artifacts::{
   write_success_artifacts,
 };
 
-const IDLE_POLL_SECS: u64 = 60;
 const REQUEST_TIMEOUT_SECS: u64 = 4 * 60 * 60;
 const ASYNC_POLL_SECS: u64 = 2;
 const ASYNC_PROGRESS_LOG_SECS: u64 = 60;
-const LARGE_PDF_SIZE_BYTES: i64 = 25 * 1024 * 1024;
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 pub(super) const PDF_PASSWORD_REQUIRED_ERROR_CODE: &str = "pdf_password_required";
@@ -100,6 +100,7 @@ pub(crate) struct LoadedPdfExtraction {
 struct ProcessingState {
   queue: Vec<PdfCandidate>,
   queued_item_ids: HashSet<String>,
+  retries: RetrySchedule<String>,
 }
 
 #[derive(Deserialize)]
@@ -152,34 +153,6 @@ pub(crate) enum PdfTextExtractionProcessOutcome {
 struct PdfTextExtractionEndpoint {
   extract_url: String,
   async_jobs_available: bool,
-}
-
-struct ExtractionProgress {
-  processed: u64,
-  succeeded: u64,
-  blocked: u64,
-  other_failed: u64,
-}
-
-impl ExtractionProgress {
-  fn on_success(&mut self) {
-    self.processed += 1;
-    self.succeeded += 1;
-  }
-  fn on_other_failed(&mut self) {
-    self.processed += 1;
-    self.other_failed += 1;
-  }
-  fn on_blocked(&mut self) {
-    self.processed += 1;
-    self.blocked += 1;
-  }
-  fn summary(&self) -> String {
-    format!(
-      "total={} succeeded={} blocked={} failed={}",
-      self.processed, self.succeeded, self.blocked, self.other_failed
-    )
-  }
 }
 
 pub fn enqueue_pdf_item_if_active(item: &Item) {
@@ -316,6 +289,7 @@ pub(crate) async fn process_loaded_pdf_extraction(
   let LoadedPdfExtraction { candidate, file_bytes } = loaded;
   clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
   let client = reqwest::ClientBuilder::new()
+    .connect_timeout(Duration::from_secs(10))
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
@@ -365,15 +339,23 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
   loaded: LoadedPdfExtraction,
 ) -> InfuResult<PdfTextExtractionProcessOutcome> {
   let LoadedPdfExtraction { candidate, file_bytes } = loaded;
-  clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
   let client = reqwest::ClientBuilder::new()
+    .connect_timeout(Duration::from_secs(10))
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
   let outcome = if async_jobs_available {
-    request_text_extraction_async_polling_with_retries(&client, text_extraction_url, &candidate, &file_bytes).await
+    match time::timeout(
+      Duration::from_secs(REQUEST_TIMEOUT_SECS),
+      request_text_extraction_async_polling(&client, text_extraction_url, &candidate, &file_bytes),
+    )
+    .await
+    {
+      Ok(outcome) => outcome,
+      Err(_) => ExtractOutcome::EndpointUnavailable("Async PDF extraction timed out.".to_owned()),
+    }
   } else {
-    request_text_extraction_with_retries(&client, text_extraction_url, &candidate, &file_bytes, None).await
+    request_text_extraction_once(&client, text_extraction_url, &candidate, &file_bytes).await
   };
   if !candidate_still_current(db.clone(), &candidate).await? {
     return Err(
@@ -441,13 +423,7 @@ pub fn init_text_extraction_processing_loop(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
 ) -> InfuResult<()> {
-  let gpu_tools_url = match gpu_tools_url_from_config(config)? {
-    Some(url) => url,
-    None => {
-      info!("PDF text extraction disabled: '{}' is not configured.", CONFIG_GPU_TOOLS_URL);
-      return Ok(());
-    }
-  };
+  let gpu_tools_url = gpu_tools_url_from_config(config)?.unwrap_or_default();
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   start_text_extraction_processing_loop(data_dir, gpu_tools_url, Duration::ZERO, db, object_store)
 }
@@ -463,11 +439,14 @@ pub fn start_text_extraction_processing_loop(
     enqueue_all_loaded_pdfs(data_dir, db, state.clone());
     return Ok(());
   }
-  let state = Arc::new(Mutex::new(ProcessingState { queue: vec![], queued_item_ids: HashSet::new() }));
+  let state = Arc::new(Mutex::new(ProcessingState {
+    queue: vec![],
+    queued_item_ids: HashSet::new(),
+    retries: RetrySchedule::default(),
+  }));
   PROCESSING_STATE
     .set(state.clone())
     .map_err(|_| "Text extraction processing loop is already running in this process.".to_owned())?;
-  let progress = Arc::new(Mutex::new(ExtractionProgress { processed: 0, succeeded: 0, blocked: 0, other_failed: 0 }));
 
   if request_delay.is_zero() {
     info!("Starting PDF text extraction loop from GPU tools URL '{}'.", gpu_tools_url);
@@ -479,7 +458,7 @@ pub fn start_text_extraction_processing_loop(
     );
   }
   let _worker = task::spawn(async move {
-    run_text_extraction_loop(data_dir, gpu_tools_url, request_delay, db, object_store, state, progress).await;
+    run_text_extraction_loop(data_dir, gpu_tools_url, request_delay, db, object_store, state).await;
   });
 
   Ok(())
@@ -506,334 +485,88 @@ async fn run_text_extraction_loop(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ProcessingState>>,
-  progress: Arc<Mutex<ExtractionProgress>>,
 ) {
-  let endpoint = loop {
-    match discover_pdf_text_extraction_endpoint(&gpu_tools_url).await {
-      Ok(Some(endpoint)) => break endpoint,
-      Ok(None) => {
-        info!(
-          "PDF text extraction disabled: GPU tools URL '{}' does not report '{}'.",
-          gpu_tools_url, GPU_TOOL_PDF_EXTRACT
-        );
-        return;
-      }
-      Err(e) => {
-        error!(
-          "Could not discover PDF text extraction GPU tool endpoint from '{}': {}. Retrying in {}.",
-          gpu_tools_url,
-          e,
-          format_duration_for_log(Duration::from_secs(IDLE_POLL_SECS))
-        );
-        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-      }
-    }
-  };
-  info!(
-    "PDF text extraction endpoint discovered: '{}' (async_jobs={}).",
-    endpoint.extract_url,
-    on_off(endpoint.async_jobs_available)
-  );
-
   populate_initial_pdf_queue(&data_dir, db.clone(), state.clone()).await;
-
-  let mut next_prefetch = Some(spawn_pdf_prefetch(
-    data_dir.clone(),
-    endpoint.clone(),
-    db.clone(),
-    object_store.clone(),
-    state.clone(),
-    progress.clone(),
-  ));
-  let mut current_process = advance_pdf_prefetch_to_process(
-    data_dir.clone(),
-    endpoint.clone(),
-    db.clone(),
-    object_store.clone(),
-    state.clone(),
-    progress.clone(),
-    &mut next_prefetch,
-  )
-  .await;
-
   loop {
-    let Some(current_handle) = current_process else {
-      return;
+    let candidate = { pop_candidate(&mut *state.lock().await).0 };
+    let Some(candidate) = candidate else {
+      time::sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
+      continue;
     };
-
-    let (item_id, user_id, queue_remaining, result) = match current_handle.await {
-      Ok(result) => result,
-      Err(e) => {
-        record_pdf_text_extraction_processed("failed");
-        error!("Text extraction request task failed: {}", e);
-        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        current_process = advance_pdf_prefetch_to_process(
-          data_dir.clone(),
-          endpoint.clone(),
-          db.clone(),
-          object_store.clone(),
-          state.clone(),
-          progress.clone(),
-          &mut next_prefetch,
-        )
-        .await;
-        continue;
+    let result: InfuResult<bool> = async {
+      if !candidate_still_current(db.clone(), &candidate).await? {
+        return Ok(false);
       }
-    };
-
+      if matches!(manifest_check(&data_dir, &candidate).await?, ManifestCheckResult::AlreadySucceeded) {
+        enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
+        return Ok(false);
+      }
+      let path = item_text_manifest_path(&data_dir, &candidate.user_id, &candidate.item_id)?;
+      let delay = manifest_retry_delay(&path).await?;
+      if !delay.is_zero() {
+        let mut state = state.lock().await;
+        state.retries.defer(candidate.item_id.clone(), delay);
+        enqueue_candidate(&mut state, candidate.clone());
+        return Ok(false);
+      }
+      if gpu_tools_url.trim().is_empty() {
+        return Err(format!("PDF processing service is not configured ({}).", CONFIG_GPU_TOOLS_URL).into());
+      }
+      let endpoint = discover_pdf_text_extraction_endpoint(&gpu_tools_url)
+        .await?
+        .ok_or("Configured GPU service does not advertise PDF extraction.")?;
+      wait_for_object_store_upload_quiet_period("PDF text extraction").await;
+      let loaded =
+        load_pdf_for_extraction(&data_dir, &endpoint.extract_url, db.clone(), object_store.clone(), &candidate.item_id)
+          .await?;
+      match process_loaded_pdf_extraction_web_background(
+        &data_dir,
+        &endpoint.extract_url,
+        endpoint.async_jobs_available,
+        db.clone(),
+        loaded,
+      )
+      .await?
+      {
+        PdfTextExtractionProcessOutcome::Extracted => Ok(true),
+        PdfTextExtractionProcessOutcome::Blocked => {
+          Err("PDF is password protected; extraction will be revisited.".into())
+        }
+      }
+    }
+    .await;
     match result {
-      Ok(PdfTextExtractionProcessOutcome::Extracted) => {
-        record_pdf_text_extraction_processed("success");
-        let progress_summary = {
-          let mut progress = progress.lock().await;
-          progress.on_success();
-          progress.summary()
-        };
-        debug!(
-          "PDF '{}' (user {}): extracted successfully. {} remaining. {}",
-          item_id,
-          user_id_for_log(&user_id),
-          queue_remaining,
-          progress_summary
-        );
+      Ok(extracted) => {
+        let mut state = state.lock().await;
+        if !state.queued_item_ids.contains(&candidate.item_id) {
+          state.retries.clear(&candidate.item_id);
+        }
+        record_pdf_text_extraction_processed(if extracted { "success" } else { "skipped" });
       }
-      Ok(PdfTextExtractionProcessOutcome::Blocked) => {
-        record_pdf_text_extraction_processed("skipped");
-        let progress_summary = {
-          let mut progress = progress.lock().await;
-          progress.on_blocked();
-          progress.summary()
+      Err(error) => {
+        let delay = {
+          let mut state = state.lock().await;
+          let delay = state.retries.failed(candidate.item_id.clone());
+          enqueue_candidate(&mut state, candidate.clone());
+          delay
         };
-        debug!(
-          "PDF '{}' (user {}): extraction blocked by document protection. {} remaining. {}",
-          item_id,
-          user_id_for_log(&user_id),
-          queue_remaining,
-          progress_summary
-        );
-      }
-      Err(e) => {
+        if let Ok(path) = item_text_manifest_path(&data_dir, &candidate.user_id, &candidate.item_id) {
+          if let Err(error) = record_manifest_retry(&path, delay).await {
+            error!("Could not save PDF retry hint for '{}': {}", candidate.item_id, error);
+          }
+        }
         record_pdf_text_extraction_processed("failed");
-        let progress_summary = {
-          let mut progress = progress.lock().await;
-          progress.on_other_failed();
-          progress.summary()
-        };
-        debug!(
-          "PDF '{}' (user {}): extraction failed: {}. {} remaining. {}",
-          item_id,
-          user_id_for_log(&user_id),
-          e,
-          queue_remaining,
-          progress_summary
+        error!(
+          "PDF '{}' (user {}): {} Retrying in {} seconds.",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          error,
+          delay.as_secs()
         );
       }
     }
-
-    if request_delay > Duration::ZERO {
+    if !request_delay.is_zero() {
       time::sleep(request_delay).await;
-    }
-    current_process = advance_pdf_prefetch_to_process(
-      data_dir.clone(),
-      endpoint.clone(),
-      db.clone(),
-      object_store.clone(),
-      state.clone(),
-      progress.clone(),
-      &mut next_prefetch,
-    )
-    .await;
-  }
-}
-
-fn spawn_pdf_prefetch(
-  data_dir: String,
-  endpoint: PdfTextExtractionEndpoint,
-  db: Arc<Mutex<Db>>,
-  object_store: Arc<ObjectStore>,
-  state: Arc<Mutex<ProcessingState>>,
-  progress: Arc<Mutex<ExtractionProgress>>,
-) -> task::JoinHandle<(LoadedPdfExtraction, usize)> {
-  task::spawn(async move {
-    prefetch_next_pdf_extraction(data_dir, endpoint.extract_url, db, object_store, state, progress).await
-  })
-}
-
-fn spawn_pdf_process(
-  data_dir: String,
-  endpoint: PdfTextExtractionEndpoint,
-  db: Arc<Mutex<Db>>,
-  loaded: LoadedPdfExtraction,
-  queue_remaining: usize,
-) -> task::JoinHandle<(String, String, usize, InfuResult<PdfTextExtractionProcessOutcome>)> {
-  let item_id = loaded.candidate.item_id.clone();
-  let user_id = loaded.candidate.user_id.clone();
-  task::spawn(async move {
-    let result = process_loaded_pdf_extraction_web_background(
-      &data_dir,
-      &endpoint.extract_url,
-      endpoint.async_jobs_available,
-      db,
-      loaded,
-    )
-    .await;
-    (item_id, user_id, queue_remaining, result)
-  })
-}
-
-async fn advance_pdf_prefetch_to_process(
-  data_dir: String,
-  endpoint: PdfTextExtractionEndpoint,
-  db: Arc<Mutex<Db>>,
-  object_store: Arc<ObjectStore>,
-  state: Arc<Mutex<ProcessingState>>,
-  progress: Arc<Mutex<ExtractionProgress>>,
-  next_prefetch: &mut Option<task::JoinHandle<(LoadedPdfExtraction, usize)>>,
-) -> Option<task::JoinHandle<(String, String, usize, InfuResult<PdfTextExtractionProcessOutcome>)>> {
-  loop {
-    let current_prefetch = next_prefetch.take()?;
-    let (loaded, queue_remaining) = match current_prefetch.await {
-      Ok(result) => result,
-      Err(e) => {
-        record_pdf_text_extraction_processed("failed");
-        error!("Text extraction prefetch task failed: {}", e);
-        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        *next_prefetch = Some(spawn_pdf_prefetch(
-          data_dir.clone(),
-          endpoint.clone(),
-          db.clone(),
-          object_store.clone(),
-          state.clone(),
-          progress.clone(),
-        ));
-        continue;
-      }
-    };
-
-    let item_id = loaded.candidate.item_id.clone();
-    let user_id = loaded.candidate.user_id.clone();
-    let progress_summary = {
-      let progress = progress.lock().await;
-      progress.summary()
-    };
-    wait_for_object_store_upload_quiet_period("PDF text extraction").await;
-    *next_prefetch = Some(spawn_pdf_prefetch(
-      data_dir.clone(),
-      endpoint.clone(),
-      db.clone(),
-      object_store.clone(),
-      state.clone(),
-      progress.clone(),
-    ));
-    debug!(
-      "Starting text extraction for PDF '{}' (user {}). Pending queue: {}. Progress: {}",
-      item_id,
-      user_id_for_log(&user_id),
-      queue_remaining,
-      progress_summary
-    );
-
-    return Some(spawn_pdf_process(data_dir.clone(), endpoint.clone(), db.clone(), loaded, queue_remaining));
-  }
-}
-
-async fn prefetch_next_pdf_extraction(
-  data_dir: String,
-  text_extraction_url: String,
-  db: Arc<Mutex<Db>>,
-  object_store: Arc<ObjectStore>,
-  state: Arc<Mutex<ProcessingState>>,
-  progress: Arc<Mutex<ExtractionProgress>>,
-) -> (LoadedPdfExtraction, usize) {
-  loop {
-    let (candidate, queue_remaining) = wait_for_next_pdf_candidate(state.clone()).await;
-    wait_for_object_store_upload_quiet_period("PDF text extraction prefetch").await;
-    match manifest_check(&data_dir, &candidate).await {
-      Ok(ManifestCheckResult::NeedsExtraction) => {}
-      Ok(ManifestCheckResult::AlreadySucceeded) => {
-        record_pdf_text_extraction_processed("skipped");
-        debug!(
-          "PDF '{}' (user {}) already has successful text extraction artifacts; skipping queued candidate.",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id)
-        );
-        continue;
-      }
-      Ok(ManifestCheckResult::AlreadyFailed) => {
-        record_pdf_text_extraction_processed("skipped");
-        debug!(
-          "PDF '{}' (user {}) already has a failed text extraction manifest; skipping queued candidate.",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id)
-        );
-        continue;
-      }
-      Ok(ManifestCheckResult::AlreadyBlocked) => {
-        record_pdf_text_extraction_processed("skipped");
-        debug!(
-          "PDF '{}' (user {}) already has a blocked text extraction manifest; skipping queued candidate.",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id)
-        );
-        continue;
-      }
-      Err(e) => {
-        record_pdf_text_extraction_processed("failed");
-        debug!(
-          "PDF '{}' (user {}) text extraction manifest check failed before prefetch: {}",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e
-        );
-        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-        continue;
-      }
-    }
-
-    if candidate.file_size_bytes.map_or(false, |s| s >= LARGE_PDF_SIZE_BYTES) {
-      info!(
-        "PDF '{}' (user {}): large document (~{} MB); extraction may take a long time and use significant memory.",
-        candidate.item_id,
-        user_id_for_log(&candidate.user_id),
-        candidate.file_size_bytes.map(|s| s / (1024 * 1024)).unwrap_or(0)
-      );
-    }
-
-    match load_pdf_for_extraction(&data_dir, &text_extraction_url, db.clone(), object_store.clone(), &candidate.item_id)
-      .await
-    {
-      Ok(loaded) => return (loaded, queue_remaining),
-      Err(e) => {
-        record_pdf_text_extraction_processed("failed");
-        let progress_summary = {
-          let mut progress = progress.lock().await;
-          progress.on_other_failed();
-          progress.summary()
-        };
-        debug!(
-          "PDF '{}' (user {}): source-object prefetch failed: {}. {} remaining. {}",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e,
-          queue_remaining,
-          progress_summary
-        );
-        time::sleep(Duration::from_secs(IDLE_POLL_SECS)).await;
-      }
-    }
-  }
-}
-
-async fn wait_for_next_pdf_candidate(state: Arc<Mutex<ProcessingState>>) -> (PdfCandidate, usize) {
-  loop {
-    let (candidate, queue_remaining) = {
-      let mut state = state.lock().await;
-      pop_candidate(&mut state)
-    };
-
-    match (candidate, queue_remaining) {
-      (Some(candidate), remaining) => return (candidate, remaining),
-      (None, _) => time::sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await,
     }
   }
 }
@@ -930,46 +663,6 @@ async fn request_text_extraction_with_retries(
   }
 }
 
-async fn request_text_extraction_async_polling_with_retries(
-  client: &reqwest::Client,
-  text_extraction_url: &str,
-  candidate: &PdfCandidate,
-  file_bytes: &[u8],
-) -> ExtractOutcome {
-  let mut unavailable_attempt = 0usize;
-
-  loop {
-    let outcome = request_text_extraction_async_polling(client, text_extraction_url, candidate, file_bytes).await;
-    match outcome {
-      ExtractOutcome::EndpointUnavailable(message) => {
-        let delay = endpoint_retry_delay(unavailable_attempt);
-        unavailable_attempt += 1;
-        info!(
-          "Async text extraction endpoint '{}' is unavailable for PDF '{}' (user {}) ({}). Retrying in {}.",
-          text_extraction_url,
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          message,
-          format_duration_for_log(delay)
-        );
-        time::sleep(delay).await;
-      }
-      other => {
-        if unavailable_attempt > 0 {
-          info!(
-            "Async text extraction endpoint '{}' accepted requests again for PDF '{}' (user {}) after {} unavailable attempt(s).",
-            text_extraction_url,
-            candidate.item_id,
-            user_id_for_log(&candidate.user_id),
-            unavailable_attempt
-          );
-        }
-        return other;
-      }
-    }
-  }
-}
-
 async fn request_text_extraction_once(
   client: &reqwest::Client,
   text_extraction_url: &str,
@@ -996,7 +689,10 @@ async fn request_text_extraction_async_polling(
   let form = Form::new().part("file", part);
   let response = match client
     .post(jobs_url.as_str())
-    .header("Idempotency-Key", pdf_extraction_idempotency_key(candidate))
+    .header(
+      "Idempotency-Key",
+      format!("{}:{}", pdf_extraction_idempotency_key(candidate), infusdk::util::uid::new_uid()),
+    )
     .multipart(form)
     .send()
     .await
@@ -1030,6 +726,9 @@ async fn request_text_extraction_async_polling(
   loop {
     match job.status.as_str() {
       "queued" | "running" => {
+        if poll_started_at.elapsed() >= Duration::from_secs(REQUEST_TIMEOUT_SECS) {
+          return ExtractOutcome::EndpointUnavailable("Async PDF job exceeded the processing time limit.".to_owned());
+        }
         if last_progress_log_at.elapsed() >= Duration::from_secs(ASYNC_PROGRESS_LOG_SECS) {
           info!(
             "Async text extraction job '{}' for PDF '{}' (user {}) is still {} after {}.",
@@ -1095,13 +794,11 @@ async fn fetch_text_extraction_job_result(client: &reqwest::Client, job_result_u
 }
 
 fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
-  let candidate = match state.queue.pop() {
-    Some(c) => {
-      state.queued_item_ids.remove(&c.item_id);
-      c
-    }
-    None => return (None, 0),
+  let Some(position) = state.queue.iter().rposition(|candidate| state.retries.ready(&candidate.item_id)) else {
+    return (None, state.queue.len());
   };
+  let candidate = state.queue.remove(position);
+  state.queued_item_ids.remove(&candidate.item_id);
   let remaining = state.queue.len();
   record_pdf_text_extraction_queue_depth(state);
   (Some(candidate), remaining)
@@ -1123,6 +820,7 @@ fn enqueue_candidate(state: &mut ProcessingState, candidate: PdfCandidate) {
 }
 
 fn remove_candidate(state: &mut ProcessingState, item_id: &str) {
+  state.retries.clear(&item_id.to_owned());
   state.queue.retain(|candidate| candidate.item_id != item_id);
   state.queued_item_ids.remove(item_id);
   record_pdf_text_extraction_queue_depth(state);
@@ -1164,22 +862,29 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
   let mut already_succeeded = 0usize;
   let mut already_failed = 0usize;
   let mut already_blocked = 0usize;
-  let mut skipped_errors = 0usize;
+  let mut artifact_errors = 0usize;
 
   for candidate in candidates {
     match manifest_check(data_dir, &candidate).await {
       Ok(ManifestCheckResult::NeedsExtraction) => pending_candidates.push(candidate),
       Ok(ManifestCheckResult::AlreadySucceeded) => already_succeeded += 1,
-      Ok(ManifestCheckResult::AlreadyFailed) => already_failed += 1,
-      Ok(ManifestCheckResult::AlreadyBlocked) => already_blocked += 1,
+      Ok(ManifestCheckResult::AlreadyFailed) => {
+        already_failed += 1;
+        pending_candidates.push(candidate);
+      }
+      Ok(ManifestCheckResult::AlreadyBlocked) => {
+        already_blocked += 1;
+        pending_candidates.push(candidate);
+      }
       Err(e) => {
-        skipped_errors += 1;
+        artifact_errors += 1;
         error!(
-          "Skipping PDF '{}' (user {}) during startup queue population: {}",
+          "Queueing PDF '{}' (user {}) despite startup artifact error: {}",
           candidate.item_id,
           user_id_for_log(&candidate.user_id),
           e
         );
+        pending_candidates.push(candidate);
       }
     }
   }
@@ -1193,8 +898,8 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
   }
 
   info!(
-    "Initialized PDF text extraction queue with {} pending item(s) from {} total PDF(s) (already succeeded: {}, already failed: {}, already blocked: {}, skipped due to errors: {}).",
-    scheduled, total_candidates, already_succeeded, already_failed, already_blocked, skipped_errors
+    "Initialized PDF text extraction queue with {} pending item(s) from {} total PDF(s) (already succeeded: {}, already failed: {}, already blocked: {}, queued despite artifact errors: {}).",
+    scheduled, total_candidates, already_succeeded, already_failed, already_blocked, artifact_errors
   );
 }
 

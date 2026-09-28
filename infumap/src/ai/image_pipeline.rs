@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use config::Config;
 use infusdk::item::Item;
@@ -11,8 +11,9 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
+use crate::ai::artifact_paths::{item_geo_manifest_path, item_text_manifest_path};
+use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_image_fragment_artifact, search_fragment_context_title_for_item};
-use crate::ai::fragment::{clear_item_fragments, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::geo::{
   GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
@@ -21,11 +22,12 @@ use crate::ai::geo::{
 };
 use crate::ai::gpu_tools::{GPU_TOOL_IMAGE_EXTRACT, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::image_tagging::{
-  ImageTagArtifactPolicy, ImageTagArtifactState, LoadedImageTagging, WebImageTagArtifactReadiness,
-  image_tagging_artifact_state, image_tagging_manifest_is_successful, load_image_for_tagging,
-  prepare_image_tag_artifacts_for_web_background, process_loaded_image_tagging, should_tag_image_item,
+  ImageTagArtifactPolicy, ImageTagArtifactState, WebImageTagArtifactReadiness, image_tagging_artifact_state,
+  image_tagging_manifest_is_successful, load_image_for_tagging, prepare_image_tag_artifacts_for_web_background,
+  process_loaded_image_tagging, should_tag_image_item,
 };
 use crate::ai::metrics::{METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH};
+use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, record_manifest_retry};
 use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
@@ -33,8 +35,6 @@ use crate::storage::db::Db;
 use crate::storage::object::ObjectStore;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
-const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
-const STARTUP_RECONCILIATION_PROGRESS_LOG_SECS: u64 = 10;
 const ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE: bool = true;
 
 static IMAGE_BACKGROUND_PIPELINE_STATE: OnceCell<Arc<Mutex<ImageBackgroundPipelineState>>> = OnceCell::new();
@@ -63,6 +63,7 @@ impl ImagePipelineCandidate {
 struct StageQueue {
   queue: VecDeque<ImagePipelineCandidate>,
   queued_item_ids: HashSet<String>,
+  retries: RetrySchedule<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -79,23 +80,6 @@ struct ImageBackgroundPipelineState {
   fragment: StageQueue,
 }
 
-#[derive(Default)]
-struct StartupReconciliationSummary {
-  tag_succeeded: usize,
-  tag_failed: usize,
-  tag_pending: usize,
-  tag_incomplete: usize,
-  tag_unsupported_schema: usize,
-  tag_unreadable: usize,
-  geo_succeeded: usize,
-  geo_failed: usize,
-  geo_skipped: usize,
-  geo_pending_after_successful_tag: usize,
-  geo_unreadable: usize,
-  fragment_already_present: usize,
-  fragment_unreadable: usize,
-}
-
 #[derive(Clone)]
 struct ImageBackgroundPipelineConfig {
   data_dir: String,
@@ -107,22 +91,9 @@ struct ImageBackgroundPipelineConfig {
 
 enum SourceImageReconcileOutcome {
   ReadyForDownstream,
-  NotReady,
+  Gone,
+  Deferred(Duration),
 }
-
-enum SourceImagePrefetchReadiness {
-  NeedsPrefetch,
-  ReadyForDownstream,
-  NotReady,
-}
-
-enum ImageFragmentReadiness {
-  Ready,
-  Waiting,
-  Unavailable,
-}
-
-type SourceImagePrefetchHandle = task::JoinHandle<(ImagePipelineCandidate, InfuResult<LoadedImageTagging>)>;
 
 pub fn init_image_background_pipeline_loop(
   config: Arc<Config>,
@@ -247,175 +218,117 @@ async fn run_source_image_loop(
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ImageBackgroundPipelineState>>,
 ) {
-  let mut next_prefetch: Option<SourceImagePrefetchHandle> = None;
-
   loop {
-    if next_prefetch.is_none() {
-      wait_for_object_store_upload_quiet_period("image source extraction").await;
-      next_prefetch = start_next_source_image_prefetch(&config, db.clone(), object_store.clone(), state.clone()).await;
-      if next_prefetch.is_none() {
-        sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
-        continue;
+    let candidate = { pop_candidate(&mut *state.lock().await, PipelineStage::Source) };
+    let Some(candidate) = candidate else {
+      sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
+      continue;
+    };
+    let result: InfuResult<SourceImageReconcileOutcome> = async {
+      if !item_still_supported(db.clone(), &candidate).await? {
+        return Ok(SourceImageReconcileOutcome::Gone);
       }
+      if matches!(
+        image_tagging_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await?,
+        ImageTagArtifactState::Succeeded
+      ) {
+        return Ok(SourceImageReconcileOutcome::ReadyForDownstream);
+      }
+      let delay =
+        manifest_retry_delay(&item_text_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id)?)
+          .await?;
+      if !delay.is_zero() {
+        return Ok(SourceImageReconcileOutcome::Deferred(delay));
+      }
+      if config.gpu_tools_url.is_none() {
+        return Err("Image processing service is not configured.".into());
+      }
+      let endpoint = image_tagging_endpoint_url(&config)
+        .await?
+        .ok_or("Configured GPU service does not advertise image extraction.")?;
+      match prepare_image_tag_artifacts_for_web_background(&config.data_dir, &candidate.user_id, &candidate.item_id)
+        .await?
+      {
+        WebImageTagArtifactReadiness::CompleteSuccess => return Ok(SourceImageReconcileOutcome::ReadyForDownstream),
+        WebImageTagArtifactReadiness::CompleteFailure => {
+          return Err("Image artifact schema needs attention; it will be checked again.".into());
+        }
+        WebImageTagArtifactReadiness::Ready => {}
+      }
+      wait_for_object_store_upload_quiet_period("image source extraction").await;
+      let loaded = load_image_for_tagging(db.clone(), object_store.clone(), &candidate.item_id).await?;
+      process_loaded_image_tagging(
+        &config.data_dir,
+        &endpoint,
+        db.clone(),
+        loaded,
+        false,
+        ImageTagArtifactPolicy::web_background(),
+      )
+      .await?;
+      if !image_tagging_manifest_is_successful(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
+        return Err("Image extraction did not produce a successful artifact.".into());
+      }
+      Ok(SourceImageReconcileOutcome::ReadyForDownstream)
     }
-
-    let Some(current_prefetch) = next_prefetch.take() else {
-      continue;
-    };
-    let Some((candidate, loaded)) = await_source_image_prefetch(current_prefetch).await else {
-      continue;
-    };
-
-    wait_for_object_store_upload_quiet_period("image source extraction").await;
-    next_prefetch = start_next_source_image_prefetch(&config, db.clone(), object_store.clone(), state.clone()).await;
-
-    match process_prefetched_source_image_item(&config, db.clone(), &candidate, loaded).await {
+    .await;
+    match result {
       Ok(SourceImageReconcileOutcome::ReadyForDownstream) => {
         let mut state = state.lock().await;
+        state.source.retries.clear(&candidate.item_id);
+        record_image_pipeline_processed(PipelineStage::Source, "success");
         enqueue_source_candidate_downstream_if_needed(&config, &mut state, candidate, "after tag");
       }
-      Ok(SourceImageReconcileOutcome::NotReady) => {}
-      Err(e) => {
-        record_image_pipeline_processed(PipelineStage::Source, "failed");
-        error!(
-          "Image source pipeline failed for image '{}' (user '{}'): {}",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e
-        );
+      Ok(SourceImageReconcileOutcome::Gone) => {
+        state.lock().await.source.retries.clear(&candidate.item_id);
       }
-    }
-  }
-}
-
-async fn start_next_source_image_prefetch(
-  config: &ImageBackgroundPipelineConfig,
-  db: Arc<Mutex<Db>>,
-  object_store: Arc<ObjectStore>,
-  state: Arc<Mutex<ImageBackgroundPipelineState>>,
-) -> Option<SourceImagePrefetchHandle> {
-  loop {
-    let candidate = {
-      let mut state = state.lock().await;
-      pop_candidate(&mut state, PipelineStage::Source)
-    };
-
-    let Some(candidate) = candidate else {
-      return None;
-    };
-
-    match source_image_prefetch_readiness(config, db.clone(), &candidate).await {
-      Ok(SourceImagePrefetchReadiness::NeedsPrefetch) => {
-        let item_id = candidate.item_id.clone();
-        let prefetch_db = db.clone();
-        let prefetch_object_store = object_store.clone();
-        return Some(task::spawn(async move {
-          let loaded = load_image_for_tagging(prefetch_db, prefetch_object_store, &item_id).await;
-          (candidate, loaded)
-        }));
-      }
-      Ok(SourceImagePrefetchReadiness::ReadyForDownstream) => {
-        record_image_pipeline_processed(PipelineStage::Source, "success");
+      Ok(SourceImageReconcileOutcome::Deferred(delay)) => {
         let mut state = state.lock().await;
-        enqueue_source_candidate_downstream_if_needed(config, &mut state, candidate, "after tag check");
+        state.source.retries.defer(candidate.item_id.clone(), delay);
+        enqueue_candidate(&mut state, PipelineStage::Source, candidate);
       }
-      Ok(SourceImagePrefetchReadiness::NotReady) => {
-        record_image_pipeline_processed(PipelineStage::Source, "skipped");
-      }
-      Err(e) => {
-        record_image_pipeline_processed(PipelineStage::Source, "failed");
-        error!(
-          "Image source pipeline failed for image '{}' (user '{}'): {}",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e
-        );
+      Err(error) => {
+        retry_image(&config, &state, PipelineStage::Source, candidate, &error.to_string(), Duration::ZERO).await
       }
     }
   }
 }
 
-async fn await_source_image_prefetch(
-  prefetch: SourceImagePrefetchHandle,
-) -> Option<(ImagePipelineCandidate, LoadedImageTagging)> {
-  match prefetch.await {
-    Ok((candidate, Ok(loaded))) => Some((candidate, loaded)),
-    Ok((candidate, Err(e))) => {
-      record_image_pipeline_processed(PipelineStage::Source, "failed");
-      error!(
-        "Image source prefetch failed for image '{}' (user '{}'): {}",
-        candidate.item_id,
-        user_id_for_log(&candidate.user_id),
-        e
-      );
-      None
-    }
-    Err(e) => {
-      record_image_pipeline_processed(PipelineStage::Source, "failed");
-      error!("Image source prefetch task failed: {}", e);
-      None
-    }
-  }
-}
-
-async fn source_image_prefetch_readiness(
+async fn retry_image(
   config: &ImageBackgroundPipelineConfig,
-  db: Arc<Mutex<Db>>,
-  candidate: &ImagePipelineCandidate,
-) -> InfuResult<SourceImagePrefetchReadiness> {
-  if !item_still_supported(db.clone(), candidate).await? {
-    return Ok(SourceImagePrefetchReadiness::NotReady);
-  }
-
-  let image_tagging_available = image_tagging_endpoint_url(config).await?.is_some();
-
-  if !image_tagging_available {
-    return Ok(match image_tagging_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
-      ImageTagArtifactState::Succeeded => SourceImagePrefetchReadiness::ReadyForDownstream,
-      ImageTagArtifactState::Empty
-      | ImageTagArtifactState::Incomplete(_)
-      | ImageTagArtifactState::UnsupportedSchemaVersion { .. }
-      | ImageTagArtifactState::RetryableFailed
-      | ImageTagArtifactState::Failed => SourceImagePrefetchReadiness::NotReady,
-    });
-  }
-
-  match prepare_image_tag_artifacts_for_web_background(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
-  {
-    WebImageTagArtifactReadiness::CompleteSuccess => return Ok(SourceImagePrefetchReadiness::ReadyForDownstream),
-    WebImageTagArtifactReadiness::CompleteFailure => return Ok(SourceImagePrefetchReadiness::NotReady),
-    WebImageTagArtifactReadiness::Ready => {}
-  }
-
-  Ok(SourceImagePrefetchReadiness::NeedsPrefetch)
-}
-
-async fn process_prefetched_source_image_item(
-  config: &ImageBackgroundPipelineConfig,
-  db: Arc<Mutex<Db>>,
-  candidate: &ImagePipelineCandidate,
-  loaded: LoadedImageTagging,
-) -> InfuResult<SourceImageReconcileOutcome> {
-  let Some(image_tagging_url) = image_tagging_endpoint_url(config).await? else {
-    return Ok(SourceImageReconcileOutcome::NotReady);
+  state: &Arc<Mutex<ImageBackgroundPipelineState>>,
+  stage: PipelineStage,
+  candidate: ImagePipelineCandidate,
+  reason: &str,
+  minimum_delay: Duration,
+) {
+  let delay = {
+    let mut state = state.lock().await;
+    let queue = queue_for_stage_mut(&mut state, stage);
+    let delay = queue.retries.failed(candidate.item_id.clone()).max(minimum_delay);
+    queue.retries.defer(candidate.item_id.clone(), delay);
+    enqueue_candidate(&mut state, stage, candidate.clone());
+    delay
   };
-  process_loaded_image_tagging(
-    &config.data_dir,
-    image_tagging_url.as_str(),
-    db,
-    loaded,
-    true,
-    ImageTagArtifactPolicy::web_background(),
-  )
-  .await?;
-
-  if image_tagging_manifest_is_successful(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
-    record_image_pipeline_processed(PipelineStage::Source, "success");
-    Ok(SourceImageReconcileOutcome::ReadyForDownstream)
-  } else {
-    record_image_pipeline_processed(PipelineStage::Source, "skipped");
-    Ok(SourceImageReconcileOutcome::NotReady)
+  let path = match stage {
+    PipelineStage::Source => Some(item_text_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id)),
+    PipelineStage::Geo => Some(item_geo_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id)),
+    PipelineStage::Fragment => None,
+  };
+  if let Some(Ok(path)) = path {
+    if let Err(error) = record_manifest_retry(&path, delay).await {
+      error!("Could not save image retry hint for '{}': {}", candidate.item_id, error);
+    }
   }
+  record_image_pipeline_processed(stage, "failed");
+  error!(
+    "Image '{}' (user {}), {}: {} Retrying in {} seconds.",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id),
+    stage.label(),
+    reason,
+    delay.as_secs()
+  );
 }
 
 fn enqueue_source_candidate_downstream_if_needed(
@@ -437,94 +350,108 @@ async fn run_reverse_geo_loop(
   state: Arc<Mutex<ImageBackgroundPipelineState>>,
 ) {
   let geo_api_key = config.geo_api_key.clone().expect("reverse geo loop requires geo_api_key");
-  let geo_client = match reqwest::ClientBuilder::new().timeout(Duration::from_secs(30)).build() {
-    Ok(client) => client,
-    Err(e) => {
-      error!("Could not build reverse-geo HTTP client; reverse geo will be skipped: {}", e);
-      reqwest::Client::new()
+  let mut client_retries = RetrySchedule::default();
+  let geo_client = loop {
+    match reqwest::Client::builder().timeout(Duration::from_secs(30)).build() {
+      Ok(client) => break client,
+      Err(error) => {
+        let delay = client_retries.failed(());
+        error!("Could not create location service client: {}. Retrying in {} seconds.", error, delay.as_secs());
+        sleep(delay).await;
+      }
     }
   };
   let mut geo_cache = HashMap::new();
   let mut throttle = GeoRequestThrottle::new(config.geo_max_requests_per_minute);
-
   loop {
-    let candidate = {
-      let mut state = state.lock().await;
-      pop_candidate(&mut state, PipelineStage::Geo)
-    };
-
+    let candidate = { pop_candidate(&mut *state.lock().await, PipelineStage::Geo) };
     let Some(candidate) = candidate else {
       sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
       continue;
     };
-
-    match item_still_supported(db.clone(), &candidate).await {
-      Ok(true) => {}
-      Ok(false) => {
-        record_image_pipeline_processed(PipelineStage::Geo, "skipped");
-        continue;
+    let check: InfuResult<Option<Duration>> = async {
+      if !item_still_supported(db.clone(), &candidate).await? {
+        return Ok(None);
       }
-      Err(e) => {
-        record_image_pipeline_processed(PipelineStage::Geo, "failed");
-        error!(
-          "Reverse geo pipeline could not verify image '{}' (user '{}'): {}",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e
-        );
-        continue;
-      }
+      Ok(Some(
+        manifest_retry_delay(&item_geo_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id)?)
+          .await?,
+      ))
     }
-
-    let geo_candidate = GeoCandidate {
-      user_id: candidate.user_id.clone(),
-      item_id: candidate.item_id.clone(),
-      mime_type: candidate.mime_type.clone(),
-    };
-    match reverse_geocode_candidate_if_needed(
-      &config.data_dir,
-      &geo_client,
-      &config.geo_service_url,
-      &geo_api_key,
-      &geo_candidate,
-      false,
-      &mut geo_cache,
-      Some(&mut throttle),
-    )
-    .await
-    {
+    .await;
+    match check {
+      Ok(None) => {
+        state.lock().await.geo.retries.clear(&candidate.item_id);
+        continue;
+      }
+      Ok(Some(delay)) if !delay.is_zero() => {
+        let mut state = state.lock().await;
+        state.geo.retries.defer(candidate.item_id.clone(), delay);
+        enqueue_candidate(&mut state, PipelineStage::Geo, candidate);
+        continue;
+      }
+      Err(error) => {
+        retry_image(&config, &state, PipelineStage::Geo, candidate, &error.to_string(), Duration::ZERO).await;
+        continue;
+      }
+      Ok(Some(_)) => {}
+    }
+    let result: InfuResult<GeoProcessOutcome> = async {
+      let overwrite = matches!(
+        geo_manifest_status(&config.data_dir, &candidate.user_id, &candidate.item_id).await?,
+        Some(GeoManifestStatus::Failed)
+      );
+      let geo_candidate = GeoCandidate {
+        user_id: candidate.user_id.clone(),
+        item_id: candidate.item_id.clone(),
+        mime_type: candidate.mime_type.clone(),
+      };
+      reverse_geocode_candidate_if_needed(
+        &config.data_dir,
+        &geo_client,
+        &config.geo_service_url,
+        &geo_api_key,
+        &geo_candidate,
+        overwrite,
+        &mut geo_cache,
+        Some(&mut throttle),
+      )
+      .await
+    }
+    .await;
+    match result {
       Ok(GeoProcessOutcome::Deferred { reason, retry_after_secs }) => {
-        record_image_pipeline_processed(PipelineStage::Geo, "deferred");
-        let retry_after = Duration::from_secs(retry_after_secs.max(1));
-        info!(
-          "Suspending reverse geo for {} after Geoapify reported {}.",
-          format_duration_for_log(retry_after),
-          reason.label()
-        );
-        {
-          let mut state = state.lock().await;
-          enqueue_candidate_with_log(&mut state, PipelineStage::Geo, candidate, "after reverse geo deferral");
+        let delay = Duration::from_secs(retry_after_secs.max(1));
+        retry_image(&config, &state, PipelineStage::Geo, candidate, reason.label(), delay).await;
+        // Provider-wide quota/rate limit, not just a failure of this item.
+        sleep(delay).await;
+      }
+      Ok(GeoProcessOutcome::Failed { .. } | GeoProcessOutcome::SkippedWithoutImageTagOutput) => {
+        retry_image(
+          &config,
+          &state,
+          PipelineStage::Geo,
+          candidate.clone(),
+          "Location lookup failed or is waiting for image extraction.",
+          Duration::ZERO,
+        )
+        .await;
+        if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
+          enqueue_candidate(&mut *state.lock().await, PipelineStage::Fragment, candidate);
         }
-        sleep(retry_after).await;
       }
       Ok(outcome) => {
         record_geo_pipeline_processed(&outcome);
+        let mut state = state.lock().await;
+        state.geo.retries.clear(&candidate.item_id);
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-          let mut state = state.lock().await;
-          enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "fragmenting");
+          enqueue_candidate(&mut state, PipelineStage::Fragment, candidate);
         }
       }
-      Err(e) => {
-        record_image_pipeline_processed(PipelineStage::Geo, "failed");
-        error!(
-          "Reverse geo pipeline failed for image '{}' (user '{}'): {}",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e
-        );
+      Err(error) => {
+        retry_image(&config, &state, PipelineStage::Geo, candidate.clone(), &error.to_string(), Duration::ZERO).await;
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-          let mut state = state.lock().await;
-          enqueue_candidate_with_log(&mut state, PipelineStage::Fragment, candidate, "after reverse geo failure");
+          enqueue_candidate(&mut *state.lock().await, PipelineStage::Fragment, candidate);
         }
       }
     }
@@ -550,17 +477,14 @@ async fn run_image_fragment_loop(
     wait_for_object_store_upload_quiet_period("image fragment processing").await;
     match reconcile_image_fragment_item(&config, db.clone(), &candidate).await {
       Ok(Some(user_id)) => {
+        state.lock().await.fragment.retries.clear(&candidate.item_id);
         enqueue_fragment_lexical_index_update(&user_id, &candidate.item_id);
       }
-      Ok(None) => {}
+      Ok(None) => {
+        state.lock().await.fragment.retries.clear(&candidate.item_id);
+      }
       Err(e) => {
-        record_image_pipeline_processed(PipelineStage::Fragment, "failed");
-        error!(
-          "Image fragment pipeline failed for image '{}' (user '{}'): {}",
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e
-        );
+        retry_image(&config, &state, PipelineStage::Fragment, candidate, &e.to_string(), Duration::ZERO).await;
       }
     }
   }
@@ -582,25 +506,19 @@ async fn reconcile_image_fragment_item(
     }
   };
 
-  match image_fragment_readiness(config, &item_snapshot).await? {
-    ImageFragmentReadiness::Ready => {}
-    ImageFragmentReadiness::Waiting => {
-      sleep(Duration::from_millis(FRAGMENT_NOT_READY_WAIT_MILLIS)).await;
-      enqueue_image_background_pipeline_item_if_active(&item_snapshot);
-      return Ok(None);
+  if !matches!(
+    image_tagging_artifact_state(&config.data_dir, &item_snapshot.owner_id, &item_snapshot.id).await?,
+    ImageTagArtifactState::Succeeded
+  ) {
+    if clear_item_fragments(&config.data_dir, &item_snapshot).await?.cleared_existing_fragments {
+      enqueue_fragment_lexical_index_update(&candidate.user_id, &candidate.item_id);
     }
-    ImageFragmentReadiness::Unavailable => {
-      let outcome = clear_item_fragments(&config.data_dir, &item_snapshot).await?;
-      if outcome.cleared_existing_fragments {
-        debug!(
-          "Image fragment pipeline cleared stale fragments for image '{}' (user {}) because image tagging is not successful.",
-          item_snapshot.id,
-          user_id_for_log(&item_snapshot.owner_id)
-        );
-      }
-      record_image_pipeline_processed(PipelineStage::Fragment, "skipped");
-      return Ok(outcome.cleared_existing_fragments.then_some(item_snapshot.owner_id));
-    }
+    return Err("Waiting for successful image extraction.".into());
+  }
+  if config.geo_api_key.is_some()
+    && !geo_manifest_is_complete(&config.data_dir, &item_snapshot.owner_id, &item_snapshot.id).await?
+  {
+    return Err("Waiting for location processing.".into());
   }
 
   let context_title = {
@@ -633,35 +551,6 @@ async fn reconcile_image_fragment_item(
   )
 }
 
-async fn image_fragment_readiness(
-  config: &ImageBackgroundPipelineConfig,
-  item: &Item,
-) -> InfuResult<ImageFragmentReadiness> {
-  let image_tagging_available = image_tagging_endpoint_url(config).await?.is_some();
-  match image_tagging_artifact_state(&config.data_dir, &item.owner_id, &item.id).await? {
-    ImageTagArtifactState::Succeeded => {}
-    ImageTagArtifactState::Empty | ImageTagArtifactState::Incomplete(_) if image_tagging_available => {
-      return Ok(ImageFragmentReadiness::Waiting);
-    }
-    ImageTagArtifactState::RetryableFailed if image_tagging_available => {
-      return Ok(ImageFragmentReadiness::Waiting);
-    }
-    ImageTagArtifactState::Empty
-    | ImageTagArtifactState::Incomplete(_)
-    | ImageTagArtifactState::RetryableFailed
-    | ImageTagArtifactState::Failed
-    | ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
-      return Ok(ImageFragmentReadiness::Unavailable);
-    }
-  }
-
-  if config.geo_api_key.is_some() && !geo_manifest_is_complete(&config.data_dir, &item.owner_id, &item.id).await? {
-    return Ok(ImageFragmentReadiness::Waiting);
-  }
-
-  Ok(ImageFragmentReadiness::Ready)
-}
-
 async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandidate) -> InfuResult<bool> {
   let db = db.lock().await;
   let Ok(item) = db.item.get(&candidate.item_id) else {
@@ -670,186 +559,26 @@ async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandi
   Ok(item.owner_id == candidate.user_id && should_tag_image_item(item))
 }
 
-fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, config: ImageBackgroundPipelineConfig) {
-  let Some(state) = IMAGE_BACKGROUND_PIPELINE_STATE.get() else {
-    return;
-  };
+fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, _config: ImageBackgroundPipelineConfig) {
+  let Some(state) = IMAGE_BACKGROUND_PIPELINE_STATE.get() else { return };
   let state = state.clone();
-  let _enqueue_task = task::spawn(async move {
+  task::spawn(async move {
     let candidates = {
       let db = db.lock().await;
       db.item
         .all_loaded_items()
         .into_iter()
-        .filter_map(|item_key| db.item.get(&item_key.item_id).ok())
+        .filter_map(|key| db.item.get(&key.item_id).ok())
         .filter_map(ImagePipelineCandidate::from_item)
         .collect::<Vec<_>>()
     };
-    let candidate_count = candidates.len();
-    let started_at = Instant::now();
-    let mut last_progress_log_at = started_at;
-    info!("Starting image background pipeline startup reconciliation for {} supported image item(s).", candidate_count);
-    let mut source_candidates = vec![];
-    let mut geo_candidates = vec![];
-    let mut fragment_candidates = vec![];
-    let mut summary = StartupReconciliationSummary::default();
-    for (index, candidate) in candidates.into_iter().enumerate() {
-      match startup_stage_for_candidate(&config, &candidate, &mut summary).await {
-        Ok(Some(PipelineStage::Source)) => source_candidates.push(candidate),
-        Ok(Some(PipelineStage::Geo)) => geo_candidates.push(candidate),
-        Ok(Some(PipelineStage::Fragment)) => fragment_candidates.push(candidate),
-        Ok(None) => {}
-        Err(e) => {
-          debug!(
-            "Skipping image '{}' (user '{}') during image background pipeline startup reconciliation: {}",
-            candidate.item_id,
-            user_id_for_log(&candidate.user_id),
-            e
-          );
-        }
-      }
-      let processed = index + 1;
-      if last_progress_log_at.elapsed() >= Duration::from_secs(STARTUP_RECONCILIATION_PROGRESS_LOG_SECS) {
-        info!(
-          "Image background pipeline startup reconciliation: processed {}/{} image item(s); candidates so far tag={}, reverse_geo={}, fragment={}; fragments_already_present={}; elapsed {}.",
-          processed,
-          candidate_count,
-          source_candidates.len(),
-          geo_candidates.len(),
-          fragment_candidates.len(),
-          summary.fragment_already_present,
-          format_duration_for_log(started_at.elapsed())
-        );
-        last_progress_log_at = Instant::now();
-      }
-    }
+    let count = candidates.len();
     let mut state = state.lock().await;
-    let source_candidate_count = source_candidates.len();
-    let geo_candidate_count = geo_candidates.len();
-    let fragment_candidate_count = fragment_candidates.len();
-    let source_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Source, source_candidates);
-    let geo_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Geo, geo_candidates);
-    let fragment_enqueued_count = enqueue_candidates(&mut state, PipelineStage::Fragment, fragment_candidates);
-    info!(
-      "Startup reconciliation saw {} supported image item(s), queued tag={} of {}, reverse_geo={} of {}, and fragment={} of {}; image_tags: succeeded={}, failed={}, pending={}, incomplete={}, unsupported_schema={}, unreadable={}; reverse_geo: succeeded={}, failed={}, skipped={}, pending_after_successful_tag={}, unreadable={}; image_fragments: already_present={}, unreadable={}; queues: {}; elapsed {}.",
-      candidate_count,
-      source_enqueued_count,
-      source_candidate_count,
-      geo_enqueued_count,
-      geo_candidate_count,
-      fragment_enqueued_count,
-      fragment_candidate_count,
-      summary.tag_succeeded,
-      summary.tag_failed,
-      summary.tag_pending,
-      summary.tag_incomplete,
-      summary.tag_unsupported_schema,
-      summary.tag_unreadable,
-      summary.geo_succeeded,
-      summary.geo_failed,
-      summary.geo_skipped,
-      summary.geo_pending_after_successful_tag,
-      summary.geo_unreadable,
-      summary.fragment_already_present,
-      summary.fragment_unreadable,
-      queue_depth_summary(&state),
-      format_duration_for_log(started_at.elapsed())
-    );
+    for candidate in candidates {
+      enqueue_candidate(&mut state, PipelineStage::Source, candidate);
+    }
+    info!("Queued {} images for startup processing checks, including failed and unfinished work.", count);
   });
-}
-
-async fn startup_stage_for_candidate(
-  config: &ImageBackgroundPipelineConfig,
-  candidate: &ImagePipelineCandidate,
-  summary: &mut StartupReconciliationSummary,
-) -> InfuResult<Option<PipelineStage>> {
-  let tag_state = match image_tagging_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
-    Ok(status) => status,
-    Err(e) => {
-      summary.tag_unreadable += 1;
-      return Err(e);
-    }
-  };
-
-  let tag_succeeded = matches!(tag_state, ImageTagArtifactState::Succeeded);
-  match &tag_state {
-    ImageTagArtifactState::Succeeded => {
-      summary.tag_succeeded += 1;
-    }
-    ImageTagArtifactState::Failed => {
-      summary.tag_failed += 1;
-    }
-    ImageTagArtifactState::RetryableFailed => {
-      summary.tag_pending += 1;
-      if image_tagging_endpoint_url(config).await?.is_some() {
-        return Ok(Some(PipelineStage::Source));
-      }
-    }
-    ImageTagArtifactState::Empty => {
-      summary.tag_pending += 1;
-      if image_tagging_endpoint_url(config).await?.is_some() {
-        return Ok(Some(PipelineStage::Source));
-      }
-    }
-    ImageTagArtifactState::Incomplete(_) => {
-      summary.tag_incomplete += 1;
-      if image_tagging_endpoint_url(config).await?.is_some() {
-        return Ok(Some(PipelineStage::Source));
-      }
-    }
-    ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
-      summary.tag_unsupported_schema += 1;
-    }
-  }
-
-  if config.geo_api_key.is_none() || !tag_succeeded {
-    return if tag_succeeded { startup_fragment_stage_if_needed(config, candidate, summary).await } else { Ok(None) };
-  }
-
-  match geo_manifest_status(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
-    Ok(Some(GeoManifestStatus::Succeeded)) => {
-      summary.geo_succeeded += 1;
-      startup_fragment_stage_if_needed(config, candidate, summary).await
-    }
-    Ok(Some(GeoManifestStatus::Failed)) => {
-      summary.geo_failed += 1;
-      startup_fragment_stage_if_needed(config, candidate, summary).await
-    }
-    Ok(Some(GeoManifestStatus::Skipped)) => {
-      summary.geo_skipped += 1;
-      startup_fragment_stage_if_needed(config, candidate, summary).await
-    }
-    Ok(None) => {
-      summary.geo_pending_after_successful_tag += 1;
-      Ok(Some(PipelineStage::Geo))
-    }
-    Err(e) => {
-      summary.geo_unreadable += 1;
-      Err(e)
-    }
-  }
-}
-
-async fn startup_fragment_stage_if_needed(
-  config: &ImageBackgroundPipelineConfig,
-  candidate: &ImagePipelineCandidate,
-  summary: &mut StartupReconciliationSummary,
-) -> InfuResult<Option<PipelineStage>> {
-  if !ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-    return Ok(None);
-  }
-
-  match item_fragment_artifact_files_exist(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
-    Ok(true) => {
-      summary.fragment_already_present += 1;
-      Ok(None)
-    }
-    Ok(false) => Ok(Some(PipelineStage::Fragment)),
-    Err(e) => {
-      summary.fragment_unreadable += 1;
-      Err(e)
-    }
-  }
 }
 
 fn enqueue_candidate_for_all_stages(
@@ -894,7 +623,8 @@ fn queue_for_stage_mut(state: &mut ImageBackgroundPipelineState, stage: Pipeline
 
 fn pop_candidate(state: &mut ImageBackgroundPipelineState, stage: PipelineStage) -> Option<ImagePipelineCandidate> {
   let queue = queue_for_stage_mut(state, stage);
-  let candidate = queue.queue.pop_front()?;
+  let position = queue.queue.iter().position(|candidate| queue.retries.ready(&candidate.item_id))?;
+  let candidate = queue.queue.remove(position)?;
   queue.queued_item_ids.remove(&candidate.item_id);
   record_image_pipeline_queue_depths(state);
   Some(candidate)
@@ -947,25 +677,9 @@ fn enqueue_candidate(
   true
 }
 
-fn enqueue_candidates(
-  state: &mut ImageBackgroundPipelineState,
-  stage: PipelineStage,
-  candidates: Vec<ImagePipelineCandidate>,
-) -> usize {
-  let queue = queue_for_stage_mut(state, stage);
-  let mut enqueued_count = 0usize;
-  for candidate in candidates {
-    if queue.queued_item_ids.insert(candidate.item_id.clone()) {
-      queue.queue.push_back(candidate);
-      enqueued_count += 1;
-    }
-  }
-  record_image_pipeline_queue_depths(state);
-  enqueued_count
-}
-
 fn remove_candidate(state: &mut ImageBackgroundPipelineState, stage: PipelineStage, item_id: &str) -> usize {
   let queue = queue_for_stage_mut(state, stage);
+  queue.retries.clear(&item_id.to_owned());
   let before = queue.queue.len();
   queue.queue.retain(|candidate| candidate.item_id != item_id);
   queue.queued_item_ids.remove(item_id);
@@ -1020,24 +734,4 @@ impl PipelineStage {
       PipelineStage::Fragment => "fragment",
     }
   }
-}
-
-fn format_duration_for_log(duration: Duration) -> String {
-  if duration.as_secs() >= 24 * 60 * 60 && duration.as_secs() % (24 * 60 * 60) == 0 {
-    let days = duration.as_secs() / (24 * 60 * 60);
-    return if days == 1 { "1 day".to_owned() } else { format!("{} days", days) };
-  }
-  if duration.as_secs() >= 60 * 60 && duration.as_secs() % (60 * 60) == 0 {
-    let hours = duration.as_secs() / (60 * 60);
-    return if hours == 1 { "1 hour".to_owned() } else { format!("{} hours", hours) };
-  }
-  if duration.as_secs() >= 60 && duration.as_secs() % 60 == 0 {
-    let minutes = duration.as_secs() / 60;
-    return if minutes == 1 { "1 minute".to_owned() } else { format!("{} minutes", minutes) };
-  }
-  if duration.subsec_nanos() == 0 {
-    let seconds = duration.as_secs();
-    return if seconds == 1 { "1 second".to_owned() } else { format!("{} seconds", seconds) };
-  }
-  format!("{:.3} seconds", duration.as_secs_f64())
 }

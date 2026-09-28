@@ -21,6 +21,7 @@ use crate::ai::lexical_index::{
   LexicalFragment, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
   user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,
 };
+use crate::ai::processing_retry::RetrySchedule;
 use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
@@ -38,7 +39,7 @@ struct FragmentIndexingRequest {
   item_id: String,
 }
 
-pub fn init_fragment_indexing_loop(config: &Config, _db: Arc<Mutex<Db>>) -> InfuResult<()> {
+pub fn init_fragment_indexing_loop(config: &Config, db: Arc<Mutex<Db>>) -> InfuResult<()> {
   if FRAGMENT_INDEXING_QUEUE.get().is_some() {
     return Ok(());
   }
@@ -51,7 +52,7 @@ pub fn init_fragment_indexing_loop(config: &Config, _db: Arc<Mutex<Db>>) -> Infu
 
   info!("Starting item-level fragment lexical indexing loop.");
   let _worker = task::spawn(async move {
-    run_fragment_indexing_loop(data_dir, receiver).await;
+    run_fragment_indexing_loop(data_dir, db, receiver).await;
   });
   Ok(())
 }
@@ -219,10 +220,25 @@ pub async fn item_fragment_index_is_current(data_dir: &str, user_id: &str, item_
   Ok(receipt.index_generation == generation && receipt.fragments_sha256 == indexed_fingerprint(&fragments)?)
 }
 
-async fn run_fragment_indexing_loop(data_dir: String, mut receiver: mpsc::UnboundedReceiver<FragmentIndexingRequest>) {
+async fn run_fragment_indexing_loop(
+  data_dir: String,
+  db: Arc<Mutex<Db>>,
+  mut receiver: mpsc::UnboundedReceiver<FragmentIndexingRequest>,
+) {
   let mut queued = HashSet::new();
-  while let Some(request) = receiver.recv().await {
-    queued.insert(request);
+  let mut retries = RetrySchedule::default();
+  loop {
+    let request = if queued.is_empty() {
+      receiver.recv().await
+    } else {
+      tokio::time::timeout(Duration::from_secs(1), receiver.recv()).await.ok().flatten()
+    };
+    if request.is_none() && receiver.is_closed() && queued.is_empty() {
+      break;
+    }
+    if let Some(request) = request {
+      queued.insert(request);
+    }
     drain_pending(&mut receiver, &mut queued);
 
     let max_deadline = Instant::now() + Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS);
@@ -240,7 +256,10 @@ async fn run_fragment_indexing_loop(data_dir: String, mut receiver: mpsc::Unboun
       }
     }
 
-    let mut requests = queued.drain().collect::<Vec<_>>();
+    let mut requests = queued.iter().filter(|request| retries.ready(*request)).cloned().collect::<Vec<_>>();
+    for request in &requests {
+      queued.remove(request);
+    }
     requests.sort_by(|a, b| a.user_id.cmp(&b.user_id).then(a.item_id.cmp(&b.item_id)));
     debug!("Applying {} item-level fragment lexical index update(s).", requests.len());
     let mut item_ids_by_user = BTreeMap::<String, Vec<String>>::new();
@@ -250,21 +269,50 @@ async fn run_fragment_indexing_loop(data_dir: String, mut receiver: mpsc::Unboun
     for (user_id, item_ids) in item_ids_by_user {
       let mut updates = Vec::<(String, Vec<LexicalFragment>)>::new();
       for item_id in item_ids {
-        match load_item_search_fragments(&data_dir, &user_id, &item_id).await {
+        let live = {
+          let db = db.lock().await;
+          db.item.get(&item_id).is_ok_and(|item| {
+            item.owner_id == user_id
+              && crate::ai::search_processing::SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some()
+          })
+        };
+        let loaded = if live { load_item_search_fragments(&data_dir, &user_id, &item_id).await } else { Ok(vec![]) };
+        match loaded {
           Ok(fragments) => updates.push((item_id, fragments)),
-          Err(e) => error!(
-            "Could not load lexical fragments for item '{}' (user {}): {}",
-            item_id,
-            user_id_for_log(&user_id),
-            e
-          ),
+          Err(e) => {
+            let request = FragmentIndexingRequest { user_id: user_id.clone(), item_id: item_id.clone() };
+            let delay = retries.failed(request.clone());
+            queued.insert(request);
+            error!(
+              "Could not load fragments for '{}' (user {}): {}. Retrying in {} seconds.",
+              item_id,
+              user_id_for_log(&user_id),
+              e,
+              delay.as_secs()
+            );
+          }
         }
       }
       if updates.is_empty() {
         continue;
       }
-      if let Err(e) = commit_user_updates(&data_dir, &user_id, &updates).await {
-        error!("Fragment lexical index batch update failed for user {}: {}", user_id_for_log(&user_id), e);
+      let result = commit_user_updates(&data_dir, &user_id, &updates).await;
+      for (item_id, _) in &updates {
+        let request = FragmentIndexingRequest { user_id: user_id.clone(), item_id: item_id.clone() };
+        if result.is_err() {
+          let delay = retries.failed(request.clone());
+          queued.insert(request);
+          debug!("Content index retry scheduled in {} seconds.", delay.as_secs());
+        } else {
+          retries.clear(&request);
+        }
+      }
+      if let Err(e) = result {
+        error!(
+          "Content index update failed for user {}: {}. Updates remain queued for retry.",
+          user_id_for_log(&user_id),
+          e
+        );
       }
     }
   }

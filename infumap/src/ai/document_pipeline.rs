@@ -16,12 +16,11 @@ use tokio::time::sleep;
 use crate::ai::fragment::sources::{
   build_markdown_fragment_artifact, build_pdf_fragment_artifact, build_text_fragment_artifact,
 };
-use crate::ai::fragment::{FragmentBuildOutcome, clear_item_fragments, item_fragment_artifact_files_exist};
+use crate::ai::fragment::{FragmentBuildOutcome, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
-use crate::ai::gpu_tools::{
-  GPU_TOOL_PDF_EXTRACT, GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY, gpu_tools_url_from_config, resolve_gpu_tool_url,
-};
+use crate::ai::gpu_tools::{GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
+use crate::ai::processing_retry::RetrySchedule;
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
@@ -30,7 +29,6 @@ use crate::storage::db::Db;
 use crate::storage::object::ObjectStore;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
-const FRAGMENT_NOT_READY_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 const MARKDOWN_SOURCE_MIME_TYPE: &str = "text/markdown";
 const TEXT_SOURCE_MIME_TYPE: &str = "text/plain";
@@ -113,19 +111,12 @@ struct DocumentFragmentCandidateKey {
 struct DocumentFragmentPipelineState {
   queue: VecDeque<DocumentFragmentCandidate>,
   queued_candidate_keys: HashSet<DocumentFragmentCandidateKey>,
-}
-
-enum DocumentFragmentReadiness {
-  Ready,
-  Waiting,
-  Unavailable,
-  Blocked,
+  retries: RetrySchedule<DocumentFragmentCandidateKey>,
 }
 
 enum DocumentFragmentReconcileOutcome {
   Changed(String),
   Skipped,
-  Waiting,
 }
 
 pub fn init_document_fragment_pipeline_loop(
@@ -229,14 +220,22 @@ async fn run_document_fragment_loop(
     wait_for_object_store_upload_quiet_period("document fragment processing").await;
     match reconcile_document_fragment_item(&config, db.clone(), &candidate).await {
       Ok(DocumentFragmentReconcileOutcome::Changed(user_id)) => {
+        state.lock().await.retries.clear(&candidate.key());
         record_document_fragment_processed("success");
         enqueue_fragment_lexical_index_update(&user_id, &candidate.item_id);
       }
       Ok(DocumentFragmentReconcileOutcome::Skipped) => {
+        state.lock().await.retries.clear(&candidate.key());
         record_document_fragment_processed("skipped");
       }
-      Ok(DocumentFragmentReconcileOutcome::Waiting) => {}
       Err(e) => {
+        let delay = {
+          let mut state = state.lock().await;
+          let delay = state.retries.failed(candidate.key());
+          enqueue_candidate(&mut state, candidate.clone());
+          delay
+        };
+        info!("Document fragment retry for '{}' in {} seconds.", candidate.item_id, delay.as_secs());
         record_document_fragment_processed("failed");
         error!(
           "Document fragment pipeline failed for {} '{}' (user '{}'): {}",
@@ -271,30 +270,15 @@ async fn reconcile_document_fragment_item(
     return Ok(DocumentFragmentReconcileOutcome::Skipped);
   }
 
-  match document_fragment_readiness(config, candidate).await? {
-    DocumentFragmentReadiness::Ready => {}
-    DocumentFragmentReadiness::Waiting => {
-      sleep(Duration::from_millis(FRAGMENT_NOT_READY_WAIT_MILLIS)).await;
-      enqueue_candidate_if_active(candidate.clone());
-      return Ok(DocumentFragmentReconcileOutcome::Waiting);
-    }
-    DocumentFragmentReadiness::Unavailable => {
-      let outcome = clear_item_fragments(&config.data_dir, &item_snapshot).await?;
-      if outcome.cleared_existing_fragments {
-        debug!(
-          "Document fragment pipeline cleared stale fragments for {} '{}' (user {}).",
-          candidate.kind.label(),
-          item_snapshot.id,
-          user_id_for_log(&item_snapshot.owner_id)
-        );
+  if candidate.kind == DocumentFragmentKind::Pdf {
+    match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
+      PdfTextArtifactState::Succeeded => {}
+      PdfTextArtifactState::Blocked => {
+        return Err("PDF is password protected; waiting for successful extraction.".into());
       }
-      return Ok(if outcome.cleared_existing_fragments {
-        DocumentFragmentReconcileOutcome::Changed(item_snapshot.owner_id)
-      } else {
-        DocumentFragmentReconcileOutcome::Skipped
-      });
+      PdfTextArtifactState::Failed => return Err("PDF extraction failed; waiting for its retry to succeed.".into()),
+      PdfTextArtifactState::Pending => return Err("Waiting for PDF text extraction.".into()),
     }
-    DocumentFragmentReadiness::Blocked => return Ok(DocumentFragmentReconcileOutcome::Skipped),
   }
 
   let pdf_caption_url = if candidate.kind == DocumentFragmentKind::Pdf {
@@ -397,36 +381,6 @@ async fn build_document_fragment_artifact(
   }
 }
 
-async fn document_fragment_readiness(
-  config: &DocumentFragmentPipelineConfig,
-  candidate: &DocumentFragmentCandidate,
-) -> InfuResult<DocumentFragmentReadiness> {
-  match candidate.kind {
-    DocumentFragmentKind::Pdf => {
-      match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
-        PdfTextArtifactState::Succeeded => Ok(DocumentFragmentReadiness::Ready),
-        PdfTextArtifactState::Failed => Ok(DocumentFragmentReadiness::Unavailable),
-        PdfTextArtifactState::Blocked => Ok(DocumentFragmentReadiness::Blocked),
-        PdfTextArtifactState::Pending if pdf_text_extraction_available(config).await => {
-          Ok(DocumentFragmentReadiness::Waiting)
-        }
-        PdfTextArtifactState::Pending => Ok(DocumentFragmentReadiness::Unavailable),
-      }
-    }
-    DocumentFragmentKind::Markdown | DocumentFragmentKind::Text => Ok(DocumentFragmentReadiness::Ready),
-  }
-}
-
-async fn pdf_text_extraction_available(config: &DocumentFragmentPipelineConfig) -> bool {
-  match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_PDF_EXTRACT).await {
-    Ok(url) => url.is_some(),
-    Err(e) => {
-      debug!("Could not discover PDF text extraction GPU tool endpoint: {}", e);
-      config.gpu_tools_url.is_some()
-    }
-  }
-}
-
 fn enqueue_all_loaded_document_fragments(db: Arc<Mutex<Db>>, config: DocumentFragmentPipelineConfig) {
   let Some(state) = DOCUMENT_FRAGMENT_PIPELINE_STATE.get() else {
     return;
@@ -438,7 +392,7 @@ fn enqueue_all_loaded_document_fragments(db: Arc<Mutex<Db>>, config: DocumentFra
 }
 
 async fn populate_initial_document_fragment_queue(
-  config: &DocumentFragmentPipelineConfig,
+  _config: &DocumentFragmentPipelineConfig,
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<DocumentFragmentPipelineState>>,
 ) {
@@ -452,99 +406,12 @@ async fn populate_initial_document_fragment_queue(
       .collect::<Vec<_>>()
   };
 
-  let total_candidates = candidates.len();
-  let mut pdf_candidates = 0usize;
-  let mut markdown_candidates = 0usize;
-  let mut text_candidates = 0usize;
-  let mut queued_candidates = Vec::new();
-  let mut already_fragmented = 0usize;
-  let mut ready = 0usize;
-  let mut unavailable = 0usize;
-  let mut blocked = 0usize;
-  let mut waiting = 0usize;
-  let mut skipped_errors = 0usize;
-
+  let count = candidates.len();
+  let mut state = state.lock().await;
   for candidate in candidates {
-    match candidate.kind {
-      DocumentFragmentKind::Pdf => pdf_candidates += 1,
-      DocumentFragmentKind::Markdown => markdown_candidates += 1,
-      DocumentFragmentKind::Text => text_candidates += 1,
-    }
-
-    match item_fragment_artifact_files_exist(&config.data_dir, &candidate.user_id, &candidate.item_id).await {
-      Ok(true) => {
-        already_fragmented += 1;
-        continue;
-      }
-      Ok(false) => {}
-      Err(e) => {
-        skipped_errors += 1;
-        debug!(
-          "Skipping {} '{}' (user {}) during document fragment startup artifact check: {}",
-          candidate.kind.label(),
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e
-        );
-        continue;
-      }
-    }
-
-    match document_fragment_readiness(config, &candidate).await {
-      Ok(DocumentFragmentReadiness::Ready) => {
-        ready += 1;
-        queued_candidates.push(candidate);
-      }
-      Ok(DocumentFragmentReadiness::Unavailable) => {
-        unavailable += 1;
-        queued_candidates.push(candidate);
-      }
-      Ok(DocumentFragmentReadiness::Blocked) => {
-        blocked += 1;
-      }
-      Ok(DocumentFragmentReadiness::Waiting) => {
-        waiting += 1;
-      }
-      Err(e) => {
-        skipped_errors += 1;
-        debug!(
-          "Skipping {} '{}' (user {}) during document fragment startup reconciliation: {}",
-          candidate.kind.label(),
-          candidate.item_id,
-          user_id_for_log(&candidate.user_id),
-          e
-        );
-      }
-    }
+    enqueue_candidate(&mut state, candidate);
   }
-
-  let queued_candidate_count = queued_candidates.len();
-  let enqueued_count = {
-    let mut state = state.lock().await;
-    let mut enqueued_count = 0usize;
-    for candidate in queued_candidates {
-      if enqueue_candidate(&mut state, candidate) {
-        enqueued_count += 1;
-      }
-    }
-    enqueued_count
-  };
-
-  info!(
-    "Startup document fragment reconciliation saw {} document item(s) (pdf={}, markdown={}, text={}), queued {} of {}; fragments: already_present={}; readiness checked for missing fragments: ready={}, unavailable={}, blocked={}, waiting={}; skipped_errors={}.",
-    total_candidates,
-    pdf_candidates,
-    markdown_candidates,
-    text_candidates,
-    enqueued_count,
-    queued_candidate_count,
-    already_fragmented,
-    ready,
-    unavailable,
-    blocked,
-    waiting,
-    skipped_errors
-  );
+  info!("Queued {} document items for startup fragment checks, including unfinished and failed work.", count);
 }
 
 fn enqueue_candidate_if_active(candidate: DocumentFragmentCandidate) {
@@ -574,7 +441,8 @@ fn enqueue_candidate(state: &mut DocumentFragmentPipelineState, candidate: Docum
 }
 
 fn pop_candidate(state: &mut DocumentFragmentPipelineState) -> Option<DocumentFragmentCandidate> {
-  let candidate = state.queue.pop_front()?;
+  let position = state.queue.iter().position(|candidate| state.retries.ready(&candidate.key()))?;
+  let candidate = state.queue.remove(position)?;
   state.queued_candidate_keys.remove(&candidate.key());
   record_document_fragment_queue_depth(state);
   Some(candidate)
@@ -582,6 +450,9 @@ fn pop_candidate(state: &mut DocumentFragmentPipelineState) -> Option<DocumentFr
 
 fn remove_candidate(state: &mut DocumentFragmentPipelineState, item_id: &str) -> usize {
   let before = state.queue.len();
+  for candidate in state.queue.iter().filter(|candidate| candidate.item_id == item_id) {
+    state.retries.clear(&candidate.key());
+  }
   state.queue.retain(|candidate| candidate.item_id != item_id);
   state.queued_candidate_keys.retain(|candidate_key| candidate_key.item_id != item_id);
   let removed = before.saturating_sub(state.queue.len());

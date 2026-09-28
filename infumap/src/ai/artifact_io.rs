@@ -10,7 +10,7 @@ use tokio::{fs, io::AsyncWriteExt};
 pub struct ArtifactProcessing {
   pub input_sha256: Option<String>,
   pub output_sha256: Option<String>,
-  /// A retry hint for the future reconciliation loop; not a permanent failure.
+  /// Earliest background retry after failure; startup workers honor this hint.
   pub retry_at_unix_secs: Option<i64>,
 }
 

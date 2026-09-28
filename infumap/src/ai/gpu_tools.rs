@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use config::Config;
 use infusdk::util::infu::InfuResult;
@@ -19,7 +19,9 @@ pub const GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY: &str = "pdf_extract_caption_only";
 const DISCOVERY_PATH: &str = "/gpu-tools";
 const DISCOVERY_REQUEST_TIMEOUT_SECS: u64 = 10;
 
-static GPU_TOOLS_DISCOVERY_CACHE: OnceCell<Mutex<HashMap<String, Arc<GpuToolsDocument>>>> = OnceCell::new();
+const DISCOVERY_CACHE_SECS: u64 = 60;
+type CachedDiscovery = (Instant, Result<Arc<GpuToolsDocument>, String>);
+static GPU_TOOLS_DISCOVERY_CACHE: OnceCell<Mutex<HashMap<String, CachedDiscovery>>> = OnceCell::new();
 
 #[derive(Clone, Deserialize)]
 struct GpuToolsDocument {
@@ -69,16 +71,17 @@ pub async fn resolve_gpu_tool_url(gpu_tools_url: Option<&str>, endpoint_id: &str
 async fn cached_gpu_tools_discovery(base_url: &Url) -> InfuResult<Arc<GpuToolsDocument>> {
   let cache_key = base_url.as_str().trim_end_matches('/').to_owned();
   let cache = GPU_TOOLS_DISCOVERY_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-  {
-    let cache = cache.lock().await;
-    if let Some(discovery) = cache.get(&cache_key) {
-      return Ok(discovery.clone());
+  // Also cache failures briefly and serialize refreshes to avoid one discovery
+  // request per queued item during a long outage.
+  let mut cache = cache.lock().await;
+  if let Some((fetched, result)) = cache.get(&cache_key) {
+    if fetched.elapsed() < Duration::from_secs(DISCOVERY_CACHE_SECS) {
+      return result.clone().map_err(Into::into);
     }
   }
-
-  let discovery = Arc::new(fetch_gpu_tools_discovery(base_url).await?);
-  let mut cache = cache.lock().await;
-  Ok(cache.entry(cache_key).or_insert_with(|| discovery.clone()).clone())
+  let result = fetch_gpu_tools_discovery(base_url).await.map(Arc::new).map_err(|error| error.to_string());
+  cache.insert(cache_key, (Instant::now(), result.clone()));
+  result.map_err(Into::into)
 }
 
 async fn fetch_gpu_tools_discovery(base_url: &Url) -> InfuResult<GpuToolsDocument> {
