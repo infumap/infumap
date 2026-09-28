@@ -38,7 +38,7 @@ use tokio::sync::Mutex;
 use crate::storage::db::Db;
 use crate::util::fs::expand_tilde;
 
-use super::artifact_io::{atomic_write, sha256};
+use super::artifact_io::{atomic_write_unsynced, sha256};
 use super::artifact_paths::{
   item_fragments_dir, item_fragments_manifest_path, item_fragments_path, item_geo_content_path, item_geo_manifest_path,
   item_text_content_path, item_text_manifest_path,
@@ -325,7 +325,7 @@ async fn read_startup_check(path: &Path) -> HashMap<String, ItemCheck> {
 
 async fn write_startup_check(path: &Path, items: &HashMap<String, ItemCheck>) -> InfuResult<()> {
   let record = StartupCheckRecord { version: STARTUP_CHECK_VERSION, items: items.clone() };
-  atomic_write(path, &serde_json::to_vec(&record)?).await
+  atomic_write_unsynced(path, &serde_json::to_vec(&record)?).await
 }
 
 /// Identifies the content index instance that receipts refer to.
