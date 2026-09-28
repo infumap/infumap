@@ -7,7 +7,7 @@ use std::time::Duration;
 use config::Config;
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
-use log::{debug, error, info};
+use log::{debug, info};
 use once_cell::sync::OnceCell;
 use tokio::sync::Mutex;
 use tokio::task;
@@ -270,21 +270,25 @@ async fn run_document_fragment_loop(
         enqueue_candidate(&mut state, candidate);
       }
       Err(e) => {
-        let delay = {
+        let (delay, attempt) = {
           let mut state = state.lock().await;
           let delay = state.retries.failed(candidate.key());
+          let attempt = state.retries.attempts(&candidate.key());
           enqueue_candidate(&mut state, candidate.clone());
-          delay
+          (delay, attempt)
         };
-        activity::retry(&candidate.user_id, &candidate.item_id, candidate.activity_stage(), &e.to_string(), delay);
-        info!("Document fragment retry for '{}' in {} seconds.", candidate.item_id, delay.as_secs());
+        let reason = e.to_string();
+        activity::retry(&candidate.user_id, &candidate.item_id, candidate.activity_stage(), &reason, delay);
         record_document_fragment_processed("failed");
-        error!(
-          "Document fragment pipeline failed for {} '{}' (user '{}'): {}",
+        log::log!(
+          activity::failure_log_level(&reason, attempt),
+          "{} failed for {} '{}' (user {}): {} Retrying in {} seconds.",
+          candidate.activity_stage().label(),
           candidate.kind.label(),
           candidate.item_id,
           user_id_for_log(&candidate.user_id),
-          e
+          reason,
+          delay.as_secs()
         );
       }
     }

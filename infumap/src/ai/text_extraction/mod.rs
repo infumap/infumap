@@ -266,7 +266,7 @@ pub(crate) async fn load_pdf_for_extraction(
     Err(e) => {
       let elapsed = object_read_started_at.elapsed();
       let error_message = e.to_string();
-      error!(
+      debug!(
         "Could not read source PDF object for '{}' (user {}) after {}: {}",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),
@@ -388,7 +388,7 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
     }
     ExtractOutcome::DocumentBlocked { error_code, message } => {
       write_password_required_manifest(data_dir, text_extraction_url, &candidate, &message).await?;
-      info!(
+      debug!(
         "PDF text extraction blocked for '{}' (user {}): {} ({})",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),
@@ -565,25 +565,27 @@ async fn run_text_extraction_loop(
         record_pdf_text_extraction_processed(if extracted { "success" } else { "skipped" });
       }
       Err(error) => {
-        let delay = {
+        let (delay, attempt) = {
           let mut state = state.lock().await;
           let delay = state.retries.failed(candidate.item_id.clone());
           enqueue_candidate(&mut state, candidate.clone());
-          delay
+          (delay, state.retries.attempts(&candidate.item_id))
         };
-        activity::retry(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &error.to_string(), delay);
+        let reason = error.to_string();
+        activity::retry(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &reason, delay);
         if let Ok(path) = item_text_manifest_path(&data_dir, &candidate.user_id, &candidate.item_id) {
           if let Err(error) = record_manifest_retry(&path, delay).await {
             error!("Could not save PDF retry hint for '{}': {}", candidate.item_id, error);
           }
         }
         record_pdf_text_extraction_processed("failed");
-        error!(
-          "PDF '{}' (user {}): {} Retrying in {} seconds.",
+        log::log!(
+          activity::failure_log_level(&reason, attempt),
+          "PDF extraction failed for '{}' (user {}): {} Retrying in {}.",
           candidate.item_id,
           user_id_for_log(&candidate.user_id),
-          error,
-          delay.as_secs()
+          reason,
+          format_duration_for_log(delay)
         );
       }
     }

@@ -16,7 +16,7 @@
 
 use infusdk::item::Item;
 use infusdk::util::infu::{InfuError, InfuResult};
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use reqwest::multipart::{Form, Part};
 use serde_json::Value;
 use std::sync::Arc;
@@ -250,7 +250,7 @@ pub(crate) async fn load_image_for_tagging(
     Err(e) => {
       let elapsed = object_read_started_at.elapsed();
       let error_message = e.to_string();
-      error!(
+      debug!(
         "Could not read source image object for '{}' (user {}) after {}: {}",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),
@@ -380,7 +380,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
         return Ok(());
       }
       write_failed_manifest_for_request_mode(data_dir, image_tagging_url, &candidate, &msg, request_mode).await?;
-      info!(
+      debug!(
         "Finished image tagging for image '{}' (user {}) with document failure after {}: {}",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),
@@ -401,7 +401,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
         return Ok(());
       }
       write_failed_manifest_for_request_mode(data_dir, image_tagging_url, &candidate, &msg, request_mode).await?;
-      info!(
+      debug!(
         "Finished image tagging for image '{}' (user {}) with response-format failure after {}: {}",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),
@@ -411,7 +411,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       return Err(format!("Image tagging failed for '{}': {}", candidate.item_id, msg).into());
     }
     TagOutcome::EndpointUnavailable(msg) => {
-      info!(
+      debug!(
         "Finished image tagging for image '{}' (user {}) with endpoint failure after {}: {}",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),

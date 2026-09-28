@@ -295,21 +295,24 @@ async fn run_fragment_indexing_loop(
           Err(e) => {
             let request = FragmentIndexingRequest { user_id: user_id.clone(), item_id: item_id.clone() };
             let delay = retries.failed(request.clone());
-            activity::retry(&request.user_id, &request.item_id, Stage::ContentIndex, &e.to_string(), delay);
-            queued.insert(request);
-            error!(
+            let reason = e.to_string();
+            activity::retry(&request.user_id, &request.item_id, Stage::ContentIndex, &reason, delay);
+            log::log!(
+              activity::failure_log_level(&reason, retries.attempts(&request)),
               "Could not load fragments for '{}' (user {}): {}. Retrying in {} seconds.",
               item_id,
               user_id_for_log(&user_id),
-              e,
+              reason,
               delay.as_secs()
             );
+            queued.insert(request);
           }
         }
       }
       if updates.is_empty() {
         continue;
       }
+      let commit_started = Instant::now();
       let result = commit_user_updates(&data_dir, &user_id, &updates).await;
       for (item_id, _) in &updates {
         let request = FragmentIndexingRequest { user_id: user_id.clone(), item_id: item_id.clone() };
@@ -323,12 +326,18 @@ async fn run_fragment_indexing_loop(
           activity::done(&request.user_id, &request.item_id, Stage::ContentIndex);
         }
       }
-      if let Err(e) = result {
-        error!(
+      match result {
+        Ok(()) => info!(
+          "Content index: committed {} item update(s) for user {} in {:.1}s.",
+          updates.len(),
+          user_id_for_log(&user_id),
+          commit_started.elapsed().as_secs_f64()
+        ),
+        Err(e) => error!(
           "Content index update failed for user {}: {}. Updates remain queued for retry.",
           user_id_for_log(&user_id),
           e
-        );
+        ),
       }
     }
   }
@@ -372,18 +381,16 @@ fn drain_pending(
 async fn maintain_content_indexes(data_dir: &str, db: &Arc<Mutex<Db>>) {
   let user_ids = db.lock().await.user.all_user_ids();
   for user_id in user_ids {
+    let log_label = format!("Content index maintenance for user {}", user_id_for_log(&user_id));
+    let started = Instant::now();
     let result = match open_user_document_fragment_lexical_index(data_dir, &user_id) {
-      Ok(index) => index.maintain().await,
+      Ok(index) => index.maintain(&log_label).await,
       Err(e) => Err(e),
     };
     match result {
       Ok(0) => {}
-      Ok(merged) => info!("Merged {} content index segments for user {}.", merged, user_id_for_log(&user_id)),
-      Err(e) => warn!(
-        "content index maintenance failed for user {}: {}. Will try again tomorrow.",
-        user_id_for_log(&user_id),
-        e
-      ),
+      Ok(merged) => info!("{}: merged {} segments in {:.1}s.", log_label, merged, started.elapsed().as_secs_f64()),
+      Err(e) => warn!("{} failed: {}. Will try again tomorrow.", log_label, e),
     }
   }
 }

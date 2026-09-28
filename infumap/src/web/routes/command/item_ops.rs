@@ -987,7 +987,7 @@ pub(super) async fn handle_reprocess_item(
   requeue_image_background_pipeline_item_now(&item).await;
   requeue_pdf_item_now(&item).await;
   requeue_document_fragment_item_now(&item).await;
-  debug!("Executed 'reprocess-item' command for item '{}'.", item.id);
+  log::info!("Queued item '{}' for search reprocessing; its generated text and fragments were removed.", item.id);
 
   Ok(None)
 }

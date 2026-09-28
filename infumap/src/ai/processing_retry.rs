@@ -35,6 +35,11 @@ impl<K: Eq + Hash> RetrySchedule<K> {
     self.entries.get(key).is_none_or(|(_, due)| Instant::now() >= *due)
   }
 
+  /// Consecutive failures recorded for the key since it last succeeded.
+  pub fn attempts(&self, key: &K) -> u32 {
+    self.entries.get(key).map(|(attempts, _)| *attempts).unwrap_or(0)
+  }
+
   pub fn clear(&mut self, key: &K) {
     self.entries.remove(key);
   }

@@ -123,6 +123,8 @@ async fn run_item_title_indexing_loop(
       requests_by_user.entry(request.user_id).or_default().push(request.item_id);
     }
     for (user_id, item_ids) in requests_by_user {
+      let commit_started = Instant::now();
+      let update_count = item_ids.len();
       let result = update_title_index_for_items(&data_dir, db.clone(), &user_id, &item_ids).await;
       for item_id in item_ids {
         let request = ItemTitleIndexingRequest { user_id: user_id.clone(), item_id };
@@ -136,12 +138,18 @@ async fn run_item_title_indexing_loop(
           activity::done(&request.user_id, &request.item_id, Stage::Title);
         }
       }
-      if let Err(e) = result {
-        error!(
+      match result {
+        Ok(()) => info!(
+          "Title index: committed {} item update(s) for user {} in {:.1}s.",
+          update_count,
+          user_id_for_log(&user_id),
+          commit_started.elapsed().as_secs_f64()
+        ),
+        Err(e) => error!(
           "Title index update failed for user {}: {}. Updates remain queued for retry.",
           user_id_for_log(&user_id),
           e
-        );
+        ),
       }
     }
   }
@@ -217,16 +225,16 @@ fn drain_pending(
 async fn maintain_title_indexes(data_dir: &str, db: &Arc<Mutex<Db>>) {
   let user_ids = db.lock().await.user.all_user_ids();
   for user_id in user_ids {
+    let log_label = format!("Title index maintenance for user {}", user_id_for_log(&user_id));
+    let started = Instant::now();
     let result = match open_user_item_title_lexical_index(data_dir, &user_id) {
-      Ok(index) => index.maintain().await,
+      Ok(index) => index.maintain(&log_label).await,
       Err(e) => Err(e),
     };
     match result {
       Ok(0) => {}
-      Ok(merged) => info!("Merged {} title index segments for user {}.", merged, user_id_for_log(&user_id)),
-      Err(e) => {
-        warn!("title index maintenance failed for user {}: {}. Will try again tomorrow.", user_id_for_log(&user_id), e)
-      }
+      Ok(merged) => info!("{}: merged {} segments in {:.1}s.", log_label, merged, started.elapsed().as_secs_f64()),
+      Err(e) => warn!("{} failed: {}. Will try again tomorrow.", log_label, e),
     }
   }
 }

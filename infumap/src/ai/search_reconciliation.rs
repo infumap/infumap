@@ -9,38 +9,54 @@
 //! Do not add original-file checks here; on S3 they made every restart download
 //! the whole corpus.
 //!
+//! Deliberate trade-off: an item verified on a previous startup is not checked
+//! in depth again while its generated files keep the same sizes and modification
+//! times (and its relevant metadata is unchanged). Only a few `stat` calls are
+//! made for it. A file replaced with identical size and modification time, for
+//! example by a backup restore that preserves times, goes unnoticed; delete the
+//! user's `search_startup_check.json` to force a full check.
+//!
 //! Deliberate trade-off: this runs at startup only. There is no periodic corpus
 //! scan while running; manual edits to generated files and missed notifications
 //! are picked up on the next restart. Repeating some work after a crash is
 //! accepted; exactly-once processing is not a goal.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::ErrorKind;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Instant, UNIX_EPOCH};
 
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use log::{info, warn};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
+use crate::util::fs::expand_tilde;
 
-use super::artifact_io::sha256;
-use super::artifact_paths::{item_geo_manifest_path, item_text_content_path, item_text_manifest_path};
+use super::artifact_io::{atomic_write, sha256};
+use super::artifact_paths::{
+  item_fragments_dir, item_fragments_manifest_path, item_fragments_path, item_geo_content_path, item_geo_manifest_path,
+  item_text_content_path, item_text_manifest_path,
+};
 use super::fragment::sources::{
   artifact_fragment_input_sha256, item_title_fragment_for_item, read_local_text_copy,
   search_fragment_context_title_for_item,
 };
-use super::fragment::{delete_item_fragment_artifacts, fragment_inputs_are_current, read_item_fragments};
+use super::fragment::{
+  FRAGMENTER_VERSION, FRAGMENTS_SCHEMA_VERSION, delete_item_fragment_artifacts, fragment_inputs_are_current,
+  read_item_fragments,
+};
 use super::fragment_indexing::{commit_user_updates, item_fragment_index_is_current, load_item_search_fragments};
 use super::geo::{delete_item_geo_artifacts, extract_geo_query_coordinates, geo_manifest_is_complete};
-use super::image_tagging::{ImageTagArtifactState, image_tagging_artifact_state};
+use super::image_tagging::{ImageTagArtifactState, image_tagging_artifact_state, is_supported_image_tagging_mime_type};
 use super::lexical_index::{
-  FragmentLexicalIndexRebuildStatus, LexicalFragment, open_user_document_fragment_lexical_index,
-  open_user_item_title_lexical_index,
+  FragmentLexicalIndexRebuildStatus, LexicalFragment, document_fragment_lexical_index_dir,
+  open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
 };
 use super::search_processing::SearchContentKind;
 use super::text_extraction::delete_item_text_dir;
@@ -48,6 +64,9 @@ use super::title_indexing::lexical_fragment_from_item_title_fragment;
 use super::user_id_for_log;
 
 const BATCH_SIZE: usize = 100;
+const STARTUP_CHECK_FILENAME: &str = "search_startup_check.json";
+const STARTUP_CHECK_VERSION: u32 = 1;
+const PROGRESS_LOG_INTERVAL_SECS: u64 = 30;
 
 pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<()> {
   info!("Reconciling search artifacts and indexes at startup (before background processing).");
@@ -60,7 +79,11 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
     users
   };
 
+  let started = Instant::now();
+  let total_items = items_by_user.values().map(Vec::len).sum::<usize>();
+  info!("Search startup check: {} user(s), {} item(s).", items_by_user.len(), total_items);
   for (user_id, item_ids) in &mut items_by_user {
+    let user_started = Instant::now();
     item_ids.sort();
     let live_ids = item_ids.iter().cloned().collect::<HashSet<_>>();
     let title_index = open_user_item_title_lexical_index(data_dir, user_id)?;
@@ -87,10 +110,18 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
       commit_user_updates(data_dir, user_id, &removals).await?;
     }
 
+    let stamp_path = startup_check_path(data_dir, user_id)?;
+    let previous_stamps = read_startup_check(&stamp_path).await;
+    let index_identity_before = content_index_identity(data_dir, user_id).await?;
+    let mut stamps = HashMap::new();
+    let mut verified_in_detail = Vec::new();
     let mut invalidated = 0;
     let mut indexed = 0;
     let mut errors = 0;
-    for (batch_number, batch) in item_ids.chunks(BATCH_SIZE).enumerate() {
+    let mut checked = 0;
+    let mut checked_in_detail = 0;
+    let mut last_progress_log = Instant::now();
+    for batch in item_ids.chunks(BATCH_SIZE) {
       let snapshots = {
         let db = db.lock().await;
         batch
@@ -113,6 +144,16 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
 
       let mut updates = Vec::new();
       for (item, context, _) in &snapshots {
+        checked += 1;
+        if SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some() {
+          if let Ok(stamp) = item_check_stamp(data_dir, item, context.as_deref(), &index_identity_before).await {
+            if previous_stamps.get(&item.id) == Some(&stamp) {
+              stamps.insert(item.id.clone(), stamp);
+              continue;
+            }
+          }
+          checked_in_detail += 1;
+        }
         let result = reconcile_item_artifacts(data_dir, item, context.as_deref()).await;
         match result {
           Ok(true) => {
@@ -121,6 +162,7 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
             if !membership_matches || !item_fragment_index_is_current(data_dir, user_id, &item.id).await? {
               updates.push((item.id.clone(), fragments));
             }
+            verified_in_detail.push((item.clone(), context.clone()));
           }
           Ok(false) => {
             if delete_item_fragment_artifacts(data_dir, user_id, &item.id).await? {
@@ -145,12 +187,17 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
         commit_user_updates(data_dir, user_id, &updates).await?;
         indexed += updates.len();
       }
-      info!(
-        "Search startup check for user {}: {}/{} items checked.",
-        user_id_for_log(user_id),
-        ((batch_number + 1) * BATCH_SIZE).min(item_ids.len()),
-        item_ids.len()
-      );
+      if last_progress_log.elapsed().as_secs() >= PROGRESS_LOG_INTERVAL_SECS {
+        info!(
+          "Search startup check for user {}: {}/{} items ({} content unchanged, {} checked in detail).",
+          user_id_for_log(user_id),
+          checked,
+          item_ids.len(),
+          stamps.len(),
+          checked_in_detail
+        );
+        last_progress_log = Instant::now();
+      }
       tokio::task::yield_now().await;
     }
     if !title_updates.is_empty() {
@@ -165,9 +212,31 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
     if title_updates.is_empty() && search_metadata_needs_repair(title_index.rebuild_status().await) {
       title_index.replace_items_titles(&[]).await?;
     }
+
+    // Stamps embed the content index identity. If this pass created or replaced
+    // the index, unchanged items are checked in depth next time instead.
+    let unchanged = stamps.len();
+    let index_identity = content_index_identity(data_dir, user_id).await?;
+    if index_identity != index_identity_before {
+      stamps.clear();
+    }
+    for (item, context) in &verified_in_detail {
+      if let Ok(stamp) = item_check_stamp(data_dir, item, context.as_deref(), &index_identity).await {
+        stamps.insert(item.id.clone(), stamp);
+      }
+    }
+    if stamps != previous_stamps {
+      if let Err(error) = write_startup_check(&stamp_path, &stamps).await {
+        warn!("Could not save search startup check record for user {}: {}", user_id_for_log(user_id), error);
+      }
+    }
     info!(
-      "Search startup check for user {} complete: {} title index updates, {} obsolete fragment artifacts removed, {} content index updates, {} deleted items removed, {} item errors.",
+      "Search startup check for user {} complete in {:.1}s: {} items ({} with content unchanged, {} content checked in detail), {} title index updates, {} obsolete fragment artifacts removed, {} content index updates, {} deleted items removed, {} item errors.",
       user_id_for_log(user_id),
+      user_started.elapsed().as_secs_f64(),
+      item_ids.len(),
+      unchanged,
+      checked_in_detail,
       title_updates.len(),
       invalidated,
       indexed,
@@ -175,8 +244,100 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
       errors
     );
   }
-  info!("Search startup reconciliation finished; existing workers will process missing artifacts.");
+  info!(
+    "Search startup check finished in {:.1}s; background workers will process remaining work.",
+    started.elapsed().as_secs_f64()
+  );
   Ok(())
+}
+
+#[derive(Deserialize, Serialize)]
+struct StartupCheckRecord {
+  version: u32,
+  items: HashMap<String, String>,
+}
+
+fn startup_check_path(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
+  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  path.push(format!("user_{}", user_id));
+  path.push(STARTUP_CHECK_FILENAME);
+  Ok(path)
+}
+
+/// A missing or unreadable record only means every item is checked in depth.
+async fn read_startup_check(path: &Path) -> HashMap<String, String> {
+  let Ok(bytes) = fs::read(path).await else { return HashMap::new() };
+  match serde_json::from_slice::<StartupCheckRecord>(&bytes) {
+    Ok(record) if record.version == STARTUP_CHECK_VERSION => record.items,
+    _ => HashMap::new(),
+  }
+}
+
+async fn write_startup_check(path: &Path, items: &HashMap<String, String>) -> InfuResult<()> {
+  let record = StartupCheckRecord { version: STARTUP_CHECK_VERSION, items: items.clone() };
+  atomic_write(path, &serde_json::to_vec(&record)?).await
+}
+
+/// Identifies the content index instance that receipts refer to.
+async fn content_index_identity(data_dir: &str, user_id: &str) -> InfuResult<String> {
+  let index_dir = document_fragment_lexical_index_dir(data_dir, user_id)?;
+  if !fs::try_exists(&index_dir).await? {
+    return Ok("absent".to_owned());
+  }
+  if !fs::try_exists(index_dir.join("meta.json")).await? {
+    return Ok("incomplete".to_owned());
+  }
+  match fs::read_to_string(index_dir.join("artifact_generation")).await {
+    Ok(generation) => Ok(generation),
+    Err(error) if error.kind() == ErrorKind::NotFound => Ok("unidentified".to_owned()),
+    Err(error) => Err(error.into()),
+  }
+}
+
+/// Everything the in-depth check depends on, using file sizes and modification
+/// times instead of contents: generated text and location files, fragments,
+/// the index receipt, fragment format versions, the index identity, and the
+/// item metadata that feeds fragments.
+async fn item_check_stamp(
+  data_dir: &str,
+  item: &Item,
+  context: Option<&str>,
+  index_identity: &str,
+) -> InfuResult<String> {
+  let (user_id, item_id) = (item.owner_id.as_str(), item.id.as_str());
+  let paths = [
+    item_text_content_path(data_dir, user_id, item_id)?,
+    item_text_manifest_path(data_dir, user_id, item_id)?,
+    item_geo_content_path(data_dir, user_id, item_id)?,
+    item_geo_manifest_path(data_dir, user_id, item_id)?,
+    item_fragments_path(data_dir, user_id, item_id)?,
+    item_fragments_manifest_path(data_dir, user_id, item_id)?,
+    item_fragments_dir(data_dir, user_id, item_id)?.join("index_receipt.json"),
+  ];
+  let mut files = Vec::with_capacity(paths.len());
+  for path in paths {
+    files.push(match fs::metadata(&path).await {
+      Ok(metadata) => {
+        let modified = metadata.modified()?.duration_since(UNIX_EPOCH).unwrap_or_default();
+        Some((metadata.len(), modified.as_secs(), modified.subsec_nanos()))
+      }
+      Err(error) if error.kind() == ErrorKind::NotFound => None,
+      Err(error) => return Err(error.into()),
+    });
+  }
+  // Only image fragments include the title and parent context.
+  let image = is_supported_image_tagging_mime_type(item.mime_type.as_deref());
+  let stamp = sha256(&serde_json::to_vec(&(
+    "startup-check-v1",
+    FRAGMENTS_SCHEMA_VERSION,
+    FRAGMENTER_VERSION,
+    &item.mime_type,
+    if image { item.title.as_deref() } else { None },
+    if image { context } else { None },
+    index_identity,
+    files,
+  ))?);
+  Ok(stamp[..32].to_owned())
 }
 
 /// Search needs complete metadata that matches the index. Unreadable metadata
