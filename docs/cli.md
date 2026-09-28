@@ -221,7 +221,7 @@ Index files have these roles:
 
 Normal item additions, changes, and deletions update only the affected lexical documents and are batched per user. This still uses BM25: corpus statistics are evaluated from the current Tantivy index at query time, so adding an item does not require rebuilding old documents. Deleted documents stop matching immediately; their internal tombstones can make corpus statistics slightly approximate until the next compacting rebuild.
 
-After rebuilding, the command refreshes two virtual pages under the user's Queries page: `Search fragments failed` links to items whose prerequisite extraction or tagging failed, and `Search fragments pending` links to supported items that do not yet have search fragments. Their contents come from `search_status.json` in the user's data directory.
+This is a repair tool: routine additions and regenerated content become searchable through the web server's background workers without it. The `Search processing` and `Search needs attention` pages under the user's Queries page reflect live processing activity and do not depend on this command.
 
 Example:
 
@@ -304,6 +304,17 @@ Options:
 - **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
 - **-c --container-id (optional):** The id of the container to add the note to. If omitted, the note will be added to the root container of the session user.
 - **-n --note (required):** The note to add. Should be in quotes (" ").
+
+
+### reprocess
+
+Ask a running Infumap server to discard an item's generated search text (PDF extraction or image description) and fragments, then regenerate and reindex them with the currently configured GPU service. Old search entries are removed immediately, without waiting for the GPU service. Manual edits to generated text are discarded. Location output is kept.
+
+Options:
+- **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
+- **-i --id (required):** The id of the item to reprocess.
+
+Progress is shown on the `Search processing` page and at `/files/<item id>/search-status`.
 
 
 ### upload

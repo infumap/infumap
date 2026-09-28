@@ -44,6 +44,7 @@ pub mod note;
 pub mod pending;
 pub mod rebuild_search_index;
 pub mod reconcile;
+pub mod reprocess;
 pub mod restore;
 pub mod stats;
 pub mod upload;

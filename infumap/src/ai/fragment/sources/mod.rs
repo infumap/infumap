@@ -16,7 +16,7 @@ mod pdf;
 mod title;
 
 pub use image::build_image_fragment_artifact;
-pub use markdown::{build_markdown_fragment_artifact, build_text_fragment_artifact};
+pub use markdown::{build_markdown_fragment_artifact, build_text_fragment_artifact, read_local_text_copy};
 pub use pdf::{build_pdf_fragment_artifact, pdf_fragment_source_for_item};
 pub use title::{ItemTitleFragment, item_title_fragment_for_item};
 

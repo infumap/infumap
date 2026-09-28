@@ -1,29 +1,98 @@
+use std::io::ErrorKind;
 use std::sync::Arc;
 
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
+use infusdk::util::time::unix_now_secs_i64;
 use log::debug;
+use serde::{Deserialize, Serialize};
+use tokio::fs;
 
+use crate::ai::artifact_io::{atomic_write, sha256};
+use crate::ai::artifact_paths::{item_text_content_path, item_text_manifest_path};
 use crate::storage::object::{self as storage_object, ObjectStore};
 
 use super::pdf::markdown_fragment_source;
 use super::{FragmentSource, FragmentSourceKind, write_fragment_source_artifact};
 use crate::ai::fragment::FragmentBuildOutcome;
 
+const LOCAL_COPY_MIME_TYPES: [&str; 2] = ["text/markdown", "text/plain"];
+
 pub struct ObjectTextFragmentBuildResult {
   pub had_fragment_source: bool,
   pub outcome: FragmentBuildOutcome,
 }
 
+/// Same location and status fields as extracted PDF text, so generated-text
+/// routes, reprocessing and deletion treat both alike.
+#[derive(Deserialize, Serialize)]
+struct LocalCopyManifest {
+  schema_version: u32,
+  status: String,
+  source_mime_type: String,
+  content_mime_type: String,
+  copied_at_unix_secs: i64,
+}
+
+/// The local copy of a Markdown or text item's original. Originals are
+/// immutable, so like extracted PDF text an existing copy is trusted and never
+/// checked against the original.
+pub async fn read_local_text_copy(data_dir: &str, item: &Item) -> InfuResult<Option<Vec<u8>>> {
+  let manifest = match fs::read(item_text_manifest_path(data_dir, &item.owner_id, &item.id)?).await {
+    Ok(bytes) => serde_json::from_slice::<LocalCopyManifest>(&bytes).ok(),
+    Err(error) if error.kind() == ErrorKind::NotFound => None,
+    Err(error) => return Err(error.into()),
+  };
+  // Text left by a PDF or image before the item changed type is not a copy.
+  let is_copy = manifest.is_some_and(|manifest| {
+    manifest.status == "succeeded" && LOCAL_COPY_MIME_TYPES.contains(&manifest.source_mime_type.as_str())
+  });
+  if !is_copy {
+    return Ok(None);
+  }
+  match fs::read(item_text_content_path(data_dir, &item.owner_id, &item.id)?).await {
+    Ok(bytes) => Ok(Some(bytes)),
+    Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
+    Err(error) => Err(error.into()),
+  }
+}
+
+async fn read_or_create_local_text_copy(
+  data_dir: &str,
+  object_store: Arc<ObjectStore>,
+  item: &Item,
+  object_encryption_key: &str,
+  source_label: &str,
+) -> InfuResult<Vec<u8>> {
+  if let Some(bytes) = read_local_text_copy(data_dir, item).await? {
+    return Ok(bytes);
+  }
+  let bytes = storage_object::get(object_store, item.owner_id.clone(), item.id.clone(), object_encryption_key)
+    .await
+    .map_err(|e| format!("Could not read source {} object for '{}': {}", source_label, item.id, e))?;
+  let mime_type = item.mime_type.clone().unwrap_or_default();
+  let manifest = LocalCopyManifest {
+    schema_version: 1,
+    status: "succeeded".to_owned(),
+    source_mime_type: mime_type.clone(),
+    content_mime_type: mime_type,
+    copied_at_unix_secs: unix_now_secs_i64()?,
+  };
+  atomic_write(&item_text_content_path(data_dir, &item.owner_id, &item.id)?, &bytes).await?;
+  atomic_write(&item_text_manifest_path(data_dir, &item.owner_id, &item.id)?, &serde_json::to_vec_pretty(&manifest)?)
+    .await?;
+  Ok(bytes)
+}
+
 async fn markdown_fragment_source_for_item(
+  data_dir: &str,
   object_store: Arc<ObjectStore>,
   item: &Item,
   object_encryption_key: &str,
 ) -> InfuResult<(Option<FragmentSource>, String)> {
-  let file_bytes = storage_object::get(object_store, item.owner_id.clone(), item.id.clone(), object_encryption_key)
-    .await
-    .map_err(|e| format!("Could not read source markdown object for '{}': {}", item.id, e))?;
-  let input = crate::ai::artifact_io::sha256(&file_bytes);
+  let file_bytes =
+    read_or_create_local_text_copy(data_dir, object_store, item, object_encryption_key, "markdown").await?;
+  let input = sha256(&file_bytes);
   let Some(markdown) = normalize_utf8_text_source(&file_bytes, &item.id, "Markdown file")? else {
     return Ok((None, input));
   };
@@ -32,14 +101,13 @@ async fn markdown_fragment_source_for_item(
 }
 
 async fn text_fragment_source_for_item(
+  data_dir: &str,
   object_store: Arc<ObjectStore>,
   item: &Item,
   object_encryption_key: &str,
 ) -> InfuResult<(Option<FragmentSource>, String)> {
-  let file_bytes = storage_object::get(object_store, item.owner_id.clone(), item.id.clone(), object_encryption_key)
-    .await
-    .map_err(|e| format!("Could not read source text object for '{}': {}", item.id, e))?;
-  let input = crate::ai::artifact_io::sha256(&file_bytes);
+  let file_bytes = read_or_create_local_text_copy(data_dir, object_store, item, object_encryption_key, "text").await?;
+  let input = sha256(&file_bytes);
   let Some(text) = normalize_plain_text_source(&file_bytes, &item.id) else {
     return Ok((None, input));
   };
@@ -53,7 +121,8 @@ pub async fn build_markdown_fragment_artifact(
   item: &Item,
   object_encryption_key: &str,
 ) -> InfuResult<ObjectTextFragmentBuildResult> {
-  let (fragment_source, input) = markdown_fragment_source_for_item(object_store, item, object_encryption_key).await?;
+  let (fragment_source, input) =
+    markdown_fragment_source_for_item(data_dir, object_store, item, object_encryption_key).await?;
   let had_fragment_source = fragment_source.is_some();
   let outcome =
     write_fragment_source_artifact(data_dir, item, fragment_source, FragmentSourceKind::Markdown, input).await?;
@@ -66,7 +135,8 @@ pub async fn build_text_fragment_artifact(
   item: &Item,
   object_encryption_key: &str,
 ) -> InfuResult<ObjectTextFragmentBuildResult> {
-  let (fragment_source, input) = text_fragment_source_for_item(object_store, item, object_encryption_key).await?;
+  let (fragment_source, input) =
+    text_fragment_source_for_item(data_dir, object_store, item, object_encryption_key).await?;
   let had_fragment_source = fragment_source.is_some();
   let outcome =
     write_fragment_source_artifact(data_dir, item, fragment_source, FragmentSourceKind::Text, input).await?;

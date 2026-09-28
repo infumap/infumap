@@ -1,6 +1,8 @@
 //! One recovery pass before background workers and HTTP requests can change items.
 //! Artifacts remain the only bookkeeping: invalidating obsolete fragments makes
 //! the existing workers' startup scans discover the necessary regeneration.
+//! Local text (extracted PDF text, image descriptions, copies of Markdown/text
+//! originals) is trusted to reflect the original, so no originals are read here.
 
 use std::collections::{BTreeMap, HashSet};
 use std::io::ErrorKind;
@@ -15,12 +17,12 @@ use tokio::fs;
 use tokio::sync::Mutex;
 
 use crate::storage::db::Db;
-use crate::storage::object::{self, ObjectStore};
 
 use super::artifact_io::sha256;
 use super::artifact_paths::{item_geo_manifest_path, item_text_content_path, item_text_manifest_path};
 use super::fragment::sources::{
-  artifact_fragment_input_sha256, item_title_fragment_for_item, search_fragment_context_title_for_item,
+  artifact_fragment_input_sha256, item_title_fragment_for_item, read_local_text_copy,
+  search_fragment_context_title_for_item,
 };
 use super::fragment::{delete_item_fragment_artifacts, fragment_inputs_are_current, read_item_fragments};
 use super::fragment_indexing::{commit_user_updates, item_fragment_index_is_current, load_item_search_fragments};
@@ -36,11 +38,7 @@ use super::user_id_for_log;
 
 const BATCH_SIZE: usize = 100;
 
-pub async fn reconcile_search_at_startup(
-  data_dir: &str,
-  db: Arc<Mutex<Db>>,
-  object_store: Arc<ObjectStore>,
-) -> InfuResult<()> {
+pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<()> {
   info!("Reconciling search artifacts and indexes at startup (before background processing).");
   let mut items_by_user = {
     let db = db.lock().await;
@@ -71,10 +69,6 @@ pub async fn reconcile_search_at_startup(
       commit_user_updates(data_dir, user_id, &removals).await?;
     }
 
-    let encryption_key = {
-      let db = db.lock().await;
-      db.user.get(user_id).ok_or("Search reconciliation user is not loaded.")?.object_encryption_key.clone()
-    };
     let mut invalidated = 0;
     let mut indexed = 0;
     let mut errors = 0;
@@ -100,8 +94,7 @@ pub async fn reconcile_search_at_startup(
 
       let mut updates = Vec::new();
       for (item, context, _) in &snapshots {
-        let result =
-          reconcile_item_artifacts(data_dir, object_store.clone(), item, &encryption_key, context.as_deref()).await;
+        let result = reconcile_item_artifacts(data_dir, item, context.as_deref()).await;
         match result {
           Ok(true) => {
             let fragments = load_item_search_fragments(data_dir, user_id, &item.id).await?;
@@ -167,34 +160,21 @@ pub async fn reconcile_search_at_startup(
 }
 
 /// Return true only when the fragments still describe their current inputs.
-async fn reconcile_item_artifacts(
-  data_dir: &str,
-  object_store: Arc<ObjectStore>,
-  item: &Item,
-  encryption_key: &str,
-  context: Option<&str>,
-) -> InfuResult<bool> {
+async fn reconcile_item_artifacts(data_dir: &str, item: &Item, context: Option<&str>) -> InfuResult<bool> {
   let Some(kind) = SearchContentKind::from_mime_type(item.mime_type.as_deref()) else {
     return Ok(false);
   };
   let input = match kind {
-    SearchContentKind::Markdown | SearchContentKind::Text => {
-      sha256(&object::get(object_store, item.owner_id.clone(), item.id.clone(), encryption_key).await?)
-    }
+    // Without a local copy the worker must read the original once to make one.
+    SearchContentKind::Markdown | SearchContentKind::Text => match read_local_text_copy(data_dir, item).await? {
+      Some(bytes) => sha256(&bytes),
+      None => return Ok(false),
+    },
     SearchContentKind::Image | SearchContentKind::Pdf => {
       let manifest_path = item_text_manifest_path(data_dir, &item.owner_id, &item.id)?;
       if let Some(manifest) = read_json(&manifest_path).await? {
-        let mime_changed = manifest.get("source_mime_type").and_then(Value::as_str) != item.mime_type.as_deref();
-        let source_changed =
-          if let Some(previous) = manifest.pointer("/processing/input_sha256").and_then(Value::as_str) {
-            let bytes = object::get(object_store, item.owner_id.clone(), item.id.clone(), encryption_key).await?;
-            previous != sha256(&bytes)
-          } else {
-            // Old successful extractions remain accepted; missing provenance alone
-            // must not rerun the GPU across the entire corpus.
-            false
-          };
-        if mime_changed || source_changed {
+        // Metadata only: text extracted for another type of source is not reused.
+        if manifest.get("source_mime_type").and_then(Value::as_str) != item.mime_type.as_deref() {
           delete_item_text_dir(data_dir, &item.owner_id, &item.id).await?;
           delete_item_geo_artifacts(data_dir, &item.owner_id, &item.id).await?;
           return Ok(false);

@@ -65,8 +65,8 @@ use crate::ai::lexical_index::{
 };
 use crate::ai::metrics::{METRIC_SEARCH_BACKEND_DURATION_SECONDS, METRIC_SEARCH_BACKEND_FAILURES_TOTAL};
 use crate::ai::search_status::{
-  SearchStatusArtifact, SearchStatusPageKind, read_search_status_artifact, search_failed_page_id,
-  search_pending_page_id, search_status_link_id, search_status_page_id, search_status_page_kind_for_route_id,
+  SearchStatusPageKind, SearchStatusView, search_attention_page_id, search_processing_page_id, search_status_link_id,
+  search_status_page_id, search_status_page_kind_for_route_id,
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::ai::title_indexing::enqueue_item_title_index_update;
@@ -207,6 +207,7 @@ pub async fn serve_command_route(
     "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
     "search" => search::handle_search(db, &request.json_data, &session_maybe).await,
     "empty-trash" => item_ops::handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
+    "reprocess-item" => item_ops::handle_reprocess_item(db, &request.json_data, &session_maybe).await,
     _ => {
       if let Some(session) = &session_maybe {
         warn!("Unknown command '{}' issued by user '{}', session '{}'", request.command, session.user_id, session.id);
@@ -622,7 +623,7 @@ fn build_authoritative_child_attachment_snapshot(
   db: &MutexGuard<'_, Db>,
   item_id: &Uid,
   session_user_id_maybe: &Option<String>,
-  search_status_artifact_maybe: Option<&SearchStatusArtifact>,
+  search_status_view_maybe: Option<&SearchStatusView>,
 ) -> InfuResult<SyncContainerSnapshot> {
   let child_items = get_children_authorized(db, item_id, session_user_id_maybe)?;
   let mut children = child_items
@@ -634,7 +635,7 @@ fn build_authoritative_child_attachment_snapshot(
     db,
     item_id,
     session_user_id_maybe,
-    search_status_artifact_maybe,
+    search_status_view_maybe,
     &child_items,
     &mut children,
   )?;
@@ -656,7 +657,7 @@ fn append_virtual_search_status_pages_to_queries_snapshot(
   db: &MutexGuard<'_, Db>,
   item_id: &Uid,
   session_user_id_maybe: &Option<String>,
-  search_status_artifact_maybe: Option<&SearchStatusArtifact>,
+  search_status_view_maybe: Option<&SearchStatusView>,
   child_items: &[&Item],
   children: &mut Vec<serde_json::Map<String, serde_json::Value>>,
 ) -> InfuResult<()> {
@@ -668,12 +669,19 @@ fn append_virtual_search_status_pages_to_queries_snapshot(
     return Ok(());
   }
 
-  let empty_artifact = SearchStatusArtifact::empty();
-  let search_status_artifact = search_status_artifact_maybe.unwrap_or(&empty_artifact);
+  let empty_view = SearchStatusView::empty();
+  let search_status_view = search_status_view_maybe.unwrap_or(&empty_view);
   let mut ordering = new_ordering_at_end(child_items.iter().map(|item| item.ordering.clone()).collect());
-  for page_kind in [SearchStatusPageKind::Failed, SearchStatusPageKind::Pending] {
-    let child_count = virtual_search_status_page_child_count(db, session_user_id, page_kind, search_status_artifact);
-    let item = virtual_search_status_page(session_user_id, page_kind, Some(item_id), ordering.clone(), child_count);
+  for page_kind in [SearchStatusPageKind::Attention, SearchStatusPageKind::Processing] {
+    let child_count = virtual_search_status_page_child_count(db, session_user_id, page_kind, search_status_view);
+    let item = virtual_search_status_page(
+      session_user_id,
+      page_kind,
+      Some(item_id),
+      ordering.clone(),
+      child_count,
+      search_status_view.checking,
+    );
     children.push(virtual_search_status_item_to_api_json_map(&item)?);
     ordering = new_ordering_after(&ordering);
   }
@@ -869,29 +877,29 @@ async fn handle_sync_containers(
   }
 
   let mut updates = Vec::new();
-  let mut search_status_artifact_for_session = None;
+  let mut search_status_view_for_session = None;
   if let Some(session) = session_maybe {
     if !virtual_search_status_subscriptions.is_empty() {
-      let artifact = read_search_status_artifact_or_empty(db, &session.user_id).await?;
+      let view = SearchStatusView::for_user(&session.user_id);
       {
         let db = db.lock().await;
         for (subscription, page_kind) in virtual_search_status_subscriptions {
           if let Some(update) =
-            virtual_search_status_sync_update(&db, &session.user_id, &subscription, page_kind, &artifact)?
+            virtual_search_status_sync_update(&db, &session.user_id, &subscription, page_kind, &view)?
           {
             updates.push(update);
           }
         }
       }
-      search_status_artifact_for_session = Some(artifact);
+      search_status_view_for_session = Some(view);
     }
   }
 
-  let search_status_artifact_for_queries_snapshot = maybe_read_search_status_artifact_for_queries_subscription(
+  let search_status_view_for_queries_snapshot = maybe_search_status_view_for_queries_subscription(
     db,
     &db_subscriptions,
     session_maybe,
-    search_status_artifact_for_session.as_ref(),
+    search_status_view_for_session.as_ref(),
   )
   .await?;
 
@@ -903,19 +911,19 @@ async fn handle_sync_containers(
       return Err(format!("Item '{}' is not a container and cannot be synced.", subscription.id).into());
     }
 
-    let search_status_artifact_for_subscription = if let Some(session_user_id) = &session_user_id_maybe {
+    let search_status_view_for_subscription = if let Some(session_user_id) = &session_user_id_maybe {
       match db.user.get(session_user_id) {
-        Some(user) if user.queries_page_id == subscription.id => search_status_artifact_for_queries_snapshot.as_ref(),
+        Some(user) if user.queries_page_id == subscription.id => search_status_view_for_queries_snapshot.as_ref(),
         _ => None,
       }
     } else {
       None
     };
 
-    if let Some(search_status_artifact) = search_status_artifact_for_subscription {
+    if let Some(search_status_view) = search_status_view_for_subscription {
       let epoch = db.container_sync.epoch_for_user(&item.owner_id);
       let real_version = db.container_sync.version_for_container(&item.owner_id, &subscription.id);
-      let version = queries_container_sync_version(real_version, search_status_artifact);
+      let version = queries_container_sync_version(real_version, search_status_view);
       db.container_sync.mark_client_access(&item.owner_id, &subscription.id);
       if subscription.known_epoch == Some(epoch) && subscription.known_version == Some(version) {
         continue;
@@ -934,7 +942,7 @@ async fn handle_sync_containers(
           db,
           &subscription.id,
           &session_user_id_maybe,
-          Some(search_status_artifact),
+          Some(search_status_view),
         )?),
       });
       continue;
@@ -1031,10 +1039,10 @@ fn virtual_search_status_sync_update(
   user_id: &str,
   subscription: &SyncContainersSubscription,
   page_kind: SearchStatusPageKind,
-  artifact: &SearchStatusArtifact,
+  view: &SearchStatusView,
 ) -> InfuResult<Option<SyncContainerUpdate>> {
   let epoch = 0;
-  let version = virtual_search_status_sync_version(artifact);
+  let version = view.sync_version();
   if subscription.known_epoch == Some(epoch) && subscription.known_version == Some(version) {
     return Ok(None);
   }
@@ -1050,7 +1058,7 @@ fn virtual_search_status_sync_update(
     attachment_upserts: None,
     attachment_deletes: None,
     snapshot: Some(SyncContainerSnapshot {
-      children: virtual_search_status_page_children(db, user_id, page_kind, artifact)?,
+      children: virtual_search_status_page_children(db, user_id, page_kind, view)?,
       attachments: serde_json::Map::new(),
     }),
   }))
@@ -1077,8 +1085,8 @@ async fn handle_get_items(
     return Ok(Some(response));
   }
 
-  let search_status_artifact_for_queries_snapshot = if get_items_mode_includes_children(&mode) {
-    maybe_read_search_status_artifact_for_queries_container(db, &item_id, session_maybe).await?
+  let search_status_view_for_queries_snapshot = if get_items_mode_includes_children(&mode) {
+    maybe_search_status_view_for_queries_container(db, &item_id, session_maybe).await?
   } else {
     None
   };
@@ -1120,7 +1128,7 @@ async fn handle_get_items(
       db,
       &item_id,
       &session_user_id_maybe,
-      search_status_artifact_for_queries_snapshot.as_ref(),
+      search_status_view_for_queries_snapshot.as_ref(),
     )?;
     children_result = snapshot.children;
     attachments_result = snapshot.attachments;
@@ -1151,8 +1159,8 @@ async fn handle_get_items(
   let sync_version = match mode {
     GetItemsMode::ChildrenAndTheirAttachmentsOnly | GetItemsMode::ItemAttachmentsChildrenAndTheirAttachments => {
       let real_version = db.container_sync.version_for_container(&item.owner_id, &item_id);
-      Some(match search_status_artifact_for_queries_snapshot.as_ref() {
-        Some(search_status_artifact) => queries_container_sync_version(real_version, search_status_artifact),
+      Some(match search_status_view_for_queries_snapshot.as_ref() {
+        Some(search_status_view) => queries_container_sync_version(real_version, search_status_view),
         None => real_version,
       })
     }
@@ -1226,8 +1234,8 @@ async fn maybe_handle_get_virtual_search_status_page_items(
     return Ok(None);
   };
 
-  let artifact = read_search_status_artifact_or_empty(db, &session.user_id).await?;
-  let sync_version = virtual_search_status_sync_version(&artifact);
+  let view = SearchStatusView::for_user(&session.user_id);
+  let sync_version = view.sync_version();
 
   let db = db.lock().await;
   let parent_id_maybe = search_status_page_parent_id(&db, &session.user_id);
@@ -1236,16 +1244,23 @@ async fn maybe_handle_get_virtual_search_status_page_items(
     None => new_ordering(),
   };
   let child_items = if get_items_mode_includes_children(mode) {
-    virtual_search_status_page_child_items(&db, &session.user_id, page_kind, &artifact)?
+    virtual_search_status_page_child_items(&db, &session.user_id, page_kind, &view)?
   } else {
     Vec::new()
   };
   let child_count = if get_items_mode_includes_children(mode) {
     child_items.len()
   } else {
-    virtual_search_status_page_child_count(&db, &session.user_id, page_kind, &artifact)
+    virtual_search_status_page_child_count(&db, &session.user_id, page_kind, &view)
   };
-  let page = virtual_search_status_page(&session.user_id, page_kind, parent_id_maybe.as_ref(), ordering, child_count);
+  let page = virtual_search_status_page(
+    &session.user_id,
+    page_kind,
+    parent_id_maybe.as_ref(),
+    ordering,
+    child_count,
+    view.checking,
+  );
   let children = child_items
     .into_iter()
     .map(|item| virtual_search_status_item_to_api_json_map(&item))
@@ -1289,9 +1304,9 @@ async fn maybe_handle_get_virtual_search_status_link_items(
     return Ok(None);
   };
 
-  let artifact = read_search_status_artifact_or_empty(db, &session.user_id).await?;
+  let view = SearchStatusView::for_user(&session.user_id);
   let db = db.lock().await;
-  let Some(link) = virtual_search_status_link_item_for_id(&db, &session.user_id, item_id, &artifact)? else {
+  let Some(link) = virtual_search_status_link_item_for_id(&db, &session.user_id, item_id, &view)? else {
     return Ok(None);
   };
 
@@ -1323,73 +1338,44 @@ async fn maybe_handle_get_virtual_search_status_link_items(
   Ok(Some(serde_json::to_string(&result)?))
 }
 
-async fn read_search_status_artifact_or_empty(
-  db: &Arc<tokio::sync::Mutex<Db>>,
-  user_id: &str,
-) -> InfuResult<SearchStatusArtifact> {
-  let data_dir = {
-    let db = db.lock().await;
-    db.item.data_dir().to_owned()
-  };
-  Ok(match read_search_status_artifact(&data_dir, user_id).await? {
-    Some(artifact) => artifact,
-    None => SearchStatusArtifact::empty(),
-  })
-}
-
-async fn maybe_read_search_status_artifact_for_queries_container(
+async fn maybe_search_status_view_for_queries_container(
   db: &Arc<tokio::sync::Mutex<Db>>,
   item_id: &Uid,
   session_maybe: &Option<Session>,
-) -> InfuResult<Option<SearchStatusArtifact>> {
+) -> InfuResult<Option<SearchStatusView>> {
   let Some(session) = session_maybe else {
     return Ok(None);
   };
 
-  let data_dir = {
-    let db = db.lock().await;
-    let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
-    if &user.queries_page_id != item_id {
-      return Ok(None);
-    }
-    db.item.data_dir().to_owned()
-  };
-
-  Ok(Some(read_search_status_artifact(&data_dir, &session.user_id).await?.unwrap_or_else(SearchStatusArtifact::empty)))
+  let db = db.lock().await;
+  let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
+  if &user.queries_page_id != item_id {
+    return Ok(None);
+  }
+  Ok(Some(SearchStatusView::for_user(&session.user_id)))
 }
 
-async fn maybe_read_search_status_artifact_for_queries_subscription(
+async fn maybe_search_status_view_for_queries_subscription(
   db: &Arc<tokio::sync::Mutex<Db>>,
   subscriptions: &[SyncContainersSubscription],
   session_maybe: &Option<Session>,
-  artifact_maybe: Option<&SearchStatusArtifact>,
-) -> InfuResult<Option<SearchStatusArtifact>> {
+  view_maybe: Option<&SearchStatusView>,
+) -> InfuResult<Option<SearchStatusView>> {
   let Some(session) = session_maybe else {
     return Ok(None);
   };
 
-  let data_dir = {
-    let db = db.lock().await;
-    let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
-    if !subscriptions.iter().any(|subscription| subscription.id == user.queries_page_id) {
-      return Ok(None);
-    }
-    db.item.data_dir().to_owned()
-  };
-
-  if let Some(artifact) = artifact_maybe {
-    return Ok(Some(artifact.clone()));
+  let db = db.lock().await;
+  let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
+  if !subscriptions.iter().any(|subscription| subscription.id == user.queries_page_id) {
+    return Ok(None);
   }
-
-  Ok(Some(read_search_status_artifact(&data_dir, &session.user_id).await?.unwrap_or_else(SearchStatusArtifact::empty)))
+  Ok(Some(view_maybe.cloned().unwrap_or_else(|| SearchStatusView::for_user(&session.user_id))))
 }
 
-fn virtual_search_status_sync_version(artifact: &SearchStatusArtifact) -> u64 {
-  artifact.updated_at_unix_secs.max(0) as u64
-}
-
-fn queries_container_sync_version(real_version: u64, search_status_artifact: &SearchStatusArtifact) -> u64 {
-  virtual_search_status_sync_version(search_status_artifact)
+fn queries_container_sync_version(real_version: u64, search_status_view: &SearchStatusView) -> u64 {
+  search_status_view
+    .sync_version()
     .saturating_mul(SEARCH_STATUS_CONTAINER_VERSION_MULTIPLIER)
     .saturating_add(real_version)
     .saturating_add(1)
@@ -1407,11 +1393,11 @@ fn get_items_mode_includes_item(mode: &GetItemsMode) -> bool {
 }
 
 fn search_status_page_kind_for_id(user_id: &str, item_id: &str) -> Option<SearchStatusPageKind> {
-  if item_id == search_failed_page_id(user_id) {
-    return Some(SearchStatusPageKind::Failed);
+  if item_id == search_attention_page_id(user_id) {
+    return Some(SearchStatusPageKind::Attention);
   }
-  if item_id == search_pending_page_id(user_id) {
-    return Some(SearchStatusPageKind::Pending);
+  if item_id == search_processing_page_id(user_id) {
+    return Some(SearchStatusPageKind::Processing);
   }
   None
 }
@@ -1425,11 +1411,11 @@ fn virtual_search_status_page_ordering(
   parent_id: &Uid,
   page_kind: SearchStatusPageKind,
 ) -> InfuResult<Vec<u8>> {
-  let failed_ordering =
+  let attention_ordering =
     new_ordering_at_end(db.item.get_children(parent_id)?.iter().map(|item| item.ordering.clone()).collect());
   Ok(match page_kind {
-    SearchStatusPageKind::Failed => failed_ordering,
-    SearchStatusPageKind::Pending => new_ordering_after(&failed_ordering),
+    SearchStatusPageKind::Attention => attention_ordering,
+    SearchStatusPageKind::Processing => new_ordering_after(&attention_ordering),
   })
 }
 
@@ -1439,15 +1425,16 @@ fn virtual_search_status_page(
   parent_id_maybe: Option<&Uid>,
   ordering: Vec<u8>,
   child_count: usize,
+  checking: bool,
 ) -> Item {
   let spatial_page_width_bl = 3;
   let inner_page_width_bl = 60;
   let spatial_position_gr = match page_kind {
-    SearchStatusPageKind::Failed => Vector { x: 5 * GRID_SIZE, y: GRID_SIZE },
-    SearchStatusPageKind::Pending => Vector { x: GRID_SIZE, y: GRID_SIZE },
+    SearchStatusPageKind::Attention => Vector { x: 5 * GRID_SIZE, y: GRID_SIZE },
+    SearchStatusPageKind::Processing => Vector { x: GRID_SIZE, y: GRID_SIZE },
   };
   let natural_aspect = 2.0;
-  let title = search_status_page_title(page_kind, child_count);
+  let title = search_status_page_title(page_kind, child_count, checking);
   let mut item = Item::new_page(
     parent_id_maybe,
     ordering,
@@ -1472,24 +1459,28 @@ fn virtual_search_status_page(
   );
   item.owner_id = user_id.to_owned();
   item.id = match page_kind {
-    SearchStatusPageKind::Failed => search_failed_page_id(user_id),
-    SearchStatusPageKind::Pending => search_pending_page_id(user_id),
+    SearchStatusPageKind::Attention => search_attention_page_id(user_id),
+    SearchStatusPageKind::Processing => search_processing_page_id(user_id),
   };
   item.flags = Some(item.flags.unwrap_or(0) | LIST_PAGE_PIN_BOTTOM_FLAG | PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG);
   item
 }
 
-fn search_status_page_title(page_kind: SearchStatusPageKind, child_count: usize) -> String {
-  format!("{} ({})", page_kind.title(), child_count)
+fn search_status_page_title(page_kind: SearchStatusPageKind, child_count: usize, checking: bool) -> String {
+  if checking {
+    format!("{} ({}, checking)", page_kind.title(), child_count)
+  } else {
+    format!("{} ({})", page_kind.title(), child_count)
+  }
 }
 
 fn virtual_search_status_page_children(
   db: &MutexGuard<'_, Db>,
   user_id: &str,
   page_kind: SearchStatusPageKind,
-  artifact: &SearchStatusArtifact,
+  view: &SearchStatusView,
 ) -> InfuResult<Vec<serde_json::Map<String, serde_json::Value>>> {
-  virtual_search_status_page_child_items(db, user_id, page_kind, artifact)?
+  virtual_search_status_page_child_items(db, user_id, page_kind, view)?
     .into_iter()
     .map(|item| virtual_search_status_item_to_api_json_map(&item))
     .collect()
@@ -1499,10 +1490,10 @@ fn virtual_search_status_page_child_count(
   db: &MutexGuard<'_, Db>,
   user_id: &str,
   page_kind: SearchStatusPageKind,
-  artifact: &SearchStatusArtifact,
+  view: &SearchStatusView,
 ) -> usize {
   let session_user_id_maybe = Some(user_id.to_owned());
-  artifact
+  view
     .item_ids_for_page_kind(page_kind)
     .iter()
     .filter_map(|item_id| db.item.get(item_id).ok())
@@ -1514,12 +1505,11 @@ fn virtual_search_status_link_item_for_id(
   db: &MutexGuard<'_, Db>,
   user_id: &str,
   item_id: &Uid,
-  artifact: &SearchStatusArtifact,
+  view: &SearchStatusView,
 ) -> InfuResult<Option<Item>> {
-  for page_kind in [SearchStatusPageKind::Failed, SearchStatusPageKind::Pending] {
-    if let Some(link) = virtual_search_status_page_child_items(db, user_id, page_kind, artifact)?
-      .into_iter()
-      .find(|link| &link.id == item_id)
+  for page_kind in [SearchStatusPageKind::Attention, SearchStatusPageKind::Processing] {
+    if let Some(link) =
+      virtual_search_status_page_child_items(db, user_id, page_kind, view)?.into_iter().find(|link| &link.id == item_id)
     {
       return Ok(Some(link));
     }
@@ -1531,10 +1521,10 @@ fn virtual_search_status_page_child_items(
   db: &MutexGuard<'_, Db>,
   user_id: &str,
   page_kind: SearchStatusPageKind,
-  artifact: &SearchStatusArtifact,
+  view: &SearchStatusView,
 ) -> InfuResult<Vec<Item>> {
   let session_user_id_maybe = Some(user_id.to_owned());
-  let mut target_items = artifact
+  let mut target_items = view
     .item_ids_for_page_kind(page_kind)
     .iter()
     .filter_map(|item_id| db.item.get(item_id).ok())
@@ -1550,8 +1540,8 @@ fn virtual_search_status_page_child_items(
   });
 
   let page_id = match page_kind {
-    SearchStatusPageKind::Failed => search_failed_page_id(user_id),
-    SearchStatusPageKind::Pending => search_pending_page_id(user_id),
+    SearchStatusPageKind::Attention => search_attention_page_id(user_id),
+    SearchStatusPageKind::Processing => search_processing_page_id(user_id),
   };
   let mut ordering = new_ordering();
   let mut children = Vec::with_capacity(target_items.len());

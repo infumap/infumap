@@ -27,7 +27,8 @@ use crate::ai::image_tagging::{
   process_loaded_image_tagging, should_tag_image_item,
 };
 use crate::ai::metrics::{METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH};
-use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, record_manifest_retry};
+use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, manifest_retry_reason, record_manifest_retry};
+use crate::ai::search_activity::{self as activity, Stage};
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -194,6 +195,18 @@ pub fn dequeue_image_background_pipeline_item_if_active(item_id: &str) {
   });
 }
 
+/// Queues the item again without any retry delay, e.g. for explicit reprocessing.
+pub async fn requeue_image_background_pipeline_item_now(item: &Item) {
+  let Some(state) = IMAGE_BACKGROUND_PIPELINE_STATE.get() else {
+    return;
+  };
+  let mut state = state.lock().await;
+  remove_candidate_from_all_stages_with_log(&mut state, &item.id);
+  if let Some(candidate) = ImagePipelineCandidate::from_item(item) {
+    enqueue_live_candidate_for_all_stages_with_log(&mut state, candidate);
+  }
+}
+
 fn image_background_pipeline_config(config: &Config) -> InfuResult<ImageBackgroundPipelineConfig> {
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let gpu_tools_url = gpu_tools_url_from_config(config)?;
@@ -274,13 +287,19 @@ async fn run_source_image_loop(
       Ok(SourceImageReconcileOutcome::ReadyForDownstream) => {
         let mut state = state.lock().await;
         state.source.retries.clear(&candidate.item_id);
+        activity::done(&candidate.user_id, &candidate.item_id, Stage::ImageExtraction);
         record_image_pipeline_processed(PipelineStage::Source, "success");
         enqueue_source_candidate_downstream_if_needed(&config, &mut state, candidate, "after tag");
       }
       Ok(SourceImageReconcileOutcome::Gone) => {
         state.lock().await.source.retries.clear(&candidate.item_id);
+        activity::done(&candidate.user_id, &candidate.item_id, Stage::ImageExtraction);
       }
       Ok(SourceImageReconcileOutcome::Deferred(delay)) => {
+        let reason =
+          recorded_retry_reason(&item_text_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id))
+            .await;
+        activity::retry(&candidate.user_id, &candidate.item_id, Stage::ImageExtraction, &reason, delay);
         let mut state = state.lock().await;
         state.source.retries.defer(candidate.item_id.clone(), delay);
         enqueue_candidate(&mut state, PipelineStage::Source, candidate);
@@ -308,6 +327,7 @@ async fn retry_image(
     enqueue_candidate(&mut state, stage, candidate.clone());
     delay
   };
+  activity::retry(&candidate.user_id, &candidate.item_id, stage.activity_stage(), reason, delay);
   let path = match stage {
     PipelineStage::Source => Some(item_text_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id)),
     PipelineStage::Geo => Some(item_geo_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id)),
@@ -381,9 +401,14 @@ async fn run_reverse_geo_loop(
     match check {
       Ok(None) => {
         state.lock().await.geo.retries.clear(&candidate.item_id);
+        activity::done(&candidate.user_id, &candidate.item_id, Stage::Location);
         continue;
       }
       Ok(Some(delay)) if !delay.is_zero() => {
+        let reason =
+          recorded_retry_reason(&item_geo_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id))
+            .await;
+        activity::retry(&candidate.user_id, &candidate.item_id, Stage::Location, &reason, delay);
         let mut state = state.lock().await;
         state.geo.retries.defer(candidate.item_id.clone(), delay);
         enqueue_candidate(&mut state, PipelineStage::Geo, candidate);
@@ -440,6 +465,7 @@ async fn run_reverse_geo_loop(
         record_geo_pipeline_processed(&outcome);
         let mut state = state.lock().await;
         state.geo.retries.clear(&candidate.item_id);
+        activity::done(&candidate.user_id, &candidate.item_id, Stage::Location);
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
           wake_image_fragments(&mut state, candidate);
         }
@@ -470,10 +496,12 @@ async fn run_image_fragment_loop(
     match reconcile_image_fragment_item(&config, db.clone(), &candidate).await {
       Ok(Some(user_id)) => {
         state.lock().await.fragment.retries.clear(&candidate.item_id);
+        activity::done(&candidate.user_id, &candidate.item_id, Stage::Fragments);
         enqueue_fragment_lexical_index_update(&user_id, &candidate.item_id);
       }
       Ok(None) => {
         state.lock().await.fragment.retries.clear(&candidate.item_id);
+        activity::done(&candidate.user_id, &candidate.item_id, Stage::Fragments);
       }
       Err(e) => {
         retry_image(&config, &state, PipelineStage::Fragment, candidate, &e.to_string(), Duration::ZERO).await;
@@ -549,6 +577,7 @@ async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandi
 fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, _config: ImageBackgroundPipelineConfig) {
   let Some(state) = IMAGE_BACKGROUND_PIPELINE_STATE.get() else { return };
   let state = state.clone();
+  activity::begin_startup_scan();
   task::spawn(async move {
     let candidates = {
       let db = db.lock().await;
@@ -562,8 +591,11 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, _config: ImageBackgroundPipelin
     let count = candidates.len();
     let mut state = state.lock().await;
     for candidate in candidates {
-      enqueue_candidate_for_all_stages(&mut state, candidate);
+      enqueue_candidate_for_all_stages(&mut state, candidate.clone());
+      activity::checking(&candidate.user_id, &candidate.item_id, Stage::Fragments);
+      activity::checking(&candidate.user_id, &candidate.item_id, Stage::ImageExtraction);
     }
+    activity::end_startup_scan();
     info!("Queued {} images for startup processing checks, including failed and unfinished work.", count);
   });
 }
@@ -581,7 +613,16 @@ fn enqueue_candidate_for_all_stages(
 
 fn wake_image_fragments(state: &mut ImageBackgroundPipelineState, candidate: ImagePipelineCandidate) {
   state.fragment.retries.clear(&candidate.item_id);
+  activity::due(&candidate.user_id, &candidate.item_id, Stage::Fragments);
   enqueue_candidate(state, PipelineStage::Fragment, candidate);
+}
+
+async fn recorded_retry_reason(path: &InfuResult<std::path::PathBuf>) -> String {
+  let reason = match path {
+    Ok(path) => manifest_retry_reason(path).await.ok().flatten(),
+    Err(_) => None,
+  };
+  reason.unwrap_or_else(|| "A previous attempt failed; another attempt is scheduled.".to_owned())
 }
 
 fn enqueue_live_candidate_for_all_stages_with_log(
@@ -622,6 +663,7 @@ fn pop_candidate(state: &mut ImageBackgroundPipelineState, stage: PipelineStage)
   let position = queue.queue.iter().position(|candidate| queue.retries.ready(&candidate.item_id))?;
   let candidate = queue.queue.remove(position)?;
   queue.queued_item_ids.remove(&candidate.item_id);
+  activity::running(&candidate.user_id, &candidate.item_id, stage.activity_stage());
   record_image_pipeline_queue_depths(state);
   Some(candidate)
 }
@@ -668,6 +710,7 @@ fn enqueue_candidate(
     return false;
   }
 
+  activity::queued(&candidate.user_id, &candidate.item_id, stage.activity_stage());
   queue.queue.push_back(candidate);
   record_image_pipeline_queue_depths(state);
   true
@@ -676,6 +719,9 @@ fn enqueue_candidate(
 fn remove_candidate(state: &mut ImageBackgroundPipelineState, stage: PipelineStage, item_id: &str) -> usize {
   let queue = queue_for_stage_mut(state, stage);
   queue.retries.clear(&item_id.to_owned());
+  for candidate in queue.queue.iter().filter(|candidate| candidate.item_id == item_id) {
+    activity::forget_stage(&candidate.user_id, &candidate.item_id, stage.activity_stage());
+  }
   let before = queue.queue.len();
   queue.queue.retain(|candidate| candidate.item_id != item_id);
   queue.queued_item_ids.remove(item_id);
@@ -715,6 +761,14 @@ fn on_off(value: bool) -> &'static str {
 }
 
 impl PipelineStage {
+  fn activity_stage(self) -> Stage {
+    match self {
+      PipelineStage::Source => Stage::ImageExtraction,
+      PipelineStage::Geo => Stage::Location,
+      PipelineStage::Fragment => Stage::Fragments,
+    }
+  }
+
   fn label(self) -> &'static str {
     match self {
       PipelineStage::Source => "source",

@@ -1,186 +1,97 @@
-//! Legacy fragment-status snapshot used by the current virtual pages.
-//! The full lifecycle contract lives in `search_processing`; this snapshot has
-//! insufficient information to establish content/index completion under that model.
+//! Virtual search status pages, built from live worker activity.
+//! See `search_activity` for what is observed and `docs/search-processing.md`
+//! for the page membership rules.
 
-use std::io::ErrorKind;
-use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tokio::fs;
 
-use crate::ai::fragment::{is_lexical_search_source_kind, read_item_fragment_metadata};
-use crate::ai::image_tagging::{ImageTagArtifactState, image_tagging_artifact_state};
-use crate::ai::search_processing::SearchContentKind;
-use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
-use crate::ai::user_id_for_log;
-use crate::storage::db::Db;
-use crate::util::fs::expand_tilde;
+use crate::ai::search_activity::user_summary;
 
-pub const SEARCH_STATUS_SCHEMA_VERSION: u32 = 1;
-pub const SEARCH_STATUS_FILENAME: &str = "search_status.json";
-pub const SEARCH_FAILED_PAGE_TITLE: &str = "Search fragments failed";
-pub const SEARCH_PENDING_PAGE_TITLE: &str = "Search fragments pending";
-pub const SEARCH_FAILED_PAGE_ROUTE_ID: &str = "search/failed";
-pub const SEARCH_PENDING_PAGE_ROUTE_ID: &str = "search/pending";
+pub const SEARCH_ATTENTION_PAGE_TITLE: &str = "Search needs attention";
+pub const SEARCH_PROCESSING_PAGE_TITLE: &str = "Search processing";
+pub const SEARCH_ATTENTION_PAGE_ROUTE_ID: &str = "search/attention";
+pub const SEARCH_PROCESSING_PAGE_ROUTE_ID: &str = "search/processing";
+const LEGACY_SEARCH_FAILED_PAGE_ROUTE_ID: &str = "search/failed";
+const LEGACY_SEARCH_PENDING_PAGE_ROUTE_ID: &str = "search/pending";
+
+/// Largest version component that keeps combined container versions exact in JavaScript.
+const SYNC_VERSION_MASK: u64 = (1 << 22) - 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SearchStatusPageKind {
-  Failed,
-  Pending,
+  Attention,
+  Processing,
 }
 
 impl SearchStatusPageKind {
+  /// Stable identity used to derive page and link ids; unchanged from the
+  /// earlier "failed"/"pending" pages so existing links keep working.
   pub fn as_str(self) -> &'static str {
     match self {
-      SearchStatusPageKind::Failed => "failed",
-      SearchStatusPageKind::Pending => "pending",
+      SearchStatusPageKind::Attention => "failed",
+      SearchStatusPageKind::Processing => "pending",
     }
   }
 
   pub fn title(self) -> &'static str {
     match self {
-      SearchStatusPageKind::Failed => SEARCH_FAILED_PAGE_TITLE,
-      SearchStatusPageKind::Pending => SEARCH_PENDING_PAGE_TITLE,
+      SearchStatusPageKind::Attention => SEARCH_ATTENTION_PAGE_TITLE,
+      SearchStatusPageKind::Processing => SEARCH_PROCESSING_PAGE_TITLE,
     }
   }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SearchStatusArtifact {
-  pub schema_version: u32,
-  pub updated_at_unix_secs: i64,
-  pub failed_item_ids: Vec<Uid>,
-  pub pending_item_ids: Vec<Uid>,
+#[derive(Clone, Debug)]
+pub struct SearchStatusView {
+  pub attention_item_ids: Vec<Uid>,
+  pub processing_item_ids: Vec<Uid>,
+  pub checking: bool,
 }
 
-impl SearchStatusArtifact {
-  pub fn empty() -> SearchStatusArtifact {
-    SearchStatusArtifact {
-      schema_version: SEARCH_STATUS_SCHEMA_VERSION,
-      updated_at_unix_secs: 0,
-      failed_item_ids: Vec::new(),
-      pending_item_ids: Vec::new(),
-    }
+impl SearchStatusView {
+  pub fn empty() -> SearchStatusView {
+    SearchStatusView { attention_item_ids: Vec::new(), processing_item_ids: Vec::new(), checking: false }
   }
 
-  pub fn new(failed_item_ids: Vec<Uid>, pending_item_ids: Vec<Uid>) -> InfuResult<SearchStatusArtifact> {
-    Ok(SearchStatusArtifact {
-      schema_version: SEARCH_STATUS_SCHEMA_VERSION,
-      updated_at_unix_secs: unix_now_secs()?,
-      failed_item_ids: normalized_item_ids(failed_item_ids),
-      pending_item_ids: normalized_item_ids(pending_item_ids),
-    })
+  pub fn for_user(user_id: &str) -> SearchStatusView {
+    let summary = user_summary(user_id);
+    SearchStatusView {
+      attention_item_ids: summary.attention_item_ids.into_iter().collect(),
+      processing_item_ids: summary.processing_item_ids.into_iter().collect(),
+      checking: summary.checking,
+    }
   }
 
   pub fn item_ids_for_page_kind(&self, page_kind: SearchStatusPageKind) -> &[Uid] {
     match page_kind {
-      SearchStatusPageKind::Failed => &self.failed_item_ids,
-      SearchStatusPageKind::Pending => &self.pending_item_ids,
-    }
-  }
-}
-
-pub fn user_search_status_artifact_path(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push(SEARCH_STATUS_FILENAME);
-  Ok(path)
-}
-
-pub async fn read_search_status_artifact(data_dir: &str, user_id: &str) -> InfuResult<Option<SearchStatusArtifact>> {
-  let path = user_search_status_artifact_path(data_dir, user_id)?;
-  let bytes = match fs::read(&path).await {
-    Ok(bytes) => bytes,
-    Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
-    Err(e) => return Err(format!("Could not read search status artifact '{}': {}", path.display(), e).into()),
-  };
-  let artifact: SearchStatusArtifact = serde_json::from_slice(&bytes)
-    .map_err(|e| format!("Could not parse search status artifact '{}': {}", path.display(), e))?;
-  if artifact.schema_version != SEARCH_STATUS_SCHEMA_VERSION {
-    return Err(
-      format!("Unsupported search status artifact schema version {} in '{}'.", artifact.schema_version, path.display())
-        .into(),
-    );
-  }
-  Ok(Some(artifact))
-}
-
-pub async fn write_search_status_artifact(
-  data_dir: &str,
-  user_id: &str,
-  artifact: &SearchStatusArtifact,
-) -> InfuResult<()> {
-  let path = user_search_status_artifact_path(data_dir, user_id)?;
-  if let Some(parent) = path.parent() {
-    fs::create_dir_all(parent).await?;
-  }
-  let mut temp_path = path.as_os_str().to_os_string();
-  temp_path.push(".tmp");
-  let temp_path = PathBuf::from(temp_path);
-  fs::write(&temp_path, serde_json::to_vec_pretty(artifact)?)
-    .await
-    .map_err(|e| format!("Could not write temporary search status artifact '{}': {}", temp_path.display(), e))?;
-  fs::rename(&temp_path, &path)
-    .await
-    .map_err(|e| format!("Could not install search status artifact '{}': {}", path.display(), e).into())
-}
-
-pub async fn refresh_user_search_fragment_status(
-  data_dir: &str,
-  db: &Db,
-  user_id: &str,
-) -> InfuResult<SearchStatusArtifact> {
-  let mut item_ids = db
-    .item
-    .all_loaded_items()
-    .into_iter()
-    .filter(|item| item.user_id == user_id)
-    .map(|item| item.item_id)
-    .collect::<Vec<_>>();
-  item_ids.sort();
-
-  let mut failed_item_ids = Vec::new();
-  let mut pending_item_ids = Vec::new();
-  for item_id in item_ids {
-    let item = db.item.get(&item_id)?;
-    let Some(kind) = SearchContentKind::from_mime_type(item.mime_type.as_deref()) else {
-      continue;
-    };
-    let has_search_fragments = read_item_fragment_metadata(data_dir, user_id, &item_id)
-      .await?
-      .is_some_and(|metadata| is_lexical_search_source_kind(&metadata.source_kind));
-    if has_search_fragments {
-      continue;
-    }
-
-    match classify_missing_search_fragments(data_dir, user_id, &item_id, kind).await? {
-      SearchStatusClassification::Failed => failed_item_ids.push(item_id),
-      SearchStatusClassification::Pending => pending_item_ids.push(item_id),
-      SearchStatusClassification::Blocked => {}
+      SearchStatusPageKind::Attention => &self.attention_item_ids,
+      SearchStatusPageKind::Processing => &self.processing_item_ids,
     }
   }
 
-  let artifact = SearchStatusArtifact::new(failed_item_ids, pending_item_ids)?;
-  write_search_status_artifact(data_dir, user_id, &artifact).await?;
-  log::debug!(
-    "User {} refreshed search fragment status: failed={} pending={}.",
-    user_id_for_log(user_id),
-    artifact.failed_item_ids.len(),
-    artifact.pending_item_ids.len()
-  );
-  Ok(artifact)
+  /// Changes whenever page contents change, including across restarts. Nonzero.
+  pub fn sync_version(&self) -> u64 {
+    let mut hasher = Sha256::new();
+    hasher.update([self.checking as u8]);
+    for item_ids in [&self.attention_item_ids, &self.processing_item_ids] {
+      hasher.update([0xff]);
+      for item_id in item_ids {
+        hasher.update(item_id.as_bytes());
+        hasher.update([0]);
+      }
+    }
+    let digest = hasher.finalize();
+    let value = u64::from_be_bytes(digest[..8].try_into().expect("digest has at least 8 bytes"));
+    (value & SYNC_VERSION_MASK).max(1)
+  }
 }
 
-pub fn search_failed_page_id(user_id: &str) -> Uid {
-  search_status_page_id(user_id, SearchStatusPageKind::Failed)
+pub fn search_attention_page_id(user_id: &str) -> Uid {
+  search_status_page_id(user_id, SearchStatusPageKind::Attention)
 }
 
-pub fn search_pending_page_id(user_id: &str) -> Uid {
-  search_status_page_id(user_id, SearchStatusPageKind::Pending)
+pub fn search_processing_page_id(user_id: &str) -> Uid {
+  search_status_page_id(user_id, SearchStatusPageKind::Processing)
 }
 
 pub fn search_status_page_id(user_id: &str, page_kind: SearchStatusPageKind) -> Uid {
@@ -193,8 +104,8 @@ pub fn search_status_link_id(user_id: &str, page_kind: SearchStatusPageKind, tar
 
 pub fn search_status_page_kind_for_route_id(route_id: &str) -> Option<SearchStatusPageKind> {
   match route_id {
-    SEARCH_FAILED_PAGE_ROUTE_ID => Some(SearchStatusPageKind::Failed),
-    SEARCH_PENDING_PAGE_ROUTE_ID => Some(SearchStatusPageKind::Pending),
+    SEARCH_ATTENTION_PAGE_ROUTE_ID | LEGACY_SEARCH_FAILED_PAGE_ROUTE_ID => Some(SearchStatusPageKind::Attention),
+    SEARCH_PROCESSING_PAGE_ROUTE_ID | LEGACY_SEARCH_PENDING_PAGE_ROUTE_ID => Some(SearchStatusPageKind::Processing),
     _ => None,
   }
 }
@@ -207,51 +118,4 @@ fn deterministic_uid(parts: &[&str]) -> Uid {
     hasher.update(part.as_bytes());
   }
   hasher.finalize().iter().take(16).map(|byte| format!("{:02x}", byte)).collect()
-}
-
-async fn classify_missing_search_fragments(
-  data_dir: &str,
-  user_id: &str,
-  item_id: &str,
-  kind: SearchContentKind,
-) -> InfuResult<SearchStatusClassification> {
-  Ok(match kind {
-    SearchContentKind::Pdf => match pdf_text_artifact_state(data_dir, user_id, item_id).await? {
-      PdfTextArtifactState::Failed => SearchStatusClassification::Failed,
-      PdfTextArtifactState::Blocked => SearchStatusClassification::Blocked,
-      PdfTextArtifactState::Succeeded | PdfTextArtifactState::Pending => SearchStatusClassification::Pending,
-    },
-    SearchContentKind::Image => match image_tagging_artifact_state(data_dir, user_id, item_id).await? {
-      ImageTagArtifactState::Failed | ImageTagArtifactState::UnsupportedSchemaVersion { .. } => {
-        SearchStatusClassification::Failed
-      }
-      ImageTagArtifactState::Empty
-      | ImageTagArtifactState::Succeeded
-      | ImageTagArtifactState::Incomplete(_)
-      | ImageTagArtifactState::RetryableFailed => SearchStatusClassification::Pending,
-    },
-    SearchContentKind::Markdown | SearchContentKind::Text => SearchStatusClassification::Pending,
-  })
-}
-
-#[derive(Clone, Copy)]
-enum SearchStatusClassification {
-  Failed,
-  Pending,
-  Blocked,
-}
-
-fn normalized_item_ids(mut item_ids: Vec<Uid>) -> Vec<Uid> {
-  item_ids.sort();
-  item_ids.dedup();
-  item_ids
-}
-
-fn unix_now_secs() -> InfuResult<i64> {
-  Ok(
-    SystemTime::now()
-      .duration_since(UNIX_EPOCH)
-      .map_err(|e| format!("Could not determine current unix time: {}", e))?
-      .as_secs() as i64,
-  )
 }

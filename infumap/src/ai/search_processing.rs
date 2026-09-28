@@ -1,12 +1,12 @@
 //! Shared rules for the search processing lifecycle.
 //!
 //! These types describe facts supplied by workers and reconciliation. They do not
-//! schedule work, inspect artifacts, or define a persistence/API format. In
-//! particular, the legacy `search_status.json` snapshot cannot establish these
-//! states: it does not record index acknowledgements or successful empty results.
+//! schedule work, inspect artifacts, or define a persistence/API format. The live
+//! status pages use `search_activity`, which reports outstanding work only: it
+//! does not record index acknowledgements or successful empty results.
 //! See `docs/search-processing.md` for the contract and rollout boundaries.
 
-// Workers and the live status pages will adopt this model in subsequent steps.
+// Not yet populated by workers; kept as the reference lifecycle contract.
 #![allow(dead_code)]
 
 use infusdk::util::infu::InfuResult;

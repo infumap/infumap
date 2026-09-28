@@ -36,7 +36,8 @@ use crate::ai::gpu_tools::{
   GPU_TOOL_PDF_EXTRACT, GPU_TOOL_PDF_EXTRACT_JOBS, gpu_tools_url_from_config, resolve_gpu_tool_url,
 };
 use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
-use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, record_manifest_retry};
+use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, manifest_retry_reason, record_manifest_retry};
+use crate::ai::search_activity::{self as activity, Stage};
 use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_GPU_TOOLS_URL};
 use crate::storage::db::Db;
@@ -192,6 +193,18 @@ pub fn dequeue_pdf_item_if_active(item_id: &str) {
     let mut state = state.lock().await;
     remove_candidate(&mut state, &item_id);
   });
+}
+
+/// Queues the item again without any retry delay, e.g. for explicit reprocessing.
+pub async fn requeue_pdf_item_now(item: &Item) {
+  let Some(state) = PROCESSING_STATE.get() else {
+    return;
+  };
+  let mut state = state.lock().await;
+  remove_candidate(&mut state, &item.id);
+  if let Some(candidate) = pdf_candidate_for_item(item) {
+    enqueue_candidate(&mut state, candidate);
+  }
 }
 
 pub async fn extract_single_item_no_retry(
@@ -456,6 +469,7 @@ pub fn start_text_extraction_processing_loop(
       request_delay.as_secs_f64()
     );
   }
+  activity::begin_startup_scan();
   let _worker = task::spawn(async move {
     run_text_extraction_loop(data_dir, gpu_tools_url, request_delay, db, object_store, state).await;
   });
@@ -464,6 +478,7 @@ pub fn start_text_extraction_processing_loop(
 }
 
 fn enqueue_all_loaded_pdfs(data_dir: String, db: Arc<Mutex<Db>>, state: Arc<Mutex<ProcessingState>>) {
+  activity::begin_startup_scan();
   let _enqueue_task = task::spawn(async move {
     populate_initial_pdf_queue(&data_dir, db, state).await;
   });
@@ -503,6 +518,10 @@ async fn run_text_extraction_loop(
       let path = item_text_manifest_path(&data_dir, &candidate.user_id, &candidate.item_id)?;
       let delay = manifest_retry_delay(&path).await?;
       if !delay.is_zero() {
+        let reason = manifest_retry_reason(&path)
+          .await?
+          .unwrap_or_else(|| "A previous attempt failed; another attempt is scheduled.".to_owned());
+        activity::retry(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &reason, delay);
         let mut state = state.lock().await;
         state.retries.defer(candidate.item_id.clone(), delay);
         enqueue_candidate(&mut state, candidate.clone());
@@ -536,8 +555,10 @@ async fn run_text_extraction_loop(
     match result {
       Ok(extracted) => {
         let mut state = state.lock().await;
+        // A deferred retry re-queued the item; keep its reported reason.
         if !state.queued_item_ids.contains(&candidate.item_id) {
           state.retries.clear(&candidate.item_id);
+          activity::done(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction);
         }
         record_pdf_text_extraction_processed(if extracted { "success" } else { "skipped" });
       }
@@ -548,6 +569,7 @@ async fn run_text_extraction_loop(
           enqueue_candidate(&mut state, candidate.clone());
           delay
         };
+        activity::retry(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &error.to_string(), delay);
         if let Ok(path) = item_text_manifest_path(&data_dir, &candidate.user_id, &candidate.item_id) {
           if let Err(error) = record_manifest_retry(&path, delay).await {
             error!("Could not save PDF retry hint for '{}': {}", candidate.item_id, error);
@@ -797,6 +819,7 @@ fn pop_candidate(state: &mut ProcessingState) -> (Option<PdfCandidate>, usize) {
   };
   let candidate = state.queue.remove(position);
   state.queued_item_ids.remove(&candidate.item_id);
+  activity::running(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction);
   let remaining = state.queue.len();
   record_pdf_text_extraction_queue_depth(state);
   (Some(candidate), remaining)
@@ -807,6 +830,7 @@ fn enqueue_candidate(state: &mut ProcessingState, candidate: PdfCandidate) {
     return;
   }
 
+  activity::queued(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction);
   state.queue.push(candidate);
   state.queue.sort_by(compare_pdf_candidates_desc);
 
@@ -819,6 +843,9 @@ fn enqueue_candidate(state: &mut ProcessingState, candidate: PdfCandidate) {
 
 fn remove_candidate(state: &mut ProcessingState, item_id: &str) {
   state.retries.clear(&item_id.to_owned());
+  for candidate in state.queue.iter().filter(|candidate| candidate.item_id == item_id) {
+    activity::forget_stage(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction);
+  }
   state.queue.retain(|candidate| candidate.item_id != item_id);
   state.queued_item_ids.remove(item_id);
   record_pdf_text_extraction_queue_depth(state);
@@ -894,6 +921,7 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
       enqueue_candidate(&mut state, candidate);
     }
   }
+  activity::end_startup_scan();
 
   info!(
     "Initialized PDF text extraction queue with {} pending item(s) from {} total PDF(s) (already succeeded: {}, already failed: {}, already blocked: {}, queued despite artifact errors: {}).",

@@ -22,6 +22,7 @@ use image::ImageReader;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
 use infusdk::util::infu::InfuResult;
+use infusdk::util::time::unix_now_secs_i64;
 use infusdk::util::uid::is_uid;
 use log::{debug, warn};
 use once_cell::sync::Lazy;
@@ -37,6 +38,8 @@ use crate::ai::artifact_paths::{
   item_text_manifest_path,
 };
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
+use crate::ai::search_activity::{Phase, item_activity, user_summary};
+use crate::ai::search_processing::SearchContentKind;
 use crate::config::{
   CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT,
 };
@@ -237,6 +240,14 @@ pub async fn serve_files_route(
         METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
         internal_server_error_response(&format!("get_item_fragment failed for '{}': {}", uid, e))
       }
+    }
+  } else if let Some(uid) = name.strip_suffix("/search-status") {
+    if !is_uid(uid) {
+      return not_found_response();
+    }
+    match get_item_search_status(db, &session_user_id_maybe, uid).await {
+      Ok(status_response) => status_response,
+      Err(e) => internal_server_error_response(&format!("get_item_search_status failed for '{}': {}", uid, e)),
     }
   } else if let Some(uid) = name.strip_suffix("/fragments") {
     if !is_uid(uid) {
@@ -667,6 +678,73 @@ async fn get_item_fragments(
       .header("X-Content-Type-Options", "nosniff")
       .header(hyper::header::CACHE_CONTROL, "no-cache")
       .body(full_body(fragments_text))
+      .unwrap(),
+  )
+}
+
+/// Current outstanding search work for one item, as reported by the workers.
+async fn get_item_search_status(
+  db: &Arc<Mutex<Db>>,
+  session_user_id_maybe: &Option<String>,
+  uid: &str,
+) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
+  let item = {
+    let db = db.lock().await;
+    let item = match db.item.get(&String::from(uid)) {
+      Ok(item) => item.clone(),
+      Err(_) => return Ok(not_found_response()),
+    };
+    if let Err(e) = authorize_item(&db, &item, session_user_id_maybe, 0) {
+      warn!("Denied search status request for item '{}': {}", uid, e);
+      return Ok(forbidden_response());
+    }
+    item
+  };
+
+  let content = match SearchContentKind::from_mime_type(item.mime_type.as_deref()) {
+    Some(SearchContentKind::Pdf) => "PDF",
+    Some(SearchContentKind::Image) => "image",
+    Some(SearchContentKind::Markdown) => "Markdown",
+    Some(SearchContentKind::Text) => "plain text",
+    None => "not supported (title only)",
+  };
+  let mut lines =
+    vec![format!("Search status: {}", item.title.as_deref().unwrap_or(uid)), format!("Content: {}", content)];
+  let now = unix_now_secs_i64().unwrap_or(0);
+  let stages = item_activity(&item.owner_id, uid);
+  for stage in &stages {
+    let phase = match stage.phase {
+      Phase::Checking => "checking",
+      Phase::Queued => "queued",
+      Phase::Processing => "processing",
+      Phase::Waiting => "waiting",
+      Phase::NeedsAttention => "needs attention",
+    };
+    lines.push(String::new());
+    lines.push(format!("{}: {}", stage.label, phase));
+    if let Some(detail) = &stage.detail {
+      lines.push(format!("  {}", detail));
+    }
+    if let Some(retry_at) = stage.retry_at_unix_secs {
+      lines.push(format!("  Next attempt in about {} minute(s).", ((retry_at - now).max(0) + 59) / 60));
+    }
+  }
+  if stages.is_empty() {
+    lines.push(String::new());
+    lines.push(if user_summary(&item.owner_id).checking {
+      "Startup checks are still running; outstanding work may not be listed yet.".to_owned()
+    } else {
+      "No outstanding search processing.".to_owned()
+    });
+  }
+  lines.push(String::new());
+
+  Ok(
+    Response::builder()
+      .header(hyper::header::CONTENT_TYPE, "text/plain; charset=utf-8")
+      .header("X-Content-Type-Options", "nosniff")
+      .header(hyper::header::CACHE_CONTROL, "no-cache")
+      .body(full_body(lines.join("\n")))
       .unwrap(),
   )
 }

@@ -22,6 +22,7 @@ use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::gpu_tools::{GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::processing_retry::RetrySchedule;
+use crate::ai::search_activity::{self as activity, Stage};
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
@@ -97,6 +98,10 @@ impl DocumentFragmentCandidate {
       kind: DocumentFragmentKind::Pdf,
       caption_fallback: false,
     }
+  }
+
+  fn activity_stage(&self) -> Stage {
+    if self.caption_fallback { Stage::PdfCaption } else { Stage::Fragments }
   }
 
   fn key(&self) -> DocumentFragmentCandidateKey {
@@ -198,6 +203,18 @@ pub fn dequeue_document_fragment_item_if_active(item_id: &str) {
   });
 }
 
+/// Queues the item again without any retry delay, e.g. for explicit reprocessing.
+pub async fn requeue_document_fragment_item_now(item: &Item) {
+  let Some(state) = DOCUMENT_FRAGMENT_PIPELINE_STATE.get() else {
+    return;
+  };
+  let mut state = state.lock().await;
+  remove_candidate(&mut state, &item.id);
+  if let Some(candidate) = DocumentFragmentCandidate::from_item(item) {
+    enqueue_due_candidate(&mut state, candidate);
+  }
+}
+
 pub fn dequeue_pdf_fragment_item_if_active(item_id: &str) {
   dequeue_document_fragment_item_if_active(item_id);
 }
@@ -235,16 +252,19 @@ async fn run_document_fragment_loop(
     match reconcile_document_fragment_item(&config, db.clone(), &candidate).await {
       Ok(DocumentFragmentReconcileOutcome::Changed(user_id)) => {
         state.lock().await.retries.clear(&candidate.key());
+        activity::done(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
         record_document_fragment_processed("success");
         enqueue_fragment_lexical_index_update(&user_id, &candidate.item_id);
       }
       Ok(DocumentFragmentReconcileOutcome::Skipped) => {
         state.lock().await.retries.clear(&candidate.key());
+        activity::done(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
         record_document_fragment_processed("skipped");
       }
       Ok(DocumentFragmentReconcileOutcome::NeedsCaption) => {
         let mut state = state.lock().await;
         state.retries.clear(&candidate.key());
+        activity::done(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
         let mut candidate = candidate;
         candidate.caption_fallback = true;
         enqueue_candidate(&mut state, candidate);
@@ -256,6 +276,7 @@ async fn run_document_fragment_loop(
           enqueue_candidate(&mut state, candidate.clone());
           delay
         };
+        activity::retry(&candidate.user_id, &candidate.item_id, candidate.activity_stage(), &e.to_string(), delay);
         info!("Document fragment retry for '{}' in {} seconds.", candidate.item_id, delay.as_secs());
         record_document_fragment_processed("failed");
         error!(
@@ -310,18 +331,10 @@ async fn reconcile_document_fragment_item(
     return Ok(DocumentFragmentReconcileOutcome::NeedsCaption);
   }
   let pdf_caption_url = if needs_caption {
-    match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY).await {
-      Ok(url) => url.map(|url| url.to_string()),
-      Err(e) => {
-        debug!(
-          "Could not discover PDF first-page caption fallback endpoint for '{}' (user {}): {}",
-          item_snapshot.id,
-          user_id_for_log(&item_snapshot.owner_id),
-          e
-        );
-        None
-      }
-    }
+    resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY)
+      .await
+      .map_err(|e| format!("Could not discover PDF first-page caption fallback endpoint: {}", e))?
+      .map(|url| url.to_string())
   } else {
     None
   };
@@ -414,6 +427,7 @@ fn enqueue_all_loaded_document_fragments(db: Arc<Mutex<Db>>, config: DocumentFra
     return;
   };
   let state = state.clone();
+  activity::begin_startup_scan();
   let _enqueue_task = task::spawn(async move {
     populate_initial_document_fragment_queue(&config, db, state).await;
   });
@@ -437,8 +451,10 @@ async fn populate_initial_document_fragment_queue(
   let count = candidates.len();
   let mut state = state.lock().await;
   for candidate in candidates {
-    enqueue_candidate(&mut state, candidate);
+    enqueue_candidate(&mut state, candidate.clone());
+    activity::checking(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
   }
+  activity::end_startup_scan();
   info!("Queued {} document items for startup fragment checks, including unfinished and failed work.", count);
 }
 
@@ -448,23 +464,28 @@ fn enqueue_candidate_if_active(candidate: DocumentFragmentCandidate) {
   };
 
   if let Ok(mut state) = state.try_lock() {
-    state.retries.clear(&candidate.key());
-    enqueue_candidate(&mut state, candidate);
+    enqueue_due_candidate(&mut state, candidate);
     return;
   }
 
   let state = state.clone();
   let _enqueue = task::spawn(async move {
     let mut state = state.lock().await;
-    state.retries.clear(&candidate.key());
-    enqueue_candidate(&mut state, candidate);
+    enqueue_due_candidate(&mut state, candidate);
   });
+}
+
+fn enqueue_due_candidate(state: &mut DocumentFragmentPipelineState, candidate: DocumentFragmentCandidate) {
+  state.retries.clear(&candidate.key());
+  activity::due(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
+  enqueue_candidate(state, candidate);
 }
 
 fn enqueue_candidate(state: &mut DocumentFragmentPipelineState, candidate: DocumentFragmentCandidate) -> bool {
   if !state.queued_candidate_keys.insert(candidate.key()) {
     return false;
   }
+  activity::queued(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
   state.queue.push_back(candidate);
   record_document_fragment_queue_depth(state);
   true
@@ -477,6 +498,7 @@ fn pop_candidate(state: &mut DocumentFragmentPipelineState, caption_worker: bool
     .position(|candidate| candidate.caption_fallback == caption_worker && state.retries.ready(&candidate.key()))?;
   let candidate = state.queue.remove(position)?;
   state.queued_candidate_keys.remove(&candidate.key());
+  activity::running(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
   record_document_fragment_queue_depth(state);
   Some(candidate)
 }
@@ -485,6 +507,7 @@ fn remove_candidate(state: &mut DocumentFragmentPipelineState, item_id: &str) ->
   let before = state.queue.len();
   for candidate in state.queue.iter().filter(|candidate| candidate.item_id == item_id) {
     state.retries.clear(&candidate.key());
+    activity::forget_stage(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
   }
   state.queue.retain(|candidate| candidate.item_id != item_id);
   state.queued_candidate_keys.retain(|candidate_key| candidate_key.item_id != item_id);
