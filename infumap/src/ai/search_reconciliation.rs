@@ -421,11 +421,15 @@ async fn reconcile_item_artifacts(data_dir: &str, item: &Item, context: Option<&
         }
       }
       if kind == SearchContentKind::Image {
+        // Deliberate trade-off: location output is kept while the image text is
+        // missing or being regenerated. Its coordinates come from the image's own
+        // GPS metadata, which re-extraction of an immutable original reproduces,
+        // so redoing the lookup would only spend location-service quota. The
+        // coordinates are compared again once new text exists (reconcile_image_geo).
         if !matches!(
           image_tagging_artifact_state(data_dir, &item.owner_id, &item.id).await?,
           ImageTagArtifactState::Succeeded
         ) {
-          delete_item_geo_artifacts(data_dir, &item.owner_id, &item.id).await?;
           return Ok(false);
         }
         if let Err(error) = reconcile_image_geo(data_dir, item).await {

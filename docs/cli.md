@@ -308,7 +308,7 @@ Options:
 
 ### reprocess
 
-Ask a running Infumap server to discard an item's generated search text (PDF extraction or image description) and fragments, then regenerate and reindex them with the currently configured GPU service. Old search entries are removed with the next index batch (within about 10 minutes), without waiting for the GPU service. Manual edits to generated text are discarded. An image's location lookup is kept unless the server restarts before the image is re-extracted.
+Ask a running Infumap server to discard an item's generated search text (PDF extraction or image description) and fragments, then regenerate and reindex them with the currently configured GPU service. Old search entries are removed with the next index batch (within about 10 minutes), without waiting for the GPU service. Manual edits to generated text are discarded. An image's location lookup is kept.
 
 Options:
 - **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
