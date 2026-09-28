@@ -717,12 +717,12 @@ fn item_needs_image_tagging_boxed<'a>(
 
 fn load_pdf_for_extraction_boxed<'a>(
   data_dir: &'a str,
-  service_url: &'a str,
+  _service_url: &'a str,
   db: Arc<Mutex<Db>>,
   object_store: Arc<storage_object::ObjectStore>,
   item_id: &'a str,
 ) -> LoadItemFuture<'a, LoadedPdfExtraction> {
-  Box::pin(load_pdf_for_extraction(data_dir, service_url, db, object_store, item_id))
+  Box::pin(load_pdf_for_extraction(data_dir, db, object_store, item_id))
 }
 
 fn load_image_for_tagging_boxed<'a>(

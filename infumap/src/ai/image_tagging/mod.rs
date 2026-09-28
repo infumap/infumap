@@ -47,7 +47,6 @@ use self::artifacts::{
 const REQUEST_TIMEOUT_SECS: u64 = 30 * 60;
 const MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS: usize = 0;
 const SUPPORTED_IMAGE_MIME_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/tiff"];
-const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
 const IMAGE_TAG_ARTIFACT_COLLISION_ERROR_PREFIX: &str = "Image tag artifact collision";
 const IMAGE_EXTRACT_MODE_HEADER: &str = "x-infumap-image-extract-mode";
 
@@ -360,7 +359,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       {
         return Ok(());
       }
-      write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms, file_bytes).await?;
+      write_success_artifacts(data_dir, &candidate, &tag_data, duration_ms).await?;
       info!(
         "Finished image tagging for image '{}' (user {}) in {}{}.",
         candidate.item_id,
@@ -383,7 +382,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       {
         return Ok(());
       }
-      write_failed_manifest_for_request_mode(data_dir, image_tagging_url, &candidate, &msg, request_mode).await?;
+      write_failed_manifest_for_request_mode(data_dir, &candidate, &msg, request_mode).await?;
       debug!(
         "Finished image tagging for image '{}' (user {}) with document failure after {}: {}",
         candidate.item_id,
@@ -404,7 +403,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       {
         return Ok(());
       }
-      write_failed_manifest_for_request_mode(data_dir, image_tagging_url, &candidate, &msg, request_mode).await?;
+      write_failed_manifest_for_request_mode(data_dir, &candidate, &msg, request_mode).await?;
       debug!(
         "Finished image tagging for image '{}' (user {}) with response-format failure after {}: {}",
         candidate.item_id,
@@ -430,7 +429,6 @@ async fn process_image_tagging_for_candidate_and_bytes(
 
 async fn write_failed_manifest_for_request_mode(
   data_dir: &str,
-  image_tagging_url: &str,
   candidate: &ImageCandidate,
   msg: &str,
   request_mode: ImageTagRequestMode,
@@ -439,7 +437,7 @@ async fn write_failed_manifest_for_request_mode(
     ImageTagRequestMode::Full => None,
     ImageTagRequestMode::CaptionFallbackOnly => Some(IMAGE_TAG_EXTRACTION_MODE_CAPTION_FALLBACK),
   };
-  write_failed_manifest_with_extraction_mode(data_dir, image_tagging_url, candidate, msg, extraction_mode).await
+  write_failed_manifest_with_extraction_mode(data_dir, candidate, msg, extraction_mode).await
 }
 
 async fn handle_existing_artifact_collision(
@@ -499,7 +497,7 @@ pub async fn mark_item_image_tagging_failed(
     Some(reason) => format!("Marked failed via CLI: {}", reason),
     None => "Marked failed via CLI.".to_owned(),
   };
-  write_failed_manifest(data_dir, CLI_FAILED_MANIFEST_EXTRACTOR_URL, &candidate, &error_message).await?;
+  write_failed_manifest(data_dir, &candidate, &error_message).await?;
   info!(
     "Marked image '{}' (user {}) as failed for image tagging via CLI.",
     candidate.item_id,

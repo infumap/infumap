@@ -64,7 +64,6 @@ const ASYNC_PROGRESS_LOG_SECS: u64 = 60;
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 pub(super) const PDF_PASSWORD_REQUIRED_ERROR_CODE: &str = "pdf_password_required";
-const CLI_FAILED_MANIFEST_EXTRACTOR_URL: &str = "manual://extract-cli";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -229,13 +228,12 @@ async fn extract_single_item_inner(
   item_id: &str,
   retry_endpoint_unavailable: bool,
 ) -> InfuResult<()> {
-  let loaded = load_pdf_for_extraction(data_dir, text_extraction_url, db.clone(), object_store, item_id).await?;
+  let loaded = load_pdf_for_extraction(data_dir, db.clone(), object_store, item_id).await?;
   process_loaded_pdf_extraction(data_dir, text_extraction_url, db, loaded, retry_endpoint_unavailable).await
 }
 
 pub(crate) async fn load_pdf_for_extraction(
   data_dir: &str,
-  text_extraction_url: &str,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   item_id: &str,
@@ -279,7 +277,7 @@ pub(crate) async fn load_pdf_for_extraction(
       );
       if let Some(manifest_error_message) = manifest_failure_for_object_read_error(&error_message) {
         clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
-        write_failed_manifest(data_dir, text_extraction_url, &candidate, &manifest_error_message).await?;
+        write_failed_manifest(data_dir, &candidate, &manifest_error_message).await?;
       }
       return Err(format!("Could not read source PDF object for '{}': {}", candidate.item_id, error_message).into());
     }
@@ -323,17 +321,17 @@ pub(crate) async fn process_loaded_pdf_extraction(
   match outcome {
     ExtractOutcome::Success(response) => {
       let markdown_bytes = response.markdown.len();
-      let backend = write_success_artifacts(data_dir, text_extraction_url, &candidate, response, &file_bytes).await?;
+      let backend = write_success_artifacts(data_dir, &candidate, response).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       log_pdf_extracted(&candidate, backend.as_deref(), started_at.elapsed(), markdown_bytes);
     }
     ExtractOutcome::DocumentFailed(msg) => {
-      write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
+      write_failed_manifest(data_dir, &candidate, &msg).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       return Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into());
     }
     ExtractOutcome::DocumentBlocked { error_code, message } => {
-      write_password_required_manifest(data_dir, text_extraction_url, &candidate, &message).await?;
+      write_password_required_manifest(data_dir, &candidate, &message).await?;
       info!(
         "PDF text extraction blocked for '{}' (user {}): {} ({})",
         candidate.item_id,
@@ -384,18 +382,18 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
   match outcome {
     ExtractOutcome::Success(response) => {
       let markdown_bytes = response.markdown.len();
-      let backend = write_success_artifacts(data_dir, text_extraction_url, &candidate, response, &file_bytes).await?;
+      let backend = write_success_artifacts(data_dir, &candidate, response).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       log_pdf_extracted(&candidate, backend.as_deref(), started_at.elapsed(), markdown_bytes);
       Ok(PdfTextExtractionProcessOutcome::Extracted)
     }
     ExtractOutcome::DocumentFailed(msg) => {
-      write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
+      write_failed_manifest(data_dir, &candidate, &msg).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into())
     }
     ExtractOutcome::DocumentBlocked { error_code, message } => {
-      write_password_required_manifest(data_dir, text_extraction_url, &candidate, &message).await?;
+      write_password_required_manifest(data_dir, &candidate, &message).await?;
       debug!(
         "PDF text extraction blocked for '{}' (user {}): {} ({})",
         candidate.item_id,
@@ -429,7 +427,7 @@ pub async fn mark_item_text_extraction_failed(
     Some(reason) => format!("Marked failed via CLI: {}", reason),
     None => "Marked failed via CLI.".to_owned(),
   };
-  write_failed_manifest(data_dir, CLI_FAILED_MANIFEST_EXTRACTOR_URL, &candidate, &error_message).await?;
+  write_failed_manifest(data_dir, &candidate, &error_message).await?;
   info!(
     "Marked PDF '{}' (user {}) as failed for text extraction via CLI.",
     candidate.item_id,
@@ -551,9 +549,7 @@ async fn run_text_extraction_loop(
       let endpoint = discover_pdf_text_extraction_endpoint(&gpu_tools_url)
         .await?
         .ok_or("Configured GPU service does not advertise PDF extraction.")?;
-      let loaded =
-        load_pdf_for_extraction(&data_dir, &endpoint.extract_url, db.clone(), object_store.clone(), &candidate.item_id)
-          .await?;
+      let loaded = load_pdf_for_extraction(&data_dir, db.clone(), object_store.clone(), &candidate.item_id).await?;
       match process_loaded_pdf_extraction_web_background(
         &data_dir,
         &endpoint.extract_url,

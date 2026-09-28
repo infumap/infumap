@@ -38,6 +38,7 @@ use super::{ImageCandidate, should_tag_image_item};
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const JSON_CONTENT_MIME_TYPE: &str = "application/json";
 pub(super) const IMAGE_TAG_EXTRACTION_MODE_CAPTION_FALLBACK: &str = "caption_fallback";
+const IMAGE_TAG_EXTRACTION_MODE_FULL: &str = "full";
 
 #[derive(Clone)]
 pub struct FailedImageTagInfo {
@@ -49,25 +50,24 @@ pub struct FailedImageTagInfo {
 
 #[derive(Serialize, Deserialize)]
 struct ImageTagManifest {
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "ArtifactProcessing::is_empty")]
   processing: ArtifactProcessing,
   schema_version: u32,
   status: String,
   source_mime_type: String,
   content_mime_type: String,
   extractor: ImageTagManifestExtractor,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   error: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct ImageTagManifestExtractor {
-  image_tagging_url: String,
   tagged_at_unix_secs: i64,
   duration_ms: Option<u64>,
   #[serde(skip_serializing_if = "Option::is_none")]
   model_id: Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  backend: Option<String>,
+  /// Set only for a caption fallback; absent means the full prompt was used.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   extraction_mode: Option<String>,
 }
@@ -84,12 +84,13 @@ pub(super) struct ImageTagArtifact {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub(super) image_metadata: Option<ImageMetadata>,
   image_embedding: Vec<f32>,
-  #[serde(skip_serializing_if = "Option::is_none")]
+  // How the output was produced is recorded in the manifest, not the output.
+  #[serde(skip)]
   extraction_mode: Option<String>,
   #[serde(skip)]
   model_id: Option<String>,
   #[serde(skip)]
-  backend: Option<String>,
+  duration_ms: Option<u64>,
   #[serde(flatten)]
   extra: BTreeMap<String, Value>,
 }
@@ -102,6 +103,8 @@ impl ImageTagArtifact {
     };
     let _ = map.remove("image_metadata");
     let _ = map.remove("location_type");
+    // Older image services report their runtime, which is not recorded.
+    let _ = map.remove("backend");
 
     ImageTagArtifact {
       detailed_caption: take_optional_string(&mut map, "detailed_caption"),
@@ -115,13 +118,13 @@ impl ImageTagArtifact {
       image_embedding: take_f32_list(&mut map, "image_embedding"),
       extraction_mode: take_optional_string(&mut map, "extraction_mode"),
       model_id: take_optional_string(&mut map, "model_id"),
-      backend: take_optional_string(&mut map, "backend"),
+      duration_ms: map.remove("duration_ms").and_then(|value| value_as_u64(&value)),
       extra: map.into_iter().collect(),
     }
   }
 
   pub(super) fn duration_ms(&self) -> Option<u64> {
-    self.extra.get("duration_ms").and_then(value_as_u64)
+    self.duration_ms
   }
 }
 
@@ -296,8 +299,8 @@ pub async fn image_tagging_artifact_state(
     if text_exists {
       let bytes = fs::read(&text_path).await?;
       if serde_json::from_slice::<Value>(&bytes).is_ok_and(|value| value.is_object()) {
-        // A valid manual edit is accepted. Its actual bytes, rather than the
-        // old output hash, become input to the next fragment build.
+        // A valid manual edit is accepted. Its actual bytes become input to
+        // the next fragment build.
         return Ok(ImageTagArtifactState::Succeeded);
       }
     }
@@ -364,11 +367,9 @@ pub(super) async fn manifest_check(data_dir: &str, candidate: &ImageCandidate) -
 
 pub(super) async fn write_success_artifacts(
   data_dir: &str,
-  image_tagging_url: &str,
   candidate: &ImageCandidate,
   tag_data: &ImageTagArtifact,
   duration_ms: Option<u64>,
-  source_bytes: &[u8],
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
@@ -376,18 +377,16 @@ pub(super) async fn write_success_artifacts(
   let output = serde_json::to_vec_pretty(tag_data)?;
   atomic_write(&text_path, &output).await?;
   let manifest = ImageTagManifest {
-    processing: ArtifactProcessing::succeeded(source_bytes, &output),
+    processing: ArtifactProcessing::default(),
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
     source_mime_type: candidate.mime_type.clone(),
     content_mime_type: JSON_CONTENT_MIME_TYPE.to_owned(),
     extractor: ImageTagManifestExtractor {
-      image_tagging_url: image_tagging_url.to_owned(),
       tagged_at_unix_secs: unix_now_secs()?,
       duration_ms,
       model_id: tag_data.model_id.clone(),
-      backend: tag_data.backend.clone(),
-      extraction_mode: tag_data.extraction_mode.clone(),
+      extraction_mode: tag_data.extraction_mode.clone().filter(|mode| mode != IMAGE_TAG_EXTRACTION_MODE_FULL),
     },
     error: None,
   };
@@ -397,16 +396,14 @@ pub(super) async fn write_success_artifacts(
 
 pub(super) async fn write_failed_manifest(
   data_dir: &str,
-  image_tagging_url: &str,
   candidate: &ImageCandidate,
   error_message: &str,
 ) -> InfuResult<()> {
-  write_failed_manifest_with_extraction_mode(data_dir, image_tagging_url, candidate, error_message, None).await
+  write_failed_manifest_with_extraction_mode(data_dir, candidate, error_message, None).await
 }
 
 pub(super) async fn write_failed_manifest_with_extraction_mode(
   data_dir: &str,
-  image_tagging_url: &str,
   candidate: &ImageCandidate,
   error_message: &str,
   extraction_mode: Option<&str>,
@@ -424,11 +421,9 @@ pub(super) async fn write_failed_manifest_with_extraction_mode(
     source_mime_type: candidate.mime_type.clone(),
     content_mime_type: JSON_CONTENT_MIME_TYPE.to_owned(),
     extractor: ImageTagManifestExtractor {
-      image_tagging_url: image_tagging_url.to_owned(),
       tagged_at_unix_secs: unix_now_secs()?,
       duration_ms: None,
       model_id: None,
-      backend: None,
       extraction_mode: extraction_mode.map(str::to_owned),
     },
     error: Some(error_message.to_owned()),
@@ -572,4 +567,27 @@ fn unix_now_secs() -> InfuResult<i64> {
       .map_err(|e| format!("Could not determine current unix time: {}", e))?
       .as_secs() as i64,
   )
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn provenance_is_kept_out_of_the_output() {
+    let tag_data = ImageTagArtifact::from_value(serde_json::json!({
+      "detailed_caption": "a cat",
+      "model_id": "m",
+      "backend": "b",
+      "extraction_mode": "caption_fallback",
+      "duration_ms": 1234
+    }));
+    assert_eq!(tag_data.extraction_mode.as_deref(), Some(IMAGE_TAG_EXTRACTION_MODE_CAPTION_FALLBACK));
+    assert_eq!(tag_data.duration_ms(), Some(1234));
+    let output = serde_json::to_value(&tag_data).unwrap();
+    assert_eq!(output["detailed_caption"], "a cat");
+    for key in ["model_id", "backend", "extraction_mode", "duration_ms"] {
+      assert!(output.get(key).is_none(), "{key} was written to the output");
+    }
+  }
 }

@@ -8,22 +8,19 @@ use tokio::{fs, io::AsyncWriteExt};
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct ArtifactProcessing {
-  /// For extraction manifests this fingerprints the original sent to the GPU.
-  /// Deliberate trade-off: it is provenance only and is never compared with the
-  /// original again, because originals are immutable (see search_reconciliation).
-  pub input_sha256: Option<String>,
-  pub output_sha256: Option<String>,
   /// Earliest background retry after failure; startup workers honor this hint.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub retry_at_unix_secs: Option<i64>,
 }
 
 impl ArtifactProcessing {
-  pub fn succeeded(input: &[u8], output: &[u8]) -> Self {
-    Self { input_sha256: Some(sha256(input)), output_sha256: Some(sha256(output)), retry_at_unix_secs: None }
+  pub fn failed() -> InfuResult<Self> {
+    Ok(Self { retry_at_unix_secs: Some(unix_now_secs_i64()? + 300) })
   }
 
-  pub fn failed() -> InfuResult<Self> {
-    Ok(Self { retry_at_unix_secs: Some(unix_now_secs_i64()? + 300), ..Self::default() })
+  /// Manifests omit the whole block when there is nothing to record.
+  pub fn is_empty(&self) -> bool {
+    self.retry_at_unix_secs.is_none()
   }
 }
 
@@ -40,7 +37,8 @@ pub async fn file_sha256(path: &Path) -> InfuResult<Option<String>> {
 }
 
 /// Publish one complete file. Output is published before its manifest; a crash
-/// between the two is recoverable by checking the output fingerprint again.
+/// between the two leaves the previous manifest, or none, so the item is
+/// re-processed or keeps its earlier state.
 /// This deliberately is not a multi-file transaction or a processing database.
 pub async fn atomic_write(path: &Path, bytes: &[u8]) -> InfuResult<()> {
   let parent = path.parent().ok_or("Artifact path has no parent directory.")?;
