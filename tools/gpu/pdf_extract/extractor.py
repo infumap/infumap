@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import time
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 from docling_backend import DoclingBackend
@@ -33,8 +34,47 @@ from extraction_errors import (
 )
 
 LOGGER = logging.getLogger("uvicorn.error")
+# Reported with every extraction. Bump it when routing or Markdown export
+# changes, so extracted text can be traced to the logic that produced it.
+SERVICE_VERSION = "0.2.0"
 # Share of the conversion deadline Docling may use, leaving Marker time to run.
 DOCLING_TIME_BUDGET_FRACTION = 0.5
+# Docling's reported version fields, by package name.
+DOCLING_VERSION_FIELDS = {
+    "docling": "docling_version",
+    "docling-core": "docling_core_version",
+    "docling-parse": "docling_parse_version",
+    "docling-ibm-models": "docling_ibm_models_version",
+}
+
+
+def package_version(name: str) -> str:
+    try:
+        return version(name)
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def extraction_info(
+    backend: str,
+    versions: dict[str, str],
+    *,
+    fallback_reason: str | None = None,
+    assessment: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Describe how the returned Markdown was produced.
+
+    This block's shape is stable for Infumap, unlike the other diagnostics.
+    Page lists describe the returned Markdown, so they are empty for Marker.
+    """
+    return {
+        "backend": backend,
+        "backend_versions": versions,
+        "service_version": SERVICE_VERSION,
+        "fallback_reason": fallback_reason,
+        "unusable_pages": list((assessment or {}).get("unusable_pages") or []),
+        "warning_pages": list((assessment or {}).get("warning_pages") or []),
+    }
 
 
 class PdfExtractor:
@@ -89,10 +129,16 @@ class PdfExtractor:
                     assessment.get("unusable_pages"),
                     assessment.get("warning_pages"),
                 )
+                reported = result.get("version") or {}
+                versions = {
+                    package: str(reported.get(field) or "unknown")
+                    for package, field in DOCLING_VERSION_FIELDS.items()
+                }
                 return result["markdown"], {
                     "backend": "docling",
                     "page_count": result["page_count"],
                     "docling": diagnostics,
+                    "extraction": extraction_info("docling", versions, assessment=assessment),
                 }
 
         if time.monotonic() >= deadline:
@@ -110,7 +156,15 @@ class PdfExtractor:
                 PDF_EXTRACTION_FAILED_ERROR_CODE,
                 f"Neither Docling nor Marker could extract this PDF ({reason}; {description}).",
             ) from exc
-        return markdown, {**metadata, "backend": "marker", "fallback_reason": reason, "docling": diagnostics}
+        return markdown, {
+            **metadata,
+            "backend": "marker",
+            "fallback_reason": reason,
+            "docling": diagnostics,
+            "extraction": extraction_info(
+                "marker", {"marker-pdf": package_version("marker-pdf")}, fallback_reason=reason
+            ),
+        }
 
     def close(self) -> None:
         self.docling.cancel()

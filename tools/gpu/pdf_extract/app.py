@@ -32,7 +32,7 @@ from pydantic import BaseModel
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
 
-from extractor import PdfExtractor
+from extractor import SERVICE_VERSION, PdfExtractor
 from extraction_errors import (
     BackendUnavailableError,
     DocumentRejectedError,
@@ -247,7 +247,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Infumap Text Extraction Service",
-    version="0.1.0",
+    version=SERVICE_VERSION,
     lifespan=lifespan,
     root_path=root_path(),
 )
