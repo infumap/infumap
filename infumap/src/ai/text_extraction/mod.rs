@@ -38,6 +38,7 @@ use crate::ai::gpu_tools::{
 use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
 use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, manifest_retry_reason, record_manifest_retry};
 use crate::ai::search_activity::{self as activity, Stage};
+use crate::ai::search_reconciliation::StartupWork;
 use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_GPU_TOOLS_URL};
 use crate::storage::db::Db;
@@ -434,10 +435,11 @@ pub fn init_text_extraction_processing_loop(
   config: &Config,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
+  startup_work: Arc<StartupWork>,
 ) -> InfuResult<()> {
   let gpu_tools_url = gpu_tools_url_from_config(config)?.unwrap_or_default();
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
-  start_text_extraction_processing_loop(data_dir, gpu_tools_url, Duration::ZERO, db, object_store)
+  start_text_extraction_processing_loop(data_dir, gpu_tools_url, Duration::ZERO, db, object_store, startup_work)
 }
 
 pub fn start_text_extraction_processing_loop(
@@ -446,9 +448,10 @@ pub fn start_text_extraction_processing_loop(
   request_delay: Duration,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
+  startup_work: Arc<StartupWork>,
 ) -> InfuResult<()> {
   if let Some(state) = PROCESSING_STATE.get() {
-    enqueue_all_loaded_pdfs(data_dir, db, state.clone());
+    enqueue_all_loaded_pdfs(data_dir, db, state.clone(), startup_work);
     return Ok(());
   }
   let state = Arc::new(Mutex::new(ProcessingState {
@@ -471,16 +474,21 @@ pub fn start_text_extraction_processing_loop(
   }
   activity::begin_startup_scan();
   let _worker = task::spawn(async move {
-    run_text_extraction_loop(data_dir, gpu_tools_url, request_delay, db, object_store, state).await;
+    run_text_extraction_loop(data_dir, gpu_tools_url, request_delay, db, object_store, state, startup_work).await;
   });
 
   Ok(())
 }
 
-fn enqueue_all_loaded_pdfs(data_dir: String, db: Arc<Mutex<Db>>, state: Arc<Mutex<ProcessingState>>) {
+fn enqueue_all_loaded_pdfs(
+  data_dir: String,
+  db: Arc<Mutex<Db>>,
+  state: Arc<Mutex<ProcessingState>>,
+  startup_work: Arc<StartupWork>,
+) {
   activity::begin_startup_scan();
   let _enqueue_task = task::spawn(async move {
-    populate_initial_pdf_queue(&data_dir, db, state).await;
+    populate_initial_pdf_queue(&data_dir, db, state, &startup_work).await;
   });
 }
 
@@ -499,8 +507,9 @@ async fn run_text_extraction_loop(
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
   state: Arc<Mutex<ProcessingState>>,
+  startup_work: Arc<StartupWork>,
 ) {
-  populate_initial_pdf_queue(&data_dir, db.clone(), state.clone()).await;
+  populate_initial_pdf_queue(&data_dir, db.clone(), state.clone(), &startup_work).await;
   loop {
     let candidate = { pop_candidate(&mut *state.lock().await).0 };
     let Some(candidate) = candidate else {
@@ -869,13 +878,21 @@ fn compare_pdf_candidates_desc(a: &PdfCandidate, b: &PdfCandidate) -> std::cmp::
   b_size.cmp(&a_size).then(b.last_modified_date.cmp(&a.last_modified_date)).then(b.item_id.cmp(&a.item_id))
 }
 
-async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: Arc<Mutex<ProcessingState>>) {
+/// Only PDFs the startup check could not confirm as complete are considered;
+/// PDFs with current fragments necessarily have successful extraction.
+async fn populate_initial_pdf_queue(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  state: Arc<Mutex<ProcessingState>>,
+  startup_work: &StartupWork,
+) {
   let candidates = {
     let db = db.lock().await;
     let mut candidates = db
       .item
       .all_loaded_items()
       .into_iter()
+      .filter(|item_and_user_id| startup_work.content_item_ids.contains(&item_and_user_id.item_id))
       .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().and_then(pdf_candidate_for_item))
       .collect::<Vec<PdfCandidate>>();
     candidates.sort_by(|a, b| {
@@ -928,7 +945,7 @@ async fn populate_initial_pdf_queue(data_dir: &str, db: Arc<Mutex<Db>>, state: A
   activity::end_startup_scan();
 
   info!(
-    "Initialized PDF text extraction queue with {} pending item(s) from {} total PDF(s) (already succeeded: {}, already failed: {}, already blocked: {}, queued despite artifact errors: {}).",
+    "Initialized PDF text extraction queue with {} pending item(s) from {} PDF(s) the startup check found unfinished (already succeeded: {}, already failed: {}, already blocked: {}, queued despite artifact errors: {}).",
     scheduled, total_candidates, already_succeeded, already_failed, already_blocked, artifact_errors
   );
 }

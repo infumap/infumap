@@ -237,13 +237,16 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     info!("Done loading all items for all users.");
   }
 
-  crate::ai::search_reconciliation::reconcile_search_at_startup(&data_dir, db.clone()).await?;
+  let location_enabled = crate::ai::geo::geoapify_api_key_from_config(config.as_ref())?.is_some();
+  let startup_work = Arc::new(
+    crate::ai::search_reconciliation::reconcile_search_at_startup(&data_dir, db.clone(), location_enabled).await?,
+  );
 
   init_item_title_indexing_loop(data_dir.clone(), db.clone())?;
   init_fragment_indexing_loop(config.as_ref(), db.clone())?;
-  init_document_fragment_pipeline_loop(config.as_ref(), db.clone(), object_store.clone())?;
-  init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone())?;
-  init_image_background_pipeline_loop(config.clone(), db.clone(), object_store.clone())?;
+  init_document_fragment_pipeline_loop(config.as_ref(), db.clone(), object_store.clone(), startup_work.clone())?;
+  init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone(), startup_work.clone())?;
+  init_image_background_pipeline_loop(config.clone(), db.clone(), object_store.clone(), startup_work)?;
   crate::ai::search_activity::spawn_progress_logger(db.clone());
 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {
