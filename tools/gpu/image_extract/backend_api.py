@@ -29,11 +29,10 @@ class ImageTagResponse(BaseModel):
     ocr_text: list[str] = Field(default_factory=list)
     image_embedding: list[float] = Field(default_factory=list)
     model_id: str | None = None
-    backend: str | None = None
     extraction_mode: str | None = None
+    duration_ms: int | None = None
 
 
 class ImageCaptionResponse(BaseModel):
     detailed_caption: str | None = None
     model_id: str | None = None
-    backend: str | None = None

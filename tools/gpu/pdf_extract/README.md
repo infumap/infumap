@@ -282,8 +282,6 @@ manifest:
 ```json
 {
   "backend": "docling",
-  "backend_versions": {"docling": "2.115.0", "docling-core": "2.95.0",
-                       "docling-parse": "7.17.0", "docling-ibm-models": "3.15.0"},
   "service_version": "0.3.0",
   "fallback_reason": null,
   "unusable_pages": [1, 4],
@@ -291,12 +289,13 @@ manifest:
 }
 ```
 
-For Marker, `backend_versions` holds `marker-pdf` and `fallback_reason` says why
-Docling's output was not used. Page lists describe the returned Markdown, so
-they are empty for Marker. `service_version` (`SERVICE_VERSION` in
-`extractor.py`) should be bumped when routing or Markdown export changes.
-Infumap does not re-extract when the backend or versions change; use the
-extract command's `--overwrite` to re-extract existing PDFs.
+For Marker, `fallback_reason` says why Docling's output was not used. Page lists
+describe the returned Markdown, so they are empty for Marker. Extraction
+packages are pinned, so `service_version` (`SERVICE_VERSION` in `extractor.py`)
+identifies them too: bump it when routing, Markdown export or a pinned
+extraction package changes. Infumap does not re-extract when the backend or
+version changes; use the extract command's `--overwrite` to re-extract existing
+PDFs.
 
 Failures are routed so that only problems with the service itself are retried:
 

@@ -18,8 +18,7 @@
 """
 Retroactively update image tag manifests to record the model that processed them.
 
-Adds extractor.model_id and extractor.backend to every succeeded image manifest
-that is missing those fields. Skips PDF and other non-image manifests.
+Adds extractor.model_id to every succeeded image manifest that is missing it. Skips PDF and other non-image manifests.
 
 Usage:
     python3 update_manifests_qwen35.py --data-dir /path/to/infumap/data
@@ -28,7 +27,6 @@ Usage:
 Options:
     --data-dir   Path to the infumap data directory (required)
     --model-id   Model identifier to write (default: unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf)
-    --backend    Backend name to write (default: llama-server)
     --dry-run    Print what would be changed without writing anything
 """
 
@@ -42,14 +40,13 @@ from pathlib import Path
 IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/tiff"}
 
 DEFAULT_MODEL_ID = "unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf"
-DEFAULT_BACKEND = "llama-server"
 
 
 def find_manifest_files(data_dir: Path) -> list[Path]:
     return sorted(data_dir.glob("user_*/text/*/*_manifest.json"))
 
 
-def process_manifest(path: Path, model_id: str, backend: str, dry_run: bool) -> str:
+def process_manifest(path: Path, model_id: str, dry_run: bool) -> str:
     """Returns one of: 'updated', 'skipped_not_image', 'skipped_already_has_model',
     'skipped_not_succeeded', 'error'."""
     try:
@@ -67,11 +64,10 @@ def process_manifest(path: Path, model_id: str, backend: str, dry_run: bool) -> 
         return "skipped_not_succeeded"
 
     extractor = manifest.get("extractor", {})
-    if extractor.get("model_id") is not None or extractor.get("backend") is not None:
+    if extractor.get("model_id") is not None:
         return "skipped_already_has_model"
 
     extractor["model_id"] = model_id
-    extractor["backend"] = backend
     manifest["extractor"] = extractor
 
     if dry_run:
@@ -88,10 +84,9 @@ def process_manifest(path: Path, model_id: str, backend: str, dry_run: bool) -> 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Backfill model_id/backend into image tag manifests.")
+    parser = argparse.ArgumentParser(description="Backfill model_id into image tag manifests.")
     parser.add_argument("--data-dir", required=True, help="Path to the infumap data directory")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help=f"model_id to write (default: {DEFAULT_MODEL_ID})")
-    parser.add_argument("--backend", default=DEFAULT_BACKEND, help=f"backend to write (default: {DEFAULT_BACKEND})")
     parser.add_argument("--dry-run", action="store_true", help="Print changes without writing")
     args = parser.parse_args()
 
@@ -115,7 +110,7 @@ def main() -> int:
     }
 
     for path in manifests:
-        result = process_manifest(path, args.model_id, args.backend, args.dry_run)
+        result = process_manifest(path, args.model_id, args.dry_run)
         counts[result] = counts.get(result, 0) + 1
 
     print()

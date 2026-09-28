@@ -193,20 +193,20 @@ pub enum GeoManifestStatus {
 
 #[derive(Serialize, Deserialize)]
 struct GeoManifest {
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "ArtifactProcessing::is_empty")]
   processing: ArtifactProcessing,
   schema_version: u32,
   status: String,
   source_mime_type: String,
   content_mime_type: String,
   extractor: GeoManifestExtractor,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   error: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct GeoManifestExtractor {
   provider: String,
-  service_url: String,
   reverse_geocoded_at_unix_secs: i64,
   duration_ms: Option<u64>,
   query_latitude: Option<f64>,
@@ -287,20 +287,20 @@ pub async fn reverse_geocode_candidate_if_needed(
       return Ok(GeoProcessOutcome::SkippedWithoutImageTagOutput);
     }
     GeoCoordinateLoad::InvalidMetadataOutput(error_message) => {
-      write_failed_geo_manifest(data_dir, candidate, service_url, None, None, false, None, &error_message).await?;
+      write_failed_geo_manifest(data_dir, candidate, None, None, false, None, &error_message).await?;
       return Ok(GeoProcessOutcome::Failed { external_request: false });
     }
     GeoCoordinateLoad::Loaded(coords) => coords,
   };
 
   let Some((lat, lon)) = coords else {
-    write_skipped_geo_manifest(data_dir, candidate, service_url, None, None, false, "missing GPS").await?;
+    write_skipped_geo_manifest(data_dir, candidate, None, None, false, "missing GPS").await?;
     return Ok(GeoProcessOutcome::SkippedNoGps);
   };
 
   let cache_key = format!("{lat:.7},{lon:.7}");
   if let Some(cached_response) = cache.get(&cache_key) {
-    write_success_geo_artifacts(data_dir, candidate, service_url, lat, lon, true, Some(0), cached_response).await?;
+    write_success_geo_artifacts(data_dir, candidate, lat, lon, true, Some(0), cached_response).await?;
     return Ok(GeoProcessOutcome::Succeeded { cached: true });
   }
 
@@ -313,8 +313,7 @@ pub async fn reverse_geocode_candidate_if_needed(
     Ok(response_json) => {
       let duration_ms = elapsed_millis(request_started_at.elapsed());
       cache.insert(cache_key, response_json.clone());
-      write_success_geo_artifacts(data_dir, candidate, service_url, lat, lon, false, Some(duration_ms), &response_json)
-        .await?;
+      write_success_geo_artifacts(data_dir, candidate, lat, lon, false, Some(duration_ms), &response_json).await?;
       Ok(GeoProcessOutcome::Succeeded { cached: false })
     }
     Err(e) => match e {
@@ -323,17 +322,8 @@ pub async fn reverse_geocode_candidate_if_needed(
       }
       GeoRequestError::Other(error_message) => {
         let duration_ms = elapsed_millis(request_started_at.elapsed());
-        write_failed_geo_manifest(
-          data_dir,
-          candidate,
-          service_url,
-          Some(lat),
-          Some(lon),
-          false,
-          Some(duration_ms),
-          &error_message,
-        )
-        .await?;
+        write_failed_geo_manifest(data_dir, candidate, Some(lat), Some(lon), false, Some(duration_ms), &error_message)
+          .await?;
         Ok(GeoProcessOutcome::Failed { external_request: true })
       }
     },
@@ -497,7 +487,6 @@ pub async fn reverse_geocode(
 async fn write_success_geo_artifacts(
   data_dir: &str,
   candidate: &GeoCandidate,
-  service_url: &str,
   lat: f64,
   lon: f64,
   cached: bool,
@@ -510,14 +499,13 @@ async fn write_success_geo_artifacts(
   let output = serde_json::to_vec_pretty(response_json)?;
   atomic_write(&content_path, &output).await?;
   let manifest = GeoManifest {
-    processing: ArtifactProcessing::succeeded(&serde_json::to_vec(&(lat, lon))?, &output),
+    processing: ArtifactProcessing::default(),
     schema_version: GEO_MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
     source_mime_type: candidate.mime_type.clone(),
     content_mime_type: JSON_CONTENT_MIME_TYPE.to_owned(),
     extractor: GeoManifestExtractor {
       provider: GEOAPIFY_PROVIDER_NAME.to_owned(),
-      service_url: service_url.to_owned(),
       reverse_geocoded_at_unix_secs: unix_now_secs()?,
       duration_ms,
       query_latitude: Some(lat),
@@ -539,7 +527,6 @@ async fn write_success_geo_artifacts(
 async fn write_failed_geo_manifest(
   data_dir: &str,
   candidate: &GeoCandidate,
-  service_url: &str,
   lat: Option<f64>,
   lon: Option<f64>,
   cached: bool,
@@ -560,7 +547,6 @@ async fn write_failed_geo_manifest(
     content_mime_type: JSON_CONTENT_MIME_TYPE.to_owned(),
     extractor: GeoManifestExtractor {
       provider: GEOAPIFY_PROVIDER_NAME.to_owned(),
-      service_url: service_url.to_owned(),
       reverse_geocoded_at_unix_secs: unix_now_secs()?,
       duration_ms,
       query_latitude: lat,
@@ -582,7 +568,6 @@ async fn write_failed_geo_manifest(
 async fn write_skipped_geo_manifest(
   data_dir: &str,
   candidate: &GeoCandidate,
-  service_url: &str,
   lat: Option<f64>,
   lon: Option<f64>,
   cached: bool,
@@ -602,7 +587,6 @@ async fn write_skipped_geo_manifest(
     content_mime_type: JSON_CONTENT_MIME_TYPE.to_owned(),
     extractor: GeoManifestExtractor {
       provider: GEOAPIFY_PROVIDER_NAME.to_owned(),
-      service_url: service_url.to_owned(),
       reverse_geocoded_at_unix_secs: unix_now_secs()?,
       duration_ms: None,
       query_latitude: lat,

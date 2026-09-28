@@ -17,7 +17,6 @@
 use infusdk::util::infu::InfuResult;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
@@ -44,7 +43,7 @@ pub struct FailedPdfInfo {
 
 #[derive(Serialize, Deserialize)]
 struct TextManifest {
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "ArtifactProcessing::is_empty")]
   processing: ArtifactProcessing,
   schema_version: u32,
   status: String,
@@ -53,12 +52,12 @@ struct TextManifest {
   extractor: TextManifestExtractor,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   error_code: Option<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   error: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct TextManifestExtractor {
-  text_extraction_url: String,
   extracted_at_unix_secs: i64,
   duration_ms: Option<u64>,
   #[serde(flatten)]
@@ -73,9 +72,6 @@ struct TextExtractionInfo {
   /// `docling` or `marker`.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   backend: Option<String>,
-  /// Versions of the backend's extraction packages, by package name.
-  #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-  backend_versions: BTreeMap<String, String>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   service_version: Option<String>,
   /// Why Docling's output was not used, when Marker produced the text.
@@ -276,10 +272,8 @@ pub(super) async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> 
 /// Returns the backend that produced the text, when pdf_extract reported one.
 pub(super) async fn write_success_artifacts(
   data_dir: &str,
-  text_extraction_url: &str,
   candidate: &PdfCandidate,
   response: PdfToMdResponse,
-  source_bytes: &[u8],
 ) -> InfuResult<Option<String>> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
@@ -288,13 +282,12 @@ pub(super) async fn write_success_artifacts(
   let extraction = TextExtractionInfo::from_response_metadata(response.metadata.as_ref(), candidate);
   let backend = extraction.backend.clone();
   let manifest = TextManifest {
-    processing: ArtifactProcessing::succeeded(source_bytes, response.markdown.as_bytes()),
+    processing: ArtifactProcessing::default(),
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
     source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
     content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
     extractor: TextManifestExtractor {
-      text_extraction_url: text_extraction_url.to_owned(),
       extracted_at_unix_secs: unix_now_secs()?,
       duration_ms: Some(response.duration_ms),
       extraction,
@@ -308,33 +301,22 @@ pub(super) async fn write_success_artifacts(
 
 pub(super) async fn write_failed_manifest(
   data_dir: &str,
-  text_extraction_url: &str,
   candidate: &PdfCandidate,
   error_message: &str,
 ) -> InfuResult<()> {
-  write_terminal_manifest(data_dir, text_extraction_url, candidate, "failed", None, error_message).await
+  write_terminal_manifest(data_dir, candidate, "failed", None, error_message).await
 }
 
 pub(super) async fn write_password_required_manifest(
   data_dir: &str,
-  text_extraction_url: &str,
   candidate: &PdfCandidate,
   error_message: &str,
 ) -> InfuResult<()> {
-  write_terminal_manifest(
-    data_dir,
-    text_extraction_url,
-    candidate,
-    "blocked",
-    Some(PDF_PASSWORD_REQUIRED_ERROR_CODE),
-    error_message,
-  )
-  .await
+  write_terminal_manifest(data_dir, candidate, "blocked", Some(PDF_PASSWORD_REQUIRED_ERROR_CODE), error_message).await
 }
 
 async fn write_terminal_manifest(
   data_dir: &str,
-  text_extraction_url: &str,
   candidate: &PdfCandidate,
   status: &str,
   error_code: Option<&str>,
@@ -353,7 +335,6 @@ async fn write_terminal_manifest(
     source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
     content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
     extractor: TextManifestExtractor {
-      text_extraction_url: text_extraction_url.to_owned(),
       extracted_at_unix_secs: unix_now_secs()?,
       duration_ms: None,
       extraction: TextExtractionInfo::default(),
@@ -423,7 +404,7 @@ mod tests {
       "status": "succeeded",
       "source_mime_type": "application/pdf",
       "content_mime_type": "text/markdown",
-      "extractor": { "text_extraction_url": "http://x/pdf-extract", "extracted_at_unix_secs": 1, "duration_ms": 5 },
+      "extractor": { "extracted_at_unix_secs": 1, "duration_ms": 5 },
       "error": null
     }))
     .unwrap();
@@ -436,7 +417,6 @@ mod tests {
       "backend": "docling",
       "extraction": {
         "backend": "docling",
-        "backend_versions": { "docling": "2.115.0", "docling-core": "2.95.0" },
         "service_version": "0.2.0",
         "fallback_reason": null,
         "unusable_pages": [1],
@@ -445,24 +425,40 @@ mod tests {
       }
     });
     let extraction = TextExtractionInfo::from_response_metadata(Some(&metadata), &candidate());
-    let extractor = TextManifestExtractor {
-      text_extraction_url: "http://x/pdf-extract".to_owned(),
-      extracted_at_unix_secs: 1,
-      duration_ms: Some(5),
-      extraction,
-    };
+    let extractor = TextManifestExtractor { extracted_at_unix_secs: 1, duration_ms: Some(5), extraction };
     assert_eq!(
       serde_json::to_value(&extractor).unwrap(),
       serde_json::json!({
-        "text_extraction_url": "http://x/pdf-extract",
         "extracted_at_unix_secs": 1,
         "duration_ms": 5,
         "backend": "docling",
-        "backend_versions": { "docling": "2.115.0", "docling-core": "2.95.0" },
         "service_version": "0.2.0",
         "unusable_pages": [1]
       })
     );
+  }
+
+  #[test]
+  fn processing_block_is_written_only_with_a_retry_hint() {
+    let manifest = |processing| TextManifest {
+      processing,
+      schema_version: MANIFEST_SCHEMA_VERSION,
+      status: "succeeded".to_owned(),
+      source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
+      content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
+      extractor: TextManifestExtractor {
+        extracted_at_unix_secs: 1,
+        duration_ms: None,
+        extraction: TextExtractionInfo::default(),
+      },
+      error_code: None,
+      error: None,
+    };
+    let succeeded = serde_json::to_value(manifest(ArtifactProcessing::default())).unwrap();
+    assert!(succeeded.get("processing").is_none());
+    assert!(succeeded.get("error").is_none());
+    let failed = serde_json::to_value(manifest(ArtifactProcessing { retry_at_unix_secs: Some(9) })).unwrap();
+    assert_eq!(failed["processing"], serde_json::json!({ "retry_at_unix_secs": 9 }));
   }
 
   #[test]

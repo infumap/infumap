@@ -1564,8 +1564,8 @@ async def tag_upload(request: Request) -> ImageTagResponse:
             ocr_text=ocr_text,
             image_embedding=image_embedding,
             model_id=APP_STATE.get("model_id") or None,
-            backend=LLAMA_BACKEND_NAME,
             extraction_mode=IMAGE_EXTRACT_MODE_CAPTION_FALLBACK if used_caption_fallback else IMAGE_EXTRACT_MODE_FULL,
+            duration_ms=duration_ms,
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1663,7 +1663,6 @@ async def caption_upload(request: Request) -> ImageCaptionResponse:
         return ImageCaptionResponse(
             detailed_caption=detailed_caption,
             model_id=APP_STATE.get("model_id") or None,
-            backend=LLAMA_BACKEND_NAME,
         )
     except ImageRejectedError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1768,7 +1767,6 @@ async def pdf_caption_upload(request: Request) -> ImageCaptionResponse:
         return ImageCaptionResponse(
             detailed_caption=detailed_caption,
             model_id=APP_STATE.get("model_id") or None,
-            backend=LLAMA_BACKEND_NAME,
         )
     except PdfRejectedError as exc:
         return pdf_error_response(exc)
