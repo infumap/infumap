@@ -30,17 +30,14 @@ from docling.datamodel.pipeline_options import (
     TableStructureOptions,
 )
 from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.exceptions import ConversionError
 import pypdfium2 as pdfium
 
 from docling_quality import assess_and_render
 from extraction_errors import (
     BackendUnavailableError,
-    DoclingConversionError,
     DocumentRejectedError,
-    ExtractionTimeoutError,
     classify_document_rejection,
-    is_resource_failure,
+    is_setup_failure,
 )
 
 
@@ -72,21 +69,15 @@ def build_converter() -> DocumentConverter:
 
 def convert(source_path: str, filename: str) -> dict:
     source = DocumentStream(name=filename, stream=BytesIO(Path(source_path).read_bytes()))
-    try:
-        result = build_converter().convert(source, raises_on_error=False)
-    except ConversionError as exc:
-        if classify_document_rejection(exc) or is_resource_failure(str(exc)):
-            raise
-        raise DoclingConversionError(str(exc)) from exc
+    result = build_converter().convert(source, raises_on_error=False)
+    # Other reported errors leave a non-success status, which the assessment
+    # turns into a Marker fallback.
     for error in result.errors:
         message = error.error_message
         rejection = classify_document_rejection(RuntimeError(message))
         if rejection is not None:
             raise DocumentRejectedError(*rejection)
-        category = getattr(error.category, "value", str(error.category))
-        if category == "timeout":
-            raise ExtractionTimeoutError(message)
-        if is_resource_failure(message) or category in {"capacity", "internal", "source_unavailable", "target_unavailable"}:
+        if is_setup_failure(message):
             raise BackendUnavailableError(message)
 
     pdf = pdfium.PdfDocument(source_path)
@@ -122,18 +113,18 @@ def main() -> None:
     except Exception as exc:
         logging.exception("Docling worker failed for %s", filename)
         rejection = classify_document_rejection(exc)
+        message = f"Docling {type(exc).__name__}: {exc}"
         if isinstance(exc, DocumentRejectedError):
             error = {"kind": "document", "error_code": exc.error_code, "message": exc.message}
         elif rejection is not None:
             error = {"kind": "document", "error_code": rejection[0], "message": rejection[1]}
-        elif isinstance(exc, ExtractionTimeoutError):
-            error = {"kind": "timeout", "message": str(exc)}
-        elif isinstance(exc, DoclingConversionError):
-            error = {"kind": "conversion", "message": str(exc)}
+        elif isinstance(exc, (BackendUnavailableError, ImportError)) or is_setup_failure(message):
+            # Marker would hide a broken installation, and the caller retries.
+            error = {"kind": "unavailable", "message": message}
         else:
-            # Includes missing models/dependencies, OOM, I/O, and programming
-            # failures. Retrying such problems with Marker would hide them.
-            error = {"kind": "unavailable", "message": f"Docling {type(exc).__name__}: {exc}"}
+            # Includes memory exhaustion: this document may be too much for
+            # Docling but not for Marker, and retrying it would not help.
+            error = {"kind": "conversion", "message": message}
         payload = {"worker_error": error}
     Path(output_path).write_text(json.dumps(payload, ensure_ascii=False, allow_nan=False), encoding="utf-8")
 

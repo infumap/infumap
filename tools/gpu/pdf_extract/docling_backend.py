@@ -33,6 +33,14 @@ from extraction_errors import (
     ExtractionTimeoutError,
 )
 
+STARTUP_CHECK_TIMEOUT_SECS = 300.0
+
+
+def describe_exit(returncode: int) -> str:
+    if returncode < 0:
+        return f"was terminated by signal {-returncode}"
+    return f"exited with status {returncode}"
+
 
 class DoclingBackend:
     """Run native extraction in Docling's isolated dependency environment.
@@ -55,6 +63,30 @@ class DoclingBackend:
                 f"Docling Python is missing at {self.python}; run pdf_extract/run.sh to install it."
             )
 
+    def load(self) -> None:
+        """Check that the worker's imports succeed in the Docling environment.
+
+        After this, a worker that exits abnormally is treated as having failed
+        on its document, not as a broken installation.
+        """
+        self.check_ready()
+        try:
+            check = subprocess.run(
+                [str(self.python), "-c", "import docling_worker"],
+                cwd=self.root,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=STARTUP_CHECK_TIMEOUT_SECS,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise BackendUnavailableError(f"Could not start the Docling worker: {exc}") from exc
+        if check.returncode != 0:
+            detail = check.stderr.strip().splitlines()[-1:] or ["no error output"]
+            raise BackendUnavailableError(
+                f"Docling worker imports failed ({describe_exit(check.returncode)}): {detail[0]}"
+            )
+
     def cancel(self) -> None:
         # Also closes the race where the watchdog fires just before spawning.
         with self._lock:
@@ -65,6 +97,12 @@ class DoclingBackend:
     def convert(
         self, file_bytes: bytes, file_name: str, *, timeout_secs: float
     ) -> dict[str, Any]:
+        """Convert with Docling within timeout_secs.
+
+        Raises DoclingConversionError when Docling fails on the document,
+        including a crash or exceeding timeout_secs, and ExtractionTimeoutError
+        only when the service cancelled the conversion.
+        """
         if not math.isfinite(timeout_secs) or timeout_secs <= 0:
             raise ValueError("Docling conversion timeout must be finite and positive.")
         deadline = time.monotonic() + timeout_secs
@@ -80,41 +118,45 @@ class DoclingBackend:
                 str(output),
                 Path(file_name or "document.pdf").name,
             ]
-            try:
-                with self._lock:
-                    if self._cancelled or time.monotonic() >= deadline:
-                        raise ExtractionTimeoutError("Docling worker was cancelled.")
-                    process = subprocess.Popen(command, stdin=subprocess.DEVNULL)
-                    self._process = process
+            with self._lock:
+                if self._cancelled:
+                    raise ExtractionTimeoutError("Docling worker was cancelled.")
                 try:
-                    process.wait(timeout=max(0, deadline - time.monotonic()))
-                    if process.returncode != 0:
-                        raise BackendUnavailableError(
-                            f"Docling worker exited with status {process.returncode}; see worker logs."
-                        )
-                except subprocess.TimeoutExpired as exc:
-                    raise ExtractionTimeoutError("Docling conversion timed out.") from exc
-                finally:
-                    if process.poll() is None:
-                        process.kill()
-                    process.wait()
-                    with self._lock:
-                        self._process = None
+                    process = subprocess.Popen(command, stdin=subprocess.DEVNULL)
+                except OSError as exc:
+                    raise BackendUnavailableError(f"Could not start the Docling worker: {exc}") from exc
+                self._process = process
+            timed_out = False
+            try:
+                process.wait(timeout=max(0, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                timed_out = True
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                process.wait()
+                with self._lock:
+                    self._process = None
+            if self._cancelled:
+                raise ExtractionTimeoutError("Docling worker was cancelled.")
+            if timed_out:
+                raise DoclingConversionError(f"Docling exceeded its {timeout_secs:.0f} second budget.")
+            if process.returncode != 0:
+                raise DoclingConversionError(
+                    f"Docling worker {describe_exit(process.returncode)}; see worker logs."
+                )
+            try:
                 result = json.loads(output.read_text(encoding="utf-8"))
-            except ExtractionTimeoutError:
-                raise
             except (OSError, ValueError) as exc:
-                raise BackendUnavailableError(f"Could not run Docling worker: {exc}") from exc
+                raise DoclingConversionError(f"Docling worker left no readable result: {exc}") from exc
             if not isinstance(result, dict):
-                raise BackendUnavailableError("Docling worker returned an invalid conversion result.")
+                raise DoclingConversionError("Docling worker returned an invalid conversion result.")
             error = result.get("worker_error")
             if error:
                 message = error["message"]
                 if error["kind"] == "document":
                     raise DocumentRejectedError(error["error_code"], message)
-                if error["kind"] == "timeout":
-                    raise ExtractionTimeoutError(message)
-                if error["kind"] == "conversion":
-                    raise DoclingConversionError(message)
-                raise BackendUnavailableError(message)
+                if error["kind"] == "unavailable":
+                    raise BackendUnavailableError(message)
+                raise DoclingConversionError(message)
             return result

@@ -1,9 +1,9 @@
 # PDF Extract
 
 This is a small HTTP service for extracting uploaded PDFs to Markdown. It tries
-[Docling](https://github.com/docling-project/docling) with OCR disabled, checks
-native-text coverage, and falls back to [Marker](https://github.com/datalab-to/marker)
-for the whole document when native extraction is inadequate.
+[Docling](https://github.com/docling-project/docling) with OCR disabled and falls
+back to [Marker](https://github.com/datalab-to/marker) for the whole document when
+the PDF is mostly scanned or its text layer is unusable.
 
 Intended for burst or long running use.
 
@@ -180,9 +180,11 @@ Password-protected PDFs return HTTP 422 with a structured terminal response:
   `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`.
 - Docling and any Marker fallback share one
   `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS` deadline (default 3600 seconds).
-  A timeout returns a terminal 422 failure, stops any Docling child process,
-  and restarts the supervised service to clear stuck native state. Marker
-  does not get a new timeout budget after Docling.
+  Docling may use half of it; a Docling worker that exceeds its share is
+  killed and Marker runs in the remaining time. When the whole deadline
+  expires, the service returns a terminal 422 `pdf_conversion_timeout`, stops
+  any Docling child process, and restarts to clear stuck native state.
+
 Interactive API docs are available at `http://127.0.0.1:8790/docs`.
 
 ## Conversion Backends
@@ -215,50 +217,78 @@ conversion status/errors, package versions, input page count, coverage
 assessment, and accepted Markdown. Transient
 assembly data, duplicate character cells, and bitmap image payloads are omitted.
 This is internal worker data, not an HTTP response or a persistent sidecar.
-Partial/failed conversion statuses and coverage failures cause whole-document
-Marker fallback; the presence of a document alone does not mean extraction succeeded.
+Partial/failed conversion statuses and mostly scanned or garbled documents
+cause whole-document Marker fallback; the presence of a document alone does not mean extraction succeeded.
 Groundwork's custom interpretation and rendering are not included.
 
 ### Native Coverage Policy
 
-`docling_quality.py` accepts native output only when all source pages are
-accounted for, conversion succeeds without reported errors, and every page
-passes the following conservative checks:
+Docling is used without OCR unless the document is mostly scanned or has an
+unusable text layer. Mixed documents, searchable scans (which use their
+existing text layer), and picture-heavy presentations all use Docling; text
+visible only in images is not extracted for them.
 
-- Parsed native text and layout must be available for nonblank pages.
-- Pages without native alphanumeric text must render as blank at thumbnail
-  resolution. Visible scans, drawings, and text outlined as paths fall back.
-- Recognized headers and footers are excluded from body-text counts. Pages
-  with images and no native body text fall back. Image-dominated pages
-  (at least 65% estimated raster coverage) need at least 200 native body
-  characters, preventing a selectable footer from qualifying a scanned page.
-- Detected text/table regions covering at least 1% of the page need overlapping
-  native text. This uses retained layout predictions; the layout stage may
-  remove some empty regions, so this check alone cannot establish completeness.
-- Markdown must retain at least 80% of the body's normalized alphanumeric
-  character counts. Replacement characters, private-use glyphs, and unexpected
-  control characters also cause fallback when at least three such characters
-  make up more than 2% of the visible text.
-- Items with provenance spanning multiple pages fall back until the exporter
-  can preserve them without duplication.
+`docling_quality.py` rejects Docling's output when conversion reports errors or
+a non-success status, source pages are missing or duplicated, cells come from
+OCR, or page geometry is invalid. Otherwise each nonblank page is classified,
+and the document goes to Marker when at least half of its nonblank pages are
+unusable. A page is unusable when:
 
-Accepted pages use Docling's built-in Markdown export with empty image
-placeholders suppressed, native text inside pictures included, and Infumap's
+- it has no parsed page or no native alphanumeric text, yet does not render as
+  blank at thumbnail resolution (a scan, drawing, or text outlined as paths);
+- it has images and no native body text, with recognized headers and footers
+  excluded so that a selectable stamp or footer does not count;
+- images cover at least 65% of it and it has fewer than 200 native body
+  characters, as on a scan with a small selectable text layer (divider and
+  cover slides also match this, which is why it takes half of the pages);
+- most of its words are garbled: unmapped glyphs that docling-parse writes as
+  `GLYPH<...>`, glyph-name runs such as `/G12/G13`, or replacement, control,
+  or private-use characters. A PDF whose fonts lack a usable Unicode mapping
+  has no recoverable text layer, so mostly garbled documents need OCR.
+
+Unusable pages in an accepted document keep whatever Docling exported for them,
+except that garbled pages are left empty. Isolated `GLYPH<...>` placeholders,
+such as unmapped bullet symbols, are removed from the Markdown. Pages whose
+Markdown retains less than 80% of their native body characters are reported as
+warnings; this indicates Docling dropped text but does not change the route.
+The response metadata and log list unusable and warning pages.
+
+Before export, a copy of the document is adjusted in two ways. Docling merges a
+paragraph that continues onto a later page into one item, which page-filtered
+export would place entirely on its first page; such items are split at the page
+boundaries recorded in their provenance. Footnotes attached to tables and
+pictures are detached, because Docling's Markdown exporter otherwise omits them.
+
+Pages use Docling's built-in Markdown export with HTML escaping and empty image
+placeholders disabled, native text inside pictures included, and Infumap's
 zero-based numbered page markers. Blank pages keep their physical positions;
-an entirely blank PDF returns empty Markdown. This basic export is needed to
-serve the native route; more involved export handling remains separate work.
+an entirely blank PDF returns empty Markdown.
 
 These are routing heuristics, not guarantees of correct reading order, tables,
-or complete extraction of text embedded in images. They may send sparse covers
-or illustrated pages to Marker, and smaller embedded scans can escape detection.
-Thresholds have not yet been calibrated against representative PDFs.
+or complete extraction. A text layer with wrong but valid-looking characters is
+not detected, and a presentation where most slides are full-page images with
+little text is treated as scanned. Thresholds have not been calibrated beyond a
+small set of sample PDFs.
 
 Logs and response metadata report `backend`, `fallback_reason` when relevant,
-and Docling diagnostics/coverage under `docling`. Missing dependencies/models,
-recognized resource errors, worker crashes, and unexpected worker exceptions are service
-errors (HTTP 503), rather than reasons to silently try Marker. Recognized
-password/corruption failures remain terminal document errors. Infumap's later
-first-page image-caption fallback is unchanged.
+and Docling diagnostics/coverage under `docling`.
+
+Failures are routed so that only problems with the service itself are retried:
+
+- Docling failing on a document falls back to Marker, with the reason logged.
+  This includes worker crashes, unexpected exceptions, memory exhaustion,
+  unusable results, and exceeding Docling's share of the deadline.
+- If Marker then fails on the document, the service returns a terminal HTTP 422
+  with `error_code` `pdf_extraction_failed`, so Infumap records the PDF as
+  failed instead of retrying it.
+- HTTP 503 means the service cannot convert anything right now: missing
+  dependencies or models, failed model downloads, network or disk errors, or
+  Marker running out of memory. Infumap retries these. At startup the service
+  checks that the Docling worker's imports succeed, so a broken Docling
+  installation stops the service rather than sending every PDF to Marker.
+- Recognized password and corruption failures remain terminal document errors.
+
+Infumap's later first-page image-caption fallback is unchanged.
 
 ### Groundwork Dependency Baseline
 
