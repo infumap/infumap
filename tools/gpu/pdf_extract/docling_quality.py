@@ -17,23 +17,37 @@
 from __future__ import annotations
 
 import re
+import sys
 import unicodedata
-from collections import Counter
+from collections import Counter, defaultdict
 from itertools import chain
 from typing import Any
 
 import pypdfium2 as pdfium
 from docling.datamodel.base_models import Page
 from docling.datamodel.document import ConversionResult
+from docling_core.transforms.serializer.base import BaseDocSerializer, SerializationResult
+from docling_core.transforms.serializer.common import create_ser_result
+from docling_core.transforms.serializer.markdown import (
+    MarkdownDocSerializer,
+    MarkdownParams,
+    MarkdownTextSerializer,
+)
 from docling_core.types.doc import (
     DocItemLabel,
     DoclingDocument,
     FloatingItem,
+    FormulaItem,
+    ImageRefMode,
     NodeItem,
     ProvenanceItem,
     TextItem,
 )
-from docling_core.types.doc.document import ContentLayer
+from docling_core.types.doc.document import (
+    DEFAULT_CONTENT_LAYERS,
+    DOCUMENT_TOKENS_EXPORT_LABELS,
+    ContentLayer,
+)
 
 # Routing heuristics, not a claim of OCR or semantic accuracy. A nonblank page
 # is unusable when it looks scanned or its native text is garbled. Documents
@@ -168,8 +182,86 @@ def split_cross_page_items(document: DoclingDocument, items: list[NodeItem]) -> 
             previous.prov = run
 
 
+class NativeFormulaTextSerializer(MarkdownTextSerializer):
+    """Export a formula that Docling did not decode as its native text.
+
+    Formula enrichment is disabled, so Docling's exporter would otherwise
+    replace the formula's text with an HTML comment.
+    """
+
+    def serialize(
+        self, *, item: TextItem, doc_serializer: BaseDocSerializer, doc: DoclingDocument, **kwargs: Any
+    ) -> SerializationResult:
+        if isinstance(item, FormulaItem) and not item.text and item.orig:
+            return create_ser_result(text=item.orig, span_source=item)
+        return super().serialize(item=item, doc_serializer=doc_serializer, doc=doc, **kwargs)
+
+
+def markdown_by_page(document: DoclingDocument) -> dict[int, str]:
+    """Export Markdown for each page in a single pass over the document.
+
+    Like Docling's page-filtered export_to_markdown, an item belongs to the
+    page of its first provenance and items without provenance are omitted.
+    Calling that export once per page traverses the whole document each time.
+    """
+    params = MarkdownParams(
+        # export_to_markdown's parameters, with the changes Infumap needs.
+        labels=DOCUMENT_TOKENS_EXPORT_LABELS,
+        layers=DEFAULT_CONTENT_LAYERS,
+        start_idx=0,
+        stop_idx=sys.maxsize,
+        escape_html=False,
+        escape_underscores=True,
+        image_placeholder="",
+        enable_chart_tables=True,
+        image_mode=ImageRefMode.PLACEHOLDER,
+        indent=4,
+        wrap_width=None,
+        page_break_placeholder=None,
+        mark_meta=False,
+        include_annotations=True,
+        blocked_meta_names=set(),
+        mark_annotations=False,
+        compact_tables=False,
+        traverse_pictures=True,
+        include_picture_classification=True,
+    )
+    serializer = MarkdownDocSerializer(
+        doc=document, params=params, text_serializer=NativeFormulaTextSerializer()
+    )
+
+    def subtree(node: NodeItem):
+        return document.iterate_items(
+            root=node, with_groups=True, traverse_pictures=True, included_content_layers=params.layers
+        )
+
+    parts: dict[int, list[str]] = defaultdict(list)
+    visited: set[str] = set()
+    # Mirrors the serializer's own body traversal: each part is a node not
+    # already serialized as part of an earlier one, such as a list's items.
+    for node, level in subtree(document.body):
+        if node.self_ref in visited:
+            continue
+        visited.add(node.self_ref)
+        part = serializer.serialize(item=node, visited=visited, level=level)
+        if not part.text:
+            continue
+        pages = sorted({item.prov[0].page_no for item, _ in subtree(node) if getattr(item, "prov", None)})
+        if len(pages) == 1:
+            parts[pages[0]].append(part.text)
+            continue
+        # A group, such as a list that continues onto the next page, is
+        # exported once per page with only that page's items.
+        for page_no in pages:
+            text = serializer.serialize(item=node, level=level, pages={page_no}).text
+            if text:
+                parts[page_no].append(text)
+    return {page_no: "\n\n".join(texts) for page_no, texts in parts.items()}
+
+
 def assess_page(
     document: DoclingDocument,
+    exported_markdown: str,
     page: Page | None,
     pdf: pdfium.PdfDocument,
     number: int,
@@ -205,9 +297,7 @@ def assess_page(
     if area <= 0:
         raise NativeExtractionRejected(f"page_{number}:invalid_page_geometry")
 
-    markdown = document.export_to_markdown(
-        page_no=number, image_placeholder="", traverse_pictures=True, escape_html=False
-    )
+    markdown = exported_markdown
     if garbled(markdown):
         return "garbled_markdown", ""
     markdown = UNMAPPED_GLYPH_PATTERN.sub("", markdown).strip()
@@ -251,6 +341,7 @@ def render_pages(result: ConversionResult, pdf: pdfium.PdfDocument, page_stats: 
             for number in {prov.page_no for prov in text.prov}:
                 furniture_by_page.setdefault(number, Counter()).update(characters(text.text))
 
+    exported = markdown_by_page(document)
     unusable: list[str] = []
 
     def rejected(pages: int, *, partial: bool = False) -> NativeExtractionRejected:
@@ -266,7 +357,13 @@ def render_pages(result: ConversionResult, pdf: pdfium.PdfDocument, page_stats: 
         stats: dict[str, Any] = {"page_no": number}
         page_stats.append(stats)
         reason, markdown = assess_page(
-            document, pages.get(number), pdf, number, furniture_by_page.get(number, Counter()), stats
+            document,
+            exported.get(number, ""),
+            pages.get(number),
+            pdf,
+            number,
+            furniture_by_page.get(number, Counter()),
+            stats,
         )
         if reason is not None:
             stats["unusable"] = reason

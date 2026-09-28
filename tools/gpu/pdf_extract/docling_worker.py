@@ -85,21 +85,9 @@ def convert(source_path: str, filename: str) -> dict:
         assessment, markdown = assess_and_render(result, pdf)
     finally:
         pdf.close()
-    # Keep Docling's own diagnostics and structures internal. JSON serialization
-    # normalizes non-finite confidence values and omits transient image data.
-    payload = json.loads(result.model_dump_json(exclude={
-        "input": True,
-        "assembled": True,
-        "timings": True,
-        "pages": {"__all__": {
-            "assembled": True,
-            "parsed_page": {
-                "char_cells": True,
-                "image": True,
-                "bitmap_resources": {"__all__": {"image": True}},
-            },
-        }},
-    }))
+    # Only what the service uses. JSON serialization normalizes non-finite
+    # confidence values.
+    payload = json.loads(result.model_dump_json(include={"version", "status", "errors", "confidence"}))
     payload["page_count"] = result.input.page_count
     payload["assessment"] = assessment
     payload["markdown"] = markdown

@@ -36,7 +36,7 @@ from extraction_errors import (
 LOGGER = logging.getLogger("uvicorn.error")
 # Reported with every extraction. Bump it when routing or Markdown export
 # changes, so extracted text can be traced to the logic that produced it.
-SERVICE_VERSION = "0.2.0"
+SERVICE_VERSION = "0.3.0"
 # Share of the conversion deadline Docling may use, leaving Marker time to run.
 DOCLING_TIME_BUDGET_FRACTION = 0.5
 # Docling's reported version fields, by package name.
