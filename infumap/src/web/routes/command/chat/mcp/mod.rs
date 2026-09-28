@@ -93,7 +93,9 @@ fn store_cache(id: String, entry: CachedServer) {
   lock_cache().insert(id, entry);
 }
 
-async fn refresh_server(server: &ChatToolServer) -> CachedServer {
+/// `purpose` says what needed the server's catalog, so a failure logged while no chat is running
+/// can be traced to its caller.
+async fn refresh_server(server: &ChatToolServer, purpose: &str) -> CachedServer {
   match client::initialize_and_list_tools(server).await {
     Ok(session) => CachedServer {
       fetched_at: Instant::now(),
@@ -103,7 +105,13 @@ async fn refresh_server(server: &ChatToolServer) -> CachedServer {
       session: Some(session),
     },
     Err(e) => {
-      warn!("MCP tool server '{}': {}", server.id, e);
+      warn!(
+        "Could not fetch tool list from MCP tool server '{}' ({}); marking it unavailable for {}s: {}",
+        server.id,
+        purpose,
+        CATALOG_TTL_ERR.as_secs(),
+        e
+      );
       CachedServer {
         fetched_at: Instant::now(),
         ttl: CATALOG_TTL_ERR,
@@ -115,11 +123,11 @@ async fn refresh_server(server: &ChatToolServer) -> CachedServer {
   }
 }
 
-async fn server_snapshot(server: &ChatToolServer) -> CachedServer {
+async fn server_snapshot(server: &ChatToolServer, purpose: &str) -> CachedServer {
   if let Some(cached) = cached_fresh(&server.id) {
     return cached;
   }
-  let snapshot = refresh_server(server).await;
+  let snapshot = refresh_server(server, purpose).await;
   store_cache(server.id.clone(), snapshot.clone());
   snapshot
 }
@@ -138,7 +146,7 @@ pub async fn tool_server_catalog(config: &Config) -> Vec<ChatToolServerInfo> {
     }
   };
   join_all(servers.into_iter().map(|server| async move {
-    let snapshot = server_snapshot(&server).await;
+    let snapshot = server_snapshot(&server, "listing chat tool servers for /chat/models").await;
     let (icons, tools) =
       snapshot.session.as_ref().map(|session| (session.icons.clone(), session.tools.clone())).unwrap_or_default();
     ChatToolServerInfo {
@@ -178,7 +186,7 @@ pub async fn mapped_tools_for_capabilities(
     let Some(server) = by_id.get(plugin_id) else {
       continue;
     };
-    let snapshot = server_snapshot(server).await;
+    let snapshot = server_snapshot(server, "preparing tools for a chat request").await;
     if !snapshot.available {
       continue;
     }
@@ -230,7 +238,7 @@ pub async fn call_mapped_tool(
   let Some(server) = by_id.get(server_id) else {
     return Ok(serde_json::json!({ "error": format!("Unknown tool server '{server_id}'.") }).to_string());
   };
-  let snapshot = server_snapshot(server).await;
+  let snapshot = server_snapshot(server, "calling a tool during a chat request").await;
   let Some(session) = snapshot.session else {
     return Ok(
       serde_json::json!({
