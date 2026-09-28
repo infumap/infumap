@@ -9,7 +9,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use crate::ai::artifact_io::{atomic_write, file_sha256, sha256};
+use crate::ai::artifact_io::{atomic_write_unsynced, file_sha256, sha256};
 use crate::ai::artifact_paths::{
   item_fragments_dir, item_fragments_manifest_path, item_fragments_path, user_fragments_dir,
 };
@@ -115,7 +115,7 @@ pub async fn write_item_fragments(
   }
   ensure_user_fragments_dir(data_dir, &item.owner_id).await?;
   fs::create_dir_all(&item_dir).await?;
-  atomic_write(&fragments_path, &serialized).await?;
+  atomic_write_unsynced(&fragments_path, &serialized).await?;
 
   let manifest = FragmentsManifest {
     schema_version: FRAGMENTS_SCHEMA_VERSION,
@@ -127,7 +127,7 @@ pub async fn write_item_fragments(
     generated_at_unix_secs: unix_now_secs()?,
     fragment_count: fragments.len(),
   };
-  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write_unsynced(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
 
   Ok(FragmentBuildOutcome { wrote_fragments: true, fragment_count: fragments.len(), cleared_existing_fragments: false })
 }

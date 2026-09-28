@@ -61,3 +61,28 @@ pub async fn atomic_write(path: &Path, bytes: &[u8]) -> InfuResult<()> {
   }
   result
 }
+
+/// Publish one complete file without syncing it to disk, for derived files
+/// that are cheap to rebuild. Readers still never see a partially written file.
+///
+/// Deliberate trade-off: syncing costs two disk flushes per file (file and
+/// directory), which added up to about 1,000 per 500-item index commit. After a
+/// power failure one of these files may be left empty or stale; that is
+/// detected (fingerprints, parse failures, changed sizes and times) and the file
+/// is rebuilt. Use `atomic_write` for GPU and location-service output and for
+/// local text that is trusted without re-checking.
+pub async fn atomic_write_unsynced(path: &Path, bytes: &[u8]) -> InfuResult<()> {
+  let parent = path.parent().ok_or("Artifact path has no parent directory.")?;
+  fs::create_dir_all(parent).await?;
+  let temporary = parent.join(format!(".artifact-{}.tmp", new_uid()));
+  let result: InfuResult<()> = async {
+    fs::write(&temporary, bytes).await?;
+    fs::rename(&temporary, path).await?;
+    Ok(())
+  }
+  .await;
+  if result.is_err() {
+    let _ = fs::remove_file(&temporary).await;
+  }
+  result
+}

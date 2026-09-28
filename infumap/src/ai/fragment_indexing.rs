@@ -14,7 +14,7 @@ use tokio::sync::{Mutex, mpsc};
 use tokio::task;
 use tokio::time::{Instant, timeout_at};
 
-use crate::ai::artifact_io::{atomic_write, sha256};
+use crate::ai::artifact_io::{atomic_write, atomic_write_unsynced, sha256};
 use crate::ai::artifact_paths::{item_fragments_dir, item_fragments_manifest_path, item_fragments_path};
 use crate::ai::fragment::is_lexical_search_source_kind;
 use crate::ai::lexical_index::{
@@ -181,7 +181,7 @@ pub async fn record_indexed_fragments(
     }
     let receipt =
       FragmentIndexReceipt { index_generation: generation.clone(), fragments_sha256: indexed_fingerprint(fragments)? };
-    atomic_write(&directory.join("index_receipt.json"), &serde_json::to_vec_pretty(&receipt)?).await?;
+    atomic_write_unsynced(&directory.join("index_receipt.json"), &serde_json::to_vec_pretty(&receipt)?).await?;
   }
   Ok(())
 }
