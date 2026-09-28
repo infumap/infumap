@@ -96,6 +96,11 @@ pub use item_ops::add_item_for_user;
 const COMMAND_REQUEST_MAX_BYTES: usize = 256 * 1024 * 1024;
 const SEARCH_STATUS_PAGE_BACKGROUND_COLOR_INDEX: i64 = 7;
 const SEARCH_STATUS_CONTAINER_VERSION_MULTIPLIER: u64 = 1_000_000_000;
+/// Deliberate trade-off: during large backlogs a search status page lists only
+/// this many items (its title gives the full count). Listing every item made
+/// the page megabytes large and it was resent whenever an item finished; the
+/// progress log gives the full picture.
+const SEARCH_STATUS_PAGE_MAX_LINKS: usize = 200;
 
 pub static METRIC_COMMAND_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(
@@ -1248,11 +1253,8 @@ async fn maybe_handle_get_virtual_search_status_page_items(
   } else {
     Vec::new()
   };
-  let child_count = if get_items_mode_includes_children(mode) {
-    child_items.len()
-  } else {
-    virtual_search_status_page_child_count(&db, &session.user_id, page_kind, &view)
-  };
+  // The listed children are capped; the title reports the full count.
+  let child_count = virtual_search_status_page_child_count(&db, &session.user_id, page_kind, &view);
   let page = virtual_search_status_page(
     &session.user_id,
     page_kind,
@@ -1467,11 +1469,14 @@ fn virtual_search_status_page(
 }
 
 fn search_status_page_title(page_kind: SearchStatusPageKind, child_count: usize, checking: bool) -> String {
-  if checking {
-    format!("{} ({}, checking)", page_kind.title(), child_count)
-  } else {
-    format!("{} ({})", page_kind.title(), child_count)
+  let mut notes = vec![child_count.to_string()];
+  if child_count > SEARCH_STATUS_PAGE_MAX_LINKS {
+    notes.push(format!("showing {}", SEARCH_STATUS_PAGE_MAX_LINKS));
   }
+  if checking {
+    notes.push("checking".to_owned());
+  }
+  format!("{} ({})", page_kind.title(), notes.join(", "))
 }
 
 fn virtual_search_status_page_children(
@@ -1524,20 +1529,20 @@ fn virtual_search_status_page_child_items(
   view: &SearchStatusView,
 ) -> InfuResult<Vec<Item>> {
   let session_user_id_maybe = Some(user_id.to_owned());
-  let mut target_items = view
+  // Sort keys are computed once, and only the listed items are fully sorted.
+  let mut keyed_items = view
     .item_ids_for_page_kind(page_kind)
     .iter()
     .filter_map(|item_id| db.item.get(item_id).ok())
     .filter(|item| authorize_item(db, item, &session_user_id_maybe, 0).is_ok())
+    .map(|item| ((item.title.as_deref().unwrap_or("").to_lowercase(), item.id.clone()), item))
     .collect::<Vec<_>>();
-  target_items.sort_by(|a, b| {
-    a.title
-      .as_deref()
-      .unwrap_or("")
-      .to_lowercase()
-      .cmp(&b.title.as_deref().unwrap_or("").to_lowercase())
-      .then(a.id.cmp(&b.id))
-  });
+  if keyed_items.len() > SEARCH_STATUS_PAGE_MAX_LINKS {
+    keyed_items.select_nth_unstable_by(SEARCH_STATUS_PAGE_MAX_LINKS - 1, |a, b| a.0.cmp(&b.0));
+    keyed_items.truncate(SEARCH_STATUS_PAGE_MAX_LINKS);
+  }
+  keyed_items.sort_by(|a, b| a.0.cmp(&b.0));
+  let target_items = keyed_items.into_iter().map(|(_, item)| item).collect::<Vec<_>>();
 
   let page_id = match page_kind {
     SearchStatusPageKind::Attention => search_attention_page_id(user_id),
