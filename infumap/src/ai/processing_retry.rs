@@ -54,6 +54,12 @@ pub async fn manifest_retry_delay(path: &Path) -> InfuResult<Duration> {
   Ok(Duration::from_secs(due.saturating_sub(unix_now_secs_i64()?).clamp(0, MAX_RETRY_SECS as i64) as u64))
 }
 
+/// The failure recorded alongside a retry hint, for status reporting.
+pub async fn manifest_retry_reason(path: &Path) -> InfuResult<Option<String>> {
+  let Some(manifest) = read_manifest(path).await? else { return Ok(None) };
+  Ok(manifest.get("error").and_then(Value::as_str).map(str::to_owned))
+}
+
 /// Preserve the failure reason. There is no new file for stages without a manifest.
 pub async fn record_manifest_retry(path: &Path, delay: Duration) -> InfuResult<()> {
   let Some(mut manifest) = read_manifest(path).await? else { return Ok(()) };

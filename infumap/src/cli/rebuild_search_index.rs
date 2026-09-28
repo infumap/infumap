@@ -14,7 +14,6 @@ use crate::ai::lexical_index::{
   document_fragment_lexical_index_temp_dir, item_title_lexical_index_dir, item_title_lexical_index_temp_dir,
 };
 use crate::ai::search_index_paths::ensure_user_index_dir;
-use crate::ai::search_status::refresh_user_search_fragment_status;
 use crate::ai::title_indexing::lexical_fragment_from_item_title_fragment;
 use crate::config::CONFIG_DATA_DIR;
 use crate::setup::get_config;
@@ -48,7 +47,7 @@ struct RebuildCheckpoint {
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("rebuild-search-index")
-    .about("Rebuild lexical search indexes explicitly, with resumable batch progress. Run while the web server is stopped.")
+    .about("Repair lexical search indexes by rebuilding them from current titles and fragments, with resumable batch progress. Run while the web server is stopped. Routine updates do not require it.")
     .arg(settings_arg())
     .arg(
       Arg::new("batch_size")
@@ -185,19 +184,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     finalize_user_indexes(&data_dir, &pending).await?;
     checkpoint.pending_install = None;
     write_checkpoint(&checkpoint_path, &checkpoint).await?;
-  }
-
-  println!("Refreshing search fragment status for {} user(s)...", user_ids.len());
-  for (index, user_id) in user_ids.iter().enumerate() {
-    let status = refresh_user_search_fragment_status(&data_dir, &db, user_id).await?;
-    println!(
-      "search fragment status {}/{} · user {} · failed {} · pending {}",
-      index + 1,
-      user_ids.len(),
-      user_id,
-      status.failed_item_ids.len(),
-      status.pending_item_ids.len()
-    );
   }
 
   remove_path_if_exists(&checkpoint_path).await?;

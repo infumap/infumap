@@ -15,6 +15,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
+use crate::ai::document_pipeline::requeue_document_fragment_item_now;
+use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
+use crate::ai::image_pipeline::requeue_image_background_pipeline_item_now;
+use crate::ai::text_extraction::requeue_pdf_item_now;
 
 #[derive(Deserialize)]
 pub struct GetAttachmentsRequest {
@@ -942,6 +946,49 @@ pub(super) async fn handle_delete_item<'a>(
   }
 
   json_with_sync_ack(sync_ack, None)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReprocessItemRequest {
+  pub id: String,
+}
+
+/// Discard generated search outputs for an item and queue every stage again.
+/// Extracted text and image descriptions (including manual edits) are replaced
+/// using the current GPU service. Location output depends only on the image's
+/// coordinates and is kept. Old content index entries are removed by the local
+/// content index worker, without waiting for GPU tools.
+pub(super) async fn handle_reprocess_item(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let request: ReprocessItemRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  let session = session_maybe.as_ref().ok_or("Session is required to reprocess an item.")?;
+
+  let (item, data_dir) = {
+    let db = db.lock().await;
+    let item = db.item.get(&request.id)?.clone();
+    if item.owner_id != session.user_id {
+      return Err(format!("User '{}' does not own item '{}'.", session.user_id, request.id).into());
+    }
+    (item, db.item.data_dir().to_owned())
+  };
+
+  delete_item_text_dir(&data_dir, &item.owner_id, &item.id).await?;
+  delete_item_image_tag_dir(&data_dir, &item.owner_id, &item.id).await?;
+  delete_item_fragment_artifacts(&data_dir, &item.owner_id, &item.id).await?;
+
+  enqueue_fragment_lexical_index_update(&item.owner_id, &item.id);
+  enqueue_item_title_index_update(&item.owner_id, &item.id);
+  requeue_image_background_pipeline_item_now(&item).await;
+  requeue_pdf_item_now(&item).await;
+  requeue_document_fragment_item_now(&item).await;
+  debug!("Executed 'reprocess-item' command for item '{}'.", item.id);
+
+  Ok(None)
 }
 
 pub(super) async fn handle_empty_trash<'a>(

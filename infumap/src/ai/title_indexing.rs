@@ -12,6 +12,7 @@ use tokio::time::{Instant, timeout_at};
 use crate::ai::fragment::sources::{ItemTitleFragment, item_title_fragment_for_item};
 use crate::ai::lexical_index::{LexicalFragment, open_user_item_title_lexical_index};
 use crate::ai::processing_retry::RetrySchedule;
+use crate::ai::search_activity::{self as activity, Stage};
 use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
@@ -49,6 +50,7 @@ pub fn enqueue_item_title_index_update(user_id: &str, item_id: &str) {
     return;
   };
   let request = ItemTitleIndexingRequest { user_id: user_id.to_owned(), item_id: item_id.to_owned() };
+  activity::queued(user_id, item_id, Stage::Title);
   if let Err(e) = sender.send(request) {
     warn!("Could not enqueue item-level title lexical index update: {}", e);
   }
@@ -93,6 +95,7 @@ async fn run_item_title_indexing_loop(
     let mut requests = queued.iter().filter(|request| retries.ready(*request)).cloned().collect::<Vec<_>>();
     for request in &requests {
       queued.remove(request);
+      activity::running(&request.user_id, &request.item_id, Stage::Title);
     }
     requests.sort_by(|a, b| a.user_id.cmp(&b.user_id).then(a.item_id.cmp(&b.item_id)));
     debug!("Applying {} item-level title lexical index update request(s).", requests.len());
@@ -104,12 +107,14 @@ async fn run_item_title_indexing_loop(
       let result = update_title_index_for_items(&data_dir, db.clone(), &user_id, &item_ids).await;
       for item_id in item_ids {
         let request = ItemTitleIndexingRequest { user_id: user_id.clone(), item_id };
-        if result.is_err() {
+        if let Err(e) = &result {
           let delay = retries.failed(request.clone());
+          activity::retry(&request.user_id, &request.item_id, Stage::Title, &e.to_string(), delay);
           queued.insert(request);
           debug!("Title index retry scheduled in {} seconds.", delay.as_secs());
         } else {
           retries.clear(&request);
+          activity::done(&request.user_id, &request.item_id, Stage::Title);
         }
       }
       if let Err(e) = result {

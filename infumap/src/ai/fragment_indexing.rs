@@ -22,6 +22,7 @@ use crate::ai::lexical_index::{
   user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,
 };
 use crate::ai::processing_retry::RetrySchedule;
+use crate::ai::search_activity::{self as activity, Stage};
 use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
@@ -62,6 +63,7 @@ pub fn enqueue_fragment_lexical_index_update(user_id: &str, item_id: &str) {
     return;
   };
   let request = FragmentIndexingRequest { user_id: user_id.to_owned(), item_id: item_id.to_owned() };
+  activity::queued(user_id, item_id, Stage::ContentIndex);
   if let Err(e) = sender.send(request) {
     warn!("Could not enqueue item-level fragment lexical index update: {}", e);
   }
@@ -98,6 +100,7 @@ pub async fn load_item_search_fragments(
 }
 
 pub async fn delete_item_search_index_entries(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<usize> {
+  activity::forget(user_id, item_id);
   let mut deleted = 0;
   if user_document_fragment_lexical_index_exists(data_dir, user_id).await? {
     deleted += open_user_document_fragment_lexical_index(data_dir, user_id)?.delete_item_fragments(item_id).await?;
@@ -259,6 +262,7 @@ async fn run_fragment_indexing_loop(
     let mut requests = queued.iter().filter(|request| retries.ready(*request)).cloned().collect::<Vec<_>>();
     for request in &requests {
       queued.remove(request);
+      activity::running(&request.user_id, &request.item_id, Stage::ContentIndex);
     }
     requests.sort_by(|a, b| a.user_id.cmp(&b.user_id).then(a.item_id.cmp(&b.item_id)));
     debug!("Applying {} item-level fragment lexical index update(s).", requests.len());
@@ -282,6 +286,7 @@ async fn run_fragment_indexing_loop(
           Err(e) => {
             let request = FragmentIndexingRequest { user_id: user_id.clone(), item_id: item_id.clone() };
             let delay = retries.failed(request.clone());
+            activity::retry(&request.user_id, &request.item_id, Stage::ContentIndex, &e.to_string(), delay);
             queued.insert(request);
             error!(
               "Could not load fragments for '{}' (user {}): {}. Retrying in {} seconds.",
@@ -299,12 +304,14 @@ async fn run_fragment_indexing_loop(
       let result = commit_user_updates(&data_dir, &user_id, &updates).await;
       for (item_id, _) in &updates {
         let request = FragmentIndexingRequest { user_id: user_id.clone(), item_id: item_id.clone() };
-        if result.is_err() {
+        if let Err(e) = &result {
           let delay = retries.failed(request.clone());
+          activity::retry(&request.user_id, &request.item_id, Stage::ContentIndex, &e.to_string(), delay);
           queued.insert(request);
           debug!("Content index retry scheduled in {} seconds.", delay.as_secs());
         } else {
           retries.clear(&request);
+          activity::done(&request.user_id, &request.item_id, Stage::ContentIndex);
         }
       }
       if let Err(e) = result {
