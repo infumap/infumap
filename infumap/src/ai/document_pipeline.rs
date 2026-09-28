@@ -23,6 +23,7 @@ use crate::ai::gpu_tools::{GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY, gpu_tools_url_from
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::processing_retry::RetrySchedule;
 use crate::ai::search_activity::{self as activity, Stage};
+use crate::ai::search_reconciliation::StartupWork;
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
@@ -137,10 +138,11 @@ pub fn init_document_fragment_pipeline_loop(
   config: &Config,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
+  startup_work: Arc<StartupWork>,
 ) -> InfuResult<()> {
   let pipeline_config = document_fragment_pipeline_config(config, object_store)?;
   if DOCUMENT_FRAGMENT_PIPELINE_STATE.get().is_some() {
-    enqueue_all_loaded_document_fragments(db, pipeline_config);
+    enqueue_all_loaded_document_fragments(db, pipeline_config, startup_work);
     return Ok(());
   }
 
@@ -164,7 +166,7 @@ pub fn init_document_fragment_pipeline_loop(
     });
   }
 
-  enqueue_all_loaded_document_fragments(db, pipeline_config);
+  enqueue_all_loaded_document_fragments(db, pipeline_config, startup_work);
   Ok(())
 }
 
@@ -426,27 +428,35 @@ async fn build_document_fragment_artifact(
   }
 }
 
-fn enqueue_all_loaded_document_fragments(db: Arc<Mutex<Db>>, config: DocumentFragmentPipelineConfig) {
+fn enqueue_all_loaded_document_fragments(
+  db: Arc<Mutex<Db>>,
+  config: DocumentFragmentPipelineConfig,
+  startup_work: Arc<StartupWork>,
+) {
   let Some(state) = DOCUMENT_FRAGMENT_PIPELINE_STATE.get() else {
     return;
   };
   let state = state.clone();
   activity::begin_startup_scan();
   let _enqueue_task = task::spawn(async move {
-    populate_initial_document_fragment_queue(&config, db, state).await;
+    populate_initial_document_fragment_queue(&config, db, state, &startup_work).await;
   });
 }
 
+/// Only items the startup check could not confirm as complete are queued;
+/// the rest were verified moments ago.
 async fn populate_initial_document_fragment_queue(
   _config: &DocumentFragmentPipelineConfig,
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<DocumentFragmentPipelineState>>,
+  startup_work: &StartupWork,
 ) {
   let candidates = {
     let db = db.lock().await;
     db.item
       .all_loaded_items()
       .into_iter()
+      .filter(|item_key| startup_work.content_item_ids.contains(&item_key.item_id))
       .filter_map(|item_key| db.item.get(&item_key.item_id).ok())
       .filter_map(DocumentFragmentCandidate::from_item)
       .collect::<Vec<_>>()
@@ -455,11 +465,10 @@ async fn populate_initial_document_fragment_queue(
   let count = candidates.len();
   let mut state = state.lock().await;
   for candidate in candidates {
-    enqueue_candidate(&mut state, candidate.clone());
-    activity::checking(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
+    enqueue_candidate(&mut state, candidate);
   }
   activity::end_startup_scan();
-  info!("Queued {} document items for startup fragment checks, including unfinished and failed work.", count);
+  info!("Queued {} document item(s) that the startup check found unfinished.", count);
 }
 
 fn enqueue_candidate_if_active(candidate: DocumentFragmentCandidate) {

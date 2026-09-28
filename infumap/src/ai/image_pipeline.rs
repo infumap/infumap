@@ -29,6 +29,7 @@ use crate::ai::image_tagging::{
 use crate::ai::metrics::{METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH};
 use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, manifest_retry_reason, record_manifest_retry};
 use crate::ai::search_activity::{self as activity, Stage};
+use crate::ai::search_reconciliation::StartupWork;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -99,10 +100,11 @@ pub fn init_image_background_pipeline_loop(
   config: Arc<Config>,
   db: Arc<Mutex<Db>>,
   object_store: Arc<ObjectStore>,
+  startup_work: Arc<StartupWork>,
 ) -> InfuResult<()> {
   let pipeline_config = image_background_pipeline_config(config.as_ref())?;
   if IMAGE_BACKGROUND_PIPELINE_STATE.get().is_some() {
-    enqueue_all_loaded_images(db, pipeline_config);
+    enqueue_all_loaded_images(db, pipeline_config, startup_work);
     return Ok(());
   }
 
@@ -153,7 +155,7 @@ pub fn init_image_background_pipeline_loop(
     });
   }
 
-  enqueue_all_loaded_images(db, pipeline_config);
+  enqueue_all_loaded_images(db, pipeline_config, startup_work);
   Ok(())
 }
 
@@ -581,29 +583,48 @@ async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandi
   Ok(item.owner_id == candidate.user_id && should_tag_image_item(item))
 }
 
-fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, _config: ImageBackgroundPipelineConfig) {
+/// Only images the startup check could not confirm as complete are queued, plus
+/// images whose optional location lookup is still pending; the rest were
+/// verified moments ago.
+fn enqueue_all_loaded_images(
+  db: Arc<Mutex<Db>>,
+  config: ImageBackgroundPipelineConfig,
+  startup_work: Arc<StartupWork>,
+) {
   let Some(state) = IMAGE_BACKGROUND_PIPELINE_STATE.get() else { return };
   let state = state.clone();
   activity::begin_startup_scan();
   task::spawn(async move {
-    let candidates = {
+    let (content, location_only) = {
       let db = db.lock().await;
-      db.item
-        .all_loaded_items()
-        .into_iter()
-        .filter_map(|key| db.item.get(&key.item_id).ok())
-        .filter_map(ImagePipelineCandidate::from_item)
-        .collect::<Vec<_>>()
+      let mut content = Vec::new();
+      let mut location_only = Vec::new();
+      for key in db.item.all_loaded_items() {
+        let needs_content = startup_work.content_item_ids.contains(&key.item_id);
+        let needs_location = config.geo_api_key.is_some() && startup_work.location_item_ids.contains(&key.item_id);
+        if !needs_content && !needs_location {
+          continue;
+        }
+        let Some(candidate) = db.item.get(&key.item_id).ok().and_then(ImagePipelineCandidate::from_item) else {
+          continue;
+        };
+        if needs_content { content.push(candidate) } else { location_only.push(candidate) }
+      }
+      (content, location_only)
     };
-    let count = candidates.len();
     let mut state = state.lock().await;
-    for candidate in candidates {
+    for candidate in &content {
       enqueue_candidate_for_all_stages(&mut state, candidate.clone());
-      activity::checking(&candidate.user_id, &candidate.item_id, Stage::Fragments);
-      activity::checking(&candidate.user_id, &candidate.item_id, Stage::ImageExtraction);
+    }
+    for candidate in &location_only {
+      enqueue_candidate(&mut state, PipelineStage::Geo, candidate.clone());
     }
     activity::end_startup_scan();
-    info!("Queued {} images for startup processing checks, including failed and unfinished work.", count);
+    info!(
+      "Queued {} image(s) that the startup check found unfinished, and {} for location lookup only.",
+      content.len(),
+      location_only.len()
+    );
   });
 }
 

@@ -52,7 +52,10 @@ use super::fragment::{
   read_item_fragments,
 };
 use super::fragment_indexing::{commit_user_updates, item_fragment_index_is_current, load_item_search_fragments};
-use super::geo::{delete_item_geo_artifacts, extract_geo_query_coordinates, geo_manifest_is_complete};
+use super::geo::{
+  GeoManifestStatus, delete_item_geo_artifacts, extract_geo_query_coordinates, geo_manifest_is_complete,
+  geo_manifest_status,
+};
 use super::image_tagging::{ImageTagArtifactState, image_tagging_artifact_state, is_supported_image_tagging_mime_type};
 use super::lexical_index::{
   FragmentLexicalIndexRebuildStatus, LexicalFragment, document_fragment_lexical_index_dir,
@@ -65,10 +68,31 @@ use super::user_id_for_log;
 
 const BATCH_SIZE: usize = 100;
 const STARTUP_CHECK_FILENAME: &str = "search_startup_check.json";
-const STARTUP_CHECK_VERSION: u32 = 1;
+const STARTUP_CHECK_VERSION: u32 = 2;
 const PROGRESS_LOG_INTERVAL_SECS: u64 = 30;
 
-pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<()> {
+/// Items the startup check could not confirm as complete. The background
+/// workers queue only these at startup rather than re-verifying every item,
+/// which would repeat this check's work far more expensively.
+///
+/// Deliberate trade-off: workers trust this result. Do not reintroduce
+/// full-corpus worker scans at startup; they re-hashed every image and document
+/// on every restart.
+#[derive(Default)]
+pub struct StartupWork {
+  /// Items whose content (extraction, fragments or indexing) may need work.
+  pub content_item_ids: HashSet<String>,
+  /// Images with current content whose optional location lookup is missing or
+  /// failed. Only collected when location lookup is configured.
+  pub location_item_ids: HashSet<String>,
+}
+
+pub async fn reconcile_search_at_startup(
+  data_dir: &str,
+  db: Arc<Mutex<Db>>,
+  location_enabled: bool,
+) -> InfuResult<StartupWork> {
+  let mut work = StartupWork::default();
   info!("Reconciling search artifacts and indexes at startup (before background processing).");
   let mut items_by_user = {
     let db = db.lock().await;
@@ -147,8 +171,11 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
         checked += 1;
         if SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some() {
           if let Ok(stamp) = item_check_stamp(data_dir, item, context.as_deref(), &index_identity_before).await {
-            if previous_stamps.get(&item.id) == Some(&stamp) {
-              stamps.insert(item.id.clone(), stamp);
+            if let Some(previous) = previous_stamps.get(&item.id).filter(|previous| previous.stamp == stamp) {
+              if previous.location_pending && location_enabled {
+                work.location_item_ids.insert(item.id.clone());
+              }
+              stamps.insert(item.id.clone(), ItemCheck { stamp, location_pending: previous.location_pending });
               continue;
             }
           }
@@ -165,6 +192,9 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
             verified_in_detail.push((item.clone(), context.clone()));
           }
           Ok(false) => {
+            if SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some() {
+              work.content_item_ids.insert(item.id.clone());
+            }
             if delete_item_fragment_artifacts(data_dir, user_id, &item.id).await? {
               invalidated += 1;
             }
@@ -173,6 +203,7 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
             }
           }
           Err(error) => {
+            work.content_item_ids.insert(item.id.clone());
             errors += 1;
             warn!(
               "Could not reconcile search artifacts for item '{}' (user {}): {}. Will check again on restart.",
@@ -221,8 +252,16 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
       stamps.clear();
     }
     for (item, context) in &verified_in_detail {
+      let location_pending = is_supported_image_tagging_mime_type(item.mime_type.as_deref())
+        && !matches!(
+          geo_manifest_status(data_dir, user_id, &item.id).await,
+          Ok(Some(GeoManifestStatus::Succeeded | GeoManifestStatus::Skipped))
+        );
+      if location_pending && location_enabled {
+        work.location_item_ids.insert(item.id.clone());
+      }
       if let Ok(stamp) = item_check_stamp(data_dir, item, context.as_deref(), &index_identity).await {
-        stamps.insert(item.id.clone(), stamp);
+        stamps.insert(item.id.clone(), ItemCheck { stamp, location_pending });
       }
     }
     if stamps != previous_stamps {
@@ -245,16 +284,27 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
     );
   }
   info!(
-    "Search startup check finished in {:.1}s; background workers will process remaining work.",
-    started.elapsed().as_secs_f64()
+    "Search startup check finished in {:.1}s: {} item(s) need content work and {} need a location lookup; background workers will process only these.",
+    started.elapsed().as_secs_f64(),
+    work.content_item_ids.len(),
+    work.location_item_ids.len()
   );
-  Ok(())
+  Ok(work)
 }
 
 #[derive(Deserialize, Serialize)]
 struct StartupCheckRecord {
   version: u32,
-  items: HashMap<String, String>,
+  items: HashMap<String, ItemCheck>,
+}
+
+#[derive(Clone, Deserialize, PartialEq, Serialize)]
+struct ItemCheck {
+  stamp: String,
+  /// Whether an image's location lookup was missing or failed when checked.
+  /// Its location files are part of the stamp, so this stays valid while the
+  /// stamp matches.
+  location_pending: bool,
 }
 
 fn startup_check_path(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
@@ -265,7 +315,7 @@ fn startup_check_path(data_dir: &str, user_id: &str) -> InfuResult<PathBuf> {
 }
 
 /// A missing or unreadable record only means every item is checked in depth.
-async fn read_startup_check(path: &Path) -> HashMap<String, String> {
+async fn read_startup_check(path: &Path) -> HashMap<String, ItemCheck> {
   let Ok(bytes) = fs::read(path).await else { return HashMap::new() };
   match serde_json::from_slice::<StartupCheckRecord>(&bytes) {
     Ok(record) if record.version == STARTUP_CHECK_VERSION => record.items,
@@ -273,7 +323,7 @@ async fn read_startup_check(path: &Path) -> HashMap<String, String> {
   }
 }
 
-async fn write_startup_check(path: &Path, items: &HashMap<String, String>) -> InfuResult<()> {
+async fn write_startup_check(path: &Path, items: &HashMap<String, ItemCheck>) -> InfuResult<()> {
   let record = StartupCheckRecord { version: STARTUP_CHECK_VERSION, items: items.clone() };
   atomic_write(path, &serde_json::to_vec(&record)?).await
 }

@@ -714,7 +714,6 @@ async fn get_item_search_status(
   let stages = item_activity(&item.owner_id, uid);
   for stage in &stages {
     let phase = match stage.phase {
-      Phase::Checking => "checking",
       Phase::Queued => "queued",
       Phase::Processing => "processing",
       Phase::Waiting => "waiting",

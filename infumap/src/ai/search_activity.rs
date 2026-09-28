@@ -62,8 +62,6 @@ impl Stage {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 pub enum Phase {
-  /// Queued by a startup scan to verify existing outputs; not known to be outstanding.
-  Checking,
   Queued,
   Processing,
   /// Automatic retry is scheduled because a dependency is unavailable or busy.
@@ -138,7 +136,6 @@ pub fn queued(user_id: &str, item_id: &str, stage: Stage) {
   with_entries(|entries| {
     let entry = entries.entry(key(user_id, item_id, stage)).or_insert_with(|| Entry::new(Phase::Queued));
     match entry.phase {
-      Phase::Checking => entry.phase = Phase::Queued,
       Phase::Processing => entry.queued_again = true,
       Phase::Queued | Phase::Waiting | Phase::NeedsAttention => {}
     }
@@ -152,18 +149,7 @@ pub fn due(user_id: &str, item_id: &str, stage: Stage) {
     match entry.phase {
       Phase::Processing => entry.queued_again = true,
       Phase::Waiting | Phase::NeedsAttention => *entry = Entry::new(Phase::Queued),
-      Phase::Checking | Phase::Queued => {}
-    }
-  });
-}
-
-/// A startup scan queued this work only to verify it.
-pub fn checking(user_id: &str, item_id: &str, stage: Stage) {
-  with_entries(|entries| {
-    if let Some(entry) = entries.get_mut(&key(user_id, item_id, stage)) {
-      if entry.phase == Phase::Queued {
-        entry.phase = Phase::Checking;
-      }
+      Phase::Queued => {}
     }
   });
 }
@@ -273,7 +259,6 @@ pub fn user_summary(user_id: &str) -> UserActivitySummary {
       }
       let track = (item_id.clone(), stage.is_title_track());
       match entry.phase {
-        Phase::Checking => summary.checking = true,
         Phase::Queued | Phase::Processing | Phase::Waiting => {
           active_tracks.insert(track);
         }
@@ -307,7 +292,6 @@ pub fn item_activity(user_id: &str, item_id: &str) -> Vec<StageActivity> {
 
 struct StageReport {
   stage: Stage,
-  checking: usize,
   queued: usize,
   processing: Vec<(String, Duration)>,
   waiting: usize,
@@ -319,8 +303,7 @@ struct StageReport {
 
 impl StageReport {
   fn is_empty(&self) -> bool {
-    self.checking + self.queued + self.processing.len() + self.waiting + self.attention == 0
-      && self.done + self.failed == 0
+    self.queued + self.processing.len() + self.waiting + self.attention == 0 && self.done + self.failed == 0
   }
 
   fn render(&self, titles: &HashMap<String, String>) -> String {
@@ -339,12 +322,9 @@ impl StageReport {
         format_elapsed(processing.iter().map(|(_, elapsed)| *elapsed).max().unwrap_or_default())
       )),
     }
-    for (count, label) in [
-      (self.queued, "queued"),
-      (self.waiting, "waiting to retry"),
-      (self.attention, "need attention"),
-      (self.checking, "startup checks pending"),
-    ] {
+    for (count, label) in
+      [(self.queued, "queued"), (self.waiting, "waiting to retry"), (self.attention, "need attention")]
+    {
       if count > 0 {
         parts.push(format!("{} {}", count, label));
       }
@@ -371,7 +351,6 @@ impl StageReport {
 fn stage_report(reports: &mut BTreeMap<Stage, StageReport>, stage: Stage) -> &mut StageReport {
   reports.entry(stage).or_insert_with(|| StageReport {
     stage,
-    checking: 0,
     queued: 0,
     processing: Vec::new(),
     waiting: 0,
@@ -388,7 +367,6 @@ fn take_progress_report() -> Vec<StageReport> {
     for ((_, item_id, stage), entry) in entries.iter() {
       let stage_report = stage_report(&mut reports, *stage);
       match entry.phase {
-        Phase::Checking => stage_report.checking += 1,
         Phase::Queued => stage_report.queued += 1,
         Phase::Processing => stage_report
           .processing
@@ -491,17 +469,6 @@ mod tests {
     assert!(user_summary(user).processing_item_ids.contains(item));
     forget(user, item);
     assert!(user_summary(user).attention_item_ids.is_empty());
-  }
-
-  #[test]
-  fn startup_checks_are_not_listed_until_they_run() {
-    let (user, item) = ("activity-test-user-3", "item");
-    queued(user, item, Stage::ImageExtraction);
-    checking(user, item, Stage::ImageExtraction);
-    let summary = user_summary(user);
-    assert!(summary.checking && summary.processing_item_ids.is_empty());
-    running(user, item, Stage::ImageExtraction);
-    assert!(user_summary(user).processing_item_ids.contains(item));
   }
 
   #[test]
