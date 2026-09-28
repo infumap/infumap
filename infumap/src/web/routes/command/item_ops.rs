@@ -609,19 +609,33 @@ pub(super) async fn handle_update_item(
     image_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?;
   debug!("Executed 'update-item' command for item '{}'.", item.id);
   drop(db);
-  enqueue_item_title_index_update(&owner_id, &item.id);
+  // Deliberate trade-off: most updates (moving, resizing, restyling) change
+  // nothing search depends on, so only queue work when a search input changed.
+  // Title fragments use the title, type, parent context and attachments; image
+  // fragments also use the title and parent context; document fragments use
+  // only their local text and kind.
+  let title_inputs_changed = old_item.title != item.title
+    || old_item.item_type != item.item_type
+    || old_item.parent_id != item.parent_id
+    || old_item.relationship_to_parent != item.relationship_to_parent;
+  let mime_type_changed = old_item.mime_type != item.mime_type;
+  if title_inputs_changed {
+    enqueue_item_title_index_update(&owner_id, &item.id);
+  }
   if let Some(parent_id) = old_title_parent_id {
     enqueue_item_title_index_update(&owner_id, &parent_id);
   }
   if should_tag_image_item(&item) {
-    enqueue_image_background_pipeline_item_if_active(&item);
+    if title_inputs_changed || mime_type_changed || !should_tag_image_item(&old_item) {
+      enqueue_image_background_pipeline_item_if_active(&item);
+    }
   } else if should_tag_image_item(&old_item) {
     dequeue_image_background_pipeline_item_if_active(&old_item.id);
   }
   for dependent in image_fragment_context_dependents {
     enqueue_image_background_pipeline_item_if_active(&dependent);
   }
-  if should_fragment_document_item(&item) {
+  if should_fragment_document_item(&item) && (mime_type_changed || !should_fragment_document_item(&old_item)) {
     enqueue_document_fragment_item_if_active(&item);
   }
 

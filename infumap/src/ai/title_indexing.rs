@@ -139,9 +139,14 @@ async fn run_item_title_indexing_loop(
         }
       }
       match result {
-        Ok(()) => info!(
-          "Title index: committed {} item update(s) for user {} in {:.1}s.",
+        Ok(0) => debug!(
+          "Title index: {} requested update(s) for user {} changed nothing.",
           update_count,
+          user_id_for_log(&user_id)
+        ),
+        Ok(changed) => info!(
+          "Title index: committed {} changed title(s) for user {} in {:.1}s.",
+          changed,
           user_id_for_log(&user_id),
           commit_started.elapsed().as_secs_f64()
         ),
@@ -160,7 +165,7 @@ async fn update_title_index_for_items(
   db: Arc<Mutex<Db>>,
   user_id: &str,
   requested_item_ids: &[String],
-) -> InfuResult<()> {
+) -> InfuResult<usize> {
   let updates = {
     let db = db.lock().await;
     let mut item_ids = requested_item_ids.iter().cloned().collect::<HashSet<_>>();
@@ -192,14 +197,29 @@ async fn update_title_index_for_items(
       .collect::<InfuResult<Vec<_>>>()?
   };
 
-  ensure_user_index_dir(data_dir, user_id).await?;
+  // Related items (children, attachments, parent) are included in case their
+  // title context changed; most have not. Rewriting unchanged titles would only
+  // add deleted documents and segments, so compare with what is stored first.
   let index = open_user_item_title_lexical_index(data_dir, user_id)?;
-  let update_refs = updates
+  let item_ids = updates.iter().map(|(item_id, _)| item_id.clone()).collect::<Vec<_>>();
+  let mut stored = index.stored_titles_for_items(&item_ids).await?;
+  let changed = updates
+    .into_iter()
+    .filter(|(item_id, fragment)| {
+      stored.remove(item_id).unwrap_or_default().as_slice()
+        != fragment.as_ref().map(std::slice::from_ref).unwrap_or_default()
+    })
+    .collect::<Vec<_>>();
+  if changed.is_empty() {
+    return Ok(0);
+  }
+  ensure_user_index_dir(data_dir, user_id).await?;
+  let update_refs = changed
     .iter()
     .map(|(item_id, fragment)| (item_id.as_str(), fragment.as_ref().map(std::slice::from_ref).unwrap_or_default()))
     .collect::<Vec<_>>();
   index.replace_items_titles(&update_refs).await?;
-  Ok(())
+  Ok(changed.len())
 }
 
 pub fn lexical_fragment_from_item_title_fragment(fragment: ItemTitleFragment) -> LexicalFragment {
