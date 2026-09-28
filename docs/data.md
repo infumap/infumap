@@ -26,7 +26,7 @@ Stop the web server before deleting or editing these files. On the next start, I
 
 | Delete | What happens | Why you might |
 | --- | --- | --- |
-| A PDF's or image's `_text` and `_manifest.json` | Extraction runs again with the current GPU tools; fragments and search entries are rebuilt. The item has no searchable content until then. For an image, the location lookup is also repeated. | Get better output from upgraded GPU tools, or retry a bad result. |
+| A PDF's or image's `_text` and `_manifest.json` | Extraction runs again with the current GPU tools; fragments and search entries are rebuilt. The item has no searchable content until then. An image's location lookup is kept. | Get better output from upgraded GPU tools, or retry a bad result. |
 | A Markdown or text item's `_text` and `_manifest.json` | The local copy is recreated from the original file. | Discard manual edits to the copy. |
 | `_geo.json` / `_geo_manifest.json` | The location lookup is repeated, using location service quota. | Refresh location results. |
 | An item's `fragments/` directory | Fragments are rebuilt from the local text without the GPU, except PDFs whose only content was a first-page caption. | Rarely needed; repairs damaged fragment files. |
@@ -44,10 +44,10 @@ At startup the log reports the search check for each user, with progress every 3
 
 Upgrading GPU tools does not change existing output. Only items processed afterwards use the new version. Reprocessing existing items is manual and selective:
 
-- While the server runs, `infumap reprocess --id <item_id>` redoes one item. It deletes the item's local text and fragments, removes its old search entries with the next index batch, and queues it again. Its location lookup is kept unless the server restarts before the item is re-extracted.
+- While the server runs, `infumap reprocess --id <item_id>` redoes one item. It deletes the item's local text and fragments, removes its old search entries with the next index batch, and queues it again. Its location lookup is kept.
 - For many items, stop the server, delete the `_text` and `_manifest.json` files of the PDFs and images you want redone, and start it again (see the table above).
 
-Each reprocessed item costs a full GPU request again, and a large batch can keep GPU tools busy for a long time. Until an item is re-extracted, its content is not searchable, although its title still is. Manual edits to its local text are lost. Bulk-deleting image text also repeats their location lookups.
+Each reprocessed item costs a full GPU request again, and a large batch can keep GPU tools busy for a long time. Until an item is re-extracted, its content is not searchable, although its title still is. Manual edits to its local text are lost. Location lookups are not repeated.
 
 Older installations may still contain `indexes/fragments.sqlite3` or `indexes/fragments.sqlite3.tmp`. Infumap no longer reads these legacy semantic-search databases, so they can be deleted.
 
