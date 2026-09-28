@@ -15,6 +15,7 @@ use tokio::time::sleep;
 
 use crate::ai::fragment::sources::{
   build_markdown_fragment_artifact, build_pdf_fragment_artifact, build_text_fragment_artifact,
+  pdf_fragment_source_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
@@ -22,7 +23,6 @@ use crate::ai::gpu_tools::{GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY, gpu_tools_url_from
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::processing_retry::RetrySchedule;
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
-use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -77,6 +77,7 @@ struct DocumentFragmentCandidate {
   user_id: String,
   item_id: String,
   kind: DocumentFragmentKind,
+  caption_fallback: bool,
 }
 
 impl DocumentFragmentCandidate {
@@ -85,6 +86,7 @@ impl DocumentFragmentCandidate {
       user_id: item.owner_id.clone(),
       item_id: item.id.clone(),
       kind: DocumentFragmentKind::from_item(item)?,
+      caption_fallback: false,
     })
   }
 
@@ -93,11 +95,16 @@ impl DocumentFragmentCandidate {
       user_id: user_id.to_owned(),
       item_id: item_id.to_owned(),
       kind: DocumentFragmentKind::Pdf,
+      caption_fallback: false,
     }
   }
 
   fn key(&self) -> DocumentFragmentCandidateKey {
-    DocumentFragmentCandidateKey { item_id: self.item_id.clone(), kind: self.kind }
+    DocumentFragmentCandidateKey {
+      item_id: self.item_id.clone(),
+      kind: self.kind,
+      caption_fallback: self.caption_fallback,
+    }
   }
 }
 
@@ -105,6 +112,7 @@ impl DocumentFragmentCandidate {
 struct DocumentFragmentCandidateKey {
   item_id: String,
   kind: DocumentFragmentKind,
+  caption_fallback: bool,
 }
 
 #[derive(Default)]
@@ -117,6 +125,7 @@ struct DocumentFragmentPipelineState {
 enum DocumentFragmentReconcileOutcome {
   Changed(String),
   Skipped,
+  NeedsCaption,
 }
 
 pub fn init_document_fragment_pipeline_loop(
@@ -136,14 +145,19 @@ pub fn init_document_fragment_pipeline_loop(
     .set(state.clone())
     .map_err(|_| "Document fragment background pipeline loop is already running in this process.".to_owned())?;
 
-  info!("Starting document fragment background loop (gpu_tools={}).", on_off(pipeline_config.gpu_tools_url.is_some()));
+  info!(
+    "Starting separate local document and PDF caption workers (gpu_tools={}).",
+    on_off(pipeline_config.gpu_tools_url.is_some())
+  );
 
-  let worker_config = pipeline_config.clone();
-  let worker_db = db.clone();
-  let worker_state = state.clone();
-  let _worker = task::spawn(async move {
-    run_document_fragment_loop(worker_config, worker_db, worker_state).await;
-  });
+  for caption_worker in [false, true] {
+    let worker_config = pipeline_config.clone();
+    let worker_db = db.clone();
+    let worker_state = state.clone();
+    task::spawn(async move {
+      run_document_fragment_loop(worker_config, worker_db, worker_state, caption_worker).await;
+    });
+  }
 
   enqueue_all_loaded_document_fragments(db, pipeline_config);
   Ok(())
@@ -205,11 +219,12 @@ async fn run_document_fragment_loop(
   config: DocumentFragmentPipelineConfig,
   db: Arc<Mutex<Db>>,
   state: Arc<Mutex<DocumentFragmentPipelineState>>,
+  caption_worker: bool,
 ) {
   loop {
     let candidate = {
       let mut state = state.lock().await;
-      pop_candidate(&mut state)
+      pop_candidate(&mut state, caption_worker)
     };
 
     let Some(candidate) = candidate else {
@@ -217,7 +232,6 @@ async fn run_document_fragment_loop(
       continue;
     };
 
-    wait_for_object_store_upload_quiet_period("document fragment processing").await;
     match reconcile_document_fragment_item(&config, db.clone(), &candidate).await {
       Ok(DocumentFragmentReconcileOutcome::Changed(user_id)) => {
         state.lock().await.retries.clear(&candidate.key());
@@ -227,6 +241,13 @@ async fn run_document_fragment_loop(
       Ok(DocumentFragmentReconcileOutcome::Skipped) => {
         state.lock().await.retries.clear(&candidate.key());
         record_document_fragment_processed("skipped");
+      }
+      Ok(DocumentFragmentReconcileOutcome::NeedsCaption) => {
+        let mut state = state.lock().await;
+        state.retries.clear(&candidate.key());
+        let mut candidate = candidate;
+        candidate.caption_fallback = true;
+        enqueue_candidate(&mut state, candidate);
       }
       Err(e) => {
         let delay = {
@@ -281,7 +302,14 @@ async fn reconcile_document_fragment_item(
     }
   }
 
-  let pdf_caption_url = if candidate.kind == DocumentFragmentKind::Pdf {
+  // Read existing PDF text locally first. Only the separate caption worker may
+  // discover/call GPU tools, so an outage cannot hold up local fragment work.
+  let needs_caption = candidate.kind == DocumentFragmentKind::Pdf
+    && pdf_fragment_source_for_item(&config.data_dir, &item_snapshot).await?.is_none();
+  if needs_caption && !candidate.caption_fallback {
+    return Ok(DocumentFragmentReconcileOutcome::NeedsCaption);
+  }
+  let pdf_caption_url = if needs_caption {
     match resolve_gpu_tool_url(config.gpu_tools_url.as_deref(), GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY).await {
       Ok(url) => url.map(|url| url.to_string()),
       Err(e) => {
@@ -420,6 +448,7 @@ fn enqueue_candidate_if_active(candidate: DocumentFragmentCandidate) {
   };
 
   if let Ok(mut state) = state.try_lock() {
+    state.retries.clear(&candidate.key());
     enqueue_candidate(&mut state, candidate);
     return;
   }
@@ -427,6 +456,7 @@ fn enqueue_candidate_if_active(candidate: DocumentFragmentCandidate) {
   let state = state.clone();
   let _enqueue = task::spawn(async move {
     let mut state = state.lock().await;
+    state.retries.clear(&candidate.key());
     enqueue_candidate(&mut state, candidate);
   });
 }
@@ -440,8 +470,11 @@ fn enqueue_candidate(state: &mut DocumentFragmentPipelineState, candidate: Docum
   true
 }
 
-fn pop_candidate(state: &mut DocumentFragmentPipelineState) -> Option<DocumentFragmentCandidate> {
-  let position = state.queue.iter().position(|candidate| state.retries.ready(&candidate.key()))?;
+fn pop_candidate(state: &mut DocumentFragmentPipelineState, caption_worker: bool) -> Option<DocumentFragmentCandidate> {
+  let position = state
+    .queue
+    .iter()
+    .position(|candidate| candidate.caption_fallback == caption_worker && state.retries.ready(&candidate.key()))?;
   let candidate = state.queue.remove(position)?;
   state.queued_candidate_keys.remove(&candidate.key());
   record_document_fragment_queue_depth(state);

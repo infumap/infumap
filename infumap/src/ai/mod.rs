@@ -17,7 +17,6 @@ pub mod search_reconciliation;
 pub mod search_status;
 pub mod text_extraction;
 pub mod title_indexing;
-pub mod upload_quiet_period;
 
 pub(crate) fn user_id_for_log(user_id: &str) -> String {
   let mut chars = user_id.chars();

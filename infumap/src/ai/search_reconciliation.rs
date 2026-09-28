@@ -208,7 +208,9 @@ async fn reconcile_item_artifacts(
           delete_item_geo_artifacts(data_dir, &item.owner_id, &item.id).await?;
           return Ok(false);
         }
-        reconcile_image_geo(data_dir, item).await?;
+        if let Err(error) = reconcile_image_geo(data_dir, item).await {
+          warn!("Optional location reconciliation failed for '{}': {}. Continuing with image content.", item.id, error);
+        }
       }
       artifact_fragment_input_sha256(data_dir, item, context).await?
     }

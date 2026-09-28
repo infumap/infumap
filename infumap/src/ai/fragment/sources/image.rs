@@ -2,9 +2,11 @@ use std::collections::{BTreeMap, HashSet};
 
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
+use log::warn;
 use serde::Deserialize;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
+use tokio::fs;
 
 use crate::ai::artifact_paths::{item_geo_content_path, item_text_content_path};
 use crate::ai::image_tagging::image_tagging_manifest_is_successful;
@@ -28,7 +30,7 @@ pub async fn image_fragment_source_for_item(
     return Ok(None);
   }
   let image_tag_artifact = load_image_tag_artifact(data_dir, &item.owner_id, &item.id).await?;
-  let geo_artifact = load_geo_artifact(data_dir, &item.owner_id, &item.id).await?;
+  let (geo_artifact, _) = load_geo_artifact(data_dir, &item.owner_id, &item.id).await?;
   let fragment_text = build_image_fragment_text(
     item.title.as_deref(),
     context_title.as_deref(),
@@ -75,9 +77,39 @@ async fn load_image_tag_artifact(
   read_json_if_exists(&path, "image-tag artifact").await
 }
 
-async fn load_geo_artifact(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Option<StoredGeoArtifact>> {
+pub(super) async fn geo_artifact_input_sha256(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<Option<String>> {
+  Ok(load_geo_artifact(data_dir, user_id, item_id).await?.1)
+}
+
+// Optional enrichment cannot prevent accepted image text from becoming searchable.
+// Use the same acceptance rule for its fingerprint and its fragment contents.
+async fn load_geo_artifact(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+) -> InfuResult<(Option<StoredGeoArtifact>, Option<String>)> {
   let path = item_geo_content_path(data_dir, user_id, item_id)?;
-  read_json_if_exists(&path, "geo artifact").await
+  let loaded: InfuResult<Option<(StoredGeoArtifact, String)>> = async {
+    let bytes = match fs::read(&path).await {
+      Ok(bytes) => bytes,
+      Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+      Err(error) => return Err(error.into()),
+    };
+    Ok(Some((serde_json::from_slice(&bytes)?, crate::ai::artifact_io::sha256(&bytes))))
+  }
+  .await;
+  match loaded {
+    Ok(Some((artifact, fingerprint))) => Ok((Some(artifact), Some(fingerprint))),
+    Ok(None) => Ok((None, None)),
+    Err(error) => {
+      warn!("Ignoring unusable optional location artifact '{}': {}", path.display(), error);
+      Ok((None, None))
+    }
+  }
 }
 
 fn build_image_fragment_text(
