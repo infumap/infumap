@@ -11,7 +11,7 @@ use crate::ai::fragment::sources::{
   build_image_fragment_artifact, build_markdown_fragment_artifact, build_text_fragment_artifact,
   pdf_fragment_source_for_item, search_fragment_context_title_for_item,
 };
-use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments, write_item_fragments};
+use crate::ai::fragment::{FragmentBuildOutcome, FragmentSource, clear_item_fragments};
 use crate::ai::image_tagging::should_tag_image_item;
 use crate::config::{
   CONFIG_DATA_DIR, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE,
@@ -243,8 +243,12 @@ async fn execute_pdf(sub_matches: &ArgMatches) -> InfuResult<()> {
   let mut summary = FragmentRunSummary::default();
 
   for item in items {
+    let input = crate::ai::fragment::sources::artifact_fragment_input_sha256(&data_dir, &item, None).await?;
     let fragment_source = pdf_fragment_source_for_item(&data_dir, &item).await?;
-    let outcome = apply_fragment_source(&data_dir, &item, fragment_source).await?;
+    if crate::ai::fragment::sources::artifact_fragment_input_sha256(&data_dir, &item, None).await? != input {
+      return Err("PDF fragment inputs changed during processing; rerun the command.".into());
+    }
+    let outcome = apply_fragment_source(&data_dir, &item, fragment_source, input).await?;
     record_fragment_outcome(&mut summary, &outcome);
   }
 
@@ -324,10 +328,18 @@ async fn apply_fragment_source(
   data_dir: &str,
   item: &Item,
   fragment_source: Option<FragmentSource>,
+  input: String,
 ) -> InfuResult<FragmentBuildOutcome> {
   match fragment_source {
     Some(fragment_source) => {
-      write_item_fragments(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await
+      crate::ai::fragment::write_item_fragments(
+        data_dir,
+        item,
+        fragment_source.source_kind,
+        fragment_source.fragments,
+        Some(input),
+      )
+      .await
     }
     None => clear_item_fragments(data_dir, item).await,
   }

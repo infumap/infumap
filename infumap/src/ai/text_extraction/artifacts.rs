@@ -22,6 +22,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::ai::artifact_io::{ArtifactProcessing, atomic_write};
 use crate::ai::artifact_paths::{ensure_user_text_dir, item_text_content_path, item_text_manifest_path};
 use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
@@ -42,6 +43,8 @@ pub struct FailedPdfInfo {
 
 #[derive(Serialize, Deserialize)]
 struct TextManifest {
+  #[serde(default)]
+  processing: ArtifactProcessing,
   schema_version: u32,
   status: String,
   source_mime_type: String,
@@ -229,12 +232,14 @@ pub(super) async fn write_success_artifacts(
   text_extraction_url: &str,
   candidate: &PdfCandidate,
   response: PdfToMdResponse,
+  source_bytes: &[u8],
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  fs::write(&text_path, response.markdown.as_bytes()).await?;
+  atomic_write(&text_path, response.markdown.as_bytes()).await?;
   let manifest = TextManifest {
+    processing: ArtifactProcessing::succeeded(source_bytes, response.markdown.as_bytes()),
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
     source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
@@ -247,7 +252,7 @@ pub(super) async fn write_success_artifacts(
     error_code: None,
     error: None,
   };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
   Ok(())
 }
 
@@ -292,6 +297,7 @@ async fn write_terminal_manifest(
     fs::remove_file(&text_path).await?;
   }
   let manifest = TextManifest {
+    processing: ArtifactProcessing::failed()?,
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: status.to_owned(),
     source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
@@ -304,7 +310,7 @@ async fn write_terminal_manifest(
     error_code: error_code.map(str::to_owned),
     error: Some(error_message.to_owned()),
   };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
   Ok(())
 }
 

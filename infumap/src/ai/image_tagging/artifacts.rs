@@ -26,6 +26,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 use tokio::sync::Mutex;
 
+use crate::ai::artifact_io::{ArtifactProcessing, atomic_write};
 use crate::ai::artifact_paths::{ensure_user_text_dir, item_text_content_path, item_text_manifest_path};
 use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
@@ -48,6 +49,8 @@ pub struct FailedImageTagInfo {
 
 #[derive(Serialize, Deserialize)]
 struct ImageTagManifest {
+  #[serde(default)]
+  processing: ArtifactProcessing,
   schema_version: u32,
   status: String,
   source_mime_type: String,
@@ -290,7 +293,15 @@ pub async fn image_tagging_artifact_state(
   }
 
   if manifest.status == "succeeded" {
-    return if text_exists { Ok(ImageTagArtifactState::Succeeded) } else { incomplete_info().await };
+    if text_exists {
+      let bytes = fs::read(&text_path).await?;
+      if serde_json::from_slice::<Value>(&bytes).is_ok_and(|value| value.is_object()) {
+        // A valid manual edit is accepted. Its actual bytes, rather than the
+        // old output hash, become input to the next fragment build.
+        return Ok(ImageTagArtifactState::Succeeded);
+      }
+    }
+    return incomplete_info().await;
   }
 
   if manifest.status == "failed" && is_retryable_full_prompt_output_failure(&manifest) {
@@ -357,12 +368,15 @@ pub(super) async fn write_success_artifacts(
   candidate: &ImageCandidate,
   tag_data: &ImageTagArtifact,
   duration_ms: Option<u64>,
+  source_bytes: &[u8],
 ) -> InfuResult<()> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  fs::write(&text_path, serde_json::to_vec_pretty(tag_data)?).await?;
+  let output = serde_json::to_vec_pretty(tag_data)?;
+  atomic_write(&text_path, &output).await?;
   let manifest = ImageTagManifest {
+    processing: ArtifactProcessing::succeeded(source_bytes, &output),
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
     source_mime_type: candidate.mime_type.clone(),
@@ -377,7 +391,7 @@ pub(super) async fn write_success_artifacts(
     },
     error: None,
   };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
   Ok(())
 }
 
@@ -404,6 +418,7 @@ pub(super) async fn write_failed_manifest_with_extraction_mode(
     fs::remove_file(&text_path).await?;
   }
   let manifest = ImageTagManifest {
+    processing: ArtifactProcessing::failed()?,
     schema_version: MANIFEST_SCHEMA_VERSION,
     status: "failed".to_owned(),
     source_mime_type: candidate.mime_type.clone(),
@@ -418,7 +433,7 @@ pub(super) async fn write_failed_manifest_with_extraction_mode(
     },
     error: Some(error_message.to_owned()),
   };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
   Ok(())
 }
 

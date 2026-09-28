@@ -7,9 +7,9 @@ use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use log::debug;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use tokio::fs;
 
+use crate::ai::artifact_io::{atomic_write, file_sha256, sha256};
 use crate::ai::artifact_paths::{
   item_fragments_dir, item_fragments_manifest_path, item_fragments_path, user_fragments_dir,
 };
@@ -53,31 +53,12 @@ struct FragmentsManifest {
   fragmenter_version: u32,
   source_kind: String,
   source_text_sha256: String,
+  #[serde(default)]
+  input_sha256: Option<String>,
+  #[serde(default)]
+  output_sha256: Option<String>,
   generated_at_unix_secs: i64,
   fragment_count: usize,
-}
-
-#[allow(dead_code)]
-async fn write_item_fragment_text(
-  data_dir: &str,
-  item: &Item,
-  source_kind: FragmentSourceKind,
-  source_text: &str,
-  container_title: Option<String>,
-) -> InfuResult<FragmentBuildOutcome> {
-  let source_text = source_text.trim();
-  let container_title = container_title.map(|title| title.trim().to_owned()).filter(|title| !title.is_empty());
-  if source_text.is_empty() && container_title.is_none() {
-    let cleared = clear_item_fragments_dir(data_dir, &item.owner_id, &item.id).await?;
-    return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
-  }
-  let fragment_text = match container_title.as_deref() {
-    Some(container_title) if source_text.is_empty() => format!("## {}", container_title),
-    Some(container_title) => format!("## {}\n\n{}", container_title, source_text),
-    None => source_text.to_owned(),
-  };
-
-  write_item_fragments(data_dir, item, source_kind, vec![FragmentInput::new(fragment_text)]).await
 }
 
 pub async fn write_item_fragments(
@@ -85,6 +66,7 @@ pub async fn write_item_fragments(
   item: &Item,
   source_kind: FragmentSourceKind,
   fragments: Vec<FragmentInput>,
+  input_sha256: Option<String>,
 ) -> InfuResult<FragmentBuildOutcome> {
   let fragments = fragments
     .into_iter()
@@ -98,33 +80,13 @@ pub async fn write_item_fragments(
     })
     .collect::<Vec<FragmentInput>>();
 
-  if fragments.is_empty() {
-    let cleared = clear_item_fragments_dir(data_dir, &item.owner_id, &item.id).await?;
-    return Ok(FragmentBuildOutcome { cleared_existing_fragments: cleared, ..Default::default() });
-  }
-
   let item_dir = item_fragments_dir(data_dir, &item.owner_id, &item.id)?;
   let fragments_path = item_fragments_path(data_dir, &item.owner_id, &item.id)?;
   let manifest_path = item_fragments_manifest_path(data_dir, &item.owner_id, &item.id)?;
 
   let source_text_sha256 =
-    sha256_hex(&fragments.iter().map(|fragment| fragment.text.as_str()).collect::<Vec<_>>().join("\n\n"));
+    sha256(fragments.iter().map(|fragment| fragment.text.as_str()).collect::<Vec<_>>().join("\n\n").as_bytes());
   let source_kind_str = source_kind.as_str();
-  if existing_fragments_are_current(
-    &fragments_path,
-    &manifest_path,
-    source_kind_str,
-    &source_text_sha256,
-    fragments.len(),
-  )
-  .await?
-  {
-    return Ok(FragmentBuildOutcome::default());
-  }
-
-  ensure_user_fragments_dir(data_dir, &item.owner_id).await?;
-  fs::create_dir_all(&item_dir).await?;
-
   let mut serialized = Vec::new();
   for (ordinal, fragment) in fragments.iter().enumerate() {
     let record = ItemFragmentRecord {
@@ -137,17 +99,35 @@ pub async fn write_item_fragments(
     line.push(b'\n');
     serialized.extend_from_slice(&line);
   }
-  fs::write(&fragments_path, &serialized).await?;
+  let output_sha256 = sha256(&serialized);
+  if existing_fragments_are_current(
+    &fragments_path,
+    &manifest_path,
+    source_kind_str,
+    &source_text_sha256,
+    fragments.len(),
+    input_sha256.as_deref(),
+    &output_sha256,
+  )
+  .await?
+  {
+    return Ok(FragmentBuildOutcome::default());
+  }
+  ensure_user_fragments_dir(data_dir, &item.owner_id).await?;
+  fs::create_dir_all(&item_dir).await?;
+  atomic_write(&fragments_path, &serialized).await?;
 
   let manifest = FragmentsManifest {
     schema_version: FRAGMENTS_SCHEMA_VERSION,
     fragmenter_version: FRAGMENTER_VERSION,
     source_kind: source_kind_str.to_owned(),
     source_text_sha256,
+    input_sha256,
+    output_sha256: Some(output_sha256),
     generated_at_unix_secs: unix_now_secs()?,
     fragment_count: fragments.len(),
   };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
 
   Ok(FragmentBuildOutcome { wrote_fragments: true, fragment_count: fragments.len(), cleared_existing_fragments: false })
 }
@@ -155,19 +135,29 @@ pub async fn write_item_fragments(
 pub async fn read_item_fragments(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<ItemFragments> {
   let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
   let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
-  let manifest = read_fragments_manifest_if_present(&fragments_path, &manifest_path).await?;
-  let source_kind = manifest
-    .map(|manifest| manifest.source_kind)
-    .filter(|source_kind| !source_kind.trim().is_empty())
-    .unwrap_or_else(|| "unknown".to_owned());
+  let manifest = read_fragments_manifest_if_present(&fragments_path, &manifest_path)
+    .await?
+    .ok_or("Fragment manifest is missing or invalid; regenerate fragments.")?;
+  if manifest.schema_version != FRAGMENTS_SCHEMA_VERSION || manifest.source_kind.trim().is_empty() {
+    return Err("Fragment manifest has an unsupported schema or missing source kind.".into());
+  }
+  let expected_output = manifest.output_sha256;
+  let expected_count = manifest.fragment_count;
+  let source_kind = manifest.source_kind;
   let contents = fs::read_to_string(&fragments_path)
     .await
     .map_err(|e| format!("Could not read fragments file '{}': {}", fragments_path.display(), e))?;
+  if expected_output.as_deref().is_some_and(|expected| sha256(contents.as_bytes()) != expected) {
+    return Err("Fragment contents changed or publication was interrupted; regenerate fragments.".into());
+  }
   let records = parse_item_fragment_records(&contents)?;
+  if expected_count != records.len() {
+    return Err("Fragment count does not match its manifest; regenerate fragments.".into());
+  }
   Ok(ItemFragments { source_kind, records })
 }
 
-/// Inspect readability without loading every document on a page into memory.
+/// Inspect the manifest and verify the output fingerprint when available.
 pub async fn read_item_fragment_metadata(
   data_dir: &str,
   user_id: &str,
@@ -181,6 +171,7 @@ pub async fn read_item_fragment_metadata(
   if manifest.schema_version != FRAGMENTS_SCHEMA_VERSION
     || manifest.fragment_count == 0
     || manifest.source_kind.trim().is_empty()
+    || (manifest.output_sha256.is_some() && file_sha256(&fragments_path).await? != manifest.output_sha256)
   {
     return Ok(None);
   }
@@ -217,13 +208,38 @@ pub async fn delete_item_fragment_artifacts(data_dir: &str, user_id: &str, item_
 pub async fn item_fragment_artifact_files_exist(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
   let fragments_path = item_fragments_path(data_dir, user_id, item_id)?;
   let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
-  Ok(path_exists(&fragments_path).await && path_exists(&manifest_path).await)
+  let Some(manifest) = read_fragments_manifest_if_present(&fragments_path, &manifest_path).await? else {
+    return Ok(false);
+  };
+  if manifest.schema_version != FRAGMENTS_SCHEMA_VERSION || manifest.fragmenter_version != FRAGMENTER_VERSION {
+    return Ok(false);
+  }
+  // Legacy manifests remain readable, but cannot establish an empty success.
+  if manifest.output_sha256.is_none() && manifest.fragment_count == 0 {
+    return Ok(false);
+  }
+  Ok(read_item_fragments(data_dir, user_id, item_id).await.is_ok())
 }
 
-fn sha256_hex(text: &str) -> String {
-  let mut hasher = Sha256::new();
-  hasher.update(text.as_bytes());
-  format!("{:x}", hasher.finalize())
+/// Missing fingerprints on old manifests mean unknown, not current. A rebuild
+/// upgrades them without requiring another GPU extraction.
+#[allow(dead_code)]
+pub async fn fragment_inputs_are_current(
+  data_dir: &str,
+  user_id: &str,
+  item_id: &str,
+  input: &str,
+) -> InfuResult<bool> {
+  let path = item_fragments_path(data_dir, user_id, item_id)?;
+  let manifest_path = item_fragments_manifest_path(data_dir, user_id, item_id)?;
+  let Some(manifest) = read_fragments_manifest_if_present(&path, &manifest_path).await? else {
+    return Ok(false);
+  };
+  Ok(
+    manifest.input_sha256.as_deref() == Some(input)
+      && manifest.output_sha256.is_some()
+      && item_fragment_artifact_files_exist(data_dir, user_id, item_id).await?,
+  )
 }
 
 async fn existing_fragments_are_current(
@@ -232,6 +248,8 @@ async fn existing_fragments_are_current(
   source_kind: &str,
   source_text_sha256: &str,
   fragment_count: usize,
+  input_sha256: Option<&str>,
+  output_sha256: &str,
 ) -> InfuResult<bool> {
   let Some(manifest) = read_fragments_manifest_if_present(fragments_path, manifest_path).await? else {
     return Ok(false);
@@ -242,7 +260,10 @@ async fn existing_fragments_are_current(
       && manifest.fragmenter_version == FRAGMENTER_VERSION
       && manifest.source_kind == source_kind
       && manifest.source_text_sha256 == source_text_sha256
-      && manifest.fragment_count == fragment_count,
+      && manifest.fragment_count == fragment_count
+      && manifest.input_sha256.as_deref() == input_sha256
+      && manifest.output_sha256.as_deref() == Some(output_sha256)
+      && file_sha256(fragments_path).await?.as_deref() == Some(output_sha256),
   )
 }
 

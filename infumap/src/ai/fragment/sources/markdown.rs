@@ -15,34 +15,36 @@ pub struct ObjectTextFragmentBuildResult {
   pub outcome: FragmentBuildOutcome,
 }
 
-pub async fn markdown_fragment_source_for_item(
+async fn markdown_fragment_source_for_item(
   object_store: Arc<ObjectStore>,
   item: &Item,
   object_encryption_key: &str,
-) -> InfuResult<Option<FragmentSource>> {
+) -> InfuResult<(Option<FragmentSource>, String)> {
   let file_bytes = storage_object::get(object_store, item.owner_id.clone(), item.id.clone(), object_encryption_key)
     .await
     .map_err(|e| format!("Could not read source markdown object for '{}': {}", item.id, e))?;
+  let input = crate::ai::artifact_io::sha256(&file_bytes);
   let Some(markdown) = normalize_utf8_text_source(&file_bytes, &item.id, "Markdown file")? else {
-    return Ok(None);
+    return Ok((None, input));
   };
 
-  Ok(markdown_fragment_source(FragmentSourceKind::Markdown, &markdown))
+  Ok((markdown_fragment_source(FragmentSourceKind::Markdown, &markdown), input))
 }
 
-pub async fn text_fragment_source_for_item(
+async fn text_fragment_source_for_item(
   object_store: Arc<ObjectStore>,
   item: &Item,
   object_encryption_key: &str,
-) -> InfuResult<Option<FragmentSource>> {
+) -> InfuResult<(Option<FragmentSource>, String)> {
   let file_bytes = storage_object::get(object_store, item.owner_id.clone(), item.id.clone(), object_encryption_key)
     .await
     .map_err(|e| format!("Could not read source text object for '{}': {}", item.id, e))?;
+  let input = crate::ai::artifact_io::sha256(&file_bytes);
   let Some(text) = normalize_plain_text_source(&file_bytes, &item.id) else {
-    return Ok(None);
+    return Ok((None, input));
   };
 
-  Ok(markdown_fragment_source(FragmentSourceKind::Text, &text))
+  Ok((markdown_fragment_source(FragmentSourceKind::Text, &text), input))
 }
 
 pub async fn build_markdown_fragment_artifact(
@@ -51,9 +53,10 @@ pub async fn build_markdown_fragment_artifact(
   item: &Item,
   object_encryption_key: &str,
 ) -> InfuResult<ObjectTextFragmentBuildResult> {
-  let fragment_source = markdown_fragment_source_for_item(object_store, item, object_encryption_key).await?;
+  let (fragment_source, input) = markdown_fragment_source_for_item(object_store, item, object_encryption_key).await?;
   let had_fragment_source = fragment_source.is_some();
-  let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
+  let outcome =
+    write_fragment_source_artifact(data_dir, item, fragment_source, FragmentSourceKind::Markdown, input).await?;
   Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
 }
 
@@ -63,9 +66,10 @@ pub async fn build_text_fragment_artifact(
   item: &Item,
   object_encryption_key: &str,
 ) -> InfuResult<ObjectTextFragmentBuildResult> {
-  let fragment_source = text_fragment_source_for_item(object_store, item, object_encryption_key).await?;
+  let (fragment_source, input) = text_fragment_source_for_item(object_store, item, object_encryption_key).await?;
   let had_fragment_source = fragment_source.is_some();
-  let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
+  let outcome =
+    write_fragment_source_artifact(data_dir, item, fragment_source, FragmentSourceKind::Text, input).await?;
   Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
 }
 

@@ -9,7 +9,7 @@ use time::format_description::well_known::Rfc3339;
 use crate::ai::artifact_paths::{item_geo_content_path, item_text_content_path};
 use crate::ai::image_tagging::image_tagging_manifest_is_successful;
 
-use super::super::{FragmentBuildOutcome, clear_item_fragments, write_item_fragments};
+use super::super::{FragmentBuildOutcome, clear_item_fragments};
 use super::{FragmentSource, FragmentSourceKind, normalized_text, read_json_if_exists, single_fragment_source};
 
 const IMAGE_DOCUMENT_LEXICAL_CONFIDENCE_THRESHOLD: f64 = 0.9;
@@ -47,14 +47,22 @@ pub async fn build_image_fragment_artifact(
   item: &Item,
   context_title: Option<String>,
 ) -> InfuResult<ImageFragmentBuildResult> {
-  let fragment_source = image_fragment_source_for_item(data_dir, item, context_title).await?;
+  if !image_tagging_manifest_is_successful(data_dir, &item.owner_id, &item.id).await? {
+    // Absence/failure is not an empty success. Remove obsolete downstream files.
+    return Ok(ImageFragmentBuildResult {
+      had_fragment_source: false,
+      outcome: clear_item_fragments(data_dir, item).await?,
+    });
+  }
+  let input = super::artifact_fragment_input_sha256(data_dir, item, context_title.as_deref()).await?;
+  let fragment_source = image_fragment_source_for_item(data_dir, item, context_title.clone()).await?;
+  if super::artifact_fragment_input_sha256(data_dir, item, context_title.as_deref()).await? != input {
+    return Err("Image fragment inputs changed during processing; rerun fragment generation.".into());
+  }
   let had_fragment_source = fragment_source.is_some();
-  let outcome = match fragment_source {
-    Some(fragment_source) => {
-      write_item_fragments(data_dir, item, fragment_source.source_kind, fragment_source.fragments).await?
-    }
-    None => clear_item_fragments(data_dir, item).await?,
-  };
+  let outcome =
+    super::write_fragment_source_artifact(data_dir, item, fragment_source, FragmentSourceKind::ImageContents, input)
+      .await?;
   Ok(ImageFragmentBuildResult { had_fragment_source, outcome })
 }
 

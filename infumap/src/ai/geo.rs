@@ -1,3 +1,4 @@
+use crate::ai::artifact_io::{ArtifactProcessing, atomic_write};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -192,6 +193,8 @@ pub enum GeoManifestStatus {
 
 #[derive(Serialize, Deserialize)]
 struct GeoManifest {
+  #[serde(default)]
+  processing: ArtifactProcessing,
   schema_version: u32,
   status: String,
   source_mime_type: String,
@@ -337,16 +340,41 @@ pub async fn reverse_geocode_candidate_if_needed(
   }
 }
 
-pub async fn existing_geo_manifest_should_skip(path: &PathBuf) -> InfuResult<bool> {
-  if !path_exists(path).await {
-    return Ok(false);
-  }
-  let bytes = fs::read(path).await?;
+async fn read_geo_status(path: &PathBuf) -> InfuResult<Option<GeoManifestStatus>> {
+  let bytes = match fs::read(path).await {
+    Ok(bytes) => bytes,
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+    Err(error) => return Err(error.into()),
+  };
   let manifest = match serde_json::from_slice::<GeoManifestSummary>(&bytes) {
     Ok(manifest) => manifest,
-    Err(_) => return Ok(false),
+    Err(_) => return Ok(None),
   };
-  Ok(matches!(manifest.status.as_str(), "succeeded" | "failed" | "skipped"))
+  Ok(match manifest.status.as_str() {
+    "succeeded" => {
+      let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_suffix("_geo_manifest.json"))
+        .ok_or("Invalid geo manifest path.")?;
+      let output = match fs::read(path.with_file_name(format!("{name}_geo.json"))).await {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+      };
+      if !serde_json::from_slice::<Value>(&output).is_ok_and(|value| value.is_object()) {
+        return Ok(None);
+      }
+      Some(GeoManifestStatus::Succeeded)
+    }
+    "failed" => Some(GeoManifestStatus::Failed),
+    "skipped" => Some(GeoManifestStatus::Skipped),
+    _ => None,
+  })
+}
+
+pub async fn existing_geo_manifest_should_skip(path: &PathBuf) -> InfuResult<bool> {
+  Ok(read_geo_status(path).await?.is_some())
 }
 
 pub async fn geo_manifest_status(
@@ -354,21 +382,7 @@ pub async fn geo_manifest_status(
   user_id: &str,
   item_id: &str,
 ) -> InfuResult<Option<GeoManifestStatus>> {
-  let manifest_path = item_geo_manifest_path(data_dir, user_id, item_id)?;
-  if !path_exists(&manifest_path).await {
-    return Ok(None);
-  }
-  let bytes = fs::read(&manifest_path).await?;
-  let manifest = match serde_json::from_slice::<GeoManifestSummary>(&bytes) {
-    Ok(manifest) => manifest,
-    Err(_) => return Ok(None),
-  };
-  Ok(match manifest.status.as_str() {
-    "succeeded" => Some(GeoManifestStatus::Succeeded),
-    "failed" => Some(GeoManifestStatus::Failed),
-    "skipped" => Some(GeoManifestStatus::Skipped),
-    _ => None,
-  })
+  read_geo_status(&item_geo_manifest_path(data_dir, user_id, item_id)?).await
 }
 
 pub async fn geo_manifest_is_complete(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
@@ -493,8 +507,10 @@ async fn write_success_geo_artifacts(
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
   let content_path = item_geo_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = item_geo_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
-  fs::write(&content_path, serde_json::to_vec_pretty(response_json)?).await?;
+  let output = serde_json::to_vec_pretty(response_json)?;
+  atomic_write(&content_path, &output).await?;
   let manifest = GeoManifest {
+    processing: ArtifactProcessing::succeeded(&serde_json::to_vec(&(lat, lon))?, &output),
     schema_version: GEO_MANIFEST_SCHEMA_VERSION,
     status: "succeeded".to_owned(),
     source_mime_type: candidate.mime_type.clone(),
@@ -510,7 +526,7 @@ async fn write_success_geo_artifacts(
     },
     error: None,
   };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
   debug!(
     "Reverse geocoded image '{}' (user {}){}.",
     candidate.item_id,
@@ -537,6 +553,7 @@ async fn write_failed_geo_manifest(
     fs::remove_file(&content_path).await?;
   }
   let manifest = GeoManifest {
+    processing: ArtifactProcessing::failed()?,
     schema_version: GEO_MANIFEST_SCHEMA_VERSION,
     status: "failed".to_owned(),
     source_mime_type: candidate.mime_type.clone(),
@@ -552,7 +569,7 @@ async fn write_failed_geo_manifest(
     },
     error: Some(error_message.to_owned()),
   };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
   debug!(
     "Reverse geocoding failed for image '{}' (user {}): {}",
     candidate.item_id,
@@ -578,6 +595,7 @@ async fn write_skipped_geo_manifest(
     fs::remove_file(&content_path).await?;
   }
   let manifest = GeoManifest {
+    processing: ArtifactProcessing::default(),
     schema_version: GEO_MANIFEST_SCHEMA_VERSION,
     status: "skipped".to_owned(),
     source_mime_type: candidate.mime_type.clone(),
@@ -593,7 +611,7 @@ async fn write_skipped_geo_manifest(
     },
     error: Some(reason.to_owned()),
   };
-  fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?).await?;
+  atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
   debug!(
     "Skipping reverse geocoding for image '{}' (user {}): {}",
     candidate.item_id,
