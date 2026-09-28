@@ -53,7 +53,7 @@ use crate::ai::document_pipeline::{
   dequeue_document_fragment_item_if_active, enqueue_document_fragment_item_if_active, is_document_fragment_item,
 };
 use crate::ai::fragment::{ITEM_TITLE_SOURCE_KIND, delete_item_fragment_artifacts, is_markdown_document_source_kind};
-use crate::ai::fragment_indexing::delete_item_search_index_entries;
+use crate::ai::fragment_indexing::enqueue_item_search_index_removal;
 use crate::ai::geo::delete_item_geo_artifacts;
 use crate::ai::image_pipeline::{
   dequeue_image_background_pipeline_item_if_active, enqueue_image_background_pipeline_item_if_active,

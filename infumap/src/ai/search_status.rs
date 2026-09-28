@@ -1,6 +1,5 @@
 //! Virtual search status pages, built from live worker activity.
-//! See `search_activity` for what is observed and `docs/search-processing.md`
-//! for the page membership rules.
+//! See `search_activity` for what is observed and how pages are populated.
 
 use infusdk::util::uid::Uid;
 use sha2::{Digest, Sha256};

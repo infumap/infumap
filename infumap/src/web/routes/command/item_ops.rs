@@ -915,10 +915,7 @@ pub(super) async fn handle_delete_item<'a>(
   delete_item_image_tag_dir(&data_dir, &session.user_id, &request.id).await?;
   delete_item_geo_artifacts(&data_dir, &session.user_id, &request.id).await?;
   delete_item_fragment_artifacts(&data_dir, &session.user_id, &request.id).await?;
-  let deleted_search_index_entries = delete_item_search_index_entries(&data_dir, &session.user_id, &request.id).await?;
-  if deleted_search_index_entries > 0 {
-    debug!("Deleted {} search index entry/entries for item '{}'.", deleted_search_index_entries, request.id);
-  }
+  enqueue_item_search_index_removal(&session.user_id, &request.id);
 
   let _item = db.item.remove(&request.id).await?;
   let mut deltas_by_container = HashMap::new();
@@ -959,6 +956,10 @@ pub struct ReprocessItemRequest {
 /// using the current GPU service. Location output depends only on the image's
 /// coordinates and is kept. Old content index entries are removed by the local
 /// content index worker, without waiting for GPU tools.
+///
+/// Deliberate trade-off: reprocessing is explicit and per item. There is no
+/// automatic invalidation or model-version tracking when GPU tools are
+/// upgraded, so an upgrade never triggers corpus-wide GPU work.
 pub(super) async fn handle_reprocess_item(
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
@@ -1111,10 +1112,7 @@ async fn delete_recursive(
     delete_item_image_tag_dir(&data_dir, user_id, &item.id).await?;
     delete_item_geo_artifacts(&data_dir, user_id, &item.id).await?;
     delete_item_fragment_artifacts(&data_dir, user_id, &item.id).await?;
-    let deleted_search_index_entries = delete_item_search_index_entries(&data_dir, user_id, &item.id).await?;
-    if deleted_search_index_entries > 0 {
-      debug!("Deleted {} search index entry/entries for item '{}'.", deleted_search_index_entries, item.id);
-    }
+    enqueue_item_search_index_removal(user_id, &item.id);
 
     let _item = db.item.remove(&item_id).await?;
     if let Some(parent_id) = old_attachment_parent_id.as_ref() {

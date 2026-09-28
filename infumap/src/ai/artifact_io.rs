@@ -8,6 +8,9 @@ use tokio::{fs, io::AsyncWriteExt};
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct ArtifactProcessing {
+  /// For extraction manifests this fingerprints the original sent to the GPU.
+  /// Deliberate trade-off: it is provenance only and is never compared with the
+  /// original again, because originals are immutable (see search_reconciliation).
   pub input_sha256: Option<String>,
   pub output_sha256: Option<String>,
   /// Earliest background retry after failure; startup workers honor this hint.

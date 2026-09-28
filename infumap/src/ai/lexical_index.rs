@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use infusdk::util::infu::InfuResult;
 use serde::{Deserialize, Serialize};
-use tantivy::collector::{Count, TopDocs};
+use tantivy::collector::TopDocs;
 use tantivy::indexer::NoMergePolicy;
 use tantivy::query::{BooleanQuery, EmptyQuery, Query, QueryParser, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
@@ -124,17 +124,6 @@ impl TantivyDocumentFragmentIndex {
     .await
   }
 
-  pub async fn delete_item_fragments(&self, item_id: &str) -> InfuResult<usize> {
-    delete_item_documents_from_index(
-      &self.index_dir,
-      item_id,
-      DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
-      DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION,
-      DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
-    )
-    .await
-  }
-
   pub async fn replace_items_fragments(&self, updates: &[(&str, &[LexicalFragment])]) -> InfuResult<usize> {
     replace_item_documents_in_index(
       &self.index_dir,
@@ -207,17 +196,6 @@ impl TantivyItemTitleIndex {
     replace_item_documents_in_index(
       &self.index_dir,
       updates,
-      ITEM_TITLE_LEXICAL_METADATA_FILENAME,
-      ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
-      ITEM_TITLE_LEXICAL_INDEX_LABEL,
-    )
-    .await
-  }
-
-  pub async fn delete_item_title(&self, item_id: &str) -> InfuResult<usize> {
-    delete_item_documents_from_index(
-      &self.index_dir,
-      item_id,
       ITEM_TITLE_LEXICAL_METADATA_FILENAME,
       ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
       ITEM_TITLE_LEXICAL_INDEX_LABEL,
@@ -331,66 +309,6 @@ async fn rebuild_status_for_index(
   }))
 }
 
-async fn delete_item_documents_from_index(
-  index_dir: &Path,
-  item_id: &str,
-  metadata_filename: &str,
-  schema_version: u32,
-  index_label: &str,
-) -> InfuResult<usize> {
-  if item_id.trim().is_empty() || !path_ref_exists(index_dir).await {
-    return Ok(0);
-  }
-
-  let index = match open_tantivy_index(index_dir, index_label) {
-    Ok(index) => index,
-    Err(_) => return Ok(0),
-  };
-  let schema = index.schema();
-  let fields = fields_from_schema(&schema, index_label)?;
-  let term = Term::from_field_text(fields.item_id, item_id);
-  let query = TermQuery::new(term.clone(), IndexRecordOption::Basic);
-  let reader =
-    index.reader().map_err(|e| format!("Could not open {} reader '{}': {}", index_label, index_dir.display(), e))?;
-  let deleted_count = reader.searcher().search(&query, &Count).map_err(|e| {
-    format!(
-      "Could not count lexical fragments for item '{}' in {} '{}': {}",
-      item_id,
-      index_label,
-      index_dir.display(),
-      e
-    )
-  })?;
-  if deleted_count == 0 {
-    return Ok(0);
-  }
-
-  let mut writer: IndexWriter<TantivyDocument> = index
-    .writer(INCREMENTAL_INDEX_WRITER_HEAP_BYTES)
-    .map_err(|e| format!("Could not open {} writer '{}': {}", index_label, index_dir.display(), e))?;
-  writer.set_merge_policy(Box::new(NoMergePolicy));
-  writer.delete_term(term);
-  writer.commit().map_err(|e| format!("Could not commit {} delete '{}': {}", index_label, index_dir.display(), e))?;
-
-  if let Some(mut metadata) = read_stored_metadata(index_dir, metadata_filename, index_label).await? {
-    metadata.fragment_count = metadata.fragment_count.saturating_sub(deleted_count);
-    write_stored_metadata(
-      index_dir,
-      &FragmentLexicalIndexRebuildMetadata {
-        source_digest: metadata.source_digest,
-        expected_fragment_count: metadata.fragment_count,
-      },
-      metadata.complete,
-      metadata_filename,
-      schema_version,
-      index_label,
-    )
-    .await?;
-  }
-
-  Ok(deleted_count)
-}
-
 async fn replace_item_documents_in_index(
   index_dir: &Path,
   updates: &[(&str, &[LexicalFragment])],
@@ -433,6 +351,9 @@ async fn replace_item_documents_in_index(
   let mut writer: IndexWriter<TantivyDocument> = index
     .writer(INCREMENTAL_INDEX_WRITER_HEAP_BYTES)
     .map_err(|e| format!("Could not open {} writer '{}': {}", index_label, index_dir.display(), e))?;
+  // Deliberate trade-off: live commits never merge segments, keeping each
+  // commit cheap. Segments accumulate and are compacted separately (currently
+  // by `rebuild-search-index`, and for titles at startup), not per commit.
   writer.set_merge_policy(Box::new(NoMergePolicy));
   for (item_id, fragments) in updates {
     writer.delete_term(Term::from_field_text(fields.item_id, item_id));

@@ -17,8 +17,16 @@ use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
 
-const ITEM_TITLE_INDEXING_DEBOUNCE_SECS: u64 = 2;
-const ITEM_TITLE_INDEXING_MAX_DEBOUNCE_SECS: u64 = 10;
+/// Changes are committed together at most once per window, or earlier when the
+/// batch is full. Fewer commits mean fewer index segments and less disk activity;
+/// search catches up within the window. Anything pending at shutdown is
+/// recovered by the startup check.
+///
+/// Deliberate trade-off: keeping search disk and CPU activity low matters more
+/// than freshness. Search lagging edits, new content and deletions by up to 10
+/// minutes is accepted; do not shorten this to make search more immediate.
+const ITEM_TITLE_INDEXING_BATCH_WINDOW_SECS: u64 = 600;
+const ITEM_TITLE_INDEXING_MAX_BATCH_ITEMS: usize = 1000;
 
 static ITEM_TITLE_INDEXING_QUEUE: OnceCell<mpsc::UnboundedSender<ItemTitleIndexingRequest>> = OnceCell::new();
 
@@ -76,17 +84,17 @@ async fn run_item_title_indexing_loop(
       queued.insert(request);
     }
     drain_pending(&mut receiver, &mut queued);
+    // Retries still waiting for their delay do not open a batch window.
+    if !queued.iter().any(|request| retries.ready(request)) {
+      continue;
+    }
 
-    let max_deadline = Instant::now() + Duration::from_secs(ITEM_TITLE_INDEXING_MAX_DEBOUNCE_SECS);
-    loop {
-      let deadline = (Instant::now() + Duration::from_secs(ITEM_TITLE_INDEXING_DEBOUNCE_SECS)).min(max_deadline);
+    let deadline = Instant::now() + Duration::from_secs(ITEM_TITLE_INDEXING_BATCH_WINDOW_SECS);
+    while queued.len() < ITEM_TITLE_INDEXING_MAX_BATCH_ITEMS {
       match timeout_at(deadline, receiver.recv()).await {
         Ok(Some(request)) => {
           queued.insert(request);
           drain_pending(&mut receiver, &mut queued);
-          if Instant::now() >= max_deadline {
-            break;
-          }
         }
         Ok(None) | Err(_) => break,
       }
