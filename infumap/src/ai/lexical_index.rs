@@ -1,14 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use infusdk::util::infu::InfuResult;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tantivy::collector::{DocSetCollector, TopDocs};
 use tantivy::indexer::NoMergePolicy;
 use tantivy::query::{BooleanQuery, EmptyQuery, Query, QueryParser, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{DocSet, Index, IndexWriter, Searcher, TERMINATED, TantivyDocument, Term};
+use tantivy::{DocSet, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher, TERMINATED, TantivyDocument, Term};
 use tokio::fs;
 
 use crate::ai::search_index_paths::user_index_dir;
@@ -363,11 +365,79 @@ async fn indexed_item_ids(index_dir: &Path, index_label: &str) -> InfuResult<Has
   Ok(ids)
 }
 
+/// An open index with its reader and completeness status, reused across
+/// searches. Opening an index and reader reads every segment's headers, which
+/// is slow on small hardware, so it happens once per index change rather than
+/// several times per query.
+struct OpenIndex {
+  index: Index,
+  reader: IndexReader,
+  fields: LexicalFields,
+  status: Option<FragmentLexicalIndexRebuildStatus>,
+}
+
+/// Every write to an index in this process drops its entry (see
+/// `forget_open_index`), so the next search reopens it and sees the change.
+/// Indexes are not modified by other processes while the server runs.
+static OPEN_INDEXES: Lazy<Mutex<HashMap<PathBuf, Arc<OpenIndex>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn forget_open_index(index_dir: &Path) {
+  if let Ok(mut open_indexes) = OPEN_INDEXES.lock() {
+    open_indexes.remove(index_dir);
+  }
+}
+
+async fn open_index_cached(
+  index_dir: &Path,
+  metadata_filename: &str,
+  index_label: &str,
+) -> InfuResult<Option<Arc<OpenIndex>>> {
+  if !path_ref_exists(index_dir).await {
+    forget_open_index(index_dir);
+    return Ok(None);
+  }
+  if let Some(open_index) = OPEN_INDEXES.lock().ok().and_then(|open_indexes| open_indexes.get(index_dir).cloned()) {
+    return Ok(Some(open_index));
+  }
+
+  let metadata = read_stored_metadata(index_dir, metadata_filename, index_label).await?;
+  let index = open_tantivy_index(index_dir, index_label)?;
+  let fields = fields_from_schema(&index.schema(), index_label)?;
+  // Manual reload: the default policy starts a file-watcher thread per reader,
+  // and entries are replaced after writes anyway. No document cache: by default
+  // each segment keeps up to 100 decompressed blocks (about 1.6 MB), which a
+  // long-lived reader would hold indefinitely; infrequent searches gain nothing
+  // from it.
+  let reader: IndexReader = index
+    .reader_builder()
+    .reload_policy(ReloadPolicy::Manual)
+    .doc_store_cache_num_blocks(0)
+    .try_into()
+    .map_err(|e| format!("Could not open {} reader '{}': {}", index_label, index_dir.display(), e))?;
+  let indexed_fragment_count = usize::try_from(reader.searcher().num_docs())?;
+  let status = metadata.map(|metadata| FragmentLexicalIndexRebuildStatus {
+    schema_version: metadata.schema_version,
+    source_digest: metadata.source_digest,
+    expected_fragment_count: metadata.fragment_count,
+    indexed_fragment_count,
+    complete: metadata.complete,
+  });
+  let open_index = Arc::new(OpenIndex { index, reader, fields, status });
+  if let Ok(mut open_indexes) = OPEN_INDEXES.lock() {
+    open_indexes.insert(index_dir.to_path_buf(), open_index.clone());
+  }
+  Ok(Some(open_index))
+}
+
 async fn rebuild_status_for_index(
   index_dir: &Path,
   metadata_filename: &str,
   index_label: &str,
 ) -> InfuResult<Option<FragmentLexicalIndexRebuildStatus>> {
+  if let Ok(open_index) = open_index_cached(index_dir, metadata_filename, index_label).await {
+    return Ok(open_index.and_then(|open_index| open_index.status.clone()));
+  }
+  // The index could not be opened; report its metadata with no documents.
   if !path_ref_exists(index_dir).await {
     return Ok(None);
   }
@@ -451,7 +521,9 @@ async fn replace_item_documents_in_index(
       })?;
     }
   }
-  writer.commit().map_err(|e| format!("Could not commit {} update '{}': {}", index_label, index_dir.display(), e))?;
+  let committed = writer.commit();
+  forget_open_index(index_dir);
+  committed.map_err(|e| format!("Could not commit {} update '{}': {}", index_label, index_dir.display(), e))?;
 
   let fragment_count = index_doc_count(&index, index_label)?;
   write_stored_metadata(
@@ -485,23 +557,20 @@ async fn search_index(
   {
     return Ok(Vec::new());
   }
-  let Some(status) = rebuild_status_for_index(index_dir, metadata_filename, index_label).await? else {
+  let Some(open_index) = open_index_cached(index_dir, metadata_filename, index_label).await? else {
     return Ok(Vec::new());
   };
-  if !status.complete {
+  if !open_index.status.as_ref().is_some_and(|status| status.complete) {
     return Ok(Vec::new());
   }
 
-  let index = open_tantivy_index(index_dir, index_label)?;
-  let schema = index.schema();
-  let fields = fields_from_schema(&schema, index_label)?;
-  let reader =
-    index.reader().map_err(|e| format!("Could not open {} reader '{}': {}", index_label, index_dir.display(), e))?;
-  let searcher = reader.searcher();
+  let index = &open_index.index;
+  let fields = open_index.fields;
+  let searcher = open_index.reader.searcher();
   let query = match query_mode {
-    LexicalQueryMode::QuerySyntax => parsed_lexical_query(&index, fields.text, query_text, index_label),
+    LexicalQueryMode::QuerySyntax => parsed_lexical_query(index, fields.text, query_text, index_label),
     LexicalQueryMode::NaturalText => {
-      natural_text_lexical_query(&index, &searcher, fields.text, query_text, index_label)?
+      natural_text_lexical_query(index, &searcher, fields.text, query_text, index_label)?
     }
   };
   let query = if let Some(item_ids) = allowed_item_ids {
@@ -716,9 +785,9 @@ async fn write_stored_metadata(
     complete,
   };
   let metadata_path = lexical_metadata_path(index_dir, metadata_filename);
-  crate::ai::artifact_io::atomic_write_unsynced(&metadata_path, &serde_json::to_vec_pretty(&stored)?)
-    .await
-    .map_err(|e| format!("Could not write {} metadata '{}': {}", index_label, metadata_path.display(), e).into())
+  let written = crate::ai::artifact_io::atomic_write_unsynced(&metadata_path, &serde_json::to_vec_pretty(&stored)?).await;
+  forget_open_index(index_dir);
+  written.map_err(|e| format!("Could not write {} metadata '{}': {}", index_label, metadata_path.display(), e).into())
 }
 
 fn open_tantivy_index(index_dir: &Path, index_label: &str) -> InfuResult<Index> {
@@ -784,13 +853,12 @@ fn maintain_index(index_dir: &Path, index_label: &str, log_label: &str) -> InfuR
     .writer(INDEX_WRITER_HEAP_BYTES)
     .map_err(|e| format!("Could not open {} writer for maintenance '{}': {}", index_label, index_dir.display(), e))?;
   writer.set_merge_policy(Box::new(NoMergePolicy));
-  writer
-    .merge(&segment_ids)
-    .wait()
-    .map_err(|e| format!("Could not merge {} segments '{}': {}", index_label, index_dir.display(), e))?;
-  writer
-    .wait_merging_threads()
-    .map_err(|e| format!("Could not finish {} merge '{}': {}", index_label, index_dir.display(), e))?;
+  let merged = writer.merge(&segment_ids).wait();
+  let finished = writer.wait_merging_threads();
+  // Release the replaced segments' files for deletion, and search the merged one.
+  forget_open_index(index_dir);
+  merged.map_err(|e| format!("Could not merge {} segments '{}': {}", index_label, index_dir.display(), e))?;
+  finished.map_err(|e| format!("Could not finish {} merge '{}': {}", index_label, index_dir.display(), e))?;
   Ok(segment_ids.len())
 }
 
@@ -821,13 +889,11 @@ fn compact_index(index_dir: &Path, index_label: &str) -> InfuResult<()> {
     .writer(INDEX_WRITER_HEAP_BYTES)
     .map_err(|e| format!("Could not open {} writer for compaction '{}': {}", index_label, index_dir.display(), e))?;
   writer.set_merge_policy(Box::new(NoMergePolicy));
-  writer
-    .merge(&segment_ids)
-    .wait()
-    .map_err(|e| format!("Could not compact {} '{}': {}", index_label, index_dir.display(), e))?;
-  writer
-    .wait_merging_threads()
-    .map_err(|e| format!("Could not finish {} compaction '{}': {}", index_label, index_dir.display(), e).into())
+  let merged = writer.merge(&segment_ids).wait();
+  let finished = writer.wait_merging_threads();
+  forget_open_index(index_dir);
+  merged.map_err(|e| format!("Could not compact {} '{}': {}", index_label, index_dir.display(), e))?;
+  finished.map_err(|e| format!("Could not finish {} compaction '{}': {}", index_label, index_dir.display(), e).into())
 }
 
 async fn path_ref_exists(path: &Path) -> bool {
@@ -919,6 +985,30 @@ mod tests {
     index.replace_items_fragments(&[("c", &[])]).await.unwrap();
     let ids = index.indexed_item_ids().await.unwrap();
     assert_eq!(ids, ["a", "b"].iter().map(|id| id.to_string()).collect::<HashSet<_>>());
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[tokio::test]
+  async fn cached_search_sees_later_commits_and_removals() {
+    let dir = temp_index_dir();
+    let index = TantivyDocumentFragmentIndex::new(dir.clone());
+    let search = |index: TantivyDocumentFragmentIndex| async move {
+      let mut ids = index
+        .search("zebra", 10, None, LexicalQueryMode::NaturalText)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|hit| hit.item_id)
+        .collect::<Vec<_>>();
+      ids.sort();
+      ids
+    };
+    commit_items(&index, &["a".to_owned()]).await;
+    assert_eq!(search(index.clone()).await, vec!["a"]);
+    commit_items(&index, &["b".to_owned()]).await;
+    assert_eq!(search(index.clone()).await, vec!["a", "b"]);
+    index.replace_items_fragments(&[("a", &[])]).await.unwrap();
+    assert_eq!(search(index.clone()).await, vec!["b"]);
     let _ = std::fs::remove_dir_all(dir);
   }
 
