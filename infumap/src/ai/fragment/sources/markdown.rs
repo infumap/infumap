@@ -37,6 +37,10 @@ struct LocalCopyManifest {
 /// The local copy of a Markdown or text item's original. Originals are
 /// immutable, so like extracted PDF text an existing copy is trusted and never
 /// checked against the original.
+///
+/// Deliberate trade-off: the copy duplicates the original on local disk so that
+/// startup and fragment rebuilds never read object storage. The extra disk use
+/// was accepted in exchange.
 pub async fn read_local_text_copy(data_dir: &str, item: &Item) -> InfuResult<Option<Vec<u8>>> {
   let manifest = match fs::read(item_text_manifest_path(data_dir, &item.owner_id, &item.id)?).await {
     Ok(bytes) => serde_json::from_slice::<LocalCopyManifest>(&bytes).ok(),

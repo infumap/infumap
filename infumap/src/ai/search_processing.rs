@@ -4,7 +4,6 @@
 //! schedule work, inspect artifacts, or define a persistence/API format. The live
 //! status pages use `search_activity`, which reports outstanding work only: it
 //! does not record index acknowledgements or successful empty results.
-//! See `docs/search-processing.md` for the contract and rollout boundaries.
 
 // Not yet populated by workers; kept as the reference lifecycle contract.
 #![allow(dead_code)]

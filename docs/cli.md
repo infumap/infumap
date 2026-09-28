@@ -219,7 +219,7 @@ Index files have these roles:
 - `document_fragments_tantivy`: lexical document and image-derived text.
 - `item_titles_tantivy`: lexical item titles and title context.
 
-Normal item additions, changes, and deletions update only the affected lexical documents and are batched per user. This still uses BM25: corpus statistics are evaluated from the current Tantivy index at query time, so adding an item does not require rebuilding old documents. Deleted documents stop matching immediately; their internal tombstones can make corpus statistics slightly approximate until the next compacting rebuild.
+Normal item additions, changes, and deletions update only the affected lexical documents. To limit disk activity, they are committed in batches, at most once every 10 minutes per user (sooner for very large batches), so changes can take up to 10 minutes to reach search. Deleted items never appear in results, even before their entries are removed. This still uses BM25: corpus statistics are evaluated from the current Tantivy index at query time, so adding an item does not require rebuilding old documents. Removed documents leave internal tombstones that can make corpus statistics slightly approximate until the next compacting rebuild.
 
 This is a repair tool: routine additions and regenerated content become searchable through the web server's background workers without it. The `Search processing` and `Search needs attention` pages under the user's Queries page reflect live processing activity and do not depend on this command.
 
@@ -308,7 +308,7 @@ Options:
 
 ### reprocess
 
-Ask a running Infumap server to discard an item's generated search text (PDF extraction or image description) and fragments, then regenerate and reindex them with the currently configured GPU service. Old search entries are removed immediately, without waiting for the GPU service. Manual edits to generated text are discarded. Location output is kept.
+Ask a running Infumap server to discard an item's generated search text (PDF extraction or image description) and fragments, then regenerate and reindex them with the currently configured GPU service. Old search entries are removed with the next index batch (within about 10 minutes), without waiting for the GPU service. Manual edits to generated text are discarded. An image's location lookup is kept unless the server restarts before the image is re-extracted.
 
 Options:
 - **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.

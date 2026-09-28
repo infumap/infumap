@@ -1,5 +1,11 @@
 //! Retry timing for existing in-memory queues. Restart recovery uses artifacts;
 //! attempt counts may reset after a restart, which only repeats some work.
+//!
+//! Deliberate trade-off: there is no retry limit. Failures, including ones
+//! unlikely to resolve themselves (e.g. password-protected PDFs), are retried
+//! at most hourly forever, so unfinished work is never dropped. The occasional
+//! wasted attempt is accepted. Queues and attempt counts are deliberately not
+//! persisted; there is no processing database.
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::Path;

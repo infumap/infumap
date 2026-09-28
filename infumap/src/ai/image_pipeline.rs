@@ -240,6 +240,8 @@ async fn run_source_image_loop(
       if !item_still_supported(db.clone(), &candidate).await? {
         return Ok(SourceImageReconcileOutcome::Gone);
       }
+      // Deliberate trade-off: accepted output is kept when GPU tools or models
+      // change; reprocessing is manual (see handle_reprocess_item).
       if matches!(
         image_tagging_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await?,
         ImageTagArtifactState::Succeeded

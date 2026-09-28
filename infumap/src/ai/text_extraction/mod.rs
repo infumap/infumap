@@ -511,6 +511,8 @@ async fn run_text_extraction_loop(
       if !candidate_still_current(db.clone(), &candidate).await? {
         return Ok(false);
       }
+      // Deliberate trade-off: accepted output is kept when GPU tools or models
+      // change; reprocessing is manual (see handle_reprocess_item).
       if matches!(manifest_check(&data_dir, &candidate).await?, ManifestCheckResult::AlreadySucceeded) {
         enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
         return Ok(false);

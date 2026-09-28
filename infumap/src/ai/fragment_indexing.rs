@@ -17,20 +17,26 @@ use tokio::time::{Instant, timeout_at};
 use crate::ai::artifact_io::{atomic_write, sha256};
 use crate::ai::artifact_paths::{item_fragments_dir, item_fragments_manifest_path, item_fragments_path};
 use crate::ai::fragment::is_lexical_search_source_kind;
-use crate::ai::lexical_index::{
-  LexicalFragment, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
-  user_document_fragment_lexical_index_exists, user_item_title_lexical_index_exists,
-};
+use crate::ai::lexical_index::{LexicalFragment, open_user_document_fragment_lexical_index};
 use crate::ai::processing_retry::RetrySchedule;
 use crate::ai::search_activity::{self as activity, Stage};
 use crate::ai::search_index_paths::ensure_user_index_dir;
+use crate::ai::title_indexing::enqueue_item_title_index_update;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
 use crate::util::fs::path_exists;
 
-const FRAGMENT_INDEXING_DEBOUNCE_SECS: u64 = 2;
-const FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS: u64 = 10;
+/// Changes are committed together at most once per window, or earlier when the
+/// batch is full. Fewer commits mean fewer index segments and less disk activity;
+/// search catches up within the window. Anything pending at shutdown is
+/// recovered by the startup check.
+///
+/// Deliberate trade-off: keeping search disk and CPU activity low matters more
+/// than freshness. Search lagging edits, new content and deletions by up to 10
+/// minutes is accepted; do not shorten this to make search more immediate.
+const FRAGMENT_INDEXING_BATCH_WINDOW_SECS: u64 = 600;
+const FRAGMENT_INDEXING_MAX_BATCH_ITEMS: usize = 500;
 
 static FRAGMENT_INDEXING_QUEUE: OnceCell<mpsc::UnboundedSender<FragmentIndexingRequest>> = OnceCell::new();
 
@@ -99,22 +105,14 @@ pub async fn load_item_search_fragments(
   )
 }
 
-pub async fn delete_item_search_index_entries(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<usize> {
+/// Queue removal of a deleted item's title and content entries with the next
+/// index batches. Search already ignores hits for items that no longer exist.
+/// Deliberate trade-off: removal is batched rather than committed immediately,
+/// to avoid a commit per deletion (see the batch window).
+pub fn enqueue_item_search_index_removal(user_id: &str, item_id: &str) {
   activity::forget(user_id, item_id);
-  let mut deleted = 0;
-  if user_document_fragment_lexical_index_exists(data_dir, user_id).await? {
-    deleted += open_user_document_fragment_lexical_index(data_dir, user_id)?.delete_item_fragments(item_id).await?;
-  }
-  if user_item_title_lexical_index_exists(data_dir, user_id).await? {
-    deleted += open_user_item_title_lexical_index(data_dir, user_id)?.delete_item_title(item_id).await?;
-  }
-  let receipt = item_fragments_dir(data_dir, user_id, item_id)?.join("index_receipt.json");
-  match fs::remove_file(receipt).await {
-    Ok(()) => {}
-    Err(error) if error.kind() == ErrorKind::NotFound => {}
-    Err(error) => return Err(error.into()),
-  }
-  Ok(deleted)
+  enqueue_fragment_lexical_index_update(user_id, item_id);
+  enqueue_item_title_index_update(user_id, item_id);
 }
 
 #[derive(Deserialize, Serialize)]
@@ -243,17 +241,17 @@ async fn run_fragment_indexing_loop(
       queued.insert(request);
     }
     drain_pending(&mut receiver, &mut queued);
+    // Retries still waiting for their delay do not open a batch window.
+    if !queued.iter().any(|request| retries.ready(request)) {
+      continue;
+    }
 
-    let max_deadline = Instant::now() + Duration::from_secs(FRAGMENT_INDEXING_MAX_DEBOUNCE_SECS);
-    loop {
-      let deadline = (Instant::now() + Duration::from_secs(FRAGMENT_INDEXING_DEBOUNCE_SECS)).min(max_deadline);
+    let deadline = Instant::now() + Duration::from_secs(FRAGMENT_INDEXING_BATCH_WINDOW_SECS);
+    while queued.len() < FRAGMENT_INDEXING_MAX_BATCH_ITEMS {
       match timeout_at(deadline, receiver.recv()).await {
         Ok(Some(request)) => {
           queued.insert(request);
           drain_pending(&mut receiver, &mut queued);
-          if Instant::now() >= max_deadline {
-            break;
-          }
         }
         Ok(None) | Err(_) => break,
       }

@@ -4,6 +4,11 @@
 //! recovery store: it is lost on restart, and the startup scans rebuild it by
 //! queueing items again. Entries only describe outstanding work; completed work
 //! is removed, so the absence of an entry never establishes completion.
+//!
+//! Deliberate trade-off: pages show outstanding work only, not ready or
+//! successful-empty outcomes, which would need persisted acknowledgements.
+//! Items whose only pending work is a queued index batch (up to 10 minutes) are
+//! still listed on the processing page; that noise was accepted.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;

@@ -3,6 +3,16 @@
 //! the existing workers' startup scans discover the necessary regeneration.
 //! Local text (extracted PDF text, image descriptions, copies of Markdown/text
 //! originals) is trusted to reflect the original, so no originals are read here.
+//!
+//! Deliberate trade-off: originals are immutable (written once when an item is
+//! added), so re-reading or re-hashing them to validate local text is pure cost.
+//! Do not add original-file checks here; on S3 they made every restart download
+//! the whole corpus.
+//!
+//! Deliberate trade-off: this runs at startup only. There is no periodic corpus
+//! scan while running; manual edits to generated files and missed notifications
+//! are picked up on the next restart. Repeating some work after a crash is
+//! accepted; exactly-once processing is not a goal.
 
 use std::collections::{BTreeMap, HashSet};
 use std::io::ErrorKind;
