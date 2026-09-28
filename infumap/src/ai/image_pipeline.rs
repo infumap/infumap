@@ -16,9 +16,9 @@ use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_image_fragment_artifact, search_fragment_context_title_for_item};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::geo::{
-  GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_is_complete,
-  geo_manifest_status, geoapify_api_key_from_config, geoapify_max_requests_per_minute_from_config,
-  geoapify_url_from_config, reverse_geocode_candidate_if_needed,
+  GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_status,
+  geoapify_api_key_from_config, geoapify_max_requests_per_minute_from_config, geoapify_url_from_config,
+  reverse_geocode_candidate_if_needed,
 };
 use crate::ai::gpu_tools::{GPU_TOOL_IMAGE_EXTRACT, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::image_tagging::{
@@ -28,7 +28,6 @@ use crate::ai::image_tagging::{
 };
 use crate::ai::metrics::{METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH};
 use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, record_manifest_retry};
-use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
@@ -255,7 +254,6 @@ async fn run_source_image_loop(
         }
         WebImageTagArtifactReadiness::Ready => {}
       }
-      wait_for_object_store_upload_quiet_period("image source extraction").await;
       let loaded = load_image_for_tagging(db.clone(), object_store.clone(), &candidate.item_id).await?;
       process_loaded_image_tagging(
         &config.data_dir,
@@ -338,9 +336,10 @@ fn enqueue_source_candidate_downstream_if_needed(
   reason: &str,
 ) {
   if config.geo_api_key.is_some() {
-    enqueue_candidate_with_log(state, PipelineStage::Geo, candidate, reason);
-  } else if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-    enqueue_candidate_with_log(state, PipelineStage::Fragment, candidate, reason);
+    enqueue_candidate_with_log(state, PipelineStage::Geo, candidate.clone(), reason);
+  }
+  if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
+    wake_image_fragments(state, candidate);
   }
 }
 
@@ -436,23 +435,17 @@ async fn run_reverse_geo_loop(
           Duration::ZERO,
         )
         .await;
-        if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-          enqueue_candidate(&mut *state.lock().await, PipelineStage::Fragment, candidate);
-        }
       }
       Ok(outcome) => {
         record_geo_pipeline_processed(&outcome);
         let mut state = state.lock().await;
         state.geo.retries.clear(&candidate.item_id);
         if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-          enqueue_candidate(&mut state, PipelineStage::Fragment, candidate);
+          wake_image_fragments(&mut state, candidate);
         }
       }
       Err(error) => {
         retry_image(&config, &state, PipelineStage::Geo, candidate.clone(), &error.to_string(), Duration::ZERO).await;
-        if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
-          enqueue_candidate(&mut *state.lock().await, PipelineStage::Fragment, candidate);
-        }
       }
     }
   }
@@ -474,7 +467,6 @@ async fn run_image_fragment_loop(
       continue;
     };
 
-    wait_for_object_store_upload_quiet_period("image fragment processing").await;
     match reconcile_image_fragment_item(&config, db.clone(), &candidate).await {
       Ok(Some(user_id)) => {
         state.lock().await.fragment.retries.clear(&candidate.item_id);
@@ -514,11 +506,6 @@ async fn reconcile_image_fragment_item(
       enqueue_fragment_lexical_index_update(&candidate.user_id, &candidate.item_id);
     }
     return Err("Waiting for successful image extraction.".into());
-  }
-  if config.geo_api_key.is_some()
-    && !geo_manifest_is_complete(&config.data_dir, &item_snapshot.owner_id, &item_snapshot.id).await?
-  {
-    return Err("Waiting for location processing.".into());
   }
 
   let context_title = {
@@ -575,7 +562,7 @@ fn enqueue_all_loaded_images(db: Arc<Mutex<Db>>, _config: ImageBackgroundPipelin
     let count = candidates.len();
     let mut state = state.lock().await;
     for candidate in candidates {
-      enqueue_candidate(&mut state, PipelineStage::Source, candidate);
+      enqueue_candidate_for_all_stages(&mut state, candidate);
     }
     info!("Queued {} images for startup processing checks, including failed and unfinished work.", count);
   });
@@ -585,7 +572,16 @@ fn enqueue_candidate_for_all_stages(
   state: &mut ImageBackgroundPipelineState,
   candidate: ImagePipelineCandidate,
 ) -> bool {
+  // Available image text must not wait behind another image's GPU request.
+  if ENABLE_IMAGE_FRAGMENT_AND_INDEX_BACKGROUND_STAGE {
+    wake_image_fragments(state, candidate.clone());
+  }
   enqueue_candidate(state, PipelineStage::Source, candidate)
+}
+
+fn wake_image_fragments(state: &mut ImageBackgroundPipelineState, candidate: ImagePipelineCandidate) {
+  state.fragment.retries.clear(&candidate.item_id);
+  enqueue_candidate(state, PipelineStage::Fragment, candidate);
 }
 
 fn enqueue_live_candidate_for_all_stages_with_log(

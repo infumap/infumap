@@ -37,7 +37,6 @@ use crate::ai::gpu_tools::{
 };
 use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
 use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, record_manifest_retry};
-use crate::ai::upload_quiet_period::wait_for_object_store_upload_quiet_period;
 use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_GPU_TOOLS_URL};
 use crate::storage::db::Db;
@@ -515,7 +514,6 @@ async fn run_text_extraction_loop(
       let endpoint = discover_pdf_text_extraction_endpoint(&gpu_tools_url)
         .await?
         .ok_or("Configured GPU service does not advertise PDF extraction.")?;
-      wait_for_object_store_upload_quiet_period("PDF text extraction").await;
       let loaded =
         load_pdf_for_extraction(&data_dir, &endpoint.extract_url, db.clone(), object_store.clone(), &candidate.item_id)
           .await?;

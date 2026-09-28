@@ -164,6 +164,7 @@ async fn pdf_first_page_caption_fragment_source_for_item(
 
 async fn request_pdf_first_page_caption(pdf_caption_url: &str, file_bytes: Vec<u8>) -> Result<Option<String>, String> {
   let client = reqwest::ClientBuilder::new()
+    .connect_timeout(Duration::from_secs(10))
     .timeout(Duration::from_secs(PDF_CAPTION_REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;

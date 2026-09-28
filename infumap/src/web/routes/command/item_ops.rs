@@ -500,9 +500,6 @@ pub async fn add_item_for_user(
     let sync_ack = build_sync_ack(&db, &queued_item.owner_id, &touched_container_ids);
     debug!("Executed 'add-item' command for item '{}'.", item_id);
     drop(db);
-    if is_data_item_type(queued_item.item_type) {
-      record_object_store_backed_item_upload(&queued_item.id);
-    }
     enqueue_item_title_index_update(&queued_item.owner_id, &queued_item.id);
     if should_tag_image_item(&queued_item) {
       enqueue_image_background_pipeline_item_if_active(&queued_item);

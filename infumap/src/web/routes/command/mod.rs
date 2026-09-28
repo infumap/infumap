@@ -70,7 +70,6 @@ use crate::ai::search_status::{
 };
 use crate::ai::text_extraction::{delete_item_text_dir, dequeue_pdf_item_if_active, enqueue_pdf_item_if_active};
 use crate::ai::title_indexing::enqueue_item_title_index_update;
-use crate::ai::upload_quiet_period::record_object_store_backed_item_upload;
 use crate::storage::cache as storage_cache;
 use crate::storage::db::Db;
 use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup, ContainerSyncVersion};

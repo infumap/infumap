@@ -84,11 +84,11 @@ fn titled_non_system_parent(db: &Db, item: &Item) -> Option<String> {
 /// builder. Model settings are deliberately excluded: accepted outputs stay put.
 pub async fn artifact_fragment_input_sha256(data_dir: &str, item: &Item, context: Option<&str>) -> InfuResult<String> {
   use crate::ai::artifact_io::{file_sha256, sha256};
-  use crate::ai::artifact_paths::{item_geo_content_path, item_text_content_path, item_text_manifest_path};
+  use crate::ai::artifact_paths::{item_text_content_path, item_text_manifest_path};
   let image = super::super::image_tagging::is_supported_image_tagging_mime_type(item.mime_type.as_deref());
   let text = file_sha256(&item_text_content_path(data_dir, &item.owner_id, &item.id)?).await?;
   let manifest = file_sha256(&item_text_manifest_path(data_dir, &item.owner_id, &item.id)?).await?;
-  let geo = if image { file_sha256(&item_geo_content_path(data_dir, &item.owner_id, &item.id)?).await? } else { None };
+  let geo = if image { image::geo_artifact_input_sha256(data_dir, &item.owner_id, &item.id).await? } else { None };
   Ok(sha256(&serde_json::to_vec(&(
     "fragment-input-v1",
     &item.mime_type,
