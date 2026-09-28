@@ -49,7 +49,7 @@ pub fn init_fragment_indexing_loop(config: &Config, _db: Arc<Mutex<Db>>) -> Infu
     .set(sender)
     .map_err(|_| "Fragment lexical indexing loop is already running in this process.".to_owned())?;
 
-  info!("Starting item-level fragment lexical indexing loop; no startup index rebuild will run.");
+  info!("Starting item-level fragment lexical indexing loop.");
   let _worker = task::spawn(async move {
     run_fragment_indexing_loop(data_dir, receiver).await;
   });
@@ -182,9 +182,8 @@ pub async fn record_indexed_fragments(
   Ok(())
 }
 
-/// Used by the forthcoming scan. Missing receipts/indexes are outstanding work,
+/// Used by startup reconciliation. Missing receipts/indexes are outstanding work,
 /// including an empty fragment file whose obsolete index entries need removal.
-#[allow(dead_code)]
 pub async fn item_fragment_index_is_current(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<bool> {
   let index_dir = crate::ai::lexical_index::document_fragment_lexical_index_dir(data_dir, user_id)?;
   if !path_exists(&item_fragments_path(data_dir, user_id, item_id)?).await
@@ -271,7 +270,7 @@ async fn run_fragment_indexing_loop(data_dir: String, mut receiver: mpsc::Unboun
   }
 }
 
-async fn commit_user_updates(
+pub(crate) async fn commit_user_updates(
   data_dir: &str,
   user_id: &str,
   updates: &[(String, Vec<LexicalFragment>)],

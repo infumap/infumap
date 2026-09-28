@@ -36,7 +36,7 @@ pub fn init_item_title_indexing_loop(data_dir: String, db: Arc<Mutex<Db>>) -> In
     .set(sender)
     .map_err(|_| "Item title indexing loop is already running in this process.".to_owned())?;
 
-  info!("Starting item-level title lexical indexing loop; no startup index rebuild will run.");
+  info!("Starting item-level title lexical indexing loop.");
   let _worker = task::spawn(async move {
     run_item_title_indexing_loop(data_dir, db, receiver).await;
   });

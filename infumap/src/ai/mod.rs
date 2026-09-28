@@ -12,6 +12,7 @@ pub mod lexical_index;
 pub mod metrics;
 pub mod search_index_paths;
 pub mod search_processing;
+pub mod search_reconciliation;
 pub mod search_status;
 pub mod text_extraction;
 pub mod title_indexing;

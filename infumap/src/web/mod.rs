@@ -237,6 +237,8 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     info!("Done loading all items for all users.");
   }
 
+  crate::ai::search_reconciliation::reconcile_search_at_startup(&data_dir, db.clone(), object_store.clone()).await?;
+
   init_item_title_indexing_loop(data_dir.clone(), db.clone())?;
   init_fragment_indexing_loop(config.as_ref(), db.clone())?;
   init_document_fragment_pipeline_loop(config.as_ref(), db.clone(), object_store.clone())?;
