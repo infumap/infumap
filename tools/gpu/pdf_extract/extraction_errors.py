@@ -19,6 +19,7 @@ from __future__ import annotations
 PDF_PASSWORD_REQUIRED_ERROR_CODE = "pdf_password_required"
 PDF_UNREADABLE_ERROR_CODE = "pdf_unreadable"
 PDF_CONVERSION_TIMEOUT_ERROR_CODE = "pdf_conversion_timeout"
+PDF_EXTRACTION_FAILED_ERROR_CODE = "pdf_extraction_failed"
 
 
 class DocumentRejectedError(Exception):
@@ -29,11 +30,11 @@ class DocumentRejectedError(Exception):
 
 
 class BackendUnavailableError(RuntimeError):
-    """Dependency, infrastructure, or resource failure; do not try OCR."""
+    """The service cannot convert anything right now; the caller should retry."""
 
 
 class DoclingConversionError(RuntimeError):
-    """A document-specific Docling failure that Marker may handle."""
+    """Docling failed on this document; Marker may handle it."""
 
 
 class ExtractionTimeoutError(TimeoutError):
@@ -55,13 +56,25 @@ def classify_document_rejection(exc: Exception) -> tuple[str, str] | None:
     return None
 
 
-def is_resource_failure(message: str) -> bool:
+SETUP_FAILURE_FRAGMENTS = (
+    "no space left on device", "no module named", "failed to download",
+    "connection refused", "connection error", "network is unreachable",
+    "couldn't connect", "could not connect", "localentrynotfounderror",
+    "gatedrepoerror", "401 client error", "403 client error",
+)
+MEMORY_FAILURE_FRAGMENTS = (
+    "out of memory", "cannot allocate memory", "memoryerror", "not enough memory",
+    "cublas_status_alloc_failed", "resource temporarily unavailable", "cuda error", "cuda driver",
+)
+
+
+def is_setup_failure(message: str) -> bool:
+    """Missing dependencies, models, network access, or disk space."""
     message = message.lower()
-    return any(fragment in message for fragment in (
-        "out of memory", "cannot allocate memory", "memoryerror", "not enough memory",
-        "cublas_status_alloc_failed", "resource temporarily unavailable", "cuda error", "cuda driver",
-        "no space left on device", "no module named", "failed to download",
-        "connection refused", "connection error", "network is unreachable",
-        "couldn't connect", "could not connect", "localentrynotfounderror",
-        "gatedrepoerror", "401 client error", "403 client error",
-    ))
+    return any(fragment in message for fragment in SETUP_FAILURE_FRAGMENTS)
+
+
+def is_resource_failure(message: str) -> bool:
+    """A setup failure or memory exhaustion."""
+    message = message.lower()
+    return is_setup_failure(message) or any(fragment in message for fragment in MEMORY_FAILURE_FRAGMENTS)

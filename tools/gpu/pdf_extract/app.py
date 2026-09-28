@@ -38,6 +38,7 @@ from extraction_errors import (
     DocumentRejectedError,
     ExtractionTimeoutError,
     PDF_CONVERSION_TIMEOUT_ERROR_CODE,
+    PDF_EXTRACTION_FAILED_ERROR_CODE,
     classify_document_rejection,
     is_resource_failure,
 )
@@ -342,6 +343,18 @@ def convert_file_bytes(file_bytes: bytes, file_name: str, deadline: float) -> Co
             metadata=metadata,
             duration_ms=duration_ms,
         )
+    except DocumentRejectedError as exc:
+        duration_ms = int((time.perf_counter() - started_at) * 1000)
+        LOGGER.warning(
+            "Rejected PDF: file=%s size_bytes=%d duration_ms=%d error_code=%s reason=%s",
+            file_name,
+            file_size_bytes,
+            duration_ms,
+            exc.error_code,
+            exc.message,
+            exc_info=exc.error_code == PDF_EXTRACTION_FAILED_ERROR_CODE,
+        )
+        raise
     except Exception as exc:
         duration_ms = int((time.perf_counter() - started_at) * 1000)
         cuda_memory = torch_cuda_memory_summary()
