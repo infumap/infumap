@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use infusdk::util::infu::InfuResult;
 use serde::{Deserialize, Serialize};
-use tantivy::collector::TopDocs;
+use tantivy::collector::{DocSetCollector, TopDocs};
 use tantivy::indexer::NoMergePolicy;
 use tantivy::query::{BooleanQuery, EmptyQuery, Query, QueryParser, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
@@ -166,6 +166,33 @@ impl TantivyDocumentFragmentIndex {
 }
 
 impl TantivyItemTitleIndex {
+  /// The stored title documents of the given items, ordered by ordinal.
+  pub(crate) async fn stored_titles_for_items(
+    &self,
+    item_ids: &[String],
+  ) -> InfuResult<HashMap<String, Vec<LexicalFragment>>> {
+    let mut titles = HashMap::<String, Vec<LexicalFragment>>::new();
+    if item_ids.is_empty() || !fs::try_exists(&self.index_dir).await? {
+      return Ok(titles);
+    }
+    let index_label = ITEM_TITLE_LEXICAL_INDEX_LABEL;
+    let index = open_tantivy_index(&self.index_dir, index_label)?;
+    let fields = fields_from_schema(&index.schema(), index_label)?;
+    let reader = index.reader().map_err(|e| e.to_string())?;
+    let searcher = reader.searcher();
+    let query = TermSetQuery::new(item_ids.iter().map(|id| Term::from_field_text(fields.item_id, id)));
+    let addresses = searcher.search(&query, &DocSetCollector).map_err(|e| e.to_string())?;
+    for address in addresses {
+      let doc: TantivyDocument = searcher.doc(address).map_err(|e| e.to_string())?;
+      let fragment = stored_fragment(&doc, fields, index_label)?;
+      titles.entry(fragment.item_id.clone()).or_default().push(fragment);
+    }
+    for fragments in titles.values_mut() {
+      fragments.sort_by_key(|fragment| fragment.ordinal);
+    }
+    Ok(titles)
+  }
+
   /// The stored title documents of every indexed item, ordered by ordinal.
   pub(crate) async fn indexed_titles(&self) -> InfuResult<HashMap<String, Vec<LexicalFragment>>> {
     if !fs::try_exists(&self.index_dir).await? {
@@ -181,14 +208,7 @@ impl TantivyItemTitleIndex {
       for doc_id in segment.doc_ids_alive() {
         let doc: TantivyDocument =
           searcher.doc(tantivy::DocAddress::new(segment_ord as u32, doc_id)).map_err(|e| e.to_string())?;
-        let fragment = LexicalFragment {
-          item_id: required_text_field(&doc, fields.item_id, ITEM_ID_FIELD, index_label)?.to_owned(),
-          ordinal: required_usize_field(&doc, fields.ordinal, ORDINAL_FIELD, index_label)?,
-          source_kind: required_text_field(&doc, fields.source_kind, SOURCE_KIND_FIELD, index_label)?.to_owned(),
-          text: required_text_field(&doc, fields.text, TEXT_FIELD, index_label)?.to_owned(),
-          page_start: optional_usize_field(&doc, fields.page_start, PAGE_START_FIELD, index_label)?,
-          page_end: optional_usize_field(&doc, fields.page_end, PAGE_END_FIELD, index_label)?,
-        };
+        let fragment = stored_fragment(&doc, fields, index_label)?;
         titles.entry(fragment.item_id.clone()).or_default().push(fragment);
       }
     }
@@ -617,6 +637,17 @@ fn hit_from_document(
   })
 }
 
+fn stored_fragment(doc: &TantivyDocument, fields: LexicalFields, index_label: &str) -> InfuResult<LexicalFragment> {
+  Ok(LexicalFragment {
+    item_id: required_text_field(doc, fields.item_id, ITEM_ID_FIELD, index_label)?.to_owned(),
+    ordinal: required_usize_field(doc, fields.ordinal, ORDINAL_FIELD, index_label)?,
+    source_kind: required_text_field(doc, fields.source_kind, SOURCE_KIND_FIELD, index_label)?.to_owned(),
+    text: required_text_field(doc, fields.text, TEXT_FIELD, index_label)?.to_owned(),
+    page_start: optional_usize_field(doc, fields.page_start, PAGE_START_FIELD, index_label)?,
+    page_end: optional_usize_field(doc, fields.page_end, PAGE_END_FIELD, index_label)?,
+  })
+}
+
 fn required_text_field<'a>(
   doc: &'a TantivyDocument,
   field: Field,
@@ -888,6 +919,29 @@ mod tests {
     index.replace_items_fragments(&[("c", &[])]).await.unwrap();
     let ids = index.indexed_item_ids().await.unwrap();
     assert_eq!(ids, ["a", "b"].iter().map(|id| id.to_string()).collect::<HashSet<_>>());
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[tokio::test]
+  async fn stored_titles_for_items_returns_only_requested_live_titles() {
+    let dir = temp_index_dir();
+    let index = TantivyItemTitleIndex::new(dir.clone());
+    let title = |id: &str, text: &str| LexicalFragment {
+      item_id: id.to_owned(),
+      ordinal: 1,
+      source_kind: "item_title".to_owned(),
+      text: text.to_owned(),
+      page_start: None,
+      page_end: None,
+    };
+    let (a, b, c) = (title("a", "Alpha"), title("b", "Beta"), title("c", "Gamma"));
+    index.replace_items_titles(&[("a", &[a.clone()]), ("b", &[b]), ("c", &[c])]).await.unwrap();
+    let renamed = title("b", "Beta renamed");
+    index.replace_items_titles(&[("b", &[renamed.clone()])]).await.unwrap();
+    let stored = index.stored_titles_for_items(&["a".to_owned(), "b".to_owned(), "missing".to_owned()]).await.unwrap();
+    assert_eq!(stored.len(), 2);
+    assert_eq!(stored["a"], vec![a]);
+    assert_eq!(stored["b"], vec![renamed]);
     let _ = std::fs::remove_dir_all(dir);
   }
 }
