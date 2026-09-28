@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use infusdk::util::infu::InfuResult;
 use serde::{Deserialize, Serialize};
@@ -139,6 +140,10 @@ impl TantivyDocumentFragmentIndex {
     compact_index(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL)
   }
 
+  pub async fn maintain(&self) -> InfuResult<usize> {
+    maintain_index_in_background(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL).await
+  }
+
   pub async fn search(
     &self,
     query_text: &str,
@@ -205,6 +210,10 @@ impl TantivyItemTitleIndex {
 
   pub async fn compact(&self) -> InfuResult<()> {
     compact_index(&self.index_dir, ITEM_TITLE_LEXICAL_INDEX_LABEL)
+  }
+
+  pub async fn maintain(&self) -> InfuResult<usize> {
+    maintain_index_in_background(&self.index_dir, ITEM_TITLE_LEXICAL_INDEX_LABEL).await
   }
 }
 
@@ -352,8 +361,8 @@ async fn replace_item_documents_in_index(
     .writer(INCREMENTAL_INDEX_WRITER_HEAP_BYTES)
     .map_err(|e| format!("Could not open {} writer '{}': {}", index_label, index_dir.display(), e))?;
   // Deliberate trade-off: live commits never merge segments, keeping each
-  // commit cheap. Segments accumulate and are compacted separately (currently
-  // by `rebuild-search-index`, and for titles at startup), not per commit.
+  // commit cheap. Segments accumulate and are merged by the daily maintenance
+  // pass (see maintain_index), not per commit.
   writer.set_merge_policy(Box::new(NoMergePolicy));
   for (item_id, fragments) in updates {
     writer.delete_term(Term::from_field_text(fields.item_id, item_id));
@@ -639,6 +648,68 @@ fn index_doc_count(index: &Index, index_label: &str) -> InfuResult<usize> {
   usize::try_from(reader.searcher().num_docs()).map_err(|e| e.into())
 }
 
+/// When the index workers check their indexes for maintenance. The first check
+/// is delayed so that it does not add to startup work.
+pub const INDEX_MAINTENANCE_FIRST_DELAY: Duration = Duration::from_secs(60 * 60);
+pub const INDEX_MAINTENANCE_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// Below this many segments an index is left alone.
+const MAINTENANCE_MAX_SEGMENTS: usize = 16;
+
+/// Merge an index's segments if there are enough of them to matter, without
+/// rewriting the whole index each time. Returns the number of segments merged.
+///
+/// Deliberate trade-off: this runs about once a day (see the index workers),
+/// so an index may have extra segments and deleted documents for up to a day.
+/// Normally only the small segments are merged, leaving the largest untouched,
+/// so the cost follows recent changes rather than index size. Everything is
+/// merged only when deleted documents exceed a quarter of the index, or when the
+/// small segments together reach half the largest (otherwise the merged segment
+/// would keep growing and be rewritten every day).
+fn maintain_index(index_dir: &Path, index_label: &str) -> InfuResult<usize> {
+  if !index_dir.exists() {
+    return Ok(0);
+  }
+  let index = open_tantivy_index(index_dir, index_label)?;
+  let segments = index
+    .searchable_segment_metas()
+    .map_err(|e| format!("Could not list {} segments '{}': {}", index_label, index_dir.display(), e))?;
+  if segments.len() <= MAINTENANCE_MAX_SEGMENTS {
+    return Ok(0);
+  }
+  let total_docs = segments.iter().map(|segment| segment.max_doc() as u64).sum::<u64>();
+  let deleted_docs = segments.iter().map(|segment| segment.num_deleted_docs() as u64).sum::<u64>();
+  let largest = segments.iter().max_by_key(|segment| segment.max_doc()).map(|segment| segment.id());
+  let smaller = segments.iter().filter(|segment| Some(segment.id()) != largest).collect::<Vec<_>>();
+  let smaller_docs = smaller.iter().map(|segment| segment.max_doc() as u64).sum::<u64>();
+  let largest_docs = total_docs - smaller_docs;
+  let segment_ids = if deleted_docs * 4 > total_docs || smaller_docs * 2 >= largest_docs {
+    segments.iter().map(|segment| segment.id()).collect::<Vec<_>>()
+  } else {
+    smaller.iter().map(|segment| segment.id()).collect::<Vec<_>>()
+  };
+
+  let mut writer: IndexWriter<TantivyDocument> = index
+    .writer(INDEX_WRITER_HEAP_BYTES)
+    .map_err(|e| format!("Could not open {} writer for maintenance '{}': {}", index_label, index_dir.display(), e))?;
+  writer.set_merge_policy(Box::new(NoMergePolicy));
+  writer
+    .merge(&segment_ids)
+    .wait()
+    .map_err(|e| format!("Could not merge {} segments '{}': {}", index_label, index_dir.display(), e))?;
+  writer
+    .wait_merging_threads()
+    .map_err(|e| format!("Could not finish {} merge '{}': {}", index_label, index_dir.display(), e))?;
+  Ok(segment_ids.len())
+}
+
+async fn maintain_index_in_background(index_dir: &Path, index_label: &'static str) -> InfuResult<usize> {
+  let index_dir = index_dir.to_path_buf();
+  tokio::task::spawn_blocking(move || maintain_index(&index_dir, index_label))
+    .await
+    .map_err(|e| format!("{} maintenance task failed: {}", index_label, e))?
+}
+
 fn compact_index(index_dir: &Path, index_label: &str) -> InfuResult<()> {
   if !index_dir.exists() {
     return Ok(());
@@ -665,4 +736,81 @@ fn compact_index(index_dir: &Path, index_label: &str) -> InfuResult<()> {
 
 async fn path_ref_exists(path: &Path) -> bool {
   fs::metadata(path).await.is_ok()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn fragment(item_id: &str) -> LexicalFragment {
+    LexicalFragment {
+      item_id: item_id.to_owned(),
+      ordinal: 0,
+      source_kind: "text".to_owned(),
+      text: format!("zebra {}", item_id),
+      page_start: None,
+      page_end: None,
+    }
+  }
+
+  async fn commit_items(index: &TantivyDocumentFragmentIndex, item_ids: &[String]) {
+    let fragments = item_ids.iter().map(|id| (id.clone(), vec![fragment(id)])).collect::<Vec<_>>();
+    let updates = fragments.iter().map(|(id, f)| (id.as_str(), f.as_slice())).collect::<Vec<_>>();
+    index.replace_items_fragments(&updates).await.unwrap();
+  }
+
+  fn segment_count(index_dir: &Path) -> usize {
+    open_tantivy_index(index_dir, "test").unwrap().searchable_segment_ids().unwrap().len()
+  }
+
+  fn temp_index_dir() -> PathBuf {
+    std::env::temp_dir().join(format!("infumap-maintenance-test-{}", infusdk::util::uid::new_uid()))
+  }
+
+  #[tokio::test]
+  async fn merges_many_small_segments_into_one() {
+    let dir = temp_index_dir();
+    let index = TantivyDocumentFragmentIndex::new(dir.clone());
+    for n in 0..20 {
+      commit_items(&index, &[format!("item{}", n)]).await;
+    }
+    assert_eq!(segment_count(&dir), 20);
+    assert_eq!(index.maintain().await.unwrap(), 20);
+    assert_eq!(segment_count(&dir), 1);
+    assert_eq!(index.indexed_item_ids().await.unwrap().len(), 20);
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[tokio::test]
+  async fn leaves_large_segment_alone_and_small_indexes_untouched() {
+    let dir = temp_index_dir();
+    let index = TantivyDocumentFragmentIndex::new(dir.clone());
+    commit_items(&index, &(0..100).map(|n| format!("base{}", n)).collect::<Vec<_>>()).await;
+    for n in 0..10 {
+      commit_items(&index, &[format!("item{}", n)]).await;
+    }
+    assert_eq!(index.maintain().await.unwrap(), 0, "11 segments is below the threshold");
+    for n in 10..17 {
+      commit_items(&index, &[format!("item{}", n)]).await;
+    }
+    assert_eq!(index.maintain().await.unwrap(), 17);
+    assert_eq!(segment_count(&dir), 2);
+    assert_eq!(index.indexed_item_ids().await.unwrap().len(), 117);
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[tokio::test]
+  async fn merges_everything_when_many_documents_are_deleted() {
+    let dir = temp_index_dir();
+    let index = TantivyDocumentFragmentIndex::new(dir.clone());
+    commit_items(&index, &(0..100).map(|n| format!("base{}", n)).collect::<Vec<_>>()).await;
+    // Each commit replaces two base items, deleting their old documents.
+    for n in 0..17 {
+      commit_items(&index, &[format!("base{}", n * 2), format!("base{}", n * 2 + 1)]).await;
+    }
+    assert_eq!(index.maintain().await.unwrap(), 18);
+    assert_eq!(segment_count(&dir), 1);
+    assert_eq!(index.indexed_item_ids().await.unwrap().len(), 100);
+    let _ = std::fs::remove_dir_all(dir);
+  }
 }
