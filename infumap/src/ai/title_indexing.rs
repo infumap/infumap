@@ -101,6 +101,7 @@ async fn run_item_title_indexing_loop(
     }
 
     let deadline = Instant::now() + Duration::from_secs(ITEM_TITLE_INDEXING_BATCH_WINDOW_SECS);
+    activity::batch_window_opened(Stage::Title, deadline.into_std());
     while queued.len() < ITEM_TITLE_INDEXING_MAX_BATCH_ITEMS {
       match timeout_at(deadline, receiver.recv()).await {
         Ok(Some(request)) => {
@@ -110,6 +111,7 @@ async fn run_item_title_indexing_loop(
         Ok(None) | Err(_) => break,
       }
     }
+    activity::batch_window_closed(Stage::Title);
 
     let mut requests = queued.iter().filter(|request| retries.ready(*request)).cloned().collect::<Vec<_>>();
     for request in &requests {

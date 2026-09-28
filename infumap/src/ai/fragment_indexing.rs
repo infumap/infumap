@@ -258,6 +258,7 @@ async fn run_fragment_indexing_loop(
     }
 
     let deadline = Instant::now() + Duration::from_secs(FRAGMENT_INDEXING_BATCH_WINDOW_SECS);
+    activity::batch_window_opened(Stage::ContentIndex, deadline.into_std());
     while queued.len() < FRAGMENT_INDEXING_MAX_BATCH_ITEMS {
       match timeout_at(deadline, receiver.recv()).await {
         Ok(Some(request)) => {
@@ -267,6 +268,7 @@ async fn run_fragment_indexing_loop(
         Ok(None) | Err(_) => break,
       }
     }
+    activity::batch_window_closed(Stage::ContentIndex);
 
     let mut requests = queued.iter().filter(|request| retries.ready(*request)).cloned().collect::<Vec<_>>();
     for request in &requests {
