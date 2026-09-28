@@ -39,7 +39,8 @@ use super::fragment_indexing::{commit_user_updates, item_fragment_index_is_curre
 use super::geo::{delete_item_geo_artifacts, extract_geo_query_coordinates, geo_manifest_is_complete};
 use super::image_tagging::{ImageTagArtifactState, image_tagging_artifact_state};
 use super::lexical_index::{
-  LexicalFragment, open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
+  FragmentLexicalIndexRebuildStatus, LexicalFragment, open_user_document_fragment_lexical_index,
+  open_user_item_title_lexical_index,
 };
 use super::search_processing::SearchContentKind;
 use super::text_extraction::delete_item_text_dir;
@@ -66,13 +67,20 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
     let content_index = open_user_document_fragment_lexical_index(data_dir, user_id)?;
     // Index read/write errors stop startup instead of silently declaring repair
     // complete. A corrupt index can be removed while stopped and rebuilt here.
-    let title_ids = title_index.indexed_item_ids().await?;
+    let mut indexed_titles = title_index.indexed_titles().await?;
+    let title_ids = indexed_titles.keys().cloned().collect::<HashSet<_>>();
     let content_ids = content_index.indexed_item_ids().await?;
     let orphan_ids = title_ids.union(&content_ids).filter(|id| !live_ids.contains(*id)).cloned().collect::<Vec<_>>();
+    // Deliberate trade-off: title changes are collected and committed once per
+    // user, and unchanged titles are not rewritten, so a restart without
+    // changes writes nothing to the title index and creates no segments.
+    let mut title_updates = orphan_ids
+      .iter()
+      .filter(|id| title_ids.contains(*id))
+      .map(|id| (id.clone(), Vec::<LexicalFragment>::new()))
+      .collect::<Vec<_>>();
     for batch in orphan_ids.chunks(BATCH_SIZE) {
       let removals = batch.iter().map(|id| (id.clone(), Vec::<LexicalFragment>::new())).collect::<Vec<_>>();
-      let refs = removals.iter().map(|(id, fragments)| (id.as_str(), fragments.as_slice())).collect::<Vec<_>>();
-      title_index.replace_items_titles(&refs).await?;
       for id in batch {
         delete_item_fragment_artifacts(data_dir, user_id, id).await?;
       }
@@ -95,12 +103,13 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
           })
           .collect::<InfuResult<Vec<_>>>()?
       };
-      // Titles are inexpensive to derive again and need no separate receipts.
-      let titles = snapshots
-        .iter()
-        .map(|(item, _, title)| (item.id.as_str(), title.as_ref().map(std::slice::from_ref).unwrap_or_default()))
-        .collect::<Vec<_>>();
-      title_index.replace_items_titles(&titles).await?;
+      for (item, _, title) in &snapshots {
+        let desired = title.as_ref().map(std::slice::from_ref).unwrap_or_default();
+        let indexed = indexed_titles.remove(&item.id).unwrap_or_default();
+        if indexed.as_slice() != desired {
+          title_updates.push((item.id.clone(), desired.to_vec()));
+        }
+      }
 
       let mut updates = Vec::new();
       for (item, context, _) in &snapshots {
@@ -144,21 +153,22 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
       );
       tokio::task::yield_now().await;
     }
+    if !title_updates.is_empty() {
+      let refs = title_updates.iter().map(|(id, titles)| (id.as_str(), titles.as_slice())).collect::<Vec<_>>();
+      title_index.replace_items_titles(&refs).await?;
+    }
     // A crash may have committed the index but missed its search metadata.
     // An empty update repairs that metadata without changing indexed content.
-    if indexed == 0 && orphan_ids.is_empty() {
+    if indexed == 0 && orphan_ids.is_empty() && search_metadata_needs_repair(content_index.rebuild_status().await) {
       content_index.replace_items_fragments(&[]).await?;
     }
-    if item_ids.is_empty() && orphan_ids.is_empty() {
+    if title_updates.is_empty() && search_metadata_needs_repair(title_index.rebuild_status().await) {
       title_index.replace_items_titles(&[]).await?;
     }
-    // Incremental writers disable merging. Refreshing every title on each
-    // restart must not accumulate an unbounded number of index segments.
-    title_index.compact().await?;
     info!(
-      "Search startup check for user {} complete: {} titles refreshed, {} obsolete fragment artifacts removed, {} content index updates, {} deleted items removed, {} item errors.",
+      "Search startup check for user {} complete: {} title index updates, {} obsolete fragment artifacts removed, {} content index updates, {} deleted items removed, {} item errors.",
       user_id_for_log(user_id),
-      item_ids.len(),
+      title_updates.len(),
       invalidated,
       indexed,
       orphan_ids.len(),
@@ -167,6 +177,15 @@ pub async fn reconcile_search_at_startup(data_dir: &str, db: Arc<Mutex<Db>>) -> 
   }
   info!("Search startup reconciliation finished; existing workers will process missing artifacts.");
   Ok(())
+}
+
+/// Search needs complete metadata that matches the index. Unreadable metadata
+/// also needs rewriting.
+fn search_metadata_needs_repair(status: InfuResult<Option<FragmentLexicalIndexRebuildStatus>>) -> bool {
+  match status {
+    Ok(Some(status)) => !status.complete || status.expected_fragment_count != status.indexed_fragment_count,
+    Ok(None) | Err(_) => true,
+  }
 }
 
 /// Return true only when the fragments still describe their current inputs.

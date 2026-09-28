@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -165,8 +165,36 @@ impl TantivyDocumentFragmentIndex {
 }
 
 impl TantivyItemTitleIndex {
-  pub(crate) async fn indexed_item_ids(&self) -> InfuResult<HashSet<String>> {
-    indexed_item_ids(&self.index_dir, ITEM_TITLE_LEXICAL_INDEX_LABEL).await
+  /// The stored title documents of every indexed item, ordered by ordinal.
+  pub(crate) async fn indexed_titles(&self) -> InfuResult<HashMap<String, Vec<LexicalFragment>>> {
+    if !fs::try_exists(&self.index_dir).await? {
+      return Ok(HashMap::new());
+    }
+    let index_label = ITEM_TITLE_LEXICAL_INDEX_LABEL;
+    let index = open_tantivy_index(&self.index_dir, index_label)?;
+    let fields = fields_from_schema(&index.schema(), index_label)?;
+    let reader = index.reader().map_err(|e| e.to_string())?;
+    let searcher = reader.searcher();
+    let mut titles = HashMap::<String, Vec<LexicalFragment>>::new();
+    for (segment_ord, segment) in searcher.segment_readers().iter().enumerate() {
+      for doc_id in segment.doc_ids_alive() {
+        let doc: TantivyDocument =
+          searcher.doc(tantivy::DocAddress::new(segment_ord as u32, doc_id)).map_err(|e| e.to_string())?;
+        let fragment = LexicalFragment {
+          item_id: required_text_field(&doc, fields.item_id, ITEM_ID_FIELD, index_label)?.to_owned(),
+          ordinal: required_usize_field(&doc, fields.ordinal, ORDINAL_FIELD, index_label)?,
+          source_kind: required_text_field(&doc, fields.source_kind, SOURCE_KIND_FIELD, index_label)?.to_owned(),
+          text: required_text_field(&doc, fields.text, TEXT_FIELD, index_label)?.to_owned(),
+          page_start: optional_usize_field(&doc, fields.page_start, PAGE_START_FIELD, index_label)?,
+          page_end: optional_usize_field(&doc, fields.page_end, PAGE_END_FIELD, index_label)?,
+        };
+        titles.entry(fragment.item_id.clone()).or_default().push(fragment);
+      }
+    }
+    for fragments in titles.values_mut() {
+      fragments.sort_by_key(|fragment| fragment.ordinal);
+    }
+    Ok(titles)
   }
 
   pub fn new(index_dir: PathBuf) -> TantivyItemTitleIndex {
