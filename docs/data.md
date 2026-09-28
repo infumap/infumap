@@ -17,7 +17,7 @@ Each user lives under `user_<user_id>` in the configured data directory. In addi
 - `rebuild_search_index_checkpoint.json` records resumable `rebuild-search-index` progress and is removed after a successful rebuild.
 - `search_status.json` may exist in older installations. It is no longer used and can be deleted.
 
-All of these are derived from the items and their original files, and are regenerated automatically when missing. Index changes are committed in batches at most every 10 minutes, so search can lag behind edits and new content by that long. Originals never change after upload, so existing local text is always treated as correct and is never re-checked against its original.
+All of these are derived from the items and their original files, and are regenerated automatically when missing. Index changes are committed in batches at most every 10 minutes, so search can lag behind edits and new content by that long. About once a day (first an hour after startup) the server merges accumulated index segments in the background; no manual compaction is needed. Originals never change after upload, so existing local text is always treated as correct and is never re-checked against its original.
 
 ### Deleting derived files
 
@@ -41,7 +41,7 @@ Upgrading GPU tools does not change existing output. Only items processed afterw
 - While the server runs, `infumap reprocess --id <item_id>` redoes one item. It deletes the item's local text and fragments, removes its old search entries with the next index batch, and queues it again. Its location lookup is kept unless the server restarts before the item is re-extracted.
 - For many items, stop the server, delete the `_text` and `_manifest.json` files of the PDFs and images you want redone, and start it again (see the table above).
 
-Each reprocessed item costs a full GPU request again, and a large batch can keep GPU tools busy for a long time. Until an item is re-extracted, its content is not searchable, although its title still is. Manual edits to its local text are lost. Bulk-deleting image text also repeats their location lookups. After a large batch has finished, running `rebuild-search-index` with the server stopped compacts the content index.
+Each reprocessed item costs a full GPU request again, and a large batch can keep GPU tools busy for a long time. Until an item is re-extracted, its content is not searchable, although its title still is. Manual edits to its local text are lost. Bulk-deleting image text also repeats their location lookups.
 
 Older installations may still contain `indexes/fragments.sqlite3` or `indexes/fragments.sqlite3.tmp`. Infumap no longer reads these legacy semantic-search databases, so they can be deleted.
 

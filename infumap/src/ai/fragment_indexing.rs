@@ -17,7 +17,9 @@ use tokio::time::{Instant, timeout_at};
 use crate::ai::artifact_io::{atomic_write, sha256};
 use crate::ai::artifact_paths::{item_fragments_dir, item_fragments_manifest_path, item_fragments_path};
 use crate::ai::fragment::is_lexical_search_source_kind;
-use crate::ai::lexical_index::{LexicalFragment, open_user_document_fragment_lexical_index};
+use crate::ai::lexical_index::{
+  INDEX_MAINTENANCE_FIRST_DELAY, INDEX_MAINTENANCE_INTERVAL, LexicalFragment, open_user_document_fragment_lexical_index,
+};
 use crate::ai::processing_retry::RetrySchedule;
 use crate::ai::search_activity::{self as activity, Stage};
 use crate::ai::search_index_paths::ensure_user_index_dir;
@@ -228,9 +230,18 @@ async fn run_fragment_indexing_loop(
 ) {
   let mut queued = HashSet::new();
   let mut retries = RetrySchedule::default();
+  // Maintenance runs here, between batches, so it never overlaps a commit.
+  let mut next_maintenance = Instant::now() + INDEX_MAINTENANCE_FIRST_DELAY;
   loop {
+    if Instant::now() >= next_maintenance {
+      maintain_content_indexes(&data_dir, &db).await;
+      next_maintenance = Instant::now() + INDEX_MAINTENANCE_INTERVAL;
+    }
     let request = if queued.is_empty() {
-      receiver.recv().await
+      match timeout_at(next_maintenance, receiver.recv()).await {
+        Ok(request) => request,
+        Err(_) => continue,
+      }
     } else {
       tokio::time::timeout(Duration::from_secs(1), receiver.recv()).await.ok().flatten()
     };
@@ -355,5 +366,24 @@ fn drain_pending(
 ) {
   while let Ok(request) = receiver.try_recv() {
     queued.insert(request);
+  }
+}
+
+async fn maintain_content_indexes(data_dir: &str, db: &Arc<Mutex<Db>>) {
+  let user_ids = db.lock().await.user.all_user_ids();
+  for user_id in user_ids {
+    let result = match open_user_document_fragment_lexical_index(data_dir, &user_id) {
+      Ok(index) => index.maintain().await,
+      Err(e) => Err(e),
+    };
+    match result {
+      Ok(0) => {}
+      Ok(merged) => info!("Merged {} content index segments for user {}.", merged, user_id_for_log(&user_id)),
+      Err(e) => warn!(
+        "content index maintenance failed for user {}: {}. Will try again tomorrow.",
+        user_id_for_log(&user_id),
+        e
+      ),
+    }
   }
 }
