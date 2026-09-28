@@ -141,7 +141,7 @@ fn make_pdf_subcommand() -> Command {
     .arg(
       Arg::new("delete_all")
         .long("delete-all")
-        .help("Delete all derived PDF text-extraction results while leaving image-tagging results untouched.")
+        .help("Delete all derived PDF text-extraction results while leaving image-tagging results untouched. Only local generated files are deleted; original files (local or S3) are not touched.")
         .num_args(0)
         .conflicts_with_all(["service_url", "delay_secs"])
         .required(false),
@@ -237,7 +237,7 @@ fn make_image_subcommand() -> Command {
     .arg(
       Arg::new("delete_all")
         .long("delete-all")
-        .help("Delete all derived image-tagging results while leaving PDF text-extraction results untouched.")
+        .help("Delete all derived image-tagging results while leaving PDF text-extraction results untouched. Only local generated files are deleted; original files (local or S3) are not touched.")
         .num_args(0)
         .conflicts_with_all(["service_url", "delay_secs"])
         .required(false),
@@ -537,6 +537,9 @@ async fn resolve_service_url(
   }
 }
 
+const ORIGINALS_UNTOUCHED_NOTE: &str =
+  "Only locally generated results are deleted; original files in the object store (local or S3) are not touched.";
+
 async fn maybe_execute_delete_all(
   sub_matches: &ArgMatches,
   data_dir: &str,
@@ -564,12 +567,14 @@ async fn maybe_execute_delete_all(
 
   if dry_run {
     println!(
-      "Dry run: would delete {} {} result set(s) ({} manifest file(s), {} content file(s)).",
+      "Dry run: would delete {} {} result set(s) ({} manifest file(s), {} content file(s)) from the local data directory {}.",
       targets.len(),
       kind.result_label(),
       manifest_count,
-      content_count
+      content_count,
+      data_dir
     );
+    println!("{}", ORIGINALS_UNTOUCHED_NOTE);
     for target in &targets {
       let mut pieces = vec![];
       if target.manifest_exists {
@@ -578,7 +583,7 @@ async fn maybe_execute_delete_all(
       if target.content_exists {
         pieces.push("content");
       }
-      println!("would delete {} for user={} item={}", pieces.join("+"), target.user_id, target.item_id);
+      println!("would delete local {} for user={} item={}", pieces.join("+"), target.user_id, target.item_id);
     }
     println!("Re-run with --force to perform this deletion.");
     return Ok(true);
@@ -592,11 +597,13 @@ async fn maybe_execute_delete_all(
   }
 
   info!(
-    "Deleted {} {} result set(s) ({} manifest file(s), {} content file(s)).",
+    "Deleted {} {} result set(s) ({} manifest file(s), {} content file(s)) from the local data directory {}. {}",
     targets.len(),
     kind.result_label(),
     manifest_count,
-    content_count
+    content_count,
+    data_dir,
+    ORIGINALS_UNTOUCHED_NOTE
   );
   Ok(true)
 }
