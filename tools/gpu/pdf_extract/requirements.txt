@@ -1,4 +1,6 @@
 # Direct requirements for pdf_extract service.
+# Docling runs separately with requirements-docling.txt; do not merge these
+# environments because their Transformers requirements conflict on macOS.
 # Pinned to the reviewed versions so first install does not drift to whatever
 # happens to be latest on PyPI that day.
 #

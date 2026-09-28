@@ -20,17 +20,11 @@ import asyncio
 import logging
 import os
 import platform
-import tempfile
 import time
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
-
-if not os.environ.get("TEXT_EXTRACTION_MODE", "").strip():
-    os.environ["TEXT_EXTRACTION_MODE"] = "balanced"
-if not os.environ.get("SURYA_GUIDED_LAYOUT", "").strip():
-    os.environ["SURYA_GUIDED_LAYOUT"] = "0"
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -38,31 +32,24 @@ from pydantic import BaseModel
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
 
-from marker.config.parser import ConfigParser
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.output import text_from_rendered
+from extractor import PdfExtractor
+from extraction_errors import (
+    BackendUnavailableError,
+    DocumentRejectedError,
+    ExtractionTimeoutError,
+    PDF_CONVERSION_TIMEOUT_ERROR_CODE,
+    classify_document_rejection,
+    is_resource_failure,
+)
 
 APP_STATE: dict[str, Any] = {}
 LOGGER = logging.getLogger("uvicorn.error")
 CONVERT_SEMAPHORE: asyncio.Semaphore | None = None
 GPU_REQUEST_CONCURRENCY = 1
-PDFTEXT_WORKERS = 1
 DEFAULT_MAX_UPLOAD_BYTES = 128 * 1024 * 1024
 DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS = 4.0 * 60.0 * 60.0
 DEFAULT_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
 CONVERSION_TIMEOUT_EXIT_DELAY_SECS = 2.0
-PDF_PASSWORD_REQUIRED_ERROR_CODE = "pdf_password_required"
-PDF_UNREADABLE_ERROR_CODE = "pdf_unreadable"
-PDF_CONVERSION_TIMEOUT_ERROR_CODE = "pdf_conversion_timeout"
-VALID_CONVERSION_MODES = ("balanced", "fast")
-
-
-class DocumentRejectedError(Exception):
-    def __init__(self, error_code: str, message: str):
-        super().__init__(message)
-        self.error_code = error_code
-        self.message = message
 
 
 class UploadTooLargeError(Exception):
@@ -150,11 +137,8 @@ def build_runtime_summary() -> list[str]:
         f"cuda_visible_devices={os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}",
         f"inference_ram={os.environ.get('INFERENCE_RAM', '<unset>')}",
         f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
-        f"pdftext_workers={PDFTEXT_WORKERS}",
         f"worker_slot_wait_timeout_secs={worker_slot_wait_timeout_secs()}",
         f"conversion_timeout_secs={conversion_timeout_secs()}",
-        f"use_llm={'yes' if os.environ.get('GOOGLE_API_KEY') else 'no'}",
-        f"mode={conversion_mode()}",
         f"surya_guided_layout={os.environ.get('SURYA_GUIDED_LAYOUT', '<unset>')}",
         f"max_upload_bytes={max_upload_bytes()}",
     ]
@@ -179,51 +163,6 @@ def build_runtime_summary() -> list[str]:
         summary.append(f"torch_runtime_error={exc}")
 
     return summary
-
-
-def _device_strings(value: Any, seen: set[int]) -> set[str]:
-    obj_id = id(value)
-    if obj_id in seen:
-        return set()
-    seen.add(obj_id)
-
-    devices: set[str] = set()
-
-    device_attr = getattr(value, "device", None)
-    if device_attr is not None and not callable(device_attr):
-        devices.add(str(device_attr))
-
-    parameters = getattr(value, "parameters", None)
-    if callable(parameters):
-        try:
-            first_param = next(parameters())
-        except Exception:
-            first_param = None
-        if first_param is not None and hasattr(first_param, "device"):
-            devices.add(str(first_param.device))
-
-    if isinstance(value, dict):
-        for child in value.values():
-            devices.update(_device_strings(child, seen))
-    elif isinstance(value, (list, tuple, set)):
-        for child in value:
-            devices.update(_device_strings(child, seen))
-
-    for attr_name in ("model", "encoder", "decoder", "processor", "recognition_model", "detection_model", "predictor"):
-        child = getattr(value, attr_name, None)
-        if child is not None:
-            devices.update(_device_strings(child, seen))
-
-    return devices
-
-
-def summarize_loaded_models(models: dict[str, Any]) -> str:
-    parts = []
-    for name, model in sorted(models.items()):
-        devices = sorted(_device_strings(model, set()))
-        device_summary = ", ".join(devices) if devices else "device=unknown"
-        parts.append(f"{name}[{device_summary}]")
-    return ", ".join(parts) if parts else "<none>"
 
 
 def clear_torch_cuda_cache() -> None:
@@ -277,8 +216,11 @@ def schedule_conversion_timeout_exit(file_name: str, timeout_secs: float) -> Non
     if APP_STATE.get("conversion_timeout_exit_scheduled"):
         return
     APP_STATE["conversion_timeout_exit_scheduled"] = True
+    extractor = APP_STATE.get("extractor")
+    if extractor is not None:
+        extractor.docling.cancel()
     LOGGER.error(
-        "Text extraction conversion timeout triggered for file=%s after %.3f seconds; "
+        "Text extraction conversion timeout triggered for file=%s (configured limit %.3f seconds); "
         "terminating service process so the supervisor can restart it.",
         file_name,
         timeout_secs,
@@ -289,29 +231,17 @@ def schedule_conversion_timeout_exit(file_name: str, timeout_secs: float) -> Non
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global CONVERT_SEMAPHORE
-    config = build_config()
-    CONVERT_SEMAPHORE = asyncio.Semaphore(GPU_REQUEST_CONCURRENCY)
+    extractor = PdfExtractor()
     LOGGER.info("Text extraction startup: %s", " ".join(build_runtime_summary()))
-    LOGGER.info(
-        "Text extraction config: force_ocr=%s paginate_output=%s use_llm=%s output_format=%s pdftext_workers=%s mode=%s",
-        config["force_ocr"],
-        config["paginate_output"],
-        config["use_llm"],
-        config["output_format"],
-        config["pdftext_workers"],
-        config["mode"],
-    )
-    started_at = time.perf_counter()
-    APP_STATE["models"] = create_model_dict()
-    load_duration_ms = int((time.perf_counter() - started_at) * 1000)
-    LOGGER.info(
-        "Marker models loaded in %d ms: %s",
-        load_duration_ms,
-        summarize_loaded_models(APP_STATE["models"]),
-    )
-    yield
-    APP_STATE.clear()
-    CONVERT_SEMAPHORE = None
+    try:
+        extractor.load()
+        APP_STATE["extractor"] = extractor
+        CONVERT_SEMAPHORE = asyncio.Semaphore(GPU_REQUEST_CONCURRENCY)
+        yield
+    finally:
+        CONVERT_SEMAPHORE = None
+        APP_STATE.clear()
+        extractor.close()
 
 
 app = FastAPI(
@@ -320,28 +250,6 @@ app = FastAPI(
     lifespan=lifespan,
     root_path=root_path(),
 )
-
-
-def conversion_mode() -> str:
-    raw = os.environ.get("TEXT_EXTRACTION_MODE", "").strip().lower()
-    if not raw:
-        return "balanced"
-    if raw not in VALID_CONVERSION_MODES:
-        raise ValueError(
-            f"Invalid TEXT_EXTRACTION_MODE={raw!r}; expected 'balanced' or 'fast'."
-        )
-    return raw
-
-
-def build_config() -> dict[str, Any]:
-    return {
-        "force_ocr": False,
-        "paginate_output": True,
-        "use_llm": bool(os.environ.get("GOOGLE_API_KEY")),
-        "output_format": "markdown",
-        "pdftext_workers": PDFTEXT_WORKERS,
-        "mode": conversion_mode(),
-    }
 
 
 def max_upload_bytes() -> int:
@@ -366,17 +274,6 @@ def decode_header_value(value: bytes | str | None) -> str | None:
     return normalized or None
 
 
-def metadata_to_dict(metadata: Any) -> dict[str, Any]:
-    if metadata is None:
-        return {}
-    if hasattr(metadata, "model_dump"):
-        value = metadata.model_dump()
-        return value if isinstance(value, dict) else {"value": value}
-    if isinstance(metadata, dict):
-        return metadata
-    return {"value": metadata}
-
-
 def close_pdfium_object(value: Any) -> None:
     if value is None:
         return
@@ -392,69 +289,38 @@ def close_pdfium_object(value: Any) -> None:
         pass
 
 
-def classify_document_rejection(exc: Exception) -> tuple[str, str] | None:
-    message = str(exc).lower()
-    if "password" in message and (
-        "incorrect" in message
-        or "required" in message
-        or "protected" in message
-        or "encrypted" in message
-        or "password error" in message
-    ):
-        return (PDF_PASSWORD_REQUIRED_ERROR_CODE, "The PDF is password protected and cannot be processed without a password.")
-    if "failed to load document" in message and "data format error" in message:
-        return (PDF_UNREADABLE_ERROR_CODE, "The PDF appears to be malformed or corrupted and could not be opened by PDFium.")
-    return None
-
-
-def reject_password_protected_pdf(file_bytes: bytes) -> None:
+def reject_unprocessable_pdf(file_bytes: bytes) -> None:
     try:
         import pypdfium2 as pdfium
-    except Exception:
-        return
+    except (ImportError, OSError) as exc:
+        raise BackendUnavailableError(f"PDFium is unavailable: {exc}") from exc
 
     pdf = None
     try:
         pdf = pdfium.PdfDocument(file_bytes)
     except Exception as exc:
+        if is_resource_failure(str(exc)):
+            raise BackendUnavailableError(f"PDFium failed: {exc}") from exc
         rejection = classify_document_rejection(exc)
         if rejection is None:
             return
         error_code, message = rejection
-        if error_code == PDF_PASSWORD_REQUIRED_ERROR_CODE:
-            raise DocumentRejectedError(error_code, message) from exc
+        raise DocumentRejectedError(error_code, message) from exc
     finally:
         close_pdfium_object(pdf)
 
 
-def store_upload_bytes(file_bytes: bytes, file_name: str) -> str:
-    suffix = "".join(Path(file_name or "upload").suffixes) or ".bin"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as handle:
-        handle.write(file_bytes)
-        return handle.name
-
-
-def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
+def convert_file_bytes(file_bytes: bytes, file_name: str, deadline: float) -> ConvertResponse:
     started_at = time.perf_counter()
     file_size_bytes = len(file_bytes)
     LOGGER.info("Starting conversion: file=%s size_bytes=%d", file_name, file_size_bytes)
     reset_torch_cuda_peak_memory()
-    reject_password_protected_pdf(file_bytes)
-    temp_path = store_upload_bytes(file_bytes, file_name)
+    reject_unprocessable_pdf(file_bytes)
     try:
-        config_parser = ConfigParser(build_config())
-        converter = PdfConverter(
-            config=config_parser.generate_config_dict(),
-            artifact_dict=APP_STATE["models"],
-            processor_list=config_parser.get_processors(),
-            renderer=config_parser.get_renderer(),
-            llm_service=config_parser.get_llm_service(),
-        )
-        rendered = converter(temp_path)
-        markdown, _, _ = text_from_rendered(rendered)
-        metadata = metadata_to_dict(rendered.metadata)
+        extractor: PdfExtractor = APP_STATE["extractor"]
+        markdown, metadata = extractor.convert(file_bytes, file_name, deadline=deadline)
         duration_ms = int((time.perf_counter() - started_at) * 1000)
-        page_count = None
+        page_count = metadata.get("page_count")
         page_stats = metadata.get("page_stats")
         if isinstance(page_stats, list):
             page_count = len(page_stats)
@@ -501,7 +367,6 @@ def convert_file_bytes(file_bytes: bytes, file_name: str) -> ConvertResponse:
         )
         raise exc
     finally:
-        Path(temp_path).unlink(missing_ok=True)
         clear_torch_cuda_cache()
 
 
@@ -652,7 +517,7 @@ async def gpu_tools() -> dict[str, Any]:
 
 @app.get("/healthz")
 async def healthz() -> dict[str, bool]:
-    return {"ok": "models" in APP_STATE}
+    return {"ok": "extractor" in APP_STATE and not APP_STATE.get("conversion_timeout_exit_scheduled", False)}
 
 
 @app.post("/pdf-extract", response_model=ConvertResponse)
@@ -672,7 +537,7 @@ async def convert_upload(request: Request) -> ConvertResponse:
             upload_duration_ms,
         )
         semaphore = CONVERT_SEMAPHORE
-        if semaphore is None:
+        if semaphore is None or APP_STATE.get("conversion_timeout_exit_scheduled"):
             raise HTTPException(status_code=503, detail="Text extraction service is not ready.")
         semaphore_wait_started_at = time.perf_counter()
         if semaphore.locked():
@@ -692,6 +557,8 @@ async def convert_upload(request: Request) -> ConvertResponse:
             ) from exc
 
         try:
+            if APP_STATE.get("conversion_timeout_exit_scheduled"):
+                raise HTTPException(status_code=503, detail="Text extraction worker is restarting.")
             semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
             request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
             LOGGER.info(
@@ -704,18 +571,25 @@ async def convert_upload(request: Request) -> ConvertResponse:
             conversion_timeout = conversion_timeout_secs()
             try:
                 return await asyncio.wait_for(
-                    asyncio.to_thread(convert_file_bytes, upload_bytes, file_name),
+                    asyncio.to_thread(
+                        convert_file_bytes, upload_bytes, file_name, time.monotonic() + conversion_timeout
+                    ),
                     timeout=conversion_timeout,
                 )
-            except asyncio.TimeoutError as exc:
+            except (asyncio.TimeoutError, ExtractionTimeoutError) as exc:
                 schedule_conversion_timeout_exit(file_name, conversion_timeout)
+                reason = str(exc) if isinstance(exc, ExtractionTimeoutError) else (
+                    f"PDF conversion exceeded the {conversion_timeout:.0f} second timeout. "
+                    "The PDF may be too large or complex for automatic extraction."
+                )
                 raise DocumentRejectedError(
                     PDF_CONVERSION_TIMEOUT_ERROR_CODE,
-                    f"PDF conversion exceeded the {conversion_timeout:.0f} second timeout. "
-                    "The PDF may be too large or complex for automatic extraction.",
+                    reason,
                 ) from exc
         finally:
             semaphore.release()
+    except BackendUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except UploadTooLargeError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except DocumentRejectedError as exc:
