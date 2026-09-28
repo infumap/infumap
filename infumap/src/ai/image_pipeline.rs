@@ -503,14 +503,23 @@ async fn run_image_fragment_loop(
     };
 
     match reconcile_image_fragment_item(&config, db.clone(), &candidate).await {
-      Ok(Some(user_id)) => {
+      Ok(ImageFragmentOutcome::Changed(user_id)) => {
         state.lock().await.fragment.retries.clear(&candidate.item_id);
         activity::done(&candidate.user_id, &candidate.item_id, Stage::Fragments);
         enqueue_fragment_lexical_index_update(&user_id, &candidate.item_id);
       }
-      Ok(None) => {
+      Ok(ImageFragmentOutcome::Unchanged) => {
         state.lock().await.fragment.retries.clear(&candidate.item_id);
         activity::done(&candidate.user_id, &candidate.item_id, Stage::Fragments);
+      }
+      Ok(ImageFragmentOutcome::WaitingForExtraction) => {
+        // Deliberate trade-off: not retried on a timer. Successful extraction
+        // (and a location result) wakes this stage again; see
+        // enqueue_source_candidate_downstream_if_needed. The extraction stage
+        // reports the item's outstanding work meanwhile.
+        state.lock().await.fragment.retries.clear(&candidate.item_id);
+        activity::forget_stage(&candidate.user_id, &candidate.item_id, Stage::Fragments);
+        debug!("Image '{}' fragments wait for successful image extraction.", candidate.item_id);
       }
       Err(e) => {
         retry_image(&config, &state, PipelineStage::Fragment, candidate, &e.to_string(), Duration::ZERO).await;
@@ -523,14 +532,14 @@ async fn reconcile_image_fragment_item(
   config: &ImageBackgroundPipelineConfig,
   db: Arc<Mutex<Db>>,
   candidate: &ImagePipelineCandidate,
-) -> InfuResult<Option<String>> {
+) -> InfuResult<ImageFragmentOutcome> {
   let item_snapshot = {
     let db = db.lock().await;
     match db.item.get(&candidate.item_id) {
       Ok(item) if item.owner_id == candidate.user_id && should_tag_image_item(item) => item.clone(),
       _ => {
         record_image_pipeline_processed(PipelineStage::Fragment, "skipped");
-        return Ok(None);
+        return Ok(ImageFragmentOutcome::Unchanged);
       }
     }
   };
@@ -542,7 +551,7 @@ async fn reconcile_image_fragment_item(
     if clear_item_fragments(&config.data_dir, &item_snapshot).await?.cleared_existing_fragments {
       enqueue_fragment_lexical_index_update(&candidate.user_id, &candidate.item_id);
     }
-    return Err("Waiting for successful image extraction.".into());
+    return Ok(ImageFragmentOutcome::WaitingForExtraction);
   }
 
   let context_title = {
@@ -569,10 +578,19 @@ async fn reconcile_image_fragment_item(
     record_image_pipeline_processed(PipelineStage::Fragment, "skipped");
   }
 
-  Ok(
-    (fragment_result.outcome.wrote_fragments || fragment_result.outcome.cleared_existing_fragments)
-      .then_some(item_snapshot.owner_id),
-  )
+  Ok(if fragment_result.outcome.wrote_fragments || fragment_result.outcome.cleared_existing_fragments {
+    ImageFragmentOutcome::Changed(item_snapshot.owner_id)
+  } else {
+    ImageFragmentOutcome::Unchanged
+  })
+}
+
+enum ImageFragmentOutcome {
+  /// Fragments were written or removed; the content index needs updating.
+  Changed(String),
+  Unchanged,
+  /// No successful extraction yet. Extraction success wakes the stage again.
+  WaitingForExtraction,
 }
 
 async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandidate) -> InfuResult<bool> {

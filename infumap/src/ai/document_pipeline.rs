@@ -132,6 +132,9 @@ enum DocumentFragmentReconcileOutcome {
   Changed(String),
   Skipped,
   NeedsCaption,
+  /// The PDF has no successful extraction yet. Extraction success wakes the
+  /// stage again (enqueue_pdf_fragment_ids_if_active).
+  WaitingForExtraction,
 }
 
 pub fn init_document_fragment_pipeline_loop(
@@ -271,6 +274,14 @@ async fn run_document_fragment_loop(
         candidate.caption_fallback = true;
         enqueue_candidate(&mut state, candidate);
       }
+      Ok(DocumentFragmentReconcileOutcome::WaitingForExtraction) => {
+        // Deliberate trade-off: not retried on a timer. Successful PDF
+        // extraction wakes this stage again, and the extraction stage reports
+        // the item's outstanding work meanwhile.
+        state.lock().await.retries.clear(&candidate.key());
+        activity::forget_stage(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
+        debug!("PDF '{}' fragments wait for successful text extraction.", candidate.item_id);
+      }
       Err(e) => {
         let (delay, attempt) = {
           let mut state = state.lock().await;
@@ -321,11 +332,9 @@ async fn reconcile_document_fragment_item(
   if candidate.kind == DocumentFragmentKind::Pdf {
     match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
       PdfTextArtifactState::Succeeded => {}
-      PdfTextArtifactState::Blocked => {
-        return Err("PDF is password protected; waiting for successful extraction.".into());
+      PdfTextArtifactState::Blocked | PdfTextArtifactState::Failed | PdfTextArtifactState::Pending => {
+        return Ok(DocumentFragmentReconcileOutcome::WaitingForExtraction);
       }
-      PdfTextArtifactState::Failed => return Err("PDF extraction failed; waiting for its retry to succeed.".into()),
-      PdfTextArtifactState::Pending => return Err("Waiting for PDF text extraction.".into()),
     }
   }
 
