@@ -107,6 +107,10 @@ struct StoredLexicalIndexMetadata {
 }
 
 impl TantivyDocumentFragmentIndex {
+  pub(crate) async fn indexed_item_ids(&self) -> InfuResult<HashSet<String>> {
+    indexed_item_ids(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL).await
+  }
+
   pub fn new(index_dir: PathBuf) -> TantivyDocumentFragmentIndex {
     TantivyDocumentFragmentIndex { index_dir }
   }
@@ -167,6 +171,10 @@ impl TantivyDocumentFragmentIndex {
 }
 
 impl TantivyItemTitleIndex {
+  pub(crate) async fn indexed_item_ids(&self) -> InfuResult<HashSet<String>> {
+    indexed_item_ids(&self.index_dir, ITEM_TITLE_LEXICAL_INDEX_LABEL).await
+  }
+
   pub fn new(index_dir: PathBuf) -> TantivyItemTitleIndex {
     TantivyItemTitleIndex { index_dir }
   }
@@ -274,6 +282,26 @@ pub fn open_user_document_fragment_lexical_index(
 
 pub fn open_user_item_title_lexical_index(data_dir: &str, user_id: &str) -> InfuResult<TantivyItemTitleIndex> {
   Ok(TantivyItemTitleIndex::new(item_title_lexical_index_dir(data_dir, user_id)?))
+}
+
+// Read one stored document at a time; do not retain the corpus's fragment text.
+async fn indexed_item_ids(index_dir: &Path, index_label: &str) -> InfuResult<HashSet<String>> {
+  if !fs::try_exists(index_dir).await? {
+    return Ok(HashSet::new());
+  }
+  let index = open_tantivy_index(index_dir, index_label)?;
+  let fields = fields_from_schema(&index.schema(), index_label)?;
+  let reader = index.reader().map_err(|e| e.to_string())?;
+  let searcher = reader.searcher();
+  let mut ids = HashSet::new();
+  for (segment_ord, segment) in searcher.segment_readers().iter().enumerate() {
+    for doc_id in segment.doc_ids_alive() {
+      let doc: TantivyDocument =
+        searcher.doc(tantivy::DocAddress::new(segment_ord as u32, doc_id)).map_err(|e| e.to_string())?;
+      ids.insert(required_text_field(&doc, fields.item_id, ITEM_ID_FIELD, index_label)?.to_owned());
+    }
+  }
+  Ok(ids)
 }
 
 async fn rebuild_status_for_index(
