@@ -93,7 +93,7 @@ pub(crate) async fn prepare_image_tag_artifacts_for_web_background(
   Ok(match image_tagging_artifact_state(data_dir, user_id, item_id).await? {
     ImageTagArtifactState::Empty => WebImageTagArtifactReadiness::Ready,
     ImageTagArtifactState::Succeeded => WebImageTagArtifactReadiness::CompleteSuccess,
-    ImageTagArtifactState::Failed => WebImageTagArtifactReadiness::CompleteFailure,
+    ImageTagArtifactState::Failed => WebImageTagArtifactReadiness::Ready,
     ImageTagArtifactState::RetryableFailed => {
       info!(
         "Image background pipeline found a failed full-prompt image tag manifest for image '{}' (user {}) that is eligible for caption fallback retry.",
@@ -316,7 +316,9 @@ async fn process_image_tagging_for_candidate_and_bytes(
       candidate.item_id,
       user_id_for_log(&candidate.user_id)
     );
-    clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+    if matches!(artifact_policy.existing_artifact_action, ExistingImageTagArtifactAction::Abort) {
+      clear_item_image_tag_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
+    }
     request_mode = ImageTagRequestMode::CaptionFallbackOnly;
   } else if !handle_existing_artifact_collision(data_dir, &candidate, artifact_policy, "before image tagging started")
     .await?
@@ -324,6 +326,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
     return Ok(());
   }
   let client = reqwest::ClientBuilder::new()
+    .connect_timeout(Duration::from_secs(10))
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
@@ -441,6 +444,16 @@ async fn handle_existing_artifact_collision(
   artifact_policy: ImageTagArtifactPolicy,
   phase: &str,
 ) -> InfuResult<bool> {
+  // Background retries may replace an earlier failure. Keep its reason on disk
+  // until another result is published; successful concurrent output still wins.
+  if matches!(artifact_policy.existing_artifact_action, ExistingImageTagArtifactAction::Skip)
+    && matches!(
+      image_tagging_artifact_state(data_dir, &candidate.user_id, &candidate.item_id).await?,
+      ImageTagArtifactState::Failed | ImageTagArtifactState::RetryableFailed
+    )
+  {
+    return Ok(true);
+  }
   let existing_paths = existing_image_tag_artifact_paths(data_dir, &candidate.user_id, &candidate.item_id).await?;
   if existing_paths.is_empty() {
     return Ok(true);

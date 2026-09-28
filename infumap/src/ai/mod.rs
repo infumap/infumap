@@ -10,6 +10,7 @@ pub mod image_pipeline;
 pub mod image_tagging;
 pub mod lexical_index;
 pub mod metrics;
+pub mod processing_retry;
 pub mod search_index_paths;
 pub mod search_processing;
 pub mod search_reconciliation;

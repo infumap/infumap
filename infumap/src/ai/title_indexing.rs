@@ -11,6 +11,7 @@ use tokio::time::{Instant, timeout_at};
 
 use crate::ai::fragment::sources::{ItemTitleFragment, item_title_fragment_for_item};
 use crate::ai::lexical_index::{LexicalFragment, open_user_item_title_lexical_index};
+use crate::ai::processing_retry::RetrySchedule;
 use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
@@ -59,8 +60,19 @@ async fn run_item_title_indexing_loop(
   mut receiver: mpsc::UnboundedReceiver<ItemTitleIndexingRequest>,
 ) {
   let mut queued = HashSet::new();
-  while let Some(request) = receiver.recv().await {
-    queued.insert(request);
+  let mut retries = RetrySchedule::default();
+  loop {
+    let request = if queued.is_empty() {
+      receiver.recv().await
+    } else {
+      tokio::time::timeout(Duration::from_secs(1), receiver.recv()).await.ok().flatten()
+    };
+    if request.is_none() && receiver.is_closed() && queued.is_empty() {
+      break;
+    }
+    if let Some(request) = request {
+      queued.insert(request);
+    }
     drain_pending(&mut receiver, &mut queued);
 
     let max_deadline = Instant::now() + Duration::from_secs(ITEM_TITLE_INDEXING_MAX_DEBOUNCE_SECS);
@@ -78,7 +90,10 @@ async fn run_item_title_indexing_loop(
       }
     }
 
-    let mut requests = queued.drain().collect::<Vec<_>>();
+    let mut requests = queued.iter().filter(|request| retries.ready(*request)).cloned().collect::<Vec<_>>();
+    for request in &requests {
+      queued.remove(request);
+    }
     requests.sort_by(|a, b| a.user_id.cmp(&b.user_id).then(a.item_id.cmp(&b.item_id)));
     debug!("Applying {} item-level title lexical index update request(s).", requests.len());
     let mut requests_by_user = std::collections::BTreeMap::<String, Vec<String>>::new();
@@ -86,8 +101,23 @@ async fn run_item_title_indexing_loop(
       requests_by_user.entry(request.user_id).or_default().push(request.item_id);
     }
     for (user_id, item_ids) in requests_by_user {
-      if let Err(e) = update_title_index_for_items(&data_dir, db.clone(), &user_id, &item_ids).await {
-        error!("Item-level title lexical index batch update failed for user {}: {}", user_id_for_log(&user_id), e);
+      let result = update_title_index_for_items(&data_dir, db.clone(), &user_id, &item_ids).await;
+      for item_id in item_ids {
+        let request = ItemTitleIndexingRequest { user_id: user_id.clone(), item_id };
+        if result.is_err() {
+          let delay = retries.failed(request.clone());
+          queued.insert(request);
+          debug!("Title index retry scheduled in {} seconds.", delay.as_secs());
+        } else {
+          retries.clear(&request);
+        }
+      }
+      if let Err(e) = result {
+        error!(
+          "Title index update failed for user {}: {}. Updates remain queued for retry.",
+          user_id_for_log(&user_id),
+          e
+        );
       }
     }
   }
