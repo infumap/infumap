@@ -785,7 +785,8 @@ async fn write_stored_metadata(
     complete,
   };
   let metadata_path = lexical_metadata_path(index_dir, metadata_filename);
-  let written = crate::ai::artifact_io::atomic_write_unsynced(&metadata_path, &serde_json::to_vec_pretty(&stored)?).await;
+  let written =
+    crate::ai::artifact_io::atomic_write_unsynced(&metadata_path, &serde_json::to_vec_pretty(&stored)?).await;
   forget_open_index(index_dir);
   written.map_err(|e| format!("Could not write {} metadata '{}': {}", index_label, metadata_path.display(), e).into())
 }
