@@ -247,6 +247,15 @@ struct DerivedManifestSummary {
   #[serde(default)]
   status: String,
   source_mime_type: String,
+  #[serde(default)]
+  extractor: DerivedManifestExtractorSummary,
+}
+
+#[derive(Default, Deserialize)]
+struct DerivedManifestExtractorSummary {
+  /// Set by PDF text extraction since it started recording the backend.
+  #[serde(default)]
+  backend: Option<String>,
 }
 
 #[derive(Serialize, Default)]
@@ -327,6 +336,9 @@ struct DerivedStatsReport {
   failed_with_content: usize,
   content_without_manifest: usize,
   orphaned_manifests: usize,
+  /// Succeeded PDF extractions by backend; `unknown` predates recording it.
+  #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+  succeeded_by_backend: BTreeMap<String, usize>,
 }
 
 #[derive(Serialize)]
@@ -402,6 +414,11 @@ async fn update_current_derived_stats(
     "succeeded" => {
       global.succeeded += 1;
       per_user.succeeded += 1;
+      if matches!(kind, DerivedKind::Pdf) {
+        let backend = manifest.extractor.backend.as_deref().unwrap_or("unknown");
+        *global.succeeded_by_backend.entry(backend.to_owned()).or_insert(0) += 1;
+        *per_user.succeeded_by_backend.entry(backend.to_owned()).or_insert(0) += 1;
+      }
       if !content_exists {
         global.success_missing_content += 1;
         per_user.success_missing_content += 1;
@@ -646,6 +663,11 @@ fn print_pdf_stats(stats: &DerivedStatsReport, indent: usize) {
   let pad = " ".repeat(indent);
   println!("{}candidates: {}", pad, stats.candidates);
   println!("{}extracted: succeeded={} failed={} pending={}", pad, stats.succeeded, stats.failed, stats.pending);
+  if !stats.succeeded_by_backend.is_empty() {
+    let counts: Vec<String> =
+      stats.succeeded_by_backend.iter().map(|(backend, count)| format!("{}={}", backend, count)).collect();
+    println!("{}succeeded by backend: {}", pad, counts.join(" "));
+  }
   print_derived_anomalies("extraction", stats, indent);
 }
 

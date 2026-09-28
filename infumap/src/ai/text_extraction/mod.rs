@@ -109,6 +109,9 @@ struct PdfToMdResponse {
   success: bool,
   markdown: String,
   duration_ms: u64,
+  // Kept as raw JSON so that unexpected metadata cannot fail an extraction.
+  #[serde(default)]
+  metadata: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]

@@ -15,8 +15,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use infusdk::util::infu::InfuResult;
-use log::debug;
+use log::{debug, warn};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
@@ -60,6 +61,51 @@ struct TextManifestExtractor {
   text_extraction_url: String,
   extracted_at_unix_secs: i64,
   duration_ms: Option<u64>,
+  #[serde(flatten)]
+  extraction: TextExtractionInfo,
+}
+
+/// How pdf_extract produced the text, from its `metadata.extraction` block.
+/// Manifests written before pdf_extract reported this have none of these
+/// fields, so their backend is unknown.
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+struct TextExtractionInfo {
+  /// `docling` or `marker`.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  backend: Option<String>,
+  /// Versions of the backend's extraction packages, by package name.
+  #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+  backend_versions: BTreeMap<String, String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  service_version: Option<String>,
+  /// Why Docling's output was not used, when Marker produced the text.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  fallback_reason: Option<String>,
+  /// Pages of the returned text that contribute little or none of their text.
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  unusable_pages: Vec<u32>,
+  /// Pages of the returned text where some native text may be missing.
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  warning_pages: Vec<u32>,
+}
+
+impl TextExtractionInfo {
+  /// Read the block leniently: a malformed block is recorded as unknown
+  /// rather than failing an otherwise successful extraction.
+  fn from_response_metadata(metadata: Option<&serde_json::Value>, candidate: &PdfCandidate) -> TextExtractionInfo {
+    let Some(block) = metadata.and_then(|metadata| metadata.get("extraction")) else {
+      return TextExtractionInfo::default();
+    };
+    serde_json::from_value(block.clone()).unwrap_or_else(|error| {
+      warn!(
+        "Ignoring malformed extraction metadata for PDF '{}' (user {}): {}",
+        candidate.item_id,
+        user_id_for_log(&candidate.user_id),
+        error
+      );
+      TextExtractionInfo::default()
+    })
+  }
 }
 
 pub(super) enum ManifestCheckResult {
@@ -238,6 +284,7 @@ pub(super) async fn write_success_artifacts(
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   atomic_write(&text_path, response.markdown.as_bytes()).await?;
+  let extraction = TextExtractionInfo::from_response_metadata(response.metadata.as_ref(), candidate);
   let manifest = TextManifest {
     processing: ArtifactProcessing::succeeded(source_bytes, response.markdown.as_bytes()),
     schema_version: MANIFEST_SCHEMA_VERSION,
@@ -248,6 +295,7 @@ pub(super) async fn write_success_artifacts(
       text_extraction_url: text_extraction_url.to_owned(),
       extracted_at_unix_secs: unix_now_secs()?,
       duration_ms: Some(response.duration_ms),
+      extraction,
     },
     error_code: None,
     error: None,
@@ -306,6 +354,7 @@ async fn write_terminal_manifest(
       text_extraction_url: text_extraction_url.to_owned(),
       extracted_at_unix_secs: unix_now_secs()?,
       duration_ms: None,
+      extraction: TextExtractionInfo::default(),
     },
     error_code: error_code.map(str::to_owned),
     error: Some(error_message.to_owned()),
@@ -349,4 +398,78 @@ fn error_text_is_password_required(error: &str) -> bool {
         || normalized.contains("encrypted")
         || normalized.contains("incorrect")
         || normalized.contains("password error")))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn candidate() -> PdfCandidate {
+    PdfCandidate {
+      user_id: "user".to_owned(),
+      item_id: "item".to_owned(),
+      file_size_bytes: None,
+      creation_date: 0,
+      last_modified_date: 0,
+    }
+  }
+
+  #[test]
+  fn manifest_without_extraction_fields_reads_as_unknown() {
+    let manifest: TextManifest = serde_json::from_value(serde_json::json!({
+      "schema_version": 1,
+      "status": "succeeded",
+      "source_mime_type": "application/pdf",
+      "content_mime_type": "text/markdown",
+      "extractor": { "text_extraction_url": "http://x/pdf-extract", "extracted_at_unix_secs": 1, "duration_ms": 5 },
+      "error": null
+    }))
+    .unwrap();
+    assert_eq!(manifest.extractor.extraction, TextExtractionInfo::default());
+  }
+
+  #[test]
+  fn extraction_metadata_is_stored_in_extractor_section() {
+    let metadata = serde_json::json!({
+      "backend": "docling",
+      "extraction": {
+        "backend": "docling",
+        "backend_versions": { "docling": "2.115.0", "docling-core": "2.95.0" },
+        "service_version": "0.2.0",
+        "fallback_reason": null,
+        "unusable_pages": [1],
+        "warning_pages": [],
+        "added_later": true
+      }
+    });
+    let extraction = TextExtractionInfo::from_response_metadata(Some(&metadata), &candidate());
+    let extractor = TextManifestExtractor {
+      text_extraction_url: "http://x/pdf-extract".to_owned(),
+      extracted_at_unix_secs: 1,
+      duration_ms: Some(5),
+      extraction,
+    };
+    assert_eq!(
+      serde_json::to_value(&extractor).unwrap(),
+      serde_json::json!({
+        "text_extraction_url": "http://x/pdf-extract",
+        "extracted_at_unix_secs": 1,
+        "duration_ms": 5,
+        "backend": "docling",
+        "backend_versions": { "docling": "2.115.0", "docling-core": "2.95.0" },
+        "service_version": "0.2.0",
+        "unusable_pages": [1]
+      })
+    );
+  }
+
+  #[test]
+  fn malformed_extraction_metadata_is_ignored() {
+    let metadata = serde_json::json!({ "extraction": { "backend": 7, "unusable_pages": null } });
+    assert_eq!(
+      TextExtractionInfo::from_response_metadata(Some(&metadata), &candidate()),
+      TextExtractionInfo::default()
+    );
+    assert_eq!(TextExtractionInfo::from_response_metadata(None, &candidate()), TextExtractionInfo::default());
+  }
 }

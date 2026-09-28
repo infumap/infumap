@@ -271,7 +271,28 @@ little text is treated as scanned. Thresholds have not been calibrated beyond a
 small set of sample PDFs.
 
 Logs and response metadata report `backend`, `fallback_reason` when relevant,
-and Docling diagnostics/coverage under `docling`.
+and Docling diagnostics/coverage under `docling`. Those diagnostics may change.
+`metadata.extraction` is the stable summary Infumap records in the PDF's text
+manifest:
+
+```json
+{
+  "backend": "docling",
+  "backend_versions": {"docling": "2.115.0", "docling-core": "2.95.0",
+                       "docling-parse": "7.17.0", "docling-ibm-models": "3.15.0"},
+  "service_version": "0.2.0",
+  "fallback_reason": null,
+  "unusable_pages": [1, 4],
+  "warning_pages": []
+}
+```
+
+For Marker, `backend_versions` holds `marker-pdf` and `fallback_reason` says why
+Docling's output was not used. Page lists describe the returned Markdown, so
+they are empty for Marker. `service_version` (`SERVICE_VERSION` in
+`extractor.py`) should be bumped when routing or Markdown export changes.
+Infumap does not re-extract when the backend or versions change; use the
+extract command's `--overwrite` to re-extract existing PDFs.
 
 Failures are routed so that only problems with the service itself are retried:
 
