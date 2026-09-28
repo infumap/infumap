@@ -18,8 +18,8 @@ use crate::util::fs::{ensure_256_subdirs, path_exists};
 
 use super::types::{FragmentBuildOutcome, FragmentInput, FragmentSourceKind};
 
-const FRAGMENTS_SCHEMA_VERSION: u32 = 1;
-const FRAGMENTER_VERSION: u32 = 15;
+pub const FRAGMENTS_SCHEMA_VERSION: u32 = 1;
+pub const FRAGMENTER_VERSION: u32 = 15;
 static ENSURED_USER_FRAGMENT_DIRS: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
 
 #[allow(dead_code)]

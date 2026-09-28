@@ -8,7 +8,7 @@ use tantivy::collector::TopDocs;
 use tantivy::indexer::NoMergePolicy;
 use tantivy::query::{BooleanQuery, EmptyQuery, Query, QueryParser, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{Index, IndexWriter, Searcher, TantivyDocument, Term};
+use tantivy::{DocSet, Index, IndexWriter, Searcher, TERMINATED, TantivyDocument, Term};
 use tokio::fs;
 
 use crate::ai::search_index_paths::user_index_dir;
@@ -140,8 +140,9 @@ impl TantivyDocumentFragmentIndex {
     compact_index(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL)
   }
 
-  pub async fn maintain(&self) -> InfuResult<usize> {
-    maintain_index_in_background(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL).await
+  /// `log_label` names the index in progress logs, e.g. with its user.
+  pub async fn maintain(&self, log_label: &str) -> InfuResult<usize> {
+    maintain_index_in_background(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL, log_label).await
   }
 
   pub async fn search(
@@ -240,8 +241,9 @@ impl TantivyItemTitleIndex {
     compact_index(&self.index_dir, ITEM_TITLE_LEXICAL_INDEX_LABEL)
   }
 
-  pub async fn maintain(&self) -> InfuResult<usize> {
-    maintain_index_in_background(&self.index_dir, ITEM_TITLE_LEXICAL_INDEX_LABEL).await
+  /// `log_label` names the index in progress logs, e.g. with its user.
+  pub async fn maintain(&self, log_label: &str) -> InfuResult<usize> {
+    maintain_index_in_background(&self.index_dir, ITEM_TITLE_LEXICAL_INDEX_LABEL, log_label).await
   }
 }
 
@@ -299,7 +301,8 @@ pub fn open_user_item_title_lexical_index(data_dir: &str, user_id: &str) -> Infu
   Ok(TantivyItemTitleIndex::new(item_title_lexical_index_dir(data_dir, user_id)?))
 }
 
-// Read one stored document at a time; do not retain the corpus's fragment text.
+/// Item ids with live documents, read from the item id term dictionary rather
+/// than stored documents, so the indexed text is never decompressed.
 async fn indexed_item_ids(index_dir: &Path, index_label: &str) -> InfuResult<HashSet<String>> {
   if !fs::try_exists(index_dir).await? {
     return Ok(HashSet::new());
@@ -309,11 +312,32 @@ async fn indexed_item_ids(index_dir: &Path, index_label: &str) -> InfuResult<Has
   let reader = index.reader().map_err(|e| e.to_string())?;
   let searcher = reader.searcher();
   let mut ids = HashSet::new();
-  for (segment_ord, segment) in searcher.segment_readers().iter().enumerate() {
-    for doc_id in segment.doc_ids_alive() {
-      let doc: TantivyDocument =
-        searcher.doc(tantivy::DocAddress::new(segment_ord as u32, doc_id)).map_err(|e| e.to_string())?;
-      ids.insert(required_text_field(&doc, fields.item_id, ITEM_ID_FIELD, index_label)?.to_owned());
+  for segment in searcher.segment_readers() {
+    let inverted_index = segment.inverted_index(fields.item_id).map_err(|e| e.to_string())?;
+    let mut terms = inverted_index.terms().stream()?;
+    while terms.advance() {
+      // A replaced or removed item keeps its term until segments are merged.
+      let alive = match segment.alive_bitset() {
+        None => true,
+        Some(alive_bitset) => {
+          let mut postings = inverted_index.read_postings_from_terminfo(terms.value(), IndexRecordOption::Basic)?;
+          let mut alive = false;
+          while postings.doc() != TERMINATED {
+            if alive_bitset.is_alive(postings.doc()) {
+              alive = true;
+              break;
+            }
+            postings.advance();
+          }
+          alive
+        }
+      };
+      if alive {
+        ids.insert(
+          String::from_utf8(terms.key().to_vec())
+            .map_err(|e| format!("{} item id term is not UTF-8: {}", index_label, e))?,
+        );
+      }
     }
   }
   Ok(ids)
@@ -694,7 +718,7 @@ const MAINTENANCE_MAX_SEGMENTS: usize = 16;
 /// merged only when deleted documents exceed a quarter of the index, or when the
 /// small segments together reach half the largest (otherwise the merged segment
 /// would keep growing and be rewritten every day).
-fn maintain_index(index_dir: &Path, index_label: &str) -> InfuResult<usize> {
+fn maintain_index(index_dir: &Path, index_label: &str, log_label: &str) -> InfuResult<usize> {
   if !index_dir.exists() {
     return Ok(0);
   }
@@ -717,6 +741,14 @@ fn maintain_index(index_dir: &Path, index_label: &str) -> InfuResult<usize> {
     smaller.iter().map(|segment| segment.id()).collect::<Vec<_>>()
   };
 
+  log::info!(
+    "{}: merging {} of {} segments ({} documents, {} deleted).",
+    log_label,
+    segment_ids.len(),
+    segments.len(),
+    total_docs,
+    deleted_docs
+  );
   let mut writer: IndexWriter<TantivyDocument> = index
     .writer(INDEX_WRITER_HEAP_BYTES)
     .map_err(|e| format!("Could not open {} writer for maintenance '{}': {}", index_label, index_dir.display(), e))?;
@@ -731,9 +763,14 @@ fn maintain_index(index_dir: &Path, index_label: &str) -> InfuResult<usize> {
   Ok(segment_ids.len())
 }
 
-async fn maintain_index_in_background(index_dir: &Path, index_label: &'static str) -> InfuResult<usize> {
+async fn maintain_index_in_background(
+  index_dir: &Path,
+  index_label: &'static str,
+  log_label: &str,
+) -> InfuResult<usize> {
   let index_dir = index_dir.to_path_buf();
-  tokio::task::spawn_blocking(move || maintain_index(&index_dir, index_label))
+  let log_label = log_label.to_owned();
+  tokio::task::spawn_blocking(move || maintain_index(&index_dir, index_label, &log_label))
     .await
     .map_err(|e| format!("{} maintenance task failed: {}", index_label, e))?
 }
@@ -803,7 +840,7 @@ mod tests {
       commit_items(&index, &[format!("item{}", n)]).await;
     }
     assert_eq!(segment_count(&dir), 20);
-    assert_eq!(index.maintain().await.unwrap(), 20);
+    assert_eq!(index.maintain("test").await.unwrap(), 20);
     assert_eq!(segment_count(&dir), 1);
     assert_eq!(index.indexed_item_ids().await.unwrap().len(), 20);
     let _ = std::fs::remove_dir_all(dir);
@@ -817,11 +854,11 @@ mod tests {
     for n in 0..10 {
       commit_items(&index, &[format!("item{}", n)]).await;
     }
-    assert_eq!(index.maintain().await.unwrap(), 0, "11 segments is below the threshold");
+    assert_eq!(index.maintain("test").await.unwrap(), 0, "11 segments is below the threshold");
     for n in 10..17 {
       commit_items(&index, &[format!("item{}", n)]).await;
     }
-    assert_eq!(index.maintain().await.unwrap(), 17);
+    assert_eq!(index.maintain("test").await.unwrap(), 17);
     assert_eq!(segment_count(&dir), 2);
     assert_eq!(index.indexed_item_ids().await.unwrap().len(), 117);
     let _ = std::fs::remove_dir_all(dir);
@@ -836,9 +873,21 @@ mod tests {
     for n in 0..17 {
       commit_items(&index, &[format!("base{}", n * 2), format!("base{}", n * 2 + 1)]).await;
     }
-    assert_eq!(index.maintain().await.unwrap(), 18);
+    assert_eq!(index.maintain("test").await.unwrap(), 18);
     assert_eq!(segment_count(&dir), 1);
     assert_eq!(index.indexed_item_ids().await.unwrap().len(), 100);
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[tokio::test]
+  async fn indexed_item_ids_excludes_removed_items() {
+    let dir = temp_index_dir();
+    let index = TantivyDocumentFragmentIndex::new(dir.clone());
+    commit_items(&index, &["a".to_owned(), "b".to_owned(), "c".to_owned()]).await;
+    commit_items(&index, &["b".to_owned()]).await;
+    index.replace_items_fragments(&[("c", &[])]).await.unwrap();
+    let ids = index.indexed_item_ids().await.unwrap();
+    assert_eq!(ids, ["a", "b"].iter().map(|id| id.to_string()).collect::<HashSet<_>>());
     let _ = std::fs::remove_dir_all(dir);
   }
 }

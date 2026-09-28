@@ -10,13 +10,19 @@
 //! Items whose only pending work is a queued index batch (up to 10 minutes) are
 //! still listed on the processing page; that noise was accepted.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Mutex;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
+use log::{Level, info};
 use once_cell::sync::Lazy;
 use serde::Serialize;
+
+use crate::storage::db::Db;
+
+/// How often progress is logged while search work is outstanding.
+const PROGRESS_REPORT_INTERVAL: Duration = Duration::from_secs(120);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize)]
 pub enum Stage {
@@ -81,18 +87,41 @@ struct Entry {
   retry_at_unix_secs: Option<i64>,
   /// Queued again while an attempt was running, so completion leaves it queued.
   queued_again: bool,
+  started_at: Option<Instant>,
 }
 
 impl Entry {
   fn new(phase: Phase) -> Entry {
-    Entry { phase, detail: None, retry_at_unix_secs: None, queued_again: false }
+    Entry { phase, detail: None, retry_at_unix_secs: None, queued_again: false, started_at: None }
   }
+}
+
+/// Outcomes since the last progress report.
+#[derive(Default)]
+struct StageOutcomes {
+  done: u64,
+  failed: u64,
+  latest_failure: Option<String>,
 }
 
 type Key = (String, String, Stage);
 
 static ACTIVITY: Lazy<Mutex<BTreeMap<Key, Entry>>> = Lazy::new(|| Mutex::new(BTreeMap::new()));
 static STARTUP_SCANS_PENDING: AtomicUsize = AtomicUsize::new(0);
+static OUTCOMES: Lazy<Mutex<BTreeMap<Stage, StageOutcomes>>> = Lazy::new(|| Mutex::new(BTreeMap::new()));
+
+fn record_outcome(stage: Stage, failure: Option<&str>) {
+  if let Ok(mut outcomes) = OUTCOMES.lock() {
+    let outcome = outcomes.entry(stage).or_default();
+    match failure {
+      Some(detail) => {
+        outcome.failed += 1;
+        outcome.latest_failure = Some(detail.to_owned());
+      }
+      None => outcome.done += 1,
+    }
+  }
+}
 
 fn key(user_id: &str, item_id: &str, stage: Stage) -> Key {
   (user_id.to_owned(), item_id.to_owned(), stage)
@@ -141,21 +170,28 @@ pub fn checking(user_id: &str, item_id: &str, stage: Stage) {
 
 pub fn running(user_id: &str, item_id: &str, stage: Stage) {
   with_entries(|entries| {
-    entries.insert(key(user_id, item_id, stage), Entry::new(Phase::Processing));
+    let mut entry = Entry::new(Phase::Processing);
+    entry.started_at = Some(Instant::now());
+    entries.insert(key(user_id, item_id, stage), entry);
   });
 }
 
 pub fn done(user_id: &str, item_id: &str, stage: Stage) {
+  let mut completed = false;
   with_entries(|entries| {
     let key = key(user_id, item_id, stage);
-    match entries.get_mut(&key) {
-      Some(entry) if entry.queued_again => *entry = Entry::new(Phase::Queued),
-      Some(_) => {
+    if let Some(entry) = entries.get_mut(&key) {
+      completed = entry.phase == Phase::Processing;
+      if entry.queued_again {
+        *entry = Entry::new(Phase::Queued);
+      } else {
         entries.remove(&key);
       }
-      None => {}
     }
   });
+  if completed {
+    record_outcome(stage, None);
+  }
 }
 
 /// The attempt failed and the worker has scheduled another one.
@@ -165,9 +201,18 @@ pub fn retry(user_id: &str, item_id: &str, stage: Stage, detail: &str, delay: Du
   with_entries(|entries| {
     entries.insert(
       key(user_id, item_id, stage),
-      Entry { phase, detail: Some(detail.to_owned()), retry_at_unix_secs, queued_again: false },
+      Entry { phase, detail: Some(detail.to_owned()), retry_at_unix_secs, queued_again: false, started_at: None },
     );
   });
+  record_outcome(stage, Some(detail));
+}
+
+/// Log level for one failed attempt. A problem needing attention is logged as
+/// a warning the first time an item hits it after startup; dependency waits and
+/// repeated failures are debug only. The periodic progress report shows failure
+/// counts and the latest reason, so outages do not flood the log.
+pub fn failure_log_level(detail: &str, attempt: u32) -> Level {
+  if attempt <= 1 && needs_attention(detail) { Level::Warn } else { Level::Debug }
 }
 
 /// The work was removed from its queue without completing, e.g. the item changed kind.
@@ -258,6 +303,158 @@ pub fn item_activity(user_id: &str, item_id: &str) -> Vec<StageActivity> {
       retry_at_unix_secs: entry.retry_at_unix_secs,
     })
     .collect()
+}
+
+struct StageReport {
+  stage: Stage,
+  checking: usize,
+  queued: usize,
+  processing: Vec<(String, Duration)>,
+  waiting: usize,
+  attention: usize,
+  done: u64,
+  failed: u64,
+  latest_failure: Option<String>,
+}
+
+impl StageReport {
+  fn is_empty(&self) -> bool {
+    self.checking + self.queued + self.processing.len() + self.waiting + self.attention == 0
+      && self.done + self.failed == 0
+  }
+
+  fn render(&self, titles: &HashMap<String, String>) -> String {
+    let mut parts = Vec::new();
+    match self.processing.as_slice() {
+      [] => {}
+      [(item_id, elapsed)] => parts.push(format!(
+        "processing '{}' ({}) for {}",
+        titles.get(item_id).map(String::as_str).unwrap_or("untitled"),
+        item_id,
+        format_elapsed(*elapsed)
+      )),
+      processing => parts.push(format!(
+        "processing {} (longest {})",
+        processing.len(),
+        format_elapsed(processing.iter().map(|(_, elapsed)| *elapsed).max().unwrap_or_default())
+      )),
+    }
+    for (count, label) in [
+      (self.queued, "queued"),
+      (self.waiting, "waiting to retry"),
+      (self.attention, "need attention"),
+      (self.checking, "startup checks pending"),
+    ] {
+      if count > 0 {
+        parts.push(format!("{} {}", count, label));
+      }
+    }
+    let mut line = format!("Search progress: {}: {}", self.stage.label(), parts.join(", "));
+    if self.done + self.failed > 0 {
+      if parts.is_empty() {
+        line.push_str("idle");
+      }
+      line.push_str(&format!(
+        "; last {}m: {} done, {} retrying",
+        PROGRESS_REPORT_INTERVAL.as_secs() / 60,
+        self.done,
+        self.failed
+      ));
+      if let Some(failure) = &self.latest_failure {
+        line.push_str(&format!(" (latest: {})", truncate(failure, 160)));
+      }
+    }
+    line
+  }
+}
+
+fn stage_report(reports: &mut BTreeMap<Stage, StageReport>, stage: Stage) -> &mut StageReport {
+  reports.entry(stage).or_insert_with(|| StageReport {
+    stage,
+    checking: 0,
+    queued: 0,
+    processing: Vec::new(),
+    waiting: 0,
+    attention: 0,
+    done: 0,
+    failed: 0,
+    latest_failure: None,
+  })
+}
+
+fn take_progress_report() -> Vec<StageReport> {
+  let mut reports = BTreeMap::<Stage, StageReport>::new();
+  if let Ok(entries) = ACTIVITY.lock() {
+    for ((_, item_id, stage), entry) in entries.iter() {
+      let stage_report = stage_report(&mut reports, *stage);
+      match entry.phase {
+        Phase::Checking => stage_report.checking += 1,
+        Phase::Queued => stage_report.queued += 1,
+        Phase::Processing => stage_report
+          .processing
+          .push((item_id.clone(), entry.started_at.map(|started| started.elapsed()).unwrap_or_default())),
+        Phase::Waiting => stage_report.waiting += 1,
+        Phase::NeedsAttention => stage_report.attention += 1,
+      }
+    }
+  }
+  if let Ok(mut outcomes) = OUTCOMES.lock() {
+    for (stage, outcome) in std::mem::take(&mut *outcomes) {
+      let stage_report = stage_report(&mut reports, stage);
+      stage_report.done = outcome.done;
+      stage_report.failed = outcome.failed;
+      stage_report.latest_failure = outcome.latest_failure;
+    }
+  }
+  reports.into_values().filter(|report| !report.is_empty()).collect()
+}
+
+/// Logs one line per active stage every couple of minutes while search work is
+/// outstanding or has just happened, and one line when it becomes idle.
+pub fn spawn_progress_logger(db: Arc<tokio::sync::Mutex<Db>>) {
+  tokio::spawn(async move {
+    let mut was_active = false;
+    loop {
+      tokio::time::sleep(PROGRESS_REPORT_INTERVAL).await;
+      let reports = take_progress_report();
+      if reports.is_empty() {
+        if was_active {
+          info!("Search progress: all search processing is idle.");
+        }
+        was_active = false;
+        continue;
+      }
+      was_active = true;
+      let titles = {
+        let db = db.lock().await;
+        reports
+          .iter()
+          .filter(|report| report.processing.len() == 1)
+          .flat_map(|report| report.processing.iter())
+          .filter_map(|(item_id, _)| {
+            let title = db.item.get(item_id).ok()?.title.clone()?;
+            Some((item_id.clone(), truncate(&title, 60)))
+          })
+          .collect::<HashMap<_, _>>()
+      };
+      for report in reports {
+        info!("{}", report.render(&titles));
+      }
+    }
+  });
+}
+
+fn format_elapsed(elapsed: Duration) -> String {
+  let secs = elapsed.as_secs();
+  if secs >= 60 { format!("{}m{:02}s", secs / 60, secs % 60) } else { format!("{}s", secs) }
+}
+
+fn truncate(text: &str, max_chars: usize) -> String {
+  if text.chars().count() <= max_chars {
+    text.to_owned()
+  } else {
+    format!("{}...", text.chars().take(max_chars).collect::<String>())
+  }
 }
 
 #[cfg(test)]

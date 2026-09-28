@@ -14,6 +14,7 @@ Each user lives under `user_<user_id>` in the configured data directory. In addi
 - `indexes/document_fragments_tantivy/` is the content search index: document text and image-derived captions, tags, OCR, locations, and dates.
 - `indexes/item_titles_tantivy/` is the title search index.
 - `indexes/*.tmp/` directories are used while `rebuild-search-index` runs.
+- `search_startup_check.json` records, for each item whose search files were verified at startup, a summary of those files' sizes and modification times. On the next start, items whose files are unchanged skip the detailed check, which keeps restarts fast.
 - `rebuild_search_index_checkpoint.json` records resumable `rebuild-search-index` progress and is removed after a successful rebuild.
 - `search_status.json` may exist in older installations. It is no longer used and can be deleted.
 
@@ -30,9 +31,14 @@ Stop the web server before deleting or editing these files. On the next start, I
 | `_geo.json` / `_geo_manifest.json` | The location lookup is repeated, using location service quota. | Refresh location results. |
 | An item's `fragments/` directory | Fragments are rebuilt from the local text without the GPU, except PDFs whose only content was a first-page caption. | Rarely needed; repairs damaged fragment files. |
 | An `index_receipt.json` | The item is recommitted to the content index at startup. | Never needed. |
+| `search_startup_check.json` | The next start checks every item's search files in detail, which takes longer. | After restoring generated files from a backup with a tool that preserves modification times; such changes are otherwise not noticed. |
 | `indexes/document_fragments_tantivy/` or `indexes/item_titles_tantivy/` | Rebuilt at startup from existing fragments and titles. No GPU work is repeated. | Repair a damaged index. `rebuild-search-index` does the same and also compacts the index. |
 
 You can also edit a `_text` file instead of deleting it (image descriptions are JSON; keep them valid). On the next start the item's fragments and search entries are rebuilt from your edited text.
+
+### Following progress in the log
+
+At startup the log reports the search check for each user, with progress every 30 seconds for large collections. While search work is outstanding, a `Search progress` line per stage appears every two minutes: what is being processed now, how many items are queued, waiting to retry or need attention, and recent results. Index commits and daily index merges are logged as they happen. An item's first failure that needs attention is logged as a warning; repeated failures and waits for GPU tools are summarized in the progress lines rather than logged individually.
 
 ### Reprocessing after upgrading GPU tools
 

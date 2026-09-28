@@ -321,13 +321,14 @@ async fn retry_image(
   reason: &str,
   minimum_delay: Duration,
 ) {
-  let delay = {
+  let (delay, attempt) = {
     let mut state = state.lock().await;
     let queue = queue_for_stage_mut(&mut state, stage);
     let delay = queue.retries.failed(candidate.item_id.clone()).max(minimum_delay);
     queue.retries.defer(candidate.item_id.clone(), delay);
+    let attempt = queue.retries.attempts(&candidate.item_id);
     enqueue_candidate(&mut state, stage, candidate.clone());
-    delay
+    (delay, attempt)
   };
   activity::retry(&candidate.user_id, &candidate.item_id, stage.activity_stage(), reason, delay);
   let path = match stage {
@@ -341,8 +342,12 @@ async fn retry_image(
     }
   }
   record_image_pipeline_processed(stage, "failed");
-  error!(
-    "Image '{}' (user {}), {}: {} Retrying in {} seconds.",
+  // Location is optional; its failures never need attention.
+  let level =
+    if stage == PipelineStage::Geo { log::Level::Debug } else { activity::failure_log_level(reason, attempt) };
+  log::log!(
+    level,
+    "Image '{}' (user {}), {} failed: {} Retrying in {} seconds.",
     candidate.item_id,
     user_id_for_log(&candidate.user_id),
     stage.label(),
