@@ -212,11 +212,10 @@ The worker uses Groundwork's `tools/docling_extract/app.py` settings:
   extraction disabled;
 - page, picture, and table image exports disabled.
 
-It transports Docling's document, parsed pages, predictions, confidence,
-conversion status/errors, package versions, input page count, coverage
-assessment, and accepted Markdown. Transient
-assembly data, duplicate character cells, and bitmap image payloads are omitted.
-This is internal worker data, not an HTTP response or a persistent sidecar.
+The worker returns only what the service uses: Docling's package versions,
+conversion status and errors, confidence report, input page count, the coverage
+assessment, and the Markdown. The Docling document and parsed pages stay in the
+worker. This is internal worker data, not an HTTP response or a persistent sidecar.
 Partial/failed conversion statuses and mostly scanned or garbled documents
 cause whole-document Marker fallback; the presence of a document alone does not mean extraction succeeded.
 Groundwork's custom interpretation and rendering are not included.
@@ -259,10 +258,15 @@ export would place entirely on its first page; such items are split at the page
 boundaries recorded in their provenance. Footnotes attached to tables and
 pictures are detached, because Docling's Markdown exporter otherwise omits them.
 
-Pages use Docling's built-in Markdown export with HTML escaping and empty image
+Pages use Docling's Markdown serializer with HTML escaping and empty image
 placeholders disabled, native text inside pictures included, and Infumap's
-zero-based numbered page markers. Blank pages keep their physical positions;
-an entirely blank PDF returns empty Markdown.
+zero-based numbered page markers. The document is serialized in one pass and
+each part is assigned to the page of its items, matching Docling's page-filtered
+export without traversing the whole document once per page; a group such as a
+list that continues onto the next page is split between the pages. Formula
+enrichment is disabled, so formulas are exported as their native PDF text rather
+than Docling's `<!-- formula-not-decoded -->` placeholder. Blank pages keep their
+physical positions; an entirely blank PDF returns empty Markdown.
 
 These are routing heuristics, not guarantees of correct reading order, tables,
 or complete extraction. A text layer with wrong but valid-looking characters is
@@ -280,7 +284,7 @@ manifest:
   "backend": "docling",
   "backend_versions": {"docling": "2.115.0", "docling-core": "2.95.0",
                        "docling-parse": "7.17.0", "docling-ibm-models": "3.15.0"},
-  "service_version": "0.2.0",
+  "service_version": "0.3.0",
   "fallback_reason": null,
   "unusable_pages": [1, 4],
   "warning_pages": []
