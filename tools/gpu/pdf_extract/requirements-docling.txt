@@ -1,0 +1,8 @@
+# Installed in .venv-docling, separately from Marker. On macOS their
+# Transformers requirements conflict (Marker >=5.12.1; Docling models <5.9).
+# Extraction packages match Groundwork's installed baseline on 2026-09-28.
+docling==2.115.0
+docling-core==2.95.0
+docling-parse==7.17.0
+docling-ibm-models==3.15.0
+pypdfium2==5.13.0

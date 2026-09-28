@@ -1,0 +1,142 @@
+# Copyright (C) The Infumap Authors
+# This file is part of Infumap.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+from __future__ import annotations
+
+import json
+import logging
+import sys
+from io import BytesIO
+from pathlib import Path
+
+from docling.datamodel.base_models import DocumentStream, InputFormat
+from docling.datamodel.pipeline_options import (
+    HeadingHierarchyOptions,
+    PdfPipelineOptions,
+    TableFormerMode,
+    TableStructureOptions,
+)
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.exceptions import ConversionError
+import pypdfium2 as pdfium
+
+from docling_quality import assess_and_render
+from extraction_errors import (
+    BackendUnavailableError,
+    DoclingConversionError,
+    DocumentRejectedError,
+    ExtractionTimeoutError,
+    classify_document_rejection,
+    is_resource_failure,
+)
+
+
+def build_converter() -> DocumentConverter:
+    options = PdfPipelineOptions()
+    options.do_ocr = False
+    options.do_table_structure = True
+    # Explicitly select TableFormer V1, as used by Groundwork's pinned version.
+    options.table_structure_options = TableStructureOptions(
+        mode=TableFormerMode.ACCURATE, do_cell_matching=True
+    )
+    options.generate_parsed_pages = True
+    options.heading_hierarchy_options = HeadingHierarchyOptions(enabled=True)
+    options.do_code_enrichment = False
+    options.do_formula_enrichment = False
+    options.do_picture_classification = False
+    options.do_picture_description = False
+    options.do_chart_extraction = False
+    options.generate_page_images = False
+    options.generate_picture_images = False
+    options.generate_table_images = False
+    return DocumentConverter(
+        allowed_formats=[InputFormat.PDF],
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=options),
+        },
+    )
+
+
+def convert(source_path: str, filename: str) -> dict:
+    source = DocumentStream(name=filename, stream=BytesIO(Path(source_path).read_bytes()))
+    try:
+        result = build_converter().convert(source, raises_on_error=False)
+    except ConversionError as exc:
+        if classify_document_rejection(exc) or is_resource_failure(str(exc)):
+            raise
+        raise DoclingConversionError(str(exc)) from exc
+    for error in result.errors:
+        message = error.error_message
+        rejection = classify_document_rejection(RuntimeError(message))
+        if rejection is not None:
+            raise DocumentRejectedError(*rejection)
+        category = getattr(error.category, "value", str(error.category))
+        if category == "timeout":
+            raise ExtractionTimeoutError(message)
+        if is_resource_failure(message) or category in {"capacity", "internal", "source_unavailable", "target_unavailable"}:
+            raise BackendUnavailableError(message)
+
+    pdf = pdfium.PdfDocument(source_path)
+    try:
+        assessment, markdown = assess_and_render(result, pdf)
+    finally:
+        pdf.close()
+    # Keep Docling's own diagnostics and structures internal. JSON serialization
+    # normalizes non-finite confidence values and omits transient image data.
+    payload = json.loads(result.model_dump_json(exclude={
+        "input": True,
+        "assembled": True,
+        "timings": True,
+        "pages": {"__all__": {
+            "assembled": True,
+            "parsed_page": {
+                "char_cells": True,
+                "image": True,
+                "bitmap_resources": {"__all__": {"image": True}},
+            },
+        }},
+    }))
+    payload["page_count"] = result.input.page_count
+    payload["assessment"] = assessment
+    payload["markdown"] = markdown
+    return payload
+
+
+def main() -> None:
+    source_path, output_path, filename = sys.argv[1:]
+    try:
+        payload = convert(source_path, filename)
+    except Exception as exc:
+        logging.exception("Docling worker failed for %s", filename)
+        rejection = classify_document_rejection(exc)
+        if isinstance(exc, DocumentRejectedError):
+            error = {"kind": "document", "error_code": exc.error_code, "message": exc.message}
+        elif rejection is not None:
+            error = {"kind": "document", "error_code": rejection[0], "message": rejection[1]}
+        elif isinstance(exc, ExtractionTimeoutError):
+            error = {"kind": "timeout", "message": str(exc)}
+        elif isinstance(exc, DoclingConversionError):
+            error = {"kind": "conversion", "message": str(exc)}
+        else:
+            # Includes missing models/dependencies, OOM, I/O, and programming
+            # failures. Retrying such problems with Marker would hide them.
+            error = {"kind": "unavailable", "message": f"Docling {type(exc).__name__}: {exc}"}
+        payload = {"worker_error": error}
+    Path(output_path).write_text(json.dumps(payload, ensure_ascii=False, allow_nan=False), encoding="utf-8")
+
+
+if __name__ == "__main__":
+    main()

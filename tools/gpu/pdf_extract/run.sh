@@ -21,6 +21,7 @@ set -euo pipefail
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GPU_ROOT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
 readonly VENV_DIR="${TEXT_EXTRACTION_VENV_DIR:-$ROOT_DIR/.venv}"
+export TEXT_EXTRACTION_DOCLING_VENV_DIR="${TEXT_EXTRACTION_DOCLING_VENV_DIR:-$ROOT_DIR/.venv-docling}"
 source "$GPU_ROOT_DIR/python_runtime.sh"
 PYTHON_BIN="$(select_gpu_python_bin "$VENV_DIR")"
 readonly PYTHON_BIN
@@ -194,15 +195,50 @@ readonly VENV_PYTHON="$VENV_DIR/bin/python"
 
 ensure_venv_pip
 
-if ! "$VENV_PYTHON" -m pip show marker-pdf >/dev/null 2>&1 || ! "$VENV_PYTHON" -m pip show fastapi >/dev/null 2>&1 || ! "$VENV_PYTHON" -m pip show uvicorn >/dev/null 2>&1 || ! "$VENV_PYTHON" -m pip show python-multipart >/dev/null 2>&1; then
-    "$VENV_PYTHON" -m pip install --upgrade pip
-    "$VENV_PYTHON" -m pip install -r "$ROOT_DIR/requirements.txt"
+install_requirements() {
+    local python="$1"
+    local requirements="$2"
+    local stamp="$3"
+    local requirements_hash installed_hash=""
+    requirements_hash="$("$python" - "$requirements" <<'PY'
+import hashlib
+import pathlib
+import sys
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
+    if [ -f "$stamp" ]; then
+        installed_hash="$(tr -d '\r\n' < "$stamp")"
+    fi
+    if [ "$installed_hash" != "$requirements_hash" ]; then
+        "$python" -m pip install --upgrade pip
+        "$python" -m pip install -r "$requirements"
+        printf '%s\n' "$requirements_hash" > "$stamp"
+    fi
+}
+
+install_requirements "$VENV_PYTHON" "$ROOT_DIR/requirements.txt" "$VENV_DIR/.requirements.sha256"
+
+# Docling and Marker require incompatible Transformers versions on macOS.
+# Give the native backend its own environment on every platform.
+if [ "$VENV_DIR" -ef "$TEXT_EXTRACTION_DOCLING_VENV_DIR" ]; then
+    fail "TEXT_EXTRACTION_DOCLING_VENV_DIR must differ from TEXT_EXTRACTION_VENV_DIR."
 fi
+ensure_gpu_venv_python "$TEXT_EXTRACTION_DOCLING_VENV_DIR" "$PYTHON_BIN"
+if [ ! -x "$TEXT_EXTRACTION_DOCLING_VENV_DIR/bin/python" ]; then
+    "$PYTHON_BIN" -m venv "$TEXT_EXTRACTION_DOCLING_VENV_DIR"
+fi
+readonly DOCLING_PYTHON="$TEXT_EXTRACTION_DOCLING_VENV_DIR/bin/python"
+if ! "$DOCLING_PYTHON" -m pip --version >/dev/null 2>&1; then
+    "$DOCLING_PYTHON" -m ensurepip --upgrade
+fi
+install_requirements "$DOCLING_PYTHON" "$ROOT_DIR/requirements-docling.txt" "$TEXT_EXTRACTION_DOCLING_VENV_DIR/.requirements.sha256"
 
 set_runtime_defaults
 
 echo "Starting Infumap text extraction service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
+echo "Docling Python: $DOCLING_PYTHON ($("$DOCLING_PYTHON" -V 2>&1))"
 echo "Host/port: $HOST:$PORT"
 echo "Hugging Face cache: ${HF_HOME:-<library default>}"
 echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
