@@ -53,6 +53,11 @@ impl Stage {
     self != Stage::Location
   }
 
+  /// Index stages commit queued work in batches rather than one item at a time.
+  fn is_batched_index(self) -> bool {
+    matches!(self, Stage::Title | Stage::ContentIndex)
+  }
+
   /// Title and content are independent tracks. Within a track, a problem at
   /// one stage explains waiting at later stages, so it takes precedence.
   fn is_title_track(self) -> bool {
@@ -107,6 +112,8 @@ type Key = (String, String, Stage);
 static ACTIVITY: Lazy<Mutex<BTreeMap<Key, Entry>>> = Lazy::new(|| Mutex::new(BTreeMap::new()));
 static STARTUP_SCANS_PENDING: AtomicUsize = AtomicUsize::new(0);
 static OUTCOMES: Lazy<Mutex<BTreeMap<Stage, StageOutcomes>>> = Lazy::new(|| Mutex::new(BTreeMap::new()));
+/// When the open batch window of each index stage closes and its batch commits.
+static BATCH_COMMITS: Lazy<Mutex<BTreeMap<Stage, Instant>>> = Lazy::new(|| Mutex::new(BTreeMap::new()));
 
 fn record_outcome(stage: Stage, failure: Option<&str>) {
   if let Ok(mut outcomes) = OUTCOMES.lock() {
@@ -177,6 +184,20 @@ pub fn done(user_id: &str, item_id: &str, stage: Stage) {
   });
   if completed {
     record_outcome(stage, None);
+  }
+}
+
+/// An index worker opened a batch window that commits at `commit_at`.
+pub fn batch_window_opened(stage: Stage, commit_at: Instant) {
+  if let Ok(mut commits) = BATCH_COMMITS.lock() {
+    commits.insert(stage, commit_at);
+  }
+}
+
+/// The batch window closed and its batch is being committed.
+pub fn batch_window_closed(stage: Stage) {
+  if let Ok(mut commits) = BATCH_COMMITS.lock() {
+    commits.remove(&stage);
   }
 }
 
@@ -296,6 +317,8 @@ struct StageReport {
   processing: Vec<(String, Duration)>,
   waiting: usize,
   attention: usize,
+  /// Time until the open batch window commits, for batched index stages.
+  commit_in: Option<Duration>,
   done: u64,
   failed: u64,
   latest_failure: Option<String>,
@@ -322,8 +345,14 @@ impl StageReport {
         format_elapsed(processing.iter().map(|(_, elapsed)| *elapsed).max().unwrap_or_default())
       )),
     }
+    // Queued index work only reaches search when its batch commits.
+    let queued_label = match (self.stage.is_batched_index(), self.commit_in) {
+      (true, Some(commit_in)) => format!("queued for batched index commit in {}", format_elapsed(commit_in)),
+      (true, None) => "queued for next batched index commit".to_owned(),
+      (false, _) => "queued".to_owned(),
+    };
     for (count, label) in
-      [(self.queued, "queued"), (self.waiting, "waiting to retry"), (self.attention, "need attention")]
+      [(self.queued, queued_label.as_str()), (self.waiting, "waiting to retry"), (self.attention, "need attention")]
     {
       if count > 0 {
         parts.push(format!("{} {}", count, label));
@@ -355,6 +384,7 @@ fn stage_report(reports: &mut BTreeMap<Stage, StageReport>, stage: Stage) -> &mu
     processing: Vec::new(),
     waiting: 0,
     attention: 0,
+    commit_in: None,
     done: 0,
     failed: 0,
     latest_failure: None,
@@ -382,6 +412,13 @@ fn take_progress_report() -> Vec<StageReport> {
       stage_report.done = outcome.done;
       stage_report.failed = outcome.failed;
       stage_report.latest_failure = outcome.latest_failure;
+    }
+  }
+  if let Ok(commits) = BATCH_COMMITS.lock() {
+    for (stage, commit_at) in commits.iter() {
+      if let Some(report) = reports.get_mut(stage) {
+        report.commit_in = Some(commit_at.saturating_duration_since(Instant::now()));
+      }
     }
   }
   reports.into_values().filter(|report| !report.is_empty()).collect()
@@ -469,6 +506,31 @@ mod tests {
     assert!(user_summary(user).processing_item_ids.contains(item));
     forget(user, item);
     assert!(user_summary(user).attention_item_ids.is_empty());
+  }
+
+  #[test]
+  fn queued_index_work_reports_batched_commit() {
+    let report = |stage, commit_in| StageReport {
+      stage,
+      queued: 2,
+      processing: Vec::new(),
+      waiting: 0,
+      attention: 0,
+      commit_in,
+      done: 0,
+      failed: 0,
+      latest_failure: None,
+    };
+    let titles = HashMap::new();
+    assert_eq!(
+      report(Stage::ContentIndex, Some(Duration::from_secs(492))).render(&titles),
+      "Search progress: Content indexing: 2 queued for batched index commit in 8m12s"
+    );
+    assert_eq!(
+      report(Stage::Title, None).render(&titles),
+      "Search progress: Title indexing: 2 queued for next batched index commit"
+    );
+    assert_eq!(report(Stage::Fragments, None).render(&titles), "Search progress: Content preparation: 2 queued");
   }
 
   #[test]
