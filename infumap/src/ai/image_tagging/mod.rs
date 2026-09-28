@@ -361,11 +361,15 @@ async fn process_image_tagging_for_candidate_and_bytes(
         return Ok(());
       }
       write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms, file_bytes).await?;
-      debug!(
-        "Finished image tagging for image '{}' (user {}) in {}.",
+      info!(
+        "Finished image tagging for image '{}' (user {}) in {}{}.",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),
-        format_duration_for_log(tagging_elapsed)
+        format_duration_for_log(tagging_elapsed),
+        match request_mode {
+          ImageTagRequestMode::Full => "",
+          ImageTagRequestMode::CaptionFallbackOnly => " (caption fallback only)",
+        }
       );
     }
     TagOutcome::DocumentFailed(msg) => {

@@ -309,6 +309,7 @@ pub(crate) async fn process_loaded_pdf_extraction(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
+  let started_at = Instant::now();
   let outcome = if retry_endpoint_unavailable {
     request_text_extraction_with_retries(&client, text_extraction_url, &candidate, &file_bytes, None).await
   } else {
@@ -321,9 +322,10 @@ pub(crate) async fn process_loaded_pdf_extraction(
   }
   match outcome {
     ExtractOutcome::Success(response) => {
-      write_success_artifacts(data_dir, text_extraction_url, &candidate, response, &file_bytes).await?;
+      let markdown_bytes = response.markdown.len();
+      let backend = write_success_artifacts(data_dir, text_extraction_url, &candidate, response, &file_bytes).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
-      debug!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
+      log_pdf_extracted(&candidate, backend.as_deref(), started_at.elapsed(), markdown_bytes);
     }
     ExtractOutcome::DocumentFailed(msg) => {
       write_failed_manifest(data_dir, text_extraction_url, &candidate, &msg).await?;
@@ -360,6 +362,7 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
+  let started_at = Instant::now();
   let outcome = if async_jobs_available {
     match time::timeout(
       Duration::from_secs(REQUEST_TIMEOUT_SECS),
@@ -380,9 +383,10 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
   }
   match outcome {
     ExtractOutcome::Success(response) => {
-      write_success_artifacts(data_dir, text_extraction_url, &candidate, response, &file_bytes).await?;
+      let markdown_bytes = response.markdown.len();
+      let backend = write_success_artifacts(data_dir, text_extraction_url, &candidate, response, &file_bytes).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
-      debug!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
+      log_pdf_extracted(&candidate, backend.as_deref(), started_at.elapsed(), markdown_bytes);
       Ok(PdfTextExtractionProcessOutcome::Extracted)
     }
     ExtractOutcome::DocumentFailed(msg) => {
@@ -605,6 +609,17 @@ async fn run_text_extraction_loop(
       time::sleep(request_delay).await;
     }
   }
+}
+
+fn log_pdf_extracted(candidate: &PdfCandidate, backend: Option<&str>, elapsed: Duration, markdown_bytes: usize) {
+  info!(
+    "Extracted text for PDF '{}' (user {}) using {} in {} ({} bytes of markdown).",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id),
+    backend.unwrap_or("unknown backend"),
+    format_duration_for_log(elapsed),
+    markdown_bytes
+  );
 }
 
 fn format_duration_for_log(duration: Duration) -> String {

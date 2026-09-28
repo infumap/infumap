@@ -273,18 +273,20 @@ pub(super) async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> 
   Ok(ManifestCheckResult::NeedsExtraction)
 }
 
+/// Returns the backend that produced the text, when pdf_extract reported one.
 pub(super) async fn write_success_artifacts(
   data_dir: &str,
   text_extraction_url: &str,
   candidate: &PdfCandidate,
   response: PdfToMdResponse,
   source_bytes: &[u8],
-) -> InfuResult<()> {
+) -> InfuResult<Option<String>> {
   ensure_user_text_dir(data_dir, &candidate.user_id).await?;
   let text_path = item_text_content_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   let manifest_path = item_text_manifest_path(data_dir, &candidate.user_id, &candidate.item_id)?;
   atomic_write(&text_path, response.markdown.as_bytes()).await?;
   let extraction = TextExtractionInfo::from_response_metadata(response.metadata.as_ref(), candidate);
+  let backend = extraction.backend.clone();
   let manifest = TextManifest {
     processing: ArtifactProcessing::succeeded(source_bytes, response.markdown.as_bytes()),
     schema_version: MANIFEST_SCHEMA_VERSION,
@@ -301,7 +303,7 @@ pub(super) async fn write_success_artifacts(
     error: None,
   };
   atomic_write(&manifest_path, &serde_json::to_vec_pretty(&manifest)?).await?;
-  Ok(())
+  Ok(backend)
 }
 
 pub(super) async fn write_failed_manifest(
