@@ -357,7 +357,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
       {
         return Ok(());
       }
-      write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms).await?;
+      write_success_artifacts(data_dir, image_tagging_url, &candidate, &tag_data, duration_ms, file_bytes).await?;
       debug!(
         "Finished image tagging for image '{}' (user {}) in {}.",
         candidate.item_id,

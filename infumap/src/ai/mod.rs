@@ -1,3 +1,4 @@
+pub mod artifact_io;
 pub mod artifact_paths;
 pub mod batch_processing;
 pub mod document_pipeline;

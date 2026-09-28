@@ -39,7 +39,7 @@ pub struct PdfFragmentBuildResult {
 
 #[derive(Deserialize)]
 struct PdfCaptionResponse {
-  detailed_caption: Option<String>,
+  detailed_caption: String,
 }
 
 pub async fn pdf_fragment_source_for_item(data_dir: &str, item: &Item) -> InfuResult<Option<FragmentSource>> {
@@ -57,6 +57,10 @@ pub async fn build_pdf_fragment_artifact(
   object_encryption_key: Option<&str>,
   pdf_caption_url: Option<&str>,
 ) -> InfuResult<PdfFragmentBuildResult> {
+  let input = super::artifact_fragment_input_sha256(data_dir, item, None).await?;
+  if super::super::fragment_inputs_are_current(data_dir, &item.owner_id, &item.id, &input).await? {
+    return Ok(PdfFragmentBuildResult { outcome: FragmentBuildOutcome::default() });
+  }
   let fragment_source = match pdf_fragment_source_for_item(data_dir, item).await? {
     Some(fragment_source) => Some(fragment_source),
     None => {
@@ -64,7 +68,20 @@ pub async fn build_pdf_fragment_artifact(
         .await?
     }
   };
-  let outcome = write_fragment_source_artifact(data_dir, item, fragment_source).await?;
+  if super::artifact_fragment_input_sha256(data_dir, item, None).await? != input {
+    return Err("PDF fragment inputs changed during processing; rerun fragment generation.".into());
+  }
+  if fragment_source.is_none()
+    && !matches!(
+      crate::ai::text_extraction::pdf_text_artifact_state(data_dir, &item.owner_id, &item.id).await?,
+      crate::ai::text_extraction::PdfTextArtifactState::Succeeded
+    )
+  {
+    return Err("Empty PDF caption cannot establish empty content while text extraction is unfinished.".into());
+  }
+  let outcome =
+    write_fragment_source_artifact(data_dir, item, fragment_source, FragmentSourceKind::PdfFirstPageCaption, input)
+      .await?;
   Ok(PdfFragmentBuildResult { outcome })
 }
 
@@ -83,16 +100,14 @@ async fn pdf_first_page_caption_fragment_source_for_item(
   object_encryption_key: Option<&str>,
   pdf_caption_url: Option<&str>,
 ) -> InfuResult<Option<FragmentSource>> {
-  let Some(pdf_caption_url) = pdf_caption_url else {
-    return Ok(None);
-  };
+  let pdf_caption_url = pdf_caption_url.ok_or("PDF caption fallback is required but no service is configured.")?;
   let Some(object_encryption_key) = object_encryption_key else {
     warn!(
       "PDF '{}' (user {}) had no markdown fragments, but no object encryption key was available for first-page caption fallback.",
       item.id,
       user_id_for_log(&item.owner_id)
     );
-    return Ok(None);
+    return Err("PDF caption fallback requires the object encryption key.".into());
   };
 
   let file_bytes =
@@ -105,7 +120,7 @@ async fn pdf_first_page_caption_fragment_source_for_item(
           user_id_for_log(&item.owner_id),
           e
         );
-        return Ok(None);
+        return Err(e);
       }
     };
 
@@ -142,7 +157,7 @@ async fn pdf_first_page_caption_fragment_source_for_item(
         pdf_caption_url,
         e
       );
-      Ok(None)
+      Err(e.into())
     }
   }
 }
@@ -167,7 +182,7 @@ async fn request_pdf_first_page_caption(pdf_caption_url: &str, file_bytes: Vec<u
 
   let parsed: PdfCaptionResponse =
     serde_json::from_str(&body).map_err(|e| format!("Could not parse success response: {}", e))?;
-  Ok(normalized_caption(parsed.detailed_caption.as_deref()))
+  Ok(normalized_caption(Some(&parsed.detailed_caption)))
 }
 
 fn pdf_first_page_caption_fragment_source(caption: &str) -> Option<FragmentSource> {

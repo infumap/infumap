@@ -156,6 +156,14 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       .replace_items_titles(&title_refs)
       .await?;
 
+    crate::ai::fragment_indexing::record_indexed_fragments(
+      &data_dir,
+      &user_id,
+      &document_updates,
+      &document_fragment_lexical_index_temp_dir(&data_dir, &user_id)?,
+    )
+    .await?;
+
     checkpoint.next_item = batch_end;
     if batch_end == user_end {
       let pending = pending_install_for_user(&data_dir, &user_id).await?;

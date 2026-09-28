@@ -331,7 +331,7 @@ pub(crate) async fn process_loaded_pdf_extraction(
   }
   match outcome {
     ExtractOutcome::Success(response) => {
-      write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
+      write_success_artifacts(data_dir, text_extraction_url, &candidate, response, &file_bytes).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       debug!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
     }
@@ -382,7 +382,7 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
   }
   match outcome {
     ExtractOutcome::Success(response) => {
-      write_success_artifacts(data_dir, text_extraction_url, &candidate, response).await?;
+      write_success_artifacts(data_dir, text_extraction_url, &candidate, response, &file_bytes).await?;
       enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
       debug!("Extracted text for PDF '{}' (user {}).", candidate.item_id, user_id_for_log(&candidate.user_id));
       Ok(PdfTextExtractionProcessOutcome::Extracted)
