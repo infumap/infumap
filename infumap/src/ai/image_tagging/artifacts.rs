@@ -574,6 +574,28 @@ mod tests {
   use super::*;
 
   #[test]
+  fn manifest_with_fields_no_longer_written_still_loads() {
+    let manifest: ImageTagManifest = serde_json::from_value(serde_json::json!({
+      "schema_version": 1,
+      "status": "succeeded",
+      "source_mime_type": "image/jpeg",
+      "content_mime_type": "application/json",
+      "extractor": {
+        "image_tagging_url": "http://192.168.1.101:8787/tag",
+        "tagged_at_unix_secs": 1778439053,
+        "duration_ms": null,
+        "model_id": "unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf",
+        "backend": "llama-server"
+      },
+      "error": null
+    }))
+    .unwrap();
+    assert_eq!(manifest.status, "succeeded");
+    assert_eq!(manifest.extractor.model_id.as_deref(), Some("unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf"));
+    assert!(manifest.processing.is_empty());
+  }
+
+  #[test]
   fn provenance_is_kept_out_of_the_output() {
     let tag_data = ImageTagArtifact::from_value(serde_json::json!({
       "detailed_caption": "a cat",
