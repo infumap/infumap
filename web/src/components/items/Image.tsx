@@ -20,6 +20,8 @@ import { Component, For, JSX, Show, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX } from "../../constants";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { ImageFns, asImageItem } from "../../items/image-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
+import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
@@ -37,6 +39,7 @@ import { asPageItem } from "../../items/page-item";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
+import { appendNewlineIfEmpty } from "../../util/string";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 
 
@@ -48,6 +51,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const imageItem = () => asImageItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
+  const canEdit = () => itemCanEdit(imageItem());
+  const isEditingTitle = () => canEdit() && store.overlay.textEditInfo()?.itemPath == vePath();
   const boundsPx = () => props.visualElement.boundsPx;
   const quantizedBoundsPx = () => quantizeBoundingBox(boundsPx());
   const positionClass = () => props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute";
@@ -361,13 +366,40 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       style={thumbnailFitStyle()}
       src={thumbnailSrc()} />;
 
+  const titleClickHandler = (ev: MouseEvent) => {
+    if (ev.button !== 0 || !canEdit() || isEditingTitle()) { return; }
+    ImageFns.handleEditClick(props.visualElement, store, { x: ev.clientX, y: ev.clientY });
+  };
+
+  const titleKeyDownHandler = (ev: KeyboardEvent) => {
+    if (ev.isComposing || ev.keyCode == 229) { return; }
+    if (ev.key == "Enter" || ev.key == "Escape") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      commitActiveTextEdit(store, ev.key == "Escape", "image-title-exit-edit");
+      return;
+    }
+    edit_keyDownHandler(store, props.visualElement, ev);
+  };
+
   const renderTitleMaybe = (): JSX.Element => {
     const titleBoundsPx = visualFrameBoundsPx();
     return <Show when={(props.visualElement.flags & VisualElementFlags.Popup) && boundsPx().w > MIN_IMAGE_WIDTH_PX}>
       <div class="absolute flex items-center justify-center pointer-events-none"
         style={`left: ${titleBoundsPx.x}px; top: ${titleBoundsPx.y + titleBoundsPx.h - 50}px; width: ${titleBoundsPx.w}px; height: 50px; z-index: 4;`}>
-        <div class="flex items-center text-center text-xl font-bold text-white pointer-events-none">
-          {imageItem().title}
+        <div id={vePath() + ":title"}
+          class={`text-center text-xl font-bold text-white ${canEdit() ? "pointer-events-auto select-text cursor-text" : "pointer-events-none"}`}
+          style="min-width: 1em; min-height: 1.5em; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; outline: none;"
+          contentEditable={isEditingTitle()}
+          spellcheck={isEditingTitle()}
+          onmousedown={ev => {
+            if (ev.button == 0 && canEdit()) { ev.stopPropagation(); }
+          }}
+          onClick={titleClickHandler}
+          onKeyDown={titleKeyDownHandler}
+          onKeyUp={ev => edit_keyUpHandler(store, ev)}
+          onInput={ev => edit_inputListener(store, ev)}>
+          {appendNewlineIfEmpty(imageItem().title)}
         </div>
       </div>
     </Show>;

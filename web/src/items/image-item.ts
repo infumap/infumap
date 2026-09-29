@@ -377,7 +377,7 @@ export const ImageFns = {
     requestArrange(store, "image-popup-open");
   },
 
-  handleEditClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+  handleEditClick: (visualElement: VisualElement, store: StoreContextModel, clientPxMaybe?: Vector): void => {
     const itemPath = VeFns.veToPath(visualElement);
     if (!itemCanEdit(visualElement.displayItem)) {
       if (!handleListPageLineItemClickMaybe(visualElement, store)) {
@@ -390,7 +390,7 @@ export const ImageFns = {
     const editingDomId = itemPath + ":title";
     const el = document.getElementById(editingDomId)!;
     el.focus();
-    const closestIdx = closestCaretPositionToClientPx(el, CursorEventState.getLatestClientPx());
+    const closestIdx = closestCaretPositionToClientPx(el, clientPxMaybe ?? CursorEventState.getLatestClientPx());
     arrangeNow(store, "image-enter-edit-mode");
     const freshEl = document.getElementById(editingDomId)!;
     if (freshEl) {
