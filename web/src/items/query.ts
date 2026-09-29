@@ -96,14 +96,6 @@ export function resetQuerySearchSession(store: StoreContextModel, queryItem: Que
   }
 }
 
-export function clearQuerySearchForModeSwitch(store: StoreContextModel, queryItem: QueryItem): void {
-  clearQuerySearchRuntime(store, queryItem.id);
-  setQuerySearchResults(store, queryItem, null);
-  setQuerySearchHasMoreResults(store, queryItem, false);
-  setQuerySearchLoadedPageCount(store, queryItem, 0);
-  clearQuerySearchSelection(store, queryItem);
-}
-
 async function warmResultItemDetails(store: StoreContextModel, resultItemId: string): Promise<void> {
   await initiateLoadItemMaybe(store, resultItemId);
 
@@ -205,7 +197,6 @@ export async function startQueryChat(
   deepResearch: boolean = false,
 ): Promise<void> {
   clearQueryChat(store, queryItem);
-  clearQuerySearchForModeSwitch(store, queryItem);
   ensureTemporaryQueryChatPage(store, queryItem);
 
   setQueryMode(store, queryItem, "chat");
