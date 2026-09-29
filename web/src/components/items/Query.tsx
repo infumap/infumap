@@ -74,7 +74,7 @@ import { ArrangeAlgorithm } from "../../items/page-item";
 import {
   clearQuerySearchSelection,
   loadMoreQuerySearchResults,
-  resetQuerySearchSession,
+  clearQuerySearch,
   runQuerySearch,
   startQueryChat,
 } from "../../items/query";
@@ -231,7 +231,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const searchHasMoreResults = () => getQuerySearchHasMoreResults(store, queryItem());
   const hasSubmittedQuery = () => queryMode() != null;
   const hasSearchResults = () => (getQuerySearchResults(store, queryItem())?.length ?? 0) > 0;
-  const selectedInputMode = () => store.general.queryInputMode();
+  /** Search mode hides the mode selector, so a submit from there always refines the search. */
+  const selectedInputMode = (): QueryInputMode => isSearchMode() ? "search" : store.general.queryInputMode();
   const sendButtonTitle = () => selectedInputMode() == "chat"
     ? (deepResearch() ? "Start deep research" : "Send chat")
     : "Run search";
@@ -416,7 +417,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   type QueryControlName = "mode" | "input" | "send" | "discard" | "setup";
 
   const queryControlOrder = (): Array<QueryControlName> => {
-    const controls: Array<QueryControlName> = ["mode", "input", "send"];
+    const controls: Array<QueryControlName> = isSearchMode() ? ["input", "send"] : ["mode", "input", "send"];
     if (hasSubmittedQuery()) {
       controls.push("discard");
     }
@@ -464,9 +465,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const submitQueryInput = (editingElMaybe?: HTMLElement | null) => {
-    const mode = selectedInputMode();
-    store.general.setQueryInputMode(mode);
-    if (mode == "chat") {
+    if (selectedInputMode() == "chat") {
       void startChat(editingElMaybe);
       return;
     }
@@ -512,7 +511,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
     exitEditMode();
     resetLocalQuerySessionUi();
-    resetQuerySearchSession(store, queryItem(), "query-search-discard");
+    // Keeps the query text, so switching to chat or deep research doesn't mean retyping it.
+    clearQuerySearch(store, queryItem(), "query-search-discard");
     focusNewQueryInput();
   };
 
@@ -1126,12 +1126,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         Math.max(360, boundsPx().w - QUERY_WORKSPACE_SIDE_INSET_PX * 2),
       );
     };
+    const showModeSelector = () => !isSearchMode();
     const inputShellWidthPx = () => Math.max(
       160,
       controlsWidthPx()
-        - QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX
-        - (showDiscardButton() ? QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX : 0)
-        - QUERY_WORKSPACE_CONTROLS_GAP_PX * (showDiscardButton() ? 2 : 1),
+        - (showModeSelector() ? QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0)
+        - (showDiscardButton() ? QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0),
     );
     const lowerTopPx = calcQueryWorkspaceResultsTopPx();
     const arrangeSelectorTopPx = lowerTopPx - Math.round(QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
@@ -1143,65 +1143,67 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     };
     const renderQueryControls = () => <>
       <div class="flex items-start" style={`gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
-        <div
-          class="relative flex shrink-0"
-          style={`width: ${QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-          role="radiogroup"
-          aria-label="Query mode">
-          <For each={QUERY_INPUT_MODE_OPTIONS}>{(option, idx) => {
-            const selected = () => selectedInputModeOption() == option.value;
-            return (
-              <button
-                ref={(el) => { queryModeButtons[option.value] = el; }}
-                class="flex shrink-0 cursor-pointer items-center justify-center border border-[#999] outline-hidden focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-40"
-                classList={{
-                  "-ml-px": idx() > 0,
-                  "rounded-l-xs": idx() == 0,
-                  "rounded-r-xs": idx() == QUERY_INPUT_MODE_OPTIONS.length - 1,
-                }}
-                style={`width: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px; font-size: 17px; ` +
-                  `background-color: ${selected() ? SELECTED_DARK : "white"}; color: black;`}
-                type="button"
-                role="radio"
-                aria-checked={selected()}
-                aria-label={option.label}
-                title={option.label}
-                tabIndex={selected() ? 0 : -1}
-                disabled={isStartingChat()}
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                  setSelectedInputModeOption(option.value);
-                }}
-                onMouseUp={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                }}
-                onClick={(ev) => ev.stopPropagation()}
-                onKeyDown={(ev) => {
-                  ev.stopPropagation();
-                  if (ev.key == "Tab") {
-                    handleQueryControlTab(ev, "mode");
-                    return;
-                  }
-                  if (ev.key == "ArrowLeft" || ev.key == "ArrowRight") {
-                    ev.preventDefault();
-                    const n = QUERY_INPUT_MODE_OPTIONS.length;
-                    const next = QUERY_INPUT_MODE_OPTIONS[(idx() + (ev.key == "ArrowLeft" ? n - 1 : 1)) % n].value;
-                    setSelectedInputModeOption(next);
-                    queryModeButtons[next]?.focus();
-                  }
-                }}>
-                <i class={option.icon} />
-              </button>
-            );
-          }}</For>
+        <Show when={showModeSelector()}>
           <div
-            class="pointer-events-none absolute left-0 w-full text-center text-[#555]"
-            style={`top: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX + 4}px; font-size: 12px; line-height: 16px;`}>
-            {QUERY_INPUT_MODE_OPTIONS.find(o => o.value == selectedInputModeOption())!.label}
+            class="relative flex shrink-0"
+            style={`width: ${QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+            role="radiogroup"
+            aria-label="Query mode">
+            <For each={QUERY_INPUT_MODE_OPTIONS}>{(option, idx) => {
+              const selected = () => selectedInputModeOption() == option.value;
+              return (
+                <button
+                  ref={(el) => { queryModeButtons[option.value] = el; }}
+                  class="flex shrink-0 cursor-pointer items-center justify-center border border-[#999] outline-hidden focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-40"
+                  classList={{
+                    "-ml-px": idx() > 0,
+                    "rounded-l-xs": idx() == 0,
+                    "rounded-r-xs": idx() == QUERY_INPUT_MODE_OPTIONS.length - 1,
+                  }}
+                  style={`width: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px; font-size: 17px; ` +
+                    `background-color: ${selected() ? SELECTED_DARK : "white"}; color: black;`}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected()}
+                  aria-label={option.label}
+                  title={option.label}
+                  tabIndex={selected() ? 0 : -1}
+                  disabled={isStartingChat()}
+                  onMouseDown={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    setSelectedInputModeOption(option.value);
+                  }}
+                  onMouseUp={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                  }}
+                  onClick={(ev) => ev.stopPropagation()}
+                  onKeyDown={(ev) => {
+                    ev.stopPropagation();
+                    if (ev.key == "Tab") {
+                      handleQueryControlTab(ev, "mode");
+                      return;
+                    }
+                    if (ev.key == "ArrowLeft" || ev.key == "ArrowRight") {
+                      ev.preventDefault();
+                      const n = QUERY_INPUT_MODE_OPTIONS.length;
+                      const next = QUERY_INPUT_MODE_OPTIONS[(idx() + (ev.key == "ArrowLeft" ? n - 1 : 1)) % n].value;
+                      setSelectedInputModeOption(next);
+                      queryModeButtons[next]?.focus();
+                    }
+                  }}>
+                  <i class={option.icon} />
+                </button>
+              );
+            }}</For>
+            <div
+              class="pointer-events-none absolute left-0 w-full text-center text-[#555]"
+              style={`top: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX + 4}px; font-size: 12px; line-height: 16px;`}>
+              {QUERY_INPUT_MODE_OPTIONS.find(o => o.value == selectedInputModeOption())!.label}
+            </div>
           </div>
-        </div>
+        </Show>
         <div
           class="border border-[#999] rounded-xs bg-white overflow-hidden"
           style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;`}
