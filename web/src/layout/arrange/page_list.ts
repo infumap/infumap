@@ -28,6 +28,8 @@ import { isComposite } from "../../items/composite-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, isPage, type ListPageVisibleRow } from "../../items/page-item";
 import { isQueryItem } from "../../items/query-item";
+import { asTextItem, isText } from "../../items/text-item";
+import { ensureVirtualTextDocumentPage, virtualTextDocumentPageMaybe } from "../../items/text-document";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
@@ -488,10 +490,22 @@ export function arrange_list_page(
       w: Math.max(0, geometry.viewportBoundsPx!.w - listWidthPx),
       h: geometry.viewportBoundsPx!.h
     };
-    const selectedIsPage = isPage(itemState.get(selectedVeid.itemId)!);
-    const canShiftLeft = arrangeFlagIsRoot(flags) && selectedIsPage;
+    const selectedItem = itemState.get(selectedVeid.itemId)!;
+    // Text items are shown as their (virtual, read-only) document page, once it has been projected.
+    let panelVeid = selectedVeid;
+    if (isText(selectedItem)) {
+      const textItem = asTextItem(selectedItem);
+      const documentPage = virtualTextDocumentPageMaybe(textItem);
+      if (documentPage != null) {
+        panelVeid = { itemId: documentPage.id, linkIdMaybe: null };
+      } else {
+        ensureVirtualTextDocumentPage(store, textItem);
+      }
+    }
+    const selectedIsPage = isPage(itemState.get(panelVeid.itemId)!);
+    const canShiftLeft = arrangeFlagIsRoot(flags) && isPage(selectedItem);
     if (boundsPx.w >= MIN_RENDERED_NESTED_LIST_WIDTH_PX) {
-      pageRelationships.selectedPath = arrangeSelectedListItemPath(store, selectedVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup);
+      pageRelationships.selectedPath = arrangeSelectedListItemPath(store, panelVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup);
     }
   }
 

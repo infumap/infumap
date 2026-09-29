@@ -340,6 +340,12 @@ export const ItemFns = {
       return;
     }
 
+    // Text line items in list pages pop up as a (virtual) document page.
+    if (isText(item) && !isFromAttachment && TextFns.isListPageLineItem(visualElement)) {
+      void TextFns.openDocumentPopup(visualElement, store);
+      return;
+    }
+
     const isActualAttachment = VeFns.treeItem(visualElement).relationshipToParent == RelationshipToParent.Attachment;
     const treatAsAttachment = !isImage(item) && (isFromAttachment || isActualAttachment);
     const shouldUseSourceTopLeftAnchor = treatAsAttachment ||
