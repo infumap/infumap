@@ -70,7 +70,7 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
         <div class="inline-block text-center w-[18px]"><i class="fa fa-image" /></div> Image
       </div>
       <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newTextInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-font" /></div> Text
+        <div class="inline-block text-center w-[18px]"><i class="far fa-file-lines" /></div> Text
       </div>
       <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
         <div class="inline-block text-center w-[18px]"><i class="fa fa-file" /></div> File

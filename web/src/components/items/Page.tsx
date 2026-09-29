@@ -115,7 +115,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         <Match when={itemType == ItemType.Table}><i class="fa fa-table" /></Match>
         <Match when={itemType == ItemType.Note}><i class="fa fa-sticky-note" /></Match>
         <Match when={itemType == ItemType.File}><i class="fa fa-file" /></Match>
-        <Match when={itemType == ItemType.Text}><i class="fa fa-font" /></Match>
+        <Match when={itemType == ItemType.Text}><i class="far fa-file-lines" /></Match>
         <Match when={itemType == ItemType.Image}><i class="fa fa-image" /></Match>
         <Match when={itemType == ItemType.Link}><i class="fa fa-link" /></Match>
         <Match when={itemType == ItemType.Search}><i class="fa fa-search" /></Match>
