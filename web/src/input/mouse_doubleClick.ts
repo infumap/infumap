@@ -29,6 +29,7 @@ export function mouseDoubleClickHandler(store: StoreContextModel, ev: MouseEvent
   if (store.history.currentPageVeid() == null) { return; }
   if (store.overlay.contextMenuInfo.get() != null) { return; }
   if (store.overlay.textEditInfo() != null) { return; }
+  if (CursorEventState.getLatestDesktopPx(store).y < 0) { return; }
   if (ev.button != MOUSE_LEFT) { return; }
   if (!canCreateItemsOnCurrentPage(store)) { return; }
 

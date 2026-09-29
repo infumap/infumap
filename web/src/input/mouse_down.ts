@@ -452,6 +452,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }
 
+  // Toolbar titles were handled above; remaining toolbar clicks belong to its
+  // controls, never to scrolled content or document text selection underneath.
+  if (CursorEventState.getLatestDesktopPx(store).y < 0) {
+    return store.overlay.textEditInfo() ? MouseEventActionFlags.PreventDefault : MouseEventActionFlags.None;
+  }
+
 
   // Extend from the live anchor before leaving an editor clears its selection.
   if (buttonNumber == MOUSE_LEFT && extendLinearTextSelectionOnShiftClick(store)) {

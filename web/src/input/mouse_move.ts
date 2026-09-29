@@ -1403,7 +1403,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
 
   const ev = CursorEventState.get();
   const hitInfo = HitInfoFns.hit(store, desktopPxFromMouseEvent(ev, store), [], true, true, ev.shiftDown);
-  const readOnlyDocumentMoveOutVe = !ev.shiftDown
+  const readOnlyDocumentMoveOutVe = !ev.shiftDown && CursorEventState.getLatestDesktopPx(store).y >= 0
     ? readOnlyDocumentMoveOutVeAtClientPx(CursorEventState.getLatestClientPx())
     : null;
   const readOnlyDocumentMoveOutPath = readOnlyDocumentMoveOutVe != null

@@ -279,7 +279,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     // If no nested list pages (or not a list page), render original single title
     if (titledPages.length === 0) {
       return (
-        <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}`}
+        <div data-infumap-popup-title-path={VeFns.veToPath(props.visualElement)}
+          class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}`}
           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; width: ${pageFns().boundsPx().w}px; height: ${headerHeightPx()}px; ` +
             `background-color: #fff; ` +
             `${VeFns.zIndexStyle(props.visualElement)}` +
@@ -306,7 +307,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     const titleBarHeight = pageFns().boundsPx().h - pageFns().viewportBoundsPx().h;
 
     return (
-      <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} flex flex-row`}
+      <div data-infumap-popup-title-path={VeFns.veToPath(props.visualElement)}
+        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} flex flex-row`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; width: ${pageFns().boundsPx().w}px; height: ${titleBarHeight}px; ` +
           `background-color: #fff; ` +
           `${VeFns.zIndexStyle(props.visualElement)}` +
