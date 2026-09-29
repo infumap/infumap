@@ -21,6 +21,7 @@ import { requestContainerSyncSoon, server } from "../server";
 import { Item } from "../items/base/item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { QueryFns, asQueryItem, isQueryItem } from "../items/query-item";
+import { sourceTextItemForVirtualTextDocumentPage, textDocumentUrl } from "../items/text-document";
 import { SearchFlags } from "../items/base/flags-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -240,18 +241,22 @@ export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHis
     return;
   }
 
+  // Virtual text document pages are addressed by their source text item.
+  const sourceTextItemMaybe = sourceTextItemForVirtualTextDocumentPage(pageVeid.itemId);
+  const sourceItemId = sourceTextItemMaybe?.id ?? pageVeid.itemId;
+
   if (clearHistory) {
-    store.history.setHistoryToSinglePage(pageVeid, focusPath);
+    store.history.setHistoryToSinglePage(pageVeid, focusPath, sourceItemId);
   } else if (replace) {
-    store.history.replacePageVeid(pageVeid, focusPath);
+    store.history.replacePageVeid(pageVeid, focusPath, sourceItemId);
   } else {
-    store.history.pushPageVeid(pageVeid, focusPath);
+    store.history.pushPageVeid(pageVeid, focusPath, sourceItemId);
   }
 
   arrangeNow(store, "switch-to-page");
   requestContainerSyncSoon(store);
 
-  const url = currentUrl(store, null);
+  const url = sourceTextItemMaybe != null ? textDocumentUrl(sourceTextItemMaybe) : currentUrl(store, null);
   store.history.writeBrowserEntry(url, updateHistory ? (replace && !clearHistory ? "replace" : "push") : "restore");
   store.currentUrlPath.set(updateHistory ? url : window.location.pathname);
 }

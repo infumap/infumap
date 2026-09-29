@@ -233,7 +233,7 @@ function sourceKey(textItem: TextItem): string {
   return `${textItem.origin ?? ""}|${textItem.id}`;
 }
 
-function textDocumentUrl(textItem: TextItem): string {
+export function textDocumentUrl(textItem: TextItem): string {
   if (textItem.origin == null) {
     return `/${textItem.id}`;
   }
@@ -1879,6 +1879,41 @@ export async function prepareTextDocumentProjection(store: StoreContextModel, te
   const text = await fetchTextItemContent(textItem);
   if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return null; }
   return upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
+}
+
+const pendingVirtualPageTextIds = new Set<Uid>();
+const failedVirtualPageTextIds = new Set<Uid>();
+
+/**
+ * The virtual document page for textItem, if it has already been projected and is current.
+ */
+export function virtualTextDocumentPageMaybe(textItem: TextItem): PageItem | null {
+  const pageId = stableUid(`text-document-page:${textItem.id}`);
+  if (virtualSourceTextIdByPageId.get(pageId) != textItem.id) { return null; }
+  const page = itemState.get(pageId);
+  if (page == null || !isPage(page) || asPageItem(page).title != textItem.title) { return null; }
+  return asPageItem(page);
+}
+
+/**
+ * Projects textItem into its virtual document page in the background (without navigating),
+ * requesting an arrange when done. Used where arrange needs the page but can't await it.
+ */
+export function ensureVirtualTextDocumentPage(store: StoreContextModel, textItem: TextItem): void {
+  if (pendingVirtualPageTextIds.has(textItem.id) || failedVirtualPageTextIds.has(textItem.id)) { return; }
+  pendingVirtualPageTextIds.add(textItem.id);
+  fetchTextItemContent(textItem)
+    .then(text => {
+      upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
+      requestArrange(store, "text-document-virtual-page-ready");
+    })
+    .catch(e => {
+      failedVirtualPageTextIds.add(textItem.id);
+      console.error("Failed to project text document:", e);
+    })
+    .finally(() => {
+      pendingVirtualPageTextIds.delete(textItem.id);
+    });
 }
 
 export async function openTextDocumentProjection(store: StoreContextModel, textItem: TextItem, updateHistory: boolean = true, clearHistory: boolean = false): Promise<void> {

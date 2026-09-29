@@ -40,8 +40,9 @@ import { VesCache } from '../layout/ves-cache';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
 import { CursorEventState } from '../input/state';
-import { openTextDocumentProjection } from './text-document';
-import { EMPTY_UID, newUid, Uid } from '../util/uid';
+import { openTextDocumentProjection, prepareTextDocumentProjection } from './text-document';
+import { ArrangeAlgorithm, asPageItem, isPage } from './page-item';
+import { EMPTY_UID, newUid, POPUP_LINK_UID, Uid } from '../util/uid';
 
 
 export interface TextItem extends TextMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -342,8 +343,37 @@ export const TextFns = {
   },
 
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
+    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const textItem = asTextItem(visualElement.displayItem);
     void openTextDocumentProjection(store, textItem);
+  },
+
+  isListPageLineItem: (visualElement: VisualElement): boolean => {
+    if (!(visualElement.flags & VisualElementFlags.LineItem)) { return false; }
+    const parentVe = VesCache.current.readNode(visualElement.parentPath!);
+    if (!parentVe || (parentVe.flags & VisualElementFlags.DockItem)) { return false; }
+    return isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List;
+  },
+
+  openDocumentPopup: async (visualElement: VisualElement, store: StoreContextModel): Promise<void> => {
+    const textItem = asTextItem(visualElement.displayItem);
+    const navigationRequestId = store.history.beginNavigationRequest();
+    try {
+      const page = await prepareTextDocumentProjection(store, textItem, navigationRequestId);
+      if (page == null) { return; }
+      const popupSpec = { actualVeid: { itemId: page.id, linkIdMaybe: null }, vePath: VeFns.veToPath(visualElement) };
+      if (isInsidePopupHierarchy(visualElement)) {
+        store.history.pushPopup(popupSpec);
+      } else {
+        store.history.replacePopup(popupSpec);
+      }
+      // vePath (the text line item) is kept for popup keyboard navigation, but focus goes to the popup page
+      // itself, as it does when a page popup is opened, so the toolbar and title-click-to-root target the page.
+      store.history.setFocus(VeFns.addVeidToPath({ itemId: page.id, linkIdMaybe: POPUP_LINK_UID }, store.history.currentPagePath()!));
+      requestArrange(store, "text-document-popup-open");
+    } catch (e) {
+      console.error("Failed to open text document popup:", e);
+    }
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceEdit: boolean = false, caretAtEnd: boolean = false): void => {
