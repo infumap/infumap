@@ -447,9 +447,13 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
 
   function scrollDoneHandler() {
     const prevScrollYPos = store.perItem.getTableScrollYPos(veid());
-    const newScrollYPos = Math.round(prevScrollYPos);
+    const maxScrollTop = Math.max(0, outerDiv!.scrollHeight - outerDiv!.clientHeight);
+    // Keep the partial first row at the bottom and respect browser scroll limits.
+    outerDiv!.scrollTop = maxScrollTop - outerDiv!.scrollTop < 1
+      ? maxScrollTop
+      : Math.round(prevScrollYPos) * blockHeightPx();
+    const newScrollYPos = outerDiv!.scrollTop / blockHeightPx();
     store.perItem.setTableScrollYPos(veid(), newScrollYPos);
-    (outerDiv!)!.scrollTop = newScrollYPos * blockHeightPx();
     scrollDoneTimer = null;
     rearrangeTableAfterScroll(store, props.visualElement.parentPath!, veid(), prevScrollYPos);
   }

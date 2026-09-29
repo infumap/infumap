@@ -100,10 +100,15 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
       scrollDoneTimer = null;
       if (!bodyDiv) { return; }
       const beforeSnap = store.perItem.getTableScrollYPos(pageVeid());
-      const snapped = Math.round(beforeSnap);
+      const maxScrollTop = Math.max(0, bodyDiv.scrollHeight - bodyDiv.clientHeight);
+      // The bottom can leave a partial first row. Store the browser's actual
+      // position so the render window and hitboxes include that visible row.
+      bodyDiv.scrollTop = maxScrollTop - bodyDiv.scrollTop < 1
+        ? maxScrollTop
+        : Math.round(beforeSnap) * blockSize().h;
+      const snapped = bodyDiv.scrollTop / blockSize().h;
       store.perItem.setTableScrollYPos(pageVeid(), snapped);
-      bodyDiv.scrollTop = snapped * blockSize().h;
-      if (Math.floor(beforeSnap) != snapped) {
+      if (Math.floor(beforeSnap) != Math.floor(snapped)) {
         rearrangeTableAfterScroll(store, props.visualElement.parentPath!, pageVeid(), beforeSnap);
       }
     }, 600);

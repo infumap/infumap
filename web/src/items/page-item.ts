@@ -413,6 +413,9 @@ function maybeEditDocumentPageRowFromClick(
 
   const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, visualElement);
   const mouseDesktopPx = CursorEventState.getLatestDesktopPx(store);
+  // Only clicks in the visible viewport map to rows. Checking after adding the
+  // scroll offset would map title bar clicks onto rows scrolled out of view.
+  if (!isInside(mouseDesktopPx, viewportBoundsPx)) { return false; }
   const pageVeid = VeFns.actualVeidFromVe(visualElement);
   const scrollYPx = store.perItem.getPageScrollYProp(pageVeid) *
     Math.max(visualElement.childAreaBoundsPx.h - visualElement.viewportBoundsPx.h, 0);

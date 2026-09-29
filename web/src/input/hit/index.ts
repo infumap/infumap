@@ -271,6 +271,40 @@ function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Set<Uid>): Hi
   return null;
 }
 
+function hitRenderedPopupTitleMaybe(
+  store: StoreContextModel,
+  posOnDesktopPx: Vector,
+  canHitEmbeddedInteractive: boolean,
+  hitboxOptions: HitboxScanOptions,
+): HitInfo | null {
+  if (typeof document === "undefined" || store.history.currentPopupSpec() == null) { return null; }
+  const clientPos = { x: posOnDesktopPx.x, y: posOnDesktopPx.y + store.topToolbarHeightPx() };
+  const titleElement = document.elementFromPoint(clientPos.x, clientPos.y)
+    ?.closest<HTMLElement>("[data-infumap-popup-title-path]");
+  const popupPath = titleElement?.getAttribute("data-infumap-popup-title-path");
+  if (!titleElement || !popupPath) { return null; }
+  const popupVes = VesCache.render.getNode(popupPath);
+  if (!popupVes) { return null; }
+  const popupVe = popupVes.get();
+  const titleBounds = titleElement.getBoundingClientRect();
+  if (titleBounds.width <= 0 || titleBounds.height <= 0) { return null; }
+
+  // Chrome belongs to the rendered popup, independent of content scroll and
+  // ancestor coordinate conversions. Preserve title dragging and pin actions.
+  const titlePos = {
+    x: (clientPos.x - titleBounds.left) * popupVe.boundsPx.w / titleBounds.width,
+    y: (clientPos.y - titleBounds.top) * (popupVe.boundsPx.h - popupVe.viewportBoundsPx!.h) / titleBounds.height,
+  };
+  const { flags, meta } = scanHitboxes(popupVe, titlePos, undefined, hitboxOptions);
+  const titleTargetPath = flags & (HitboxFlags.AnchorChild | HitboxFlags.AnchorDefault)
+    ? null : popupListTitleTargetPathMaybe(popupVe, titlePos);
+  return new HitBuilder(parentVe(popupVe), popupVes).over(popupVes)
+    .hitboxes(flags, HitboxFlags.None)
+    .meta(titleTargetPath ? { ...(meta ?? {}), popupTitleTargetPath: titleTargetPath } : meta)
+    .pos(titlePos).allowEmbeddedInteractive(canHitEmbeddedInteractive)
+    .createdAt("rendered-popup-title").build();
+}
+
 
 export function getHitInfo(
   store: StoreContextModel,
@@ -284,7 +318,22 @@ export function getHitInfo(
   const hitboxOptions: HitboxScanOptions = { allowCopyMove, includeDropTargets };
   const umbrellaVe: VisualElement = store.umbrellaVisualElement.get();
   assert(VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
+  // Desktop coordinates start below the toolbar. Check before adding scroll
+  // offsets, which can otherwise turn toolbar positions into hits on hidden items.
+  if (posOnDesktopPx.y < 0) {
+    const pageVes = VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))()[0];
+    return new HitBuilder(null, pageVes).over(pageVes)
+      .pos(posOnDesktopPx).createdAt("above-desktop").build();
+  }
   let rootInfo = determineTopLevelRoot(store, umbrellaVe, posOnDesktopPx, hitboxOptions);
+  const popupTitleHit = hitRenderedPopupTitleMaybe(store, posOnDesktopPx, canHitEmbeddedInteractive, hitboxOptions);
+  if (popupTitleHit) {
+    if (!isIgnored(popupTitleHit.rootVes.get().displayItem.id, ignoreItems)) { return popupTitleHit; }
+    // Ignoring the popup for drag positioning exposes its parent, not children
+    // hidden beneath the title.
+    return new HitBuilder(rootInfo.parentRootVe, rootInfo.rootVes).over(rootInfo.rootVes)
+      .pos(rootInfo.posRelativeToRootVeViewportPx).createdAt("ignored-popup-title").build();
+  }
   const hitTop = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
   if (hitTop) { return hitTop; }
   type RootResolver = (info: RootInfo) => RootInfo;
