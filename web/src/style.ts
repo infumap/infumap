@@ -125,7 +125,7 @@ export let LIGHT_BORDER_COLOR = "#e1e3e1"; // matches chrome v120 color scheme.
 
 export let BORDER_COLOR = "#c9d5e2"; // slate-300.
 
-export let SELECTED_DARK = "#d8d8d8";
+export let SELECTED_DARK = "#d4d9e1";
 
 export let SELECTED_LIGHT = "#f3f3f3";
 
