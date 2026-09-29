@@ -40,6 +40,7 @@ import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret"
 import { CursorEventState } from "../input/state";
 import { openRemoteFileInNewTab } from "../util/remoteFile";
 import { calcPopupActionStripLayout } from "../util/popupHeaderActions";
+import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 
 
 export interface ImageItem extends ImageMeasurable, XSizableItem, AttachmentsItem, DataItem, TitledItem {
@@ -342,7 +343,9 @@ export const ImageFns = {
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    if (visualElement.flags & VisualElementFlags.Popup) {
+    const isSoloImage = visualElement.parentPath != null &&
+      VeFns.veidFromPath(visualElement.parentPath).itemId == SOLO_ITEM_HOLDER_PAGE_UID;
+    if ((visualElement.flags & VisualElementFlags.Popup) || isSoloImage) {
       if (visualElement.displayItem.origin == null) {
         window.open('/files/' + visualElement.displayItem.id, '_blank');
       } else {
