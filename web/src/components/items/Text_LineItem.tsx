@@ -145,7 +145,7 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
-        <Show when={emoji()} fallback={<i class={`fas fa-font`} />}>
+        <Show when={emoji()} fallback={<i class={`far fa-file-lines`} />}>
           <span class="inline-block leading-none"
             style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
             {emoji()}

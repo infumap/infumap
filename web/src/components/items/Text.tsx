@@ -344,7 +344,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
             `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
             `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
-          <Show when={emoji()} fallback={<i class="fas fa-font" />}>
+          <Show when={emoji()} fallback={<i class="far fa-file-lines" />}>
             <span class="inline-block leading-none"
               style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
               {emoji()}

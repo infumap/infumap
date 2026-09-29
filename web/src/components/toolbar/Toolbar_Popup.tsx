@@ -586,7 +586,7 @@ export const Toolbar_Popup: Component = () => {
           DEFAULT_NOTE_ICON_TEXT;
   const defaultItemIconClass = (): string =>
     isFile(getToolbarFocusItem(store)) ? "fas fa-file" :
-      isText(getToolbarFocusItem(store)) ? "fas fa-font" :
+      isText(getToolbarFocusItem(store)) ? "far fa-file-lines" :
         isPassword(getToolbarFocusItem(store)) ? "fas fa-eye-slash" :
           "fas fa-sticky-note";
   const itemIconLabel = (): string =>
