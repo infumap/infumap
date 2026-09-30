@@ -701,7 +701,12 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     store.movingItemTargetCalendarInfo.set(null);
   }
 
-  if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+  if (hasValidMoveTarget && attachmentDropTargetIsActive &&
+    (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid || asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified)) {
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), -1);
+  }
+
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
     const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
     const xOffsetPx = desktopPosPx.x - viewportBoundsPx.x;
     const yOffsetPx = desktopPosPx.y - viewportBoundsPx.y;

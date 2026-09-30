@@ -33,11 +33,14 @@ import { ItemGeometry } from "../item-geometry";
 /**
  * For arrangements where items are scaled to fit (e.g. grid, justified), render attachments of the
  * item at the specified block size, rather than the block size implied by the item's scaling.
+ * If canAttach is true, also ensure the item has an attach (drop target) hitbox, since the in-cell
+ * geometry of most item types does not include one.
  */
-export function setNaturalAttachmentBlockSizePx(store: StoreContextModel, item: Item, geometry: ItemGeometry, blockSizePx: number) {
+export function setNaturalAttachmentBlockSizePx(store: StoreContextModel, item: Item, geometry: ItemGeometry, blockSizePx: number, canAttach: boolean) {
   const { displayItem } = getVePropertiesForItem(store, item);
-  const attachmentCount = isAttachmentsItem(displayItem) ? asAttachmentsItem(displayItem).computed_attachments.length : 0;
-  setGeometryAttachmentBlockSizePx(geometry, attachmentCount, blockSizePx);
+  const isAttachments = isAttachmentsItem(displayItem);
+  const attachmentCount = isAttachments ? asAttachmentsItem(displayItem).computed_attachments.length : 0;
+  setGeometryAttachmentBlockSizePx(geometry, attachmentCount, blockSizePx, canAttach && isAttachments);
 }
 
 
