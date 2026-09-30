@@ -1031,6 +1031,7 @@ pub(super) async fn handle_empty_trash<'a>(
   let mut img_cache_count = 0;
   let mut object_count = 0;
   let mut touched_container_ids = HashSet::new();
+  let mut deleted_item_ids = vec![];
   delete_recursive(
     &mut db,
     object_store,
@@ -1042,6 +1043,7 @@ pub(super) async fn handle_empty_trash<'a>(
     &mut img_cache_count,
     &mut object_count,
     &mut touched_container_ids,
+    &mut deleted_item_ids,
   )
   .await?;
   let sync_ack = build_sync_ack(&db, &session.user_id, &touched_container_ids);
@@ -1051,6 +1053,10 @@ pub(super) async fn handle_empty_trash<'a>(
   result.insert("itemCount".to_owned(), Value::Number(count.into()));
   result.insert("imageCacheCount".to_owned(), Value::Number(img_cache_count.into()));
   result.insert("objectCount".to_owned(), Value::Number(object_count.into()));
+  result.insert(
+    "deletedItemIds".to_owned(),
+    Value::Array(deleted_item_ids.into_iter().map(Value::String).collect()),
+  );
   insert_sync_ack(&mut result, sync_ack)?;
 
   Ok(Some(serde_json::to_string(&result)?))
@@ -1068,6 +1074,7 @@ async fn delete_recursive(
   img_cache_count: &mut u64,
   object_count: &mut u64,
   touched_container_ids: &mut HashSet<Uid>,
+  deleted_item_ids: &mut Vec<Uid>,
 ) -> InfuResult<()> {
   for attachment_id in db.item.get_attachment_ids(&item_id)? {
     delete_recursive(
@@ -1081,6 +1088,7 @@ async fn delete_recursive(
       img_cache_count,
       object_count,
       touched_container_ids,
+      deleted_item_ids,
     )
     .await?;
   }
@@ -1096,6 +1104,7 @@ async fn delete_recursive(
       img_cache_count,
       object_count,
       touched_container_ids,
+      deleted_item_ids,
     )
     .await?;
   }
@@ -1142,6 +1151,7 @@ async fn delete_recursive(
     }
     debug!("Deleted item '{}' from database.", item_id);
 
+    deleted_item_ids.push(item_id);
     *count = *count + 1;
   }
 

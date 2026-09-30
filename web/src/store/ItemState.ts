@@ -181,6 +181,29 @@ export const itemState = {
     items.delete(id);
   },
 
+  /**
+   * Remove items that have been deleted on the server (e.g. by emptying trash). Items may be
+   * present only because something else (e.g. a link) caused them to be loaded individually,
+   * so they are removed by id rather than by walking the relationship tree.
+   */
+  removeDeletedItems: (ids: Array<Uid>): void => {
+    for (const id of ids) {
+      const item = items.get(id);
+      if (!item) { continue; }
+      const parentItem = items.get(item.parentId);
+      if (parentItem) {
+        if (item.relationshipToParent == RelationshipToParent.Child && isContainer(parentItem)) {
+          const containerParentItem = asContainerItem(parentItem);
+          containerParentItem.computed_children = containerParentItem.computed_children.filter(cid => cid != id);
+        } else if (item.relationshipToParent == RelationshipToParent.Attachment && isAttachmentsItem(parentItem)) {
+          const attachmentsParentItem = asAttachmentsItem(parentItem);
+          attachmentsParentItem.computed_attachments = attachmentsParentItem.computed_attachments.filter(aid => aid != id);
+        }
+      }
+      items.delete(id);
+    }
+  },
+
   setItemFromServerObject: (itemObject: object, origin: string | null): void => {
     itemState.upsertItemFromServerObject(itemObject, origin);
   },

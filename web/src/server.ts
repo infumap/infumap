@@ -239,6 +239,7 @@ export interface EmptyTrashResult {
   itemCount: number,
   imageCacheCount: number,
   objectCount: number,
+  deletedItemIds: Array<Uid>,
 }
 
 export interface SyncContainerSubscription {
@@ -893,6 +894,7 @@ export const server = {
           itemCount: response.itemCount,
           imageCacheCount: response.imageCacheCount,
           objectCount: response.objectCount,
+          deletedItemIds: Array.isArray(response.deletedItemIds) ? response.deletedItemIds : [],
         };
       });
   },
