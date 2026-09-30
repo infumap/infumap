@@ -29,7 +29,7 @@ import { VesCache } from "./ves-cache";
 import { itemState } from "../store/ItemState";
 import { RelationshipToParent } from "./relationship-to-parent";
 import { GRID_SIZE, Z_INDEX_GLOBAL_ITEMS, Z_INDEX_GLOBAL_MOVING, Z_INDEX_GLOBAL_POPUP } from "../constants";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { ArrangeItemFlags } from "./arrange/item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 
@@ -989,10 +989,33 @@ export const VeFns = {
     return VeFns.desktopPxToPageGr(store, currentPageVe, desktopPosPx);
   },
 
+  /**
+   * Like desktopPxToPageGr, but in the coordinate space source-anchored popups are positioned in. This differs
+   * only for document pages, which are not laid out on the page's spatial grid.
+   */
+  desktopPxToPopupContainerGr: (store: StoreContextModel, pageVe: VisualElement, desktopPosPx: Vector): Vector | null => {
+    if (!isPage(pageVe.displayItem) || asPageItem(pageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Document) {
+      return VeFns.desktopPxToPageGr(store, pageVe, desktopPosPx);
+    }
+    if (!pageVe.childAreaBoundsPx || !pageVe.viewportBoundsPx) { return null; }
+
+    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
+    const scrollVeid = VeFns.actualVeidFromVe(pageVe);
+    const scrollXPx = Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(scrollVeid);
+    const scrollYPx = Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(scrollVeid);
+    const blockSizePx = PageFns.calcDocumentBlockSizePx(asPageItem(pageVe.displayItem), pageVe.childAreaBoundsPx.w);
+
+    return {
+      x: (desktopPosPx.x - viewportBoundsPx.x + scrollXPx) / blockSizePx.w * GRID_SIZE,
+      y: (desktopPosPx.y - viewportBoundsPx.y + scrollYPx) / blockSizePx.h * GRID_SIZE,
+    };
+  },
+
   desktopPxToPopupTopLeftAnchorGr: (store: StoreContextModel, desktopPosPx: Vector, pageVe?: VisualElement | null): Vector | null => {
-    const topLeftGr = pageVe
-      ? VeFns.desktopPxToPageGr(store, pageVe, desktopPosPx)
-      : VeFns.desktopPxToCurrentPageGr(store, desktopPosPx);
+    const currentPagePath = store.history.currentPagePath();
+    const anchorPageVe = pageVe ?? (currentPagePath ? VesCache.current.readNode(currentPagePath) : null);
+    if (!anchorPageVe) { return null; }
+    const topLeftGr = VeFns.desktopPxToPopupContainerGr(store, anchorPageVe, desktopPosPx);
     if (!topLeftGr) { return null; }
 
     return {

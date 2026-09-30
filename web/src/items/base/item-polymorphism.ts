@@ -351,7 +351,8 @@ export const ItemFns = {
     const treatAsAttachment = !isImage(item) && (isFromAttachment || isActualAttachment);
     const shouldUseSourceTopLeftAnchor = treatAsAttachment ||
       isInSpatialStretchPage(visualElement) ||
-      isInCalendarPage(visualElement);
+      isInCalendarPage(visualElement) ||
+      isInDocumentPage(visualElement);
     const { sourceTopLeftGr, insidePopup } = calcSourceAnchoredPopupContext(visualElement, store, shouldUseSourceTopLeftAnchor, clickPosPx);
 
     const popupSpec = {
@@ -442,6 +443,11 @@ function calcSourceAnchoredPopupContext(
 function isInSpatialStretchPage(visualElement: VisualElement): boolean {
   const page = nearestParentPage(visualElement);
   return page != null && asPageItem(page.displayItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
+}
+
+function isInDocumentPage(visualElement: VisualElement): boolean {
+  const page = nearestParentPage(visualElement);
+  return page != null && asPageItem(page.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
 }
 
 function isInCalendarPage(visualElement: VisualElement): boolean {

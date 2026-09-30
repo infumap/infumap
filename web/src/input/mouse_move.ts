@@ -43,7 +43,7 @@ import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { itemState } from "../store/ItemState";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
-import { calcSpatialPopupGeometry } from "../layout/arrange/popup";
+import { calcSpatialPopupGeometry, popupUsesParentBlockCoordinates, shouldArrangeSourceAnchoredPopup } from "../layout/arrange/popup";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { CATALOG_VERTICAL_MARGIN_PX } from "../layout/catalog";
 import {
@@ -521,7 +521,7 @@ function changeMouseActionStateMaybe(
       const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
       const parentPage = asPageItem(parentVe.displayItem);
       const popupItem = activeVisualElement.displayItem;
-      if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      if (popupUsesParentBlockCoordinates(store, parentPage)) {
         MouseActionState.setStartWidthBl(activeVisualElement.linkItemMaybe!.spatialWidthGr / GRID_SIZE);
 
         if (isNote(popupItem) && (asNoteItem(popupItem).flags & NoteFlags.ExplicitHeight)) {
@@ -663,7 +663,7 @@ function changeMouseActionStateMaybe(
       const popupItem = popupVe.displayItem;
       const parentVe = MouseActionState.readVisualElement(popupVe.parentPath)!;
       const parentPage = asPageItem(parentVe.displayItem);
-      if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+      if (popupUsesParentBlockCoordinates(store, parentPage)) {
         let popupPositionGr;
 
         // Check for attachment popup
@@ -672,7 +672,7 @@ function changeMouseActionStateMaybe(
         const isSourceTopLeftAnchored = currentPopupSpec?.sourceTopLeftGr != null && !isPage(popupItem) && !isImage(popupItem);
 
         if (isFromAttachment || isSourceTopLeftAnchored) {
-          const { linkItem, widthGr, heightGr } = calcSpatialPopupGeometry(store, parentPage, currentPopupSpec!.actualVeid, parentVe.childAreaBoundsPx!);
+          const { linkItem, widthGr, heightGr } = calcSpatialPopupGeometry(store, parentPage, currentPopupSpec!.actualVeid, parentVe.childAreaBoundsPx!, parentVe.viewportBoundsPx);
           const centerX = linkItem.spatialPositionGr.x + (widthGr ?? 0) / 2.0;
           const centerY = linkItem.spatialPositionGr.y + (heightGr ?? 0) / 2.0;
           popupPositionGr = { x: centerX, y: centerY };
@@ -1005,7 +1005,10 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
   const popupResizeOnePxSizeBl = MouseActionState.getOnePxSizeBl()!;
   const parentVe = MouseActionState.readVisualElement(activeVe.parentPath)!;
   const parentPage = asPageItem(parentVe.displayItem);
-  const deltaMultiplier = parentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar ? 1.0 : 2.0;
+  // Popups are resized about their center, except source-anchored popups that haven't been moved, which keep their
+  // top-left fixed (see calcSpatialPopupGeometry).
+  const keepsTopLeftFixed = shouldArrangeSourceAnchoredPopup(store) && store.history.currentPopupSpec()?.pendingPositionGr == null;
+  const deltaMultiplier = parentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar || keepsTopLeftFixed ? 1.0 : 2.0;
   const deltaBl = {
     x: deltaPx.x * popupResizeOnePxSizeBl.x * deltaMultiplier,
     y: deltaPx.y * popupResizeOnePxSizeBl.y * deltaMultiplier
@@ -1317,12 +1320,14 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
   const isSourceTopLeftAnchored = currentPopupSpec?.sourceTopLeftGr != null && !isPage(popupItem) && !isImage(popupItem);
 
-  if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+  if (popupUsesParentBlockCoordinates(store, parentPage)) {
     const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
     const startPosBl = MouseActionState.getStartPosBl()!;
+    // Document pages have no block grid to snap to.
+    const quantizeBl = (vBl: number) => parentPage.arrangeAlgorithm == ArrangeAlgorithm.Document ? vBl : Math.round(vBl * 2.0) / 2.0;
     const deltaBl = {
-      x: Math.round(deltaPx.x * onePxSizeBl.x * 2.0) / 2.0,
-      y: Math.round(deltaPx.y * onePxSizeBl.y * 2.0) / 2.0
+      x: quantizeBl(deltaPx.x * onePxSizeBl.x),
+      y: quantizeBl(deltaPx.y * onePxSizeBl.y)
     };
     const newPositionGr = {
       x: (startPosBl.x + deltaBl.x) * GRID_SIZE,

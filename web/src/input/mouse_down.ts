@@ -22,6 +22,7 @@ import { ClientOnlyItemKind, Item, ItemType } from "../items/base/item";
 import { CompositeFns, CompositeItem, asCompositeItem, isComposite } from "../items/composite-item";
 import { isTable, TableFns } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
+import { popupUsesParentBlockCoordinates } from "../layout/arrange/popup";
 import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -726,12 +727,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         x: 1.0 / blockSizePx.w,
         y: 1.0 / blockSizePx.h
       };
-    } else if (parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
-      const containerInnerDimBl = PageFns.calcInnerSpatialDimensionsBl(parentPage);
-      onePxSizeBl = {
-        x: containerInnerDimBl.w / parent.childAreaBoundsPx!.w,
-        y: containerInnerDimBl.h / parent.childAreaBoundsPx!.h
-      };
+    } else if (popupUsesParentBlockCoordinates(store, parentPage)) {
+      onePxSizeBl = onePxSizeBlForPageChild(parentPage, parent);
     } else {
       const desktopBoundsPx = store.desktopMainAreaBoundsPx();
       onePxSizeBl = {

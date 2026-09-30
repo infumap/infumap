@@ -22,7 +22,7 @@ import { LinkFns, LinkItem, asLinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
-import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
@@ -412,6 +412,46 @@ function calcCellPopupGeometry(
 
 
 /**
+ * The coordinate space a source-anchored popup is positioned in, relative to the parent page.
+ */
+interface PopupContainer {
+  boundsPx: BoundingBox,
+  innerSizeBl: Dimensions,
+  visibleBoundsPx: BoundingBox,
+}
+
+/**
+ * Document pages don't have a spatial grid: children are laid out in a centered column using the document block
+ * size, and popups are rendered relative to the (scrollable) page viewport rather than the document column. So the
+ * popup container spans the viewport (or the column, if wider), using the document block size.
+ */
+function calcDocumentPopupContainer(
+  store: StoreContextModel,
+  currentPage: PageItem,
+  childAreaBoundsPx: BoundingBox,
+  viewportBoundsPx: BoundingBox,
+): PopupContainer {
+  const blockSizePx = PageFns.calcDocumentBlockSizePx(currentPage, childAreaBoundsPx.w);
+  const boundsPx = {
+    x: 0, y: 0,
+    w: Math.max(viewportBoundsPx.w, childAreaBoundsPx.w),
+    h: Math.max(viewportBoundsPx.h, childAreaBoundsPx.h),
+  };
+  const pageVeid = store.history.currentPageVeid()!;
+  return {
+    boundsPx,
+    innerSizeBl: { w: boundsPx.w / blockSizePx.w, h: boundsPx.h / blockSizePx.h },
+    visibleBoundsPx: {
+      x: Math.max(0, childAreaBoundsPx.w - viewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid),
+      y: Math.max(0, childAreaBoundsPx.h - viewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid),
+      w: viewportBoundsPx.w,
+      h: viewportBoundsPx.h,
+    },
+  };
+}
+
+
+/**
  * Calculates the geometry for a SpatialStretch popup.
  * This is the single source of truth for spatial popup geometry calculation.
  * Supports both page and image popups, as well as attachment popups.
@@ -420,7 +460,8 @@ export function calcSpatialPopupGeometry(
   store: StoreContextModel,
   currentPage: PageItem,
   popupVeid: { itemId: string, linkIdMaybe: string | null },
-  childAreaBoundsPx: BoundingBox
+  childAreaBoundsPx: BoundingBox,
+  viewportBoundsPx: BoundingBox | null = null,
 ): PopupGeometryResult {
   const li = createPopupLinkItem(currentPage, popupVeid);
   const actualLinkItemMaybe = popupVeid.linkIdMaybe == null ? null : asLinkItem(itemState.get(popupVeid.linkIdMaybe)!);
@@ -435,10 +476,15 @@ export function calcSpatialPopupGeometry(
   const isFromAttachment = currentPopupSpec?.isFromAttachment ?? false;
   const useSourceTopLeftAnchor = currentPopupSpec?.sourceTopLeftGr != null && !popupPage && !popupImage;
   const useCalendarNaturalSourcePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && useSourceTopLeftAnchor;
-  const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(currentPage);
+  const documentContainer = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Document && viewportBoundsPx != null
+    ? calcDocumentPopupContainer(store, currentPage, childAreaBoundsPx, viewportBoundsPx)
+    : null;
+  const parentInnerSizeBl = documentContainer?.innerSizeBl ?? PageFns.calcInnerSpatialDimensionsBl(currentPage);
+  const popupContainerBoundsPx = documentContainer?.boundsPx ?? zeroBoundingBoxTopLeft(childAreaBoundsPx);
+  const visibleBoundsPx = documentContainer?.visibleBoundsPx ?? desktopLocalBoundsPx;
   const parentBlockSizePx = {
-    w: childAreaBoundsPx.w / parentInnerSizeBl.w,
-    h: childAreaBoundsPx.h / parentInnerSizeBl.h,
+    w: popupContainerBoundsPx.w / parentInnerSizeBl.w,
+    h: popupContainerBoundsPx.h / parentInnerSizeBl.h,
   };
   const popupContainerInnerSizeBl = useCalendarNaturalSourcePopup
     ? calcNaturalCalendarInnerSizeBl(childAreaBoundsPx)
@@ -478,8 +524,7 @@ export function calcSpatialPopupGeometry(
         },
         widthGr,
         widthGr / targetAspect,
-        currentPage,
-        childAreaBoundsPx
+        parentInnerSizeBl,
       );
     } else if (currentPopupSpec?.sourcePositionGr) {
       // Page/image attachment popups still anchor from the attachment center.
@@ -487,9 +532,13 @@ export function calcSpatialPopupGeometry(
         currentPopupSpec.sourcePositionGr,
         widthGr,
         widthGr / targetAspect,
-        currentPage,
-        childAreaBoundsPx
+        parentInnerSizeBl,
       );
+    } else if (documentContainer) {
+      popupCenter = {
+        x: (visibleBoundsPx.x + visibleBoundsPx.w / 2.0) / parentBlockSizePx.w * GRID_SIZE,
+        y: (visibleBoundsPx.y + visibleBoundsPx.h / 2.0) / parentBlockSizePx.h * GRID_SIZE,
+      };
     } else {
       // Fallback to parent page default
       popupCenter = currentPage.defaultPopupPositionGr;
@@ -532,14 +581,17 @@ export function calcSpatialPopupGeometry(
     const heightGr = popupImage
       ? ItemFns.calcSpatialDimensionsBl(li).h * GRID_SIZE
       : nextWidthGr / targetAspect;
+    // Snap to the parent's half-block grid. Document pages have no such grid (rows are not block aligned), so
+    // snapping there would shift the popup relative to its source item.
+    const snapGr = (vGr: number) => documentContainer ? vGr : Math.round(vGr / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0);
     li.spatialPositionGr = {
-      x: Math.round((nextCenterGr.x - nextWidthGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
-      y: Math.round((nextCenterGr.y - heightGr / 2.0) / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0)
+      x: snapGr(nextCenterGr.x - nextWidthGr / 2.0),
+      y: snapGr(nextCenterGr.y - heightGr / 2.0),
     };
 
     const geometry = ItemFns.calcGeometry_Spatial(
       li,
-      zeroBoundingBoxTopLeft(childAreaBoundsPx),
+      popupContainerBoundsPx,
       popupContainerInnerSizeBl,
       false, true, true,
       hasChildChanges,
@@ -559,7 +611,7 @@ export function calcSpatialPopupGeometry(
   const sizeFit = shrinkPopupSizeUntilItFits(
     (nextWidthGr) => buildGeometry(adjustedPopupCenter, nextWidthGr).geometry,
     widthGr,
-    desktopLocalBoundsPx,
+    visibleBoundsPx,
     popupItem && isNote(popupItem) ? geometryCanFitVisibleWidth : geometryCanFitVisibleBounds,
   );
   widthGr = sizeFit.sizeValue;
@@ -567,7 +619,7 @@ export function calcSpatialPopupGeometry(
   wasAutoAdjusted = sizeFit.wasShrunk;
   let heightGr = buildGeometry(adjustedPopupCenter, widthGr).heightGr;
 
-  const translateIntoView = geometryTranslationIntoVisibleBounds(geometry, desktopLocalBoundsPx);
+  const translateIntoView = geometryTranslationIntoVisibleBounds(geometry, visibleBoundsPx);
   if (translateIntoView.dxPx !== 0 || translateIntoView.dyPx !== 0) {
     adjustedPopupCenter = {
       x: adjustedPopupCenter.x + (translateIntoView.dxPx * GRID_SIZE / geometry.blockSizePx.w),
@@ -579,7 +631,7 @@ export function calcSpatialPopupGeometry(
     wasAutoAdjusted = true;
   }
 
-  const residualTranslate = geometryTranslationIntoVisibleBounds(geometry, desktopLocalBoundsPx);
+  const residualTranslate = geometryTranslationIntoVisibleBounds(geometry, visibleBoundsPx);
   geometry = offsetGeometry(geometry, residualTranslate.dxPx, residualTranslate.dyPx);
   if (residualTranslate.dxPx !== 0 || residualTranslate.dyPx !== 0) {
     wasAutoAdjusted = true;
@@ -597,10 +649,8 @@ function clampPopupPositionToScreen(
   centerGr: { x: number, y: number },
   widthGr: number,
   heightGr: number,
-  currentPage: PageItem,
-  childAreaBoundsPx: BoundingBox
+  parentInnerSizeBl: Dimensions,
 ): { x: number, y: number } {
-  const parentInnerSizeBl = PageFns.calcInnerSpatialDimensionsBl(currentPage);
   const pageWidthGr = parentInnerSizeBl.w * GRID_SIZE;
   const pageHeightGr = parentInnerSizeBl.h * GRID_SIZE;
 
@@ -673,12 +723,22 @@ export function shouldArrangeSourceAnchoredPopup(store: StoreContextModel): bool
   return (currentPopupSpec.isFromAttachment ?? false) || currentPopupSpec.sourceTopLeftGr != null;
 }
 
+/**
+ * Whether the current popup is positioned and sized in the parent page's block coordinates (see
+ * calcSpatialPopupGeometry), as opposed to normalized desktop coordinates (see calcCellPopupGeometry).
+ */
+export function popupUsesParentBlockCoordinates(store: StoreContextModel, parentPage: PageItem): boolean {
+  return parentPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch ||
+    (parentPage.arrangeAlgorithm == ArrangeAlgorithm.Document && shouldArrangeSourceAnchoredPopup(store));
+}
+
 export function arrangeSourceAnchoredPopupPath(
   store: StoreContextModel,
   currentPage: PageItem,
   currentPath: VisualElementPath,
   parentArrangeAlgorithm: string,
   childAreaBoundsPx: BoundingBox,
+  viewportBoundsPx: BoundingBox | null = null,
 ): VisualElementPath {
   const currentPopupSpec = store.history.currentPopupSpec()!;
   const { geometry, linkItem, actualLinkItemMaybe, wasAutoAdjusted } = calcSpatialPopupGeometry(
@@ -686,6 +746,7 @@ export function arrangeSourceAnchoredPopupPath(
     currentPage,
     currentPopupSpec.actualVeid,
     childAreaBoundsPx,
+    viewportBoundsPx,
   );
   const popupVes = arrangeItem(
     store,
