@@ -242,9 +242,9 @@ function urlForInterval(urls: Array<NoteUrl>, start: number, end: number): strin
 
 function urlForInsertedText(urls: Array<NoteUrl>, start: number, end: number): string | null {
   if (start == end) {
+    // Text typed at either edge of a link is not part of the link.
     for (const url of urls) {
       if (url.start < start && start < url.end) { return url.url; }
-      if (start == url.end && url.start < url.end) { return url.url; }
     }
     return null;
   }
@@ -450,15 +450,17 @@ export function concatNoteInlineMarks(
   return normalizeNoteInlineMarks([...normalizeNoteInlineMarks(leftMarks, leftText), ...shiftedRightMarks], leftText + rightText);
 }
 
-export function updateNoteUrlsForTextChange(
-  urls: Array<NoteUrl>,
-  oldText: string,
-  newText: string,
-): Array<NoteUrl> {
-  const normalized = normalizeNoteUrls(urls, oldText);
+type NoteTextChangeRange = {
+  oldStart: number,
+  oldEnd: number,
+  newStart: number,
+  newEnd: number,
+};
 
+function noteTextChangeRange(oldText: string, newText: string, maxPrefixLength: number): NoteTextChangeRange {
   let prefixLength = 0;
   while (
+    prefixLength < maxPrefixLength &&
     prefixLength < oldText.length &&
     prefixLength < newText.length &&
     oldText[prefixLength] == newText[prefixLength]
@@ -477,10 +479,37 @@ export function updateNoteUrlsForTextChange(
     --newSuffixStart;
   }
 
-  const oldRangeStart = prefixLength;
-  const oldRangeEnd = oldSuffixStart;
-  const newRangeStart = prefixLength;
-  const newRangeEnd = newSuffixStart;
+  return { oldStart: prefixLength, oldEnd: oldSuffixStart, newStart: prefixLength, newEnd: newSuffixStart };
+}
+
+/**
+ * A text diff cannot place an edit within a run of repeated characters, e.g. typing "a" inside
+ * or after the link "aa" gives the same text. The caret after the edit resolves this, so typing
+ * inside a link extends it and typing after it does not. The caret is only trusted when it
+ * yields a pure insertion or deletion.
+ */
+function noteTextChangeRangeWithCaret(oldText: string, newText: string, caretAfter: number | null): NoteTextChangeRange {
+  const unconstrained = noteTextChangeRange(oldText, newText, Number.MAX_SAFE_INTEGER);
+  if (caretAfter == null || caretAfter < 0 || caretAfter > newText.length) { return unconstrained; }
+  const insertedLength = Math.max(0, newText.length - oldText.length);
+  const constrained = noteTextChangeRange(oldText, newText, caretAfter - insertedLength);
+  const pure = constrained.oldStart == constrained.oldEnd || constrained.newStart == constrained.newEnd;
+  return pure ? constrained : unconstrained;
+}
+
+export function updateNoteUrlsForTextChange(
+  urls: Array<NoteUrl>,
+  oldText: string,
+  newText: string,
+  caretAfter: number | null = null,
+): Array<NoteUrl> {
+  const normalized = normalizeNoteUrls(urls, oldText);
+
+  const range = noteTextChangeRangeWithCaret(oldText, newText, caretAfter);
+  const oldRangeStart = range.oldStart;
+  const oldRangeEnd = range.oldEnd;
+  const newRangeStart = range.newStart;
+  const newRangeEnd = range.newEnd;
   const delta = (newRangeEnd - newRangeStart) - (oldRangeEnd - oldRangeStart);
 
   const result: Array<NoteUrl> = [];
@@ -619,6 +648,11 @@ function noteUrlAtPosition(urls: Array<NoteUrl>, text: string, position: number)
   return null;
 }
 
+/**
+ * A link is edited as a unit: a caret or selection within one link targets the whole link, so
+ * changing or removing it never splits it. A selection extending beyond a link targets exactly
+ * the selection, prefilled with the link's url so that applying it extends the link.
+ */
 function noteUrlEditTarget(note: NoteItem, selection: NoteUrlEditSelection | null | undefined): NoteUrlEditTarget {
   const normalized = normalizeNoteUrls(note.urls, note.title);
   if (selection != null) {
@@ -626,7 +660,11 @@ function noteUrlEditTarget(note: NoteItem, selection: NoteUrlEditSelection | nul
     const end = clampTextOffset(note.title, Math.max(selection.start, selection.end));
     if (start != end) {
       const containing = normalized.find(url => url.start <= start && url.end >= end);
-      return { start, end, value: containing?.url ?? "" };
+      if (containing != null) {
+        return { start: containing.start, end: containing.end, value: containing.url };
+      }
+      const overlappingUrls = new Set(normalized.filter(url => url.start < end && url.end > start).map(url => url.url));
+      return { start, end, value: overlappingUrls.size == 1 ? [...overlappingUrls][0] : "" };
     }
 
     const containing = noteUrlAtPosition(normalized, note.title, start);
@@ -666,6 +704,12 @@ function setNoteUrlForRange(
     result.push({ start: rangeStart, end: rangeEnd, url: trimmedUrl });
   }
   return normalizeNoteUrls(result, text);
+}
+
+function removeNoteUrlsOverlappingRange(urls: Array<NoteUrl>, text: string, start: number, end: number): Array<NoteUrl> {
+  const rangeStart = clampTextOffset(text, Math.min(start, end));
+  const rangeEnd = clampTextOffset(text, Math.max(start, end));
+  return normalizeNoteUrls(urls, text).filter(url => url.end <= rangeStart || url.start >= rangeEnd);
 }
 
 
@@ -1198,9 +1242,12 @@ export const NoteFns = {
     return noteUrlEditTarget(noteItem, selection).value;
   },
 
+  /** An empty url removes every link the target touches, whole. */
   setUrlForToolbarEdit: (noteItem: NoteItem, selection: NoteUrlEditSelection | null | undefined, url: string): void => {
     const target = noteUrlEditTarget(noteItem, selection);
-    noteItem.urls = setNoteUrlForRange(noteItem.urls, noteItem.title, target.start, target.end, url);
+    noteItem.urls = url.trim() == ""
+      ? removeNoteUrlsOverlappingRange(noteItem.urls, noteItem.title, target.start, target.end)
+      : setNoteUrlForRange(noteItem.urls, noteItem.title, target.start, target.end, url);
   },
 };
 
