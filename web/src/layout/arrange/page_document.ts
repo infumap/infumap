@@ -42,6 +42,7 @@ import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
+import { setNaturalAttachmentBlockSizePx } from "./attachments";
 import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
 import { queryChatCompositeActivityLayoutPx } from "../../items/query-chat-activity-ui";
 import { isLinkInTrash } from "../../items/trash-link";
@@ -145,6 +146,7 @@ export function arrange_document_page(
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
     alignDocumentMoveOutHitbox(geometry, blockSizePx, displayItem_pageWithChildren.docWidthBl);
+    setNaturalAttachmentBlockSizePx(store, child.childItem, geometry, blockSizePx.w, false);
     const documentChildGeometry: ItemGeometry = {
       ...geometry,
       row: displayIdx,
@@ -503,6 +505,7 @@ function arrangeMovingItemInDocument(
     false,
     store.smallScreenMode(),
   );
+  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, blockSizePx.w, false);
 
   return arrangeItem(
     store,
