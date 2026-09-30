@@ -70,7 +70,8 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
-  const shouldReserveLeadingBlock = () => shouldRenderIcon() || (shouldShowLinkMarking() && !isInCalendarPage());
+  const shouldReserveLeadingBlock = () => shouldRenderIcon() ||
+    (shouldShowLinkMarking() && iconContext() != ItemIconRenderContext.TableAttachment);
   const emoji = () => PasswordFns.emoji(passwordItem(), iconContext());
   const trailingControlsWidthPx = () => oneBlockWidthPx() * 1.9;
 

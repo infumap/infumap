@@ -83,7 +83,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
     (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
     showTriangleDetail();
-  const shouldReserveLeadingBlock = () => shouldRenderIcon() || (shouldShowLinkMarking() && !isInCalendarPage());
+  const shouldReserveLeadingBlock = () => shouldRenderIcon() ||
+    (shouldShowLinkMarking() && iconContext() != ItemIconRenderContext.TableAttachment);
 
   const leftPx = () => shouldReserveLeadingBlock()
     ? boundsPx().x + oneBlockWidthPx()
