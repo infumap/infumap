@@ -931,7 +931,7 @@ export const NoteFns = {
     return calcGeometryOfAttachmentItemImpl(note, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (note: NoteMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean, isTableAttachment: boolean = false): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
     const boundsPx = {
       x: blockSizePx.w * col,
@@ -939,7 +939,7 @@ export const NoteFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
-    const iconContext = listItemIconRenderContext(inTable, !expandable);
+    const iconContext = listItemIconRenderContext(inTable, isTableAttachment);
     const showsIcon = NoteFns.showsIcon(note, iconContext);
     const clickAreaBoundsPx = {
       x: showsIcon ? blockSizePx.w : 0.0,
