@@ -307,6 +307,7 @@ function calcCellPopupGeometry(
   const renderAsFixed = (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
+    currentPage.arrangeAlgorithm == ArrangeAlgorithm.Document ||
     currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar);
   const useNaturalBlocks = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && !popupPage && !popupImage;
   if (useNaturalBlocks && popupItem && isNote(popupItem)) {
