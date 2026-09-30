@@ -23,7 +23,7 @@ import { COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, LIN
 import { HitboxFlags } from "../../layout/hitbox";
 import { VisualElementProps } from "../VisualElement";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
@@ -110,9 +110,8 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null &&
-        (props.visualElement.flags & VisualElementFlags.Detailed &&
-          (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)) &&
+      <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) &&
+        !!(props.visualElement.flags & VisualElementFlags.Detailed) &&
         showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>

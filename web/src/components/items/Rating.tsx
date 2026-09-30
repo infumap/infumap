@@ -21,7 +21,7 @@ import { asRatingItem } from "../../items/rating-item";
 import { COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, LINE_HEIGHT_PX } from "../../constants";
 import { VisualElementProps } from "../VisualElement";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
@@ -118,9 +118,8 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null &&
-                  (props.visualElement.flags & VisualElementFlags.Detailed &&
-                  (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM)) &&
+      <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) &&
+                  !!(props.visualElement.flags & VisualElementFlags.Detailed) &&
                   showTriangleDetail()}>
         <InfuLinkTriangle />
       </Show>

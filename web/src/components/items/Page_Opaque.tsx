@@ -31,6 +31,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement } from "./helper";
+import { linkHasTriangle } from "../../layout/link-triangle";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -109,7 +110,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     </Show>;
 
   const renderIsLinkMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && pageFns().showTriangleDetail()}>
+    <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && pageFns().showTriangleDetail()}>
       <InfuLinkTriangle />
     </Show>;
 

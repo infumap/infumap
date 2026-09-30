@@ -59,20 +59,7 @@ import {
 import { Item, ItemType } from "../../items/base/item";
 import { getMovingTreeItemInParentMaybe } from "./util";
 import { movingItemCellBoundsInPagePx } from "./moving";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "./page_list";
-
-function shouldShowLinkSettingsTriangle(linkItemMaybe: LinkItem | null): boolean {
-  return linkItemMaybe != null && linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM;
-}
-
-function linkSettingsTriangleHitbox() {
-  return HitboxFns.create(HitboxFlags.TriangleLinkSettings, {
-    x: 0,
-    y: 0,
-    w: LINK_TRIANGLE_SIZE_PX + 2,
-    h: LINK_TRIANGLE_SIZE_PX + 2,
-  });
-}
+import { linkHasTriangle, linkTriangleHitbox } from "../link-triangle";
 
 function openPopupHitboxes(
   popupClickAreaBoundsPx: { x: number, y: number, w: number, h: number },
@@ -113,7 +100,7 @@ function calendarItemHitboxes(
   clickAreaBoundsPx: { x: number, y: number, w: number, h: number },
   popupClickAreaBoundsPx: { x: number, y: number, w: number, h: number },
 ): Array<ReturnType<typeof HitboxFns.create>> {
-  const showLinkSettingsTriangle = shouldShowLinkSettingsTriangle(linkItemMaybe);
+  const showLinkSettingsTriangle = linkHasTriangle(linkItemMaybe);
   const hitboxes = isRating(displayItem)
     ? [
       HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
@@ -126,7 +113,7 @@ function calendarItemHitboxes(
     ];
 
   if (showLinkSettingsTriangle) {
-    hitboxes.push(linkSettingsTriangleHitbox());
+    hitboxes.push(linkTriangleHitbox());
   }
 
   return hitboxes;

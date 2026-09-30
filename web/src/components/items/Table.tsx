@@ -28,7 +28,7 @@ import { compositeMoveOutHitboxBoundsPx } from "../../layout/composite-move-out"
 import { BoundingBox } from "../../util/geometry";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
 import { tabularColumnLayouts } from "../../layout/tabular";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -289,8 +289,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <Show when={showMoveOutOfCompositeArea()}>
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
         </Show>
-        <Show when={props.visualElement.linkItemMaybe != null &&
-          (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+        <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) &&
           !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
           showTriangleDetail()}>
           <InfuLinkTriangle />

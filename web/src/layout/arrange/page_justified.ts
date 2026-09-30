@@ -33,7 +33,8 @@ import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getC
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTargetRowHeightPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath } from "./popup";
-import { addLinkTriangleHitboxMaybe, getMovingTreeItemInParentMaybe } from "./util";
+import { getMovingTreeItemInParentMaybe } from "./util";
+import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
 import createJustifiedLayout from "justified-layout";
 

@@ -27,7 +27,7 @@ import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { itemState } from "../../store/ItemState";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { cloneBoundingBox } from "../../util/geometry";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 
 
@@ -121,8 +121,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     </Show>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
+    <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                  `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

@@ -26,7 +26,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { isPage } from "../../items/page-item";
 
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -338,7 +338,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
               style={`left: ${lineBoundsPx().x}px; top: ${lineBoundsPx().y - 1}px; width: ${lineBoundsPx().w}px; height: 2px;`} />
           )}
         </Show>
-        <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+        <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) &&
           !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
           showTriangleDetail()}>
           <InfuLinkTriangle />

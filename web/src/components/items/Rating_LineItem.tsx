@@ -24,7 +24,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createLineHighlightBoundsPxFn } from "./helper";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
 
 
@@ -67,8 +67,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
     </Switch>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-                showTriangleDetail()}>
+    <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+

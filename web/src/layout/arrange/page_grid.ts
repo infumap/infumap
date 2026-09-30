@@ -35,7 +35,8 @@ import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalo
 import { calcJustifiedPagePaddingPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
-import { addLinkTriangleHitboxMaybe, getMovingTreeItemInParentMaybe } from "./util";
+import { getMovingTreeItemInParentMaybe } from "./util";
+import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
 
 

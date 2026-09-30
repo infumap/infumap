@@ -31,7 +31,7 @@ import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { isPage, asPageItem, ArrangeAlgorithm } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
@@ -71,8 +71,7 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
     ? ItemIconRenderContext.TableAttachment
     : TextFns.iconRenderContextFromVisualElement(props.visualElement);
   const shouldRenderIcon = () => TextFns.showsIcon(textItem(), iconContext());
-  const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
-    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+  const shouldShowLinkMarking = () => linkHasTriangle(props.visualElement.linkItemMaybe) &&
     showTriangleDetail();
   const shouldReserveLeadingBlock = () => shouldRenderIcon() ||
     (shouldShowLinkMarking() && iconContext() != ItemIconRenderContext.TableAttachment);
