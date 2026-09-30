@@ -414,7 +414,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         class={`absolute ${borderClass()} rounded-xs`}
         style={`left: 0px; top: 0px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow: hidden; z-index: 1;`}>
         <div class="absolute"
-          style={`left: 0px; top: 0px; width: ${childArea.w}px; height: ${childArea.h}px;`}>
+          style={`left: ${-borderWidthPx()}px; top: ${-borderWidthPx()}px; width: ${childArea.w}px; height: ${childArea.h}px;`}>
           <div class="absolute flex items-center justify-center font-bold"
             style={`left: ${leftRightMarginPx}px; top: ${titleTopPx}px; width: ${columnWidthPx}px; height: ${titleHeightPx}px; ` +
               `font-size: ${titleFontSizePx}px; color: #111827; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;`}>
@@ -541,6 +541,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const borderClass = () => useFlatWorkspaceChrome()
     ? ''
     : `border border-[#777] ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
+
+  // child area coordinates are relative to the outer bounds, but content is positioned inside the border.
+  const borderWidthPx = () => useFlatWorkspaceChrome() ? 0 : 1;
 
   const renderShadowMaybe = () =>
     <Show when={!props.suppressLocalShadow &&
