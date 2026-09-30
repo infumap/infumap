@@ -260,7 +260,7 @@ export function arrange_grid_page(
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
-        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Grid, childAreaBoundsPx)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Grid, childAreaBoundsPx, geometry.viewportBoundsPx)
         : arrangeCellPopupPath(store);
     }
   }

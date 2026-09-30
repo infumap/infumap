@@ -728,7 +728,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         y: 1.0 / blockSizePx.h
       };
     } else if (popupUsesParentBlockCoordinates(store, parentPage)) {
-      onePxSizeBl = onePxSizeBlForPageChild(parentPage, parent);
+      const popupBlockSizePx = PageFns.calcNonSpatialPopupBlockSizePxMaybe(parentPage, parent.childAreaBoundsPx!);
+      onePxSizeBl = popupBlockSizePx == null
+        ? onePxSizeBlForPageChild(parentPage, parent)
+        : { x: 1.0 / popupBlockSizePx.w, y: 1.0 / popupBlockSizePx.h };
     } else {
       const desktopBoundsPx = store.desktopMainAreaBoundsPx();
       onePxSizeBl = {

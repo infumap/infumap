@@ -32,7 +32,7 @@ import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationship
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTargetRowHeightPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
-import { arrangeCellPopupPath } from "./popup";
+import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
 import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
@@ -166,7 +166,9 @@ export function arrange_justified_page(
   if (flags & ArrangeItemFlags.IsTopRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
-      pageRelationships.popupPath = arrangeCellPopupPath(store);
+      pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Justified, childAreaBoundsPx, geometry.viewportBoundsPx)
+        : arrangeCellPopupPath(store);
     }
   }
 

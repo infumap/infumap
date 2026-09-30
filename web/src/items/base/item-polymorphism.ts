@@ -352,7 +352,7 @@ export const ItemFns = {
     const shouldUseSourceTopLeftAnchor = treatAsAttachment ||
       isInSpatialStretchPage(visualElement) ||
       isInCalendarPage(visualElement) ||
-      isInDocumentPage(visualElement);
+      isInPageWithNonSpatialPopupContainer(visualElement);
     const { sourceTopLeftGr, insidePopup } = calcSourceAnchoredPopupContext(visualElement, store, shouldUseSourceTopLeftAnchor, clickPosPx);
 
     const popupSpec = {
@@ -445,9 +445,9 @@ function isInSpatialStretchPage(visualElement: VisualElement): boolean {
   return page != null && asPageItem(page.displayItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
 }
 
-function isInDocumentPage(visualElement: VisualElement): boolean {
+function isInPageWithNonSpatialPopupContainer(visualElement: VisualElement): boolean {
   const page = nearestParentPage(visualElement);
-  return page != null && asPageItem(page.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  return page != null && PageFns.pageHasNonSpatialPopupContainer(asPageItem(page.displayItem));
 }
 
 function isInCalendarPage(visualElement: VisualElement): boolean {
