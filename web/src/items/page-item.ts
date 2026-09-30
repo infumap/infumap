@@ -33,6 +33,9 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
 import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage, isTableView } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
+import { VisualElementSignal } from '../util/signals';
+import { NoteFns, isNote } from './note-item';
+import { appendEmptyNoteToDocumentPage } from '../input/edit';
 import { PermissionFlags, PermissionFlagsMixin } from './base/permission-flags-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from './base/item-common-fns';
 import { switchToPage } from '../layout/navigation';
@@ -421,9 +424,8 @@ function maybeEditDocumentPageRowFromClick(
     Math.max(visualElement.childAreaBoundsPx.h - visualElement.viewportBoundsPx.h, 0);
   const posInDocumentYPx = mouseDesktopPx.y - viewportBoundsPx.y + scrollYPx;
 
-  if (posInDocumentYPx < 0 || posInDocumentYPx > visualElement.childAreaBoundsPx.h) {
-    return false;
-  }
+  if (posInDocumentYPx < 0) { return false; }
+  if (editLastDocumentRowFromBelowClickMaybe(visualElement, childVes, posInDocumentYPx, store)) { return true; }
 
   for (let i = 0; i < childVes.length; ++i) {
     const childVe = childVes[i].get();
@@ -448,6 +450,27 @@ function maybeEditDocumentPageRowFromClick(
   }
 
   return false;
+}
+
+/**
+ * A click below the last row of a document page continues the document: the caret goes
+ * to the end of the last row if it is a note, otherwise a new note is appended.
+ */
+export function editLastDocumentRowFromBelowClickMaybe(
+  documentPageVe: VisualElement,
+  childVes: Array<VisualElementSignal>,
+  posInDocumentYPx: number,
+  store: StoreContextModel,
+): boolean {
+  if (childVes.length == 0) { return false; }
+  const lastChildVe = childVes[childVes.length - 1].get();
+  if (posInDocumentYPx <= lastChildVe.boundsPx.y + lastChildVe.boundsPx.h) { return false; }
+
+  if (isNote(lastChildVe.displayItem)) {
+    NoteFns.handleClick(lastChildVe, store, false, true);
+    return true;
+  }
+  return appendEmptyNoteToDocumentPage(store, documentPageVe);
 }
 
 export function documentPageChildClickIsInsideVisibleBounds(
