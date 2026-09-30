@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
-import { asAttachmentsItem, calcSpatialAttachmentInsertIndex } from "../items/base/attachments-item";
+import { asAttachmentsItem, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex } from "../items/base/attachments-item";
 import { itemCanCopy, itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
@@ -610,10 +610,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       // Calculate which attachment slot the mouse is over
       const attachItem = asAttachmentsItem(attachVe.displayItem);
       const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
-      const innerSizeBl = ItemFns.calcSpatialDimensionsBl(attachVe.displayItem);
       const clampedIndex = calcSpatialAttachmentInsertIndex(
         veBoundsPx,
-        innerSizeBl.w,
+        attachmentBlockSizePxForVe(attachVe, veBoundsPx.w),
         desktopPosPx.x,
         attachItem.computed_attachments.length,
       );

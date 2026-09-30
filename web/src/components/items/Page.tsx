@@ -189,6 +189,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     hasPopupClickBoundsPx: (): boolean => props.visualElement.hitboxes.find(hb => hb.type == HitboxFlags.OpenPopup) != undefined,
 
+    hasResizeHitbox: (): boolean => props.visualElement.hitboxes.some(hitbox => (hitbox.type & HitboxFlags.Resize) != 0),
+
     attachBoundsPx: (): BoundingBox => {
       return {
         x: pageFns.boundsPx().w - ATTACH_AREA_SIZE_PX - 2,
@@ -200,7 +202,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     attachInsertBarPx: (): BoundingBox => {
       const innerSizeBl = ItemFns.calcSpatialDimensionsBl(props.visualElement.displayItem);
-      const blockSizePx = pageFns.boundsPx().w / innerSizeBl.w;
+      const blockSizePx = props.visualElement.attachmentBlockSizePx ?? pageFns.boundsPx().w / innerSizeBl.w;
       const insertIndex = store.perVe.getMoveOverAttachmentIndex(pageFns.vePath());
       // Special case for position 0: align with right edge of parent item
       const xOffset = insertIndex === 0 ? -4 : -2;

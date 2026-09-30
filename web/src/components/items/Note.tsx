@@ -185,13 +185,14 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
   const attachInsertBarPx = (): BoundingBox => {
     const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
+    const attachmentBlockSizePx = props.visualElement.attachmentBlockSizePx ?? blockSize().w;
     // Special case for position 0: align with right edge of parent item
     const xOffset = insertIndex === 0 ? -4 : -2;
     return ({
-      x: boundsPx().w - insertIndex * blockSize().w + xOffset,
-      y: -blockSize().w / 2,
+      x: boundsPx().w - insertIndex * attachmentBlockSizePx + xOffset,
+      y: -attachmentBlockSizePx / 2,
       w: 4,
-      h: blockSize().w,
+      h: attachmentBlockSizePx,
     });
   };
   const attachCompositeBoundsPx = (): BoundingBox => {

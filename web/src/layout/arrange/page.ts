@@ -85,13 +85,24 @@ export const arrangePageWithChildren = (
       panic(`arrangePageWithChildren: unknown arrangeAlgorithm: ${displayItem_pageWithChildren.arrangeAlgorithm}.`);
   }
 
+  // The auto-moved-into-view state is keyed by ve path, which is independent of the arrange algorithm,
+  // and is only maintained by the spatial arrangement. Clear it for other arrangements so stale state
+  // (e.g. after switching a page from spatial to grid) doesn't render as an out-of-bounds warning.
+  if (effectiveArrange != ArrangeAlgorithm.SpatialStretch) {
+    const childrenPaths = pageRelationships.childrenPaths ?? [];
+    for (let i = 0; i < childrenPaths.length; ++i) {
+      store.perVe.setAutoMovedIntoView(childrenPaths[i], false);
+    }
+  }
+
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
   if (!(arrangeFlagIsRoot(flags))) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_pageWithChildren == null ? displayItem_pageWithChildren : linkItemMaybe_pageWithChildren);
-    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath);
+    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath, geometry.attachmentBlockSizePx);
     pageRelationships.attachmentsPaths = attachments;
+    pageSpec.attachmentBlockSizePx = geometry.attachmentBlockSizePx ?? null;
   }
 
   if (flags & ArrangeItemFlags.InsideCompositeOrDoc) {

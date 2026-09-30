@@ -21,6 +21,7 @@ import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
 import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
 import { ItemGeometry } from "../../layout/item-geometry";
+import { VisualElement } from "../../layout/visual-element";
 import { Item, ItemTypeMixin, ItemType, Measurable } from "./item";
 import { ItemFns } from "./item-polymorphism";
 import { NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
@@ -65,13 +66,39 @@ export function calcSpatialAttachmentHitboxBoundsPx(
   };
 }
 
+/**
+ * Sets the block size used for attachments of the item with the provided geometry, and updates any
+ * attach (drop target) hitboxes to match.
+ */
+export function setGeometryAttachmentBlockSizePx(geometry: ItemGeometry, attachmentCount: number, blockSizePx: number) {
+  geometry.attachmentBlockSizePx = blockSizePx;
+  const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
+  for (let i = 0; i < geometry.hitboxes.length; ++i) {
+    const hitbox = geometry.hitboxes[i];
+    if (!(hitbox.type & HitboxFlags.Attach)) { continue; }
+    geometry.hitboxes[i] = {
+      ...hitbox,
+      boundsPx: calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx, blockSizePx, attachmentCount),
+    };
+  }
+}
+
+/**
+ * The block size (px) used for laying out attachments of the provided visual element, where the
+ * visual element is rendered with width veWidthPx (which may differ from ve.boundsPx.w, e.g. if
+ * measured in desktop coordinates).
+ */
+export function attachmentBlockSizePxForVe(ve: VisualElement, veWidthPx: number): number {
+  if (ve.attachmentBlockSizePx != null) { return ve.attachmentBlockSizePx * veWidthPx / ve.boundsPx.w; }
+  return veWidthPx / ItemFns.calcSpatialDimensionsBl(ve.displayItem).w;
+}
+
 export function calcSpatialAttachmentInsertIndex(
   veBoundsPx: BoundingBox,
-  innerWidthBl: number,
+  blockSizePx: number,
   desktopX: number,
   attachmentCount: number,
 ): number {
-  const blockSizePx = veBoundsPx.w / innerWidthBl;
   const mouseXFromRight = veBoundsPx.x + veBoundsPx.w - desktopX;
   const slotIndex = Math.floor(mouseXFromRight / blockSizePx);
   return Math.max(0, Math.min(slotIndex, attachmentCount));

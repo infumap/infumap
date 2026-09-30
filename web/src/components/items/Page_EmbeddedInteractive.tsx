@@ -53,7 +53,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
-  const canResizePage = () => itemCanResize(pageFns().pageItem());
+  const canResizePage = () => itemCanResize(pageFns().pageItem()) && pageFns().hasResizeHitbox();
   const pageChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
   const isMinimalDocumentPage = () => pageFns().isDocumentPage();
   const documentTextEditIsActive = () => {

@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { untrack } from "solid-js";
 import { VisualElementPath } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import {
@@ -397,7 +398,10 @@ export function makePerVeStore(): PerVeStoreContextModel {
       autoMovedIntoView.set(vePath, createBooleanSignal(isAutoMoved));
       return;
     }
-    autoMovedIntoView.get(vePath)!.set(isAutoMoved);
+    const signal = autoMovedIntoView.get(vePath)!;
+    // Signal is created with equals: false, so avoid notifying dependents of no-op writes.
+    if (untrack(signal.get) == isAutoMoved) { return; }
+    signal.set(isAutoMoved);
   };
 
   return ({
