@@ -37,6 +37,8 @@ import { CATALOG_HORIZONTAL_MARGIN_PX, CATALOG_VERTICAL_MARGIN_PX, calcCatalogPr
 import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { VisualElementSignal } from "../../util/signals";
+import { setNaturalAttachmentBlockSizePx } from "./attachments";
+import { LINE_HEIGHT_PX } from "../../constants";
 
 
 export function arrange_catalog_page(
@@ -61,6 +63,7 @@ export function arrange_catalog_page(
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
   movingItem = movingItemInThisPage;
 
+  const attachmentBlockSizePx = LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
   const previewColumnWidthPx = calcCatalogPreviewColumnWidthPx(geometry.boundsPx.w);
   const rowHeightPx = calcCatalogRowHeightPx(previewColumnWidthPx, displayItem_pageWithChildren.gridCellAspect);
   const marginPx = Math.max(1, Math.round(previewColumnWidthPx * 0.01));
@@ -138,6 +141,7 @@ export function arrange_catalog_page(
     const childGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     childGeometry.row = idx - 1;
     childGeometry.col = 0;
+    setNaturalAttachmentBlockSizePx(store, childItem, childGeometry, attachmentBlockSizePx, !hasCatalogResults);
     addLinkTriangleHitboxMaybe(childGeometry, actualLinkItemMaybe);
     if (hasCatalogResults) {
       childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
@@ -205,7 +209,7 @@ export function arrange_catalog_page(
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
-        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Catalog, childAreaBoundsPx)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Catalog, childAreaBoundsPx, geometry.viewportBoundsPx)
         : arrangeCellPopupPath(store);
     }
   }
@@ -265,6 +269,7 @@ function arrangeMovingItemInCatalog(
   const cellGeometry = ItemFns.calcGeometry_InCell(
     movingItem, cellBoundsPx, false, parentIsPopup,
     false, false, false, false, false, false, store.smallScreenMode());
+  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w, false);
 
   return arrangeItem(
     store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, actualMovingItemLinkItemMaybe, cellGeometry,

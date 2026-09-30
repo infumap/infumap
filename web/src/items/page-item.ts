@@ -839,6 +839,32 @@ export const PageFns = {
     return { w: NATURAL_BLOCK_SIZE_PX.w * scale, h: NATURAL_BLOCK_SIZE_PX.h * scale };
   },
 
+  /**
+   * The block size used to position and size source-anchored popups over a page whose children are not laid out on
+   * its spatial grid, or null if the page's spatial grid is used. Such popups are positioned relative to the page's
+   * (scrollable) viewport rather than its child area.
+   */
+  pageHasNonSpatialPopupContainer: (page: PageItem): boolean => {
+    return page.arrangeAlgorithm == ArrangeAlgorithm.Document ||
+      page.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+      page.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
+      page.arrangeAlgorithm == ArrangeAlgorithm.Catalog;
+  },
+
+  calcNonSpatialPopupBlockSizePxMaybe: (page: PageItem, childAreaBoundsPx: BoundingBox): Dimensions | null => {
+    switch (page.arrangeAlgorithm) {
+      case ArrangeAlgorithm.Document:
+        return PageFns.calcDocumentBlockSizePx(page, childAreaBoundsPx.w);
+      case ArrangeAlgorithm.Grid:
+      case ArrangeAlgorithm.Justified:
+      case ArrangeAlgorithm.Catalog:
+        // Children are scaled to fit their cells, so there is no page block size. Use the natural one.
+        return { w: NATURAL_BLOCK_SIZE_PX.w, h: NATURAL_BLOCK_SIZE_PX.h };
+      default:
+        return null;
+    }
+  },
+
   calcInnerSpatialDimensionsBl: (page: PageMeasurable): Dimensions => {
     return ({
       w: page.innerSpatialWidthGr / GRID_SIZE,

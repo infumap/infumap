@@ -991,10 +991,10 @@ export const VeFns = {
 
   /**
    * Like desktopPxToPageGr, but in the coordinate space source-anchored popups are positioned in. This differs
-   * only for document pages, which are not laid out on the page's spatial grid.
+   * for pages which are not laid out on the page's spatial grid (see PageFns.calcNonSpatialPopupBlockSizePxMaybe).
    */
   desktopPxToPopupContainerGr: (store: StoreContextModel, pageVe: VisualElement, desktopPosPx: Vector): Vector | null => {
-    if (!isPage(pageVe.displayItem) || asPageItem(pageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Document) {
+    if (!isPage(pageVe.displayItem) || !PageFns.pageHasNonSpatialPopupContainer(asPageItem(pageVe.displayItem))) {
       return VeFns.desktopPxToPageGr(store, pageVe, desktopPosPx);
     }
     if (!pageVe.childAreaBoundsPx || !pageVe.viewportBoundsPx) { return null; }
@@ -1003,7 +1003,7 @@ export const VeFns = {
     const scrollVeid = VeFns.actualVeidFromVe(pageVe);
     const scrollXPx = Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(scrollVeid);
     const scrollYPx = Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(scrollVeid);
-    const blockSizePx = PageFns.calcDocumentBlockSizePx(asPageItem(pageVe.displayItem), pageVe.childAreaBoundsPx.w);
+    const blockSizePx = PageFns.calcNonSpatialPopupBlockSizePxMaybe(asPageItem(pageVe.displayItem), pageVe.childAreaBoundsPx)!;
 
     return {
       x: (desktopPosPx.x - viewportBoundsPx.x + scrollXPx) / blockSizePx.w * GRID_SIZE,

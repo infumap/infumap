@@ -1323,8 +1323,8 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
   if (popupUsesParentBlockCoordinates(store, parentPage)) {
     const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
     const startPosBl = MouseActionState.getStartPosBl()!;
-    // Document pages have no block grid to snap to.
-    const quantizeBl = (vBl: number) => parentPage.arrangeAlgorithm == ArrangeAlgorithm.Document ? vBl : Math.round(vBl * 2.0) / 2.0;
+    // Only spatial pages have a block grid to snap to.
+    const quantizeBl = (vBl: number) => PageFns.pageHasNonSpatialPopupContainer(parentPage) ? vBl : Math.round(vBl * 2.0) / 2.0;
     const deltaBl = {
       x: quantizeBl(deltaPx.x * onePxSizeBl.x),
       y: quantizeBl(deltaPx.y * onePxSizeBl.y)
