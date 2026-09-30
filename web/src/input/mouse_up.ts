@@ -19,7 +19,7 @@
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanEdit } from "../items/base/capabilities-item";
-import { isContainer } from "../items/base/container-item";
+import { asContainerItem, isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import { GroupFns } from "../items/base/group-item";
 import { ClientOnlyItemKind, Item } from "../items/base/item";
@@ -31,7 +31,7 @@ import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-i
 import { asFileItem, isFile } from "../items/file-item";
 import { asTextItem, isText } from "../items/text-item";
 import { asLinkItem, isLink } from "../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
@@ -71,6 +71,7 @@ import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle,
 import { createMaterializedTextDocumentItems } from "../items/text-document";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
+import { appendEmptyNoteToDocumentPage } from "./edit";
 
 
 interface MovePersistOperation {
@@ -184,7 +185,11 @@ function maybeEditDocumentPageRowFromBackgroundClick(
 
   const pagePath = VeFns.veToPath(pageVe);
   const childVes = VesCache.render.getChildren(pagePath)();
-  if (childVes.length == 0) { return false; }
+  if (childVes.length == 0) {
+    const page = itemState.get(pageVe.displayItem.id);
+    if (page == null || !isContainer(page) || asContainerItem(page).computed_children.length != 0) { return false; }
+    return appendEmptyNoteToDocumentPage(store, pageVe);
+  }
 
   const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
   const mouseDesktopPx = CursorEventState.getLatestDesktopPx(store);
@@ -193,9 +198,8 @@ function maybeEditDocumentPageRowFromBackgroundClick(
     Math.max(pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h, 0);
   const posInDocumentYPx = mouseDesktopPx.y - viewportBoundsPx.y + scrollYPx;
 
-  if (posInDocumentYPx < 0 || posInDocumentYPx > pageVe.childAreaBoundsPx.h) {
-    return false;
-  }
+  if (posInDocumentYPx < 0) { return false; }
+  if (editLastDocumentRowFromBelowClickMaybe(pageVe, childVes, posInDocumentYPx, store)) { return true; }
 
   for (let i = 0; i < childVes.length; ++i) {
     const childVe = childVes[i].get();

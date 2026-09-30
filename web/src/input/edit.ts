@@ -930,6 +930,41 @@ export function splitDocumentTitleToFirstNote(
   return true;
 }
 
+/**
+ * Appends an empty note to the end of a document page and places the caret in it.
+ */
+export function appendEmptyNoteToDocumentPage(
+  store: StoreContextModel,
+  documentPageVe: VisualElement,
+): boolean {
+  if (!isPage(documentPageVe.displayItem)) { return false; }
+  const pageItem = itemState.get(documentPageVe.displayItem.id);
+  if (pageItem == null || !isPage(pageItem)) { return false; }
+  const page = asPageItem(pageItem);
+  if (page.arrangeAlgorithm != ArrangeAlgorithm.Document ||
+      !structuralTextContainerIsEditable(store, documentPageVe)) {
+    return false;
+  }
+
+  store.textEdit.flushActive();
+  const token = store.editorHistory.begin([page.id], "Append document note");
+  store.overlay.setTextEditInfo(store.history, null);
+  const note = NoteFns.create(
+    page.ownerId,
+    page.id,
+    RelationshipToParent.Child,
+    "",
+    itemState.newOrderingAtEndOfChildren(page.id),
+  );
+  store.editorHistory.include(token, note.id);
+  itemState.add(note);
+  store.editorHistory.track(server.addItem(note, null, store.general.networkStatus));
+  arrangeNow(store, "document-append-empty-note");
+  focusItemInLinearContainer(store, VeFns.veToPath(documentPageVe), note.id, 0);
+  store.editorHistory.commit(token);
+  return true;
+}
+
 function maybeBuildLinearBoundaryNavigation(
   store: StoreContextModel,
   key: string,
