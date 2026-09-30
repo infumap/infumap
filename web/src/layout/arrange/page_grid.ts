@@ -36,6 +36,7 @@ import { calcJustifiedPagePaddingPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
+import { setNaturalAttachmentBlockSizePx } from "./attachments";
 
 
 export function arrange_grid_page(
@@ -62,6 +63,7 @@ export function arrange_grid_page(
   movingItem = movingItemInThisPage;
 
   const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
+  const attachmentBlockSizePx = LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
 
   const pageItem = asPageItem(displayItem_pageWithChildren);
   const numCols = pageItem.gridNumberOfColumns;
@@ -165,6 +167,7 @@ export function arrange_grid_page(
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     cellGeometry.row = row;
     cellGeometry.col = col;
+    setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx);
     const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
     const cellIndex = row * numCols + col;
     if (hasCatalogResults) {
@@ -302,6 +305,7 @@ function arrangeMovingItemInGrid(
   const cellGeometry = ItemFns.calcGeometry_InCell(
     movingItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup),
     false, false, false, false, false, false, store.smallScreenMode());
+  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w);
 
   return arrangeItem(
     store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, actualMovingItemLinkItemMaybe, cellGeometry,

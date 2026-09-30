@@ -230,6 +230,7 @@ export const arrangeItemNoChildren = (
     row: itemGeometry.row,
     col: itemGeometry.col,
     listItemNumber: itemGeometry.listItemNumber ?? null,
+    attachmentBlockSizePx: itemGeometry.attachmentBlockSizePx ?? null,
     hitboxes,
     parentPath: parentVePath,
   };
@@ -253,7 +254,7 @@ export const arrangeItemNoChildren = (
   if (isAttachmentsItem(displayItem) &&
     !shallowTrashLink) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe == null ? displayItem : linkItemMaybe);
-    itemRelationships.attachmentsPaths = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath);
+    itemRelationships.attachmentsPaths = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath, itemGeometry.attachmentBlockSizePx);
   } else {
     itemRelationships.attachmentsPaths = [];
   }

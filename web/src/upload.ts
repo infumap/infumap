@@ -24,7 +24,7 @@ import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
-import { asAttachmentsItem, AttachmentsItem, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
+import { asAttachmentsItem, AttachmentsItem, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
 import { itemCanEdit } from "./items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "./items/base/flags-item";
 import { ItemType } from "./items/base/item";
@@ -187,10 +187,9 @@ function attachmentInsertIndexFromDesktopPx(store: StoreContextModel, attachVe: 
   const attachVePath = VeFns.veToPath(attachVe);
   const attachItem = asAttachmentsItem(attachVe.displayItem);
   const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
-  const innerSizeBl = ItemFns.calcSpatialDimensionsBl(attachVe.displayItem);
   const clampedIndex = calcSpatialAttachmentInsertIndex(
     veBoundsPx,
-    innerSizeBl.w,
+    attachmentBlockSizePxForVe(attachVe, veBoundsPx.w),
     desktopPx.x,
     attachItem.computed_attachments.length,
   );

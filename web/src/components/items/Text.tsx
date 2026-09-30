@@ -80,7 +80,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
   };
   const attachInsertBarPx = (): BoundingBox => {
     const innerSizeBl = sizeBl();
-    const blockSizePx = boundsPx().w / innerSizeBl.w;
+    const blockSizePx = props.visualElement.attachmentBlockSizePx ?? boundsPx().w / innerSizeBl.w;
     const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
     // Special case for position 0: align with right edge of parent item
     const xOffset = insertIndex === 0 ? -4 : -2;

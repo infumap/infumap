@@ -68,7 +68,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
-  const canResizePage = () => itemCanResize(pageFns().pageItem());
+  const canResizePage = () => itemCanResize(pageFns().pageItem()) && pageFns().hasResizeHitbox();
   const isQueryChatPage = () =>
     pageFns().pageItem().clientOnlyKind == ClientOnlyItemKind.QueryChatPage;
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);

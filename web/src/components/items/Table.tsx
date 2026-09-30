@@ -128,7 +128,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   }
   const attachInsertBarPx = (): BoundingBox => {
     const insertIndex = store.perVe.getMoveOverAttachmentIndex(vePath());
-    const attachmentBlockSizePx = blockSizePx().w;
+    const attachmentBlockSizePx = props.visualElement.attachmentBlockSizePx ?? blockSizePx().w;
     const xOffset = insertIndex === 0 ? -4 : -2;
     return {
       x: boundsPx().w - insertIndex * attachmentBlockSizePx + xOffset,

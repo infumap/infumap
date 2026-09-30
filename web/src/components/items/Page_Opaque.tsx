@@ -40,7 +40,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
-  const canResizePage = () => itemCanResize(pageFns().pageItem());
+  const canResizePage = () => itemCanResize(pageFns().pageItem()) && pageFns().hasResizeHitbox();
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   const opaqueTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("xs"));

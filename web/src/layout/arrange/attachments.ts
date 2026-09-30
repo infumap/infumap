@@ -25,6 +25,20 @@ import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelati
 import { getVePropertiesForItem } from "./util";
 import { ArrangeItemFlags } from "./item";
 import { Uid } from "../../util/uid";
+import { Item } from "../../items/base/item";
+import { asAttachmentsItem, isAttachmentsItem, setGeometryAttachmentBlockSizePx } from "../../items/base/attachments-item";
+import { ItemGeometry } from "../item-geometry";
+
+
+/**
+ * For arrangements where items are scaled to fit (e.g. grid, justified), render attachments of the
+ * item at the specified block size, rather than the block size implied by the item's scaling.
+ */
+export function setNaturalAttachmentBlockSizePx(store: StoreContextModel, item: Item, geometry: ItemGeometry, blockSizePx: number) {
+  const { displayItem } = getVePropertiesForItem(store, item);
+  const attachmentCount = isAttachmentsItem(displayItem) ? asAttachmentsItem(displayItem).computed_attachments.length : 0;
+  setGeometryAttachmentBlockSizePx(geometry, attachmentCount, blockSizePx);
+}
 
 
 export function arrangeItemAttachments(
@@ -32,7 +46,17 @@ export function arrangeItemAttachments(
   attachmentIds: Array<Uid>,
   parentItemSizeBl: Dimensions,
   parentItemBoundsPx: BoundingBox,
-  parentItemVePath: VisualElementPath): Array<VisualElementPath> {
+  parentItemVePath: VisualElementPath,
+  blockSizePxMaybe?: number): Array<VisualElementPath> {
+
+  // Attachment geometry derives block size from parent bounds / parent size. Override the latter
+  // to achieve a specific block size.
+  if (blockSizePxMaybe != null) {
+    parentItemSizeBl = {
+      w: parentItemBoundsPx.w / blockSizePxMaybe,
+      h: parentItemBoundsPx.h / blockSizePxMaybe,
+    };
+  }
 
   const attachmentPaths: Array<VisualElementPath> = [];
   for (let i = 0; i < attachmentIds.length; ++i) {
@@ -44,6 +68,11 @@ export function arrangeItemAttachments(
       linkIdMaybe: attachmentLinkItemMaybe ? attachmentLinkItemMaybe.id : null
     };
     const attachmentVePath = VeFns.addVeidToPath(attachmentVeid, parentItemVePath);
+
+    // Auto-moved-into-view state is keyed by ve path, and an attachment has the same path it would have
+    // as a child of its parent (e.g. if it was moved into the parent page before being attached). Attachments
+    // are never auto-moved, so clear any stale state.
+    store.perVe.setAutoMovedIntoView(attachmentVePath, false);
 
     let isSelected = false;
 

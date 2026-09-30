@@ -370,6 +370,12 @@ export interface VisualElement {
   listItemNumber: number | null,
 
   /**
+   * If set, the block size (px) used for laying out attachments (and attachment drop targets),
+   * in place of the block size implied by boundsPx. See ItemGeometry.attachmentBlockSizePx.
+   */
+  attachmentBlockSizePx: number | null,
+
+  /**
    * Anything from displayItem that would require a re-render if changed.
    * Manage this explicitly to avoid a costly comparison of all displayItem properties.
    */
@@ -470,6 +476,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   parentPath: null,
   evaluatedTitle: null,
   listItemNumber: null,
+  attachmentBlockSizePx: null,
 
   displayItemFingerprint: "",
 };
@@ -513,6 +520,7 @@ export interface VisualElementSpec {
   parentPath?: VisualElementPath,
   evaluatedTitle?: string | null,
   listItemNumber?: number | null,
+  attachmentBlockSizePx?: number | null,
 }
 
 /**
@@ -578,6 +586,7 @@ export const VeFns = {
       parentPath: null,
       evaluatedTitle: null,
       listItemNumber: null,
+      attachmentBlockSizePx: null,
 
       displayItemFingerprint: "",
     };
@@ -624,6 +633,7 @@ export const VeFns = {
     ve.parentPath = null;
     ve.evaluatedTitle = null;
     ve.listItemNumber = null;
+    ve.attachmentBlockSizePx = null;
 
     ve.displayItemFingerprint = "";
 
@@ -1223,6 +1233,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.parentPath) != 'undefined') { result.parentPath = override.parentPath; }
   if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
   if (typeof (override.listItemNumber) != 'undefined') { result.listItemNumber = override.listItemNumber; }
+  if (typeof (override.attachmentBlockSizePx) != 'undefined') { result.attachmentBlockSizePx = override.attachmentBlockSizePx; }
   if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
   // tableVesRows is moved to VesCache, do not copy to VisualElement
   // attachmentsVes is moved to VesCache, do not copy to VisualElement

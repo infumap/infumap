@@ -54,6 +54,13 @@ export interface ItemGeometry {
   listItemNumber?: number | null,
 
   /**
+   * If set, attachments are rendered using this block size (px), rather than the block size implied
+   * by boundsPx. Used in arrangements (e.g. grid, justified) where items are scaled to fit a cell, but
+   * attachments should remain at their natural size.
+   */
+  attachmentBlockSizePx?: number,
+
+  /**
    * Hitboxes.
    * Higher index => higher precedence.
    * Hitbox boundsPx are relative to this item's boundsPx.
