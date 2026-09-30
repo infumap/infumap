@@ -1022,6 +1022,10 @@ function openPopupForFocusedItemMaybe(store: StoreContextModel, focusVe: VisualE
     openUsingPopupHotspot();
     return true;
   }
+  if (isImage(focusVe.displayItem) && !(focusVe.flags & VisualElementFlags.Popup)) {
+    openUsingPopupHotspot();
+    return true;
+  }
   if (includeTables && isTable(focusVe.displayItem)) {
     openUsingPopupHotspot();
     return true;
