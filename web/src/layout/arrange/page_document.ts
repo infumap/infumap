@@ -254,7 +254,7 @@ export function arrange_document_page(
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
-        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Document, childAreaBoundsPx)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.Document, childAreaBoundsPx, geometry.viewportBoundsPx)
         : arrangeCellPopupPath(store);
     }
   }
