@@ -361,13 +361,15 @@ export const Toolbar_Page: Component = () => {
       const r = await server.emptyTrash(store.general.networkStatus);
       console.debug(r);
 
-      // Clear trash page children from client-side state.
+      // Remove deleted items from client-side state. This includes items loaded
+      // individually as link targets, which would otherwise continue to be displayed.
+      itemState.removeDeletedItems(r.deletedItemIds);
       const trashPageId = store.user.getUser().trashPageId;
       const trashPage = itemState.getAsContainerItem(trashPageId);
       if (trashPage) {
         trashPage.computed_children = [];
-        requestArrange(store, "toolbar-page-empty-trash");
       }
+      requestArrange(store, "toolbar-page-empty-trash");
     } finally {
       store.overlay.emptyTrashInProgress.set(false);
     }
