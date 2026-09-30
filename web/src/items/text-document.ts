@@ -1885,9 +1885,9 @@ const pendingVirtualPageTextIds = new Set<Uid>();
 const failedVirtualPageTextIds = new Set<Uid>();
 
 /**
- * The virtual document page for textItem, if it has already been projected and is current.
+ * The virtual document page for textItem, if it exists and is current (its content may not be loaded yet).
  */
-export function virtualTextDocumentPageMaybe(textItem: TextItem): PageItem | null {
+function currentVirtualTextDocumentPageMaybe(textItem: TextItem): PageItem | null {
   const pageId = stableUid(`text-document-page:${textItem.id}`);
   if (virtualSourceTextIdByPageId.get(pageId) != textItem.id) { return null; }
   const page = itemState.get(pageId);
@@ -1896,10 +1896,27 @@ export function virtualTextDocumentPageMaybe(textItem: TextItem): PageItem | nul
 }
 
 /**
- * Projects textItem into its virtual document page in the background (without navigating),
- * requesting an arrange when done. Used where arrange needs the page but can't await it.
+ * The virtual document page for textItem, for use where arrange needs the page but can't await it.
+ * Analogous to a page whose children are not loaded yet: if necessary the page is created synchronously
+ * (so it can be rendered immediately), and its content is projected in the background, requesting an
+ * arrange when done.
  */
-export function ensureVirtualTextDocumentPage(store: StoreContextModel, textItem: TextItem): void {
+export function virtualTextDocumentPage(store: StoreContextModel, textItem: TextItem): PageItem {
+  let page = currentVirtualTextDocumentPageMaybe(textItem);
+  if (page == null) {
+    const shell = createTextDocumentPage(textItem, true);
+    page = asPageItem(itemState.upsertItemFromServerObject(toVirtualServerObject(shell), null));
+    page.capabilities = readonlyCapabilities;
+    page.childrenLoaded = false;
+    virtualSourceTextIdByPageId.set(page.id, textItem.id);
+  }
+  if (!page.childrenLoaded) {
+    loadVirtualTextDocumentPageContentMaybe(store, textItem);
+  }
+  return page;
+}
+
+function loadVirtualTextDocumentPageContentMaybe(store: StoreContextModel, textItem: TextItem): void {
   if (pendingVirtualPageTextIds.has(textItem.id) || failedVirtualPageTextIds.has(textItem.id)) { return; }
   pendingVirtualPageTextIds.add(textItem.id);
   fetchTextItemContent(textItem)
