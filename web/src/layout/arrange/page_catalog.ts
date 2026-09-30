@@ -28,7 +28,7 @@ import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../uti
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
-import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe } from "./util";
+import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, addLinkTriangleHitboxMaybe, getMovingTreeItemInParentMaybe } from "./util";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
@@ -137,6 +137,7 @@ export function arrange_catalog_page(
     const childGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     childGeometry.row = idx - 1;
     childGeometry.col = 0;
+    addLinkTriangleHitboxMaybe(childGeometry, actualLinkItemMaybe);
     if (hasCatalogResults) {
       childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
         x: -childGeometry.boundsPx.x,
