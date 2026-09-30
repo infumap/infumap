@@ -508,7 +508,59 @@ function guardLinearBoundaryDeletion(store: StoreContextModel, ev: Event, elemen
   const adjacentPath = adjacentStructuralPath(context, backward);
   if (adjacentPath == null) { return true; }
   if (joinItemsMaybeHandler(store, backward)) { return true; }
+  if (textLength == 0 && isDocumentPage(context.containerVe)) {
+    // Never remove the last item of a document, but don't complain about it either.
+    if (documentPageHasSingleChild(context.containerVe)) { return true; }
+    if (deleteEmptyDocumentNoteMaybe(store, context, backward)) { return true; }
+  }
   return blockStructuralTextEvent(store, ev, STRUCTURAL_TEXT_BOUNDARY_MESSAGE);
+}
+
+function isDocumentPage(ve: VisualElement): boolean {
+  return isPage(ve.displayItem) && asPageItem(ve.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+}
+
+function documentPageHasSingleChild(pageVe: VisualElement): boolean {
+  const page = itemState.get(pageVe.displayItem.id);
+  return page != null && asContainerItem(page).computed_children.length <= 1;
+}
+
+/** Nearest item in the document that can take the caret, preferring the deletion direction. */
+function caretTargetAfterRemovingLinearPath(context: LinearEditContext, backward: boolean): { path: string, caretPosition: number } | null {
+  const paths = structuralPathsInLinearContainer(context);
+  const index = paths.indexOf(context.editingPath);
+  if (index < 0) { return null; }
+  const before = paths.slice(0, index).reverse().map(path => ({ path, atEnd: true }));
+  const after = paths.slice(index + 1).map(path => ({ path, atEnd: false }));
+  for (const candidate of backward ? [...before, ...after] : [...after, ...before]) {
+    const pathInfo = { path: candidate.path, type: EditElementType.Title, colNumMaybe: null };
+    if (textEditInfoForPathInfo(pathInfo) == null || document.getElementById(editPathInfoToDomId(pathInfo)) == null) { continue; }
+    const textLength = textLengthForLinearPath(context, candidate.path);
+    if (textLength == null) { continue; }
+    return { path: candidate.path, caretPosition: candidate.atEnd ? textLength : 0 };
+  }
+  return null;
+}
+
+function deleteEmptyDocumentNoteMaybe(store: StoreContextModel, context: LinearEditContext, backward: boolean): boolean {
+  const note = structuralTextNote(store, context.editingVe, context.containerVe);
+  if (note == null) { return false; }
+  store.textEdit.flushActive();
+  if (note.title != "") { return false; }
+
+  const target = caretTargetAfterRemovingLinearPath(context, backward);
+  const token = store.editorHistory.begin([context.containerVe.displayItem.id, note.id], "Delete paragraph");
+  store.overlay.setTextEditInfo(store.history, null);
+  // Move focus off the note before reactive reads occur.
+  store.history.setFocus(target?.path ?? context.containerPath);
+  itemState.delete(note.id);
+  store.editorHistory.track(server.deleteItem(note.id, store.general.networkStatus));
+  arrangeNow(store, "document-delete-empty-note");
+  if (target != null) {
+    focusTextEditPathInfo(store, { path: target.path, type: EditElementType.Title, colNumMaybe: null }, target.caretPosition);
+  }
+  store.editorHistory.commit(token);
+  return true;
 }
 
 function guardLinearEnter(store: StoreContextModel, ev: Event): boolean {
