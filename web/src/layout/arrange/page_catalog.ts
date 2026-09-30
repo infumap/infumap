@@ -28,7 +28,8 @@ import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../uti
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
-import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, addLinkTriangleHitboxMaybe, getMovingTreeItemInParentMaybe } from "./util";
+import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe } from "./util";
+import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";

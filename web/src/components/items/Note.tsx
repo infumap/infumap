@@ -47,7 +47,7 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { useStore } from "../../store/StoreProvider";
 import { CompositeFns } from "../../items/composite-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { VesCache } from "../../layout/ves-cache";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { arrangeNow } from "../../layout/arrange";
@@ -559,8 +559,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null &&
-        (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+      <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) &&
         (!(noteItem().flags & NoteFlags.HideBorder) || store.perVe.getMouseIsOver(vePath())) &&
         !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
         showTriangleDetail()}>

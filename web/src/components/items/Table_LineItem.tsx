@@ -28,7 +28,7 @@ import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGH
 import { FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { cloneBoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { appendNewlineIfEmpty } from "../../util/string";
 
@@ -134,8 +134,7 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
     </div>;
 
   const renderLinkMarkingMaybe = () =>
-    <Show when={props.visualElement.linkItemMaybe != null && (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
-      showTriangleDetail()}>
+    <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +

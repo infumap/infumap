@@ -27,7 +27,7 @@ import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineIte
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import {
   getTextStyleForNote,
@@ -80,8 +80,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     ? ItemIconRenderContext.TableAttachment
     : NoteFns.iconRenderContextFromVisualElement(props.visualElement);
   const shouldRenderIcon = () => NoteFns.showsIcon(noteItem(), iconContext());
-  const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
-    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+  const shouldShowLinkMarking = () => linkHasTriangle(props.visualElement.linkItemMaybe) &&
     showTriangleDetail();
   const shouldReserveLeadingBlock = () => shouldRenderIcon() ||
     (shouldShowLinkMarking() && iconContext() != ItemIconRenderContext.TableAttachment);

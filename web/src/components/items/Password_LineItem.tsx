@@ -26,7 +26,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
@@ -67,8 +67,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     : PasswordFns.iconRenderContextFromVisualElement(props.visualElement);
   const shouldRenderIcon = () => PasswordFns.showsIcon(passwordItem(), iconContext());
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
-  const shouldShowLinkMarking = () => props.visualElement.linkItemMaybe != null &&
-    (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+  const shouldShowLinkMarking = () => linkHasTriangle(props.visualElement.linkItemMaybe) &&
     showTriangleDetail();
   const shouldReserveLeadingBlock = () => shouldRenderIcon() ||
     (shouldShowLinkMarking() && iconContext() != ItemIconRenderContext.TableAttachment);

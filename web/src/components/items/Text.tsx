@@ -33,7 +33,7 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { asPageItem, isPage } from "../../items/page-item";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { itemState } from "../../store/ItemState";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
@@ -401,8 +401,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>
-      <Show when={props.visualElement.linkItemMaybe != null &&
-        (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+      <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) &&
         !(isPopup() && (props.visualElement.actualLinkItemMaybe == null)) &&
         showTriangleDetail()}>
         <InfuLinkTriangle />

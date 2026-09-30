@@ -28,7 +28,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { getImage, releaseImage } from "../../imageManager";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
-import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
+import { linkHasTriangle } from "../../layout/link-triangle";
 import { ImageFlags } from "../../items/base/flags-item";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { isComposite } from "../../items/composite-item";
@@ -417,8 +417,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
         </Show>
         <div class="absolute" style={boundsStylePx(detailBoundsPx)}>
-          <Show when={props.visualElement.linkItemMaybe != null &&
-            (props.visualElement.linkItemMaybe.id != LIST_PAGE_MAIN_ITEM_LINK_ITEM) &&
+          <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) &&
             showTriangleDetail() &&
             !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
             (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()))}>
