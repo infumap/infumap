@@ -1475,7 +1475,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     }
   }
 
-  if (overElementPath != lastMouseOverOpenPopupPath || !(hitInfo.hitboxType & HitboxFlags.OpenPopup) || hasModal || isInsideToolbarPopup) {
+  const isOverOpenPopup = !!(hitInfo.hitboxType & HitboxFlags.OpenPopup) && !(hitInfo.hitboxType & HitboxFlags.TriangleLinkSettings);
+  if (overElementPath != lastMouseOverOpenPopupPath || !isOverOpenPopup || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverOpenPopupPath != null) {
       store.perVe.setMouseIsOverOpenPopup(lastMouseOverOpenPopupPath, false);
       lastMouseOverOpenPopupPath = null;
@@ -1502,7 +1503,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   if ((overElementVe.displayItem.id != store.history.currentPageVeid()!.itemId) &&
     !(overElementVe.flags & VisualElementFlags.Popup) &&
     !hasModal && !isInsideToolbarPopup) {
-    if (hitInfo.hitboxType & HitboxFlags.OpenPopup) {
+    if (isOverOpenPopup) {
       if (!store.perVe.getMouseIsOverOpenPopup(overElementPath)) {
         store.perVe.setMouseIsOverOpenPopup(overElementPath, true);
       }

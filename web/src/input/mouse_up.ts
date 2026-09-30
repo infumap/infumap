@@ -1306,6 +1306,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         store.history.setFocus(linkFocusPath);
         arrangeNow(store, "mouse-up-focus-link");
 
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TriangleLinkSettings)) {
+        const focusPath = VeFns.addVeidToPath(
+          { itemId: VeFns.veidFromPath(MouseActionState.getActiveElementPath()!).linkIdMaybe!, linkIdMaybe: null },
+          VeFns.parentPath(MouseActionState.getActiveElementPath()!)
+        );
+        store.history.setFocus(focusPath);
+        arrangeNow(store, "mouse-up-focus-link-triangle");
+
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.OpenPopup)) {
         DoubleClickState.preventDoubleClick();
         ItemFns.handleOpenPopupClick(activeVisualElement, store, false, MouseActionState.getStartPx()!);
@@ -1324,13 +1332,6 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         } else {
           ItemFns.handleClick(activeVisualElementSignal, MouseActionState.getHitMeta(), MouseActionState.getHitboxTypeOnMouseDown(), store);
         }
-
-      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TriangleLinkSettings)) {
-        const focusPath = VeFns.addVeidToPath(
-          { itemId: VeFns.veidFromPath(MouseActionState.getActiveElementPath()!).linkIdMaybe!, linkIdMaybe: null },
-          VeFns.parentPath(MouseActionState.getActiveElementPath()!)
-        );
-        store.history.setFocus(focusPath);
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TableColumnContextMenu)) {
         if (itemCanEdit(activeVisualElement.displayItem) && itemCanEdit(VeFns.treeItem(activeVisualElement))) {
