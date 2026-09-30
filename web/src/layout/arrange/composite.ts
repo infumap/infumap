@@ -17,11 +17,10 @@
 */
 
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, COMPOSITE_ITEM_GAP_BL, GRID_SIZE, LINK_TRIANGLE_SIZE_PX } from "../../constants";
-import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
+import { asAttachmentsItem, isAttachmentsItem, setGeometryAttachmentBlockSizePx } from "../../items/base/attachments-item";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeFns, CompositeItem } from "../../items/composite-item";
-import { isImage } from "../../items/image-item";
 import { LinkItem } from "../../items/link-item";
 import { isNote, NoteFns } from "../../items/note-item";
 import { asPageItem, isPage } from "../../items/page-item";
@@ -169,6 +168,10 @@ export const arrangeComposite = (
         x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2,
       }));
     }
+    // Attachments are rendered at the composite's block size, not the child's spatial size.
+    if (isAttachmentsItem(displayItem_childItem)) {
+      setGeometryAttachmentBlockSizePx(geometry, asAttachmentsItem(displayItem_childItem).computed_attachments.length, blockSizePx.w, false);
+    }
     const compositeChildGeometry: ItemGeometry = {
       ...geometry,
       row: idx,
@@ -278,19 +281,13 @@ function arrangeCompositeChildItemPath(
     row: geometry.row ?? 0,
     blockSizePx,
     listItemNumber: geometry.listItemNumber ?? null,
+    attachmentBlockSizePx: geometry.attachmentBlockSizePx ?? null,
   };
 
   const compositeChildRelationships: VisualElementRelationships = {};
   if (isAttachmentsItem(displayItem_childItem)) {
-    const parentItemSizeBl = useDocumentTypography && isNote(displayItem_childItem)
-      ? { w: compositeWidthBl, h: geometry.boundsPx.h / blockSizePx.h }
-      : isNote(displayItem_childItem) && linkItemMaybe_childItem == null
-        ? NoteFns.calcSpatialDimensionsBl(NoteFns.asNoteMeasurable(displayItem_childItem), true)
-        : ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
-    if (!isPage(displayItem_childItem) && !isImage(displayItem_childItem)) {
-      parentItemSizeBl.w = compositeWidthBl;
-    }
-    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath);
+    const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
+    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath, geometry.attachmentBlockSizePx);
     compositeChildRelationships.attachmentsPaths = attachments;
   } else {
     compositeChildRelationships.attachmentsPaths = [];
