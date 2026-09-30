@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags, itemCanExpandInLineItem, itemIsListPagePinnedBottom, itemIsListPagePinnedTop } from "../../items/base/flags-item";
 import { Item } from "../../items/base/item";
@@ -404,6 +404,11 @@ export function arrange_list_page(
         row.expandable,
         false,
       );
+      if (row.linkItemMaybe != null) {
+        listItemGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.TriangleLinkSettings, {
+          x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2,
+        }));
+      }
 
       const listItemVeSpec: VisualElementSpec = {
         displayItem: row.displayItem,
