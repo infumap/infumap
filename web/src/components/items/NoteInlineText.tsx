@@ -72,14 +72,14 @@ export const NoteInlineText: Component<{
               <Show
                 when={props.inactiveLinksStyled && segment.url != null}
                 fallback={<span style={segmentStyle(segment.flags)}>{segment.text}</span>}>
-                <span class="text-blue-800" style={inactiveLinkStyle(segment.flags)}>
+                <span class="text-blue-600" style={inactiveLinkStyle(segment.flags)}>
                   {segment.text}
                 </span>
               </Show>
             }>
             <a
               href={segment.url ?? ""}
-              class="text-blue-800 hover:text-blue-600"
+              class="text-blue-600 hover:text-blue-800"
               style={linkStyle(segment.flags)}
               onClick={eatLinkClick}
               onMouseDown={linkMouseDown(segment.url ?? "")}

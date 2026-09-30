@@ -84,11 +84,11 @@ export function textEditElementId(info: TextEditInfo): string {
   return info.itemPath + (info.colNum == null ? ":title" : ":col" + info.colNum);
 }
 
-export function setNoteTitleFromEditedText(note: ReturnType<typeof asNoteItem>, nextTitle: string, typingFlags: number): void {
+export function setNoteTitleFromEditedText(note: ReturnType<typeof asNoteItem>, nextTitle: string, typingFlags: number, caretAfter: number | null = null): void {
   const oldTitle = note.title;
   if (oldTitle != nextTitle) {
     note.inlineMarks = updateNoteInlineMarksForTextChange(note.inlineMarks, oldTitle, nextTitle, typingFlags);
-    note.urls = updateNoteUrlsForTextChange(note.urls, oldTitle, nextTitle);
+    note.urls = updateNoteUrlsForTextChange(note.urls, oldTitle, nextTitle, caretAfter);
   }
   note.title = nextTitle;
   NoteFns.ensureTitleUrl(note);
@@ -241,7 +241,8 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       if (columns[info.colNum] == null) { return session; }
       columns[info.colNum].name = newText;
     } else if (info.itemType == ItemType.Note) {
-      setNoteTitleFromEditedText(asNoteItem(item), newText, typingFlags);
+      const caretAfter = session.selection != null && session.selection.anchor == session.selection.focus ? session.selection.focus : null;
+      setNoteTitleFromEditedText(asNoteItem(item), newText, typingFlags, caretAfter);
     } else if (info.itemType == ItemType.Password) {
       asPasswordItem(item).text = newText;
     } else {

@@ -30,7 +30,7 @@ export function reconcileNoteEditableDom(element: HTMLElement, note: NoteItem): 
     if (segment.flags & NoteInlineMarkFlags.Bold) { span.style.fontWeight = "bold"; }
     if (segment.flags & NoteInlineMarkFlags.Italic) { span.style.fontStyle = "italic"; }
     if (safeNoteLinkUrl(segment.url) != null) {
-      span.className = "text-blue-800";
+      span.className = "text-blue-600";
       span.style.cursor = "text";
     }
     span.textContent = segment.text;

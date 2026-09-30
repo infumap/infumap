@@ -477,8 +477,16 @@ export const Toolbar_Popup: Component = () => {
     requestArrange(store, "toolbar-popup-text-change");
   };
 
+  const handleRemoveNoteUrl = () => {
+    const note = noteItem();
+    const selection = noteUrlSelection();
+    applyEditorFormatCommand(store, [note], "Remove link", () => { NoteFns.setUrlForToolbarEdit(note, selection, ""); });
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    requestArrange(store, "toolbar-popup-remove-note-url");
+  };
+
   const inputWidthPx = (): number => {
-    if (overlayType() == ToolbarPopupType.NoteUrl) { return 292; }
+    if (overlayType() == ToolbarPopupType.NoteUrl) { return 262; }
     if (overlayType() == ToolbarPopupType.PageWidth) { return 196; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
@@ -1433,6 +1441,14 @@ export const Toolbar_Popup: Component = () => {
                     onKeyPress={handleKeyPress} />
                 </div>
               }
+            </Show>
+            <Show when={overlayType() == ToolbarPopupType.NoteUrl && textEntryValue() != ""}>
+              <button class="border border-slate-300 rounded mt-[3px] ml-[4px] w-[26px] h-[28px] align-top hover:bg-slate-300"
+                type="button"
+                title="Remove link"
+                onClick={handleRemoveNoteUrl}>
+                <i class="fa fa-unlink" />
+              </button>
             </Show>
             <Show when={showAutoButton()}>
               <button class="border border-slate-300 rounded mt-[3px] p-[2px] ml-[4px] hover:bg-slate-300"
