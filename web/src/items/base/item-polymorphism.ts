@@ -128,20 +128,21 @@ export const ItemFns = {
     parentIsPopup: boolean,
     padTop: boolean,
     expandable: boolean,
-    inTable: boolean): ItemGeometry => {
+    inTable: boolean,
+    isTableAttachment: boolean = false): ItemGeometry => {
     if (measurable == EMPTY_ITEM()) { return calcGeometryOfEmptyItem_ListItem(measurable, blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isPage(measurable)) { return PageFns.calcGeometry_ListItem(PageFns.asPageMeasurable(measurable), blockSizePx, row, col, widthBl, parentIsPopup, padTop, expandable, inTable); }
     if (isTable(measurable)) { return TableFns.calcGeometry_ListItem(TableFns.asTableMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isComposite(measurable)) { return CompositeFns.calcGeometry_ListItem(CompositeFns.asCompositeMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
-    if (isNote(measurable)) { return NoteFns.calcGeometry_ListItem(NoteFns.asNoteMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
+    if (isNote(measurable)) { return NoteFns.calcGeometry_ListItem(NoteFns.asNoteMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable, isTableAttachment); }
     if (isImage(measurable)) { return ImageFns.calcGeometry_ListItem(ImageFns.asImageMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
-    if (isFile(measurable)) { return FileFns.calcGeometry_ListItem(FileFns.asFileMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
-    if (isText(measurable)) { return TextFns.calcGeometry_ListItem(TextFns.asTextMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
-    if (isPassword(measurable)) { return PasswordFns.calcGeometry_ListItem(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable); }
+    if (isFile(measurable)) { return FileFns.calcGeometry_ListItem(FileFns.asFileMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable, isTableAttachment); }
+    if (isText(measurable)) { return TextFns.calcGeometry_ListItem(TextFns.asTextMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable, isTableAttachment); }
+    if (isPassword(measurable)) { return PasswordFns.calcGeometry_ListItem(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable, isTableAttachment); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_ListItem(RatingFns.asRatingMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isQueryItem(measurable)) { return QueryFns.calcGeometry_ListItem(QueryFns.asQueryMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_ListItem(DividerFns.asDividerMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
-    if (isLink(measurable)) { return LinkFns.calcGeometry_ListItem(asLinkItem(measurable), blockSizePx, row, col, widthBl, parentIsPopup, padTop, expandable, inTable); }
+    if (isLink(measurable)) { return LinkFns.calcGeometry_ListItem(asLinkItem(measurable), blockSizePx, row, col, widthBl, parentIsPopup, padTop, expandable, inTable, isTableAttachment); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_ListItem(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     panic(`Unknown item type: ${measurable.itemType}`);
   },
@@ -340,8 +341,8 @@ export const ItemFns = {
       return;
     }
 
-    // Text line items in list pages pop up as a (virtual) document page.
-    if (isText(item) && !isFromAttachment && TextFns.isListPageLineItem(visualElement)) {
+    // Text line items in list and table pages pop up as a (virtual) document page.
+    if (isText(item) && !isFromAttachment && TextFns.isPageLineItem(visualElement)) {
       void TextFns.openDocumentPopup(visualElement, store);
       return;
     }

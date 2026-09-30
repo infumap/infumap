@@ -726,7 +726,7 @@ function buildTableRowRenderPlan(
 
       const geometry = ItemFns.calcGeometry_ListItem(
         attachmentItem, blockSizePx, rowIdx, cell.startBl, cell.endBl - cell.startBl,
-        !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true);
+        !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true, true);
 
       const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
 

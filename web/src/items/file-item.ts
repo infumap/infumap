@@ -207,9 +207,9 @@ export const FileFns = {
     return calcGeometryOfAttachmentItemImpl(file, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (file: FileMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean, isTableAttachment: boolean = false): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
-    const iconContext = listItemIconRenderContext(inTable, !expandable);
+    const iconContext = listItemIconRenderContext(inTable, isTableAttachment);
     const showsIcon = FileFns.showsIcon(file, iconContext);
     const innerBoundsPx = {
       x: 0.0,

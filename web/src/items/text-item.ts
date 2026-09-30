@@ -30,7 +30,7 @@ import { TitledItem, TitledMixin } from './base/titled-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
 import { StoreContextModel } from '../store/StoreProvider';
-import { VeFns, VisualElement, VisualElementFlags } from '../layout/visual-element';
+import { VeFns, VisualElement, VisualElementFlags, isTableView } from '../layout/visual-element';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, measureLineCount } from '../layout/text';
@@ -274,9 +274,9 @@ export const TextFns = {
     return calcGeometryOfAttachmentItemImpl(text, parentBoundsPx, parentInnerSizeBl, index, isSelected, true);
   },
 
-  calcGeometry_ListItem: (text: TextMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean): ItemGeometry => {
+  calcGeometry_ListItem: (text: TextMeasurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, expandable: boolean, inTable: boolean, isTableAttachment: boolean = false): ItemGeometry => {
     const scale = blockSizePx.h / LINE_HEIGHT_PX;
-    const iconContext = listItemIconRenderContext(inTable, !expandable);
+    const iconContext = listItemIconRenderContext(inTable, isTableAttachment);
     const showsIcon = TextFns.showsIcon(text, iconContext);
     const innerBoundsPx = {
       x: 0.0,
@@ -348,11 +348,12 @@ export const TextFns = {
     void openTextDocumentProjection(store, textItem);
   },
 
-  isListPageLineItem: (visualElement: VisualElement): boolean => {
+  /** True for text line items in a List or Table arranged page, which pop up as their document page. */
+  isPageLineItem: (visualElement: VisualElement): boolean => {
     if (!(visualElement.flags & VisualElementFlags.LineItem)) { return false; }
     const parentVe = VesCache.current.readNode(visualElement.parentPath!);
-    if (!parentVe || (parentVe.flags & VisualElementFlags.DockItem)) { return false; }
-    return isPage(parentVe.displayItem) && asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List;
+    if (!parentVe || (parentVe.flags & VisualElementFlags.DockItem) || !isPage(parentVe.displayItem)) { return false; }
+    return asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List || isTableView(parentVe);
   },
 
   openDocumentPopup: async (visualElement: VisualElement, store: StoreContextModel): Promise<void> => {
