@@ -28,6 +28,8 @@ import { RemoteSessions } from "../../store/RemoteSessions";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VeFns } from "../visual-element";
+import { isQuerySearchResultLink } from "../../items/search-item";
+import { LINK_TRIANGLE_SIZE_PX } from "../../constants";
 
 
 export interface VePropertiesForItem {
@@ -202,4 +204,15 @@ export function addContiguousStackedRowMarginHitboxes(
       }, { focusOnly, allowOutsideBounds: true, includeEdges: true }));
     }
   }
+}
+
+/**
+ * Adds the link triangle hitbox to the geometry of an item rendered via a link in a cell based arrangement.
+ * Search result links are not real items, so their triangle is not interactive.
+ */
+export function addLinkTriangleHitboxMaybe(geometry: ItemGeometry, actualLinkItemMaybe: LinkItem | null): void {
+  if (actualLinkItemMaybe == null || isQuerySearchResultLink(actualLinkItemMaybe)) { return; }
+  geometry.hitboxes.push(HitboxFns.create(HitboxFlags.TriangleLinkSettings, {
+    x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2,
+  }));
 }

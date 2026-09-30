@@ -33,7 +33,7 @@ import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getC
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTargetRowHeightPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath } from "./popup";
-import { getMovingTreeItemInParentMaybe } from "./util";
+import { addLinkTriangleHitboxMaybe, getMovingTreeItemInParentMaybe } from "./util";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
 import createJustifiedLayout from "justified-layout";
 
@@ -144,6 +144,7 @@ export function arrange_justified_page(
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, true, false, store.smallScreenMode());
     setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx, true);
+    addLinkTriangleHitboxMaybe(cellGeometry, actualLinkItemMaybe);
 
     childrenPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Justified, childItem, actualLinkItemMaybe, cellGeometry,

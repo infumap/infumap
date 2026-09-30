@@ -35,7 +35,7 @@ import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalo
 import { calcJustifiedPagePaddingPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
-import { getMovingTreeItemInParentMaybe } from "./util";
+import { addLinkTriangleHitboxMaybe, getMovingTreeItemInParentMaybe } from "./util";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
 
 
@@ -168,6 +168,7 @@ export function arrange_grid_page(
     cellGeometry.row = row;
     cellGeometry.col = col;
     setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx, !hasCatalogResults);
+    addLinkTriangleHitboxMaybe(cellGeometry, actualLinkItemMaybe);
     const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
     const cellIndex = row * numCols + col;
     if (hasCatalogResults) {
