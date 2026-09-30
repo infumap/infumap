@@ -68,18 +68,22 @@ export function calcSpatialAttachmentHitboxBoundsPx(
 
 /**
  * Sets the block size used for attachments of the item with the provided geometry, and updates any
- * attach (drop target) hitboxes to match.
+ * attach (drop target) hitboxes to match. If ensureAttachHitbox is true, an attach hitbox is added
+ * if there isn't one already.
  */
-export function setGeometryAttachmentBlockSizePx(geometry: ItemGeometry, attachmentCount: number, blockSizePx: number) {
+export function setGeometryAttachmentBlockSizePx(geometry: ItemGeometry, attachmentCount: number, blockSizePx: number, ensureAttachHitbox: boolean) {
   geometry.attachmentBlockSizePx = blockSizePx;
   const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
+  const attachBoundsPx = calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx, blockSizePx, attachmentCount);
+  let hasAttachHitbox = false;
   for (let i = 0; i < geometry.hitboxes.length; ++i) {
     const hitbox = geometry.hitboxes[i];
     if (!(hitbox.type & HitboxFlags.Attach)) { continue; }
-    geometry.hitboxes[i] = {
-      ...hitbox,
-      boundsPx: calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx, blockSizePx, attachmentCount),
-    };
+    geometry.hitboxes[i] = { ...hitbox, boundsPx: attachBoundsPx };
+    hasAttachHitbox = true;
+  }
+  if (ensureAttachHitbox && !hasAttachHitbox) {
+    geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Attach, attachBoundsPx));
   }
 }
 

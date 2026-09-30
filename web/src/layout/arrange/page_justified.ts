@@ -143,7 +143,7 @@ export function arrange_justified_page(
     const renderChildrenAsFull = isEmbeddedInteractive || arrangeFlagIsRoot(flags);
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, true, false, store.smallScreenMode());
-    setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx);
+    setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx, true);
 
     childrenPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Justified, childItem, actualLinkItemMaybe, cellGeometry,
@@ -210,7 +210,7 @@ function arrangeMovingItemInJustified(
   const cellGeometry = ItemFns.calcGeometry_InCell(
     movingItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup),
     false, false, false, false, false, false, store.smallScreenMode());
-  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w);
+  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w, false);
 
   return arrangeItem(
     store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, actualMovingItemLinkItemMaybe, cellGeometry,

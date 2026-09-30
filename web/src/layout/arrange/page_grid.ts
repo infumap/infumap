@@ -167,7 +167,7 @@ export function arrange_grid_page(
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     cellGeometry.row = row;
     cellGeometry.col = col;
-    setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx);
+    setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx, !hasCatalogResults);
     const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
     const cellIndex = row * numCols + col;
     if (hasCatalogResults) {
@@ -305,7 +305,7 @@ function arrangeMovingItemInGrid(
   const cellGeometry = ItemFns.calcGeometry_InCell(
     movingItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup),
     false, false, false, false, false, false, store.smallScreenMode());
-  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w);
+  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w, false);
 
   return arrangeItem(
     store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, actualMovingItemLinkItemMaybe, cellGeometry,

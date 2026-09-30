@@ -707,6 +707,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     renderMoveOverIndexMaybe: () => {
       if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+        if (store.perVe.getMoveOverIndex(pageFns.vePath()) < 0) { return <></>; }
         const topPx = pageFns.gridPageTopPaddingPx() + props.visualElement.cellSizePx!.h * Math.floor((store.perVe.getMoveOverIndex(pageFns.vePath())) / pageFns.pageItem().gridNumberOfColumns);
         const leftPx = pageFns.gridPagePaddingPx() + props.visualElement.cellSizePx!.w * (store.perVe.getMoveOverIndex(pageFns.vePath()) % pageFns.pageItem().gridNumberOfColumns) + 1;
         const heightPx = props.visualElement.cellSizePx!.h;
