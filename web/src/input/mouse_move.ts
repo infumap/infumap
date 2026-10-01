@@ -61,6 +61,7 @@ import { NativeTextSelectionState } from "./native_text_selection";
 
 let lastMouseOverPath: VisualElementPath | null = null;
 let lastMouseOverOpenPopupPath: VisualElementPath | null = null;
+let lastMouseOverDocumentRowSidePath: VisualElementPath | null = null;
 let lastMouseOverCompositeMoveOutPath: VisualElementPath | null = null;
 let lastMouseOverCatalogPagePath: VisualElementPath | null = null;
 let lastMouseOverSearchGridPagePath: VisualElementPath | null = null;
@@ -218,6 +219,10 @@ export function clearMouseOverState(store: StoreContextModel) {
   if (lastMouseOverOpenPopupPath) {
     store.perVe.setMouseIsOverOpenPopup(lastMouseOverOpenPopupPath, false);
     lastMouseOverOpenPopupPath = null;
+  }
+  if (lastMouseOverDocumentRowSidePath) {
+    store.perVe.setMouseIsOverDocumentRowSide(lastMouseOverDocumentRowSidePath, false);
+    lastMouseOverDocumentRowSidePath = null;
   }
   if (lastMouseOverCompositeMoveOutPath) {
     store.perVe.setMouseIsOverCompositeMoveOut(lastMouseOverCompositeMoveOutPath, false);
@@ -1472,8 +1477,22 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     lastMouseOverSearchGridPagePath = searchGridCellHover.pagePath;
   }
 
+  // Beside an item whose side clicks are inert, only its move handle is shown, not the hover highlight.
+  const overInertDocumentRowSide = readOnlyDocumentMoveOutPath == null && !!hitInfo.overElementMeta?.inert;
+  const documentRowSidePath = overInertDocumentRowSide && !hasModal && !isInsideToolbarPopup ? overElementPath : null;
+  if (documentRowSidePath != lastMouseOverDocumentRowSidePath) {
+    if (lastMouseOverDocumentRowSidePath != null) {
+      store.perVe.setMouseIsOverDocumentRowSide(lastMouseOverDocumentRowSidePath, false);
+      lastMouseOverDocumentRowSidePath = null;
+    }
+    if (documentRowSidePath != null) {
+      store.perVe.setMouseIsOverDocumentRowSide(documentRowSidePath, true);
+      lastMouseOverDocumentRowSidePath = documentRowSidePath;
+    }
+  }
+
   const effectiveMouseOverPath = readOnlyDocumentMoveOutPath ?? overElementPath;
-  if (effectiveMouseOverPath != lastMouseOverPath || suppressGenericMouseOver || hasModal || isInsideToolbarPopup) {
+  if (effectiveMouseOverPath != lastMouseOverPath || suppressGenericMouseOver || overInertDocumentRowSide || hasModal || isInsideToolbarPopup) {
     if (lastMouseOverPath != null) {
       store.perVe.setMouseIsOver(lastMouseOverPath, false);
       lastMouseOverPath = null;
@@ -1498,6 +1517,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   } else if ((overElementVe.displayItem.id != store.history.currentPageVeid()!.itemId) &&
     !(overElementVe.flags & VisualElementFlags.Popup) &&
     !suppressGenericMouseOver &&
+    !overInertDocumentRowSide &&
     !hasModal && !isInsideToolbarPopup) {
     if (!store.perVe.getMouseIsOver(overElementPath)) {
       store.perVe.setMouseIsOver(overElementPath, true);

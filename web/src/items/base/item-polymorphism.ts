@@ -275,6 +275,7 @@ export const ItemFns = {
   },
 
   handleClick: (visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null, hitboxFlags: HitboxFlags, store: StoreContextModel, caretAtEnd: boolean = false): void => {
+    if (hitboxMeta?.inert) { return; }
     const visualElement = visualElementSignal.get();
     const item = visualElement.displayItem;
     if (hitboxMeta?.openContainingPageOfItemId) {

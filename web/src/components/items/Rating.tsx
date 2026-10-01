@@ -65,7 +65,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
 
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
-    store.perVe.getMouseIsOver(vePath()) &&
+    (store.perVe.getMouseIsOver(vePath()) || store.perVe.getMouseIsOverDocumentRowSide(vePath())) &&
     !store.anItemIsMoving.get() &&
     store.overlay.textEditInfo() == null &&
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
