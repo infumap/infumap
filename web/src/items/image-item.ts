@@ -231,20 +231,35 @@ export const ImageFns = {
       h: sizeBl.h * blockSizePx.h
     };
     const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    // Align the move handle with those of the other composite children, at the composite's right edge.
+    const moveAreaRightPx = (leftMarginBl + compositeWidthBl) * blockSizePx.w;
     const moveAreaBoundsPx = {
-      x: innerBoundsPx.w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
+      x: moveAreaRightPx
+        - boundsPx.x
+        - COMPOSITE_MOVE_OUT_AREA_SIZE_PX
+        - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX
+        - CONTAINER_IN_COMPOSITE_PADDING_PX
+        - 2,
       y: innerBoundsPx.y + COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
     };
     const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0);
+    // The space beside the image registers hover (to show its move handle), but clicks there do nothing.
+    const sideBoundsPx = {
+      x: innerBoundsPx.w,
+      y: 0,
+      w: Math.max(0, moveAreaRightPx - boundsPx.x - innerBoundsPx.w),
+      h: innerBoundsPx.h,
+    };
     return {
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
       hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, sideBoundsPx, { inert: true, allowOutsideBounds: true }),
         HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, moveBoundsPx, { compositeMoveOut: true }),
+        HitboxFns.create(HitboxFlags.Move | HitboxFlags.ShowPointer, moveBoundsPx, { compositeMoveOut: true, allowOutsideBounds: true }),
         HitboxFns.create(
           HitboxFlags.Attach,
           calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx.w, blockSizePx.h, measurable.computed_attachments.length),

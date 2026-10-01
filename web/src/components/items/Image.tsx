@@ -100,6 +100,17 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const moveOutOfCompositeBox = (): BoundingBox => {
     const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
     if (documentBox != null) { return documentBox; }
+    // In a composite, the move hitbox sits at the composite's right edge (aligned with the other children),
+    // offset 2px right of where the handle is drawn.
+    const moveHitbox = isInComposite() ? props.visualElement.hitboxes.find(hitbox => hitbox.meta?.compositeMoveOut) : undefined;
+    if (moveHitbox != null) {
+      return ({
+        x: moveHitbox.boundsPx.x - 2,
+        y: moveHitbox.boundsPx.y,
+        w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
+        h: moveHitbox.boundsPx.h,
+      });
+    }
     return ({
       x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
