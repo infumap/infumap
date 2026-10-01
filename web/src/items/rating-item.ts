@@ -30,7 +30,7 @@ import { StoreContextModel } from '../store/StoreProvider';
 import { serverOrRemote } from '../server';
 import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
-import { calcBoundsInCell, handleListPageLineItemClickMaybe } from './base/item-common-fns';
+import { calcBoundsInCell, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext } from './base/item-common-fns';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { VeFns } from '../layout/visual-element';
 
@@ -258,6 +258,8 @@ export const RatingFns = {
     const visualElement = visualElementSignal.get();
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (hitboxMeta?.focusOnly) {
+      // Clicks beside a rating in a document page do nothing.
+      if (isInsideDocumentPageClickContext(visualElement)) { return; }
       store.history.setFocus(VeFns.veToPath(visualElement));
       arrangeNow(store, "rating-focus-only");
       return;

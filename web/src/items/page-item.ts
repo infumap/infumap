@@ -46,6 +46,8 @@ import { FlagsMixin, PageFlags, itemCanExpandInLineItem } from './base/flags-ite
 import { serverOrRemote } from '../server';
 import { ItemFns } from './base/item-polymorphism';
 import { isTable } from './table-item';
+import { isImage } from './image-item';
+import { isRating } from './rating-item';
 import { RelationshipToParent } from '../layout/relationship-to-parent';
 import { compareOrderings, newOrdering } from '../util/ordering';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -426,7 +428,25 @@ function maybeEditDocumentPageRowFromClick(
 
   if (posInDocumentYPx < 0) { return false; }
   if (editLastDocumentRowFromBelowClickMaybe(visualElement, childVes, posInDocumentYPx, store)) { return true; }
+  return handleDocumentRowSideClickMaybe(childVes, posInDocumentYPx, store);
+}
 
+/**
+ * Pages, images, ratings and tables (or links to them) do not span the document
+ * width like notes do, so clicks beside them are ignored.
+ */
+export function documentRowSideClickIsInert(displayItem: Item): boolean {
+  return isPage(displayItem) || isImage(displayItem) || isRating(displayItem) || isTable(displayItem);
+}
+
+/**
+ * Routes a click beside the document rows to the row whose vertical band contains it.
+ */
+export function handleDocumentRowSideClickMaybe(
+  childVes: Array<VisualElementSignal>,
+  posInDocumentYPx: number,
+  store: StoreContextModel,
+): boolean {
   for (let i = 0; i < childVes.length; ++i) {
     const childVe = childVes[i].get();
     const prevChildVe = i > 0 ? childVes[i - 1].get() : null;
@@ -441,9 +461,7 @@ function maybeEditDocumentPageRowFromClick(
 
     if (posInDocumentYPx < bandTopPx || posInDocumentYPx > bandBottomPx) { continue; }
 
-    if (isPage(childVe.displayItem)) {
-      PageFns.handleEditTitleClick(childVe, store);
-    } else {
+    if (!documentRowSideClickIsInert(childVe.displayItem)) {
       ItemFns.handleClick(childVes[i], null, HitboxFlags.Click, store);
     }
     return true;
@@ -1319,16 +1337,15 @@ export const PageFns = {
         return;
       }
 
+      const isInDocumentPageClickContext = isInsideDocumentPageClickContext(visualElement);
+      if (isInDocumentPageClickContext && !documentPageChildClickIsInsideVisibleBounds(visualElement, store)) {
+        return;
+      }
+
       const previousFocusPath = store.history.getFocusPathMaybe();
       const previousCurrentVeid = store.history.currentPageVeid();
       const focusPath = VeFns.veToPath(visualElement);
       store.history.setFocus(focusPath);
-
-      const isInDocumentPageClickContext = isInsideDocumentPageClickContext(visualElement);
-      if (isInDocumentPageClickContext && !documentPageChildClickIsInsideVisibleBounds(visualElement, store)) {
-        PageFns.handleEditTitleClick(visualElement, store);
-        return;
-      }
 
       if (hitboxMeta?.focusOnly) {
         arrangeNow(store, "page-focus-only");

@@ -31,7 +31,7 @@ import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-i
 import { asFileItem, isFile } from "../items/file-item";
 import { asTextItem, isText } from "../items/text-item";
 import { asLinkItem, isLink } from "../items/link-item";
-import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
@@ -200,45 +200,20 @@ function maybeEditDocumentPageRowFromBackgroundClick(
 
   if (posInDocumentYPx < 0) { return false; }
   if (editLastDocumentRowFromBelowClickMaybe(pageVe, childVes, posInDocumentYPx, store)) { return true; }
-
-  for (let i = 0; i < childVes.length; ++i) {
-    const childVe = childVes[i].get();
-    const prevChildVe = i > 0 ? childVes[i - 1].get() : null;
-    const nextChildVe = i + 1 < childVes.length ? childVes[i + 1].get() : null;
-
-    const bandTopPx = prevChildVe == null
-      ? childVe.boundsPx.y
-      : (prevChildVe.boundsPx.y + prevChildVe.boundsPx.h + childVe.boundsPx.y) / 2;
-    const bandBottomPx = nextChildVe == null
-      ? childVe.boundsPx.y + childVe.boundsPx.h
-      : (childVe.boundsPx.y + childVe.boundsPx.h + nextChildVe.boundsPx.y) / 2;
-
-    if (posInDocumentYPx < bandTopPx || posInDocumentYPx > bandBottomPx) { continue; }
-
-    if (isPage(childVe.displayItem)) {
-      PageFns.handleEditTitleClick(childVe, store);
-    } else {
-      ItemFns.handleClick(childVes[i], null, HitboxFlags.Click, store);
-    }
-    return true;
-  }
-
-  return false;
+  return handleDocumentRowSideClickMaybe(childVes, posInDocumentYPx, store);
 }
 
-function editDocumentChildPageTitleFromOutsideBoundsClickMaybe(
+/**
+ * Clicks beside a page in a document page do nothing.
+ */
+function ignoreDocumentChildPageOutsideBoundsClickMaybe(
   store: StoreContextModel,
   visualElement: VisualElement,
 ): boolean {
   if (!isPage(visualElement.displayItem) || !isInsideDocumentPageClickContext(visualElement)) {
     return false;
   }
-  if (documentPageChildClickIsInsideVisibleBounds(visualElement, store)) {
-    return false;
-  }
-
-  PageFns.handleEditTitleClick(visualElement, store);
-  return true;
+  return !documentPageChildClickIsInsideVisibleBounds(visualElement, store);
 }
 
 function focusQueryItemFromResultsBackgroundClickMaybe(
@@ -1390,7 +1365,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         } else if (focusQueryItemFromChatPageClickMaybe(store, activeVisualElement)) {
           DoubleClickState.preventDoubleClick();
 
-        } else if (editDocumentChildPageTitleFromOutsideBoundsClickMaybe(store, activeVisualElement)) {
+        } else if (ignoreDocumentChildPageOutsideBoundsClickMaybe(store, activeVisualElement)) {
           DoubleClickState.preventDoubleClick();
 
         } else if (veFlagIsRoot(activeRootVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&

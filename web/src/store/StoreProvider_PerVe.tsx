@@ -39,6 +39,10 @@ export interface PerVeStoreContextModel {
   getMouseIsOverOpenPopup: (vePath: VisualElementPath) => boolean,
   setMouseIsOverOpenPopup: (vePath: VisualElementPath, isOver: boolean) => void,
 
+  // Mouse is beside an item in a document page whose side clicks are inert: shows the move handle, but not the hover highlight.
+  getMouseIsOverDocumentRowSide: (vePath: VisualElementPath) => boolean,
+  setMouseIsOverDocumentRowSide: (vePath: VisualElementPath, isOver: boolean) => void,
+
   getMouseIsOverCompositeMoveOut: (vePath: VisualElementPath) => boolean,
   setMouseIsOverCompositeMoveOut: (vePath: VisualElementPath, isOver: boolean) => void,
 
@@ -91,6 +95,7 @@ export interface PerVeStoreContextModel {
 export function makePerVeStore(): PerVeStoreContextModel {
   const mouseIsOver = new Map<string, BooleanSignal>();
   const mouseIsOverOpenPopup = new Map<string, BooleanSignal>();
+  const mouseIsOverDocumentRowSide = new Map<string, BooleanSignal>();
   const mouseIsOverCompositeMoveOut = new Map<string, BooleanSignal>();
   const movingItemIsOver = new Map<string, BooleanSignal>();
   const movingItemIsOverAttach = new Map<string, BooleanSignal>();
@@ -110,6 +115,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const clear = (): void => {
     mouseIsOver.clear();
     mouseIsOverOpenPopup.clear();
+    mouseIsOverDocumentRowSide.clear();
     mouseIsOverCompositeMoveOut.clear();
     movingItemIsOver.clear();
     movingItemIsOverAttach.clear();
@@ -155,6 +161,21 @@ export function makePerVeStore(): PerVeStoreContextModel {
       return;
     }
     mouseIsOverOpenPopup.get(vePath)!.set(isOver);
+  };
+
+  const getMouseIsOverDocumentRowSide = (vePath: VisualElementPath): boolean => {
+    if (!mouseIsOverDocumentRowSide.get(vePath)) {
+      mouseIsOverDocumentRowSide.set(vePath, createBooleanSignal(false));
+    }
+    return mouseIsOverDocumentRowSide.get(vePath)!.get();
+  };
+
+  const setMouseIsOverDocumentRowSide = (vePath: VisualElementPath, isOver: boolean): void => {
+    if (!mouseIsOverDocumentRowSide.get(vePath)) {
+      mouseIsOverDocumentRowSide.set(vePath, createBooleanSignal(isOver));
+      return;
+    }
+    mouseIsOverDocumentRowSide.get(vePath)!.set(isOver);
   };
 
   const getMouseIsOverCompositeMoveOut = (vePath: VisualElementPath): boolean => {
@@ -410,6 +431,9 @@ export function makePerVeStore(): PerVeStoreContextModel {
 
     getMouseIsOverOpenPopup,
     setMouseIsOverOpenPopup,
+
+    getMouseIsOverDocumentRowSide,
+    setMouseIsOverDocumentRowSide,
 
     getMouseIsOverCompositeMoveOut,
     setMouseIsOverCompositeMoveOut,

@@ -323,7 +323,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     showMoveOutOfCompositeArea: () =>
       store.user.getUserMaybe() != null &&
-      store.perVe.getMouseIsOver(pageFns.vePath()) &&
+      (store.perVe.getMouseIsOver(pageFns.vePath()) || store.perVe.getMouseIsOverDocumentRowSide(pageFns.vePath())) &&
       !store.anItemIsMoving.get() &&
       store.overlay.textEditInfo() == null &&
       (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0,

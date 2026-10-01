@@ -82,6 +82,7 @@ export interface HitboxMeta {
   startBl?: number,
   endBl?: number,
   focusOnly?: boolean,
+  inert?: boolean,
   openActualItem?: boolean,
   openContainingPageOfItemId?: Uid,
   allowOutsideBounds?: boolean,
@@ -128,6 +129,9 @@ export const HitboxFns = {
     }
     if (typeof (meta.focusOnly) != 'undefined') {
       result.focusOnly = meta.focusOnly;
+    }
+    if (typeof (meta.inert) != 'undefined') {
+      result.inert = meta.inert;
     }
     if (typeof (meta.openActualItem) != 'undefined') {
       result.openActualItem = meta.openActualItem;
@@ -196,7 +200,8 @@ export const HitboxFns = {
       (typeof meta.catalogRowNumber != "undefined" ? meta.catalogRowNumber : "undefined") + ", searchGridCellIndex: " +
       (typeof meta.searchGridCellIndex != "undefined" ? meta.searchGridCellIndex : "undefined") + ", startBl: " +
       (meta.startBl ? meta.startBl : "undefined") + ", endBl: " +
-      (meta.endBl ? meta.endBl : "undefined") + ", openActualItem: " +
+      (meta.endBl ? meta.endBl : "undefined") + ", inert: " +
+      (meta.inert ? meta.inert : "undefined") + ", openActualItem: " +
       (meta.openActualItem ? meta.openActualItem : "undefined") + ", allowOutsideBounds: " +
       (meta.allowOutsideBounds ? meta.allowOutsideBounds : "undefined") + ", includeEdges: " +
       (meta.includeEdges ?? "undefined") + ", compositeMoveOut: " +

@@ -24,7 +24,7 @@ import { DividerFns, isDivider } from "../../items/divider-item";
 import { isImage } from "../../items/image-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, documentRowSideClickIsInert, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -173,8 +173,11 @@ export function arrange_document_page(
     displayItem: child.displayItem,
     geometry: child.geometry,
   })));
-  addContiguousStackedRowMarginHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
-  addContiguousStackedGapHitboxes(childArrangeData.map(child => child.geometry), documentWidthPx, false);
+  const childGeometries = childArrangeData.map(child => child.geometry);
+  // Side hitboxes of inert rows still register hover (to show the move handle), but clicks on them do nothing.
+  const inertSideClickRow = (idx: number) => documentRowSideClickIsInert(childArrangeData[idx].displayItem);
+  addContiguousStackedRowMarginHitboxes(childGeometries, documentWidthPx, false, inertSideClickRow);
+  addContiguousStackedGapHitboxes(childGeometries, documentWidthPx, false, inertSideClickRow);
 
   const renderChildrenAsFull =
     !!(flags & ArrangeItemFlags.RenderChildrenAsFull) ||
