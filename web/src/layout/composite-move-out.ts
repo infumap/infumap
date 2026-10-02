@@ -23,43 +23,78 @@ import {
 import { BoundingBox } from "../util/geometry";
 
 
-const COMPOSITE_MOVE_OUT_HANDLE_LINE_WIDTH_PX = 1;
-const COMPOSITE_MOVE_OUT_HANDLE_LINE_GAP_PX = 2;
-const COMPOSITE_MOVE_OUT_HANDLE_RIGHT_SHIFT_PX = 3;
+const COMPOSITE_MOVE_OUT_HANDLE_DOT_SIZE_PX = 2;
+const COMPOSITE_MOVE_OUT_HANDLE_DOT_GAP_PX = 2;
+const COMPOSITE_MOVE_OUT_HANDLE_DOT_COLS = 2;
+const COMPOSITE_MOVE_OUT_HANDLE_MIN_DOT_ROWS = 2;
+const COMPOSITE_MOVE_OUT_HANDLE_INSET_Y_PX = 3;
 
-export const DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX = 4;
+export const DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX = 12;
 
 
-export function compositeMoveOutHandleLineWidthPx(): number {
-  return COMPOSITE_MOVE_OUT_HANDLE_LINE_WIDTH_PX;
+export interface CompositeMoveOutHandleGeometry {
+  gripBoundsPx: BoundingBox,
+  backgroundBoundsPx: BoundingBox,
+  dotSizePx: number,
+  dotPositionsPx: Array<{ x: number, y: number }>,
 }
 
-export function compositeMoveOutHandleLineGapPx(): number {
-  return COMPOSITE_MOVE_OUT_HANDLE_LINE_GAP_PX;
+function gripWidthPx(): number {
+  return COMPOSITE_MOVE_OUT_HANDLE_DOT_COLS * COMPOSITE_MOVE_OUT_HANDLE_DOT_SIZE_PX +
+    (COMPOSITE_MOVE_OUT_HANDLE_DOT_COLS - 1) * COMPOSITE_MOVE_OUT_HANDLE_DOT_GAP_PX;
 }
 
-export function compositeMoveOutHandleTotalWidthPx(): number {
-  return compositeMoveOutHandleLineWidthPx() * 2 + compositeMoveOutHandleLineGapPx();
+function gripRowCount(boundsPx: BoundingBox): number {
+  const availableH = boundsPx.h - COMPOSITE_MOVE_OUT_HANDLE_INSET_Y_PX * 2;
+  const step = COMPOSITE_MOVE_OUT_HANDLE_DOT_SIZE_PX + COMPOSITE_MOVE_OUT_HANDLE_DOT_GAP_PX;
+  return Math.max(
+    COMPOSITE_MOVE_OUT_HANDLE_MIN_DOT_ROWS,
+    Math.floor((availableH + COMPOSITE_MOVE_OUT_HANDLE_DOT_GAP_PX) / step));
 }
 
-export function compositeMoveOutHandleLineHeightPx(boundsPx: BoundingBox): number {
-  return Math.max(8, boundsPx.h - 6);
+function gripHeightPx(rows: number): number {
+  return rows * COMPOSITE_MOVE_OUT_HANDLE_DOT_SIZE_PX +
+    (rows - 1) * COMPOSITE_MOVE_OUT_HANDLE_DOT_GAP_PX;
 }
 
-export function compositeMoveOutHandleLineTopPx(boundsPx: BoundingBox): number {
-  return Math.max(0, Math.round((boundsPx.h - compositeMoveOutHandleLineHeightPx(boundsPx)) / 2));
+/**
+ * Left edge of the dot grip, relative to the move out box.
+ */
+export function compositeMoveOutHandleGripLeftPx(boundsPx: BoundingBox): number {
+  return Math.max(0, Math.round((boundsPx.w - gripWidthPx()) / 2));
 }
 
-export function compositeMoveOutHandleLineLeftPx(boundsPx: BoundingBox): number {
-  return Math.max(0, Math.min(
-    boundsPx.w - compositeMoveOutHandleTotalWidthPx(),
-    Math.round((boundsPx.w - compositeMoveOutHandleTotalWidthPx()) / 2) + COMPOSITE_MOVE_OUT_HANDLE_RIGHT_SHIFT_PX
-  ));
-}
+/**
+ * Geometry of the move out handle (a two column dot grip spanning the height of the move out
+ * box, so the extent of the item being dragged is clear, with a rounded background shown on
+ * hover), relative to the move out box.
+ */
+export function compositeMoveOutHandleGeometry(boundsPx: BoundingBox): CompositeMoveOutHandleGeometry {
+  const rows = gripRowCount(boundsPx);
+  const gripW = gripWidthPx();
+  const gripH = gripHeightPx(rows);
+  const gripX = compositeMoveOutHandleGripLeftPx(boundsPx);
+  const gripY = Math.max(0, Math.round((boundsPx.h - gripH) / 2));
 
-export function compositeMoveOutHitboxBoundsPx(boundsPx: BoundingBox, xOffsetPx: number = 0): BoundingBox {
+  const step = COMPOSITE_MOVE_OUT_HANDLE_DOT_SIZE_PX + COMPOSITE_MOVE_OUT_HANDLE_DOT_GAP_PX;
+  const dotPositionsPx = [];
+  for (let row = 0; row < rows; ++row) {
+    for (let col = 0; col < COMPOSITE_MOVE_OUT_HANDLE_DOT_COLS; ++col) {
+      dotPositionsPx.push({ x: gripX + col * step, y: gripY + row * step });
+    }
+  }
+
   return {
-    x: boundsPx.x + xOffsetPx,
+    gripBoundsPx: { x: gripX, y: gripY, w: gripW, h: gripH },
+    backgroundBoundsPx: { x: 0, y: 0, w: boundsPx.w, h: boundsPx.h },
+    dotSizePx: COMPOSITE_MOVE_OUT_HANDLE_DOT_SIZE_PX,
+    dotPositionsPx,
+  };
+}
+
+export function compositeMoveOutHitboxBoundsPx(boundsPx: BoundingBox): BoundingBox {
+  return {
+    x: boundsPx.x,
     y: boundsPx.y,
     w: boundsPx.w,
     h: boundsPx.h,

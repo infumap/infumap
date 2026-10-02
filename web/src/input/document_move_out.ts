@@ -18,7 +18,7 @@
 
 import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
-import { compositeMoveOutHandleLineLeftPx } from "../layout/composite-move-out";
+import { compositeMoveOutHandleGripLeftPx } from "../layout/composite-move-out";
 import { VesCache } from "../layout/ves-cache";
 import { VeFns, VisualElement, type VisualElementPath } from "../layout/visual-element";
 import { boundingBoxFromDOMRect, type BoundingBox, type Vector } from "../util/geometry";
@@ -55,7 +55,7 @@ export function readOnlyDocumentMoveOutVeAtClientPx(clientPosPx: Vector): Visual
     if (bounds == null) { continue; }
     const hitBounds = {
       ...bounds,
-      x: bounds.x + compositeMoveOutHandleLineLeftPx(bounds),
+      x: bounds.x + compositeMoveOutHandleGripLeftPx(bounds),
     };
     if (!isInsideInclusive(clientPosPx, hitBounds)) { continue; }
 
