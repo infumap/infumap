@@ -1654,7 +1654,8 @@ async fn execute_lexical_search_tool_call(
     .unwrap_or(CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS)
     .clamp(1, CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS);
   let page_num = arguments.page_num.map(|page_num| page_num.max(1));
-  let search_request = search::SearchRequest { page_id: arguments.page_id, text: search_text, num_results, page_num };
+  let search_request =
+    search::SearchRequest { page_id: arguments.page_id, text: search_text, num_results, page_num, scope_id: None };
 
   match search::run_lexical_search(db, search_request, session).await {
     Ok(response) => search::compact_search_response_json(&response),

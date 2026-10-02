@@ -79,8 +79,6 @@ impl ResolvedScope {
   }
 
   /// Whether the item lies within the scope. Ownership and item type are not checked here.
-  // Not yet used outside tests: search and chat call this once scopes are wired into requests.
-  #[allow(dead_code)]
   pub fn contains(&self, db: &Db, item: &Item) -> bool {
     let mut included = false;
     let mut seen = HashSet::new();
@@ -105,7 +103,6 @@ impl ResolvedScope {
   }
 
   /// The ids of all readable items in the scope, sorted.
-  #[allow(dead_code)]
   pub fn allowed_item_ids(&self, db: &Db, user_id: &Uid) -> InfuResult<Vec<Uid>> {
     let home_roots = HashSet::from([self.home_page_id.clone()]);
     let mut roots = Vec::new();
@@ -162,7 +159,6 @@ pub(super) fn subtree_item_ids(db: &Db, roots: Vec<Uid>, pruned: &HashSet<Uid>, 
   Ok(item_ids)
 }
 
-#[allow(dead_code)]
 pub(super) fn resolve_scope(db: &Db, user_id: &Uid, scope_id: &Uid) -> InfuResult<ResolvedScope> {
   let scope_page =
     db.item.get(scope_id).ok().filter(|item| is_scope_page(item, user_id)).ok_or("Scope was not found.")?;
@@ -295,8 +291,9 @@ fn resolve_scope_page(db: &Db, user_id: &Uid, scope_page: &Item) -> InfuResult<R
   })
 }
 
+/// A database in a temporary directory, holding one user with the standard pages.
 #[cfg(test)]
-mod tests {
+pub(super) mod test_db {
   use super::*;
   use crate::storage::db::user::User;
   use crate::web::routes::{
@@ -305,11 +302,11 @@ mod tests {
   use infusdk::item::NoteFlags;
   use std::path::PathBuf;
 
-  struct TestDb {
-    db: Db,
-    user_id: Uid,
-    home_id: Uid,
-    trash_id: Uid,
+  pub(crate) struct TestDb {
+    pub db: Db,
+    pub user_id: Uid,
+    pub home_id: Uid,
+    pub trash_id: Uid,
     dir: PathBuf,
   }
 
@@ -320,7 +317,7 @@ mod tests {
   }
 
   impl TestDb {
-    async fn new() -> TestDb {
+    pub async fn new() -> TestDb {
       let dir = std::env::temp_dir().join(format!("infumap-scope-test-{}", new_uid()));
       std::fs::create_dir_all(&dir).unwrap();
       let mut db = Db::new(dir.to_str().unwrap()).await.unwrap();
@@ -348,11 +345,11 @@ mod tests {
       TestDb { db, user_id: user.id.clone(), home_id: user.home_page_id, trash_id: user.trash_page_id, dir }
     }
 
-    fn scopes_id(&self) -> Uid {
+    pub fn scopes_id(&self) -> Uid {
       scopes_page_id(&self.user_id)
     }
 
-    async fn add(&mut self, mut item: Item) -> Uid {
+    pub async fn add(&mut self, mut item: Item) -> Uid {
       item.owner_id = self.user_id.clone();
       let parent_id = item.parent_id.clone().unwrap();
       let siblings = if item.relationship_to_parent == RelationshipToParent::Attachment {
@@ -366,7 +363,7 @@ mod tests {
       id
     }
 
-    async fn page(&mut self, parent_id: &Uid, title: &str) -> Uid {
+    pub async fn page(&mut self, parent_id: &Uid, title: &str) -> Uid {
       let item = Item::new_page(
         Some(parent_id),
         vec![],
@@ -392,13 +389,13 @@ mod tests {
       self.add(item).await
     }
 
-    async fn note(&mut self, parent_id: &Uid, title: &str, relationship: RelationshipToParent) -> Uid {
+    pub async fn note(&mut self, parent_id: &Uid, title: &str, relationship: RelationshipToParent) -> Uid {
       let item =
         Item::new_note(parent_id, vec![], Vector { x: 0, y: 0 }, GRID_SIZE, relationship, title, NoteFlags::None, None);
       self.add(item).await
     }
 
-    async fn link(&mut self, parent_id: &Uid, link_to: &Uid) -> Uid {
+    pub async fn link(&mut self, parent_id: &Uid, link_to: &Uid) -> Uid {
       let item = Item::new_link(
         parent_id,
         vec![],
@@ -410,7 +407,15 @@ mod tests {
       );
       self.add(item).await
     }
+  }
+}
 
+#[cfg(test)]
+mod tests {
+  use super::test_db::TestDb;
+  use super::*;
+
+  impl TestDb {
     fn resolve(&self, scope_id: &Uid) -> ResolvedScope {
       resolve_scope(&self.db, &self.user_id, scope_id).unwrap()
     }

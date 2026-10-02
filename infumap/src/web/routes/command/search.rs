@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use super::scope::resolve_scope;
 use super::*;
 
 const SEARCH_RRF_K: f64 = 60.0;
@@ -44,6 +45,33 @@ pub struct SearchRequest {
   pub num_results: i64,
   #[serde(rename = "pageNum")]
   pub page_num: Option<i64>,
+  /// A scope page from the user's scopes page. When given with `page_id`, both apply.
+  #[serde(rename = "scopeId", default)]
+  pub scope_id: Option<Uid>,
+}
+
+/// Which items a search may return.
+enum SearchBounds {
+  /// Readable items under this item. Used for unrestricted searches of the home page tree.
+  UnderRoot(Uid),
+  /// Exactly these items. Used when a page or scope restricts the search.
+  Items(Vec<Uid>),
+}
+
+impl SearchBounds {
+  fn root_id(&self) -> Option<&Uid> {
+    match self {
+      SearchBounds::UnderRoot(root_id) => Some(root_id),
+      SearchBounds::Items(_) => None,
+    }
+  }
+
+  fn allowed_item_ids(&self) -> Option<&[Uid]> {
+    match self {
+      SearchBounds::UnderRoot(_) => None,
+      SearchBounds::Items(item_ids) => Some(item_ids),
+    }
+  }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -235,34 +263,34 @@ pub(super) async fn run_search(
   request: SearchRequest,
   session: &Session,
 ) -> InfuResult<SearchResponse> {
-  let full_user_search = request.page_id.is_none();
   let search_text = request.text.to_lowercase();
 
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
 
-  let (data_dir, search_root_id) = resolve_search_scope(db, request.page_id, session).await?;
-
-  let results = if full_user_search {
-    indexed_search_results(
-      db,
-      &data_dir,
-      &session.user_id,
-      &search_root_id,
-      None,
-      LexicalQueryMode::QuerySyntax,
-      &request.text,
-      start_result,
-      end_result,
-    )
-    .await?
-  } else {
-    let mut db = db.lock().await;
-    let started = Instant::now();
-    let result =
-      search_exact_paginated(&mut db, &search_text, search_root_id, &session.user_id, start_result, end_result);
-    record_search_backend_metrics("exact", started, &result);
-    result?
+  let results = match (&request.page_id, &request.scope_id) {
+    (Some(page_id), None) => {
+      let mut db = db.lock().await;
+      let started = Instant::now();
+      let result =
+        search_exact_paginated(&mut db, &search_text, page_id.clone(), &session.user_id, start_result, end_result);
+      record_search_backend_metrics("exact", started, &result);
+      result?
+    }
+    (page_id, scope_id) => {
+      let (data_dir, bounds) = resolve_search_bounds(db, page_id.as_ref(), scope_id.as_ref(), session).await?;
+      indexed_search_results(
+        db,
+        &data_dir,
+        &session.user_id,
+        &bounds,
+        LexicalQueryMode::QuerySyntax,
+        &request.text,
+        start_result,
+        end_result,
+      )
+      .await?
+    }
   };
 
   Ok(search_response_from_results(results, request.num_results))
@@ -275,21 +303,14 @@ pub(super) async fn run_lexical_search(
 ) -> InfuResult<SearchResponse> {
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
-  let has_explicit_scope = request.page_id.is_some();
-  let (data_dir, search_root_id) = resolve_search_scope(db, request.page_id, session).await?;
-  let allowed_item_ids = if has_explicit_scope {
-    let db = db.lock().await;
-    Some(search_scope_item_ids(&db, &search_root_id, &session.user_id)?)
-  } else {
-    None
-  };
+  let (data_dir, bounds) =
+    resolve_search_bounds(db, request.page_id.as_ref(), request.scope_id.as_ref(), session).await?;
 
   let results = indexed_search_results(
     db,
     &data_dir,
     &session.user_id,
-    &search_root_id,
-    allowed_item_ids.as_deref(),
+    &bounds,
     LexicalQueryMode::NaturalText,
     &request.text,
     start_result,
@@ -305,23 +326,44 @@ pub(super) fn compact_search_response_json(response: &SearchResponse) -> InfuRes
     .map_err(|e| format!("Could not serialize compact search response: {}", e).into())
 }
 
-async fn resolve_search_scope(
+async fn resolve_search_bounds(
   db: &Arc<tokio::sync::Mutex<Db>>,
-  page_id: Option<Uid>,
+  page_id: Option<&Uid>,
+  scope_id: Option<&Uid>,
   session: &Session,
-) -> InfuResult<(String, Uid)> {
+) -> InfuResult<(String, SearchBounds)> {
   let db = db.lock().await;
-  let page_id = if let Some(page_id) = page_id {
-    page_id
-  } else {
-    let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}", session.user_id))?;
-    user.home_page_id.clone()
-  };
-
-  Ok((db.item.data_dir().to_owned(), page_id))
+  let started = Instant::now();
+  let bounds = search_bounds(&db, page_id, scope_id, &session.user_id)?;
+  if let SearchBounds::Items(item_ids) = &bounds {
+    debug!(
+      "Resolved search bounds for user '{}' to {} item(s) in {:?}.",
+      session.user_id,
+      item_ids.len(),
+      started.elapsed()
+    );
+  }
+  Ok((db.item.data_dir().to_owned(), bounds))
 }
 
-fn search_scope_item_ids(db: &Db, search_root_id: &Uid, user_id: &Uid) -> InfuResult<Vec<Uid>> {
+fn search_bounds(db: &Db, page_id: Option<&Uid>, scope_id: Option<&Uid>, user_id: &Uid) -> InfuResult<SearchBounds> {
+  let scope = scope_id.map(|scope_id| resolve_scope(db, user_id, scope_id)).transpose()?;
+  Ok(match (page_id, scope) {
+    (None, None) => {
+      let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
+      SearchBounds::UnderRoot(user.home_page_id.clone())
+    }
+    (Some(page_id), None) => SearchBounds::Items(page_subtree_item_ids(db, page_id, user_id)?),
+    (None, Some(scope)) => SearchBounds::Items(scope.allowed_item_ids(db, user_id)?),
+    (Some(page_id), Some(scope)) => {
+      let mut item_ids = page_subtree_item_ids(db, page_id, user_id)?;
+      item_ids.retain(|item_id| db.item.get(item_id).is_ok_and(|item| scope.contains(db, item)));
+      SearchBounds::Items(item_ids)
+    }
+  })
+}
+
+fn page_subtree_item_ids(db: &Db, search_root_id: &Uid, user_id: &Uid) -> InfuResult<Vec<Uid>> {
   let search_root = db.item.get(search_root_id).map_err(|_| "Search scope was not found.")?;
   if &search_root.owner_id != user_id || search_root.item_type == ItemType::Password {
     return Err("Search scope was not found.".into());
@@ -334,8 +376,7 @@ async fn indexed_search_results(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
-  search_root_id: &Uid,
-  allowed_item_ids: Option<&[Uid]>,
+  bounds: &SearchBounds,
   lexical_query_mode: LexicalQueryMode,
   search_text: &str,
   start_result: i64,
@@ -348,8 +389,7 @@ async fn indexed_search_results(
     db,
     data_dir,
     user_id,
-    search_root_id,
-    allowed_item_ids,
+    bounds,
     lexical_query_mode,
     search_text,
     fragment_result_limit,
@@ -367,8 +407,7 @@ async fn indexed_search_results(
     db,
     data_dir,
     user_id,
-    search_root_id,
-    allowed_item_ids,
+    bounds,
     lexical_query_mode,
     search_text,
     fragment_result_limit,
@@ -433,24 +472,13 @@ async fn title_lexical_search_results(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
-  search_root_id: &Uid,
-  allowed_item_ids: Option<&[Uid]>,
+  bounds: &SearchBounds,
   query_mode: LexicalQueryMode,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
-  let result = title_lexical_search_results_inner(
-    db,
-    data_dir,
-    user_id,
-    search_root_id,
-    allowed_item_ids,
-    query_mode,
-    search_text,
-    limit,
-  )
-  .await;
+  let result = title_lexical_search_results_inner(db, data_dir, user_id, bounds, query_mode, search_text, limit).await;
   record_search_backend_metrics("title", started, &result);
   result
 }
@@ -459,8 +487,7 @@ async fn title_lexical_search_results_inner(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
-  search_root_id: &Uid,
-  allowed_item_ids: Option<&[Uid]>,
+  bounds: &SearchBounds,
   query_mode: LexicalQueryMode,
   search_text: &str,
   limit: usize,
@@ -481,7 +508,7 @@ async fn title_lexical_search_results_inner(
     return Ok(Vec::new());
   }
 
-  let title_hits = title_index.search(search_text, limit, allowed_item_ids, query_mode).await?;
+  let title_hits = title_index.search(search_text, limit, bounds.allowed_item_ids(), query_mode).await?;
   if !title_hits.is_empty() {
     debug!(
       "Title lexical search top hits for user '{}': {}",
@@ -501,7 +528,7 @@ async fn title_lexical_search_results_inner(
     if results.len() >= limit {
       break;
     }
-    if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, search_root_id)? {
+    if let Some(mut result) = search_result_path_for_item(&db, &hit.item_id, user_id, bounds.root_id())? {
       let mut match_result = search_fragment_match_for_lexical_hit(&hit, search_text);
       let exact_title_score = result
         .path
@@ -522,24 +549,14 @@ async fn search_fragment_lexical_search_results(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
-  search_root_id: &Uid,
-  allowed_item_ids: Option<&[Uid]>,
+  bounds: &SearchBounds,
   query_mode: LexicalQueryMode,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
-  let result = search_fragment_lexical_search_results_inner(
-    db,
-    data_dir,
-    user_id,
-    search_root_id,
-    allowed_item_ids,
-    query_mode,
-    search_text,
-    limit,
-  )
-  .await;
+  let result =
+    search_fragment_lexical_search_results_inner(db, data_dir, user_id, bounds, query_mode, search_text, limit).await;
   record_search_backend_metrics("lexical", started, &result);
   result
 }
@@ -548,8 +565,7 @@ async fn search_fragment_lexical_search_results_inner(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
   user_id: &Uid,
-  search_root_id: &Uid,
-  allowed_item_ids: Option<&[Uid]>,
+  bounds: &SearchBounds,
   query_mode: LexicalQueryMode,
   search_text: &str,
   limit: usize,
@@ -572,7 +588,7 @@ async fn search_fragment_lexical_search_results_inner(
 
   let fragment_limit = limit.saturating_mul(SEARCH_LEXICAL_FRAGMENT_MULTIPLIER).max(limit);
   let fragment_hits = lexical_index
-    .search(search_text, fragment_limit, allowed_item_ids, query_mode)
+    .search(search_text, fragment_limit, bounds.allowed_item_ids(), query_mode)
     .await?
     .into_iter()
     .filter(|hit| hit.source_kind != ITEM_TITLE_SOURCE_KIND)
@@ -600,7 +616,7 @@ async fn search_fragment_lexical_search_results_inner(
     let Some(best_hit) = hits.first() else {
       continue;
     };
-    if let Some(mut result) = search_result_path_for_item(&db, &best_hit.item_id, user_id, search_root_id)? {
+    if let Some(mut result) = search_result_path_for_item(&db, &best_hit.item_id, user_id, bounds.root_id())? {
       let matches = hits.iter().map(|hit| search_fragment_match_for_lexical_hit(hit, search_text)).collect::<Vec<_>>();
       result.score = bm25_score_to_search_score(best_hit.score);
       result.fragment_match = matches.first().cloned();
@@ -653,7 +669,7 @@ fn search_result_path_for_item(
   db: &MutexGuard<'_, Db>,
   item_id: &Uid,
   user_id: &Uid,
-  search_root_id: &Uid,
+  root_id_maybe: Option<&Uid>,
 ) -> InfuResult<Option<SearchResult>> {
   let target_item = match db.item.get(item_id) {
     Ok(item) => item,
@@ -692,7 +708,7 @@ fn search_result_path_for_item(
   }
 
   path.reverse();
-  if !search_result_is_under_root_path(&path, search_root_id) {
+  if root_id_maybe.is_some_and(|root_id| !search_result_is_under_root_path(&path, root_id)) {
     return Ok(None);
   }
   Ok(Some(SearchResult { path, score: 0.0, stats, fragment_match: None, additional_fragment_matches: Vec::new() }))
@@ -1235,4 +1251,60 @@ fn search_recursive(
   current_path.pop();
 
   Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::web::routes::command::scope::test_db::TestDb;
+
+  fn bounds_item_ids(t: &TestDb, page_id: Option<&Uid>, scope_id: Option<&Uid>) -> Vec<Uid> {
+    match search_bounds(&t.db, page_id, scope_id, &t.user_id).unwrap() {
+      SearchBounds::Items(item_ids) => item_ids,
+      SearchBounds::UnderRoot(root_id) => panic!("expected an item restriction, got root '{}'", root_id),
+    }
+  }
+
+  fn sorted(mut item_ids: Vec<Uid>) -> Vec<Uid> {
+    item_ids.sort();
+    item_ids
+  }
+
+  #[tokio::test]
+  async fn search_bounds_apply_page_and_scope_together() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let a = t.page(&home, "A").await;
+    let a1 = t.note(&a, "a1", RelationshipToParent::Child).await;
+    let x = t.page(&a, "X").await;
+    let x1 = t.note(&x, "x1", RelationshipToParent::Child).await;
+    let b = t.page(&home, "B").await;
+    let scopes_id = t.scopes_id();
+    let no_x = t.page(&scopes_id, "No X").await;
+    let exclude = t.page(&no_x, "Exclude").await;
+    t.link(&exclude, &x).await;
+    let b_only = t.page(&scopes_id, "B only").await;
+    t.link(&b_only, &b).await;
+
+    match search_bounds(&t.db, None, None, &t.user_id).unwrap() {
+      SearchBounds::UnderRoot(root_id) => assert_eq!(root_id, home),
+      SearchBounds::Items(_) => panic!("an unrestricted search should cover the home tree"),
+    }
+    assert_eq!(bounds_item_ids(&t, None, Some(&no_x)), sorted(vec![home.clone(), a.clone(), a1.clone(), b.clone()]));
+    assert_eq!(bounds_item_ids(&t, Some(&a), None), sorted(vec![a.clone(), a1.clone(), x.clone(), x1.clone()]));
+    assert_eq!(bounds_item_ids(&t, Some(&a), Some(&no_x)), sorted(vec![a.clone(), a1.clone()]));
+    assert!(bounds_item_ids(&t, Some(&a), Some(&b_only)).is_empty());
+  }
+
+  #[tokio::test]
+  async fn search_bounds_reject_unknown_scopes_rather_than_widening() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let a = t.page(&home, "A").await;
+    let not_a_scope = t.page(&home, "Not a scope").await;
+
+    assert!(search_bounds(&t.db, None, Some(&new_uid()), &t.user_id).is_err());
+    assert!(search_bounds(&t.db, Some(&a), Some(&new_uid()), &t.user_id).is_err());
+    assert!(search_bounds(&t.db, None, Some(&not_a_scope), &t.user_id).is_err());
+  }
 }
