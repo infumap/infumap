@@ -43,7 +43,22 @@ pub(super) enum ScopeProblem {
   NoResolvedIncludes,
 }
 
-#[allow(dead_code)]
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScopeSummary<'a> {
+  id: &'a Uid,
+  name: &'a str,
+  /// Null when the scope has no include links and so covers the home page tree.
+  include_count: Option<usize>,
+  exclude_count: usize,
+  problems: &'a [ScopeProblem],
+}
+
+#[derive(Serialize)]
+struct ListScopesResponse<'a> {
+  scopes: Vec<ScopeSummary<'a>>,
+}
+
 pub(super) struct ResolvedScope {
   pub id: Uid,
   pub name: String,
@@ -54,8 +69,6 @@ pub(super) struct ResolvedScope {
   pub problems: Vec<ScopeProblem>,
 }
 
-// Not yet used outside tests: search and chat call these once scopes are wired into requests.
-#[allow(dead_code)]
 impl ResolvedScope {
   pub fn include_root_count(&self) -> Option<usize> {
     self.include_roots.as_ref().map(HashSet::len)
@@ -66,6 +79,8 @@ impl ResolvedScope {
   }
 
   /// Whether the item lies within the scope. Ownership and item type are not checked here.
+  // Not yet used outside tests: search and chat call this once scopes are wired into requests.
+  #[allow(dead_code)]
   pub fn contains(&self, db: &Db, item: &Item) -> bool {
     let mut included = false;
     let mut seen = HashSet::new();
@@ -90,6 +105,7 @@ impl ResolvedScope {
   }
 
   /// The ids of all readable items in the scope, sorted.
+  #[allow(dead_code)]
   pub fn allowed_item_ids(&self, db: &Db, user_id: &Uid) -> InfuResult<Vec<Uid>> {
     let home_roots = HashSet::from([self.home_page_id.clone()]);
     let mut roots = Vec::new();
@@ -154,13 +170,39 @@ pub(super) fn resolve_scope(db: &Db, user_id: &Uid, scope_id: &Uid) -> InfuResul
 }
 
 /// All of the user's scopes, in the order they appear on the scopes page.
-#[allow(dead_code)]
 pub(super) fn list_scopes(db: &Db, user_id: &Uid) -> InfuResult<Vec<ResolvedScope>> {
   sorted_children(db, &scopes_page_id(user_id))?
     .into_iter()
     .filter(|item| is_scope_page(item, user_id))
     .map(|scope_page| resolve_scope_page(db, user_id, scope_page))
     .collect()
+}
+
+pub(super) async fn handle_list_scopes(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to list scopes.")?;
+  let response = list_scopes_json(&*db.lock().await, &session.user_id)?;
+  debug!("Executed 'list-scopes' command for user '{}'.", session.user_id);
+  Ok(Some(response))
+}
+
+fn list_scopes_json(db: &Db, user_id: &Uid) -> InfuResult<String> {
+  let scopes = list_scopes(db, user_id)?;
+  let response = ListScopesResponse {
+    scopes: scopes
+      .iter()
+      .map(|scope| ScopeSummary {
+        id: &scope.id,
+        name: &scope.name,
+        include_count: scope.include_root_count(),
+        exclude_count: scope.exclude_root_count(),
+        problems: &scope.problems,
+      })
+      .collect(),
+  };
+  Ok(serde_json::to_string(&response)?)
 }
 
 fn is_scope_page(item: &Item, user_id: &Uid) -> bool {
@@ -579,5 +621,33 @@ mod tests {
     assert!(resolve_scope(&t.db, &t.user_id, &not_a_scope).is_err());
     assert!(resolve_scope(&t.db, &t.user_id, &new_uid()).is_err());
     assert!(resolve_scope(&t.db, &t.user_id, &scopes_id).is_err());
+  }
+
+  #[tokio::test]
+  async fn list_scopes_json_summarizes_each_scope() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let a = t.page(&home, "A").await;
+    let b = t.page(&home, "B").await;
+    let scopes_id = t.scopes_id();
+    let everything = t.page(&scopes_id, "Everything").await;
+    let work = t.page(&scopes_id, "Work").await;
+    t.link(&work, &a).await;
+    let broken = t.link(&work, &new_uid()).await;
+    let exclude = t.page(&work, "Exclude").await;
+    t.link(&exclude, &b).await;
+    let misnamed = t.page(&work, "Notes").await;
+
+    let response: Value = serde_json::from_str(&list_scopes_json(&t.db, &t.user_id).unwrap()).unwrap();
+    assert_eq!(
+      response,
+      serde_json::json!({ "scopes": [
+        { "id": everything, "name": "Everything", "includeCount": null, "excludeCount": 0, "problems": [] },
+        { "id": work, "name": "Work", "includeCount": 1, "excludeCount": 1, "problems": [
+          { "kind": "ignoredContainer", "itemId": misnamed, "title": "Notes" },
+          { "kind": "unresolvedLink", "itemId": broken, "exclude": false },
+        ]},
+      ]})
+    );
   }
 }
