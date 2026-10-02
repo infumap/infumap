@@ -29,6 +29,7 @@ import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns, asNoteItem, isNote } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
+import { queryScopeIdForRequest } from "./query-scope";
 import { TextFns } from "./text-item";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import { server, type ChatMessage, type ChatModelSelection, type ChatStreamEvent, type ChatStreamPhase, type ChatToolServerInfo } from "../server";
@@ -544,6 +545,7 @@ async function generateMaterializedQueryChatTitle(
     capabilities: queryChatCapabilities(store, queryItem),
     mode: "chat",
     model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
+    scopeId: queryScopeIdForRequest(store, queryItem),
   }, store.general.networkStatus, () => {});
   return titleFromModelResponse(response.assistantText);
 }
@@ -1155,6 +1157,7 @@ export async function submitQueryChatMessage(
       capabilities: queryChatCapabilities(store, queryItem),
       mode: deepResearch ? "deep_research" : "chat",
       model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
+      scopeId: queryScopeIdForRequest(store, queryItem),
     }, store.general.networkStatus, (event) => {
       if (event.type == "context_tokens") {
         setQueryChatContextTokens(store, queryItem, event.tokens, event.exact);

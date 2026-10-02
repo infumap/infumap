@@ -55,7 +55,9 @@ struct ScopeSummary<'a> {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ListScopesResponse<'a> {
+  scopes_page_id: Uid,
   scopes: Vec<ScopeSummary<'a>>,
 }
 
@@ -187,6 +189,7 @@ pub(super) async fn handle_list_scopes(
 fn list_scopes_json(db: &Db, user_id: &Uid) -> InfuResult<String> {
   let scopes = list_scopes(db, user_id)?;
   let response = ListScopesResponse {
+    scopes_page_id: scopes_page_id(user_id),
     scopes: scopes
       .iter()
       .map(|scope| ScopeSummary {
@@ -655,7 +658,7 @@ mod tests {
     let response: Value = serde_json::from_str(&list_scopes_json(&t.db, &t.user_id).unwrap()).unwrap();
     assert_eq!(
       response,
-      serde_json::json!({ "scopes": [
+      serde_json::json!({ "scopesPageId": scopes_id, "scopes": [
         { "id": everything, "name": "Everything", "includeCount": null, "excludeCount": 0, "problems": [] },
         { "id": work, "name": "Work", "includeCount": 1, "excludeCount": 1, "problems": [
           { "kind": "ignoredContainer", "itemId": misnamed, "title": "Notes" },

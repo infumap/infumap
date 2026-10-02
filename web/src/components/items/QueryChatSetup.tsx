@@ -28,6 +28,7 @@ import {
   setQueryChatUsesCapability,
   setQueryChatUsesInfumapData,
 } from "../../items/chat";
+import { queryScopeId, queryScopeName } from "../../items/query-scope";
 import { useStore } from "../../store/StoreProvider";
 import {
   ChatBackendId,
@@ -299,6 +300,9 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
     lines.push(enabled.length == 0
       ? "Tools: none"
       : `Tools: ${enabled.map(source => source.label).join(", ")}`);
+    if (queryChatUsesInfumapData(store, props.queryItem())) {
+      lines.push(`Scope: ${queryScopeName(queryScopeId(store, props.queryItem()))}`);
+    }
     if (props.deepResearch?.() == true) { lines.push("Deep research is on."); }
     return lines.join("\n");
   };
