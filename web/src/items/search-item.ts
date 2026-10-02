@@ -39,7 +39,10 @@ const DEFAULT_WIDTH_GR = GRID_SIZE * 4;
 export const SEARCH_WORKSPACE_TOP_INSET_PX = 25;
 export const SEARCH_WORKSPACE_SIDE_INSET_PX = 26;
 export const SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX = 44;
-export const SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX = 25;
+/** The row under the input holding the scope picker (and, before a chat starts, its setup button). */
+export const SEARCH_WORKSPACE_SETTINGS_ROW_GAP_PX = 10;
+export const SEARCH_WORKSPACE_SETTINGS_ROW_HEIGHT_PX = 22;
+export const SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX = 18;
 export const SEARCH_WORKSPACE_BUTTON_WIDTH_PX = 92;
 export const SEARCH_WORKSPACE_CONTROLS_GAP_PX = 10;
 export const SEARCH_WORKSPACE_MORE_BUTTON_WIDTH_PX = 92;
@@ -97,7 +100,11 @@ export function calcSearchWorkspaceInputWidthPx(boundsWidthPx: number): number {
 }
 
 export function calcSearchWorkspaceResultsTopPx(): number {
-  return SEARCH_WORKSPACE_TOP_INSET_PX + SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX + SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX;
+  return SEARCH_WORKSPACE_TOP_INSET_PX
+    + SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX
+    + SEARCH_WORKSPACE_SETTINGS_ROW_GAP_PX
+    + SEARCH_WORKSPACE_SETTINGS_ROW_HEIGHT_PX
+    + SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX;
 }
 
 export function calcSearchWorkspaceResultsFooterHeightPx(showMoreButton: boolean): number {

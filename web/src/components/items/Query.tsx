@@ -44,6 +44,8 @@ import {
   asQueryItem,
   QUERY_WORKSPACE_CONTROLS_GAP_PX,
   QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
+  QUERY_WORKSPACE_SETTINGS_ROW_GAP_PX,
+  QUERY_WORKSPACE_SETTINGS_ROW_HEIGHT_PX,
   QUERY_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX,
   QUERY_WORKSPACE_MORE_BUTTON_HEIGHT_PX,
   QUERY_WORKSPACE_MORE_BUTTON_WIDTH_PX,
@@ -137,6 +139,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [pendingInputFocus, setPendingInputFocus] = createSignal<{ caretIdx: number, selectAll: boolean } | null>(null);
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
+  /** The request serial of the search in flight, so only the latest search clears it. */
+  const [searchingSerial, setSearchingSerial] = createSignal<number | null>(null);
+  const isSearching = () => searchingSerial() != null;
   const [isStartingChat, setIsStartingChat] = createSignal(false);
   const [chatText, setChatText] = createSignal("");
   const [deepResearch, setDeepResearch] = createSignal(false);
@@ -336,11 +341,18 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const text = commitEditingQuery(editingElMaybe);
     const requestSerial = ++activeSearchRequestSerial;
     setIsLoadingMore(false);
-    await runQuerySearch(store, queryItem(), text, {
-      selectFirstResultRow,
-      keepQueryFocusPath: keepSearchWorkspaceFocus ? vePath() : undefined,
-      shouldApply: () => requestSerial == activeSearchRequestSerial,
-    });
+    setSearchingSerial(requestSerial);
+    try {
+      await runQuerySearch(store, queryItem(), text, {
+        selectFirstResultRow,
+        keepQueryFocusPath: keepSearchWorkspaceFocus ? vePath() : undefined,
+        shouldApply: () => requestSerial == activeSearchRequestSerial,
+      });
+    } finally {
+      if (searchingSerial() == requestSerial) {
+        setSearchingSerial(null);
+      }
+    }
   };
 
   const startChat = async (editingElMaybe?: HTMLElement | null) => {
@@ -356,6 +368,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
     setIsStartingChat(true);
     activeSearchRequestSerial++;
+    setSearchingSerial(null);
     const useDeepResearch = deepResearch();
     try {
       await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch);
@@ -475,7 +488,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const loadMoreSearchResults = async () => {
-    if (isEditing() || isLoadingMore() || !searchHasMoreResults()) {
+    if (isEditing() || isLoadingMore() || isSearching() || !searchHasMoreResults()) {
       return;
     }
 
@@ -493,6 +506,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const resetLocalQuerySessionUi = () => {
     activeSearchRequestSerial++;
     setIsLoadingMore(false);
+    setSearchingSerial(null);
     setMoreButtonHost(null);
     setChatText("");
     setDeepResearch(false);
@@ -1041,7 +1055,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <Show when={queryChatUsesInfumapData(store, queryItem())}>
                 <QueryScopePicker
                   queryItem={queryItem}
-                  variant="pill"
                   disabled={chatRequestActive}
                   note={() => queryChatHasContent(store, queryItem())
                     ? "Applies from your next message. Earlier answers keep what they found."
@@ -1264,7 +1277,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   submitQueryInput();
                 }
               }}>
-              <i class="fa fa-arrow-up" />
+              <i class={isSearching() ? "fa fa-circle-notch fa-spin" : "fa fa-arrow-up"} />
             </button>
           </div>
         </div>
@@ -1301,31 +1314,32 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </button>
         </Show>
       </div>
-      <Show when={!isSearchMode()}>
-        <div
-          class="flex w-full items-center justify-end gap-2 text-[#555]"
-          style="height: 22px; margin-top: 10px; font-size: 13px; line-height: 20px;"
-          onMouseDown={(ev) => ev.stopPropagation()}
-          onMouseUp={(ev) => ev.stopPropagation()}
-          onClick={(ev) => ev.stopPropagation()}>
-          <Show when={selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}>
-            <QueryScopePicker
-              queryItem={queryItem}
-              variant="pill"
-              disabled={isStartingChat}
-              beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())} />
-          </Show>
-          <Show when={selectedInputMode() == "chat"}>
-            <QueryChatSetup
-              queryItem={queryItem}
-              toolsLocked={isStartingChat}
-              lockedReason="wait for the chat to start"
-              beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
-              buttonRef={(el) => { querySetupButton = el; }}
-              onTabKey={(ev) => handleQueryControlTab(ev, "setup")} />
-          </Show>
-        </div>
-      </Show>
+      {/* Right aligned with the input, not the discard button, so the scope stays put once a search runs. */}
+      <div
+        class="flex w-full items-center justify-end gap-2 text-[#555]"
+        style={`height: ${QUERY_WORKSPACE_SETTINGS_ROW_HEIGHT_PX}px; margin-top: ${QUERY_WORKSPACE_SETTINGS_ROW_GAP_PX}px; ` +
+          `padding-right: ${showDiscardButton() ? QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0}px; ` +
+          `font-size: 13px; line-height: 20px;`}
+        onMouseDown={(ev) => ev.stopPropagation()}
+        onMouseUp={(ev) => ev.stopPropagation()}
+        onClick={(ev) => ev.stopPropagation()}>
+        <Show when={selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}>
+          <QueryScopePicker
+            queryItem={queryItem}
+            disabled={isStartingChat}
+            beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+            onChange={() => { if (isSearchMode()) { void runSearch(false); } }} />
+        </Show>
+        <Show when={selectedInputMode() == "chat"}>
+          <QueryChatSetup
+            queryItem={queryItem}
+            toolsLocked={isStartingChat}
+            lockedReason="wait for the chat to start"
+            beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+            buttonRef={(el) => { querySetupButton = el; }}
+            onTabKey={(ev) => handleQueryControlTab(ev, "setup")} />
+        </Show>
+      </div>
     </>;
     return (
       <div class="absolute bg-white"
@@ -1350,23 +1364,19 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <Show when={isChatMode()}>
           {renderQueryChatSurface()}
         </Show>
-        <Show when={isSearchMode()}>
-          <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(vePath())()} />
-        </Show>
-        <Show when={isSearchMode() || isChatMode()}>
-          <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
-            <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
-          }</For>
-        </Show>
-        <Show when={isSearchMode()}>
-          <div class="absolute flex items-center"
-            style={`left: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
-            <QueryScopePicker
-              queryItem={queryItem}
-              variant="compact"
-              onChange={() => { void runSearch(false); }} />
-          </div>
-        </Show>
+        {/* Results stay visible but faded while a new search runs. The delay avoids a flicker for fast searches. */}
+        <div style={isSearchMode() && isSearching()
+          ? "opacity: 0.4; transition: opacity 150ms ease 150ms;"
+          : "transition: opacity 150ms ease;"}>
+          <Show when={isSearchMode()}>
+            <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(vePath())()} />
+          </Show>
+          <Show when={isSearchMode() || isChatMode()}>
+            <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
+              <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
+            }</For>
+          </Show>
+        </div>
         <Show when={isSearchMode()}>
           <div class="absolute flex items-center gap-[4px]"
             style={`right: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
