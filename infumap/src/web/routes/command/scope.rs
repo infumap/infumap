@@ -307,12 +307,15 @@ pub(super) mod test_db {
     pub user_id: Uid,
     pub home_id: Uid,
     pub trash_id: Uid,
-    dir: PathBuf,
+    pub dir: TempDir,
   }
 
-  impl Drop for TestDb {
+  /// Removes the database directory when dropped.
+  pub(crate) struct TempDir(PathBuf);
+
+  impl Drop for TempDir {
     fn drop(&mut self) {
-      let _ = std::fs::remove_dir_all(&self.dir);
+      let _ = std::fs::remove_dir_all(&self.0);
     }
   }
 
@@ -342,7 +345,13 @@ pub(super) mod test_db {
       db.item.add(default_dock_page(&user.id, user.dock_page_id.clone(), 2.0)).await.unwrap();
       db.item.add(default_queries_page(&user.id, user.queries_page_id.clone(), 2.0)).await.unwrap();
       ensure_scopes_page(&mut db, &user.id).await.unwrap();
-      TestDb { db, user_id: user.id.clone(), home_id: user.home_page_id, trash_id: user.trash_page_id, dir }
+      TestDb {
+        db,
+        user_id: user.id.clone(),
+        home_id: user.home_page_id,
+        trash_id: user.trash_page_id,
+        dir: TempDir(dir),
+      }
     }
 
     pub fn scopes_id(&self) -> Uid {

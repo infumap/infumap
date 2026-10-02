@@ -27,6 +27,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
+use super::scope::{ResolvedScope, resolve_scope};
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
 mod backend;
@@ -121,6 +122,21 @@ struct ChatRequest {
   mode: ChatRunMode,
   #[serde(default)]
   model: Option<ChatModelSelection>,
+  /// A scope page from the user's scopes page, limiting what the Infumap tools can read.
+  #[serde(rename = "scopeId", default)]
+  scope_id: Option<Uid>,
+}
+
+/// Infumap data access for one chat run.
+struct InfumapData {
+  /// Resolved once when the run starts, so every tool call in the run applies the same scope roots.
+  scope: Option<ResolvedScope>,
+}
+
+impl InfumapData {
+  fn scope(&self) -> Option<&ResolvedScope> {
+    self.scope.as_ref()
+  }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -1030,8 +1046,18 @@ fn chat_utc_today_line() -> String {
   format!("Today is {}, {:04}-{:02}-{:02} (UTC).", now.weekday(), now.year(), u8::from(now.month()), now.day())
 }
 
-fn chat_system_prompt(uses_infumap_data: bool, has_plugin_tools: bool, mode: ChatRunMode) -> String {
-  let mut parts = vec![if uses_infumap_data { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT }];
+fn chat_system_prompt(infumap_data: Option<&InfumapData>, has_plugin_tools: bool, mode: ChatRunMode) -> String {
+  let scope_part = infumap_data.and_then(InfumapData::scope).map(|scope| {
+    format!(
+      "The Infumap tools are limited to the scope named {}. Items outside it are omitted from results, so an item \
+      that cannot be found may lie outside the scope rather than not exist.",
+      serde_json::Value::String(scope.name.clone())
+    )
+  });
+  let mut parts = vec![if infumap_data.is_some() { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT }];
+  if let Some(scope_part) = &scope_part {
+    parts.push(scope_part);
+  }
   if has_plugin_tools {
     parts.push(CHAT_SYSTEM_PROMPT_PLUGIN_TOOLS);
   }
@@ -1050,6 +1076,9 @@ fn wire_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<Open
 }
 
 fn chat_failure_message(message: &str) -> String {
+  if message.contains("Scope was not found") {
+    return "The selected scope no longer exists.".to_owned();
+  }
   if message.contains("exceeded maximum tool rounds") {
     return "The request exceeded its maximum tool rounds.".to_owned();
   }
@@ -1356,7 +1385,7 @@ async fn execute_chat_tool_call_with_progress(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   config: &Config,
-  uses_infumap_data: bool,
+  infumap_data: Option<&InfumapData>,
   name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
   round: usize,
   tool_call: OpenAiToolCall,
@@ -1385,7 +1414,7 @@ async fn execute_chat_tool_call_with_progress(
 
   progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
   let started_at = Instant::now();
-  let tool_result = execute_chat_tool_call(db, session, config, &tool_call, uses_infumap_data, name_map).await?;
+  let tool_result = execute_chat_tool_call(db, session, config, &tool_call, infumap_data, name_map).await?;
   let duration_ms = started_at.elapsed().as_millis() as u64;
   let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
   progress
@@ -1399,7 +1428,7 @@ async fn execute_chat_tool_round(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   config: &Config,
-  uses_infumap_data: bool,
+  infumap_data: Option<&InfumapData>,
   name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
   round: usize,
   tool_calls: Vec<OpenAiToolCall>,
@@ -1410,17 +1439,8 @@ async fn execute_chat_tool_round(
   while let Some(tool_call) = tool_calls.next() {
     if !chat_tool_can_run_concurrently(&tool_call.function.name, name_map) {
       tool_messages.push(
-        execute_chat_tool_call_with_progress(
-          db,
-          session,
-          config,
-          uses_infumap_data,
-          name_map,
-          round,
-          tool_call,
-          progress,
-        )
-        .await?,
+        execute_chat_tool_call_with_progress(db, session, config, infumap_data, name_map, round, tool_call, progress)
+          .await?,
       );
       continue;
     }
@@ -1431,7 +1451,7 @@ async fn execute_chat_tool_round(
       concurrent_batch.push(tool_calls.next().expect("peeked tool call must exist"));
     }
     let results = join_all(concurrent_batch.into_iter().map(|tool_call| {
-      execute_chat_tool_call_with_progress(db, session, config, uses_infumap_data, name_map, round, tool_call, progress)
+      execute_chat_tool_call_with_progress(db, session, config, infumap_data, name_map, round, tool_call, progress)
     }))
     .await;
     tool_messages.extend(results.into_iter().collect::<InfuResult<Vec<_>>>()?);
@@ -1444,7 +1464,7 @@ async fn run_chat_stage_with_tools(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   config: &Config,
-  uses_infumap_data: bool,
+  infumap_data: Option<&InfumapData>,
   name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
   messages: &mut Vec<OpenAiChatMessage>,
   tools: &[OpenAiToolSpec],
@@ -1471,7 +1491,7 @@ async fn run_chat_stage_with_tools(
       db,
       session,
       config,
-      uses_infumap_data,
+      infumap_data,
       name_map,
       completed_round.number,
       completed_round.tool_calls,
@@ -1505,7 +1525,16 @@ async fn run_chat_with_tools(
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
-  let uses_infumap_data = request.uses_infumap_data();
+  let infumap_data = if request.uses_infumap_data() {
+    let scope = match &request.scope_id {
+      Some(scope_id) => Some(resolve_scope(&*db.lock().await, &session.user_id, scope_id)?),
+      None => None,
+    };
+    Some(InfumapData { scope })
+  } else {
+    None
+  };
+  let uses_infumap_data = infumap_data.is_some();
   let reserved = mcp::reserved_openai_names(uses_infumap_data);
   let (mut mcp_tools, mut name_map) =
     mcp::mapped_tools_for_capabilities(config.as_ref(), &request.plugin_capabilities(), &reserved).await;
@@ -1516,7 +1545,7 @@ async fn run_chat_with_tools(
   }
   messages.insert(
     0,
-    OpenAiChatMessage::text("system", chat_system_prompt(uses_infumap_data, !mcp_tools.is_empty(), request.mode)),
+    OpenAiChatMessage::text("system", chat_system_prompt(infumap_data.as_ref(), !mcp_tools.is_empty(), request.mode)),
   );
   let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
   let mut llm_turn = 1usize;
@@ -1528,7 +1557,7 @@ async fn run_chat_with_tools(
       db,
       session,
       config.as_ref(),
-      uses_infumap_data,
+      infumap_data.as_ref(),
       &name_map,
       &mut messages,
       &tools,
@@ -1547,7 +1576,7 @@ async fn run_chat_with_tools(
     db,
     session,
     config.as_ref(),
-    uses_infumap_data,
+    infumap_data.as_ref(),
     &name_map,
     &mut messages,
     &tools,
@@ -1565,7 +1594,7 @@ async fn run_chat_with_tools(
     db,
     session,
     config.as_ref(),
-    uses_infumap_data,
+    infumap_data.as_ref(),
     &name_map,
     &mut messages,
     &tools,
@@ -1612,7 +1641,7 @@ async fn execute_chat_tool_call(
   session: &Session,
   config: &Config,
   tool_call: &OpenAiToolCall,
-  uses_infumap_data: bool,
+  infumap_data: Option<&InfumapData>,
   name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
 ) -> InfuResult<String> {
   if let Some(target) = name_map.get(&tool_call.function.name) {
@@ -1620,12 +1649,17 @@ async fn execute_chat_tool_call(
     return mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments).await;
   }
   match tool_call.function.name.as_str() {
-    "lexical_search" | "read_container" | "get_fragment" if !uses_infumap_data => {
-      Ok(tool_error_json("Infumap data is not enabled for this chat."))
+    name @ ("lexical_search" | "read_container" | "get_fragment") => {
+      let Some(infumap_data) = infumap_data else {
+        return Ok(tool_error_json("Infumap data is not enabled for this chat."));
+      };
+      let scope = infumap_data.scope();
+      match name {
+        "lexical_search" => execute_lexical_search_tool_call(db, session, scope, tool_call).await,
+        "read_container" => read_container::execute(db, session, scope, tool_call).await,
+        _ => execute_get_fragment_tool_call(db, session, scope, tool_call).await,
+      }
     }
-    "lexical_search" => execute_lexical_search_tool_call(db, session, tool_call).await,
-    "read_container" => read_container::execute(db, session, tool_call).await,
-    "get_fragment" => execute_get_fragment_tool_call(db, session, tool_call).await,
     name => Ok(tool_error_json(&format!("Unknown tool '{name}'."))),
   }
 }
@@ -1633,6 +1667,7 @@ async fn execute_chat_tool_call(
 async fn execute_lexical_search_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
+  scope: Option<&ResolvedScope>,
   tool_call: &OpenAiToolCall,
 ) -> InfuResult<String> {
   let arguments = match tool_call_arguments_value(tool_call) {
@@ -1657,7 +1692,7 @@ async fn execute_lexical_search_tool_call(
   let search_request =
     search::SearchRequest { page_id: arguments.page_id, text: search_text, num_results, page_num, scope_id: None };
 
-  match search::run_lexical_search(db, search_request, session).await {
+  match search::run_lexical_search(db, search_request, session, scope).await {
     Ok(response) => search::compact_search_response_json(&response),
     Err(e) => Ok(tool_error_json(&format!("lexical_search failed: {}", e))),
   }
@@ -1666,6 +1701,7 @@ async fn execute_lexical_search_tool_call(
 async fn execute_get_fragment_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
+  scope: Option<&ResolvedScope>,
   tool_call: &OpenAiToolCall,
 ) -> InfuResult<String> {
   let arguments = match tool_call_arguments_value(tool_call) {
@@ -1693,7 +1729,10 @@ async fn execute_get_fragment_tool_call(
       Ok(item) => item,
       Err(_) => return Ok(tool_error_json("Item was not found.")),
     };
-    if item.owner_id != session.user_id || item.item_type == ItemType::Password {
+    if item.owner_id != session.user_id
+      || item.item_type == ItemType::Password
+      || scope.is_some_and(|scope| !scope.contains(&db, item))
+    {
       return Ok(tool_error_json("Item was not found."));
     }
     (db.item.data_dir().to_owned(), item.item_type.as_str().to_owned(), item.title.clone())
@@ -2324,4 +2363,141 @@ async fn chat_completion(
     }
   }
   completion.into_message()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::web::routes::command::scope::test_db::{TempDir, TestDb};
+
+  struct Fixture {
+    db: Arc<tokio::sync::Mutex<Db>>,
+    session: Session,
+    home: Uid,
+    a: Uid,
+    a1: Uid,
+    x: Uid,
+    x1: Uid,
+    link_to_b: Uid,
+    scope_id: Uid,
+    _dir: TempDir,
+  }
+
+  /// home/{A/{a1, X/{x1}, link to B}, B}, and a scope "Work" that includes A and excludes X.
+  async fn fixture() -> Fixture {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let a = t.page(&home, "A").await;
+    let a1 = t.note(&a, "a1", RelationshipToParent::Child).await;
+    let x = t.page(&a, "X").await;
+    let x1 = t.note(&x, "x1", RelationshipToParent::Child).await;
+    let b = t.page(&home, "B").await;
+    let link_to_b = t.link(&a, &b).await;
+    let scope_id = t.page(&t.scopes_id(), "Work").await;
+    t.link(&scope_id, &a).await;
+    let exclude = t.page(&scope_id, "Exclude").await;
+    t.link(&exclude, &x).await;
+    let session =
+      Session { id: new_uid(), user_id: t.user_id.clone(), expires: 0, issued_at: 0, username: String::new() };
+    Fixture {
+      db: Arc::new(tokio::sync::Mutex::new(t.db)),
+      session,
+      home,
+      a,
+      a1,
+      x,
+      x1,
+      link_to_b,
+      scope_id,
+      _dir: t.dir,
+    }
+  }
+
+  impl Fixture {
+    async fn infumap_data(&self, scoped: bool) -> InfumapData {
+      let scope = if scoped {
+        Some(resolve_scope(&*self.db.lock().await, &self.session.user_id, &self.scope_id).unwrap())
+      } else {
+        None
+      };
+      InfumapData { scope }
+    }
+
+    async fn call(&self, infumap_data: Option<&InfumapData>, name: &str, arguments: Value) -> Value {
+      let tool_call = OpenAiToolCall {
+        id: "call_1".to_owned(),
+        tool_type: default_tool_call_type(),
+        function: OpenAiToolCallFunction { name: name.to_owned(), arguments },
+      };
+      let result =
+        execute_chat_tool_call(&self.db, &self.session, &Config::default(), &tool_call, infumap_data, &HashMap::new())
+          .await
+          .unwrap();
+      serde_json::from_str(&result).unwrap()
+    }
+
+    async fn read_container_item_ids(&self, infumap_data: &InfumapData, container_id: &Uid) -> Vec<String> {
+      let result =
+        self.call(Some(infumap_data), "read_container", serde_json::json!({ "containerId": container_id })).await;
+      result["items"].as_array().unwrap().iter().map(|item| item["itemId"].as_str().unwrap().to_owned()).collect()
+    }
+  }
+
+  fn error_of(result: &Value) -> Option<&str> {
+    result.get("error").and_then(Value::as_str)
+  }
+
+  #[tokio::test]
+  async fn read_container_omits_out_of_scope_items_and_link_targets() {
+    let f = fixture().await;
+    let unscoped = f.infumap_data(false).await;
+    let scoped = f.infumap_data(true).await;
+
+    let all = f.read_container_item_ids(&unscoped, &f.a).await;
+    assert!(all.contains(&f.x) && all.contains(&f.a1) && all.contains(&f.link_to_b));
+    let visible = f.read_container_item_ids(&scoped, &f.a).await;
+    assert!(visible.contains(&f.a1) && visible.contains(&f.link_to_b));
+    assert!(!visible.contains(&f.x));
+
+    let result = f.call(Some(&scoped), "read_container", serde_json::json!({ "containerId": f.a })).await;
+    let link = result["items"].as_array().unwrap().iter().find(|item| item["itemId"] == f.link_to_b.as_str()).unwrap();
+    assert_eq!(link["targetStatus"], "unavailable");
+    assert!(link.get("targetItemId").is_none());
+    assert_eq!(result["ancestors"][0]["itemId"], f.home.as_str(), "ancestors above the include root stay visible");
+
+    for container_id in [&f.home, &f.x] {
+      let result = f.call(Some(&scoped), "read_container", serde_json::json!({ "containerId": container_id })).await;
+      assert_eq!(error_of(&result), Some("Container was not found."));
+    }
+  }
+
+  #[tokio::test]
+  async fn get_fragment_refuses_out_of_scope_items() {
+    let f = fixture().await;
+    let scoped = f.infumap_data(true).await;
+    let get = |item_id: &Uid| serde_json::json!({ "itemId": item_id, "fragmentOrdinal": 0 });
+
+    let excluded = f.call(Some(&scoped), "get_fragment", get(&f.x1)).await;
+    assert_eq!(error_of(&excluded), Some("Item was not found."));
+    // In-scope items get past the scope check, then fail only because the test has no fragments.
+    let included = f.call(Some(&scoped), "get_fragment", get(&f.a1)).await;
+    assert_ne!(error_of(&included), Some("Item was not found."));
+  }
+
+  #[tokio::test]
+  async fn infumap_tools_are_refused_when_infumap_data_is_off() {
+    let f = fixture().await;
+    let result = f.call(None, "read_container", serde_json::json!({ "containerId": f.a })).await;
+    assert_eq!(error_of(&result), Some("Infumap data is not enabled for this chat."));
+  }
+
+  #[tokio::test]
+  async fn system_prompt_names_the_active_scope() {
+    let f = fixture().await;
+    let scoped = chat_system_prompt(Some(&f.infumap_data(true).await), false, ChatRunMode::Chat);
+    assert!(scoped.contains("limited to the scope named \"Work\""));
+    let unscoped = chat_system_prompt(Some(&f.infumap_data(false).await), false, ChatRunMode::DeepResearch);
+    assert!(!unscoped.contains("limited to the scope"));
+    assert_eq!(chat_failure_message("Scope was not found."), "The selected scope no longer exists.");
+  }
 }
