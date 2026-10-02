@@ -44,8 +44,6 @@ const PANEL_MIN_BELOW_PX = 240;
 
 interface QueryScopePickerProps {
   queryItem: () => QueryItem,
-  /** "pill" sits beside the chat setup button; "compact" sits on the search results border. */
-  variant: "pill" | "compact",
   /** Shown at the top of the panel, for example when a change only affects what happens next. */
   note?: () => string | null,
   disabled?: () => boolean,
@@ -185,15 +183,9 @@ export const QueryScopePicker: Component<QueryScopePickerProps> = (props: QueryS
     <button
       ref={buttonEl}
       type="button"
-      class={props.variant == "compact"
-        ? "flex max-w-[180px] cursor-pointer items-center gap-1 px-2 disabled:cursor-default disabled:opacity-40"
-        : "flex h-[22px] max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-[#d6d6d6] " +
-          "bg-white pl-2 pr-2 text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"}
-      style={props.variant == "compact"
-        ? "height: 20px; font-size: 11px; font-weight: 600; color: rgba(71, 85, 105, 0.92); " +
-          "background: rgba(255, 255, 255, 0.96); border: 1px solid rgba(203, 213, 225, 0.95); border-radius: 5px; " +
-          "box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);"
-        : "font-size: 12px; line-height: 18px;"}
+      class={"flex h-[22px] max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-[#d6d6d6] " +
+        "bg-white pl-2 pr-2 text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"}
+      style="font-size: 12px; line-height: 18px;"
       title={buttonTitle()}
       disabled={disabled()}
       aria-haspopup="dialog"
@@ -207,9 +199,7 @@ export const QueryScopePicker: Component<QueryScopePickerProps> = (props: QueryS
         <i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" />
       </Show>
       <span class="min-w-0 truncate">{queryScopeName(selectedId())}</span>
-      <Show when={props.variant == "pill"}>
-        <i class="bi-chevron-expand ml-auto shrink-0 text-[10px]" />
-      </Show>
+      <i class="bi-chevron-expand ml-auto shrink-0 text-[10px]" />
     </button>
   );
 
