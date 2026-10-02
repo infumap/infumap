@@ -86,6 +86,7 @@ use std::collections::{HashMap, HashSet};
 
 mod chat;
 mod item_ops;
+mod scope;
 mod search;
 
 pub(crate) use chat::{chat_tool_servers_from_config, llama_servers_from_config, validate_chat_backend_config};
