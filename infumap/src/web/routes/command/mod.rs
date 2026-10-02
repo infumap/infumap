@@ -79,6 +79,7 @@ use crate::storage::object;
 use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
 use crate::util::mime::{detect_mime_type, mime_type_from_title_extension};
 use crate::util::ordering::{new_ordering, new_ordering_after, new_ordering_at_end};
+use crate::web::routes::{is_scopes_page_item, scopes_page_id};
 use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
 use std::collections::{HashMap, HashSet};
@@ -594,6 +595,14 @@ fn queries_page_arrange_algorithm_allowed(item: &Item) -> bool {
   item.arrange_algorithm.as_ref() == Some(&ArrangeAlgorithm::List)
 }
 
+/// The scopes page may be renamed or rearranged, but must stay pinned to the bottom of the queries page.
+fn scopes_page_update_disallowed(old_item: &Item, new_item: &Item) -> bool {
+  old_item.item_type != new_item.item_type
+    || old_item.parent_id != new_item.parent_id
+    || old_item.relationship_to_parent != new_item.relationship_to_parent
+    || new_item.flags.unwrap_or(0) & LIST_PAGE_PIN_BOTTOM_FLAG == 0
+}
+
 fn item_to_api_json_map_with_capabilities(
   db: &MutexGuard<'_, Db>,
   item: &Item,
@@ -602,8 +611,10 @@ fn item_to_api_json_map_with_capabilities(
   if is_queries_page_item(db, item) {
     item_json.insert(String::from("arrangeAlgorithm"), Value::String(ArrangeAlgorithm::List.as_str().to_owned()));
   }
-  if is_queries_page_query_item(db, item) {
+  if is_queries_page_query_item(db, item) || is_scopes_page_item(item) {
     item_json.insert(String::from("capabilities"), non_movable_item_capabilities_json());
+  }
+  if is_queries_page_query_item(db, item) {
     item_json.insert(String::from("spatialPositionGr"), json::vector_to_object(&queries_page_query_item_position_gr()));
     item_json.insert(String::from("spatialWidthGr"), Value::Number(queries_page_query_item_width_gr().into()));
   }
@@ -1581,4 +1592,29 @@ fn virtual_search_status_page_child_items(
     ordering = new_ordering_after(&ordering);
   }
   Ok(children)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::web::routes::default_scopes_page;
+
+  #[test]
+  fn scopes_page_update_allows_rename_but_not_move_or_unpin() {
+    let owner_id = "0123456789abcdef0123456789abcdef";
+    let queries_page_id = "00000000000000000000000000000001".to_owned();
+    let old_item = default_scopes_page(owner_id, &queries_page_id, vec![200], 2.0);
+
+    let mut renamed = old_item.clone();
+    renamed.title = Some("My scopes".to_owned());
+    assert!(!scopes_page_update_disallowed(&old_item, &renamed));
+
+    let mut moved = old_item.clone();
+    moved.parent_id = Some("00000000000000000000000000000002".to_owned());
+    assert!(scopes_page_update_disallowed(&old_item, &moved));
+
+    let mut unpinned = old_item.clone();
+    unpinned.flags = Some(unpinned.flags.unwrap_or(0) & !LIST_PAGE_PIN_BOTTOM_FLAG);
+    assert!(scopes_page_update_disallowed(&old_item, &unpinned));
+  }
 }

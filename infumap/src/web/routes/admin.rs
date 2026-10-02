@@ -28,6 +28,7 @@ use crate::storage::db::Db;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::web::routes::{
   default_dock_page, default_home_page, default_queries_page, default_query_item, default_trash_page,
+  ensure_scopes_page,
 };
 use crate::web::serve::{forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
@@ -198,6 +199,10 @@ pub async fn approve_pending(
         default_query_item(pending_user.id.as_str(), &pending_user.queries_page_id, new_uid(), page_width_bl);
       if let Err(e) = db.item.add(query_item).await {
         error!("Error adding default query item: {}", e);
+        return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
+      }
+      if let Err(e) = ensure_scopes_page(&mut db, &pending_user.id).await {
+        error!("Error adding default scopes page: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
       for item_key in db.item.all_loaded_items().into_iter().filter(|item_key| item_key.user_id == pending_user.id) {

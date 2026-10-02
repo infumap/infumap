@@ -43,6 +43,7 @@ use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
 use crate::web::routes::{
   default_dock_page, default_home_page, default_queries_page, default_query_item, default_trash_page,
+  ensure_scopes_page,
 };
 use crate::web::serve::{cors_response, forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
@@ -465,6 +466,10 @@ pub async fn register(
     let query_item = default_query_item(user_id.as_str(), &queries_page_id, query_item_id, page_width_bl);
     if let Err(e) = db.item.add(query_item).await {
       error!("Error adding default query item: {}", e);
+      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
+    }
+    if let Err(e) = ensure_scopes_page(&mut db, &user_id).await {
+      error!("Error adding default scopes page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     for item_key in db.item.all_loaded_items().into_iter().filter(|item_key| item_key.user_id == user.id) {
