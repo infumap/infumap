@@ -35,7 +35,7 @@ import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { createInfuSignal } from "../../util/signals";
-import { asPageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
@@ -293,6 +293,15 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const isInComposite = () =>
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
 
+  const isInCompositeInDocumentPage = () => {
+    if (!isInComposite()) { return false; }
+    const compositeParentPath = VeFns.parentPath(props.visualElement.parentPath!);
+    if (compositeParentPath == "") { return false; }
+    const compositeParent = itemState.get(VeFns.veidFromPath(compositeParentPath).itemId);
+    return compositeParent != null && isPage(compositeParent) &&
+      asPageItem(compositeParent).arrangeAlgorithm == ArrangeAlgorithm.Document;
+  };
+
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
     (store.perVe.getMouseIsOver(vePath()) || store.perVe.getMouseIsOverDocumentRowSide(vePath())) &&
@@ -363,7 +372,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <div class="absolute bg-black"
                 style={`left: ${attachInsertBarPx().x}px; top: ${attachInsertBarPx().y}px; width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px;`} />
             </Show>
-            <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && !isInComposite()}>
+            <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && (!isInComposite() || isInCompositeInDocumentPage())}>
               <div class="absolute"
                 style={`${boundsStylePx(frameInnerBoundsPx)} background-color: #ffffff33;`} />
             </Show>
