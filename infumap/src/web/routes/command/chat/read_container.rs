@@ -16,7 +16,7 @@
 
 use super::*;
 use crate::ai::fragment::read_item_fragment_metadata;
-use crate::web::routes::command::scope::{readable, resolve_content};
+use crate::web::routes::command::scope::{ResolvedScope, readable, resolve_content};
 use futures_util::{StreamExt, stream};
 use sha2::{Digest, Sha256};
 
@@ -89,6 +89,7 @@ pub(super) fn tool_spec() -> OpenAiToolSpec {
 pub(super) async fn execute(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
+  scope: Option<&ResolvedScope>,
   tool_call: &OpenAiToolCall,
 ) -> InfuResult<String> {
   let result = async {
@@ -104,7 +105,7 @@ pub(super) async fn execute(
     let cursor = args.cursor.as_deref().map(decode_cursor).transpose()?;
     let (mut response, data_dir, sources) = {
       let db = db.lock().await;
-      build_outline(&db, &session.user_id, &args.container_id, cursor.as_ref(), max_items)?
+      build_outline(&db, &Access { user_id: &session.user_id, scope }, &args.container_id, cursor.as_ref(), max_items)?
     };
 
     // Only inspect manifests for returned records, outside the database lock. Repeated links share a lookup.
@@ -157,6 +158,25 @@ fn brief_item(item: &Item) -> Value {
   })
 }
 
+/// What one read_container call may return: the user's readable items, limited to the chat's scope if it has one.
+struct Access<'a> {
+  user_id: &'a str,
+  scope: Option<&'a ResolvedScope>,
+}
+
+impl Access<'_> {
+  fn can_read(&self, db: &Db, item: &Item) -> bool {
+    readable(item, self.user_id) && self.scope.is_none_or(|scope| scope.contains(db, item))
+  }
+
+  /// The item a placement displays. A link whose target is outside the scope has no content.
+  fn content<'a>(&self, db: &'a Db, item: &'a Item) -> Option<&'a Item> {
+    resolve_content(db, item, self.user_id).filter(|content| self.scope.is_none_or(|scope| scope.contains(db, content)))
+  }
+}
+
+/// Ancestors are only checked for ownership, not scope. An excluded item's descendants are all excluded, so an
+/// in-scope container never has an excluded ancestor; ancestors above an include root are shown for navigation.
 fn ancestors<'a>(db: &'a Db, item: &'a Item, user_id: &str) -> InfuResult<Vec<&'a Item>> {
   let mut result = Vec::new();
   let mut seen = HashSet::from([&item.id]);
@@ -182,11 +202,11 @@ fn title_ordered(item: &Item) -> bool {
   item.arrange_algorithm != Some(ArrangeAlgorithm::Document) && item.order_children_by.as_deref() == Some("title[ASC]")
 }
 
-fn sorted_related<'a>(db: &'a Db, parent: &'a Item, user_id: &str, attachments: bool) -> InfuResult<Vec<&'a Item>> {
+fn sorted_related<'a>(db: &'a Db, parent: &'a Item, access: &Access, attachments: bool) -> InfuResult<Vec<&'a Item>> {
   let mut items = if attachments { db.item.get_attachments(&parent.id)? } else { db.item.get_children(&parent.id)? };
   if !attachments && title_ordered(parent) {
     items.sort_by_cached_key(|item| {
-      let content = resolve_content(db, item, user_id);
+      let content = access.content(db, item);
       (content.is_none(), content.and_then(|item| item.title.as_deref()).unwrap_or("").to_lowercase(), item.id.clone())
     });
   } else {
@@ -198,7 +218,7 @@ fn sorted_related<'a>(db: &'a Db, parent: &'a Item, user_id: &str, attachments: 
 fn collect_entries<'a>(
   db: &'a Db,
   parent: &'a Item,
-  user_id: &str,
+  access: &Access,
   path: &[Uid],
   active: &mut HashSet<Uid>,
   include_children: bool,
@@ -211,15 +231,15 @@ fn collect_entries<'a>(
     if !attachments && !include_children {
       continue;
     }
-    for (order, item) in sorted_related(db, parent, user_id, attachments)?.into_iter().enumerate() {
+    for (order, item) in sorted_related(db, parent, access, attachments)?.into_iter().enumerate() {
       // Preserve attachment slots (table columns) even when an unreadable cell is omitted.
-      if !readable(item, user_id) {
+      if !access.can_read(db, item) {
         continue;
       }
       if entries.len() >= MAX_OUTLINE_ITEMS {
         return Err("Container outline exceeds 50000 placements; inspect a smaller container.".into());
       }
-      let content = resolve_content(db, item, user_id);
+      let content = access.content(db, item);
       let mut child_path = path.to_vec();
       child_path.push(item.id.clone());
       let expansion_cycle = content.is_some_and(|content| active.contains(&content.id));
@@ -229,7 +249,7 @@ fn collect_entries<'a>(
         collect_entries(
           db,
           content,
-          user_id,
+          access,
           &child_path,
           active,
           matches!(content.item_type, ItemType::Composite | ItemType::Table),
@@ -371,24 +391,24 @@ fn entry_json(entry: &Entry<'_>, title_offset: usize) -> InfuResult<(Value, usiz
 
 fn build_outline(
   db: &Db,
-  user_id: &str,
+  access: &Access,
   container_id: &Uid,
   cursor: Option<&ContainerCursor>,
   max_items: usize,
 ) -> InfuResult<(Value, String, HashSet<Uid>)> {
   let container = db.item.get(container_id).map_err(|_| "Container was not found.")?;
-  if !readable(container, user_id) {
+  if !access.can_read(db, container) {
     return Err("Container was not found.".into());
   }
   if !is_container_item_type(container.item_type) {
     return Err("read_container containerId must identify a page, table, or composite.".into());
   }
-  let ancestors = ancestors(db, container, user_id)?;
+  let ancestors = ancestors(db, container, access.user_id)?;
   let mut entries = Vec::new();
   collect_entries(
     db,
     container,
-    user_id,
+    access,
     &[container.id.clone()],
     &mut HashSet::from([container.id.clone()]),
     true,

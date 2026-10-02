@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::scope::resolve_scope;
+use super::scope::{ResolvedScope, resolve_scope};
 use super::*;
 
 const SEARCH_RRF_K: f64 = 60.0;
@@ -45,7 +45,8 @@ pub struct SearchRequest {
   pub num_results: i64,
   #[serde(rename = "pageNum")]
   pub page_num: Option<i64>,
-  /// A scope page from the user's scopes page. When given with `page_id`, both apply.
+  /// A scope page from the user's scopes page. When given with `page_id`, both apply. Read by the search
+  /// command only: chat resolves its scope once per run and passes it to `run_lexical_search`.
   #[serde(rename = "scopeId", default)]
   pub scope_id: Option<Uid>,
 }
@@ -278,7 +279,11 @@ pub(super) async fn run_search(
       result?
     }
     (page_id, scope_id) => {
-      let (data_dir, bounds) = resolve_search_bounds(db, page_id.as_ref(), scope_id.as_ref(), session).await?;
+      let scope = match scope_id {
+        Some(scope_id) => Some(resolve_scope(&*db.lock().await, &session.user_id, scope_id)?),
+        None => None,
+      };
+      let (data_dir, bounds) = resolve_search_bounds(db, page_id.as_ref(), scope.as_ref(), session).await?;
       indexed_search_results(
         db,
         &data_dir,
@@ -300,11 +305,11 @@ pub(super) async fn run_lexical_search(
   db: &Arc<tokio::sync::Mutex<Db>>,
   request: SearchRequest,
   session: &Session,
+  scope: Option<&ResolvedScope>,
 ) -> InfuResult<SearchResponse> {
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
-  let (data_dir, bounds) =
-    resolve_search_bounds(db, request.page_id.as_ref(), request.scope_id.as_ref(), session).await?;
+  let (data_dir, bounds) = resolve_search_bounds(db, request.page_id.as_ref(), scope, session).await?;
 
   let results = indexed_search_results(
     db,
@@ -329,12 +334,12 @@ pub(super) fn compact_search_response_json(response: &SearchResponse) -> InfuRes
 async fn resolve_search_bounds(
   db: &Arc<tokio::sync::Mutex<Db>>,
   page_id: Option<&Uid>,
-  scope_id: Option<&Uid>,
+  scope: Option<&ResolvedScope>,
   session: &Session,
 ) -> InfuResult<(String, SearchBounds)> {
   let db = db.lock().await;
   let started = Instant::now();
-  let bounds = search_bounds(&db, page_id, scope_id, &session.user_id)?;
+  let bounds = search_bounds(&db, page_id, scope, &session.user_id)?;
   if let SearchBounds::Items(item_ids) = &bounds {
     debug!(
       "Resolved search bounds for user '{}' to {} item(s) in {:?}.",
@@ -346,8 +351,12 @@ async fn resolve_search_bounds(
   Ok((db.item.data_dir().to_owned(), bounds))
 }
 
-fn search_bounds(db: &Db, page_id: Option<&Uid>, scope_id: Option<&Uid>, user_id: &Uid) -> InfuResult<SearchBounds> {
-  let scope = scope_id.map(|scope_id| resolve_scope(db, user_id, scope_id)).transpose()?;
+fn search_bounds(
+  db: &Db,
+  page_id: Option<&Uid>,
+  scope: Option<&ResolvedScope>,
+  user_id: &Uid,
+) -> InfuResult<SearchBounds> {
   Ok(match (page_id, scope) {
     (None, None) => {
       let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
@@ -1259,7 +1268,8 @@ mod tests {
   use crate::web::routes::command::scope::test_db::TestDb;
 
   fn bounds_item_ids(t: &TestDb, page_id: Option<&Uid>, scope_id: Option<&Uid>) -> Vec<Uid> {
-    match search_bounds(&t.db, page_id, scope_id, &t.user_id).unwrap() {
+    let scope = scope_id.map(|scope_id| resolve_scope(&t.db, &t.user_id, scope_id).unwrap());
+    match search_bounds(&t.db, page_id, scope.as_ref(), &t.user_id).unwrap() {
       SearchBounds::Items(item_ids) => item_ids,
       SearchBounds::UnderRoot(root_id) => panic!("expected an item restriction, got root '{}'", root_id),
     }
@@ -1294,17 +1304,5 @@ mod tests {
     assert_eq!(bounds_item_ids(&t, Some(&a), None), sorted(vec![a.clone(), a1.clone(), x.clone(), x1.clone()]));
     assert_eq!(bounds_item_ids(&t, Some(&a), Some(&no_x)), sorted(vec![a.clone(), a1.clone()]));
     assert!(bounds_item_ids(&t, Some(&a), Some(&b_only)).is_empty());
-  }
-
-  #[tokio::test]
-  async fn search_bounds_reject_unknown_scopes_rather_than_widening() {
-    let mut t = TestDb::new().await;
-    let home = t.home_id.clone();
-    let a = t.page(&home, "A").await;
-    let not_a_scope = t.page(&home, "Not a scope").await;
-
-    assert!(search_bounds(&t.db, None, Some(&new_uid()), &t.user_id).is_err());
-    assert!(search_bounds(&t.db, Some(&a), Some(&new_uid()), &t.user_id).is_err());
-    assert!(search_bounds(&t.db, None, Some(&not_a_scope), &t.user_id).is_err());
   }
 }
