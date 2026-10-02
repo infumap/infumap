@@ -520,6 +520,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
           editingItemType == ItemType.Text ||
           editingItemType == ItemType.Password ||
           editingItemType == ItemType.Table ||
+          editingItemType == ItemType.Composite ||
           editingPageIsEmbeddedInteractive);
 
       if (!editingDomEl) {
