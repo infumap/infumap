@@ -327,24 +327,7 @@ fn search_scope_item_ids(db: &Db, search_root_id: &Uid, user_id: &Uid) -> InfuRe
     return Err("Search scope was not found.".into());
   }
 
-  let mut pending = vec![search_root_id.clone()];
-  let mut seen = HashSet::new();
-  let mut item_ids = Vec::new();
-  while let Some(item_id) = pending.pop() {
-    if !seen.insert(item_id.clone()) {
-      continue;
-    }
-    let item = db.item.get(&item_id)?;
-    if &item.owner_id != user_id || item.item_type == ItemType::Password {
-      continue;
-    }
-
-    item_ids.push(item_id.clone());
-    pending.extend(db.item.get_children_ids(&item_id)?);
-    pending.extend(db.item.get_attachment_ids(&item_id)?);
-  }
-  item_ids.sort();
-  Ok(item_ids)
+  super::scope::subtree_item_ids(db, vec![search_root_id.clone()], &HashSet::new(), user_id)
 }
 
 async fn indexed_search_results(

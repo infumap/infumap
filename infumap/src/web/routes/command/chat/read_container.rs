@@ -16,6 +16,7 @@
 
 use super::*;
 use crate::ai::fragment::read_item_fragment_metadata;
+use crate::web::routes::command::scope::{readable, resolve_content};
 use futures_util::{StreamExt, stream};
 use sha2::{Digest, Sha256};
 
@@ -146,25 +147,6 @@ fn decode_cursor(value: &str) -> InfuResult<ContainerCursor> {
     .decode(value)
     .map_err(|_| "Invalid read_container cursor; restart without a cursor.")?;
   serde_json::from_slice(&bytes).map_err(|_| "Invalid read_container cursor; restart without a cursor.".into())
-}
-
-fn readable(item: &Item, user_id: &str) -> bool {
-  item.owner_id == user_id && item.item_type != ItemType::Password
-}
-
-fn resolve_content<'a>(db: &'a Db, item: &'a Item, user_id: &str) -> Option<&'a Item> {
-  let mut current = item;
-  let mut seen = HashSet::new();
-  for _ in 0..MAX_DEPTH {
-    if !readable(current, user_id) || !seen.insert(&current.id) {
-      return None;
-    }
-    if current.item_type != ItemType::Link {
-      return Some(current);
-    }
-    current = db.item.get(current.link_to.as_ref()?).ok()?;
-  }
-  None
 }
 
 fn brief_item(item: &Item) -> Value {
