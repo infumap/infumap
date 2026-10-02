@@ -563,6 +563,9 @@ pub(super) async fn handle_update_item(
   {
     return Err(format!("Queries page query item '{}' cannot be resized.", item.id).into());
   }
+  if is_scopes_page_item(&old_item) && scopes_page_update_disallowed(&old_item, &item) {
+    return Err(format!("Scopes page '{}' cannot be moved, converted or unpinned.", item.id).into());
+  }
   validate_group_id_for_item(&db, &item)?;
   if old_item.parent_id != item.parent_id || old_item.relationship_to_parent != item.relationship_to_parent {
     validate_composite_parent_for_item(&db, &item)?;
@@ -673,7 +676,10 @@ pub(super) async fn handle_convert_page_table(
   let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
   let protected_ids =
     [user.home_page_id.clone(), user.trash_page_id.clone(), user.dock_page_id.clone(), user.queries_page_id.clone()];
-  if protected_ids.contains(&request.id) || search_status_page_kind_for_id(&session.user_id, &request.id).is_some() {
+  if protected_ids.contains(&request.id)
+    || request.id == scopes_page_id(&session.user_id)
+    || search_status_page_kind_for_id(&session.user_id, &request.id).is_some()
+  {
     return Err(format!("Special page '{}' cannot be converted.", request.id).into());
   }
 
@@ -889,6 +895,10 @@ pub(super) async fn handle_delete_item<'a>(
 
   if &db.item.get(&request.id)?.owner_id != &session.user_id {
     return Err(format!("User '{}' does not own item '{}'.", session.user_id, request.id).into());
+  }
+
+  if request.id == scopes_page_id(&session.user_id) {
+    return Err(format!("Scopes page '{}' cannot be deleted.", request.id).into());
   }
 
   if db.item.get_children(&request.id)?.len() > 0 {
