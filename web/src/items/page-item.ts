@@ -1184,7 +1184,7 @@ export const PageFns = {
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
     };
-    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0);
+    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
     if (!pageUsesEmbeddedInteractiveMode(measurable)) {
       const result = ({
         boundsPx,

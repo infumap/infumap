@@ -244,7 +244,7 @@ export const ImageFns = {
       w: COMPOSITE_MOVE_OUT_AREA_SIZE_PX,
       h: innerBoundsPx.h - (COMPOSITE_MOVE_OUT_AREA_MARGIN_PX * 2)
     };
-    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, leftMarginBl == 0 ? 2 : 0);
+    const moveBoundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
     // The space beside the image registers hover (to show its move handle), but clicks there do nothing.
     const sideBoundsPx = {
       x: innerBoundsPx.w,

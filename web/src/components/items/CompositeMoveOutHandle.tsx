@@ -16,14 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
-import {
-  compositeMoveOutHandleLineGapPx,
-  compositeMoveOutHandleLineHeightPx,
-  compositeMoveOutHandleLineLeftPx,
-  compositeMoveOutHandleLineTopPx,
-  compositeMoveOutHandleLineWidthPx,
-} from "../../layout/composite-move-out";
+import { Component, For } from "solid-js";
+import { compositeMoveOutHandleGeometry } from "../../layout/composite-move-out";
 import type { VisualElementPath } from "../../layout/visual-element";
 import { BoundingBox } from "../../util/geometry";
 
@@ -35,17 +29,19 @@ interface CompositeMoveOutHandleProps {
 }
 
 export const CompositeMoveOutHandle: Component<CompositeMoveOutHandleProps> = (props: CompositeMoveOutHandleProps) => {
-  const lineClass = () => props.active ? "absolute rounded-full bg-slate-700" : "absolute rounded-full bg-slate-500";
-  const lineOpacity = () => props.active ? 0.95 : 0.8;
+  const geometry = () => compositeMoveOutHandleGeometry(props.boundsPx);
+  const dotClass = () => props.active ? "absolute rounded-full bg-slate-600" : "absolute rounded-full bg-slate-400";
 
   return (
     <div class="absolute pointer-events-none"
       data-infumap-composite-move-out-path={props.vePath}
       style={`left: ${props.boundsPx.x}px; top: ${props.boundsPx.y}px; width: ${props.boundsPx.w}px; height: ${props.boundsPx.h}px;`}>
-      <div class={lineClass()}
-        style={`left: ${compositeMoveOutHandleLineLeftPx(props.boundsPx)}px; top: ${compositeMoveOutHandleLineTopPx(props.boundsPx)}px; width: ${compositeMoveOutHandleLineWidthPx()}px; height: ${compositeMoveOutHandleLineHeightPx(props.boundsPx)}px; opacity: ${lineOpacity()};`} />
-      <div class={lineClass()}
-        style={`left: ${compositeMoveOutHandleLineLeftPx(props.boundsPx) + compositeMoveOutHandleLineWidthPx() + compositeMoveOutHandleLineGapPx()}px; top: ${compositeMoveOutHandleLineTopPx(props.boundsPx)}px; width: ${compositeMoveOutHandleLineWidthPx()}px; height: ${compositeMoveOutHandleLineHeightPx(props.boundsPx)}px; opacity: ${lineOpacity()};`} />
+      <div class="absolute rounded bg-slate-200 transition-opacity duration-100"
+        style={`left: ${geometry().backgroundBoundsPx.x}px; top: ${geometry().backgroundBoundsPx.y}px; width: ${geometry().backgroundBoundsPx.w}px; height: ${geometry().backgroundBoundsPx.h}px; opacity: ${props.active ? 1 : 0};`} />
+      <For each={geometry().dotPositionsPx}>{dot =>
+        <div class={dotClass()}
+          style={`left: ${dot.x}px; top: ${dot.y}px; width: ${geometry().dotSizePx}px; height: ${geometry().dotSizePx}px; opacity: ${props.active ? 1 : 0.7};`} />
+      }</For>
     </div>
   );
 };

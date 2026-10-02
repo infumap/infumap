@@ -400,7 +400,7 @@ function alignDocumentMoveOutHitbox(
     documentContentWidthBl,
     PAGE_DOCUMENT_LEFT_MARGIN_BL,
   );
-  moveHitbox.boundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx, Number(PAGE_DOCUMENT_LEFT_MARGIN_BL) == 0 ? 2 : 0);
+  moveHitbox.boundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
   moveHitbox.meta = {
     ...(moveHitbox.meta ?? {}),
     compositeMoveOut: true,
