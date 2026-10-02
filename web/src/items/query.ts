@@ -23,6 +23,7 @@ import { VisualElementPath, VeFns } from "../layout/visual-element";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { queryScopeIdForRequest } from "./query-scope";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { clearQueryChat, ensureTemporaryQueryChatPage, submitQueryChatMessage } from "./chat";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
@@ -145,7 +146,7 @@ export async function runQuerySearch(
   setQuerySearchArrangeAlgorithm(store, queryItem, store.general.searchResultsArrangeAlgorithm());
   requestArrange(store, "query-search-start");
 
-  const response = await server.search(null, text, store.general.networkStatus, 1);
+  const response = await server.search(null, text, store.general.networkStatus, 1, queryScopeIdForRequest(store, queryItem));
   if (options.shouldApply && !options.shouldApply()) {
     return false;
   }
@@ -176,7 +177,8 @@ export async function loadMoreQuerySearchResults(
 
   const loadedPageCount = getQuerySearchLoadedPageCount(store, queryItem);
   const nextPage = Math.max(1, loadedPageCount + 1);
-  const response = await server.search(null, requestedQuery, store.general.networkStatus, nextPage);
+  const response = await server.search(
+    null, requestedQuery, store.general.networkStatus, nextPage, queryScopeIdForRequest(store, queryItem));
   if (options.shouldApply && !options.shouldApply()) {
     return false;
   }

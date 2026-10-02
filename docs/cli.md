@@ -17,7 +17,7 @@ In addition to (or instead of) using a settings file, Infumap web server configu
 
 For more information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
 
-Searches from the user's home page combine lexical title matches with lexical search-fragment matches when the corresponding indexes exist. Search fragments contain derived document text and image descriptions. No embedding service is required. Searches scoped to a specific page or container currently use exact title matching only.
+Searches from the user's home page combine lexical title matches with lexical search-fragment matches when the corresponding indexes exist. Search fragments contain derived document text and image descriptions. No embedding service is required. Searches restricted to a page or container use exact title matching only, unless a [scope](scopes.md) is also given: searches with a scope use the lexical indexes, restricted to the items in the scope (and in the page, if one is given).
 
 
 Options:

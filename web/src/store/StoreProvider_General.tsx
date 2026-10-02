@@ -19,6 +19,7 @@
 import { Accessor, createSignal } from "solid-js";
 import { ChatBackends, ChatModelSelection, post, server } from "../server";
 import { NumberSignal, createNumberSignal } from "../util/signals";
+import { Uid, isUid } from "../util/uid";
 
 
 const LOCALSTORAGE_KEY_NAME = "infudata";
@@ -37,6 +38,7 @@ interface LocalStorageData {
   prefer2fa?: boolean,
   searchResultsArrangeAlgorithm?: string,
   chatModelSelection?: ChatModelSelection,
+  queryScopeId?: string | null,
 }
 
 export type QueryInputMode = "search" | "chat";
@@ -63,6 +65,9 @@ export interface GeneralStoreContextModel {
 
   chatModelSelection: () => ChatModelSelection | null,
   setChatModelSelection: (selection: ChatModelSelection | null) => void,
+
+  queryScopeId: () => Uid | null,
+  setQueryScopeId: (scopeId: Uid | null) => void,
 
   prefer2fa: () => boolean,
   setPrefer2fa: (prefer2fa: boolean) => void,
@@ -263,6 +268,15 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     writeLocalStorageData({ ...data, chatModelSelection: selection });
   };
 
+  /** The scope last chosen for search or chat, used as the default for new queries. Null means no scope. */
+  const queryScopeId = (): Uid | null => {
+    const stored = readLocalStorageData().queryScopeId;
+    return typeof stored == "string" && isUid(stored) ? stored : null;
+  };
+  const setQueryScopeId = (scopeId: Uid | null) => {
+    writeLocalStorageData({ ...readLocalStorageData(), queryScopeId: scopeId });
+  };
+
   const prefer2fa = () => {
     return readLocalStorageData().prefer2fa ?? false;
   }
@@ -290,6 +304,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     installationState, retrieveInstallationState, clearInstallationState,
     chatBackends, chatBackendsError, chatBackendsRefreshing, retrieveChatBackends, refreshChatBackends,
     chatModelSelection, setChatModelSelection,
+    queryScopeId, setQueryScopeId,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
     queryInputMode, setQueryInputMode,

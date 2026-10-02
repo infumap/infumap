@@ -132,6 +132,29 @@ export interface ChatRequest {
   capabilities: Array<string>,
   mode: ChatRunMode,
   model?: ChatModelSelection,
+  /** A scope from the Scopes page, limiting what the Infumap tools can read. */
+  scopeId?: Uid | null,
+}
+
+/** Something about a scope's definition the user may want to fix. None of these widen the scope. */
+export type ScopeProblem =
+  | { kind: "unresolvedLink", itemId: Uid, exclude: boolean }
+  | { kind: "ignoredContainer", itemId: Uid, title: string | null }
+  | { kind: "multipleExcludeContainers" }
+  | { kind: "noResolvedIncludes" };
+
+export interface ScopeSummary {
+  id: Uid,
+  name: string,
+  /** Null when the scope has no include links, and so covers everything under the home page. */
+  includeCount: number | null,
+  excludeCount: number,
+  problems: Array<ScopeProblem>,
+}
+
+export interface ListScopesResponse {
+  scopesPageId: Uid,
+  scopes: Array<ScopeSummary>,
 }
 
 export interface ChatModelInfo {
@@ -312,6 +335,7 @@ const COMMAND_UPDATE_ITEM = "update-item";
 const COMMAND_CONVERT_PAGE_TABLE = "convert-page-table";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
+const COMMAND_LIST_SCOPES = "list-scopes";
 const COMMAND_CHAT = "chat";
 const COMMAND_EMPTY_TRASH = "empty-trash";
 const COMMAND_SYNC_CONTAINERS = "sync-containers";
@@ -347,6 +371,9 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_SEARCH:
       description = `Searching for "${payload.text}"`;
+      break;
+    case COMMAND_LIST_SCOPES:
+      description = "Loading scopes";
       break;
     case COMMAND_CHAT:
       description = "Generating query response";
@@ -862,9 +889,19 @@ export const server = {
       });
   },
 
-  search: async (pageIdMaybe: Uid | null, text: String, networkStatus: NumberSignal, pageNumMaybe?: number): Promise<SearchResponse> => {
-    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum: pageNumMaybe }, null, false, networkStatus)
+  search: async (
+    pageIdMaybe: Uid | null,
+    text: String,
+    networkStatus: NumberSignal,
+    pageNumMaybe?: number,
+    scopeIdMaybe?: Uid | null,
+  ): Promise<SearchResponse> => {
+    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum: pageNumMaybe, scopeId: scopeIdMaybe ?? null }, null, false, networkStatus)
       .then((response: any) => normalizeSearchResponse(response));
+  },
+
+  listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {
+    return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null, false, networkStatus);
   },
 
   chatStream: async (

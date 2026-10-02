@@ -11,6 +11,23 @@ Search results include `containingContainerId`, `containingPageId`, and `ancesto
 excluding the result itself. `containingPageId` is the nearest ancestor page. For a container result,
 use its own `itemId` to inspect it. The existing label-only `path` is also returned.
 
+## Scopes
+
+A chat request may name a [scope](scopes.md) with `scopeId`. The scope is resolved once when the run
+starts; an unknown or deleted scope fails the request rather than widening it. Every tool then
+applies it:
+
+- `lexical_search` returns only items in the scope. A `pageId` argument narrows it further.
+- `read_container` reports a container outside the scope as not found, and omits children and
+  attachments outside it. A link whose target is outside the scope has `targetStatus: "unavailable"`.
+- `get_fragment` reports an item outside the scope as not found.
+
+`ancestors` are not filtered. Every ancestor of an excluded item is itself excluded, so ancestors
+never reveal excluded content; they can only name containers above an include root. The system prompt
+names the active scope, so the model does not mistake an out-of-scope item for a missing one.
+Context items the user attaches to the chat are sent as given, regardless of scope. A scope has no
+effect when the Infumap data source is disabled.
+
 ## Reading a container
 
 ```json

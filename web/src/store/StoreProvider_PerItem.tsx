@@ -63,6 +63,11 @@ export interface QueryChatCompletedActivity {
 export interface QueryRuntime {
   mode: QueryMode,
   text: string,
+  /**
+   * The scope search and chat use, where id null means no scope. Null until chosen or first used: until
+   * then it follows the scope last chosen anywhere.
+   */
+  scope: { id: Uid | null } | null,
   search: {
     resultsPageId: Uid | null,
     resultLinkIds: Array<Uid>,
@@ -155,6 +160,7 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const newQueryRuntime = (): QueryRuntime => ({
     mode: null,
     text: "",
+    scope: null,
     search: {
       resultsPageId: null,
       resultLinkIds: [],

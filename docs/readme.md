@@ -4,6 +4,7 @@
 - [Configuration](configuration.md)
 - [Developer](developer.md)
 - [Integrations](integrations.md)
+- [Scopes](scopes.md)
 - Deployment
   - [Raspberry Pi (Common Setup)](deployment/raspberry-pi.md)
   - [Raspberry Pi (Public Internet)](deployment/raspberry-pi-public-internet.md)

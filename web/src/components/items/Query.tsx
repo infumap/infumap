@@ -26,6 +26,7 @@ import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { QueryChatSetup } from "./QueryChatSetup";
+import { QueryScopePicker } from "./QueryScopePicker";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -84,6 +85,7 @@ import {
   materializeQueryChat,
   queryChatContextTokenDisplay,
   queryChatHasContent,
+  queryChatUsesInfumapData,
   resetQueryChatSession,
   applyQueryChatDefaultPluginCapabilities,
   submitQueryChatMessage,
@@ -1035,7 +1037,16 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 {liveChatActivity()!.statusText}
               </div>
             </Show>
-            <div class="ml-auto shrink-0 pl-3">
+            <div class="ml-auto flex shrink-0 items-center gap-2 pl-3">
+              <Show when={queryChatUsesInfumapData(store, queryItem())}>
+                <QueryScopePicker
+                  queryItem={queryItem}
+                  variant="pill"
+                  disabled={chatRequestActive}
+                  note={() => queryChatHasContent(store, queryItem())
+                    ? "Applies from your next message. Earlier answers keep what they found."
+                    : null} />
+              </Show>
               <QueryChatSetup
                 queryItem={queryItem}
                 toolsLocked={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
@@ -1290,20 +1301,29 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </button>
         </Show>
       </div>
-      <Show when={selectedInputMode() == "chat"}>
+      <Show when={!isSearchMode()}>
         <div
           class="flex w-full items-center justify-end gap-2 text-[#555]"
           style="height: 22px; margin-top: 10px; font-size: 13px; line-height: 20px;"
           onMouseDown={(ev) => ev.stopPropagation()}
           onMouseUp={(ev) => ev.stopPropagation()}
           onClick={(ev) => ev.stopPropagation()}>
-          <QueryChatSetup
-            queryItem={queryItem}
-            toolsLocked={isStartingChat}
-            lockedReason="wait for the chat to start"
-            beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
-            buttonRef={(el) => { querySetupButton = el; }}
-            onTabKey={(ev) => handleQueryControlTab(ev, "setup")} />
+          <Show when={selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}>
+            <QueryScopePicker
+              queryItem={queryItem}
+              variant="pill"
+              disabled={isStartingChat}
+              beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())} />
+          </Show>
+          <Show when={selectedInputMode() == "chat"}>
+            <QueryChatSetup
+              queryItem={queryItem}
+              toolsLocked={isStartingChat}
+              lockedReason="wait for the chat to start"
+              beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+              buttonRef={(el) => { querySetupButton = el; }}
+              onTabKey={(ev) => handleQueryControlTab(ev, "setup")} />
+          </Show>
         </div>
       </Show>
     </>;
@@ -1337,6 +1357,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <For each={VesCache.render.getChildren(vePath())()}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
           }</For>
+        </Show>
+        <Show when={isSearchMode()}>
+          <div class="absolute flex items-center"
+            style={`left: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
+            <QueryScopePicker
+              queryItem={queryItem}
+              variant="compact"
+              onChange={() => { void runSearch(false); }} />
+          </div>
         </Show>
         <Show when={isSearchMode()}>
           <div class="absolute flex items-center gap-[4px]"
