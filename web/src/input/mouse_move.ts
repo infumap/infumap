@@ -1295,7 +1295,7 @@ function mouseAction_resizingColumn(deltaPx: Vector, store: StoreContextModel) {
   };
 
   let newWidthBl = MouseActionState.get()!.startWidthBl! + deltaBl.x;
-  newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+  newWidthBl = allowHalfBlockWidth(asXSizableItem(activeVisualElement.displayItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
   if (newWidthBl < 1) { newWidthBl = 1.0; }
   const newWidthGr = newWidthBl * GRID_SIZE;
   const colNum = MouseActionState.getHitMeta()!.colNum!;

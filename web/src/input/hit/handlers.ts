@@ -70,7 +70,7 @@ const _tableHandler: HitHandler = {
     }
     for (let j = tableVe.hitboxes.length - (resizeHitbox ? 2 : 1); j >= 0; j--) {
       const hb = tableVe.hitboxes[j];
-      if (hb.type != HitboxFlags.HorizontalResize) { break; }
+      if (hb.type != HitboxFlags.HorizontalResize) { continue; }
       if (isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(hb.boundsPx, getBoundingBoxTopLeft(tableVe.boundsPx!)))) {
         return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.HorizontalResize, HitboxFlags.None).meta(hb.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-hresize").build();
       }
