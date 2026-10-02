@@ -30,6 +30,8 @@ const NOTE_FLAG_HEADING3: i64 = 0x001;
 const NOTE_FLAG_HEADING1: i64 = 0x004;
 const NOTE_FLAG_HEADING2: i64 = 0x008;
 const NOTE_FLAG_BULLET1: i64 = 0x010;
+const NOTE_FLAG_ALIGN_CENTER: i64 = 0x020;
+const NOTE_FLAG_ALIGN_RIGHT: i64 = 0x040;
 const NOTE_FLAG_CODE: i64 = 0x200;
 const NOTE_FLAG_HEADING4: i64 = 0x1000;
 const NOTE_FLAG_NUMBERED: i64 = 0x8000;
@@ -63,8 +65,16 @@ struct ChatMarkdownTableRow {
   cells: Vec<ChatMarkdownInlineText>,
 }
 
+enum ChatMarkdownTableAlignment {
+  Unspecified,
+  Left,
+  Center,
+  Right,
+}
+
 struct ChatMarkdownTable {
   columns: Vec<String>,
+  alignments: Vec<ChatMarkdownTableAlignment>,
   rows: Vec<ChatMarkdownTableRow>,
 }
 
@@ -230,7 +240,7 @@ fn chat_response_table_json(
       row_id.clone(),
       ChatMarkdownNote {
         title: first_cell.title,
-        flags: 0,
+        flags: chat_table_cell_note_flags(&table.alignments, 0),
         inline_marks: first_cell.inline_marks,
         urls: first_cell.urls,
       },
@@ -252,13 +262,26 @@ fn chat_response_table_json(
           now,
           attachment_ordering,
           new_uid(),
-          ChatMarkdownNote { title: cell.title, flags: 0, inline_marks: cell.inline_marks, urls: cell.urls },
+          ChatMarkdownNote {
+            title: cell.title,
+            flags: chat_table_cell_note_flags(&table.alignments, cell_index),
+            inline_marks: cell.inline_marks,
+            urls: cell.urls,
+          },
         ));
       }
     }
   }
 
   items
+}
+
+fn chat_table_cell_note_flags(alignments: &[ChatMarkdownTableAlignment], column_index: usize) -> i64 {
+  match alignments.get(column_index) {
+    Some(ChatMarkdownTableAlignment::Center) => NOTE_FLAG_ALIGN_CENTER,
+    Some(ChatMarkdownTableAlignment::Right) => NOTE_FLAG_ALIGN_RIGHT,
+    Some(ChatMarkdownTableAlignment::Left) | Some(ChatMarkdownTableAlignment::Unspecified) | None => 0,
+  }
 }
 
 fn chat_response_placeholder_json(owner_id: &Uid, parent_id: &Uid, now: u64, ordering: Vec<u8>) -> Value {
@@ -494,11 +517,13 @@ fn markdown_table_at(lines: &[&str], index: usize) -> Option<(ChatMarkdownTable,
 
   let header_cells = split_markdown_table_row(lines[index])?;
   let separator_cells = split_markdown_table_row(lines[index + 1])?;
-  if separator_cells.len() < header_cells.len() || !markdown_table_separator_row(&separator_cells) {
+  if separator_cells.len() < header_cells.len() {
     return None;
   }
+  let mut alignments = markdown_table_separator_alignments(&separator_cells)?;
 
   let column_count = header_cells.len();
+  alignments.truncate(column_count);
   let mut rows = Vec::new();
   let mut row_index = index + 2;
   while row_index < lines.len() {
@@ -518,6 +543,7 @@ fn markdown_table_at(lines: &[&str], index: usize) -> Option<(ChatMarkdownTable,
         .iter()
         .map(|cell| parse_markdown_inline(cell).title)
         .collect(),
+      alignments,
       rows,
     },
     row_index,
@@ -563,15 +589,32 @@ fn split_markdown_table_row(line: &str) -> Option<Vec<String>> {
   Some(cells)
 }
 
-fn markdown_table_separator_cell(cell: &str) -> bool {
+fn markdown_table_separator_cell_alignment(cell: &str) -> Option<ChatMarkdownTableAlignment> {
   let trimmed = cell.trim();
+  let leading = trimmed.starts_with(':');
   let body = trimmed.strip_prefix(':').unwrap_or(trimmed);
+  let trailing = body.ends_with(':');
   let body = body.strip_suffix(':').unwrap_or(body);
-  body.len() >= 3 && body.chars().all(|ch| ch == '-')
+  if body.is_empty() || !body.chars().all(|ch| ch == '-') {
+    return None;
+  }
+  Some(match (leading, trailing) {
+    (true, true) => ChatMarkdownTableAlignment::Center,
+    (true, false) => ChatMarkdownTableAlignment::Left,
+    (false, true) => ChatMarkdownTableAlignment::Right,
+    (false, false) => ChatMarkdownTableAlignment::Unspecified,
+  })
+}
+
+fn markdown_table_separator_alignments(cells: &[String]) -> Option<Vec<ChatMarkdownTableAlignment>> {
+  if cells.len() < 2 {
+    return None;
+  }
+  cells.iter().map(|cell| markdown_table_separator_cell_alignment(cell)).collect()
 }
 
 fn markdown_table_separator_row(cells: &[String]) -> bool {
-  cells.len() >= 2 && cells.iter().all(|cell| markdown_table_separator_cell(cell))
+  markdown_table_separator_alignments(cells).is_some()
 }
 
 fn normalize_markdown_table_cells(cells: &[String], column_count: usize) -> Vec<String> {

@@ -72,9 +72,12 @@ type TextDocumentTableRow = {
   ordinal: number,
 };
 
+type TextDocumentTableAlignment = "unspecified" | "left" | "center" | "right";
+
 type TextDocumentTableBlock = {
   kind: "table",
   columns: Array<string>,
+  alignments: Array<TextDocumentTableAlignment>,
   rows: Array<TextDocumentTableRow>,
   start: number,
   end: number,
@@ -939,12 +942,30 @@ function splitMarkdownTableRow(line: string): Array<string> | null {
   return cells;
 }
 
-function isMarkdownTableSeparatorCell(cell: string): boolean {
-  return /^:?-{3,}:?$/.test(cell.trim());
+function markdownTableSeparatorCellAlignment(cell: string): TextDocumentTableAlignment | null {
+  const match = /^(:?)-+(:?)$/.exec(cell.trim());
+  if (match == null) { return null; }
+  const leading = match[1] != "";
+  const trailing = match[2] != "";
+  if (leading && trailing) { return "center"; }
+  if (leading) { return "left"; }
+  if (trailing) { return "right"; }
+  return "unspecified";
+}
+
+function markdownTableSeparatorAlignments(cells: Array<string>): Array<TextDocumentTableAlignment> | null {
+  if (cells.length < 2) { return null; }
+  const alignments: Array<TextDocumentTableAlignment> = [];
+  for (const cell of cells) {
+    const alignment = markdownTableSeparatorCellAlignment(cell);
+    if (alignment == null) { return null; }
+    alignments.push(alignment);
+  }
+  return alignments;
 }
 
 function isMarkdownTableSeparatorRow(cells: Array<string>): boolean {
-  return cells.length >= 2 && cells.every(isMarkdownTableSeparatorCell);
+  return markdownTableSeparatorAlignments(cells) != null;
 }
 
 function normalizeMarkdownTableCells(cells: Array<string>, columnCount: number): Array<string> {
@@ -969,9 +990,12 @@ function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocume
   const headerCells = splitMarkdownTableRow(lines[index].text);
   const separatorCells = splitMarkdownTableRow(lines[index + 1].text);
   if (headerCells == null || separatorCells == null) { return null; }
-  if (separatorCells.length < headerCells.length || !isMarkdownTableSeparatorRow(separatorCells)) { return null; }
+  if (separatorCells.length < headerCells.length) { return null; }
+  const separatorAlignments = markdownTableSeparatorAlignments(separatorCells);
+  if (separatorAlignments == null) { return null; }
 
   const columnCount = headerCells.length;
+  const alignments = separatorAlignments.slice(0, columnCount);
   const rows: Array<TextDocumentTableRow> = [];
   let end = lines[index + 1].end;
   let rowIndex = index + 2;
@@ -991,6 +1015,7 @@ function parseMarkdownTableAt(lines: Array<TextLine>, index: number): TextDocume
   return {
     kind: "table",
     columns: normalizeMarkdownTableCells(headerCells, columnCount).map(cell => parseMarkdownInline(cell).title),
+    alignments,
     rows,
     start: lines[index].start,
     end,
@@ -1162,6 +1187,7 @@ function parseMarkdownFrontMatterAt(lines: Array<TextLine>, index: number): Mark
     block: {
       kind: "table",
       columns: ["key", "value"],
+      alignments: ["unspecified", "unspecified"],
       rows,
       start: lines[index].start,
       end: lines[endIndex].end,
@@ -1532,6 +1558,12 @@ function createNoteForBlock(
   return note;
 }
 
+function noteFlagsForTableAlignment(alignment: TextDocumentTableAlignment | undefined): NoteFlags {
+  if (alignment == "center") { return NoteFlags.AlignCenter; }
+  if (alignment == "right") { return NoteFlags.AlignRight; }
+  return NoteFlags.None;
+}
+
 function createNoteForTableRow(
   textItem: TextItem,
   ownerId: Uid,
@@ -1545,6 +1577,7 @@ function createNoteForTableRow(
   const note = NoteFns.create(ownerId, tableId, RelationshipToParent.Child, firstCell.title, ordering);
   note.inlineMarks = firstCell.inlineMarks;
   note.urls = firstCell.urls;
+  note.flags |= noteFlagsForTableAlignment(block.alignments[0]);
   applyMarkdownLinkIconHint(note, firstCell);
   if (virtual) {
     markClientOnly(note);
@@ -1568,6 +1601,7 @@ function createNoteForTableCell(
   const note = NoteFns.create(ownerId, rowId, RelationshipToParent.Attachment, cell.title, ordering);
   note.inlineMarks = cell.inlineMarks;
   note.urls = cell.urls;
+  note.flags |= noteFlagsForTableAlignment(block.alignments[cellIndex]);
   applyMarkdownLinkIconHint(note, cell);
   if (virtual) {
     markClientOnly(note);
