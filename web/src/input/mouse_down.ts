@@ -326,6 +326,8 @@ function clearNativeTextSelectionMaybe(): boolean {
 
 export async function mouseDownHandler(store: StoreContextModel, buttonNumber: number): Promise<MouseEventActionFlags> {
   let defaultResult = MouseEventActionFlags.PreventDefault;
+  // Text edit is committed before the desktop handlers run. Move-out handles were hidden, so must not start a drag.
+  const wasTextEditing = store.overlay.textEditInfo() != null;
   const activeElement = document.activeElement;
   if (buttonNumber == MOUSE_RIGHT &&
     activeElement instanceof HTMLTextAreaElement &&
@@ -620,7 +622,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   switch (buttonNumber) {
     case MOUSE_LEFT:
-      defaultResult = mouseLeftDownHandler(store, defaultResult);
+      defaultResult = mouseLeftDownHandler(store, defaultResult, wasTextEditing);
       return defaultResult;
     case MOUSE_RIGHT:
       await mouseRightDownHandler(store);
@@ -634,7 +636,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
 let longHoldTimeoutId: any = null;
 
-export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: MouseEventActionFlags): MouseEventActionFlags {
+export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: MouseEventActionFlags, wasTextEditing: boolean = false): MouseEventActionFlags {
   const desktopPosPx = CursorEventState.getLatestDesktopPx(store);
 
   if (store.overlay.contextMenuInfo.get() != null) {
@@ -672,7 +674,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     }
   }
 
-  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, true, shiftDown);
+  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, true, shiftDown, wasTextEditing);
 
   const startPosBl = null;
   const startWidthBl = null;

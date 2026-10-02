@@ -141,6 +141,11 @@ function filteredHitboxType(ve: VisualElement, type: HitboxFlags, meta: HitboxMe
     result &= ~(HitboxFlags.Attach | HitboxFlags.AttachComposite);
   }
 
+  // The move-out handle is not rendered while text editing, so it must not be interactive either.
+  if (hitboxOptions.excludeCompositeMoveOut && meta?.compositeMoveOut) {
+    return HitboxFlags.None;
+  }
+
   if (result & HitboxFlags.CalendarRangeResize) {
     const rangeItem = meta?.calendarRangeItemId == null ? null : itemState.get(meta.calendarRangeItemId);
     if (rangeItem == null || !itemCanEdit(rangeItem)) {

@@ -40,6 +40,7 @@ export interface HitInfo {
 export interface HitboxScanOptions {
   allowCopyMove?: boolean,
   includeDropTargets?: boolean,
+  excludeCompositeMoveOut?: boolean,
 }
 
 export interface HitTraversalContext {
