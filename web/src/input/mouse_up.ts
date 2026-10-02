@@ -27,7 +27,7 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
-import { asCompositeItem, isComposite, CompositeFns } from "../items/composite-item";
+import { asCompositeItem, isComposite, CompositeFns, CompositeItem } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
 import { asTextItem, isText } from "../items/text-item";
 import { asLinkItem, isLink } from "../items/link-item";
@@ -1722,6 +1722,7 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
     // case #1.2: the moving item is a composite.
     else {
       const activeItem_composite = asCompositeItem(activeItem);
+      if (rejectCompositeIntoCompositeIfNeeded(store, activeItem_composite)) { return; }
       const activeCompositeSnapshot = cloneItemSnapshot(activeItem_composite);
       const childSnapshots = activeItem_composite.computed_children
         .map((childId) => itemState.get(childId))
@@ -1958,6 +1959,11 @@ function mouseUpHandler_moving_toComposite(store: StoreContextModel, activeItem:
     panic("mouseUpHandler_moving_toComposite: Attempt was made to move an item into itself.");
   }
 
+  if (isComposite(activeItem)) {
+    mouseUpHandler_moving_compositeToComposite(store, asCompositeItem(activeItem), overContainerVe);
+    return;
+  }
+
   const path = VeFns.veToPath(overContainerVe);
   const moveToIndex = store.perVe.getMoveOverIndex(path);
   const moveToOrdering = itemState.newOrderingAtChildrenPosition(
@@ -1976,6 +1982,72 @@ function mouseUpHandler_moving_toComposite(store: StoreContextModel, activeItem:
   const ops: Array<MovePersistOperation> = [];
   enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
   scheduleMoveCommit(store, ops, "mouse-up-move-to-composite");
+}
+
+/**
+ * Composites don't nest. Dropping a composite into another composite splices its children in at the
+ * drop position, then deletes the (now empty) dropped composite.
+ */
+function mouseUpHandler_moving_compositeToComposite(store: StoreContextModel, activeComposite: CompositeItem, overContainerVe: VisualElement) {
+  if (rejectCompositeIntoCompositeIfNeeded(store, activeComposite)) { return; }
+
+  const destinationId = overContainerVe.displayItem.id;
+  const moveToIndex = store.perVe.getMoveOverIndex(VeFns.veToPath(overContainerVe));
+  const firstOrdering = itemState.newOrderingAtChildrenPosition(
+    destinationId,
+    moveToIndex >= 0 ? moveToIndex : asCompositeItem(overContainerVe.displayItem).computed_children.length,
+    activeComposite.id,
+  );
+
+  const ops: Array<MovePersistOperation> = [];
+  const activeCompositeSnapshot = cloneItemSnapshot(activeComposite);
+  const childSnapshots = activeComposite.computed_children
+    .map((childId) => itemState.get(childId))
+    .filter((child): child is PositionalItem => child != null && isPositionalItem(child))
+    .map((child) => cloneItemSnapshot(child));
+  const childSnapshotsById = new Map(childSnapshots.map((snapshot) => [snapshot.id, snapshot]));
+  let lastPrevId: string | null = null;
+  while (activeComposite.computed_children.length > 0) {
+    const child = asPositionalItem(itemState.get(activeComposite.computed_children[0])!);
+    const ordering = lastPrevId == null ? firstOrdering : itemState.newOrderingDirectlyAfterChild(destinationId, lastPrevId);
+    child.spatialPositionGr = { x: 0.0, y: 0.0 };
+    itemState.moveToNewParent(child, destinationId, RelationshipToParent.Child, ordering);
+    lastPrevId = child.id;
+    enqueueUpdateItem(ops, store, child, childSnapshotsById.get(child.id) ?? null);
+  }
+  itemState.delete(activeComposite.id);
+  enqueueDeleteItem(ops, store, activeComposite.id, activeCompositeSnapshot);
+  scheduleMoveCommit(store, ops, "mouse-up-flatten-composite-into-composite", {
+    rollbackExtras: () => {
+      if (itemState.get(activeCompositeSnapshot.id) == null) {
+        const compositeRestore = asCompositeItem(cloneItemSnapshot(activeCompositeSnapshot));
+        compositeRestore.computed_children = [];
+        itemState.add(compositeRestore);
+      }
+      for (const childSnapshot of childSnapshots) {
+        restorePositionalItemSnapshot(childSnapshot);
+      }
+    },
+  });
+}
+
+/**
+ * Flattening is only done when nothing is lost. A titled composite would lose its title, and a
+ * copy-drag clones the composite without its children, so there would be nothing to flatten.
+ */
+function rejectCompositeIntoCompositeIfNeeded(store: StoreContextModel, activeComposite: CompositeItem): boolean {
+  let message: string | null = null;
+  if (MouseActionState.getItemCopyMove() != null) {
+    message = "Can't copy a composite into another composite.";
+  } else if (CompositeFns.hasOwnTitle(activeComposite)) {
+    message = "Can't merge a titled composite into another composite.";
+  }
+  if (message == null) { return false; }
+  rollbackInvalidMove(store);
+  showMoveDropRejectedMessage(store, message);
+  MouseActionState.set(null);
+  arrangeNow(store, "mouse-up-reject-composite-into-composite");
+  return true;
 }
 
 

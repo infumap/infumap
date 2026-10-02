@@ -736,6 +736,21 @@ fn validate_group_id_for_item(db: &MutexGuard<'_, Db>, item: &Item) -> InfuResul
   Ok(())
 }
 
+/// Composites do not nest: the client flattens a composite dropped into another composite.
+fn validate_composite_parent_for_item(db: &MutexGuard<'_, Db>, item: &Item) -> InfuResult<()> {
+  if !is_composite_item(item) || item.relationship_to_parent != RelationshipToParent::Child {
+    return Ok(());
+  }
+  let parent_id = match &item.parent_id {
+    Some(parent_id) => parent_id,
+    None => return Ok(()),
+  };
+  if is_composite_item(db.item.get(parent_id)?) {
+    return Err(format!("Composite '{}' cannot be a child of composite '{}'.", item.id, parent_id).into());
+  }
+  Ok(())
+}
+
 fn maybe_container_id_for_attachment_parent(db: &MutexGuard<'_, Db>, parent_id: &Uid) -> InfuResult<Option<Uid>> {
   let parent_item = db.item.get(parent_id)?;
   if parent_item.relationship_to_parent == RelationshipToParent::Child {
