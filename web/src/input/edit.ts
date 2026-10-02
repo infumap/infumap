@@ -889,17 +889,15 @@ function targetCaretPositionForLinearBoundaryNavigation(
   });
 }
 
-function documentEdgeBoundaryCaretPositionMaybe(
+function linearEdgeBoundaryCaretPositionMaybe(
   context: LinearEditContext,
   key: LinearBoundaryNavigationKey,
   textElement: HTMLElement,
 ): number | null {
   if (key != "ArrowUp" && key != "ArrowDown") { return null; }
-  if (!isPage(context.containerVe.displayItem) ||
-    asPageItem(context.containerVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Document ||
-    context.editingPath == context.containerPath) {
-    return null;
-  }
+  // The whole container is one contenteditable, so native movement past the
+  // first/last child would leave the editing element and be reverted.
+  if (context.editingPath == context.containerPath) { return null; }
 
   const childVes = VesCache.current.readStructuralChildren(context.containerPath);
   const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == context.editingPath);
@@ -1040,9 +1038,9 @@ function maybeBuildLinearBoundaryNavigation(
   const targetPath = adjacentEditableChildPathInCurrentLinearContext(context, key);
   if (targetPath == null) {
     const childCount = VesCache.current.readStructuralChildren(context.containerPath).length;
-    const fallbackCaretPosition = documentEdgeBoundaryCaretPositionMaybe(context, key, textElement);
+    const fallbackCaretPosition = linearEdgeBoundaryCaretPositionMaybe(context, key, textElement);
     if (fallbackCaretPosition != null) {
-      logLinearEdit("prepared-document-edge-boundary-caret-move", {
+      logLinearEdit("prepared-linear-edge-boundary-caret-move", {
         key,
         containerPath: context.containerPath,
         currentPath: context.editingPath,

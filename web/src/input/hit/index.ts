@@ -113,9 +113,10 @@ export const HitInfoFns = {
     return result;
   },
   // Pointer interactions ignore regions whose only purpose is accepting a drop.
-  hit: (store: StoreContextModel, posOnDesktopPx: Vector, ignoreItems: Array<Uid>, canHitEmbeddedInteractive: boolean, allowOutsideBoundsHitboxes: boolean = true, allowCopyMove: boolean = false): HitInfo => {
+  // Composite / document move-out handles are hidden while text editing, so they are not hit by default then.
+  hit: (store: StoreContextModel, posOnDesktopPx: Vector, ignoreItems: Array<Uid>, canHitEmbeddedInteractive: boolean, allowOutsideBoundsHitboxes: boolean = true, allowCopyMove: boolean = false, excludeCompositeMoveOut: boolean = store.overlay.textEditInfo() != null): HitInfo => {
     const ignoreSet = new Set<Uid>(ignoreItems);
-    return getHitInfo(store, posOnDesktopPx, ignoreSet, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove);
+    return getHitInfo(store, posOnDesktopPx, ignoreSet, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, allowCopyMove, false, excludeCompositeMoveOut);
   },
   hitForDrop: (store: StoreContextModel, posOnDesktopPx: Vector, ignoreItems: Array<Uid>, canHitEmbeddedInteractive: boolean, allowOutsideBoundsHitboxes: boolean = true): HitInfo => {
     const ignoreSet = new Set<Uid>(ignoreItems);
@@ -314,8 +315,9 @@ export function getHitInfo(
   allowOutsideBoundsHitboxes: boolean = true,
   allowCopyMove: boolean = false,
   includeDropTargets: boolean = false,
+  excludeCompositeMoveOut: boolean = false,
 ): HitInfo {
-  const hitboxOptions: HitboxScanOptions = { allowCopyMove, includeDropTargets };
+  const hitboxOptions: HitboxScanOptions = { allowCopyMove, includeDropTargets, excludeCompositeMoveOut };
   const umbrellaVe: VisualElement = store.umbrellaVisualElement.get();
   assert(VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
   // Desktop coordinates start below the toolbar. Check before adding scroll
