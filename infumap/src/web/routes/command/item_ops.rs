@@ -317,6 +317,7 @@ pub async fn add_item_for_user(
       }
     };
     validate_group_id_for_item(&db, &item)?;
+    validate_composite_parent_for_item(&db, &item)?;
 
     if is_empty_uid(&item.id) {
       return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", &session_user_id).into());
@@ -563,6 +564,9 @@ pub(super) async fn handle_update_item(
     return Err(format!("Queries page query item '{}' cannot be resized.", item.id).into());
   }
   validate_group_id_for_item(&db, &item)?;
+  if old_item.parent_id != item.parent_id || old_item.relationship_to_parent != item.relationship_to_parent {
+    validate_composite_parent_for_item(&db, &item)?;
+  }
 
   db.item.update(&item).await?;
   let mut deltas_by_container = HashMap::new();
