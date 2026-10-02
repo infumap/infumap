@@ -274,15 +274,27 @@ export const itemState = {
     }
   },
 
+  /**
+   * Re-sort the title ordered container(s) whose order depends on the title of item: its own parent, and
+   * the parents of any loaded links that resolve to it (links sort by their target's title).
+   */
   sortParentChildrenIfTitleOrdered: (item: Item): void => {
-    if (item.relationshipToParent != RelationshipToParent.Child) { return; }
+    const sortIfTitleOrdered = (child: Item) => {
+      if (child.relationshipToParent != RelationshipToParent.Child) { return; }
+      const parentItem = itemState.get(child.parentId);
+      if (!parentItem || !isContainer(parentItem)) { return; }
+      const parentContainer = asContainerItem(parentItem);
+      if (parentContainer.orderChildrenBy == "title[ASC]" || parentContainer.orderChildrenBy == "title[DESC]") {
+        itemState.sortChildren(parentContainer.id);
+      }
+    };
 
-    const parentItem = itemState.get(item.parentId);
-    if (!parentItem || !isContainer(parentItem)) { return; }
-
-    const parentContainer = asContainerItem(parentItem);
-    if (parentContainer.orderChildrenBy == "title[ASC]" || parentContainer.orderChildrenBy == "title[DESC]") {
-      itemState.sortChildren(parentContainer.id);
+    sortIfTitleOrdered(item);
+    if (isLink(item)) { return; }
+    for (const candidate of items.values()) {
+      if (isLink(candidate) && LinkFns.getLinkToId(asLinkItem(candidate)) == item.id) {
+        sortIfTitleOrdered(candidate);
+      }
     }
   },
 

@@ -29,6 +29,7 @@ import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { getToolbarFocusItem } from "../toolbarFocus";
+import { itemState } from "../../../store/ItemState";
 
 
 export const Toolbar_Link: Component = () => {
@@ -72,7 +73,14 @@ export const Toolbar_Link: Component = () => {
     if (!canEditOnMount || !linkResourceInput) {
       return;
     }
-    linkItemOnMount.linkTo = linkResourceInput!.value;
+    const newLinkTo = linkResourceInput!.value;
+    if (linkItemOnMount.linkTo != newLinkTo) {
+      linkItemOnMount.linkTo = newLinkTo;
+      // a resolved id refers to the previous target.
+      linkItemOnMount.linkToResolvedId = null;
+      // if the new target is not yet loaded, the link sorts last until the load completes and re-sorts.
+      itemState.sortParentChildrenIfTitleOrdered(linkItemOnMount);
+    }
     requestArrange(store, "toolbar-link-target-change");
     serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus);
   });
