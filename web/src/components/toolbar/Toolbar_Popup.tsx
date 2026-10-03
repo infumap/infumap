@@ -255,7 +255,14 @@ function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextSt
 
 
 const QR_CODE_SIZE_PX = 180;
+const INFO_POPUP_WIDTH_PX = 350;
+const INFO_QR_PADDING_TOP_PX = 12;
+const INFO_QR_PADDING_BOTTOM_PX = 6;
+const INFO_COPY_URL_HEIGHT_PX = 24;
+const INFO_ROWS_PADDING_TOP_PX = 6;
+const INFO_ROWS_PADDING_BOTTOM_PX = 10;
 const INFO_ROW_HEIGHT_PX = 20;
+const TOOLBAR_POPUP_BORDER_PX = 1;
 
 type InfoPopupRow = "id" | "compositeId" | "linkedFrom" | "size" | "children" | "dataItems" | "totalSize" | "debug";
 
@@ -298,7 +305,13 @@ function infoPopupRows(store: StoreContextModel): Array<InfoPopupRow> {
   return rows;
 }
 
-function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
+function infoPopupHeightPx(store: StoreContextModel): number {
+  return INFO_QR_PADDING_TOP_PX + QR_CODE_SIZE_PX + INFO_QR_PADDING_BOTTOM_PX + INFO_COPY_URL_HEIGHT_PX +
+    INFO_ROWS_PADDING_TOP_PX + infoPopupRows(store).length * INFO_ROW_HEIGHT_PX + INFO_ROWS_PADDING_BOTTOM_PX +
+    2 * TOOLBAR_POPUP_BORDER_PX;
+}
+
+function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupType): number {
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
   if (overlayType == ToolbarPopupType.NoteIndent) { return 36; }
   if (overlayType == ToolbarPopupType.ItemIcon) { return 292; }
@@ -313,12 +326,7 @@ function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean)
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return toolbarMenuHeightPx(5); }
   if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(3); }
   if (overlayType == ToolbarPopupType.MoreActions) { return toolbarMenuHeightPx(1); }
-  if (overlayType == ToolbarPopupType.QrLink) {
-    if (isComposite) {
-      return 500;
-    }
-    return 450;
-  }
+  if (overlayType == ToolbarPopupType.QrLink) { return infoPopupHeightPx(store); }
   return 30;
 }
 
@@ -328,13 +336,6 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     return { x: 0, y: 0, w: 0, h: 0 };
   }
   const popupType = popupInfo.type;
-  const compositeItemMaybe = () => {
-    const focusItem = getToolbarFocusItem(store);
-    if (!isComposite(focusItem)) { return null; }
-    return asCompositeItem(focusItem);
-  };
-  const showSeparateCompositeSection = () =>
-    compositeItemMaybe() != null && compositeItemMaybe()!.id != getToolbarFocusItem(store).id;
 
   if (popupType != ToolbarPopupType.PageColor &&
     popupType != ToolbarPopupType.NoteTextStyle &&
@@ -344,7 +345,8 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.RatingType) {
     const popupWidth = popupType == ToolbarPopupType.MoreActions ? 220
       : popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.PageTableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300
-        : popupType == ToolbarPopupType.ItemIcon ? 334 : 330;
+        : popupType == ToolbarPopupType.ItemIcon ? 334
+          : popupType == ToolbarPopupType.QrLink ? INFO_POPUP_WIDTH_PX : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = popupInfo.topLeftPx.x;
     if (x > maxX) { x = maxX; }
@@ -352,7 +354,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x,
       y: popupInfo.topLeftPx.y,
       w: popupWidth,
-      h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
+      h: toolbarPopupHeight(store, popupType)
     }
   } else if (popupType == ToolbarPopupType.PageColor) {
     return {
@@ -379,14 +381,14 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
       x: Math.max(0, Math.min(popupInfo.topLeftPx.x, store.desktopBoundsPx().w - 205)),
       y: popupInfo.topLeftPx.y,
       w: 185,
-      h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
+      h: toolbarPopupHeight(store, popupType)
     }
   } else if (popupType == ToolbarPopupType.PageCalendarDisplayMode) {
     return {
       x: popupInfo.topLeftPx.x,
       y: popupInfo.topLeftPx.y,
       w: 112,
-      h: toolbarPopupHeight(popupType, showSeparateCompositeSection())
+      h: toolbarPopupHeight(store, popupType)
     }
   } else if (popupType == ToolbarPopupType.RatingType) {
     return {
@@ -1352,17 +1354,17 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="flex justify-center pt-[12px] pb-[6px]">
+            <div class="flex justify-center" style={`padding-top: ${INFO_QR_PADDING_TOP_PX}px; padding-bottom: ${INFO_QR_PADDING_BOTTOM_PX}px;`}>
               <QrCode text={window.location.origin + "/" + qrInfoItem().id} sizePx={QR_CODE_SIZE_PX} />
             </div>
             <Show when={separateCompositeMaybe() != null}>
-              <div style="width: 100%; color: #00a; cursor: pointer;" class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
+              <div style={`width: 100%; height: ${INFO_COPY_URL_HEIGHT_PX}px; line-height: ${INFO_COPY_URL_HEIGHT_PX}px; color: #00a; cursor: pointer;`} class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
             </Show>
             <Show when={separateCompositeMaybe() == null}>
-              <div style="width: 100%; color: #00a; cursor: pointer;" class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
+              <div style={`width: 100%; height: ${INFO_COPY_URL_HEIGHT_PX}px; line-height: ${INFO_COPY_URL_HEIGHT_PX}px; color: #00a; cursor: pointer;`} class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
             </Show>
-            <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-[10px] px-[14px] pt-[6px] font-mono text-[11px]"
-              style={`grid-auto-rows: ${INFO_ROW_HEIGHT_PX}px;`}>
+            <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-[10px] px-[14px] font-mono text-[11px]"
+              style={`grid-auto-rows: ${INFO_ROW_HEIGHT_PX}px; padding-top: ${INFO_ROWS_PADDING_TOP_PX}px; padding-bottom: ${INFO_ROWS_PADDING_BOTTOM_PX}px;`}>
               <For each={infoPopupRows(store)}>{row =>
                 <>
                   <div class="flex items-center text-slate-400 whitespace-nowrap">{infoRowLabel(row)}</div>
