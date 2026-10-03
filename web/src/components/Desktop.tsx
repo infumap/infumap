@@ -30,7 +30,7 @@ import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
 import { TableColumnContextMenu } from "./overlay/TableColumnContextMenu";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
-import { SELECTION_HIGHLIGHT_COLOR } from "../style";
+import { SELECTION_MARQUEE_FILL_COLOR, SELECTION_MARQUEE_BORDER_COLOR } from "../style";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../constants";
 import { MovingItemsOverlay } from "./MovingItemsOverlay";
 import { SelectionGroupAction } from "./overlay/SelectionGroupAction";
@@ -141,7 +141,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       </Show>
       <Show when={store.overlay.selectionMarqueePx.get() != null}>
         <div class="absolute pointer-events-none border"
-             style={`left: ${store.overlay.selectionMarqueePx.get()!.x}px; top: ${store.overlay.selectionMarqueePx.get()!.y}px; width: ${store.overlay.selectionMarqueePx.get()!.w}px; height: ${store.overlay.selectionMarqueePx.get()!.h}px; border-color: #4a90e2; background-color: ${SELECTION_HIGHLIGHT_COLOR}; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`} />
+             style={`left: ${store.overlay.selectionMarqueePx.get()!.x}px; top: ${store.overlay.selectionMarqueePx.get()!.y}px; width: ${store.overlay.selectionMarqueePx.get()!.w}px; height: ${store.overlay.selectionMarqueePx.get()!.h}px; border-color: ${SELECTION_MARQUEE_BORDER_COLOR}; background-color: ${SELECTION_MARQUEE_FILL_COLOR}; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`} />
       </Show>
 
     </div>

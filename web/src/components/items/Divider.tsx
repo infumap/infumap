@@ -27,10 +27,10 @@ import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
-import { FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 
 
 const DIVIDER_COLOR = "#64748b";
@@ -103,7 +103,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-xs"
           style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
+            `${highlightStyle(props.visualElement.flags)}`} />
       </Show>
       {renderBoundsHighlightMaybe()}
       {renderLine()}

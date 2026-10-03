@@ -21,7 +21,6 @@ import { linearGradient, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_LOCAL_SHADOW, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { VisualElement_Desktop } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -30,7 +29,7 @@ import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { linkHasTriangle } from "../../layout/link-triangle";
 
 
@@ -154,7 +153,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+          `${highlightStyle(props.visualElement.flags)}` +
           `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 

@@ -24,10 +24,9 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, highlightStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -80,7 +79,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
         <div class="absolute pointer-events-none rounded-xs"
              style={`left: 0px; top: 0px; ` +
                     `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                    `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
+                    `${highlightStyle(props.visualElement.flags)}`} />
       </Show>
       <Show when={ratingType() == "Star"}>
         <div class={`fas fa-star text-gray-400 absolute`}

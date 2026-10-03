@@ -22,7 +22,7 @@ import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -62,7 +62,7 @@ import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler, prepareNoteParagraphSplit } from "../../input/edit";
@@ -519,7 +519,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="absolute pointer-events-none rounded-xs"
             style={`left: 0px; top: 0px; ` +
               `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-              `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+              `${highlightStyle(props.visualElement.flags)}` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
         <Show when={shouldRenderIcon()}>

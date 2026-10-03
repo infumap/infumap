@@ -30,7 +30,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -38,7 +38,7 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { MouseAction, MouseActionState } from "../../input/state";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -291,7 +291,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         <div class="absolute pointer-events-none rounded-xs"
           style={`left: 0px; top: 0px; ` +
             `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `} />
+            `${highlightStyle(props.visualElement.flags)}`} />
       </Show>
       <Show when={shouldRenderIcon()}>
         <div class="absolute rounded-xs pointer-events-none"

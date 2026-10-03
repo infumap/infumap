@@ -24,7 +24,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
 import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { BORDER_COLOR, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { linearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -45,7 +45,7 @@ import {
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { ClientOnlyItemKind } from "../../items/base/item";
 import { appendNewlineIfEmpty } from "../../util/string";
-import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
@@ -632,7 +632,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             <div class="absolute pointer-events-none rounded-xs"
               style={`left: 0px; top: 0px; ` +
                 `width: 100%; height: 100%; ` +
-                `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
+                `${highlightStyle(props.visualElement.flags)}`} />
           </Show>
           <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
