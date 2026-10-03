@@ -22,7 +22,7 @@ import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
-import { asLinkItem } from "../../../items/link-item";
+import { asLinkItem, isLink } from "../../../items/link-item";
 import { requestArrange } from "../../../layout/arrange";
 import { serverOrRemote } from "../../../server";
 import { ClickState } from "../../../input/state";
@@ -73,17 +73,45 @@ export const Toolbar_Link: Component = () => {
     if (!canEditOnMount || !linkResourceInput) {
       return;
     }
-    const newLinkTo = linkResourceInput!.value;
-    if (linkItemOnMount.linkTo != newLinkTo) {
-      linkItemOnMount.linkTo = newLinkTo;
-      // a resolved id refers to the previous target.
-      linkItemOnMount.linkToResolvedId = null;
-      // if the new target is not yet loaded, the link sorts last until the load completes and re-sorts.
-      itemState.sortParentChildrenIfTitleOrdered(linkItemOnMount);
+    const previousLinkTo = linkItemOnMount.linkTo;
+    let newLinkTo = linkResourceInput!.value;
+    // links do not chain: a link to a link becomes a link to that link's target.
+    const newTargetMaybe = itemState.get(newLinkTo);
+    if (newTargetMaybe != null && isLink(newTargetMaybe)) {
+      newLinkTo = asLinkItem(newTargetMaybe).linkTo;
+      if (newLinkTo != previousLinkTo) {
+        showTransientMessage("linked to target of link", TransientMessageType.Info);
+      }
     }
+    if (previousLinkTo == newLinkTo) {
+      requestArrange(store, "toolbar-link-target-change");
+      serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus);
+      return;
+    }
+
+    setLinkTo(newLinkTo);
     requestArrange(store, "toolbar-link-target-change");
-    serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus);
+    // the server rejects a target that is a link, which can't be checked here if the target is not loaded.
+    serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus, false).catch(() => {
+      if (linkItemOnMount.linkTo != newLinkTo) { return; }
+      setLinkTo(previousLinkTo);
+      requestArrange(store, "toolbar-link-target-revert");
+      showTransientMessage("could not change link target", TransientMessageType.Error);
+    });
   });
+
+  const setLinkTo = (linkTo: string) => {
+    linkItemOnMount.linkTo = linkTo;
+    // a resolved id refers to the previous target.
+    linkItemOnMount.linkToResolvedId = null;
+    // if the new target is not yet loaded, the link sorts last until the load completes and re-sorts.
+    itemState.sortParentChildrenIfTitleOrdered(linkItemOnMount);
+  }
+
+  const showTransientMessage = (text: string, type: TransientMessageType) => {
+    store.overlay.toolbarTransientMessage.set({ text, type });
+    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1500);
+  }
 
   const keyEventHandler = (_ev: KeyboardEvent) => { }
 
