@@ -43,7 +43,9 @@ export enum ToolbarPopupType {
   PageCalendarDisplayMode = "calendardisplaymode",
   RatingType = "ratingtype",
   TableNumCols = "tablenumcols",
-  QrLink = "qrlink",
+  Info = "info",
+  Backlinks = "backlinks",
+  Id = "id",
   MoreActions = "moreactions",
 }
 

@@ -27,10 +27,10 @@ import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { requestArrange } from "../../../layout/arrange";
-import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { GRID_SIZE } from "../../../constants";
 import { itemState } from "../../../store/ItemState";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "../toolbarFocus";
 import { toggleActiveNoteInlineMark } from "../../../input/edit";
 import { applyEditorFormatCommand } from "../../../input/editor_history";
@@ -45,7 +45,6 @@ export const Toolbar_Note: Component = () => {
   let textStyleDiv: HTMLDivElement | undefined;
   let indentDiv: HTMLDivElement | undefined;
   let beforeUrlElement: HTMLDivElement | undefined;
-  let qrDiv: HTMLDivElement | undefined;
   let urlDiv: HTMLDivElement | undefined;
   let popupIconDiv: HTMLDivElement | undefined;
 
@@ -171,25 +170,6 @@ export const Toolbar_Note: Component = () => {
     ClickState.setButtonClickBoundsPx(popupIconDiv!.getBoundingClientRect());
   };
 
-  // QR
-  const handleQr = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
-      store.overlay.toolbarPopupInfoMaybe.set(null);
-      return;
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
-  }
-  const handleQrDown = () => {
-    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
-  };
-
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(noteItem().id);
-    store.overlay.toolbarTransientMessage.set({ text: "note id → clipboard", type: TransientMessageType.Info });
-    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
-  }
-
   // URL
   const urlButtonHandler = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.NoteUrl) {
@@ -303,12 +283,7 @@ export const Toolbar_Note: Component = () => {
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
       <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
-      <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
-        <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
-      </div>
-      <div class="inline-block">
-        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
-      </div>
+      <Toolbar_InfoAndId />
 
     </div>;
 
@@ -343,12 +318,7 @@ export const Toolbar_Note: Component = () => {
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
       <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
-      <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
-        <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
-      </div>
-      <div class="inline-block">
-        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
-      </div>
+      <Toolbar_InfoAndId />
 
     </div>;
 
