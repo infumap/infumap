@@ -30,13 +30,13 @@ import { ItemIconMode } from "../../items/base/icon-item";
 import { NoteFns, NoteTextStyle, asNoteItem, isNote } from "../../items/note-item";
 import { NoteFaviconLoadStatus, clearNoteFaviconStatus, noteFaviconStatus } from "../../items/note-favicon-state";
 import { InfuColorButton } from "../library/InfuColorButton";
+import { QrCode } from "../library/QrCode";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { Backlink, server, serverOrRemote } from "../../server";
 import { applyEditorFormatCommand } from "../../input/editor_history";
 import { panic } from "../../util/lang";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asTableItem, isTable } from "../../items/table-item";
-import QRCode from "qrcode";
 import {
   openRemoteItemFragmentsInNewTab,
   openRemoteItemTextInNewTab
@@ -252,6 +252,8 @@ function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextSt
   return NOTE_TEXT_STYLE_OPTIONS.filter(option => !option.hideInTable || !inTable);
 }
 
+
+const QR_CODE_SIZE_PX = 180;
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
@@ -1130,11 +1132,6 @@ export const Toolbar_Popup: Component = () => {
       sortOrderMenu?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus();
       return;
     }
-    if (overlayTypeConst != ToolbarPopupType.QrLink) { return; }
-    const canvas = document.getElementById('qrcanvas');
-    if (canvas == null) { return; }
-    const url = window.location.origin + "/" + qrInfoItem().id;
-    QRCode.toCanvas(canvas, url, { scale: 7 });
   });
 
   const handleSliderInput = (e: Event & { currentTarget: HTMLInputElement }) => {
@@ -1295,12 +1292,14 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <canvas id="qrcanvas" style="margin: auto; width: 200px; height: 200px; margin-top: 12px;" width="200" height="200" />
+            <div class="flex justify-center pt-[12px] pb-[6px]">
+              <QrCode text={window.location.origin + "/" + qrInfoItem().id} sizePx={QR_CODE_SIZE_PX} />
+            </div>
             <Show when={showSeparateCompositeSection()}>
-              <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
+              <div style="width: 100%; color: #00a; cursor: pointer;" class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
             </Show>
             <Show when={!showSeparateCompositeSection()}>
-              <div style="width: 100%; margin-top: -20px; color: #00a; cursor: pointer;" class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
+              <div style="width: 100%; color: #00a; cursor: pointer;" class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
             </Show>
             <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
               <span class="font-mono text-slate-400">{qrInfoItem().itemType[0].toUpperCase() + qrInfoItem().itemType.substring(1)} Id:</span><br />
