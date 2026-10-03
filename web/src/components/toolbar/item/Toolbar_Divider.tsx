@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 import { Component, Show } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { asDividerItem, DividerDirection } from "../../../items/divider-item";
@@ -25,18 +24,16 @@ import { requestArrange } from "../../../layout/arrange";
 import { VeFns } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
 import { serverOrRemote } from "../../../server";
-import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { useStore } from "../../../store/StoreProvider";
-import { ClickState } from "../../../input/state";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 
 
 export const Toolbar_Divider: Component = () => {
   const store = useStore();
 
-  let qrDiv: HTMLDivElement | undefined;
 
   const dividerItem = () => asDividerItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(dividerItem());
@@ -62,26 +59,6 @@ export const Toolbar_Divider: Component = () => {
     serverOrRemote.updateItem(item, store.general.networkStatus);
   };
 
-  const handleQr = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null &&
-      store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
-      store.overlay.toolbarPopupInfoMaybe.set(null);
-      return;
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
-  };
-
-  const handleQrDown = () => {
-    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
-  };
-
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(dividerItem().id);
-    store.overlay.toolbarTransientMessage.set({ text: "divider id -> clipboard", type: TransientMessageType.Info });
-    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
-  };
-
   return (
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
@@ -105,12 +82,7 @@ export const Toolbar_Divider: Component = () => {
 
         <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
 
-        <div ref={qrDiv} class="inline-block pl-[20px]" onMouseDown={handleQrDown}>
-          <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
-        </div>
-        <div class="inline-block">
-          <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
-        </div>
+        <Toolbar_InfoAndId />
       </div>
     </div>
   );

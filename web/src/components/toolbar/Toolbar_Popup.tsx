@@ -31,7 +31,6 @@ import { NoteFns, NoteTextStyle, asNoteItem, isNote } from "../../items/note-ite
 import { NoteFaviconLoadStatus, clearNoteFaviconStatus, noteFaviconStatus } from "../../items/note-favicon-state";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { QrCode } from "../library/QrCode";
-import { CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { Backlink, server, serverOrRemote } from "../../server";
 import { applyEditorFormatCommand } from "../../input/editor_history";
 import { panic } from "../../util/lang";
@@ -254,32 +253,35 @@ function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextSt
 }
 
 
-const QR_CODE_SIZE_PX = 180;
-const INFO_POPUP_WIDTH_PX = 350;
-const INFO_QR_PADDING_TOP_PX = 12;
-const INFO_QR_PADDING_BOTTOM_PX = 6;
-const INFO_COPY_URL_HEIGHT_PX = 24;
-const INFO_ROWS_PADDING_TOP_PX = 6;
-const INFO_ROWS_PADDING_BOTTOM_PX = 10;
-const INFO_ROW_HEIGHT_PX = 20;
 const TOOLBAR_POPUP_BORDER_PX = 1;
 
-type InfoPopupRow = "id" | "compositeId" | "linkedFrom" | "size" | "children" | "dataItems" | "totalSize" | "debug";
+const ID_FONT_SIZE_PX = 11;
+// The QR code is as wide as the id below it: 32 hex chars, at ~0.6em per char in most monospace fonts.
+const QR_CODE_SIZE_PX = Math.round(32 * 0.6 * ID_FONT_SIZE_PX);
+const ID_POPUP_PADDING_PX = 20;
+// Less than the top/side padding, because text lines carry their own space below the glyphs.
+const ID_POPUP_PADDING_BOTTOM_PX = 16;
+const ID_QR_GAP_PX = 8;
+const ID_LINE_HEIGHT_PX = 16;
+const ID_LINE_GAP_PX = 4;
+const ID_POPUP_WIDTH_PX = QR_CODE_SIZE_PX + 2 * ID_POPUP_PADDING_PX + 2 * TOOLBAR_POPUP_BORDER_PX;
+const ID_POPUP_HEIGHT_PX = ID_POPUP_PADDING_PX + QR_CODE_SIZE_PX + ID_QR_GAP_PX + 2 * ID_LINE_HEIGHT_PX + ID_LINE_GAP_PX +
+  ID_POPUP_PADDING_BOTTOM_PX + 2 * TOOLBAR_POPUP_BORDER_PX;
 
-/** The item the info popup describes. A virtual text document page describes its source text item. */
-function infoPopupItem(store: StoreContextModel): Item {
+const INFO_POPUP_WIDTH_PX = 300;
+const INFO_ROWS_PADDING_Y_PX = 8;
+const INFO_ROW_HEIGHT_PX = 20;
+const BACKLINKS_POPUP_HEIGHT_PX = 240;
+
+type InfoPopupRow = "linkedFrom" | "size" | "children" | "dataItems" | "totalSize" | "debug";
+
+/** The item the info and id popups describe. A virtual text document page describes its source text item. */
+export function infoPopupItem(store: StoreContextModel): Item {
   const currentItem = getToolbarFocusItem(store);
   if (isPage(currentItem) && isVirtualTextDocumentPage(currentItem.id)) {
     return sourceTextItemForVirtualTextDocumentPage(currentItem.id) ?? currentItem;
   }
   return currentItem;
-}
-
-function infoPopupSeparateCompositeMaybe(store: StoreContextModel): CompositeItem | null {
-  const focusItem = getToolbarFocusItem(store);
-  if (!isComposite(focusItem)) { return null; }
-  const composite = asCompositeItem(focusItem);
-  return composite.id != getToolbarFocusItem(store).id ? composite : null;
 }
 
 /** The item to show backlinks for, or null. Backlinks are tracked for the user's own local items. */
@@ -293,11 +295,10 @@ function infoPopupShowsDebugLinks(item: Item): boolean {
   return isFile(item) || isText(item) || isImage(item) || isPage(item) || isTable(item);
 }
 
-/** The rows below the QR code, in order. The popup's height is derived from these. */
+/** The rows of the info popup, in order. The popup's height is derived from these. */
 function infoPopupRows(store: StoreContextModel): Array<InfoPopupRow> {
   const item = infoPopupItem(store);
-  const rows: Array<InfoPopupRow> = ["id"];
-  if (infoPopupSeparateCompositeMaybe(store) != null) { rows.push("compositeId"); }
+  const rows: Array<InfoPopupRow> = [];
   if (infoPopupBacklinksItemId(store) != null) { rows.push("linkedFrom"); }
   if (isDataItem(item)) { rows.push("size"); }
   if (isPage(item) || isTable(item)) { rows.push("children", "dataItems", "totalSize"); }
@@ -306,9 +307,9 @@ function infoPopupRows(store: StoreContextModel): Array<InfoPopupRow> {
 }
 
 function infoPopupHeightPx(store: StoreContextModel): number {
-  return INFO_QR_PADDING_TOP_PX + QR_CODE_SIZE_PX + INFO_QR_PADDING_BOTTOM_PX + INFO_COPY_URL_HEIGHT_PX +
-    INFO_ROWS_PADDING_TOP_PX + infoPopupRows(store).length * INFO_ROW_HEIGHT_PX + INFO_ROWS_PADDING_BOTTOM_PX +
-    2 * TOOLBAR_POPUP_BORDER_PX;
+  // An item with no rows shows a single placeholder row.
+  const numRows = Math.max(1, infoPopupRows(store).length);
+  return 2 * INFO_ROWS_PADDING_Y_PX + numRows * INFO_ROW_HEIGHT_PX + 2 * TOOLBAR_POPUP_BORDER_PX;
 }
 
 function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupType): number {
@@ -326,7 +327,9 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return toolbarMenuHeightPx(5); }
   if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(3); }
   if (overlayType == ToolbarPopupType.MoreActions) { return toolbarMenuHeightPx(1); }
-  if (overlayType == ToolbarPopupType.QrLink) { return infoPopupHeightPx(store); }
+  if (overlayType == ToolbarPopupType.Info) { return infoPopupHeightPx(store); }
+  if (overlayType == ToolbarPopupType.Backlinks) { return BACKLINKS_POPUP_HEIGHT_PX; }
+  if (overlayType == ToolbarPopupType.Id) { return ID_POPUP_HEIGHT_PX; }
   return 30;
 }
 
@@ -346,7 +349,8 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     const popupWidth = popupType == ToolbarPopupType.MoreActions ? 220
       : popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.PageTableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300
         : popupType == ToolbarPopupType.ItemIcon ? 334
-          : popupType == ToolbarPopupType.QrLink ? INFO_POPUP_WIDTH_PX : 330;
+          : popupType == ToolbarPopupType.Info || popupType == ToolbarPopupType.Backlinks ? INFO_POPUP_WIDTH_PX
+            : popupType == ToolbarPopupType.Id ? ID_POPUP_WIDTH_PX : 330;
     const maxX = store.desktopBoundsPx().w - popupWidth - 20;
     let x = popupInfo.topLeftPx.x;
     if (x > maxX) { x = maxX; }
@@ -554,7 +558,9 @@ export const Toolbar_Popup: Component = () => {
 
     if (overlayType() != ToolbarPopupType.PageColor &&
       overlayType() != ToolbarPopupType.ItemIcon &&
-      overlayType() != ToolbarPopupType.QrLink &&
+      overlayType() != ToolbarPopupType.Info &&
+      overlayType() != ToolbarPopupType.Backlinks &&
+      overlayType() != ToolbarPopupType.Id &&
       overlayType() != ToolbarPopupType.MoreActions &&
       overlayType() != ToolbarPopupType.NoteTextStyle &&
       overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
@@ -589,7 +595,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
-    if (overlayType() == ToolbarPopupType.QrLink) { return null; }
     return "[unknown]";
   }
 
@@ -604,7 +609,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "Row Aspect"; }
-    if (overlayType() == ToolbarPopupType.QrLink) { return null; }
     return "[unknown]";
   }
 
@@ -843,21 +847,17 @@ export const Toolbar_Popup: Component = () => {
     ev.stopPropagation();
   };
 
-  const copyItemIdClickHandler = (): void => { navigator.clipboard.writeText(qrInfoItem().id); }
-  const linkItemIdClickHandler = (): void => {
-    const item = qrInfoItem();
-    navigator.clipboard.writeText(window.location.origin + "/" + item.id);
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.toolbarTransientMessage.set({ text: item.itemType + " id → clipboard", type: TransientMessageType.Info });
-    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
+  // The id is copied by the toolbar # button when it opens the id popup.
+  const [copied, setCopied] = createSignal<"id" | "url">("id");
+  createEffect(on(overlayType, type => { if (type == ToolbarPopupType.Id) { setCopied("id"); } }));
+  const itemUrl = () => window.location.origin + "/" + qrInfoItem().id;
+  const copyItemIdClickHandler = (): void => {
+    navigator.clipboard.writeText(qrInfoItem().id);
+    setCopied("id");
   }
-
-  const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(separateCompositeMaybe()!.id); }
-  const linkCompositeIdClickHandler = (): void => {
-    navigator.clipboard.writeText(window.location.origin + "/" + separateCompositeMaybe()!.id);
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.overlay.toolbarTransientMessage.set({ text: "composite id → clipboard", type: TransientMessageType.Info });
-    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
+  const copyItemUrlClickHandler = (): void => {
+    navigator.clipboard.writeText(itemUrl());
+    setCopied("url");
   }
 
   const openItemTextClickHandler = (): void => {
@@ -886,18 +886,15 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const qrInfoItem = () => infoPopupItem(store);
-  const separateCompositeMaybe = () => infoPopupSeparateCompositeMaybe(store);
 
   const backlinksItemId = createMemo(() =>
-    overlayType() == ToolbarPopupType.QrLink ? infoPopupBacklinksItemId(store) : null);
+    overlayType() == ToolbarPopupType.Info || overlayType() == ToolbarPopupType.Backlinks ? infoPopupBacklinksItemId(store) : null);
   // Null while loading.
   const [backlinks, setBacklinks] = createSignal<Array<Backlink> | null>(null);
   const [backlinksFailed, setBacklinksFailed] = createSignal(false);
-  const [showBacklinks, setShowBacklinks] = createSignal(false);
   createEffect(on(backlinksItemId, itemId => {
     setBacklinks(null);
     setBacklinksFailed(false);
-    setShowBacklinks(false);
     if (itemId == null) { return; }
     server.getBacklinks(itemId, store.general.networkStatus)
       .then(response => {
@@ -908,6 +905,12 @@ export const Toolbar_Popup: Component = () => {
         if (backlinksItemId() == itemId) { setBacklinksFailed(true); }
       });
   }));
+
+  /** Switches between the info and backlinks views, keeping the popup's position. */
+  const setInfoPopupType = (type: ToolbarPopupType) => {
+    const popupInfo = store.overlay.toolbarPopupInfoMaybe.get();
+    if (popupInfo != null) { store.overlay.toolbarPopupInfoMaybe.set({ ...popupInfo, type }); }
+  };
 
   const hasBacklinks = () => (backlinks()?.length ?? 0) > 0;
 
@@ -996,8 +999,6 @@ export const Toolbar_Popup: Component = () => {
 
   const infoRowLabel = (row: InfoPopupRow): string => {
     switch (row) {
-      case "id": return qrInfoItem().itemType[0].toUpperCase() + qrInfoItem().itemType.substring(1) + " id";
-      case "compositeId": return "Composite id";
       case "linkedFrom": return "Linked from";
       case "size": return "Size";
       case "children": return "Children";
@@ -1009,14 +1010,10 @@ export const Toolbar_Popup: Component = () => {
 
   const renderInfoRowValue = (row: InfoPopupRow) => {
     switch (row) {
-      case "id":
-        return <><span class="truncate">{qrInfoItem().id}</span><i class="fa fa-copy cursor-pointer ml-2 shrink-0" onclick={copyItemIdClickHandler} /></>;
-      case "compositeId":
-        return <><span class="truncate">{separateCompositeMaybe()!.id}</span><i class="fa fa-copy cursor-pointer ml-2 shrink-0" onclick={copyCompositeIdClickHandler} /></>;
       case "linkedFrom":
         return (
           <span class={hasBacklinks() ? "text-blue-700 cursor-pointer hover:underline" : ""}
-            onClick={() => { if (hasBacklinks()) { setShowBacklinks(true); } }}>
+            onClick={() => { if (hasBacklinks()) { setInfoPopupType(ToolbarPopupType.Backlinks); } }}>
             {backlinksFailed() ? "unavailable" : backlinks()?.length ?? "…"}
           </span>
         );
@@ -1025,6 +1022,17 @@ export const Toolbar_Popup: Component = () => {
       case "dataItems": return childrenStats()?.imageFileChildren;
       case "totalSize": return formatBytes(childrenStats()?.totalBytes ?? 0);
       case "debug": return renderDebugLinks();
+    }
+  };
+
+  const infoRowIsZero = (row: InfoPopupRow): boolean => {
+    switch (row) {
+      case "linkedFrom": return backlinks()?.length == 0;
+      case "size": return !asDataItem(qrInfoItem()).fileSizeBytes;
+      case "children": return childrenStats()?.totalChildren == 0;
+      case "dataItems": return childrenStats()?.imageFileChildren == 0;
+      case "totalSize": return (childrenStats()?.totalBytes ?? 0) == 0;
+      case "debug": return false;
     }
   };
 
@@ -1349,49 +1357,63 @@ export const Toolbar_Popup: Component = () => {
             </div>
           </div>
         </Match>
-        <Match when={overlayType() == ToolbarPopupType.QrLink}>
+        <Match when={overlayType() == ToolbarPopupType.Id}>
           <div class={TOOLBAR_POPUP_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="flex justify-center" style={`padding-top: ${INFO_QR_PADDING_TOP_PX}px; padding-bottom: ${INFO_QR_PADDING_BOTTOM_PX}px;`}>
-              <QrCode text={window.location.origin + "/" + qrInfoItem().id} sizePx={QR_CODE_SIZE_PX} />
+            <div class="flex flex-col items-center font-mono"
+              style={`padding: ${ID_POPUP_PADDING_PX}px ${ID_POPUP_PADDING_PX}px ${ID_POPUP_PADDING_BOTTOM_PX}px; font-size: ${ID_FONT_SIZE_PX}px; line-height: ${ID_LINE_HEIGHT_PX}px;`}>
+              <QrCode text={itemUrl()} sizePx={QR_CODE_SIZE_PX} />
+              <div class="select-all text-slate-600" style={`margin-top: ${ID_QR_GAP_PX}px;`}>{qrInfoItem().id}</div>
+              <div class="whitespace-nowrap" style={`margin-top: ${ID_LINE_GAP_PX}px;`}>
+                <span class="text-slate-500"><i class="fa fa-check text-green-600 mr-[5px]" />{copied() == "id" ? `${qrInfoItem().itemType} id copied` : "url copied"}</span>
+                <span class="mx-[6px] text-slate-300">·</span>
+                <Show when={copied() == "id"} fallback={
+                  <span class="text-blue-700 cursor-pointer hover:underline" onclick={copyItemIdClickHandler}>copy id</span>}>
+                  <span class="text-blue-700 cursor-pointer hover:underline" title={itemUrl()} onclick={copyItemUrlClickHandler}>copy url</span>
+                </Show>
+              </div>
             </div>
-            <Show when={separateCompositeMaybe() != null}>
-              <div style={`width: 100%; height: ${INFO_COPY_URL_HEIGHT_PX}px; line-height: ${INFO_COPY_URL_HEIGHT_PX}px; color: #00a; cursor: pointer;`} class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
-            </Show>
-            <Show when={separateCompositeMaybe() == null}>
-              <div style={`width: 100%; height: ${INFO_COPY_URL_HEIGHT_PX}px; line-height: ${INFO_COPY_URL_HEIGHT_PX}px; color: #00a; cursor: pointer;`} class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
-            </Show>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.Info}>
+          <div class={TOOLBAR_POPUP_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
             <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-[10px] px-[14px] font-mono text-[11px]"
-              style={`grid-auto-rows: ${INFO_ROW_HEIGHT_PX}px; padding-top: ${INFO_ROWS_PADDING_TOP_PX}px; padding-bottom: ${INFO_ROWS_PADDING_BOTTOM_PX}px;`}>
-              <For each={infoPopupRows(store)}>{row =>
+              style={`grid-auto-rows: ${INFO_ROW_HEIGHT_PX}px; padding-top: ${INFO_ROWS_PADDING_Y_PX}px; padding-bottom: ${INFO_ROWS_PADDING_Y_PX}px;`}>
+              <For each={infoPopupRows(store)} fallback={<div class="col-span-2 flex items-center text-slate-400">no info for this item</div>}>{row =>
                 <>
                   <div class="flex items-center text-slate-400 whitespace-nowrap">{infoRowLabel(row)}</div>
-                  <div class="flex items-center min-w-0 text-slate-700 whitespace-nowrap">{renderInfoRowValue(row)}</div>
+                  <div class={`flex items-center min-w-0 whitespace-nowrap ${infoRowIsZero(row) ? "text-slate-300" : "text-slate-700"}`}>{renderInfoRowValue(row)}</div>
                 </>
               }</For>
             </div>
-            <Show when={showBacklinks()}>
-              <div class="absolute inset-0 rounded bg-white flex flex-col text-xs">
-                <div class="flex items-center px-[8px] py-[6px] border-b border-slate-200">
-                  <span class="text-blue-700 cursor-pointer hover:underline" onClick={() => setShowBacklinks(false)}>
-                    <i class="fa fa-chevron-left mr-1" />back
-                  </span>
-                  <span class="ml-auto font-mono text-slate-400">Linked from: {backlinks()?.length ?? 0}</span>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.Backlinks}>
+          <div class={`${TOOLBAR_POPUP_CLASS} flex flex-col text-xs`}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <div class="flex items-center px-[8px] py-[6px] border-b border-slate-200">
+              <span class="text-blue-700 cursor-pointer hover:underline" onClick={() => setInfoPopupType(ToolbarPopupType.Info)}>
+                <i class="fa fa-chevron-left mr-1" />back
+              </span>
+              <span class="ml-auto font-mono text-slate-400">Linked from: {backlinks()?.length ?? 0}</span>
+            </div>
+            <div class="flex-1 overflow-y-auto py-[2px]">
+              <For each={backlinks() ?? []}>{backlink =>
+                <div class="px-[8px] py-[4px] truncate cursor-pointer hover:bg-slate-300"
+                  title={backlinkPathLabel(backlink)}
+                  onClick={() => { void backlinkClickHandler(backlink); }}>
+                  <i class={`fa ${backlink.kind == "note" ? "fa-sticky-note" : "fa-link"} text-slate-400 w-[14px] mr-1`} />
+                  {backlinkPathLabel(backlink)}
                 </div>
-                <div class="flex-1 overflow-y-auto py-[2px]">
-                  <For each={backlinks() ?? []}>{backlink =>
-                    <div class="px-[8px] py-[4px] truncate cursor-pointer hover:bg-slate-300"
-                      title={backlinkPathLabel(backlink)}
-                      onClick={() => { void backlinkClickHandler(backlink); }}>
-                      <i class={`fa ${backlink.kind == "note" ? "fa-sticky-note" : "fa-link"} text-slate-400 w-[14px] mr-1`} />
-                      {backlinkPathLabel(backlink)}
-                    </div>
-                  }</For>
-                </div>
-              </div>
-            </Show>
+              }</For>
+            </div>
           </div>
         </Match>
         <Match when={store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.MoreActions}>

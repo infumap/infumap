@@ -24,8 +24,8 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { ClickState } from "../../../input/state";
 import { TextFns, asTextItem } from "../../../items/text-item";
-import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { getToolbarFocusItem } from "../toolbarFocus";
 import { openTextItemFileInNewTab } from "../../../items/text-document";
 
@@ -33,7 +33,6 @@ import { openTextItemFileInNewTab } from "../../../items/text-document";
 export const Toolbar_Text: Component = () => {
   const store = useStore();
 
-  let qrDiv: HTMLDivElement | undefined;
   let openFileDiv: HTMLDivElement | undefined;
   let iconDiv: HTMLDivElement | undefined;
 
@@ -56,30 +55,12 @@ export const Toolbar_Text: Component = () => {
     ClickState.setButtonClickBoundsPx(iconDiv!.getBoundingClientRect());
   };
 
-  const handleQr = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
-      store.overlay.toolbarPopupInfoMaybe.set(null);
-      return;
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
-  }
-  const handleQrDown = () => {
-    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
-  };
-
   const handleOpenFile = () => {
     openTextItemFileInNewTab(store, textItem());
   }
   const handleOpenFileDown = () => {
     ClickState.setButtonClickBoundsPx(openFileDiv!.getBoundingClientRect());
   };
-
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(textItem().id);
-    store.overlay.toolbarTransientMessage.set({ text: "text id → clipboard", type: TransientMessageType.Info });
-    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
-  }
 
   return (
     <div id="toolbarItemOptionsDiv"
@@ -99,12 +80,7 @@ export const Toolbar_Text: Component = () => {
         <div ref={openFileDiv} class="inline-block pl-[18px]" onMouseDown={handleOpenFileDown}>
           <InfuIconButton icon="fa fa-download" highlighted={false} clickHandler={handleOpenFile} title="Open text file" />
         </div>
-        <div ref={qrDiv} class="inline-block" onMouseDown={handleQrDown}>
-          <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
-        </div>
-        <div class="inline-block">
-          <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
-        </div>
+        <Toolbar_InfoAndId infoClass="inline-block" />
 
       </div>
     </div>

@@ -16,53 +16,16 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 import { Component } from "solid-js";
-import { useStore } from "../../../store/StoreProvider";
-import { InfuIconButton } from "../../library/InfuIconButton";
-import { ClickState } from "../../../input/state";
-import { ToolbarPopupType, TransientMessageType } from "../../../store/StoreProvider_Overlay";
-import { asQueryItem } from "../../../items/query-item";
-import { getToolbarFocusItem } from "../toolbarFocus";
+import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 
 
 export const Toolbar_Search: Component = () => {
-  const store = useStore();
-
-  let qrDiv: HTMLDivElement | undefined;
-
-  const queryItem = () => asQueryItem(getToolbarFocusItem(store));
-
-  const handleQr = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null &&
-      store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
-      store.overlay.toolbarPopupInfoMaybe.set(null);
-      return;
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
-  };
-
-  const handleQrDown = () => {
-    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
-  };
-
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(queryItem().id);
-    store.overlay.toolbarTransientMessage.set({ text: "query id → clipboard", type: TransientMessageType.Info });
-    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
-  };
-
   return (
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <div ref={qrDiv} class="inline-block pl-[2px]" onMouseDown={handleQrDown}>
-          <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
-        </div>
-        <div class="inline-block">
-          <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
-        </div>
+        <Toolbar_InfoAndId infoClass="inline-block pl-[2px]" />
       </div>
     </div>
   );

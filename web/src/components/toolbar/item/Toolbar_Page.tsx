@@ -36,6 +36,7 @@ import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
 import { isVirtualTextDocumentPage, openTextItemFileInNewTab, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../../items/text-document";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
@@ -56,7 +57,6 @@ export const Toolbar_Page: Component = () => {
   let calendarDisplayModeDiv: HTMLDivElement | undefined;
   let justifiedRowAspectDiv: HTMLDivElement | undefined;
   let numColsDiv: HTMLDivElement | undefined;
-  let qrDiv: HTMLDivElement | undefined;
   let openTextFileDiv: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
@@ -477,19 +477,6 @@ export const Toolbar_Page: Component = () => {
     });
   };
 
-  // QR
-  const handleQr = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.QrLink) {
-      store.overlay.toolbarPopupInfoMaybe.set(null);
-      return;
-    }
-    store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: qrDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.QrLink });
-  }
-  const handleQrDown = () => {
-    ClickState.setButtonClickBoundsPx(qrDiv!.getBoundingClientRect());
-  };
-
   const handleOpenTextFile = () => {
     const sourceTextItem = sourceTextItemForVirtualTextDocumentPage(pageItem().id);
     if (sourceTextItem == null) {
@@ -503,14 +490,6 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(openTextFileDiv!.getBoundingClientRect());
   };
 
-
-  const handleCopyId = () => {
-    const sourceTextItem = sourceTextItemForVirtualTextDocumentPage(pageItem().id);
-    const itemForId = sourceTextItem ?? pageItem();
-    navigator.clipboard.writeText(itemForId.id);
-    store.overlay.toolbarTransientMessage.set({ text: itemForId.itemType + " id → clipboard", type: TransientMessageType.Info });
-    setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
-  }
 
   const documentControls = () => (
     <>
@@ -682,12 +661,7 @@ export const Toolbar_Page: Component = () => {
           <InfuIconButton icon="fa fa-download" highlighted={false} clickHandler={handleOpenTextFile} title="Open text file" />
         </div>
       </Show>
-      <div ref={qrDiv} class={showVirtualDocumentButtons() ? "inline-block" : "inline-block pl-[16px]"} onMouseDown={handleQrDown}>
-        <InfuIconButton icon="bi-info-circle-fill" highlighted={false} clickHandler={handleQr} />
-      </div>
-      <div class="inline-block">
-        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleCopyId} />
-      </div>
+      <Toolbar_InfoAndId infoClass={showVirtualDocumentButtons() ? "inline-block" : "inline-block pl-[16px]"} />
 
     </div>
   );
