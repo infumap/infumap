@@ -31,7 +31,7 @@ import { NoteFns, NoteTextStyle, asNoteItem, isNote } from "../../items/note-ite
 import { NoteFaviconLoadStatus, clearNoteFaviconStatus, noteFaviconStatus } from "../../items/note-favicon-state";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { QrCode } from "../library/QrCode";
-import { asCompositeItem, isComposite } from "../../items/composite-item";
+import { CompositeItem, asCompositeItem, isComposite } from "../../items/composite-item";
 import { Backlink, server, serverOrRemote } from "../../server";
 import { applyEditorFormatCommand } from "../../input/editor_history";
 import { panic } from "../../util/lang";
@@ -49,7 +49,8 @@ import { isImage } from "../../items/image-item";
 import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
-import { ItemType } from "../../items/base/item";
+import { Item, ItemType } from "../../items/base/item";
+import { Uid } from "../../util/uid";
 import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation";
 import { searchResultPathSegmentsFromPath } from "../../util/search-result-display";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "./toolbarFocus";
@@ -254,6 +255,48 @@ function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextSt
 
 
 const QR_CODE_SIZE_PX = 180;
+const INFO_ROW_HEIGHT_PX = 20;
+
+type InfoPopupRow = "id" | "compositeId" | "linkedFrom" | "size" | "children" | "dataItems" | "totalSize" | "debug";
+
+/** The item the info popup describes. A virtual text document page describes its source text item. */
+function infoPopupItem(store: StoreContextModel): Item {
+  const currentItem = getToolbarFocusItem(store);
+  if (isPage(currentItem) && isVirtualTextDocumentPage(currentItem.id)) {
+    return sourceTextItemForVirtualTextDocumentPage(currentItem.id) ?? currentItem;
+  }
+  return currentItem;
+}
+
+function infoPopupSeparateCompositeMaybe(store: StoreContextModel): CompositeItem | null {
+  const focusItem = getToolbarFocusItem(store);
+  if (!isComposite(focusItem)) { return null; }
+  const composite = asCompositeItem(focusItem);
+  return composite.id != getToolbarFocusItem(store).id ? composite : null;
+}
+
+/** The item to show backlinks for, or null. Backlinks are tracked for the user's own local items. */
+function infoPopupBacklinksItemId(store: StoreContextModel): Uid | null {
+  const item = infoPopupItem(store);
+  if (item.origin != null || item.ownerId != store.user.getUserMaybe()?.userId) { return null; }
+  return item.id;
+}
+
+function infoPopupShowsDebugLinks(item: Item): boolean {
+  return isFile(item) || isText(item) || isImage(item) || isPage(item) || isTable(item);
+}
+
+/** The rows below the QR code, in order. The popup's height is derived from these. */
+function infoPopupRows(store: StoreContextModel): Array<InfoPopupRow> {
+  const item = infoPopupItem(store);
+  const rows: Array<InfoPopupRow> = ["id"];
+  if (infoPopupSeparateCompositeMaybe(store) != null) { rows.push("compositeId"); }
+  if (infoPopupBacklinksItemId(store) != null) { rows.push("linkedFrom"); }
+  if (isDataItem(item)) { rows.push("size"); }
+  if (isPage(item) || isTable(item)) { rows.push("children", "dataItems", "totalSize"); }
+  if (infoPopupShowsDebugLinks(item)) { rows.push("debug"); }
+  return rows;
+}
 
 function toolbarPopupHeight(overlayType: ToolbarPopupType, isComposite: boolean): number {
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
@@ -373,13 +416,6 @@ export const Toolbar_Popup: Component = () => {
   const passwordItem = () => asPasswordItem(getToolbarFocusItem(store));
   const tableItem = () => asTableItem(getToolbarFocusItem(store));
   const ratingItem = () => asRatingItem(getToolbarFocusItem(store));
-  const compositeItemMaybe = () => {
-    const focusItem = getToolbarFocusItem(store);
-    if (!isComposite(focusItem)) { return null; }
-    return asCompositeItem(focusItem);
-  };
-  const showSeparateCompositeSection = () =>
-    compositeItemMaybe() != null && compositeItemMaybe()!.id != getToolbarFocusItem(store).id;
 
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()?.type ?? overlayTypeConst;
@@ -814,9 +850,9 @@ export const Toolbar_Popup: Component = () => {
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
   }
 
-  const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(compositeItemMaybe()!.id); }
+  const copyCompositeIdClickHandler = (): void => { navigator.clipboard.writeText(separateCompositeMaybe()!.id); }
   const linkCompositeIdClickHandler = (): void => {
-    navigator.clipboard.writeText(window.location.origin + "/" + compositeItemMaybe()!.id);
+    navigator.clipboard.writeText(window.location.origin + "/" + separateCompositeMaybe()!.id);
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.overlay.toolbarTransientMessage.set({ text: "composite id → clipboard", type: TransientMessageType.Info });
     setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 1000);
@@ -847,21 +883,11 @@ export const Toolbar_Popup: Component = () => {
     window.open(`/files/${currentItem.id}/${suffix}`, "_blank", "noopener");
   }
 
-  const qrInfoItem = () => {
-    const currentItem = getToolbarFocusItem(store);
-    if (isPage(currentItem) && isVirtualTextDocumentPage(currentItem.id)) {
-      return sourceTextItemForVirtualTextDocumentPage(currentItem.id) ?? currentItem;
-    }
-    return currentItem;
-  };
+  const qrInfoItem = () => infoPopupItem(store);
+  const separateCompositeMaybe = () => infoPopupSeparateCompositeMaybe(store);
 
-  // Backlinks are tracked for the user's own local items.
-  const backlinksItemId = createMemo(() => {
-    if (overlayType() != ToolbarPopupType.QrLink) { return null; }
-    const item = qrInfoItem();
-    if (item.origin != null || item.ownerId != store.user.getUserMaybe()?.userId) { return null; }
-    return item.id;
-  });
+  const backlinksItemId = createMemo(() =>
+    overlayType() == ToolbarPopupType.QrLink ? infoPopupBacklinksItemId(store) : null);
   // Null while loading.
   const [backlinks, setBacklinks] = createSignal<Array<Backlink> | null>(null);
   const [backlinksFailed, setBacklinksFailed] = createSignal(false);
@@ -935,11 +961,6 @@ export const Toolbar_Popup: Component = () => {
     }
   };
 
-  const isDebugSupportedItem = () => {
-    const currentItem = qrInfoItem();
-    return isFile(currentItem) || isText(currentItem) || isImage(currentItem) || isPage(currentItem) || isTable(currentItem);
-  };
-
   const showExtractedTextDebugLink = () => {
     const currentItem = qrInfoItem();
     return isFile(currentItem) || isText(currentItem) || isImage(currentItem);
@@ -954,16 +975,55 @@ export const Toolbar_Popup: Component = () => {
     return (
       <>
         <Show when={showExtractedTextDebugLink()}>
-          <span class="ml-2 text-blue-700 cursor-pointer hover:underline" onClick={openItemTextClickHandler}>extracted text</span>
+          <span class="text-blue-700 cursor-pointer hover:underline" onClick={openItemTextClickHandler}>extracted text</span>
         </Show>
         <Show when={showExtractedTextDebugLink() && showFragmentsDebugLink()}>
-          <span class="ml-2 text-slate-400">|</span>
+          <span class="mx-2 text-slate-400">|</span>
         </Show>
         <Show when={showFragmentsDebugLink()}>
-          <span class="ml-2 text-blue-700 cursor-pointer hover:underline" onClick={openItemFragmentsClickHandler}>fragments</span>
+          <span class="text-blue-700 cursor-pointer hover:underline" onClick={openItemFragmentsClickHandler}>fragments</span>
         </Show>
       </>
     );
+  };
+
+  const childrenStats = createMemo(() => {
+    const item = qrInfoItem();
+    return isPage(item) || isTable(item) ? calculateChildrenStats(asContainerItem(item)) : null;
+  });
+
+  const infoRowLabel = (row: InfoPopupRow): string => {
+    switch (row) {
+      case "id": return qrInfoItem().itemType[0].toUpperCase() + qrInfoItem().itemType.substring(1) + " id";
+      case "compositeId": return "Composite id";
+      case "linkedFrom": return "Linked from";
+      case "size": return "Size";
+      case "children": return "Children";
+      case "dataItems": return "Data items";
+      case "totalSize": return "Total size";
+      case "debug": return "Debug";
+    }
+  };
+
+  const renderInfoRowValue = (row: InfoPopupRow) => {
+    switch (row) {
+      case "id":
+        return <><span class="truncate">{qrInfoItem().id}</span><i class="fa fa-copy cursor-pointer ml-2 shrink-0" onclick={copyItemIdClickHandler} /></>;
+      case "compositeId":
+        return <><span class="truncate">{separateCompositeMaybe()!.id}</span><i class="fa fa-copy cursor-pointer ml-2 shrink-0" onclick={copyCompositeIdClickHandler} /></>;
+      case "linkedFrom":
+        return (
+          <span class={hasBacklinks() ? "text-blue-700 cursor-pointer hover:underline" : ""}
+            onClick={() => { if (hasBacklinks()) { setShowBacklinks(true); } }}>
+            {backlinksFailed() ? "unavailable" : backlinks()?.length ?? "…"}
+          </span>
+        );
+      case "size": return formatBytes(asDataItem(qrInfoItem()).fileSizeBytes || 0);
+      case "children": return childrenStats()?.totalChildren;
+      case "dataItems": return childrenStats()?.imageFileChildren;
+      case "totalSize": return formatBytes(childrenStats()?.totalBytes ?? 0);
+      case "debug": return renderDebugLinks();
+    }
   };
 
   const handleAutoClick = (): void => {
@@ -1295,58 +1355,21 @@ export const Toolbar_Popup: Component = () => {
             <div class="flex justify-center pt-[12px] pb-[6px]">
               <QrCode text={window.location.origin + "/" + qrInfoItem().id} sizePx={QR_CODE_SIZE_PX} />
             </div>
-            <Show when={showSeparateCompositeSection()}>
+            <Show when={separateCompositeMaybe() != null}>
               <div style="width: 100%; color: #00a; cursor: pointer;" class="text-center" onclick={linkCompositeIdClickHandler}>copy composite url</div>
             </Show>
-            <Show when={!showSeparateCompositeSection()}>
+            <Show when={separateCompositeMaybe() == null}>
               <div style="width: 100%; color: #00a; cursor: pointer;" class="text-center" onclick={linkItemIdClickHandler}>copy url</div>
             </Show>
-            <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
-              <span class="font-mono text-slate-400">{qrInfoItem().itemType[0].toUpperCase() + qrInfoItem().itemType.substring(1)} Id:</span><br />
-              <span class="font-mono text-slate-400">{`${qrInfoItem().id}`}</span>
-              <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyItemIdClickHandler} />
+            <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-[10px] px-[14px] pt-[6px] font-mono text-[11px]"
+              style={`grid-auto-rows: ${INFO_ROW_HEIGHT_PX}px;`}>
+              <For each={infoPopupRows(store)}>{row =>
+                <>
+                  <div class="flex items-center text-slate-400 whitespace-nowrap">{infoRowLabel(row)}</div>
+                  <div class="flex items-center min-w-0 text-slate-700 whitespace-nowrap">{renderInfoRowValue(row)}</div>
+                </>
+              }</For>
             </div>
-            <Show when={showSeparateCompositeSection()}>
-              <div class="inline-block text-slate-800 text-xs p-[6px] ml-[30px] mt-[6px]">
-                <span class="font-mono text-slate-400">Composite Id:</span><br />
-                <span class="font-mono text-slate-400">{`${compositeItemMaybe()!.id}`}</span>
-                <i class={`fa fa-copy text-slate-400 cursor-pointer ml-2`} onclick={copyCompositeIdClickHandler} />
-              </div>
-            </Show>
-            <Show when={isDebugSupportedItem()}>
-              <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
-                <span class="font-mono text-slate-400">Debug:</span>
-                {renderDebugLinks()}
-              </div>
-            </Show>
-            <Show when={isDataItem(qrInfoItem())}>
-              <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
-                <span class="font-mono text-slate-400">Size: {formatBytes(asDataItem(qrInfoItem()).fileSizeBytes || 0)}</span>
-              </div>
-            </Show>
-            <Show when={isPage(qrInfoItem()) || isTable(qrInfoItem())}>
-              <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
-                {(() => {
-                  const currentItem = qrInfoItem();
-                  const stats = calculateChildrenStats(asContainerItem(currentItem));
-                  return (
-                    <>
-                      <span class="font-mono text-slate-400">Children: {stats.totalChildren}</span><br />
-                      <span class="font-mono text-slate-400">Data Items: {stats.imageFileChildren}</span><br />
-                      <span class="font-mono text-slate-400">Total Size: {formatBytes(stats.totalBytes)}</span>
-                    </>
-                  );
-                })()}
-              </div>
-            </Show>
-            <Show when={backlinksItemId() != null && !backlinksFailed()}>
-              <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
-                <span class={`font-mono ${hasBacklinks() ? "text-blue-700 cursor-pointer hover:underline" : "text-slate-400"}`}
-                  onClick={() => { if (hasBacklinks()) { setShowBacklinks(true); } }}>
-                  Linked from: {backlinks()?.length ?? "…"}
-                </span>
-              </div>
-            </Show>
             <Show when={showBacklinks()}>
               <div class="absolute inset-0 rounded bg-white flex flex-col text-xs">
                 <div class="flex items-center px-[8px] py-[6px] border-b border-slate-200">
