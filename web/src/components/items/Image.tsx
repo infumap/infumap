@@ -18,7 +18,7 @@
 
 import { Component, For, JSX, Show, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { ImageFns, asImageItem } from "../../items/image-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -40,7 +40,7 @@ import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { appendNewlineIfEmpty } from "../../util/string";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -364,7 +364,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
             <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
               <div class="absolute"
                 style={`${boundsStylePx(frameInnerBoundsPx)} ` +
-                  `background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
+                  `${highlightStyle(props.visualElement.flags)}`} />
             </Show>
             <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
               store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>

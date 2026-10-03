@@ -20,7 +20,7 @@ import { edit_inputListener } from "../../input/edit";
 import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { asTableItem, tableColHeaderHeightBl, tableHeaderHeightBl, tableTitleHeaderHeightBl } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
@@ -37,7 +37,7 @@ import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { arrangeNow } from "../../layout/arrange";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -247,14 +247,14 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <div class="absolute pointer-events-none rounded-xs"
           style={`left: 0px; top: 0px; ` +
             `width: ${boundsPx().w}px; height: ${titleHeaderHeightPx()}px; ` +
-            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `${highlightStyle(props.visualElement.flags)}` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none rounded-xs"
           style={`left: ${viewportBoundsLocalPx().x}px; top: ${viewportBoundsLocalPx().y}px; ` +
             `width: ${viewportBoundsLocalPx().w}px; height: ${viewportBoundsLocalPx().h}px; ` +
-            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `${highlightStyle(props.visualElement.flags)}` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
       <TableChildArea visualElement={props.visualElement} />

@@ -21,9 +21,9 @@ import { Portal } from "solid-js/web";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
-import { FIND_HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, SELECTED_DARK, SELECTION_HIGHLIGHT_COLOR } from "../../style";
+import { FIND_HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, SELECTED_DARK } from "../../style";
 import { VisualElementProps } from "../VisualElement";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, highlightStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { QueryChatSetup } from "./QueryChatSetup";
 import { QueryScopePicker } from "./QueryScopePicker";
@@ -1468,7 +1468,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute pointer-events-none"
           style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />
+            `${highlightStyle(props.visualElement.flags)}`} />
       </Show>
       <div class="absolute text-center pointer-events-none"
         style={`left: 0px; top: ${desktopIconTopPx()}px; ` +

@@ -32,10 +32,15 @@ import { VesCache } from "../../layout/ves-cache";
 import { arrangeNow } from "../../layout/arrange";
 import { GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { documentPageMoveOutBoxPx } from "../../layout/composite-move-out";
+import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
 const AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE = "repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px)";
 
+
+export function highlightStyle(flags: VisualElementFlags): string {
+  return `background-color: ${(flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; `;
+}
 
 export const createHighlightBoundsPxFn = (veFn: () => VisualElement) => {
   return (() => {

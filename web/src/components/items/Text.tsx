@@ -22,7 +22,7 @@ import { TextFns, asTextItem, clipboardTextCreateShowsPlaceholder, textDisplayTi
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../../items/base/flags-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
-import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -53,7 +53,7 @@ import { newOrdering } from "../../util/ordering";
 import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { finishActivePendingClipboardTextItem } from "../../input/text_clipboard_create";
 
 
@@ -329,7 +329,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
         <div class="absolute pointer-events-none rounded-xs"
           style={`left: 0px; top: 0px; ` +
             `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `${highlightStyle(props.visualElement.flags)}` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
       <Show when={shouldRenderIcon()}>

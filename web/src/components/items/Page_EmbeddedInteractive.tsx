@@ -21,7 +21,7 @@ import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from ".
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
-import { BorderType, Colors, FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
+import { BorderType, Colors, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -32,7 +32,7 @@ import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { PageVisualElementProps } from "./Page";
-import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { switchToPage } from "../../layout/navigation";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { VisualElementSignal } from "../../util/signals";
@@ -289,13 +289,13 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <div class="absolute pointer-events-none rounded-xs"
           style={`left: 0px; top: 0px; ` +
             `width: ${pageFns().boundsPx().w}px; height: ${embeddedInteractiveTitleHeightPx()}px; ` +
-            `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+            `${highlightStyle(props.visualElement.flags)}` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
       <div class="absolute pointer-events-none rounded-xs"
         style={`left: 0px; top: ${embeddedInteractiveTitleHeightPx()}px; ` +
           `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `background-color: ${(props.visualElement.flags & VisualElementFlags.FindHighlighted) ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR}; ` +
+          `${highlightStyle(props.visualElement.flags)}` +
           `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
