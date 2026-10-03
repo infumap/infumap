@@ -30,8 +30,36 @@ pub(super) struct Backlink {
   pub path: Vec<SearchPathElement>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GetBacklinksRequest {
+  item_id: Uid,
+}
+
+#[derive(Serialize)]
+struct GetBacklinksResponse {
+  backlinks: Vec<Backlink>,
+}
+
+pub(super) async fn handle_get_backlinks(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to get backlinks.")?;
+  let response = get_backlinks_json(&*db.lock().await, &session.user_id, json_data)?;
+  debug!("Executed 'get-backlinks' command for user '{}'.", session.user_id);
+  Ok(Some(response))
+}
+
+fn get_backlinks_json(db: &Db, user_id: &Uid, json_data: &str) -> InfuResult<String> {
+  let request: GetBacklinksRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  let response = GetBacklinksResponse { backlinks: backlinks(db, user_id, &request.item_id)? };
+  Ok(serde_json::to_string(&response)?)
+}
+
 /// The user's links to the target, sorted by path. The target must be owned by the user.
-#[allow(dead_code)]
 pub(super) fn backlinks(db: &Db, user_id: &Uid, target_id: &Uid) -> InfuResult<Vec<Backlink>> {
   let target = db.item.get(target_id)?;
   if &target.owner_id != user_id {
@@ -124,5 +152,22 @@ mod tests {
     assert_eq!(t.db.item.get_linked_from_ids(&target).len(), 1);
     assert!(backlinks(&t.db, &t.user_id, &target).unwrap().is_empty());
     assert!(backlinks(&t.db, &other.id, &target).is_err(), "the target must be owned by the user");
+  }
+
+  #[tokio::test]
+  async fn get_backlinks_json_shape() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let target = t.page(&home, "Target").await;
+    let link = t.link(&home, &target).await;
+
+    let request = serde_json::json!({ "itemId": target }).to_string();
+    let response: Value = serde_json::from_str(&get_backlinks_json(&t.db, &t.user_id, &request).unwrap()).unwrap();
+    assert_eq!(
+      response,
+      serde_json::json!({ "backlinks": [{ "itemId": link, "path": [{ "itemType": "page", "title": "test", "id": home }] }] })
+    );
+
+    assert!(get_backlinks_json(&t.db, &t.user_id, r#"{"id": "x"}"#).is_err(), "unknown fields are rejected");
   }
 }
