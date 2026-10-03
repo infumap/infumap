@@ -26,7 +26,6 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { queryScopeIdForRequest } from "./query-scope";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { clearQueryChat, ensureTemporaryQueryChatPage, submitQueryChatMessage } from "./chat";
-import { asLinkItem, isLink, LinkFns } from "./link-item";
 import {
   QueryItem,
   getQuerySearchLoadedPageCount,
@@ -100,18 +99,9 @@ export function resetQuerySearchSession(store: StoreContextModel, queryItem: Que
 async function warmResultItemDetails(store: StoreContextModel, resultItemId: string): Promise<void> {
   await initiateLoadItemMaybe(store, resultItemId);
 
-  let targetItem = itemState.get(resultItemId);
+  const targetItem = itemState.get(resultItemId);
   if (!targetItem) {
     return;
-  }
-
-  if (isLink(targetItem)) {
-    const linkItem = asLinkItem(targetItem);
-    const linkedToId = LinkFns.getLinkToId(linkItem);
-    if (linkedToId && !linkItem.linkTo.startsWith("http")) {
-      await initiateLoadItemMaybe(store, linkedToId, targetItem.parentId);
-      targetItem = itemState.get(linkedToId) ?? targetItem;
-    }
   }
 
   if (isContainer(targetItem) && !asContainerItem(targetItem).childrenLoaded) {
