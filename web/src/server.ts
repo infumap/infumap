@@ -157,11 +157,12 @@ export interface ListScopesResponse {
   scopes: Array<ScopeSummary>,
 }
 
-/** One of the user's links to an item. */
+/** One of the user's links to an item, or one of their notes with an infumap:// url to it. */
 export interface Backlink {
-  /** The link item. */
+  /** The link or note. */
   itemId: Uid,
-  /** The containers from a root page down to the link's parent. */
+  kind: "link" | "note",
+  /** The containers from a root page down to the link or note's parent. */
   path: Array<SearchPathElement>,
 }
 
@@ -921,7 +922,7 @@ export const server = {
     return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null, false, networkStatus);
   },
 
-  /** The user's links to an item they own. Local items only: backlinks are not tracked across servers. */
+  /** The user's links and notes that refer to an item they own. Local items only: backlinks are not tracked across servers. */
   getBacklinks: async (itemId: Uid, networkStatus: NumberSignal): Promise<GetBacklinksResponse> => {
     return constructCommandPromise(null, COMMAND_GET_BACKLINKS, { itemId }, null, false, networkStatus);
   },
