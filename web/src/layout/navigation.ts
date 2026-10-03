@@ -202,6 +202,11 @@ export async function navigateToContainingPageOfItem(store: StoreContextModel, i
   return navigateToContainingPageOfItemWithOptions(store, itemId, { focusTarget: false, fallbackToItem: false });
 }
 
+/** Navigates to the page containing the item, with the item focused. */
+export async function navigateToContainingPageOfItemAndFocus(store: StoreContextModel, itemId: Uid): Promise<boolean> {
+  return navigateToContainingPageOfItemWithOptions(store, itemId, { focusTarget: true, fallbackToItem: false });
+}
+
 export function itemIdFromInfumapUrl(url: string): Uid | null {
   const trimmed = url.trim();
   if (trimmed == "") {

@@ -51,6 +51,8 @@ import { asContainerItem } from "../../items/base/container-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
 import { isLink } from "../../items/link-item";
+import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation";
+import { searchResultPathSegmentsFromPath } from "../../util/search-result-display";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "./toolbarFocus";
 import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
@@ -862,9 +864,11 @@ export const Toolbar_Popup: Component = () => {
   // Null while loading.
   const [backlinks, setBacklinks] = createSignal<Array<Backlink> | null>(null);
   const [backlinksFailed, setBacklinksFailed] = createSignal(false);
+  const [showBacklinks, setShowBacklinks] = createSignal(false);
   createEffect(on(backlinksItemId, itemId => {
     setBacklinks(null);
     setBacklinksFailed(false);
+    setShowBacklinks(false);
     if (itemId == null) { return; }
     server.getBacklinks(itemId, store.general.networkStatus)
       .then(response => {
@@ -875,6 +879,21 @@ export const Toolbar_Popup: Component = () => {
         if (backlinksItemId() == itemId) { setBacklinksFailed(true); }
       });
   }));
+
+  const hasBacklinks = () => (backlinks()?.length ?? 0) > 0;
+
+  const backlinkPathLabel = (backlink: Backlink): string =>
+    searchResultPathSegmentsFromPath(backlink.path)
+      .filter(segment => segment.itemType != ItemType.Composite)
+      .map(segment => segment.title)
+      .join(" / ");
+
+  const backlinkClickHandler = async (backlink: Backlink) => {
+    store.overlay.toolbarPopupInfoMaybe.set(null);
+    if (!await navigateToContainingPageOfItemAndFocus(store, backlink.itemId)) {
+      store.overlay.toolbarTransientMessage.set({ text: "Could not navigate to link", type: TransientMessageType.Error });
+    }
+  };
 
   const conversionEligibility = () => pageTableConversionEligibility(store, getToolbarFocusPathMaybe(store));
   const conversionLabel = () => {
@@ -1324,7 +1343,29 @@ export const Toolbar_Popup: Component = () => {
             </Show>
             <Show when={backlinksItemId() != null && !backlinksFailed()}>
               <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
-                <span class="font-mono text-slate-400">Linked from: {backlinks()?.length ?? "…"}</span>
+                <span class={`font-mono ${hasBacklinks() ? "text-blue-700 cursor-pointer hover:underline" : "text-slate-400"}`}
+                  onClick={() => { if (hasBacklinks()) { setShowBacklinks(true); } }}>
+                  Linked from: {backlinks()?.length ?? "…"}
+                </span>
+              </div>
+            </Show>
+            <Show when={showBacklinks()}>
+              <div class="absolute inset-0 rounded bg-white flex flex-col text-xs">
+                <div class="flex items-center px-[8px] py-[6px] border-b border-slate-200">
+                  <span class="text-blue-700 cursor-pointer hover:underline" onClick={() => setShowBacklinks(false)}>
+                    <i class="fa fa-chevron-left mr-1" />back
+                  </span>
+                  <span class="ml-auto font-mono text-slate-400">Linked from: {backlinks()?.length ?? 0}</span>
+                </div>
+                <div class="flex-1 overflow-y-auto py-[2px]">
+                  <For each={backlinks() ?? []}>{backlink =>
+                    <div class="px-[8px] py-[4px] truncate cursor-pointer hover:bg-slate-300"
+                      title={backlinkPathLabel(backlink)}
+                      onClick={() => { void backlinkClickHandler(backlink); }}>
+                      {backlinkPathLabel(backlink)}
+                    </div>
+                  }</For>
+                </div>
               </div>
             </Show>
           </div>
