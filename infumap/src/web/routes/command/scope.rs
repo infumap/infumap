@@ -25,13 +25,12 @@
 
 use super::*;
 
-const MAX_LINK_DEPTH: usize = 64;
 const EXCLUDE_CONTAINER_TITLE: &str = "exclude";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(super) enum ScopeProblem {
-  /// A link in the scope, or in one of its Exclude containers, has no readable target.
+  /// A link in the scope, or in one of its Exclude containers, has no readable target, or targets another link.
   #[serde(rename_all = "camelCase")]
   UnresolvedLink { item_id: Uid, exclude: bool },
   /// A container that is not an Exclude container. Its contents do not affect the scope.
@@ -123,20 +122,17 @@ pub(super) fn readable(item: &Item, user_id: &str) -> bool {
   item.owner_id == user_id && item.item_type != ItemType::Password
 }
 
-/// Follows links to the item they display, or None if any step is missing, unreadable or cyclic.
+/// The item a placement displays: the item itself, or a link's target. None if either is unreadable, the
+/// target is missing, or the target is another link (links do not chain).
 pub(super) fn resolve_content<'a>(db: &'a Db, item: &'a Item, user_id: &str) -> Option<&'a Item> {
-  let mut current = item;
-  let mut seen = HashSet::new();
-  for _ in 0..MAX_LINK_DEPTH {
-    if !readable(current, user_id) || !seen.insert(&current.id) {
-      return None;
-    }
-    if current.item_type != ItemType::Link {
-      return Some(current);
-    }
-    current = db.item.get(current.link_to.as_ref()?).ok()?;
+  if !readable(item, user_id) {
+    return None;
   }
-  None
+  if item.item_type != ItemType::Link {
+    return Some(item);
+  }
+  let target = db.item.get(item.link_to.as_ref()?).ok()?;
+  (readable(target, user_id) && target.item_type != ItemType::Link).then_some(target)
 }
 
 /// The ids of readable items reachable from the roots through children and attachments, sorted.
@@ -609,17 +605,21 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn links_to_links_resolve_to_the_final_target() {
+  async fn links_to_links_do_not_resolve() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
     let target = t.page(&home, "Target").await;
     let elsewhere = t.page(&home, "Elsewhere").await;
     let intermediate = t.link(&elsewhere, &target).await;
     let scope = t.page(&t.scopes_id(), "Scope").await;
-    t.link(&scope, &intermediate).await;
+    let link_to_link = t.link(&scope, &intermediate).await;
 
     let resolved = t.resolve(&scope);
-    assert!(t.contains(&resolved, &target));
+    assert_eq!(
+      resolved.problems,
+      vec![ScopeProblem::UnresolvedLink { item_id: link_to_link, exclude: false }, ScopeProblem::NoResolvedIncludes]
+    );
+    assert!(!t.contains(&resolved, &target));
     assert!(!t.contains(&resolved, &elsewhere));
   }
 
