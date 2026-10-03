@@ -17,7 +17,7 @@
 */
 
 import { TOOLBAR_MENU_CLASS, TOOLBAR_POPUP_CLASS, toolbarMenuHeightPx, toolbarMenuItemClass } from "./toolbarPopupStyle";
-import { Component, For, Match, Show, Switch, createMemo, createSignal, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, autoPageAspect, isPage, PageItem } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
@@ -31,7 +31,7 @@ import { NoteFns, NoteTextStyle, asNoteItem, isNote } from "../../items/note-ite
 import { NoteFaviconLoadStatus, clearNoteFaviconStatus, noteFaviconStatus } from "../../items/note-favicon-state";
 import { InfuColorButton } from "../library/InfuColorButton";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
-import { serverOrRemote } from "../../server";
+import { Backlink, server, serverOrRemote } from "../../server";
 import { applyEditorFormatCommand } from "../../input/editor_history";
 import { panic } from "../../util/lang";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
@@ -50,6 +50,7 @@ import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
+import { isLink } from "../../items/link-item";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "./toolbarFocus";
 import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
@@ -851,6 +852,30 @@ export const Toolbar_Popup: Component = () => {
     return currentItem;
   };
 
+  // Backlinks are tracked for the user's own local items. A link item cannot be a link target.
+  const backlinksItemId = createMemo(() => {
+    if (overlayType() != ToolbarPopupType.QrLink) { return null; }
+    const item = qrInfoItem();
+    if (item.origin != null || isLink(item) || item.ownerId != store.user.getUserMaybe()?.userId) { return null; }
+    return item.id;
+  });
+  // Null while loading.
+  const [backlinks, setBacklinks] = createSignal<Array<Backlink> | null>(null);
+  const [backlinksFailed, setBacklinksFailed] = createSignal(false);
+  createEffect(on(backlinksItemId, itemId => {
+    setBacklinks(null);
+    setBacklinksFailed(false);
+    if (itemId == null) { return; }
+    server.getBacklinks(itemId, store.general.networkStatus)
+      .then(response => {
+        if (backlinksItemId() == itemId) { setBacklinks(response.backlinks); }
+      })
+      .catch(e => {
+        console.error("Could not load backlinks:", e);
+        if (backlinksItemId() == itemId) { setBacklinksFailed(true); }
+      });
+  }));
+
   const conversionEligibility = () => pageTableConversionEligibility(store, getToolbarFocusPathMaybe(store));
   const conversionLabel = () => {
     const eligibility = conversionEligibility();
@@ -1295,6 +1320,11 @@ export const Toolbar_Popup: Component = () => {
                     </>
                   );
                 })()}
+              </div>
+            </Show>
+            <Show when={backlinksItemId() != null && !backlinksFailed()}>
+              <div class="text-slate-800 text-xs p-[6px] ml-[30px]">
+                <span class="font-mono text-slate-400">Linked from: {backlinks()?.length ?? "…"}</span>
               </div>
             </Show>
           </div>
