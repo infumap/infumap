@@ -733,6 +733,34 @@ function hitNonPagePopupMaybe(
   const popupPosRelativeToTopLevelVePx = (popupRootVeMaybe.flags & VisualElementFlags.Fixed)
     ? { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y }
     : posRelativeToRootVeBoundsPx;
+  {
+    // Attachments straddle the popup's top edge, so check them before the popup bounds test.
+    const posRelativeToPopupBoundsPx = vectorSubtract(popupPosRelativeToTopLevelVePx, getBoundingBoxTopLeft(popupRootVeMaybe.boundsPx));
+    const attHit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(popupRootVeMaybe))(), posRelativeToPopupBoundsPx, ignoreItems, true, hitboxOptions);
+    if (attHit) {
+      const hitMaybe: HitInfo = {
+        overVes: attHit.attachmentVes,
+        rootVes: popupRootVesMaybe,
+        subRootVe: null,
+        subSubRootVe: null,
+        parentRootVe: parentRootInfo.parentRootVe,
+        hitboxType: attHit.flags,
+        compositeHitboxTypeMaybe: HitboxFlags.None,
+        overElementMeta: attHit.meta,
+        overPositionableVe: parentRootInfo.rootVe,
+        overPositionGr: { x: 0, y: 0 },
+        debugCreatedAt: "hitNonPagePopupMaybe-popup-attachment",
+      };
+      return ({
+        parentRootVe: parentRootInfo.parentRootVe,
+        rootVes: popupRootVesMaybe,
+        rootVe: popupRootVeMaybe,
+        posRelativeToRootVeBoundsPx: posRelativeToPopupBoundsPx,
+        posRelativeToRootVeViewportPx: posRelativeToPopupBoundsPx,
+        hitMaybe
+      });
+    }
+  }
   if (!isInside(popupPosRelativeToTopLevelVePx, popupRootVeMaybe.boundsPx)) { return parentRootInfo; }
   rootVes = popupRootVesMaybe;
   rootVe = popupRootVeMaybe;
