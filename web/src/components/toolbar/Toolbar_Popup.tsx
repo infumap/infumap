@@ -50,7 +50,6 @@ import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
-import { isLink } from "../../items/link-item";
 import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation";
 import { searchResultPathSegmentsFromPath } from "../../util/search-result-display";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "./toolbarFocus";
@@ -854,11 +853,11 @@ export const Toolbar_Popup: Component = () => {
     return currentItem;
   };
 
-  // Backlinks are tracked for the user's own local items. A link item cannot be a link target.
+  // Backlinks are tracked for the user's own local items.
   const backlinksItemId = createMemo(() => {
     if (overlayType() != ToolbarPopupType.QrLink) { return null; }
     const item = qrInfoItem();
-    if (item.origin != null || isLink(item) || item.ownerId != store.user.getUserMaybe()?.userId) { return null; }
+    if (item.origin != null || item.ownerId != store.user.getUserMaybe()?.userId) { return null; }
     return item.id;
   });
   // Null while loading.
@@ -891,7 +890,7 @@ export const Toolbar_Popup: Component = () => {
   const backlinkClickHandler = async (backlink: Backlink) => {
     store.overlay.toolbarPopupInfoMaybe.set(null);
     if (!await navigateToContainingPageOfItemAndFocus(store, backlink.itemId)) {
-      store.overlay.toolbarTransientMessage.set({ text: "Could not navigate to link", type: TransientMessageType.Error });
+      store.overlay.toolbarTransientMessage.set({ text: `Could not navigate to ${backlink.kind}`, type: TransientMessageType.Error });
     }
   };
 
@@ -1362,6 +1361,7 @@ export const Toolbar_Popup: Component = () => {
                     <div class="px-[8px] py-[4px] truncate cursor-pointer hover:bg-slate-300"
                       title={backlinkPathLabel(backlink)}
                       onClick={() => { void backlinkClickHandler(backlink); }}>
+                      <i class={`fa ${backlink.kind == "note" ? "fa-sticky-note" : "fa-link"} text-slate-400 w-[14px] mr-1`} />
                       {backlinkPathLabel(backlink)}
                     </div>
                   }</For>

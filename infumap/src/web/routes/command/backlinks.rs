@@ -14,19 +14,29 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Backlinks: the user's links that target an item.
+//! Backlinks: the user's links and notes that refer to an item.
 //!
-//! Links do not chain, so only links that target the item directly are backlinks. Links owned by
-//! other users, links in the trash and links to remote items are not reported.
+//! A link refers to its target. A note refers to the items its infumap:// urls point to. Links do
+//! not chain, so a link to a link to the item is not a backlink. Links and notes owned by other
+//! users, those in the trash and links to remote items are not reported.
 
 use super::search::{SearchPathElement, item_path};
 use super::*;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum BacklinkKind {
+  Link,
+  Note,
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Backlink {
+  /// The link or note.
   pub item_id: Uid,
-  /// The containers from a root page down to the link's parent.
+  pub kind: BacklinkKind,
+  /// The containers from a root page down to the link or note's parent.
   pub path: Vec<SearchPathElement>,
 }
 
@@ -59,7 +69,7 @@ fn get_backlinks_json(db: &Db, user_id: &Uid, json_data: &str) -> InfuResult<Str
   Ok(serde_json::to_string(&response)?)
 }
 
-/// The user's links to the target, sorted by path. The target must be owned by the user.
+/// The user's links and notes that refer to the target, sorted by path. The target must be owned by the user.
 pub(super) fn backlinks(db: &Db, user_id: &Uid, target_id: &Uid) -> InfuResult<Vec<Backlink>> {
   let target = db.item.get(target_id)?;
   if &target.owner_id != user_id {
@@ -68,15 +78,20 @@ pub(super) fn backlinks(db: &Db, user_id: &Uid, target_id: &Uid) -> InfuResult<V
   let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
 
   let mut result = Vec::new();
-  for link_id in db.item.get_linked_from_ids(target_id) {
-    let Some(mut path) = item_path(db, &link_id, user_id)? else {
+  for item_id in db.item.get_linked_from_ids(target_id) {
+    let kind = match db.item.get(&item_id)?.item_type {
+      ItemType::Link => BacklinkKind::Link,
+      ItemType::Note => BacklinkKind::Note,
+      _ => continue,
+    };
+    let Some(mut path) = item_path(db, &item_id, user_id)? else {
       continue;
     };
     if path.first().is_some_and(|root| root.id == user.trash_page_id) {
       continue;
     }
     path.pop();
-    result.push(Backlink { item_id: link_id, path });
+    result.push(Backlink { item_id, kind, path });
   }
   result.sort_by_cached_key(|backlink| {
     let titles: Vec<String> =
@@ -92,6 +107,7 @@ mod tests {
   use super::*;
   use crate::storage::db::user::User;
   use crate::web::routes::default_home_page;
+  use infusdk::item::NoteFlags;
 
   fn titles(backlink: &Backlink) -> Vec<&str> {
     backlink.path.iter().map(|element| element.title.as_deref().unwrap_or("")).collect()
@@ -155,6 +171,32 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn notes_with_infumap_urls_are_backlinks() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let target = t.page(&home, "Target").await;
+    let link = t.link(&home, &target).await;
+    let note = Item::new_note(
+      &home,
+      vec![],
+      Vector { x: 0, y: 0 },
+      GRID_SIZE,
+      RelationshipToParent::Child,
+      "see target",
+      NoteFlags::None,
+      Some(format!("infumap://{}", target)),
+    );
+    let note = t.add(note).await;
+
+    let found = backlinks(&t.db, &t.user_id, &target).unwrap();
+    let mut kinds = found.iter().map(|backlink| (backlink.item_id.clone(), backlink.kind)).collect::<Vec<_>>();
+    kinds.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut expected = vec![(link, BacklinkKind::Link), (note, BacklinkKind::Note)];
+    expected.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(kinds, expected);
+  }
+
+  #[tokio::test]
   async fn get_backlinks_json_shape() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
@@ -165,7 +207,7 @@ mod tests {
     let response: Value = serde_json::from_str(&get_backlinks_json(&t.db, &t.user_id, &request).unwrap()).unwrap();
     assert_eq!(
       response,
-      serde_json::json!({ "backlinks": [{ "itemId": link, "path": [{ "itemType": "page", "title": "test", "id": home }] }] })
+      serde_json::json!({ "backlinks": [{ "itemId": link, "kind": "link", "path": [{ "itemType": "page", "title": "test", "id": home }] }] })
     );
 
     assert!(get_backlinks_json(&t.db, &t.user_id, r#"{"id": "x"}"#).is_err(), "unknown fields are rejected");

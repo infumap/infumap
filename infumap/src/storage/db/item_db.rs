@@ -20,7 +20,6 @@ use infusdk::db::kv_store::LogReplayObserver;
 use infusdk::item::TableColumn;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
-use infusdk::item::is_link_item;
 use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::geometry::Vector;
@@ -110,7 +109,7 @@ pub struct ItemDb {
   owner_id_by_item_id: HashMap<Uid, Uid>,
   children_of: HashMap<Uid, Vec<Uid>>,
   attachments_of: HashMap<Uid, Vec<Uid>>,
-  /// Link target id -> ids of the links that target it.
+  /// Item id -> ids of the links and notes that refer to it.
   linked_from: HashMap<Uid, Vec<Uid>>,
 }
 
@@ -540,8 +539,8 @@ impl ItemDb {
         }
       }
     }
-    if let Some(target_id) = link_target_id(item) {
-      self.linked_from.entry(target_id.clone()).or_default().push(item.id.clone());
+    for target_id in referenced_item_ids(item) {
+      self.linked_from.entry(target_id).or_default().push(item.id.clone());
     }
     Ok(())
   }
@@ -600,14 +599,14 @@ impl ItemDb {
       }
     }
 
-    if let Some(target_id) = link_target_id(item) {
+    for target_id in referenced_item_ids(item) {
       let linked_from = self
         .linked_from
-        .get_mut(target_id)
-        .ok_or(format!("Link '{}' target '{}' is missing a linked_from index.", item.id, target_id))?;
+        .get_mut(&target_id)
+        .ok_or(format!("Item '{}' reference to '{}' is missing a linked_from index.", item.id, target_id))?;
       linked_from.retain(|id| *id != item.id);
       if linked_from.is_empty() {
-        self.linked_from.remove(target_id);
+        self.linked_from.remove(&target_id);
       }
     }
 
@@ -914,7 +913,7 @@ impl ItemDb {
     Ok(children)
   }
 
-  /// The ids of the links that target the item, from all loaded users.
+  /// The ids of the links and notes that refer to the item, from all loaded users.
   pub fn get_linked_from_ids(&self, target_id: &Uid) -> Vec<Uid> {
     self.linked_from.get(target_id).cloned().unwrap_or_default()
   }
@@ -2561,20 +2560,41 @@ fn is_text_item_mime_type(mime_type: &str) -> bool {
   matches!(mime_type, "text/plain" | "text/markdown" | "text/x-markdown")
 }
 
-/// The id of the local item a link targets. Remote targets are urls, not uids, and have none.
-fn link_target_id(item: &Item) -> Option<&Uid> {
-  if !is_link_item(item) {
+/// The local items the item refers to: a link's target, or the targets of a note's infumap:// urls.
+/// Remote link targets are urls, not uids, and are not included. Sorted, without duplicates or the
+/// item itself.
+fn referenced_item_ids(item: &Item) -> Vec<Uid> {
+  let mut ids: Vec<Uid> = match item.item_type {
+    ItemType::Link => {
+      item.link_to.iter().filter(|link_to| is_uid(link_to) && !is_empty_uid(link_to)).cloned().collect()
+    }
+    ItemType::Note => item.urls.iter().flatten().filter_map(|url| item_id_from_infumap_url(&url.url)).collect(),
+    _ => vec![],
+  };
+  ids.retain(|id| *id != item.id);
+  ids.sort();
+  ids.dedup();
+  ids
+}
+
+/// The item id in an "infumap://<uid>" url, read the same way as the client's itemIdFromInfumapUrl.
+fn item_id_from_infumap_url(url: &str) -> Option<Uid> {
+  const SCHEME: &str = "infumap://";
+  let url = url.trim();
+  if !url.get(..SCHEME.len())?.eq_ignore_ascii_case(SCHEME) {
     return None;
   }
-  item.link_to.as_ref().filter(|link_to| is_uid(link_to) && !is_empty_uid(link_to))
+  let rest = &url[SCHEME.len()..];
+  let id = rest.strip_suffix('/').unwrap_or(rest).to_ascii_lowercase();
+  (is_uid(&id) && !is_empty_uid(&id)).then_some(id)
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
   use crate::web::routes::default_home_page;
-  use infusdk::item::NoteFlags;
-  use infusdk::util::uid::new_uid;
+  use infusdk::item::{NoteFlags, NoteUrl};
+  use infusdk::util::uid::{EMPTY_UID, new_uid};
 
   /// Removes the data directory when dropped.
   struct TempDir(PathBuf);
@@ -2656,5 +2676,64 @@ mod tests {
 
     let reloaded = load(&dir, &user_id, false).await;
     assert_eq!(reloaded.linked_from, db.linked_from);
+  }
+
+  #[tokio::test]
+  async fn linked_from_index_includes_note_infumap_urls() {
+    let dir = TempDir(std::env::temp_dir().join(format!("infumap-item-db-test-{}", new_uid())));
+    let user_id = new_uid();
+    std::fs::create_dir_all(dir.0.join(format!("user_{}", user_id))).unwrap();
+    let home_id = new_uid();
+    let other_id = new_uid();
+    let mut db = load(&dir, &user_id, true).await;
+    db.add(default_home_page(&user_id, "test", home_id.clone(), 60, 2.0)).await.unwrap();
+
+    let mut note = Item::new_note(
+      &home_id,
+      vec![128],
+      Vector { x: 0, y: 0 },
+      GRID_SIZE,
+      RelationshipToParent::Child,
+      "abcde",
+      NoteFlags::None,
+      None,
+    );
+    note.owner_id = user_id.clone();
+    let note_id = note.id.clone();
+    let url = |start: i64, url: String| NoteUrl { start, end: start + 1, url };
+    note.urls = Some(vec![
+      url(0, format!("infumap://{}", home_id)),
+      url(1, format!(" INFUMAP://{}/ ", home_id.to_uppercase())),
+      url(2, format!("infumap://{}", other_id)),
+      url(3, format!("https://example.com/{}", home_id)),
+      url(4, format!("infumap://{}", note_id)),
+    ]);
+    db.add(note).await.unwrap();
+    assert_eq!(db.get_linked_from_ids(&home_id), vec![note_id.clone()], "once, however many urls refer to it");
+    assert_eq!(db.get_linked_from_ids(&other_id), vec![note_id.clone()]);
+    assert!(db.get_linked_from_ids(&note_id).is_empty(), "a note's url to itself is not indexed");
+    assert_eq!(db.linked_from.len(), 2);
+
+    let mut edited = db.get(&note_id).unwrap().clone();
+    edited.urls = Some(vec![url(0, format!("infumap://{}", other_id))]);
+    db.update(&edited).await.unwrap();
+    assert!(db.get_linked_from_ids(&home_id).is_empty());
+    assert_eq!(db.get_linked_from_ids(&other_id), vec![note_id.clone()]);
+
+    let reloaded = load(&dir, &user_id, false).await;
+    assert_eq!(reloaded.linked_from, db.linked_from);
+  }
+
+  #[test]
+  fn infumap_url_parsing() {
+    let id = new_uid();
+    assert_eq!(item_id_from_infumap_url(&format!("infumap://{}", id)), Some(id.clone()));
+    assert_eq!(item_id_from_infumap_url(&format!("Infumap://{}/", id.to_uppercase())), Some(id.clone()));
+    assert_eq!(item_id_from_infumap_url(&format!("infumap:{}", id)), None);
+    assert_eq!(item_id_from_infumap_url(&format!("infumap://{}/x", id)), None);
+    assert_eq!(item_id_from_infumap_url(&format!("infumap://{}?a=b", id)), None);
+    assert_eq!(item_id_from_infumap_url(&format!("infumap://{}", EMPTY_UID)), None);
+    assert_eq!(item_id_from_infumap_url("infumap://"), None);
+    assert_eq!(item_id_from_infumap_url("ü"), None);
   }
 }
