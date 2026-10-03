@@ -157,6 +157,19 @@ export interface ListScopesResponse {
   scopes: Array<ScopeSummary>,
 }
 
+/** One of the user's links to an item. */
+export interface Backlink {
+  /** The link item. */
+  itemId: Uid,
+  /** The containers from a root page down to the link's parent. */
+  path: Array<SearchPathElement>,
+}
+
+export interface GetBacklinksResponse {
+  /** Sorted by path. Excludes links in the trash. */
+  backlinks: Array<Backlink>,
+}
+
 export interface ChatModelInfo {
   id: string,
   name: string,
@@ -336,6 +349,7 @@ const COMMAND_CONVERT_PAGE_TABLE = "convert-page-table";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_SCOPES = "list-scopes";
+const COMMAND_GET_BACKLINKS = "get-backlinks";
 const COMMAND_CHAT = "chat";
 const COMMAND_EMPTY_TRASH = "empty-trash";
 const COMMAND_SYNC_CONTAINERS = "sync-containers";
@@ -374,6 +388,9 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_LIST_SCOPES:
       description = "Loading scopes";
+      break;
+    case COMMAND_GET_BACKLINKS:
+      description = "Loading links";
       break;
     case COMMAND_CHAT:
       description = "Generating query response";
@@ -902,6 +919,11 @@ export const server = {
 
   listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {
     return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null, false, networkStatus);
+  },
+
+  /** The user's links to an item they own. Local items only: backlinks are not tracked across servers. */
+  getBacklinks: async (itemId: Uid, networkStatus: NumberSignal): Promise<GetBacklinksResponse> => {
+    return constructCommandPromise(null, COMMAND_GET_BACKLINKS, { itemId }, null, false, networkStatus);
   },
 
   chatStream: async (
