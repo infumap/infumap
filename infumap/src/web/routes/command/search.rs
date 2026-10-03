@@ -680,22 +680,26 @@ fn search_result_path_for_item(
   user_id: &Uid,
   root_id_maybe: Option<&Uid>,
 ) -> InfuResult<Option<SearchResult>> {
-  let target_item = match db.item.get(item_id) {
-    Ok(item) => item,
-    Err(_) => return Ok(None),
+  let Some(path) = item_path(db, item_id, user_id)? else {
+    return Ok(None);
   };
-  if &target_item.owner_id != user_id || target_item.item_type == ItemType::Password {
+  if root_id_maybe.is_some_and(|root_id| !search_result_is_under_root_path(&path, root_id)) {
     return Ok(None);
   }
-  let stats = search_result_stats_for_item(db, target_item)?;
+  let stats = search_result_stats_for_item(db, db.item.get(item_id)?)?;
+  Ok(Some(SearchResult { path, score: 0.0, stats, fragment_match: None, additional_fragment_matches: Vec::new() }))
+}
 
+/// The path from a root page down to the item, inclusive. None if the item or one of the items
+/// above it is missing, not owned by the user, or a password.
+pub(super) fn item_path(db: &Db, item_id: &Uid, user_id: &Uid) -> InfuResult<Option<Vec<SearchPathElement>>> {
   let mut path = Vec::new();
   let mut current_id = item_id.clone();
   let mut seen = HashSet::new();
 
   loop {
     if !seen.insert(current_id.clone()) {
-      return Err(format!("Cycle detected while building search path for item '{}'.", item_id).into());
+      return Err(format!("Cycle detected while building path for item '{}'.", item_id).into());
     }
     let item = match db.item.get(&current_id) {
       Ok(item) => item,
@@ -717,10 +721,7 @@ fn search_result_path_for_item(
   }
 
   path.reverse();
-  if root_id_maybe.is_some_and(|root_id| !search_result_is_under_root_path(&path, root_id)) {
-    return Ok(None);
-  }
-  Ok(Some(SearchResult { path, score: 0.0, stats, fragment_match: None, additional_fragment_matches: Vec::new() }))
+  Ok(Some(path))
 }
 
 fn search_result_stats_for_item(db: &Db, item: &Item) -> InfuResult<Option<SearchResultStats>> {
