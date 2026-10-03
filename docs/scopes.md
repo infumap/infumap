@@ -38,6 +38,11 @@ The rules:
   problem and includes or excludes nothing.
 - Changes take effect on the next search or chat message. There is nothing to save.
 
+To check whether a page is an include or exclude root, open its info popup: its
+[backlinks](backlinks.md) list the scope links that point to it, under a path such as
+`… / Scopes / Work / Exclude`. A page inside a root has no backlink of its own, so check the pages
+above it too.
+
 ## Choosing a scope
 
 The scope button sits next to the query input, on the search results border, and next to the chat

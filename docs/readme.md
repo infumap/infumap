@@ -1,5 +1,6 @@
 # Infumap
 
+- [Backlinks](backlinks.md)
 - [CLI](cli.md)
 - [Configuration](configuration.md)
 - [Developer](developer.md)
