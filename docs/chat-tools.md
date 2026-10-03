@@ -65,10 +65,10 @@ not extracted document text. `parentId` and `relationshipToParent` describe the 
 
 For links, `itemId` identifies the link's placement, while `targetItemId`, `targetItemType`, and
 `targetLinkUrl` identify its readable target. `title` and document metadata come from that target.
-`linkTo` preserves the stored reference. Unresolved, remote, or inaccessible targets have
-`targetStatus: "unavailable"` and no target content. Attachments and inline contents come from
-the displayed target, matching the frontend. `placementPath` distinguishes repeated appearances
-of those contents even when their stored `itemId` and `parentId` are the same.
+`linkTo` preserves the stored reference. Unresolved, remote, or inaccessible targets, and targets
+that are themselves links, have `targetStatus: "unavailable"` and no target content. Attachments and
+inline contents come from the displayed target, matching the frontend. `placementPath` distinguishes
+repeated appearances of those contents even when their stored `itemId` and `parentId` are the same.
 Cycles stop expansion and are marked with `childrenStatus` or `attachmentsStatus` of `cycle`.
 
 `groupId` represents explicit membership among page children, independently of parenthood.

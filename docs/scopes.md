@@ -34,6 +34,8 @@ The rules:
 - Exclusion always wins. An include root inside an excluded item is excluded.
 - A scope with no include links covers everything under your home page, minus its exclusions.
 - A scope whose include links all point to deleted or inaccessible items covers nothing, not everything.
+- A link must point at an item, not at another link. A scope link that points to a link is reported as a
+  problem and includes or excludes nothing.
 - Changes take effect on the next search or chat message. There is nothing to save.
 
 ## Choosing a scope
