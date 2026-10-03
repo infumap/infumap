@@ -85,6 +85,7 @@ use crate::web::session::get_and_validate_session;
 use std::collections::{HashMap, HashSet};
 
 mod chat;
+mod backlinks;
 mod item_ops;
 mod scope;
 mod search;
