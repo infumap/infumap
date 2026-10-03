@@ -20,13 +20,14 @@ use infusdk::db::kv_store::LogReplayObserver;
 use infusdk::item::TableColumn;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
+use infusdk::item::is_link_item;
 use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::geometry::Vector;
 use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::json;
 use infusdk::util::time::unix_now_secs_i64;
-use infusdk::util::uid::Uid;
+use infusdk::util::uid::{Uid, is_empty_uid, is_uid};
 use log::{debug, info, warn};
 use serde::Serialize;
 use serde::ser::SerializeStruct;
@@ -109,6 +110,8 @@ pub struct ItemDb {
   owner_id_by_item_id: HashMap<Uid, Uid>,
   children_of: HashMap<Uid, Vec<Uid>>,
   attachments_of: HashMap<Uid, Vec<Uid>>,
+  /// Link target id -> ids of the links that target it.
+  linked_from: HashMap<Uid, Vec<Uid>>,
 }
 
 #[derive(Clone)]
@@ -358,6 +361,7 @@ impl ItemDb {
       owner_id_by_item_id: HashMap::new(),
       children_of: HashMap::new(),
       attachments_of: HashMap::new(),
+      linked_from: HashMap::new(),
     }
   }
 
@@ -536,6 +540,9 @@ impl ItemDb {
         }
       }
     }
+    if let Some(target_id) = link_target_id(item) {
+      self.linked_from.entry(target_id.clone()).or_default().push(item.id.clone());
+    }
     Ok(())
   }
 
@@ -590,6 +597,17 @@ impl ItemDb {
             .into(),
           );
         }
+      }
+    }
+
+    if let Some(target_id) = link_target_id(item) {
+      let linked_from = self
+        .linked_from
+        .get_mut(target_id)
+        .ok_or(format!("Link '{}' target '{}' is missing a linked_from index.", item.id, target_id))?;
+      linked_from.retain(|id| *id != item.id);
+      if linked_from.is_empty() {
+        self.linked_from.remove(target_id);
       }
     }
 
@@ -894,6 +912,11 @@ impl ItemDb {
   pub fn get_attachment_ids(&self, parent_id: &Uid) -> InfuResult<Vec<String>> {
     let children = self.attachments_of.get(parent_id).unwrap_or(&vec![]).iter().map(|a| (*a).clone()).collect();
     Ok(children)
+  }
+
+  /// The ids of the links that target the item, from all loaded users.
+  pub fn get_linked_from_ids(&self, target_id: &Uid) -> Vec<Uid> {
+    self.linked_from.get(target_id).cloned().unwrap_or_default()
   }
 
   pub fn all_loaded_items(&self) -> Vec<ItemAndUserId> {
@@ -2536,4 +2559,102 @@ fn is_legacy_text_file_entry(kvs: &Map<String, Value>) -> InfuResult<bool> {
 
 fn is_text_item_mime_type(mime_type: &str) -> bool {
   matches!(mime_type, "text/plain" | "text/markdown" | "text/x-markdown")
+}
+
+/// The id of the local item a link targets. Remote targets are urls, not uids, and have none.
+fn link_target_id(item: &Item) -> Option<&Uid> {
+  if !is_link_item(item) {
+    return None;
+  }
+  item.link_to.as_ref().filter(|link_to| is_uid(link_to) && !is_empty_uid(link_to))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::web::routes::default_home_page;
+  use infusdk::item::NoteFlags;
+  use infusdk::util::uid::new_uid;
+
+  /// Removes the data directory when dropped.
+  struct TempDir(PathBuf);
+
+  impl Drop for TempDir {
+    fn drop(&mut self) {
+      let _ = std::fs::remove_dir_all(&self.0);
+    }
+  }
+
+  async fn load(dir: &TempDir, user_id: &Uid, creating: bool) -> ItemDb {
+    let mut db = ItemDb::init(dir.0.to_str().unwrap());
+    db.load_user_items(user_id, creating).await.unwrap();
+    db
+  }
+
+  async fn add_link(db: &mut ItemDb, user_id: &Uid, parent_id: &Uid, link_to: &str) -> Uid {
+    let mut item = Item::new_link(
+      parent_id,
+      vec![128],
+      Vector { x: 0, y: 0 },
+      GRID_SIZE,
+      GRID_SIZE,
+      RelationshipToParent::Child,
+      &link_to.to_owned(),
+    );
+    item.owner_id = user_id.clone();
+    let id = item.id.clone();
+    db.add(item).await.unwrap();
+    id
+  }
+
+  fn sorted(mut ids: Vec<Uid>) -> Vec<Uid> {
+    ids.sort();
+    ids
+  }
+
+  #[tokio::test]
+  async fn linked_from_index_follows_link_changes() {
+    let dir = TempDir(std::env::temp_dir().join(format!("infumap-item-db-test-{}", new_uid())));
+    let user_id = new_uid();
+    std::fs::create_dir_all(dir.0.join(format!("user_{}", user_id))).unwrap();
+    let home_id = new_uid();
+    let mut db = load(&dir, &user_id, true).await;
+    db.add(default_home_page(&user_id, "test", home_id.clone(), 60, 2.0)).await.unwrap();
+    let mut note = Item::new_note(
+      &home_id,
+      vec![128],
+      Vector { x: 0, y: 0 },
+      GRID_SIZE,
+      RelationshipToParent::Child,
+      "note",
+      NoteFlags::None,
+      None,
+    );
+    note.owner_id = user_id.clone();
+    let note_id = note.id.clone();
+    db.add(note).await.unwrap();
+
+    let link_a = add_link(&mut db, &user_id, &home_id, &home_id).await;
+    let link_b = add_link(&mut db, &user_id, &home_id, &home_id).await;
+    add_link(&mut db, &user_id, &home_id, &format!("https://example.com/{}", new_uid())).await;
+    add_link(&mut db, &user_id, &home_id, "").await;
+    assert_eq!(sorted(db.get_linked_from_ids(&home_id)), sorted(vec![link_a.clone(), link_b.clone()]));
+    assert_eq!(db.linked_from.len(), 1, "remote and empty targets are not indexed");
+
+    let mut retargeted = db.get(&link_b).unwrap().clone();
+    retargeted.link_to = Some(note_id.clone());
+    db.update(&retargeted).await.unwrap();
+    assert_eq!(db.get_linked_from_ids(&home_id), vec![link_a.clone()]);
+    assert_eq!(db.get_linked_from_ids(&note_id), vec![link_b.clone()]);
+
+    db.remove(&link_a).await.unwrap();
+    assert!(db.get_linked_from_ids(&home_id).is_empty());
+    assert!(!db.linked_from.contains_key(&home_id), "empty entries are removed");
+
+    db.remove(&note_id).await.unwrap();
+    assert_eq!(db.get_linked_from_ids(&note_id), vec![link_b.clone()], "a link to a removed item stays indexed");
+
+    let reloaded = load(&dir, &user_id, false).await;
+    assert_eq!(reloaded.linked_from, db.linked_from);
+  }
 }
