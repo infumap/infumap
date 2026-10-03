@@ -318,6 +318,7 @@ pub async fn add_item_for_user(
     };
     validate_group_id_for_item(&db, &item)?;
     validate_composite_parent_for_item(&db, &item)?;
+    validate_link_target_for_item(&db, &item)?;
 
     if is_empty_uid(&item.id) {
       return Err(format!("Attempt was made by user '{}' to add an item with an empty id.", &session_user_id).into());
@@ -569,6 +570,10 @@ pub(super) async fn handle_update_item(
   validate_group_id_for_item(&db, &item)?;
   if old_item.parent_id != item.parent_id || old_item.relationship_to_parent != item.relationship_to_parent {
     validate_composite_parent_for_item(&db, &item)?;
+  }
+  // only on retarget, so an existing link to a link can still be moved or resized.
+  if old_item.link_to != item.link_to {
+    validate_link_target_for_item(&db, &item)?;
   }
 
   db.item.update(&item).await?;

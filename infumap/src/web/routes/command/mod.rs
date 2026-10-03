@@ -27,7 +27,7 @@ use infusdk::item::{
   ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG,
   PAGE_SHOW_TABLE_COL_HEADER_FLAG, PermissionFlags, RelationshipToParent, SavedPageSettings, SavedTableSettings,
   TableColumn, TableFlags, embedded_table_size_from_page, is_attachments_item_type, is_composite_item,
-  is_container_item_type, is_data_item_type, is_flags_item_type, is_image_item, is_page_item,
+  is_container_item_type, is_data_item_type, is_flags_item_type, is_image_item, is_link_item, is_page_item,
   is_permission_flags_item_type, is_positionable_type, is_table_item, page_width_from_table,
 };
 use infusdk::util::geometry::{Dimensions, GRID_SIZE, Vector};
@@ -745,6 +745,21 @@ fn validate_group_id_for_item(db: &MutexGuard<'_, Db>, item: &Item) -> InfuResul
   let parent_item = db.item.get(parent_id)?;
   if parent_item.item_type != ItemType::Page {
     return Err(format!("Item '{}' has a groupId, but its parent '{}' is not a page.", item.id, parent_id).into());
+  }
+  Ok(())
+}
+
+/// Links do not chain: a link may not target another link. Missing and remote targets are allowed.
+fn validate_link_target_for_item(db: &Db, item: &Item) -> InfuResult<()> {
+  if !is_link_item(item) {
+    return Ok(());
+  }
+  let link_to = match &item.link_to {
+    Some(link_to) => link_to,
+    None => return Ok(()),
+  };
+  if link_to == &item.id || db.item.get(link_to).is_ok_and(is_link_item) {
+    return Err(format!("Link '{}' cannot target link '{}'.", item.id, link_to).into());
   }
   Ok(())
 }
@@ -1599,6 +1614,7 @@ fn virtual_search_status_page_child_items(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::web::routes::command::scope::test_db::TestDb;
   use crate::web::routes::default_scopes_page;
 
   #[test]
@@ -1618,5 +1634,30 @@ mod tests {
     let mut unpinned = old_item.clone();
     unpinned.flags = Some(unpinned.flags.unwrap_or(0) & !LIST_PAGE_PIN_BOTTOM_FLAG);
     assert!(scopes_page_update_disallowed(&old_item, &unpinned));
+  }
+
+  #[tokio::test]
+  async fn links_cannot_target_links() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let page = t.page(&home, "Page").await;
+    let link_to_page = t.link(&home, &page).await;
+
+    let validate = |t: &TestDb, link_to: &str| {
+      let mut link = t.db.item.get(&link_to_page).unwrap().clone();
+      link.link_to = Some(link_to.to_owned());
+      validate_link_target_for_item(&t.db, &link)
+    };
+    assert!(validate(&t, &page).is_ok());
+    assert!(validate(&t, &link_to_page).is_err(), "link to a link");
+    let mut self_link = t.db.item.get(&link_to_page).unwrap().clone();
+    self_link.id = new_uid();
+    self_link.link_to = Some(self_link.id.clone());
+    assert!(validate_link_target_for_item(&t.db, &self_link).is_err(), "link to itself, not yet added");
+    assert!(validate(&t, &new_uid()).is_ok(), "missing target");
+    assert!(validate(&t, "https://example.com/0123456789abcdef0123456789abcdef").is_ok(), "remote target");
+
+    let not_a_link = t.db.item.get(&page).unwrap().clone();
+    assert!(validate_link_target_for_item(&t.db, &not_a_link).is_ok());
   }
 }
