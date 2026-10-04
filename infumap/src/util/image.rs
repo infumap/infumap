@@ -15,11 +15,29 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::io::Cursor;
+use std::sync::Arc;
 
 use exif::{Exif, In, Tag, Value};
-use image::DynamicImage;
+use image::codecs::jpeg::JpegEncoder;
+use image::{DynamicImage, Rgb, RgbImage};
+use infusdk::util::infu::InfuResult;
 use log::debug;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Semaphore;
+
+// Decoding and resizing large images is CPU intensive. Bound the number of concurrent image processing tasks,
+// leaving one core free so other requests (including image cache hits) continue to be served promptly.
+pub static IMAGE_PROCESSING_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| {
+  let num_cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+  Arc::new(Semaphore::new(num_cores.saturating_sub(1).max(1)))
+});
+
+pub const IMAGE_PLACEHOLDER_FORMAT_VERSION: u8 = 1;
+const IMAGE_PLACEHOLDER_MAX_DIMENSION_PX: u32 = 40;
+// The JPEG header depends on the quality (via the quantization tables), so this can't be changed without
+// also changing IMAGE_PLACEHOLDER_FORMAT_VERSION and the header template on the client.
+const IMAGE_PLACEHOLDER_JPEG_QUALITY: u8 = 30;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ImageMetadata {
@@ -266,4 +284,163 @@ pub fn adjust_image_for_exif_orientation(
     }
   }
   img
+}
+
+const LEGACY_PNG_PLACEHOLDER_BASE64_PREFIX: &str = "iVBORw0KGgo";
+
+/// Whether an image item thumbnail is missing, or in the legacy (8x8 PNG) format, so should be replaced by a
+/// placeholder created by create_image_placeholder.
+pub fn is_legacy_image_placeholder(thumbnail: Option<&str>) -> bool {
+  match thumbnail {
+    None => true,
+    Some(t) => t.is_empty() || t.starts_with(LEGACY_PNG_PLACEHOLDER_BASE64_PREFIX),
+  }
+}
+
+/// Create the small placeholder image embedded in image items (the "thumbnail" field), displayed whilst
+/// the image itself loads. img should already be adjusted for EXIF orientation.
+///
+/// The placeholder is a JPEG at most IMAGE_PLACEHOLDER_MAX_DIMENSION_PX on its longest side, stored as:
+///   [version (1 byte)][width (1 byte)][height (1 byte)][JPEG entropy-coded data]
+/// The JPEG header (everything up to and including the SOS segment) is identical for all placeholders of a
+/// given version, except for the dimensions in the SOF0 segment, so it is not stored. The client reconstructs
+/// the JPEG from a header template: see web/src/util/imagePlaceholder.ts.
+pub fn create_image_placeholder(img: &DynamicImage) -> InfuResult<Vec<u8>> {
+  let jpeg = encode_image_placeholder_jpeg(img)?;
+  let header_len = jpeg_header_len(&jpeg)?;
+  if !jpeg.ends_with(&[0xFF, 0xD9]) {
+    return Err("Placeholder JPEG does not end with an EOI marker.".into());
+  }
+  let (width, height) = jpeg_sof0_dimensions(&jpeg[..header_len])?;
+  let mut result = Vec::with_capacity(3 + jpeg.len() - header_len - 2);
+  result.push(IMAGE_PLACEHOLDER_FORMAT_VERSION);
+  result.push(width as u8);
+  result.push(height as u8);
+  result.extend_from_slice(&jpeg[header_len..jpeg.len() - 2]);
+  Ok(result)
+}
+
+fn encode_image_placeholder_jpeg(img: &DynamicImage) -> InfuResult<Vec<u8>> {
+  let max = IMAGE_PLACEHOLDER_MAX_DIMENSION_PX;
+  // thumbnail averages all source pixels contributing to each target pixel (box filter), which is fast and
+  // appropriate for a large reduction. It would scale up small images, so don't use it for those.
+  let small = if img.width() > max || img.height() > max { img.thumbnail(max, max) } else { img.clone() };
+  // Always encode 3 channels, so the header is the same for all images. Flatten any alpha onto white.
+  let rgba = small.to_rgba8();
+  let rgb = RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
+    let p = rgba.get_pixel(x, y).0;
+    let a = p[3] as u32;
+    Rgb([0, 1, 2].map(|c| ((p[c] as u32 * a + 255 * (255 - a) + 127) / 255) as u8))
+  });
+  let mut jpeg = Vec::new();
+  JpegEncoder::new_with_quality(&mut jpeg, IMAGE_PLACEHOLDER_JPEG_QUALITY)
+    .encode_image(&rgb)
+    .map_err(|e| format!("Could not encode placeholder JPEG: {}", e))?;
+  Ok(jpeg)
+}
+
+/// Length of the JPEG header: everything up to and including the SOS segment.
+fn jpeg_header_len(jpeg: &[u8]) -> InfuResult<usize> {
+  if !jpeg.starts_with(&[0xFF, 0xD8]) {
+    return Err("JPEG does not start with an SOI marker.".into());
+  }
+  let mut i = 2;
+  while i + 4 <= jpeg.len() {
+    if jpeg[i] != 0xFF {
+      return Err(format!("Expecting a JPEG marker at offset {}.", i).into());
+    }
+    let marker = jpeg[i + 1];
+    let segment_len = u16::from_be_bytes([jpeg[i + 2], jpeg[i + 3]]) as usize;
+    i += 2 + segment_len;
+    if marker == 0xDA {
+      return if i <= jpeg.len() { Ok(i) } else { Err("Truncated JPEG SOS segment.".into()) };
+    }
+  }
+  Err("JPEG has no SOS segment.".into())
+}
+
+/// Offset of the SOF0 marker in a JPEG header.
+fn jpeg_sof0_offset(header: &[u8]) -> InfuResult<usize> {
+  header.windows(2).position(|w| w == [0xFF, 0xC0]).ok_or("JPEG header has no SOF0 segment.".into())
+}
+
+fn jpeg_sof0_dimensions(header: &[u8]) -> InfuResult<(u16, u16)> {
+  let sof = jpeg_sof0_offset(header)?;
+  let height = u16::from_be_bytes([header[sof + 5], header[sof + 6]]);
+  let width = u16::from_be_bytes([header[sof + 7], header[sof + 8]]);
+  Ok((width, height))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use base64::{Engine as _, engine::general_purpose};
+  use image::RgbaImage;
+
+  const CLIENT_SOURCE: &str = include_str!("../../../web/src/util/imagePlaceholder.ts");
+
+  fn test_image(w: u32, h: u32) -> DynamicImage {
+    DynamicImage::ImageRgb8(RgbImage::from_fn(w, h, |x, y| {
+      Rgb([(x * 255 / w) as u8, (y * 255 / h) as u8, ((x + y) % 256) as u8])
+    }))
+  }
+
+  fn header_template(jpeg: &[u8]) -> Vec<u8> {
+    let mut header = jpeg[..jpeg_header_len(jpeg).unwrap()].to_vec();
+    let sof = jpeg_sof0_offset(&header).unwrap();
+    header[sof + 5..sof + 9].fill(0);
+    header
+  }
+
+  fn client_header_template() -> Vec<u8> {
+    let marker = "PLACEHOLDER_V1_JPEG_HEADER_BASE64 =";
+    let start = CLIENT_SOURCE.find(marker).expect("header template not found in client source") + marker.len();
+    let rest = &CLIENT_SOURCE[start..];
+    let open = rest.find('"').unwrap() + 1;
+    let close = open + rest[open..].find('"').unwrap();
+    general_purpose::STANDARD.decode(&rest[open..close]).unwrap()
+  }
+
+  /// Mirrors the client reconstruction in web/src/util/imagePlaceholder.ts.
+  fn reconstruct_jpeg(placeholder: &[u8]) -> Vec<u8> {
+    let mut jpeg = client_header_template();
+    let sof = jpeg_sof0_offset(&jpeg).unwrap();
+    jpeg[sof + 5..sof + 7].copy_from_slice(&(placeholder[2] as u16).to_be_bytes());
+    jpeg[sof + 7..sof + 9].copy_from_slice(&(placeholder[1] as u16).to_be_bytes());
+    jpeg.extend_from_slice(&placeholder[3..]);
+    jpeg.extend_from_slice(&[0xFF, 0xD9]);
+    jpeg
+  }
+
+  #[test]
+  fn placeholder_header_matches_client_template() {
+    // If this fails after an image crate upgrade, the encoder output has changed. Either keep the old
+    // behavior, or bump IMAGE_PLACEHOLDER_FORMAT_VERSION and add a new header template to the client.
+    let client = client_header_template();
+    for (w, h) in [(4000, 3000), (3000, 4000), (40, 40), (7, 3), (1000, 10)] {
+      let jpeg = encode_image_placeholder_jpeg(&test_image(w, h)).unwrap();
+      assert_eq!(header_template(&jpeg), client, "header mismatch for {}x{} source image", w, h);
+    }
+  }
+
+  #[test]
+  fn placeholder_roundtrip() {
+    for ((w, h), (ew, eh)) in
+      [((4032, 3024), (40, 30)), ((3024, 4032), (30, 40)), ((20, 10), (20, 10)), ((4000, 10), (40, 1))]
+    {
+      let placeholder = create_image_placeholder(&test_image(w, h)).unwrap();
+      assert_eq!(placeholder[0], IMAGE_PLACEHOLDER_FORMAT_VERSION);
+      assert_eq!((placeholder[1] as u32, placeholder[2] as u32), (ew, eh));
+      let decoded = image::load_from_memory(&reconstruct_jpeg(&placeholder)).unwrap();
+      assert_eq!((decoded.width(), decoded.height()), (ew, eh));
+    }
+  }
+
+  #[test]
+  fn placeholder_flattens_alpha_onto_white() {
+    let img = DynamicImage::ImageRgba8(RgbaImage::from_pixel(100, 100, image::Rgba([0, 0, 0, 0])));
+    let placeholder = create_image_placeholder(&img).unwrap();
+    let decoded = image::load_from_memory(&reconstruct_jpeg(&placeholder)).unwrap().to_rgb8();
+    assert!(decoded.pixels().all(|p| p.0.iter().all(|&c| c > 245)));
+  }
 }

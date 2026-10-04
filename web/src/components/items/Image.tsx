@@ -26,6 +26,7 @@ import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometr
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { getImage, releaseImage } from "../../imageManager";
+import { imagePlaceholderSrc } from "../../util/imagePlaceholder";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { linkHasTriangle } from "../../layout/link-triangle";
@@ -89,7 +90,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return false;
     }
   }
-  const thumbnailSrc = () => { return "data:image/png;base64, " + imageItem().thumbnail; }
+  const thumbnailSrc = () => imagePlaceholderSrc(imageItem().thumbnail);
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
   const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true);
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;

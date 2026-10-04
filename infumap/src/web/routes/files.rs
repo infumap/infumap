@@ -32,7 +32,7 @@ use serde::Deserialize;
 use std::io::Cursor;
 use std::sync::Arc;
 use tokio::fs;
-use tokio::sync::{Mutex, Semaphore};
+use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 
 use crate::ai::artifact_paths::{
@@ -49,7 +49,7 @@ use crate::storage::cache as storage_cache;
 use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
-use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
+use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, adjust_image_for_exif_orientation, get_exif_orientation};
 use crate::web::serve::{
   cors_response, forbidden_response, full_body, internal_server_error_response, not_found_response,
 };
@@ -60,13 +60,6 @@ use super::command::authorize_item;
 pub static METRIC_CACHED_IMAGE_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(opts!("cached_image_requests_total", "Total number of images served from cache."), &["name"])
     .expect("Could not create METRIC_CACHED_IMAGE_REQUESTS_TOTAL.")
-});
-
-// Decoding and resizing large images is CPU intensive. Bound the number of concurrent resize tasks, leaving
-// one core free so other requests (including image cache hits) continue to be served promptly.
-static IMAGE_RESIZE_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| {
-  let num_cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
-  Arc::new(Semaphore::new(num_cores.saturating_sub(1).max(1)))
 });
 
 const LABEL_HIT_APPROX: &'static str = "hit_approx";
@@ -467,7 +460,7 @@ async fn get_cached_resized_img(
 
   // The permit is moved into the blocking task so it is held until the work completes, even if this
   // request future is dropped (e.g. client disconnect) whilst the task is still running.
-  let permit = IMAGE_RESIZE_SEMAPHORE
+  let permit = IMAGE_PROCESSING_SEMAPHORE
     .clone()
     .acquire_owned()
     .await
