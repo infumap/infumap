@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -79,6 +79,7 @@ pub struct ImageCache {
   current_total_bytes: u64,
   fileinfo_by_filename: HashMap<String, FileInfo>,
   filenames_by_item_id: HashMap<String, Vec<String>>,
+  pending_filenames: HashSet<String>,
 }
 
 impl ImageCache {
@@ -107,7 +108,14 @@ impl ImageCache {
       fileinfo_by_filename.len(),
       current_total_bytes
     );
-    Ok(ImageCache { cache_dir, max_mb, current_total_bytes, fileinfo_by_filename, filenames_by_item_id })
+    Ok(ImageCache {
+      cache_dir,
+      max_mb,
+      current_total_bytes,
+      fileinfo_by_filename,
+      filenames_by_item_id,
+      pending_filenames: HashSet::new(),
+    })
   }
 
   async fn traverse_files(cache_file_dir: &PathBuf) -> InfuResult<HashMap<String, FileInfo>> {
@@ -217,8 +225,18 @@ pub async fn get(
   // Setting the atime on every access is generally unnecessarily inefficient (given it's
   // never used most of the time), so is disabled by default on most modern systems. Hence
   // we make sure to do it explicitly.
-  set_file_atime(&p, FileTime::now())?;
-  let mut f = File::open(p).await?;
+  // The file may have been purged after the lock was released above.
+  if let Err(e) = set_file_atime(&p, FileTime::now()) {
+    if e.kind() == std::io::ErrorKind::NotFound {
+      return Ok(None);
+    }
+    return Err(e.into());
+  }
+  let mut f = match File::open(p).await {
+    Ok(f) => f,
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+    Err(e) => return Err(e.into()),
+  };
   let mut buffer = vec![0; file_info.size_bytes];
   f.read_exact(&mut buffer).await?;
   return Ok(Some(buffer));
@@ -286,27 +304,41 @@ pub async fn put_if_not_exist(
 
   let filename = format!("{}_{}_{}", key.item_id, key.size, &user_id[..8]);
 
+  // The entry is only registered once the file is fully in place, so a concurrent get never sees an
+  // entry whose file does not yet exist. Whilst being written, the filename is marked as pending so
+  // that concurrent puts of the same key do not write to the same temp file.
   let cache_dir;
   {
     let mut image_cache = image_cache.lock().unwrap();
-    if image_cache.fileinfo_by_filename.contains_key(&filename) {
+    if image_cache.fileinfo_by_filename.contains_key(&filename) || image_cache.pending_filenames.contains(&filename) {
       return Ok(());
     }
     cache_dir = image_cache.cache_dir.clone();
-    if !image_cache.filenames_by_item_id.contains_key(&key.item_id) {
-      image_cache.filenames_by_item_id.insert(String::from(&key.item_id), vec![]);
-    }
-    image_cache.filenames_by_item_id.get_mut(&key.item_id).unwrap().push(filename.clone());
-
-    let file_info = FileInfo { size_bytes: val.len(), last_accessed: unix_now_secs_u64().unwrap() };
-    image_cache.current_total_bytes += file_info.size_bytes as u64;
-    image_cache.fileinfo_by_filename.insert(filename.clone(), file_info);
+    image_cache.pending_filenames.insert(filename.clone());
   }
 
-  // TODO (LOW): race condition still exists. to reproduce, repeatedly reload a page with images not yet in cache (use debug build to slow it down).
-  // Write to a temp file first, then rename atomically. This ensures that even if the server
-  // crashes mid-write, no zero-byte or partial cache file is left behind to be loaded on restart.
-  let path = construct_file_subpath(&cache_dir, &filename)?;
+  let write_result = write_file_atomically(&cache_dir, &filename, &val).await;
+
+  {
+    let mut image_cache = image_cache.lock().unwrap();
+    image_cache.pending_filenames.remove(&filename);
+    write_result?;
+
+    image_cache.filenames_by_item_id.entry(String::from(&key.item_id)).or_default().push(filename.clone());
+    let file_info = FileInfo { size_bytes: val.len(), last_accessed: unix_now_secs_u64().unwrap() };
+    image_cache.current_total_bytes += file_info.size_bytes as u64;
+    image_cache.fileinfo_by_filename.insert(filename, file_info);
+  }
+
+  purge_maybe(image_cache).await?;
+
+  Ok(())
+}
+
+/// Write to a temp file first, then rename atomically. This ensures that even if the server
+/// crashes mid-write, no zero-byte or partial cache file is left behind to be loaded on restart.
+async fn write_file_atomically(cache_dir: &PathBuf, filename: &str, val: &[u8]) -> InfuResult<()> {
+  let path = construct_file_subpath(cache_dir, filename)?;
   let mut temp_path = path.clone();
   temp_path.set_file_name(format!("{}.tmp", filename));
   let mut file = OpenOptions::new()
@@ -316,15 +348,13 @@ pub async fn put_if_not_exist(
     .open(temp_path.clone())
     .await
     .map_err(|e| format!("Error opening temp file {:?}: {}", temp_path, e))?;
-  file.write_all(&val).await.map_err(|e| format!("Error writing to temp file {:?}: {}", temp_path, e))?;
+  file.write_all(val).await.map_err(|e| format!("Error writing to temp file {:?}: {}", temp_path, e))?;
   file.flush().await?;
   drop(file);
-  tokio::fs::rename(&temp_path, &path)
-    .await
-    .map_err(|e| format!("Error renaming temp cache file {:?} to {:?}: {}", temp_path, path, e))?;
-
-  purge_maybe(image_cache).await?;
-
+  if let Err(e) = tokio::fs::rename(&temp_path, &path).await {
+    let _ = tokio::fs::remove_file(&temp_path).await;
+    return Err(format!("Error renaming temp cache file {:?} to {:?}: {}", temp_path, path, e).into());
+  }
   Ok(())
 }
 
