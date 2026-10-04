@@ -41,6 +41,31 @@ body.infumap-blocked-move-cursor * {
   ::before {
     box-shadow: none !important;
     text-shadow: none !important;
+    /* print backgrounds even when "Background graphics" is unchecked in the print dialog. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /*
+    Scale a page that doesn't scroll to fit the printable area of a single sheet, leaving paper size,
+    orientation and margins to the print dialog. #rootDiv is fixed to the viewport, which in print is
+    the page area, so container units give the printable size. tan(atan2(a, b)) is a / b as a number.
+  */
+  html.print-fit-page #rootDiv {
+    container-type: size;
+  }
+
+  html.print-fit-page #main {
+    --print-fit-scale: min(
+      tan(atan2(100cqw, var(--print-fit-width))),
+      tan(atan2(100cqh, var(--print-fit-height))));
+    right: auto;
+    bottom: auto;
+    left: calc((100cqw - var(--print-fit-width) * var(--print-fit-scale)) / 2);
+    width: var(--print-fit-width);
+    height: var(--print-fit-height);
+    transform-origin: 0 0;
+    transform: scale(var(--print-fit-scale));
   }
 }
 

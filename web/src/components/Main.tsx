@@ -56,7 +56,7 @@ import { pasteHandler } from "../input/paste";
 import { commitActiveTextEdit, edit_compositionEndHandler, edit_compositionKeyGuard, edit_compositionStartHandler, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
 import { commitActiveToolbarTitleEdit } from "../input/toolbar_title";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
-import { isPage } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { isContainer } from "../items/base/container-item";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asTextItem, isText } from "../items/text-item";
@@ -472,15 +472,40 @@ export const Main: Component = () => {
   // The arrange must be synchronous, since the browser lays out the printed page as soon as beforeprint returns.
   let visibilityBeforePrint: { dock: boolean, topToolbar: boolean } | null = null;
 
+  const currentPageFitsViewport = (): boolean => {
+    const pagePath = store.history.currentPagePath();
+    if (pagePath == null) { return false; }
+    const pageVe = VesCache.current.readNode(pagePath);
+    if (!pageVe || !isPage(pageVe.displayItem)) { return false; }
+    // list pages have their own scroll areas, so the page bounds don't indicate whether the content fits.
+    if (asPageItem(pageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) { return false; }
+    const childAreaBoundsPx = pageVe.childAreaBoundsPx;
+    const viewportBoundsPx = pageVe.viewportBoundsPx;
+    if (!childAreaBoundsPx || !viewportBoundsPx) { return false; }
+    return childAreaBoundsPx.w <= viewportBoundsPx.w && childAreaBoundsPx.h <= viewportBoundsPx.h;
+  };
+
   const beforePrintListener = () => {
     if (visibilityBeforePrint != null) { return; }
     visibilityBeforePrint = { dock: store.dockVisible.get(), topToolbar: store.topToolbarVisible.get() };
     store.dockVisible.set(false);
     store.topToolbarVisible.set(false);
     arrangeNow(store, "before-print");
+
+    // A page that doesn't scroll is scaled to fit a single sheet (see index.css).
+    if (currentPageFitsViewport()) {
+      const desktopBoundsPx = store.desktopBoundsPx();
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--print-fit-width", `${desktopBoundsPx.w}px`);
+      rootStyle.setProperty("--print-fit-height", `${desktopBoundsPx.h}px`);
+      document.documentElement.classList.add("print-fit-page");
+    }
   };
 
   const afterPrintListener = () => {
+    document.documentElement.classList.remove("print-fit-page");
+    document.documentElement.style.removeProperty("--print-fit-width");
+    document.documentElement.style.removeProperty("--print-fit-height");
     if (visibilityBeforePrint == null) { return; }
     store.dockVisible.set(visibilityBeforePrint.dock);
     store.topToolbarVisible.set(visibilityBeforePrint.topToolbar);
@@ -735,6 +760,7 @@ export const Main: Component = () => {
 
   return (
     <div ref={mainDiv}
+      id="main"
       class="absolute top-0 left-0 right-0 bottom-0 select-none touch-pan-x touch-pan-y overflow-hidden"
       onmousedown={mouseDownListener}
       onmousemove={mouseMoveListener}
