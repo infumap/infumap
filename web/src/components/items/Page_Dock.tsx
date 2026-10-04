@@ -189,7 +189,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
         </div>
       </Show>
       <Show when={!store.dockVisible.get() && !store.smallScreenMode()}>
-        <div class={`absolute`}
+        <div class={`absolute print:hidden`}
           style={`left: ${5}px; ` +
             `top: ${props.pageFns.boundsPx().h - 30}px; ` +
             `z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER};`}

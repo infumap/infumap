@@ -50,7 +50,7 @@ import { mouseMoveHandler, clearMouseOverState, mouseMove_handleNoButtonDown } f
 import { CursorEventState, MouseAction, MouseActionState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyDownHandler, keyUpHandler } from "../input/key";
-import { requestArrange } from "../layout/arrange";
+import { arrangeNow, requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 import { commitActiveTextEdit, edit_compositionEndHandler, edit_compositionKeyGuard, edit_compositionStartHandler, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
@@ -272,6 +272,8 @@ export const Main: Component = () => {
     window.addEventListener('drop', structuralDropListener, true);
     document.addEventListener('keyup', keyUpListener);
     window.addEventListener('resize', windowResizeListener);
+    window.addEventListener('beforeprint', beforePrintListener);
+    window.addEventListener('afterprint', afterPrintListener);
     document.addEventListener('selectionchange', selectionChangeListener);
     document.addEventListener('visibilitychange', textEditVisibilityListener);
     window.addEventListener('online', retryTextSaves);
@@ -309,6 +311,8 @@ export const Main: Component = () => {
     window.removeEventListener('drop', structuralDropListener, true);
     document.removeEventListener('keyup', keyUpListener);
     window.removeEventListener('resize', windowResizeListener);
+    window.removeEventListener('beforeprint', beforePrintListener);
+    window.removeEventListener('afterprint', afterPrintListener);
     document.removeEventListener('selectionchange', selectionChangeListener)
     document.removeEventListener('visibilitychange', textEditVisibilityListener);
     window.removeEventListener('online', retryTextSaves);
@@ -462,6 +466,26 @@ export const Main: Component = () => {
   const windowResizeListener = () => {
     store.resetDesktopSizePx();
     requestArrange(store, "window-resize");
+  };
+
+  // Dock and toolbar are hidden via the layout (not just css) so the desktop offsets they occupy are removed too.
+  // The arrange must be synchronous, since the browser lays out the printed page as soon as beforeprint returns.
+  let visibilityBeforePrint: { dock: boolean, topToolbar: boolean } | null = null;
+
+  const beforePrintListener = () => {
+    if (visibilityBeforePrint != null) { return; }
+    visibilityBeforePrint = { dock: store.dockVisible.get(), topToolbar: store.topToolbarVisible.get() };
+    store.dockVisible.set(false);
+    store.topToolbarVisible.set(false);
+    arrangeNow(store, "before-print");
+  };
+
+  const afterPrintListener = () => {
+    if (visibilityBeforePrint == null) { return; }
+    store.dockVisible.set(visibilityBeforePrint.dock);
+    store.topToolbarVisible.set(visibilityBeforePrint.topToolbar);
+    visibilityBeforePrint = null;
+    arrangeNow(store, "after-print");
   };
 
   const contextMenuListener = (ev: Event) => {
@@ -726,22 +750,24 @@ export const Main: Component = () => {
       <Toolbar />
 
       {/* global overlays */}
-      <Show when={store.overlay.toolbarPopupInfoMaybe.get() != null}>
-        <Toolbar_Popup />
-      </Show>
-      <Show when={store.overlay.findOverlayVisible.get()}>
-        <FindOverlay />
-      </Show>
-      <Show when={store.overlay.networkOverlayVisible.get()}>
-        <Toolbar_NetworkStatus_Overlay />
-      </Show>
-      <Show when={store.overlay.uploadOverlayInfo.get() != null}>
-        <UploadOverlay />
-      </Show>
-      <Show when={store.overlay.remoteLoginInfo.get() != null}>
-        <RemoteLoginOverlay />
-      </Show>
-      <EmptyTrashOverlay />
+      <div class="contents print:hidden">
+        <Show when={store.overlay.toolbarPopupInfoMaybe.get() != null}>
+          <Toolbar_Popup />
+        </Show>
+        <Show when={store.overlay.findOverlayVisible.get()}>
+          <FindOverlay />
+        </Show>
+        <Show when={store.overlay.networkOverlayVisible.get()}>
+          <Toolbar_NetworkStatus_Overlay />
+        </Show>
+        <Show when={store.overlay.uploadOverlayInfo.get() != null}>
+          <UploadOverlay />
+        </Show>
+        <Show when={store.overlay.remoteLoginInfo.get() != null}>
+          <RemoteLoginOverlay />
+        </Show>
+        <EmptyTrashOverlay />
+      </div>
 
     </div>
   );

@@ -123,26 +123,28 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
          style={`top: ${store.topToolbarHeightPx()}px; `}>
 
       <Page_Desktop visualElement={props.visualElement} />
-      <MovingItemsOverlay />
-      <SelectionGroupAction />
+      <div class="contents print:hidden">
+        <MovingItemsOverlay />
+        <SelectionGroupAction />
 
-      {/* desktop overlays */}
-      <Show when={store.overlay.editUserSettingsInfo.get() != null}>
-        <EditUserSettings />
-      </Show>
-      <Show when={store.overlay.contextMenuInfo.get() != null}>
-        <ContextMenu />
-      </Show>
-      <Show when={store.overlay.tableColumnContextMenuInfo.get() != null}>
-        <TableColumnContextMenu />
-      </Show>
-      <Show when={store.overlay.isPanicked.get()}>
-        <Panic />
-      </Show>
-      <Show when={store.overlay.selectionMarqueePx.get() != null}>
-        <div class="absolute pointer-events-none border"
-             style={`left: ${store.overlay.selectionMarqueePx.get()!.x}px; top: ${store.overlay.selectionMarqueePx.get()!.y}px; width: ${store.overlay.selectionMarqueePx.get()!.w}px; height: ${store.overlay.selectionMarqueePx.get()!.h}px; border-color: ${SELECTION_MARQUEE_BORDER_COLOR}; background-color: ${SELECTION_MARQUEE_FILL_COLOR}; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`} />
-      </Show>
+        {/* desktop overlays */}
+        <Show when={store.overlay.editUserSettingsInfo.get() != null}>
+          <EditUserSettings />
+        </Show>
+        <Show when={store.overlay.contextMenuInfo.get() != null}>
+          <ContextMenu />
+        </Show>
+        <Show when={store.overlay.tableColumnContextMenuInfo.get() != null}>
+          <TableColumnContextMenu />
+        </Show>
+        <Show when={store.overlay.isPanicked.get()}>
+          <Panic />
+        </Show>
+        <Show when={store.overlay.selectionMarqueePx.get() != null}>
+          <div class="absolute pointer-events-none border"
+               style={`left: ${store.overlay.selectionMarqueePx.get()!.x}px; top: ${store.overlay.selectionMarqueePx.get()!.y}px; width: ${store.overlay.selectionMarqueePx.get()!.w}px; height: ${store.overlay.selectionMarqueePx.get()!.h}px; border-color: ${SELECTION_MARQUEE_BORDER_COLOR}; background-color: ${SELECTION_MARQUEE_FILL_COLOR}; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`} />
+        </Show>
+      </div>
 
     </div>
   );
