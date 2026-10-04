@@ -26,7 +26,7 @@ import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometr
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { getImage, releaseImage } from "../../imageManager";
-import { imagePlaceholderSrc } from "../../util/imagePlaceholder";
+import { imagePlaceholderSizePx, imagePlaceholderSrc } from "../../util/imagePlaceholder";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { linkHasTriangle } from "../../layout/link-triangle";
@@ -97,6 +97,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const imgSrcSignal = createInfuSignal<string | undefined>(undefined);
   const BORDER_WIDTH_PX = 1;
+  // Standard deviation of the blur applied to placeholders, in placeholder pixels.
+  const PLACEHOLDER_BLUR_SIGMA = 1.0;
 
   const moveOutOfCompositeBox = (): BoundingBox => {
     const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
@@ -541,12 +543,29 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     />;
 
 
+  // Placeholders are very low resolution, so are blurred to hide JPEG block artifacts. The blur is applied only
+  // whilst the placeholder is shown: the same img element shows the image once it is loaded, at which point the
+  // filter is removed. The placeholder is enlarged by the extent of the blur so its soft edges are clipped by the
+  // (overflow hidden) frame. Legacy (PNG) placeholders are not blurred.
+  const croppedPlaceholderStyle = (): string => {
+    const placeholderSizePx = imagePlaceholderSizePx(imageItem().thumbnail);
+    if (placeholderSizePx == null) {
+      return `left: 0px; top: 0px; ${thumbnailFitStyle()}`;
+    }
+    const blurPx = PLACEHOLDER_BLUR_SIGMA * imageWidthToRequestPx(false) / placeholderSizePx.w;
+    const marginPx = Math.ceil(blurPx * 3);
+    return `left: -${marginPx}px; top: -${marginPx}px; ` +
+      `width: calc(100% + ${marginPx * 2}px); height: calc(100% + ${marginPx * 2}px); ` +
+      `object-fit: cover; object-position: center center; filter: blur(${blurPx.toFixed(1)}px);`;
+  };
+
   const renderCroppedImage = (): JSX.Element =>
     <img src={imgSrcSignal.get()}
       class="max-w-none absolute pointer-events-none"
-      style={`left: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w) / 2.0) + BORDER_WIDTH_PX)}px; ` +
-        `top: ${isShowingThumbnail.get() ? 0 : -(Math.round((imageWidthToRequestPx(false) / imageAspect() - quantizedBoundsPx().h) / 2.0) + BORDER_WIDTH_PX)}px; ` +
-        (isShowingThumbnail.get() ? thumbnailFitStyle() : '')}
+      style={isShowingThumbnail.get()
+        ? croppedPlaceholderStyle()
+        : `left: ${-(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w) / 2.0) + BORDER_WIDTH_PX)}px; ` +
+          `top: ${-(Math.round((imageWidthToRequestPx(false) / imageAspect() - quantizedBoundsPx().h) / 2.0) + BORDER_WIDTH_PX)}px; `}
       width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />;
 
   const renderNoCropImage = (): JSX.Element =>

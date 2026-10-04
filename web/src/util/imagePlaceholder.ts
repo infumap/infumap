@@ -17,6 +17,7 @@
 */
 
 import { base64ArrayBuffer } from "./base64ArrayBuffer";
+import { Dimensions } from "./geometry";
 
 // Image item placeholders (the "thumbnail" field) are created by the server: see create_image_placeholder in
 // infumap/src/util/image.rs. They are one of:
@@ -86,4 +87,19 @@ export function imagePlaceholderSrc(thumbnail: string): string {
   jpeg[jpeg.length - 2] = 0xFF; // EOI
   jpeg[jpeg.length - 1] = 0xD9;
   return "data:image/jpeg;base64," + base64ArrayBuffer(jpeg.buffer);
+}
+
+/**
+ * The pixel dimensions of a version 1 placeholder, or null if thumbnail is not one (e.g. it is a legacy PNG).
+ */
+export function imagePlaceholderSizePx(thumbnail: string): Dimensions | null {
+  if (thumbnail.length < 4 || thumbnail.startsWith(LEGACY_PNG_BASE64_PREFIX)) { return null; }
+  let header: string;
+  try {
+    header = atob(thumbnail.slice(0, 4)); // [version][width][height]
+  } catch (e) {
+    return null;
+  }
+  if (header.charCodeAt(0) != 1 || header.charCodeAt(1) == 0 || header.charCodeAt(2) == 0) { return null; }
+  return { w: header.charCodeAt(1), h: header.charCodeAt(2) };
 }
