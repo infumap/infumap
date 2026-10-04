@@ -141,6 +141,21 @@
 #max_scale_image_down_percent = 50
 #max_scale_image_up_percent = 0
 
+# Image items embed a small placeholder image, displayed whilst the image
+# itself loads. Images added by older versions of Infumap have a lower quality
+# placeholder. If enabled, these are replaced in the background after the
+# server starts. This requires fetching each such image from the object store
+# (which may incur an egress cost), unless a suitable scaled down version is in
+# the server cache. Progress is logged, and work resumes where it left off if
+# the server is restarted. Afterwards, consider compacting the item database
+# to remove the superseded placeholders from the log: with the server stopped,
+# run infumap compact, then replace items.json with items.json.compacted.
+#enable_image_placeholder_backfill = false
+
+# The maximum number of placeholders to replace each time the server starts,
+# useful for a trial run. 0 means no limit.
+#image_placeholder_backfill_max_items = 0
+
 # Whether or not to use the local filesystem to store file and image object
 # data. You will want to disable this if you are running on a cloud server with
 # limited or expensive disk.

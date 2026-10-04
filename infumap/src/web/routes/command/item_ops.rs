@@ -408,27 +408,34 @@ pub async fn add_item_for_user(
           return Err(format!("Image item '{}' has no title set.", item.id).into());
         }
       };
-      // TODO (LOW): clone here seems a bit excessive.
-      let exif_orientation = get_exif_orientation(decoded.clone(), title);
-      let file_cursor = Cursor::new(decoded);
-      let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
-      let img = file_reader
-        .decode()
-        .ok()
-        .ok_or(format!("Could not add new image item '{}' - could not interpret base64 data as an image.", item.id))?;
-      let img = adjust_image_for_exif_orientation(img, exif_orientation, title);
+      // Decoding is CPU intensive, so is done on a blocking thread. The permit is moved into the task so it is
+      // held until the work completes, even if this request future is dropped.
+      let permit = IMAGE_PROCESSING_SEMAPHORE
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|e| format!("Image processing semaphore closed: {}", e))?;
+      let item_id = item.id.clone();
+      let title = title.clone();
+      let (width, height, placeholder) = tokio::task::spawn_blocking(move || -> InfuResult<(u32, u32, Vec<u8>)> {
+        let _permit = permit;
+        // TODO (LOW): clone here seems a bit excessive.
+        let exif_orientation = get_exif_orientation(decoded.clone(), &title);
+        let file_cursor = Cursor::new(decoded);
+        let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
+        let img = file_reader.decode().ok().ok_or(format!(
+          "Could not add new image item '{}' - could not interpret base64 data as an image.",
+          item_id
+        ))?;
+        let img = adjust_image_for_exif_orientation(img, exif_orientation, &title);
+        let placeholder = create_image_placeholder(&img)
+          .map_err(|e| format!("An error occurred creating the placeholder for new image '{}': {}.", item_id, e))?;
+        Ok((img.width(), img.height(), placeholder))
+      })
+      .await
+      .map_err(|e| format!("Image processing task for new image '{}' failed: {}", item.id, e))??;
 
-      let width = img.width();
-      let height = img.height();
-
-      let img = img.resize_exact(8, 8, FilterType::Nearest);
-      let buf = Vec::new();
-      let mut cursor = Cursor::new(buf);
-      img
-        .write_to(&mut cursor, ImageFormat::Png)
-        .map_err(|e| format!("An error occurred creating the thumbnail png for new image '{}': {}.", item.id, e))?;
-      let thumbnail_data = cursor.get_ref().to_vec();
-      let thumbnail_base64 = general_purpose::STANDARD.encode(thumbnail_data);
+      let thumbnail_base64 = general_purpose::STANDARD.encode(placeholder);
       if item.thumbnail.unwrap() != "" {
         return Err(
           format!("Attempt was made by user '{}' to add an image item with a non-empty thumbnail.", &session_user_id)
@@ -1175,4 +1182,39 @@ async fn delete_recursive(
   }
 
   Ok(())
+}
+
+/// Replace the thumbnail (placeholder) of image item item_id, if it is still in the legacy format. Returns
+/// whether the item was updated. This is a background operation, so lastModifiedDate is not changed.
+pub async fn set_image_placeholder_if_legacy(
+  db: &mut MutexGuard<'_, Db>,
+  item_id: &Uid,
+  thumbnail: String,
+) -> InfuResult<bool> {
+  let mut item = match db.item.get(item_id) {
+    Ok(item) => item.clone(),
+    Err(_) => return Ok(false),
+  };
+  if item.item_type != ItemType::Image || !is_legacy_image_placeholder(item.thumbnail.as_deref()) {
+    return Ok(false);
+  }
+  item.thumbnail = Some(thumbnail);
+  db.item.update(&item).await?;
+
+  let mut deltas_by_container = HashMap::new();
+  if let Some(container_id) = maybe_container_id_for_child_item(&item) {
+    merge_container_delta(&mut deltas_by_container, &container_id, build_child_upsert_delta(db, &item)?);
+  }
+  if item.relationship_to_parent == RelationshipToParent::Attachment {
+    if let Some(parent_id) = &item.parent_id {
+      if let Some(container_id) = maybe_container_id_for_attachment_parent(db, parent_id)? {
+        let mut delta = ContainerSyncDelta::default();
+        add_attachment_snapshot_delta_for_parent(db, &mut delta, parent_id)?;
+        merge_container_delta(&mut deltas_by_container, &container_id, delta);
+      }
+    }
+  }
+  let owner_id = item.owner_id.clone();
+  flush_container_sync_changes(db, &owner_id, deltas_by_container, HashSet::new());
+  Ok(true)
 }

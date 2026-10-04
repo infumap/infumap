@@ -20,9 +20,7 @@ use bytes::Bytes;
 use config::Config;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
-use image::ImageFormat;
 use image::ImageReader;
-use image::imageops::FilterType;
 use infusdk::item::{
   ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG,
   PAGE_SHOW_TABLE_COL_HEADER_FLAG, PermissionFlags, RelationshipToParent, SavedPageSettings, SavedTableSettings,
@@ -76,7 +74,10 @@ use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup
 use crate::storage::db::session::Session;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
-use crate::util::image::{adjust_image_for_exif_orientation, get_exif_orientation};
+use crate::util::image::{
+  IMAGE_PROCESSING_SEMAPHORE, adjust_image_for_exif_orientation, create_image_placeholder, get_exif_orientation,
+  is_legacy_image_placeholder,
+};
 use crate::util::mime::{detect_mime_type, mime_type_from_title_extension};
 use crate::util::ordering::{new_ordering, new_ordering_after, new_ordering_at_end};
 use crate::web::routes::{is_scopes_page_item, scopes_page_id};
@@ -92,7 +93,7 @@ mod search;
 
 pub(crate) use chat::{chat_tool_servers_from_config, llama_servers_from_config, validate_chat_backend_config};
 pub use chat::{serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route};
-pub use item_ops::add_item_for_user;
+pub use item_ops::{add_item_for_user, set_image_placeholder_if_legacy};
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
 // 190+ MiB raw files while remaining bounded.
