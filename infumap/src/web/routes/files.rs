@@ -21,6 +21,7 @@ use hyper::{Request, Response};
 use image::ImageReader;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
+use infusdk::util::geometry::Dimensions;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::time::unix_now_secs_i64;
 use infusdk::util::uid::is_uid;
@@ -31,7 +32,8 @@ use serde::Deserialize;
 use std::io::Cursor;
 use std::sync::Arc;
 use tokio::fs;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Semaphore};
+use tokio::task::spawn_blocking;
 
 use crate::ai::artifact_paths::{
   item_fragments_manifest_path, item_fragments_path, item_geo_content_path, item_text_content_path,
@@ -58,6 +60,13 @@ use super::command::authorize_item;
 pub static METRIC_CACHED_IMAGE_REQUESTS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
   IntCounterVec::new(opts!("cached_image_requests_total", "Total number of images served from cache."), &["name"])
     .expect("Could not create METRIC_CACHED_IMAGE_REQUESTS_TOTAL.")
+});
+
+// Decoding and resizing large images is CPU intensive. Bound the number of concurrent resize tasks, leaving
+// one core free so other requests (including image cache hits) continue to be served promptly.
+static IMAGE_RESIZE_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| {
+  let num_cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+  Arc::new(Semaphore::new(num_cores.saturating_sub(1).max(1)))
 });
 
 const LABEL_HIT_APPROX: &'static str = "hit_approx";
@@ -456,60 +465,87 @@ async fn get_cached_resized_img(
     );
   }
 
-  let exif_orientation = get_exif_orientation(original_file_bytes.clone(), &uid);
+  // The permit is moved into the blocking task so it is held until the work completes, even if this
+  // request future is dropped (e.g. client disconnect) whilst the task is still running.
+  let permit = IMAGE_RESIZE_SEMAPHORE
+    .clone()
+    .acquire_owned()
+    .await
+    .map_err(|e| format!("Image resize semaphore closed: {}", e))?;
+  let uid_for_resize = uid.clone();
+  let name_for_resize = name.to_owned();
+  let data = spawn_blocking(move || {
+    let _permit = permit;
+    resize_image_to_jpeg(
+      original_file_bytes,
+      &uid_for_resize,
+      &name_for_resize,
+      original_dimensions_px,
+      requested_width,
+    )
+  })
+  .await
+  .map_err(|e| format!("Image resize task for '{}' failed: {}", name, e))??;
+
+  debug!("Inserting image '{}' into cache and using as response.", name);
+
+  let cache_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(requested_width) };
+  // it is possible there was more than one request for this, and another request won inserting into cache..
+  storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, data.clone())
+    .await
+    .map_err(|e| format!("Failed to insert image ({}, {}) into image cache: {}", uid, requested_width, e.message()))?;
+
+  METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
+  Ok(
+    Response::builder()
+      .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+      .header("Content-Disposition", content_disposition_header(&uid, true))
+      .header("X-Content-Type-Options", "nosniff")
+      .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
+      .body(full_body(data))
+      .unwrap(),
+  )
+}
+
+/// CPU intensive - must not be called on an async worker thread.
+fn resize_image_to_jpeg(
+  original_file_bytes: Vec<u8>,
+  uid: &str,
+  name: &str,
+  original_dimensions_px: Dimensions<i64>,
+  requested_width: u32,
+) -> InfuResult<Vec<u8>> {
+  let exif_orientation = get_exif_orientation(original_file_bytes.clone(), uid);
 
   // decode and resize
-  let original_file_cursor = Cursor::new(original_file_bytes.clone());
+  let original_file_cursor = Cursor::new(original_file_bytes);
   let original_file_reader = ImageReader::new(original_file_cursor).with_guessed_format()?;
-  let original_img_maybe = original_file_reader.decode();
-  match original_img_maybe {
-    Ok(mut img) => {
-      img = adjust_image_for_exif_orientation(img, exif_orientation, &uid);
-
-      // Calculate the height for passing into the image resize method. The resize method makes the image as large as possible
-      // whilst preserving the image aspect ratio. So calculate the exact height, then bump it up a bit to be 100% sure width
-      // is the constraining factor in that calc.
-      let aspect = original_dimensions_px.w as f64 / original_dimensions_px.h as f64;
-      let requested_height = (requested_width as f64 / aspect).ceil() as u32 + 1;
-
-      // Using Langczos3 for down scaling, as recommended by: https://crates.io/crates/resize
-      img = img.resize(requested_width, requested_height, FilterType::Lanczos3);
-      // Throw away alpha channel, if it exists.
-      let img = img.to_rgb8();
-
-      let buf = Vec::new();
-      let mut cursor = Cursor::new(buf);
-      let encoder = JpegEncoder::new_with_quality(&mut cursor, JPEG_QUALITY);
-      img
-        .write_with_encoder(encoder)
-        .map_err(|e| format!("Could not create cached JPEG image for '{}': {}", name, e))?;
-
-      debug!("Inserting image '{}' into cache and using as response.", name);
-
-      let cache_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(requested_width) };
-      let data = cursor.get_ref().to_vec();
-      // it is possible there was more than one request for this, and another request won inserting into cache..
-      storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, data.clone()).await.map_err(|e| {
-        format!("Failed to insert image ({}, {}) into image cache: {}", uid, requested_width, e.message())
-      })?;
-
-      METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
-      Ok(
-        Response::builder()
-          .header(hyper::header::CONTENT_TYPE, "image/jpeg")
-          .header("Content-Disposition", content_disposition_header(&uid, true))
-          .header("X-Content-Type-Options", "nosniff")
-          .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-          .body(full_body(data))
-          .unwrap(),
-      )
-    }
-
+  let mut img = match original_file_reader.decode() {
+    Ok(img) => img,
     Err(e) => {
       // TODO (LOW): possibly do something better in this case. Possibly return the image as is if it's not too big. Possibly cache it.
       return Err(format!("Could not read original image '{}': {}", name, e).into());
     }
-  }
+  };
+  img = adjust_image_for_exif_orientation(img, exif_orientation, uid);
+
+  // Calculate the height for passing into the image resize method. The resize method makes the image as large as possible
+  // whilst preserving the image aspect ratio. So calculate the exact height, then bump it up a bit to be 100% sure width
+  // is the constraining factor in that calc.
+  let aspect = original_dimensions_px.w as f64 / original_dimensions_px.h as f64;
+  let requested_height = (requested_width as f64 / aspect).ceil() as u32 + 1;
+
+  // Using Langczos3 for down scaling, as recommended by: https://crates.io/crates/resize
+  img = img.resize(requested_width, requested_height, FilterType::Lanczos3);
+  // Throw away alpha channel, if it exists.
+  let img = img.to_rgb8();
+
+  let buf = Vec::new();
+  let mut cursor = Cursor::new(buf);
+  let encoder = JpegEncoder::new_with_quality(&mut cursor, JPEG_QUALITY);
+  img.write_with_encoder(encoder).map_err(|e| format!("Could not create cached JPEG image for '{}': {}", name, e))?;
+
+  Ok(cursor.into_inner())
 }
 
 async fn get_file(
