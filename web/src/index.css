@@ -35,6 +35,15 @@ body.infumap-blocked-move-cursor * {
   cursor: not-allowed !important;
 }
 
+@media print {
+  *,
+  ::after,
+  ::before {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }

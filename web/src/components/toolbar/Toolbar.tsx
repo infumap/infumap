@@ -419,7 +419,7 @@ export const Toolbar: Component = () => {
     </>;
 
   const showToolbarButton = () =>
-    <div class="absolute"
+    <div class="absolute print:hidden"
       style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER}; ` +
         `right: 6px; top: -3px;`} onmousedown={showToolbar}>
       <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
