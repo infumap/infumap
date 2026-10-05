@@ -69,11 +69,15 @@ export function arrange_document_page(
 
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
 
+  // When printing, the current page is laid out at natural size independent of the window, and scaled to the sheet
+  // in css. Popups aren't printed.
+  const isPrintRoot = store.printMode.get() && !!(flags & ArrangeItemFlags.IsTopRoot);
+
   const totalMarginBl = PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
   const totalWidthBl = displayItem_pageWithChildren.docWidthBl + totalMarginBl;
   const requiredWidthPx = totalWidthBl * NATURAL_BLOCK_SIZE_PX.w;
   let scale = geometry.boundsPx.w / requiredWidthPx;
-  if (scale > 1.0) { scale = 1.0; }
+  if (scale > 1.0 || isPrintRoot) { scale = 1.0; }
   const blockSizePx = { w: NATURAL_BLOCK_SIZE_PX.w * scale, h: NATURAL_BLOCK_SIZE_PX.h * scale };
   const documentWidthPx = totalWidthBl * blockSizePx.w;
 
@@ -137,7 +141,7 @@ export function arrange_document_page(
       blockSizePx,
       PAGE_DOCUMENT_LEFT_MARGIN_BL,
       topPx,
-      store.smallScreenMode());
+      store.smallScreenMode() && !isPrintRoot);
     if (isPage(child.displayItem) || isImage(child.displayItem)) {
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
@@ -253,7 +257,7 @@ export function arrange_document_page(
     childrenPaths,
   };
 
-  if (flags & ArrangeItemFlags.IsTopRoot) {
+  if ((flags & ArrangeItemFlags.IsTopRoot) && !isPrintRoot) {
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
