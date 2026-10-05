@@ -24,7 +24,7 @@
 
 import { LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, NOTE_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../constants";
 import { asNoteItem, isNote } from "../items/note-item";
-import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "../items/page-item";
 import { VisualElementSignal } from "../util/signals";
 import { noteHeadingLevel } from "./document-spacing";
 import { documentLineHeightPxForNote } from "./text";
@@ -62,16 +62,18 @@ export interface PrintLayout {
 }
 
 /**
- * The print layout of a page, or null if the page has no print-specific layout (and prints as displayed).
+ * Whether the page has a print-specific layout. Pages without one print as displayed.
+ */
+export function pageHasPrintLayout(page: PageItem): boolean {
+  return page.arrangeAlgorithm == ArrangeAlgorithm.Document;
+}
+
+/**
+ * The print layout of a page, or null if the page has no print-specific layout.
  */
 export function printLayout(pageVe: VisualElement, childVes: Array<VisualElementSignal>): PrintLayout | null {
-  if (!isPage(pageVe.displayItem)) { return null; }
-  switch (asPageItem(pageVe.displayItem).arrangeAlgorithm) {
-    case ArrangeAlgorithm.Document:
-      return documentPrintLayout(pageVe, childVes);
-    default:
-      return null;
-  }
+  if (!isPage(pageVe.displayItem) || !pageHasPrintLayout(asPageItem(pageVe.displayItem))) { return null; }
+  return documentPrintLayout(pageVe, childVes);
 }
 
 function documentPrintLayout(pageVe: VisualElement, childVes: Array<VisualElementSignal>): PrintLayout | null {

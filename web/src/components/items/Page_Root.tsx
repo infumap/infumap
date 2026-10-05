@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, onMount, createEffect } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount, createEffect, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Veid, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
@@ -54,6 +54,8 @@ import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./Line
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
 import { printScrollWritesSuppressed } from "../../print";
+import { printLayout } from "../../layout/print-bands";
+import { Page_PrintBands } from "./Page_PrintBands";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -75,6 +77,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const pageChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
+  const printLayoutMaybe = createMemo(() =>
+    store.printMode.get() && (props.visualElement.flags & VisualElementFlags.TopLevelRoot)
+      ? printLayout(props.visualElement, pageChildren())
+      : null);
   const documentTextEditIsActive = () => {
     if (!canEditPage() || !pageFns().isDocumentPage()) { return false; }
     const itemPath = store.overlay.textEditInfo()?.itemPath;
@@ -836,10 +842,13 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
   return (
     <>
-      <div class={`absolute`}
+      <div class={`absolute print-flow-ancestor`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `background-color: #ffffff; ${desktopStackRootStyle(props.visualElement)}`}>
         <Switch>
+          <Match when={printLayoutMaybe() != null}>
+            <Page_PrintBands visualElement={props.visualElement} pageFns={props.pageFns} layout={printLayoutMaybe()!} />
+          </Match>
           <Match when={props.visualElement.tableBodyViewportBoundsPx != null}>
             <Page_TableContent visualElement={props.visualElement} />
             {renderPopupRootMaybe()}

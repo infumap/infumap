@@ -55,6 +55,35 @@ body.infumap-blocked-move-cursor * {
     container-type: size;
   }
 
+  /*
+    A page with a print layout (see print-bands.ts) is rendered as normal-flow content, so the browser can paginate
+    it. That only works if none of its ancestors are positioned or clip their overflow.
+  */
+  html.print-flow,
+  html.print-flow body {
+    height: auto;
+    overflow: visible;
+  }
+
+  html.print-flow #rootDiv,
+  html.print-flow #main,
+  html.print-flow #desktop,
+  html.print-flow .print-flow-ancestor {
+    position: static !important;
+    overflow: visible !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /*
+    A clipped band shows one strip of a taller item, but the whole item is rendered in each band. If anything inside
+    the item also clips, Chrome writes all of the item's text into the PDF for every band (invisibly), so copying from
+    or searching the PDF finds it many times over. Clipping at the band is sufficient.
+  */
+  html.print-flow .print-band-clip .overflow-hidden {
+    overflow: visible !important;
+  }
+
   html.print-fit-page #main {
     --print-fit-scale: min(
       tan(atan2(100cqw, var(--print-fit-width))),

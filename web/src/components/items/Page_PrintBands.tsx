@@ -50,7 +50,7 @@ export const Page_PrintBands: Component<PageVisualElementProps & { layout: Print
         style={`position: relative; width: ${props.layout.contentWidthPx}px; ` +
           `--print-doc-width: ${props.layout.contentWidthPx}px;`}>
         <For each={props.layout.bands}>{band =>
-          <div style={bandStyle(band)}>
+          <div class={band.clip ? "print-band-clip" : ""} style={bandStyle(band)}>
             <div style={stripStyle(band)}>
               <Switch>
                 <Match when={band.content.kind == "title"}>
