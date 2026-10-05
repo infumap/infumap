@@ -34,7 +34,7 @@ const DOCUMENT_GAP_24PX_BL = pxToBl(24);
 const DOCUMENT_GAP_32PX_BL = pxToBl(32);
 export const DOCUMENT_PAGE_TITLE_GAP_BL = DOCUMENT_GAP_24PX_BL;
 
-function noteHeadingLevel(item: Item): number | null {
+export function noteHeadingLevel(item: Item): number | null {
   if (!isNote(item)) { return null; }
   const flags = asNoteItem(item).flags;
   if (flags & NoteFlags.Heading1) { return 1; }
