@@ -52,7 +52,8 @@ import { Item, ItemType } from "../../items/base/item";
 import { Uid } from "../../util/uid";
 import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation";
 import { searchResultPathSegmentsFromPath } from "../../util/search-result-display";
-import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "./toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsCurrentPage, toolbarFocusIsInTableView } from "./toolbarFocus";
+import { printCurrentPage } from "../../print";
 import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
@@ -312,6 +313,12 @@ function infoPopupHeightPx(store: StoreContextModel): number {
   return 2 * INFO_ROWS_PADDING_Y_PX + numRows * INFO_ROW_HEIGHT_PX + 2 * TOOLBAR_POPUP_BORDER_PX;
 }
 
+function moreActionsRows(store: StoreContextModel): number {
+  const focusPath = getToolbarFocusPathMaybe(store);
+  return (pageTableConversionEligibility(store, focusPath).allowed ? 1 : 0) +
+    (toolbarFocusIsCurrentPage(store) ? 1 : 0);
+}
+
 function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupType): number {
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
   if (overlayType == ToolbarPopupType.NoteIndent) { return 36; }
@@ -326,7 +333,7 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.PageJustifiedRowAspect) { return 60; }
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return toolbarMenuHeightPx(5); }
   if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(3); }
-  if (overlayType == ToolbarPopupType.MoreActions) { return toolbarMenuHeightPx(1); }
+  if (overlayType == ToolbarPopupType.MoreActions) { return toolbarMenuHeightPx(moreActionsRows(store)); }
   if (overlayType == ToolbarPopupType.Info) { return infoPopupHeightPx(store); }
   if (overlayType == ToolbarPopupType.Backlinks) { return BACKLINKS_POPUP_HEIGHT_PX; }
   if (overlayType == ToolbarPopupType.Id) { return ID_POPUP_HEIGHT_PX; }
@@ -413,6 +420,7 @@ export const Toolbar_Popup: Component = () => {
   let textElement: HTMLInputElement | undefined;
   let emojiInputElement: HTMLInputElement | undefined;
   let conversionButton: HTMLButtonElement | undefined;
+  let printButton: HTMLButtonElement | undefined;
   let sortOrderMenu: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
@@ -1195,7 +1203,7 @@ export const Toolbar_Popup: Component = () => {
 
   onMount(() => {
     if (overlayTypeConst == ToolbarPopupType.MoreActions) {
-      conversionButton?.focus();
+      (conversionButton ?? printButton)?.focus();
       return;
     }
     if (overlayTypeConst == ToolbarPopupType.ChildSortOrder) {
@@ -1426,6 +1434,13 @@ export const Toolbar_Popup: Component = () => {
                 class={toolbarMenuItemClass()}
                 onClick={event => { event.stopPropagation(); void handleConversionClick(); }}>
                 {conversionLabel()}
+              </button>
+            </Show>
+            <Show when={toolbarFocusIsCurrentPage(store)}>
+              <button ref={printButton} type="button"
+                class={toolbarMenuItemClass()}
+                onClick={event => { event.stopPropagation(); dismissMoreActions(); void printCurrentPage(store); }}>
+                Print
               </button>
             </Show>
           </div>
