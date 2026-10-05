@@ -203,3 +203,38 @@ export function releaseImage(path: string, origin: string | null) {
     if (debug) { console.debug(`image still in use: ${key}.`); }
   }
 }
+
+/**
+ * Synchronously acquires the widest rendition of an image that has already been fetched, if any. The caller must
+ * release it with releaseImage(path, origin).
+ */
+export function acquireFetchedImageMaybe(itemId: string, origin: string | null): { path: string, objectUrl: string } | null {
+  const pathPrefix = `/files/${itemId}_`;
+  const keyPrefix = cacheKey(pathPrefix, origin);
+  let bestKey: string | null = null;
+  let bestWidthPx = -1;
+  for (const [key, objectUrl] of objectUrls) {
+    if (objectUrl == null || !key.startsWith(keyPrefix)) { continue; }
+    const widthPx = parseInt(key.substring(keyPrefix.length));
+    if (widthPx > bestWidthPx) {
+      bestKey = key;
+      bestWidthPx = widthPx;
+    }
+  }
+  if (bestKey == null) { return null; }
+
+  const cleanupIdMaybe = waitingForCleanup.get(bestKey);
+  if (cleanupIdMaybe) {
+    clearTimeout(cleanupIdMaybe);
+    waitingForCleanup.delete(bestKey);
+  }
+  objectUrlsRefCount.set(bestKey, (objectUrlsRefCount.get(bestKey) as number) + 1);
+  return { path: pathPrefix + bestWidthPx, objectUrl: objectUrls.get(bestKey) as string };
+}
+
+/**
+ * Whether any image fetches are waiting or in progress.
+ */
+export function imageFetchesPending(): boolean {
+  return waiting.length > 0 || fetchInProgress.size > 0;
+}

@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { imageFetchesPending } from "./imageManager";
 import { commitActiveTextEdit } from "./input/edit";
 import { clearMouseOverState } from "./input/mouse_move";
 import { commitActiveToolbarTitleEdit } from "./input/toolbar_title";
@@ -31,6 +32,9 @@ import { StoreContextModel } from "./store/StoreProvider";
 const PRINT_MODE_CLASS = "infumap-print-mode";
 const PRINT_FIT_PAGE_CLASS = "print-fit-page";
 const PRINT_FLOW_CLASS = "print-flow";
+
+/** The longest the print command waits for images and fonts before printing whatever has loaded. */
+const PRINT_RESOURCE_TIMEOUT_MS = 10000;
 
 interface StateBeforePrint {
   dockVisible: boolean,
@@ -50,6 +54,35 @@ let scrollWritesSuppressed = false;
  */
 export function printScrollWritesSuppressed(): boolean {
   return scrollWritesSuppressed;
+}
+
+/**
+ * Prints the current page. Unlike printing from the browser menu (which only gets beforeprint), this waits for images
+ * to be fetched at print resolution before the browser lays out the printed page.
+ */
+export async function printCurrentPage(store: StoreContextModel): Promise<void> {
+  if (stateBeforePrint != null) { return; }
+  enterPrintMode(store);
+  await waitForPrintResources();
+  // exits print mode via afterprint (also when the print dialog is cancelled).
+  window.print();
+}
+
+async function waitForPrintResources(): Promise<void> {
+  const deadline = Date.now() + PRINT_RESOURCE_TIMEOUT_MS;
+  const remainingMs = () => Math.max(0, deadline - Date.now());
+  while (imageFetchesPending() && remainingMs() > 0) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  await withTimeout(document.fonts.ready, remainingMs());
+  // fetched images are swapped in on resolution of their fetch, then need to be decoded.
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  const images = Array.from(document.querySelectorAll<HTMLImageElement>("#rootDiv img"));
+  await withTimeout(Promise.all(images.map(image => image.decode().catch(() => {}))), remainingMs());
+}
+
+function withTimeout(promise: Promise<unknown>, timeoutMs: number): Promise<unknown> {
+  return Promise.race([promise, new Promise(resolve => setTimeout(resolve, timeoutMs))]);
 }
 
 /**

@@ -21,7 +21,7 @@ import { ClickState } from "../../../input/state";
 import { pageTableConversionEligibility } from "../../../items/page-table-conversion";
 import { useStore } from "../../../store/StoreProvider";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
-import { getToolbarFocusPathMaybe } from "../toolbarFocus";
+import { getToolbarFocusPathMaybe, toolbarFocusIsCurrentPage } from "../toolbarFocus";
 import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 
 export const Toolbar_MoreActions: Component = () => {
@@ -53,7 +53,7 @@ export const Toolbar_MoreActions: Component = () => {
   };
 
   return (
-    <Show when={canConvert()}>
+    <Show when={canConvert() || toolbarFocusIsCurrentPage(store)}>
       <button ref={button} type="button" title="More actions" aria-label="More actions"
         aria-expanded={store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.MoreActions}
         class={`inline-block ml-[3px] hover:border font-bold rounded w-[21px] h-[21px] text-center cursor-pointer text-[14px] relative text-gray-800 ` +

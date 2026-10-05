@@ -57,7 +57,7 @@ import { commitActiveTextEdit, edit_compositionEndHandler, edit_compositionKeyGu
 import { commitActiveToolbarTitleEdit } from "../input/toolbar_title";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
 import { isPage } from "../items/page-item";
-import { enterPrintMode, exitPrintMode } from "../print";
+import { enterPrintMode, exitPrintMode, printCurrentPage } from "../print";
 import { isContainer } from "../items/base/container-item";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asTextItem, isText } from "../items/text-item";
@@ -423,6 +423,11 @@ export const Main: Component = () => {
   };
 
   const keyDownListener = (ev: KeyboardEvent) => {
+    if (ev.code == "KeyP" && (ev.ctrlKey || ev.metaKey) && !ev.altKey && !ev.shiftKey) {
+      ev.preventDefault();
+      void printCurrentPage(store);
+      return;
+    }
     refreshHoverForCursorModifier(ev);
     if (shouldDebugLinearEdit() &&
       (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&

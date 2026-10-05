@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, JSX, Show, createEffect, onCleanup } from "solid-js";
+import { Component, For, JSX, Show, createEffect, onCleanup, untrack } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX } from "../../constants";
 import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { ImageFns, asImageItem } from "../../items/image-item";
@@ -25,7 +25,7 @@ import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_key
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
-import { getImage, releaseImage } from "../../imageManager";
+import { acquireFetchedImageMaybe, getImage, releaseImage } from "../../imageManager";
 import { imagePlaceholderSizePx, imagePlaceholderSrc } from "../../util/imagePlaceholder";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
@@ -45,6 +45,9 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveO
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
+// Printed images are about 200dpi at the default document width.
+const PRINT_IMAGE_RESOLUTION_MULTIPLIER = 2;
 
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
@@ -92,7 +95,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   }
   const thumbnailSrc = () => imagePlaceholderSrc(imageItem().thumbnail);
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
-  const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" + imageWidthToRequestPx(true);
+  // Printed images are requested at a higher resolution than they are displayed at, so they print sharply.
+  const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" +
+    Math.round(imageWidthToRequestPx(true) * (store.printMode.get() ? PRINT_IMAGE_RESOLUTION_MULTIPLIER : 1));
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
 
   const imgSrcSignal = createInfuSignal<string | undefined>(undefined);
@@ -229,6 +234,28 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let imgOriginOnLoad = imgOrigin();
   let isMounting = true;
   let isShowingThumbnail = createInfuSignal<boolean>(true);
+  // When printing, an already fetched rendition of the image is shown whilst the print resolution one is fetched.
+  let printStandInImage: { path: string, origin: string | null } | null = null;
+
+  const releasePrintStandInImageMaybe = () => {
+    if (printStandInImage == null) { return; }
+    releaseImage(printStandInImage.path, printStandInImage.origin);
+    printStandInImage = null;
+  };
+
+  // The printed page is laid out as soon as printing starts, before a fetch could complete, so the image must not
+  // fall back to the (blurred) placeholder. Returns false if there is nothing better than the placeholder to show.
+  const showFetchedImageForPrintMaybe = (): boolean => {
+    if (!store.printMode.get()) { return false; }
+    if (!untrack(() => isShowingThumbnail.get())) { return true; }
+    const fetched = acquireFetchedImageMaybe(props.visualElement.displayItem.id, imgOriginOnLoad);
+    if (fetched == null) { return false; }
+    releasePrintStandInImageMaybe();
+    printStandInImage = { path: fetched.path, origin: imgOriginOnLoad };
+    imgSrcSignal.set(fetched.objectUrl);
+    isShowingThumbnail.set(false);
+    return true;
+  };
 
   // TODO (LOW): Better behavior when imageWidthToRequestPx <= MIN_IMAGE_WIDTH_PX.
   createEffect(() => {
@@ -244,8 +271,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         const imgSrcOnRequest = currentImgSrc;
         const imgOriginOnRequest = imgOriginOnLoad;
         const imageIdOnRequest = props.visualElement.displayItem.id;
-        imgSrcSignal.set(thumbnailSrc());
-        isShowingThumbnail.set(true);
+        if (!showFetchedImageForPrintMaybe()) {
+          imgSrcSignal.set(thumbnailSrc());
+          isShowingThumbnail.set(true);
+        }
         const isHighPriority = isPopup();
         getImage(imgSrcOnRequest, imgOriginOnRequest, isHighPriority)
           .then((objectUrl) => {
@@ -274,6 +303,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
             } else {
               imgSrcSignal.set(objectUrl);
               isShowingThumbnail.set(false);
+              releasePrintStandInImageMaybe();
             }
           })
           .catch((error) => {
@@ -285,6 +315,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   onCleanup(() => {
+    releasePrintStandInImageMaybe();
     if (isDetailed_OnLoad) {
       if (currentImgSrc !== "") {
         releaseImage(currentImgSrc, imgOriginOnLoad);

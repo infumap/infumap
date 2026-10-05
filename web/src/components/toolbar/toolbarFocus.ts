@@ -85,3 +85,11 @@ export function toolbarFocusIsInTableView(store: StoreContextModel): boolean {
   }
   return false;
 }
+
+/**
+ * Whether the toolbar is showing the page being viewed, which is the page that is printed.
+ */
+export function toolbarFocusIsCurrentPage(store: StoreContextModel): boolean {
+  const focusPath = getToolbarFocusPathMaybe(store);
+  return focusPath != null && focusPath == store.history.currentPagePath();
+}
