@@ -76,6 +76,26 @@ body.infumap-blocked-move-cursor * {
   }
 
   /*
+    Pages with a print layout are laid out at natural size (16px text, about 12pt), and scaled down only if wider
+    than the printable width. 100cqw is the printable width, which follows the paper size, orientation and margins
+    chosen in the print dialog. zoom (not transform) is used so the browser paginates using the scaled heights.
+    The named page keeps these margins from applying to pages printed as displayed.
+  */
+  @page infumap-doc {
+    margin: 15mm;
+  }
+
+  html.print-flow .print-doc-container {
+    page: infumap-doc;
+    container-type: inline-size;
+  }
+
+  html.print-flow .print-doc {
+    margin: 0 auto;
+    zoom: min(1, tan(atan2(100cqw, var(--print-doc-width))));
+  }
+
+  /*
     A clipped band shows one strip of a taller item, but the whole item is rendered in each band. If anything inside
     the item also clips, Chrome writes all of the item's text into the PDF for every band (invisibly), so copying from
     or searching the PDF finds it many times over. Clipping at the band is sufficient.
