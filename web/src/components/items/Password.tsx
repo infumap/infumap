@@ -349,7 +349,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
           </span>
         </Match>
       </Switch>
-      <div class="absolute text-center text-slate-600"
+      <div class="absolute text-center text-slate-600 print:hidden"
         style={`left: ${boundsPx().w - oneBlockWidthPx() * 1.05}px; ` +
           `top: ${boundsPx().h * PADDING_PROP}px; ` +
           `width: ${oneBlockWidthPx() / smallScale()}px; ` +
@@ -360,7 +360,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         onclick={copyClickHandler}>
         <i class={`fas fa-copy cursor-pointer`} />
       </div>
-      <div class="absolute text-center text-slate-600"
+      <div class="absolute text-center text-slate-600 print:hidden"
         style={`left: ${boundsPx().w - oneBlockWidthPx() * 1.8}px; top: ${boundsPx().h * PADDING_PROP}px; ` +
           `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h / smallScale()}px; ` +
           `transform: scale(${smallScale()}); transform-origin: top left;`}

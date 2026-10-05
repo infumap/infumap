@@ -83,6 +83,7 @@ export const shouldShowFocusRingForVisualElement = (
   store: StoreContextModel,
   veFn: () => VisualElement,
 ): boolean => {
+  if (store.printMode.get()) { return false; }
   const currentPagePath = store.history.currentPagePath();
   if (currentPagePath && veFn().parentPath == currentPagePath) {
     const currentPage = itemState.get(VeFns.itemIdFromPath(currentPagePath));

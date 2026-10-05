@@ -17,12 +17,13 @@
 */
 
 import { commitActiveTextEdit } from "./input/edit";
+import { clearMouseOverState } from "./input/mouse_move";
 import { commitActiveToolbarTitleEdit } from "./input/toolbar_title";
 import { ArrangeAlgorithm, asPageItem, isPage } from "./items/page-item";
 import { arrangeNow } from "./layout/arrange";
 import { pageHasPrintLayout } from "./layout/print-bands";
 import { VesCache } from "./layout/ves-cache";
-import { Veid } from "./layout/visual-element";
+import { Veid, VisualElementPath } from "./layout/visual-element";
 import { itemState } from "./store/ItemState";
 import { StoreContextModel } from "./store/StoreProvider";
 
@@ -36,6 +37,8 @@ interface StateBeforePrint {
   topToolbarVisible: boolean,
   documentTitle: string,
   pageScroll: { veid: Veid, xProp: number, yProp: number } | null,
+  selectedVeids: Array<Veid>,
+  findHighlightedPath: VisualElementPath | null,
 }
 
 let stateBeforePrint: StateBeforePrint | null = null;
@@ -69,12 +72,19 @@ export function enterPrintMode(store: StoreContextModel): void {
       xProp: store.perItem.getPageScrollXProp(pageVeid),
       yProp: store.perItem.getPageScrollYProp(pageVeid),
     },
+    selectedVeids: store.overlay.selectedVeids.get(),
+    findHighlightedPath: store.find.highlightedPath.get(),
   };
   scrollWritesSuppressed = true;
 
   // Chrome uses the document title as the default PDF filename and in the page header.
   const pageTitle = currentPageTitle(store);
   if (pageTitle != null) { document.title = pageTitle; }
+
+  // Highlights and hover affordances aren't part of the page. Hover state is re-established by the next mouse move.
+  store.overlay.selectedVeids.set([]);
+  store.find.highlightedPath.set(null);
+  clearMouseOverState(store);
 
   // Dock and toolbar are hidden via the layout (not just css) so the desktop offsets they occupy are removed too.
   store.dockVisible.set(false);
@@ -113,6 +123,8 @@ export function exitPrintMode(store: StoreContextModel): void {
     store.perItem.setPageScrollXProp(state.pageScroll.veid, state.pageScroll.xProp);
     store.perItem.setPageScrollYProp(state.pageScroll.veid, state.pageScroll.yProp);
   }
+  store.overlay.selectedVeids.set(state.selectedVeids);
+  store.find.highlightedPath.set(state.findHighlightedPath);
   store.printMode.set(false);
   store.dockVisible.set(state.dockVisible);
   store.topToolbarVisible.set(state.topToolbarVisible);
