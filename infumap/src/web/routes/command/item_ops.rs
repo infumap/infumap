@@ -1183,38 +1183,3 @@ async fn delete_recursive(
 
   Ok(())
 }
-
-/// Replace the thumbnail (placeholder) of image item item_id, if it is still in the legacy format. Returns
-/// whether the item was updated. This is a background operation, so lastModifiedDate is not changed.
-pub async fn set_image_placeholder_if_legacy(
-  db: &mut MutexGuard<'_, Db>,
-  item_id: &Uid,
-  thumbnail: String,
-) -> InfuResult<bool> {
-  let mut item = match db.item.get(item_id) {
-    Ok(item) => item.clone(),
-    Err(_) => return Ok(false),
-  };
-  if item.item_type != ItemType::Image || !is_legacy_image_placeholder(item.thumbnail.as_deref()) {
-    return Ok(false);
-  }
-  item.thumbnail = Some(thumbnail);
-  db.item.update(&item).await?;
-
-  let mut deltas_by_container = HashMap::new();
-  if let Some(container_id) = maybe_container_id_for_child_item(&item) {
-    merge_container_delta(&mut deltas_by_container, &container_id, build_child_upsert_delta(db, &item)?);
-  }
-  if item.relationship_to_parent == RelationshipToParent::Attachment {
-    if let Some(parent_id) = &item.parent_id {
-      if let Some(container_id) = maybe_container_id_for_attachment_parent(db, parent_id)? {
-        let mut delta = ContainerSyncDelta::default();
-        add_attachment_snapshot_delta_for_parent(db, &mut delta, parent_id)?;
-        merge_container_delta(&mut deltas_by_container, &container_id, delta);
-      }
-    }
-  }
-  let owner_id = item.owner_id.clone();
-  flush_container_sync_changes(db, &owner_id, deltas_by_container, HashSet::new());
-  Ok(true)
-}

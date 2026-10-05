@@ -286,17 +286,6 @@ pub fn adjust_image_for_exif_orientation(
   img
 }
 
-const LEGACY_PNG_PLACEHOLDER_BASE64_PREFIX: &str = "iVBORw0KGgo";
-
-/// Whether an image item thumbnail is missing, or in the legacy (8x8 PNG) format, so should be replaced by a
-/// placeholder created by create_image_placeholder.
-pub fn is_legacy_image_placeholder(thumbnail: Option<&str>) -> bool {
-  match thumbnail {
-    None => true,
-    Some(t) => t.is_empty() || t.starts_with(LEGACY_PNG_PLACEHOLDER_BASE64_PREFIX),
-  }
-}
-
 /// Create the small placeholder image embedded in image items (the "thumbnail" field), displayed whilst
 /// the image itself loads. img should already be adjusted for EXIF orientation.
 ///

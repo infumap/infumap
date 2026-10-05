@@ -20,12 +20,9 @@ import { base64ArrayBuffer } from "./base64ArrayBuffer";
 import { Dimensions } from "./geometry";
 
 // Image item placeholders (the "thumbnail" field) are created by the server: see create_image_placeholder in
-// infumap/src/util/image.rs. They are one of:
-//   - legacy: a base64 encoded 8x8 PNG.
-//   - version 1: base64 encoded [1][width][height][JPEG entropy-coded data]. The JPEG header is the same for all
-//     version 1 placeholders except for the dimensions, so is not stored, and is reconstructed here.
-
-const LEGACY_PNG_BASE64_PREFIX = "iVBORw0KGgo";
+// infumap/src/util/image.rs. Version 1 placeholders are base64 encoded [1][width][height][JPEG entropy-coded data].
+// The JPEG header is the same for all version 1 placeholders except for the dimensions, so is not stored, and is
+// reconstructed here.
 
 // JPEG header (SOI up to and including SOS) of version 1 placeholders, with the SOF0 width and height set to 0.
 // The server tests (placeholder_header_matches_client_template) check this matches the server encoder output.
@@ -58,8 +55,9 @@ function placeholderV1Header(): Uint8Array {
  * Convert the thumbnail field of an image item to a url that can be used as an img src.
  */
 export function imagePlaceholderSrc(thumbnail: string): string {
-  if (thumbnail == "" || thumbnail.startsWith(LEGACY_PNG_BASE64_PREFIX)) {
-    return "data:image/png;base64, " + thumbnail;
+  if (thumbnail == "") {
+    // e.g. an image item that has not yet been processed by the server.
+    return "";
   }
 
   let placeholder: Uint8Array;
@@ -90,10 +88,10 @@ export function imagePlaceholderSrc(thumbnail: string): string {
 }
 
 /**
- * The pixel dimensions of a version 1 placeholder, or null if thumbnail is not one (e.g. it is a legacy PNG).
+ * The pixel dimensions of a version 1 placeholder, or null if thumbnail is not one.
  */
 export function imagePlaceholderSizePx(thumbnail: string): Dimensions | null {
-  if (thumbnail.length < 4 || thumbnail.startsWith(LEGACY_PNG_BASE64_PREFIX)) { return null; }
+  if (thumbnail.length < 4) { return null; }
   let header: string;
   try {
     header = atob(thumbnail.slice(0, 4)); // [version][width][height]

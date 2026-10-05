@@ -381,16 +381,6 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
   );
   info!(
     " {} = {}",
-    CONFIG_ENABLE_IMAGE_PLACEHOLDER_BACKFILL,
-    config.get_bool(CONFIG_ENABLE_IMAGE_PLACEHOLDER_BACKFILL).map_err(|e| e.to_string())?
-  );
-  info!(
-    " {} = {}",
-    CONFIG_IMAGE_PLACEHOLDER_BACKFILL_MAX_ITEMS,
-    config.get_int(CONFIG_IMAGE_PLACEHOLDER_BACKFILL_MAX_ITEMS).map_err(|e| e.to_string())?
-  );
-  info!(
-    " {} = {}",
     CONFIG_ENABLE_LOCAL_OBJECT_STORAGE,
     config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?
   );
@@ -619,10 +609,6 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_MAX_SCALE_IMAGE_UP_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT_DEFAULT)
-      .map_err(|e| e.to_string())?
-      .set_default(CONFIG_ENABLE_IMAGE_PLACEHOLDER_BACKFILL, CONFIG_ENABLE_IMAGE_PLACEHOLDER_BACKFILL_DEFAULT)
-      .map_err(|e| e.to_string())?
-      .set_default(CONFIG_IMAGE_PLACEHOLDER_BACKFILL_MAX_ITEMS, CONFIG_IMAGE_PLACEHOLDER_BACKFILL_MAX_ITEMS_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT)
       .map_err(|e| e.to_string())?

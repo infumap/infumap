@@ -76,7 +76,6 @@ use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
 use crate::util::image::{
   IMAGE_PROCESSING_SEMAPHORE, adjust_image_for_exif_orientation, create_image_placeholder, get_exif_orientation,
-  is_legacy_image_placeholder,
 };
 use crate::util::mime::{detect_mime_type, mime_type_from_title_extension};
 use crate::util::ordering::{new_ordering, new_ordering_after, new_ordering_at_end};
@@ -93,7 +92,7 @@ mod search;
 
 pub(crate) use chat::{chat_tool_servers_from_config, llama_servers_from_config, validate_chat_backend_config};
 pub use chat::{serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route};
-pub use item_ops::{add_item_for_user, set_image_placeholder_if_legacy};
+pub use item_ops::add_item_for_user;
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly
 // 190+ MiB raw files while remaining bounded.
