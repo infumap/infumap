@@ -757,7 +757,16 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
         onePxSizeBl = { x: squareSize, y: squareSize };
       } else {
         let parent = VesCache.current.readNode(hitVe.parentPath!)!;
-        if (isPage(parent.displayItem) && VeFns.treeItem(hitVe).relationshipToParent == RelationshipToParent.Child) {
+        if ((parent.flags & VisualElementFlags.IsDock) && (hitInfo.hitboxType & HitboxFlags.Resize)) {
+          // Dock children are laid out to fit the dock width, not in the dock page's spatial coordinates. Resize
+          // at natural block size: direct while the item fits, and a steady rate once it is scaled down to fit.
+          // Items narrower than the dock are centered horizontally, so the right edge moves half a block per block.
+          onePxSizeBl = { x: 2.0 / NATURAL_BLOCK_SIZE_PX.w, y: 1.0 / NATURAL_BLOCK_SIZE_PX.h };
+        } else if ((parent.flags & VisualElementFlags.IsDock) && (hitInfo.hitboxType & HitboxFlags.HorizontalResize) &&
+          hitVe.blockSizePx != null && hitVe.blockSizePx.w > 0 && hitVe.blockSizePx.h > 0) {
+          // Column resize: the item's scale doesn't change during the drag, so its rendered block size is direct.
+          onePxSizeBl = { x: 1.0 / hitVe.blockSizePx.w, y: 1.0 / hitVe.blockSizePx.h };
+        } else if (isPage(parent.displayItem) && VeFns.treeItem(hitVe).relationshipToParent == RelationshipToParent.Child) {
           let parentPage = asPageItem(parent.displayItem);
           onePxSizeBl = onePxSizeBlForPageChild(parentPage, parent);
         }
@@ -860,7 +869,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     startWidthBl,
     startHeightBl,
     startDockWidthPx: store.getCurrentDockWidthPx(),
-    startChildAreaBoundsPx: hitVe.childAreaBoundsPx,
+    startViewportBoundsPx: hitVe.viewportBoundsPx,
     startAttachmentsItem,
     startCompositeItem,
     clickOffsetProp,

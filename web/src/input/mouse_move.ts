@@ -1258,9 +1258,9 @@ function mouseAction_resizingDockItem(deltaPx: Vector, store: StoreContextModel)
   }
   const activeVisualElement = dockItemSignal.get();
   const activePage = asPageItem(activeVisualElement.displayItem);
-  let newHeightPx = MouseActionState.getStartChildAreaBoundsPx()!.h + deltaPx.y;
+  let newHeightPx = MouseActionState.getStartViewportBoundsPx()!.h + deltaPx.y;
   if (newHeightPx < 5) { newHeightPx = 5; }
-  let newAspect = activeVisualElement.childAreaBoundsPx!.w / newHeightPx;
+  let newAspect = activeVisualElement.viewportBoundsPx!.w / newHeightPx;
   if (newAspect < 0.125) { newAspect = 0.125; }
   if (newAspect > 8.0) { newAspect = 8.0; }
   activePage.naturalAspect = newAspect;
