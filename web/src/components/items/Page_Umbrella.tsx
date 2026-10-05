@@ -27,7 +27,7 @@ import { VeFns } from "../../layout/visual-element";
 
 export const Page_Umbrella: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   return (
-    <div class={`absolute`}
+    <div class={`absolute print-flow-ancestor`}
       style={`left: ${props.pageFns.boundsPx().x}px; top: ${props.pageFns.boundsPx().y}px; width: ${props.pageFns.boundsPx().w}px; height: ${props.pageFns.boundsPx().h}px; ` +
         `background-color: #ffffff;`}>
       <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>

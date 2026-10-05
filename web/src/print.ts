@@ -20,13 +20,16 @@ import { commitActiveTextEdit } from "./input/edit";
 import { commitActiveToolbarTitleEdit } from "./input/toolbar_title";
 import { ArrangeAlgorithm, asPageItem, isPage } from "./items/page-item";
 import { arrangeNow } from "./layout/arrange";
+import { pageHasPrintLayout } from "./layout/print-bands";
 import { VesCache } from "./layout/ves-cache";
 import { Veid } from "./layout/visual-element";
+import { itemState } from "./store/ItemState";
 import { StoreContextModel } from "./store/StoreProvider";
 
 
 const PRINT_MODE_CLASS = "infumap-print-mode";
 const PRINT_FIT_PAGE_CLASS = "print-fit-page";
+const PRINT_FLOW_CLASS = "print-flow";
 
 interface StateBeforePrint {
   dockVisible: boolean,
@@ -80,8 +83,11 @@ export function enterPrintMode(store: StoreContextModel): void {
   document.documentElement.classList.add(PRINT_MODE_CLASS);
   arrangeNow(store, "enter-print-mode");
 
-  // A page that doesn't scroll is scaled to fit a single sheet (see index.css).
-  if (currentPageFitsViewport(store)) {
+  if (currentPageHasPrintLayout(store)) {
+    // The page is rendered as normal-flow content for the browser to paginate (see index.css).
+    document.documentElement.classList.add(PRINT_FLOW_CLASS);
+  } else if (currentPageFitsViewport(store)) {
+    // A page that doesn't scroll is scaled to fit a single sheet (see index.css).
     const desktopBoundsPx = store.desktopBoundsPx();
     const rootStyle = document.documentElement.style;
     rootStyle.setProperty("--print-fit-width", `${desktopBoundsPx.w}px`);
@@ -96,6 +102,7 @@ export function exitPrintMode(store: StoreContextModel): void {
   stateBeforePrint = null;
 
   const rootElement = document.documentElement;
+  rootElement.classList.remove(PRINT_FLOW_CLASS);
   rootElement.classList.remove(PRINT_FIT_PAGE_CLASS);
   rootElement.style.removeProperty("--print-fit-width");
   rootElement.style.removeProperty("--print-fit-height");
@@ -126,6 +133,13 @@ function currentPageTitle(store: StoreContextModel): string | null {
   return title == "" ? null : title;
 }
 
+function currentPageHasPrintLayout(store: StoreContextModel): boolean {
+  const pageVeid = store.history.currentPageVeid();
+  if (pageVeid == null) { return false; }
+  const pageItem = itemState.get(pageVeid.itemId);
+  return pageItem != null && isPage(pageItem) && pageHasPrintLayout(asPageItem(pageItem));
+}
+
 function currentPageFitsViewport(store: StoreContextModel): boolean {
   const pagePath = store.history.currentPagePath();
   if (pagePath == null) { return false; }
@@ -134,8 +148,6 @@ function currentPageFitsViewport(store: StoreContextModel): boolean {
   const arrangeAlgorithm = asPageItem(pageVe.displayItem).arrangeAlgorithm;
   // list pages have their own scroll areas, so the page bounds don't indicate whether the content fits.
   if (arrangeAlgorithm == ArrangeAlgorithm.List) { return false; }
-  // document pages are printed at text size, never scaled to fit the sheet.
-  if (arrangeAlgorithm == ArrangeAlgorithm.Document) { return false; }
   const childAreaBoundsPx = pageVe.childAreaBoundsPx;
   const viewportBoundsPx = pageVe.viewportBoundsPx;
   if (!childAreaBoundsPx || !viewportBoundsPx) { return false; }
