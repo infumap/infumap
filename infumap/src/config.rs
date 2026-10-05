@@ -85,12 +85,6 @@ pub const CONFIG_MAX_SCALE_IMAGE_UP_PERCENT_DEFAULT: u64 = 5;
 pub const CONFIG_ENV_ONLY: &'static str = "env_only";
 pub const CONFIG_ENV_ONLY_DEFAULT: bool = false;
 
-pub const CONFIG_ENABLE_IMAGE_PLACEHOLDER_BACKFILL: &'static str = "enable_image_placeholder_backfill";
-pub const CONFIG_ENABLE_IMAGE_PLACEHOLDER_BACKFILL_DEFAULT: bool = false;
-
-pub const CONFIG_IMAGE_PLACEHOLDER_BACKFILL_MAX_ITEMS: &'static str = "image_placeholder_backfill_max_items";
-pub const CONFIG_IMAGE_PLACEHOLDER_BACKFILL_MAX_ITEMS_DEFAULT: u64 = 0;
-
 pub const CONFIG_ENABLE_LOCAL_OBJECT_STORAGE: &'static str = "enable_local_object_storage";
 pub const CONFIG_ENABLE_LOCAL_OBJECT_STORAGE_DEFAULT: bool = true;
 

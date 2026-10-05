@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 mod dist_handlers;
-mod image_placeholder_backfill;
 mod prometheus;
 mod serve;
 
@@ -252,12 +251,6 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
   init_document_fragment_pipeline_loop(config.as_ref(), db.clone(), object_store.clone(), startup_work.clone())?;
   init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone(), startup_work.clone())?;
   init_image_background_pipeline_loop(config.clone(), db.clone(), object_store.clone(), startup_work)?;
-  image_placeholder_backfill::init_image_placeholder_backfill(
-    config.as_ref(),
-    db.clone(),
-    object_store.clone(),
-    image_cache.clone(),
-  )?;
   crate::ai::search_activity::spawn_progress_logger(db.clone());
 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {

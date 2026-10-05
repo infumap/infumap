@@ -546,7 +546,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   // Placeholders are very low resolution, so are blurred to hide JPEG block artifacts. The blur is applied only
   // whilst the placeholder is shown: the same img element shows the image once it is loaded, at which point the
   // filter is removed. The placeholder is enlarged by the extent of the blur so its soft edges are clipped by the
-  // (overflow hidden) frame. Legacy (PNG) placeholders are not blurred.
+  // (overflow hidden) frame.
   const croppedPlaceholderStyle = (): string => {
     const placeholderSizePx = imagePlaceholderSizePx(imageItem().thumbnail);
     if (placeholderSizePx == null) {
