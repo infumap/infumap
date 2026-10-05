@@ -1189,7 +1189,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
     case MouseAction.ResizingDockItem:
       DoubleClickState.preventDoubleClick();
-      if (MouseActionState.getStartChildAreaBoundsPx()!.h != activeVisualElement.childAreaBoundsPx!.h) {
+      if (MouseActionState.getStartViewportBoundsPx()!.h != activeVisualElement.viewportBoundsPx!.h) {
         serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
       }
       break;

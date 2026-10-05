@@ -1073,7 +1073,8 @@ export const PageFns = {
 
     let boundsPx;
     if (ignoreCellHeight) {
-      const aspect = sizeBl.w / sizeBl.h;
+      // In the dock, height is resized in px against the dock width, so don't quantize to the page's spatial blocks.
+      const aspect = parentIsDock ? page.naturalAspect : sizeBl.w / sizeBl.h;
       boundsPx = {
         x: adjustedCellBoundsPx.x,
         w: adjustedCellBoundsPx.w,

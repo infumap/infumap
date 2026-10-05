@@ -104,7 +104,7 @@ export interface MouseActionStateType {
   startWidthBl: number | null,
   startHeightBl: number | null,
   startDockWidthPx: number | null,
-  startChildAreaBoundsPx: BoundingBox | null,
+  startViewportBoundsPx: BoundingBox | null,
   startCalendarMonthResize: CalendarMonthResize | null,
 
   startAttachmentsItem: AttachmentsItem | null,     // when taking an attachment out of a table.
@@ -528,8 +528,8 @@ export let MouseActionState = {
     mouseActionState.startHeightBl = startHeightBl;
   },
 
-  getStartChildAreaBoundsPx: (): BoundingBox | null => {
-    return mouseActionState?.startChildAreaBoundsPx ?? null;
+  getStartViewportBoundsPx: (): BoundingBox | null => {
+    return mouseActionState?.startViewportBoundsPx ?? null;
   },
 
   getStartCalendarMonthResize: (): CalendarMonthResize | null => {
