@@ -50,13 +50,14 @@ import { mouseMoveHandler, clearMouseOverState, mouseMove_handleNoButtonDown } f
 import { CursorEventState, MouseAction, MouseActionState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { keyDownHandler, keyUpHandler } from "../input/key";
-import { arrangeNow, requestArrange } from "../layout/arrange";
+import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler } from "../input/paste";
 import { commitActiveTextEdit, edit_compositionEndHandler, edit_compositionKeyGuard, edit_compositionStartHandler, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
 import { commitActiveToolbarTitleEdit } from "../input/toolbar_title";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
+import { isPage } from "../items/page-item";
+import { enterPrintMode, exitPrintMode } from "../print";
 import { isContainer } from "../items/base/container-item";
 import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asTextItem, isText } from "../items/text-item";
@@ -468,50 +469,9 @@ export const Main: Component = () => {
     requestArrange(store, "window-resize");
   };
 
-  // Dock and toolbar are hidden via the layout (not just css) so the desktop offsets they occupy are removed too.
-  // The arrange must be synchronous, since the browser lays out the printed page as soon as beforeprint returns.
-  let visibilityBeforePrint: { dock: boolean, topToolbar: boolean } | null = null;
+  const beforePrintListener = () => { enterPrintMode(store); };
 
-  const currentPageFitsViewport = (): boolean => {
-    const pagePath = store.history.currentPagePath();
-    if (pagePath == null) { return false; }
-    const pageVe = VesCache.current.readNode(pagePath);
-    if (!pageVe || !isPage(pageVe.displayItem)) { return false; }
-    // list pages have their own scroll areas, so the page bounds don't indicate whether the content fits.
-    if (asPageItem(pageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List) { return false; }
-    const childAreaBoundsPx = pageVe.childAreaBoundsPx;
-    const viewportBoundsPx = pageVe.viewportBoundsPx;
-    if (!childAreaBoundsPx || !viewportBoundsPx) { return false; }
-    return childAreaBoundsPx.w <= viewportBoundsPx.w && childAreaBoundsPx.h <= viewportBoundsPx.h;
-  };
-
-  const beforePrintListener = () => {
-    if (visibilityBeforePrint != null) { return; }
-    visibilityBeforePrint = { dock: store.dockVisible.get(), topToolbar: store.topToolbarVisible.get() };
-    store.dockVisible.set(false);
-    store.topToolbarVisible.set(false);
-    arrangeNow(store, "before-print");
-
-    // A page that doesn't scroll is scaled to fit a single sheet (see index.css).
-    if (currentPageFitsViewport()) {
-      const desktopBoundsPx = store.desktopBoundsPx();
-      const rootStyle = document.documentElement.style;
-      rootStyle.setProperty("--print-fit-width", `${desktopBoundsPx.w}px`);
-      rootStyle.setProperty("--print-fit-height", `${desktopBoundsPx.h}px`);
-      document.documentElement.classList.add("print-fit-page");
-    }
-  };
-
-  const afterPrintListener = () => {
-    document.documentElement.classList.remove("print-fit-page");
-    document.documentElement.style.removeProperty("--print-fit-width");
-    document.documentElement.style.removeProperty("--print-fit-height");
-    if (visibilityBeforePrint == null) { return; }
-    store.dockVisible.set(visibilityBeforePrint.dock);
-    store.topToolbarVisible.set(visibilityBeforePrint.topToolbar);
-    visibilityBeforePrint = null;
-    arrangeNow(store, "after-print");
-  };
+  const afterPrintListener = () => { exitPrintMode(store); };
 
   const contextMenuListener = (ev: Event) => {
     ev.stopPropagation();

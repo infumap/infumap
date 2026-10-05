@@ -64,6 +64,8 @@ export interface StoreContextModel {
 
   dockVisible: InfuSignal<boolean>,
 
+  printMode: InfuSignal<boolean>,
+
   anItemIsResizing: InfuSignal<boolean>,
   anItemIsMoving: InfuSignal<boolean>,
   externalFileDragActive: InfuSignal<boolean>,
@@ -133,6 +135,8 @@ export function StoreProvider(props: StoreContextProps) {
 
   const dockVisible = createInfuSignal<boolean>(true);
 
+  const printMode = createInfuSignal<boolean>(false);
+
   const resetDesktopSizePx = () => {
     browserClientSizePx.set({ w: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientWidth, h: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientHeight });
   }
@@ -197,6 +201,7 @@ export function StoreProvider(props: StoreContextProps) {
     getCurrentDockWidthPx,
     setDockWidthPx,
     dockVisible,
+    printMode,
     topToolbarVisible,
     topToolbarHeightPx,
 
