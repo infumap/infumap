@@ -29,6 +29,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { IndexAndPosition } from "../../store/StoreProvider_PerVe";
 import { zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
+import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -123,6 +124,7 @@ export const renderDockMaybe = (
     if (wPx < 0) { wPx = 0; }
     const cellBoundsPx = { x: dockSideMarginPx, y: 0, w: wPx, h: dockViewportWidthPx * 10 };
     const geometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, false, true, false, false, false, false, true, store.smallScreenMode());
+    addLinkTriangleHitboxMaybe(geometry, actualLinkItemMaybe);
 
     const hasAttachHb = geometry.hitboxes.some(hb => (hb.type & HitboxFlags.Attach) !== 0);
     if (!hasAttachHb && isAttachmentsItem(childItem)) {
