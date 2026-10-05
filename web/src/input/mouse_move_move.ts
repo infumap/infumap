@@ -712,9 +712,9 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     const yOffsetPx = desktopPosPx.y - viewportBoundsPx.y;
     const veid = VeFns.actualVeidFromVe(inElementVe);
     const scrollYPx = store.perItem.getPageScrollYProp(veid)
-      * (inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
+      * Math.max(0, inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
     const scrollXPx = store.perItem.getPageScrollXProp(veid)
-      * (inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
+      * Math.max(0, inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
     const pagePaddingPx = calcJustifiedPagePaddingPx(inElementVe.childAreaBoundsPx!.w, asPageItem(inElement).justifiedRowAspect);
     const rawCellX = Math.floor((xOffsetPx + scrollXPx - pagePaddingPx) / inElementVe.cellSizePx!.w);
     const rawCellY = Math.floor((yOffsetPx + scrollYPx - pagePaddingPx) / inElementVe.cellSizePx!.h);
@@ -1109,9 +1109,9 @@ function calculateJustifiedMoveOverIndex(store: StoreContextModel, inElementVe: 
   // Account for scroll position
   const veid = VeFns.actualVeidFromVe(inElementVe);
   const scrollYPx = store.perItem.getPageScrollYProp(veid)
-    * (inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
+    * Math.max(0, inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
   const scrollXPx = store.perItem.getPageScrollXProp(veid)
-    * (inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
+    * Math.max(0, inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
 
   const mousePagePosPx = {
     x: xOffsetPx + scrollXPx,

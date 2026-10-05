@@ -221,18 +221,18 @@ function pageAncestorScrollOffsetPx(
     if (!popupSpec) { return { x: 0, y: 0 }; }
     assert(itemState.get(popupSpec.actualVeid.itemId)!.itemType == ItemType.Page, `${context}: popup spec type not page.`);
     return {
-      x: (pageVe.childAreaBoundsPx.w - pageVe.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid),
-      y: (pageVe.childAreaBoundsPx.h - pageVe.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid),
+      x: Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid),
+      y: Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid),
     };
   }
 
   const viewportBoundsPx = pageVe.flags & VisualElementFlags.IsDock ? pageVe.viewportBoundsPx : null;
   const scrollHeightPx = viewportBoundsPx
-    ? pageVe.childAreaBoundsPx.h - viewportBoundsPx.h
-    : pageVe.childAreaBoundsPx.h - pageVe.boundsPx.h;
+    ? Math.max(0, pageVe.childAreaBoundsPx.h - viewportBoundsPx.h)
+    : Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.boundsPx.h);
   const scrollWidthPx = viewportBoundsPx
-    ? pageVe.childAreaBoundsPx.w - viewportBoundsPx.w
-    : pageVe.childAreaBoundsPx.w - pageVe.boundsPx.w;
+    ? Math.max(0, pageVe.childAreaBoundsPx.w - viewportBoundsPx.w)
+    : Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.boundsPx.w);
   const pageVeid = VeFns.actualVeidFromVe(pageVe);
   return {
     x: scrollWidthPx * store.perItem.getPageScrollXProp(pageVeid),
@@ -873,8 +873,8 @@ export const VeFns = {
     if (ve.flags & VisualElementFlags.Fixed) {
       if (isPage(ve.displayItem) && ve.viewportBoundsPx && ve.childAreaBoundsPx) {
         const pageVeid = VeFns.actualVeidFromVe(ve);
-        const adjY = (ve.childAreaBoundsPx.h - ve.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid);
-        const adjX = (ve.childAreaBoundsPx.w - ve.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid);
+        const adjY = Math.max(0, ve.childAreaBoundsPx.h - ve.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid);
+        const adjX = Math.max(0, ve.childAreaBoundsPx.w - ve.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid);
         return {
           x: ve.viewportBoundsPx.x + adjX,
           y: ve.viewportBoundsPx.y + adjY,
@@ -936,8 +936,8 @@ export const VeFns = {
 
     if (isPage(visualElement.displayItem) && visualElement.viewportBoundsPx && visualElement.childAreaBoundsPx) {
       const pageVeid = VeFns.actualVeidFromVe(visualElement);
-      const adjY = (visualElement.childAreaBoundsPx!.h - visualElement.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid);
-      const adjX = (visualElement.childAreaBoundsPx!.w - visualElement.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid);
+      const adjY = Math.max(0, visualElement.childAreaBoundsPx!.h - visualElement.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid);
+      const adjX = Math.max(0, visualElement.childAreaBoundsPx!.w - visualElement.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid);
       const popupTitleHeightMaybePx = visualElement.boundsPx.h - visualElement.viewportBoundsPx!.h;
       return {
         x: r.x + adjX,

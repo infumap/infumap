@@ -1514,7 +1514,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       store.perVe.setMouseIsOver(readOnlyDocumentMoveOutPath, true);
     }
     lastMouseOverPath = readOnlyDocumentMoveOutPath;
-  } else if ((overElementVe.displayItem.id != store.history.currentPageVeid()!.itemId) &&
+  } else if (!(overElementVe.flags & VisualElementFlags.TopLevelRoot) &&
     !(overElementVe.flags & VisualElementFlags.Popup) &&
     !suppressGenericMouseOver &&
     !overInertDocumentRowSide &&
@@ -1525,7 +1525,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     lastMouseOverPath = overElementPath;
   }
 
-  if ((overElementVe.displayItem.id != store.history.currentPageVeid()!.itemId) &&
+  if (!(overElementVe.flags & VisualElementFlags.TopLevelRoot) &&
     !(overElementVe.flags & VisualElementFlags.Popup) &&
     !hasModal && !isInsideToolbarPopup) {
     if (isOverOpenPopup) {
@@ -1548,7 +1548,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   }
 
   if (overCompositeMoveOutVes != null && overCompositeMoveOutPath != null &&
-    (overCompositeMoveOutVes.get().displayItem.id != store.history.currentPageVeid()!.itemId) &&
+    !(overCompositeMoveOutVes.get().flags & VisualElementFlags.TopLevelRoot) &&
     !(overCompositeMoveOutVes.get().flags & VisualElementFlags.Popup) &&
     !hasModal && !isInsideToolbarPopup) {
     if (!store.perVe.getMouseIsOverCompositeMoveOut(overCompositeMoveOutPath)) {
