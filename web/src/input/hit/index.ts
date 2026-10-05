@@ -694,8 +694,8 @@ function determineTopLevelRoot(
   const posRelativeToTopLevelVePx = currentPageVe.tableBodyViewportBoundsPx != null
     ? posOnDesktopPx
     : vectorAdd(posOnDesktopPx, {
-      x: store.perItem.getPageScrollXProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
-      y: store.perItem.getPageScrollYProp(currentPageVeid) * (currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
+      x: store.perItem.getPageScrollXProp(currentPageVeid) * Math.max(0, currentPageVe.childAreaBoundsPx!.w - currentPageVe.boundsPx.w),
+      y: store.perItem.getPageScrollYProp(currentPageVeid) * Math.max(0, currentPageVe.childAreaBoundsPx!.h - currentPageVe.boundsPx.h)
     });
   let posRelativeToRootVeBoundsPx = { ...posRelativeToTopLevelVePx };
   const dockWidthPx = store.getCurrentDockWidthPx();
@@ -933,8 +933,8 @@ function hitPageSelectedRootMaybe(
         // List pages have childAreaBoundsPx == viewportBoundsPx, so scrollPropY effect is 0 here
         // The actual list page scroll adjustment happens in getHitInfoUnderRoot
         posRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, {
-          x: newRootVeMaybe.boundsPx!.x - scrollPropX * (newRootVeMaybe.childAreaBoundsPx!.w - newRootVeMaybe.viewportBoundsPx!.w),
-          y: newRootVeMaybe.boundsPx!.y - scrollPropY * (newRootVeMaybe.childAreaBoundsPx!.h - newRootVeMaybe.viewportBoundsPx!.h)
+          x: newRootVeMaybe.boundsPx!.x - scrollPropX * Math.max(0, newRootVeMaybe.childAreaBoundsPx!.w - newRootVeMaybe.viewportBoundsPx!.w),
+          y: newRootVeMaybe.boundsPx!.y - scrollPropY * Math.max(0, newRootVeMaybe.childAreaBoundsPx!.h - newRootVeMaybe.viewportBoundsPx!.h)
         });
 
         changedRoot = true;
@@ -991,8 +991,8 @@ function hitEmbeddedRootMaybe(
         x: childVe.boundsPx.x,
         y: childVe.boundsPx.y,
       });
-      const newPosRelativeToRootVeViewportPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.viewportBoundsPx!.x - scrollPropX * (childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.viewportBoundsPx!.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
-      const newPosRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x - scrollPropX * (childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.boundsPx.y - scrollPropY * (childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
+      const newPosRelativeToRootVeViewportPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.viewportBoundsPx!.x - scrollPropX * Math.max(0, childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.viewportBoundsPx!.y - scrollPropY * Math.max(0, childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
+      const newPosRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x - scrollPropX * Math.max(0, childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.boundsPx.y - scrollPropY * Math.max(0, childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
       const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(childVe, posRelativeToEmbeddedRootBoundsPx, undefined, hitboxOptions);
       return ({ parentRootVe: parentRootInfo.rootVe, rootVes: childVes, rootVe: childVe, posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx, posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx, hitMaybe: hitboxType != HitboxFlags.None ? new HitBuilder(parentRootInfo.rootVe, childVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToEmbeddedRootBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determineEmbeddedRootMaybe").build() : null });
     }
