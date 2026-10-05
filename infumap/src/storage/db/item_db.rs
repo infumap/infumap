@@ -432,17 +432,27 @@ impl ItemDb {
     }
 
     initialize_item_log(&log_path, next_log_epoch).await?;
-    let mut compacted_store: KVStore<Item> =
-      KVStore::init(log_path.to_str().ok_or("unable to interpret path")?, CURRENT_ITEM_LOG_VERSION).await?;
+    // All records are written via a single buffered writer (KVStore::add opens the file for every record).
+    let file = OpenOptions::new().append(true).open(&log_path).await?;
+    let mut writer = BufWriter::new(file);
+    let mut written_ids = HashSet::new();
+    async fn write_item(writer: &mut BufWriter<File>, written_ids: &mut HashSet<Uid>, item: &Item) -> InfuResult<()> {
+      if !written_ids.insert(item.id.clone()) {
+        return Err(format!("Item {} would be written to the compacted log more than once.", item.id).into());
+      }
+      writer.write_all(serde_json::to_string(&item.to_json()?)?.as_bytes()).await?;
+      writer.write_all("\n".as_bytes()).await?;
+      Ok(())
+    }
     for item_id in &ordered_ids {
-      compacted_store.add(store.get(item_id).unwrap().clone()).await?;
+      write_item(&mut writer, &mut written_ids, store.get(item_id).unwrap()).await?;
     }
     // TODO (MEDIUM): make a new "orphaned" folder under home_page for these and put them in that, not directly on the home page.
     for item_id in &orphaned_ids {
       let mut item = store.get(item_id).unwrap().clone();
       item.parent_id = Some(user.home_page_id.clone());
       item.spatial_position_gr = Some(Vector { x: 0, y: 0 });
-      compacted_store.add(item).await?;
+      write_item(&mut writer, &mut written_ids, &item).await?;
     }
     let mut compacted_container_ids = store
       .get_iter()
@@ -450,8 +460,6 @@ impl ItemDb {
       .map(|(_, item)| item.id.clone())
       .collect::<Vec<_>>();
     compacted_container_ids.sort();
-    let file = OpenOptions::new().append(true).open(&log_path).await?;
-    let mut writer = BufWriter::new(file);
     for container_id in compacted_container_ids {
       let version_record =
         ContainerVersionRecord { version: *container_versions.get(&container_id).unwrap_or(&0), container_id };
@@ -459,6 +467,7 @@ impl ItemDb {
       writer.write_all("\n".as_bytes()).await?;
     }
     writer.flush().await?;
+    writer.into_inner().sync_all().await?;
     let number_written = ordered_ids.len() + orphaned_ids.len();
     info!("Wrote {} items to the compacted log.", number_written);
 
