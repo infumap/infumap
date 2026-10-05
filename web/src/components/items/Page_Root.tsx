@@ -53,6 +53,7 @@ import { PageGroupBoxes } from "./PageGroupBoxes";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
+import { printScrollWritesSuppressed } from "../../print";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -171,7 +172,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   });
 
   const listRootScrollHandler = (_ev: Event) => {
-    if (!rootDiv || updatingRootScrollTop) { return; }
+    if (!rootDiv || updatingRootScrollTop || printScrollWritesSuppressed()) { return; }
 
     const listChildAreaH = props.visualElement.listChildAreaBoundsPx!.h;
     const viewportH = props.visualElement.listViewportBoundsPx?.h ?? pageFns().viewportBoundsPx().h;
@@ -425,7 +426,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   }
 
   const rootScrollHandler = (_ev: Event) => {
-    if (!rootDiv || updatingRootScrollTop) { return; }
+    if (!rootDiv || updatingRootScrollTop || printScrollWritesSuppressed()) { return; }
 
     const pageBoundsPx = props.visualElement.childAreaBoundsPx!;
     const desktopSizePx = props.visualElement.boundsPx;
