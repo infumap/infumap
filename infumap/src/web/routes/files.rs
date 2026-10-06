@@ -16,6 +16,8 @@
 
 use bytes::Bytes;
 use config::Config;
+use futures_util::FutureExt;
+use futures_util::future::{BoxFuture, Shared};
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::ImageReader;
@@ -29,6 +31,8 @@ use log::{debug, warn};
 use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::future::Future;
 use std::io::Cursor;
 use std::sync::Arc;
 use tokio::fs;
@@ -67,8 +71,12 @@ const LABEL_HIT_EXACT: &'static str = "hit_exact";
 const LABEL_HIT_ORIG: &'static str = "hit_orig";
 const LABEL_MISS_ORIG: &'static str = "miss_orig";
 const LABEL_MISS_CREATE: &'static str = "miss";
+const LABEL_MISS_SHARED: &'static str = "miss_shared";
+const LABEL_PARTIAL: &'static str = "partial";
 const LABEL_FULL: &'static str = "full";
 const LABEL_FAILED: &'static str = "failed";
+/// Marks a response as a smaller rendition of an image than requested. See partial_image_response.
+pub const PARTIAL_IMAGE_HEADER_NAME: &str = "x-infumap-partial-image";
 const TEXT_NOT_AVAILABLE_MESSAGE: &str = "[text not available]";
 const FRAGMENTS_NOT_AVAILABLE_MESSAGE: &str = "[fragments not available]";
 const GEO_INFO_NOT_AVAILABLE_MESSAGE: &str = "[geo info not available]";
@@ -345,6 +353,10 @@ async fn get_cached_resized_img(
   // Never want to upscale original image. Instead, want to respond with the original image without modification.
   let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
 
+  // The largest cached rendition too small to be the response. It can be sent as a partial response whilst the
+  // requested rendition is generated.
+  let mut smaller_width_maybe: Option<u32> = None;
+
   {
     if let Some(candidates) = storage_cache::keys_for_item_id(image_cache.clone(), &owner_id, &uid)? {
       let mut best_candidate_maybe = None;
@@ -362,16 +374,7 @@ async fn get_cached_resized_img(
                 }
               };
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_HIT_ORIG]).inc();
-              let (content_type, content_disposition) = response_content_headers(&filename, &original_mime_type_string);
-              return Ok(
-                Response::builder()
-                  .header(hyper::header::CONTENT_TYPE, content_type)
-                  .header("Content-Disposition", content_disposition)
-                  .header("X-Content-Type-Options", "nosniff")
-                  .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-                  .body(full_body(data))
-                  .unwrap(),
-              );
+              return Ok(original_image_response(data, &filename, &original_mime_type_string, &cache_control_value));
             } else {
               // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
               continue;
@@ -379,10 +382,13 @@ async fn get_cached_resized_img(
           }
           ImageSize::Width(candidate_width) => {
             let candidate_width = *candidate_width;
-            if respond_with_cached_original {
-              continue;
-            }
-            if (requested_width as f64 / candidate_width as f64) > (1.0 + max_scale_image_up_percent / 100.0) {
+            if respond_with_cached_original
+              || (requested_width as f64 / candidate_width as f64) > (1.0 + max_scale_image_up_percent / 100.0)
+            {
+              // Resized renditions are always smaller than the original, so in the original case, all are too small.
+              if smaller_width_maybe.map_or(true, |w| candidate_width > w) {
+                smaller_width_maybe = Some(candidate_width);
+              }
               continue;
             }
             if (requested_width as f64 / candidate_width as f64) < (1.0 - max_scale_image_down_percent / 100.0) {
@@ -415,15 +421,7 @@ async fn get_cached_resized_img(
           match storage_cache::get(image_cache.clone(), &owner_id, best_candidate.0).await? {
             Some(data) => {
               METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[metric_label]).inc();
-              return Ok(
-                Response::builder()
-                  .header(hyper::header::CONTENT_TYPE, "image/jpeg")
-                  .header("Content-Disposition", content_disposition_header(&uid, true))
-                  .header("X-Content-Type-Options", "nosniff")
-                  .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-                  .body(full_body(data))
-                  .unwrap(),
-              );
+              return Ok(resized_image_response(data, &uid, &cache_control_value));
             }
             None => {
               warn!("Image cache entry '{}' disappeared before it could be served.", candidate_for_log);
@@ -437,67 +435,187 @@ async fn get_cached_resized_img(
     }
   }
 
-  let original_file_bytes =
-    object::get(object_store, owner_id.clone(), String::from(&uid), &object_encryption_key).await?;
+  let job_key = ImageCacheKey {
+    item_id: uid.clone(),
+    size: if respond_with_cached_original { ImageSize::Original } else { ImageSize::Width(requested_width) },
+  }
+  .to_string();
+  let (job, job_was_started) = IMAGE_JOBS.get_or_start(
+    job_key,
+    fetch_and_cache_image(
+      object_store,
+      image_cache.clone(),
+      owner_id.clone(),
+      uid.clone(),
+      object_encryption_key,
+      original_dimensions_px,
+      if respond_with_cached_original { None } else { Some(requested_width) },
+    ),
+  );
 
-  if respond_with_cached_original {
-    let cache_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Original };
-    debug!("Caching then returning image '{}' (unmodified original).", cache_key);
-    METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
-    // it is possible there was more than one request for this, and another request won inserting into cache.
-    storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, original_file_bytes.clone()).await?;
-    let (content_type, content_disposition) = response_content_headers(&filename, &original_mime_type_string);
-    return Ok(
-      Response::builder()
-        .header(hyper::header::CONTENT_TYPE, content_type)
-        .header("Content-Disposition", content_disposition)
-        .header("X-Content-Type-Options", "nosniff")
-        .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-        .body(full_body(original_file_bytes))
-        .unwrap(),
-    );
+  if job_was_started {
+    // A request that finds a job in progress waits for it, rather than receiving another partial response. This is
+    // what the client relies on to get the full rendition when it follows up a partial response.
+    if let Some(smaller_width) = smaller_width_maybe {
+      let smaller_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(smaller_width) };
+      if let Some(data) = storage_cache::get(image_cache.clone(), &owner_id, smaller_key).await? {
+        debug!("Responding with partial image '{}_{}' whilst '{}' is generated.", uid, smaller_width, name);
+        METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_PARTIAL]).inc();
+        return Ok(partial_image_response(data, &uid));
+      }
+    }
+  } else {
+    METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_SHARED]).inc();
   }
 
-  // The permit is moved into the blocking task so it is held until the work completes, even if this
-  // request future is dropped (e.g. client disconnect) whilst the task is still running.
-  let permit = IMAGE_PROCESSING_SEMAPHORE
-    .clone()
-    .acquire_owned()
+  let data = job.await.map_err(|e| format!("Image job for '{}' failed: {}", name, e))?;
+  if respond_with_cached_original {
+    Ok(original_image_response(data, &filename, &original_mime_type_string, &cache_control_value))
+  } else {
+    Ok(resized_image_response(data, &uid, &cache_control_value))
+  }
+}
+
+fn original_image_response<T: Into<Bytes>>(
+  data: T,
+  filename: &str,
+  original_mime_type: &str,
+  cache_control_value: &str,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let (content_type, content_disposition) = response_content_headers(filename, original_mime_type);
+  Response::builder()
+    .header(hyper::header::CONTENT_TYPE, content_type)
+    .header("Content-Disposition", content_disposition)
+    .header("X-Content-Type-Options", "nosniff")
+    .header(hyper::header::CACHE_CONTROL, cache_control_value)
+    .body(full_body(data))
+    .unwrap()
+}
+
+fn resized_image_response<T: Into<Bytes>>(
+  data: T,
+  uid: &str,
+  cache_control_value: &str,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  Response::builder()
+    .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+    .header("Content-Disposition", content_disposition_header(uid, true))
+    .header("X-Content-Type-Options", "nosniff")
+    .header(hyper::header::CACHE_CONTROL, cache_control_value)
+    .body(full_body(data))
+    .unwrap()
+}
+
+/// A smaller rendition than requested, sent whilst the requested one is generated. It must not be cached by the
+/// browser, since it is not what the url refers to.
+fn partial_image_response(data: Vec<u8>, uid: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
+  Response::builder()
+    .header(hyper::header::CONTENT_TYPE, "image/jpeg")
+    .header("Content-Disposition", content_disposition_header(uid, true))
+    .header("X-Content-Type-Options", "nosniff")
+    .header(hyper::header::CACHE_CONTROL, "no-store")
+    .header(PARTIAL_IMAGE_HEADER_NAME, "1")
+    .body(full_body(data))
+    .unwrap()
+}
+
+/// Fetches the original image from the object store, resizes it to requested_width_maybe (None => the unmodified
+/// original), and inserts the result into the image cache.
+async fn fetch_and_cache_image(
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  owner_id: String,
+  uid: String,
+  object_encryption_key: String,
+  original_dimensions_px: Dimensions<i64>,
+  requested_width_maybe: Option<u32>,
+) -> Result<Bytes, String> {
+  let original_file_bytes = object::get(object_store, owner_id.clone(), uid.clone(), &object_encryption_key)
     .await
-    .map_err(|e| format!("Image resize semaphore closed: {}", e))?;
-  let uid_for_resize = uid.clone();
-  let name_for_resize = name.to_owned();
-  let data = spawn_blocking(move || {
-    let _permit = permit;
-    resize_image_to_jpeg(
-      original_file_bytes,
-      &uid_for_resize,
-      &name_for_resize,
-      original_dimensions_px,
-      requested_width,
-    )
-  })
-  .await
-  .map_err(|e| format!("Image resize task for '{}' failed: {}", name, e))??;
+    .map_err(|e| e.to_string())?;
 
-  debug!("Inserting image '{}' into cache and using as response.", name);
+  let (cache_key, data) = match requested_width_maybe {
+    None => {
+      METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
+      (ImageCacheKey { item_id: uid.clone(), size: ImageSize::Original }, original_file_bytes)
+    }
+    Some(requested_width) => {
+      // The permit is moved into the blocking task so it is held until the work completes.
+      let permit = IMAGE_PROCESSING_SEMAPHORE
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|e| format!("Image resize semaphore closed: {}", e))?;
+      let uid_for_resize = uid.clone();
+      let name = format!("{}_{}", uid, requested_width);
+      let data = spawn_blocking(move || {
+        let _permit = permit;
+        resize_image_to_jpeg(original_file_bytes, &uid_for_resize, &name, original_dimensions_px, requested_width)
+      })
+      .await
+      .map_err(|e| format!("Image resize task failed: {}", e))?
+      .map_err(|e| e.to_string())?;
+      METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
+      (ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(requested_width) }, data)
+    }
+  };
 
-  let cache_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(requested_width) };
-  // it is possible there was more than one request for this, and another request won inserting into cache..
+  debug!("Inserting image '{}' into cache.", cache_key);
+  let cache_key_for_log = cache_key.to_string();
+  // it is possible another request (e.g. from before a restart, or for an approximate size) inserted this already.
   storage_cache::put_if_not_exist(image_cache, &owner_id, cache_key, data.clone())
     .await
-    .map_err(|e| format!("Failed to insert image ({}, {}) into image cache: {}", uid, requested_width, e.message()))?;
+    .map_err(|e| format!("Failed to insert image '{}' into image cache: {}", cache_key_for_log, e.message()))?;
+  Ok(Bytes::from(data))
+}
 
-  METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
-  Ok(
-    Response::builder()
-      .header(hyper::header::CONTENT_TYPE, "image/jpeg")
-      .header("Content-Disposition", content_disposition_header(&uid, true))
-      .header("X-Content-Type-Options", "nosniff")
-      .header(hyper::header::CACHE_CONTROL, cache_control_value.clone())
-      .body(full_body(data))
-      .unwrap(),
-  )
+type ImageJob = Shared<BoxFuture<'static, Result<Bytes, String>>>;
+
+/// Image renditions currently being fetched / generated, keyed by cache key. Concurrent requests for the same
+/// rendition share one job. Jobs run as tasks, so they complete (and their result is cached) even if no request is
+/// waiting on them any more, e.g. after a partial response, or a client disconnect.
+struct ImageJobs {
+  jobs: std::sync::Mutex<HashMap<String, ImageJob>>,
+}
+
+static IMAGE_JOBS: Lazy<Arc<ImageJobs>> = Lazy::new(|| Arc::new(ImageJobs::new()));
+
+impl ImageJobs {
+  fn new() -> ImageJobs {
+    ImageJobs { jobs: std::sync::Mutex::new(HashMap::new()) }
+  }
+
+  /// Returns the job in progress for key if there is one, else starts one that runs work. The bool is true if the
+  /// job was started by this call.
+  fn get_or_start<F>(self: &Arc<Self>, key: String, work: F) -> (ImageJob, bool)
+  where
+    F: Future<Output = Result<Bytes, String>> + Send + 'static,
+  {
+    let mut jobs = self.jobs.lock().unwrap();
+    if let Some(job) = jobs.get(&key) {
+      return (job.clone(), false);
+    }
+    // Removes the job when the task ends, including if it panics.
+    struct RemoveOnDrop {
+      jobs: Arc<ImageJobs>,
+      key: String,
+    }
+    impl Drop for RemoveOnDrop {
+      fn drop(&mut self) {
+        self.jobs.jobs.lock().unwrap().remove(&self.key);
+      }
+    }
+    let remove_on_drop = RemoveOnDrop { jobs: self.clone(), key: key.clone() };
+    // The lock is held until the job is inserted, so the task cannot remove it before then.
+    let handle = tokio::spawn(async move {
+      let _remove_on_drop = remove_on_drop;
+      work.await
+    });
+    let job =
+      async move { handle.await.unwrap_or_else(|e| Err(format!("Image job task failed: {}", e))) }.boxed().shared();
+    jobs.insert(key, job.clone());
+    (job, true)
+  }
 }
 
 /// CPU intensive - must not be called on an async worker thread.
@@ -926,4 +1044,84 @@ fn item_fragment_filename(uid: &str, ordinal: usize) -> String {
 
 fn calc_cache_control(max_age: i64) -> String {
   if max_age == 0 { "no-cache".to_owned() } else { format!("private, max-age={}", max_age) }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use std::sync::atomic::{AtomicUsize, Ordering};
+  use tokio::sync::oneshot;
+
+  fn job_count(jobs: &Arc<ImageJobs>) -> usize {
+    jobs.jobs.lock().unwrap().len()
+  }
+
+  #[tokio::test]
+  async fn concurrent_requests_share_one_job() {
+    let jobs = Arc::new(ImageJobs::new());
+    let runs = Arc::new(AtomicUsize::new(0));
+    let (tx, rx) = oneshot::channel::<()>();
+
+    let runs_for_work = runs.clone();
+    let (job1, started1) = jobs.get_or_start("a_100".to_owned(), async move {
+      runs_for_work.fetch_add(1, Ordering::SeqCst);
+      rx.await.unwrap();
+      Ok(Bytes::from_static(b"data"))
+    });
+    let runs_for_work = runs.clone();
+    let (job2, started2) = jobs.get_or_start("a_100".to_owned(), async move {
+      runs_for_work.fetch_add(1, Ordering::SeqCst);
+      Ok(Bytes::from_static(b"other"))
+    });
+    assert!(started1);
+    assert!(!started2);
+
+    tx.send(()).unwrap();
+    assert_eq!(job1.await.unwrap(), Bytes::from_static(b"data"));
+    assert_eq!(job2.await.unwrap(), Bytes::from_static(b"data"));
+    assert_eq!(runs.load(Ordering::SeqCst), 1);
+  }
+
+  #[tokio::test]
+  async fn job_is_removed_when_complete() {
+    let jobs = Arc::new(ImageJobs::new());
+    let (job, _) = jobs.get_or_start("a_100".to_owned(), async { Ok(Bytes::from_static(b"data")) });
+    job.await.unwrap();
+    assert_eq!(job_count(&jobs), 0);
+    let (_, started) = jobs.get_or_start("a_100".to_owned(), async { Ok(Bytes::from_static(b"data")) });
+    assert!(started);
+  }
+
+  #[tokio::test]
+  async fn job_runs_to_completion_when_not_awaited() {
+    let jobs = Arc::new(ImageJobs::new());
+    let (tx, rx) = oneshot::channel::<()>();
+    let (job, _) = jobs.get_or_start("a_100".to_owned(), async move {
+      tx.send(()).unwrap();
+      Ok(Bytes::from_static(b"data"))
+    });
+    drop(job);
+    rx.await.unwrap();
+  }
+
+  #[tokio::test]
+  async fn failed_job_reports_error_and_is_removed() {
+    let jobs = Arc::new(ImageJobs::new());
+    let (job, _) = jobs.get_or_start("a_100".to_owned(), async { Err("failed".to_owned()) });
+    assert_eq!(job.await.unwrap_err(), "failed");
+    assert_eq!(job_count(&jobs), 0);
+  }
+
+  #[tokio::test]
+  async fn panicked_job_reports_error_and_is_removed() {
+    let jobs = Arc::new(ImageJobs::new());
+    let (job, _) = jobs.get_or_start("a_100".to_owned(), async {
+      if true {
+        panic!("deliberate test panic");
+      }
+      Ok(Bytes::new())
+    });
+    assert!(job.await.unwrap_err().starts_with("Image job task failed"));
+    assert_eq!(job_count(&jobs), 0);
+  }
 }

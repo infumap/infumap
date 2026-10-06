@@ -303,7 +303,26 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         const priority = isPopup()
           ? ImageFetchPriority.High
           : untrack(() => isInsideTranslucentPage(props.visualElement)) ? ImageFetchPriority.Low : ImageFetchPriority.Normal;
-        getImage(imgSrcOnRequest, imgOriginOnRequest, priority)
+        // A lower resolution rendition, shown in place of the placeholder until the requested one arrives.
+        const onInterim = (interimObjectUrl: string) => {
+          try {
+            if (props.visualElement == null) { return; }
+          } catch (e) {
+            // expected behavior when the component is unmounted.
+            return;
+          }
+          // Not if superseded by a later request, or something better than the placeholder is shown. Never when
+          // printing, which must wait for the requested resolution.
+          if (currentImgSrc != imgSrcOnRequest ||
+              imageIdOnRequest != props.visualElement.displayItem.id ||
+              !isShowingThumbnail.get() ||
+              store.printMode.get()) {
+            return;
+          }
+          imgSrcSignal.set(interimObjectUrl);
+          isShowingThumbnail.set(false);
+        };
+        getImage(imgSrcOnRequest, imgOriginOnRequest, priority, onInterim)
           .then((objectUrl) => {
             try {
               // props.visualElement is actually a function call, which will fail if the component is unmounted.
