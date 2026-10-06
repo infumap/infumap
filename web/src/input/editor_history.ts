@@ -243,7 +243,7 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
       if (isStructural) {
         // Includes chained composite deletion and any last debounced text save.
         while (writes.size) { await Promise.allSettled([...writes]); }
-        if (!await store.textEdit.flush()) { message("Save the pending text changes before undoing a paragraph edit."); return; }
+        if (!await store.textEdit.flush()) { message("Save the pending text changes before undoing a paragraph edit"); return; }
         if (epoch !== startedEpoch || failedWrite) { return; }
         if (!matches(entry, forward)) { clear(); message("These items changed outside the editor. Undo history has been cleared."); return; }
       }

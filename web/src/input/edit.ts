@@ -414,7 +414,7 @@ function maybeBuildLinearSelectionDeleteSpec(store: StoreContextModel, range: Ab
   };
 }
 
-const STRUCTURAL_TEXT_BOUNDARY_MESSAGE = "Only adjacent, directly editable local notes without attachments or groups can be joined or deleted together.";
+const STRUCTURAL_TEXT_BOUNDARY_MESSAGE = "Only adjacent, directly editable local notes without attachments or groups can be joined or deleted together";
 
 function stopStructuralTextEvent(ev: Event): void {
   ev.preventDefault();
@@ -646,7 +646,7 @@ export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: In
   if (targetRanges.length > 0 && guardLinearSelection(store, ev, element, targetRanges, deleting)) { return; }
   if (composing) { return; }
   if (ev.inputType == "insertFromDrop" || ev.inputType == "deleteByDrag") {
-    blockStructuralTextEvent(store, ev, "Move text within one item using cut and paste.");
+    blockStructuralTextEvent(store, ev, "Move text within one item using cut and paste");
     return;
   }
   if (ev.inputType.startsWith("delete") && (ev.inputType.endsWith("Backward") || ev.inputType.endsWith("Forward"))) {
@@ -667,7 +667,7 @@ export function edit_structuralClipboardGuard(store: StoreContextModel, ev: Clip
 export function edit_structuralDropGuard(store: StoreContextModel, ev: DragEvent): void {
   if (store.editorHistory.busy()) { stopStructuralTextEvent(ev); return; }
   if (linearEditorForEvent(store, ev) != null) {
-    blockStructuralTextEvent(store, ev, "Move text within one item using cut and paste.");
+    blockStructuralTextEvent(store, ev, "Move text within one item using cut and paste");
   }
 }
 
@@ -1463,16 +1463,16 @@ export function edit_replaceNoteSelection(store: StoreContextModel, ev: Event, t
   const info = store.overlay.textEditInfo();
   if (element == null || info?.itemType != ItemType.Note || info.colNum != null) { return false; }
   if (store.textEdit.activeSession()?.isComposing) {
-    return blockStructuralTextEvent(store, ev, "Finish composing text before replacing the selection.");
+    return blockStructuralTextEvent(store, ev, "Finish composing text before replacing the selection");
   }
   const ranges = currentSelectionRanges();
   if (ranges.length != 1 || !rangeIsInsideEditor(ranges[0], element)) {
-    return blockStructuralTextEvent(store, ev, "Replace text within one item at a time.");
+    return blockStructuralTextEvent(store, ev, "Replace text within one item at a time");
   }
   const ve = VesCache.current.readNode(info.itemPath);
   const item = itemState.get(VeFns.veidFromPath(info.itemPath).itemId);
   if (item == null || !isNote(item) || !itemCanEdit(item) || ve == null || !itemCanEdit(ve.displayItem)) {
-    return blockStructuralTextEvent(store, ev, "This note is read-only.");
+    return blockStructuralTextEvent(store, ev, "This note is read-only");
   }
 
   updateNoteTextSelectionInfoFromDom(store, true);

@@ -270,6 +270,8 @@ function popupTitleTargetSignalMaybe() {
   return VesCache.render.getNode(targetPath) ?? null;
 }
 
+const CANT_DROP_HERE_MESSAGE = "Can't drop here";
+
 function showMoveDropRejectedMessage(store: StoreContextModel, text: string, durationMs: number = 5000): void {
   store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
   window.setTimeout(() => {
@@ -297,7 +299,7 @@ function rejectManualDropTargetIfNeeded(store: StoreContextModel, targetVe: Visu
     return false;
   }
   rollbackInvalidMove(store);
-  showMoveDropRejectedMessage(store, "Can't add items to this page.");
+  showMoveDropRejectedMessage(store, "Can't add items to this page");
   MouseActionState.set(null);
   arrangeNow(store, "mouse-up-reject-manual-child-add-disabled");
   return true;
@@ -955,17 +957,20 @@ function movingIgnoreIds(activeVisualElement: VisualElement): Array<string> {
   return movingHitIgnoreIds(activeVisualElement, MouseActionState.getGroupMoveItems());
 }
 
-function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
+/**
+ * Returns a message explaining why the current drop target is rejected, or null if the drop is allowed.
+ */
+function currentDropTargetRejectionMessage(store: StoreContextModel): string | null {
   const activeVisualElement = MouseActionState.getActiveVisualElement();
   if (!activeVisualElement) {
-    return false;
+    return null;
   }
 
   const textDocumentMaterializeMove = MouseActionState.getTextDocumentMaterializeMove() != null;
   const itemCopyMove = MouseActionState.getItemCopyMove() != null;
   if (textDocumentMaterializeMove &&
     (MouseActionState.getMoveOverAttachHitboxPath() != null || MouseActionState.getMoveOverAttachCompositePath() != null)) {
-    return true;
+    return CANT_DROP_HERE_MESSAGE;
   }
 
   if (itemCopyMove) {
@@ -973,8 +978,9 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
       MouseActionState.readMoveOverAttachHitbox() ??
       MouseActionState.readMoveOverAttachComposite();
     if (attachmentTarget != null) {
-      return attachmentTarget.displayItem.origin != null ||
-        !itemCanEdit(VeFns.treeItem(attachmentTarget));
+      return attachmentTarget.displayItem.origin != null || !itemCanEdit(VeFns.treeItem(attachmentTarget))
+        ? CANT_DROP_HERE_MESSAGE
+        : null;
     }
   }
 
@@ -988,19 +994,21 @@ function shouldRejectCurrentDropTarget(store: StoreContextModel): boolean {
   );
   const resolvedTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
   if (moveTargetWouldCreateRelationshipCycle(hitInfo, resolvedTarget, activeVisualElement, MouseActionState.getGroupMoveItems())) {
-    return true;
+    return "Can't drop an item inside itself";
   }
   if (resolvedTarget.validity != "valid") {
-    return true;
+    return CANT_DROP_HERE_MESSAGE;
   }
 
   if (textDocumentMaterializeMove || itemCopyMove) {
     return resolvedTarget.hoverContainerVe.displayItem.origin != null ||
       !isContainer(resolvedTarget.hoverContainerVe.displayItem) ||
-      !itemCanEdit(resolvedTarget.hoverContainerVe.displayItem);
+      !itemCanEdit(resolvedTarget.hoverContainerVe.displayItem)
+      ? CANT_DROP_HERE_MESSAGE
+      : null;
   }
 
-  return false;
+  return null;
 }
 
 function calendarDropDateTime(store: StoreContextModel, calendarPageVe: VisualElement, activeItem: PositionalItem): number {
@@ -1428,9 +1436,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
 
 function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: PositionalItem) {
-  if (shouldRejectCurrentDropTarget(store)) {
+  const dropRejectionMessage = currentDropTargetRejectionMessage(store);
+  if (dropRejectionMessage != null) {
     rollbackInvalidMove(store);
-    showMoveDropRejectedMessage(store, "Can't drop here.");
+    showMoveDropRejectedMessage(store, dropRejectionMessage);
     MouseActionState.set(null);
     arrangeNow(store, "mouse-up-reject-invalid-drop-target");
     return;
@@ -2038,9 +2047,9 @@ function mouseUpHandler_moving_compositeToComposite(store: StoreContextModel, ac
 function rejectCompositeIntoCompositeIfNeeded(store: StoreContextModel, activeComposite: CompositeItem): boolean {
   let message: string | null = null;
   if (MouseActionState.getItemCopyMove() != null) {
-    message = "Can't copy a composite into another composite.";
+    message = "Can't copy a composite into another composite";
   } else if (CompositeFns.hasOwnTitle(activeComposite)) {
-    message = "Can't merge a titled composite into another composite.";
+    message = "Can't merge a titled composite into another composite";
   }
   if (message == null) { return false; }
   rollbackInvalidMove(store);
@@ -2105,7 +2114,7 @@ function mouseUpHandler_moving_toTable_attachmentCell(store: StoreContextModel, 
   const displayedChild = TableFns.tableAttachmentTargetAtRow(store, overContainerVe, rowNumber);
   if (displayedChild == null) {
     rollbackInvalidMove(store);
-    showMoveDropRejectedMessage(store, "Can't drop here.");
+    showMoveDropRejectedMessage(store, CANT_DROP_HERE_MESSAGE);
     MouseActionState.set(null);
     arrangeNow(store, "mouse-up-table-attachment-target-missing");
     return;
