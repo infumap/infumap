@@ -23,7 +23,7 @@ import { VisualElementProps } from "../VisualElement";
 import { PasswordFns, asPasswordItem } from "../../items/password-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, isInsideTranslucentPage, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { linkHasTriangle } from "../../layout/link-triangle";
@@ -81,13 +81,16 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
     ? boundsPx().w - oneBlockWidthPx() - trailingControlsWidthPx()
     : boundsPx().w - oneBlockWidthPx() * PADDING_PROP - trailingControlsWidthPx();
 
-  const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
+  const iconsAreInert = () => isInsideTranslucentPage(props.visualElement);
+  const eatMouseEvent = (ev: MouseEvent) => { if (!iconsAreInert()) { ev.stopPropagation(); } }
 
   const copyClickHandler = () => {
+    if (iconsAreInert()) { return; }
     navigator.clipboard.writeText(passwordItem().text);
   }
   const isVisible = () => store.currentVisiblePassword.get() == passwordItem().id;
   const VisibleClickHandler = () => {
+    if (iconsAreInert()) { return; }
     if (!isVisible()) {
       store.currentVisiblePassword.set(passwordItem().id);
     } else {
@@ -179,7 +182,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       onmousedown={eatMouseEvent}
       onmouseup={eatMouseEvent}
       onclick={copyClickHandler}>
-      <i class={`fas fa-copy cursor-pointer`} />
+      <i class={`fas fa-copy ${iconsAreInert() ? "" : "cursor-pointer"}`} />
     </div>;
 
   const renderVisibilityToggle = () =>
@@ -190,7 +193,7 @@ export const PasswordLineItem: Component<VisualElementProps> = (props: VisualEle
       onmousedown={eatMouseEvent}
       onmouseup={eatMouseEvent}
       onclick={VisibleClickHandler}>
-      <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
+      <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} ${iconsAreInert() ? "" : "cursor-pointer"}`} />
     </div>;
 
   const renderLinkMarkingMaybe = () =>

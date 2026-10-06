@@ -38,7 +38,7 @@ import { HitboxFlags } from "../../layout/hitbox";
 import { desktopPopupIconTextIndentPx } from "../../layout/text";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { MouseAction, MouseActionState } from "../../input/state";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asLinkItem, isLink } from "../../items/link-item";
@@ -173,8 +173,10 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
     return (dx + dy) <= RESIZE_BOX_SIZE_PX;
   };
 
+  const iconsAreInert = () => isInsideTranslucentPage(props.visualElement);
+
   const iconMouseDownHandler = (ev: MouseEvent) => {
-    if (isInsideResizeHotspot(ev)) {
+    if (iconsAreInert() || isInsideResizeHotspot(ev)) {
       return;
     }
     if (!isInComposite()) {
@@ -183,7 +185,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   }
 
   const iconMouseUpHandler = (ev: MouseEvent) => {
-    if (isInsideResizeHotspot(ev)) {
+    if (iconsAreInert() || isInsideResizeHotspot(ev)) {
       return;
     }
     if (MouseActionState.empty()) {
@@ -198,7 +200,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   }
 
   const copyClickHandler = (ev: MouseEvent) => {
-    if (isInsideResizeHotspot(ev)) {
+    if (iconsAreInert() || isInsideResizeHotspot(ev)) {
       return;
     }
     navigator.clipboard.writeText(passwordItem().text);
@@ -206,7 +208,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
   const isVisible = () => store.currentVisiblePassword.get() == passwordItem().id;
   const VisibleClickHandler = (ev: MouseEvent) => {
-    if (isInsideResizeHotspot(ev)) {
+    if (iconsAreInert() || isInsideResizeHotspot(ev)) {
       return;
     }
     if (!isVisible()) {
@@ -358,7 +360,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         onmousedown={iconMouseDownHandler}
         onmouseup={iconMouseUpHandler}
         onclick={copyClickHandler}>
-        <i class={`fas fa-copy cursor-pointer`} />
+        <i class={`fas fa-copy ${iconsAreInert() ? "" : "cursor-pointer"}`} />
       </div>
       <div class="absolute text-center text-slate-600 print:hidden"
         style={`left: ${boundsPx().w - oneBlockWidthPx() * 1.8}px; top: ${boundsPx().h * PADDING_PROP}px; ` +
@@ -367,7 +369,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         onmousedown={iconMouseDownHandler}
         onmouseup={iconMouseUpHandler}
         onclick={VisibleClickHandler}>
-        <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} cursor-pointer`} />
+        <i class={`fas ${isVisible() ? 'fa-eye-slash' : 'fa-eye'} ${iconsAreInert() ? "" : "cursor-pointer"}`} />
       </div>
       <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />

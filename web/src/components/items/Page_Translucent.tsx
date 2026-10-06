@@ -347,7 +347,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           {pageFns().renderCatalogFooterHostMaybe()}
           {pageFns().renderGridLinesMaybe()}
           {pageFns().renderCatalogResultHoverMaybe()}
-          {pageFns().renderCatalogMetadataMaybe()}
+          {pageFns().renderCatalogMetadataMaybe(pageFns().hasCatalogResultContext())}
           {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>

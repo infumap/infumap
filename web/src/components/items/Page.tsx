@@ -508,8 +508,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       );
     },
 
-    renderCatalogMetadataMaybe: () =>
-      <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
+    /** Pass textInteractive = false for translucent pages (other than query results), which must not respond to the mouse beyond opening the page. */
+    renderCatalogMetadataMaybe: (textInteractive: boolean = true) => {
+      const textClass = textInteractive ? "pointer-events-auto select-text" : "";
+      const textStyle = textInteractive ? "cursor: text; user-select: text; " : "";
+      const textMouseHandler = textInteractive ? stopTextSelectionMouseEvent : undefined;
+      return <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
         <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVeSignal => {
           const childVe = () => childVeSignal.get();
           const isMouseOverRow = () =>
@@ -586,12 +590,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                 style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                   `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: ${CATALOG_DETAIL_TOP_PADDING_PX}px;`}>
                 <div class="min-w-0 w-full flex flex-col gap-[2px]">
-                  <div class="min-w-0 pointer-events-auto select-text truncate whitespace-nowrap"
-                    style={`cursor: text; font-size: ${CATALOG_DETAIL_PATH_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; user-select: text;`}
-                    onMouseDown={stopTextSelectionMouseEvent}
-                    onMouseMove={stopTextSelectionMouseEvent}
-                    onMouseUp={stopTextSelectionMouseEvent}
-                    onClick={stopTextSelectionMouseEvent}>
+                  <div class={`min-w-0 ${textClass} truncate whitespace-nowrap`}
+                    style={`${textStyle}font-size: ${CATALOG_DETAIL_PATH_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER};`}
+                    onMouseDown={textMouseHandler}
+                    onMouseMove={textMouseHandler}
+                    onMouseUp={textMouseHandler}
+                    onClick={textMouseHandler}>
                     <For each={pathSegments()}>{(segment, idx) =>
                       <Show when={segment.itemType != ItemType.Composite}>
                         <span class="inline-flex items-center">
@@ -605,12 +609,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     }</For>
                   </div>
                   <For each={visibleFragmentMatches()}>{match =>
-                    <div class="min-w-0 w-full pointer-events-auto select-text text-slate-700"
-                      style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; user-select: text;`}
-                      onMouseDown={stopTextSelectionMouseEvent}
-                      onMouseMove={stopTextSelectionMouseEvent}
-                      onMouseUp={stopTextSelectionMouseEvent}
-                      onClick={stopTextSelectionMouseEvent}>
+                    <div class={`min-w-0 w-full ${textClass} text-slate-700`}
+                      style={`${textStyle}font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}
+                      onMouseDown={textMouseHandler}
+                      onMouseMove={textMouseHandler}
+                      onMouseUp={textMouseHandler}
+                      onClick={textMouseHandler}>
                       <Show when={match.pageLabel}>
                         <span style="font-weight: 600; color: #475569; margin-right: 12px;">{match.pageLabel}</span>
                       </Show>
@@ -621,7 +625,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         </Show>
                         <Show when={match.href}>
                           <a
-                            class="pointer-events-auto"
+                            class={textInteractive ? "pointer-events-auto" : ""}
                             style={`align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; font-size: 12px; font-style: normal; height: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px; justify-content: center; line-height: 1; margin-left: ${CATALOG_SEARCH_SNIPPET_LINK_GAP_PX}px; text-decoration: none; vertical-align: -1px; width: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px;`}
                             href={match.href ?? ""}
                             target="_blank"
@@ -637,12 +641,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                     </div>
                   }</For>
                   <Show when={metadataLines().length > 0}>
-                    <div class="min-w-0 pointer-events-auto select-text flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700"
-                      style={`cursor: text; font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px; user-select: text;`}
-                      onMouseDown={stopTextSelectionMouseEvent}
-                      onMouseMove={stopTextSelectionMouseEvent}
-                      onMouseUp={stopTextSelectionMouseEvent}
-                      onClick={stopTextSelectionMouseEvent}>
+                    <div class={`min-w-0 ${textClass} flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700`}
+                      style={`${textStyle}font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}
+                      onMouseDown={textMouseHandler}
+                      onMouseMove={textMouseHandler}
+                      onMouseUp={textMouseHandler}
+                      onClick={textMouseHandler}>
                       <For each={metadataLines()}>{line =>
                         <span class="shrink-0">{line}</span>
                       }</For>
@@ -653,7 +657,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             </>
           );
         }}</For>
-      </Show>,
+      </Show>;
+    },
 
     renderMoveOverAnnotationMaybe: () => {
       if (!store.perVe.getMovingItemIsOver(pageFns.vePath())) {

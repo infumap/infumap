@@ -23,7 +23,7 @@ import { asNoteItem, NoteFns } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, isInsideTranslucentPage, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -112,9 +112,11 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const renderedInlineMarks = () => noteItem().inlineMarks;
   const renderedUrls = () => noteItem().urls;
 
-  const eatMouseEvent = (ev: MouseEvent) => { ev.stopPropagation(); }
+  const copyIconIsInert = () => isInsideTranslucentPage(props.visualElement);
+  const eatMouseEvent = (ev: MouseEvent) => { if (!copyIconIsInert()) { ev.stopPropagation(); } }
 
   const copyClickHandler = () => {
+    if (copyIconIsInert()) { return; }
     const url = NoteFns.wholeTitleUrl(noteItem());
     if (url == null) {
       navigator.clipboard.writeText(noteItem().title);
@@ -255,7 +257,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         onmousedown={eatMouseEvent}
         onmouseup={eatMouseEvent}
         onclick={copyClickHandler}>
-        <i class={`fas fa-copy cursor-pointer`} />
+        <i class={`fas fa-copy ${copyIconIsInert() ? "" : "cursor-pointer"}`} />
       </div>
     </Show>;
 
