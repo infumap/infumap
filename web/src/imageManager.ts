@@ -34,6 +34,9 @@ const CLEANUP_AFTER_MS: number = 30000;
 // 202 responses are cached by the browser. Servers that do not support this ignore the header.
 const DEFER_IMAGE_HEADER_NAME = "x-infumap-image-defer";
 const PARTIAL_IMAGE_HEADER_NAME = "x-infumap-partial-image";
+// Sent with the initial request for a high priority image, so that generating it on the server does not queue behind
+// other images.
+const HIGH_PRIORITY_IMAGE_HEADER_NAME = "x-infumap-image-priority-high";
 
 
 export enum ImageFetchPriority {
@@ -56,6 +59,7 @@ interface ImageFetchTask {
 
 
 let waiting: Array<ImageFetchTask> = [];
+let highPriorityFetchesInProgress = 0;
 let fetchInProgress: Map<string, Promise<string | void>> = new Map<string, Promise<string | void>>(); // cache key -> fetch promise.
 let waitingForCleanup: Map<string, number> = new Map<string, number>(); // cache key => timeoutId.
 
@@ -126,11 +130,13 @@ export function getImage(
   });
 };
 
-// All initial requests come before all follow-up requests, then by priority.
-const taskRank = (task: ImageFetchTask): number => (task.isFollowUp ? 3 : 0) + task.priority;
+// High priority requests (initial or follow-up) come first. Then all other initial requests come before all other
+// follow-up requests, then by priority.
+const taskRank = (task: ImageFetchTask): number =>
+  task.priority == ImageFetchPriority.High ? 0 : (task.isFollowUp ? 3 : 0) + task.priority;
 
 function enqueue(task: ImageFetchTask) {
-  if (!task.isFollowUp && task.priority == ImageFetchPriority.High) {
+  if (task.priority == ImageFetchPriority.High) {
     // Most recently requested first: the user is most likely to be looking at the latest popup.
     waiting = [task, ...waiting];
     return;
@@ -152,8 +158,19 @@ function revokeInterimLater(task: ImageFetchTask) {
 }
 
 
+function canStartNextWaiting(): boolean {
+  if (waiting.length == 0) { return false; }
+  // High priority fetches are started immediately, and whilst any are in progress no others are started, so they get
+  // as much of the bandwidth as possible.
+  if (waiting[0].priority == ImageFetchPriority.High) { return true; }
+  return highPriorityFetchesInProgress == 0 && fetchInProgress.size < MAX_CONCURRENT_FETCH_REQUESTS;
+}
+
 function serveWaiting() {
-  if (fetchInProgress.size < MAX_CONCURRENT_FETCH_REQUESTS && waiting.length > 0) {
+  if (!canStartNextWaiting() && debug) {
+    console.debug(`serveWaiting noop: fetchInProgress.size: ${fetchInProgress.size}. waiting.length: ${waiting.length}.`);
+  }
+  while (canStartNextWaiting()) {
     const task = waiting.shift() as ImageFetchTask;
     if (debug) { console.debug(`executing waiting fetch task: ${task.key}. ` + debugMsg(task.key) + containerDebugCounts()); }
     if (objectUrls.has(task.key) && objectUrls.get(task.key) != null) {
@@ -161,80 +178,87 @@ function serveWaiting() {
       revokeInterimLater(task);
       task.resolve(objectUrls.get(task.key) as string);
       if (debug) { console.debug(`previous waiting task satisfied a subsequent request: ${task.key}.`) }
-      serveWaiting();
+      continue;
+    }
+    startFetch(task);
+  }
+}
+
+function startFetch(task: ImageFetchTask) {
+  const isHighPriority = task.priority == ImageFetchPriority.High;
+  if (isHighPriority) { highPriorityFetchesInProgress += 1; }
+  const url = task.baseUrlMaybe == null
+    ? task.path
+    : new URL(task.path, task.baseUrlMaybe).href;
+  const headers: Record<string, string> = {};
+  if (task.baseUrlMaybe != null) {
+    appendRemoteSessionHeader(task.baseUrlMaybe, headers);
+  }
+  if (!task.isFollowUp) {
+    headers[DEFER_IMAGE_HEADER_NAME] = "1";
+    if (isHighPriority) {
+      headers[HIGH_PRIORITY_IMAGE_HEADER_NAME] = "1";
+    }
+  }
+  const queueFollowUp = () => {
+    fetchInProgress.delete(task.key);
+    if (!((objectUrlsRefCount.get(task.key) ?? 0) > 0)) {
+      // Released whilst the initial request was in progress, so no longer required.
+      if (debug) { console.debug(`follow-up not required: ${task.key}.`); }
+      revokeInterimLater(task);
       return;
     }
-    const url = task.baseUrlMaybe == null
-      ? task.path
-      : new URL(task.path, task.baseUrlMaybe).href;
-    const headers: Record<string, string> = {};
-    if (task.baseUrlMaybe != null) {
-      appendRemoteSessionHeader(task.baseUrlMaybe, headers);
-    }
-    if (!task.isFollowUp) {
-      headers[DEFER_IMAGE_HEADER_NAME] = "1";
-    }
-    const queueFollowUp = () => {
-      fetchInProgress.delete(task.key);
-      if (!((objectUrlsRefCount.get(task.key) ?? 0) > 0)) {
-        // Released whilst the initial request was in progress, so no longer required.
-        if (debug) { console.debug(`follow-up not required: ${task.key}.`); }
-        revokeInterimLater(task);
+    enqueue({ ...task, isFollowUp: true });
+  };
+  const promise = fetch(url, { headers })
+    .then(async (resp) => {
+      if (task.baseUrlMaybe != null) {
+        applyRotatedRemoteSessionHeader(task.baseUrlMaybe, resp);
+      }
+      if (!task.isFollowUp && resp.status == 202) {
+        if (debug) { console.debug(`image pending: ${task.key}.`); }
+        queueFollowUp();
         return;
       }
-      enqueue({ ...task, isFollowUp: true });
-    };
-    const promise = fetch(url, { headers })
-      .then(async (resp) => {
-        if (task.baseUrlMaybe != null) {
-          applyRotatedRemoteSessionHeader(task.baseUrlMaybe, resp);
+      if (!resp.ok || resp.status != 200) {
+        throw new Error(`Image fetch request failed: ${resp.status}`);
+      }
+      if (!task.isFollowUp && resp.headers.get(PARTIAL_IMAGE_HEADER_NAME) != null) {
+        if (debug) { console.debug(`partial image received: ${task.key}.`); }
+        task.interimObjectUrl = URL.createObjectURL(await resp.blob());
+        try {
+          task.onInterim?.(task.interimObjectUrl);
+        } catch (e) {
+          console.warn(`Interim image handler for '${task.key}' failed:`, e);
         }
-        if (!task.isFollowUp && resp.status == 202) {
-          if (debug) { console.debug(`image pending: ${task.key}.`); }
-          queueFollowUp();
-          return;
-        }
-        if (!resp.ok || resp.status != 200) {
-          throw new Error(`Image fetch request failed: ${resp.status}`);
-        }
-        if (!task.isFollowUp && resp.headers.get(PARTIAL_IMAGE_HEADER_NAME) != null) {
-          if (debug) { console.debug(`partial image received: ${task.key}.`); }
-          task.interimObjectUrl = URL.createObjectURL(await resp.blob());
-          try {
-            task.onInterim?.(task.interimObjectUrl);
-          } catch (e) {
-            console.warn(`Interim image handler for '${task.key}' failed:`, e);
-          }
-          queueFollowUp();
-          return;
-        }
-        const blob = await resp.blob();
-        fetchInProgress.delete(task.key);
-        revokeInterimLater(task);
-        if (objectUrls.get(task.key) != null) {
-          // it's possible another fetch request for the same filename completed whilst this one was waiting for the blob.
-          if (debug) { console.debug(`fetched complete but task already resolved: ${task.key}.`); }
-          task.resolve(objectUrls.get(task.key) as string);
-        } else {
-          const objectUrl: string = URL.createObjectURL(blob);
-          objectUrls.set(task.key, objectUrl);
-          if (debug) { console.debug(`fetch complete: ${task.key}`); }
-          task.resolve(objectUrl);
-        }
-      })
-      .catch((error) => {
-        if (debug) { console.debug(`fetch failed: ${task.key}`); }
-        fetchInProgress.delete(task.key);
-        revokeInterimLater(task);
-        task.reject(error);
-      })
-      .finally(() => {
-        serveWaiting();
-      });
-    fetchInProgress.set(task.key, promise);
-  } else {
-    if (debug) { console.debug(`serveWaiting noop: fetchInProgress.size: ${fetchInProgress.size}. waiting.length: ${waiting.length}.`); }
-  }
+        queueFollowUp();
+        return;
+      }
+      const blob = await resp.blob();
+      fetchInProgress.delete(task.key);
+      revokeInterimLater(task);
+      if (objectUrls.get(task.key) != null) {
+        // it's possible another fetch request for the same filename completed whilst this one was waiting for the blob.
+        if (debug) { console.debug(`fetched complete but task already resolved: ${task.key}.`); }
+        task.resolve(objectUrls.get(task.key) as string);
+      } else {
+        const objectUrl: string = URL.createObjectURL(blob);
+        objectUrls.set(task.key, objectUrl);
+        if (debug) { console.debug(`fetch complete: ${task.key}`); }
+        task.resolve(objectUrl);
+      }
+    })
+    .catch((error) => {
+      if (debug) { console.debug(`fetch failed: ${task.key}`); }
+      fetchInProgress.delete(task.key);
+      revokeInterimLater(task);
+      task.reject(error);
+    })
+    .finally(() => {
+      if (isHighPriority) { highPriorityFetchesInProgress -= 1; }
+      serveWaiting();
+    });
+  fetchInProgress.set(task.key, promise);
 }
 
 export function releaseImage(path: string, origin: string | null) {
