@@ -41,7 +41,7 @@ import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { appendNewlineIfEmpty } from "../../util/string";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, isInsidePopup, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -322,7 +322,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         }
         const priority = isPopup()
           ? ImageFetchPriority.High
-          : untrack(() => isInsideTranslucentPage(props.visualElement)) ? ImageFetchPriority.Low : ImageFetchPriority.Normal;
+          : untrack(() => isInsidePopup(props.visualElement))
+            ? ImageFetchPriority.PopupContent
+            : untrack(() => isInsideTranslucentPage(props.visualElement)) ? ImageFetchPriority.Low : ImageFetchPriority.Normal;
         // A lower resolution rendition, shown in place of the placeholder until the requested one arrives.
         const onInterim = (interimObjectUrl: string) => {
           try {
