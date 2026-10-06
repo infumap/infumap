@@ -34,8 +34,9 @@ function linkStyle(flags: number): string {
     `-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`;
 }
 
+// Inherits the cursor: a text cursor while editing, the default inside translucent pages.
 function inactiveLinkStyle(flags: number): string {
-  return `${segmentStyle(flags)} cursor: text;`;
+  return segmentStyle(flags);
 }
 
 export const NoteInlineText: Component<{
