@@ -24,8 +24,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
 import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW, TITLE_OVERLAY_BACKGROUND_COLOR } from "../../style";
-import { linearGradient } from "../../style";
+import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW, TRANSLUCENT_PAGE_CONTENT_SATURATION, TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA, TRANSLUCENT_PAGE_LIGHTEN_ALPHA, washedLinearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { ArrangeAlgorithm } from "../../items/page-item";
@@ -166,17 +165,12 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const isPopupAreaHighlighted = () => isHoverHighlighted() && pageFns().hasPopupClickBoundsPx();
 
   const titleFontSizePx = () => 20 * translucentTitleInBoxScale();
-  // Matches the style of image titles: white bold text on a dark rounded background.
   const titleClass = () => {
     const pointerClass = titleEditHandlers.isEditingTitle()
       ? "pointer-events-auto select-text cursor-text"
       : "pointer-events-none";
-    return `rounded-[3px] text-center font-bold text-white ${pointerClass}`;
+    return `text-center font-bold text-white ${pointerClass}`;
   };
-  const titleBackgroundColor = () =>
-    pageFns().pageItem().title.trim() || titleEditHandlers.isEditingTitle()
-      ? TITLE_OVERLAY_BACKGROUND_COLOR
-      : "transparent";
 
   const translucentScrollHandler = (_ev: Event) => {
     if (!translucentDiv) { return; }
@@ -346,7 +340,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           `font-size: ${titleFontSizePx()}px; z-index: 3;`}>
         <div id={VeFns.veToPath(props.visualElement) + ":title"}
           class={titleClass()}
-          style={`padding: 0.2em 0.4em; max-width: 100%; outline: 0px solid transparent; background-color: ${titleBackgroundColor()};`}
+          style="max-width: 100%; outline: 0px solid transparent; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.25);"
           spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
           contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
           onKeyDown={titleEditHandlers.titleKeyDownHandler}
@@ -523,9 +517,16 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     return 'shadow-xl';
   };
 
-  const backgroundStyle = () => useFlatWorkspaceChrome() || pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar
-    ? ''
-    : `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.636)};`;
+  // Flat workspaces (query results) and calendars show their contents without the page color.
+  const isTinted = () => !useFlatWorkspaceChrome() && pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar;
+
+  const backgroundStyle = () => isTinted()
+    ? `background-image: ${washedLinearGradient(pageFns().pageItem().backgroundColorIndex, TRANSLUCENT_PAGE_LIGHTEN_ALPHA, TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA)};`
+    : '';
+
+  // Desaturating the contents (as well as washing them out) makes strongly colored content recede more than muted
+  // content. A filter on the contents is used rather than a backdrop-filter on the overlay, as it is the cheaper of the two.
+  const contentFilterStyle = () => isTinted() ? `filter: saturate(${TRANSLUCENT_PAGE_CONTENT_SATURATION});` : '';
 
   const borderClass = () => useFlatWorkspaceChrome()
     ? ''
@@ -591,7 +592,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
       <div class="absolute"
-        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden;`}>
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden; ${contentFilterStyle()}`}>
         <Switch>
           <Match when={props.visualElement.tableBodyViewportBoundsPx != null}>
             <Page_TableContent visualElement={props.visualElement} />

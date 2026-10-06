@@ -39,6 +39,31 @@ export function linearGradient(colIndex: number, lightenByAlpha: number): string
   return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`;
 }
 
+// How much the contents of translucent pages are washed out towards white (linear), and desaturated (which affects
+// strongly colored content more than muted content).
+export const TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA = 0.4;
+// The strength of the page color over the contents of translucent pages (as lightenByAlpha for linearGradient: lower
+// is darker). Was 0.636.
+export const TRANSLUCENT_PAGE_LIGHTEN_ALPHA = 0.55;
+export const TRANSLUCENT_PAGE_CONTENT_SATURATION = 0.5;
+
+/**
+ * As linearGradient, but with a white wash (of alpha washAlpha) beneath the color, combined into one layer. Over a
+ * white background the result is the same as linearGradient, so the color of the page is unchanged, but any content
+ * beneath is faded.
+ */
+export function washedLinearGradient(colIndex: number, lightenByAlpha: number, washAlpha: number): string {
+  assert(lightenByAlpha < 0.986, "invalid lightenByAlpha: " + lightenByAlpha);
+  const color = rgbHexToArray(Colors[colIndex]);
+  const stop = (colorAlpha: number): string => {
+    // white (washAlpha), then color (colorAlpha) over it, as a single color and alpha.
+    const alpha = 1.0 - (1.0 - colorAlpha) * (1.0 - washAlpha);
+    const channel = (c: number) => Math.round((c * colorAlpha + 255 * washAlpha * (1.0 - colorAlpha)) / alpha);
+    return `rgba(${channel(color[0])}, ${channel(color[1])}, ${channel(color[2])}, ${alpha.toFixed(3)})`;
+  };
+  return `linear-gradient(270deg, ${stop(0.986 - lightenByAlpha)}, ${stop(1.0 - lightenByAlpha)})`;
+}
+
 export function stripedGradient(colIndex: number, lightenByAlpha: number): string {
   return `repeating-linear-gradient(
     135deg,
