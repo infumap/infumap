@@ -33,7 +33,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -205,7 +205,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   }
 
   const toggleCollapse = (ev: MouseEvent) => {
-    if (ev.button != 0) { return; }
+    if (ev.button != 0 || isInsideTranslucentPage(props.visualElement)) { return; }
     ev.preventDefault();
     ev.stopPropagation();
     const compositeVeid = VeFns.veidFromVe(props.visualElement);
@@ -249,7 +249,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const renderCollapseControlMaybe = () =>
     <Show when={showCollapseControl()}>
-      <div class="absolute text-center text-slate-400 select-none cursor-pointer"
+      <div class={`absolute text-center text-slate-400 select-none ${isInsideTranslucentPage(props.visualElement) ? "" : "cursor-pointer"}`}
         contentEditable={false}
         onmousedown={toggleCollapse}
         style={`left: ${-blockSizePx().w}px; top: 0px; ` +

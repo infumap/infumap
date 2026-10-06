@@ -19,7 +19,7 @@
 import { ArrangeAlgorithm } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { isEmptyVeid, VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
+import { isEmptyVeid, isVeTranslucentPage, VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { isArrowKey } from "../../input/key";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -139,6 +139,25 @@ export const autoMovedIntoViewWarningStyle = (widthPx: number, heightPx: number)
 }
 
 export const autoMovedIntoViewBackgroundImage = (): string => AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE;
+
+/**
+ * True when the visual element is rendered inside a translucent page, whose contents must not respond to the mouse.
+ * Query search results and chat pages render as translucent pages but are interactive workspaces.
+ */
+export const isInsideTranslucentPage = (visualElement: VisualElement): boolean => {
+  let parentPath = visualElement.parentPath;
+  while (parentPath != null) {
+    const parentVe = VesCache.render.getNode(parentPath)?.get();
+    if (parentVe == null) { return false; }
+    if (isPage(parentVe.displayItem)) {
+      if (!isVeTranslucentPage(parentVe)) { return false; }
+      const grandparentVe = parentVe.parentPath == null ? null : VesCache.render.getNode(parentVe.parentPath)?.get();
+      return grandparentVe == null || !isQueryItem(grandparentVe.displayItem);
+    }
+    parentPath = parentVe.parentPath;
+  }
+  return false;
+};
 
 export const parentDocumentPageMaybe = (visualElement: VisualElement) => {
   if (!(visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || visualElement.parentPath == null) {
