@@ -24,8 +24,8 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
 import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { hexToRGBA } from "../../util/color";
-import { BORDER_COLOR, Colors, FOCUS_RING_BOX_SHADOW, TRANSLUCENT_PAGE_BORDER_ALPHA, TRANSLUCENT_PAGE_CONTENT_SATURATION, TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA, TRANSLUCENT_PAGE_LIGHTEN_ALPHA, washedLinearGradient } from "../../style";
+import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { linearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { ArrangeAlgorithm } from "../../items/page-item";
@@ -162,15 +162,36 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   });
 
   const translucentTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("lg"));
-  const isHoverHighlighted = () => store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get();
-  const isPopupAreaHighlighted = () => isHoverHighlighted() && pageFns().hasPopupClickBoundsPx();
-
-  const titleFontSizePx = () => 20 * translucentTitleInBoxScale();
-  const titleClass = () => {
+  const isCalendarTranslucentPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar;
+  const translucentTitleClass = () => {
     const pointerClass = titleEditHandlers.isEditingTitle()
       ? "pointer-events-auto select-text cursor-text"
       : "pointer-events-none";
-    return `text-center font-bold text-white ${pointerClass}`;
+    return isCalendarTranslucentPage()
+      ? `absolute flex text-white ${pointerClass}`
+      : `absolute flex font-bold text-white ${pointerClass}`;
+  };
+
+  const calendarTitleStyle = (): string => {
+    const fontSizePx = isCalendarTranslucentPage()
+      ? 18 * translucentTitleInBoxScale()
+      : 20 * translucentTitleInBoxScale();
+    const base = `left: 0px; ` +
+      `top: 0px; ` +
+      `width: ${pageFns().boundsPx().w}px; ` +
+      `height: ${pageFns().boundsPx().h}px;` +
+      `font-size: ${fontSizePx}px; ` +
+      `z-index: 3; ` +
+      `outline: 0px solid transparent;`;
+    if (isCalendarTranslucentPage()) {
+      const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
+      const padLeft = (CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + 4) * scale;
+      return base + `justify-content: flex-start; align-items: flex-start; text-align: left; padding-top: 11px; padding-left: ${padLeft}px; ` +
+        `font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; text-shadow: 0 1px 2px rgba(57, 81, 118, 0.18);`;
+    } else {
+      return base + `justify-content: center; align-items: center; text-align: center; ` +
+        `text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.25);`;
+    }
   };
 
   const translucentScrollHandler = (_ev: Event) => {
@@ -336,19 +357,15 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const renderBoxTitleMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot) &&
       pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar}>
-      <div class="absolute flex items-center justify-center pointer-events-none"
-        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `font-size: ${titleFontSizePx()}px; z-index: 3;`}>
-        <div id={VeFns.veToPath(props.visualElement) + ":title"}
-          class={titleClass()}
-          style="max-width: 100%; outline: 0px solid transparent; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.25);"
-          spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
-          contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
-          onKeyDown={titleEditHandlers.titleKeyDownHandler}
-          onKeyUp={titleEditHandlers.titleKeyUpHandler}
-          onInput={titleEditHandlers.titleInputListener}>
-          {appendNewlineIfEmpty(pageFns().pageItem().title)}
-        </div>
+      <div id={VeFns.veToPath(props.visualElement) + ":title"}
+        class={translucentTitleClass()}
+        style={calendarTitleStyle()}
+        spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
+        contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
+        onKeyDown={titleEditHandlers.titleKeyDownHandler}
+        onKeyUp={titleEditHandlers.titleKeyUpHandler}
+        onInput={titleEditHandlers.titleInputListener}>
+        {appendNewlineIfEmpty(pageFns().pageItem().title)}
       </div>
     </Show>;
 
@@ -443,15 +460,15 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   };
 
   const renderHoverOverMaybe = () =>
-    <Show when={isHoverHighlighted()}>
+    <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
       <>
         <Show when={!pageFns().isInComposite() && pageFns().clickBoundsPx() != null}>
           <div class={`absolute rounded-xs pointer-events-none`}
             style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
               `background-color: #ffffff33;`} />
         </Show>
-        <Show when={isPopupAreaHighlighted()}>
-          <div class={`absolute rounded-[3px] pointer-events-none`}
+        <Show when={pageFns().hasPopupClickBoundsPx()}>
+          <div class={`absolute rounded-xs pointer-events-none`}
             style={`left: ${pageFns().popupClickBoundsPx()!.x}px; top: ${pageFns().popupClickBoundsPx()!.y}px; width: ${pageFns().popupClickBoundsPx()!.w}px; height: ${pageFns().popupClickBoundsPx()!.h}px; ` +
               `background-color: ${pageFns().isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
         </Show>
@@ -518,21 +535,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     return 'shadow-xl';
   };
 
-  // Flat workspaces (query results) and calendars show their contents without the page color.
-  const isTinted = () => !useFlatWorkspaceChrome() && pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar;
-
-  const backgroundStyle = () => isTinted()
-    ? `background-image: ${washedLinearGradient(pageFns().pageItem().backgroundColorIndex, TRANSLUCENT_PAGE_LIGHTEN_ALPHA, TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA)};`
-    : '';
-
-  // A tinted border (on the overlay, which is above the contents) is more distinct than a neutral one.
-  const overlayBorderColorStyle = () => isTinted()
-    ? `border-color: ${hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], TRANSLUCENT_PAGE_BORDER_ALPHA)};`
-    : '';
-
-  // Desaturating the contents (as well as washing them out) makes strongly colored content recede more than muted
-  // content. A filter on the contents is used rather than a backdrop-filter on the overlay, as it is the cheaper of the two.
-  const contentFilterStyle = () => isTinted() ? `filter: saturate(${TRANSLUCENT_PAGE_CONTENT_SATURATION});` : '';
+  const backgroundStyle = () => useFlatWorkspaceChrome() || pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar
+    ? ''
+    : `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.636)};`;
 
   const borderClass = () => useFlatWorkspaceChrome()
     ? ''
@@ -598,7 +603,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
       <div class="absolute"
-        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden; ${contentFilterStyle()}`}>
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden;`}>
         <Switch>
           <Match when={props.visualElement.tableBodyViewportBoundsPx != null}>
             <Page_TableContent visualElement={props.visualElement} />
@@ -618,7 +623,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         {renderResizeTriangleMaybe()}
         <div class={`absolute ${borderClass()} rounded-xs pointer-events-none`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 2; ` +
-            backgroundStyle() + overlayBorderColorStyle()}>
+            backgroundStyle()}>
           {renderHoverOverMaybe()}
           {renderMovingOverMaybe()}
           {renderMovingOverAttachMaybe()}

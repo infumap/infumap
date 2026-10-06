@@ -20,6 +20,7 @@ import { Item } from "./items/base/item";
 import { asPageItem, isPage } from "./items/page-item";
 import { StoreContextModel } from "./store/StoreProvider";
 import { hexToRGBA, rgbArrayToRgbaFunc, rgbHexToArray } from "./util/color";
+import { LINE_HEIGHT_PX } from "./constants";
 import { assert } from "./util/lang";
 import { Uid } from "./util/uid";
 
@@ -39,44 +40,18 @@ export function linearGradient(colIndex: number, lightenByAlpha: number): string
   return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`;
 }
 
-// How much the contents of translucent pages are washed out towards white (linear), and desaturated (which affects
-// strongly colored content more than muted content).
-export const TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA = 0.45;
-export const TRANSLUCENT_PAGE_CONTENT_SATURATION = 0.65;
-// The strength of the page color over the contents of translucent pages (as lightenByAlpha for linearGradient: lower
-// is darker).
-export const TRANSLUCENT_PAGE_LIGHTEN_ALPHA = 0.7;
-// The border of translucent pages is the page color, at this alpha.
-export const TRANSLUCENT_PAGE_BORDER_ALPHA = 0.75;
-
-// Opaque pages are lightened (lightenByAlpha for linearGradient) more the larger they are: the full strength of the color
-// that suits an icon sized page is heavy on a large one.
-const OPAQUE_PAGE_LIGHTEN_ALPHA_SMALL = 0.05;
-const OPAQUE_PAGE_LIGHTEN_ALPHA_LARGE = 0.2;
-const OPAQUE_PAGE_SMALL_SIZE_PX = 40;
-const OPAQUE_PAGE_LARGE_SIZE_PX = 200;
+// Opaque pages are lightened (lightenByAlpha for linearGradient) with on screen size, since the full strength of the
+// color that suits a small page is heavy on a large one. Up to one block in size they are full strength. The
+// interpolation is logarithmic in size, so mid sized pages change noticeably, whilst large ones are not washed out.
+const OPAQUE_PAGE_LIGHTEN_ALPHA_MAX = 0.2;
+const OPAQUE_PAGE_MAX_LIGHTEN_SIZE_BL = 10;
 
 /** sizePx is the geometric mean of the width and height of the page on screen. */
 export function opaquePageLightenAlpha(sizePx: number): number {
-  const t = Math.min(1, Math.max(0, (sizePx - OPAQUE_PAGE_SMALL_SIZE_PX) / (OPAQUE_PAGE_LARGE_SIZE_PX - OPAQUE_PAGE_SMALL_SIZE_PX)));
-  return OPAQUE_PAGE_LIGHTEN_ALPHA_SMALL + (OPAQUE_PAGE_LIGHTEN_ALPHA_LARGE - OPAQUE_PAGE_LIGHTEN_ALPHA_SMALL) * t;
-}
-
-/**
- * As linearGradient, but with a white wash (of alpha washAlpha) beneath the color, combined into one layer. Over a
- * white background the result is the same as linearGradient, so the color of the page is unchanged, but any content
- * beneath is faded.
- */
-export function washedLinearGradient(colIndex: number, lightenByAlpha: number, washAlpha: number): string {
-  assert(lightenByAlpha < 0.986, "invalid lightenByAlpha: " + lightenByAlpha);
-  const color = rgbHexToArray(Colors[colIndex]);
-  const stop = (colorAlpha: number): string => {
-    // white (washAlpha), then color (colorAlpha) over it, as a single color and alpha.
-    const alpha = 1.0 - (1.0 - colorAlpha) * (1.0 - washAlpha);
-    const channel = (c: number) => Math.round((c * colorAlpha + 255 * washAlpha * (1.0 - colorAlpha)) / alpha);
-    return `rgba(${channel(color[0])}, ${channel(color[1])}, ${channel(color[2])}, ${alpha.toFixed(3)})`;
-  };
-  return `linear-gradient(270deg, ${stop(0.986 - lightenByAlpha)}, ${stop(1.0 - lightenByAlpha)})`;
+  const sizeBl = sizePx / LINE_HEIGHT_PX;
+  if (sizeBl <= 1.0) { return 0.0; }
+  const t = Math.min(1.0, Math.log(sizeBl) / Math.log(OPAQUE_PAGE_MAX_LIGHTEN_SIZE_BL));
+  return OPAQUE_PAGE_LIGHTEN_ALPHA_MAX * t;
 }
 
 export function stripedGradient(colIndex: number, lightenByAlpha: number): string {
@@ -176,8 +151,6 @@ export const SELECTION_HIGHLIGHT_COLOR = '#4a90e24d';
 export const SELECTION_MARQUEE_BORDER_COLOR = '#4a90e2';
 // Kept faint so selected items remain distinguishable underneath the marquee while dragging.
 export const SELECTION_MARQUEE_FILL_COLOR = '#4a90e214';
-// Behind titles drawn over content (translucent pages, images).
-export const TITLE_OVERLAY_BACKGROUND_COLOR = 'rgba(0, 0, 0, 0.5)';
 export const FOCUS_RING_INNER_COLOR = 'rgba(255, 255, 255, 0.72)';
 export const FOCUS_RING_COLOR = 'rgba(0, 82, 255, 0.9)';
 export const FOCUS_RING_BOX_SHADOW =

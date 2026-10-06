@@ -18,7 +18,7 @@
 
 import { Component, For, JSX, Show, createEffect, onCleanup, untrack } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX } from "../../constants";
-import { FOCUS_RING_BOX_SHADOW, TITLE_OVERLAY_BACKGROUND_COLOR } from "../../style";
+import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { ImageFns, asImageItem } from "../../items/image-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
@@ -511,9 +511,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class="absolute flex items-center justify-center pointer-events-none"
         style={`left: ${titleBoundsPx.x}px; top: ${titleBoundsPx.y + titleBoundsPx.h - 50}px; width: ${titleBoundsPx.w}px; height: 50px; z-index: 4;`}>
         <div id={vePath() + ":title"}
-          class={`rounded-[3px] px-2 py-1 text-center text-xl font-bold text-white ${canEdit() ? "pointer-events-auto select-text cursor-text" : "pointer-events-none"}`}
-          style={`min-width: 1em; min-height: 1.5em; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; ` +
-            `background-color: ${imageItem().title.trim() || isEditingTitle() ? TITLE_OVERLAY_BACKGROUND_COLOR : "transparent"};`}
+          class={`rounded-sm px-2 py-1 text-center text-xl font-bold text-white ${imageItem().title.trim() || isEditingTitle() ? "bg-black/70" : ""} ${canEdit() ? "pointer-events-auto select-text cursor-text" : "pointer-events-none"}`}
+          style="min-width: 1em; min-height: 1.5em; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; outline: none;"
           contentEditable={isEditingTitle()}
           spellcheck={isEditingTitle()}
           onmousedown={ev => {
