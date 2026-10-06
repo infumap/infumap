@@ -95,9 +95,18 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   }
   const thumbnailSrc = () => imagePlaceholderSrc(imageItem().thumbnail);
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
-  // Printed images are requested at a higher resolution than they are displayed at, so they print sharply.
-  const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" +
-    Math.round(imageWidthToRequestPx(true) * (store.printMode.get() ? PRINT_IMAGE_RESOLUTION_MULTIPLIER : 1));
+  // Images are requested at device (not CSS) pixel resolution, so they are sharp on high density displays. Printed
+  // images are requested at a fixed higher resolution than they are displayed at, so they print sharply.
+  const imageResolutionMultiplier = () =>
+    store.printMode.get() ? PRINT_IMAGE_RESOLUTION_MULTIPLIER : store.devicePixelRatio.get();
+  const imgSrc = () => {
+    let widthPx = Math.round(imageWidthToRequestPx(true) * imageResolutionMultiplier());
+    // The server responds with the unmodified original for any width >= the original width. Capping gives such
+    // requests a single url (and hence cache entry).
+    const originalWidthPx = imageItem().imageSizePx.w;
+    if (originalWidthPx > 0 && widthPx > originalWidthPx) { widthPx = originalWidthPx; }
+    return "/files/" + props.visualElement.displayItem.id + "_" + widthPx;
+  };
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
 
   const imgSrcSignal = createInfuSignal<string | undefined>(undefined);
@@ -259,12 +268,12 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return true;
   };
 
-  // When the image is displayed no wider than its placeholder, the placeholder is already at (or above) display
-  // resolution, so nothing is fetched. Not when printing, where images are requested at a higher resolution.
+  // When the image is displayed no wider (in device pixels) than its placeholder, the placeholder is already at (or
+  // above) display resolution, so nothing is fetched. Not when printing, where images are requested at a higher resolution.
   const placeholderSuffices = (): boolean => {
     if (store.printMode.get()) { return false; }
     const placeholderSizePx = imagePlaceholderSizePx(imageItem().thumbnail);
-    return placeholderSizePx != null && imageWidthToRequestPx(false) <= placeholderSizePx.w;
+    return placeholderSizePx != null && imageWidthToRequestPx(false) * store.devicePixelRatio.get() <= placeholderSizePx.w;
   };
 
   createEffect(() => {
