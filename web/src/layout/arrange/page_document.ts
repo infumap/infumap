@@ -17,6 +17,7 @@
 */
 
 import { LINK_TRIANGLE_SIZE_PX, NATURAL_BLOCK_SIZE_PX, GRID_SIZE, PAGE_DOCUMENT_BOTTOM_PADDING_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { PageFlags } from "../../items/base/flags-item";
 import { Item, Measurable } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
@@ -25,6 +26,7 @@ import { isImage } from "../../items/image-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, documentRowSideClickIsInert, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
+import { isQueryItem } from "../../items/query-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -37,13 +39,13 @@ import { assignFlowListItemNumbers } from "../list-numbering";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildrenPath, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
-import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
+import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem, previewChildIsDetailed } from "./util";
 import { queryChatCompositeActivityLayoutPx } from "../../items/query-chat-activity-ui";
 import { isLinkInTrash } from "../../items/trash-link";
 
@@ -187,7 +189,26 @@ export function arrange_document_page(
     !!(flags & ArrangeItemFlags.RenderChildrenAsFull) ||
     !!(flags & ArrangeItemFlags.IsPopupRoot) ||
     arrangeFlagIsRoot(flags);
+  // As for spatial pages, the children of non-interactive (e.g. translucent) pages are previews. Query chat transcripts
+  // are interactive workspaces, so are exempt.
+  const renderChildrenAsPreview =
+    !arrangeFlagIsRoot(flags) &&
+    !(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+    !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null);
   for (const child of childArrangeData) {
+    if (renderChildrenAsPreview) {
+      childrenPaths.push(arrangeDocumentPreviewChildPath(
+        store,
+        pageWithChildrenVePath,
+        child.childItem,
+        child.actualLinkItemMaybe,
+        child.geometry,
+        child.displayWidthBl,
+        scale,
+        ArrangeItemFlags.InsideCompositeOrDoc |
+        (flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None)));
+      continue;
+    }
     childrenPaths.push(arrangeDocumentChildItemPath(
       store,
       pageWithChildrenVePath,
@@ -463,6 +484,44 @@ function arrangeDocumentChildItemPath(
     actualLinkItemMaybe,
     geometry,
     flags);
+}
+
+/**
+ * Arranges a child of a non-interactive document page. Mirrors spatial pages: drawn in detail (child pages without
+ * their contents, composites and tables with their children) when its text is large enough to read, otherwise as an
+ * outline. Images are not subject to the cutoff.
+ */
+function arrangeDocumentPreviewChildPath(
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  childItem: Item,
+  actualLinkItemMaybe: LinkItem | null,
+  geometry: ItemGeometry,
+  displayWidthBl: number,
+  scale: number,
+  flags: ArrangeItemFlags): VisualElementPath {
+
+  const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+  if (!previewChildIsDetailed(displayItem, scale)) {
+    return arrangeItemNoChildrenPath(
+      store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, geometry,
+      flags | (isImage(displayItem) ? ArrangeItemFlags.None : ArrangeItemFlags.RenderAsOutline));
+  }
+  if (!isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId)) {
+    if (isComposite(displayItem)) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+      return VeFns.veToPath(arrangeComposite(
+        store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, geometry, flags,
+        displayWidthBl, true).get());
+    }
+    if (isTable(displayItem)) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+      return VeFns.veToPath(arrangeTable(
+        store, parentPath, asTableItem(displayItem), linkItemMaybe, actualLinkItemMaybe, geometry, flags,
+        displayWidthBl).get());
+    }
+  }
+  return arrangeItemNoChildrenPath(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, geometry, flags);
 }
 
 function arrangeMovingItemInDocument(
