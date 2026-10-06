@@ -62,7 +62,7 @@ import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler, prepareNoteParagraphSplit } from "../../input/edit";
@@ -411,7 +411,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   };
 
   const isSelectableReadOnlyDocumentText = () =>
-    isInDocumentPage() && !canEdit();
+    isInDocumentPage() && !canEdit() && !isInsideTranslucentPage(props.visualElement);
 
   const readOnlyDocumentSelectableTextStyle = () =>
     isSelectableReadOnlyDocumentText()
@@ -499,8 +499,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         text={renderedTitle()}
         inlineMarks={renderedInlineMarks()}
         urls={renderedUrls()}
-        linksEnabled={!editing}
-        inactiveLinksStyled={editing} />}
+        linksEnabled={!editing && !isInsideTranslucentPage(props.visualElement)}
+        inactiveLinksStyled={editing || isInsideTranslucentPage(props.visualElement)} />}
     </span>;
     if (editing) {
       createRenderEffect(() => {

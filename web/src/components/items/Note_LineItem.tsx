@@ -112,11 +112,11 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const renderedInlineMarks = () => noteItem().inlineMarks;
   const renderedUrls = () => noteItem().urls;
 
-  const copyIconIsInert = () => isInsideTranslucentPage(props.visualElement);
-  const eatMouseEvent = (ev: MouseEvent) => { if (!copyIconIsInert()) { ev.stopPropagation(); } }
+  const isInert = () => isInsideTranslucentPage(props.visualElement);
+  const eatMouseEvent = (ev: MouseEvent) => { if (!isInert()) { ev.stopPropagation(); } }
 
   const copyClickHandler = () => {
-    if (copyIconIsInert()) { return; }
+    if (isInert()) { return; }
     const url = NoteFns.wholeTitleUrl(noteItem());
     if (url == null) {
       navigator.clipboard.writeText(noteItem().title);
@@ -217,8 +217,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         text={renderedTitle()}
         inlineMarks={renderedInlineMarks()}
         urls={renderedUrls()}
-        linksEnabled={!editing}
-        inactiveLinksStyled={editing} />}
+        linksEnabled={!editing && !isInert()}
+        inactiveLinksStyled={editing || isInert()} />}
     </span>;
     if (editing) {
       createRenderEffect(() => {
@@ -257,7 +257,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         onmousedown={eatMouseEvent}
         onmouseup={eatMouseEvent}
         onclick={copyClickHandler}>
-        <i class={`fas fa-copy ${copyIconIsInert() ? "" : "cursor-pointer"}`} />
+        <i class={`fas fa-copy ${isInert() ? "" : "cursor-pointer"}`} />
       </div>
     </Show>;
 
