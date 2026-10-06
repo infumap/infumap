@@ -52,8 +52,7 @@ use super::routes::ingest::serve_ingest_route;
 
 pub const DEFAULT_JSON_BODY_MAX_BYTES: usize = 1024 * 1024;
 const CORS_ALLOW_METHODS: &str = "GET, POST, OPTIONS";
-const CORS_ALLOW_HEADERS: &str =
-  "content-type, x-infusession, x-infumap-chat-request-id, x-infumap-image-defer, authorization";
+const CORS_ALLOW_HEADERS: &str = "content-type, x-infusession, x-infumap-chat-request-id, x-infumap-image-defer, x-infumap-image-priority-high, authorization";
 const CORS_MAX_AGE_SECS: &str = "86400";
 // SESSION_HEADER_NAME, and files::PARTIAL_IMAGE_HEADER_NAME.
 const CORS_EXPOSE_HEADERS: &str = "x-infusession, x-infumap-partial-image";
