@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Show, createMemo } from "solid-js";
-import { linearGradient, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { linearGradient, FOCUS_RING_BOX_SHADOW, opaquePageLightenAlpha } from "../../style";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_LOCAL_SHADOW, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -157,6 +157,11 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
+  const lightenAlpha = () => {
+    const sizeBased = opaquePageLightenAlpha(Math.sqrt(pageFns().boundsPx().w * pageFns().boundsPx().h));
+    return isInsideTranslucentPage() ? Math.max(0.33, sizeBased) : sizeBased;
+  };
+
   return (
     <div class="absolute"
       style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
@@ -166,7 +171,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           `top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
-          `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, isInsideTranslucentPage() ? 0.33 : 0.0)}; ` +
+          `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, lightenAlpha())}; ` +
           `z-index: 1;`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderBoxTitle()}

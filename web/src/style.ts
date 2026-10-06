@@ -41,11 +41,26 @@ export function linearGradient(colIndex: number, lightenByAlpha: number): string
 
 // How much the contents of translucent pages are washed out towards white (linear), and desaturated (which affects
 // strongly colored content more than muted content).
-export const TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA = 0.4;
+export const TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA = 0.45;
+export const TRANSLUCENT_PAGE_CONTENT_SATURATION = 0.65;
 // The strength of the page color over the contents of translucent pages (as lightenByAlpha for linearGradient: lower
-// is darker). Was 0.636.
-export const TRANSLUCENT_PAGE_LIGHTEN_ALPHA = 0.55;
-export const TRANSLUCENT_PAGE_CONTENT_SATURATION = 0.5;
+// is darker).
+export const TRANSLUCENT_PAGE_LIGHTEN_ALPHA = 0.7;
+// The border of translucent pages is the page color, at this alpha.
+export const TRANSLUCENT_PAGE_BORDER_ALPHA = 0.75;
+
+// Opaque pages are lightened (lightenByAlpha for linearGradient) more the larger they are: the full strength of the color
+// that suits an icon sized page is heavy on a large one.
+const OPAQUE_PAGE_LIGHTEN_ALPHA_SMALL = 0.05;
+const OPAQUE_PAGE_LIGHTEN_ALPHA_LARGE = 0.2;
+const OPAQUE_PAGE_SMALL_SIZE_PX = 40;
+const OPAQUE_PAGE_LARGE_SIZE_PX = 200;
+
+/** sizePx is the geometric mean of the width and height of the page on screen. */
+export function opaquePageLightenAlpha(sizePx: number): number {
+  const t = Math.min(1, Math.max(0, (sizePx - OPAQUE_PAGE_SMALL_SIZE_PX) / (OPAQUE_PAGE_LARGE_SIZE_PX - OPAQUE_PAGE_SMALL_SIZE_PX)));
+  return OPAQUE_PAGE_LIGHTEN_ALPHA_SMALL + (OPAQUE_PAGE_LIGHTEN_ALPHA_LARGE - OPAQUE_PAGE_LIGHTEN_ALPHA_SMALL) * t;
+}
 
 /**
  * As linearGradient, but with a white wash (of alpha washAlpha) beneath the color, combined into one layer. Over a

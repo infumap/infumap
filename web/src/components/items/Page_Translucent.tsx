@@ -24,7 +24,8 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
 import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW, TRANSLUCENT_PAGE_CONTENT_SATURATION, TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA, TRANSLUCENT_PAGE_LIGHTEN_ALPHA, washedLinearGradient } from "../../style";
+import { hexToRGBA } from "../../util/color";
+import { BORDER_COLOR, Colors, FOCUS_RING_BOX_SHADOW, TRANSLUCENT_PAGE_BORDER_ALPHA, TRANSLUCENT_PAGE_CONTENT_SATURATION, TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA, TRANSLUCENT_PAGE_LIGHTEN_ALPHA, washedLinearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { ArrangeAlgorithm } from "../../items/page-item";
@@ -524,6 +525,11 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     ? `background-image: ${washedLinearGradient(pageFns().pageItem().backgroundColorIndex, TRANSLUCENT_PAGE_LIGHTEN_ALPHA, TRANSLUCENT_PAGE_CONTENT_WASH_ALPHA)};`
     : '';
 
+  // A tinted border (on the overlay, which is above the contents) is more distinct than a neutral one.
+  const overlayBorderColorStyle = () => isTinted()
+    ? `border-color: ${hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], TRANSLUCENT_PAGE_BORDER_ALPHA)};`
+    : '';
+
   // Desaturating the contents (as well as washing them out) makes strongly colored content recede more than muted
   // content. A filter on the contents is used rather than a backdrop-filter on the overlay, as it is the cheaper of the two.
   const contentFilterStyle = () => isTinted() ? `filter: saturate(${TRANSLUCENT_PAGE_CONTENT_SATURATION});` : '';
@@ -612,7 +618,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         {renderResizeTriangleMaybe()}
         <div class={`absolute ${borderClass()} rounded-xs pointer-events-none`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 2; ` +
-            backgroundStyle()}>
+            backgroundStyle() + overlayBorderColorStyle()}>
           {renderHoverOverMaybe()}
           {renderMovingOverMaybe()}
           {renderMovingOverAttachMaybe()}
