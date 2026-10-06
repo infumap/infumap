@@ -548,15 +548,14 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       : null;
   const dockListPageIconMoveTarget = dockListPageIconMoveTargetMaybe(hitInfo, ignoreIds);
   const resolvedMoveTarget = resolveInternalMoveTarget(hitInfo, ignoreIds);
-  if (moveTargetWouldCreateRelationshipCycle(hitInfo, resolvedMoveTarget, activeVisualElement, MouseActionState.getGroupMoveItems())) {
-    clearMoveOverTargetState(store);
-    store.movingItemTargetCalendarInfo.set(null);
+  // A cycle-creating target is treated like any other invalid target: the item keeps
+  // following the pointer within its current container, and the drop is rejected.
+  const moveTargetCreatesCycle =
+    moveTargetWouldCreateRelationshipCycle(hitInfo, resolvedMoveTarget, activeVisualElement, MouseActionState.getGroupMoveItems());
+  if (moveTargetCreatesCycle) {
     MouseActionState.setMoveBlockedCursor(true);
-    // Keep the last valid position and the original mouse/grab offset. Movement
-    // resumes from that offset as soon as the pointer leaves the invalid target.
-    return;
   }
-  const hasValidMoveTarget = resolvedMoveTarget.validity == "valid";
+  const hasValidMoveTarget = resolvedMoveTarget.validity == "valid" && !moveTargetCreatesCycle;
   const hitMoveTargetVe = isPage(resolvedMoveTarget.hoverContainerVe.displayItem)
     ? resolvedMoveTarget.hoverContainerVe
     : resolvedMoveTarget.positioningPageVe;

@@ -714,7 +714,7 @@ export async function handleExternalUploadDrop(
 
     const fileCount = files.length;
     if (fileCount > MAX_EXTERNAL_UPLOAD_FILES) {
-      showTransientMessage(store, `Can only drop up to ${MAX_EXTERNAL_UPLOAD_FILES} files at once.`);
+      showTransientMessage(store, `Can only drop up to ${MAX_EXTERNAL_UPLOAD_FILES} files at once`);
       return;
     }
 
@@ -729,12 +729,12 @@ export async function handleExternalUploadDrop(
     }
 
     if (!uploadTargetAcceptsManualChildAdd(target)) {
-      showTransientMessage(store, "Can't add items to this page.");
+      showTransientMessage(store, "Can't add items to this page");
       return;
     }
 
     if (isAttachmentTarget(target) && fileCount != 1) {
-      showTransientMessage(store, "Attachment drops only support a single file.");
+      showTransientMessage(store, "Attachment drops only support a single file");
       return;
     }
 
@@ -757,7 +757,7 @@ export async function handleUpload(
   handleStringTypeDataMaybe(dataTransfer, desktopPx);
   await waitForBrowserAfterDrop();
   if (!uploadTargetAcceptsManualChildAdd({ kind: "page-background", parent })) {
-    showTransientMessage(store, "Can't add items to this page.");
+    showTransientMessage(store, "Can't add items to this page");
     return;
   }
   await uploadFilesToTarget(store, Array.from(dataTransfer.files), desktopPx, { kind: "page-background", parent });

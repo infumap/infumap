@@ -161,9 +161,9 @@ const App: Component = () => {
         // Replace the inaccessible destination so Forward history remains available.
         store.history.writeBrowserEntry(`/login?redirect=${encodeURIComponent(urlPath)}`, "replace", false);
         store.currentUrlPath.set("/login");
-        text = "Sign in to open this page.";
+        text = "Sign in to open this page";
       } else {
-        text = "You do not have access to this page.";
+        text = "You do not have access to this page";
       }
     } else if (message.includes("Reason: not-found")) {
       text = "This page could not be found. It may have been deleted.";
