@@ -49,6 +49,19 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveO
 // Printed images are about 200dpi at the default document width.
 const PRINT_IMAGE_RESOLUTION_MULTIPLIER = 2;
 
+// For debugging: when the localStorage key "debug:image-resolution" is "1" (read on load), each image shows a badge
+// with what is shown (P = placeholder, I = interim / partial, F = final) and its resolution relative to the device
+// pixels it covers: green >= 95%, amber >= 50%, red below.
+const IMAGE_RESOLUTION_DEBUG = (() => {
+  try {
+    return window.localStorage.getItem("debug:image-resolution") == "1";
+  } catch (_e) {
+    return false;
+  }
+})();
+
+type ShownImageKind = "placeholder" | "interim" | "final";
+
 export const Image_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
   type PopupImageActionKey = "child" | "default";
@@ -110,6 +123,10 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
 
   const imgSrcSignal = createInfuSignal<string | undefined>(undefined);
+  // What imgSrcSignal is, and the natural width of the loaded image. Only maintained for the resolution debug badge.
+  const shownImageKind = createInfuSignal<ShownImageKind>("placeholder");
+  const loadedNaturalWidthPx = createInfuSignal<number>(0);
+  const recordNaturalWidth = (ev: Event) => { loadedNaturalWidthPx.set((ev.currentTarget as HTMLImageElement).naturalWidth); };
   const BORDER_WIDTH_PX = 1;
   // Standard deviation of the blur applied to placeholders, in placeholder pixels.
   const PLACEHOLDER_BLUR_SIGMA = 1.0;
@@ -265,6 +282,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     printStandInImage = { path: fetched.path, origin: imgOriginOnLoad };
     imgSrcSignal.set(fetched.objectUrl);
     isShowingThumbnail.set(false);
+    shownImageKind.set("final");
     return true;
   };
 
@@ -291,6 +309,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           releasePrintStandInImageMaybe();
           imgSrcSignal.set(thumbnailSrc());
           isShowingThumbnail.set(true);
+          shownImageKind.set("placeholder");
           return;
         }
         const imgSrcOnRequest = wantedImgSrc;
@@ -299,6 +318,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         if (!showFetchedImageForPrintMaybe()) {
           imgSrcSignal.set(thumbnailSrc());
           isShowingThumbnail.set(true);
+          shownImageKind.set("placeholder");
         }
         const priority = isPopup()
           ? ImageFetchPriority.High
@@ -321,6 +341,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           }
           imgSrcSignal.set(interimObjectUrl);
           isShowingThumbnail.set(false);
+          shownImageKind.set("interim");
         };
         getImage(imgSrcOnRequest, imgOriginOnRequest, priority, onInterim)
           .then((objectUrl) => {
@@ -339,6 +360,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
               if (imageIdOnRequest == props.visualElement.displayItem.id) {
                 imgSrcSignal.set(objectUrl);
                 isShowingThumbnail.set(false);
+                shownImageKind.set("final");
               } else {
                 const prevObjectUrl = imgSrcSignal.get();
                 // temporarily set the image src to the out-of-date fetched image to force the browser to cache the image.
@@ -349,6 +371,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
             } else {
               imgSrcSignal.set(objectUrl);
               isShowingThumbnail.set(false);
+              shownImageKind.set("final");
               releasePrintStandInImageMaybe();
             }
           })
@@ -437,6 +460,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX}>
           <Show when={isDetailed()} fallback={notDetailedFallback()}>
             {imageItem().flags & ImageFlags.NoCrop ? renderNoCropImage() : renderCroppedImage()}
+            {renderResolutionDebugMaybe()}
             <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || (isMainPoppedUp() && !(props.visualElement.flags & VisualElementFlags.Popup))}>
               <div class="absolute"
                 style={`${boundsStylePx(frameInnerBoundsPx)} background-color: #dddddd88;`} />
@@ -644,12 +668,32 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         ? croppedPlaceholderStyle()
         : `left: ${-(Math.round((imageWidthToRequestPx(false) - quantizedBoundsPx().w) / 2.0) + BORDER_WIDTH_PX)}px; ` +
           `top: ${-(Math.round((imageWidthToRequestPx(false) / imageAspect() - quantizedBoundsPx().h) / 2.0) + BORDER_WIDTH_PX)}px; `}
-      width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)} />;
+      width={isShowingThumbnail.get() ? undefined : imageWidthToRequestPx(false)}
+      onLoad={IMAGE_RESOLUTION_DEBUG ? recordNaturalWidth : undefined} />;
 
   const renderNoCropImage = (): JSX.Element =>
     <img src={imgSrcSignal.get()}
       class="max-w-none absolute pointer-events-none"
-      style={popupNoCropFrameFollowsImage() ? imageFitStyle("fill", true) : imageFitStyle("contain")} />;
+      style={popupNoCropFrameFollowsImage() ? imageFitStyle("fill", true) : imageFitStyle("contain")}
+      onLoad={IMAGE_RESOLUTION_DEBUG ? recordNaturalWidth : undefined} />;
+
+  const renderResolutionDebugMaybe = (): JSX.Element => {
+    if (!IMAGE_RESOLUTION_DEBUG) { return <></>; }
+    // The width, in device pixels, that the whole image (not just the visible part of it, if cropped) is displayed at.
+    const displayedWidthDevicePx = () => Math.round(
+      (imageItem().flags & ImageFlags.NoCrop ? imageSizePx(false).w : imageWidthToRequestPx(false)) * store.devicePixelRatio.get());
+    const ratio = () => loadedNaturalWidthPx.get() / Math.max(1, displayedWidthDevicePx());
+    const kindLetter = () => shownImageKind.get() == "placeholder" ? "P" : shownImageKind.get() == "interim" ? "I" : "F";
+    const color = () => ratio() >= 0.95 ? "#16a34a" : ratio() >= 0.5 ? "#d97706" : "#dc2626";
+    return (
+      <div class="absolute pointer-events-none whitespace-nowrap"
+        style={`left: 2px; top: 2px; z-index: 3; padding: 0px 3px; border-radius: 2px; ` +
+          `font: 10px/14px ui-monospace, monospace; color: #ffffff; background-color: ${color()};`}>
+        <div>{`${kindLetter()} ${Math.round(ratio() * 100)}%`}</div>
+        <div>{`${loadedNaturalWidthPx.get()}/${displayedWidthDevicePx()}`}</div>
+      </div>
+    );
+  };
 
   return (
     <div class={positionClass()}
