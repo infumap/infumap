@@ -110,35 +110,6 @@ function visualAncestorPageIsClientOnly(path: string): boolean {
 }
 
 let arrowKeyDown_pendingBoundaryNavigation: PendingBoundaryNavigation | null = null;
-const LINEAR_EDIT_DEBUG_KEY = "debug:linear-edit";
-
-function linearEditDebugEnabled(): boolean {
-  try {
-    return window.localStorage.getItem(LINEAR_EDIT_DEBUG_KEY) == "1";
-  } catch (_e) {
-    return false;
-  }
-}
-
-function logLinearEdit(message: string, details?: Record<string, unknown>) {
-  if (!linearEditDebugEnabled()) { return; }
-  if (details == null) {
-    console.log(`[linear-edit] ${message}`);
-  } else {
-    console.log(`[linear-edit] ${message}`, details);
-  }
-}
-
-function selectionDebugInfo(): Record<string, unknown> {
-  const selection = window.getSelection();
-  return {
-    anchorNode: selection?.anchorNode?.nodeName ?? null,
-    anchorParentId: selection?.anchorNode?.parentElement?.id ?? null,
-    focusNode: selection?.focusNode?.nodeName ?? null,
-    focusParentId: selection?.focusNode?.parentElement?.id ?? null,
-  };
-}
-
 function activeNoteTextEditTarget(store: StoreContextModel): { itemPath: string, element: HTMLElement } | null {
   const textEditInfo = store.overlay.textEditInfo();
   if (textEditInfo == null || textEditInfo.itemType != ItemType.Note || textEditInfo.colNum != null) {
@@ -734,16 +705,6 @@ function isCaretOnBoundaryLine(textElement: HTMLElement, caretPosition: number, 
   const isBoundary = key == "ArrowUp"
     ? currentLineRect.top <= boundaryLineRect.top + TOLERANCE_PX
     : currentLineRect.bottom >= boundaryLineRect.bottom - TOLERANCE_PX;
-  logLinearEdit("boundary-check", {
-    key,
-    caretPosition,
-    currentTop: currentLineRect.top,
-    currentBottom: currentLineRect.bottom,
-    boundaryTop: boundaryLineRect.top,
-    boundaryBottom: boundaryLineRect.bottom,
-    isBoundary,
-    text: textElement.textContent,
-  });
   return isBoundary;
 }
 
@@ -777,13 +738,6 @@ function isCaretAtHorizontalBoundary(textElement: HTMLElement, caretPosition: nu
   const isBoundary = key == "ArrowLeft"
     ? caretPosition <= 0
     : caretPosition >= textLength;
-  logLinearEdit("horizontal-boundary-check", {
-    key,
-    caretPosition,
-    textLength,
-    isBoundary,
-    text: textElement.innerText,
-  });
   return isBoundary;
 }
 
@@ -1024,10 +978,6 @@ function maybeBuildLinearBoundaryNavigation(
 ): PendingBoundaryNavigation | null {
   const context = currentLinearEditContext(store);
   if (context == null) {
-    logLinearEdit("boundary-navigation-no-linear-parent", {
-      key,
-      currentPath: store.overlay.textEditInfo()?.itemPath ?? null,
-    });
     return null;
   }
   if (!isLinearBoundaryNavigationKey(key)) { return null; }
@@ -1037,22 +987,13 @@ function maybeBuildLinearBoundaryNavigation(
 
   const targetPath = adjacentEditableChildPathInCurrentLinearContext(context, key);
   if (targetPath == null) {
-    const childCount = VesCache.current.readStructuralChildren(context.containerPath).length;
     const fallbackCaretPosition = linearEdgeBoundaryCaretPositionMaybe(context, key, textElement);
     if (fallbackCaretPosition != null) {
-      logLinearEdit("prepared-linear-edge-boundary-caret-move", {
-        key,
-        containerPath: context.containerPath,
-        currentPath: context.editingPath,
-        childCount,
-        targetCaretPosition: fallbackCaretPosition,
-      });
       return {
         targetPath: context.editingPath,
         targetCaretPosition: fallbackCaretPosition,
       };
     }
-    logLinearEdit("no-boundary-target", { key, currentPath: context.editingPath, childCount });
     return null;
   }
 
@@ -1060,14 +1001,6 @@ function maybeBuildLinearBoundaryNavigation(
     targetPath,
     targetCaretPosition: targetCaretPositionForLinearBoundaryNavigation(context, targetPath, key, textElement, caretPosition),
   };
-  logLinearEdit("prepared-boundary-navigation", {
-    key,
-    containerPath: context.containerPath,
-    currentPath: context.editingPath,
-    targetPath: navigation.targetPath,
-    caretPosition,
-    targetCaretPosition: navigation.targetCaretPosition,
-  });
   return navigation;
 }
 
@@ -1078,11 +1011,6 @@ function clearArrowKeyTracking(): void {
 }
 
 function applyLinearBoundaryNavigation(store: StoreContextModel, navigation: PendingBoundaryNavigation): boolean {
-  logLinearEdit("keydown-applying-boundary-navigation", {
-    currentEditingPath: store.history.getFocusPathMaybe(),
-    targetPath: navigation.targetPath,
-    targetCaretPosition: navigation.targetCaretPosition,
-  });
   arrowKeyDown_pendingBoundaryNavigation = navigation;
   if (store.overlay.textEditInfo()?.itemPath != navigation.targetPath) {
     persistCurrentEditTarget(store);
@@ -1099,10 +1027,6 @@ function applyLinearBoundaryNavigation(store: StoreContextModel, navigation: Pen
 export function textEditSelectionChangeListener(store: StoreContextModel) {
   if (store.textEdit.activeSession()?.isComposing) { return; }
   if (arrowKeyDown_pendingBoundaryNavigation != null) {
-    logLinearEdit("selectionchange-skip-restore-during-boundary-navigation", {
-      targetPath: arrowKeyDown_pendingBoundaryNavigation.targetPath,
-      selection: selectionDebugInfo(),
-    });
     return;
   }
 
@@ -1110,12 +1034,6 @@ export function textEditSelectionChangeListener(store: StoreContextModel) {
     try {
       getCurrentCaretVeInfo();
     } catch (e) {
-      logLinearEdit("selectionchange-restoring-caret", {
-        elementId: arrowKeyDown_element.id,
-        caretPosition: arrowKeyDown_caretPosition,
-        selection: selectionDebugInfo(),
-        error: `${e}`,
-      });
       setCaretPosition(arrowKeyDown_element!, arrowKeyDown_caretPosition!);
     }
   }
@@ -1184,50 +1102,23 @@ export const edit_keyUpHandler = (store: StoreContextModel, ev: KeyboardEvent) =
 }
 
 const keyUp_Arrow = (store: StoreContextModel) => {
-  const pendingBoundaryNavigation = arrowKeyDown_pendingBoundaryNavigation;
   clearArrowKeyTracking();
 
   let currentCaretItemInfo: EditPathInfo | null = null;
   try {
     currentCaretItemInfo = getCurrentCaretVeInfo();
-  } catch (e) {
-    logLinearEdit("keyup-caret-lookup-failed", {
-      error: `${e}`,
-      selection: selectionDebugInfo(),
-      boundaryNavigation: pendingBoundaryNavigation,
-      currentEditingPath: store.history.getFocusPathMaybe(),
-    });
+  } catch (_e) {
+    // No caret item: treated as the caret not having moved to a different item.
   }
   const currentEditingPath = store.history.getFocusPathMaybe();
   if (currentCaretItemInfo != null && currentEditingPath != currentCaretItemInfo.path) {
-    logLinearEdit("keyup-browser-moved-to-new-item", {
-      currentEditingPath,
-      caretPath: currentCaretItemInfo.path,
-      boundaryNavigation: pendingBoundaryNavigation,
-    });
     persistCurrentEditTarget(store);
 
     const newEditingDomId = editPathInfoToDomId(currentCaretItemInfo);
     const newEditingTextElement = document.getElementById(newEditingDomId);
     const caretPosition = getCaretPosition(newEditingTextElement!);
     focusTextEditPathInfo(store, currentCaretItemInfo, caretPosition);
-    return;
   }
-
-  if (pendingBoundaryNavigation != null) {
-    logLinearEdit("keyup-boundary-navigation-already-handled", {
-      currentEditingPath,
-      targetPath: pendingBoundaryNavigation.targetPath,
-      targetCaretPosition: pendingBoundaryNavigation.targetCaretPosition,
-    });
-    return;
-  }
-
-  logLinearEdit("keyup-no-op", {
-    currentEditingPath,
-    caretPath: currentCaretItemInfo?.path ?? null,
-    selection: selectionDebugInfo(),
-  });
 }
 
 export const edit_keyDownHandler = (store: StoreContextModel, visualElement: VisualElement, ev: KeyboardEvent) => {
@@ -1247,19 +1138,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
       ctrlKey: ev.ctrlKey,
       metaKey: ev.metaKey,
     });
-    logLinearEdit("keydown-arrow", {
-      key: ev.key,
-      itemPath,
-      caretPosition,
-      boundaryNavigation: arrowKeyDown_pendingBoundaryNavigation,
-      selection: selectionDebugInfo(),
-    });
     if (arrowKeyDown_pendingBoundaryNavigation != null) {
-      logLinearEdit("keydown-prevent-default-for-boundary-navigation", {
-        key: ev.key,
-        itemPath,
-        targetPath: arrowKeyDown_pendingBoundaryNavigation.targetPath,
-      });
       ev.preventDefault();
       ev.stopPropagation();
       applyLinearBoundaryNavigation(store, arrowKeyDown_pendingBoundaryNavigation);
