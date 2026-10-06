@@ -54,6 +54,8 @@ pub const DEFAULT_JSON_BODY_MAX_BYTES: usize = 1024 * 1024;
 const CORS_ALLOW_METHODS: &str = "GET, POST, OPTIONS";
 const CORS_ALLOW_HEADERS: &str = "content-type, x-infusession, x-infumap-chat-request-id, authorization";
 const CORS_MAX_AGE_SECS: &str = "86400";
+// SESSION_HEADER_NAME, and files::PARTIAL_IMAGE_HEADER_NAME.
+const CORS_EXPOSE_HEADERS: &str = "x-infusession, x-infumap-partial-image";
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum CorsPolicy {
@@ -334,7 +336,7 @@ fn apply_cors_headers(
   headers.insert(hyper::header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static(CORS_ALLOW_METHODS));
   headers.insert(hyper::header::ACCESS_CONTROL_MAX_AGE, HeaderValue::from_static(CORS_MAX_AGE_SECS));
   headers.insert(hyper::header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static(CORS_ALLOW_HEADERS));
-  headers.insert(hyper::header::ACCESS_CONTROL_EXPOSE_HEADERS, HeaderValue::from_static(SESSION_HEADER_NAME));
+  headers.insert(hyper::header::ACCESS_CONTROL_EXPOSE_HEADERS, HeaderValue::from_static(CORS_EXPOSE_HEADERS));
 
   let vary_has_origin =
     headers.get_all(hyper::header::VARY).iter().any(|v| v.as_bytes().eq_ignore_ascii_case(b"origin"));

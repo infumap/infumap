@@ -26,6 +26,11 @@ import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./ut
 const MAX_CONCURRENT_FETCH_REQUESTS: number = 3;
 const CLEANUP_AFTER_MS: number = 30000;
 
+// Set by the server on a response that is a smaller rendition of an image than requested, sent whilst the requested
+// one is generated. Such a response is not cached by the browser. Re-requesting the same url waits for the requested
+// rendition.
+const PARTIAL_IMAGE_HEADER_NAME = "x-infumap-partial-image";
+
 
 export enum ImageFetchPriority {
   High = 0,    // e.g. images in popups.
@@ -38,6 +43,7 @@ interface ImageFetchTask {
   priority: ImageFetchPriority,
   path: string,
   baseUrlMaybe: string | null,
+  onInterim: ((objectUrl: string) => void) | null,
   resolve: (objectUrl: string) => void,
   reject: (reason: any) => void,
 }
@@ -74,7 +80,15 @@ function cacheKey(path: string, baseUrlMaybe: string | null): string {
   }
 }
 
-export function getImage(path: string, origin: string | null, priority: ImageFetchPriority): Promise<string> {
+/**
+ * Fetch the image at path. onInterim, if provided, may be called with a lower resolution rendition of the image before
+ * the returned promise resolves. An interim object url is revoked some time after the promise settles.
+ */
+export function getImage(
+    path: string,
+    origin: string | null,
+    priority: ImageFetchPriority,
+    onInterim: ((objectUrl: string) => void) | null = null): Promise<string> {
   const key = cacheKey(path, origin);
   if (debug) { console.debug(`getImage: ` + debugMsg(key) + containerDebugCounts()); }
 
@@ -101,7 +115,7 @@ export function getImage(path: string, origin: string | null, priority: ImageFet
     }
 
     if (debug) { console.debug(`not in cache: ${key}. (priority: ${priority}).`); }
-    const task = { key, path, baseUrlMaybe: origin, priority, resolve, reject };
+    const task = { key, path, baseUrlMaybe: origin, priority, onInterim, resolve, reject };
     if (priority == ImageFetchPriority.High) {
       // Most recently requested first: the user is most likely to be looking at the latest popup.
       waiting = [task, ...waiting];
@@ -135,7 +149,7 @@ function serveWaiting() {
     if (task.baseUrlMaybe != null) {
       appendRemoteSessionHeader(task.baseUrlMaybe, headers);
     }
-    const promise = fetch(url, { headers })
+    const fetchImage = () => fetch(url, { headers })
       .then((resp) => {
         if (task.baseUrlMaybe != null) {
           applyRotatedRemoteSessionHeader(task.baseUrlMaybe, resp);
@@ -143,7 +157,25 @@ function serveWaiting() {
         if (!resp.ok || resp.status != 200) {
           throw new Error(`Image fetch request failed: ${resp.status}`);
         }
-        return resp.blob();
+        return resp;
+      });
+    let interimObjectUrl: string | null = null;
+    const promise = fetchImage()
+      .then(async (resp) => {
+        if (resp.headers.get(PARTIAL_IMAGE_HEADER_NAME) == null) {
+          return resp.blob();
+        }
+        if (debug) { console.debug(`partial image received: ${task.key}.`); }
+        interimObjectUrl = URL.createObjectURL(await resp.blob());
+        try {
+          task.onInterim?.(interimObjectUrl);
+        } catch (e) {
+          console.warn(`Interim image handler for '${task.key}' failed:`, e);
+        }
+        // The server is now generating the requested rendition, and responds to this request when it is done. A partial
+        // response to this request too would mean generation failed and was restarted. It is accepted as final, rather
+        // than retrying indefinitely.
+        return (await fetchImage()).blob();
       })
       .then((blob) => {
         fetchInProgress.delete(task.key);
@@ -164,6 +196,11 @@ function serveWaiting() {
         task.reject(error);
       })
       .finally(() => {
+        if (interimObjectUrl != null) {
+          // Delayed, since the interim image may still be displayed until the final one has loaded.
+          const toRevoke = interimObjectUrl;
+          setTimeout(() => { URL.revokeObjectURL(toRevoke); }, CLEANUP_AFTER_MS);
+        }
         serveWaiting();
       });
     fetchInProgress.set(task.key, promise);
