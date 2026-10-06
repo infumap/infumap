@@ -78,8 +78,9 @@ const LABEL_FULL: &'static str = "full";
 const LABEL_FAILED: &'static str = "failed";
 /// Request header: the client does not want to wait for the requested rendition of an image to be generated. If it is
 /// not cached, the response is a smaller cached rendition (marked with PARTIAL_IMAGE_HEADER_NAME) if there is one, else
-/// 202 (pending). Either way, generation is started, and a request without this header waits for it. This lets the
-/// client get everything that is fast to serve before waiting on anything slow.
+/// 202 (pending). Generation is not started: a request without this header (which waits) does that. This lets the client
+/// get everything that is fast to serve before waiting on anything slow, and means nothing is generated for images the
+/// client stops wanting before it makes that request (e.g. on navigating away from a page).
 pub const DEFER_IMAGE_HEADER_NAME: &str = "x-infumap-image-defer";
 /// Response header marking a response as a smaller rendition of an image than requested. See partial_image_response.
 pub const PARTIAL_IMAGE_HEADER_NAME: &str = "x-infumap-partial-image";
@@ -88,7 +89,7 @@ pub const PARTIAL_IMAGE_HEADER_NAME: &str = "x-infumap-partial-image";
 /// images held at once. Jobs beyond this queue in the order they were started.
 static IMAGE_JOB_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| Arc::new(Semaphore::new(4)));
 
-/// Request header (with DEFER_IMAGE_HEADER_NAME): the priority of generating the image, if it needs generating. "high"
+/// Request header: the priority of generating the image, if it needs generating. "high"
 /// for an image wanted ahead of everything else (a popped up image), "popup" for images within a popped up page.
 /// Otherwise normal. Prioritized jobs do not queue behind normal ones (each priority has its own job semaphore), or for
 /// the image processing semaphore.
@@ -474,6 +475,20 @@ async fn get_cached_resized_img(
     }
   }
 
+  if defer {
+    if let Some(smaller_width) = smaller_width_maybe {
+      let smaller_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(smaller_width) };
+      if let Some(data) = storage_cache::get(image_cache.clone(), &owner_id, smaller_key).await? {
+        debug!("Responding with partial image '{}_{}' for '{}'.", uid, smaller_width, name);
+        METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_PARTIAL]).inc();
+        return Ok(partial_image_response(data, &uid));
+      }
+    }
+    debug!("Responding with pending for '{}'.", name);
+    METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_PENDING]).inc();
+    return Ok(pending_image_response());
+  }
+
   let job_key = ImageCacheKey {
     item_id: uid.clone(),
     size: if respond_with_cached_original { ImageSize::Original } else { ImageSize::Width(requested_width) },
@@ -492,20 +507,6 @@ async fn get_cached_resized_img(
       priority,
     ),
   );
-
-  if defer {
-    if let Some(smaller_width) = smaller_width_maybe {
-      let smaller_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(smaller_width) };
-      if let Some(data) = storage_cache::get(image_cache.clone(), &owner_id, smaller_key).await? {
-        debug!("Responding with partial image '{}_{}' whilst '{}' is generated.", uid, smaller_width, name);
-        METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_PARTIAL]).inc();
-        return Ok(partial_image_response(data, &uid));
-      }
-    }
-    debug!("Responding with pending for '{}' whilst it is generated.", name);
-    METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_PENDING]).inc();
-    return Ok(pending_image_response());
-  }
   if !job_was_started {
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_SHARED]).inc();
   }
@@ -561,7 +562,7 @@ fn partial_image_response(data: Vec<u8>, uid: &str) -> Response<BoxBody<Bytes, h
     .unwrap()
 }
 
-/// No rendition of the image is available yet, but one is being generated. Not to be cached by the browser.
+/// No rendition of the image is available without generating one. Not to be cached by the browser.
 fn pending_image_response() -> Response<BoxBody<Bytes, hyper::Error>> {
   Response::builder()
     .status(hyper::StatusCode::ACCEPTED)
@@ -637,7 +638,7 @@ type ImageJob = Shared<BoxFuture<'static, Result<Bytes, String>>>;
 
 /// Image renditions currently being fetched / generated, keyed by cache key. Concurrent requests for the same
 /// rendition share one job. Jobs run as tasks, so they complete (and their result is cached) even if no request is
-/// waiting on them any more, e.g. after a partial response, or a client disconnect.
+/// waiting on them any more, e.g. after a client disconnect.
 struct ImageJobs {
   jobs: std::sync::Mutex<HashMap<String, ImageJob>>,
 }
