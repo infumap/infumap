@@ -34,16 +34,18 @@ const CLEANUP_AFTER_MS: number = 30000;
 // 202 responses are cached by the browser. Servers that do not support this ignore the header.
 const DEFER_IMAGE_HEADER_NAME = "x-infumap-image-defer";
 const PARTIAL_IMAGE_HEADER_NAME = "x-infumap-partial-image";
-// Sent with the initial request for a high priority image, so that generating it on the server does not queue behind
-// other images.
-const HIGH_PRIORITY_IMAGE_HEADER_NAME = "x-infumap-image-priority-high";
+// Sent with the initial request for a High or PopupContent priority image, so that generating it on the server does not
+// queue behind images of lower priority.
+const IMAGE_PRIORITY_HEADER_NAME = "x-infumap-image-priority";
 
 
 export enum ImageFetchPriority {
-  High = 0,    // e.g. images in popups.
-  Normal = 1,  // images on interactive pages.
-  Low = 2,     // images in translucent (preview) pages.
+  High = 0,          // a popped up image. Fetched immediately, and nothing else is started whilst in progress.
+  PopupContent = 1,  // images within a popped up page.
+  Normal = 2,        // images on interactive pages.
+  Low = 3,           // images in translucent (preview) pages.
 }
+const IMAGE_FETCH_PRIORITY_COUNT = 4;
 
 interface ImageFetchTask {
   key: string,
@@ -133,7 +135,7 @@ export function getImage(
 // High priority requests (initial or follow-up) come first. Then all other initial requests come before all other
 // follow-up requests, then by priority.
 const taskRank = (task: ImageFetchTask): number =>
-  task.priority == ImageFetchPriority.High ? 0 : (task.isFollowUp ? 3 : 0) + task.priority;
+  task.priority == ImageFetchPriority.High ? 0 : (task.isFollowUp ? IMAGE_FETCH_PRIORITY_COUNT : 0) + task.priority;
 
 function enqueue(task: ImageFetchTask) {
   if (task.priority == ImageFetchPriority.High) {
@@ -196,8 +198,10 @@ function startFetch(task: ImageFetchTask) {
   }
   if (!task.isFollowUp) {
     headers[DEFER_IMAGE_HEADER_NAME] = "1";
-    if (isHighPriority) {
-      headers[HIGH_PRIORITY_IMAGE_HEADER_NAME] = "1";
+    if (task.priority == ImageFetchPriority.High) {
+      headers[IMAGE_PRIORITY_HEADER_NAME] = "high";
+    } else if (task.priority == ImageFetchPriority.PopupContent) {
+      headers[IMAGE_PRIORITY_HEADER_NAME] = "popup";
     }
   }
   const queueFollowUp = () => {

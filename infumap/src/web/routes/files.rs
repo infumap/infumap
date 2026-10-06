@@ -88,11 +88,28 @@ pub const PARTIAL_IMAGE_HEADER_NAME: &str = "x-infumap-partial-image";
 /// images held at once. Jobs beyond this queue in the order they were started.
 static IMAGE_JOB_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| Arc::new(Semaphore::new(4)));
 
-/// Request header (with DEFER_IMAGE_HEADER_NAME): the image is wanted ahead of everything else, e.g. it is in a popup.
-/// Its job does not queue behind other image jobs, or for the image processing semaphore. Such jobs are separately
-/// bounded by HIGH_PRIORITY_IMAGE_JOB_SEMAPHORE.
-pub const HIGH_PRIORITY_IMAGE_HEADER_NAME: &str = "x-infumap-image-priority-high";
+/// Request header (with DEFER_IMAGE_HEADER_NAME): the priority of generating the image, if it needs generating. "high"
+/// for an image wanted ahead of everything else (a popped up image), "popup" for images within a popped up page.
+/// Otherwise normal. Prioritized jobs do not queue behind normal ones (each priority has its own job semaphore), or for
+/// the image processing semaphore.
+pub const IMAGE_PRIORITY_HEADER_NAME: &str = "x-infumap-image-priority";
 static HIGH_PRIORITY_IMAGE_JOB_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| Arc::new(Semaphore::new(2)));
+static POPUP_PRIORITY_IMAGE_JOB_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| Arc::new(Semaphore::new(2)));
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ImageJobPriority {
+  High,
+  Popup,
+  Normal,
+}
+
+fn image_job_priority(req: &Request<hyper::body::Incoming>) -> ImageJobPriority {
+  match req.headers().get(IMAGE_PRIORITY_HEADER_NAME).map(|v| v.as_bytes()) {
+    Some(b"high") => ImageJobPriority::High,
+    Some(b"popup") => ImageJobPriority::Popup,
+    _ => ImageJobPriority::Normal,
+  }
+}
 const TEXT_NOT_AVAILABLE_MESSAGE: &str = "[text not available]";
 const FRAGMENTS_NOT_AVAILABLE_MESSAGE: &str = "[fragments not available]";
 const GEO_INFO_NOT_AVAILABLE_MESSAGE: &str = "[geo info not available]";
@@ -288,18 +305,9 @@ pub async fn serve_files_route(
     }
   } else if name.contains("_") {
     let defer = req.headers().contains_key(DEFER_IMAGE_HEADER_NAME);
-    let high_priority = req.headers().contains_key(HIGH_PRIORITY_IMAGE_HEADER_NAME);
-    match get_cached_resized_img(
-      config,
-      db,
-      object_store,
-      image_cache,
-      &session_user_id_maybe,
-      name,
-      defer,
-      high_priority,
-    )
-    .await
+    let priority = image_job_priority(req);
+    match get_cached_resized_img(config, db, object_store, image_cache, &session_user_id_maybe, name, defer, priority)
+      .await
     {
       Ok(img_response) => img_response,
       Err(e) => {
@@ -326,7 +334,7 @@ async fn get_cached_resized_img(
   session_user_id_maybe: &Option<String>,
   name: &str,
   defer: bool,
-  high_priority: bool,
+  priority: ImageJobPriority,
 ) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
   // TODO (MEDIUM): Consider browser side caching more in the case an image of different size than
   // that requested is returned. There would be a strategy that is better by some metric that more
@@ -481,7 +489,7 @@ async fn get_cached_resized_img(
       object_encryption_key,
       original_dimensions_px,
       if respond_with_cached_original { None } else { Some(requested_width) },
-      high_priority,
+      priority,
     ),
   );
 
@@ -563,7 +571,7 @@ fn pending_image_response() -> Response<BoxBody<Bytes, hyper::Error>> {
 }
 
 /// Fetches the original image from the object store, resizes it to requested_width_maybe (None => the unmodified
-/// original), and inserts the result into the image cache. See HIGH_PRIORITY_IMAGE_HEADER_NAME for high_priority.
+/// original), and inserts the result into the image cache. See IMAGE_PRIORITY_HEADER_NAME for priority.
 async fn fetch_and_cache_image(
   object_store: Arc<object::ObjectStore>,
   image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
@@ -572,10 +580,13 @@ async fn fetch_and_cache_image(
   object_encryption_key: String,
   original_dimensions_px: Dimensions<i64>,
   requested_width_maybe: Option<u32>,
-  high_priority: bool,
+  priority: ImageJobPriority,
 ) -> Result<Bytes, String> {
-  let job_semaphore =
-    if high_priority { HIGH_PRIORITY_IMAGE_JOB_SEMAPHORE.clone() } else { IMAGE_JOB_SEMAPHORE.clone() };
+  let job_semaphore = match priority {
+    ImageJobPriority::High => HIGH_PRIORITY_IMAGE_JOB_SEMAPHORE.clone(),
+    ImageJobPriority::Popup => POPUP_PRIORITY_IMAGE_JOB_SEMAPHORE.clone(),
+    ImageJobPriority::Normal => IMAGE_JOB_SEMAPHORE.clone(),
+  };
   let _job_permit = job_semaphore.acquire_owned().await.map_err(|e| format!("Image job semaphore closed: {}", e))?;
   let original_file_bytes = object::get(object_store, owner_id.clone(), uid.clone(), &object_encryption_key)
     .await
@@ -588,7 +599,7 @@ async fn fetch_and_cache_image(
     }
     Some(requested_width) => {
       // The permit is moved into the blocking task so it is held until the work completes.
-      let permit = if high_priority {
+      let permit = if priority != ImageJobPriority::Normal {
         None
       } else {
         Some(

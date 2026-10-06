@@ -159,6 +159,20 @@ export const isInsideTranslucentPage = (visualElement: VisualElement): boolean =
   return false;
 };
 
+/**
+ * True when the visual element is rendered (at any depth) within a popped up item, e.g. it is an item in a popped up page.
+ */
+export const isInsidePopup = (visualElement: VisualElement): boolean => {
+  let parentPath = visualElement.parentPath;
+  while (parentPath != null) {
+    const parentVe = VesCache.render.getNode(parentPath)?.get();
+    if (parentVe == null) { return false; }
+    if (parentVe.flags & VisualElementFlags.Popup) { return true; }
+    parentPath = parentVe.parentPath;
+  }
+  return false;
+};
+
 export const parentDocumentPageMaybe = (visualElement: VisualElement) => {
   if (!(visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || visualElement.parentPath == null) {
     return null;
