@@ -18,14 +18,14 @@
 
 import { Component, For, JSX, Show, createEffect, onCleanup, untrack } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, MIN_IMAGE_WIDTH_PX } from "../../constants";
-import { FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW, TITLE_OVERLAY_BACKGROUND_COLOR } from "../../style";
 import { ImageFns, asImageItem } from "../../items/image-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
-import { acquireFetchedImageMaybe, getImage, releaseImage } from "../../imageManager";
+import { ImageFetchPriority, acquireFetchedImageMaybe, getImage, releaseImage } from "../../imageManager";
 import { imagePlaceholderSizePx, imagePlaceholderSrc } from "../../util/imagePlaceholder";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
@@ -41,7 +41,7 @@ import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { appendNewlineIfEmpty } from "../../util/string";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -230,7 +230,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   // rounding errors, which there may be, so this adds the perfect degree of safety).
 
   let isDetailed_OnLoad = isDetailed();
-  let currentImgSrc = "";
+  // The path of the image rendition currently held (acquired from the image manager), "" if none is held because the
+  // placeholder suffices, or null before the first evaluation.
+  let currentImgSrc: string | null = null;
   let imgOriginOnLoad = imgOrigin();
   let isMounting = true;
   let isShowingThumbnail = createInfuSignal<boolean>(true);
@@ -257,26 +259,42 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     return true;
   };
 
-  // TODO (LOW): Better behavior when imageWidthToRequestPx <= MIN_IMAGE_WIDTH_PX.
+  // When the image is displayed no wider than its placeholder, the placeholder is already at (or above) display
+  // resolution, so nothing is fetched. Not when printing, where images are requested at a higher resolution.
+  const placeholderSuffices = (): boolean => {
+    if (store.printMode.get()) { return false; }
+    const placeholderSizePx = imagePlaceholderSizePx(imageItem().thumbnail);
+    return placeholderSizePx != null && imageWidthToRequestPx(false) <= placeholderSizePx.w;
+  };
+
   createEffect(() => {
-    if (currentImgSrc != imgSrc() && !store.anItemIsResizing.get()) {
+    const wantedImgSrc = placeholderSuffices() ? "" : imgSrc();
+    if (currentImgSrc != wantedImgSrc && !store.anItemIsResizing.get()) {
       if (isDetailed_OnLoad) {
         if (!isMounting) {
-          if (currentImgSrc !== "") {
+          if (currentImgSrc != null && currentImgSrc !== "") {
             releaseImage(currentImgSrc, imgOriginOnLoad);
           }
         }
         isMounting = false;
-        currentImgSrc = imgSrc();
-        const imgSrcOnRequest = currentImgSrc;
+        currentImgSrc = wantedImgSrc;
+        if (wantedImgSrc == "") {
+          releasePrintStandInImageMaybe();
+          imgSrcSignal.set(thumbnailSrc());
+          isShowingThumbnail.set(true);
+          return;
+        }
+        const imgSrcOnRequest = wantedImgSrc;
         const imgOriginOnRequest = imgOriginOnLoad;
         const imageIdOnRequest = props.visualElement.displayItem.id;
         if (!showFetchedImageForPrintMaybe()) {
           imgSrcSignal.set(thumbnailSrc());
           isShowingThumbnail.set(true);
         }
-        const isHighPriority = isPopup();
-        getImage(imgSrcOnRequest, imgOriginOnRequest, isHighPriority)
+        const priority = isPopup()
+          ? ImageFetchPriority.High
+          : untrack(() => isInsideTranslucentPage(props.visualElement)) ? ImageFetchPriority.Low : ImageFetchPriority.Normal;
+        getImage(imgSrcOnRequest, imgOriginOnRequest, priority)
           .then((objectUrl) => {
             try {
               // props.visualElement is actually a function call, which will fail if the component is unmounted.
@@ -317,7 +335,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   onCleanup(() => {
     releasePrintStandInImageMaybe();
     if (isDetailed_OnLoad) {
-      if (currentImgSrc !== "") {
+      if (currentImgSrc != null && currentImgSrc !== "") {
         releaseImage(currentImgSrc, imgOriginOnLoad);
       }
     }
@@ -416,7 +434,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const notDetailedFallback = (): JSX.Element =>
     <img class="max-w-none absolute pointer-events-none"
-      style={thumbnailFitStyle()}
+      style={imageItem().flags & ImageFlags.NoCrop ? thumbnailFitStyle() : croppedPlaceholderStyle()}
       src={thumbnailSrc()} />;
 
   const titleClickHandler = (ev: MouseEvent) => {
@@ -441,8 +459,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class="absolute flex items-center justify-center pointer-events-none"
         style={`left: ${titleBoundsPx.x}px; top: ${titleBoundsPx.y + titleBoundsPx.h - 50}px; width: ${titleBoundsPx.w}px; height: 50px; z-index: 4;`}>
         <div id={vePath() + ":title"}
-          class={`rounded-sm px-2 py-1 text-center text-xl font-bold text-white ${imageItem().title.trim() || isEditingTitle() ? "bg-black/70" : ""} ${canEdit() ? "pointer-events-auto select-text cursor-text" : "pointer-events-none"}`}
-          style="min-width: 1em; min-height: 1.5em; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; outline: none;"
+          class={`rounded-[3px] px-2 py-1 text-center text-xl font-bold text-white ${canEdit() ? "pointer-events-auto select-text cursor-text" : "pointer-events-none"}`}
+          style={`min-width: 1em; min-height: 1.5em; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; ` +
+            `background-color: ${imageItem().title.trim() || isEditingTitle() ? TITLE_OVERLAY_BACKGROUND_COLOR : "transparent"};`}
           contentEditable={isEditingTitle()}
           spellcheck={isEditingTitle()}
           onmousedown={ev => {

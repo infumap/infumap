@@ -46,6 +46,10 @@ export const MOUSE_MOVE_AMBIGUOUS_PX = 5;
 
 export const CHILD_ITEMS_VISIBLE_WIDTH_BL = 6;
 
+// Below this scale (relative to natural size), the children of non-interactive pages are drawn as outlines, because
+// their text would be too small to read.
+export const MIN_DETAILED_CHILD_SCALE = 0.5;
+
 export const LIST_PAGE_TOP_PADDING_PX = 4;
 
 export const ITEM_BORDER_WIDTH_PX = 1;

@@ -136,6 +136,8 @@ export const SELECTION_HIGHLIGHT_COLOR = '#4a90e24d';
 export const SELECTION_MARQUEE_BORDER_COLOR = '#4a90e2';
 // Kept faint so selected items remain distinguishable underneath the marquee while dragging.
 export const SELECTION_MARQUEE_FILL_COLOR = '#4a90e214';
+// Behind titles drawn over content (translucent pages, images).
+export const TITLE_OVERLAY_BACKGROUND_COLOR = 'rgba(0, 0, 0, 0.5)';
 export const FOCUS_RING_INNER_COLOR = 'rgba(255, 255, 255, 0.72)';
 export const FOCUS_RING_COLOR = 'rgba(0, 82, 255, 0.9)';
 export const FOCUS_RING_BOX_SHADOW =

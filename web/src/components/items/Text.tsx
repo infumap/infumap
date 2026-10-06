@@ -53,7 +53,7 @@ import { newOrdering } from "../../util/ordering";
 import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { finishActivePendingClipboardTextItem } from "../../input/text_clipboard_create";
 
 
@@ -365,10 +365,10 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
               `text-indent: ${popupTextIndentPx()}px; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
               href={""}
-              class={titleIsPlaceholder() ? `italic text-slate-500` : `text-purple-800 hover:text-purple-700`}
+              class={titleIsPlaceholder() ? `italic text-slate-500` : isInsideTranslucentPage(props.visualElement) ? `text-purple-800` : `text-purple-800 hover:text-purple-700`}
               style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
               onClick={aHrefClick}
-              onMouseDown={aHrefMouseDown}
+              onMouseDown={isInsideTranslucentPage(props.visualElement) ? undefined : aHrefMouseDown}
               onMouseUp={aHrefMouseUp}>
               {appendNewlineIfEmpty(titleText())}
             </a>
