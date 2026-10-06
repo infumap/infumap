@@ -16,14 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { MIN_DETAILED_CHILD_SCALE, NATURAL_BLOCK_SIZE_PX } from "../../constants";
-import { NoteFlags, PageFlags } from "../../items/base/flags-item";
+import { NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { PageFlags } from "../../items/base/flags-item";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { isImage } from "../../items/image-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { asNoteItem, isNote } from "../../items/note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { isLinkInTrash } from "../../items/trash-link";
@@ -32,12 +31,11 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
-import { getTextStyleForNote } from "../text";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildrenPath, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
-import { getVePropertiesForItem } from "./util";
+import { getVePropertiesForItem, previewChildIsDetailed } from "./util";
 import { arrangeComposite } from "./composite";
 import { arrangeTable } from "./table";
 
@@ -186,8 +184,7 @@ export function arrange_spatial_page(
       store.smallScreenMode(),
       compositeIsCollapsed);
     const { geometry: visibleItemGeometry, wasAutoMoved } = keepGeometryInsideScrollableArea(itemGeometry);
-    const renderChildDetailed = !renderChildrenAsFull &&
-      childScale * childTextSizeMultiplier(displayItem) >= MIN_DETAILED_CHILD_SCALE;
+    const renderChildDetailed = !renderChildrenAsFull && previewChildIsDetailed(displayItem, childScale);
     let childPath: VisualElementPath;
     if (renderChildrenAsFull) {
       childPath = arrangeItemPath(
@@ -244,14 +241,6 @@ export function arrange_spatial_page(
   }
 
   return { spec: pageSpec, relationships: pageRelationships };
-}
-
-/**
- * Size of an item's text relative to body text, so larger text (e.g. headings) remains detailed at smaller scales.
- */
-function childTextSizeMultiplier(displayItem: Item): number {
-  if (!isNote(displayItem)) { return 1.0; }
-  return getTextStyleForNote(asNoteItem(displayItem).flags).fontSize / getTextStyleForNote(NoteFlags.None).fontSize;
 }
 
 /**

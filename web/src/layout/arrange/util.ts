@@ -29,7 +29,22 @@ import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VeFns } from "../visual-element";
 import { isQuerySearchResultLink } from "../../items/search-item";
-import { LINK_TRIANGLE_SIZE_PX } from "../../constants";
+import { LINK_TRIANGLE_SIZE_PX, MIN_DETAILED_CHILD_SCALE } from "../../constants";
+import { NoteFlags } from "../../items/base/flags-item";
+import { asNoteItem, isNote } from "../../items/note-item";
+import { getTextStyleForNote } from "../text";
+
+
+/**
+ * Whether a child of a non-interactive page, drawn at the given scale (relative to natural size), should be drawn in
+ * detail (with text) rather than as an outline. Larger text (e.g. headings) remains detailed at smaller scales.
+ */
+export function previewChildIsDetailed(displayItem: Item, scale: number): boolean {
+  const textSizeMultiplier = isNote(displayItem)
+    ? getTextStyleForNote(asNoteItem(displayItem).flags).fontSize / getTextStyleForNote(NoteFlags.None).fontSize
+    : 1.0;
+  return scale * textSizeMultiplier >= MIN_DETAILED_CHILD_SCALE;
+}
 
 
 export interface VePropertiesForItem {
