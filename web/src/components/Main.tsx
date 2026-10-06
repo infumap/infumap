@@ -273,6 +273,7 @@ export const Main: Component = () => {
     window.addEventListener('drop', structuralDropListener, true);
     document.addEventListener('keyup', keyUpListener);
     window.addEventListener('resize', windowResizeListener);
+    watchDevicePixelRatio();
     window.addEventListener('beforeprint', beforePrintListener);
     window.addEventListener('afterprint', afterPrintListener);
     document.addEventListener('selectionchange', selectionChangeListener);
@@ -312,6 +313,7 @@ export const Main: Component = () => {
     window.removeEventListener('drop', structuralDropListener, true);
     document.removeEventListener('keyup', keyUpListener);
     window.removeEventListener('resize', windowResizeListener);
+    devicePixelRatioQuery?.removeEventListener('change', devicePixelRatioListener);
     window.removeEventListener('beforeprint', beforePrintListener);
     window.removeEventListener('afterprint', afterPrintListener);
     document.removeEventListener('selectionchange', selectionChangeListener)
@@ -472,6 +474,20 @@ export const Main: Component = () => {
   const windowResizeListener = () => {
     store.resetDesktopSizePx();
     requestArrange(store, "window-resize");
+  };
+
+  // A resolution media query matching the current ratio stops matching when the ratio changes, at which point a new
+  // query is registered for the new ratio.
+  let devicePixelRatioQuery: MediaQueryList | null = null;
+  const watchDevicePixelRatio = () => {
+    devicePixelRatioQuery?.removeEventListener('change', devicePixelRatioListener);
+    devicePixelRatioQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    devicePixelRatioQuery.addEventListener('change', devicePixelRatioListener);
+  };
+  const devicePixelRatioListener = () => {
+    const ratio = window.devicePixelRatio || 1;
+    if (store.devicePixelRatio.get() != ratio) { store.devicePixelRatio.set(ratio); }
+    watchDevicePixelRatio();
   };
 
   const beforePrintListener = () => { enterPrintMode(store); };

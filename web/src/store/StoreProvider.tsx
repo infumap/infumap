@@ -66,6 +66,9 @@ export interface StoreContextModel {
 
   printMode: InfuSignal<boolean>,
 
+  // Device pixels per CSS pixel. Changes with browser zoom, or when the window moves to a display of different density.
+  devicePixelRatio: InfuSignal<number>,
+
   anItemIsResizing: InfuSignal<boolean>,
   anItemIsMoving: InfuSignal<boolean>,
   externalFileDragActive: InfuSignal<boolean>,
@@ -137,6 +140,8 @@ export function StoreProvider(props: StoreContextProps) {
 
   const printMode = createInfuSignal<boolean>(false);
 
+  const devicePixelRatio = createInfuSignal<number>(window.devicePixelRatio || 1);
+
   const resetDesktopSizePx = () => {
     browserClientSizePx.set({ w: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientWidth, h: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientHeight });
   }
@@ -202,6 +207,7 @@ export function StoreProvider(props: StoreContextProps) {
     setDockWidthPx,
     dockVisible,
     printMode,
+    devicePixelRatio,
     topToolbarVisible,
     topToolbarHeightPx,
 
