@@ -527,9 +527,14 @@ async fn run_text_extraction_loop(
       }
       // Deliberate trade-off: accepted output is kept when GPU tools or models
       // change; reprocessing is manual (see handle_reprocess_item).
-      if matches!(manifest_check(&data_dir, &candidate).await?, ManifestCheckResult::AlreadySucceeded) {
-        enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
-        return Ok(false);
+      match manifest_check(&data_dir, &candidate).await? {
+        ManifestCheckResult::AlreadySucceeded => {
+          enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
+          return Ok(false);
+        }
+        // Password protected PDFs are not text extracted (reprocessing is manual).
+        ManifestCheckResult::AlreadyBlocked => return Ok(false),
+        ManifestCheckResult::NeedsExtraction | ManifestCheckResult::AlreadyFailed => {}
       }
       let path = item_text_manifest_path(&data_dir, &candidate.user_id, &candidate.item_id)?;
       let delay = manifest_retry_delay(&path).await?;
@@ -560,9 +565,7 @@ async fn run_text_extraction_loop(
       .await?
       {
         PdfTextExtractionProcessOutcome::Extracted => Ok(true),
-        PdfTextExtractionProcessOutcome::Blocked => {
-          Err("PDF is password protected; extraction will be revisited.".into())
-        }
+        PdfTextExtractionProcessOutcome::Blocked => Ok(false),
       }
     }
     .await;
@@ -932,10 +935,7 @@ async fn populate_initial_pdf_queue(
         already_failed += 1;
         pending_candidates.push(candidate);
       }
-      Ok(ManifestCheckResult::AlreadyBlocked) => {
-        already_blocked += 1;
-        pending_candidates.push(candidate);
-      }
+      Ok(ManifestCheckResult::AlreadyBlocked) => already_blocked += 1,
       Err(e) => {
         artifact_errors += 1;
         error!(

@@ -234,8 +234,7 @@ pub fn forget(user_id: &str, item_id: &str) {
 }
 
 /// Dependency outages and waits on an earlier stage resolve without intervention.
-/// Everything else (missing configuration or capability, password protection,
-/// rejected documents, missing sources, local processing and index failures)
+/// Everything else (missing configuration or capability, rejected documents, missing sources, local processing and index failures)
 /// is still retried, but is reported as needing attention.
 fn needs_attention(detail: &str) -> bool {
   const WAITING_MARKERS: &[&str] = &[
