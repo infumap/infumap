@@ -416,14 +416,6 @@ export const Main: Component = () => {
     }, 80);
   };
 
-  const shouldDebugLinearEdit = (): boolean => {
-    try {
-      return window.localStorage.getItem("debug:linear-edit") == "1";
-    } catch (_e) {
-      return false;
-    }
-  };
-
   const keyDownListener = (ev: KeyboardEvent) => {
     if (ev.code == "KeyP" && (ev.ctrlKey || ev.metaKey) && !ev.altKey && !ev.shiftKey) {
       ev.preventDefault();
@@ -431,31 +423,11 @@ export const Main: Component = () => {
       return;
     }
     refreshHoverForCursorModifier(ev);
-    if (shouldDebugLinearEdit() &&
-      (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&
-      store.overlay.textEditInfo()) {
-      console.log("[linear-edit-main] keydown", {
-        code: ev.code,
-        activeElementId: (document.activeElement as HTMLElement | null)?.id ?? null,
-        targetId: (ev.target as HTMLElement | null)?.id ?? null,
-        itemPath: store.overlay.textEditInfo()!.itemPath,
-      });
-    }
     keyDownHandler(store, ev);
   };
 
   const keyUpListener = (ev: KeyboardEvent) => {
     refreshHoverForCursorModifier(ev);
-    if (shouldDebugLinearEdit() &&
-      (ev.code == "ArrowUp" || ev.code == "ArrowDown") &&
-      store.overlay.textEditInfo()) {
-      console.log("[linear-edit-main] keyup", {
-        code: ev.code,
-        activeElementId: (document.activeElement as HTMLElement | null)?.id ?? null,
-        targetId: (ev.target as HTMLElement | null)?.id ?? null,
-        itemPath: store.overlay.textEditInfo()!.itemPath,
-      });
-    }
     void keyUpHandler(store, ev);
   };
 
