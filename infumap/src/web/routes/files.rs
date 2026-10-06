@@ -36,7 +36,7 @@ use std::future::Future;
 use std::io::Cursor;
 use std::sync::Arc;
 use tokio::fs;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Semaphore};
 use tokio::task::spawn_blocking;
 
 use crate::ai::artifact_paths::{
@@ -73,10 +73,20 @@ const LABEL_MISS_ORIG: &'static str = "miss_orig";
 const LABEL_MISS_CREATE: &'static str = "miss";
 const LABEL_MISS_SHARED: &'static str = "miss_shared";
 const LABEL_PARTIAL: &'static str = "partial";
+const LABEL_PENDING: &'static str = "pending";
 const LABEL_FULL: &'static str = "full";
 const LABEL_FAILED: &'static str = "failed";
-/// Marks a response as a smaller rendition of an image than requested. See partial_image_response.
+/// Request header: the client does not want to wait for the requested rendition of an image to be generated. If it is
+/// not cached, the response is a smaller cached rendition (marked with PARTIAL_IMAGE_HEADER_NAME) if there is one, else
+/// 202 (pending). Either way, generation is started, and a request without this header waits for it. This lets the
+/// client get everything that is fast to serve before waiting on anything slow.
+pub const DEFER_IMAGE_HEADER_NAME: &str = "x-infumap-image-defer";
+/// Response header marking a response as a smaller rendition of an image than requested. See partial_image_response.
 pub const PARTIAL_IMAGE_HEADER_NAME: &str = "x-infumap-partial-image";
+
+/// Bounds the number of image jobs (object store fetch + resize) in progress, and hence the memory used by original
+/// images held at once. Jobs beyond this queue in the order they were started.
+static IMAGE_JOB_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| Arc::new(Semaphore::new(4)));
 const TEXT_NOT_AVAILABLE_MESSAGE: &str = "[text not available]";
 const FRAGMENTS_NOT_AVAILABLE_MESSAGE: &str = "[fragments not available]";
 const GEO_INFO_NOT_AVAILABLE_MESSAGE: &str = "[geo info not available]";
@@ -271,7 +281,8 @@ pub async fn serve_files_route(
       }
     }
   } else if name.contains("_") {
-    match get_cached_resized_img(config, db, object_store, image_cache, &session_user_id_maybe, name).await {
+    let defer = req.headers().contains_key(DEFER_IMAGE_HEADER_NAME);
+    match get_cached_resized_img(config, db, object_store, image_cache, &session_user_id_maybe, name, defer).await {
       Ok(img_response) => img_response,
       Err(e) => {
         METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FAILED]).inc();
@@ -296,6 +307,7 @@ async fn get_cached_resized_img(
   image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
   session_user_id_maybe: &Option<String>,
   name: &str,
+  defer: bool,
 ) -> InfuResult<Response<BoxBody<Bytes, hyper::Error>>> {
   // TODO (MEDIUM): Consider browser side caching more in the case an image of different size than
   // that requested is returned. There would be a strategy that is better by some metric that more
@@ -453,9 +465,7 @@ async fn get_cached_resized_img(
     ),
   );
 
-  if job_was_started {
-    // A request that finds a job in progress waits for it, rather than receiving another partial response. This is
-    // what the client relies on to get the full rendition when it follows up a partial response.
+  if defer {
     if let Some(smaller_width) = smaller_width_maybe {
       let smaller_key = ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(smaller_width) };
       if let Some(data) = storage_cache::get(image_cache.clone(), &owner_id, smaller_key).await? {
@@ -464,7 +474,11 @@ async fn get_cached_resized_img(
         return Ok(partial_image_response(data, &uid));
       }
     }
-  } else {
+    debug!("Responding with pending for '{}' whilst it is generated.", name);
+    METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_PENDING]).inc();
+    return Ok(pending_image_response());
+  }
+  if !job_was_started {
     METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_SHARED]).inc();
   }
 
@@ -519,6 +533,15 @@ fn partial_image_response(data: Vec<u8>, uid: &str) -> Response<BoxBody<Bytes, h
     .unwrap()
 }
 
+/// No rendition of the image is available yet, but one is being generated. Not to be cached by the browser.
+fn pending_image_response() -> Response<BoxBody<Bytes, hyper::Error>> {
+  Response::builder()
+    .status(hyper::StatusCode::ACCEPTED)
+    .header(hyper::header::CACHE_CONTROL, "no-store")
+    .body(full_body(Bytes::new()))
+    .unwrap()
+}
+
 /// Fetches the original image from the object store, resizes it to requested_width_maybe (None => the unmodified
 /// original), and inserts the result into the image cache.
 async fn fetch_and_cache_image(
@@ -530,6 +553,8 @@ async fn fetch_and_cache_image(
   original_dimensions_px: Dimensions<i64>,
   requested_width_maybe: Option<u32>,
 ) -> Result<Bytes, String> {
+  let _job_permit =
+    IMAGE_JOB_SEMAPHORE.clone().acquire_owned().await.map_err(|e| format!("Image job semaphore closed: {}", e))?;
   let original_file_bytes = object::get(object_store, owner_id.clone(), uid.clone(), &object_encryption_key)
     .await
     .map_err(|e| e.to_string())?;

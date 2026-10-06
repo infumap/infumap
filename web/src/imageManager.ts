@@ -26,9 +26,13 @@ import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./ut
 const MAX_CONCURRENT_FETCH_REQUESTS: number = 3;
 const CLEANUP_AFTER_MS: number = 30000;
 
-// Set by the server on a response that is a smaller rendition of an image than requested, sent whilst the requested
-// one is generated. Such a response is not cached by the browser. Re-requesting the same url waits for the requested
-// rendition.
+// An image request is first made with DEFER_IMAGE_HEADER_NAME set, to which the server responds without waiting for
+// anything slow: with the image if it is cached, otherwise with a smaller cached rendition marked with
+// PARTIAL_IMAGE_HEADER_NAME (shown as an interim image), or 202 if there is none. In the latter two cases, the server
+// starts generating the image, and a follow-up request (without the header) is queued, which waits for it. All initial
+// requests are made before any follow-up requests, so everything that is quick to get is got first. Neither partial nor
+// 202 responses are cached by the browser. Servers that do not support this ignore the header.
+const DEFER_IMAGE_HEADER_NAME = "x-infumap-image-defer";
 const PARTIAL_IMAGE_HEADER_NAME = "x-infumap-partial-image";
 
 
@@ -46,6 +50,8 @@ interface ImageFetchTask {
   onInterim: ((objectUrl: string) => void) | null,
   resolve: (objectUrl: string) => void,
   reject: (reason: any) => void,
+  isFollowUp: boolean,
+  interimObjectUrl: string | null,
 }
 
 
@@ -115,20 +121,35 @@ export function getImage(
     }
 
     if (debug) { console.debug(`not in cache: ${key}. (priority: ${priority}).`); }
-    const task = { key, path, baseUrlMaybe: origin, priority, onInterim, resolve, reject };
-    if (priority == ImageFetchPriority.High) {
-      // Most recently requested first: the user is most likely to be looking at the latest popup.
-      waiting = [task, ...waiting];
-    } else {
-      // After all waiting tasks of the same or higher priority.
-      const insertIdx = waiting.findIndex(t => t.priority > priority);
-      waiting = insertIdx == -1
-        ? [...waiting, task]
-        : [...waiting.slice(0, insertIdx), task, ...waiting.slice(insertIdx)];
-    }
+    enqueue({ key, path, baseUrlMaybe: origin, priority, onInterim, resolve, reject, isFollowUp: false, interimObjectUrl: null });
     serveWaiting();
   });
 };
+
+// All initial requests come before all follow-up requests, then by priority.
+const taskRank = (task: ImageFetchTask): number => (task.isFollowUp ? 3 : 0) + task.priority;
+
+function enqueue(task: ImageFetchTask) {
+  if (!task.isFollowUp && task.priority == ImageFetchPriority.High) {
+    // Most recently requested first: the user is most likely to be looking at the latest popup.
+    waiting = [task, ...waiting];
+    return;
+  }
+  // After all waiting tasks of the same or higher rank.
+  const rank = taskRank(task);
+  const insertIdx = waiting.findIndex(t => taskRank(t) > rank);
+  waiting = insertIdx == -1
+    ? [...waiting, task]
+    : [...waiting.slice(0, insertIdx), task, ...waiting.slice(insertIdx)];
+}
+
+function revokeInterimLater(task: ImageFetchTask) {
+  if (task.interimObjectUrl == null) { return; }
+  // Delayed, since the interim image may still be displayed until the final one has loaded.
+  const toRevoke = task.interimObjectUrl;
+  task.interimObjectUrl = null;
+  setTimeout(() => { URL.revokeObjectURL(toRevoke); }, CLEANUP_AFTER_MS);
+}
 
 
 function serveWaiting() {
@@ -137,6 +158,7 @@ function serveWaiting() {
     if (debug) { console.debug(`executing waiting fetch task: ${task.key}. ` + debugMsg(task.key) + containerDebugCounts()); }
     if (objectUrls.has(task.key) && objectUrls.get(task.key) != null) {
       // a waiting task that has now completed might have been for the same filename.
+      revokeInterimLater(task);
       task.resolve(objectUrls.get(task.key) as string);
       if (debug) { console.debug(`previous waiting task satisfied a subsequent request: ${task.key}.`) }
       serveWaiting();
@@ -149,36 +171,46 @@ function serveWaiting() {
     if (task.baseUrlMaybe != null) {
       appendRemoteSessionHeader(task.baseUrlMaybe, headers);
     }
-    const fetchImage = () => fetch(url, { headers })
-      .then((resp) => {
+    if (!task.isFollowUp) {
+      headers[DEFER_IMAGE_HEADER_NAME] = "1";
+    }
+    const queueFollowUp = () => {
+      fetchInProgress.delete(task.key);
+      if (!((objectUrlsRefCount.get(task.key) ?? 0) > 0)) {
+        // Released whilst the initial request was in progress, so no longer required.
+        if (debug) { console.debug(`follow-up not required: ${task.key}.`); }
+        revokeInterimLater(task);
+        return;
+      }
+      enqueue({ ...task, isFollowUp: true });
+    };
+    const promise = fetch(url, { headers })
+      .then(async (resp) => {
         if (task.baseUrlMaybe != null) {
           applyRotatedRemoteSessionHeader(task.baseUrlMaybe, resp);
+        }
+        if (!task.isFollowUp && resp.status == 202) {
+          if (debug) { console.debug(`image pending: ${task.key}.`); }
+          queueFollowUp();
+          return;
         }
         if (!resp.ok || resp.status != 200) {
           throw new Error(`Image fetch request failed: ${resp.status}`);
         }
-        return resp;
-      });
-    let interimObjectUrl: string | null = null;
-    const promise = fetchImage()
-      .then(async (resp) => {
-        if (resp.headers.get(PARTIAL_IMAGE_HEADER_NAME) == null) {
-          return resp.blob();
+        if (!task.isFollowUp && resp.headers.get(PARTIAL_IMAGE_HEADER_NAME) != null) {
+          if (debug) { console.debug(`partial image received: ${task.key}.`); }
+          task.interimObjectUrl = URL.createObjectURL(await resp.blob());
+          try {
+            task.onInterim?.(task.interimObjectUrl);
+          } catch (e) {
+            console.warn(`Interim image handler for '${task.key}' failed:`, e);
+          }
+          queueFollowUp();
+          return;
         }
-        if (debug) { console.debug(`partial image received: ${task.key}.`); }
-        interimObjectUrl = URL.createObjectURL(await resp.blob());
-        try {
-          task.onInterim?.(interimObjectUrl);
-        } catch (e) {
-          console.warn(`Interim image handler for '${task.key}' failed:`, e);
-        }
-        // The server is now generating the requested rendition, and responds to this request when it is done. A partial
-        // response to this request too would mean generation failed and was restarted. It is accepted as final, rather
-        // than retrying indefinitely.
-        return (await fetchImage()).blob();
-      })
-      .then((blob) => {
+        const blob = await resp.blob();
         fetchInProgress.delete(task.key);
+        revokeInterimLater(task);
         if (objectUrls.get(task.key) != null) {
           // it's possible another fetch request for the same filename completed whilst this one was waiting for the blob.
           if (debug) { console.debug(`fetched complete but task already resolved: ${task.key}.`); }
@@ -193,14 +225,10 @@ function serveWaiting() {
       .catch((error) => {
         if (debug) { console.debug(`fetch failed: ${task.key}`); }
         fetchInProgress.delete(task.key);
+        revokeInterimLater(task);
         task.reject(error);
       })
       .finally(() => {
-        if (interimObjectUrl != null) {
-          // Delayed, since the interim image may still be displayed until the final one has loaded.
-          const toRevoke = interimObjectUrl;
-          setTimeout(() => { URL.revokeObjectURL(toRevoke); }, CLEANUP_AFTER_MS);
-        }
         serveWaiting();
       });
     fetchInProgress.set(task.key, promise);
@@ -224,6 +252,7 @@ export function releaseImage(path: string, origin: string | null) {
   if (debug) { console.debug(`releaseImage called: ${key}. newRefCount: ${newRefCount}.`); }
   if (newRefCount === 0) {
     const waitingSizeBefore = waiting.length;
+    waiting.filter(t => t.key == key).forEach(revokeInterimLater);
     waiting = waiting.filter(t => t.key != key);
     if (waitingSizeBefore > waiting.length) {
       if (debug) { console.debug(`${waitingSizeBefore - waiting.length} waiting fetch task(s) for ${key} aborted.`); }
