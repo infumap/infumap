@@ -24,7 +24,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
 import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW, TITLE_OVERLAY_BACKGROUND_COLOR } from "../../style";
 import { linearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -162,36 +162,21 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   });
 
   const translucentTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("lg"));
-  const isCalendarTranslucentPage = () => pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar;
-  const translucentTitleClass = () => {
+  const isHoverHighlighted = () => store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get();
+  const isPopupAreaHighlighted = () => isHoverHighlighted() && pageFns().hasPopupClickBoundsPx();
+
+  const titleFontSizePx = () => 20 * translucentTitleInBoxScale();
+  // Matches the style of image titles: white bold text on a dark rounded background.
+  const titleClass = () => {
     const pointerClass = titleEditHandlers.isEditingTitle()
       ? "pointer-events-auto select-text cursor-text"
       : "pointer-events-none";
-    return isCalendarTranslucentPage()
-      ? `absolute flex text-white ${pointerClass}`
-      : `absolute flex font-bold text-white ${pointerClass}`;
+    return `rounded-[3px] text-center font-bold text-white ${pointerClass}`;
   };
-
-  const calendarTitleStyle = (): string => {
-    const fontSizePx = isCalendarTranslucentPage()
-      ? 18 * translucentTitleInBoxScale()
-      : 20 * translucentTitleInBoxScale();
-    const base = `left: 0px; ` +
-      `top: 0px; ` +
-      `width: ${pageFns().boundsPx().w}px; ` +
-      `height: ${pageFns().boundsPx().h}px;` +
-      `font-size: ${fontSizePx}px; ` +
-      `z-index: 3; ` +
-      `outline: 0px solid transparent;`;
-    if (isCalendarTranslucentPage()) {
-      const scale = pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List ? pageFns().listViewScale() : 1.0;
-      const padLeft = (CALENDAR_LAYOUT_CONSTANTS.LEFT_RIGHT_MARGIN + 4) * scale;
-      return base + `justify-content: flex-start; align-items: flex-start; text-align: left; padding-top: 11px; padding-left: ${padLeft}px; ` +
-        `font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; text-shadow: 0 1px 2px rgba(57, 81, 118, 0.18);`;
-    } else {
-      return base + `justify-content: center; align-items: center; text-align: center;`;
-    }
-  };
+  const titleBackgroundColor = () =>
+    pageFns().pageItem().title.trim() || titleEditHandlers.isEditingTitle()
+      ? TITLE_OVERLAY_BACKGROUND_COLOR
+      : "transparent";
 
   const translucentScrollHandler = (_ev: Event) => {
     if (!translucentDiv) { return; }
@@ -356,15 +341,19 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const renderBoxTitleMaybe = () =>
     <Show when={!(props.visualElement.flags & VisualElementFlags.ListPageRoot) &&
       pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar}>
-      <div id={VeFns.veToPath(props.visualElement) + ":title"}
-        class={translucentTitleClass()}
-        style={calendarTitleStyle()}
-        spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
-        contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
-        onKeyDown={titleEditHandlers.titleKeyDownHandler}
-        onKeyUp={titleEditHandlers.titleKeyUpHandler}
-        onInput={titleEditHandlers.titleInputListener}>
-        {appendNewlineIfEmpty(pageFns().pageItem().title)}
+      <div class="absolute flex items-center justify-center pointer-events-none"
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+          `font-size: ${titleFontSizePx()}px; z-index: 3;`}>
+        <div id={VeFns.veToPath(props.visualElement) + ":title"}
+          class={titleClass()}
+          style={`padding: 0.2em 0.4em; max-width: 100%; outline: 0px solid transparent; background-color: ${titleBackgroundColor()};`}
+          spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
+          contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
+          onKeyDown={titleEditHandlers.titleKeyDownHandler}
+          onKeyUp={titleEditHandlers.titleKeyUpHandler}
+          onInput={titleEditHandlers.titleInputListener}>
+          {appendNewlineIfEmpty(pageFns().pageItem().title)}
+        </div>
       </div>
     </Show>;
 
@@ -459,15 +448,15 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   };
 
   const renderHoverOverMaybe = () =>
-    <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
+    <Show when={isHoverHighlighted()}>
       <>
         <Show when={!pageFns().isInComposite() && pageFns().clickBoundsPx() != null}>
           <div class={`absolute rounded-xs pointer-events-none`}
             style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
               `background-color: #ffffff33;`} />
         </Show>
-        <Show when={pageFns().hasPopupClickBoundsPx()}>
-          <div class={`absolute rounded-xs pointer-events-none`}
+        <Show when={isPopupAreaHighlighted()}>
+          <div class={`absolute rounded-[3px] pointer-events-none`}
             style={`left: ${pageFns().popupClickBoundsPx()!.x}px; top: ${pageFns().popupClickBoundsPx()!.y}px; width: ${pageFns().popupClickBoundsPx()!.w}px; height: ${pageFns().popupClickBoundsPx()!.h}px; ` +
               `background-color: ${pageFns().isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
         </Show>

@@ -27,8 +27,15 @@ const MAX_CONCURRENT_FETCH_REQUESTS: number = 3;
 const CLEANUP_AFTER_MS: number = 30000;
 
 
+export enum ImageFetchPriority {
+  High = 0,    // e.g. images in popups.
+  Normal = 1,  // images on interactive pages.
+  Low = 2,     // images in translucent (preview) pages.
+}
+
 interface ImageFetchTask {
   key: string,
+  priority: ImageFetchPriority,
   path: string,
   baseUrlMaybe: string | null,
   resolve: (objectUrl: string) => void,
@@ -67,7 +74,7 @@ function cacheKey(path: string, baseUrlMaybe: string | null): string {
   }
 }
 
-export function getImage(path: string, origin: string | null, highPriority: boolean): Promise<string> {
+export function getImage(path: string, origin: string | null, priority: ImageFetchPriority): Promise<string> {
   const key = cacheKey(path, origin);
   if (debug) { console.debug(`getImage: ` + debugMsg(key) + containerDebugCounts()); }
 
@@ -93,16 +100,17 @@ export function getImage(path: string, origin: string | null, highPriority: bool
       return;
     }
 
-    if (debug) { console.debug(`not in cache: ${key}. (highPriority: ${highPriority}).`); }
-    if (highPriority) {
-      function prepend(value: ImageFetchTask, array: Array<ImageFetchTask>) {
-        var newArray = array.slice();
-        newArray.unshift(value);
-        return newArray;
-      }
-      waiting = prepend({ key, path, baseUrlMaybe: origin, resolve, reject }, waiting);
+    if (debug) { console.debug(`not in cache: ${key}. (priority: ${priority}).`); }
+    const task = { key, path, baseUrlMaybe: origin, priority, resolve, reject };
+    if (priority == ImageFetchPriority.High) {
+      // Most recently requested first: the user is most likely to be looking at the latest popup.
+      waiting = [task, ...waiting];
     } else {
-      waiting.push({ key, path, baseUrlMaybe: origin, resolve, reject });
+      // After all waiting tasks of the same or higher priority.
+      const insertIdx = waiting.findIndex(t => t.priority > priority);
+      waiting = insertIdx == -1
+        ? [...waiting, task]
+        : [...waiting.slice(0, insertIdx), task, ...waiting.slice(insertIdx)];
     }
     serveWaiting();
   });

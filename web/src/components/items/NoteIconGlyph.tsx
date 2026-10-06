@@ -17,7 +17,7 @@
 */
 
 import { Component, Match, Switch, createEffect, createSignal, onCleanup } from "solid-js";
-import { getImage, releaseImage } from "../../imageManager";
+import { ImageFetchPriority, getImage, releaseImage } from "../../imageManager";
 import { NoteFaviconLoadStatus, noteFaviconStatus, setNoteFaviconStatus } from "../../items/note-favicon-state";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, type NoteItem } from "../../items/note-item";
@@ -73,7 +73,7 @@ export const NoteIconGlyph: Component<{ note: () => NoteItem, iconContext?: () =
     setFaviconObjectUrl(null);
     setNoteFaviconStatus(path, origin, NoteFaviconLoadStatus.Loading);
 
-    getImage(path, origin, props.highPriority?.() ?? false)
+    getImage(path, origin, props.highPriority?.() ? ImageFetchPriority.High : ImageFetchPriority.Normal)
       .then((objectUrl) => {
         if (currentFaviconPath != path || currentFaviconOrigin != origin) { return; }
         setFaviconObjectUrl(objectUrl);
