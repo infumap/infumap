@@ -92,6 +92,7 @@ export enum VisualElementFlags {
   SelectionHighlighted = 0x200000, // Highlighted by selection marquee.
   DisableLineItemExpand = 0x400000, // The line item should not show or handle contextual expansion.
   DocumentTypography = 0x800000, // Text inside a composite rendered in document flow.
+  LineItemOutline = 0x1000000, // Line item too small for its text to be legible, drawn as an outline.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {

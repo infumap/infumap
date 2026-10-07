@@ -34,6 +34,7 @@ import { Text } from "./items/Text";
 import { VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { Placeholder_Desktop } from "./items/Placeholder";
 import { Page_LineItem } from "./items/Page_LineItem";
+import { LineItemOutline, lineItemHasTextOutline } from "./items/LineItemOutline";
 import { EMPTY_ITEM, isEmptyItem } from "../items/base/item";
 import { isPlaceholder } from "../items/placeholder-item";
 import { LinkDefault_Desktop } from "./items/LinkDefault";
@@ -105,6 +106,9 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
   return (
     <Switch fallback={<div>VisualElement_LineItem: unknown display item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
+      <Match when={(props.visualElement.flags & VisualElementFlags.LineItemOutline) && lineItemHasTextOutline(props.visualElement.displayItem)}>
+        <LineItemOutline {...props} />
+      </Match>
       <Match when={isTrashLink()}><TrashLink_LineItem {...props} /></Match>
       <Match when={isLink(props.visualElement.displayItem)}><LinkDefault_LineItem {...props} /></Match>
       <Match when={isPage(props.visualElement.displayItem)}><Page_LineItem {...props} /></Match>

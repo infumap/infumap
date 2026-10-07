@@ -49,6 +49,10 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveO
 // Printed images are about 200dpi at the default document width.
 const PRINT_IMAGE_RESOLUTION_MULTIPLIER = 2;
 
+// The largest an image in a translucent page is displayed (in CSS pixels), relative to its placeholder, using only
+// the placeholder.
+const TRANSLUCENT_PLACEHOLDER_MAX_SCALE = 2;
+
 // For debugging: when the localStorage key "debug:image-resolution" is "1" (read on load), each image shows a badge
 // with what is shown (P = placeholder, I = interim / partial, F = final) and its resolution relative to the device
 // pixels it covers: green >= 95%, amber >= 50%, red below.
@@ -287,11 +291,17 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   // When the image is displayed no wider (in device pixels) than its placeholder, the placeholder is already at (or
-  // above) display resolution, so nothing is fetched. Not when printing, where images are requested at a higher resolution.
+  // above) display resolution, so nothing is fetched. Images in translucent pages are partially obscured, so there the
+  // placeholder is used up to TRANSLUCENT_PLACEHOLDER_MAX_SCALE times its size, in CSS pixels. Not when printing, where
+  // images are requested at a higher resolution.
   const placeholderSuffices = (): boolean => {
     if (store.printMode.get()) { return false; }
     const placeholderSizePx = imagePlaceholderSizePx(imageItem().thumbnail);
-    return placeholderSizePx != null && imageWidthToRequestPx(false) * store.devicePixelRatio.get() <= placeholderSizePx.w;
+    if (placeholderSizePx == null) { return false; }
+    if (untrack(() => isInsideTranslucentPage(props.visualElement))) {
+      return imageWidthToRequestPx(false) <= placeholderSizePx.w * TRANSLUCENT_PLACEHOLDER_MAX_SCALE;
+    }
+    return imageWidthToRequestPx(false) * store.devicePixelRatio.get() <= placeholderSizePx.w;
   };
 
   createEffect(() => {

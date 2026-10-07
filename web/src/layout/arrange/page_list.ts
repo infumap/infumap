@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, MIN_DETAILED_CHILD_SCALE, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags, itemCanExpandInLineItem, itemIsListPagePinnedBottom, itemIsListPagePinnedTop } from "../../items/base/flags-item";
 import { Item } from "../../items/base/item";
@@ -233,6 +233,8 @@ export function arrange_list_page(
     : isPreview
       ? proportionalListScale
       : Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalListScale);
+  // Line items all draw their text at the same size, so (unlike spatial and document pages) the cutoff applies to all rows.
+  const renderRowsAsOutline = isPreview && listScale < MIN_DETAILED_CHILD_SCALE;
 
   if (isFull) {
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
@@ -429,7 +431,8 @@ export function arrange_list_page(
           (VeFns.compareVeids(selectedVeid, row.childVeid) == 0
             ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
             : VisualElementFlags.None) |
-          (row.isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+          (row.isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+          (renderRowsAsOutline ? VisualElementFlags.LineItemOutline : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: listItemGeometry.boundsPx,
         hitboxes: listItemGeometry.hitboxes,
