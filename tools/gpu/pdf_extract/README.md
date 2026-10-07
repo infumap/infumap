@@ -1,19 +1,19 @@
 # PDF Extract
 
-This is a small HTTP service for extracting uploaded PDFs to Markdown. It tries
-[Docling](https://github.com/docling-project/docling) with OCR disabled and falls
-back to [Marker](https://github.com/datalab-to/marker) for the whole document when
-the PDF is mostly scanned or its text layer is unusable.
+This is a small HTTP service for extracting uploaded PDFs to Markdown for
+search. It uses the PDF's text layer through
+[Docling](https://github.com/docling-project/docling), and falls back to Docling
+with full-page OCR ([RapidOCR](https://github.com/RapidAI/RapidOCR)) for the
+whole document when the PDF is mostly scanned or its text layer is unusable.
 
 Intended for burst or long running use.
 
 ## What It Does
 
 - accepts a multipart `file` upload at `POST /pdf-extract`; other fields are ignored
-- returns Markdown and extraction metadata as JSON, including the selected
-  backend and the reason for any Marker fallback
-- loads Marker predictor clients on the first fallback; the Surya VLM
-  `llama-server` is spawned on first layout or OCR use
+- returns Markdown and extraction metadata as JSON, including the backend
+  (`docling` or `docling_ocr`) and the reason for any OCR fallback
+- runs each conversion in a fresh Docling worker process
 - uses a fixed extraction policy chosen by the tool
 
 ## Start The Service
@@ -32,19 +32,20 @@ From the repo root:
 ./tools/gpu/pdf_extract/run.sh
 ```
 
-On first run this creates `tools/gpu/pdf_extract/.venv` and installs:
+On first run this creates `tools/gpu/pdf_extract/.venv` for the service process
+and installs:
 
-- `marker-pdf[full]`
 - `fastapi`
 - `uvicorn`
 - `python-multipart`
 - `pypdfium2`
 
 It also creates `tools/gpu/pdf_extract/.venv-docling` using
-`requirements-docling.txt`. The environments must be separate: Marker 2.0.0
-requires Transformers `>=5.12.1,<6`, while Docling IBM Models 3.15.0 requires
-`<5.9` on macOS. The launcher installs each environment's requirements again
-when its requirements file changes. Both virtualenvs are retained on exit.
+`requirements-docling.txt`: Docling with PyTorch and RapidOCR. All extraction
+runs in Docling worker processes started from this environment, so the service
+process itself stays a small web stack. The launcher installs each
+environment's requirements again when its requirements file changes. Both
+virtualenvs are retained on exit.
 
 By default the service listens on `127.0.0.1:8790`.
 
@@ -62,10 +63,9 @@ Optional environment variables:
 - `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`
 - `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
-- `TEXT_EXTRACTION_MODE` (default `balanced`; set `fast` for the lighter layout path)
-- `SURYA_GUIDED_LAYOUT` (default `0`). Current Homebrew `llama.cpp` cannot parse Surya's layout JSON schema (`\d` in bbox patterns), so guided decoding fails every page. Keep the default unless your `llama-server` supports that grammar, then set `1`.
+- `TEXT_EXTRACTION_OCR_LANG` (default `english`; set `latin` for accented
+  European text). Other values stop the service at startup.
 - `PYTHON_BIN`
-- `GOOGLE_API_KEY`
 
 Examples:
 
@@ -74,21 +74,8 @@ TEXT_EXTRACTION_PORT=9000 ./tools/gpu/pdf_extract/run.sh
 ```
 
 ```bash
-TEXT_EXTRACTION_MODE=fast ./tools/gpu/pdf_extract/run.sh
+TEXT_EXTRACTION_OCR_LANG=latin ./tools/gpu/pdf_extract/run.sh
 ```
-
-```bash
-SURYA_GUIDED_LAYOUT=1 ./tools/gpu/pdf_extract/run.sh
-```
-
-The Marker fallback uses a fixed extraction policy:
-
-- `force_ocr=false`
-- `paginate_output=true`
-- `use_llm=true` only when `GOOGLE_API_KEY` is present in the environment at startup
-- `mode=balanced` unless `TEXT_EXTRACTION_MODE=fast`; this is service
-  configuration and cannot be overridden by a request.
-- `SURYA_GUIDED_LAYOUT=0` unless overridden
 
 ## Access Over SSH
 
@@ -174,39 +161,38 @@ Password-protected PDFs return HTTP 422 with a structured terminal response:
   can enforce its own upload size cap while reading the request.
 - The service uses `pypdfium2` before conversion to identify password-protected
   and recognized malformed PDFs and return a stable terminal error.
-- Both backends own their temporary files and delete them after conversion.
+- Docling workers own their temporary files and delete them after conversion.
 - Because uploads stay in memory, the wrapper enforces an in-memory upload cap.
   The default is `134217728` bytes (128 MiB), configurable via
   `TEXT_EXTRACTION_MAX_UPLOAD_BYTES`.
-- Docling and any Marker fallback share one
+- Native extraction and any OCR fallback share one
   `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS` deadline (default 3600 seconds).
-  Docling may use half of it; a Docling worker that exceeds its share is
-  killed and Marker runs in the remaining time. When the whole deadline
-  expires, the service returns a terminal 422 `pdf_conversion_timeout`, stops
-  any Docling child process, and restarts to clear stuck native state.
+  Native extraction may use half of it; a worker that exceeds its share is
+  killed and OCR runs in the remaining time. When the whole deadline expires,
+  the running worker is killed and the service returns a terminal 422
+  `pdf_conversion_timeout`; the service keeps running. Only if a conversion is
+  stuck outside Docling for two minutes past the deadline does the service exit
+  so that `run.sh` restarts it.
   A request may set its own deadline with the `X-Pdf-Conversion-Timeout-Secs`
   header. The GPU gateway sets it on every request it forwards, so the
   gateway's lock lease and this deadline always match.
 
 Interactive API docs are available at `http://127.0.0.1:8790/docs`.
 
-## Conversion Backends
+## Conversion
 
 `app.py` owns HTTP uploads, request serialization, error responses, and the
-conversion watchdog. `extractor.py` owns the backend instances and the routing
-entry point. There is no backend selector in the public API.
+conversion deadline. `extractor.py` owns routing between native extraction and
+OCR. There is no backend selector in the public API.
 
-`marker_backend.py` owns Marker's configuration, model clients, temporary PDF,
-and Markdown conversion. Its extraction policy is retained; its models are
-loaded only when fallback is required and remain resident afterwards.
+`docling_backend.py` invokes `docling_worker.py` with the isolated Docling Python,
+adding `--ocr` for the OCR pass. An invocation starts one worker, bounds its
+lifetime with an explicit timeout, and reads its structured JSON result from a
+temporary directory. A timed-out worker is killed and reaped. Each pass starts a
+fresh Docling process; this isolates memory and failures but adds model startup
+overhead.
 
-`docling_backend.py` invokes `docling_worker.py` with the isolated Docling Python.
-An invocation starts one worker, bounds its lifetime with an explicit timeout,
-and reads its structured JSON result from a temporary directory. A timed-out
-worker is killed and reaped. Each PDF starts a fresh Docling process; this
-isolates memory and failures but adds model startup overhead.
-
-The worker uses Groundwork's `tools/docling_extract/app.py` settings:
+Native extraction uses Groundwork's `tools/docling_extract/app.py` settings:
 
 - native PDF text with OCR disabled;
 - TableFormer V1, accurate mode, with cell matching;
@@ -220,20 +206,40 @@ conversion status and errors, confidence report, input page count, the coverage
 assessment, and the Markdown. The Docling document and parsed pages stay in the
 worker. This is internal worker data, not an HTTP response or a persistent sidecar.
 Partial/failed conversion statuses and mostly scanned or garbled documents
-cause whole-document Marker fallback; the presence of a document alone does not mean extraction succeeded.
+cause whole-document OCR fallback; the presence of a document alone does not mean extraction succeeded.
 Groundwork's custom interpretation and rendering are not included.
+
+### OCR Fallback
+
+The OCR pass uses the same Docling settings with full-page OCR added, ignoring
+any text layer:
+
+- RapidOCR with its torch backend and the `TEXT_EXTRACTION_OCR_LANG` model
+  (`english` by default). RapidOCR's own default is its Chinese model, which
+  drops the spaces between English words, so the language is always explicit.
+- On NVIDIA GPUs, Docling runs layout and OCR on CUDA. On Apple Silicon, the
+  worker enables RapidOCR's MPS (Apple GPU) setting, which Docling does not set,
+  and `PYTORCH_ENABLE_MPS_FALLBACK=1`, so operations MPS lacks run on the CPU.
+  Docling keeps table structure on the CPU on Macs. Otherwise everything runs
+  on the CPU.
+- Pages are converted in blocks of 10 using Docling's page ranges, and the
+  worker logs progress with an estimate of the time remaining after each block.
+
+There is no reliable text to assess OCR output against, so it is used as is
+when Docling reports success or partial success. Every page gets a page section,
+empty when nothing was recognized.
 
 ### Native Coverage Policy
 
 Docling is used without OCR unless the document is mostly scanned or has an
 unusable text layer. Mixed documents, searchable scans (which use their
-existing text layer), and picture-heavy presentations all use Docling; text
-visible only in images is not extracted for them.
+existing text layer), and picture-heavy presentations all use native text;
+text visible only in images is not extracted for them.
 
 `docling_quality.py` rejects Docling's output when conversion reports errors or
 a non-success status, source pages are missing or duplicated, cells come from
 OCR, or page geometry is invalid. Otherwise each nonblank page is classified,
-and the document goes to Marker when at least half of its nonblank pages are
+and the document goes to OCR when at least half of its nonblank pages are
 unusable. A page is unusable when:
 
 - it has no parsed page or no native alphanumeric text, yet does not render as
@@ -285,41 +291,44 @@ manifest:
 ```json
 {
   "backend": "docling",
-  "service_version": "0.3.0",
+  "service_version": "0.4.0",
   "fallback_reason": null,
   "unusable_pages": [1, 4],
   "warning_pages": []
 }
 ```
 
-For Marker, `fallback_reason` says why Docling's output was not used. Page lists
-describe the returned Markdown, so they are empty for Marker. Extraction
-packages are pinned, so `service_version` (`SERVICE_VERSION` in `extractor.py`)
-identifies them too: bump it when routing, Markdown export or a pinned
-extraction package changes. Infumap does not re-extract when the backend or
-version changes; use the extract command's `--overwrite` to re-extract existing
-PDFs.
+`backend` is `docling` for native text and `docling_ocr` for OCR. For OCR,
+`fallback_reason` says why native text was not used, and the page lists are
+empty because they describe native extraction. Extraction packages and OCR
+settings are pinned, so `service_version` (`SERVICE_VERSION` in `extractor.py`)
+identifies them too: bump it when routing, Markdown export, OCR settings or a
+pinned extraction package changes. The OCR language is configuration, not part
+of the version; it is in the `ocr` diagnostics and the log. Manifests written
+before Marker was removed may have `backend` `marker`. Infumap does not
+re-extract when the backend or version changes; use `infumap reprocess` for
+one PDF or the extract command's `--overwrite` to re-extract existing PDFs.
 
-Failures are routed so that only problems with the service itself are retried:
+Failures are routed so that only problems with the service itself are retried
+promptly:
 
-- Docling failing on a document falls back to Marker, with the reason logged.
-  This includes worker crashes, unexpected exceptions, memory exhaustion,
-  unusable results, and exceeding Docling's share of the deadline.
-- If Marker then fails on the document, the service returns a terminal HTTP 422
-  with `error_code` `pdf_extraction_failed`, so Infumap records the PDF as
-  failed instead of retrying it.
+- Native extraction failing on a document falls back to OCR, with the reason
+  logged. This includes worker crashes, unexpected exceptions, memory
+  exhaustion, unusable results, and exceeding native extraction's share of the
+  deadline.
+- If OCR then fails on the document, the service returns HTTP 422 with
+  `error_code` `pdf_extraction_failed`. Infumap records the PDF as failed, lists
+  it as needing attention, and retries it hourly.
+- If the conversion deadline expires, the service returns HTTP 422
+  `pdf_conversion_timeout`. Infumap lists the PDF as needing attention and does
+  not retry it; `infumap reprocess --id <id> --pdf-conversion-timeout 4h` tries
+  again with a longer limit.
 - HTTP 503 means the service cannot convert anything right now: missing
   dependencies or models, failed model downloads, network or disk errors, or
-  Marker running out of memory. Infumap retries these. At startup the service
+  OCR running out of memory. Infumap retries these. At startup the service
   checks that the Docling worker's imports succeed, so a broken Docling
-  installation stops the service rather than sending every PDF to Marker.
+  installation stops the service rather than failing every PDF.
 - Recognized password and corruption failures remain terminal document errors.
-- Marker does not fail when a request to surya's inference server fails after
-  surya's retries (e.g. `Inference error: ... Compute error.`); it leaves that
-  page's layout, OCR block or table empty. The service counts these failed
-  requests and returns HTTP 422 `pdf_inference_failed` instead of partial
-  Markdown. Infumap lists the PDF as needing attention and retries it hourly,
-  since the cause is usually the inference server rather than the document.
 
 Infumap's later first-page image-caption fallback is unchanged.
 
@@ -343,7 +352,7 @@ Groundwork's environment also used Python 3.14.4, Torch 2.14.0, Torchvision
 not imposed on all platforms: the GPU launchers retain Python 3.10–3.13 support,
 and Docling's macOS Transformers constraint differs. This is an extraction
 package baseline, not a complete transitive dependency or model-weight lock.
-Marker retains its separate PDFium 5.10.1 pin required by pdftext.
+The service environment pins the same PDFium version.
 
 Dependency resolution was checked from Linux for Linux x86-64 and macOS ARM64
 targets using Python 3.13 package constraints. No macOS installation or runtime

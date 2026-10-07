@@ -79,7 +79,7 @@ def ocr_device() -> str:
 
 
 def build_ocr_options(device: str) -> RapidOcrOptions:
-    """Full-page OCR, as evaluated with ocr_trial.py."""
+    """Full-page OCR settings for the fallback pass."""
     return RapidOcrOptions(
         lang=[OCR_LANG],
         backend="torch",
