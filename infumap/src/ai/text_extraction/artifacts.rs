@@ -30,7 +30,7 @@ use crate::util::fs::path_exists;
 
 use super::{
   PDF_CONVERSION_TIMEOUT_ERROR_CODE, PDF_PASSWORD_REQUIRED_ERROR_CODE, PDF_SOURCE_MIME_TYPE, PdfCandidate,
-  PdfToMdResponse,
+  PdfToMdResponse, blocked_attention_detail,
 };
 
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
@@ -216,7 +216,14 @@ pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<
         continue;
       }
     };
-    if manifest.status != "failed" || manifest_is_blocked(&manifest) {
+    // Blocked PDFs are listed when they need attention, e.g. failed
+    // extraction or a timeout, but not when password protected.
+    let listed = if manifest_is_blocked(&manifest) {
+      blocked_attention_reason(&manifest).is_some()
+    } else {
+      manifest.status == "failed"
+    };
+    if !listed {
       continue;
     }
     out.push(FailedPdfInfo { user_id, item_id, file_name, error: manifest.error });
@@ -387,10 +394,14 @@ fn manifest_is_blocked(manifest: &TextManifest) -> bool {
 /// Password protected PDFs are expected and are not reported. Other blocked
 /// PDFs need attention.
 fn blocked_attention_reason(manifest: &TextManifest) -> Option<String> {
-  if manifest_has_password_required_error(manifest) {
-    return None;
-  }
-  Some(manifest.error.clone().unwrap_or_else(|| "PDF text extraction was stopped.".to_owned()))
+  let error_code = if manifest_has_password_required_error(manifest) {
+    Some(PDF_PASSWORD_REQUIRED_ERROR_CODE)
+  } else if manifest_has_conversion_timeout_error(manifest) {
+    Some(PDF_CONVERSION_TIMEOUT_ERROR_CODE)
+  } else {
+    manifest.error_code.as_deref()
+  };
+  blocked_attention_detail(error_code, manifest.error.as_deref().unwrap_or("PDF text extraction was stopped."))
 }
 
 fn manifest_has_conversion_timeout_error(manifest: &TextManifest) -> bool {
@@ -519,7 +530,13 @@ mod tests {
     };
     let timeout = manifest("blocked", Some(PDF_CONVERSION_TIMEOUT_ERROR_CODE), "PDF conversion exceeded the limit.");
     assert!(manifest_is_blocked(&timeout));
-    assert_eq!(blocked_attention_reason(&timeout).as_deref(), Some("PDF conversion exceeded the limit."));
+    assert_eq!(
+      blocked_attention_reason(&timeout).as_deref(),
+      Some(
+        "PDF conversion exceeded the limit. Not retried automatically; use 'infumap reprocess \
+         --pdf-conversion-timeout' to try again with a longer limit."
+      )
+    );
 
     let legacy_timeout = manifest(
       "failed",
@@ -534,6 +551,13 @@ mod tests {
     assert!(blocked_attention_reason(&password).is_none());
 
     assert!(!manifest_is_blocked(&manifest("failed", None, "HTTP 422 Unprocessable Entity: corrupt PDF.")));
+
+    let extraction_failed = manifest("blocked", Some("pdf_extraction_failed"), "Neither pass worked.");
+    assert!(manifest_is_blocked(&extraction_failed));
+    assert_eq!(
+      blocked_attention_reason(&extraction_failed).as_deref(),
+      Some("Neither pass worked. Not retried automatically; reprocess the item to try again.")
+    );
   }
 
   #[test]
