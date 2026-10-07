@@ -651,6 +651,67 @@ export function calculateCalendarDimensions(
   };
 }
 
+// A preview of a calendar page (e.g. the selected item of a translucent list page) is a miniature of the full size page,
+// except that its header text is exaggerated in size (by CALENDAR_PREVIEW_TEXT_EXAGGERATION, but never larger than
+// CALENDAR_PREVIEW_MAX_TEXT_SCALE times the full size), so it remains legible when small. The header is enlarged along
+// with its text, and the day rows fill the remaining height. Gaps between and either side of month columns are
+// CALENDAR_PREVIEW_EXTRA_MONTH_GAP_PX wider than in proportion, so the columns remain distinct when small.
+const CALENDAR_PREVIEW_TEXT_EXAGGERATION = 2.0;
+const CALENDAR_PREVIEW_MAX_TEXT_SCALE = 1.5;
+const CALENDAR_PREVIEW_EXTRA_MONTH_GAP_PX = 2;
+
+/** The scale of header text and the header in a preview of a calendar page shown at the given scale. */
+export function calendarPreviewTextScale(scale: number): number {
+  return Math.min(CALENDAR_PREVIEW_TEXT_EXAGGERATION * scale, CALENDAR_PREVIEW_MAX_TEXT_SCALE);
+}
+
+/** The vertical layout of a preview of a calendar page, with the given (preview) child area height. */
+export function calculateCalendarPreviewVerticalLayout(childAreaHeightPx: number, scale: number): CalendarVerticalLayout {
+  const textScale = calendarPreviewTextScale(scale);
+  const monthTitleTopPx = (CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT + CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING) * textScale;
+  const monthTitleHeightPx = CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT * textScale;
+  const dayAreaTopPx = monthTitleTopPx + monthTitleHeightPx;
+  const dayAreaBottomPx = childAreaHeightPx -
+    (CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING + CALENDAR_LAYOUT_CONSTANTS.BOTTOM_MARGIN) * scale;
+  const availableHeightForDays = Math.max(0, dayAreaBottomPx - dayAreaTopPx);
+  return {
+    scale,
+    dayAreaTopPx,
+    dayRowHeight: availableHeightForDays / CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT,
+    availableHeightForDays,
+    monthTitleTopPx,
+    monthTitleHeightPx,
+  };
+}
+
+/** The dimensions of a preview of a calendar page, with the given (preview) child area. */
+export function calculateCalendarPreviewDimensions(
+  childAreaBoundsPx: { w: number; h: number },
+  scale: number,
+  calendarWindow: CalendarWindow,
+): CalendarDimensions {
+  const fullSize = calculateCalendarDimensions(
+    { w: childAreaBoundsPx.w / scale, h: childAreaBoundsPx.h / scale }, null, calendarWindow);
+  const verticalLayout = calculateCalendarPreviewVerticalLayout(childAreaBoundsPx.h, scale);
+  const numColumns = fullSize.columnWidths.length;
+  // Columns are narrowed to make room for the wider gaps, over the same span.
+  const narrowingPx = numColumns == 0 ? 0 : CALENDAR_PREVIEW_EXTRA_MONTH_GAP_PX * (numColumns + 1) / numColumns;
+  const columnWidths = fullSize.columnWidths.map(w => Math.max(0, w * scale - narrowingPx));
+  const columnLefts = fullSize.columnLefts.map((left, i) =>
+    left * scale + CALENDAR_PREVIEW_EXTRA_MONTH_GAP_PX + i * (CALENDAR_PREVIEW_EXTRA_MONTH_GAP_PX - narrowingPx));
+  const totalColumnWidth = columnWidths.reduce((a, b) => a + b, 0);
+  return {
+    columnWidth: numColumns == 0 ? 0 : totalColumnWidth / numColumns,
+    columnWidths,
+    columnLefts,
+    totalColumnWidth,
+    dayRowHeight: verticalLayout.dayRowHeight,
+    availableHeightForDays: verticalLayout.availableHeightForDays,
+    dayAreaTopPx: verticalLayout.dayAreaTopPx,
+    visibleMonths: fullSize.visibleMonths,
+  };
+}
+
 /**
  * The height of the child area of a (non-popup) full calendar page with the given viewport height.
  */

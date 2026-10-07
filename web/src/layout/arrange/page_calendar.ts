@@ -28,7 +28,7 @@ import { VesCache } from "../ves-cache";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
 import { itemState } from "../../store/ItemState";
 import { getVePropertiesForItem } from "./util";
-import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, LINK_TRIANGLE_SIZE_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, CALENDAR_DAY_ROW_HEIGHT_BL, LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, MIN_DETAILED_CHILD_SCALE, MIN_NON_ROOT_LIST_PAGE_SCALE, LINK_TRIANGLE_SIZE_PX } from "../../constants";
 import { isComposite } from "../../items/composite-item";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { HitboxFns, HitboxFlags } from "../hitbox";
@@ -38,6 +38,8 @@ import {
   calculateCalendarWindowForPage,
   calcCalendarRootChildAreaHeightPx,
   calculateCalendarDimensions,
+  calculateCalendarPreviewDimensions,
+  calculateCalendarPreviewVerticalLayout,
   calculateCalendarMiniDayLayouts,
   calculateCalendarMonthLayouts,
   calculateCalendarRangeMonthSegments,
@@ -567,10 +569,21 @@ export function arrange_calendar_page(
       ArrangeItemFlags.IsListPageMainRoot
     ));
 
+  // A preview (e.g. the selected item of a translucent list page) is a miniature of the full size page, at this scale
+  // (see calculateCalendarPreviewVerticalLayout).
+  const previewScale = flags & ArrangeItemFlags.IsPreview
+    ? geometry.blockSizePx.w / NATURAL_BLOCK_SIZE_PX.w
+    : null;
+
   const childAreaBoundsPx = (() => {
     let result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx!)!);
     if (rendersAsTranslucentPage) {
       result.h = geometry.viewportBoundsPx!.h;
+      return result;
+    }
+
+    if (previewScale != null) {
+      result.h = calcCalendarRootChildAreaHeightPx(geometry.viewportBoundsPx!.h / previewScale) * previewScale;
       return result;
     }
 
@@ -610,6 +623,7 @@ export function arrange_calendar_page(
     viewportBoundsPx: geometry.viewportBoundsPx!,
     hitboxes: geometry.hitboxes,
     childAreaBoundsPx,
+    blockSizePx: previewScale == null ? undefined : geometry.blockSizePx,
     parentPath,
   };
 
@@ -633,7 +647,8 @@ export function arrange_calendar_page(
 
   // Arrange child items in calendar grid layout (6 blocks wide)
   let calendarChildPaths: Array<VisualElementPath> = [];
-  const calendarWindow = calculateCalendarWindowForPage(store, pageWithChildrenVePath, childAreaBoundsPx.w, displayItem_pageWithChildren);
+  const calendarWindow = calculateCalendarWindowForPage(
+    store, pageWithChildrenVePath, childAreaBoundsPx.w / (previewScale ?? 1.0), displayItem_pageWithChildren);
 
   // Sort children by dateTime, but exclude moving item if it's in this page
   // Also filter to only show items from the visible calendar window
@@ -653,14 +668,15 @@ export function arrange_calendar_page(
 
   // Calendar layout dimensions (using arranged childAreaBoundsPx)
   const childAreaBounds = childAreaBoundsPx;
-  const calendarMonthResize = calendarWindow.monthsPerPage == 12
+  const calendarMonthResize = calendarWindow.monthsPerPage == 12 && previewScale == null
     ? store.perVe.getCalendarMonthResize(pageWithChildrenVePath)
     : null;
-  const calendarDimensions = calculateCalendarDimensions(childAreaBounds, calendarMonthResize, calendarWindow);
-  const calendarVerticalLayout = calculateCalendarVerticalLayout(
-    childAreaBounds,
-    !!(flags & ArrangeItemFlags.IsPopupRoot),
-  );
+  const calendarDimensions = previewScale == null
+    ? calculateCalendarDimensions(childAreaBounds, calendarMonthResize, calendarWindow)
+    : calculateCalendarPreviewDimensions(childAreaBounds, previewScale, calendarWindow);
+  const calendarVerticalLayout = previewScale == null
+    ? calculateCalendarVerticalLayout(childAreaBounds, !!(flags & ArrangeItemFlags.IsPopupRoot))
+    : calculateCalendarPreviewVerticalLayout(childAreaBounds.h, previewScale);
   const titleBarHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
   const dividerTopPx = (() => {
     if (flags & ArrangeItemFlags.IsPopupRoot) {
@@ -670,6 +686,7 @@ export function arrange_calendar_page(
   })();
   const dividerHitboxes: Array<ReturnType<typeof HitboxFns.create>> = [];
   if ((flags & ArrangeItemFlags.IsTopRoot || flags & ArrangeItemFlags.IsListPageMainRoot) &&
+    previewScale == null &&
     calendarWindow.monthsPerPage == 12) {
     for (let dividerMonth = 1; dividerMonth < CALENDAR_LAYOUT_CONSTANTS.COLUMNS_COUNT; ++dividerMonth) {
       const dividerCenterPx = getCalendarDividerCenterPx(calendarDimensions, dividerMonth);
@@ -689,6 +706,9 @@ export function arrange_calendar_page(
   // Item dimensions - icon + text layout like other line items
   // For popups, scale blockSizePx to match the calendar scaling
   const blockSizePx = (() => {
+    if (previewScale != null) {
+      return geometry.blockSizePx;
+    }
     if (flags & ArrangeItemFlags.IsPopupRoot) {
       return {
         w: NATURAL_BLOCK_SIZE_PX.w * calendarVerticalLayout.scale,
@@ -697,8 +717,15 @@ export function arrange_calendar_page(
     }
     return NATURAL_BLOCK_SIZE_PX;
   })();
-  const itemLeftPadding = 2;
-  const lineItemTextRightPaddingPx = 6;
+  // Horizontal spacing is in proportion for a preview.
+  const horizontalScale = previewScale ?? 1.0;
+  const dayLabelWidthPx = CALENDAR_DAY_LABEL_LEFT_MARGIN_PX * horizontalScale;
+  const itemLeftPadding = 2 * horizontalScale;
+  const lineItemTextRightPaddingPx = 6 * horizontalScale;
+  // As for list pages, the items of a preview too small for their text to be legible are drawn as outlines.
+  const itemOutlineFlags = previewScale != null && previewScale < MIN_DETAILED_CHILD_SCALE
+    ? VisualElementFlags.LineItemOutline
+    : VisualElementFlags.None;
 
   // Group items by date for stacking
   const itemsByDate = new Map<string, typeof childrenWithDateTime>();
@@ -747,7 +774,7 @@ export function arrange_calendar_page(
     const dayTopPos = dayMetrics.topPx;
     const rowHeight = dayMetrics.rowHeightPx;
     const visibleItemHeight = Math.min(rowHeight, blockSizePx.h);
-    const itemWidth = Math.max(0, monthWidth - CALENDAR_DAY_LABEL_LEFT_MARGIN_PX - itemLeftPadding);
+    const itemWidth = Math.max(0, monthWidth - dayLabelWidthPx - itemLeftPadding);
 
     visibleItems.forEach((childItem, stackIndex) => {
       const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
@@ -763,7 +790,7 @@ export function arrange_calendar_page(
 
       // Stack items vertically within the day
       const boundsPx = {
-        x: monthLeftPos + CALENDAR_DAY_LABEL_LEFT_MARGIN_PX + itemLeftPadding,
+        x: monthLeftPos + dayLabelWidthPx + itemLeftPadding,
         y: dayTopPos + stackIndex * itemStepHeight + itemTopInset,
         w: effectiveItemWidth,
         h: arrangedItemHeight
@@ -814,7 +841,7 @@ export function arrange_calendar_page(
         linkItemMaybe,
         actualLinkItemMaybe: linkItemMaybe,
         flags: VisualElementFlags.LineItem |
-          VisualElementFlags.DisableLineItemExpand |
+          VisualElementFlags.DisableLineItemExpand | itemOutlineFlags |
           (isChildHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: calendarItemGeometry.boundsPx,
