@@ -158,12 +158,13 @@ export function arrange_grid_page(
     };
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(childItem));
-    const renderChildrenAsFull = isEmbeddedInteractive || !!(flags & ArrangeItemFlags.RenderChildrenAsFull |
-      flags & ArrangeItemFlags.IsTopRoot |
-      flags & ArrangeItemFlags.IsPopupRoot |
-      flags & ArrangeItemFlags.IsListPageMainRoot |
-      flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
-      flags & ArrangeItemFlags.IsDockRoot);
+    const renderChildrenAsFull = !(flags & ArrangeItemFlags.IsPreview) &&
+      (isEmbeddedInteractive || !!(flags & ArrangeItemFlags.RenderChildrenAsFull |
+        flags & ArrangeItemFlags.IsTopRoot |
+        flags & ArrangeItemFlags.IsPopupRoot |
+        flags & ArrangeItemFlags.IsListPageMainRoot |
+        flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
+        flags & ArrangeItemFlags.IsDockRoot));
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
     cellGeometry.row = row;

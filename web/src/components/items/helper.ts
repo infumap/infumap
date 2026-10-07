@@ -149,7 +149,8 @@ export const isInsideTranslucentPage = (visualElement: VisualElement): boolean =
   while (parentPath != null) {
     const parentVe = VesCache.render.getNode(parentPath)?.get();
     if (parentVe == null) { return false; }
-    if (isPage(parentVe.displayItem)) {
+    // The selected item of a list page is part of that list page.
+    if (isPage(parentVe.displayItem) && !(parentVe.flags & VisualElementFlags.ListPageRoot)) {
       if (!isVeTranslucentPage(parentVe)) { return false; }
       const grandparentVe = parentVe.parentPath == null ? null : VesCache.render.getNode(parentVe.parentPath)?.get();
       return grandparentVe == null || !isQueryItem(grandparentVe.displayItem);

@@ -56,6 +56,9 @@ export enum ArrangeItemFlags {
   RenderAsOutline = 0x200,
   InsideCompositeOrDoc = 0x400,
   IsFixed = 0x800,
+  // A root (e.g. the selected item of a list page) shown inside a non-interactive (e.g. translucent) page. Its children
+  // are arranged as for a non-root page: as a miniature, with outlines where too small to read.
+  IsPreview = 0x1000,
 }
 
 export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {

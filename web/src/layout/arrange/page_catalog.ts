@@ -183,12 +183,13 @@ export function arrange_catalog_page(
   const childrenPaths: Array<VisualElementPath> = [];
   for (const child of childGeometries) {
     const childItemIsEmbeddedInteractive = isPage(child.childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(child.childItem));
-    const renderChildrenAsFull = isEmbeddedInteractive || !!(flags & ArrangeItemFlags.RenderChildrenAsFull |
-      flags & ArrangeItemFlags.IsTopRoot |
-      flags & ArrangeItemFlags.IsPopupRoot |
-      flags & ArrangeItemFlags.IsListPageMainRoot |
-      flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
-      flags & ArrangeItemFlags.IsDockRoot);
+    const renderChildrenAsFull = !(flags & ArrangeItemFlags.IsPreview) &&
+      (isEmbeddedInteractive || !!(flags & ArrangeItemFlags.RenderChildrenAsFull |
+        flags & ArrangeItemFlags.IsTopRoot |
+        flags & ArrangeItemFlags.IsPopupRoot |
+        flags & ArrangeItemFlags.IsListPageMainRoot |
+        flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
+        flags & ArrangeItemFlags.IsDockRoot));
     childrenPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, child.childItem, child.actualLinkItemMaybe, child.geometry,
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |

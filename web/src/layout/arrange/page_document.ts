@@ -78,8 +78,11 @@ export function arrange_document_page(
   const totalMarginBl = PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
   const totalWidthBl = displayItem_pageWithChildren.docWidthBl + totalMarginBl;
   const requiredWidthPx = totalWidthBl * NATURAL_BLOCK_SIZE_PX.w;
+  // A preview root is a miniature, so is drawn no larger than the block size of the page it is shown in.
+  const maxScale = flags & ArrangeItemFlags.IsPreview ? geometry.blockSizePx.w / NATURAL_BLOCK_SIZE_PX.w : 1.0;
   let scale = geometry.boundsPx.w / requiredWidthPx;
-  if (scale > 1.0 || isPrintRoot) { scale = 1.0; }
+  if (scale > maxScale) { scale = maxScale; }
+  if (isPrintRoot) { scale = 1.0; }
   const blockSizePx = { w: NATURAL_BLOCK_SIZE_PX.w * scale, h: NATURAL_BLOCK_SIZE_PX.h * scale };
   const documentWidthPx = totalWidthBl * blockSizePx.w;
 
@@ -192,9 +195,10 @@ export function arrange_document_page(
   // As for spatial pages, the children of non-interactive (e.g. translucent) pages are previews. Query chat transcripts
   // are interactive workspaces, so are exempt.
   const renderChildrenAsPreview =
-    !arrangeFlagIsRoot(flags) &&
-    !(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
-    !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null);
+    !!(flags & ArrangeItemFlags.IsPreview) ||
+    (!arrangeFlagIsRoot(flags) &&
+      !(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+      !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null));
   for (const child of childArrangeData) {
     if (renderChildrenAsPreview) {
       childrenPaths.push(arrangeDocumentPreviewChildPath(
