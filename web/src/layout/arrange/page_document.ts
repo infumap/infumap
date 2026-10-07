@@ -502,14 +502,18 @@ function arrangeDocumentPreviewChildPath(
   flags: ArrangeItemFlags): VisualElementPath {
 
   const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
+  const linkIsInTrash = isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId);
+  // A composite's height depends on its children, so load them even if it is drawn as an outline.
+  if (isComposite(displayItem) && !linkIsInTrash) {
+    initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+  }
   if (!previewChildIsDetailed(displayItem, scale)) {
     return arrangeItemNoChildrenPath(
       store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, geometry,
       flags | (isImage(displayItem) ? ArrangeItemFlags.None : ArrangeItemFlags.RenderAsOutline));
   }
-  if (!isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId)) {
+  if (!linkIsInTrash) {
     if (isComposite(displayItem)) {
-      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
       return VeFns.veToPath(arrangeComposite(
         store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, geometry, flags,
         displayWidthBl, true).get());

@@ -198,6 +198,10 @@ export function arrange_spatial_page(
         store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, visibleItemGeometry,
         flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None);
     } else {
+      // A composite's size depends on its children, so load them even if it is drawn as an outline.
+      if (isComposite(displayItem) && !isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId)) {
+        initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+      }
       childPath = arrangeItemNoChildrenPath(
         store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, visibleItemGeometry,
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
