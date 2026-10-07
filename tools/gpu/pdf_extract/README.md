@@ -218,10 +218,11 @@ any text layer:
   (`english` by default). RapidOCR's own default is its Chinese model, which
   drops the spaces between English words, so the language is always explicit.
 - On NVIDIA GPUs, Docling runs layout and OCR on CUDA. On Apple Silicon, the
-  worker enables RapidOCR's MPS (Apple GPU) setting, which Docling does not set,
-  and `PYTORCH_ENABLE_MPS_FALLBACK=1`, so operations MPS lacks run on the CPU.
-  Docling keeps table structure on the CPU on Macs. Otherwise everything runs
-  on the CPU.
+  layout model uses the Apple GPU (MPS), with `PYTORCH_ENABLE_MPS_FALLBACK=1` so
+  operations MPS lacks run on the CPU, while RapidOCR and table structure run on
+  the CPU. RapidOCR can use MPS, but Docling runs OCR and layout in parallel
+  threads, and two threads using MPS at once abort the worker in Metal.
+  Otherwise everything runs on the CPU.
 - Pages are converted in blocks of 10 using Docling's page ranges, and the
   worker logs progress with an estimate of the time remaining after each block.
 
