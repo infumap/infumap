@@ -24,7 +24,7 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
 import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW, PAGE_TITLE_TEXT_SHADOW } from "../../style";
 import { linearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -190,7 +190,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         `font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; text-shadow: 0 1px 2px rgba(57, 81, 118, 0.18);`;
     } else {
       return base + `justify-content: center; align-items: center; text-align: center; ` +
-        `text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.25);`;
+        `text-shadow: ${PAGE_TITLE_TEXT_SHADOW};`;
     }
   };
 
