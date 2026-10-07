@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright (C) The Infumap Authors
 # This file is part of Infumap.
 #
@@ -16,11 +17,12 @@
 
 """Try Docling OCR engines on PDFs, to judge whether Docling can replace Marker.
 
-Not used by the service. Run it with the Docling virtualenv while the PDF
-extraction service is stopped, so the two do not compete for GPU memory:
+Not used by the service. Run it while the PDF extraction service is stopped,
+so the two do not compete for GPU memory. It runs itself with the Docling
+virtualenv (TEXT_EXTRACTION_DOCLING_VENV_DIR, or .venv-docling next to it):
 
-    .venv-docling/bin/python ocr_trial.py scans/*.pdf
-    .venv-docling/bin/python ocr_trial.py -e native -e rapidocr:english -e easyocr:en,de --max-pages 20 some/dir
+    ./ocr_trial.py scans/*.pdf
+    ./ocr_trial.py -e native -e rapidocr:english -e easyocr:en,de --max-pages 20 some/dir
 
 Each PDF gets a directory under --out with one Markdown file per engine, in the
 production page format ({n}-------- markers), plus summary.tsv for all PDFs.
@@ -33,6 +35,7 @@ is name[:lang,lang][@backend]):
   easyocr             EasyOCR. Needs: .venv-docling/bin/pip install easyocr
   tesseract           Tesseract CLI. Needs the tesseract binary on PATH.
   nemotron            NVIDIA Nemotron OCR. Needs docling[feat-ocr-nemotron].
+  ocrmac              macOS Vision OCR (macOS only). Needs: pip install ocrmac
 Languages use the engine's own codes, e.g. rapidocr:english, easyocr:en,de,
 tesseract:eng. Without them Docling's defaults are used; for RapidOCR that is
 its Chinese model, which drops the spaces between English words.
@@ -48,6 +51,7 @@ vs_ref is understated, since the reference covers the whole document.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import time
@@ -55,6 +59,19 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+try:
+    import docling  # noqa: F401
+except ImportError:
+    venv_dir = Path(os.environ.get("TEXT_EXTRACTION_DOCLING_VENV_DIR", Path(__file__).resolve().parent / ".venv-docling"))
+    venv_python = venv_dir / "bin" / "python"
+    # A venv's python is a symlink to the base interpreter, so compare prefixes.
+    if venv_python.is_file() and Path(sys.prefix).resolve() != venv_dir.resolve():
+        os.execv(str(venv_python), [str(venv_python), __file__, *sys.argv[1:]])
+    sys.exit(
+        f"Docling is not installed for {sys.executable}, and there is no Docling virtualenv at {venv_dir}. "
+        "Run run.sh once to create it, or set TEXT_EXTRACTION_DOCLING_VENV_DIR."
+    )
 
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import (
@@ -89,6 +106,10 @@ def ocr_options(name: str, langs: list[str] | None, backend: str | None) -> Any:
         return EasyOcrOptions(**extra)
     if name == "tesseract":
         return TesseractCliOcrOptions(**extra)
+    if name == "ocrmac":
+        from docling.datamodel.pipeline_options import OcrMacOptions
+
+        return OcrMacOptions(**extra)
     if name == "nemotron":
         from docling.datamodel.pipeline_options import NemotronOcrOptions
 
