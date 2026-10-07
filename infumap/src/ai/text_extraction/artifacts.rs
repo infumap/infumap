@@ -28,7 +28,10 @@ use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
 use crate::util::fs::path_exists;
 
-use super::{PDF_PASSWORD_REQUIRED_ERROR_CODE, PDF_SOURCE_MIME_TYPE, PdfCandidate, PdfToMdResponse};
+use super::{
+  PDF_CONVERSION_TIMEOUT_ERROR_CODE, PDF_PASSWORD_REQUIRED_ERROR_CODE, PDF_SOURCE_MIME_TYPE, PdfCandidate,
+  PdfToMdResponse,
+};
 
 const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
@@ -108,7 +111,10 @@ pub(super) enum ManifestCheckResult {
   NeedsExtraction,
   AlreadySucceeded,
   AlreadyFailed,
-  AlreadyBlocked,
+  /// Not retried automatically. A reason means the item needs attention.
+  AlreadyBlocked {
+    attention_reason: Option<String>,
+  },
 }
 
 pub enum PdfTextArtifactState {
@@ -142,7 +148,7 @@ pub async fn pdf_text_artifact_state(data_dir: &str, user_id: &str, item_id: &st
     return Ok(PdfTextArtifactState::Pending);
   }
 
-  if manifest.status == "blocked" || manifest_has_password_required_error(&manifest) {
+  if manifest_is_blocked(&manifest) {
     return Ok(PdfTextArtifactState::Blocked);
   }
 
@@ -209,7 +215,7 @@ pub async fn list_failed_pdfs(data_dir: &str, db: Arc<Mutex<Db>>) -> InfuResult<
         continue;
       }
     };
-    if manifest.status != "failed" || manifest_has_password_required_error(&manifest) {
+    if manifest.status != "failed" || manifest_is_blocked(&manifest) {
       continue;
     }
     out.push(FailedPdfInfo { user_id, item_id, file_name, error: manifest.error });
@@ -258,8 +264,8 @@ pub(super) async fn manifest_check(data_dir: &str, candidate: &PdfCandidate) -> 
     return Ok(ManifestCheckResult::NeedsExtraction);
   }
 
-  if manifest.status == "blocked" || manifest_has_password_required_error(&manifest) {
-    return Ok(ManifestCheckResult::AlreadyBlocked);
+  if manifest_is_blocked(&manifest) {
+    return Ok(ManifestCheckResult::AlreadyBlocked { attention_reason: blocked_attention_reason(&manifest) });
   }
 
   if manifest.status == "failed" {
@@ -307,12 +313,13 @@ pub(super) async fn write_failed_manifest(
   write_terminal_manifest(data_dir, candidate, "failed", None, error_message).await
 }
 
-pub(super) async fn write_password_required_manifest(
+pub(super) async fn write_blocked_manifest(
   data_dir: &str,
   candidate: &PdfCandidate,
+  error_code: &str,
   error_message: &str,
 ) -> InfuResult<()> {
-  write_terminal_manifest(data_dir, candidate, "blocked", Some(PDF_PASSWORD_REQUIRED_ERROR_CODE), error_message).await
+  write_terminal_manifest(data_dir, candidate, "blocked", Some(error_code), error_message).await
 }
 
 async fn write_terminal_manifest(
@@ -367,6 +374,37 @@ fn unix_now_secs() -> InfuResult<i64> {
   )
 }
 
+/// Blocked extraction is not retried automatically. Manifests written before an
+/// error was classified as blocking were recorded as failed, so they are
+/// recognised by their error text.
+fn manifest_is_blocked(manifest: &TextManifest) -> bool {
+  manifest.status == "blocked"
+    || manifest_has_password_required_error(manifest)
+    || manifest_has_conversion_timeout_error(manifest)
+}
+
+/// Password protected PDFs are expected and are not reported. Other blocked
+/// PDFs need attention.
+fn blocked_attention_reason(manifest: &TextManifest) -> Option<String> {
+  if manifest_has_password_required_error(manifest) {
+    return None;
+  }
+  Some(manifest.error.clone().unwrap_or_else(|| "PDF text extraction was stopped.".to_owned()))
+}
+
+fn manifest_has_conversion_timeout_error(manifest: &TextManifest) -> bool {
+  manifest.error_code.as_deref() == Some(PDF_CONVERSION_TIMEOUT_ERROR_CODE)
+    || manifest.error.as_deref().map(error_text_is_conversion_timeout).unwrap_or(false)
+}
+
+/// Matches the messages pdf_extract returns with `pdf_conversion_timeout`.
+fn error_text_is_conversion_timeout(error: &str) -> bool {
+  let normalized = error.to_ascii_lowercase();
+  normalized.contains(PDF_CONVERSION_TIMEOUT_ERROR_CODE)
+    || normalized.contains("pdf conversion exceeded the")
+    || normalized.contains("pdf conversion deadline expired")
+}
+
 fn manifest_has_password_required_error(manifest: &TextManifest) -> bool {
   manifest.error_code.as_deref() == Some(PDF_PASSWORD_REQUIRED_ERROR_CODE)
     || manifest.error.as_deref().map(error_text_is_password_required).unwrap_or(false)
@@ -394,6 +432,7 @@ mod tests {
       file_size_bytes: None,
       creation_date: 0,
       last_modified_date: 0,
+      conversion_timeout_secs: None,
     }
   }
 
@@ -459,6 +498,41 @@ mod tests {
     assert!(succeeded.get("error").is_none());
     let failed = serde_json::to_value(manifest(ArtifactProcessing { retry_at_unix_secs: Some(9) })).unwrap();
     assert_eq!(failed["processing"], serde_json::json!({ "retry_at_unix_secs": 9 }));
+  }
+
+  #[test]
+  fn conversion_timeouts_are_blocked_and_need_attention() {
+    let manifest = |status: &str, error_code: Option<&str>, error: &str| TextManifest {
+      processing: ArtifactProcessing::default(),
+      schema_version: MANIFEST_SCHEMA_VERSION,
+      status: status.to_owned(),
+      source_mime_type: PDF_SOURCE_MIME_TYPE.to_owned(),
+      content_mime_type: MARKDOWN_CONTENT_MIME_TYPE.to_owned(),
+      extractor: TextManifestExtractor {
+        extracted_at_unix_secs: 1,
+        duration_ms: None,
+        extraction: TextExtractionInfo::default(),
+      },
+      error_code: error_code.map(str::to_owned),
+      error: Some(error.to_owned()),
+    };
+    let timeout = manifest("blocked", Some(PDF_CONVERSION_TIMEOUT_ERROR_CODE), "PDF conversion exceeded the limit.");
+    assert!(manifest_is_blocked(&timeout));
+    assert_eq!(blocked_attention_reason(&timeout).as_deref(), Some("PDF conversion exceeded the limit."));
+
+    let legacy_timeout = manifest(
+      "failed",
+      None,
+      "HTTP 422 Unprocessable Entity: PDF conversion exceeded the 3600 second timeout. The PDF may be too large.",
+    );
+    assert!(manifest_is_blocked(&legacy_timeout));
+    assert!(blocked_attention_reason(&legacy_timeout).is_some());
+
+    let password = manifest("blocked", Some(PDF_PASSWORD_REQUIRED_ERROR_CODE), "Password required.");
+    assert!(manifest_is_blocked(&password));
+    assert!(blocked_attention_reason(&password).is_none());
+
+    assert!(!manifest_is_blocked(&manifest("failed", None, "HTTP 422 Unprocessable Entity: corrupt PDF.")));
   }
 
   #[test]

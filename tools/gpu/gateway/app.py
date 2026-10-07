@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import time
 import uuid
@@ -50,6 +51,14 @@ PDF_EXTRACT_JOB_UPSTREAM_READ_WRITE_TIMEOUT_SECS = 24.0 * 60.0 * 60.0
 DEFAULT_GLOBAL_GPU_LOCK_WAIT_TIMEOUT_SECS = 5.0 * 60.0
 DEFAULT_GLOBAL_GPU_LOCK_LEASE_SECS = 60.0 * 60.0
 PDF_EXTRACT_JOB_RESULT_RETENTION_SECS = 6.0 * 60.0 * 60.0
+# The per-PDF conversion limit. The gateway resolves it once per request and
+# forwards it to pdf_extract in this header, so the pdf_extract watchdog and the
+# gateway's lock lease for that request always use the same number.
+PDF_CONVERSION_TIMEOUT_HEADER = "x-pdf-conversion-timeout-secs"
+DEFAULT_PDF_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
+MAX_PDF_CONVERSION_TIMEOUT_SECS = PDF_EXTRACT_JOB_UPSTREAM_READ_WRITE_TIMEOUT_SECS
+# Covers the upload to pdf_extract and its response after the watchdog fires.
+PDF_CONVERSION_LEASE_MARGIN_SECS = 5.0 * 60.0
 
 
 def env_float(name: str, default: float) -> float:
@@ -75,6 +84,45 @@ def global_gpu_lock_lease_secs() -> float:
         1.0,
         env_float("GPU_GATEWAY_LOCK_LEASE_SECS", DEFAULT_GLOBAL_GPU_LOCK_LEASE_SECS),
     )
+
+
+def default_pdf_conversion_timeout_secs() -> float:
+    # Same variable and default as the pdf_extract watchdog, which only applies
+    # its own value to requests that do not come through the gateway.
+    return min(
+        MAX_PDF_CONVERSION_TIMEOUT_SECS,
+        max(1.0, env_float("TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS", DEFAULT_PDF_CONVERSION_TIMEOUT_SECS)),
+    )
+
+
+def pdf_conversion_timeout_secs_for_request(request: Request) -> float:
+    """The conversion limit a caller asked for, or the default."""
+    raw = request.headers.get(PDF_CONVERSION_TIMEOUT_HEADER)
+    if raw is None or raw.strip() == "":
+        return default_pdf_conversion_timeout_secs()
+    try:
+        value = float(raw)
+    except ValueError:
+        value = math.nan
+    if not math.isfinite(value) or value < 1.0 or value > MAX_PDF_CONVERSION_TIMEOUT_SECS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{PDF_CONVERSION_TIMEOUT_HEADER} must be a number of seconds from 1 to "
+                f"{MAX_PDF_CONVERSION_TIMEOUT_SECS:.0f}."
+            ),
+        )
+    return value
+
+
+def with_pdf_conversion_timeout_header(headers: dict[str, str], timeout_secs: float) -> dict[str, str]:
+    updated = {key: value for key, value in headers.items() if key.lower() != PDF_CONVERSION_TIMEOUT_HEADER}
+    updated[PDF_CONVERSION_TIMEOUT_HEADER] = f"{timeout_secs:g}"
+    return updated
+
+
+def pdf_conversion_lease_secs(timeout_secs: float) -> float:
+    return timeout_secs + PDF_CONVERSION_LEASE_MARGIN_SECS
 
 
 def pdf_extract_job_upstream_timeout_secs() -> float:
@@ -111,6 +159,7 @@ class PdfExtractJob:
     idempotency_key: str | None
     created_at: float
     updated_at: float
+    conversion_timeout_secs: float
     status: str = "queued"
     wait_ms: int | None = None
     http_status: int | None = None
@@ -169,7 +218,10 @@ class GlobalGpuLock:
         method: str,
         job_id: str | None,
         timeout_secs: float,
+        lease_secs: float | None = None,
     ) -> GpuLockLease:
+        """lease_secs overrides the global lease for requests with a known bound."""
+        lease_secs = global_gpu_lock_lease_secs() if lease_secs is None else lease_secs
         wait_started_at = time.perf_counter()
         deadline = wait_started_at + timeout_secs
         async with self._condition:
@@ -177,11 +229,13 @@ class GlobalGpuLock:
                 now = time.perf_counter()
                 existing = self._lease
                 if existing is None:
-                    return self._create_lease_locked(service_name, path, method, job_id, wait_started_at)
+                    return self._create_lease_locked(service_name, path, method, job_id, wait_started_at, lease_secs)
 
                 held_secs = max(0.0, now - existing.acquired_at_perf_secs)
                 if held_secs >= existing.lease_secs:
-                    new_lease = self._create_lease_locked(service_name, path, method, job_id, wait_started_at)
+                    new_lease = self._create_lease_locked(
+                        service_name, path, method, job_id, wait_started_at, lease_secs
+                    )
                     LOGGER.error(
                         "GPU gateway global lock lease expired after %d ms; allowing new holder. "
                         "expired_holder=%s new_holder=%s",
@@ -217,6 +271,7 @@ class GlobalGpuLock:
         method: str,
         job_id: str | None,
         wait_started_at: float,
+        lease_secs: float,
     ) -> GpuLockLease:
         now_perf = time.perf_counter()
         lease = GpuLockLease(
@@ -228,7 +283,7 @@ class GlobalGpuLock:
             acquired_at_unix_secs=time.time(),
             acquired_at_perf_secs=now_perf,
             wait_ms=int((now_perf - wait_started_at) * 1000),
-            lease_secs=global_gpu_lock_lease_secs(),
+            lease_secs=lease_secs,
         )
         self._lease = lease
         return lease
@@ -487,6 +542,7 @@ def pdf_extract_job_status_payload(job: PdfExtractJob) -> dict[str, Any]:
         "status": job.status,
         "created_at_unix_secs": job.created_at,
         "updated_at_unix_secs": job.updated_at,
+        "conversion_timeout_secs": job.conversion_timeout_secs,
     }
     if job.wait_ms is not None:
         payload["wait_ms"] = job.wait_ms
@@ -541,6 +597,7 @@ async def run_pdf_extract_job(request: Request, job_id: str) -> None:
             return
         request_body = job.request_body
         request_headers = job.request_headers
+        conversion_timeout_secs = job.conversion_timeout_secs
 
     wait_started_at = time.perf_counter()
     lock_lease: GpuLockLease | None = None
@@ -558,6 +615,7 @@ async def run_pdf_extract_job(request: Request, job_id: str) -> None:
                 method="POST",
                 job_id=job_id,
                 timeout_secs=global_gpu_lock_wait_timeout_secs(),
+                lease_secs=pdf_conversion_lease_secs(conversion_timeout_secs),
             )
         except GpuLockWaitTimeoutError as exc:
             wait_ms = exc.wait_ms
@@ -577,13 +635,20 @@ async def run_pdf_extract_job(request: Request, job_id: str) -> None:
 
         wait_ms = int((time.perf_counter() - wait_started_at) * 1000)
         await update_pdf_extract_job(request, job_id, status="running", wait_ms=wait_ms)
-        LOGGER.info("GPU gateway running async PDF extraction job: job_id=%s wait_ms=%d", job_id, wait_ms)
+        LOGGER.info(
+            "GPU gateway running async PDF extraction job: job_id=%s wait_ms=%d conversion_timeout_secs=%g",
+            job_id,
+            wait_ms,
+            conversion_timeout_secs,
+        )
         upstream_url = service.upstream_base_url + service.upstream_path_for("/pdf-extract")
         upstream_response = await client.post(
             upstream_url,
             headers=request_headers,
             content=request_body,
-            timeout=upstream_timeout(pdf_extract_job_upstream_timeout_secs()),
+            timeout=upstream_timeout(
+                max(pdf_extract_job_upstream_timeout_secs(), pdf_conversion_lease_secs(conversion_timeout_secs))
+            ),
         )
         response_body = upstream_response.content
         await update_pdf_extract_job(
@@ -742,6 +807,7 @@ async def submit_pdf_extract_job(request: Request) -> JSONResponse:
     content_type = request.headers.get("content-type", "")
     if "multipart/form-data" not in content_type.lower():
         raise HTTPException(status_code=400, detail="Expected multipart/form-data.")
+    conversion_timeout_secs = pdf_conversion_timeout_secs_for_request(request)
 
     request_body = await request.body()
     if not request_body:
@@ -770,20 +836,22 @@ async def submit_pdf_extract_job(request: Request) -> JSONResponse:
         job = PdfExtractJob(
             job_id=job_id,
             request_body=request_body,
-            request_headers=forwarded_headers(request),
+            request_headers=with_pdf_conversion_timeout_header(forwarded_headers(request), conversion_timeout_secs),
             idempotency_key=idempotency_key,
             created_at=now,
             updated_at=now,
+            conversion_timeout_secs=conversion_timeout_secs,
         )
         jobs[job_id] = job
         if idempotency_key:
             job_keys[idempotency_key] = job_id
 
     LOGGER.info(
-        "GPU gateway accepted async PDF extraction job: job_id=%s bytes=%d idempotency_key=%s",
+        "GPU gateway accepted async PDF extraction job: job_id=%s bytes=%d idempotency_key=%s conversion_timeout_secs=%g",
         job_id,
         len(request_body),
         "<set>" if idempotency_key else "<unset>",
+        conversion_timeout_secs,
     )
     asyncio.create_task(run_pdf_extract_job(request, job_id))
     return JSONResponse(status_code=202, content=pdf_extract_job_status_payload(job))
@@ -833,11 +901,20 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
     lock = gpu_lock(request) if service.uses_global_gpu_lock else None
     upstream_url = build_upstream_url(service, request_path, request.url.query)
     buffered_request_body = await maybe_buffer_request_body_before_gpu_lock(request, service, request_path)
+    headers = forwarded_headers(request)
+    lease_secs: float | None = None
+    read_write_timeout_secs = service.upstream_read_write_timeout_secs
+    if service.service_name == "pdf_extract" and request_path == "/pdf-extract":
+        conversion_timeout_secs = pdf_conversion_timeout_secs_for_request(request)
+        headers = with_pdf_conversion_timeout_header(headers, conversion_timeout_secs)
+        lease_secs = pdf_conversion_lease_secs(conversion_timeout_secs)
+        read_write_timeout_secs = max(read_write_timeout_secs, lease_secs)
     upstream_request = client.build_request(
         method=request.method,
         url=upstream_url,
-        headers=forwarded_headers(request),
+        headers=headers,
         content=buffered_request_body if buffered_request_body is not None else request.stream(),
+        timeout=upstream_timeout(read_write_timeout_secs),
     )
     wait_started_at = time.perf_counter()
     if lock is not None and lock.locked():
@@ -859,6 +936,7 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
                     method=request.method,
                     job_id=None,
                     timeout_secs=global_gpu_lock_wait_timeout_secs(),
+                    lease_secs=lease_secs,
                 )
             except GpuLockWaitTimeoutError as exc:
                 wait_ms = exc.wait_ms

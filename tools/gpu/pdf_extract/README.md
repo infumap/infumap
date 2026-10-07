@@ -184,6 +184,9 @@ Password-protected PDFs return HTTP 422 with a structured terminal response:
   killed and Marker runs in the remaining time. When the whole deadline
   expires, the service returns a terminal 422 `pdf_conversion_timeout`, stops
   any Docling child process, and restarts to clear stuck native state.
+  A request may set its own deadline with the `X-Pdf-Conversion-Timeout-Secs`
+  header. The GPU gateway sets it on every request it forwards, so the
+  gateway's lock lease and this deadline always match.
 
 Interactive API docs are available at `http://127.0.0.1:8790/docs`.
 

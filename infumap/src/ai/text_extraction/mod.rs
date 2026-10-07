@@ -54,16 +54,27 @@ pub use artifacts::{
 };
 
 use self::artifacts::{
-  ManifestCheckResult, clear_item_text_dir, manifest_check, write_failed_manifest, write_password_required_manifest,
+  ManifestCheckResult, clear_item_text_dir, manifest_check, write_blocked_manifest, write_failed_manifest,
   write_success_artifacts,
 };
 
 const REQUEST_TIMEOUT_SECS: u64 = 4 * 60 * 60;
+/// Asks the GPU gateway for a per-PDF conversion limit other than its default.
+const PDF_CONVERSION_TIMEOUT_HEADER: &str = "x-pdf-conversion-timeout-secs";
+/// The largest limit the GPU gateway accepts.
+pub const MAX_PDF_CONVERSION_TIMEOUT_SECS: u64 = 24 * 60 * 60;
+/// Allowed beyond the conversion limit before a running job is treated as lost;
+/// the GPU service reports a timeout itself well within this.
+const PDF_CONVERSION_TIMEOUT_MARGIN_SECS: u64 = 15 * 60;
 const ASYNC_POLL_SECS: u64 = 2;
 const ASYNC_PROGRESS_LOG_SECS: u64 = 60;
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 pub(super) const PDF_PASSWORD_REQUIRED_ERROR_CODE: &str = "pdf_password_required";
+/// pdf_extract gave up within its conversion time limit. Retrying would cost
+/// the same GPU time and fail again, so the item is reported as needing
+/// attention instead (reprocessing is manual).
+pub(super) const PDF_CONVERSION_TIMEOUT_ERROR_CODE: &str = "pdf_conversion_timeout";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -74,6 +85,9 @@ struct PdfCandidate {
   file_size_bytes: Option<i64>,
   creation_date: i64,
   last_modified_date: i64,
+  /// Set only by a manual reprocess. Not persisted: a restart before the
+  /// attempt runs falls back to the GPU gateway's default.
+  conversion_timeout_secs: Option<u64>,
 }
 
 impl PdfCandidate {
@@ -84,7 +98,14 @@ impl PdfCandidate {
       file_size_bytes: item.file_size_bytes,
       creation_date: item.creation_date,
       last_modified_date: item.last_modified_date,
+      conversion_timeout_secs: None,
     }
+  }
+
+  /// Long enough for any single request, including a synchronous conversion.
+  fn request_timeout(&self) -> Duration {
+    let conversion_secs = self.conversion_timeout_secs.map(|secs| secs + PDF_CONVERSION_TIMEOUT_MARGIN_SECS);
+    Duration::from_secs(conversion_secs.unwrap_or(0).max(REQUEST_TIMEOUT_SECS))
   }
 }
 
@@ -138,6 +159,8 @@ struct PdfExtractJobResponse {
   status: String,
   http_status: Option<u16>,
   error: Option<String>,
+  /// The limit the gateway applies to this job; older gateways omit it.
+  conversion_timeout_secs: Option<f64>,
 }
 
 enum ExtractOutcome {
@@ -149,7 +172,17 @@ enum ExtractOutcome {
 
 pub(crate) enum PdfTextExtractionProcessOutcome {
   Extracted,
-  Blocked,
+  /// Not retried automatically. A reason means the item needs attention.
+  Blocked {
+    attention_reason: Option<String>,
+  },
+}
+
+/// What one pass of the background worker left for the status pages.
+enum PdfAttemptOutcome {
+  Extracted,
+  Skipped,
+  Stopped(String),
 }
 
 #[derive(Clone)]
@@ -199,13 +232,16 @@ pub fn dequeue_pdf_item_if_active(item_id: &str) {
 }
 
 /// Queues the item again without any retry delay, e.g. for explicit reprocessing.
-pub async fn requeue_pdf_item_now(item: &Item) {
+/// `conversion_timeout_secs` overrides the GPU gateway's conversion limit for
+/// this attempt only.
+pub async fn requeue_pdf_item_now(item: &Item, conversion_timeout_secs: Option<u64>) {
   let Some(state) = PROCESSING_STATE.get() else {
     return;
   };
   let mut state = state.lock().await;
   remove_candidate(&mut state, &item.id);
-  if let Some(candidate) = pdf_candidate_for_item(item) {
+  if let Some(mut candidate) = pdf_candidate_for_item(item) {
+    candidate.conversion_timeout_secs = conversion_timeout_secs;
     enqueue_candidate(&mut state, candidate);
   }
 }
@@ -304,7 +340,7 @@ pub(crate) async fn process_loaded_pdf_extraction(
   clear_item_text_dir(data_dir, &candidate.user_id, &candidate.item_id).await?;
   let client = reqwest::ClientBuilder::new()
     .connect_timeout(Duration::from_secs(10))
-    .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+    .timeout(candidate.request_timeout())
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
   let started_at = Instant::now();
@@ -331,7 +367,7 @@ pub(crate) async fn process_loaded_pdf_extraction(
       return Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into());
     }
     ExtractOutcome::DocumentBlocked { error_code, message } => {
-      write_password_required_manifest(data_dir, &candidate, &message).await?;
+      write_blocked_manifest(data_dir, &candidate, &error_code, &message).await?;
       info!(
         "PDF text extraction blocked for '{}' (user {}): {} ({})",
         candidate.item_id,
@@ -357,20 +393,12 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
   let LoadedPdfExtraction { candidate, file_bytes } = loaded;
   let client = reqwest::ClientBuilder::new()
     .connect_timeout(Duration::from_secs(10))
-    .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+    .timeout(candidate.request_timeout())
     .build()
     .map_err(|e| format!("Could not build HTTP client: {}", e))?;
   let started_at = Instant::now();
   let outcome = if async_jobs_available {
-    match time::timeout(
-      Duration::from_secs(REQUEST_TIMEOUT_SECS),
-      request_text_extraction_async_polling(&client, text_extraction_url, &candidate, &file_bytes),
-    )
-    .await
-    {
-      Ok(outcome) => outcome,
-      Err(_) => ExtractOutcome::EndpointUnavailable("Async PDF extraction timed out.".to_owned()),
-    }
+    request_text_extraction_async_polling(&client, text_extraction_url, &candidate, &file_bytes).await
   } else {
     request_text_extraction_once(&client, text_extraction_url, &candidate, &file_bytes).await
   };
@@ -393,15 +421,17 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
       Err(format!("PDF text extraction failed for '{}': {}", candidate.item_id, msg).into())
     }
     ExtractOutcome::DocumentBlocked { error_code, message } => {
-      write_password_required_manifest(data_dir, &candidate, &message).await?;
-      debug!(
+      write_blocked_manifest(data_dir, &candidate, &error_code, &message).await?;
+      let attention_reason = (error_code != PDF_PASSWORD_REQUIRED_ERROR_CODE).then(|| message.clone());
+      log::log!(
+        if attention_reason.is_some() { log::Level::Warn } else { log::Level::Debug },
         "PDF text extraction blocked for '{}' (user {}): {} ({})",
         candidate.item_id,
         user_id_for_log(&candidate.user_id),
         message,
         error_code
       );
-      Ok(PdfTextExtractionProcessOutcome::Blocked)
+      Ok(PdfTextExtractionProcessOutcome::Blocked { attention_reason })
     }
     ExtractOutcome::EndpointUnavailable(msg) => Err(format!("Text extraction endpoint unavailable: {}", msg).into()),
   }
@@ -521,19 +551,22 @@ async fn run_text_extraction_loop(
       time::sleep(Duration::from_millis(EMPTY_QUEUE_WAIT_MILLIS)).await;
       continue;
     };
-    let result: InfuResult<bool> = async {
+    let result: InfuResult<PdfAttemptOutcome> = async {
       if !candidate_still_current(db.clone(), &candidate).await? {
-        return Ok(false);
+        return Ok(PdfAttemptOutcome::Skipped);
       }
       // Deliberate trade-off: accepted output is kept when GPU tools or models
       // change; reprocessing is manual (see handle_reprocess_item).
       match manifest_check(&data_dir, &candidate).await? {
         ManifestCheckResult::AlreadySucceeded => {
           enqueue_pdf_fragment_ids_if_active(&candidate.user_id, &candidate.item_id);
-          return Ok(false);
+          return Ok(PdfAttemptOutcome::Skipped);
         }
-        // Password protected PDFs are not text extracted (reprocessing is manual).
-        ManifestCheckResult::AlreadyBlocked => return Ok(false),
+        // Blocked PDFs are not text extracted again (reprocessing is manual).
+        ManifestCheckResult::AlreadyBlocked { attention_reason: None } => return Ok(PdfAttemptOutcome::Skipped),
+        ManifestCheckResult::AlreadyBlocked { attention_reason: Some(reason) } => {
+          return Ok(PdfAttemptOutcome::Stopped(reason));
+        }
         ManifestCheckResult::NeedsExtraction | ManifestCheckResult::AlreadyFailed => {}
       }
       let path = item_text_manifest_path(&data_dir, &candidate.user_id, &candidate.item_id)?;
@@ -546,7 +579,7 @@ async fn run_text_extraction_loop(
         let mut state = state.lock().await;
         state.retries.defer(candidate.item_id.clone(), delay);
         enqueue_candidate(&mut state, candidate.clone());
-        return Ok(false);
+        return Ok(PdfAttemptOutcome::Skipped);
       }
       if gpu_tools_url.trim().is_empty() {
         return Err(format!("PDF processing service is not configured ({}).", CONFIG_GPU_TOOLS_URL).into());
@@ -564,20 +597,33 @@ async fn run_text_extraction_loop(
       )
       .await?
       {
-        PdfTextExtractionProcessOutcome::Extracted => Ok(true),
-        PdfTextExtractionProcessOutcome::Blocked => Ok(false),
+        PdfTextExtractionProcessOutcome::Extracted => Ok(PdfAttemptOutcome::Extracted),
+        PdfTextExtractionProcessOutcome::Blocked { attention_reason: None } => Ok(PdfAttemptOutcome::Skipped),
+        PdfTextExtractionProcessOutcome::Blocked { attention_reason: Some(reason) } => {
+          Ok(PdfAttemptOutcome::Stopped(reason))
+        }
       }
     }
     .await;
     match result {
-      Ok(extracted) => {
+      Ok(outcome) => {
         let mut state = state.lock().await;
         // A deferred retry re-queued the item; keep its reported reason.
         if !state.queued_item_ids.contains(&candidate.item_id) {
           state.retries.clear(&candidate.item_id);
-          activity::done(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction);
+          match &outcome {
+            PdfAttemptOutcome::Stopped(reason) => {
+              activity::stopped(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &stopped_detail(reason));
+            }
+            PdfAttemptOutcome::Extracted | PdfAttemptOutcome::Skipped => {
+              activity::done(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction);
+            }
+          }
         }
-        record_pdf_text_extraction_processed(if extracted { "success" } else { "skipped" });
+        record_pdf_text_extraction_processed(match outcome {
+          PdfAttemptOutcome::Extracted => "success",
+          PdfAttemptOutcome::Skipped | PdfAttemptOutcome::Stopped(_) => "skipped",
+        });
       }
       Err(error) => {
         let (delay, attempt) = {
@@ -608,6 +654,13 @@ async fn run_text_extraction_loop(
       time::sleep(request_delay).await;
     }
   }
+}
+
+fn stopped_detail(reason: &str) -> String {
+  format!(
+    "{} Not retried automatically; use 'infumap reprocess --pdf-conversion-timeout' to try again with a longer limit.",
+    reason.trim_end()
+  )
 }
 
 fn log_pdf_extracted(candidate: &PdfCandidate, backend: Option<&str>, elapsed: Duration, markdown_bytes: usize) {
@@ -653,7 +706,7 @@ async fn request_text_extraction_with_retries(
   let mut unavailable_attempt = 0usize;
 
   loop {
-    let outcome = request_text_extraction(client, text_extraction_url, file_bytes.to_vec()).await;
+    let outcome = request_text_extraction(client, text_extraction_url, candidate, file_bytes.to_vec()).await;
     match outcome {
       ExtractOutcome::EndpointUnavailable(message) => {
         let delay = endpoint_retry_delay(unavailable_attempt);
@@ -716,10 +769,10 @@ async fn request_text_extraction_with_retries(
 async fn request_text_extraction_once(
   client: &reqwest::Client,
   text_extraction_url: &str,
-  _candidate: &PdfCandidate,
+  candidate: &PdfCandidate,
   file_bytes: &[u8],
 ) -> ExtractOutcome {
-  request_text_extraction(client, text_extraction_url, file_bytes.to_vec()).await
+  request_text_extraction(client, text_extraction_url, candidate, file_bytes.to_vec()).await
 }
 
 async fn request_text_extraction_async_polling(
@@ -737,8 +790,7 @@ async fn request_text_extraction_async_polling(
     Err(e) => return ExtractOutcome::EndpointUnavailable(format!("Could not build multipart upload: {}", e)),
   };
   let form = Form::new().part("file", part);
-  let response = match client
-    .post(jobs_url.as_str())
+  let response = match with_conversion_timeout(client.post(jobs_url.as_str()), candidate)
     .header(
       "Idempotency-Key",
       format!("{}:{}", pdf_extraction_idempotency_key(candidate), infusdk::util::uid::new_uid()),
@@ -765,6 +817,7 @@ async fn request_text_extraction_async_polling(
   let job_status_url = format!("{}/{}", jobs_url.as_str().trim_end_matches('/'), job.job_id);
   let job_result_url = format!("{}/result", job_status_url);
   let poll_started_at = Instant::now();
+  let mut running_started_at = None;
   let mut last_progress_log_at = Instant::now();
   info!(
     "Submitted async text extraction job '{}' for PDF '{}' (user {}).",
@@ -776,7 +829,10 @@ async fn request_text_extraction_async_polling(
   loop {
     match job.status.as_str() {
       "queued" | "running" => {
-        if poll_started_at.elapsed() >= Duration::from_secs(REQUEST_TIMEOUT_SECS) {
+        if job.status == "running" && running_started_at.is_none() {
+          running_started_at = Some(Instant::now());
+        }
+        if async_job_exceeded_time_limit(&job, candidate, poll_started_at, running_started_at) {
           return ExtractOutcome::EndpointUnavailable("Async PDF job exceeded the processing time limit.".to_owned());
         }
         if last_progress_log_at.elapsed() >= Duration::from_secs(ASYNC_PROGRESS_LOG_SECS) {
@@ -806,6 +862,31 @@ async fn request_text_extraction_async_polling(
         ));
       }
     }
+  }
+}
+
+/// The gateway bounds queueing and reports the conversion limit it applies, so
+/// a job running well past that limit has been lost. Jobs from gateways that do
+/// not report the limit are bounded from submission instead.
+fn async_job_exceeded_time_limit(
+  job: &PdfExtractJobResponse,
+  candidate: &PdfCandidate,
+  poll_started_at: Instant,
+  running_started_at: Option<Instant>,
+) -> bool {
+  let conversion_limit = job.conversion_timeout_secs.and_then(|secs| Duration::try_from_secs_f64(secs).ok());
+  match (conversion_limit, running_started_at) {
+    (Some(limit), Some(running_started_at)) => {
+      running_started_at.elapsed() >= limit + Duration::from_secs(PDF_CONVERSION_TIMEOUT_MARGIN_SECS)
+    }
+    _ => poll_started_at.elapsed() >= candidate.request_timeout(),
+  }
+}
+
+fn with_conversion_timeout(request: reqwest::RequestBuilder, candidate: &PdfCandidate) -> reqwest::RequestBuilder {
+  match candidate.conversion_timeout_secs {
+    Some(secs) => request.header(PDF_CONVERSION_TIMEOUT_HEADER, secs.to_string()),
+    None => request,
   }
 }
 
@@ -935,7 +1016,12 @@ async fn populate_initial_pdf_queue(
         already_failed += 1;
         pending_candidates.push(candidate);
       }
-      Ok(ManifestCheckResult::AlreadyBlocked) => already_blocked += 1,
+      Ok(ManifestCheckResult::AlreadyBlocked { attention_reason }) => {
+        already_blocked += 1;
+        if let Some(reason) = attention_reason {
+          activity::stopped(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &stopped_detail(&reason));
+        }
+      }
       Err(e) => {
         artifact_errors += 1;
         error!(
@@ -980,6 +1066,7 @@ async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &PdfCandidate) -
 async fn request_text_extraction(
   client: &reqwest::Client,
   text_extraction_url: &str,
+  candidate: &PdfCandidate,
   file_bytes: Vec<u8>,
 ) -> ExtractOutcome {
   let part = match Part::bytes(file_bytes).mime_str("application/pdf") {
@@ -988,7 +1075,8 @@ async fn request_text_extraction(
   };
   let form = Form::new().part("file", part);
 
-  let response = match client.post(text_extraction_url).multipart(form).send().await {
+  let response = match with_conversion_timeout(client.post(text_extraction_url), candidate).multipart(form).send().await
+  {
     Ok(response) => response,
     Err(e) => return ExtractOutcome::EndpointUnavailable(e.to_string()),
   };
@@ -1018,6 +1106,12 @@ fn parse_text_extraction_response(status: reqwest::StatusCode, body: String) -> 
 
   if is_terminal_document_response(status) {
     let parsed_error = parse_pdf_error_response(&body);
+    if parsed_error.error_code.as_deref() == Some(PDF_CONVERSION_TIMEOUT_ERROR_CODE) {
+      return ExtractOutcome::DocumentBlocked {
+        error_code: PDF_CONVERSION_TIMEOUT_ERROR_CODE.to_owned(),
+        message: parsed_error.message.unwrap_or(body),
+      };
+    }
     if parsed_error.error_code.as_deref() == Some(PDF_PASSWORD_REQUIRED_ERROR_CODE) {
       return ExtractOutcome::DocumentBlocked {
         error_code: PDF_PASSWORD_REQUIRED_ERROR_CODE.to_owned(),
@@ -1095,4 +1189,26 @@ fn is_terminal_document_response(status: reqwest::StatusCode) -> bool {
 
 fn on_off(value: bool) -> &'static str {
   if value { "on" } else { "off" }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn conversion_timeout_response_is_blocked() {
+    let body = serde_json::json!({
+      "success": false,
+      "error_code": PDF_CONVERSION_TIMEOUT_ERROR_CODE,
+      "error": "PDF conversion exceeded the 3600 second timeout.",
+    })
+    .to_string();
+    match parse_text_extraction_response(reqwest::StatusCode::UNPROCESSABLE_ENTITY, body) {
+      ExtractOutcome::DocumentBlocked { error_code, message } => {
+        assert_eq!(error_code, PDF_CONVERSION_TIMEOUT_ERROR_CODE);
+        assert_eq!(message, "PDF conversion exceeded the 3600 second timeout.");
+      }
+      _ => panic!("expected a blocked outcome"),
+    }
+  }
 }

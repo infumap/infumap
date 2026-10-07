@@ -60,7 +60,9 @@ The combined launcher keeps each service independent:
   and return HTTP 503 when the lock stays busy too long
 - the gateway lock is leased; if a holder is wedged past
   `GPU_GATEWAY_LOCK_LEASE_SECS` (default 1 hour), a later request may take over
-  instead of letting one stale request block all GPU work indefinitely
+  instead of letting one stale request block all GPU work indefinitely. PDF
+  extraction requests instead hold a lease of their conversion limit plus 5
+  minutes, so a long conversion is never shared with other GPU work
 - gateway upstream read/write timeouts are 30 minutes by default, with a 4 hour
   read/write timeout for `/pdf-extract`
 - the gateway also exposes async PDF extraction jobs for web-background use:
@@ -74,7 +76,12 @@ The combined launcher keeps each service independent:
 - PDF extract has a per-PDF conversion watchdog
   (`TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`, default 1 hour); a timed-out PDF is
   treated as a terminal document failure and the supervised service process
-  restarts to clear stuck native worker state
+  restarts to clear stuck native worker state. Callers may request a different
+  limit (up to 24 hours) with the `X-Pdf-Conversion-Timeout-Secs` header; the
+  gateway resolves the limit, forwards it to PDF extract, and reports it as
+  `conversion_timeout_secs` in async job status. Infumap lists timed-out PDFs as
+  needing attention and does not retry them; `infumap reprocess --id <id>
+  --pdf-conversion-timeout 4h` tries one again with a longer limit
 - PDF extract and the image-based PDF caption fallback return structured HTTP
   422 responses with `error_code="pdf_password_required"` for
   password-protected PDFs, allowing Infumap to store a terminal blocked

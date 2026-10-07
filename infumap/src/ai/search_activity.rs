@@ -214,6 +214,24 @@ pub fn retry(user_id: &str, item_id: &str, stage: Stage, detail: &str, delay: Du
   record_outcome(stage, Some(detail));
 }
 
+/// The work will not be attempted again automatically; only reprocessing the
+/// item clears this. Not counted as a failed attempt, since the startup scan
+/// reports these again from artifacts on every restart.
+pub fn stopped(user_id: &str, item_id: &str, stage: Stage, detail: &str) {
+  with_entries(|entries| {
+    entries.insert(
+      key(user_id, item_id, stage),
+      Entry {
+        phase: Phase::NeedsAttention,
+        detail: Some(detail.to_owned()),
+        retry_at_unix_secs: None,
+        queued_again: false,
+        started_at: None,
+      },
+    );
+  });
+}
+
 /// Log level for one failed attempt. A problem needing attention is logged as
 /// a warning the first time an item hits it after startup; dependency waits and
 /// repeated failures are debug only. The periodic progress report shows failure
@@ -530,6 +548,20 @@ mod tests {
       "Search progress: Title indexing: 2 queued for next batched index commit"
     );
     assert_eq!(report(Stage::Fragments, None).render(&titles), "Search progress: Content preparation: 2 queued");
+  }
+
+  #[test]
+  fn stopped_work_needs_attention_until_requeued() {
+    let (user, item) = ("activity-test-user-5", "item");
+    stopped(user, item, Stage::PdfExtraction, "PDF conversion timed out.");
+    queued(user, item, Stage::Fragments);
+    let summary = user_summary(user);
+    assert!(summary.attention_item_ids.contains(item) && summary.processing_item_ids.is_empty());
+    assert_eq!(item_activity(user, item)[0].retry_at_unix_secs, None);
+    queued(user, item, Stage::PdfExtraction);
+    assert_eq!(item_activity(user, item)[0].phase, Phase::NeedsAttention);
+    forget_stage(user, item, Stage::PdfExtraction);
+    assert!(user_summary(user).processing_item_ids.contains(item));
   }
 
   #[test]
