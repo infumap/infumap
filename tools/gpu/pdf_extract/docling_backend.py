@@ -43,10 +43,11 @@ def describe_exit(returncode: int) -> str:
 
 
 class DoclingBackend:
-    """Run native extraction in Docling's isolated dependency environment.
+    """Run Docling in its isolated dependency environment.
 
-    Returns conversion diagnostics, native coverage assessment, and Markdown
-    from the worker. Calls must be serialized by the owning service.
+    Native extraction returns conversion diagnostics, native coverage
+    assessment, and Markdown from the worker; OCR returns diagnostics, OCR
+    settings, and Markdown. Calls must be serialized by the owning service.
     """
 
     def __init__(self) -> None:
@@ -95,9 +96,9 @@ class DoclingBackend:
                 self._process.kill()
 
     def convert(
-        self, file_bytes: bytes, file_name: str, *, timeout_secs: float
+        self, file_bytes: bytes, file_name: str, *, timeout_secs: float, ocr: bool = False
     ) -> dict[str, Any]:
-        """Convert with Docling within timeout_secs.
+        """Convert with Docling within timeout_secs, using full-page OCR when ocr is set.
 
         Raises DoclingConversionError when Docling fails on the document,
         including a crash or exceeding timeout_secs, and ExtractionTimeoutError
@@ -118,6 +119,8 @@ class DoclingBackend:
                 str(output),
                 Path(file_name or "document.pdf").name,
             ]
+            if ocr:
+                command.append("--ocr")
             with self._lock:
                 if self._cancelled:
                     raise ExtractionTimeoutError("Docling worker was cancelled.")
@@ -140,7 +143,9 @@ class DoclingBackend:
             if self._cancelled:
                 raise ExtractionTimeoutError("Docling worker was cancelled.")
             if timed_out:
-                raise DoclingConversionError(f"Docling exceeded its {timeout_secs:.0f} second budget.")
+                raise DoclingConversionError(
+                    f"Docling{' OCR' if ocr else ''} exceeded its {timeout_secs:.0f} second budget."
+                )
             if process.returncode != 0:
                 raise DoclingConversionError(
                     f"Docling worker {describe_exit(process.returncode)}; see worker logs."
