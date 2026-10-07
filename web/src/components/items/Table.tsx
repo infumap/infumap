@@ -212,9 +212,9 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const shadowClass = () => {
     if (isPopup()) {
-      return `absolute border border-transparent rounded-xs shadow-xl blur-md bg-slate-700`;
+      return `absolute border border-transparent rounded-item shadow-xl blur-md bg-slate-700`;
     }
-    return `absolute border border-transparent rounded-xs shadow-xl`;
+    return `absolute border border-transparent rounded-item shadow-xl`;
   };
 
   const renderShadowMaybe = () =>
@@ -232,26 +232,26 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none rounded-item"
         style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderNotDetailed = () =>
-    <div class={`absolute border border-[#999] rounded-xs bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
+    <div class={`absolute border border-[#999] rounded-item bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
       style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; z-index: 1;`} />;
 
   const renderDetailed = () =>
     <>
       <Show when={showTitle() && ((props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted))}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={`left: 0px; top: 0px; ` +
             `width: ${boundsPx().w}px; height: ${titleHeaderHeightPx()}px; ` +
             `${highlightStyle(props.visualElement.flags)}` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={`left: ${viewportBoundsLocalPx().x}px; top: ${viewportBoundsLocalPx().y}px; ` +
             `width: ${viewportBoundsLocalPx().w}px; height: ${viewportBoundsLocalPx().h}px; ` +
             `${highlightStyle(props.visualElement.flags)}` +
@@ -276,10 +276,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             {tableItem().title}
           </div>
         </Show>
-        <div class={`absolute border border-[#999] rounded-xs pointer-events-none`}
+        <div class={`absolute border border-[#999] rounded-item pointer-events-none`}
           style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px;`} />
         <Show when={showColHeader()}>
-          <div class={`absolute border border-[#999] bg-slate-300 rounded-xs`}
+          <div class={`absolute border border-[#999] bg-slate-300 rounded-t-item`}
             style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${colHeaderHeightPx()}px;`} />
         </Show>
 
@@ -391,7 +391,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Match>
       </Switch>
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>

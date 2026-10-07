@@ -1450,7 +1450,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </Portal>
         </Show>
         <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-          <div class="absolute pointer-events-none rounded-xs"
+          <div class="absolute pointer-events-none rounded-item"
             style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
         </Show>
       </div>
@@ -1462,7 +1462,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   }
 
   return (
-    <div class="absolute rounded-xs border border-[#999] bg-white text-black overflow-hidden"
+    <div class="absolute rounded-item border border-[#999] bg-white text-black overflow-hidden"
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
         `pointer-events: none; ${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
@@ -1493,7 +1493,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <InfuResizeTriangle />
       </Show>
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>

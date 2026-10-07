@@ -228,30 +228,30 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-[#999] rounded-xs shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-[#999] rounded-item shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (noteItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
-        return `absolute border border-[#999] rounded-xs shadow-xl`;
+        return `absolute border border-[#999] rounded-item shadow-xl`;
       } else {
-        return `absolute border border-transparent rounded-xs`;
+        return `absolute border border-transparent rounded-item`;
       }
     }
-    return `absolute border border-[#999] rounded-xs shadow-xl bg-white`;
+    return `absolute border border-[#999] rounded-item shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
-      return `rounded-xs`;
+      return `rounded-item`;
     } else {
       if (noteItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `border border-[#999] rounded-xs`;
+          return `border border-[#999] rounded-item`;
         } else {
-          return `border border-transparent rounded-xs`;
+          return `border border-transparent rounded-item`;
         }
       }
-      return `border border-[#999] rounded-xs bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
+      return `border border-[#999] rounded-item bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
     }
   };
 
@@ -462,7 +462,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none rounded-item"
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
@@ -514,16 +514,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderDetailed = () =>
     <>
-      <div class={`absolute inset-0 rounded-xs ${isTextEditTarget() ? "overflow-visible" : "overflow-hidden"}`}>
+      <div class={`absolute inset-0 rounded-item ${isTextEditTarget() ? "overflow-visible" : "overflow-hidden"}`}>
         <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-          <div class="absolute pointer-events-none rounded-xs"
+          <div class="absolute pointer-events-none rounded-item"
             style={`left: 0px; top: 0px; ` +
               `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
               `${highlightStyle(props.visualElement.flags)}` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
         <Show when={shouldRenderIcon()}>
-          <div class="absolute rounded-xs pointer-events-none"
+          <div class="absolute rounded-item pointer-events-none"
             style={`left: ${popupIconBoundsPx().x}px; top: ${popupIconBoundsPx().y}px; ` +
               `width: ${popupIconBoundsPx().w}px; height: ${popupIconBoundsPx().h}px; ` +
               `background-color: ${store.perVe.getMouseIsOverOpenPopup(vePath()) ? '#0044ff0a' : 'transparent'}; ` +
@@ -596,7 +596,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       </div>
       {renderFocusRingMaybe()}
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>

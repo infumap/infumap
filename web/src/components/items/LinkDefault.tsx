@@ -61,9 +61,9 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
 
   const outerClass = () => {
     if (InsideCompositeOrDoc()) {
-      return 'absolute rounded-xs';
+      return 'absolute rounded-item';
     } else {
-      return 'absolute rounded-xs border border-[#999]';
+      return 'absolute rounded-item border border-[#999]';
     }
   };
 
@@ -92,7 +92,7 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
           style={`left: ${attachCompositeBoundsPx().x}px; top: ${attachCompositeBoundsPx().y}px; width: ${attachCompositeBoundsPx().w}px; height: ${attachCompositeBoundsPx().h}px;`} />
       </Show>
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={autoMovedIntoViewWarningStyle(boundsPx().w - (InsideCompositeOrDoc() ? 2 : 0), boundsPx().h)} />
       </Show>
     </div>

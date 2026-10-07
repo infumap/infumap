@@ -76,7 +76,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                 `${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
              style={`left: 0px; top: 0px; ` +
                     `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
                     `${highlightStyle(props.visualElement.flags)}`} />
@@ -123,7 +123,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
         <InfuLinkTriangle />
       </Show>
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
              style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>

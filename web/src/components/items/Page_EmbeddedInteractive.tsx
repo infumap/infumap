@@ -209,7 +209,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderShadowMaybe = () =>
     <Show when={isEmbeddedInteractive()}>
-      <div class={`absolute border border-transparent rounded-xs pointer-events-none`}
+      <div class={`absolute border border-transparent rounded-item pointer-events-none`}
         style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
@@ -217,7 +217,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none rounded-item"
         style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
           `width: ${pageFns().boundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
@@ -225,7 +225,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderSelectedPageFocusRingMaybe = () =>
     <Show when={isSelectedRootPageFocused()}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none rounded-item"
         style={`left: ${pageFns().listViewportWidthPx()}px; top: 0px; ` +
           `width: ${Math.max(0, pageFns().viewportBoundsPx().w - pageFns().listViewportWidthPx())}px; ` +
           `height: ${pageFns().viewportBoundsPx().h}px; ` +
@@ -286,13 +286,13 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       ((props.visualElement.flags & VisualElementFlags.FindHighlighted) ||
         (props.visualElement.flags & VisualElementFlags.SelectionHighlighted))}>
       <Show when={PageFns.showEmbeddedInteractiveTitle(pageFns().pageItem())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={`left: 0px; top: 0px; ` +
             `width: ${pageFns().boundsPx().w}px; height: ${embeddedInteractiveTitleHeightPx()}px; ` +
             `${highlightStyle(props.visualElement.flags)}` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Show>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none rounded-item"
         style={`left: 0px; top: ${embeddedInteractiveTitleHeightPx()}px; ` +
           `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `${highlightStyle(props.visualElement.flags)}` +
@@ -341,7 +341,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   };
 
   const renderListPage = () =>
-    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
+    <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-item`}
       style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
         `height: ${pageFns().viewportBoundsPx().h + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
         `left: 0px; ` +
@@ -379,7 +379,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderPage = () =>
     <div ref={rootDiv}
-      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-xs`}
+      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-item`}
       style={`left: 0px; ` +
         `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
@@ -466,7 +466,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         {renderHighlightMaybe()}
         {renderFocusRingMaybe()}
         <Show when={store.perVe.getAutoMovedIntoView(pageFns().vePath())}>
-          <div class="absolute pointer-events-none rounded-xs"
+          <div class="absolute pointer-events-none rounded-item"
             style={autoMovedIntoViewWarningStyle(pageFns().boundsPx().w, pageFns().boundsPx().h)} />
         </Show>
       </div>

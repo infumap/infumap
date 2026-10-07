@@ -303,9 +303,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     };
 
     return (
-      <div class={`absolute rounded-xs`}
+      <div class={`absolute rounded-item`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; overflow: hidden; z-index: 1;`}>
-        <div class={`absolute rounded-xs`}
+        <div class={`absolute rounded-item`}
           style={`width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; left: 0px; top: 0px; background-color: #ffffff;`} />
         <Show when={Math.min(pageFns().listViewportWidthPx(), pageFns().boundsPx().w) > 0}>
           {renderListBand("top")}
@@ -324,12 +324,16 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     );
   };
 
+  // Children are a miniature of the page as it appears when opened, so their corner radius is scaled down to match.
+  const childItemRadiusScale = () =>
+    Math.min(1.0, pageFns().boundsPx().w / store.desktopMainAreaBoundsPx().w);
+
   const renderPage = () =>
   (
     pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar
       ? renderCalendarTranslucentPage()
       : <div ref={translucentDiv}
-        class={`absolute ${borderClass()} rounded-xs`}
+        class={`absolute ${borderClass()} rounded-item`}
         style={`left: 0px; ` +
           `top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; ` +
@@ -342,7 +346,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         onscroll={translucentScrollHandler}>
         <div class="absolute"
           style={`left: ${pageFns().isDocumentPage() ? pageFns().documentContentLeftPx() - borderWidthPx() : 0}px; top: ${0}px; ` +
-            `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px;`}>
+            `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px; ` +
+            `--radius-item: calc(var(--item-radius-base) * ${childItemRadiusScale()});`}>
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           {pageFns().renderCatalogResultSelectionMaybe()}
           <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
@@ -417,7 +422,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
     return (
       <div ref={translucentDiv}
-        class={`absolute ${borderClass()} rounded-xs`}
+        class={`absolute ${borderClass()} rounded-item`}
         style={`left: 0px; top: 0px; width: ${bounds.w}px; height: ${bounds.h}px; background-color: #ffffff; overflow: hidden; z-index: 1;`}>
         <div class="absolute"
           style={`left: ${-borderWidthPx()}px; top: ${-borderWidthPx()}px; width: ${childArea.w}px; height: ${childArea.h}px;`}>
@@ -468,12 +473,12 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
       <>
         <Show when={!pageFns().isInComposite() && pageFns().clickBoundsPx() != null}>
-          <div class={`absolute rounded-xs pointer-events-none`}
+          <div class={`absolute rounded-item pointer-events-none`}
             style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
               `background-color: #ffffff33;`} />
         </Show>
         <Show when={pageFns().hasPopupClickBoundsPx()}>
-          <div class={`absolute rounded-xs pointer-events-none`}
+          <div class={`absolute rounded-item pointer-events-none`}
             style={`left: ${pageFns().popupClickBoundsPx()!.x}px; top: ${pageFns().popupClickBoundsPx()!.y}px; width: ${pageFns().popupClickBoundsPx()!.w}px; height: ${pageFns().popupClickBoundsPx()!.h}px; ` +
               `background-color: ${pageFns().isInComposite() ? '#ffffff33' : '#ffffff55'};`} />
         </Show>
@@ -482,7 +487,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   const renderMovingOverMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOver(pageFns().vePath()) && pageFns().clickBoundsPx() != null}>
-      <div class={`absolute rounded-xs pointer-events-none`}
+      <div class={`absolute rounded-item pointer-events-none`}
         style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
           `background-color: #ffffff33;`} />
     </Show>;
@@ -554,21 +559,21 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const renderShadowMaybe = () =>
     <Show when={!props.suppressLocalShadow &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`absolute border border-transparent rounded-xs ${shadowClass()} overflow-hidden`}
+      <div class={`absolute border border-transparent rounded-item ${shadowClass()} overflow-hidden`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && !pageFns().isInComposite() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none rounded-item"
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderResizeTriangleMaybe = () =>
     <Show when={pageFns().showTriangleDetail() && canResizePage()}>
-      <div class={`absolute border border-transparent rounded-xs overflow-hidden pointer-events-none`}
+      <div class={`absolute border border-transparent rounded-item overflow-hidden pointer-events-none`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 3;`}>
         <InfuResizeTriangle color={hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], TRANSLUCENT_RESIZE_TRIANGLE_ALPHA)} />
       </div>
@@ -626,7 +631,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       <div class="absolute pointer-events-none"
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
         {renderResizeTriangleMaybe()}
-        <div class={`absolute ${borderClass()} rounded-xs pointer-events-none`}
+        <div class={`absolute ${borderClass()} rounded-item pointer-events-none`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 2; ` +
             backgroundStyle()}>
           {renderHoverOverMaybe()}
@@ -635,7 +640,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           {renderMovingOverAttachCompositeMaybe()}
           {renderPopupSelectedOverlayMaybe()}
           <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-            <div class="absolute pointer-events-none rounded-xs"
+            <div class="absolute pointer-events-none rounded-item"
               style={`left: 0px; top: 0px; ` +
                 `width: 100%; height: 100%; ` +
                 `${highlightStyle(props.visualElement.flags)}`} />
@@ -651,7 +656,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         {renderBoxTitleMaybe()}
         {renderFocusRingMaybe()}
         <Show when={store.perVe.getAutoMovedIntoView(pageFns().vePath())}>
-          <div class="absolute pointer-events-none rounded-xs"
+          <div class="absolute pointer-events-none rounded-item"
             style={autoMovedIntoViewWarningStyle(pageFns().boundsPx().w, pageFns().boundsPx().h)} />
         </Show>
       </div>
