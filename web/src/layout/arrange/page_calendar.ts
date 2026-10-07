@@ -36,6 +36,7 @@ import { compareOrderings } from "../../util/ordering";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import {
   calculateCalendarWindowForPage,
+  calcCalendarRootChildAreaHeightPx,
   calculateCalendarDimensions,
   calculateCalendarMiniDayLayouts,
   calculateCalendarMonthLayouts,
@@ -573,48 +574,13 @@ export function arrange_calendar_page(
       return result;
     }
 
-    // Calculate natural calendar height
-    const titleHeight = 40;
-    const monthTitleHeight = 30;
-    const topPadding = 7;
-    const bottomMargin = 5;
-    const headerHeight = topPadding + titleHeight + 14 + monthTitleHeight + bottomMargin;
-    const naturalCalendarHeightPx = headerHeight + (31 * CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX);
-
-    const viewportHeight = geometry.viewportBoundsPx!.h;
-
     // For popup, always scale to fit exactly (no scrollbars)
     if (flags & ArrangeItemFlags.IsPopupRoot) {
-      result.h = Math.round(viewportHeight);
+      result.h = Math.round(geometry.viewportBoundsPx!.h);
       return result;
     }
 
-    // Check if shrinking by 0.7x would still make content taller than screen
-    const minScaledHeight = naturalCalendarHeightPx * 0.7;
-    if (minScaledHeight > viewportHeight) {
-      // Even at 0.7x scale, content is too tall - fall back to scroll with 1.0x scale
-      result.h = naturalCalendarHeightPx;
-    } else {
-      // Content can be scaled between 0.7x and 1.3x to fit viewport
-      const naturalHeightRatio = naturalCalendarHeightPx / viewportHeight;
-
-      if (naturalHeightRatio > 1.0) {
-        // Content is taller than viewport - scale down (minimum 0.7x)
-        const scaleDown = Math.max(0.7, 1.0 / naturalHeightRatio);
-        result.h = Math.round(naturalCalendarHeightPx * scaleDown);
-      } else {
-        // Content is shorter than or equal to viewport - scale up to fill space (maximum 1.3x)
-        const maxScaledHeight = naturalCalendarHeightPx * 1.3;
-        if (maxScaledHeight <= viewportHeight) {
-          // Can scale up to 1.3x and still fit
-          result.h = Math.round(maxScaledHeight);
-        } else {
-          // Scale up to exactly fit the viewport
-          result.h = Math.round(viewportHeight);
-        }
-      }
-    }
-
+    result.h = calcCalendarRootChildAreaHeightPx(geometry.viewportBoundsPx!.h);
     return result;
   })();
 

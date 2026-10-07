@@ -651,6 +651,44 @@ export function calculateCalendarDimensions(
   };
 }
 
+/**
+ * The height of the child area of a (non-popup) full calendar page with the given viewport height.
+ */
+export function calcCalendarRootChildAreaHeightPx(viewportHeightPx: number): number {
+  // Calculate natural calendar height
+  const headerHeight =
+    CALENDAR_LAYOUT_CONSTANTS.TOP_PADDING +
+    CALENDAR_LAYOUT_CONSTANTS.TITLE_HEIGHT +
+    CALENDAR_LAYOUT_CONSTANTS.TITLE_TO_MONTH_SPACING +
+    CALENDAR_LAYOUT_CONSTANTS.MONTH_TITLE_HEIGHT +
+    CALENDAR_LAYOUT_CONSTANTS.BOTTOM_MARGIN;
+  const naturalCalendarHeightPx = headerHeight + (CALENDAR_LAYOUT_CONSTANTS.DAYS_COUNT * CALENDAR_DAY_ROW_HEIGHT_BL * LINE_HEIGHT_PX);
+
+  // Check if shrinking by 0.7x would still make content taller than screen
+  const minScaledHeight = naturalCalendarHeightPx * 0.7;
+  if (minScaledHeight > viewportHeightPx) {
+    // Even at 0.7x scale, content is too tall - fall back to scroll with 1.0x scale
+    return naturalCalendarHeightPx;
+  }
+
+  // Content can be scaled between 0.7x and 1.3x to fit viewport
+  const naturalHeightRatio = naturalCalendarHeightPx / viewportHeightPx;
+  if (naturalHeightRatio > 1.0) {
+    // Content is taller than viewport - scale down (minimum 0.7x)
+    const scaleDown = Math.max(0.7, 1.0 / naturalHeightRatio);
+    return Math.round(naturalCalendarHeightPx * scaleDown);
+  }
+
+  // Content is shorter than or equal to viewport - scale up to fill space (maximum 1.3x)
+  const maxScaledHeight = naturalCalendarHeightPx * 1.3;
+  if (maxScaledHeight <= viewportHeightPx) {
+    // Can scale up to 1.3x and still fit
+    return Math.round(maxScaledHeight);
+  }
+  // Scale up to exactly fit the viewport
+  return Math.round(viewportHeightPx);
+}
+
 export function calculateCalendarVerticalLayout(
   childAreaBoundsPx: { h: number },
   isPopupRoot: boolean,

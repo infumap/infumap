@@ -93,6 +93,7 @@ export enum VisualElementFlags {
   DisableLineItemExpand = 0x400000, // The line item should not show or handle contextual expansion.
   DocumentTypography = 0x800000, // Text inside a composite rendered in document flow.
   LineItemOutline = 0x1000000, // Line item too small for its text to be legible, drawn as an outline.
+  Preview = 0x2000000, // A page root (e.g. the selected item of a list page) shown inside a non-interactive page.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {

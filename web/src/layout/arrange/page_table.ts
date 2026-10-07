@@ -29,7 +29,7 @@ import { ItemGeometry } from "../item-geometry";
 import { tabularColumnHitboxes } from "../tabular";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isVeTranslucentPage } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeItem, getCommonVisualElementFlags, listOrTablePageIsPreview } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeTabularChildren } from "./table";
@@ -49,9 +49,13 @@ export function arrange_table_page(
   const contentViewportPx = geometry.viewportBoundsPx!;
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   const insidePopup = !!(flags & (ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.ParentIsPopup));
+  // As for list pages, a preview (e.g. translucent) table page is a miniature of the full page, without a minimum scale.
+  const proportionalScale = contentViewportPx.w / store.desktopMainAreaBoundsPx().w;
   const scale = isFull || insidePopup
     ? 1
-    : Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, contentViewportPx.w / store.desktopMainAreaBoundsPx().w);
+    : listOrTablePageIsPreview(page, parentPath, flags)
+      ? proportionalScale
+      : Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalScale);
   const rowBlockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };
 
   if (isFull) { VesCache.titles.pushTopTitledPage(pagePath); }

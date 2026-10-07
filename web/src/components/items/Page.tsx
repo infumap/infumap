@@ -34,6 +34,7 @@ import { Page_Opaque } from "./Page_Opaque";
 import { Page_Trash } from "./Page_Trash";
 import { Page_Translucent } from "./Page_Translucent";
 import { Page_Root } from "./Page_Root";
+import { Page_CalendarPreview } from "./Page_CalendarPreview";
 import { Page_EmbeddedInteractive } from "./Page_EmbeddedInteractive";
 import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
@@ -838,6 +839,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.Popup}>
         <Page_Popup visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
+      </Match>
+      <Match when={(props.visualElement.flags & VisualElementFlags.Preview) &&
+        asPageItem(props.visualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Calendar}>
+        <Page_CalendarPreview visualElement={props.visualElement} />
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.TopLevelRoot ||
         props.visualElement.flags & VisualElementFlags.ListPageRoot}>

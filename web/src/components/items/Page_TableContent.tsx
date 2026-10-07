@@ -21,13 +21,17 @@ import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../const
 import { PageItem } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
-import { rearrangeTableAfterScroll } from "../../layout/arrange/table";
+import { rearrangeTableAfterScroll, tableRowsAreOutlines } from "../../layout/arrange/table";
+import { outlineTextWidthPx } from "./LineItemOutline";
 import { tabularColumnLayouts } from "../../layout/tabular";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+
+// Darker than the header background, as the text it stands in for is.
+const HEADER_OUTLINE_COLOR = "#94a3b8";
 
 interface PageTableContentProps {
   visualElement: VisualElement;
@@ -54,6 +58,16 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   const scale = () => blockSize().h / LINE_HEIGHT_PX;
   const columns = () => tabularColumnLayouts(page(), viewport().w / blockSize().w);
   const isSortedByTitle = () => page().orderChildrenBy == "title[ASC]" || page().orderChildrenBy == "title[DESC]";
+  // When the rows are drawn as outlines, so are the column names.
+  const headerIsOutline = () => tableRowsAreOutlines(page(), blockSize());
+  const renderOutlineHeaderLabels = () =>
+    <For each={columns()}>{column =>
+      <div class="absolute"
+        style={`left: ${column.startBl * blockSize().w + PADDING_PROP * blockSize().w}px; ` +
+          `top: ${headerHeightPx() * 0.3}px; height: ${headerHeightPx() * 0.4}px; ` +
+          `width: ${Math.min(outlineTextWidthPx(column.name.length, blockSize().h), Math.max(0, (column.endBl - column.startBl - 2 * PADDING_PROP) * blockSize().w))}px; ` +
+          `background-color: ${HEADER_OUTLINE_COLOR};`} />
+    }</For>;
   const moveOverRowY = () => headerHeightPx() +
     (store.perVe.getMoveOverRowNumber(pagePath()) - store.perItem.getTableScrollYPos(pageVeid())) * blockSize().h;
 
@@ -129,6 +143,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
         <div class={`absolute border-y border-[#999] bg-slate-300 ${isTranslucent() ? "pointer-events-none" : ""}`}
           style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${headerHeightPx()}px; ` +
             `border-top-color: ${headerSharesToolbarBorder() ? "transparent" : "#999"};`}>
+          <Show when={!headerIsOutline()} fallback={renderOutlineHeaderLabels()}>
           <For each={columns()}>{column =>
             <div id={`${pagePath()}:col${column.index}`}
               class="absolute whitespace-nowrap overflow-hidden"
@@ -150,6 +165,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
               </Show>
             </div>
           }</For>
+          </Show>
         </div>
       </Show>
       <div ref={bodyDiv}
