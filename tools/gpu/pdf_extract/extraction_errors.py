@@ -20,6 +20,7 @@ PDF_PASSWORD_REQUIRED_ERROR_CODE = "pdf_password_required"
 PDF_UNREADABLE_ERROR_CODE = "pdf_unreadable"
 PDF_CONVERSION_TIMEOUT_ERROR_CODE = "pdf_conversion_timeout"
 PDF_EXTRACTION_FAILED_ERROR_CODE = "pdf_extraction_failed"
+PDF_INFERENCE_FAILED_ERROR_CODE = "pdf_inference_failed"
 
 
 class DocumentRejectedError(Exception):

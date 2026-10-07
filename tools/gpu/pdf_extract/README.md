@@ -314,6 +314,12 @@ Failures are routed so that only problems with the service itself are retried:
   checks that the Docling worker's imports succeed, so a broken Docling
   installation stops the service rather than sending every PDF to Marker.
 - Recognized password and corruption failures remain terminal document errors.
+- Marker does not fail when a request to surya's inference server fails after
+  surya's retries (e.g. `Inference error: ... Compute error.`); it leaves that
+  page's layout, OCR block or table empty. The service counts these failed
+  requests and returns HTTP 422 `pdf_inference_failed` instead of partial
+  Markdown. Infumap lists the PDF as needing attention and retries it hourly,
+  since the cause is usually the inference server rather than the document.
 
 Infumap's later first-page image-caption fallback is unchanged.
 
