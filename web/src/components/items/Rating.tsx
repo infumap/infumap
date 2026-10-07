@@ -104,15 +104,15 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
       </Show>
       <Show when={ratingType() == "HorizontalBar"}>
         <div class="absolute bg-slate-300"
-             style={`left: 3px; top: ${boundsPx().h/2 - 6}px; width: ${valueWidthPx()-6}px; height: 12px;`} />
+             style={`left: ${3*scale()}px; top: ${boundsPx().h/2 - 6*scale()}px; width: ${valueWidthPx()-6*scale()}px; height: ${12*scale()}px;`} />
         <div class="absolute bg-blue-700"
-             style={`left: 3px; top: ${boundsPx().h/2 - 6}px; height: 12px; width: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (valueWidthPx()-6)}px;`} />
+             style={`left: ${3*scale()}px; top: ${boundsPx().h/2 - 6*scale()}px; height: ${12*scale()}px; width: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (valueWidthPx()-6*scale())}px;`} />
       </Show>
       <Show when={ratingType() == "VerticalBar"}>
         <div class="absolute bg-slate-300"
-             style={`top: 2px; bottom: 2px; left: ${valueWidthPx()/2 - 6}px; width: 12px;`} />
+             style={`top: ${2*scale()}px; bottom: ${2*scale()}px; left: ${valueWidthPx()/2 - 6*scale()}px; width: ${12*scale()}px;`} />
         <div class="absolute bg-blue-700"
-             style={`left: ${valueWidthPx()/2 - 6}px; bottom: 2px; width: 12px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4)}px;`} />
+             style={`left: ${valueWidthPx()/2 - 6*scale()}px; bottom: ${2*scale()}px; width: ${12*scale()}px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4*scale())}px;`} />
       </Show>
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
