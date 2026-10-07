@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import platform
 import time
@@ -50,6 +51,9 @@ GPU_REQUEST_CONCURRENCY = 1
 DEFAULT_MAX_UPLOAD_BYTES = 128 * 1024 * 1024
 DEFAULT_WORKER_SLOT_WAIT_TIMEOUT_SECS = 4.0 * 60.0 * 60.0
 DEFAULT_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
+# Set by the GPU gateway on every request it forwards, so the gateway's lock
+# lease and this watchdog use the same limit.
+CONVERSION_TIMEOUT_HEADER = "x-pdf-conversion-timeout-secs"
 CONVERSION_TIMEOUT_EXIT_DELAY_SECS = 2.0
 
 
@@ -118,6 +122,19 @@ def conversion_timeout_secs() -> float:
         1.0,
         env_float("TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS", DEFAULT_CONVERSION_TIMEOUT_SECS),
     )
+
+
+def conversion_timeout_secs_for_request(request: Request) -> float:
+    raw = request.headers.get(CONVERSION_TIMEOUT_HEADER)
+    if raw is None or raw.strip() == "":
+        return conversion_timeout_secs()
+    try:
+        value = float(raw)
+    except ValueError:
+        value = math.nan
+    if not math.isfinite(value) or value < 1.0:
+        raise HTTPException(status_code=400, detail=f"{CONVERSION_TIMEOUT_HEADER} must be at least 1 second.")
+    return value
 
 
 def root_path() -> str:
@@ -538,6 +555,7 @@ async def healthz() -> dict[str, bool]:
 async def convert_upload(request: Request) -> ConvertResponse:
     request_started_at = time.perf_counter()
     try:
+        conversion_timeout = conversion_timeout_secs_for_request(request)
         upload_started_at = time.perf_counter()
         file_name, content_type, upload_bytes = await read_multipart_upload(request)
         upload_size_bytes = len(upload_bytes)
@@ -575,13 +593,14 @@ async def convert_upload(request: Request) -> ConvertResponse:
             semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
             request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
             LOGGER.info(
-                "Dispatching text extraction conversion: file=%s size_bytes=%d request_age_ms=%d semaphore_wait_ms=%d",
+                "Dispatching text extraction conversion: file=%s size_bytes=%d request_age_ms=%d semaphore_wait_ms=%d "
+                "conversion_timeout_secs=%g",
                 file_name,
                 upload_size_bytes,
                 request_age_ms,
                 semaphore_wait_ms,
+                conversion_timeout,
             )
-            conversion_timeout = conversion_timeout_secs()
             try:
                 return await asyncio.wait_for(
                     asyncio.to_thread(
