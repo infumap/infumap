@@ -89,7 +89,13 @@ class DoclingBackend:
             )
 
     def cancel(self) -> None:
-        # Also closes the race where the watchdog fires just before spawning.
+        """Stop the running worker and refuse new ones, for good.
+
+        Used only before the service exits (shutdown, or a stuck conversion),
+        so the flag is never reset. Normal timeouts end with the per-call
+        timeout_secs instead. Setting the flag first also closes the race
+        where cancel arrives just before a worker is spawned.
+        """
         with self._lock:
             self._cancelled = True
             if self._process is not None and self._process.poll() is None:
