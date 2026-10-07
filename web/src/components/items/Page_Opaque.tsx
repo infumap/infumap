@@ -35,6 +35,11 @@ import { linkHasTriangle } from "../../layout/link-triangle";
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
+const OPAQUE_TITLE_MAX_FONT_SIZE_PX = 12;
+const OPAQUE_TITLE_PAD_X_FRAC = 0.08;
+const OPAQUE_TITLE_MAX_HEIGHT_FRAC = 0.85;
+const OPAQUE_TITLE_LINE_HEIGHT = 1.5;
+
 export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
 
@@ -43,7 +48,9 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
   const canResizePage = () => itemCanResize(pageFns().pageItem()) && pageFns().hasResizeHitbox();
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
-  const opaqueTitleInBoxScale = createMemo((): number => pageFns().calcTitleInBoxScale("xs"));
+  const titlePadXPx = () => pageFns().boundsPx().w * OPAQUE_TITLE_PAD_X_FRAC;
+  const titleFontSizePx = createMemo((): number => pageFns().calcPaddedTitleInBoxFontSizePx(
+    OPAQUE_TITLE_MAX_FONT_SIZE_PX, titlePadXPx(), pageFns().boundsPx().h * OPAQUE_TITLE_MAX_HEIGHT_FRAC, OPAQUE_TITLE_LINE_HEIGHT));
 
   const renderBoxTitle = () =>
     <div id={VeFns.veToPath(props.visualElement) + ":title"}
@@ -52,7 +59,9 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
         `top: 0px; ` +
         `width: ${pageFns().boundsPx().w}px; ` +
         `height: ${pageFns().boundsPx().h}px;` +
-        `font-size: ${12 * opaqueTitleInBoxScale()}px; ` +
+        `padding-left: ${titlePadXPx()}px; padding-right: ${titlePadXPx()}px; ` +
+        `font-size: ${titleFontSizePx()}px; ` +
+        `line-height: ${OPAQUE_TITLE_LINE_HEIGHT}; ` +
         `justify-content: center; align-items: center; text-align: center;` +
         `z-index: ${titleEditHandlers.isEditingTitle() ? Z_INDEX_LOCAL_HIGHLIGHT : 1};` +
         `outline: 0px solid transparent;`}
