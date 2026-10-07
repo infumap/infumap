@@ -84,6 +84,8 @@ from docling.datamodel.pipeline_options import (
 )
 from docling.document_converter import DocumentConverter, PdfFormatOption
 
+import pypdfium2 as pdfium
+
 from docling_quality import markdown_by_page
 
 PAGE_MARKER = re.compile(r"^\{\d+\}-{8,}$", re.MULTILINE)
@@ -141,11 +143,36 @@ def build_converter(spec: str) -> DocumentConverter:
     )
 
 
-def render(result: Any) -> str:
-    """Markdown in the service's page format: {0-based page}-------- per page."""
-    by_page = markdown_by_page(result.document)
-    pages = [f"{{{number - 1}}}--------\n\n{by_page.get(number, '')}" for number in range(1, len(result.pages) + 1)]
-    return "\n\n".join(pages)
+def convert_in_chunks(
+    converter: DocumentConverter, pdf: Path, page_count: int, chunk_pages: int, label: str
+) -> tuple[str, str]:
+    """Markdown in the service's page format ({0-based page}-------- per page) and a status.
+
+    Converts chunk_pages at a time to report progress. Docling keeps original
+    page numbers when converting a page range.
+    """
+    parts: list[str] = []
+    statuses: set[str] = set()
+    started = time.perf_counter()
+    for first in range(1, page_count + 1, chunk_pages):
+        last = min(first + chunk_pages - 1, page_count)
+        result = converter.convert(str(pdf), raises_on_error=False, page_range=(first, last))
+        statuses.add(result.status.value)
+        by_page = markdown_by_page(result.document)
+        parts.extend(f"{{{number - 1}}}--------\n\n{by_page.get(number, '')}" for number in range(first, last + 1))
+        elapsed = time.perf_counter() - started
+        remaining = elapsed / last * (page_count - last)
+        print(f"  {label}: page {last}/{page_count}, {elapsed:.0f}s elapsed, about {remaining:.0f}s left", flush=True)
+    status = "success" if statuses == {"success"} else "+".join(sorted(statuses))
+    return "\n\n".join(parts), status
+
+
+def pdf_page_count(pdf: Path) -> int:
+    document = pdfium.PdfDocument(str(pdf))
+    try:
+        return len(document)
+    finally:
+        document.close()
 
 
 def words(text: str) -> Counter[str]:
@@ -187,6 +214,7 @@ def main() -> int:
     parser.add_argument("-e", "--engine", action="append", dest="engines", help="Engine spec; repeat for several.")
     parser.add_argument("--out", default="ocr_trial_out", help="Output directory. Default: %(default)s")
     parser.add_argument("--max-pages", type=int, default=None, help="Convert only the first N pages of each PDF.")
+    parser.add_argument("--chunk-pages", type=int, default=10, help="Pages converted between progress reports. Default: %(default)s")
     parser.add_argument("--reference-dir", type=Path, default=None, help="Directory of <pdf stem>.txt/.md reference texts.")
     args = parser.parse_args()
 
@@ -195,8 +223,9 @@ def main() -> int:
     if not pdfs:
         print("No PDFs to process.", file=sys.stderr)
         return 1
-    out_dir = Path(args.out)
+    out_dir = Path(args.out).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Writing results to {out_dir}", flush=True)
 
     converters: dict[str, DocumentConverter] = {}
     for spec in specs:
@@ -209,11 +238,11 @@ def main() -> int:
             continue
         converters[spec] = converter
         print(f"Loaded engine '{spec}' in {time.perf_counter() - started:.1f}s.", file=sys.stderr)
+    skipped = [spec for spec in specs if spec not in converters]
     if not converters:
         print("No engine could be loaded.", file=sys.stderr)
         return 1
 
-    page_range = (1, args.max_pages) if args.max_pages else None
     rows = [["pdf", "engine", "status", "pages", "seconds", "sec_per_page", "words", "vs_native", "vs_ref"]]
     # Written as each PDF finishes, so a native crash in an engine keeps earlier results.
     summary_path = out_dir / "summary.tsv"
@@ -223,23 +252,25 @@ def main() -> int:
         pdf_out.mkdir(parents=True, exist_ok=True)
         reference = reference_words(args.reference_dir, pdf)
         results: list[tuple[str, str, int, float, Counter[str]]] = []
+        try:
+            page_count = pdf_page_count(pdf)
+        except Exception as exc:
+            print(f"{pdf.name}: could not open: {type(exc).__name__}: {exc}", flush=True)
+            continue
+        pages = min(page_count, args.max_pages) if args.max_pages else page_count
         for spec, converter in converters.items():
-            print(f"{pdf.name}: {spec} ...", file=sys.stderr)
+            print(f"{pdf.name}: {spec}, {pages} of {page_count} pages", flush=True)
             started = time.perf_counter()
+            converted = pages
             try:
-                kwargs = {"raises_on_error": False}
-                if page_range:
-                    kwargs["page_range"] = page_range
-                result = converter.convert(str(pdf), **kwargs)
-                markdown = render(result)
-                status, pages = result.status.value, len(result.pages)
+                markdown, status = convert_in_chunks(converter, pdf, pages, max(1, args.chunk_pages), spec)
             except Exception as exc:
-                print(f"  failed: {type(exc).__name__}: {exc}", file=sys.stderr)
-                markdown, status, pages = "", f"error:{type(exc).__name__}", 0
+                print(f"{pdf.name}: {spec} failed: {type(exc).__name__}: {exc}", flush=True)
+                markdown, status, converted = "", f"error:{type(exc).__name__}", 0
             seconds = time.perf_counter() - started
             safe_spec = re.sub(r"[^A-Za-z0-9_.-]+", "_", spec)
             (pdf_out / f"{safe_spec}.md").write_text(markdown, encoding="utf-8")
-            results.append((spec, status, pages, seconds, words(markdown)))
+            results.append((spec, status, converted, seconds, words(markdown)))
         native = next((found for spec, _, _, _, found in results if spec == "native"), None)
         pdf_rows = []
         for spec, status, pages, seconds, found in results:
@@ -262,7 +293,11 @@ def main() -> int:
     widths = [max(len(row[i]) for row in shown) for i in range(len(shown[0]))]
     for row in shown:
         print("  ".join(cell.ljust(width) for cell, width in zip(row, widths)))
-    print(f"\nOutputs in {out_dir}/<pdf name>/, summary in {out_dir}/summary.tsv", file=sys.stderr)
+    print()
+    if skipped:
+        print(f"Skipped engines (could not load; see messages above): {', '.join(skipped)}")
+    print(f"Text: {out_dir}/<pdf name>/<engine>.md")
+    print(f"Summary: {out_dir}/summary.tsv")
     return 0
 
 
