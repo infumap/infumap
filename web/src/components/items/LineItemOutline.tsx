@@ -18,7 +18,7 @@
 
 import { Component, Show } from "solid-js";
 import { PADDING_PROP } from "../../constants";
-import { ItemIconRenderContext } from "../../items/base/icon-item";
+import { iconRenderContextFromVisualElement } from "../../items/base/icon-item";
 import { Item } from "../../items/base/item";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { CompositeFns, asCompositeItem, isComposite } from "../../items/composite-item";
@@ -26,7 +26,7 @@ import { isLink } from "../../items/link-item";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { isPassword } from "../../items/password-item";
 import { isQueryItem } from "../../items/query-item";
-import { VisualElementFlags } from "../../layout/visual-element";
+import { VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { itemState } from "../../store/ItemState";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { VisualElementProps } from "../VisualElement";
@@ -36,6 +36,13 @@ const OUTLINE_COLOR = "#ddd";
 
 // Approximate average character width of line item text, relative to the row height.
 const CHAR_WIDTH_PROP = 0.31;
+
+/**
+ * Approximate width of a line of text of the given length, in a row of the given height. Used to size outline bars.
+ */
+export function outlineTextWidthPx(numChars: number, rowHeightPx: number): number {
+  return numChars * rowHeightPx * CHAR_WIDTH_PROP;
+}
 
 /**
  * Number of characters of text the line item would show, used to size its outline bar.
@@ -63,8 +70,9 @@ export function lineItemHasTextOutline(item: Item): boolean {
   return isTitledItem(item) || isQueryItem(item) || isPassword(item) || isLink(item);
 }
 
-function showsIconBlock(item: Item): boolean {
-  if (isNote(item)) { return NoteFns.showsIcon(asNoteItem(item), ItemIconRenderContext.Line); }
+function showsIconBlock(visualElement: VisualElement): boolean {
+  const item = visualElement.displayItem;
+  if (isNote(item)) { return NoteFns.showsIcon(asNoteItem(item), iconRenderContextFromVisualElement(visualElement)); }
   return true;
 }
 
@@ -75,12 +83,12 @@ function showsIconBlock(item: Item): boolean {
 export const LineItemOutline: Component<VisualElementProps> = (props: VisualElementProps) => {
   const boundsPx = () => props.visualElement.boundsPx;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? boundsPx().h;
-  const hasIconBlock = () => showsIconBlock(props.visualElement.displayItem);
+  const hasIconBlock = () => showsIconBlock(props.visualElement);
   const iconSizePx = () => boundsPx().h * 0.6;
   const textLeftPx = () => hasIconBlock() ? oneBlockWidthPx() : oneBlockWidthPx() * PADDING_PROP;
   const barHeightPx = () => boundsPx().h * 0.4;
   const barWidthPx = () => Math.min(
-    displayedTextLength(props.visualElement.displayItem) * boundsPx().h * CHAR_WIDTH_PROP,
+    outlineTextWidthPx(displayedTextLength(props.visualElement.displayItem), boundsPx().h),
     Math.max(0, boundsPx().w - textLeftPx() - oneBlockWidthPx() * PADDING_PROP));
 
   return (

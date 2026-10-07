@@ -19,7 +19,9 @@
 import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Item } from "../../items/base/item";
-import { asPageItem, isPage, ArrangeAlgorithm } from "../../items/page-item";
+import { asPageItem, isPage, ArrangeAlgorithm, PageItem } from "../../items/page-item";
+import { PageFlags } from "../../items/base/flags-item";
+import { itemState } from "../../store/ItemState";
 import { asTableItem, isTable } from "../../items/table-item";
 import { asQueryItem, isQueryItem } from "../../items/query-item";
 import { VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, VeFns } from "../visual-element";
@@ -69,6 +71,19 @@ export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
     flags & ArrangeItemFlags.IsDockRoot);
 }
 
+/**
+ * Whether a list or table page is a non-interactive preview (e.g. a translucent page), so is drawn as a miniature of
+ * the full page, without a minimum scale. Query search results are interactive workspaces, so are exempt.
+ */
+export function listOrTablePageIsPreview(page: PageItem, parentPath: VisualElementPath, flags: ArrangeItemFlags): boolean {
+  if (flags & ArrangeItemFlags.IsPreview) { return true; }
+  if (flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot | ArrangeItemFlags.IsDockRoot)) {
+    return false;
+  }
+  const isEmbeddedInteractive = !!(page.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
+  return !isEmbeddedInteractive && !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null);
+}
+
 export function getCommonVisualElementFlags(flags: ArrangeItemFlags): VisualElementFlags {
   return (flags & ArrangeItemFlags.IsPopupRoot ? VisualElementFlags.Popup : VisualElementFlags.None) |
     (flags & ArrangeItemFlags.IsListPageMainRoot ? VisualElementFlags.ListPageRoot : VisualElementFlags.None) |
@@ -76,7 +91,8 @@ export function getCommonVisualElementFlags(flags: ArrangeItemFlags): VisualElem
     (flags & ArrangeItemFlags.IsMoving ? VisualElementFlags.Moving : VisualElementFlags.None) |
     (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
     (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
-    (flags & ArrangeItemFlags.IsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None);
+    (flags & ArrangeItemFlags.IsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.IsPreview ? VisualElementFlags.Preview : VisualElementFlags.None);
 }
 
 function movingItemIsArrangedAtParentPath(itemVeid: ReturnType<typeof VeFns.veidFromPath>, parentPath: VisualElementPath): boolean {

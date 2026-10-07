@@ -17,7 +17,8 @@
 */
 
 import { recoverWithFullArrange } from ".";
-import { GRID_SIZE } from "../../constants";
+import { GRID_SIZE, LINE_HEIGHT_PX, MIN_DETAILED_CHILD_SCALE } from "../../constants";
+import { isPage } from "../../items/page-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { isContainer } from "../../items/base/container-item";
 import { itemCanExpandInLineItem } from "../../items/base/flags-item";
@@ -662,6 +663,16 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
 }
 
 
+/**
+ * Whether the rows of a table page are too small for their text to be legible, so are drawn as outlines. Interactive
+ * table pages have a minimum scale (MIN_NON_ROOT_LIST_PAGE_SCALE) above the cutoff, so only previews (e.g. translucent
+ * pages) are affected. Table items are drawn as a whole as an outline in that case (see previewChildIsDetailed).
+ */
+export function tableRowsAreOutlines(di_Table: TabularContainerItem, blockSizePx: Dimensions): boolean {
+  return isPage(di_Table) && blockSizePx.h < LINE_HEIGHT_PX * MIN_DETAILED_CHILD_SCALE;
+}
+
+
 function buildTableRowRenderPlan(
   store: StoreContextModel,
   childItem: Item,
@@ -692,11 +703,13 @@ function buildTableRowRenderPlan(
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === tableChildVePath;
 
+  const rowFlags = tableRowsAreOutlines(di_Table, blockSizePx) ? VisualElementFlags.LineItemOutline : VisualElementFlags.None;
+
   const tableChildVeSpec: VisualElementSpec = {
     displayItem: displayItem_childItem,
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
-    flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable |
+    flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable | rowFlags |
       (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: geometry.boundsPx,
@@ -737,7 +750,7 @@ function buildTableRowRenderPlan(
         displayItem: displayItem_attachment,
         linkItemMaybe: linkItemMaybe_attachment,
         actualLinkItemMaybe: linkItemMaybe_attachment,
-        flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment |
+        flags: VisualElementFlags.InsideTable | VisualElementFlags.Attachment | rowFlags |
           (attachmentIsHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: geometry.boundsPx,

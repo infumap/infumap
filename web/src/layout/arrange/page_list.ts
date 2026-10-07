@@ -26,7 +26,7 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { isComposite } from "../../items/composite-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem, isPage, type ListPageVisibleRow } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, type ListPageVisibleRow } from "../../items/page-item";
 import { isQueryItem } from "../../items/query-item";
 import { asTextItem, isText } from "../../items/text-item";
 import { virtualTextDocumentPage } from "../../items/text-document";
@@ -42,7 +42,7 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, type ListPageRowBand } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, arrangeItemPath, getCommonVisualElementFlags, listOrTablePageIsPreview } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem, previewChildIsDetailed } from "./util";
 import { isImage } from "../../items/image-item";
@@ -220,13 +220,7 @@ export function arrange_list_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
-  // As for spatial and document pages, a non-interactive (e.g. translucent) list page is drawn as a miniature of the
-  // full page, without a minimum scale. Query search results are interactive workspaces, so are exempt.
-  const isPreview =
-    !!(flags & ArrangeItemFlags.IsPreview) ||
-    (!isEmbeddedInteractive &&
-      !(flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot)) &&
-      !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null));
+  const isPreview = listOrTablePageIsPreview(displayItem_pageWithChildren, parentPath, flags);
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   const proportionalListScale = geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
@@ -609,6 +603,11 @@ export function arrangeSelectedListItem(
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
 
+  // A calendar page has no miniature form: its preview shows only its title (see Page_CalendarPreview), so its contents
+  // are not arranged.
+  const isCalendarPreview = previewScale != null && isPage(item) &&
+    asPageItem(item).arrangeAlgorithm == ArrangeAlgorithm.Calendar;
+
   let cellGeometry: ItemGeometry;
 
   if (isPage(item) || isQueryItem(item)) {
@@ -648,9 +647,15 @@ export function arrangeSelectedListItem(
   }
 
   const flags =
-    (renderAsListPageRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
+    (renderAsListPageRoot && !isCalendarPreview ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
     (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None) |
     (previewScale != null && isPage(item) ? ArrangeItemFlags.IsPreview : ArrangeItemFlags.None);
+
+  if (isCalendarPreview) {
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, li);
+    return arrangeItemNoChildren(
+      store, currentPath, displayItem, linkItemMaybe, actualLinkItemMaybe as LinkItem | null, cellGeometry, flags);
+  }
 
   // As for the children of spatial and document pages, a preview of an item too small for its text to be legible is
   // drawn as an outline. Images remain recognizable when small, so are not subject to this.
