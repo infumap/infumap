@@ -17,7 +17,8 @@
 */
 
 import { Component, For, Show, createMemo } from "solid-js";
-import { linearGradient, FOCUS_RING_BOX_SHADOW, PAGE_TITLE_TEXT_SHADOW, opaquePageLightenAlpha } from "../../style";
+import { Colors, linearGradient, FOCUS_RING_BOX_SHADOW, PAGE_TITLE_TEXT_SHADOW, opaquePageLightenAlpha } from "../../style";
+import { rgbArrayToRgbaFunc, rgbHexToArray } from "../../util/color";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_LOCAL_SHADOW, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -41,6 +42,8 @@ const OPAQUE_TITLE_MAX_HEIGHT_FRAC = 0.85;
 const OPAQUE_TITLE_LINE_HEIGHT = 1.5;
 // Fainter than the default, which is prominent against the strong page color.
 const OPAQUE_RESIZE_TRIANGLE_COLOR = "rgba(255, 255, 255, 0.25)";
+// The border is a darker shade of the page color, so the edge sits with the fill rather than outlining it.
+const OPAQUE_BORDER_DARKEN_FACTOR = 0.7;
 
 export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
@@ -174,15 +177,19 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     return isInsideTranslucentPage() ? Math.max(0.33, sizeBased) : sizeBased;
   };
 
+  const borderColor = () =>
+    rgbArrayToRgbaFunc(rgbHexToArray(Colors[pageFns().pageItem().backgroundColorIndex]).map(c => Math.round(c * OPAQUE_BORDER_DARKEN_FACTOR)));
+
   return (
     <div class="absolute"
       style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      <div class={`absolute border border-[#555] rounded-xs ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
+      <div class={`absolute border rounded-xs ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
         style={`left: 0px; ` +
           `top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
+          `border-color: ${borderColor()}; ` +
           `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, lightenAlpha())}; ` +
           `z-index: 1;`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
