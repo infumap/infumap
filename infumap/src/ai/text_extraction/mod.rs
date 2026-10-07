@@ -75,6 +75,8 @@ pub(super) const PDF_PASSWORD_REQUIRED_ERROR_CODE: &str = "pdf_password_required
 /// the same GPU time and fail again, so the item is reported as needing
 /// attention instead (reprocessing is manual).
 pub(super) const PDF_CONVERSION_TIMEOUT_ERROR_CODE: &str = "pdf_conversion_timeout";
+/// Recorded for HTTP 413: the PDF exceeds the extraction service's upload limit.
+pub(super) const PDF_TOO_LARGE_ERROR_CODE: &str = "pdf_too_large";
 
 static PROCESSING_STATE: OnceCell<Arc<Mutex<ProcessingState>>> = OnceCell::new();
 
@@ -422,7 +424,7 @@ pub(crate) async fn process_loaded_pdf_extraction_web_background(
     }
     ExtractOutcome::DocumentBlocked { error_code, message } => {
       write_blocked_manifest(data_dir, &candidate, &error_code, &message).await?;
-      let attention_reason = (error_code != PDF_PASSWORD_REQUIRED_ERROR_CODE).then(|| message.clone());
+      let attention_reason = blocked_attention_detail(Some(&error_code), &message);
       log::log!(
         if attention_reason.is_some() { log::Level::Warn } else { log::Level::Debug },
         "PDF text extraction blocked for '{}' (user {}): {} ({})",
@@ -564,8 +566,8 @@ async fn run_text_extraction_loop(
         }
         // Blocked PDFs are not text extracted again (reprocessing is manual).
         ManifestCheckResult::AlreadyBlocked { attention_reason: None } => return Ok(PdfAttemptOutcome::Skipped),
-        ManifestCheckResult::AlreadyBlocked { attention_reason: Some(reason) } => {
-          return Ok(PdfAttemptOutcome::Stopped(reason));
+        ManifestCheckResult::AlreadyBlocked { attention_reason: Some(detail) } => {
+          return Ok(PdfAttemptOutcome::Stopped(detail));
         }
         ManifestCheckResult::NeedsExtraction | ManifestCheckResult::AlreadyFailed => {}
       }
@@ -612,8 +614,8 @@ async fn run_text_extraction_loop(
         if !state.queued_item_ids.contains(&candidate.item_id) {
           state.retries.clear(&candidate.item_id);
           match &outcome {
-            PdfAttemptOutcome::Stopped(reason) => {
-              activity::stopped(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &stopped_detail(reason));
+            PdfAttemptOutcome::Stopped(detail) => {
+              activity::stopped(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, detail);
             }
             PdfAttemptOutcome::Extracted | PdfAttemptOutcome::Skipped => {
               activity::done(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction);
@@ -656,11 +658,20 @@ async fn run_text_extraction_loop(
   }
 }
 
-fn stopped_detail(reason: &str) -> String {
-  format!(
-    "{} Not retried automatically; use 'infumap reprocess --pdf-conversion-timeout' to try again with a longer limit.",
-    reason.trim_end()
-  )
+/// What the status page shows for a blocked PDF: the service's reason and how
+/// to try again. None for password protected PDFs, which are not reported.
+pub(super) fn blocked_attention_detail(error_code: Option<&str>, message: &str) -> Option<String> {
+  let hint = match error_code {
+    Some(PDF_PASSWORD_REQUIRED_ERROR_CODE) => return None,
+    Some(PDF_CONVERSION_TIMEOUT_ERROR_CODE) => {
+      "use 'infumap reprocess --pdf-conversion-timeout' to try again with a longer limit"
+    }
+    Some(PDF_TOO_LARGE_ERROR_CODE) => {
+      "raise TEXT_EXTRACTION_MAX_UPLOAD_BYTES on the PDF extraction service, then reprocess the item"
+    }
+    _ => "reprocess the item to try again",
+  };
+  Some(format!("{} Not retried automatically; {}.", message.trim_end(), hint))
 }
 
 fn log_pdf_extracted(candidate: &PdfCandidate, backend: Option<&str>, elapsed: Duration, markdown_bytes: usize) {
@@ -1018,8 +1029,8 @@ async fn populate_initial_pdf_queue(
       }
       Ok(ManifestCheckResult::AlreadyBlocked { attention_reason }) => {
         already_blocked += 1;
-        if let Some(reason) = attention_reason {
-          activity::stopped(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &stopped_detail(&reason));
+        if let Some(detail) = attention_reason {
+          activity::stopped(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &detail);
         }
       }
       Err(e) => {
@@ -1106,12 +1117,6 @@ fn parse_text_extraction_response(status: reqwest::StatusCode, body: String) -> 
 
   if is_terminal_document_response(status) {
     let parsed_error = parse_pdf_error_response(&body);
-    if parsed_error.error_code.as_deref() == Some(PDF_CONVERSION_TIMEOUT_ERROR_CODE) {
-      return ExtractOutcome::DocumentBlocked {
-        error_code: PDF_CONVERSION_TIMEOUT_ERROR_CODE.to_owned(),
-        message: parsed_error.message.unwrap_or(body),
-      };
-    }
     if parsed_error.error_code.as_deref() == Some(PDF_PASSWORD_REQUIRED_ERROR_CODE) {
       return ExtractOutcome::DocumentBlocked {
         error_code: PDF_PASSWORD_REQUIRED_ERROR_CODE.to_owned(),
@@ -1122,7 +1127,15 @@ fn parse_text_extraction_response(status: reqwest::StatusCode, body: String) -> 
     }
 
     let message = parsed_error.message.unwrap_or(body);
-    return ExtractOutcome::DocumentFailed(format!("HTTP {}: {}", status, message));
+    // A coded rejection describes this document, so retrying would fail the
+    // same way: it waits for a manual reprocess. Uncoded 422s are malformed
+    // requests, which are retried.
+    let error_code = match parsed_error.error_code {
+      Some(error_code) => error_code,
+      None if status == reqwest::StatusCode::PAYLOAD_TOO_LARGE => PDF_TOO_LARGE_ERROR_CODE.to_owned(),
+      None => return ExtractOutcome::DocumentFailed(format!("HTTP {}: {}", status, message)),
+    };
+    return ExtractOutcome::DocumentBlocked { error_code, message };
   }
 
   ExtractOutcome::EndpointUnavailable(format!("HTTP {}: {}", status, body))
@@ -1210,5 +1223,35 @@ mod tests {
       }
       _ => panic!("expected a blocked outcome"),
     }
+  }
+
+  #[test]
+  fn coded_and_too_large_rejections_are_blocked() {
+    let blocked = |status, body: serde_json::Value| match parse_text_extraction_response(status, body.to_string()) {
+      ExtractOutcome::DocumentBlocked { error_code, message } => Some((error_code, message)),
+      _ => None,
+    };
+    let unprocessable = reqwest::StatusCode::UNPROCESSABLE_ENTITY;
+    assert_eq!(
+      blocked(unprocessable, serde_json::json!({ "error_code": "pdf_extraction_failed", "error": "OCR failed." })),
+      Some(("pdf_extraction_failed".to_owned(), "OCR failed.".to_owned()))
+    );
+    assert_eq!(
+      blocked(reqwest::StatusCode::PAYLOAD_TOO_LARGE, serde_json::json!({ "detail": "Too big." })),
+      Some((PDF_TOO_LARGE_ERROR_CODE.to_owned(), "Too big.".to_owned()))
+    );
+    // Malformed requests have no error code and are retried.
+    assert!(matches!(
+      parse_text_extraction_response(unprocessable, serde_json::json!({ "detail": "Missing field." }).to_string()),
+      ExtractOutcome::DocumentFailed(_)
+    ));
+    assert_eq!(
+      blocked_attention_detail(Some(PDF_TOO_LARGE_ERROR_CODE), "Too big.").as_deref(),
+      Some(
+        "Too big. Not retried automatically; raise TEXT_EXTRACTION_MAX_UPLOAD_BYTES on the PDF extraction \
+         service, then reprocess the item."
+      )
+    );
+    assert_eq!(blocked_attention_detail(Some(PDF_PASSWORD_REQUIRED_ERROR_CODE), "Locked."), None);
   }
 }

@@ -2,10 +2,12 @@
 //! attempt counts may reset after a restart, which only repeats some work.
 //!
 //! Deliberate trade-off: there is no retry limit. Failures, including ones
-//! unlikely to resolve themselves (e.g. password-protected PDFs), are retried
-//! at most hourly forever, so unfinished work is never dropped. The occasional
-//! wasted attempt is accepted. Queues and attempt counts are deliberately not
-//! persisted; there is no processing database.
+//! unlikely to resolve themselves, are retried at most hourly forever, so
+//! unfinished work is never dropped. The occasional wasted attempt is accepted.
+//! The exception is a PDF the extraction service rejects with an error code
+//! (e.g. password protected, timed out, too large): retrying would fail the same
+//! way, so it is blocked until reprocessed manually. Queues and attempt counts
+//! are deliberately not persisted; there is no processing database.
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::Path;

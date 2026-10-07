@@ -318,8 +318,13 @@ promptly:
   exhaustion, unusable results, and exceeding native extraction's share of the
   deadline.
 - If OCR then fails on the document, the service returns HTTP 422 with
-  `error_code` `pdf_extraction_failed`. Infumap records the PDF as failed, lists
-  it as needing attention, and retries it hourly.
+  `error_code` `pdf_extraction_failed`. Infumap lists the PDF as needing
+  attention and does not retry it; `infumap reprocess --id <id>` tries again.
+  This applies to every 422 with an `error_code`, since retrying would fail the
+  same way.
+- An upload larger than `TEXT_EXTRACTION_MAX_UPLOAD_BYTES` returns HTTP 413.
+  Infumap records it as `pdf_too_large`, lists it as needing attention, and
+  does not retry it.
 - If the conversion deadline expires, the service returns HTTP 422
   `pdf_conversion_timeout`. Infumap lists the PDF as needing attention and does
   not retry it; `infumap reprocess --id <id> --pdf-conversion-timeout 4h` tries
