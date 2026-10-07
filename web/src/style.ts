@@ -151,6 +151,9 @@ export const SELECTION_HIGHLIGHT_COLOR = '#4a90e24d';
 export const SELECTION_MARQUEE_BORDER_COLOR = '#4a90e2';
 // Kept faint so selected items remain distinguishable underneath the marquee while dragging.
 export const SELECTION_MARQUEE_FILL_COLOR = '#4a90e214';
+// Text shadow for white page titles drawn over the page background (translucent and opaque pages).
+export const PAGE_TITLE_TEXT_SHADOW = '0 1px 3px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.25)';
+
 export const FOCUS_RING_INNER_COLOR = 'rgba(255, 255, 255, 0.72)';
 export const FOCUS_RING_COLOR = 'rgba(0, 82, 255, 0.9)';
 export const FOCUS_RING_BOX_SHADOW =

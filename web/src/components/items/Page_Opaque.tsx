@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Show, createMemo } from "solid-js";
-import { linearGradient, FOCUS_RING_BOX_SHADOW, opaquePageLightenAlpha } from "../../style";
+import { linearGradient, FOCUS_RING_BOX_SHADOW, PAGE_TITLE_TEXT_SHADOW, opaquePageLightenAlpha } from "../../style";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { Z_INDEX_LOCAL_SHADOW, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -62,6 +62,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
         `padding-left: ${titlePadXPx()}px; padding-right: ${titlePadXPx()}px; ` +
         `font-size: ${titleFontSizePx()}px; ` +
         `line-height: ${OPAQUE_TITLE_LINE_HEIGHT}; ` +
+        `text-shadow: ${PAGE_TITLE_TEXT_SHADOW}; ` +
         `justify-content: center; align-items: center; text-align: center;` +
         `z-index: ${titleEditHandlers.isEditingTitle() ? Z_INDEX_LOCAL_HIGHLIGHT : 1};` +
         `outline: 0px solid transparent;`}
