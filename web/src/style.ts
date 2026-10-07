@@ -40,18 +40,20 @@ export function linearGradient(colIndex: number, lightenByAlpha: number): string
   return `linear-gradient(270deg, ${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}, ${hexToRGBA(Colors[colIndex], 1.0-lightenByAlpha)})`;
 }
 
-// Opaque pages are lightened (lightenByAlpha for linearGradient) with on screen size, since the full strength of the
-// color that suits a small page is heavy on a large one. Up to one block in size they are full strength. The
-// interpolation is logarithmic in size, so mid sized pages change noticeably, whilst large ones are not washed out.
-const OPAQUE_PAGE_LIGHTEN_ALPHA_MAX = 0.2;
+// Opaque pages are lightened (lightenByAlpha for linearGradient) by a base amount, and further with on screen size,
+// since the strength of the color that suits a small page is heavy on a large one. The size based part is zero up to
+// one block in size. The interpolation is logarithmic in size, so mid sized pages change noticeably, whilst large ones
+// are not washed out.
+const OPAQUE_PAGE_LIGHTEN_ALPHA_BASE = 0.07;
+const OPAQUE_PAGE_LIGHTEN_ALPHA_SIZE_MAX = 0.2;
 const OPAQUE_PAGE_MAX_LIGHTEN_SIZE_BL = 10;
 
 /** sizePx is the geometric mean of the width and height of the page on screen. */
 export function opaquePageLightenAlpha(sizePx: number): number {
   const sizeBl = sizePx / LINE_HEIGHT_PX;
-  if (sizeBl <= 1.0) { return 0.0; }
+  if (sizeBl <= 1.0) { return OPAQUE_PAGE_LIGHTEN_ALPHA_BASE; }
   const t = Math.min(1.0, Math.log(sizeBl) / Math.log(OPAQUE_PAGE_MAX_LIGHTEN_SIZE_BL));
-  return OPAQUE_PAGE_LIGHTEN_ALPHA_MAX * t;
+  return OPAQUE_PAGE_LIGHTEN_ALPHA_BASE + OPAQUE_PAGE_LIGHTEN_ALPHA_SIZE_MAX * t;
 }
 
 export function stripedGradient(colIndex: number, lightenByAlpha: number): string {
