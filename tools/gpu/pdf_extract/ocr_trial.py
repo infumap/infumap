@@ -31,8 +31,10 @@ Engines (-e, repeatable; default native, rapidocr:english, easyocr:en; a spec
 is name[:lang,lang][@backend]):
   native              Docling without OCR, as the service runs it today.
   rapidocr            RapidOCR (installed with Docling). Backend defaults to
-                      torch; add @onnxruntime if onnxruntime(-gpu) is installed.
-  easyocr             EasyOCR. Needs: .venv-docling/bin/pip install easyocr
+                      torch, on the Apple GPU (MPS) when available; @cpu keeps
+                      it on the CPU; @onnxruntime if onnxruntime is installed.
+  easyocr             EasyOCR, on CUDA or the Apple GPU when available.
+                      Needs: .venv-docling/bin/pip install easyocr
   tesseract           Tesseract CLI. Needs the tesseract binary on PATH.
   nemotron            NVIDIA Nemotron OCR. Needs docling[feat-ocr-nemotron].
   ocrmac              macOS Vision OCR (macOS only). Needs: pip install ocrmac
@@ -59,6 +61,9 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+# Ops the Apple GPU (MPS) lacks run on the CPU instead of failing.
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 try:
     import docling  # noqa: F401
@@ -103,7 +108,13 @@ def ocr_options(name: str, langs: list[str] | None, backend: str | None) -> Any:
     if langs:
         extra["lang"] = langs
     if name == "rapidocr":
-        return RapidOcrOptions(backend=backend or "torch", **extra)
+        if backend == "cpu":
+            return RapidOcrOptions(backend="torch", **extra)
+        backend = backend or "torch"
+        if backend == "torch" and mps_available():
+            # Docling only enables CUDA for RapidOCR's torch backend.
+            extra["rapidocr_params"] = {"EngineConfig.torch.use_mps": True}
+        return RapidOcrOptions(backend=backend, **extra)
     if name == "easyocr":
         return EasyOcrOptions(**extra)
     if name == "tesseract":
@@ -117,6 +128,25 @@ def ocr_options(name: str, langs: list[str] | None, backend: str | None) -> Any:
 
         return NemotronOcrOptions(**extra)
     raise ValueError(f"Unknown engine '{name}'.")
+
+
+def mps_available() -> bool:
+    import torch
+
+    return torch.backends.mps.is_available()
+
+
+def accelerator_summary() -> str:
+    import torch
+
+    if torch.cuda.is_available():
+        return f"CUDA ({torch.cuda.get_device_name(0)}): layout, tables and OCR engines use the GPU."
+    if mps_available():
+        return (
+            "Apple GPU (MPS): layout, EasyOCR and RapidOCR (torch) use the GPU; "
+            "Docling keeps table structure on the CPU, where it is faster on Macs."
+        )
+    return "No GPU found: everything runs on the CPU."
 
 
 def build_converter(spec: str) -> DocumentConverter:
@@ -226,6 +256,7 @@ def main() -> int:
     out_dir = Path(args.out).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Writing results to {out_dir}", flush=True)
+    print(f"Accelerator: {accelerator_summary()}", flush=True)
 
     converters: dict[str, DocumentConverter] = {}
     for spec in specs:
