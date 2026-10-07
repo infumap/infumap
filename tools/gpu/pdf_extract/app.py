@@ -54,7 +54,12 @@ DEFAULT_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
 # Set by the GPU gateway on every request it forwards, so the gateway's lock
 # lease and this watchdog use the same limit.
 CONVERSION_TIMEOUT_HEADER = "x-pdf-conversion-timeout-secs"
-CONVERSION_TIMEOUT_EXIT_DELAY_SECS = 2.0
+# The extractor stops Docling workers at the conversion deadline, so timeouts
+# normally end there. This backstop only fires when a conversion thread is
+# stuck past the deadline outside Docling; a thread cannot be stopped, so the
+# service then exits and its supervisor restarts it.
+CONVERSION_BACKSTOP_GRACE_SECS = 120.0
+STUCK_CONVERSION_EXIT_DELAY_SECS = 2.0
 
 
 class UploadTooLargeError(Exception):
@@ -164,20 +169,29 @@ async def exit_process_after_delay(delay_secs: float, exit_code: int) -> None:
     os._exit(exit_code)
 
 
-def schedule_conversion_timeout_exit(file_name: str, timeout_secs: float) -> None:
-    if APP_STATE.get("conversion_timeout_exit_scheduled"):
+def conversion_timeout_rejection(timeout_secs: float) -> DocumentRejectedError:
+    return DocumentRejectedError(
+        PDF_CONVERSION_TIMEOUT_ERROR_CODE,
+        f"PDF conversion exceeded the {timeout_secs:.0f} second timeout. "
+        "The PDF may be too large or complex for automatic extraction.",
+    )
+
+
+def schedule_stuck_conversion_exit(file_name: str, timeout_secs: float) -> None:
+    if APP_STATE.get("restart_scheduled"):
         return
-    APP_STATE["conversion_timeout_exit_scheduled"] = True
+    APP_STATE["restart_scheduled"] = True
     extractor = APP_STATE.get("extractor")
     if extractor is not None:
         extractor.docling.cancel()
     LOGGER.error(
-        "Text extraction conversion timeout triggered for file=%s (configured limit %.3f seconds); "
+        "Text extraction conversion for file=%s is stuck %.0f seconds past its %.0f second limit; "
         "terminating service process so the supervisor can restart it.",
         file_name,
+        CONVERSION_BACKSTOP_GRACE_SECS,
         timeout_secs,
     )
-    asyncio.create_task(exit_process_after_delay(CONVERSION_TIMEOUT_EXIT_DELAY_SECS, 124))
+    asyncio.create_task(exit_process_after_delay(STUCK_CONVERSION_EXIT_DELAY_SECS, 124))
 
 
 @asynccontextmanager
@@ -473,7 +487,7 @@ async def gpu_tools() -> dict[str, Any]:
 
 @app.get("/healthz")
 async def healthz() -> dict[str, bool]:
-    return {"ok": "extractor" in APP_STATE and not APP_STATE.get("conversion_timeout_exit_scheduled", False)}
+    return {"ok": "extractor" in APP_STATE and not APP_STATE.get("restart_scheduled", False)}
 
 
 @app.post("/pdf-extract", response_model=ConvertResponse)
@@ -494,7 +508,7 @@ async def convert_upload(request: Request) -> ConvertResponse:
             upload_duration_ms,
         )
         semaphore = CONVERT_SEMAPHORE
-        if semaphore is None or APP_STATE.get("conversion_timeout_exit_scheduled"):
+        if semaphore is None or APP_STATE.get("restart_scheduled"):
             raise HTTPException(status_code=503, detail="Text extraction service is not ready.")
         semaphore_wait_started_at = time.perf_counter()
         if semaphore.locked():
@@ -514,7 +528,7 @@ async def convert_upload(request: Request) -> ConvertResponse:
             ) from exc
 
         try:
-            if APP_STATE.get("conversion_timeout_exit_scheduled"):
+            if APP_STATE.get("restart_scheduled"):
                 raise HTTPException(status_code=503, detail="Text extraction worker is restarting.")
             semaphore_wait_ms = int((time.perf_counter() - semaphore_wait_started_at) * 1000)
             request_age_ms = int((time.perf_counter() - request_started_at) * 1000)
@@ -532,18 +546,15 @@ async def convert_upload(request: Request) -> ConvertResponse:
                     asyncio.to_thread(
                         convert_file_bytes, upload_bytes, file_name, time.monotonic() + conversion_timeout
                     ),
-                    timeout=conversion_timeout,
+                    timeout=conversion_timeout + CONVERSION_BACKSTOP_GRACE_SECS,
                 )
-            except (asyncio.TimeoutError, ExtractionTimeoutError) as exc:
-                schedule_conversion_timeout_exit(file_name, conversion_timeout)
-                reason = str(exc) if isinstance(exc, ExtractionTimeoutError) else (
-                    f"PDF conversion exceeded the {conversion_timeout:.0f} second timeout. "
-                    "The PDF may be too large or complex for automatic extraction."
-                )
-                raise DocumentRejectedError(
-                    PDF_CONVERSION_TIMEOUT_ERROR_CODE,
-                    reason,
-                ) from exc
+            # ExtractionTimeoutError subclasses TimeoutError, which is also
+            # asyncio.TimeoutError, so it must be handled first.
+            except ExtractionTimeoutError as exc:
+                raise conversion_timeout_rejection(conversion_timeout) from exc
+            except asyncio.TimeoutError as exc:
+                schedule_stuck_conversion_exit(file_name, conversion_timeout)
+                raise conversion_timeout_rejection(conversion_timeout) from exc
         finally:
             semaphore.release()
     except BackendUnavailableError as exc:
