@@ -42,9 +42,10 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, type ListPageRowBand } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, arrangeItemPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
-import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./util";
+import { getMovingTreeItemInParentMaybe, getVePropertiesForItem, previewChildIsDetailed } from "./util";
+import { isImage } from "../../items/image-item";
 import { isLinkInTrash } from "../../items/trash-link";
 
 
@@ -222,9 +223,10 @@ export function arrange_list_page(
   // As for spatial and document pages, a non-interactive (e.g. translucent) list page is drawn as a miniature of the
   // full page, without a minimum scale. Query search results are interactive workspaces, so are exempt.
   const isPreview =
-    !isEmbeddedInteractive &&
-    !(flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot)) &&
-    !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null);
+    !!(flags & ArrangeItemFlags.IsPreview) ||
+    (!isEmbeddedInteractive &&
+      !(flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot)) &&
+      !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null));
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   const proportionalListScale = geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
@@ -517,7 +519,7 @@ export function arrange_list_page(
     const selectedIsPage = isPage(itemState.get(panelVeid.itemId)!);
     const canShiftLeft = arrangeFlagIsRoot(flags) && isPage(selectedItem);
     if (boundsPx.w >= MIN_RENDERED_NESTED_LIST_WIDTH_PX) {
-      pageRelationships.selectedPath = arrangeSelectedListItemPath(store, panelVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup);
+      pageRelationships.selectedPath = arrangeSelectedListItemPath(store, panelVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup, isPreview ? listScale : null);
     }
   }
 
@@ -552,6 +554,11 @@ function activeMovingActualVeidMaybe(): Veid | null {
   };
 }
 
+/**
+ * Arranges the selected item of a list page, in the area to the right of the list. If previewScale is set, the list
+ * page is a non-interactive preview drawn at that scale, and the selected item is drawn as a miniature of how it is
+ * shown at full size.
+ */
 export function arrangeSelectedListItem(
   store: StoreContextModel,
   veid: Veid,
@@ -559,7 +566,8 @@ export function arrangeSelectedListItem(
   currentPath: VisualElementPath,
   canShiftLeft: boolean,
   renderAsListPageRoot: boolean,
-  insidePopup: boolean): VisualElementSignal | null {
+  insidePopup: boolean,
+  previewScale: number | null): VisualElementSignal | null {
 
   const item = itemState.get(veid.itemId);
   if (!item) {
@@ -574,11 +582,15 @@ export function arrangeSelectedListItem(
     return null;
   }
 
+  // A preview is laid out at full size (relative to the area origin), then scaled.
+  const layoutBoundsPx = previewScale == null
+    ? boundsPx
+    : { x: 0, y: 0, w: boundsPx.w / previewScale, h: boundsPx.h / previewScale };
   const paddedBoundsPx = {
-    x: boundsPx.x + LINE_HEIGHT_PX,
-    y: boundsPx.y + LINE_HEIGHT_PX,
-    w: boundsPx.w - 2 * LINE_HEIGHT_PX,
-    h: boundsPx.h - 2 * LINE_HEIGHT_PX,
+    x: layoutBoundsPx.x + LINE_HEIGHT_PX,
+    y: layoutBoundsPx.y + LINE_HEIGHT_PX,
+    w: layoutBoundsPx.w - 2 * LINE_HEIGHT_PX,
+    h: layoutBoundsPx.h - 2 * LINE_HEIGHT_PX,
   };
 
   if (boundsPx.w < MIN_RENDERED_NESTED_LIST_WIDTH_PX ||
@@ -623,18 +635,60 @@ export function arrangeSelectedListItem(
       boundsPx: boundsPx,
       hitboxes,
       viewportBoundsPx: boundsPx,
-      blockSizePx: NATURAL_BLOCK_SIZE_PX,
+      // For a preview, the page's contents are no larger than in the (scaled) list page.
+      blockSizePx: previewScale == null
+        ? NATURAL_BLOCK_SIZE_PX
+        : { w: NATURAL_BLOCK_SIZE_PX.w * previewScale, h: NATURAL_BLOCK_SIZE_PX.h * previewScale },
     };
   } else {
     cellGeometry = ItemFns.calcGeometry_InCell(li, paddedBoundsPx, canShiftLeft, false, false, false, false, false, false, false, store.smallScreenMode());
+    if (previewScale != null) {
+      cellGeometry = scaleGeometry(cellGeometry, boundsPx, previewScale);
+    }
+  }
+
+  const flags =
+    (renderAsListPageRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
+    (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None) |
+    (previewScale != null && isPage(item) ? ArrangeItemFlags.IsPreview : ArrangeItemFlags.None);
+
+  // As for the children of spatial and document pages, a preview of an item too small for its text to be legible is
+  // drawn as an outline. Images remain recognizable when small, so are not subject to this.
+  if (previewScale != null && !isPage(item) && !isImage(item) && !previewChildIsDetailed(item, previewScale)) {
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, li);
+    return arrangeItemNoChildren(
+      store, currentPath, displayItem, linkItemMaybe, actualLinkItemMaybe as LinkItem | null, cellGeometry,
+      flags | ArrangeItemFlags.RenderAsOutline);
   }
 
   const result = arrangeItem(
     store, currentPath, ArrangeAlgorithm.List, li, actualLinkItemMaybe as LinkItem | null, cellGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull |
-    (renderAsListPageRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
-    (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
+    flags | ArrangeItemFlags.RenderChildrenAsFull);
   return result;
+}
+
+/**
+ * Scales geometry laid out relative to the origin of an area by the given factor, and positions it in that area.
+ */
+function scaleGeometry(geometry: ItemGeometry, areaBoundsPx: BoundingBox, scale: number): ItemGeometry {
+  const scaleBoundsPx = (b: BoundingBox): BoundingBox => ({
+    x: areaBoundsPx.x + b.x * scale,
+    y: areaBoundsPx.y + b.y * scale,
+    w: b.w * scale,
+    h: b.h * scale,
+  });
+  return {
+    ...geometry,
+    boundsPx: scaleBoundsPx(geometry.boundsPx),
+    viewportBoundsPx: geometry.viewportBoundsPx == null ? null : scaleBoundsPx(geometry.viewportBoundsPx),
+    blockSizePx: { w: geometry.blockSizePx.w * scale, h: geometry.blockSizePx.h * scale },
+    attachmentBlockSizePx: geometry.attachmentBlockSizePx == null ? undefined : geometry.attachmentBlockSizePx * scale,
+    // Hitbox bounds are relative to the item's bounds.
+    hitboxes: geometry.hitboxes.map(hitbox => ({
+      ...hitbox,
+      boundsPx: { x: hitbox.boundsPx.x * scale, y: hitbox.boundsPx.y * scale, w: hitbox.boundsPx.w * scale, h: hitbox.boundsPx.h * scale },
+    })),
+  };
 }
 
 export function arrangeSelectedListItemPath(
@@ -644,9 +698,10 @@ export function arrangeSelectedListItemPath(
   currentPath: VisualElementPath,
   canShiftLeft: boolean,
   renderAsListPageRoot: boolean,
-  insidePopup: boolean): VisualElementPath | null {
+  insidePopup: boolean,
+  previewScale: number | null): VisualElementPath | null {
 
-  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, renderAsListPageRoot, insidePopup);
+  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, renderAsListPageRoot, insidePopup, previewScale);
   return selectedVes ? VeFns.veToPath(selectedVes.get()) : null;
 }
 

@@ -149,7 +149,7 @@ export function arrange_single_cell_page(
     }
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(childItem));
-    const renderChildrenAsFull = arrangeFlagIsRoot(flags);
+    const renderChildrenAsFull = !(flags & ArrangeItemFlags.IsPreview) && arrangeFlagIsRoot(flags);
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
 

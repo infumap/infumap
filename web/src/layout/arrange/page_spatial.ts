@@ -156,7 +156,8 @@ export function arrange_spatial_page(
 
   const parentPageInnerDimensionsBl = PageFns.calcInnerSpatialDimensionsBl(displayItem_pageWithChildren);
   const childScale = pageChildAreaBoundsPx.w / parentPageInnerDimensionsBl.w / NATURAL_BLOCK_SIZE_PX.w;
-  const renderChildrenAsFull = arrangeFlagIsRoot(flags) || !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive);
+  const renderChildrenAsFull = !(flags & ArrangeItemFlags.IsPreview) &&
+    (arrangeFlagIsRoot(flags) || !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive));
 
   const childrenPaths: Array<VisualElementPath> = [];
   for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {

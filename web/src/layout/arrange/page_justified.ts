@@ -141,7 +141,7 @@ export function arrange_justified_page(
     };
 
     const childItemIsEmbeddedInteractive = isPage(childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(childItem));
-    const renderChildrenAsFull = isEmbeddedInteractive || arrangeFlagIsRoot(flags);
+    const renderChildrenAsFull = !(flags & ArrangeItemFlags.IsPreview) && (isEmbeddedInteractive || arrangeFlagIsRoot(flags));
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, true, false, store.smallScreenMode());
     setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx, true);
