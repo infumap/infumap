@@ -212,9 +212,27 @@ export function arrange_list_page(
   const insidePopup = isPopupRoot || parentIsPopup;
   const isNestedListPage = !!(flags & ArrangeItemFlags.IsListPageMainRoot);
 
+  const isEmbeddedInteractive =
+    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+    (VeFns.pathDepth(parentPath) >= 2) &&
+    !(flags & ArrangeItemFlags.IsTopRoot) &&
+    !(flags & ArrangeItemFlags.IsPopupRoot) &&
+    !(flags & ArrangeItemFlags.IsListPageMainRoot);
+
+  // As for spatial and document pages, a non-interactive (e.g. translucent) list page is drawn as a miniature of the
+  // full page, without a minimum scale. Query search results are interactive workspaces, so are exempt.
+  const isPreview =
+    !isEmbeddedInteractive &&
+    !(flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot)) &&
+    !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null);
+
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   const proportionalListScale = geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
-  const listScale = (isFull || insidePopup) ? 1.0 : Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalListScale);
+  const listScale = (isFull || insidePopup)
+    ? 1.0
+    : isPreview
+      ? proportionalListScale
+      : Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalListScale);
 
   if (isFull) {
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
@@ -252,13 +270,6 @@ export function arrange_list_page(
   let movingItem = null;
   movingItem = movingItemInThisPage;
   const shouldArrangeListContents = geometry.viewportBoundsPx!.w >= MIN_RENDERED_NESTED_LIST_WIDTH_PX;
-
-  const isEmbeddedInteractive =
-    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
-    (VeFns.pathDepth(parentPath) >= 2) &&
-    !(flags & ArrangeItemFlags.IsTopRoot) &&
-    !(flags & ArrangeItemFlags.IsPopupRoot) &&
-    !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
   const listViewportBoundsPx = cloneBoundingBox(geometry.viewportBoundsPx!)!;
   listViewportBoundsPx.w = listWidthPx;
