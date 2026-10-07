@@ -370,6 +370,37 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return scale > 1.0 ? 1.0 : scale;
     },
 
+    /**
+     * Largest font size, up to maxFontSizePx, at which the bold title fits within the page bounds when rendered with
+     * padXPx horizontal padding on each side and the given line height. The measurement wraps the text at the font
+     * size being tested, so line breaks match what is rendered.
+     */
+    calcPaddedTitleInBoxFontSizePx: (maxFontSizePx: number, padXPx: number, maxHeightPx: number, lineHeight: number): number => {
+      const div = document.createElement("div");
+      div.setAttribute("class", "font-bold text-center");
+      div.setAttribute("style",
+        `position: absolute; left: -10000px; top: 0px; visibility: hidden; box-sizing: content-box; ` +
+        `width: ${Math.max(1, pageFns.boundsPx().w - 2 * padXPx)}px; line-height: ${lineHeight};`);
+      div.textContent = pageFns.pageItem().title;
+      document.body.appendChild(div);
+      const fits = (fontSizePx: number) => {
+        div.style.fontSize = `${fontSizePx}px`;
+        return div.scrollWidth <= div.clientWidth && div.offsetHeight <= maxHeightPx;
+      };
+      let result = maxFontSizePx;
+      if (!fits(maxFontSizePx)) {
+        let lo = 0;
+        let hi = maxFontSizePx;
+        for (let i = 0; i < 8; ++i) {
+          const mid = (lo + hi) / 2;
+          if (fits(mid)) { lo = mid; } else { hi = mid; }
+        }
+        result = lo > 0 ? lo : hi;
+      }
+      document.body.removeChild(div);
+      return result;
+    },
+
     listViewScale: () => {
       return props.visualElement.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
     },
