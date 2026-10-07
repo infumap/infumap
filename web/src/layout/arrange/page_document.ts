@@ -75,7 +75,17 @@ export function arrange_document_page(
   // in css. Popups aren't printed.
   const isPrintRoot = store.printMode.get() && !!(flags & ArrangeItemFlags.IsTopRoot);
 
+  // As for spatial pages, the children of non-interactive (e.g. translucent) pages are previews. Query chat transcripts
+  // are interactive workspaces, so are exempt.
+  const renderChildrenAsPreview =
+    !!(flags & ArrangeItemFlags.IsPreview) ||
+    (!arrangeFlagIsRoot(flags) &&
+      !(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+      !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null));
+
   const totalMarginBl = PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
+  // The wider left margin accommodates editing affordances, which previews don't have, so they are centered.
+  const leftMarginBl = renderChildrenAsPreview ? totalMarginBl / 2 : PAGE_DOCUMENT_LEFT_MARGIN_BL;
   const totalWidthBl = displayItem_pageWithChildren.docWidthBl + totalMarginBl;
   const requiredWidthPx = totalWidthBl * NATURAL_BLOCK_SIZE_PX.w;
   // A preview root is a miniature, so is drawn no larger than the block size of the page it is shown in.
@@ -144,7 +154,7 @@ export function arrange_document_page(
       child.linkItemMaybe,
       child.displayWidthBl,
       blockSizePx,
-      PAGE_DOCUMENT_LEFT_MARGIN_BL,
+      leftMarginBl,
       topPx,
       store.smallScreenMode() && !isPrintRoot);
     if (isPage(child.displayItem) || isImage(child.displayItem)) {
@@ -154,7 +164,7 @@ export function arrange_document_page(
       geometry.hitboxes = geometry.hitboxes.filter(hitbox => !(hitbox.type & HitboxFlags.Resize));
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
-    alignDocumentMoveOutHitbox(geometry, blockSizePx, displayItem_pageWithChildren.docWidthBl);
+    alignDocumentMoveOutHitbox(geometry, blockSizePx, displayItem_pageWithChildren.docWidthBl, leftMarginBl);
     setNaturalAttachmentBlockSizePx(store, child.childItem, geometry, blockSizePx.w, false);
     const documentChildGeometry: ItemGeometry = {
       ...geometry,
@@ -192,13 +202,6 @@ export function arrange_document_page(
     !!(flags & ArrangeItemFlags.RenderChildrenAsFull) ||
     !!(flags & ArrangeItemFlags.IsPopupRoot) ||
     arrangeFlagIsRoot(flags);
-  // As for spatial pages, the children of non-interactive (e.g. translucent) pages are previews. Query chat transcripts
-  // are interactive workspaces, so are exempt.
-  const renderChildrenAsPreview =
-    !!(flags & ArrangeItemFlags.IsPreview) ||
-    (!arrangeFlagIsRoot(flags) &&
-      !(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
-      !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null));
   for (const child of childArrangeData) {
     if (renderChildrenAsPreview) {
       childrenPaths.push(arrangeDocumentPreviewChildPath(
@@ -417,6 +420,7 @@ function alignDocumentMoveOutHitbox(
   geometry: ItemGeometry,
   blockSizePx: { w: number, h: number },
   documentContentWidthBl: number,
+  leftMarginBl: number,
 ): void {
   const moveHitbox = geometry.hitboxes.find(hitbox => hitbox.meta?.compositeMoveOut);
   if (moveHitbox == null) {
@@ -427,7 +431,7 @@ function alignDocumentMoveOutHitbox(
     geometry.boundsPx,
     blockSizePx,
     documentContentWidthBl,
-    PAGE_DOCUMENT_LEFT_MARGIN_BL,
+    leftMarginBl,
   );
   moveHitbox.boundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
   moveHitbox.meta = {
