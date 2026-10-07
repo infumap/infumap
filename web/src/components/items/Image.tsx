@@ -240,6 +240,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const visualFrameBoundsPx = (): BoundingBox =>
     popupNoCropFrameFollowsImage() ? noCropImageBoundsPx(false) : localBoundsPx();
 
+  const frameInnerBoundsPx = (): BoundingBox => {
+    const frameBoundsPx = visualFrameBoundsPx();
+    return { x: 0, y: 0, w: frameBoundsPx.w, h: frameBoundsPx.h };
+  };
+
   const boundsStylePx = (boundsPx: BoundingBox): string =>
     `left: ${boundsPx.x}px; top: ${boundsPx.y}px; width: ${boundsPx.w}px; height: ${boundsPx.h}px;`;
 
@@ -440,22 +445,20 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderFocusRingMaybe = () => {
-    const ringBoundsPx = visualFrameBoundsPx();
     return <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`${boundsStylePx(ringBoundsPx)} ` +
+        style={`${boundsStylePx(visualFrameBoundsPx())} ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 3;`} />
     </Show>;
   };
 
   const renderPopupBaseMaybe = (): JSX.Element => {
-    const baseBoundsPx = visualFrameBoundsPx();
     return <Show when={props.visualElement.flags & VisualElementFlags.Popup}>
       <div class="absolute text-xl font-bold rounded-md p-8 blur-md pointer-events-none"
-        style={`left: ${baseBoundsPx.x - 10}px; top: ${baseBoundsPx.y - 10}px; ` +
-          `width: ${baseBoundsPx.w + 20}px; height: ${baseBoundsPx.h + 20}px; background-color: #303030d0; z-index: 0;`} />
+        style={`left: ${visualFrameBoundsPx().x - 10}px; top: ${visualFrameBoundsPx().y - 10}px; ` +
+          `width: ${visualFrameBoundsPx().w + 20}px; height: ${visualFrameBoundsPx().h + 20}px; background-color: #303030d0; z-index: 0;`} />
       <div class="absolute border border-[#555] rounded-xs overflow-hidden pointer-events-none"
-        style={`${boundsStylePx(baseBoundsPx)} z-index: 0;`}>
+        style={`${boundsStylePx(visualFrameBoundsPx())} z-index: 0;`}>
         <img class="max-w-none absolute pointer-events-none"
           style={thumbnailFitStyle()}
           src={thumbnailSrc()} />
@@ -464,22 +467,20 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const renderFrameMaybe = (): JSX.Element => {
-    const frameBoundsPx = visualFrameBoundsPx();
-    const frameInnerBoundsPx = { x: 0, y: 0, w: frameBoundsPx.w, h: frameBoundsPx.h };
     return <div class={`absolute overflow-hidden border pointer-events-none rounded-xs ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
         (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
-        style={`${boundsStylePx(frameBoundsPx)} z-index: 1;`}>
+        style={`${boundsStylePx(visualFrameBoundsPx())} z-index: 1;`}>
         <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX}>
           <Show when={isDetailed()} fallback={notDetailedFallback()}>
             {imageItem().flags & ImageFlags.NoCrop ? renderNoCropImage() : renderCroppedImage()}
             {renderResolutionDebugMaybe()}
             <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || (isMainPoppedUp() && !(props.visualElement.flags & VisualElementFlags.Popup))}>
               <div class="absolute"
-                style={`${boundsStylePx(frameInnerBoundsPx)} background-color: #dddddd88;`} />
+                style={`${boundsStylePx(frameInnerBoundsPx())} background-color: #dddddd88;`} />
             </Show>
             <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
               <div class="absolute"
-                style={`${boundsStylePx(frameInnerBoundsPx)} ` +
+                style={`${boundsStylePx(frameInnerBoundsPx())} ` +
                   `${highlightStyle(props.visualElement.flags)}`} />
             </Show>
             <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
@@ -489,7 +490,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </Show>
             <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && (!isInComposite() || isInCompositeInDocumentPage())}>
               <div class="absolute"
-                style={`${boundsStylePx(frameInnerBoundsPx)} background-color: #ffffff33;`} />
+                style={`${boundsStylePx(frameInnerBoundsPx())} background-color: #ffffff33;`} />
             </Show>
           </Show>
         </Show>
@@ -518,10 +519,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const renderTitleMaybe = (): JSX.Element => {
-    const titleBoundsPx = visualFrameBoundsPx();
     return <Show when={(props.visualElement.flags & VisualElementFlags.Popup) && boundsPx().w > MIN_IMAGE_WIDTH_PX}>
       <div class="absolute flex items-center justify-center pointer-events-none"
-        style={`left: ${titleBoundsPx.x}px; top: ${titleBoundsPx.y + titleBoundsPx.h - 50}px; width: ${titleBoundsPx.w}px; height: 50px; z-index: 4;`}>
+        style={`left: ${visualFrameBoundsPx().x}px; top: ${visualFrameBoundsPx().y + visualFrameBoundsPx().h - 50}px; width: ${visualFrameBoundsPx().w}px; height: 50px; z-index: 4;`}>
         <div id={vePath() + ":title"}
           class={`rounded-sm px-2 py-1 text-center text-xl font-bold text-white ${imageItem().title.trim() || isEditingTitle() ? "bg-black/70" : ""} ${canEdit() ? "pointer-events-auto select-text cursor-text" : "pointer-events-none"}`}
           style="min-width: 1em; min-height: 1.5em; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; outline: none;"
@@ -541,7 +541,6 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const renderAttachmentsAndDetailMaybe = (): JSX.Element => {
-    const detailBoundsPx = visualFrameBoundsPx();
     return <Show when={isDetailed() && boundsPx().w > MIN_IMAGE_WIDTH_PX}>
       <div class="absolute pointer-events-none"
         style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; z-index: 2;`}>
@@ -551,7 +550,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <Show when={showMoveOutOfCompositeArea()}>
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
         </Show>
-        <div class="absolute" style={boundsStylePx(detailBoundsPx)}>
+        <div class="absolute" style={boundsStylePx(visualFrameBoundsPx())}>
           <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) &&
             showTriangleDetail() &&
             !((props.visualElement.flags & VisualElementFlags.Popup) && (props.visualElement.actualLinkItemMaybe == null)) &&
