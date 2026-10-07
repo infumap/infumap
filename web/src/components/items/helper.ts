@@ -35,6 +35,19 @@ import { documentPageMoveOutBoxPx } from "../../layout/composite-move-out";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
+
+// The visible box of an opaque page is inset within its bounds, so pages placed edge to edge are separated by a thin gap.
+const OPAQUE_PAGE_BOX_INSET_PX = 1;
+
+export const opaquePageBoxInsetPx = (visualElement: VisualElement): number =>
+  (visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) ? 0 : OPAQUE_PAGE_BOX_INSET_PX;
+
+/**
+ * CSS corner radius of the visible box of an opaque page: the item radius (rounded-item), capped relative to size so
+ * small pages do not become pills.
+ */
+export const opaquePageBoxRadiusCss = (widthPx: number, heightPx: number): string =>
+  `min(var(--radius-item), ${Math.min(widthPx, heightPx) / 8}px)`;
 const AUTO_MOVED_INTO_VIEW_BACKGROUND_IMAGE = "repeating-linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.18) 8px, rgba(251, 191, 36, 0.30) 8px, rgba(251, 191, 36, 0.30) 16px)";
 
 

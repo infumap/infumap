@@ -84,7 +84,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
 
   const renderBoundsHighlightMaybe = () =>
     <Show when={store.perVe.getMouseIsOver(vePath()) || store.history.getFocusPathMaybe() === vePath()}>
-      <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+      <div class="absolute border border-slate-300 rounded-item pointer-events-none"
         style={`left: 1px; top: 1px; width: ${Math.max(0, boundsPx().w - 2)}px; height: ${Math.max(0, boundsPx().h - 2)}px; ` +
           `z-index: ${Z_INDEX_LOCAL_OVERLAY}; background-color: ${DIVIDER_HOVER_BG};`} />
     </Show>;
@@ -101,7 +101,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
         `${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
             `${highlightStyle(props.visualElement.flags)}`} />
       </Show>
@@ -120,7 +120,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
       </Show>
       {renderFocusRingMaybe()}
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>

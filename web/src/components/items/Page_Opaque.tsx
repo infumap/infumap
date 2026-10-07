@@ -30,7 +30,7 @@ import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement, highlightStyle, opaquePageBoxInsetPx, opaquePageBoxRadiusCss } from "./helper";
 import { linkHasTriangle } from "../../layout/link-triangle";
 
 
@@ -44,8 +44,6 @@ const OPAQUE_TITLE_LINE_HEIGHT = 1.5;
 const OPAQUE_RESIZE_TRIANGLE_COLOR = "rgba(255, 255, 255, 0.25)";
 // The border is a darker shade of the page color, so the edge sits with the fill rather than outlining it.
 const OPAQUE_BORDER_DARKEN_FACTOR = 0.7;
-// The visible box is inset within the page bounds, so pages placed edge to edge are separated by a thin gap.
-const OPAQUE_BOX_INSET_PX = 1;
 
 export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
@@ -85,9 +83,9 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <Show when={store.perVe.getMouseIsOver(pageFns().vePath()) && !store.anItemIsMoving.get()}>
       <>
         <Show when={!pageFns().isInComposite() && pageFns().clickBoundsPx() != null}>
-          <div class={`absolute rounded-xs pointer-events-none`}
+          <div class={`absolute pointer-events-none`}
             style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
-              `background-color: #ffffff33;`} />
+              `border-radius: ${boxRadius()}; background-color: #ffffff33;`} />
         </Show>
         <Show when={pageFns().hasPopupClickBoundsPx()}>
           <div class={`absolute rounded-xs pointer-events-none`}
@@ -99,9 +97,9 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
 
   const renderMovingOverMaybe = () =>
     <Show when={store.perVe.getMovingItemIsOver(pageFns().vePath()) && pageFns().clickBoundsPx() != null}>
-      <div class={'absolute rounded-xs pointer-events-none'}
+      <div class={'absolute pointer-events-none'}
         style={`left: ${pageFns().clickBoundsPx()!.x}px; top: ${pageFns().clickBoundsPx()!.y}px; width: ${pageFns().clickBoundsPx()!.w}px; height: ${pageFns().clickBoundsPx()!.h}px; ` +
-          'background-color: #ffffff33;'} />
+          `border-radius: ${boxRadius()}; background-color: #ffffff33;`} />
     </Show>;
 
   const renderMovingOverAttachMaybe = () =>
@@ -122,7 +120,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <Show when={(props.visualElement.flags & VisualElementFlags.Selected) || pageFns().isPoppedUp()}>
       <div class='absolute pointer-events-none'
         style={`left: ${pageFns().innerBoundsPx().x}px; top: ${pageFns().innerBoundsPx().y}px; width: ${pageFns().innerBoundsPx().w}px; height: ${pageFns().innerBoundsPx().h}px; ` +
-          'background-color: #dddddd88;'} />
+          `border-radius: ${boxRadius()}; background-color: #dddddd88;`} />
     </Show>;
 
   const renderIsLinkMaybe = () =>
@@ -150,31 +148,33 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     return isVeTranslucentPage(parentVes.get());
   };
 
-  const boxInsetPx = () => (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) ? 0 : OPAQUE_BOX_INSET_PX;
+  const boxRadius = () => opaquePageBoxRadiusCss(pageFns().boundsPx().w, pageFns().boundsPx().h);
+  const boxInsetPx = () => opaquePageBoxInsetPx(props.visualElement);
 
   // Position and size of the visible box, relative to the page bounds.
   const boxStyle = () => {
     const inset = boxInsetPx();
     return `left: ${inset}px; top: ${inset}px; ` +
-      `width: ${pageFns().boundsPx().w - 2 * inset}px; height: ${pageFns().boundsPx().h - 2 * inset}px;`;
+      `width: ${pageFns().boundsPx().w - 2 * inset}px; height: ${pageFns().boundsPx().h - 2 * inset}px; ` +
+      `border-radius: ${boxRadius()};`;
   };
 
   const renderShadowMaybe = () =>
     <Show when={!props.suppressLocalShadow &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
-      <div class={`absolute border border-transparent rounded-xs overflow-hidden shadow-xl`}
+      <div class={`absolute border border-transparent overflow-hidden shadow-xl`}
         style={`${boxStyle()} z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && !pageFns().isInComposite() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none"
         style={`${boxStyle()} box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderHighlightMaybe = () =>
     <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none"
         style={`${boxStyle()} ` +
           `${highlightStyle(props.visualElement.flags)}` +
           `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
@@ -192,7 +192,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <div class="absolute"
       style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      <div class={`absolute border rounded-xs ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(pageFns().vePath()) ? "shadow-md" : ""}`}
+      <div class={`absolute border ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(pageFns().vePath()) ? "shadow-md" : ""}`}
         style={`${boxStyle()} ` +
           `border-color: ${borderColor()}; ` +
           `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, lightenAlpha())}; ` +

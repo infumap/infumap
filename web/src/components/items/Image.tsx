@@ -440,13 +440,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) &&
       !(props.visualElement.flags & VisualElementFlags.DockItem) &&
       (!(imageItem().flags & ImageFlags.HideBorder) || store.perVe.getMouseIsOver(vePath()) || isFocused())}>
-      <div class={`absolute border border-transparent rounded-xs shadow-xl bg-white`}
+      <div class={`absolute border border-transparent rounded-item shadow-xl bg-white`}
         style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w - 2}px; height: ${quantizedBoundsPx().h - 2}px; z-index: 0;`} />
     </Show>;
 
   const renderFocusRingMaybe = () => {
     return <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none rounded-item"
         style={`${boundsStylePx(visualFrameBoundsPx())} ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 3;`} />
     </Show>;
@@ -457,7 +457,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class="absolute text-xl font-bold rounded-md p-8 blur-md pointer-events-none"
         style={`left: ${visualFrameBoundsPx().x - 10}px; top: ${visualFrameBoundsPx().y - 10}px; ` +
           `width: ${visualFrameBoundsPx().w + 20}px; height: ${visualFrameBoundsPx().h + 20}px; background-color: #303030d0; z-index: 0;`} />
-      <div class="absolute border border-[#555] rounded-xs overflow-hidden pointer-events-none"
+      <div class="absolute border border-[#555] rounded-item overflow-hidden pointer-events-none"
         style={`${boundsStylePx(visualFrameBoundsPx())} z-index: 0;`}>
         <img class="max-w-none absolute pointer-events-none"
           style={thumbnailFitStyle()}
@@ -467,7 +467,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const renderFrameMaybe = (): JSX.Element => {
-    return <div class={`absolute overflow-hidden border pointer-events-none rounded-xs ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
+    return <div class={`absolute overflow-hidden border pointer-events-none rounded-item ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''} ` +
         (imageItem().flags & ImageFlags.HideBorder ? 'border-transparent' : `border-[#555] `)}
         style={`${boundsStylePx(visualFrameBoundsPx())} z-index: 1;`}>
         <Show when={boundsPx().w > MIN_IMAGE_WIDTH_PX}>
@@ -567,7 +567,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const tooSmallFallback = (): JSX.Element =>
-    <div class={`absolute overflow-hidden border pointer-events-none rounded-xs ` +
+    <div class={`absolute overflow-hidden border pointer-events-none rounded-item ` +
       (imageItem().flags & ImageFlags.HideBorder ? "border-transparent" : "border-[#555] ")}
       style={`left: 0px; top: 0px; width: ${quantizedBoundsPx().w}px; height: ${quantizedBoundsPx().h}px; z-index: 1;`} />;
 
@@ -718,7 +718,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         {renderPopupActionStripMaybe()}
       </Show>
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={autoMovedIntoViewWarningStyle(quantizedBoundsPx().w, quantizedBoundsPx().h)} />
       </Show>
     </div>

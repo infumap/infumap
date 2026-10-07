@@ -31,13 +31,13 @@ export const Placeholder_Desktop: Component<VisualElementProps> = (props: Visual
   const vePath = () => VeFns.veToPath(props.visualElement);
 
   return (
-    <div class={`absolute rounded-xs border border-slate-200`}
+    <div class={`absolute rounded-item border border-slate-200`}
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;` +
         `background: repeating-linear-gradient(315deg, #fff, #fff 3px, #eee 2px, #eee 5px); ` +
         `pointer-events: none; opacity: 0.5; ` +
         `${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>

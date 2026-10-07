@@ -173,9 +173,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const shadowClass = () => {
     if (isPopup()) {
-      return `absolute border border-transparent rounded-xs overflow-hidden blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-transparent rounded-item overflow-hidden blur-md bg-slate-700 pointer-events-none`;
     }
-    return `absolute border border-transparent rounded-xs shadow-xl overflow-hidden`;
+    return `absolute border border-transparent rounded-item shadow-xl overflow-hidden`;
   };
 
   const renderShadowMaybe = () =>
@@ -187,7 +187,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
-      <div class="absolute pointer-events-none rounded-xs"
+      <div class="absolute pointer-events-none rounded-item"
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: 2;`} />
     </Show>;
@@ -221,7 +221,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       fallback={
         <div class={`absolute border ` +
           `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
-          `rounded-xs pointer-events-none`}
+          `rounded-item pointer-events-none`}
           style={`left: 0px; top: ${bodyTopPx()}px; width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; ` +
             `background-color: ${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "#eee" : "white"}; ` +
             `outline: 0px solid transparent; z-index: 0;`} />
@@ -276,14 +276,14 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         {renderCollapseControlMaybe()}
         {renderTitleMaybe()}
         <Show when={showTitle() && isHighlighted()}>
-          <div class="absolute pointer-events-none rounded-xs"
+          <div class="absolute pointer-events-none rounded-item"
             style={`left: 0px; top: 0px; ` +
               `width: ${boundsPx().w}px; height: ${titleHeightPx()}px; ` +
               `background-color: ${highlightColor()}; ` +
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Show>
         <Show when={isHighlighted()}>
-          <div class="absolute pointer-events-none rounded-xs"
+          <div class="absolute pointer-events-none rounded-item"
             style={`left: 0px; top: ${bodyTopPx()}px; ` +
               `width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; ` +
               `background-color: ${highlightColor()}; ` +
@@ -355,7 +355,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
         </div>
       </Show>
       <Show when={store.perVe.getAutoMovedIntoView(vePath())}>
-        <div class="absolute pointer-events-none rounded-xs"
+        <div class="absolute pointer-events-none rounded-item"
           style={autoMovedIntoViewWarningStyle(boundsPx().w, boundsPx().h)} />
       </Show>
     </div>

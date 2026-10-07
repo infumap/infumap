@@ -1,6 +1,18 @@
 @import 'tailwindcss';
 
 /*
+  Corner radius of items on the desktop (rounded-item). Translucent pages override --radius-item for their
+  children as a multiple of --item-radius-base, so it scales down with the miniature.
+*/
+:root {
+  --item-radius-base: 4px;
+}
+
+@theme {
+  --radius-item: var(--item-radius-base);
+}
+
+/*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
   looks the same as it did with Tailwind CSS v3.

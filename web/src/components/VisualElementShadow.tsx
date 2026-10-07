@@ -34,6 +34,7 @@ import { itemState } from "../store/ItemState";
 import { useStore } from "../store/StoreProvider";
 import { BoundingBox, Vector, quantizeBoundingBox } from "../util/geometry";
 import { VisualElementSignal } from "../util/signals";
+import { opaquePageBoxInsetPx, opaquePageBoxRadiusCss } from "./items/helper";
 
 
 const DEFAULT_OFFSET_PX: Vector = { x: 0, y: 0 };
@@ -139,22 +140,22 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
       if ((noteItem.flags & NoteFlags.HideBorder) && !store.perVe.getMouseIsOver(vePath())) {
         return null;
       }
-      return <div class="absolute pointer-events-none border border-[#999] rounded-xs shadow-xl"
+      return <div class="absolute pointer-events-none border border-[#999] rounded-item shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }
 
     if (isFile(props.visualElement.displayItem)) {
-      return <div class="absolute pointer-events-none border border-[#999] rounded-xs shadow-xl"
+      return <div class="absolute pointer-events-none border border-[#999] rounded-item shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }
 
     if (isText(props.visualElement.displayItem)) {
-      return <div class="absolute pointer-events-none border border-[#999] rounded-xs shadow-xl"
+      return <div class="absolute pointer-events-none border border-[#999] rounded-item shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }
 
     if (isPassword(props.visualElement.displayItem)) {
-      return <div class="absolute pointer-events-none border border-[#999] rounded-xs shadow-xl"
+      return <div class="absolute pointer-events-none border border-[#999] rounded-item shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }
 
@@ -162,7 +163,7 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
       if (asCompositeItem(props.visualElement.displayItem).flags & CompositeFlags.HideBorder) {
         return null;
       }
-      return <div class="absolute pointer-events-none border border-transparent rounded-xs shadow-xl overflow-hidden"
+      return <div class="absolute pointer-events-none border border-transparent rounded-item shadow-xl overflow-hidden"
         style={shadowStyle(boundsPx())} />;
     }
 
@@ -176,7 +177,7 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
         return null;
       }
       const quantizedBoundsPx = offsetBoundsPx(quantizeBoundingBox(props.visualElement.boundsPx), offsetPx());
-      return <div class="absolute pointer-events-none border border-transparent rounded-xs shadow-xl"
+      return <div class="absolute pointer-events-none border border-transparent rounded-item shadow-xl"
         style={shadowStyle({
           ...quantizedBoundsPx,
           w: quantizedBoundsPx.w - 2,
@@ -192,7 +193,7 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
         w: boundsPx().w,
         h: boundsPx().h - blockSizePx.h,
       };
-      return <div class="absolute pointer-events-none border border-transparent rounded-xs shadow-xl"
+      return <div class="absolute pointer-events-none border border-transparent rounded-item shadow-xl"
         style={shadowStyle(tableShadowBoundsPx)} />;
     }
 
@@ -200,8 +201,15 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
       if (isVeTranslucentPage(props.visualElement) && pageUsesFlatWorkspaceChrome(props.visualElement)) {
         return null;
       }
-      return <div class="absolute pointer-events-none border border-transparent rounded-xs shadow-xl overflow-hidden"
-        style={shadowStyle(boundsPx())} />;
+      if (isVeTranslucentPage(props.visualElement) || (props.visualElement.flags & VisualElementFlags.Preview)) {
+        return <div class="absolute pointer-events-none border border-transparent rounded-item shadow-xl overflow-hidden"
+          style={shadowStyle(boundsPx())} />;
+      }
+      // Match the inset, rounded visible box of an opaque page.
+      const inset = opaquePageBoxInsetPx(props.visualElement);
+      const opaqueBoxPx = { x: boundsPx().x + inset, y: boundsPx().y + inset, w: boundsPx().w - 2 * inset, h: boundsPx().h - 2 * inset };
+      return <div class="absolute pointer-events-none border border-transparent shadow-xl overflow-hidden"
+        style={shadowStyle(opaqueBoxPx) + ` border-radius: ${opaquePageBoxRadiusCss(boundsPx().w, boundsPx().h)};`} />;
     }
 
     return null;
