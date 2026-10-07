@@ -1181,7 +1181,8 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         : activeVisualElement.linkItemMaybe == null
         ? asTableItem(activeItem).tableColumns[hitMeta.colNum!].widthGr
         : asTableItem(activeVisualElement.displayItem).tableColumns[hitMeta.colNum!].widthGr;
-      if (MouseActionState.getStartWidthBl()! * GRID_SIZE != widthGr) {
+      // Column resize is allowed on read-only tables, but only as a local view change.
+      if (MouseActionState.getStartWidthBl()! * GRID_SIZE != widthGr && itemCanEdit(activeVisualElement.displayItem)) {
         serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
       }
       break;

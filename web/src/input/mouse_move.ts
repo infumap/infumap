@@ -105,8 +105,22 @@ function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
   return asPositionalItem(VeFns.treeItem(activeVisualElement));
 }
 
+// Column widths are a viewing affordance, so they stay adjustable on read-only tables
+// (e.g. chat responses). Changes to read-only items are not persisted (see mouse_up).
+function isTableColumnResize(ve: VisualElement, hitboxType: HitboxFlags): boolean {
+  if (!(hitboxType & HitboxFlags.HorizontalResize)) { return false; }
+  if (ve.flags & VisualElementFlags.IsDock) { return false; }
+  return isTable(ve.displayItem) || (isPage(ve.displayItem) && ve.tableBodyViewportBoundsPx != null);
+}
+
+function hitInfoCanEditTableColumns(hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  const hitVe = HitInfoFns.getHitVe(hitInfo);
+  return itemCanEdit(hitVe.displayItem) && itemCanEdit(VeFns.treeItem(hitVe));
+}
+
 function hitInfoCanResize(hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  return itemCanResize(VeFns.treeItem(HitInfoFns.getHitVe(hitInfo)));
+  const hitVe = HitInfoFns.getHitVe(hitInfo);
+  return isTableColumnResize(hitVe, hitInfo.hitboxType) || itemCanResize(VeFns.treeItem(hitVe));
 }
 
 function maxInsideCompositeOrDocumentWidthBl(activeVisualElement: VisualElement): number | null {
@@ -590,7 +604,8 @@ function changeMouseActionStateMaybe(
     }
 
   } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.HorizontalResize)) {
-    if (!itemCanResize(VeFns.treeItem(activeVisualElement))) {
+    if (!isTableColumnResize(activeVisualElement, HitboxFlags.HorizontalResize) &&
+      !itemCanResize(VeFns.treeItem(activeVisualElement))) {
       store.anItemIsResizing.set(false);
       return;
     }
@@ -1422,7 +1437,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const copyOnlyMoveHover = isCopyOnlyMoveHover(hitInfo);
   const copyOnlyMoveOutHover = isCopyOnlyMoveOutHover(hitInfo);
   setCopyMoveCursorOverride(copyOnlyMoveHover && hasUser && !hasModal && !isInsideToolbarPopup);
-  if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && !hasModal && !isInsideToolbarPopup) {
+  if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && hitInfoCanEditTableColumns(hitInfo) &&
+    !hasModal && !isInsideToolbarPopup) {
     if (hitInfo.overElementMeta!.colNum) {
       store.mouseOverTableHeaderColumnNumber.set(hitInfo.overElementMeta!.colNum);
     } else {
@@ -1592,7 +1608,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.Expand) {
       document.body.style.cursor = "pointer";
-    } else if (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) {
+    } else if ((hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && hitInfoCanEditTableColumns(hitInfo)) {
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.Move &&
       isComposite(HitInfoFns.getOverContainerVe(hitInfo).displayItem)) {
