@@ -31,33 +31,6 @@ readonly RESTART_DELAY_SECS="${TEXT_EXTRACTION_RESTART_DELAY_SECS:-5}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 LAUNCHED_CHILD_PID=""
 
-gpu_total_memory_mib() {
-    if ! command -v nvidia-smi >/dev/null 2>&1; then
-        return 1
-    fi
-    nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n 1
-}
-
-set_runtime_defaults() {
-    local gpu_mib=""
-    if gpu_mib="$(gpu_total_memory_mib)" && [ -n "$gpu_mib" ]; then
-        if [ -z "${TORCH_DEVICE:-}" ]; then
-            export TORCH_DEVICE="cuda"
-        fi
-        if [ -z "${INFERENCE_RAM:-}" ]; then
-            export INFERENCE_RAM="$((gpu_mib / 1024))"
-        fi
-    fi
-    export TEXT_EXTRACTION_PDFTEXT_WORKERS=1
-    export TEXT_EXTRACTION_MAX_CONCURRENCY=1
-    if [ -z "${TEXT_EXTRACTION_MODE:-}" ]; then
-        export TEXT_EXTRACTION_MODE="balanced"
-    fi
-    if [ -z "${SURYA_GUIDED_LAYOUT:-}" ]; then
-        export SURYA_GUIDED_LAYOUT="0"
-    fi
-}
-
 fail() {
     echo "Error: $1" >&2
     exit 1
@@ -219,8 +192,8 @@ PY
 
 install_requirements "$VENV_PYTHON" "$ROOT_DIR/requirements.txt" "$VENV_DIR/.requirements.sha256"
 
-# Docling and Marker require incompatible Transformers versions on macOS.
-# Give the native backend its own environment on every platform.
+# Docling (with PyTorch) gets its own environment; the service process only
+# runs the web stack and starts Docling workers.
 if [ "$VENV_DIR" -ef "$TEXT_EXTRACTION_DOCLING_VENV_DIR" ]; then
     fail "TEXT_EXTRACTION_DOCLING_VENV_DIR must differ from TEXT_EXTRACTION_VENV_DIR."
 fi
@@ -234,22 +207,15 @@ if ! "$DOCLING_PYTHON" -m pip --version >/dev/null 2>&1; then
 fi
 install_requirements "$DOCLING_PYTHON" "$ROOT_DIR/requirements-docling.txt" "$TEXT_EXTRACTION_DOCLING_VENV_DIR/.requirements.sha256"
 
-set_runtime_defaults
-
 echo "Starting Infumap text extraction service"
 echo "Python: $("$VENV_PYTHON" -V 2>&1)"
 echo "Docling Python: $DOCLING_PYTHON ($("$DOCLING_PYTHON" -V 2>&1))"
 echo "Host/port: $HOST:$PORT"
 echo "Hugging Face cache: ${HF_HOME:-<library default>}"
-echo "TORCH_DEVICE=${TORCH_DEVICE:-<unset>}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
-echo "INFERENCE_RAM=${INFERENCE_RAM:-<unset>}"
-echo "TEXT_EXTRACTION_MAX_CONCURRENCY=${TEXT_EXTRACTION_MAX_CONCURRENCY}"
-echo "TEXT_EXTRACTION_PDFTEXT_WORKERS=${TEXT_EXTRACTION_PDFTEXT_WORKERS}"
 echo "TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS=${TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS:-3600}"
-echo "TEXT_EXTRACTION_MODE=${TEXT_EXTRACTION_MODE:-balanced}"
-echo "SURYA_GUIDED_LAYOUT=${SURYA_GUIDED_LAYOUT:-0}"
+echo "TEXT_EXTRACTION_OCR_LANG=${TEXT_EXTRACTION_OCR_LANG:-english}"
 echo "TEXT_EXTRACTION_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
 if command -v nvidia-smi >/dev/null 2>&1; then
     echo "Detected GPUs via nvidia-smi:"

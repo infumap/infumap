@@ -145,84 +145,18 @@ def root_path() -> str:
 
 
 def build_runtime_summary() -> list[str]:
-    summary = [
+    return [
         f"python={platform.python_version()}",
         f"platform={platform.platform()}",
-        f"marker={package_version('marker-pdf')}",
         f"fastapi={package_version('fastapi')}",
         f"uvicorn={package_version('uvicorn')}",
-        f"torch_device_env={os.environ.get('TORCH_DEVICE', '<unset>')}",
         f"cuda_visible_devices={os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}",
-        f"inference_ram={os.environ.get('INFERENCE_RAM', '<unset>')}",
         f"max_concurrency={GPU_REQUEST_CONCURRENCY}",
         f"worker_slot_wait_timeout_secs={worker_slot_wait_timeout_secs()}",
         f"conversion_timeout_secs={conversion_timeout_secs()}",
-        f"surya_guided_layout={os.environ.get('SURYA_GUIDED_LAYOUT', '<unset>')}",
+        f"ocr_lang={os.environ.get('TEXT_EXTRACTION_OCR_LANG') or 'english'}",
         f"max_upload_bytes={max_upload_bytes()}",
     ]
-
-    try:
-        import torch
-
-        summary.append(f"torch={torch.__version__}")
-        summary.append(f"cuda_available={torch.cuda.is_available()}")
-        if torch.cuda.is_available():
-            summary.append(f"cuda_device_count={torch.cuda.device_count()}")
-            cuda_devices = []
-            for idx in range(torch.cuda.device_count()):
-                props = torch.cuda.get_device_properties(idx)
-                cuda_devices.append(
-                    f"{idx}:{torch.cuda.get_device_name(idx)} ({props.total_memory / (1024 ** 3):.1f} GiB)"
-                )
-            summary.append(f"cuda_devices=[{', '.join(cuda_devices)}]")
-        if hasattr(torch.backends, "mps"):
-            summary.append(f"mps_available={torch.backends.mps.is_available()}")
-    except Exception as exc:
-        summary.append(f"torch_runtime_error={exc}")
-
-    return summary
-
-
-def clear_torch_cuda_cache() -> None:
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-    except Exception:
-        pass
-
-
-def reset_torch_cuda_peak_memory() -> None:
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            torch.cuda.reset_peak_memory_stats()
-    except Exception:
-        pass
-
-
-def torch_cuda_memory_summary() -> str | None:
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return None
-
-        torch.cuda.synchronize()
-        allocated_mib = torch.cuda.memory_allocated() / (1024 * 1024)
-        reserved_mib = torch.cuda.memory_reserved() / (1024 * 1024)
-        peak_allocated_mib = torch.cuda.max_memory_allocated() / (1024 * 1024)
-        peak_reserved_mib = torch.cuda.max_memory_reserved() / (1024 * 1024)
-        return (
-            f"cuda_mem_allocated={allocated_mib:.0f}MiB "
-            f"cuda_mem_reserved={reserved_mib:.0f}MiB "
-            f"cuda_peak_allocated={peak_allocated_mib:.0f}MiB "
-            f"cuda_peak_reserved={peak_reserved_mib:.0f}MiB"
-        )
-    except Exception as exc:
-        return f"cuda_mem_error={exc}"
 
 
 async def exit_process_after_delay(delay_secs: float, exit_code: int) -> None:
@@ -332,7 +266,6 @@ def convert_file_bytes(file_bytes: bytes, file_name: str, deadline: float) -> Co
     started_at = time.perf_counter()
     file_size_bytes = len(file_bytes)
     LOGGER.info("Starting conversion: file=%s size_bytes=%d", file_name, file_size_bytes)
-    reset_torch_cuda_peak_memory()
     reject_unprocessable_pdf(file_bytes)
     try:
         extractor: PdfExtractor = APP_STATE["extractor"]
@@ -342,15 +275,13 @@ def convert_file_bytes(file_bytes: bytes, file_name: str, deadline: float) -> Co
         page_stats = metadata.get("page_stats")
         if isinstance(page_stats, list):
             page_count = len(page_stats)
-        cuda_memory = torch_cuda_memory_summary()
         LOGGER.info(
-            "Completed conversion: file=%s size_bytes=%d duration_ms=%d markdown_chars=%d page_count=%s%s",
+            "Completed conversion: file=%s size_bytes=%d duration_ms=%d markdown_chars=%d page_count=%s",
             file_name,
             file_size_bytes,
             duration_ms,
             len(markdown),
             page_count if page_count is not None else "unknown",
-            f" {cuda_memory}" if cuda_memory else "",
         )
 
         return ConvertResponse(
@@ -374,30 +305,25 @@ def convert_file_bytes(file_bytes: bytes, file_name: str, deadline: float) -> Co
         raise
     except Exception as exc:
         duration_ms = int((time.perf_counter() - started_at) * 1000)
-        cuda_memory = torch_cuda_memory_summary()
         rejection = classify_document_rejection(exc)
         if rejection is not None:
             error_code, rejection_reason = rejection
             LOGGER.warning(
-                "Skipping unprocessable PDF: file=%s size_bytes=%d duration_ms=%d error_code=%s reason=%s%s",
+                "Skipping unprocessable PDF: file=%s size_bytes=%d duration_ms=%d error_code=%s reason=%s",
                 file_name,
                 file_size_bytes,
                 duration_ms,
                 error_code,
                 rejection_reason,
-                f" {cuda_memory}" if cuda_memory else "",
             )
             raise DocumentRejectedError(error_code, rejection_reason) from exc
         LOGGER.exception(
-            "Conversion failed: file=%s size_bytes=%d duration_ms=%d%s",
+            "Conversion failed: file=%s size_bytes=%d duration_ms=%d",
             file_name,
             file_size_bytes,
             duration_ms,
-            f" {cuda_memory}" if cuda_memory else "",
         )
         raise exc
-    finally:
-        clear_torch_cuda_cache()
 
 
 async def read_multipart_upload(request: Request) -> tuple[str, str | None, bytes]:

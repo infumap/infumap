@@ -1,13 +1,12 @@
-# Direct requirements for pdf_extract service.
-# Docling runs separately with requirements-docling.txt; do not merge these
-# environments because their Transformers requirements conflict on macOS.
+# Direct requirements for the pdf_extract service process. Docling, which does
+# the extraction and needs PyTorch, runs in a separate environment from
+# requirements-docling.txt, so this one stays a small web stack.
 # Pinned to the reviewed versions so first install does not drift to whatever
 # happens to be latest on PyPI that day.
 #
-# pypdfium2 is imported by app.py for password-protected PDF detection.
-# pdftext 0.7.1 (pulled by marker-pdf 2.0.0) requires exactly 5.10.1.
+# pypdfium2 is imported by app.py for password-protected PDF detection; it
+# matches the version in requirements-docling.txt.
 fastapi==0.135.2
 uvicorn==0.42.0
 python-multipart==0.0.32
-pypdfium2==5.10.1
-marker-pdf[full]==2.0.0
+pypdfium2==5.13.0

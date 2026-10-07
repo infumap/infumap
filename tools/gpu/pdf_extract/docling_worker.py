@@ -237,11 +237,11 @@ def main() -> None:
         elif rejection is not None:
             error = {"kind": "document", "error_code": rejection[0], "message": rejection[1]}
         elif isinstance(exc, (BackendUnavailableError, ImportError)) or is_setup_failure(message):
-            # Marker would hide a broken installation, and the caller retries.
+            # OCR would hide a broken installation, and the caller retries.
             error = {"kind": "unavailable", "message": message}
         else:
-            # Includes memory exhaustion: this document may be too much for
-            # Docling but not for Marker, and retrying it would not help.
+            # Includes memory exhaustion. The extractor falls back to OCR when
+            # native extraction fails, and retries OCR memory exhaustion.
             error = {"kind": "conversion", "message": message}
         payload = {"worker_error": error}
     Path(output_path).write_text(json.dumps(payload, ensure_ascii=False, allow_nan=False), encoding="utf-8")
