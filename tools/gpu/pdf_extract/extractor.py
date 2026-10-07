@@ -36,7 +36,7 @@ LOGGER = logging.getLogger("uvicorn.error")
 # Reported with every extraction. Bump it when routing, Markdown export or a
 # pinned extraction package changes, so extracted text can be traced to the
 # code that produced it.
-SERVICE_VERSION = "0.3.0"
+SERVICE_VERSION = "0.3.1"
 # Share of the conversion deadline Docling may use, leaving Marker time to run.
 DOCLING_TIME_BUDGET_FRACTION = 0.5
 
@@ -125,6 +125,8 @@ class PdfExtractor:
         LOGGER.info("Selected PDF backend: file=%s backend=marker fallback_reason=%s", file_name, reason)
         try:
             markdown, metadata = self.marker.convert(file_bytes, file_name)
+        except DocumentRejectedError:
+            raise
         except Exception as exc:
             description = f"Marker {type(exc).__name__}: {exc}"
             if is_resource_failure(description):

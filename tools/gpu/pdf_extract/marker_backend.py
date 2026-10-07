@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,8 @@ from marker.config.parser import ConfigParser
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
+
+from extraction_errors import PDF_INFERENCE_FAILED_ERROR_CODE, DocumentRejectedError
 
 LOGGER = logging.getLogger("uvicorn.error")
 PDFTEXT_WORKERS = 1
@@ -115,19 +118,63 @@ def metadata_to_dict(metadata: Any) -> dict[str, Any]:
     return {"value": metadata}
 
 
+class InferenceFailureCounter:
+    """Counts surya VLM requests that still failed after surya's own retries.
+
+    Marker does not fail a conversion when these requests fail: it leaves the
+    affected page layout, OCR block or table empty and returns the rest. Every
+    VLM request (layout, OCR and table OCR) goes through the one inference
+    manager, so counting its results catches them all.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.requests = 0
+        self.failures = 0
+
+    def wrap(self, manager: Any) -> None:
+        generate = manager.generate
+
+        def counted_generate(batch: Any) -> Any:
+            outputs = generate(batch)
+            failures = sum(1 for output in outputs if getattr(output, "error", False))
+            with self._lock:
+                self.requests += len(outputs)
+                self.failures += failures
+            return outputs
+
+        manager.generate = counted_generate
+
+    def reset(self) -> None:
+        with self._lock:
+            self.requests = 0
+            self.failures = 0
+
+    def snapshot(self) -> tuple[int, int]:
+        with self._lock:
+            return self.requests, self.failures
+
+
 class MarkerBackend:
     """Marker conversion and model ownership, independent of HTTP handling."""
 
     def __init__(self) -> None:
         self.config = build_config()
         self.models: dict[str, Any] | None = None
+        self.inference_failures = InferenceFailureCounter()
 
     def load(self) -> None:
         if self.models is not None:
             return
         LOGGER.info("Marker extraction config: %s", self.config)
         started_at = time.perf_counter()
-        self.models = create_model_dict()
+        models = create_model_dict()
+        manager = models.get("inference_manager")
+        if manager is None or not callable(getattr(manager, "generate", None)):
+            # Without it, failed inference would silently produce empty pages.
+            raise RuntimeError("Marker models have no inference_manager; cannot detect failed inference requests.")
+        self.inference_failures.wrap(manager)
+        self.models = models
         LOGGER.info(
             "Marker models loaded in %d ms: %s",
             int((time.perf_counter() - started_at) * 1000),
@@ -149,7 +196,16 @@ class MarkerBackend:
                 renderer=config_parser.get_renderer(),
                 llm_service=config_parser.get_llm_service(),
             )
+            self.inference_failures.reset()
             rendered = converter(str(path))
+            requests, failures = self.inference_failures.snapshot()
+            if failures:
+                raise DocumentRejectedError(
+                    PDF_INFERENCE_FAILED_ERROR_CODE,
+                    f"Marker's inference server failed {failures} of {requests} request(s) after retries, "
+                    "so pages, text blocks or tables would be missing; see 'Inference error' in the PDF "
+                    "extraction service log.",
+                )
             markdown, _, _ = text_from_rendered(rendered)
             return markdown, metadata_to_dict(rendered.metadata)
 
