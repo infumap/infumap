@@ -72,12 +72,13 @@ struct TextManifestExtractor {
 /// fields, so their backend is unknown.
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 struct TextExtractionInfo {
-  /// `docling` or `marker`.
+  /// `docling` (native text) or `docling_ocr`; `marker` in manifests written
+  /// before Marker was removed from pdf_extract.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   backend: Option<String>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   service_version: Option<String>,
-  /// Why Docling's output was not used, when Marker produced the text.
+  /// Why native text was not used, when the text came from OCR (or Marker).
   #[serde(default, skip_serializing_if = "Option::is_none")]
   fallback_reason: Option<String>,
   /// Pages of the returned text that contribute little or none of their text.

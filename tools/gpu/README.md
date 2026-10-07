@@ -37,9 +37,10 @@ The child services keep their own defaults:
 Infumap can use the gateway for discovery with
 `gpu_tools_url = "http://127.0.0.1:8787"`.
 
-Hugging Face, llama.cpp, PyTorch, Transformers, and Marker downloads use their
+Hugging Face, llama.cpp, PyTorch, Transformers, and Docling downloads use their
 standard library cache locations, such as `~/.cache/huggingface` and
-`~/.cache/torch`.
+`~/.cache/torch`. RapidOCR, used for PDF OCR, stores its models inside its
+package in `pdf_extract/.venv-docling`.
 
 `image_extract` defaults to
 `unsloth/Qwen3.5-9B-GGUF:Qwen3.5-9B-Q4_K_M.gguf`. Set
@@ -75,8 +76,8 @@ The combined launcher keeps each service independent:
   `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - PDF extract has a per-PDF conversion watchdog
   (`TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`, default 1 hour); a timed-out PDF is
-  treated as a terminal document failure and the supervised service process
-  restarts to clear stuck native worker state. Callers may request a different
+  treated as a terminal document failure; its Docling worker process is killed
+  and the service keeps running. Callers may request a different
   limit (up to 24 hours) with the `X-Pdf-Conversion-Timeout-Secs` header; the
   gateway resolves the limit, forwards it to PDF extract, and reports it as
   `conversion_timeout_secs` in async job status. Infumap lists timed-out PDFs as
