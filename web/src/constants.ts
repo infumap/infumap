@@ -37,6 +37,9 @@ export const NATURAL_BLOCK_SIZE_PX = { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX };
 
 export const CALENDAR_DAY_ROW_HEIGHT_BL = 1;
 export const CALENDAR_DAY_LABEL_LEFT_MARGIN_PX = 18;
+// The day number is right aligned in a box this far from the left of the day row, leaving a gap before the items.
+export const CALENDAR_DAY_NUMBER_LEFT_PX = 2;
+export const CALENDAR_DAY_NUMBER_WIDTH_PX = 14;
 
 export const EMBEDDED_CHILD_WIDTH_BL = 10;
 

@@ -22,7 +22,7 @@ import { Veid, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layo
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
-import { Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
+import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -720,7 +720,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                       style={`left: 0px; top: ${topPos}px; width: ${monthWidth}px; height: ${dayMetrics.heightPx}px; ` +
                         `background-color: ${backgroundColor}; ` +
                         `border-bottom: 1px solid #e5e5e5; padding-top: 5px;`}>
-                      <span style="width: 14px; text-align: right; font-size: 10px; margin-left: 2px;">{day}</span>
+                      <span style={`width: ${CALENDAR_DAY_NUMBER_WIDTH_PX}px; text-align: right; font-size: 10px; margin-left: ${CALENDAR_DAY_NUMBER_LEFT_PX}px;`}>{day}</span>
                     </div>
                   );
                 }}</For>

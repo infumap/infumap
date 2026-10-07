@@ -23,7 +23,7 @@ import { VeFns, VisualElementFlags, type VisualElement } from "../../layout/visu
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
-import { CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
+import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
 import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
 import { linearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
@@ -381,7 +381,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const columnWidthPx = Math.max(0, childArea.w - leftRightMarginPx * 2);
     const titleTopPx = calendarMiniTitleTopPx(baseRowHeightPx);
     const titleHeightPx = calendarMiniTitleHeightPx(baseRowHeightPx);
-    const dayLabelWidthPx = CALENDAR_DAY_LABEL_LEFT_MARGIN_PX * scale;
+    const dayNumberWidthPx = CALENDAR_DAY_NUMBER_WIDTH_PX * scale;
+    const dayNumberLeftPx = CALENDAR_DAY_NUMBER_LEFT_PX * scale;
     const dayLabelFontSizePx = Math.max(7, 10 * Math.min(scale, rowHeightPx / LINE_HEIGHT_PX));
     const titleFontSizePx = Math.max(10, 24 * scale);
     const visibleCalendarPosition = (combinedIndex: number, year?: number) => {
@@ -434,7 +435,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
               <div class="absolute flex items-start"
                 style={`left: ${columnLeftPx}px; top: ${dayLayout.topPx}px; width: ${columnWidthPx}px; height: ${dayLayout.heightPx}px; ` +
                   `background-color: ${backgroundColor}; border-bottom: 1px solid #e5e5e5; box-sizing: border-box; padding-top: ${Math.min(5 * scale, Math.max(0, rowHeightPx * 0.2))}px;`}>
-                <span style={`width: ${dayLabelWidthPx}px; text-align: right; font-size: ${dayLabelFontSizePx}px; margin-left: ${2 * scale}px;`}>
+                <span style={`width: ${dayNumberWidthPx}px; text-align: right; font-size: ${dayLabelFontSizePx}px; margin-left: ${dayNumberLeftPx}px;`}>
                   {dayLayout.day}
                 </span>
               </div>
