@@ -26,7 +26,7 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { asYSizableItem, isYSizableItem } from "../../items/base/y-sizeable-item";
 import { isComposite } from "../../items/composite-item";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
-import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, type ListPageVisibleRow } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, isPage, type ListPageVisibleRow } from "../../items/page-item";
 import { isQueryItem } from "../../items/query-item";
 import { asTextItem, isText } from "../../items/text-item";
 import { virtualTextDocumentPage } from "../../items/text-document";
@@ -603,11 +603,6 @@ export function arrangeSelectedListItem(
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
 
-  // A calendar page has no miniature form: its preview shows only its title (see Page_CalendarPreview), so its contents
-  // are not arranged.
-  const isCalendarPreview = previewScale != null && isPage(item) &&
-    asPageItem(item).arrangeAlgorithm == ArrangeAlgorithm.Calendar;
-
   let cellGeometry: ItemGeometry;
 
   if (isPage(item) || isQueryItem(item)) {
@@ -647,15 +642,9 @@ export function arrangeSelectedListItem(
   }
 
   const flags =
-    (renderAsListPageRoot && !isCalendarPreview ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
+    (renderAsListPageRoot ? ArrangeItemFlags.IsListPageMainRoot : ArrangeItemFlags.None) |
     (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None) |
     (previewScale != null && isPage(item) ? ArrangeItemFlags.IsPreview : ArrangeItemFlags.None);
-
-  if (isCalendarPreview) {
-    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, li);
-    return arrangeItemNoChildren(
-      store, currentPath, displayItem, linkItemMaybe, actualLinkItemMaybe as LinkItem | null, cellGeometry, flags);
-  }
 
   // As for the children of spatial and document pages, a preview of an item too small for its text to be legible is
   // drawn as an outline. Images remain recognizable when small, so are not subject to this.

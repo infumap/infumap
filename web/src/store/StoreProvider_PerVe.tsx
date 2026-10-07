@@ -17,7 +17,7 @@
 */
 
 import { untrack } from "solid-js";
-import { VisualElementPath } from "../layout/visual-element";
+import { VeFns, VisualElementPath } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import {
   decodeCalendarMonthIndex,
@@ -76,6 +76,8 @@ export interface PerVeStoreContextModel {
   getIsExpanded: (vePath: VisualElementPath) => boolean,
   setIsExpanded: (vePath: VisualElementPath, isExpanded: boolean) => void,
 
+  // The period shown by a calendar is per calendar page (not per visual element), so every view of a calendar (e.g. a
+  // preview of it, and the page itself) shows the same period.
   getCalendarMonthIndex: (vePath: VisualElementPath) => number,
   hasCalendarMonthIndex: (vePath: VisualElementPath) => boolean,
   setCalendarMonthIndex: (vePath: VisualElementPath, monthIndex: number) => void,
@@ -348,32 +350,37 @@ export function makePerVeStore(): PerVeStoreContextModel {
     return encodeCalendarMonthIndex(now.getFullYear(), now.getMonth() + 1);
   };
 
+  // The calendar period state is keyed by the calendar page's item id.
+  const calendarKey = (vePath: VisualElementPath): string => VeFns.itemIdFromPath(vePath);
+
   const getCalendarMonthIndex = (vePath: VisualElementPath): number => {
-    if (!calendarMonthIndex.get(vePath)) {
-      calendarMonthIndex.set(vePath, createNumberSignal(getDefaultCalendarMonthIndex()));
+    const key = calendarKey(vePath);
+    if (!calendarMonthIndex.get(key)) {
+      calendarMonthIndex.set(key, createNumberSignal(getDefaultCalendarMonthIndex()));
     }
-    return calendarMonthIndex.get(vePath)!.get();
+    return calendarMonthIndex.get(key)!.get();
   };
 
   const hasCalendarMonthIndex = (vePath: VisualElementPath): boolean => {
-    return calendarMonthIndex.has(vePath);
+    return calendarMonthIndex.has(calendarKey(vePath));
   };
 
   const setCalendarMonthIndex = (vePath: VisualElementPath, monthIndex: number): void => {
-    const previousMonthIndex = calendarMonthIndex.get(vePath)?.get();
-    const previousYear = calendarYear.get(vePath)?.get();
+    const key = calendarKey(vePath);
+    const previousMonthIndex = calendarMonthIndex.get(key)?.get();
+    const previousYear = calendarYear.get(key)?.get();
 
-    if (!calendarMonthIndex.get(vePath)) {
-      calendarMonthIndex.set(vePath, createNumberSignal(monthIndex));
+    if (!calendarMonthIndex.get(key)) {
+      calendarMonthIndex.set(key, createNumberSignal(monthIndex));
     } else {
-      calendarMonthIndex.get(vePath)!.set(monthIndex);
+      calendarMonthIndex.get(key)!.set(monthIndex);
     }
 
     const nextYear = decodeCalendarMonthIndex(monthIndex).year;
-    if (!calendarYear.get(vePath)) {
-      calendarYear.set(vePath, createNumberSignal(nextYear));
+    if (!calendarYear.get(key)) {
+      calendarYear.set(key, createNumberSignal(nextYear));
     } else if (previousYear == null || previousYear !== nextYear) {
-      calendarYear.get(vePath)!.set(nextYear);
+      calendarYear.get(key)!.set(nextYear);
     }
 
     if (previousMonthIndex == null || previousMonthIndex !== monthIndex) {
