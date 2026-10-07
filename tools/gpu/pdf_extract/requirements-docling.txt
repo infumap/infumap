@@ -1,5 +1,5 @@
-# Installed in .venv-docling, separately from Marker. On macOS their
-# Transformers requirements conflict (Marker >=5.12.1; Docling models <5.9).
+# Installed in .venv-docling, separately from the service's web stack. It
+# includes RapidOCR, used for full-page OCR.
 # Extraction packages match Groundwork's installed baseline on 2026-09-28.
 docling==2.115.0
 docling-core==2.95.0

@@ -51,8 +51,8 @@ from docling_core.types.doc.document import (
 
 # Routing heuristics, not a claim of OCR or semantic accuracy. A nonblank page
 # is unusable when it looks scanned or its native text is garbled. Documents
-# go to Marker only when at least this fraction of nonblank pages is unusable;
-# otherwise Docling is used and unusable pages contribute little or no text.
+# go to OCR only when at least this fraction of nonblank pages is unusable;
+# otherwise native text is used and unusable pages contribute little or no text.
 MIN_UNUSABLE_PAGE_FRACTION = 0.5
 DOMINANT_IMAGE_FRACTION = 0.65
 MIN_NATIVE_CHARS_ON_IMAGE_PAGE = 200
@@ -392,9 +392,9 @@ def assess_and_render(result: ConversionResult, pdf: pdfium.PdfDocument) -> tupl
 
     Structural problems with Docling's result reject the document. Otherwise a
     nonblank page is unusable when it looks scanned or its native text is
-    garbled, and the document goes to Marker when at least
+    garbled, and the document goes to OCR when at least
     MIN_UNUSABLE_PAGE_FRACTION of nonblank pages are unusable. Mixed documents,
-    searchable scans, and picture-heavy documents use Docling without OCR.
+    searchable scans, and picture-heavy documents use native text without OCR.
 
     Retention compares normalized alphanumeric character counts, tolerating
     whitespace, ligatures, and formatting changes. Low retention is reported
