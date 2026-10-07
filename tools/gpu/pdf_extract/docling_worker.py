@@ -68,40 +68,37 @@ OCR_LANG = ocr_lang()
 
 
 def ocr_device() -> str:
-    """Where RapidOCR's torch backend runs. Docling enables CUDA itself."""
+    """Where RapidOCR runs, for the log.
+
+    Docling enables CUDA for RapidOCR itself. RapidOCR also supports the Apple
+    GPU (MPS), but it is deliberately not enabled: Docling runs OCR and layout
+    in parallel threads, and two threads using MPS at once abort the worker in
+    Metal ("A command encoder is already encoding to this command buffer").
+    The layout model still uses MPS.
+    """
     import torch
 
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
+    return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def build_ocr_options(device: str) -> RapidOcrOptions:
+def build_ocr_options() -> RapidOcrOptions:
     """Full-page OCR settings for the fallback pass."""
-    return RapidOcrOptions(
-        lang=[OCR_LANG],
-        backend="torch",
-        force_full_page_ocr=True,
-        # Docling only enables CUDA for RapidOCR's torch backend.
-        rapidocr_params={"EngineConfig.torch.use_mps": True} if device == "mps" else {},
-    )
+    return RapidOcrOptions(lang=[OCR_LANG], backend="torch", force_full_page_ocr=True)
 
 
-def build_converter(ocr_device_name: str | None = None) -> DocumentConverter:
-    """Native extraction, or full-page OCR on ocr_device_name."""
+def build_converter(ocr: bool = False) -> DocumentConverter:
+    """Native extraction, or full-page OCR."""
     options = PdfPipelineOptions()
-    options.do_ocr = ocr_device_name is not None
-    if ocr_device_name is not None:
-        options.ocr_options = build_ocr_options(ocr_device_name)
+    options.do_ocr = ocr
+    if ocr:
+        options.ocr_options = build_ocr_options()
     options.do_table_structure = True
     # Explicitly select TableFormer V1, as used by Groundwork's pinned version.
     options.table_structure_options = TableStructureOptions(
         mode=TableFormerMode.ACCURATE, do_cell_matching=True
     )
     # Native assessment compares against the parsed text layer.
-    options.generate_parsed_pages = ocr_device_name is None
+    options.generate_parsed_pages = not ocr
     options.heading_hierarchy_options = HeadingHierarchyOptions(enabled=True)
     options.do_code_enrichment = False
     options.do_formula_enrichment = False
@@ -175,7 +172,7 @@ def convert_ocr(source_path: str, filename: str) -> dict:
         page_count = len(document)
     finally:
         document.close()
-    converter = build_converter(device)
+    converter = build_converter(ocr=True)
     sections: list[str] = []
     statuses: list[str] = []
     errors: list = []
