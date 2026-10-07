@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import sys
+import time
 from io import BytesIO
 from pathlib import Path
 
@@ -118,6 +119,10 @@ def build_converter(ocr_device_name: str | None = None) -> DocumentConverter:
     )
 
 
+# OCR runs in page blocks so progress can be printed after each.
+OCR_CHUNK_PAGES = 10
+
+
 def raise_for_reported_errors(result) -> None:
     """Raise for errors that are not about converting this document.
 
@@ -164,16 +169,54 @@ def convert_ocr(source_path: str, filename: str) -> dict:
     is; every page gets a section, empty when nothing was recognized.
     """
     device = ocr_device()
-    source = DocumentStream(name=filename, stream=BytesIO(Path(source_path).read_bytes()))
-    result = build_converter(device).convert(source, raises_on_error=False)
-    raise_for_reported_errors(result)
+    data = Path(source_path).read_bytes()
+    document = pdfium.PdfDocument(source_path)
+    try:
+        page_count = len(document)
+    finally:
+        document.close()
+    converter = build_converter(device)
+    sections: list[str] = []
+    statuses: list[str] = []
+    errors: list = []
+    version = None
+    started = time.monotonic()
+    # Docling keeps original page numbers when converting a page range.
+    for first in range(1, page_count + 1, OCR_CHUNK_PAGES):
+        last = min(first + OCR_CHUNK_PAGES - 1, page_count)
+        source = DocumentStream(name=filename, stream=BytesIO(data))
+        result = converter.convert(source, raises_on_error=False, page_range=(first, last))
+        raise_for_reported_errors(result)
+        chunk = result_payload(result)
+        version = version or chunk.get("version")
+        statuses.append(chunk.get("status"))
+        errors.extend(chunk.get("errors") or [])
+        by_page = markdown_by_page(result.document)
+        sections.extend(page_section(number, by_page.get(number, "")) for number in range(first, last + 1))
+        if last < page_count:
+            elapsed = time.monotonic() - started
+            remaining = elapsed / last * (page_count - last)
+            print(
+                f"Docling OCR progress: file={filename} pages={last}/{page_count} "
+                f"elapsed={elapsed:.0f}s remaining~{remaining:.0f}s",
+                file=sys.stderr,
+                flush=True,
+            )
 
-    by_page = markdown_by_page(result.document)
-    page_count = result.input.page_count
-    payload = result_payload(result)
-    payload["markdown"] = "\n\n".join(page_section(number, by_page.get(number, "")) for number in range(1, page_count + 1))
-    payload["ocr"] = {"engine": OCR_ENGINE, "lang": OCR_LANG, "device": device}
-    return payload
+    if all(status == "success" for status in statuses):
+        status = "success"
+    elif any(status in ("success", "partial_success") for status in statuses):
+        status = "partial_success"
+    else:
+        status = statuses[0] if statuses else "failure"
+    return {
+        "version": version,
+        "status": status,
+        "errors": errors,
+        "page_count": page_count,
+        "markdown": "\n\n".join(sections),
+        "ocr": {"engine": OCR_ENGINE, "lang": OCR_LANG, "device": device},
+    }
 
 
 def main() -> None:
