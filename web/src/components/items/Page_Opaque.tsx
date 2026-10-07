@@ -44,6 +44,8 @@ const OPAQUE_TITLE_LINE_HEIGHT = 1.5;
 const OPAQUE_RESIZE_TRIANGLE_COLOR = "rgba(255, 255, 255, 0.25)";
 // The border is a darker shade of the page color, so the edge sits with the fill rather than outlining it.
 const OPAQUE_BORDER_DARKEN_FACTOR = 0.7;
+// The visible box is inset within the page bounds, so pages placed edge to edge are separated by a thin gap.
+const OPAQUE_BOX_INSET_PX = 1;
 
 export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
@@ -148,26 +150,32 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     return isVeTranslucentPage(parentVes.get());
   };
 
+  const boxInsetPx = () => (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) ? 0 : OPAQUE_BOX_INSET_PX;
+
+  // Position and size of the visible box, relative to the page bounds.
+  const boxStyle = () => {
+    const inset = boxInsetPx();
+    return `left: ${inset}px; top: ${inset}px; ` +
+      `width: ${pageFns().boundsPx().w - 2 * inset}px; height: ${pageFns().boundsPx().h - 2 * inset}px;`;
+  };
+
   const renderShadowMaybe = () =>
     <Show when={!props.suppressLocalShadow &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)}>
       <div class={`absolute border border-transparent rounded-xs overflow-hidden shadow-xl`}
-        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
+        style={`${boxStyle()} z-index: ${Z_INDEX_LOCAL_SHADOW};`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>
     <Show when={isFocused() && !pageFns().isInComposite() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
-          `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+        style={`${boxStyle()} box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
 
   const renderHighlightMaybe = () =>
     <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
       <div class="absolute pointer-events-none rounded-xs"
-        style={`left: 0px; top: 0px; ` +
-          `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+        style={`${boxStyle()} ` +
           `${highlightStyle(props.visualElement.flags)}` +
           `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
     </Show>;
@@ -184,13 +192,16 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
     <div class="absolute"
       style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y}px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
-      <div class={`absolute border rounded-xs ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
+      <div class={`absolute border rounded-xs ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(pageFns().vePath()) ? "shadow-md" : ""}`}
+        style={`${boxStyle()} ` +
+          `border-color: ${borderColor()}; ` +
+          `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, lightenAlpha())}; ` +
+          `z-index: 1;`} />
+      <div class="absolute border border-transparent rounded-xs"
         style={`left: 0px; ` +
           `top: 0px; ` +
           `width: ${pageFns().boundsPx().w}px; ` +
           `height: ${pageFns().boundsPx().h}px; ` +
-          `border-color: ${borderColor()}; ` +
-          `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, lightenAlpha())}; ` +
           `z-index: 1;`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderBoxTitle()}
