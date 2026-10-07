@@ -24,7 +24,8 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
 import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { BORDER_COLOR, FOCUS_RING_BOX_SHADOW, PAGE_TITLE_TEXT_SHADOW } from "../../style";
+import { BORDER_COLOR, Colors, FOCUS_RING_BOX_SHADOW, PAGE_TITLE_TEXT_SHADOW } from "../../style";
+import { hexToRGBA } from "../../util/color";
 import { linearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -55,6 +56,9 @@ import { Page_TableContent } from "./Page_TableContent";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
+// The default resize triangle color barely shows against the pale page tint, so a faint shade of the page color is used.
+const TRANSLUCENT_RESIZE_TRIANGLE_ALPHA = 0.35;
 
 export const Page_Translucent: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
@@ -566,7 +570,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     <Show when={pageFns().showTriangleDetail() && canResizePage()}>
       <div class={`absolute border border-transparent rounded-xs overflow-hidden pointer-events-none`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; z-index: 3;`}>
-        <InfuResizeTriangle />
+        <InfuResizeTriangle color={hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], TRANSLUCENT_RESIZE_TRIANGLE_ALPHA)} />
       </div>
     </Show>;
 

@@ -19,8 +19,10 @@
 import { LINK_TRIANGLE_SIZE_PX } from "../../constants";
 
 
-export const InfuResizeTriangle = () =>
+export const DEFAULT_RESIZE_TRIANGLE_COLOR = "#bbbb";
+
+export const InfuResizeTriangle = (props: { color?: string }) =>
   <div class="absolute print:hidden"
        style={"width: 0px; height: 0px; bottom: 2px; right: 2px; " +
               `border-top-width: ${LINK_TRIANGLE_SIZE_PX-4}px; border-top-style: solid; border-top-color: transparent; ` +
-              `border-right-width: ${LINK_TRIANGLE_SIZE_PX-4}px; border-right-style: solid; border-right-color: #bbbb;`} />;
+              `border-right-width: ${LINK_TRIANGLE_SIZE_PX-4}px; border-right-style: solid; border-right-color: ${props.color ?? DEFAULT_RESIZE_TRIANGLE_COLOR};`} />;

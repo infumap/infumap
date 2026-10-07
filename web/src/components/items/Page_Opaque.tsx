@@ -39,6 +39,8 @@ const OPAQUE_TITLE_MAX_FONT_SIZE_PX = 12;
 const OPAQUE_TITLE_PAD_X_FRAC = 0.08;
 const OPAQUE_TITLE_MAX_HEIGHT_FRAC = 0.85;
 const OPAQUE_TITLE_LINE_HEIGHT = 1.5;
+// Fainter than the default, which is prominent against the strong page color.
+const OPAQUE_RESIZE_TRIANGLE_COLOR = "rgba(255, 255, 255, 0.25)";
 
 export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
@@ -198,7 +200,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           </Show>
           {renderIsLinkMaybe()}
           <Show when={pageFns().showTriangleDetail() && canResizePage()}>
-            <InfuResizeTriangle />
+            <InfuResizeTriangle color={OPAQUE_RESIZE_TRIANGLE_COLOR} />
           </Show>
         </Show>
       </div>
