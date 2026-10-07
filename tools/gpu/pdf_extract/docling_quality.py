@@ -324,6 +324,11 @@ def assess_page(
     return None, markdown
 
 
+def page_section(number: int, markdown: str) -> str:
+    """One page of output: Infumap splits pages on these 0-based markers."""
+    return f"{{{number - 1}}}--------\n\n{markdown}"
+
+
 def render_pages(result: ConversionResult, pdf: pdfium.PdfDocument, page_stats: list[dict[str, Any]]) -> str:
     if result.status.value != "success" or result.errors:
         raise NativeExtractionRejected(f"docling_status_{result.status.value}")
@@ -372,7 +377,7 @@ def render_pages(result: ConversionResult, pdf: pdfium.PdfDocument, page_stats: 
             # once the outcome is certain.
             if len(unusable) >= MIN_UNUSABLE_PAGE_FRACTION * count:
                 raise rejected(count, partial=True)
-        markdown_pages.append(f"{{{number - 1}}}--------\n\n{markdown}")
+        markdown_pages.append(page_section(number, markdown))
 
     nonblank = sum(not stats.get("blank") for stats in page_stats)
     if not nonblank:
