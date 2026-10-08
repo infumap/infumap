@@ -21,6 +21,7 @@ import { HitInfoFns } from "./input/hit";
 import { clearMouseOverState } from "./input/mouse_move";
 import { HitboxFlags } from "./layout/hitbox";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
+import { JustifiedInsertion, justifiedInsertionFromDesktopPx } from "./layout/justified-insertion";
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
@@ -206,7 +207,20 @@ function supportsOrderedPageExternalUpload(page: PageItem): boolean {
     page.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
     page.arrangeAlgorithm == ArrangeAlgorithm.List ||
     page.arrangeAlgorithm == ArrangeAlgorithm.Document ||
-    (page.arrangeAlgorithm == ArrangeAlgorithm.Justified && page.orderChildrenBy != "");
+    page.arrangeAlgorithm == ArrangeAlgorithm.Justified;
+}
+
+function orderedPageInsertionFromDesktopPx(
+  store: StoreContextModel,
+  pageVe: VisualElement,
+  desktopPx: Vector,
+): JustifiedInsertion {
+  const page = asPageItem(pageVe.displayItem);
+  if (page.arrangeAlgorithm == ArrangeAlgorithm.Justified && page.orderChildrenBy == "" &&
+    pageVe.viewportBoundsPx && pageVe.childAreaBoundsPx) {
+    return justifiedInsertionFromDesktopPx(store, pageVe, desktopPx);
+  }
+  return { index: orderedPageInsertIndexFromDesktopPx(store, pageVe, desktopPx), afterPrevious: false };
 }
 
 function orderedPageInsertIndexFromDesktopPx(
@@ -271,9 +285,6 @@ function orderedPageInsertIndexFromDesktopPx(
       return stackedInsertionIndexFromDesktopPx(store, childVes, desktopPx);
     }
 
-    case ArrangeAlgorithm.Justified:
-      return 0;
-
     default:
       return page.computed_children.length;
   }
@@ -323,9 +334,11 @@ function resolveExternalUploadTarget(
 
   if (tableContainerVeMaybe == null) {
     if (orderedPageTargetVeMaybe != null) {
-      const insertIndex = orderedPageInsertIndexFromDesktopPx(store, orderedPageTargetVeMaybe, desktopPx);
+      const insertion = orderedPageInsertionFromDesktopPx(store, orderedPageTargetVeMaybe, desktopPx);
+      const insertIndex = insertion.index;
       if (syncHoverState) {
         store.perVe.setMoveOverIndex(orderedPageTargetPath!, insertIndex);
+        store.perVe.setMoveOverIndexAndPosition(orderedPageTargetPath!, { index: insertIndex, position: insertion.afterPrevious ? 1 : 0 });
         syncExternalUploadAttachHover(store, null, -1);
         store.externalFileDragActive.set(true);
       }

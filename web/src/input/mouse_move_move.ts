@@ -55,7 +55,7 @@ import { asContainerItem } from "../items/base/container-item";
 import { newUid } from "../util/uid";
 import { isDataItem } from "../items/base/data-item";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
-import { justifiedInsertionFromChildAreaPx } from "../layout/justified-insertion";
+import { justifiedInsertionFromDesktopPx } from "../layout/justified-insertion";
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
 import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
@@ -1117,19 +1117,7 @@ function updatePageMoveOverIndex(
 
 function setJustifiedMoveOverInsertion(store: StoreContextModel, inElementVe: VisualElement, desktopPosPx: Vector) {
   const inElementPath = VeFns.veToPath(inElementVe);
-  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
-  const veid = VeFns.actualVeidFromVe(inElementVe);
-  const scrollYPx = store.perItem.getPageScrollYProp(veid)
-    * Math.max(0, inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
-  const scrollXPx = store.perItem.getPageScrollXProp(veid)
-    * Math.max(0, inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
-  const childAreaPosPx = {
-    x: desktopPosPx.x - viewportBoundsPx.x + scrollXPx,
-    y: desktopPosPx.y - viewportBoundsPx.y + scrollYPx,
-  };
-
-  const childBoundsPx = VesCache.render.getNonMovingChildren(inElementPath)().map(childVe => childVe.get().boundsPx);
-  const insertion = justifiedInsertionFromChildAreaPx(childBoundsPx, childAreaPosPx);
+  const insertion = justifiedInsertionFromDesktopPx(store, inElementVe, desktopPosPx);
   store.perVe.setMoveOverIndex(inElementPath, insertion.index);
   store.perVe.setMoveOverIndexAndPosition(inElementPath, { index: insertion.index, position: insertion.afterPrevious ? 1 : 0 });
 }
