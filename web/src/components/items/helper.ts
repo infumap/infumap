@@ -43,6 +43,14 @@ export const opaquePageBoxInsetPx = (visualElement: VisualElement): number =>
   (visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) ? 0 : OPAQUE_PAGE_BOX_INSET_PX;
 
 /**
+ * Style setting the corner radius (rounded-item) of items in a container that shows a page's children as a miniature of
+ * the page as it appears when opened, so the radius scales down with them. widthPx is the on screen width of the
+ * miniature.
+ */
+export const miniatureChildItemRadiusStyle = (store: StoreContextModel, widthPx: number): string =>
+  `--radius-item: calc(var(--item-radius-base) * ${Math.min(1.0, widthPx / store.desktopMainAreaBoundsPx().w)});`;
+
+/**
  * CSS corner radius of the visible box of an opaque page: the item radius (rounded-item), capped relative to size so
  * small pages do not become pills.
  */
