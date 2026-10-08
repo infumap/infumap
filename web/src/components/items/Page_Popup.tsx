@@ -60,6 +60,12 @@ import { Page_TableContent } from "./Page_TableContent";
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
 
+// Popups are window sized, so have a larger corner radius than items. The popup is drawn as separate title, content and
+// border layers, which are each rounded to match.
+const POPUP_CORNER_RADIUS_PX = 6;
+const POPUP_TOP_CORNERS_STYLE = `border-top-left-radius: ${POPUP_CORNER_RADIUS_PX}px; border-top-right-radius: ${POPUP_CORNER_RADIUS_PX}px; `;
+const POPUP_BOTTOM_CORNERS_STYLE = `border-bottom-left-radius: ${POPUP_CORNER_RADIUS_PX}px; border-bottom-right-radius: ${POPUP_CORNER_RADIUS_PX}px; `;
+
 export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
   type PopupPageActionKey = "child" | "default";
@@ -283,6 +289,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}`}
           style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; width: ${pageFns().boundsPx().w}px; height: ${headerHeightPx()}px; ` +
             `background-color: #fff; ` +
+            POPUP_TOP_CORNERS_STYLE +
             `${VeFns.zIndexStyle(props.visualElement)}` +
             `background-image: ${titleBackgroundImage()};` +
             `${titleWarningChromeStyle()}`}>
@@ -311,6 +318,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} flex flex-row`}
         style={`left: ${pageFns().boundsPx().x}px; top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; width: ${pageFns().boundsPx().w}px; height: ${titleBarHeight}px; ` +
           `background-color: #fff; ` +
+          POPUP_TOP_CORNERS_STYLE +
           `${VeFns.zIndexStyle(props.visualElement)}` +
           `background-image: ${titleBackgroundImage()};` +
           `${titleWarningChromeStyle()}`}>
@@ -404,6 +412,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           `left: ${pageFns().viewportBoundsPx().x}px; ` +
           `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
           `background-color: #ffffff;` +
+          POPUP_BOTTOM_CORNERS_STYLE + `overflow: hidden; ` +
           `${VeFns.zIndexStyle(props.visualElement)}`}>
         {renderListBand("top")}
         {renderListBand("middle")}
@@ -426,6 +435,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
         `background-color: #ffffff;` +
+        POPUP_BOTTOM_CORNERS_STYLE +
         `overflow-y: ${pageFns().viewportBoundsPx().h < pageFns().childAreaBoundsPx().h ? "auto" : "hidden"}; ` +
         `overflow-x: ${pageFns().viewportBoundsPx().w < pageFns().childAreaBoundsPx().w ? "auto" : "hidden"}; ` +
         `${scrollGestureStyleForArrangeAlgorithm(pageFns().pageItem().arrangeAlgorithm)}` +
@@ -531,6 +541,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
           `background-color: #ffffff; ` +
           `overflow: hidden; ` +
+          POPUP_BOTTOM_CORNERS_STYLE +
           `${VeFns.zIndexStyle(props.visualElement)} `}
         onscroll={popupScrollHandler}>
         <div class="absolute"
@@ -693,6 +704,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         `top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
         `border-width: 2px;` +
         `border-color: ${borderColorVal()}; ` +
+        `border-radius: ${POPUP_CORNER_RADIUS_PX}px; ` +
         `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
         `${VeFns.zIndexStyle(props.visualElement)}`} />;
 
@@ -705,6 +717,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             style={`left: ${pageFns().boundsPx().x}px; ` +
               `top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
               `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
+              `border-radius: ${POPUP_CORNER_RADIUS_PX}px; overflow: hidden; ` +
               `${VeFns.zIndexStyle(props.visualElement)}`}>
             <Page_TableContent visualElement={props.visualElement} />
           </div>
