@@ -143,9 +143,6 @@ export interface PageMeasurable extends ItemTypeMixin, PositionalMixin, XSizable
 }
 
 function pageHeaderHeightBl(page: PageMeasurable, isPopup: boolean): number {
-  if (page.arrangeAlgorithm == ArrangeAlgorithm.Document) {
-    return isPopup ? PAGE_POPUP_TITLE_HEIGHT_BL : 0;
-  }
   if (isPopup) {
     return PAGE_POPUP_TITLE_HEIGHT_BL;
   }
@@ -843,15 +840,16 @@ export const PageFns = {
   },
 
   /**
-   * Whether the title in a page popup's title bar can be edited in place. Document pages that show their title in
-   * the document are edited there instead (the two can't share the ":title" element id).
+   * Whether the title in a page popup's title bar, or above an embedded interactive page, can be edited in place.
+   * Document pages that show their title in the document are edited there instead (the two can't share the ":title"
+   * element id).
    */
-  popupTitleIsEditable: (page: PageItem): boolean => {
+  headerTitleIsEditable: (page: PageItem): boolean => {
     return itemCanEdit(page) && !PageFns.showDocumentTitleInDocument(page);
   },
 
   showEmbeddedInteractiveTitle: (page: PageMeasurable): boolean => {
-    return page.arrangeAlgorithm != ArrangeAlgorithm.Document && !(page.flags & PageFlags.HideEmbeddedInteractiveTitle);
+    return !(page.flags & PageFlags.HideEmbeddedInteractiveTitle);
   },
 
   embeddedInteractiveTitleHeightBl: (page: PageMeasurable): number => {

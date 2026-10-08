@@ -172,7 +172,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     () => props.visualElement,
     () => requestArrange(store, "popup-title-escape"),
   );
-  const canEditTitle = () => PageFns.popupTitleIsEditable(pageFns().pageItem());
+  const canEditTitle = () => PageFns.headerTitleIsEditable(pageFns().pageItem());
   const isEditingTitle = () => canEditTitle() && titleEditHandlers.isEditingTitle();
 
   // The popup's own title. Clicks on the text (see hitRenderedPopupTitleMaybe) edit it.
