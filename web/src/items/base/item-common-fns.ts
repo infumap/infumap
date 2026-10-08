@@ -52,11 +52,23 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
 
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.actualVeidFromVe(parentVe);
+    const parentPath = VeFns.veToPath(parentVe);
+    const clickedVeid = VeFns.veidFromVe(visualElement);
     if (!(parentVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) {
-      // Mouse selection inside embedded list pages should not steal keyboard focus.
-      store.history.setFocus(VeFns.veToPath(parentVe));
+      store.history.setFocus(parentPath);
+    } else if (VeFns.compareVeids(store.perItem.getSelectedListPageItem(parentVeid), clickedVeid) != 0) {
+      // Mouse selection inside embedded list pages should not steal keyboard focus, except that focus on (or inside)
+      // the currently selected item would be left on a visual element that the selection change removes.
+      const selectedVe = VesCache.current.readSelected(parentPath);
+      const focusPath = store.history.getFocusPathMaybe();
+      if (selectedVe != null && focusPath != null) {
+        const selectedPath = VeFns.veToPath(selectedVe);
+        if (focusPath == selectedPath || focusPath.endsWith("-" + selectedPath)) {
+          store.history.setFocus(parentPath);
+        }
+      }
     }
-    store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
+    store.perItem.setSelectedListPageItem(parentVeid, clickedVeid);
     requestArrange(store, "list-page-line-item-click");
     return true;
   }
