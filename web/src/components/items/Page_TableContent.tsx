@@ -29,6 +29,7 @@ import { VeFns, VisualElement, VisualElementFlags, isVeTranslucentPage } from ".
 import { useStore } from "../../store/StoreProvider";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
 
 // Darker than the header background, as the text it stands in for is.
 const HEADER_OUTLINE_COLOR = "#94a3b8";
@@ -182,6 +183,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
               <For each={VesCache.render.getAttachments(VeFns.veToPath(childVe.get()))()}>{attachment =>
                 <VisualElement_LineItem visualElement={attachment.get()} />
               }</For>
+              <HiddenAttachmentsMarker rowVe={childVe.get()} rowWidthPx={bodyViewport().w} />
             </>
           }</For>
         </div>
