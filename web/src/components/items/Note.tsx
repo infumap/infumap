@@ -67,6 +67,7 @@ import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler, prepareNoteParagraphSplit } from "../../input/edit";
 import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
+import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -556,6 +557,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
       }</For>
+      <AttachmentsOverflowMarker visualElement={props.visualElement} />
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>

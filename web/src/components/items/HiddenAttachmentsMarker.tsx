@@ -44,3 +44,22 @@ export const HiddenAttachmentsMarker: Component<{ rowVe: VisualElement, rowWidth
     </Show>
   );
 }
+
+/**
+ * A small left pointing triangle to the left of the attachments along the top of an item, indicating there are
+ * more attachments than fit in the width of the item. Must be rendered in the same container as the attachments.
+ */
+export const AttachmentsOverflowMarker: Component<{ visualElement: VisualElement }> = props => {
+  const marker = () => props.visualElement.attachmentsOverflowMarkerPx;
+  const wPx = () => marker()!.blockSizePx * MARKER_WIDTH_PX / LINE_HEIGHT_PX;
+  const hPx = () => marker()!.blockSizePx * MARKER_HEIGHT_PX / LINE_HEIGHT_PX;
+
+  return (
+    <Show when={marker() != null}>
+      <div class="absolute pointer-events-none"
+        style={`left: ${marker()!.rightX - wPx()}px; top: ${marker()!.centerY - hPx() / 2}px; width: 0px; height: 0px; ` +
+          `border-top: ${hPx() / 2}px solid transparent; border-bottom: ${hPx() / 2}px solid transparent; ` +
+          `border-right: ${wPx()}px solid var(--color-item-border);`} />
+    </Show>
+  );
+}

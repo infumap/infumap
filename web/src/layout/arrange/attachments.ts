@@ -21,7 +21,8 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { VesCache } from "../ves-cache";
-import { VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
+import { isPlaceholder } from "../../items/placeholder-item";
+import { AttachmentsOverflowMarker, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { getVePropertiesForItem } from "./util";
 import { ArrangeItemFlags } from "./item";
 import { Uid } from "../../util/uid";
@@ -44,13 +45,51 @@ export function setNaturalAttachmentBlockSizePx(store: StoreContextModel, item: 
 }
 
 
+// Width reserved to the left of the visible attachments for the overflow marker, as a proportion of the block size.
+const OVERFLOW_MARKER_SPACE_PROP = 0.35;
+const OVERFLOW_MARKER_GAP_PROP = 0.08;
+
+export interface ArrangedAttachments {
+  paths: Array<VisualElementPath>,
+  overflowMarkerPx: AttachmentsOverflowMarker | null,
+}
+
+/**
+ * Attachments are laid out right to left from the top right corner of the item. Those that don't fit within
+ * the width of the item are not rendered. If any of these are not placeholders (gaps), space is reserved for
+ * a marker to the left of the visible attachments.
+ */
+function calcVisibleAttachments(attachmentIds: Array<Uid>, parentWidthPx: number, blockSizePx: number): { visibleCount: number, overflowMarkerPx: AttachmentsOverflowMarker | null } {
+  const EPSILON = 0.001;
+  const slotsThatFit = Math.max(0, Math.floor(parentWidthPx / blockSizePx + EPSILON));
+  if (attachmentIds.length <= slotsThatFit) {
+    return { visibleCount: attachmentIds.length, overflowMarkerPx: null };
+  }
+  const overflowIncludesItem = attachmentIds.slice(slotsThatFit).some(id => {
+    const item = itemState.get(id);
+    return item != null && !isPlaceholder(item);
+  });
+  if (!overflowIncludesItem) {
+    return { visibleCount: slotsThatFit, overflowMarkerPx: null };
+  }
+  const visibleCount = Math.max(0, Math.floor(parentWidthPx / blockSizePx - OVERFLOW_MARKER_SPACE_PROP + EPSILON));
+  return {
+    visibleCount,
+    overflowMarkerPx: {
+      rightX: parentWidthPx - visibleCount * blockSizePx - OVERFLOW_MARKER_GAP_PROP * blockSizePx,
+      centerY: 0,
+      blockSizePx,
+    },
+  };
+}
+
 export function arrangeItemAttachments(
   store: StoreContextModel,
   attachmentIds: Array<Uid>,
   parentItemSizeBl: Dimensions,
   parentItemBoundsPx: BoundingBox,
   parentItemVePath: VisualElementPath,
-  blockSizePxMaybe?: number): Array<VisualElementPath> {
+  blockSizePxMaybe?: number): ArrangedAttachments {
 
   // Attachment geometry derives block size from parent bounds / parent size. Override the latter
   // to achieve a specific block size.
@@ -61,8 +100,11 @@ export function arrangeItemAttachments(
     };
   }
 
+  const { visibleCount, overflowMarkerPx } =
+    calcVisibleAttachments(attachmentIds, parentItemBoundsPx.w, parentItemBoundsPx.w / parentItemSizeBl.w);
+
   const attachmentPaths: Array<VisualElementPath> = [];
-  for (let i = 0; i < attachmentIds.length; ++i) {
+  for (let i = 0; i < visibleCount; ++i) {
     const attachmentId = attachmentIds[i];
     const attachmentItem = itemState.get(attachmentId)!;
     const { displayItem: attachmentDisplayItem, linkItemMaybe: attachmentLinkItemMaybe } = getVePropertiesForItem(store, attachmentItem);
@@ -98,5 +140,5 @@ export function arrangeItemAttachments(
     attachmentPaths.push(attachmentVePath);
   }
 
-  return attachmentPaths;
+  return { paths: attachmentPaths, overflowMarkerPx };
 }

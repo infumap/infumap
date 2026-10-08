@@ -37,7 +37,7 @@ import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { arrangeNow } from "../../layout/arrange";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
+import { AttachmentsOverflowMarker, HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 
 
@@ -287,6 +287,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
           <VisualElement_Desktop visualElement={attachmentVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
         }</For>
+        <AttachmentsOverflowMarker visualElement={props.visualElement} />
         <Show when={showMoveOutOfCompositeArea()}>
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
         </Show>

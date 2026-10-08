@@ -21,7 +21,7 @@ import { compareBoundingBox, compareDimensions } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { Uid } from "../../util/uid";
 import { HitboxFns } from "../hitbox";
-import { NONE_VISUAL_ELEMENT, VisualElement, VisualElementSpec } from "../visual-element";
+import { AttachmentsOverflowMarker, NONE_VISUAL_ELEMENT, VisualElement, VisualElementSpec } from "../visual-element";
 
 export function prepareVisualElementSpec(spec: VisualElementSpec): VisualElementSpec {
   if (spec.displayItemFingerprint) {
@@ -151,6 +151,11 @@ function calendarRangeLayoutsEqual(
   return true;
 }
 
+function attachmentsOverflowMarkersEqual(a: AttachmentsOverflowMarker | null, b: AttachmentsOverflowMarker | null): boolean {
+  if (a == null || b == null) { return a == b; }
+  return a.rightX === b.rightX && a.centerY === b.centerY && a.blockSizePx === b.blockSizePx;
+}
+
 export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec, existingVe: VisualElement): boolean {
   if (existingVe.displayItemFingerprint !== preparedSpec.displayItemFingerprint) { return false; }
   if (existingVe.displayItem.id !== preparedSpec.displayItem.id) { return false; }
@@ -182,6 +187,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return false; }
   if ((existingVe.listItemNumber ?? null) !== (specValueOrDefault(preparedSpec.listItemNumber, NONE_VISUAL_ELEMENT.listItemNumber) ?? null)) { return false; }
   if ((existingVe.attachmentBlockSizePx ?? null) !== (specValueOrDefault(preparedSpec.attachmentBlockSizePx, NONE_VISUAL_ELEMENT.attachmentBlockSizePx) ?? null)) { return false; }
+  if (!attachmentsOverflowMarkersEqual(existingVe.attachmentsOverflowMarkerPx, specValueOrDefault(preparedSpec.attachmentsOverflowMarkerPx, NONE_VISUAL_ELEMENT.attachmentsOverflowMarkerPx))) { return false; }
 
   return true;
 }
