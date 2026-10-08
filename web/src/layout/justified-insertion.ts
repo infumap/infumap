@@ -16,7 +16,10 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { StoreContextModel } from "../store/StoreProvider";
 import { BoundingBox, Vector } from "../util/geometry";
+import { VesCache } from "./ves-cache";
+import { VeFns, VisualElement } from "./visual-element";
 
 
 /**
@@ -82,6 +85,25 @@ export function justifiedInsertionFromChildAreaPx(childBoundsPx: Array<BoundingB
     }
   }
   return { index: row.last + 1, afterPrevious: true };
+}
+
+/**
+ * The insertion point in justified page pageVe under desktop position desktopPx, hit tested against the
+ * page's displayed (non-moving) children.
+ */
+export function justifiedInsertionFromDesktopPx(store: StoreContextModel, pageVe: VisualElement, desktopPx: Vector): JustifiedInsertion {
+  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
+  const veid = VeFns.actualVeidFromVe(pageVe);
+  const scrollYPx = store.perItem.getPageScrollYProp(veid)
+    * Math.max(0, pageVe.childAreaBoundsPx!.h - pageVe.viewportBoundsPx!.h);
+  const scrollXPx = store.perItem.getPageScrollXProp(veid)
+    * Math.max(0, pageVe.childAreaBoundsPx!.w - pageVe.viewportBoundsPx!.w);
+  const childAreaPosPx = {
+    x: desktopPx.x - viewportBoundsPx.x + scrollXPx,
+    y: desktopPx.y - viewportBoundsPx.y + scrollYPx,
+  };
+  const childBoundsPx = VesCache.render.getNonMovingChildren(VeFns.veToPath(pageVe))().map(childVe => childVe.get().boundsPx);
+  return justifiedInsertionFromChildAreaPx(childBoundsPx, childAreaPosPx);
 }
 
 /**
