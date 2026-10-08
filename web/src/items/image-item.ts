@@ -371,18 +371,14 @@ export const ImageFns = {
             console.error(`Could not open remote file '${itemId}' from '${host}':`, e);
           });
       }
+    } else if ((visualElement.flags & VisualElementFlags.LineItem) && handleListPageLineItemClickMaybe(visualElement, store)) {
+      return;
     } else if (isInsidePopupHierarchy(visualElement)) {
       store.history.pushPopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
       requestArrange(store, "image-popup-open");
     } else {
-      if (visualElement.flags & VisualElementFlags.LineItem) {
-        if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
-        store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-        requestArrange(store, "image-popup-open");
-      } else {
-        store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
-        requestArrange(store, "image-popup-open");
-      }
+      store.history.replacePopup({ actualVeid: VeFns.actualVeidFromVe(visualElement), vePath: VeFns.veToPath(visualElement) });
+      requestArrange(store, "image-popup-open");
     }
   },
 
