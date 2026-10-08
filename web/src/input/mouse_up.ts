@@ -1351,6 +1351,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           arrangeNow(store, "mouse-up-toggle-expand");
         }
 
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Click) &&
+        MouseActionState.getHitMeta()?.popupTitleEdit && isPage(activeVisualElement.displayItem)) {
+        DoubleClickState.preventDoubleClick();
+        PageFns.handleEditTitleClick(activeVisualElement, store);
+
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Click)) {
         DoubleClickState.preventDoubleClick();
         if (!switchPopupListToRootFromNestedListAreaClickMaybe(store, activeVisualElement) &&

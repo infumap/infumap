@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
-import { LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, GRID_SIZE } from "../../constants";
+import { LINE_HEIGHT_PX, CALENDAR_DAY_LABEL_LEFT_MARGIN_PX, GRID_SIZE, LINK_TRIANGLE_SIZE_PX } from "../../constants";
 import { VeFns, VisualElementFlags, VisualElement } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 
@@ -48,7 +48,10 @@ import {
   isCurrentDay,
 } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
-import { autoMovedIntoViewBackgroundImage, scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { autoMovedIntoViewBackgroundImage, createPageTitleEditHandlers, scrollGestureStyleForArrangeAlgorithm } from "./helper";
+import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { linkHasTriangle } from "../../layout/link-triangle";
+import { appendNewlineIfEmpty } from "../../util/string";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
@@ -63,6 +66,7 @@ import { Page_TableContent } from "./Page_TableContent";
 // Popups are window sized, so have a larger corner radius than items. The popup is drawn as separate title, content and
 // border layers, which are each rounded to match.
 const POPUP_CORNER_RADIUS_PX = 6;
+const POPUP_BORDER_WIDTH_PX = 2;
 const POPUP_TOP_CORNERS_STYLE = `border-top-left-radius: ${POPUP_CORNER_RADIUS_PX}px; border-top-right-radius: ${POPUP_CORNER_RADIUS_PX}px; `;
 const POPUP_BOTTOM_CORNERS_STYLE = `border-bottom-left-radius: ${POPUP_CORNER_RADIUS_PX}px; border-bottom-right-radius: ${POPUP_CORNER_RADIUS_PX}px; `;
 
@@ -162,6 +166,41 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const headerHeightPx = () => pageFns().boundsPx().h - pageFns().viewportBoundsPx().h;
 
   const titleColor = () => hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], 1.0);
+
+  const titleEditHandlers = createPageTitleEditHandlers(
+    store,
+    () => props.visualElement,
+    () => requestArrange(store, "popup-title-escape"),
+  );
+  const canEditTitle = () => PageFns.popupTitleIsEditable(pageFns().pageItem());
+  const isEditingTitle = () => canEditTitle() && titleEditHandlers.isEditingTitle();
+
+  // The popup's own title. Clicks on the text (see hitRenderedPopupTitleMaybe) edit it.
+  const renderOwnTitleText = () =>
+    <span id={canEditTitle() ? VeFns.veToPath(props.visualElement) + ":title" : undefined}
+      data-infumap-popup-title-text={canEditTitle() ? "" : undefined}
+      class={isEditingTitle() ? "select-text cursor-text" : ""}
+      style="outline: 0px solid transparent;"
+      spellcheck={isEditingTitle()}
+      contentEditable={isEditingTitle()}
+      onKeyDown={titleEditHandlers.titleKeyDownHandler}
+      onKeyUp={titleEditHandlers.titleKeyUpHandler}
+      onInput={titleEditHandlers.titleInputListener}>
+      {isEditingTitle()
+        ? appendNewlineIfEmpty(pageFns().pageItem().title)
+        : (props.visualElement.evaluatedTitle ?? pageFns().pageItem().title)}
+    </span>;
+
+  const renderLinkTriangleMaybe = () =>
+    <Show when={linkHasTriangle(props.visualElement.actualLinkItemMaybe)}>
+      {/* Inset inside the popup border, which is drawn over the title. */}
+      <div class="absolute pointer-events-none"
+        style={`left: ${POPUP_BORDER_WIDTH_PX}px; top: ${POPUP_BORDER_WIDTH_PX}px; ` +
+          `width: ${LINK_TRIANGLE_SIZE_PX}px; height: ${LINK_TRIANGLE_SIZE_PX}px; ` +
+          `overflow: hidden; border-top-left-radius: ${POPUP_CORNER_RADIUS_PX - POPUP_BORDER_WIDTH_PX}px;`}>
+        <InfuLinkTriangle />
+      </div>
+    </Show>;
   const popupWasAutoAdjusted = () => store.perVe.getAutoMovedIntoView(VeFns.veToPath(props.visualElement));
   const titleBackgroundImage = () => popupWasAutoAdjusted()
     ? `${autoMovedIntoViewBackgroundImage()}, ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.9)}`
@@ -304,8 +343,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               `margin-left: 4px; ` +
               `letter-spacing: -0.035em; ` +
               `color: ${titleColor()};`}>
-            {props.visualElement.evaluatedTitle ?? pageFns().pageItem().title}
+            {renderOwnTitleText()}
           </div>
+          {renderLinkTriangleMaybe()}
         </div>
       );
     }
@@ -342,11 +382,12 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                   `margin-left: 4px; ` +
                   `letter-spacing: -0.03em; ` +
                   `color: ${pageTitleColor};`}>
-                {pageTitle}
+                {idx() === 0 ? renderOwnTitleText() : pageTitle}
               </div>
             </div>
           );
         }}</For>
+        {renderLinkTriangleMaybe()}
       </div>
     );
   };
@@ -702,7 +743,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
       style={`left: ${pageFns().boundsPx().x}px; ` +
         `top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
-        `border-width: 2px;` +
+        `border-width: ${POPUP_BORDER_WIDTH_PX}px;` +
         `border-color: ${borderColorVal()}; ` +
         `border-radius: ${POPUP_CORNER_RADIUS_PX}px; ` +
         `width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +

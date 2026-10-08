@@ -842,6 +842,14 @@ export const PageFns = {
     return page.arrangeAlgorithm == ArrangeAlgorithm.Document && !(page.flags & PageFlags.HideDocumentTitle);
   },
 
+  /**
+   * Whether the title in a page popup's title bar can be edited in place. Document pages that show their title in
+   * the document are edited there instead (the two can't share the ":title" element id).
+   */
+  popupTitleIsEditable: (page: PageItem): boolean => {
+    return itemCanEdit(page) && !PageFns.showDocumentTitleInDocument(page);
+  },
+
   showEmbeddedInteractiveTitle: (page: PageMeasurable): boolean => {
     return page.arrangeAlgorithm != ArrangeAlgorithm.Document && !(page.flags & PageFlags.HideEmbeddedInteractiveTitle);
   },
