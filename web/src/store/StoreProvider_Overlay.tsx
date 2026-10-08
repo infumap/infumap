@@ -60,6 +60,9 @@ export interface TextEditInfo {
   colNum?: number | null,
   startBl?: number | null,
   endBl?: number | null,
+  // A document page that shows its title in the document can also show it in a header (above an embedded
+  // interactive page). True when the header is being edited, not the title in the document.
+  pageHeaderTitle?: boolean,
 }
 
 export interface NoteTextSelectionInfo {

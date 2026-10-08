@@ -166,8 +166,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     () => props.visualElement,
     () => requestArrange(store, "embedded-interactive-escape"),
   );
-  const canEditTitle = () => PageFns.headerTitleIsEditable(pageFns().pageItem());
-  const isEditingTitle = () => canEditTitle() && titleEditHandlers.isEditingTitle();
+  const isEditingTitle = () => canEditPage() && PageFns.isEditingHeaderTitle(store, pageFns().pageItem(), vePath());
+  // A document page showing its title in the document gives that the ":title" id, except while this one is edited.
+  const titleHasEditId = () => canEditPage() &&
+    (isEditingTitle() || !PageFns.showDocumentTitleInDocument(pageFns().pageItem()));
 
   // Check if this page is currently focused (via focusPath or textEditInfo)
   const isFocused = () => {
@@ -269,7 +271,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     <Show when={isEmbeddedInteractive() && PageFns.showEmbeddedInteractiveTitle(pageFns().pageItem())}>
       <div class={`absolute`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${embeddedInteractiveTitleHeightPx()}px; z-index: 4;`}>
-        <div id={canEditTitle() ? VeFns.veToPath(props.visualElement) + ":title" : undefined}
+        <div id={titleHasEditId() ? vePath() + ":title" : undefined}
           class={`absolute font-bold ${isEditingTitle() ? "select-text cursor-text" : ""}`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${embeddedInteractiveTitleHeightPx() / titleScale()}px; ` +
             `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +

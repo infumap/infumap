@@ -840,12 +840,21 @@ export const PageFns = {
   },
 
   /**
-   * Whether the title in a page popup's title bar, or above an embedded interactive page, can be edited in place.
-   * Document pages that show their title in the document are edited there instead (the two can't share the ":title"
-   * element id).
+   * Whether the title in a page popup's title bar can be edited in place. Document pages that show their title in
+   * the document are edited there instead.
    */
   headerTitleIsEditable: (page: PageItem): boolean => {
     return itemCanEdit(page) && !PageFns.showDocumentTitleInDocument(page);
+  },
+
+  /**
+   * Whether the page title being edited is the one in a header (rather than the one in the document). Only one of
+   * the two can have the ":title" element id at a time.
+   */
+  isEditingHeaderTitle: (store: StoreContextModel, page: PageItem, vePath: VisualElementPath): boolean => {
+    const textEditInfo = store.overlay.textEditInfo();
+    if (textEditInfo == null || textEditInfo.itemPath != vePath) { return false; }
+    return !!textEditInfo.pageHeaderTitle || !PageFns.showDocumentTitleInDocument(page);
   },
 
   showEmbeddedInteractiveTitle: (page: PageMeasurable): boolean => {
@@ -1336,7 +1345,7 @@ export const PageFns = {
     const isRenderedEmbeddedInteractive = !!(visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot);
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (isRenderedEmbeddedInteractive && (hitboxFlags & HitboxFlags.ContentEditable)) {
-      PageFns.handleEditTitleClick(visualElement, store);
+      PageFns.handleEditTitleClick(visualElement, store, undefined, true);
     } else if (isRenderedEmbeddedInteractive) {
       // As for a root list page, a background click on an embedded list page gives it keyboard focus (without a
       // focus ring, since it is incidental to the click).
@@ -1424,7 +1433,7 @@ export const PageFns = {
     PageFns.switchToOutermostListPageMaybe(visualElement, store, previousFocusPath, previousCurrentVeid);
   },
 
-  handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel, clientPxMaybe?: { x: number, y: number }): void => {
+  handleEditTitleClick: (visualElement: VisualElement, store: StoreContextModel, clientPxMaybe?: { x: number, y: number }, headerTitle?: boolean): void => {
     let itemPath = VeFns.veToPath(visualElement);
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!itemCanEdit(visualElement.displayItem)) {
@@ -1434,7 +1443,9 @@ export const PageFns = {
       }
       return;
     }
-    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page });
+    const pageHeaderTitle = !!headerTitle && PageFns.showDocumentTitleInDocument(asPageItem(visualElement.displayItem));
+    // Setting this moves the ":title" element id to the header title if that is the one being edited.
+    store.overlay.setTextEditInfo(store.history, { itemPath, itemType: ItemType.Page, pageHeaderTitle });
     const editingPath = itemPath + ":title";
     const el = document.getElementById(editingPath)!;
     el.focus();

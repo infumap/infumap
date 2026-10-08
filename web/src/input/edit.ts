@@ -291,7 +291,9 @@ function editingLinearContainerVeMaybe(store: StoreContextModel): VisualElement 
   const editingVe = VesCache.current.readNode(textEditInfo.itemPath);
   if (!editingVe) { return null; }
 
+  // The title in the header above an embedded interactive document page is not the title in the document.
   if (textEditInfo.itemType == ItemType.Page &&
+    !textEditInfo.pageHeaderTitle &&
     isPage(editingVe.displayItem) &&
     asPageItem(editingVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
     !(asPageItem(editingVe.displayItem).flags & PageFlags.HideDocumentTitle)) {

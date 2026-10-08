@@ -34,6 +34,10 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
   const pageFns = () => props.pageFns;
   const allowEditing = () => !!props.allowEditing && itemCanEdit(pageFns().pageItem());
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
+  const vePath = () => VeFns.veToPath(props.visualElement);
+  // While the title in the header above an embedded interactive page is being edited, it has the ":title" id.
+  const headerTitleIsBeingEdited = () => !!store.overlay.textEditInfo()?.pageHeaderTitle && titleEditHandlers.isEditingTitle();
+  const isEditingTitle = () => titleEditHandlers.isEditingTitle() && !headerTitleIsBeingEdited();
 
   const documentScale = () => {
     const totalWidthBl = pageFns().pageItem().docWidthBl + PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
@@ -62,12 +66,12 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
   const titleHeightPx = () => PageFns.calcDocumentTitleHeightBl(pageFns().pageItem()) * LINE_HEIGHT_PX * documentScale();
 
   const handleTitleClick = (ev: MouseEvent) => {
-    if (!allowEditing() || titleEditHandlers.isEditingTitle() || ev.button !== 0) { return; }
+    if (!allowEditing() || isEditingTitle() || ev.button !== 0) { return; }
     PageFns.handleEditTitleClick(props.visualElement, store, { x: ev.clientX, y: ev.clientY });
   };
 
   const handleTitleKeyDown = (ev: KeyboardEvent) => {
-    if (ev.key == "Enter" && titleEditHandlers.isEditingTitle()) {
+    if (ev.key == "Enter" && isEditingTitle()) {
       ev.preventDefault();
       ev.stopPropagation();
       splitDocumentTitleToFirstNote(store, props.visualElement, ev.currentTarget as HTMLElement);
@@ -82,7 +86,7 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
       style={`left: ${documentTextColumnLeftPx()}px; ` +
         `top: ${PAGE_DOCUMENT_TOP_MARGIN_PX * documentScale()}px; ` +
         `width: ${documentBlockWidthPx()}px; height: ${titleHeightPx()}px;`}>
-      <span id={VeFns.veToPath(props.visualElement) + ":title"}
+      <span id={headerTitleIsBeingEdited() ? undefined : vePath() + ":title"}
         class={`absolute block font-bold cursor-text select-text ${titleStyle().alignClass}`}
         style={`left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
           `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
@@ -92,8 +96,8 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
           `font-size: ${titleStyle().fontSize}px; ` +
           `overflow-wrap: break-word; white-space: pre-wrap; ` +
           `outline: 0px solid transparent;`}
-        spellcheck={allowEditing() && titleEditHandlers.isEditingTitle()}
-        contentEditable={allowEditing() && titleEditHandlers.isEditingTitle()}
+        spellcheck={allowEditing() && isEditingTitle()}
+        contentEditable={allowEditing() && isEditingTitle()}
         onClick={allowEditing() ? handleTitleClick : undefined}
         onKeyDown={allowEditing() ? handleTitleKeyDown : undefined}
         onKeyUp={allowEditing() ? titleEditHandlers.titleKeyUpHandler : undefined}
