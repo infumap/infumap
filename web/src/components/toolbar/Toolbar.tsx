@@ -65,6 +65,40 @@ import { SOLO_ITEM_HOLDER_PAGE_UID } from '../../util/uid';
 
 const TOOLBAR_LOGO_VISIBLE_SIZE_PX = 28 * 419 / 448;
 const TOOLBAR_LOGO_VISIBLE_OFFSET_PX = 28 * 11 / 448;
+const TOOLBAR_BACKGROUND_COLOR = "#fafafa";
+// Radius of the corners of the page outline in the toolbar area.
+const TOOLBAR_OUTLINE_CORNER_RADIUS_PX = 6;
+
+/**
+ * Rounds a top corner of the page outline where its vertical and top edges are borders of two different elements, so
+ * cannot be rounded with border-radius. The two border segments are redrawn as a rounded corner over the top, and the
+ * area outside the curve is painted with the toolbar background. Inside the curve is transparent, so the title
+ * background shows through. positionStyle places the patch so its outer vertical edge is on the vertical border.
+ */
+const ToolbarOutlineCorner = (props: {
+  side: "left" | "right",
+  positionStyle: string,
+  verticalBorderWidthPx: number,
+  verticalBorderColor: string,
+  topBorderWidthPx: number,
+  topBorderColor: string,
+}) => {
+  const sizePx = () => TOOLBAR_OUTLINE_CORNER_RADIUS_PX + props.verticalBorderWidthPx + 1;
+  // A blank title spec border color leaves the border color of the outline elements at the default (index.css), whereas
+  // here it would leave the color out of the border shorthand, which then falls back to the text color.
+  const color = (c: string) => c.trim() == "" ? "var(--color-gray-200)" : c;
+  return (
+    <div class="absolute pointer-events-none overflow-hidden"
+      style={`${props.positionStyle} top: 0px; width: ${sizePx()}px; height: ${sizePx()}px; z-index: 1;`}>
+      <div class="absolute"
+        style={`${props.side}: 0px; top: 0px; width: ${2 * sizePx()}px; height: ${2 * sizePx()}px; ` +
+          `border-${props.side}: ${props.verticalBorderWidthPx}px solid ${color(props.verticalBorderColor)}; ` +
+          `border-top: ${props.topBorderWidthPx}px solid ${color(props.topBorderColor)}; ` +
+          `border-top-${props.side}-radius: ${TOOLBAR_OUTLINE_CORNER_RADIUS_PX}px; ` +
+          `box-shadow: 0 0 0 ${sizePx()}px ${TOOLBAR_BACKGROUND_COLOR};`} />
+    </div>
+  );
+};
 
 export const Toolbar: Component = () => {
   const store = useStore();
@@ -287,10 +321,18 @@ export const Toolbar: Component = () => {
 
   const rightToolbarSection = () =>
     <div id="toolbarRightSectionDiv"
-      class="border-l border-b pl-[4px] flex flex-row"
-      style={`border-color: ${rightMostTitleSpec().borderColor}; background-color: #fafafa; ` +
+      class="relative border-l border-b pl-[4px] flex flex-row"
+      style={`border-color: ${rightMostTitleSpec().borderColor}; background-color: ${TOOLBAR_BACKGROUND_COLOR}; ` +
         `border-left-width: ${rightMostTitleSpec().borderWidthPx}px; border-bottom-width: ${rightMostTitleSpec().borderWidthPx}px; ` +
+        `border-bottom-left-radius: ${TOOLBAR_OUTLINE_CORNER_RADIUS_PX}px; ` +
         `align-items: baseline;`}>
+
+      <ToolbarOutlineCorner side="right"
+        positionStyle={`right: 100%;`}
+        verticalBorderWidthPx={rightMostTitleSpec().borderWidthPx}
+        verticalBorderColor={rightMostTitleSpec().borderColor}
+        topBorderWidthPx={rightMostTitleSpec().borderWidthPx - 1}
+        topBorderColor={rightMostTitleSpec().borderColor} />
 
       <Show when={store.umbrellaVisualElement.get().displayItem.itemType != NONE_VISUAL_ELEMENT.displayItem.itemType}>
         <Switch fallback={<div id="toolbarItemOptionsDiv">[no context]</div>}>
@@ -355,6 +397,14 @@ export const Toolbar: Component = () => {
 
   const mainToolbarArea = () =>
     <div class="fixed right-0 top-0" style={`left: ${store.getCurrentDockWidthPx()}px;}`}>
+      <Show when={store.dockVisible.get() && titleSpecs().length > 0}>
+        <ToolbarOutlineCorner side="left"
+          positionStyle={`left: -${mainPageBorderWidth(store)}px;`}
+          verticalBorderWidthPx={mainPageBorderWidth(store)}
+          verticalBorderColor={mainPageBorderColor(store, itemState.get)}
+          topBorderWidthPx={titleSpecs()[0].borderWidthPx - 1}
+          topBorderColor={titleSpecs()[0].borderColor} />
+      </Show>
       <div class="flex flex-row">
 
         <Index each={titleSpecs()}>{tSpec =>
@@ -387,7 +437,7 @@ export const Toolbar: Component = () => {
 
         <div id="toolbarTrailingTitleEditArea"
           class={`inline-block flex-nowrap border-b ${rightMostTitleSpec().canEdit ? "cursor-text" : "cursor-pointer"}`}
-          style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR};` +
+          style={`flex-grow: 1; border-bottom-color: ${LIGHT_BORDER_COLOR}; margin-right: -${TOOLBAR_OUTLINE_CORNER_RADIUS_PX}px; ` +
             `${rightMostTitleSpec().bg} ` +
             `border-top-color: ${rightMostTitleSpec().borderColor};` +
             `border-top-width: ${rightMostTitleSpec().borderWidthPx - 1}px; `}></div>
