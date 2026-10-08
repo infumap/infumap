@@ -110,7 +110,12 @@ export interface HistoryStoreContextModel {
   currentPopupSpecVeid: () => Veid | null,
   hasPopupParent: () => boolean,
 
-  setFocus: (focusPath: VisualElementPath) => void,
+  /**
+   * Sets the focus path. If suppressFocusRing is set, the focus ring is not drawn while focus remains on this path
+   * (focus was given incidentally, e.g. by a mouse click, rather than deliberately).
+   */
+  setFocus: (focusPath: VisualElementPath, suppressFocusRing?: boolean) => void,
+  focusRingIsSuppressed: (path: VisualElementPath) => boolean,
   getFocusItem: () => Item,
   getFocusPath: () => VisualElementPath,
   getFocusPathMaybe: () => VisualElementPath | null,
@@ -126,6 +131,7 @@ export interface HistoryStoreContextModel {
 
 export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
+  const [focusRingSuppressedPath, setFocusRingSuppressedPath] = createSignal<VisualElementPath | null>(null);
   const browserEntries = new Map<Uid, BrowserEntry>();
   let activeBrowserEntry: BrowserEntryState | null = null;
   let displayedBrowserEntryId: Uid | null = null;
@@ -572,7 +578,7 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
   };
 
 
-  const setFocus = (focusPath: VisualElementPath): void => {
+  const setFocus = (focusPath: VisualElementPath, suppressFocusRing: boolean = false): void => {
     if (breadcrumbs().length < 1) { panic("cannot set focus item when there is no current page."); }
 
     if (focusPath.startsWith("-") || focusPath === "" || focusPath.includes("--")) {
@@ -586,8 +592,12 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
     VeFns.validatePath(focusPath);
 
     breadcrumbs()[breadcrumbs().length - 1].focusPath = focusPath;
+    setFocusRingSuppressedPath(suppressFocusRing ? focusPath : null);
     setBreadcrumbs(breadcrumbs());
   };
+
+  const focusRingIsSuppressed = (path: VisualElementPath): boolean =>
+    focusRingSuppressedPath() == path && getFocusPathMaybe() == path;
 
   const getFocusItem = (): Item => {
     const breadcrumb = breadcrumbs()[breadcrumbs().length - 1];
@@ -682,6 +692,7 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
     hasPopupParent,
 
     setFocus,
+    focusRingIsSuppressed,
     getFocusItem,
     getFocusPath,
     getFocusPathMaybe,

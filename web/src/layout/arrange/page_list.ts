@@ -220,6 +220,11 @@ export function arrange_list_page(
     !(flags & ArrangeItemFlags.IsPopupRoot) &&
     !(flags & ArrangeItemFlags.IsListPageMainRoot);
 
+  // As for a top titled page, an embedded list page with keyboard focus shows that by its selected row.
+  if (isEmbeddedInteractive && focusPath == pageWithChildrenVePath) {
+    isFocusPage = true;
+  }
+
   const isPreview = listOrTablePageIsPreview(displayItem_pageWithChildren, parentPath, flags);
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
