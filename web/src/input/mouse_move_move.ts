@@ -655,6 +655,10 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       }
       if (moving_activeItemToPage(store, hitMoveTargetVe, desktopPosPx, RelationshipToParent.Child, false, false)) {
         arrangeNow(store, "moving-enter-new-container");
+        const enteredPageVe = MouseActionState.readScaleDefiningElement();
+        if (enteredPageVe != null) {
+          updatePageMoveOverIndex(store, enteredPageVe, desktopPosPx, hasValidMoveTarget, attachmentDropTargetIsActive, moveTargetIsDocumentComposite);
+        }
       }
       return;
     }
@@ -695,80 +699,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   if (newPosBl.y > dimBl.h - 0.5) { newPosBl.y = dimBl.h - 0.5; }
   const newPosGr = { x: newPosBl.x * GRID_SIZE, y: newPosBl.y * GRID_SIZE };
 
-  if (!hasValidMoveTarget || asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.Calendar) {
-    store.movingItemTargetCalendarInfo.set(null);
-  }
-
-  if (hasValidMoveTarget && attachmentDropTargetIsActive &&
-    (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid || asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified)) {
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), -1);
-  }
-
-  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
-    const xOffsetPx = desktopPosPx.x - viewportBoundsPx.x;
-    const yOffsetPx = desktopPosPx.y - viewportBoundsPx.y;
-    const veid = VeFns.actualVeidFromVe(inElementVe);
-    const scrollYPx = store.perItem.getPageScrollYProp(veid)
-      * Math.max(0, inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
-    const scrollXPx = store.perItem.getPageScrollXProp(veid)
-      * Math.max(0, inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
-    const pagePaddingPx = calcJustifiedPagePaddingPx(inElementVe.childAreaBoundsPx!.w, asPageItem(inElement).justifiedRowAspect);
-    const rawCellX = Math.floor((xOffsetPx + scrollXPx - pagePaddingPx) / inElementVe.cellSizePx!.w);
-    const rawCellY = Math.floor((yOffsetPx + scrollYPx - pagePaddingPx) / inElementVe.cellSizePx!.h);
-    const cellX = Math.max(0, Math.min(asPageItem(inElement).gridNumberOfColumns, rawCellX));
-    const cellY = Math.max(0, rawCellY);
-    let index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
-    const numChildren = asContainerItem(inElement).computed_children.length;
-    if (index < 0) { index = 0; }
-    if (index >= numChildren) { index = numChildren - 1; } // numChildren is inclusive of the moving item so -1.
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
-  }
-
-  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
-    const catalogChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))()
-      .map(childVe => childVe.get());
-    const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, catalogChildren, desktopPosPx);
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
-  }
-
-  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-    setJustifiedMoveOverInsertion(store, inElementVe, desktopPosPx);
-  }
-
-  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    const lineChildren = VesCache.render.getLineChildren(VeFns.veToPath(inElementVe))()
-      .map(childVe => childVe.get());
-    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
-    const scrollVeid = VeFns.actualVeidFromVe(inElementVe);
-    const scrollYPx = Math.max(
-      0,
-      (inElementVe.listChildAreaBoundsPx?.h ?? inElementVe.childAreaBoundsPx!.h) -
-      (inElementVe.listViewportBoundsPx?.h ?? inElementVe.viewportBoundsPx!.h),
-    ) * store.perItem.getPageScrollYProp(scrollVeid);
-    const childAreaYPx = desktopPosPx.y - viewportBoundsPx.y + scrollYPx;
-    const moveOverIndex = stackedInsertionIndexFromChildAreaPx(lineChildren, childAreaYPx);
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
-  }
-
-  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Document) {
-    const inElementPath = VeFns.veToPath(inElementVe);
-    if (attachmentDropTargetIsActive || moveTargetIsDocumentComposite) {
-      store.perVe.setMoveOverIndex(inElementPath, -1);
-    } else {
-      const documentChildren = VesCache.render.getNonMovingChildren(inElementPath)()
-        .map(childVe => childVe.get());
-      const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, documentChildren, desktopPosPx);
-      store.perVe.setMoveOverIndex(inElementPath, moveOverIndex);
-    }
-  }
-
-  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-    const position = calculateCalendarPosition(desktopPosPx, inElementVe, store);
-    const combinedIndex = encodeCalendarCombinedIndex(position.month, position.day);
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), combinedIndex);
-    store.movingItemTargetCalendarInfo.set({ pageItemId: inElement.id, combinedIndex, year: position.year });
-  }
+  updatePageMoveOverIndex(store, inElementVe, desktopPosPx, hasValidMoveTarget, attachmentDropTargetIsActive, moveTargetIsDocumentComposite);
 
   if (hasValidMoveTarget && (inElementVe.flags & VisualElementFlags.IsDock)) {
     const dockScrollYPx = getDockScrollYPx(store, inElementVe);
@@ -1094,6 +1025,95 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
   return true;
 }
 
+
+/**
+ * Updates the insertion index (or calendar date) for the page the moving item is in. Also called directly
+ * after the item enters a new page, so that a drop before the next mouse move doesn't use a stale index.
+ */
+function updatePageMoveOverIndex(
+  store: StoreContextModel,
+  inElementVe: VisualElement,
+  desktopPosPx: Vector,
+  hasValidMoveTarget: boolean,
+  attachmentDropTargetIsActive: boolean,
+  moveTargetIsDocumentComposite: boolean) {
+  const inElement = inElementVe.displayItem;
+
+  if (!hasValidMoveTarget || asPageItem(inElement).arrangeAlgorithm != ArrangeAlgorithm.Calendar) {
+    store.movingItemTargetCalendarInfo.set(null);
+  }
+
+  if (hasValidMoveTarget && attachmentDropTargetIsActive &&
+    (asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid || asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified)) {
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), -1);
+  }
+
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
+    const xOffsetPx = desktopPosPx.x - viewportBoundsPx.x;
+    const yOffsetPx = desktopPosPx.y - viewportBoundsPx.y;
+    const veid = VeFns.actualVeidFromVe(inElementVe);
+    const scrollYPx = store.perItem.getPageScrollYProp(veid)
+      * Math.max(0, inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
+    const scrollXPx = store.perItem.getPageScrollXProp(veid)
+      * Math.max(0, inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
+    const pagePaddingPx = calcJustifiedPagePaddingPx(inElementVe.childAreaBoundsPx!.w, asPageItem(inElement).justifiedRowAspect);
+    const rawCellX = Math.floor((xOffsetPx + scrollXPx - pagePaddingPx) / inElementVe.cellSizePx!.w);
+    const rawCellY = Math.floor((yOffsetPx + scrollYPx - pagePaddingPx) / inElementVe.cellSizePx!.h);
+    const cellX = Math.max(0, Math.min(asPageItem(inElement).gridNumberOfColumns, rawCellX));
+    const cellY = Math.max(0, rawCellY);
+    let index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
+    const numChildren = asContainerItem(inElement).computed_children.length;
+    if (index < 0) { index = 0; }
+    if (index >= numChildren) { index = numChildren - 1; } // numChildren is inclusive of the moving item so -1.
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
+  }
+
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+    const catalogChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))()
+      .map(childVe => childVe.get());
+    const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, catalogChildren, desktopPosPx);
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
+  }
+
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+    setJustifiedMoveOverInsertion(store, inElementVe, desktopPosPx);
+  }
+
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
+    const lineChildren = VesCache.render.getLineChildren(VeFns.veToPath(inElementVe))()
+      .map(childVe => childVe.get());
+    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
+    const scrollVeid = VeFns.actualVeidFromVe(inElementVe);
+    const scrollYPx = Math.max(
+      0,
+      (inElementVe.listChildAreaBoundsPx?.h ?? inElementVe.childAreaBoundsPx!.h) -
+      (inElementVe.listViewportBoundsPx?.h ?? inElementVe.viewportBoundsPx!.h),
+    ) * store.perItem.getPageScrollYProp(scrollVeid);
+    const childAreaYPx = desktopPosPx.y - viewportBoundsPx.y + scrollYPx;
+    const moveOverIndex = stackedInsertionIndexFromChildAreaPx(lineChildren, childAreaYPx);
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
+  }
+
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Document) {
+    const inElementPath = VeFns.veToPath(inElementVe);
+    if (attachmentDropTargetIsActive || moveTargetIsDocumentComposite) {
+      store.perVe.setMoveOverIndex(inElementPath, -1);
+    } else {
+      const documentChildren = VesCache.render.getNonMovingChildren(inElementPath)()
+        .map(childVe => childVe.get());
+      const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, documentChildren, desktopPosPx);
+      store.perVe.setMoveOverIndex(inElementPath, moveOverIndex);
+    }
+  }
+
+  else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
+    const position = calculateCalendarPosition(desktopPosPx, inElementVe, store);
+    const combinedIndex = encodeCalendarCombinedIndex(position.month, position.day);
+    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), combinedIndex);
+    store.movingItemTargetCalendarInfo.set({ pageItemId: inElement.id, combinedIndex, year: position.year });
+  }
+}
 
 function setJustifiedMoveOverInsertion(store: StoreContextModel, inElementVe: VisualElement, desktopPosPx: Vector) {
   const inElementPath = VeFns.veToPath(inElementVe);
