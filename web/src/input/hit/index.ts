@@ -994,6 +994,20 @@ function hitPageSelectedRootMaybe(
 }
 
 
+/**
+ * The topmost (last rendered) child of rootVe under the position, if any. A child page can only become the hit root
+ * if no sibling stacked above it covers the position.
+ */
+function topmostChildVesAt(rootVe: VisualElement, posRelativeToRootVeViewportPx: Vector, ignoreItems: Set<Uid>): VisualElementSignal | null {
+  const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
+  for (let i = rootVeChildren.length - 1; i >= 0; --i) {
+    const childVe = rootVeChildren[i].get();
+    if (isIgnored(childVe.displayItem.id, ignoreItems)) { continue; }
+    if (isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { return rootVeChildren[i]; }
+  }
+  return null;
+}
+
 function hitEmbeddedRootMaybe(
   store: StoreContextModel,
   parentRootInfo: RootInfo,
@@ -1002,13 +1016,10 @@ function hitEmbeddedRootMaybe(
   hitboxOptions: HitboxScanOptions,
 ): RootInfo {
   const { rootVe, posRelativeToRootVeViewportPx } = parentRootInfo;
-  const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
-  for (let i = 0; i < rootVeChildren.length; ++i) {
-    const childVes = rootVeChildren[i];
+  const childVes = topmostChildVesAt(rootVe, posRelativeToRootVeViewportPx, ignoreItems);
+  if (childVes != null) {
     const childVe = childVes.get();
-    if (isIgnored(childVe.displayItem.id, ignoreItems)) { continue; }
-    if (!(childVe.flags & VisualElementFlags.EmbeddedInteractiveRoot)) { continue; }
-    if (isInside(posRelativeToRootVeViewportPx, childVe.boundsPx!)) {
+    if (childVe.flags & VisualElementFlags.EmbeddedInteractiveRoot) {
       const childVeid = VeFns.veidFromVe(childVe);
       const scrollPropX = childVe.tableBodyViewportBoundsPx != null ? 0 : store.perItem.getPageScrollXProp(childVeid);
       const scrollPropY = childVe.tableBodyViewportBoundsPx != null ? 0 : store.perItem.getPageScrollYProp(childVeid);
@@ -1033,14 +1044,11 @@ function hitCalendarMiniRootMaybe(
   hitboxOptions: HitboxScanOptions,
 ): RootInfo {
   const { rootVe, posRelativeToRootVeViewportPx } = parentRootInfo;
-  const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
-  for (let i = rootVeChildren.length - 1; i >= 0; --i) {
-    const childVes = rootVeChildren[i];
+  const childVes = topmostChildVesAt(rootVe, posRelativeToRootVeViewportPx, ignoreItems);
+  if (childVes != null) {
     const childVe = childVes.get();
-    if (isIgnored(childVe.displayItem.id, ignoreItems)) { continue; }
-    if (!isCalendarMiniPageVe(childVe)) { continue; }
-    if (!childVe.viewportBoundsPx || !childVe.childAreaBoundsPx) { continue; }
-    if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { continue; }
+    if (!isCalendarMiniPageVe(childVe)) { return parentRootInfo; }
+    if (!childVe.viewportBoundsPx || !childVe.childAreaBoundsPx) { return parentRootInfo; }
 
     const childVeid = VeFns.actualVeidFromVe(childVe);
     const scrollPropX = store.perItem.getPageScrollXProp(childVeid);
