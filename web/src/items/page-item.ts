@@ -1338,6 +1338,13 @@ export const PageFns = {
     if (isRenderedEmbeddedInteractive && (hitboxFlags & HitboxFlags.ContentEditable)) {
       PageFns.handleEditTitleClick(visualElement, store);
     } else if (isRenderedEmbeddedInteractive) {
+      // As for a root list page, a background click on an embedded list page gives it keyboard focus.
+      if (asPageItem(visualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List &&
+        !(visualElement.flags & VisualElementFlags.DockItem)) {
+        store.history.setFocus(VeFns.veToPath(visualElement));
+        PageFns.setDefaultListPageSelectedItemMaybe(store, VeFns.actualVeidFromVe(visualElement));
+        arrangeNow(store, "embedded-list-page-background-focus");
+      }
       return;
     } else {
       if (!isVeTranslucentPage(visualElement) && maybeEditDocumentPageRowFromClick(visualElement, store)) {
