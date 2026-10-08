@@ -54,9 +54,8 @@ import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "
 import { asContainerItem } from "../items/base/container-item";
 import { newUid } from "../util/uid";
 import { isDataItem } from "../items/base/data-item";
-import createJustifiedLayout from "justified-layout";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
-import { createJustifyOptions } from "../layout/arrange/page_justified";
+import { justifiedInsertionFromChildAreaPx } from "../layout/justified-insertion";
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
 import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
@@ -734,8 +733,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Justified) {
-    const moveOverIndex = calculateJustifiedMoveOverIndex(store, inElementVe, activeItem, desktopPosPx);
-    store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
+    setJustifiedMoveOverInsertion(store, inElementVe, desktopPosPx);
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
@@ -1097,67 +1095,21 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
 }
 
 
-function calculateJustifiedMoveOverIndex(store: StoreContextModel, inElementVe: VisualElement, activeItem: PositionalItem, desktopPosPx: Vector): number {
-  const pageItem = asPageItem(inElementVe.displayItem);
-  const containerItem = asContainerItem(inElementVe.displayItem);
-
+function setJustifiedMoveOverInsertion(store: StoreContextModel, inElementVe: VisualElement, desktopPosPx: Vector) {
+  const inElementPath = VeFns.veToPath(inElementVe);
   const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
-  const xOffsetPx = desktopPosPx.x - viewportBoundsPx.x;
-  const yOffsetPx = desktopPosPx.y - viewportBoundsPx.y;
-
-  // Account for scroll position
   const veid = VeFns.actualVeidFromVe(inElementVe);
   const scrollYPx = store.perItem.getPageScrollYProp(veid)
     * Math.max(0, inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
   const scrollXPx = store.perItem.getPageScrollXProp(veid)
     * Math.max(0, inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
-
-  const mousePagePosPx = {
-    x: xOffsetPx + scrollXPx,
-    y: yOffsetPx + scrollYPx
+  const childAreaPosPx = {
+    x: desktopPosPx.x - viewportBoundsPx.x + scrollXPx,
+    y: desktopPosPx.y - viewportBoundsPx.y + scrollYPx,
   };
 
-  const dims = [];
-  const items = [];
-  for (let i = 0; i < containerItem.computed_children.length; ++i) {
-    const item = itemState.get(containerItem.computed_children[i])!;
-    if (item.id === activeItem.id) {
-      continue;
-    }
-    const dimensions = ItemFns.calcSpatialDimensionsBl(item);
-    dims.push({ width: dimensions.w, height: dimensions.h });
-    items.push(item);
-  }
-
-  const movingItemDimensions = ItemFns.calcSpatialDimensionsBl(activeItem);
-  const movingItemDim = { width: movingItemDimensions.w, height: movingItemDimensions.h };
-
-  let bestIndex = 0;
-  let bestDistance = Infinity;
-
-  for (let insertIdx = 0; insertIdx <= dims.length; insertIdx++) {
-    const testDims = [...dims];
-    testDims.splice(insertIdx, 0, movingItemDim);
-
-    const layout = createJustifiedLayout(testDims, createJustifyOptions(inElementVe.boundsPx.w, pageItem.justifiedRowAspect));
-
-    if (layout.boxes.length > insertIdx) {
-      const box = layout.boxes[insertIdx];
-      const itemCenterPx = {
-        x: box.left + box.width / 2,
-        y: box.top + box.height / 2
-      };
-
-      const dx = mousePagePosPx.x - itemCenterPx.x;
-      const dy = mousePagePosPx.y - itemCenterPx.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = insertIdx;
-      }
-    }
-  }
-
-  return bestIndex;
+  const childBoundsPx = VesCache.render.getNonMovingChildren(inElementPath)().map(childVe => childVe.get().boundsPx);
+  const insertion = justifiedInsertionFromChildAreaPx(childBoundsPx, childAreaPosPx);
+  store.perVe.setMoveOverIndex(inElementPath, insertion.index);
+  store.perVe.setMoveOverIndexAndPosition(inElementPath, { index: insertion.index, position: insertion.afterPrevious ? 1 : 0 });
 }

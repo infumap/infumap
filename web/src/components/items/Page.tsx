@@ -54,7 +54,8 @@ import { ItemType } from "../../items/base/item";
 import { catalogPageDisplayContext, type CatalogRowFragmentDisplay } from "../../layout/catalog-display";
 import { documentPageMoveOutBoxPxMaybe } from "./helper";
 import { SELECTED_LIGHT } from "../../style";
-import { calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
+import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
+import { justifiedInsertionLineBoundsPx } from "../../layout/justified-insertion";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -810,50 +811,20 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     renderJustifiedMoveOverHighlight: () => {
       const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
-
-      const nonMovingChildrenVes = pageFns.nonMovingChildren();
-
-      if (moveOverIndex >= 0 && moveOverIndex <= nonMovingChildrenVes.length) {
-        let leftPx: number;
-        let topPx: number;
-        let heightPx: number;
-
-        if (moveOverIndex === 0) {
-          // Inserting at the beginning
-          const firstVe = nonMovingChildrenVes[0]?.get();
-          if (firstVe) {
-            leftPx = firstVe.boundsPx.x - 2;
-            topPx = firstVe.boundsPx.y;
-            heightPx = firstVe.boundsPx.h;
-          } else {
-            return <></>;
-          }
-        } else if (moveOverIndex >= nonMovingChildrenVes.length) {
-          // Inserting at the end
-          const lastVe = nonMovingChildrenVes[nonMovingChildrenVes.length - 1]?.get();
-          if (lastVe) {
-            leftPx = lastVe.boundsPx.x + lastVe.boundsPx.w + 2;
-            topPx = lastVe.boundsPx.y;
-            heightPx = lastVe.boundsPx.h;
-          } else {
-            return <></>;
-          }
-        } else {
-          // Inserting between elements
-          const prevVe = nonMovingChildrenVes[moveOverIndex - 1].get();
-          const nextVe = nonMovingChildrenVes[moveOverIndex].get();
-          leftPx = (prevVe.boundsPx.x + prevVe.boundsPx.w + nextVe.boundsPx.x) / 2;
-          topPx = Math.min(prevVe.boundsPx.y, nextVe.boundsPx.y);
-          heightPx = Math.max(prevVe.boundsPx.h, nextVe.boundsPx.h);
-        }
-
-        return (
-          <div class="absolute border border-black"
-            style={`left: ${leftPx}px; top: ${topPx}px; width: 1px; height: ${heightPx}px; ${VeFns.zIndexStyle(props.visualElement)}`} />
-        );
+      const indexAndPosition = store.perVe.getMoveOverIndexAndPosition(pageFns.vePath());
+      const childBoundsPx = pageFns.nonMovingChildren().map(childVe => childVe.get().boundsPx);
+      const gapPx = calcJustifiedBoxSpacingPx(pageFns.boundsPx().w, pageFns.pageItem().justifiedRowAspect);
+      const lineBoundsPx = justifiedInsertionLineBoundsPx(childBoundsPx, {
+        index: moveOverIndex,
+        afterPrevious: indexAndPosition.index == moveOverIndex && indexAndPosition.position == 1,
+      }, gapPx);
+      if (!lineBoundsPx) {
+        return <></>;
       }
-
-      return <></>;
+      return (
+        <div class="absolute border border-black"
+          style={`left: ${lineBoundsPx.x - 1}px; top: ${lineBoundsPx.y}px; width: 1px; height: ${lineBoundsPx.h}px; ${VeFns.zIndexStyle(props.visualElement)}`} />
+      );
     },
   };
 

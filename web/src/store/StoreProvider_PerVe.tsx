@@ -61,7 +61,7 @@ export interface PerVeStoreContextModel {
   getMoveOverIndex: (vePath: VisualElementPath) => number, // for grid pages
   setMoveOverIndex: (vePath: VisualElementPath, index: number) => void,
 
-  getMoveOverIndexAndPosition: (vePath: VisualElementPath) => IndexAndPosition, // for dock, justified pages.
+  getMoveOverIndexAndPosition: (vePath: VisualElementPath) => IndexAndPosition, // dock: position is indicator y px. justified: position 1 => indicator after child index-1, else before child index.
   setMoveOverIndexAndPosition: (vePath: VisualElementPath, index: IndexAndPosition) => void,
 
   getMoveOverColAttachmentNumber: (vePath: VisualElementPath) => number,  // for tables only
