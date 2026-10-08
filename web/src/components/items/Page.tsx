@@ -20,7 +20,7 @@ import { Component, For, Match, Show, Switch } from "solid-js";
 
 import { VesCache } from "../../layout/ves-cache";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_ITEM_GAP_BL, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, MIN_DETAILED_CHILD_SCALE, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX } from "../../constants";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { HitboxFlags } from "../../layout/hitbox";
@@ -39,17 +39,11 @@ import { Page_EmbeddedInteractive } from "./Page_EmbeddedInteractive";
 import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
+import { OUTLINE_COLOR, outlineTextWidthPx } from "./LineItemOutline";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { calculateCalendarDimensionsForVisualElement, calculateCalendarWindowForPage, decodeCalendarCombinedIndex, getCalendarDayMetrics, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
-import {
-  calcCatalogContentWidthPx,
-  calcCatalogPreviewColumnWidthPx,
-  calcCatalogRowHeightPx,
-  CATALOG_DETAIL_COLUMN_PADDING_PX,
-  CATALOG_HORIZONTAL_MARGIN_PX,
-  CATALOG_VERTICAL_MARGIN_PX,
-} from "../../layout/catalog";
+import { calcCatalogLayout, CATALOG_DETAIL_COLUMN_PADDING_PX } from "../../layout/catalog";
 import { ItemType } from "../../items/base/item";
 import { catalogPageDisplayContext, type CatalogRowFragmentDisplay } from "../../layout/catalog-display";
 import { documentPageMoveOutBoxPxMaybe } from "./helper";
@@ -108,6 +102,24 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       .replace(/\s*(?:\.\.\.|…)\s*$/, "")
       .replace(/(?:\s*\.)+$/, "");
     return `${clamped}...`;
+  };
+
+  /**
+   * A bar the approximate size of a line of catalog detail text of the given length and font size, drawn in place of
+   * text too small to be legible.
+   */
+  const catalogTextBar = (numChars: number, fontSizePx: number, maxWidthPx: number, marginTopPx: number) => {
+    const lineHeightPx = catalogDetailLineHeightPx(fontSizePx);
+    const equivalentRowHeightPx = fontSizePx * LINE_HEIGHT_PX / FONT_SIZE_PX;
+    const barHeightPx = equivalentRowHeightPx * 0.4;
+    return (
+      <div class="relative" style={`height: ${lineHeightPx}px; margin-top: ${marginTopPx}px;`}>
+        <div class="absolute"
+          style={`left: 0px; top: ${(lineHeightPx - barHeightPx) / 2}px; ` +
+            `width: ${Math.min(outlineTextWidthPx(numChars, equivalentRowHeightPx), maxWidthPx)}px; height: ${barHeightPx}px; ` +
+            `background-color: ${OUTLINE_COLOR};`} />
+      </div>
+    );
   };
 
   const itemTypeIcon = (itemType: string) => {
@@ -428,7 +440,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               </Show>
             }</For>
           </Match>
-          <Match when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
+          <Match when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog && pageFns.catalogLayout().showDetailColumn}>
             <div class="absolute bg-slate-100"
               style={`left: ${pageFns.catalogDividerLeftPx()}px; height: ${pageFns.catalogRowsHeightPx()}px; width: 1px; top: ${pageFns.catalogPageTopPaddingPx()}px;`} />
           </Match>
@@ -450,22 +462,30 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     hasCatalogResultContext: () => pageFns.catalogResultControlsTopInsetPx() != null,
 
-    catalogPageTopPaddingPx: () => pageFns.catalogResultControlsTopInsetPx() ?? CATALOG_VERTICAL_MARGIN_PX,
+    /** Scale at which the catalog page is drawn: less than 1 for a preview (e.g. translucent) page, see arrange_catalog_page. */
+    catalogScale: () => props.visualElement.catalogScale ?? 1.0,
 
-    catalogContentLeftPx: () => CATALOG_HORIZONTAL_MARGIN_PX,
+    catalogLayout: () => calcCatalogLayout(pageFns.childAreaBoundsPx().w, pageFns.pageItem().gridCellAspect, pageFns.catalogScale()),
 
-    catalogContentWidthPx: () => calcCatalogContentWidthPx(pageFns.childAreaBoundsPx().w),
+    /** Whether the catalog detail text is too small to be legible, so is drawn as bars. */
+    catalogTextAsBars: () => pageFns.catalogScale() < MIN_DETAILED_CHILD_SCALE,
+
+    catalogPageTopPaddingPx: () => pageFns.catalogResultControlsTopInsetPx() ?? pageFns.catalogLayout().verticalMarginPx,
+
+    catalogContentLeftPx: () => pageFns.catalogLayout().horizontalMarginPx,
+
+    catalogContentWidthPx: () => pageFns.catalogLayout().contentWidthPx,
 
     catalogPreviewColumnWidthPx: () =>
       props.visualElement.cellSizePx?.w ??
-      calcCatalogPreviewColumnWidthPx(pageFns.childAreaBoundsPx().w),
+      pageFns.catalogLayout().previewColumnWidthPx,
 
     catalogDividerLeftPx: () =>
       pageFns.catalogContentLeftPx() + pageFns.catalogPreviewColumnWidthPx(),
 
     catalogRowHeightPx: () =>
       props.visualElement.cellSizePx?.h ??
-      calcCatalogRowHeightPx(pageFns.catalogPreviewColumnWidthPx(), pageFns.pageItem().gridCellAspect),
+      pageFns.catalogLayout().rowHeightPx,
 
     catalogRowsHeightPx: () => pageFns.catalogRowHeightPx() * (props.visualElement.numRows ?? 0),
 
@@ -567,7 +587,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             const metadataHeightPx = metadataLines().length > 0
               ? CATALOG_DETAIL_SECTION_GAP_PX + catalogDetailLineHeightPx(CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX)
               : 0;
-            const availableHeightPx = pageFns.catalogRowHeightPx() - CATALOG_DETAIL_TOP_PADDING_PX;
+            const availableHeightPx = naturalRowHeightPx() - CATALOG_DETAIL_TOP_PADDING_PX;
             let usedHeightPx = catalogDetailLineHeightPx(CATALOG_DETAIL_PATH_FONT_SIZE_PX) + metadataHeightPx;
             const snippetHeightPx =
               CATALOG_DETAIL_SECTION_GAP_PX +
@@ -598,15 +618,28 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
               scoreWidthPx +
               linkWidthPx;
             const maxChars = Math.floor(
-              Math.max(0, widthPx() * CATALOG_SEARCH_SNIPPET_LINE_CLAMP - reservedWidthPx) / averageCharWidthPx,
+              Math.max(0, naturalWidthPx() * CATALOG_SEARCH_SNIPPET_LINE_CLAMP - reservedWidthPx) / averageCharWidthPx,
             );
             return clampCatalogSnippetText(match.text, maxChars);
           };
           const rowIndex = () => childVe().row ??
             Math.max(0, Math.round((childVe().boundsPx.y - pageFns.catalogPageTopPaddingPx()) / pageFns.catalogRowHeightPx()));
           const topPx = () => pageFns.catalogPageTopPaddingPx() + rowIndex() * pageFns.catalogRowHeightPx();
-          const leftPx = () => pageFns.catalogDividerLeftPx() + CATALOG_DETAIL_COLUMN_PADDING_PX;
-          const widthPx = () => Math.max(0, pageFns.catalogContentLeftPx() + pageFns.catalogContentWidthPx() - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX);
+          const leftPx = () => pageFns.catalogDividerLeftPx() + CATALOG_DETAIL_COLUMN_PADDING_PX * pageFns.catalogScale();
+          const widthPx = () => Math.max(0, pageFns.catalogContentLeftPx() + pageFns.catalogContentWidthPx() - leftPx() - CATALOG_DETAIL_COLUMN_PADDING_PX * pageFns.catalogScale());
+          // The detail text is laid out at natural size, then scaled with the page.
+          const naturalWidthPx = () => widthPx() / pageFns.catalogScale();
+          const naturalRowHeightPx = () => pageFns.catalogRowHeightPx() / pageFns.catalogScale();
+          const scaleStyle = () => pageFns.catalogScale() == 1.0
+            ? ""
+            : `transform: scale(${pageFns.catalogScale()}); transform-origin: 0 0; `;
+          const pathTextLength = () => {
+            const segments = pathSegments().filter(segment => segment.itemType != ItemType.Composite);
+            // Allow two characters for each icon, and three for each separator.
+            return segments.reduce((sum, segment) => sum + segment.title.length + 2, 0) + Math.max(0, segments.length - 1) * 3;
+          };
+          const metadataTextLength = () =>
+            metadataLines().reduce((sum, line) => sum + line.length, 0) + Math.max(0, metadataLines().length - 1) * 3;
           return (
             <>
               <Show when={isSelectedResultRow()}>
@@ -619,74 +652,85 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                   style={`left: ${pageFns.catalogContentLeftPx()}px; top: ${topPx()}px; width: ${pageFns.catalogContentWidthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                     `background-color: #00000007;`} />
               </Show>
-              <div class="absolute flex items-start pointer-events-none"
-                style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${widthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
-                  `font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: ${CATALOG_DETAIL_TOP_PADDING_PX}px;`}>
-                <div class="min-w-0 w-full flex flex-col gap-[2px]">
-                  <div class={`min-w-0 ${textClass} truncate whitespace-nowrap`}
-                    style={`${textStyle}font-size: ${CATALOG_DETAIL_PATH_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER};`}
-                    onMouseDown={textMouseHandler}
-                    onMouseMove={textMouseHandler}
-                    onMouseUp={textMouseHandler}
-                    onClick={textMouseHandler}>
-                    <For each={pathSegments()}>{(segment, idx) =>
-                      <Show when={segment.itemType != ItemType.Composite}>
-                        <span class="inline-flex items-center">
-                          <Show when={idx() != 0}>
-                            <span class="mx-2">/</span>
-                          </Show>
-                          <span>{itemTypeIcon(segment.itemType)}</span>
-                          <span class="ml-1">{segment.title}</span>
-                        </span>
+              <Show when={pageFns.catalogLayout().showDetailColumn}>
+                <div class="absolute flex items-start pointer-events-none"
+                  style={`left: ${leftPx()}px; top: ${topPx()}px; width: ${naturalWidthPx()}px; height: ${naturalRowHeightPx()}px; ` +
+                    `${scaleStyle()}font-size: ${FONT_SIZE_PX}px; color: #000; padding-top: ${CATALOG_DETAIL_TOP_PADDING_PX}px;`}>
+                  <Show when={!pageFns.catalogTextAsBars()} fallback={
+                    <div class="min-w-0 w-full flex flex-col gap-[2px]">
+                      {catalogTextBar(pathTextLength(), CATALOG_DETAIL_PATH_FONT_SIZE_PX, naturalWidthPx(), 0)}
+                      <Show when={metadataLines().length > 0}>
+                        {catalogTextBar(metadataTextLength(), CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX, naturalWidthPx(), CATALOG_DETAIL_SECTION_GAP_PX)}
                       </Show>
-                    }</For>
-                  </div>
-                  <For each={visibleFragmentMatches()}>{match =>
-                    <div class={`min-w-0 w-full ${textClass} text-slate-700`}
-                      style={`${textStyle}font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}
-                      onMouseDown={textMouseHandler}
-                      onMouseMove={textMouseHandler}
-                      onMouseUp={textMouseHandler}
-                      onClick={textMouseHandler}>
-                      <Show when={match.pageLabel}>
-                        <span style="font-weight: 600; color: #475569; margin-right: 12px;">{match.pageLabel}</span>
-                      </Show>
-                      <span style="font-style: italic;">{inlineSnippetText(match)}</span>
-                      <span style="white-space: nowrap;">
-                        <Show when={match.scoreLabel}>
-                          <span style={`color: #64748b; font-style: italic; margin-left: ${CATALOG_SEARCH_SNIPPET_CONTROL_GAP_PX}px;`}>{match.scoreLabel}</span>
-                        </Show>
-                        <Show when={match.href}>
-                          <a
-                            class={textInteractive ? "pointer-events-auto" : ""}
-                            style={`align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; font-size: 12px; font-style: normal; height: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px; justify-content: center; line-height: 1; margin-left: ${CATALOG_SEARCH_SNIPPET_LINK_GAP_PX}px; text-decoration: none; vertical-align: -1px; width: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px;`}
-                            href={match.href ?? ""}
-                            target="_blank"
-                            rel="noopener"
-                            title="Open full fragment"
-                            aria-label="Open full fragment"
-                            onMouseDown={(ev) => ev.stopPropagation()}
-                            onClick={(ev) => ev.stopPropagation()}>
-                            ↗
-                          </a>
-                        </Show>
-                      </span>
                     </div>
-                  }</For>
-                  <Show when={metadataLines().length > 0}>
-                    <div class={`min-w-0 ${textClass} flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700`}
-                      style={`${textStyle}font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}
-                      onMouseDown={textMouseHandler}
-                      onMouseMove={textMouseHandler}
-                      onMouseUp={textMouseHandler}
-                      onClick={textMouseHandler}>
-                      <For each={metadataLines()}>{line =>
-                        <span class="shrink-0">{line}</span>
+                  }>
+                    <div class="min-w-0 w-full flex flex-col gap-[2px]">
+                      <div class={`min-w-0 ${textClass} truncate whitespace-nowrap`}
+                        style={`${textStyle}font-size: ${CATALOG_DETAIL_PATH_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER};`}
+                        onMouseDown={textMouseHandler}
+                        onMouseMove={textMouseHandler}
+                        onMouseUp={textMouseHandler}
+                        onClick={textMouseHandler}>
+                        <For each={pathSegments()}>{(segment, idx) =>
+                          <Show when={segment.itemType != ItemType.Composite}>
+                            <span class="inline-flex items-center">
+                              <Show when={idx() != 0}>
+                                <span class="mx-2">/</span>
+                              </Show>
+                              <span>{itemTypeIcon(segment.itemType)}</span>
+                              <span class="ml-1">{segment.title}</span>
+                            </span>
+                          </Show>
+                        }</For>
+                      </div>
+                      <For each={visibleFragmentMatches()}>{match =>
+                        <div class={`min-w-0 w-full ${textClass} text-slate-700`}
+                          style={`${textStyle}font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}
+                          onMouseDown={textMouseHandler}
+                          onMouseMove={textMouseHandler}
+                          onMouseUp={textMouseHandler}
+                          onClick={textMouseHandler}>
+                          <Show when={match.pageLabel}>
+                            <span style="font-weight: 600; color: #475569; margin-right: 12px;">{match.pageLabel}</span>
+                          </Show>
+                          <span style="font-style: italic;">{inlineSnippetText(match)}</span>
+                          <span style="white-space: nowrap;">
+                            <Show when={match.scoreLabel}>
+                              <span style={`color: #64748b; font-style: italic; margin-left: ${CATALOG_SEARCH_SNIPPET_CONTROL_GAP_PX}px;`}>{match.scoreLabel}</span>
+                            </Show>
+                            <Show when={match.href}>
+                              <a
+                                class={textInteractive ? "pointer-events-auto" : ""}
+                                style={`align-items: center; background-color: #fff; border: 1px solid #cbd5e1; border-radius: 3px; color: #2563eb; display: inline-flex; font-size: 12px; font-style: normal; height: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px; justify-content: center; line-height: 1; margin-left: ${CATALOG_SEARCH_SNIPPET_LINK_GAP_PX}px; text-decoration: none; vertical-align: -1px; width: ${CATALOG_SEARCH_SNIPPET_LINK_SIZE_PX}px;`}
+                                href={match.href ?? ""}
+                                target="_blank"
+                                rel="noopener"
+                                title="Open full fragment"
+                                aria-label="Open full fragment"
+                                onMouseDown={(ev) => ev.stopPropagation()}
+                                onClick={(ev) => ev.stopPropagation()}>
+                                ↗
+                              </a>
+                            </Show>
+                          </span>
+                        </div>
                       }</For>
+                      <Show when={metadataLines().length > 0}>
+                        <div class={`min-w-0 ${textClass} flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700`}
+                          style={`${textStyle}font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}
+                          onMouseDown={textMouseHandler}
+                          onMouseMove={textMouseHandler}
+                          onMouseUp={textMouseHandler}
+                          onClick={textMouseHandler}>
+                          <For each={metadataLines()}>{line =>
+                            <span class="shrink-0">{line}</span>
+                          }</For>
+                        </div>
+                      </Show>
                     </div>
                   </Show>
                 </div>
-              </div>
+              </Show>
             </>
           );
         }}</For>

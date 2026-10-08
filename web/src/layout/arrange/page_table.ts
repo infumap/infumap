@@ -29,7 +29,7 @@ import { ItemGeometry } from "../item-geometry";
 import { tabularColumnHitboxes } from "../tabular";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isVeTranslucentPage } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem, getCommonVisualElementFlags, listOrTablePageIsPreview } from "./item";
+import { ArrangeItemFlags, arrangeItem, getCommonVisualElementFlags, pageIsPreview } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeTabularChildren } from "./table";
@@ -53,7 +53,7 @@ export function arrange_table_page(
   const proportionalScale = contentViewportPx.w / store.desktopMainAreaBoundsPx().w;
   const scale = isFull || insidePopup
     ? 1
-    : listOrTablePageIsPreview(page, parentPath, flags)
+    : pageIsPreview(page, parentPath, flags)
       ? proportionalScale
       : Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalScale);
   const rowBlockSizePx = { w: LINE_HEIGHT_PX * scale, h: LINE_HEIGHT_PX * scale };

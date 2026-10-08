@@ -26,6 +26,7 @@ import { EMPTY_UID } from "../../util/uid";
 import { initiateLoadItemMaybe, initiateLoadItemFromRemoteMaybe, retryLinkIfVisible, RemoteLoadStatus, itemLoadFromRemoteStatus, linkIdToRemoteInfo, itemLoadLastSessionId } from "../load";
 import { RemoteSessions } from "../../store/RemoteSessions";
 import { ItemGeometry } from "../item-geometry";
+import { BoundingBox } from "../../util/geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VeFns } from "../visual-element";
 import { isQuerySearchResultLink } from "../../items/search-item";
@@ -234,4 +235,29 @@ export function addLinkTriangleHitboxMaybe(geometry: ItemGeometry, actualLinkIte
   geometry.hitboxes.push(HitboxFns.create(HitboxFlags.TriangleLinkSettings, {
     x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2,
   }));
+}
+
+
+/**
+ * Scales geometry laid out relative to the origin of an area by the given factor, and positions it in that area.
+ */
+export function scaleGeometry(geometry: ItemGeometry, areaBoundsPx: BoundingBox, scale: number): ItemGeometry {
+  const scaleBoundsPx = (b: BoundingBox): BoundingBox => ({
+    x: areaBoundsPx.x + b.x * scale,
+    y: areaBoundsPx.y + b.y * scale,
+    w: b.w * scale,
+    h: b.h * scale,
+  });
+  return {
+    ...geometry,
+    boundsPx: scaleBoundsPx(geometry.boundsPx),
+    viewportBoundsPx: geometry.viewportBoundsPx == null ? null : scaleBoundsPx(geometry.viewportBoundsPx),
+    blockSizePx: { w: geometry.blockSizePx.w * scale, h: geometry.blockSizePx.h * scale },
+    attachmentBlockSizePx: geometry.attachmentBlockSizePx == null ? undefined : geometry.attachmentBlockSizePx * scale,
+    // Hitbox bounds are relative to the item's bounds.
+    hitboxes: geometry.hitboxes.map(hitbox => ({
+      ...hitbox,
+      boundsPx: { x: hitbox.boundsPx.x * scale, y: hitbox.boundsPx.y * scale, w: hitbox.boundsPx.w * scale, h: hitbox.boundsPx.h * scale },
+    })),
+  };
 }
