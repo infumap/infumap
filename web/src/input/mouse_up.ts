@@ -1295,8 +1295,12 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         arrangeNow(store, "mouse-up-focus-link");
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.TriangleLinkSettings)) {
+        // The path link id may be synthetic (e.g. POPUP_LINK_UID for popups), which is not in itemState,
+        // so prefer the actual link item.
+        const linkId = activeVisualElement.actualLinkItemMaybe?.id ??
+          VeFns.veidFromPath(MouseActionState.getActiveElementPath()!).linkIdMaybe!;
         const focusPath = VeFns.addVeidToPath(
-          { itemId: VeFns.veidFromPath(MouseActionState.getActiveElementPath()!).linkIdMaybe!, linkIdMaybe: null },
+          { itemId: linkId, linkIdMaybe: null },
           VeFns.parentPath(MouseActionState.getActiveElementPath()!)
         );
         store.history.setFocus(focusPath);
