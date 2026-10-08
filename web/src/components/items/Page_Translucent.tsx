@@ -545,9 +545,10 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     ? ''
     : `background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.636)};`;
 
+  // Calendar pages are drawn as a white sheet, so are outlined like notes rather than with the darker page border.
   const borderClass = () => useFlatWorkspaceChrome()
     ? ''
-    : `border border-[#777] ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
+    : `border ${isCalendarTranslucentPage() ? "border-item-border" : "border-[#777]"} ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
 
   // child area coordinates are relative to the outer bounds, but content is positioned inside the border.
   const borderWidthPx = () => useFlatWorkspaceChrome() ? 0 : 1;
