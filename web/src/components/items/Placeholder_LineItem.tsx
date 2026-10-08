@@ -40,6 +40,18 @@ export const Placeholder_LineItem: Component<VisualElementProps> = (props: Visua
     return result;
   };
 
+  const isFocused = () => store.history.getFocusPathMaybe() === vePath();
+
+  // A gap is drawn as an ordinary empty cell, except when it can be acted on: when focused or selected,
+  // or while an item is being moved over the table (dropping onto a gap replaces it).
+  const showHatching = () => {
+    if (isFocused() || store.perVe.getMouseIsOver(vePath())) { return true; }
+    if (props.visualElement.flags & VisualElementFlags.Selected) { return true; }
+    const rowPath = props.visualElement.parentPath;
+    if (rowPath == null || !store.anItemIsMoving.get()) { return false; }
+    return store.perVe.getMovingItemIsOver(VeFns.parentPath(rowPath));
+  };
+
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
 
@@ -67,10 +79,12 @@ export const Placeholder_LineItem: Component<VisualElementProps> = (props: Visua
   return (
     <>
       {renderHighlightsMaybe()}
-      <div class={`absolute rounded-xs border border-slate-200`}
-           style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-                  "background: repeating-linear-gradient(315deg, #00000000, #00000000 3px, #eee 2px, #eee 5px);"} />
-      <Show when={store.history.getFocusPathMaybe() === vePath()}>
+      <Show when={showHatching()}>
+        <div class={`absolute rounded-xs border border-slate-200`}
+             style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+                    "background: repeating-linear-gradient(315deg, #00000000, #00000000 3px, #eee 2px, #eee 5px);"} />
+      </Show>
+      <Show when={isFocused()}>
         <div class="absolute pointer-events-none"
           style={`left: ${props.visualElement.boundsPx.x}px; top: ${props.visualElement.boundsPx.y}px; width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
             `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
