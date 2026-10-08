@@ -226,23 +226,21 @@ function pageAncestorScrollOffsetPx(
     return { x: 0, y: 0 };
   }
 
+  // Scroll props are written relative to the viewport (bounds minus any title header), see the page scroll handlers.
+  const viewportBoundsPx = pageVe.viewportBoundsPx ?? pageVe.boundsPx;
+  const scrollHeightPx = Math.max(0, pageVe.childAreaBoundsPx.h - viewportBoundsPx.h);
+  const scrollWidthPx = Math.max(0, pageVe.childAreaBoundsPx.w - viewportBoundsPx.w);
+
   if (pageVe.flags & VisualElementFlags.Popup) {
     const popupSpec = store.history.currentPopupSpec();
     if (!popupSpec) { return { x: 0, y: 0 }; }
     assert(itemState.get(popupSpec.actualVeid.itemId)!.itemType == ItemType.Page, `${context}: popup spec type not page.`);
     return {
-      x: Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.boundsPx.w) * store.perItem.getPageScrollXProp(popupSpec.actualVeid),
-      y: Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.boundsPx.h) * store.perItem.getPageScrollYProp(popupSpec.actualVeid),
+      x: scrollWidthPx * store.perItem.getPageScrollXProp(popupSpec.actualVeid),
+      y: scrollHeightPx * store.perItem.getPageScrollYProp(popupSpec.actualVeid),
     };
   }
 
-  const viewportBoundsPx = pageVe.flags & VisualElementFlags.IsDock ? pageVe.viewportBoundsPx : null;
-  const scrollHeightPx = viewportBoundsPx
-    ? Math.max(0, pageVe.childAreaBoundsPx.h - viewportBoundsPx.h)
-    : Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.boundsPx.h);
-  const scrollWidthPx = viewportBoundsPx
-    ? Math.max(0, pageVe.childAreaBoundsPx.w - viewportBoundsPx.w)
-    : Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.boundsPx.w);
   const pageVeid = VeFns.actualVeidFromVe(pageVe);
   return {
     x: scrollWidthPx * store.perItem.getPageScrollXProp(pageVeid),
