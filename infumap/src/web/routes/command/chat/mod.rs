@@ -54,6 +54,8 @@ const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
 const CHAT_FRAGMENT_TOOL_MAX_COUNT: i64 = 3;
+const CHAT_HISTORY_TOOL_RESULT_MAX_CHARS: usize = 500;
+const CHAT_HISTORY_TOOL_SUMMARY_MAX_CHARS: usize = 300;
 const CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS: usize = 280;
 const CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS: usize = 80;
 const CHAT_TOOL_SUMMARY_TITLE_COUNT: usize = 3;
@@ -1070,8 +1072,52 @@ fn chat_system_prompt(infumap_data: Option<&InfumapData>, has_plugin_tools: bool
 
 fn wire_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<OpenAiChatMessage>> {
   match request.messages.as_deref() {
-    Some(messages) => explicit_wire_messages(messages),
+    Some(messages) => {
+      let mut wire_messages = explicit_wire_messages(messages)?;
+      shorten_earlier_tool_results(&mut wire_messages);
+      Ok(wire_messages)
+    }
     None => Ok(legacy_wire_messages_from_chat_request(request)),
+  }
+}
+
+/// Replaces long tool results from turns before the latest user message with a summary, so the transcript stops
+/// growing by every result. The model can call the tool again if a follow-up needs the content. A result is
+/// rewritten once, when the turn after it starts, and the same way every turn after that: the stub is never long
+/// enough to be shortened again, and the client keeps the returned transcript. So each turn still reuses the
+/// prompt cache up to the previous turn's results.
+fn shorten_earlier_tool_results(messages: &mut [OpenAiChatMessage]) {
+  let Some(latest_user) = messages.iter().rposition(|message| message.role == "user") else {
+    return;
+  };
+  let (earlier, _) = messages.split_at_mut(latest_user);
+  let calls = earlier
+    .iter()
+    .flat_map(|message| message.tool_calls.iter().flatten())
+    .map(|call| (call.id.clone(), call))
+    .collect::<HashMap<_, _>>();
+  let mut stubs = Vec::new();
+  for (index, message) in earlier.iter().enumerate() {
+    let Some(content) = message.content.as_deref().filter(|_| message.role == "tool") else {
+      continue;
+    };
+    if text_char_count(content) <= CHAT_HISTORY_TOOL_RESULT_MAX_CHARS {
+      continue;
+    }
+    let call = message.tool_call_id.as_ref().and_then(|call_id| calls.get(call_id));
+    let name = call.map_or("", |call| call.function.name.as_str());
+    let arguments = call.and_then(|call| tool_call_arguments_value(call).ok()).unwrap_or(Value::Null);
+    let (summary, _) = chat_tool_finished_activity(name, &arguments, content);
+    let (summary, _) = clamp_text_chars(&summary, CHAT_HISTORY_TOOL_SUMMARY_MAX_CHARS);
+    let stub = serde_json::json!({
+      "shortened": true,
+      "summary": summary,
+      "note": "Result from an earlier turn, shortened to save context. Call the tool again if you need its content."
+    });
+    stubs.push((index, stub.to_string()));
+  }
+  for (index, stub) in stubs {
+    earlier[index].content = Some(stub);
   }
 }
 
@@ -2744,6 +2790,53 @@ mod tests {
 
     let counts = cut_note_fragment_counts(&db, &[long.clone(), short, page, new_uid()]).await;
     assert_eq!(counts, HashMap::from([(long, 3)]));
+  }
+
+  #[test]
+  fn earlier_tool_results_are_shortened_once_and_identically() {
+    let call = |id: &str, name: &str, arguments: Value| OpenAiToolCall {
+      id: id.to_owned(),
+      tool_type: default_tool_call_type(),
+      function: OpenAiToolCallFunction { name: name.to_owned(), arguments },
+    };
+    let assistant_calling = |calls: Vec<OpenAiToolCall>| OpenAiChatMessage {
+      tool_calls: Some(calls),
+      ..OpenAiChatMessage::text("assistant", String::new())
+    };
+    let fragment = serde_json::json!({
+      "title": "Tasks", "fragmentCount": 11,
+      "fragments": [{ "fragmentOrdinal": 0, "text": "row ".repeat(500) }]
+    })
+    .to_string();
+    let small = serde_json::json!({ "error": "Item was not found." }).to_string();
+    let messages = vec![
+      OpenAiChatMessage::text("user", "what is in my tasks?".to_owned()),
+      assistant_calling(vec![
+        call("c1", "get_fragment", serde_json::json!({ "itemId": "t" })),
+        call("c2", "get_fragment", serde_json::json!({ "itemId": "x" })),
+      ]),
+      OpenAiChatMessage::tool("c1".to_owned(), fragment.clone()),
+      OpenAiChatMessage::tool("c2".to_owned(), small.clone()),
+      OpenAiChatMessage::text("assistant", "Rows about tasks.".to_owned()),
+      OpenAiChatMessage::text("user", "and the next fragment?".to_owned()),
+      assistant_calling(vec![call("c3", "get_fragment", serde_json::json!({ "itemId": "t", "fragmentOrdinal": 1 }))]),
+      OpenAiChatMessage::tool("c3".to_owned(), fragment.clone()),
+    ];
+
+    let mut shortened = messages.clone();
+    shorten_earlier_tool_results(&mut shortened);
+    let stub: Value = serde_json::from_str(shortened[2].content.as_deref().unwrap()).unwrap();
+    assert_eq!(stub["shortened"], true);
+    assert_eq!(stub["summary"], "\"Tasks\" · fragment 0 of 0–10 · 2000 chars");
+    assert!(shortened[2].content.as_deref().unwrap().chars().count() <= CHAT_HISTORY_TOOL_RESULT_MAX_CHARS);
+    assert_eq!(shortened[3].content.as_deref(), Some(small.as_str()), "short results are kept");
+    assert_eq!(shortened[7].content.as_deref(), Some(fragment.as_str()), "results after the latest question are kept");
+
+    let mut again = shortened.clone();
+    shorten_earlier_tool_results(&mut again);
+    let contents =
+      |messages: &[OpenAiChatMessage]| messages.iter().map(|message| message.content.clone()).collect::<Vec<_>>();
+    assert_eq!(contents(&again), contents(&shortened), "a later turn sends the same bytes");
   }
 
   #[tokio::test]
