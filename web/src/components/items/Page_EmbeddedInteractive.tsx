@@ -18,7 +18,7 @@
 
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
+import { ListPageRowBand, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
 import { BorderType, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
@@ -73,6 +73,11 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     }
     return veid;
   };
+  // Height of the scrollable (middle) band of a list page, between the pinned top and bottom bands.
+  const listMiddleViewportHeightPx = () => Math.max(0,
+    pageFns().viewportBoundsPx().h -
+    props.visualElement.listPagePinnedTopHeightPx -
+    props.visualElement.listPagePinnedBottomHeightPx);
   const syncRootScrollPosition = () => {
     if (!rootDiv) {
       return;
@@ -82,7 +87,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     updatingRootScrollTop = true;
 
     if (isListPage() && props.visualElement.listChildAreaBoundsPx) {
-      const viewportH = pageFns().viewportBoundsPx().h;
+      const viewportH = listMiddleViewportHeightPx();
       const scrollableHeightPx = Math.max(0, props.visualElement.listChildAreaBoundsPx.h - viewportH);
       rootDiv.scrollTop = store.perItem.getPageScrollYProp(veid) * scrollableHeightPx;
       rootDiv.scrollLeft = 0;
@@ -109,6 +114,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
     if (isListPage()) {
       props.visualElement.listChildAreaBoundsPx?.h;
+      listMiddleViewportHeightPx();
       store.perItem.getPageScrollYProp(getScrollVeid());
     } else {
       pageFns().childAreaBoundsPx();
@@ -310,7 +316,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     }
 
     const veid = getScrollVeid();
-    const viewportH = pageFns().viewportBoundsPx().h;
+    const viewportH = listMiddleViewportHeightPx();
     const scrollableHeightPx = Math.max(0, props.visualElement.listChildAreaBoundsPx.h - viewportH);
     const nextScrollYProp = scrollableHeightPx > 0 ? rootDiv.scrollTop / scrollableHeightPx : 0;
     if (Math.abs(store.perItem.getPageScrollYProp(veid) - nextScrollYProp) > SCROLL_PROP_EPSILON) {
@@ -338,6 +344,64 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     }
   };
 
+  const renderListBand = (band: ListPageRowBand) => {
+    // Band offsets match those assumed by hit testing (listPageLineItemHitPosPx).
+    const bandTopPx = () => {
+      if (band == "top") { return 0; }
+      if (band == "middle") { return props.visualElement.listPagePinnedTopHeightPx; }
+      return Math.max(0, pageFns().viewportBoundsPx().h - props.visualElement.listPagePinnedBottomHeightPx);
+    };
+    const bandHeightPx = () => {
+      if (band == "top") { return props.visualElement.listPagePinnedTopHeightPx; }
+      if (band == "middle") { return listMiddleViewportHeightPx(); }
+      return props.visualElement.listPagePinnedBottomHeightPx;
+    };
+    const childAreaBoundsPx = () => pageFns().listBandChildAreaBoundsPx(band);
+    const childVes = () => pageFns().lineChildrenForListBand(band);
+    const bandClass = () =>
+      `${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
+      `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`;
+    const commonStyle = () =>
+      `left: 0px; top: ${bandTopPx()}px; ` +
+      `width: ${pageFns().listViewportWidthPx()}px; ` +
+      `height: ${bandHeightPx()}px; ` +
+      `background-color: #ffffff;`;
+    const inner =
+      <div class="absolute"
+        style={`width: ${childAreaBoundsPx().w}px; height: ${childAreaBoundsPx().h}px;`}
+        ondblclick={backgroundDoubleClickHandler}>
+        <PageGroupBoxes childVes={childVes()} childAreaBoundsPx={childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
+        <For each={childVes()}>{childVe =>
+          <VisualElement_LineItem visualElement={childVe.get()} />
+        }</For>
+        <Show when={band == "middle"}>
+          {pageFns().renderMoveOverAnnotationMaybe()}
+        </Show>
+      </div>;
+
+    if (band == "middle") {
+      return (
+        <div ref={rootDiv}
+          class={bandClass()}
+          style={`${commonStyle()} overflow-y: auto; overflow-x: hidden;`}
+          onscroll={listScrollHandler}
+          ondblclick={backgroundDoubleClickHandler}>
+          {inner}
+        </div>
+      );
+    }
+
+    return (
+      <Show when={bandHeightPx() > 0}>
+        <div class={bandClass()}
+          style={`${commonStyle()} overflow: hidden;`}
+          ondblclick={backgroundDoubleClickHandler}>
+          {inner}
+        </div>
+      </Show>
+    );
+  };
+
   const renderListPage = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} rounded-item`}
       style={`width: ${pageFns().viewportBoundsPx().w}px; ` +
@@ -345,27 +409,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         `left: 0px; ` +
         `top: ${(props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0) + (pageFns().boundsPx().h - pageFns().viewportBoundsPx().h)}px; ` +
         `background-color: #ffffff; z-index: 2;`}>
-      <div ref={rootDiv}
-        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-          `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`}
-        style={`left: 0px; top: 0px; ` +
-          `overflow-y: auto; overflow-x: hidden; ` +
-          `width: ${pageFns().listViewportWidthPx()}px; ` +
-          `height: ${pageFns().viewportBoundsPx().h}px; ` +
-          `background-color: #ffffff;`}
-        onscroll={listScrollHandler}
-        ondblclick={backgroundDoubleClickHandler}>
-        <div class="absolute"
-          style={`width: ${props.visualElement.listChildAreaBoundsPx!.w}px; ` +
-            `height: ${props.visualElement.listChildAreaBoundsPx!.h}px`}
-          ondblclick={backgroundDoubleClickHandler}>
-          <PageGroupBoxes childVes={pageFns().lineChildren()} childAreaBoundsPx={props.visualElement.listChildAreaBoundsPx!} pageItemId={props.visualElement.displayItem.id} />
-          <For each={pageFns().lineChildren()}>{childVe =>
-            <VisualElement_LineItem visualElement={childVe.get()} />
-          }</For>
-          {pageFns().renderMoveOverAnnotationMaybe()}
-        </div>
-      </div>
+      {renderListBand("top")}
+      {renderListBand("middle")}
+      {renderListBand("bottom")}
       <VisualElement_DesktopShadowLayer visualElementSignals={visibleDesktopChildren()} />
       <For each={visibleDesktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />

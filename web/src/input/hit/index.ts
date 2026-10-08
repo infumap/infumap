@@ -224,6 +224,26 @@ function listPageLineItemHitPosPx(
   };
 }
 
+/**
+ * Whether a middle band list page line item is scrolled out of the middle band at the position, so is hidden by
+ * (or beyond) the pinned top / bottom bands and must not be hit.
+ */
+function listPageLineItemIsClippedAt(
+  rootVe: VisualElement,
+  childVe: VisualElement,
+  posRelativeToRootVeViewportPx: Vector,
+): boolean {
+  if (!(childVe.flags & VisualElementFlags.LineItem) ||
+    (rootVe.flags & VisualElementFlags.IsDock) ||
+    !isListPageVe(rootVe) ||
+    !rootVe.viewportBoundsPx ||
+    (childVe.listPageRowBand ?? "middle") != "middle") {
+    return false;
+  }
+  return posRelativeToRootVeViewportPx.y < rootVe.listPagePinnedTopHeightPx ||
+    posRelativeToRootVeViewportPx.y >= rootVe.viewportBoundsPx.h - rootVe.listPagePinnedBottomHeightPx;
+}
+
 function popupListTitleTargetPathMaybe(rootVe: VisualElement, titleLocalPos: Vector): string | null {
   if (!isListPageVe(rootVe) || !rootVe.listViewportBoundsPx) { return null; }
   const headerHeightPx = rootVe.boundsPx.h - (rootVe.viewportBoundsPx?.h ?? rootVe.boundsPx.h);
@@ -492,6 +512,7 @@ function hitChildMaybe(
     }
     return null;
   }
+  if (listPageLineItemIsClippedAt(rootVes.get(), childVe, posRelativeToRootVeViewportPx)) { return null; }
   {
     const posRelativeToRootForChildPx = listPageLineItemHitPosPx(store, rootVes.get(), childVe, posRelativeToRootVeViewportPx);
 
