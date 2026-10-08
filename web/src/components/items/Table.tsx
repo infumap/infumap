@@ -37,6 +37,7 @@ import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { arrangeNow } from "../../layout/arrange";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
+import { HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 
 
@@ -536,6 +537,7 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
         <For each={VesCache.render.getAttachments(VeFns.veToPath(childVes.get()))()}>{attachment =>
           <VisualElement_LineItem visualElement={attachment.get()} />
         }</For>
+        <HiddenAttachmentsMarker rowVe={childVes.get()} rowWidthPx={viewportBoundsLocalPx().w} />
       </>
     }</For>;
 

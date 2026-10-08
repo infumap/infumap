@@ -26,6 +26,7 @@ import { Item, uniqueEmptyItem } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isComposite } from "../../items/composite-item";
 import { LinkItem } from "../../items/link-item";
+import { isPlaceholder } from "../../items/placeholder-item";
 import { TableItem, asTableItem, tableHeaderHeightBl } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -728,6 +729,13 @@ function buildTableRowRenderPlan(
   if (isAttachmentsItem(displayItem_childItem)) {
     const attachmentsItem = asAttachmentsItem(displayItem_childItem);
     const cells = tabularAttachmentCellLayouts(di_Table, sizeBl.w, attachmentsItem.computed_attachments.length);
+    const hasHiddenAttachments = attachmentsItem.computed_attachments.slice(cells.length).some(attachmentId => {
+      const attachment = itemState.get(attachmentId);
+      return attachment != null && !isPlaceholder(attachment);
+    });
+    if (hasHiddenAttachments) {
+      tableChildVeSpec.flags! |= VisualElementFlags.HasHiddenAttachments;
+    }
     for (const cell of cells) {
       const attachmentId = attachmentsItem.computed_attachments[cell.index - 1];
       const attachmentItem = itemState.get(attachmentId)!;
