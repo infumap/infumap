@@ -4,7 +4,7 @@ mod types;
 pub mod sources;
 
 pub use artifacts::{
-  FRAGMENTER_VERSION, FRAGMENTS_SCHEMA_VERSION, ItemFragmentRecord, ItemFragments, clear_item_fragments,
+  FRAGMENTER_VERSION, FRAGMENTS_SCHEMA_VERSION, ItemFragmentRecord, clear_item_fragments,
   delete_item_fragment_artifacts, fragment_inputs_are_current, item_fragment_artifact_files_exist,
   read_item_fragment_metadata, read_item_fragments, write_item_fragments,
 };

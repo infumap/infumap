@@ -403,6 +403,36 @@ pub(super) mod test_db {
       self.add(item).await
     }
 
+    /// Composites and files have no constructor here, so they start as notes with the note-only fields cleared.
+    pub async fn non_note(&mut self, parent_id: &Uid, title: &str, edit: impl FnOnce(&mut Item)) -> Uid {
+      self
+        .note_with(parent_id, title, |item| {
+          item.urls = None;
+          item.url = None;
+          item.emoji = None;
+          item.icon_mode = None;
+          item.inline_marks = None;
+          item.flags = Some(0);
+          edit(item);
+        })
+        .await
+    }
+
+    pub async fn note_with(&mut self, parent_id: &Uid, title: &str, edit: impl FnOnce(&mut Item)) -> Uid {
+      let mut item = Item::new_note(
+        parent_id,
+        vec![],
+        Vector { x: 0, y: 0 },
+        GRID_SIZE,
+        RelationshipToParent::Child,
+        title,
+        NoteFlags::None,
+        None,
+      );
+      edit(&mut item);
+      self.add(item).await
+    }
+
     pub async fn link(&mut self, parent_id: &Uid, link_to: &Uid) -> Uid {
       let item = Item::new_link(
         parent_id,
