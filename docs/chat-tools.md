@@ -10,6 +10,12 @@ Both are designed to keep tool results small, because results stay in the chat t
 models have little context to spare. Item ids appear as `infumap://<id>` links, which the model copies
 into its answer as citations.
 
+Tool results longer than 500 characters are kept whole for the turn that produced them. When the
+next question arrives, they are replaced in the transcript by a short stub with a one-line summary,
+and the model calls the tool again if a follow-up needs the content. Each result is replaced once and
+identically from then on, so every turn still reuses the provider's prompt cache up to the previous
+turn's results.
+
 ## Scopes
 
 A chat request may name a [scope](scopes.md) with `scopeId`. The scope is resolved once when the run
