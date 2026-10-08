@@ -32,6 +32,7 @@ import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement, highlightStyle, opaquePageBoxInsetPx, opaquePageBoxRadiusCss } from "./helper";
 import { linkHasTriangle } from "../../layout/link-triangle";
+import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -213,6 +214,7 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
           <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>
             <VisualElement_Desktop visualElement={attachmentVe.get()} suppressLocalShadow={props.suppressLocalShadow} />
           }</For>
+          <AttachmentsOverflowMarker visualElement={props.visualElement} />
           <Show when={pageFns().showMoveOutOfCompositeArea()}>
             <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} vePath={pageFns().vePath()} />
           </Show>

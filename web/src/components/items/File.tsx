@@ -54,6 +54,7 @@ import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -383,6 +384,7 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
       <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
       }</For>
+      <AttachmentsOverflowMarker visualElement={props.visualElement} />
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>

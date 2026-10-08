@@ -43,6 +43,7 @@ import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item
 import { asPageItem, isPage } from "../../items/page-item";
 import { asLinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
+import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -374,6 +375,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
       <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
         <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
       }</For>
+      <AttachmentsOverflowMarker visualElement={props.visualElement} />
       <Show when={showMoveOutOfCompositeArea()}>
         <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
       </Show>

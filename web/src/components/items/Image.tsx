@@ -42,6 +42,7 @@ import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, isInsidePopup, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -547,6 +548,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachment =>
           <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
         }</For>
+        <AttachmentsOverflowMarker visualElement={props.visualElement} />
         <Show when={showMoveOutOfCompositeArea()}>
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
         </Show>

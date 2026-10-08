@@ -288,7 +288,8 @@ function arrangeCompositeChildItemPath(
   if (isAttachmentsItem(displayItem_childItem)) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
     const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath, geometry.attachmentBlockSizePx);
-    compositeChildRelationships.attachmentsPaths = attachments;
+    compositeChildRelationships.attachmentsPaths = attachments.paths;
+    compositeChildVeSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
   } else {
     compositeChildRelationships.attachmentsPaths = [];
   }

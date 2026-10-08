@@ -101,7 +101,8 @@ export const arrangePageWithChildren = (
   if (!(arrangeFlagIsRoot(flags))) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_pageWithChildren == null ? displayItem_pageWithChildren : linkItemMaybe_pageWithChildren);
     const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath, geometry.attachmentBlockSizePx);
-    pageRelationships.attachmentsPaths = attachments;
+    pageRelationships.attachmentsPaths = attachments.paths;
+    pageSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
     pageSpec.attachmentBlockSizePx = geometry.attachmentBlockSizePx ?? null;
   }
 

@@ -66,6 +66,13 @@ export function isEmptyVeid(veid: Veid | null | undefined): boolean {
 }
 
 
+/** Position (center of the right edge) and size of the marker indicating attachments are hidden. */
+export interface AttachmentsOverflowMarker {
+  rightX: number,
+  centerY: number,
+  blockSizePx: number,
+}
+
 export enum VisualElementFlags {
   None = 0x000000,
   Selected = 0x000001, // The item is selected.
@@ -379,6 +386,12 @@ export interface VisualElement {
   attachmentBlockSizePx: number | null,
 
   /**
+   * If there are more attachments than fit along the top of the item, the overflow is not rendered, and a marker
+   * is drawn at this position (relative to the same origin as the attachments) instead.
+   */
+  attachmentsOverflowMarkerPx: AttachmentsOverflowMarker | null,
+
+  /**
    * Anything from displayItem that would require a re-render if changed.
    * Manage this explicitly to avoid a costly comparison of all displayItem properties.
    */
@@ -480,6 +493,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   evaluatedTitle: null,
   listItemNumber: null,
   attachmentBlockSizePx: null,
+  attachmentsOverflowMarkerPx: null,
 
   displayItemFingerprint: "",
 };
@@ -524,6 +538,7 @@ export interface VisualElementSpec {
   evaluatedTitle?: string | null,
   listItemNumber?: number | null,
   attachmentBlockSizePx?: number | null,
+  attachmentsOverflowMarkerPx?: AttachmentsOverflowMarker | null,
 }
 
 /**
@@ -590,6 +605,7 @@ export const VeFns = {
       evaluatedTitle: null,
       listItemNumber: null,
       attachmentBlockSizePx: null,
+      attachmentsOverflowMarkerPx: null,
 
       displayItemFingerprint: "",
     };
@@ -637,6 +653,7 @@ export const VeFns = {
     ve.evaluatedTitle = null;
     ve.listItemNumber = null;
     ve.attachmentBlockSizePx = null;
+    ve.attachmentsOverflowMarkerPx = null;
 
     ve.displayItemFingerprint = "";
 
@@ -1260,6 +1277,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
   if (typeof (override.listItemNumber) != 'undefined') { result.listItemNumber = override.listItemNumber; }
   if (typeof (override.attachmentBlockSizePx) != 'undefined') { result.attachmentBlockSizePx = override.attachmentBlockSizePx; }
+  if (typeof (override.attachmentsOverflowMarkerPx) != 'undefined') { result.attachmentsOverflowMarkerPx = override.attachmentsOverflowMarkerPx; }
   if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
   // tableVesRows is moved to VesCache, do not copy to VisualElement
   // attachmentsVes is moved to VesCache, do not copy to VisualElement

@@ -273,7 +273,9 @@ export const arrangeItemNoChildren = (
   if (isAttachmentsItem(displayItem) &&
     !shallowTrashLink) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe == null ? displayItem : linkItemMaybe);
-    itemRelationships.attachmentsPaths = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath, itemGeometry.attachmentBlockSizePx);
+    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath, itemGeometry.attachmentBlockSizePx);
+    itemRelationships.attachmentsPaths = attachments.paths;
+    itemVisualElementSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
   } else {
     itemRelationships.attachmentsPaths = [];
   }

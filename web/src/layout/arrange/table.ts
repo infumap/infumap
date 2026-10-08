@@ -116,8 +116,9 @@ export const arrangeTable = (
 
   const tableRelationships: VisualElementRelationships = {
     childrenVes: windowState.childrenVes,
-    attachmentsPaths: attachments,
+    attachmentsPaths: attachments.paths,
   };
+  tableSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
 
   const tableVisualElementSignal = VesCache.arrange.writeVisualElementSignal(tableSpec, tableRelationships, tableVePath);
   persistTableRenderWindowRows(tableVePath, windowState);
