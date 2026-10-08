@@ -52,7 +52,8 @@ export function handleListPageLineItemClickMaybe(visualElement: VisualElement, s
 
   if ((visualElement.flags & VisualElementFlags.LineItem) && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const parentVeid = VeFns.actualVeidFromVe(parentVe);
-    store.history.setFocus(VeFns.veToPath(parentVe));
+    // Selection by mouse gives the list keyboard focus, but not deliberately, so without a focus ring.
+    store.history.setFocus(VeFns.veToPath(parentVe), true);
     store.perItem.setSelectedListPageItem(parentVeid, VeFns.veidFromVe(visualElement));
     requestArrange(store, "list-page-line-item-click");
     return true;

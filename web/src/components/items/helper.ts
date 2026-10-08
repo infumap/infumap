@@ -105,6 +105,7 @@ export const shouldShowFocusRingForVisualElement = (
   veFn: () => VisualElement,
 ): boolean => {
   if (store.printMode.get()) { return false; }
+  if (store.history.focusRingIsSuppressed(VeFns.veToPath(veFn()))) { return false; }
   const currentPagePath = store.history.currentPagePath();
   if (currentPagePath && veFn().parentPath == currentPagePath) {
     const currentPage = itemState.get(VeFns.itemIdFromPath(currentPagePath));
