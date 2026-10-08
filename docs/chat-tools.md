@@ -1,15 +1,14 @@
 # Infumap chat tools
 
-Chats with the Infumap data source enabled have three built-in read-only tools:
+Chats with the Infumap data source enabled have two built-in read-only tools:
 
 - `lexical_search`: find items using their titles and indexed document text.
-- `read_container`: inspect a page, table, or composite and its relationships without requiring a search match.
-- `get_fragment`: read a bounded document fragment.
+- `get_fragment`: read any item a fragment at a time: documents, images, notes, and pages, tables and
+  composites.
 
-Search results include `containingContainerId`, `containingPageId`, and `ancestors` with `id`,
-`itemType`, and `title`. `containingContainerId` is the nearest ancestor page, table, or composite,
-excluding the result itself. `containingPageId` is the nearest ancestor page. For a container result,
-use its own `itemId` to inspect it. The existing label-only `path` is also returned.
+Both are designed to keep tool results small, because results stay in the chat transcript and weaker
+models have little context to spare. Item ids appear as `infumap://<id>` links, which the model copies
+into its answer as citations.
 
 ## Scopes
 
@@ -17,119 +16,143 @@ A chat request may name a [scope](scopes.md) with `scopeId`. The scope is resolv
 starts; an unknown or deleted scope fails the request rather than widening it. Every tool then
 applies it:
 
-- `lexical_search` returns only items in the scope. A `pageId` argument narrows it further.
-- `read_container` reports a container outside the scope as not found, and omits children and
-  attachments outside it. A link whose target is outside the scope has `targetStatus: "unavailable"`.
-- `get_fragment` reports an item outside the scope as not found.
+- `lexical_search` returns only items in the scope. A `pageId` argument narrows it further. A result
+  whose listing container is outside the scope, such as an include root itself, has no `context`.
+- `get_fragment` reports an item outside the scope as not found. A container's fragments omit
+  children and attachments outside the scope, and a link whose target is outside it is shown as
+  `(unavailable link)`.
 
-`ancestors` are not filtered. Every ancestor of an excluded item is itself excluded, so ancestors
-never reveal excluded content; they can only name containers above an include root. The system prompt
-names the active scope, so the model does not mistake an out-of-scope item for a missing one.
-Context items the user attaches to the chat are sent as given, regardless of scope. A scope has no
-effect when the Infumap data source is disabled.
+Locations and fragment breadcrumbs are not filtered. Every ancestor of an excluded item is itself
+excluded, so they never reveal excluded content; they can only name containers above an include root,
+and a parent outside the scope is named without a link. The system prompt names the active scope, so
+the model does not mistake an out-of-scope item for a missing one. Context items the user attaches to
+the chat are sent as given, regardless of scope. A scope has no effect when the Infumap data source is
+disabled.
 
-## Reading a container
+## Searching
+
+```json
+{ "text": "acme onboarding", "pageId": "<optional page or table id>", "numResults": 8, "pageNum": 1 }
+```
+
+`text` is required; `numResults` defaults to 8 and accepts 1–20. Each result looks like:
 
 ```json
 {
-  "containerId": "<page, table, or composite ID>",
-  "maxItems": 100
+  "itemId": "<id>",
+  "linkUrl": "infumap://<id>",
+  "itemType": "note",
+  "title": "Acme onboarding",
+  "location": "Home › Projects › Tasks",
+  "context": {
+    "itemId": "<table id>",
+    "fragmentOrdinal": 4,
+    "fragmentCount": 11,
+    "excerpt": "[Acme onboarding](infumap://<id>) | Active | 2026-01-03"
+  },
+  "fragmentMatch": { "fragmentOrdinal": 3, "text": "…matching sentences…", "pageStart": 4 }
 }
 ```
 
-`containerId` is required and must identify a page, table, or composite. `maxItems` is optional,
-defaults to 100, and accepts 1–200.
-The tool reads stored workspace data, independently of which items are currently loaded or visible
-in the browser. It follows the chat tools' existing ownership scope and excludes password items.
+- `title` is cut at 300 characters. A note cut this way also has `fragmentCount`, the number of
+  fragments holding its full text.
+- `location` lists the titles of the containing items, outermost first.
+- `context` is the container fragment that lists the result, for `get_fragment`. It is the page or
+  table holding the result; attachments and composite members belong to the item or composite they
+  are part of, so a table cell's context is its row's table. A page or table result points at its
+  own fragment 0. `excerpt` is the start of the result's block (at most 300 characters) when that
+  block shows more than the result itself: a table row with its cells, a composite, an explicit
+  group, or an item with attachments.
+- `fragmentMatch` is the best matching passage of the item's document text, if any. Its ordinal can
+  be passed to `get_fragment` to read around it.
 
-The response contains:
+Contexts are computed from the live database when the search runs, while the search index can lag
+edits by several minutes. A moved item points at its new container, and a deleted item has no
+context.
 
-- `container`: identity, title, citation link, type, and layout.
-- `ancestors`: navigable ancestor identities, from the root downwards.
-- `items`: container children, their attachments, and recursively expanded nested composites and tables.
-- `groups`: explicit groups represented by the returned items.
-- `totalItems`, `startIndex`, `hasMore`, `nextCursor`, and `snapshot`: coverage and continuation metadata.
+## Reading
 
-Child pages remain references, including embedded pages. Their `childrenStatus` is `reference`;
-call `read_container` with that page's ID to inspect its contents. Page attachments are included.
-Nested tables and composites are expanded inline, including when either is the requested root.
-Query results and chat transcripts are client-generated views and are not expanded by this tool.
-Document bodies are not included. The `scope` object makes these boundaries explicit.
+```json
+{ "itemId": "<id or infumap:// link>", "fragmentOrdinal": 0, "count": 1, "version": "<optional>" }
+```
 
-### Items and relationships
+`itemId` is required; a link reads as its target. `fragmentOrdinal` defaults to 0, and `count`
+returns 1–3 consecutive fragments. The response depends on the item:
 
-Each item record includes `itemId`, `itemType`, `linkUrl`, `parentId`, `relationshipToParent`,
-`placementPath`, `order`, and `title`. Native note text is stored in `title`; file titles are filenames,
-not extracted document text. `parentId` and `relationshipToParent` describe the stored relationship.
-`order` is zero-based within the parent's children or attachments, separately.
+| Item | `sourceKind` | Fragments |
+| --- | --- | --- |
+| Page, table, composite | `container` | Its items as lines of text, built on demand (below). |
+| Note | `note` | Its text, built on demand (below). |
+| File, text, image | stored kind, e.g. `pdf_markdown` | Stored when the document was processed; each is cut at 2,500 characters with `textTruncated`. |
 
-For links, `itemId` identifies the link's placement, while `targetItemId`, `targetItemType`, and
-`targetLinkUrl` identify its readable target. `title` and document metadata come from that target.
-`linkTo` preserves the stored reference. Unresolved, remote, or inaccessible targets, and targets
-that are themselves links, have `targetStatus: "unavailable"` and no target content. Attachments and
-inline contents come from the displayed target, matching the frontend. `placementPath` distinguishes
-repeated appearances of those contents even when their stored `itemId` and `parentId` are the same.
-Cycles stop expansion and are marked with `childrenStatus` or `attachmentsStatus` of `cycle`.
-
-`groupId` represents explicit membership among page children, independently of parenthood.
-Group summaries include `memberCount`, `returnedMemberIds`, and `membershipComplete` for the
-current response. Members can span responses; collect them by group ID. Proximity and matching
-titles do not establish group membership.
-
-Native notes also include URL annotations intersecting the returned text. Annotation `start` and
-`end` retain their UTF-16 offsets into the full note, as stored by the editor. Ratings include their
-value and rating type.
-
-### Layout
-
-`layout.mode` identifies the arrangement. `returnedOrder: "stored"` follows saved ordering with
-an ID tie-breaker. Title-sorted containers use `returnedOrder: "title-unicode"`, a deterministic,
-case-insensitive Unicode sort; the browser's locale-sensitive title ordering may differ. Document
-pages always use stored order. Spatial ordering is not a claimed reading sequence.
-
-Only direct children of spatial pages receive `spatial` coordinates. `frameItemId` identifies the
-containing page; the frame has its origin at the top left, x increasing rightwards and y downwards.
-Units are Infumap grid units, with 60 grid units per block. Width is included when stored. Height
-is included only for types that use a stored height; other heights depend on frontend measurement.
-These are stored placements, not exact rendered bounds or viewport pixels. Attachments and
-non-spatial children do not expose their unused saved coordinates.
-
-Table layouts include column names and indices. Rows are child items and subsequent cells are
-the row's ordered attachments. Calendar children include `dateTime` and `endDateTime` in Unix
-seconds. Client sorting, scrolling, collapsing, and responsive layout are not a rendered snapshot.
-
-### Pagination and text availability
-
-Continue with the same container ID and the returned cursor:
+Other items, such as ratings and dividers, have no readable text.
 
 ```json
 {
-  "containerId": "<same container ID>",
-  "cursor": "<nextCursor>"
+  "itemId": "<id>", "linkUrl": "infumap://<id>", "itemType": "table", "title": "Tasks",
+  "sourceKind": "container", "fragmentCount": 11, "version": "3f9a0c2e",
+  "fragments": [{ "fragmentOrdinal": 0, "text": "…" }],
+  "nextFragmentOrdinal": 1
 }
 ```
 
-Responses target a 32,000-character item budget, in addition to `maxItems`. Metadata and the first
-item may exceed that budget. Long item titles/native notes are split into 4,000-character chunks:
-`titleOffset` is a zero-based Unicode character offset and `titleTruncated` means more of that title
-remains. The next cursor continues the same placement before advancing to subsequent items.
-Reassemble chunks by `placementPath`. Container and ancestor labels are abbreviated at 500 characters
-with an explicit `titleTruncated` flag.
+- `title` is a label of at most 80 characters, not a note's full text.
+- `nextFragmentOrdinal` is present while fragments remain. Following it until it is absent reads the
+  whole item.
+- `version` (containers and notes) changes when the item's rendered text changes. When the request
+  passes a different `version`, the response adds `changed: true`, since ordinals may have moved.
+- Stored fragments also carry `pageStart` and `pageEnd` when known. A file still being processed
+  reports "This item has no readable text yet."
 
-Follow all cursors until `hasMore` is false to cover the outline. A continuation detects changes
-to the stored outline and asks the caller to restart instead of silently skipping or duplicating
-items. Cursors are scoped to a container. Outlines exceeding 50,000 placements or 64 levels return an
-explicit error instead of claiming complete coverage.
+### Container fragments
 
-For file, text, and image items, `textSource` reports document fragment availability:
+Containers change whenever the user edits them, so their fragments are rendered from the live
+database on each call and never stored. Each fragment starts with a header:
 
-- `available`: includes the content `itemId`, `sourceKind`, `fragmentCount`,
-  `firstFragmentOrdinal: 0`, and `tool: "get_fragment"`.
-- `unavailable`: no usable fragment manifest and data file were found.
-- `error`: availability could not be checked.
+```
+[Tasks](infumap://<id>) (table) in Home › Projects › [Acme](infumap://<id>) · fragment 4 of 0–10 · rows 81–100 of 213
+Columns: Name | Status | Due
+```
 
-This reads fragment metadata without loading document bodies. A source such as
-`pdf_first_page_caption` is a caption, not full PDF extraction. Available ordinals run from zero
-through `fragmentCount - 1`. `get_fragment` retains its 2,500-character bound and truncation flag.
-Fragment availability is checked when each response is built and is not part of the outline snapshot.
-Native notes report `textSource.status: "inline"` and `field: "title"`.
+The header links the container and its parent. Table fragments add their row range and repeat the
+column names. The body is at most 2,500 characters, made of units that are never split across
+fragments unless one alone is too long: a top-level item with its attachments, a table row, a
+composite, or an explicit group.
+
+How items appear:
+
+- Notes of up to 80 characters are links: `- [Buy milk](infumap://<id>)`, followed by `<url>` for
+  each URL in the note. Longer notes show a 40-character link label, then their text with URLs as Markdown links,
+  cut at 600 characters with `(truncated; full text in N fragments)`.
+- Child pages and tables are one line with their item or row count, and tables their column names.
+  They are read by their own id, so rendering never descends into them.
+- Composites are expanded inline, with members indented beneath them. A composite linked inside
+  itself is shown once, then as `(composite, shown above)`.
+- Files, text items and images show their type, MIME type and stored fragment count.
+- Attachments follow their item on an `attached:` line.
+- Links render their target and link to it.
+
+How containers are laid out:
+
+- Tables, and pages arranged as tables, show one row per line: `[row](infumap://<id>) | cell | cell`.
+  Empty cells are blank, trailing empty cells are dropped, `|` in cell text is escaped, and cells are
+  cut at 200 characters with a `[more](infumap://<cell id>)` link. Columns hidden in the UI are
+  included.
+- Document pages render notes as Markdown, with headings, bullets, numbering, indents and code
+  blocks, and without a link per note. Long notes are split across fragments rather than cut.
+- Spatial pages list children top to bottom, then left to right. Coordinates are not included.
+  Explicit groups with two or more members are listed together under `- Group:`.
+- Calendar pages list children by date with a `2026-01-03 14:00:` prefix. Times are in UTC, which
+  can differ by a day from the browser's local calendar near midnight.
+- Other pages use their stored order, or title order when the container sorts by title (document
+  pages excepted), with unresolved links last.
+
+Containers with more than 50,000 placements or nesting deeper than 64 levels return an error rather
+than claiming complete coverage.
+
+### Note fragments
+
+A note's fragments are its text, with URL annotations as Markdown links, split into pieces of at
+most 2,500 characters. Each cut is the last one in the second half of the budget after a blank line,
+else a line break, else a sentence, else a word, and never inside a link. Any non-empty note has at
+least fragment 0.
