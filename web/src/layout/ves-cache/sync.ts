@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { batch } from "solid-js";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { createVisualElementSignal, VisualElementSignal } from "../../util/signals";
 import { VisualElement, VisualElementPath } from "../visual-element";
@@ -146,6 +147,10 @@ export function createSceneSyncOps(
   ) {
     for (const [path] of previousScene.cache) {
       if (!sceneHasNode(scene, path)) {
+        // Clear before deleting so that subscribers to this path are notified it is gone. Otherwise
+        // they stay attached to orphaned signals if the path is later re-created (e.g. a moving item
+        // that leaves and re-enters a container).
+        reactive.clearReactiveForPath(path);
         reactive.deleteReactiveForPath(path);
       }
     }
@@ -182,8 +187,12 @@ export function createSceneSyncOps(
     const previousScene = state.currentScene;
     state.currentScene = scene;
     state.currentSceneOutputs = outputs;
-    store.topTitledPages.set(outputs.topTitledPages);
-    syncReactiveFromScene(previousScene, scene, renderTableRowsByPath);
+    // Batch so that computations only observe the fully synced scene. Otherwise clearing a removed
+    // path notifies subscribers before the paths that replace it have been synced.
+    batch(() => {
+      store.topTitledPages.set(outputs.topTitledPages);
+      syncReactiveFromScene(previousScene, scene, renderTableRowsByPath);
+    });
   }
 
   return {
