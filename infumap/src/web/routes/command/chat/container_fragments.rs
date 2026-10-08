@@ -43,6 +43,7 @@ const BREADCRUMB_TITLE_MAX_CHARS: usize = 60;
 const MAX_DEPTH: usize = 64;
 const MAX_PLACEMENTS: usize = 50_000;
 const VERSION_CHARS: usize = 8;
+const CONTEXT_EXCERPT_MAX_CHARS: usize = 300;
 
 /// What the chat tools may read: the user's readable items, limited to the chat's scope if it has one.
 pub(super) struct Access<'a> {
@@ -86,16 +87,108 @@ pub(super) fn ancestors<'a>(db: &'a Db, item: &'a Item, user_id: &str) -> InfuRe
 
 pub(super) struct ContainerFragment {
   pub text: String,
-  /// Placements rendered in this fragment: children, attachments and composite members. A unit split across
-  /// fragments lists its placements in each.
-  #[allow(dead_code)] // Read once lexical_search points its results at container fragments.
+  /// The units in this fragment, in order. A unit split across fragments appears in each with its part of the text.
+  pub units: Vec<FragmentUnit>,
+}
+
+pub(super) struct FragmentUnit {
+  /// Placements rendered in the unit: a child with its attachments, or a composite or group with its members.
   pub item_ids: Vec<Uid>,
+  pub text: String,
 }
 
 pub(super) struct ContainerFragments {
   /// Changes when anything rendered changes, so a reader can tell that ordinals may have moved.
   pub version: String,
   pub fragments: Vec<ContainerFragment>,
+}
+
+impl ContainerFragments {
+  /// The first fragment that renders the placement, and the unit it is in.
+  pub fn locate(&self, item_id: &Uid) -> Option<(usize, &FragmentUnit)> {
+    self.fragments.iter().enumerate().find_map(|(ordinal, fragment)| {
+      fragment.units.iter().find(|unit| unit.item_ids.contains(item_id)).map(|unit| (ordinal, unit))
+    })
+  }
+}
+
+/// Where a search hit is listed: the container fragment holding it and, when its unit shows more than the hit,
+/// such as the rest of a table row or composite, the start of that unit.
+#[derive(Serialize)]
+pub(super) struct ItemContext {
+  #[serde(rename = "itemId")]
+  pub container_id: Uid,
+  #[serde(rename = "fragmentOrdinal")]
+  pub fragment_ordinal: usize,
+  #[serde(rename = "fragmentCount")]
+  pub fragment_count: usize,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub excerpt: Option<String>,
+}
+
+/// Contexts for search hits, keyed by hit id, rendering each container once. A page or table hit points at its own
+/// first fragment. A hit that is gone, or whose container is unreadable or outside the scope, has no context.
+pub(super) async fn item_contexts(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  access: &Access<'_>,
+  item_ids: &[Uid],
+) -> HashMap<Uid, ItemContext> {
+  let mut hits = Vec::new();
+  {
+    let db = db.lock().await;
+    for item_id in item_ids {
+      let Ok(item) = db.item.get(item_id) else {
+        continue;
+      };
+      let container = if is_listing_container(item) { Some(item) } else { listing_container(&db, item) };
+      if let Some(container) = container {
+        hits.push((item_id.clone(), container.id.clone()));
+      }
+    }
+  }
+  let mut rendered = HashMap::new();
+  for (_, container_id) in &hits {
+    if !rendered.contains_key(container_id) {
+      rendered.insert(container_id.clone(), container_fragments(db, access, container_id).await.ok());
+    }
+  }
+  hits
+    .into_iter()
+    .filter_map(|(item_id, container_id)| {
+      let fragments = rendered.get(&container_id)?.as_ref()?;
+      let fragment_count = fragments.fragments.len();
+      let (fragment_ordinal, excerpt) = if item_id == container_id {
+        (0, None)
+      } else {
+        let (ordinal, unit) = fragments.locate(&item_id)?;
+        let excerpt = (unit.item_ids.len() > 1).then(|| {
+          let (text, truncated) = excerpt(&unit.text, CONTEXT_EXCERPT_MAX_CHARS);
+          if truncated { format!("{text}…") } else { text }
+        });
+        (ordinal, excerpt)
+      };
+      Some((item_id, ItemContext { container_id, fragment_ordinal, fragment_count, excerpt }))
+    })
+    .collect()
+}
+
+/// Composites are rendered inside the page or table that holds them, so they never list their own items.
+fn is_listing_container(item: &Item) -> bool {
+  matches!(item.item_type, ItemType::Page | ItemType::Table)
+}
+
+/// The page or table whose fragments list `item`. Attachments are listed with the item they are attached to and
+/// composite members with their composite, so for those it climbs further.
+fn listing_container<'a>(db: &'a Db, item: &'a Item) -> Option<&'a Item> {
+  let mut current = item;
+  for _ in 0..MAX_DEPTH {
+    let parent = db.item.get(current.parent_id.as_ref()?).ok()?;
+    if current.relationship_to_parent == RelationshipToParent::Child && is_listing_container(parent) {
+      return Some(parent);
+    }
+    current = parent;
+  }
+  None
 }
 
 /// A container rendered under the database lock, waiting for the stored fragment counts of its data items.
@@ -106,7 +199,6 @@ pub(super) struct ContainerOutline {
   separator: &'static str,
   units: Vec<Unit>,
   data_item_ids: HashSet<Uid>,
-  snapshot: Vec<u8>,
 }
 
 struct Unit {
@@ -202,9 +294,6 @@ pub(super) fn container_outline(db: &Db, access: &Access, container_id: &Uid) ->
   }
   let ancestors = ancestors(db, container, access.user_id)?;
   let mut renderer = Renderer::new(db, access);
-  for item in ancestors.iter().copied().chain(std::iter::once(container)) {
-    renderer.hasher.update(item.hash());
-  }
   let tabular = is_tabular(container);
   let units = renderer.container_units(container)?;
   Ok(ContainerOutline {
@@ -217,7 +306,6 @@ pub(super) fn container_outline(db: &Db, access: &Access, container_id: &Uid) ->
     separator: if container.arrange_algorithm == Some(ArrangeAlgorithm::Document) { "\n\n" } else { "\n" },
     units,
     data_item_ids: renderer.data_item_ids,
-    snapshot: renderer.hasher.finalize().to_vec(),
   })
 }
 
@@ -226,7 +314,7 @@ impl ContainerOutline {
     struct Chunk {
       body: String,
       chars: usize,
-      item_ids: Vec<Uid>,
+      units: Vec<FragmentUnit>,
       rows: Option<(usize, usize)>,
     }
     let separator_chars = self.separator.chars().count();
@@ -237,7 +325,7 @@ impl ContainerOutline {
         let piece_chars = piece.chars().count();
         let fits = chunks.last().is_some_and(|chunk| chunk.chars + separator_chars + piece_chars <= FRAGMENT_MAX_CHARS);
         if !fits {
-          chunks.push(Chunk { body: String::new(), chars: 0, item_ids: Vec::new(), rows: None });
+          chunks.push(Chunk { body: String::new(), chars: 0, units: Vec::new(), rows: None });
         }
         let chunk = chunks.last_mut().expect("a chunk was just pushed");
         if !chunk.body.is_empty() {
@@ -246,29 +334,18 @@ impl ContainerOutline {
         }
         chunk.body.push_str(&piece);
         chunk.chars += piece_chars;
-        chunk.item_ids.extend(unit.item_ids.iter().cloned());
+        chunk.units.push(FragmentUnit { item_ids: unit.item_ids.clone(), text: piece });
         if let Some(row) = unit.row {
           chunk.rows = Some(chunk.rows.map_or((row, row), |(first, _)| (first, row)));
         }
       }
     }
     if chunks.is_empty() {
-      chunks.push(Chunk { body: "(empty)".to_owned(), chars: 0, item_ids: Vec::new(), rows: None });
+      chunks.push(Chunk { body: "(empty)".to_owned(), chars: 0, units: Vec::new(), rows: None });
     }
-
-    let mut hasher = Sha256::new();
-    hasher.update(&self.snapshot);
-    let mut sorted_counts =
-      counts.iter().filter(|(item_id, _)| self.data_item_ids.contains(*item_id)).collect::<Vec<_>>();
-    sorted_counts.sort();
-    for (item_id, count) in sorted_counts {
-      hasher.update(item_id);
-      hasher.update(count.to_le_bytes());
-    }
-    let version = format!("{:x}", hasher.finalize())[..VERSION_CHARS].to_owned();
 
     let last = chunks.len() - 1;
-    let fragments = chunks
+    let fragments: Vec<ContainerFragment> = chunks
       .into_iter()
       .enumerate()
       .map(|(ordinal, chunk)| {
@@ -282,15 +359,17 @@ impl ContainerOutline {
         }
         text.push('\n');
         text.push_str(&chunk.body);
-        ContainerFragment { text, item_ids: chunk.item_ids }
+        ContainerFragment { text, units: chunk.units }
       })
       .collect();
+    // Hashing rendered text, not items, is far cheaper and ignores edits a reader cannot see.
+    let version = fragments_version(fragments.iter().map(|fragment| &fragment.text));
     ContainerFragments { version, fragments }
   }
 }
 
 /// Changes when the fragment texts change.
-pub(super) fn fragments_version(texts: &[String]) -> String {
+pub(super) fn fragments_version<'a>(texts: impl IntoIterator<Item = &'a String>) -> String {
   let mut hasher = Sha256::new();
   for text in texts {
     hasher.update(text);
@@ -530,7 +609,6 @@ struct Renderer<'a, 'b> {
   /// Containers being expanded, so a link cannot expand a composite inside itself.
   active: HashSet<Uid>,
   data_item_ids: HashSet<Uid>,
-  hasher: Sha256,
   placements: usize,
   unit_item_ids: Vec<Uid>,
 }
@@ -542,20 +620,15 @@ impl<'a, 'b> Renderer<'a, 'b> {
       access,
       active: HashSet::new(),
       data_item_ids: HashSet::new(),
-      hasher: Sha256::new(),
       placements: 0,
       unit_item_ids: Vec::new(),
     }
   }
 
-  fn visit(&mut self, placement: &Item, content: Option<&Item>) -> InfuResult<()> {
+  fn visit(&mut self, placement: &Item) -> InfuResult<()> {
     self.placements += 1;
     if self.placements > MAX_PLACEMENTS {
       return Err(format!("Container has more than {MAX_PLACEMENTS} placements; read a smaller container.").into());
-    }
-    self.hasher.update(placement.hash());
-    if let Some(content) = content.filter(|content| content.id != placement.id) {
-      self.hasher.update(content.hash());
     }
     self.unit_item_ids.push(placement.id.clone());
     Ok(())
@@ -676,7 +749,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
     for (index, row) in self.children(table)?.into_iter().enumerate() {
       let mut pieces = Pieces::default();
       let content = self.access.content(self.db, row);
-      self.visit(row, content)?;
+      self.visit(row)?;
       match content {
         None => pieces.text("(unavailable link)"),
         Some(content) => {
@@ -714,7 +787,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       return Ok(pieces);
     }
     let content = self.access.content(self.db, attachment);
-    self.visit(attachment, content)?;
+    self.visit(attachment)?;
     match content {
       None => pieces.text("(unavailable link)"),
       Some(content) if content.item_type == ItemType::Note => {
@@ -737,7 +810,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
     }
     let indent = "  ".repeat(depth);
     let content = self.access.content(self.db, placement);
-    self.visit(placement, content)?;
+    self.visit(placement)?;
     pieces.text(&format!("{indent}- {prefix}"));
     let Some(content) = content else {
       pieces.text("(unavailable link)");
@@ -799,7 +872,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       return Err("Container is too deeply nested.".into());
     }
     let content = self.access.content(self.db, placement);
-    self.visit(placement, content)?;
+    self.visit(placement)?;
     let Some(content) = content else {
       pieces.text("(unavailable link)");
       return Ok(());
@@ -1233,7 +1306,76 @@ mod tests {
     assert_eq!(without.version, t.outline(&page).fragments(&HashMap::new()).version);
     t.note(&page, "new", RelationshipToParent::Child).await;
     assert_ne!(without.version, t.outline(&page).fragments(&HashMap::new()).version);
-    assert_eq!(without.fragments[0].item_ids, vec![file]);
+    assert_eq!(without.fragments[0].units.iter().map(|unit| unit.item_ids.clone()).collect::<Vec<_>>(), [[file]]);
+  }
+
+  #[tokio::test]
+  async fn item_contexts_point_at_the_fragment_listing_each_hit() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let page = t.page(&home, "Project").await;
+    let table = t.table(&page, "Tasks", &["Name", "Status"]).await;
+    let (mut rows, mut cells) = (Vec::new(), Vec::new());
+    for index in 0..120 {
+      let row =
+        t.note(&table, &format!("Row {index:03} with a reasonably long name"), RelationshipToParent::Child).await;
+      cells.push(t.note(&row, &format!("status {index}"), RelationshipToParent::Attachment).await);
+      rows.push(row);
+    }
+    let composite = t.composite(&page).await;
+    let member = t.note(&composite, "member one", RelationshipToParent::Child).await;
+    t.note(&composite, "member two", RelationshipToParent::Child).await;
+    let plain = t.note(&page, "plain", RelationshipToParent::Child).await;
+    let child = t.page(&page, "Child").await;
+    let attached = t.note(&child, "attached to child page", RelationshipToParent::Attachment).await;
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+
+    let hits = [&cells[100], &rows[100], &table, &member, &plain, &attached, &child, &new_uid()].map(Uid::clone);
+    let contexts = item_contexts(&db, &access, &hits).await;
+    assert_eq!(contexts.len(), 7, "a missing item has no context");
+
+    let table_fragments = container_fragments(&db, &access, &table).await.unwrap();
+    let cell = &contexts[&cells[100]];
+    assert_eq!((&cell.container_id, cell.fragment_count), (&table, table_fragments.fragments.len()));
+    assert!(cell.fragment_ordinal > 0);
+    assert!(table_fragments.fragments[cell.fragment_ordinal].text.contains(&rows[100]));
+    let row_text = format!("[Row 100 with a reasonably long name](infumap://{}) | status 100", rows[100]);
+    assert_eq!(cell.excerpt.as_deref(), Some(row_text.as_str()), "a cell hit brings its whole row");
+    let row = &contexts[&rows[100]];
+    assert_eq!((row.fragment_ordinal, &row.excerpt), (cell.fragment_ordinal, &cell.excerpt));
+
+    let own = &contexts[&table];
+    assert_eq!((&own.container_id, own.fragment_ordinal, &own.excerpt), (&table, 0, &None));
+    assert_eq!(contexts[&child].container_id, child, "a page hit points at its own fragments");
+
+    let in_composite = &contexts[&member];
+    assert_eq!(in_composite.container_id, page);
+    assert!(in_composite.excerpt.as_deref().unwrap().contains("member two"));
+    assert_eq!(contexts[&plain].container_id, page);
+    assert!(contexts[&plain].excerpt.is_none(), "a lone note adds nothing to the result");
+    assert_eq!(contexts[&attached].container_id, page, "an attachment is listed with the item it is attached to");
+    assert!(contexts[&attached].excerpt.as_deref().unwrap().ends_with("attached: attached to child page"));
+  }
+
+  #[tokio::test]
+  async fn item_contexts_skip_containers_outside_the_scope() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let page = t.page(&home, "Page").await;
+    let note = t.note(&page, "included on its own", RelationshipToParent::Child).await;
+    let scope_id = t.page(&t.scopes_id(), "Just the note").await;
+    t.link(&scope_id, &note).await;
+    let scope = resolve_scope(&t.db, &t.user_id, &scope_id).unwrap();
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+
+    let scoped =
+      item_contexts(&db, &Access { user_id: &user_id, scope: Some(&scope) }, std::slice::from_ref(&note)).await;
+    assert!(scoped.is_empty());
+    let unscoped = item_contexts(&db, &Access { user_id: &user_id, scope: None }, std::slice::from_ref(&note)).await;
+    assert_eq!(unscoped[&note].container_id, page);
   }
 
   #[test]

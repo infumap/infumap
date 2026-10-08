@@ -65,7 +65,7 @@ pub(super) fn tool_spec() -> OpenAiToolSpec {
         references; document bodies are not included. textSource tells how to fetch available document fragments. \
         Spatial coordinates are stored page-grid placement, not rendered pixels. Follow nextCursor with the same \
         containerId until hasMore is false; long titles continue at titleOffset on the same placementPath. \
-        Group members can span responses. Use containingContainerId from search to inspect an item's surroundings."
+        Group members can span responses. Use context.itemId from search to inspect an item's container."
         .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
