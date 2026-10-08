@@ -220,7 +220,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     <Show when={isDirectDocumentChild()}
       fallback={
         <div class={`absolute border ` +
-          `${showBorder() ? "border-[#999]" : "border-transparent"} ` +
+          `${showBorder() ? "border-item-border" : "border-transparent"} ` +
           `rounded-item pointer-events-none`}
           style={`left: 0px; top: ${bodyTopPx()}px; width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; ` +
             `background-color: ${!(props.visualElement.flags & VisualElementFlags.Detailed) ? "#eee" : "white"}; ` +
@@ -228,7 +228,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       }>
       <div class="absolute pointer-events-none"
         style={`left: 0px; top: ${bodyTopPx()}px; width: ${boundsPx().w}px; height: 1px; ` +
-          `background-color: #999; outline: 0px solid transparent; z-index: 0;`} />
+          `background-color: var(--color-item-border); outline: 0px solid transparent; z-index: 0;`} />
     </Show>;
 
   const renderTitleMaybe = () =>

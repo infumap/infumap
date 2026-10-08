@@ -238,7 +238,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     </Show>;
 
   const renderNotDetailed = () =>
-    <div class={`absolute border border-[#999] rounded-item bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
+    <div class={`absolute border border-item-border rounded-item bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
       style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; z-index: 1;`} />;
 
   const renderDetailed = () =>
@@ -276,10 +276,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             {tableItem().title}
           </div>
         </Show>
-        <div class={`absolute border border-[#999] rounded-item pointer-events-none`}
+        <div class={`absolute border border-item-border rounded-item pointer-events-none`}
           style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px;`} />
         <Show when={showColHeader()}>
-          <div class={`absolute border border-[#999] bg-slate-300 rounded-t-item`}
+          <div class={`absolute border border-item-border bg-slate-300 rounded-t-item`}
             style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${colHeaderHeightPx()}px;`} />
         </Show>
 
@@ -330,7 +330,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <For each={columnSpecs()}>{spec =>
           <Show when={!spec.isLast}>
             <div class="absolute"
-              style={`background-color: #999; left: ${spec.endPosPx}px; width: 1px; top: 0px; height: ${viewportBoundsLocalPx().h + colHeaderHeightPx()}px`} />
+              style={`background-color: var(--color-item-border); left: ${spec.endPosPx}px; width: 1px; top: 0px; height: ${viewportBoundsLocalPx().h + colHeaderHeightPx()}px`} />
           </Show>
         }</For>
       </div>

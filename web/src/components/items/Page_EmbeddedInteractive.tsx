@@ -21,7 +21,7 @@ import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from ".
 import { VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
-import { BorderType, Colors, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
+import { BorderType, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -204,7 +204,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     }
     return `border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; ` +
       `border-left-width: ${isInsideTranslucentPage() ? 0 : 1}px; ` +
-      `border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
+      `border-color: var(--color-item-border); `;
   }
 
   // Dock items sit flush in the dock, so only keep square corners there.

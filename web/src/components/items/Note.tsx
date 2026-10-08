@@ -228,16 +228,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-[#999] rounded-item shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-item-border rounded-item shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
     if (noteItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {
-        return `absolute border border-[#999] rounded-item shadow-xl`;
+        return `absolute border border-item-border rounded-item shadow-xl`;
       } else {
         return `absolute border border-transparent rounded-item`;
       }
     }
-    return `absolute border border-[#999] rounded-item shadow-xl bg-white`;
+    return `absolute border border-item-border rounded-item shadow-xl bg-white`;
   };
 
   const outerClass = () => {
@@ -246,12 +246,12 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     } else {
       if (noteItem().flags & NoteFlags.HideBorder) {
         if (store.perVe.getMouseIsOver(vePath())) {
-          return `border border-[#999] rounded-item`;
+          return `border border-item-border rounded-item`;
         } else {
           return `border border-transparent rounded-item`;
         }
       }
-      return `border border-[#999] rounded-item bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
+      return `border border-item-border rounded-item bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
     }
   };
 

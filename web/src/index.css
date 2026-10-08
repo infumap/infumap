@@ -10,6 +10,8 @@
 
 @theme {
   --radius-item: var(--item-radius-base);
+  /* Outline color of items on the desktop (notes, tables, embedded pages, ...). */
+  --color-item-border: #a6a6a6;
 }
 
 /*

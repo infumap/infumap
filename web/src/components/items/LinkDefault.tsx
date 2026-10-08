@@ -63,7 +63,7 @@ export const LinkDefault_Desktop: Component<VisualElementProps> = (props: Visual
     if (InsideCompositeOrDoc()) {
       return 'absolute rounded-item';
     } else {
-      return 'absolute rounded-item border border-[#999]';
+      return 'absolute rounded-item border border-item-border';
     }
   };
 

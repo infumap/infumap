@@ -1462,7 +1462,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   }
 
   return (
-    <div class="absolute rounded-item border border-[#999] bg-white text-black overflow-hidden"
+    <div class="absolute rounded-item border border-item-border bg-white text-black overflow-hidden"
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
         `pointer-events: none; ${desktopStackRootStyle(props.visualElement)}`}>
       <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
