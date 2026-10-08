@@ -179,6 +179,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if ((existingVe.row ?? null) !== (specValueOrDefault(preparedSpec.row, NONE_VISUAL_ELEMENT.row) ?? null)) { return false; }
   if ((existingVe.col ?? null) !== (specValueOrDefault(preparedSpec.col, NONE_VISUAL_ELEMENT.col) ?? null)) { return false; }
   if ((existingVe.numRows ?? null) !== (specValueOrDefault(preparedSpec.numRows, NONE_VISUAL_ELEMENT.numRows) ?? null)) { return false; }
+  if ((existingVe.catalogScale ?? null) !== (specValueOrDefault(preparedSpec.catalogScale, NONE_VISUAL_ELEMENT.catalogScale) ?? null)) { return false; }
   if (HitboxFns.ArrayCompare(existingVe.hitboxes, specValueOrDefault(preparedSpec.hitboxes, NONE_VISUAL_ELEMENT.hitboxes)) !== 0) { return false; }
   if (!calendarMonthLayoutsEqual(existingVe.calendarMonthLayouts, specValueOrDefault(preparedSpec.calendarMonthLayouts, NONE_VISUAL_ELEMENT.calendarMonthLayouts))) { return false; }
   if (!calendarMiniDayLayoutsEqual(existingVe.calendarMiniDayLayouts, specValueOrDefault(preparedSpec.calendarMiniDayLayouts, NONE_VISUAL_ELEMENT.calendarMiniDayLayouts))) { return false; }

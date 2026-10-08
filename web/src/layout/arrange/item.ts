@@ -23,6 +23,7 @@ import { asPageItem, isPage, ArrangeAlgorithm, PageItem } from "../../items/page
 import { PageFlags } from "../../items/base/flags-item";
 import { itemState } from "../../store/ItemState";
 import { asTableItem, isTable } from "../../items/table-item";
+import { isImage } from "../../items/image-item";
 import { asQueryItem, isQueryItem } from "../../items/query-item";
 import { VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, VeFns } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
@@ -34,7 +35,7 @@ import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags } from "../hitbox";
 import { asCompositeItem, isComposite } from "../../items/composite-item";
 import { arrangeItemAttachments } from "./attachments";
-import { getVePropertiesForItem } from "./util";
+import { getVePropertiesForItem, previewChildIsDetailed } from "./util";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
@@ -72,10 +73,10 @@ export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
 }
 
 /**
- * Whether a list or table page is a non-interactive preview (e.g. a translucent page), so is drawn as a miniature of
- * the full page, without a minimum scale. Query search results are interactive workspaces, so are exempt.
+ * Whether a list, table or catalog page is a non-interactive preview (e.g. a translucent page), so is drawn as a
+ * miniature of the full page, without a minimum scale. Query search results are interactive workspaces, so are exempt.
  */
-export function listOrTablePageIsPreview(page: PageItem, parentPath: VisualElementPath, flags: ArrangeItemFlags): boolean {
+export function pageIsPreview(page: PageItem, parentPath: VisualElementPath, flags: ArrangeItemFlags): boolean {
   if (flags & ArrangeItemFlags.IsPreview) { return true; }
   if (flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot | ArrangeItemFlags.IsDockRoot)) {
     return false;
@@ -187,6 +188,48 @@ export const arrangeItem = (
   const renderAsOutline = !(flags & ArrangeItemFlags.RenderChildrenAsFull);
   flags |= (renderAsOutline ? ArrangeItemFlags.RenderAsOutline : ArrangeItemFlags.None);
   return arrangeItemNoChildren(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, itemGeometry, flags);
+}
+
+/**
+ * Arranges a child of a non-interactive page (e.g. a translucent page), drawn at the given scale (relative to natural
+ * size). It is drawn in detail (with text) if large enough for its text to be legible, otherwise as an outline. Images
+ * remain recognizable when small, so are not subject to this cutoff. Detailed child pages are drawn without their
+ * contents. Composites and tables are arranged with their children, since those make up their visible content (note: a
+ * composite arranges any page inside it with its contents, if wide enough).
+ */
+export function arrangePreviewChildPath(
+  store: StoreContextModel,
+  parentPath: VisualElementPath,
+  displayItem: Item,
+  linkItemMaybe: LinkItem | null,
+  actualLinkItemMaybe: LinkItem | null,
+  geometry: ItemGeometry,
+  scale: number,
+  flags: ArrangeItemFlags): VisualElementPath {
+
+  const linkIsInTrash = isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId);
+  if (!previewChildIsDetailed(displayItem, scale)) {
+    // A composite's size depends on its children, so load them even if it is drawn as an outline.
+    if (isComposite(displayItem) && !linkIsInTrash) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+    }
+    return arrangeItemNoChildrenPath(
+      store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, geometry,
+      flags | (isImage(displayItem) ? ArrangeItemFlags.None : ArrangeItemFlags.RenderAsOutline));
+  }
+  if (!linkIsInTrash) {
+    if (isComposite(displayItem)) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+      return VeFns.veToPath(arrangeComposite(
+        store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, geometry, flags).get());
+    }
+    if (isTable(displayItem)) {
+      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
+      return VeFns.veToPath(arrangeTable(
+        store, parentPath, asTableItem(displayItem), linkItemMaybe, actualLinkItemMaybe, geometry, flags).get());
+    }
+  }
+  return arrangeItemNoChildrenPath(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, geometry, flags);
 }
 
 export const arrangeItemPath = (

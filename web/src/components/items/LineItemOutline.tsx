@@ -32,7 +32,7 @@ import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { VisualElementProps } from "../VisualElement";
 
 
-const OUTLINE_COLOR = "#ddd";
+export const OUTLINE_COLOR = "#ddd";
 
 // Approximate average character width of line item text, relative to the row height.
 const CHAR_WIDTH_PROP = 0.31;

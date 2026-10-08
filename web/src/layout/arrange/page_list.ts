@@ -42,9 +42,9 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, type ListPageRowBand } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, arrangeItemPath, getCommonVisualElementFlags, listOrTablePageIsPreview } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, arrangeItemPath, getCommonVisualElementFlags, pageIsPreview } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
-import { getMovingTreeItemInParentMaybe, getVePropertiesForItem, previewChildIsDetailed } from "./util";
+import { getMovingTreeItemInParentMaybe, getVePropertiesForItem, previewChildIsDetailed, scaleGeometry } from "./util";
 import { isImage } from "../../items/image-item";
 import { isLinkInTrash } from "../../items/trash-link";
 
@@ -225,7 +225,7 @@ export function arrange_list_page(
     isFocusPage = true;
   }
 
-  const isPreview = listOrTablePageIsPreview(displayItem_pageWithChildren, parentPath, flags);
+  const isPreview = pageIsPreview(displayItem_pageWithChildren, parentPath, flags);
 
   const isFull = geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
   const proportionalListScale = geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
@@ -664,30 +664,6 @@ export function arrangeSelectedListItem(
     store, currentPath, ArrangeAlgorithm.List, li, actualLinkItemMaybe as LinkItem | null, cellGeometry,
     flags | ArrangeItemFlags.RenderChildrenAsFull);
   return result;
-}
-
-/**
- * Scales geometry laid out relative to the origin of an area by the given factor, and positions it in that area.
- */
-function scaleGeometry(geometry: ItemGeometry, areaBoundsPx: BoundingBox, scale: number): ItemGeometry {
-  const scaleBoundsPx = (b: BoundingBox): BoundingBox => ({
-    x: areaBoundsPx.x + b.x * scale,
-    y: areaBoundsPx.y + b.y * scale,
-    w: b.w * scale,
-    h: b.h * scale,
-  });
-  return {
-    ...geometry,
-    boundsPx: scaleBoundsPx(geometry.boundsPx),
-    viewportBoundsPx: geometry.viewportBoundsPx == null ? null : scaleBoundsPx(geometry.viewportBoundsPx),
-    blockSizePx: { w: geometry.blockSizePx.w * scale, h: geometry.blockSizePx.h * scale },
-    attachmentBlockSizePx: geometry.attachmentBlockSizePx == null ? undefined : geometry.attachmentBlockSizePx * scale,
-    // Hitbox bounds are relative to the item's bounds.
-    hitboxes: geometry.hitboxes.map(hitbox => ({
-      ...hitbox,
-      boundsPx: { x: hitbox.boundsPx.x * scale, y: hitbox.boundsPx.y * scale, w: hitbox.boundsPx.w * scale, h: hitbox.boundsPx.h * scale },
-    })),
-  };
 }
 
 export function arrangeSelectedListItemPath(

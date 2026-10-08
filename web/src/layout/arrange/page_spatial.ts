@@ -20,24 +20,18 @@ import { NATURAL_BLOCK_SIZE_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { asCompositeItem, isComposite } from "../../items/composite-item";
-import { isImage } from "../../items/image-item";
+import { isComposite } from "../../items/composite-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
-import { asTableItem, isTable } from "../../items/table-item";
-import { isLinkInTrash } from "../../items/trash-link";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
-import { initiateLoadChildItemsMaybe } from "../load";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildrenPath, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, arrangePreviewChildPath, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
-import { getVePropertiesForItem, previewChildIsDetailed } from "./util";
-import { arrangeComposite } from "./composite";
-import { arrangeTable } from "./table";
+import { getVePropertiesForItem } from "./util";
 
 
 export function arrange_spatial_page(
@@ -185,7 +179,6 @@ export function arrange_spatial_page(
       store.smallScreenMode(),
       compositeIsCollapsed);
     const { geometry: visibleItemGeometry, wasAutoMoved } = keepGeometryInsideScrollableArea(itemGeometry);
-    const renderChildDetailed = !renderChildrenAsFull && previewChildIsDetailed(displayItem, childScale);
     let childPath: VisualElementPath;
     if (renderChildrenAsFull) {
       childPath = arrangeItemPath(
@@ -194,21 +187,10 @@ export function arrange_spatial_page(
         (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
         (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
         (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
-    } else if (renderChildDetailed) {
-      childPath = arrangeDetailedChildPath(
-        store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, visibleItemGeometry,
-        flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None);
     } else {
-      // A composite's size depends on its children, so load them even if it is drawn as an outline.
-      if (isComposite(displayItem) && !isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId)) {
-        initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
-      }
-      childPath = arrangeItemNoChildrenPath(
-        store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, visibleItemGeometry,
-        (childItemIsPopup ? ArrangeItemFlags.IsPopupRoot : ArrangeItemFlags.None) |
-        (flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None) |
-        // Images remain recognizable when small, so they are not subject to the detail scale cutoff.
-        (isImage(displayItem) ? ArrangeItemFlags.None : ArrangeItemFlags.RenderAsOutline));
+      childPath = arrangePreviewChildPath(
+        store, pageWithChildrenVePath, displayItem, linkItemMaybe, actualLinkItemMaybe, visibleItemGeometry, childScale,
+        flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None);
     }
     store.perVe.setAutoMovedIntoView(childPath, wasAutoMoved);
     childrenPaths.push(childPath);
@@ -246,33 +228,4 @@ export function arrange_spatial_page(
   }
 
   return { spec: pageSpec, relationships: pageRelationships };
-}
-
-/**
- * Arranges a child of a non-interactive page in detail (with text). Child pages are drawn without their contents.
- * Composites and tables are arranged with their children, since those make up their visible content (note: a
- * composite arranges any page inside it with its contents, if wide enough).
- */
-function arrangeDetailedChildPath(
-  store: StoreContextModel,
-  parentPath: VisualElementPath,
-  displayItem: Item,
-  linkItemMaybe: LinkItem | null,
-  actualLinkItemMaybe: LinkItem | null,
-  geometry: ItemGeometry,
-  flags: ArrangeItemFlags): VisualElementPath {
-
-  if (!isLinkInTrash(linkItemMaybe, store.user.getUserMaybe()?.trashPageId)) {
-    if (isComposite(displayItem)) {
-      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
-      return VeFns.veToPath(arrangeComposite(
-        store, parentPath, asCompositeItem(displayItem), linkItemMaybe, actualLinkItemMaybe, geometry, flags).get());
-    }
-    if (isTable(displayItem)) {
-      initiateLoadChildItemsMaybe(store, VeFns.veidFromItems(displayItem, linkItemMaybe));
-      return VeFns.veToPath(arrangeTable(
-        store, parentPath, asTableItem(displayItem), linkItemMaybe, actualLinkItemMaybe, geometry, flags).get());
-    }
-  }
-  return arrangeItemNoChildrenPath(store, parentPath, displayItem, linkItemMaybe, actualLinkItemMaybe, geometry, flags);
 }

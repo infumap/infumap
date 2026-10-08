@@ -361,6 +361,11 @@ export interface VisualElement {
    */
   numRows: number | null,
 
+  /**
+   * The scale at which a catalog page is drawn, relative to its layout at full size. Set only in the case of catalog pages.
+   */
+  catalogScale: number | null,
+
   hitboxes: Array<Hitbox>,  // higher index => higher precedence.
 
   calendarMonthLayouts: Array<CalendarMonthLayout>,
@@ -482,6 +487,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   row: null,
   cellSizePx: null,
   numRows: null,
+  catalogScale: null,
   hitboxes: [],
   calendarMonthLayouts: [],
   calendarMiniDayLayouts: [],
@@ -528,6 +534,7 @@ export interface VisualElementSpec {
   row?: number,
   cellSizePx?: Dimensions,
   numRows?: number,
+  catalogScale?: number,
   hitboxes?: Array<Hitbox>,
   calendarMonthLayouts?: Array<CalendarMonthLayout>,
   calendarMiniDayLayouts?: Array<CalendarMiniDayLayout>,
@@ -594,6 +601,7 @@ export const VeFns = {
       row: null,
       cellSizePx: null,
       numRows: null,
+      catalogScale: null,
       hitboxes: [],
       calendarMonthLayouts: [],
       calendarMiniDayLayouts: [],
@@ -642,6 +650,7 @@ export const VeFns = {
     ve.row = null;
     ve.cellSizePx = null;
     ve.numRows = null;
+    ve.catalogScale = null;
     ve.hitboxes = [];
     ve.calendarMonthLayouts = [];
     ve.calendarMiniDayLayouts = [];
@@ -1267,6 +1276,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.row) != 'undefined') { result.row = override.row; }
   if (typeof (override.cellSizePx) != 'undefined') { result.cellSizePx = override.cellSizePx; }
   if (typeof (override.numRows) != 'undefined') { result.numRows = override.numRows; }
+  if (typeof (override.catalogScale) != 'undefined') { result.catalogScale = override.catalogScale; }
   if (typeof (override.hitboxes) != 'undefined') { result.hitboxes = override.hitboxes; }
   if (typeof (override.calendarMonthLayouts) != 'undefined') { result.calendarMonthLayouts = override.calendarMonthLayouts; }
   if (typeof (override.calendarMiniDayLayouts) != 'undefined') { result.calendarMiniDayLayouts = override.calendarMiniDayLayouts; }

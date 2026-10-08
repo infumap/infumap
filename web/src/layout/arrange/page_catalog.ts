@@ -28,17 +28,17 @@ import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../uti
 import { assert } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
-import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe } from "./util";
+import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem, scaleGeometry } from "./util";
 import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
-import { CATALOG_HORIZONTAL_MARGIN_PX, CATALOG_VERTICAL_MARGIN_PX, calcCatalogPreviewColumnWidthPx, calcCatalogRowHeightPx } from "../catalog";
+import { ArrangeItemFlags, arrangeItem, arrangeItemPath, arrangePreviewChildPath, getCommonVisualElementFlags, pageIsPreview } from "./item";
+import { calcCatalogLayout } from "../catalog";
 import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { VisualElementSignal } from "../../util/signals";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
-import { LINE_HEIGHT_PX } from "../../constants";
+import { LINE_HEIGHT_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 
 
 export function arrange_catalog_page(
@@ -63,22 +63,6 @@ export function arrange_catalog_page(
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
   movingItem = movingItemInThisPage;
 
-  const attachmentBlockSizePx = LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
-  const previewColumnWidthPx = calcCatalogPreviewColumnWidthPx(geometry.boundsPx.w);
-  const rowHeightPx = calcCatalogRowHeightPx(previewColumnWidthPx, displayItem_pageWithChildren.gridCellAspect);
-  const marginPx = Math.max(1, Math.round(previewColumnWidthPx * 0.01));
-  const hasCatalogResults = hasCatalogResultContext(displayItem_pageWithChildren);
-  const pageTopPaddingPx = catalogResultControlsTopInsetPx(displayItem_pageWithChildren) ?? CATALOG_VERTICAL_MARGIN_PX;
-  const catalogFooterHeightPx = catalogResultFooterHeightPx(store, displayItem_pageWithChildren);
-  const movingAdj = movingItemInThisPage ? 1 : 0;
-  const numRows = Math.max(displayItem_pageWithChildren.computed_children.length - movingAdj, 0);
-  const pageHeightPx = pageTopPaddingPx + numRows * rowHeightPx + CATALOG_VERTICAL_MARGIN_PX + catalogFooterHeightPx;
-  const childAreaBoundsPx = (() => {
-    const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
-    result.h = pageHeightPx;
-    return result;
-  })();
-
   const isEmbeddedInteractive =
     !!(flags & ArrangeItemFlags.IsDockRoot) ||
     (!!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
@@ -86,6 +70,38 @@ export function arrange_catalog_page(
       !(flags & ArrangeItemFlags.IsTopRoot) &&
       !(flags & ArrangeItemFlags.IsPopupRoot) &&
       !(flags & ArrangeItemFlags.IsListPageMainRoot));
+
+  // As for list pages, a catalog page drawn below full size is a miniature of the full page: without a minimum scale if
+  // it is a preview (e.g. translucent), otherwise (embedded interactive) with a minimum scale that keeps it usable. The
+  // children of a preview are drawn as for the children of other preview pages: in detail if large enough for their
+  // text to be legible, otherwise as outlines. As for list pages, catalog pages in the dock are drawn at full size.
+  const insidePopup = !!(flags & (ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.ParentIsPopup));
+  const isPreview = pageIsPreview(displayItem_pageWithChildren, parentPath, flags);
+  const proportionalScale = geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
+  const catalogScale = (isFull || insidePopup || (flags & ArrangeItemFlags.IsDockRoot))
+    ? 1.0
+    : isPreview
+      ? proportionalScale
+      : isEmbeddedInteractive
+        ? Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalScale)
+        : 1.0;
+
+  const attachmentBlockSizePx = LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
+  const layout = calcCatalogLayout(geometry.viewportBoundsPx!.w, displayItem_pageWithChildren.gridCellAspect, catalogScale);
+  const previewColumnWidthPx = layout.previewColumnWidthPx;
+  const rowHeightPx = layout.rowHeightPx;
+  const marginPx = layout.cellMarginPx;
+  const hasCatalogResults = hasCatalogResultContext(displayItem_pageWithChildren);
+  const pageTopPaddingPx = catalogResultControlsTopInsetPx(displayItem_pageWithChildren) ?? layout.verticalMarginPx;
+  const catalogFooterHeightPx = catalogResultFooterHeightPx(store, displayItem_pageWithChildren);
+  const movingAdj = movingItemInThisPage ? 1 : 0;
+  const numRows = Math.max(displayItem_pageWithChildren.computed_children.length - movingAdj, 0);
+  const pageHeightPx = pageTopPaddingPx + numRows * rowHeightPx + layout.verticalMarginPx + catalogFooterHeightPx;
+  const childAreaBoundsPx = (() => {
+    const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
+    result.h = pageHeightPx;
+    return result;
+  })();
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
@@ -117,6 +133,7 @@ export function arrange_catalog_page(
     parentPath,
     cellSizePx: { w: previewColumnWidthPx, h: rowHeightPx },
     numRows,
+    catalogScale,
   };
 
   const pageRelationships: VisualElementRelationships = {};
@@ -131,14 +148,24 @@ export function arrange_catalog_page(
     }
 
     const cellBoundsPx = {
-      x: CATALOG_HORIZONTAL_MARGIN_PX + marginPx,
+      x: layout.horizontalMarginPx + marginPx,
       y: pageTopPaddingPx + idx * rowHeightPx + marginPx,
       w: previewColumnWidthPx - marginPx * 2.0,
       h: rowHeightPx - marginPx * 2.0,
     };
     idx += 1;
 
-    const childGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
+    // Items are laid out in their cell at full size, then scaled with the page.
+    const fullSizeCellBoundsPx = {
+      x: cellBoundsPx.x / catalogScale,
+      y: cellBoundsPx.y / catalogScale,
+      w: cellBoundsPx.w / catalogScale,
+      h: cellBoundsPx.h / catalogScale,
+    };
+    let childGeometry = ItemFns.calcGeometry_InCell(childItem, fullSizeCellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, false, false, store.smallScreenMode());
+    if (catalogScale != 1.0) {
+      childGeometry = scaleGeometry(childGeometry, { x: 0, y: 0, w: 0, h: 0 }, catalogScale);
+    }
     childGeometry.row = idx - 1;
     childGeometry.col = 0;
     setNaturalAttachmentBlockSizePx(store, childItem, childGeometry, attachmentBlockSizePx, !hasCatalogResults);
@@ -183,16 +210,25 @@ export function arrange_catalog_page(
   const childrenPaths: Array<VisualElementPath> = [];
   for (const child of childGeometries) {
     const childItemIsEmbeddedInteractive = isPage(child.childItem) && pageUsesEmbeddedInteractiveMode(asPageItem(child.childItem));
-    const renderChildrenAsFull = !(flags & ArrangeItemFlags.IsPreview) &&
+    const renderChildrenAsFull = !isPreview &&
       (isEmbeddedInteractive || !!(flags & ArrangeItemFlags.RenderChildrenAsFull |
         flags & ArrangeItemFlags.IsTopRoot |
         flags & ArrangeItemFlags.IsPopupRoot |
         flags & ArrangeItemFlags.IsListPageMainRoot |
         flags & ArrangeItemFlags.IsEmbeddedInteractiveRoot |
         flags & ArrangeItemFlags.IsDockRoot));
+    if (!renderChildrenAsFull) {
+      // Items may be scaled down to fit their cell, so their text is drawn at their own scale.
+      const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, child.childItem);
+      const childScale = child.geometry.blockSizePx.w / NATURAL_BLOCK_SIZE_PX.w;
+      childrenPaths.push(arrangePreviewChildPath(
+        store, pageWithChildrenVePath, displayItem, linkItemMaybe, child.actualLinkItemMaybe, child.geometry, childScale,
+        flags & ArrangeItemFlags.IsMoving ? ArrangeItemFlags.IsMoving : ArrangeItemFlags.None));
+      continue;
+    }
     childrenPaths.push(arrangeItemPath(
       store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, child.childItem, child.actualLinkItemMaybe, child.geometry,
-      (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
+      ArrangeItemFlags.RenderChildrenAsFull |
       (childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
