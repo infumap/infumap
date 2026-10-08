@@ -46,7 +46,7 @@ import {
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { ClientOnlyItemKind } from "../../items/base/item";
 import { appendNewlineIfEmpty } from "../../util/string";
-import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { miniatureChildItemRadiusStyle, autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
@@ -324,10 +324,6 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     );
   };
 
-  // Children are a miniature of the page as it appears when opened, so their corner radius is scaled down to match.
-  const childItemRadiusScale = () =>
-    Math.min(1.0, pageFns().boundsPx().w / store.desktopMainAreaBoundsPx().w);
-
   const renderPage = () =>
   (
     pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar
@@ -347,7 +343,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         <div class="absolute"
           style={`left: ${pageFns().isDocumentPage() ? pageFns().documentContentLeftPx() - borderWidthPx() : 0}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px; ` +
-            `--radius-item: calc(var(--item-radius-base) * ${childItemRadiusScale()});`}>
+            `${miniatureChildItemRadiusStyle(store, pageFns().boundsPx().w)}`}>
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           {pageFns().renderCatalogResultSelectionMaybe()}
           <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />

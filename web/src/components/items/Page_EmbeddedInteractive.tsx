@@ -32,7 +32,7 @@ import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { PageVisualElementProps } from "./Page";
-import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { miniatureChildItemRadiusStyle, autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { switchToPage } from "../../layout/navigation";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { VisualElementSignal } from "../../util/signals";
@@ -207,6 +207,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       `border-color: ${Colors[pageFns().pageItem().backgroundColorIndex]}; `;
   }
 
+  // Dock items sit flush in the dock, so only keep square corners there.
+  const outlineRoundedClass = () => isDockItem() ? "" : "rounded-item";
+
   const renderShadowMaybe = () =>
     <Show when={isEmbeddedInteractive()}>
       <div class={`absolute border border-transparent rounded-item pointer-events-none`}
@@ -237,7 +240,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       ? <div class="absolute w-full bg-white"
         style={`top: 0px; bottom: 0px; ` +
           `z-index: 1;`} />
-      : <div class="absolute w-full"
+      : <div class={`absolute w-full ${outlineRoundedClass()}`}
         style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
           `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
           `z-index: 1; ` +
@@ -245,7 +248,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
   const renderEmbeddedInteractiveForeground = () =>
     <Show when={!isMinimalDocumentPage()}>
-      <div class="absolute w-full pointer-events-none"
+      <div class={`absolute w-full pointer-events-none ${outlineRoundedClass()}`}
         style={`z-index: 3; ` +
           `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
           borderStyle()} />
@@ -393,7 +396,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         style={`left: ${pageFns().documentContentLeftPx()}px; top: 0px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
           `height: ${pageFns().childAreaBoundsPx().h}px; ` +
-          `outline: 0px solid transparent; `}
+          `outline: 0px solid transparent; ` +
+          `${miniatureChildItemRadiusStyle(store, pageFns().viewportBoundsPx().w)}`}
         contentEditable={documentTextSelectionContainerIsActive()}
         onBeforeInput={beforeInputListener}
         onKeyUp={keyUpHandler}
