@@ -66,7 +66,8 @@ Use lexical_search to find items and containers. Use a few distinctive terms, no
 into focused searches. If results are empty or irrelevant, retry with fewer terms, synonyms, or alternate names and spellings before concluding the answer is absent. \
 Use read_container to inspect a known page, table, or composite, its native text, \
 groups, attachments, hierarchy and layout; search matches alone do not enumerate a container. \
-Search results include containingContainerId, containingPageId, and ancestors with IDs for navigation. \
+A search result's context names the container fragment that lists it; read it with get_fragment to see the result's \
+surroundings. \
 Follow read_container nextCursor until hasMore is false before claiming complete container coverage. \
 Child pages are references, not expanded. Spatial proximity is not an explicit relationship. \
 Call get_fragment to read text by item id: documents, notes, and pages, tables or composites as lines of linked items. \
@@ -1246,7 +1247,7 @@ fn lexical_search_tool_spec() -> OpenAiToolSpec {
     tool_type: "function".to_owned(),
     function: OpenAiToolFunctionSpec {
       name: "lexical_search".to_owned(),
-      description: "Search titles, document text, and image descriptions with ordinary words. Prefer a few distinctive terms; split concepts across calls and retry weak searches with fewer or alternate terms.".to_owned(),
+      description: "Search titles, document text, and image descriptions with ordinary words. Prefer a few distinctive terms; split concepts across calls and retry weak searches with fewer or alternate terms. Each result's context gives the itemId and fragmentOrdinal of the container fragment listing it, for get_fragment.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
@@ -1709,7 +1710,12 @@ async fn execute_lexical_search_tool_call(
     search::SearchRequest { page_id: arguments.page_id, text: search_text, num_results, page_num, scope_id: None };
 
   match search::run_lexical_search(db, search_request, session, scope).await {
-    Ok(response) => search::compact_search_response_json(&response),
+    Ok(response) => {
+      let item_ids = response.results.iter().filter_map(|result| result.path.last()).map(|item| item.id.clone());
+      let access = container_fragments::Access { user_id: &session.user_id, scope };
+      let contexts = container_fragments::item_contexts(db, &access, &item_ids.collect::<Vec<_>>()).await;
+      search::compact_search_response_json(&response, &contexts)
+    }
     Err(e) => Ok(tool_error_json(&format!("lexical_search failed: {}", e))),
   }
 }
@@ -2686,6 +2692,41 @@ mod tests {
       .to_string(),
     );
     assert_eq!(summary, "\"Notes\" · fragments 3–4 of 0–6 · 4 chars");
+  }
+
+  #[test]
+  fn compact_search_results_carry_context_instead_of_container_ids() {
+    let element = |item_type: &str, title: &str, id: &str| search::SearchPathElement {
+      item_type: item_type.to_owned(),
+      title: Some(title.to_owned()),
+      id: id.to_owned(),
+    };
+    let result = |id: &str| search::SearchResult {
+      path: vec![element("page", "Home", "h"), element("table", "Tasks", "t"), element("note", "Acme", id)],
+      score: 1.0,
+      stats: None,
+      fragment_match: None,
+      additional_fragment_matches: Vec::new(),
+    };
+    let response = search::SearchResponse { results: vec![result("r"), result("gone")], has_more: false };
+    let context = container_fragments::ItemContext {
+      container_id: "t".to_owned(),
+      fragment_ordinal: 2,
+      fragment_count: 5,
+      excerpt: Some("[Acme](infumap://r) | Active".to_owned()),
+    };
+    let contexts = HashMap::from([("r".to_owned(), context)]);
+
+    let json: Value =
+      serde_json::from_str(&search::compact_search_response_json(&response, &contexts).unwrap()).unwrap();
+    assert_eq!(
+      json["results"][0]["context"],
+      serde_json::json!({ "itemId": "t", "fragmentOrdinal": 2, "fragmentCount": 5, "excerpt": "[Acme](infumap://r) | Active" })
+    );
+    assert!(json["results"][1].get("context").is_none());
+    for removed in ["ancestors", "containingContainerId", "containingPageId"] {
+      assert!(json["results"][0].get(removed).is_none(), "{removed}");
+    }
   }
 
   #[tokio::test]

@@ -135,15 +135,15 @@ pub struct SearchResponse {
 pub(super) mod compact {
   use super::*;
 
-  #[derive(Clone, Serialize)]
-  pub(super) struct CompactSearchResponse {
-    pub results: Vec<CompactSearchResult>,
+  #[derive(Serialize)]
+  pub(super) struct CompactSearchResponse<'a, C> {
+    pub results: Vec<CompactSearchResult<'a, C>>,
     #[serde(rename = "hasMore")]
     pub has_more: bool,
   }
 
-  #[derive(Clone, Serialize)]
-  pub(super) struct CompactSearchResult {
+  #[derive(Serialize)]
+  pub(super) struct CompactSearchResult<'a, C> {
     #[serde(rename = "itemId")]
     pub item_id: Uid,
     #[serde(rename = "linkUrl")]
@@ -153,11 +153,9 @@ pub(super) mod compact {
     pub title: Option<String>,
     pub score: f32,
     pub path: Vec<String>,
-    pub ancestors: Vec<SearchPathElement>,
-    #[serde(rename = "containingContainerId")]
-    pub containing_container_id: Option<Uid>,
-    #[serde(rename = "containingPageId")]
-    pub containing_page_id: Option<Uid>,
+    /// Where the result is listed, from the caller.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<&'a C>,
     #[serde(rename = "fragmentMatch", skip_serializing_if = "Option::is_none")]
     pub fragment_match: Option<CompactSearchFragmentMatch>,
     #[serde(rename = "additionalFragmentMatches", skip_serializing_if = "Vec::is_empty")]
@@ -180,14 +178,20 @@ pub(super) mod compact {
     pub page_end: Option<usize>,
   }
 
-  pub(super) fn compact_search_response(response: &SearchResponse) -> CompactSearchResponse {
+  pub(super) fn compact_search_response<'a, C>(
+    response: &SearchResponse,
+    contexts: &'a HashMap<Uid, C>,
+  ) -> CompactSearchResponse<'a, C> {
     CompactSearchResponse {
-      results: response.results.iter().filter_map(compact_search_result).collect(),
+      results: response.results.iter().filter_map(|result| compact_search_result(result, contexts)).collect(),
       has_more: response.has_more,
     }
   }
 
-  fn compact_search_result(result: &SearchResult) -> Option<CompactSearchResult> {
+  fn compact_search_result<'a, C>(
+    result: &SearchResult,
+    contexts: &'a HashMap<Uid, C>,
+  ) -> Option<CompactSearchResult<'a, C>> {
     let item = result.path.last()?;
     Some(CompactSearchResult {
       item_id: item.id.clone(),
@@ -196,17 +200,7 @@ pub(super) mod compact {
       title: item.title.clone(),
       score: result.score,
       path: result.path.iter().map(compact_search_path_label).collect(),
-      ancestors: result.path[..result.path.len() - 1].to_vec(),
-      containing_container_id: result.path[..result.path.len() - 1]
-        .iter()
-        .rev()
-        .find(|ancestor| matches!(ancestor.item_type.as_str(), "page" | "table" | "composite"))
-        .map(|ancestor| ancestor.id.clone()),
-      containing_page_id: result.path[..result.path.len() - 1]
-        .iter()
-        .rev()
-        .find(|ancestor| ancestor.item_type == "page")
-        .map(|ancestor| ancestor.id.clone()),
+      context: contexts.get(&item.id),
       fragment_match: result.fragment_match.as_ref().map(compact_search_fragment_match),
       additional_fragment_matches: result
         .additional_fragment_matches
@@ -326,8 +320,12 @@ pub(super) async fn run_lexical_search(
   Ok(search_response_from_results(results, request.num_results))
 }
 
-pub(super) fn compact_search_response_json(response: &SearchResponse) -> InfuResult<String> {
-  serde_json::to_string(&compact::compact_search_response(response))
+/// The chat tool's search response, with each result's context from `contexts` keyed by item id.
+pub(super) fn compact_search_response_json<C: Serialize>(
+  response: &SearchResponse,
+  contexts: &HashMap<Uid, C>,
+) -> InfuResult<String> {
+  serde_json::to_string(&compact::compact_search_response(response, contexts))
     .map_err(|e| format!("Could not serialize compact search response: {}", e).into())
 }
 
