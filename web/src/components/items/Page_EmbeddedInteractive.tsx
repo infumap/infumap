@@ -55,7 +55,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const canResizePage = () => itemCanResize(pageFns().pageItem()) && pageFns().hasResizeHitbox();
   const pageChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
-  const isMinimalDocumentPage = () => pageFns().isDocumentPage();
   const documentTextEditIsActive = () => {
     if (!canEditPage() || !pageFns().isDocumentPage()) { return false; }
     const itemPath = store.overlay.textEditInfo()?.itemPath;
@@ -161,6 +160,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     () => props.visualElement,
     () => requestArrange(store, "embedded-interactive-escape"),
   );
+  const canEditTitle = () => PageFns.headerTitleIsEditable(pageFns().pageItem());
+  const isEditingTitle = () => canEditTitle() && titleEditHandlers.isEditingTitle();
 
   // Check if this page is currently focused (via focusPath or textEditInfo)
   const isFocused = () => {
@@ -236,23 +237,17 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     </Show>;
 
   const renderEmbeddedInteractiveBackground = () =>
-    isMinimalDocumentPage()
-      ? <div class="absolute w-full bg-white"
-        style={`top: 0px; bottom: 0px; ` +
-          `z-index: 1;`} />
-      : <div class={`absolute w-full ${outlineRoundedClass()}`}
-        style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
-          `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
-          `z-index: 1; ` +
-          borderStyle()} />;
+    <div class={`absolute w-full ${outlineRoundedClass()}`}
+      style={`background-image: ${linearGradient(pageFns().pageItem().backgroundColorIndex, 0.95)}; ` +
+        `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
+        `z-index: 1; ` +
+        borderStyle()} />;
 
   const renderEmbeddedInteractiveForeground = () =>
-    <Show when={!isMinimalDocumentPage()}>
-      <div class={`absolute w-full pointer-events-none ${outlineRoundedClass()}`}
-        style={`z-index: 3; ` +
-          `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
-          borderStyle()} />
-    </Show>;
+    <div class={`absolute w-full pointer-events-none ${outlineRoundedClass()}`}
+      style={`z-index: 3; ` +
+        `top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; bottom: ${0}px;` +
+        borderStyle()} />;
 
   const renderIsLinkMaybe = () =>
     <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && pageFns().showTriangleDetail()}>
@@ -268,14 +263,14 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     <Show when={isEmbeddedInteractive() && PageFns.showEmbeddedInteractiveTitle(pageFns().pageItem())}>
       <div class={`absolute`}
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${embeddedInteractiveTitleHeightPx()}px; z-index: 4;`}>
-        <div id={VeFns.veToPath(props.visualElement) + ":title"}
-          class={`absolute font-bold ${titleEditHandlers.isEditingTitle() ? "select-text cursor-text" : ""}`}
+        <div id={canEditTitle() ? VeFns.veToPath(props.visualElement) + ":title" : undefined}
+          class={`absolute font-bold ${isEditingTitle() ? "select-text cursor-text" : ""}`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${embeddedInteractiveTitleHeightPx() / titleScale()}px; ` +
             `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
             `overflow-wrap: break-word;` +
             `outline: 0px solid transparent;`}
-          spellcheck={canEditPage() && titleEditHandlers.isEditingTitle()}
-          contentEditable={canEditPage() && titleEditHandlers.isEditingTitle()}
+          spellcheck={isEditingTitle()}
+          contentEditable={isEditingTitle()}
           onKeyDown={titleEditHandlers.titleKeyDownHandler}
           onKeyUp={titleEditHandlers.titleKeyUpHandler}
           onInput={titleEditHandlers.titleInputListener}>

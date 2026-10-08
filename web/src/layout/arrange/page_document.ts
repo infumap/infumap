@@ -252,6 +252,13 @@ export function arrange_document_page(
     childrenPaths.push(VeFns.veToPath(movingVes.get()));
   }
 
+  const isEmbeddedInteractive =
+    !!(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
+    (VeFns.pathDepth(parentPath) >= 2) &&
+    !(flags & ArrangeItemFlags.IsTopRoot) &&
+    !(flags & ArrangeItemFlags.IsPopupRoot) &&
+    !(flags & ArrangeItemFlags.IsListPageMainRoot);
+
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
   const isSelectionHighlighted = (() => {
@@ -271,6 +278,7 @@ export function arrange_document_page(
     flags: VisualElementFlags.Detailed | VisualElementFlags.ShowChildren |
       getCommonVisualElementFlags(flags) |
       (flags & ArrangeItemFlags.IsPopupRoot && store.history.getFocusItem().id == pageWithChildrenVeid.itemId ? VisualElementFlags.HasToolbarFocus : VisualElementFlags.None) |
+      (isEmbeddedInteractive ? VisualElementFlags.EmbeddedInteractiveRoot : VisualElementFlags.None) |
       (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
       (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: flags,
