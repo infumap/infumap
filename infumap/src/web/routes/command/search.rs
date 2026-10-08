@@ -135,15 +135,19 @@ pub struct SearchResponse {
 pub(super) mod compact {
   use super::*;
 
+  /// Longer titles, usually note text, are cut. The caller can say how many fragments hold the rest.
+  pub(in crate::web::routes::command) const TITLE_MAX_CHARS: usize = 300;
+  const LOCATION_TITLE_MAX_CHARS: usize = 60;
+
   #[derive(Serialize)]
-  pub(super) struct CompactSearchResponse<'a, C> {
-    pub results: Vec<CompactSearchResult<'a, C>>,
+  pub(super) struct CompactSearchResponse<'a, E> {
+    pub results: Vec<CompactSearchResult<'a, E>>,
     #[serde(rename = "hasMore")]
     pub has_more: bool,
   }
 
   #[derive(Serialize)]
-  pub(super) struct CompactSearchResult<'a, C> {
+  pub(super) struct CompactSearchResult<'a, E> {
     #[serde(rename = "itemId")]
     pub item_id: Uid,
     #[serde(rename = "linkUrl")]
@@ -151,26 +155,22 @@ pub(super) mod compact {
     #[serde(rename = "itemType")]
     pub item_type: String,
     pub title: Option<String>,
-    pub score: f32,
-    pub path: Vec<String>,
-    /// Where the result is listed, from the caller.
+    /// Titles of the containing items, outermost first.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub context: Option<&'a C>,
+    pub location: Option<String>,
+    /// Fields the caller adds for this result.
+    #[serde(flatten)]
+    pub extra: Option<&'a E>,
     #[serde(rename = "fragmentMatch", skip_serializing_if = "Option::is_none")]
     pub fragment_match: Option<CompactSearchFragmentMatch>,
-    #[serde(rename = "additionalFragmentMatches", skip_serializing_if = "Vec::is_empty")]
-    pub additional_fragment_matches: Vec<CompactSearchFragmentMatch>,
   }
 
-  #[derive(Clone, Serialize)]
+  #[derive(Serialize)]
   pub(super) struct CompactSearchFragmentMatch {
     #[serde(rename = "fragmentOrdinal")]
     pub fragment_ordinal: usize,
-    #[serde(rename = "sourceKind")]
-    pub source_kind: String,
-    pub score: f32,
     pub text: String,
-    #[serde(rename = "textTruncated")]
+    #[serde(rename = "textTruncated", skip_serializing_if = "std::ops::Not::not")]
     pub text_truncated: bool,
     #[serde(rename = "pageStart", skip_serializing_if = "Option::is_none")]
     pub page_start: Option<usize>,
@@ -178,52 +178,51 @@ pub(super) mod compact {
     pub page_end: Option<usize>,
   }
 
-  pub(super) fn compact_search_response<'a, C>(
+  pub(super) fn compact_search_response<'a, E>(
     response: &SearchResponse,
-    contexts: &'a HashMap<Uid, C>,
-  ) -> CompactSearchResponse<'a, C> {
+    extras: &'a HashMap<Uid, E>,
+  ) -> CompactSearchResponse<'a, E> {
     CompactSearchResponse {
-      results: response.results.iter().filter_map(|result| compact_search_result(result, contexts)).collect(),
+      results: response.results.iter().filter_map(|result| compact_search_result(result, extras)).collect(),
       has_more: response.has_more,
     }
   }
 
-  fn compact_search_result<'a, C>(
+  fn compact_search_result<'a, E>(
     result: &SearchResult,
-    contexts: &'a HashMap<Uid, C>,
-  ) -> Option<CompactSearchResult<'a, C>> {
-    let item = result.path.last()?;
+    extras: &'a HashMap<Uid, E>,
+  ) -> Option<CompactSearchResult<'a, E>> {
+    let (item, ancestors) = result.path.split_last()?;
+    let location = ancestors.iter().map(location_label).collect::<Vec<_>>().join(" › ");
     Some(CompactSearchResult {
       item_id: item.id.clone(),
       link_url: format!("infumap://{}", item.id),
       item_type: item.item_type.clone(),
-      title: item.title.clone(),
-      score: result.score,
-      path: result.path.iter().map(compact_search_path_label).collect(),
-      context: contexts.get(&item.id),
+      title: item.title.as_deref().map(|title| clamp_with_ellipsis(title, TITLE_MAX_CHARS)),
+      location: Some(location).filter(|location| !location.is_empty()),
+      extra: extras.get(&item.id),
+      // Only the best match: further matches cost context and get_fragment reads around this one.
       fragment_match: result.fragment_match.as_ref().map(compact_search_fragment_match),
-      additional_fragment_matches: result
-        .additional_fragment_matches
-        .iter()
-        .map(compact_search_fragment_match)
-        .collect(),
     })
   }
 
-  fn compact_search_path_label(element: &SearchPathElement) -> String {
-    element
-      .title
-      .as_ref()
-      .filter(|title| !title.trim().is_empty())
-      .cloned()
-      .unwrap_or_else(|| format!("{} {}", element.item_type, element.id))
+  fn location_label(element: &SearchPathElement) -> String {
+    let title = element.title.as_deref().unwrap_or("").split_whitespace().collect::<Vec<_>>().join(" ");
+    if title.is_empty() {
+      format!("untitled {}", element.item_type)
+    } else {
+      clamp_with_ellipsis(&title, LOCATION_TITLE_MAX_CHARS)
+    }
+  }
+
+  fn clamp_with_ellipsis(text: &str, max_chars: usize) -> String {
+    let (clamped, truncated) = clamp_text_chars(text, max_chars);
+    if truncated { format!("{}…", clamped.trim_end()) } else { clamped }
   }
 
   fn compact_search_fragment_match(fragment_match: &SearchFragmentMatch) -> CompactSearchFragmentMatch {
     CompactSearchFragmentMatch {
       fragment_ordinal: fragment_match.fragment_ordinal,
-      source_kind: fragment_match.source_kind.clone(),
-      score: fragment_match.score,
       text: fragment_match.text.clone(),
       text_truncated: fragment_match.text_truncated,
       page_start: fragment_match.page_start,
@@ -320,12 +319,12 @@ pub(super) async fn run_lexical_search(
   Ok(search_response_from_results(results, request.num_results))
 }
 
-/// The chat tool's search response, with each result's context from `contexts` keyed by item id.
-pub(super) fn compact_search_response_json<C: Serialize>(
+/// The chat tool's search response. Each result also gets the fields of its entry in `extras`, keyed by item id.
+pub(super) fn compact_search_response_json<E: Serialize>(
   response: &SearchResponse,
-  contexts: &HashMap<Uid, C>,
+  extras: &HashMap<Uid, E>,
 ) -> InfuResult<String> {
-  serde_json::to_string(&compact::compact_search_response(response, contexts))
+  serde_json::to_string(&compact::compact_search_response(response, extras))
     .map_err(|e| format!("Could not serialize compact search response: {}", e).into())
 }
 

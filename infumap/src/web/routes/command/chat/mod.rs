@@ -1712,12 +1712,44 @@ async fn execute_lexical_search_tool_call(
   match search::run_lexical_search(db, search_request, session, scope).await {
     Ok(response) => {
       let item_ids = response.results.iter().filter_map(|result| result.path.last()).map(|item| item.id.clone());
+      let item_ids = item_ids.collect::<Vec<_>>();
       let access = container_fragments::Access { user_id: &session.user_id, scope };
-      let contexts = container_fragments::item_contexts(db, &access, &item_ids.collect::<Vec<_>>()).await;
-      search::compact_search_response_json(&response, &contexts)
+      let mut contexts = container_fragments::item_contexts(db, &access, &item_ids).await;
+      let mut fragment_counts = cut_note_fragment_counts(db, &item_ids).await;
+      let extras = item_ids
+        .into_iter()
+        .map(|item_id| {
+          let context = contexts.remove(&item_id);
+          let fragment_count = fragment_counts.remove(&item_id);
+          (item_id, LexicalSearchResultExtra { context, fragment_count })
+        })
+        .collect::<HashMap<_, _>>();
+      search::compact_search_response_json(&response, &extras)
     }
     Err(e) => Ok(tool_error_json(&format!("lexical_search failed: {}", e))),
   }
+}
+
+/// What lexical_search adds to a result from the live database.
+#[derive(Serialize)]
+struct LexicalSearchResultExtra {
+  #[serde(skip_serializing_if = "Option::is_none")]
+  context: Option<container_fragments::ItemContext>,
+  /// How many fragments hold a note whose text was cut to fit the result's title.
+  #[serde(rename = "fragmentCount", skip_serializing_if = "Option::is_none")]
+  fragment_count: Option<usize>,
+}
+
+/// Fragment counts for the notes among `item_ids` too long to show whole as a search result title.
+async fn cut_note_fragment_counts(db: &Arc<tokio::sync::Mutex<Db>>, item_ids: &[Uid]) -> HashMap<Uid, usize> {
+  let db = db.lock().await;
+  item_ids
+    .iter()
+    .filter_map(|item_id| db.item.get(item_id).ok())
+    .filter(|item| item.item_type == ItemType::Note)
+    .filter(|item| item.title.as_deref().is_some_and(|title| title.chars().count() > search::compact::TITLE_MAX_CHARS))
+    .map(|item| (item.id.clone(), container_fragments::note_fragments(item).len()))
+    .collect()
 }
 
 async fn execute_get_fragment_tool_call(
@@ -2695,38 +2727,72 @@ mod tests {
   }
 
   #[test]
-  fn compact_search_results_carry_context_instead_of_container_ids() {
+  fn compact_search_results_are_trimmed_and_carry_extras() {
     let element = |item_type: &str, title: &str, id: &str| search::SearchPathElement {
       item_type: item_type.to_owned(),
       title: Some(title.to_owned()),
       id: id.to_owned(),
     };
-    let result = |id: &str| search::SearchResult {
-      path: vec![element("page", "Home", "h"), element("table", "Tasks", "t"), element("note", "Acme", id)],
+    let fragment_match = |fragment_ordinal: usize| search::SearchFragmentMatch {
+      fragment_ordinal,
+      source_kind: "pdf_markdown".to_owned(),
+      lexical_score: Some(2.0),
+      score: 0.5,
+      text: "the match".to_owned(),
+      text_truncated: false,
+      page_start: Some(4),
+      page_end: None,
+    };
+    let result = |id: &str, title: &str| search::SearchResult {
+      path: vec![element("page", "Home", "h"), element("table", "  ", "t"), element("note", title, id)],
       score: 1.0,
       stats: None,
-      fragment_match: None,
-      additional_fragment_matches: Vec::new(),
+      fragment_match: Some(fragment_match(3)),
+      additional_fragment_matches: vec![fragment_match(7)],
     };
-    let response = search::SearchResponse { results: vec![result("r"), result("gone")], has_more: false };
+    let long_title = "word ".repeat(100);
+    let response =
+      search::SearchResponse { results: vec![result("r", "Acme"), result("long", &long_title)], has_more: false };
     let context = container_fragments::ItemContext {
       container_id: "t".to_owned(),
       fragment_ordinal: 2,
       fragment_count: 5,
       excerpt: Some("[Acme](infumap://r) | Active".to_owned()),
     };
-    let contexts = HashMap::from([("r".to_owned(), context)]);
+    let extras = HashMap::from([
+      ("r".to_owned(), LexicalSearchResultExtra { context: Some(context), fragment_count: None }),
+      ("long".to_owned(), LexicalSearchResultExtra { context: None, fragment_count: Some(1) }),
+    ]);
 
-    let json: Value =
-      serde_json::from_str(&search::compact_search_response_json(&response, &contexts).unwrap()).unwrap();
+    let json: Value = serde_json::from_str(&search::compact_search_response_json(&response, &extras).unwrap()).unwrap();
     assert_eq!(
-      json["results"][0]["context"],
-      serde_json::json!({ "itemId": "t", "fragmentOrdinal": 2, "fragmentCount": 5, "excerpt": "[Acme](infumap://r) | Active" })
+      json["results"][0],
+      serde_json::json!({
+        "itemId": "r", "linkUrl": "infumap://r", "itemType": "note", "title": "Acme",
+        "location": "Home › untitled table",
+        "context": { "itemId": "t", "fragmentOrdinal": 2, "fragmentCount": 5, "excerpt": "[Acme](infumap://r) | Active" },
+        "fragmentMatch": { "fragmentOrdinal": 3, "text": "the match", "pageStart": 4 }
+      })
     );
-    assert!(json["results"][1].get("context").is_none());
-    for removed in ["ancestors", "containingContainerId", "containingPageId"] {
-      assert!(json["results"][0].get(removed).is_none(), "{removed}");
-    }
+    let long = &json["results"][1];
+    let title = long["title"].as_str().unwrap();
+    assert!(title.ends_with("word…") && title.chars().count() <= search::compact::TITLE_MAX_CHARS + 1, "{title}");
+    assert_eq!(long["fragmentCount"], 1);
+    assert!(long.get("context").is_none());
+  }
+
+  #[tokio::test]
+  async fn only_notes_cut_to_fit_a_result_title_get_fragment_counts() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let paragraph = "Words in a sentence. ".repeat(70).trim_end().to_owned();
+    let long = t.note(&home, &[paragraph.as_str(); 3].join("\n\n"), RelationshipToParent::Child).await;
+    let short = t.note(&home, "short", RelationshipToParent::Child).await;
+    let page = t.page(&home, &"long page title ".repeat(30)).await;
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+
+    let counts = cut_note_fragment_counts(&db, &[long.clone(), short, page, new_uid()]).await;
+    assert_eq!(counts, HashMap::from([(long, 3)]));
   }
 
   #[tokio::test]
