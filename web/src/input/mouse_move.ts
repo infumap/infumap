@@ -1595,6 +1595,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "pointer";
     } else if (hitInfo.hitboxType & HitboxFlags.TriangleLinkSettings) {
       document.body.style.cursor = "pointer";
+    } else if (hitInfo.overElementMeta?.popupTitleEdit) {
+      document.body.style.cursor = "text";
     } else if ((hitInfo.hitboxType & HitboxFlags.Move && isPage(HitInfoFns.getHitVe(hitInfo).displayItem)) &&
       ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) ||
         (pageUsesEmbeddedInteractiveMode(asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem)) &&

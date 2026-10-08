@@ -90,6 +90,7 @@ export interface HitboxMeta {
   compositeMoveOut?: boolean,
   compositeContentCollapse?: boolean,
   popupTitleTargetPath?: VisualElementPath,
+  popupTitleEdit?: boolean,
   calendarDividerMonth?: number,
   calendarRangeItemId?: Uid,
   calendarRangeOccurrenceItemId?: Uid,
@@ -154,6 +155,9 @@ export const HitboxFns = {
     if (typeof (meta.popupTitleTargetPath) != 'undefined') {
       result.popupTitleTargetPath = meta.popupTitleTargetPath;
     }
+    if (typeof (meta.popupTitleEdit) != 'undefined') {
+      result.popupTitleEdit = meta.popupTitleEdit;
+    }
     if (typeof (meta.calendarDividerMonth) != 'undefined') {
       result.calendarDividerMonth = meta.calendarDividerMonth;
     }
@@ -207,7 +211,8 @@ export const HitboxFns = {
       (meta.includeEdges ?? "undefined") + ", compositeMoveOut: " +
       (meta.compositeMoveOut ? meta.compositeMoveOut : "undefined") + ", compositeContentCollapse: " +
       (meta.compositeContentCollapse ? meta.compositeContentCollapse : "undefined") + ", popupTitleTargetPath: " +
-      (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", dividerMonth: " +
+      (meta.popupTitleTargetPath ? meta.popupTitleTargetPath : "undefined") + ", popupTitleEdit: " +
+      (meta.popupTitleEdit ? meta.popupTitleEdit : "undefined") + ", dividerMonth: " +
       (meta.calendarDividerMonth ? meta.calendarDividerMonth : "undefined") + ", calendarRangeItemId: " +
       (meta.calendarRangeItemId ? meta.calendarRangeItemId : "undefined") + ", calendarRangeOccurrenceItemId: " +
       (meta.calendarRangeOccurrenceItemId ? meta.calendarRangeOccurrenceItemId : "undefined") + ", calendarRangeStartDateTime: " +

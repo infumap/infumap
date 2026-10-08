@@ -272,6 +272,26 @@ function returnIfHitAndNotIgnored(rootInfo: RootInfo, ignoreItems: Set<Uid>): Hi
   return null;
 }
 
+/**
+ * Clicks on the (editable) title text of a page popup edit the title, but clicking elsewhere on the title bar
+ * makes the popup the root page, which is an important and sometimes otherwise hard to reach action. So the
+ * edit area is limited to the text, and never more than this proportion of the title bar.
+ */
+const POPUP_TITLE_EDIT_MAX_WIDTH_PROP = 0.5;
+
+function popupTitleTextIsUnder(titleElement: HTMLElement, clientPos: Vector, titleBounds: DOMRect): boolean {
+  const textElement = titleElement.querySelector<HTMLElement>("[data-infumap-popup-title-text]");
+  if (!textElement) { return false; }
+  if (clientPos.x - titleBounds.left > titleBounds.width * POPUP_TITLE_EDIT_MAX_WIDTH_PROP) { return false; }
+  for (const rect of Array.from(textElement.getClientRects())) {
+    if (clientPos.x >= rect.left && clientPos.x <= rect.right &&
+      clientPos.y >= rect.top && clientPos.y <= rect.bottom) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function hitRenderedPopupTitleMaybe(
   store: StoreContextModel,
   posOnDesktopPx: Vector,
@@ -297,11 +317,16 @@ function hitRenderedPopupTitleMaybe(
     y: (clientPos.y - titleBounds.top) * (popupVe.boundsPx.h - popupVe.viewportBoundsPx!.h) / titleBounds.height,
   };
   const { flags, meta } = scanHitboxes(popupVe, titlePos, undefined, hitboxOptions);
-  const titleTargetPath = flags & (HitboxFlags.AnchorChild | HitboxFlags.AnchorDefault)
-    ? null : popupListTitleTargetPathMaybe(popupVe, titlePos);
+  const isControlHit = !!(flags & (HitboxFlags.AnchorChild | HitboxFlags.AnchorDefault | HitboxFlags.TriangleLinkSettings));
+  const titleTargetPath = isControlHit ? null : popupListTitleTargetPathMaybe(popupVe, titlePos);
+  // Only the popup's own title text is editable (not nested list page titles), so this implies the root title.
+  const popupTitleEdit = !isControlHit && popupTitleTextIsUnder(titleElement, clientPos, titleBounds);
+  let effectiveMeta = meta;
+  if (titleTargetPath) { effectiveMeta = { ...(effectiveMeta ?? {}), popupTitleTargetPath: titleTargetPath }; }
+  if (popupTitleEdit) { effectiveMeta = { ...(effectiveMeta ?? {}), popupTitleEdit: true }; }
   return new HitBuilder(parentVe(popupVe), popupVes).over(popupVes)
     .hitboxes(flags, HitboxFlags.None)
-    .meta(titleTargetPath ? { ...(meta ?? {}), popupTitleTargetPath: titleTargetPath } : meta)
+    .meta(effectiveMeta)
     .pos(titlePos).allowEmbeddedInteractive(canHitEmbeddedInteractive)
     .createdAt("rendered-popup-title").build();
 }

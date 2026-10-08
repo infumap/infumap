@@ -36,6 +36,8 @@ import { Item } from "../../items/base/item";
 import { ImageFns, asImageItem, isImage } from "../../items/image-item";
 import { asNoteItem, isNote, NoteFns } from "../../items/note-item";
 import { NoteFlags } from "../../items/base/flags-item";
+import { HitboxFlags } from "../hitbox";
+import { linkHasTriangle, linkTriangleHitbox } from "../link-triangle";
 
 
 /**
@@ -78,6 +80,19 @@ function createPopupLinkItem(currentPage: PageItem, popupVeid: { itemId: string,
   li.spatialPositionGr = { x: 0, y: 0 };
 
   return li;
+}
+
+/**
+ * Popups are always arranged via a synthetic link (POPUP_LINK_UID), so whether the link triangle hitbox is
+ * emitted depends on the arrange path taken. Make it consistent: present iff the popup was opened via an
+ * actual link item, which the triangle then focuses for editing.
+ */
+function withPopupLinkTriangleHitbox(geometry: ItemGeometry, actualLinkItemMaybe: LinkItem | null): ItemGeometry {
+  const hitboxes = geometry.hitboxes.filter(hitbox => !(hitbox.type & HitboxFlags.TriangleLinkSettings));
+  if (linkHasTriangle(actualLinkItemMaybe)) {
+    hitboxes.push(linkTriangleHitbox());
+  }
+  return { ...geometry, hitboxes };
 }
 
 interface GeometryInsets {
@@ -407,6 +422,8 @@ function calcCellPopupGeometry(
     wasAutoAdjusted = true;
   }
 
+  geometry = withPopupLinkTriangleHitbox(geometry, actualLinkItemMaybe);
+
   return { geometry, renderAsFixed, linkItem: li, actualLinkItemMaybe, wasAutoAdjusted };
 }
 
@@ -636,6 +653,8 @@ export function calcSpatialPopupGeometry(
   if (residualTranslate.dxPx !== 0 || residualTranslate.dyPx !== 0) {
     wasAutoAdjusted = true;
   }
+
+  geometry = withPopupLinkTriangleHitbox(geometry, actualLinkItemMaybe);
 
   return { geometry, renderAsFixed: false, linkItem: li, actualLinkItemMaybe, wasAutoAdjusted, widthGr, heightGr };
 }
