@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use super::container_fragments::{Access, ancestors};
 use super::*;
 use crate::ai::fragment::read_item_fragment_metadata;
-use crate::web::routes::command::scope::{ResolvedScope, readable, resolve_content};
+use crate::web::routes::command::scope::ResolvedScope;
 use futures_util::{StreamExt, stream};
 use sha2::{Digest, Sha256};
 
@@ -156,46 +157,6 @@ fn brief_item(item: &Item) -> Value {
     "itemId": item.id, "itemType": item.item_type.as_str(),
     "title": title, "titleTruncated": truncated, "linkUrl": format!("infumap://{}", item.id)
   })
-}
-
-/// What one read_container call may return: the user's readable items, limited to the chat's scope if it has one.
-struct Access<'a> {
-  user_id: &'a str,
-  scope: Option<&'a ResolvedScope>,
-}
-
-impl Access<'_> {
-  fn can_read(&self, db: &Db, item: &Item) -> bool {
-    readable(item, self.user_id) && self.scope.is_none_or(|scope| scope.contains(db, item))
-  }
-
-  /// The item a placement displays. A link whose target is outside the scope has no content.
-  fn content<'a>(&self, db: &'a Db, item: &'a Item) -> Option<&'a Item> {
-    resolve_content(db, item, self.user_id).filter(|content| self.scope.is_none_or(|scope| scope.contains(db, content)))
-  }
-}
-
-/// Ancestors are only checked for ownership, not scope. An excluded item's descendants are all excluded, so an
-/// in-scope container never has an excluded ancestor; ancestors above an include root are shown for navigation.
-fn ancestors<'a>(db: &'a Db, item: &'a Item, user_id: &str) -> InfuResult<Vec<&'a Item>> {
-  let mut result = Vec::new();
-  let mut seen = HashSet::from([&item.id]);
-  let mut current = item;
-  while let Some(parent_id) = current.parent_id.as_ref() {
-    if is_empty_uid(parent_id) {
-      break;
-    }
-    current = db.item.get(parent_id).map_err(|_| "Could not read page hierarchy.")?;
-    if !readable(current, user_id) {
-      return Err("Page was not found.".into());
-    }
-    if !seen.insert(&current.id) || result.len() >= MAX_DEPTH {
-      return Err("Page hierarchy is cyclic or too deep.".into());
-    }
-    result.push(current);
-  }
-  result.reverse();
-  Ok(result)
 }
 
 fn title_ordered(item: &Item) -> bool {

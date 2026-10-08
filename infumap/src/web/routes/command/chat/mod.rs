@@ -31,6 +31,9 @@ use super::scope::{ResolvedScope, resolve_scope};
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
 mod backend;
+// Not read by any tool until get_fragment learns to read containers.
+#[allow(dead_code)]
+mod container_fragments;
 mod markdown;
 mod mcp;
 mod read_container;
