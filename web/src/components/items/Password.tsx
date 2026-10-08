@@ -240,16 +240,16 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-[#999] rounded-item shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-item-border rounded-item shadow-xl blur-md bg-slate-700 pointer-events-none`;
     }
-    return `absolute border border-[#999] rounded-item shadow-xl bg-white`;
+    return `absolute border border-item-border rounded-item shadow-xl bg-white`;
   };
 
   const outerClass = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       return 'absolute rounded-item';
     } else {
-      return `absolute border border-[#999] rounded-item bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
+      return `absolute border border-item-border rounded-item bg-white ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`;
     }
   };
 

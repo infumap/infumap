@@ -140,9 +140,9 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
         `width: ${viewport().w}px; height: ${viewport().h}px; overflow: hidden;`}>
       <Show when={headerHeightPx() > 0}>
         {/* Keep the label positions when the toolbar draws the top border one pixel above this header. */}
-        <div class={`absolute border-y border-[#999] bg-slate-300 ${isTranslucent() ? "pointer-events-none" : ""}`}
+        <div class={`absolute border-y border-item-border bg-slate-300 ${isTranslucent() ? "pointer-events-none" : ""}`}
           style={`left: 0px; top: 0px; width: ${viewport().w}px; height: ${headerHeightPx()}px; ` +
-            `border-top-color: ${headerSharesToolbarBorder() ? "transparent" : "#999"};`}>
+            `border-top-color: ${headerSharesToolbarBorder() ? "transparent" : "var(--color-item-border)"};`}>
           <Show when={!headerIsOutline()} fallback={renderOutlineHeaderLabels()}>
           <For each={columns()}>{column =>
             <div id={`${pagePath()}:col${column.index}`}
@@ -191,7 +191,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
         <For each={columns()}>{column =>
           <Show when={!column.isLast}>
             {/* The header background matches the body divider color, so the header segment uses the header border color. */}
-            <div class="absolute bg-[#999]"
+            <div class="absolute bg-item-border"
               style={`left: ${column.endBl * blockSize().w}px; top: 0px; width: 1px; height: ${headerHeightPx()}px;`} />
             <div class="absolute bg-slate-300"
               style={`left: ${column.endBl * blockSize().w}px; top: ${headerHeightPx()}px; width: 1px; height: ${viewport().h - headerHeightPx()}px;`} />

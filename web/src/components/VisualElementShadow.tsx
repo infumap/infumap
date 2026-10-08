@@ -140,22 +140,22 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
       if ((noteItem.flags & NoteFlags.HideBorder) && !store.perVe.getMouseIsOver(vePath())) {
         return null;
       }
-      return <div class="absolute pointer-events-none border border-[#999] rounded-item shadow-xl"
+      return <div class="absolute pointer-events-none border border-item-border rounded-item shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }
 
     if (isFile(props.visualElement.displayItem)) {
-      return <div class="absolute pointer-events-none border border-[#999] rounded-item shadow-xl"
+      return <div class="absolute pointer-events-none border border-item-border rounded-item shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }
 
     if (isText(props.visualElement.displayItem)) {
-      return <div class="absolute pointer-events-none border border-[#999] rounded-item shadow-xl"
+      return <div class="absolute pointer-events-none border border-item-border rounded-item shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }
 
     if (isPassword(props.visualElement.displayItem)) {
-      return <div class="absolute pointer-events-none border border-[#999] rounded-item shadow-xl"
+      return <div class="absolute pointer-events-none border border-item-border rounded-item shadow-xl"
         style={shadowStyle(boundsPx())} />;
     }
 
