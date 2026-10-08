@@ -122,12 +122,16 @@ function queryChatToolCallSignature(name: string, args: unknown): string | null 
   if (name == "get_fragment") {
     const itemId = queryChatJsonString(record?.itemId);
     const ordinal = queryChatJsonNumber(record?.fragmentOrdinal) ?? queryChatJsonNumber(record?.ordinal);
+    const count = queryChatJsonNumber(record?.count);
     const parts: Array<string> = [];
     if (itemId != null) {
       parts.push(JSON.stringify(itemId));
     }
     if (ordinal != null) {
       parts.push(String(ordinal));
+    }
+    if (count != null && count > 1) {
+      parts.push(`count ${count}`);
     }
     return parts.length == 0 ? `${name}()` : `${name}(${parts.join(", ")})`;
   }

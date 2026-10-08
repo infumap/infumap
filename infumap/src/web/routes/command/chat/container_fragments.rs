@@ -88,6 +88,7 @@ pub(super) struct ContainerFragment {
   pub text: String,
   /// Placements rendered in this fragment: children, attachments and composite members. A unit split across
   /// fragments lists its placements in each.
+  #[allow(dead_code)] // Read once lexical_search points its results at container fragments.
   pub item_ids: Vec<Uid>,
 }
 
@@ -181,14 +182,14 @@ pub(super) async fn container_fragments(
 
 /// Stored fragment counts. Items without fragments, or whose manifest cannot be read, are left out.
 async fn data_fragment_counts(data_dir: &str, user_id: &str, item_ids: &HashSet<Uid>) -> HashMap<Uid, usize> {
-  stream::iter(item_ids.iter().map(|item_id| async move {
-    let count = read_item_fragment_metadata(data_dir, user_id, item_id).await.ok().flatten()?.fragment_count;
-    Some((item_id.clone(), count))
+  let counts = stream::iter(item_ids.iter().cloned().map(|item_id| async move {
+    let metadata = read_item_fragment_metadata(data_dir, user_id, &item_id).await.ok().flatten();
+    metadata.map(|metadata| (item_id, metadata.fragment_count))
   }))
   .buffer_unordered(8)
-  .filter_map(|entry| async move { entry })
-  .collect()
-  .await
+  .collect::<Vec<_>>()
+  .await;
+  counts.into_iter().flatten().collect()
 }
 
 pub(super) fn container_outline(db: &Db, access: &Access, container_id: &Uid) -> InfuResult<ContainerOutline> {
@@ -286,6 +287,16 @@ impl ContainerOutline {
       .collect();
     ContainerFragments { version, fragments }
   }
+}
+
+/// Changes when the fragment texts change.
+pub(super) fn fragments_version(texts: &[String]) -> String {
+  let mut hasher = Sha256::new();
+  for text in texts {
+    hasher.update(text);
+    hasher.update([0]);
+  }
+  format!("{:x}", hasher.finalize())[..VERSION_CHARS].to_owned()
 }
 
 /// A note's text, with its URLs as Markdown links, split into fragments. An empty note has none.
@@ -427,11 +438,14 @@ fn link_url(item: &Item) -> String {
   format!("infumap://{}", item.id)
 }
 
+/// An item's title on one line, cut to label length, or what it is when untitled.
+pub(super) fn item_label(item: &Item) -> String {
+  let title = single_line(item.title.as_deref().unwrap_or(""));
+  if title.is_empty() { format!("untitled {}", item.item_type.as_str()) } else { clamp_label(&title, LABEL_MAX_CHARS) }
+}
+
 fn item_link(item: &Item) -> String {
-  let title = item.title.as_deref().unwrap_or("");
-  let label =
-    if single_line(title).is_empty() { format!("untitled {}", item.item_type.as_str()) } else { title.to_owned() };
-  format!("[{}]({})", escape_label(&clamp_label(&label, LABEL_MAX_CHARS)), link_url(item))
+  format!("[{}]({})", escape_label(&item_label(item)), link_url(item))
 }
 
 fn single_line(text: &str) -> String {
@@ -933,36 +947,6 @@ mod tests {
         count,
         "",
       );
-      self.add(item).await
-    }
-
-    /// Composites and files have no constructor here, so they start as notes with the note-only fields cleared.
-    async fn non_note(&mut self, parent_id: &Uid, title: &str, edit: impl FnOnce(&mut Item)) -> Uid {
-      self
-        .note_with(parent_id, title, |item| {
-          item.urls = None;
-          item.url = None;
-          item.emoji = None;
-          item.icon_mode = None;
-          item.inline_marks = None;
-          item.flags = Some(0);
-          edit(item);
-        })
-        .await
-    }
-
-    async fn note_with(&mut self, parent_id: &Uid, title: &str, edit: impl FnOnce(&mut Item)) -> Uid {
-      let mut item = Item::new_note(
-        parent_id,
-        vec![],
-        Vector { x: 0, y: 0 },
-        GRID_SIZE,
-        RelationshipToParent::Child,
-        title,
-        NoteFlags::None,
-        None,
-      );
-      edit(&mut item);
       self.add(item).await
     }
 
