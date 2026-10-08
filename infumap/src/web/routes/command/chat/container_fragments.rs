@@ -64,7 +64,7 @@ impl Access<'_> {
 
 /// Ancestors are only checked for ownership, not scope. An excluded item's descendants are all excluded, so an
 /// in-scope container never has an excluded ancestor; ancestors above an include root are shown for navigation.
-pub(super) fn ancestors<'a>(db: &'a Db, item: &'a Item, user_id: &str) -> InfuResult<Vec<&'a Item>> {
+fn ancestors<'a>(db: &'a Db, item: &'a Item, user_id: &str) -> InfuResult<Vec<&'a Item>> {
   let mut result = Vec::new();
   let mut seen = HashSet::from([&item.id]);
   let mut current = item;

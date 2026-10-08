@@ -43,7 +43,6 @@ pub struct ItemFragments {
 }
 
 pub struct ItemFragmentMetadata {
-  pub source_kind: String,
   pub fragment_count: usize,
 }
 
@@ -175,7 +174,7 @@ pub async fn read_item_fragment_metadata(
   {
     return Ok(None);
   }
-  Ok(Some(ItemFragmentMetadata { source_kind: manifest.source_kind, fragment_count: manifest.fragment_count }))
+  Ok(Some(ItemFragmentMetadata { fragment_count: manifest.fragment_count }))
 }
 
 fn parse_item_fragment_records(contents: &str) -> InfuResult<Vec<ItemFragmentRecord>> {

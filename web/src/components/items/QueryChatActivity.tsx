@@ -50,9 +50,7 @@ function queryChatToolDisplayName(name: string): string {
     case "search_text":
       return "Search source text";
     case "get_fragment":
-      return "Read source text";
-    case "read_container":
-      return "Read Infumap container";
+      return "Read Infumap item";
     case "web_search":
       return "Search the web";
     case "fetch_page":
@@ -134,11 +132,6 @@ function queryChatToolCallSignature(name: string, args: unknown): string | null 
       parts.push(`count ${count}`);
     }
     return parts.length == 0 ? `${name}()` : `${name}(${parts.join(", ")})`;
-  }
-  if (name == "read_container") {
-    const containerId = queryChatJsonString(record?.containerId);
-    const continuation = queryChatJsonString(record?.cursor) == null ? "" : ", continuation";
-    return containerId == null ? `${name}()` : `${name}(${JSON.stringify(containerId)}${continuation})`;
   }
   if (name == "web_search") {
     const query = queryChatJsonString(record?.query) ?? queryChatJsonString(record?.text);
