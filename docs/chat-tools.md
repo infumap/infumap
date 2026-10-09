@@ -56,7 +56,7 @@ disabled.
   "location": "Home › Projects › [Tasks](infumap://<table id>)",
   "locationFragment": 4,
   "excerpt": "[Acme onboarding](infumap://<id>) | Active | 2026-01-03",
-  "fragmentMatch": { "fragmentOrdinal": 3, "text": "…matching sentences…", "pageStart": 4 }
+  "fragmentMatch": { "fragmentOrdinal": 3, "text": "…matching sentences…" }
 }
 ```
 
@@ -70,10 +70,11 @@ disabled.
   `listedIn`. A page or table result has no container link, since its own link is the one to read.
 - `excerpt` is the start of the result's block in that fragment (at most 300 characters), given when
   the block shows more than the result itself: a table row with its cells, a composite, an explicit
-  group, or an item with attachments.
+  group, or an item with attachments. A block of several lines leaves out the result's own line,
+  which would repeat it; a table row is kept whole, since the rest of the row is on that line.
 - `fragmentMatch` is the best matching passage of the item's document text, if any. Its ordinal can
   be passed to `get_fragment` to read around it. A match in the title is not given, since the title
-  is already shown.
+  is already shown. Page numbers are left out; `get_fragment` gives them when the passage is read.
 
 The container link is found from the live database when the search runs, while the search index can
 lag edits by several minutes. A moved item links its new container, and a deleted item links none.

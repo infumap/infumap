@@ -165,15 +165,28 @@ pub(super) async fn item_contexts(
         (0, None)
       } else {
         let (ordinal, unit) = fragments.locate(&item_id)?;
-        let excerpt = (unit.item_ids.len() > 1).then(|| {
-          let (text, truncated) = excerpt(&unit.text, CONTEXT_EXCERPT_MAX_CHARS);
-          if truncated { format!("{text}…") } else { text }
-        });
+        let excerpt = (unit.item_ids.len() > 1)
+          .then(|| unit_text_around(&unit.text, &item_id))
+          .filter(|text| !text.is_empty())
+          .map(|text| {
+            let (text, truncated) = excerpt(&text, CONTEXT_EXCERPT_MAX_CHARS);
+            if truncated { format!("{text}…") } else { text }
+          });
         (ordinal, excerpt)
       };
       Some((item_id, ItemContext { container_id, fragment_ordinal, excerpt }))
     })
     .collect()
+}
+
+/// A unit's text without the item's own line, which would repeat the search result. A single-line unit, such as a
+/// table row, is kept whole: the rest of the row is on the item's line.
+fn unit_text_around(text: &str, item_id: &Uid) -> String {
+  if !text.contains('\n') {
+    return text.to_owned();
+  }
+  let own_link = format!("(infumap://{item_id})");
+  text.lines().filter(|line| !line.contains(&own_link)).collect::<Vec<_>>().join("\n")
 }
 
 /// Composites are rendered inside the page or table that holds them, so they never list their own items.
@@ -1356,7 +1369,9 @@ mod tests {
 
     let in_composite = &contexts[&member];
     assert_eq!(in_composite.container_id, page);
-    assert!(in_composite.excerpt.as_deref().unwrap().contains("member two"));
+    let composite_excerpt = in_composite.excerpt.as_deref().unwrap();
+    assert!(composite_excerpt.contains("member two"));
+    assert!(!composite_excerpt.contains("member one"), "the result's own line is left out: {composite_excerpt}");
     assert_eq!(contexts[&plain].container_id, page);
     assert!(contexts[&plain].excerpt.is_none(), "a lone note adds nothing to the result");
     assert_eq!(contexts[&attached].container_id, page, "an attachment is listed with the item it is attached to");

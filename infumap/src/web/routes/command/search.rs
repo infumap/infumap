@@ -174,10 +174,6 @@ pub(super) mod compact {
     pub text: String,
     #[serde(rename = "textTruncated", skip_serializing_if = "std::ops::Not::not")]
     pub text_truncated: bool,
-    #[serde(rename = "pageStart", skip_serializing_if = "Option::is_none")]
-    pub page_start: Option<usize>,
-    #[serde(rename = "pageEnd", skip_serializing_if = "Option::is_none")]
-    pub page_end: Option<usize>,
   }
 
   pub(super) fn compact_search_response<'a, E>(
@@ -243,13 +239,12 @@ pub(super) mod compact {
     if truncated { format!("{}…", clamped.trim_end()) } else { clamped }
   }
 
+  /// Page numbers are left out: get_fragment gives them when the passage is read, which is when they can be cited.
   fn compact_search_fragment_match(fragment_match: &SearchFragmentMatch) -> CompactSearchFragmentMatch {
     CompactSearchFragmentMatch {
       fragment_ordinal: fragment_match.fragment_ordinal,
       text: fragment_match.text.clone(),
       text_truncated: fragment_match.text_truncated,
-      page_start: fragment_match.page_start,
-      page_end: fragment_match.page_end,
     }
   }
 }

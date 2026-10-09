@@ -2883,7 +2883,7 @@ mod tests {
         "link": "infumap://r", "itemType": "note", "title": "Acme",
         "location": "Home › [untitled table](infumap://t)",
         "locationFragment": 2, "excerpt": "[Acme](infumap://r) | Active",
-        "fragmentMatch": { "fragmentOrdinal": 3, "text": "the match", "pageStart": 4 }
+        "fragmentMatch": { "fragmentOrdinal": 3, "text": "the match" }
       }),
       "a title match is skipped for the next document match"
     );
