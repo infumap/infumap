@@ -1507,6 +1507,24 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn hits_on_table_pages_are_shown_as_rows() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let page = t.arranged_page(&home, "Contacts", ArrangeAlgorithm::Table, "").await;
+    let row = t.note(&page, "Alice", RelationshipToParent::Child).await;
+    let cell = t.note(&row, "alice@example.com", RelationshipToParent::Attachment).await;
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+
+    let listings = hit_listings(&db, &access, &[row.clone(), cell.clone()]).await;
+    let row_text = format!("[Alice](infumap://{row}) | alice@example.com");
+    for hit in [&row, &cell] {
+      assert_eq!((&listings[hit].subject_id, &listings[hit].text), (&row, &row_text));
+    }
+  }
+
+  #[tokio::test]
   async fn hits_on_calendar_pages_carry_their_day() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
