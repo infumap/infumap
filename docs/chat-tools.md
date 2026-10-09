@@ -37,9 +37,8 @@ applies it:
 Search locations and fragment breadcrumbs are not filtered. Every ancestor of an excluded item is itself
 excluded, so they never reveal excluded content; they can only name containers above an include root,
 and a parent outside the scope is named without a link. The system prompt names the active scope, so
-the model does not mistake an out-of-scope item for a missing one. Context items the user attaches to
-the chat are sent as given, regardless of scope. A scope has no effect when the Infumap data source is
-disabled.
+the model does not mistake an out-of-scope item for a missing one. A scope has no effect when the
+Infumap data source is disabled.
 
 ## Searching
 
