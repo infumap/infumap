@@ -14,15 +14,23 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Pages, tables, composites and notes as bounded text fragments for the chat tools.
+//! Pages, tables, composites, groups and notes as bounded text fragments for the chat tools, and the lines that
+//! show lexical_search hits.
 //!
 //! Containers and notes change whenever the user edits them, so their fragments are built on demand from the
 //! live database and never stored. A note's fragments are its text split at paragraph, line, sentence or word
 //! boundaries. A container is first rendered under the database lock into units: blocks that are never split
-//! across fragments unless one alone exceeds the budget, such as a table row, a composite, an explicit group or
-//! a top-level item. Stored fragment counts for files and images are read outside the lock, then the units are
-//! packed into fragments in order. Child pages and nested tables are one-line references, so rendering never
-//! descends into them.
+//! across fragments unless one alone exceeds the budget, such as a table row, a composite, a group or a top-level
+//! item. Stored fragment counts for files and images are read outside the lock, then the units are packed into
+//! fragments in order. Child pages and nested tables are one-line references, so rendering never descends into
+//! them. Spatial pages give each child's position and size, and calendar pages its day.
+//!
+//! A group is not an item but the id shared by two or more children of a page. It is listed as a unit of its page
+//! and can be read on its own, as its members laid out the way its page lays them out.
+//!
+//! A search hit is shown as the record it belongs to: a table row with its cells, or an item with links to its
+//! attachments. Its listing says which page or table lists it, in which fragment and group, so the result can
+//! link everything from that container down.
 
 use super::*;
 use crate::ai::fragment::read_item_fragment_metadata;
@@ -37,7 +45,8 @@ const FRAGMENT_MAX_CHARS: usize = CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS;
 const NOTE_INLINE_MAX_CHARS: usize = 600;
 const CELL_MAX_CHARS: usize = 200;
 const LABEL_MAX_CHARS: usize = 80;
-/// A note too long to be its own link label is linked by its start, which the body then repeats.
+/// A note too long to be its own link label is linked by its start: in a container, where the body then repeats it,
+/// and as an attachment in a search result.
 const NOTE_LABEL_MAX_CHARS: usize = 40;
 const BREADCRUMB_TITLE_MAX_CHARS: usize = 60;
 const MAX_DEPTH: usize = 64;
@@ -49,7 +58,6 @@ const ROW_LISTING_MAX_CHARS: usize = 300;
 const HIT_NOTE_MAX_CHARS: usize = 160;
 /// A search result shows this many of its item's attachments, each cut to a short label.
 const HIT_ATTACHMENTS_MAX: usize = 4;
-const HIT_ATTACHMENT_NOTE_MAX_CHARS: usize = 40;
 
 /// What the chat tools may read: the user's readable items, limited to the chat's scope if it has one.
 pub(super) struct Access<'a> {
@@ -116,11 +124,9 @@ pub(super) struct ContainerFragments {
 }
 
 impl ContainerFragments {
-  /// The first fragment that renders the placement, and the unit it is in.
-  pub fn locate(&self, item_id: &Uid) -> Option<(usize, &FragmentUnit)> {
-    self.fragments.iter().enumerate().find_map(|(ordinal, fragment)| {
-      fragment.units.iter().find(|unit| unit.item_ids.contains(item_id)).map(|unit| (ordinal, unit))
-    })
+  /// The first fragment that renders the placement.
+  pub fn fragment_of(&self, item_id: &Uid) -> Option<usize> {
+    self.fragments.iter().position(|fragment| fragment.units.iter().any(|unit| unit.item_ids.contains(item_id)))
   }
 
   /// The table row rendering the placement.
@@ -204,7 +210,7 @@ pub(super) async fn hit_listings(
         return (item_id, listing);
       };
       // Document pages do not render attachments, so an attachment is located by its item.
-      if let Some((ordinal, _)) = fragments.locate(&item_id).or_else(|| fragments.locate(&listing.subject_id)) {
+      if let Some(ordinal) = fragments.fragment_of(&item_id).or_else(|| fragments.fragment_of(&listing.subject_id)) {
         listing.container_id = Some(container_id);
         listing.container_fragment = ordinal;
         listing.group_id = group_id;
@@ -306,7 +312,7 @@ impl Pieces {
         Piece::Text(text) => result.push_str(text),
         Piece::FragmentCount(item_id) => {
           if let Some(count) = counts.get(item_id).filter(|count| **count > 0) {
-            result.push_str(&format!(", {count} fragment{}", if *count == 1 { "" } else { "s" }));
+            result.push_str(&format!(", {}", count_label(*count, "fragment")));
           }
         }
       }
@@ -488,18 +494,42 @@ pub(super) fn note_fragments(note: &Item) -> Vec<String> {
   if text.is_empty() { Vec::new() } else { split_text(text, FRAGMENT_MAX_CHARS) }
 }
 
-/// The start of `text` where split_text would first cut it, and whether anything was left out.
+/// The start of `text` where split_text would first cut it, and whether anything was left out. Only that cut is
+/// worked out, from the text up to the first line break past the budget: links never span lines, so nothing after
+/// it can move the cut.
 fn excerpt(text: &str, max_chars: usize) -> (String, bool) {
-  let mut pieces = split_text(text, max_chars).into_iter();
-  (pieces.next().unwrap_or_default(), pieces.next().is_some())
+  let head_end = text.char_indices().skip(max_chars).find(|(_, ch)| *ch == '\n').map_or(text.len(), |(index, _)| index);
+  let chars = text[..head_end].chars().collect::<Vec<_>>();
+  if head_end == text.len() && chars.len() <= max_chars {
+    return (text.to_owned(), false);
+  }
+  let cut = cut_point(&chars, &markdown_link_ranges(&chars), 0, max_chars);
+  (chars[..cut].iter().collect::<String>().trim_end().to_owned(), true)
 }
 
-/// Splits text into pieces of at most `max_chars`. Each cut is the last one in the second half of the budget
-/// after a blank line, else a line break, else a sentence, else a word, and never inside a Markdown link. With
-/// none of those, it cuts where a link spanning the budget starts, or failing that, at the budget mid-word.
+/// Splits text into pieces of at most `max_chars`, cutting where cut_point says.
 fn split_text(text: &str, max_chars: usize) -> Vec<String> {
   let chars = text.chars().collect::<Vec<_>>();
   let links = markdown_link_ranges(&chars);
+  let mut pieces = Vec::new();
+  let mut start = 0;
+  while chars.len() - start > max_chars {
+    let cut = cut_point(&chars, &links, start, max_chars);
+    pieces.push(chars[start..cut].iter().collect::<String>().trim_end().to_owned());
+    start = cut;
+    while start < chars.len() && chars[start].is_whitespace() {
+      start += 1;
+    }
+  }
+  pieces.push(chars[start..].iter().collect());
+  pieces
+}
+
+/// Where the piece of at most `max_chars` starting at `start` ends: the last cut in the second half of the budget
+/// after a blank line, else a line break, else a sentence, else a word, and never inside a Markdown link. With none
+/// of those, it cuts where a link spanning the budget starts, or failing that, at the budget mid-word. `links` are
+/// the ranges markdown_link_ranges finds in `chars`, which hold at least the budget.
+fn cut_point(chars: &[char], links: &[(usize, usize)], start: usize, max_chars: usize) -> usize {
   // A cut at `index` ends a piece just before chars[index]. Links are sorted and never overlap.
   let link_around = |index: usize| {
     let before = links.partition_point(|(start, _)| *start < index);
@@ -514,26 +544,14 @@ fn split_text(text: &str, max_chars: usize) -> Vec<String> {
   };
   let after_word = |index: usize| chars[index - 1].is_whitespace();
   let boundaries: [&dyn Fn(usize) -> bool; 4] = [&after_blank_line, &after_line, &after_sentence, &after_word];
-
-  let mut pieces = Vec::new();
-  let mut start = 0;
-  while chars.len() - start > max_chars {
-    let end = start + max_chars;
-    let earliest = start + max_chars / 2 + 1;
-    let cut = boundaries
-      .iter()
-      .find_map(|boundary| (earliest..=end).rev().find(|index| boundary(*index) && !in_link(*index)))
-      .unwrap_or_else(|| {
-        link_around(end).map(|(link_start, _)| *link_start).filter(|link_start| *link_start > start).unwrap_or(end)
-      });
-    pieces.push(chars[start..cut].iter().collect::<String>().trim_end().to_owned());
-    start = cut;
-    while start < chars.len() && chars[start].is_whitespace() {
-      start += 1;
-    }
-  }
-  pieces.push(chars[start..].iter().collect());
-  pieces
+  let end = start + max_chars;
+  let earliest = start + max_chars / 2 + 1;
+  boundaries
+    .iter()
+    .find_map(|boundary| (earliest..=end).rev().find(|index| boundary(*index) && !in_link(*index)))
+    .unwrap_or_else(|| {
+      link_around(end).map(|(link_start, _)| *link_start).filter(|link_start| *link_start > start).unwrap_or(end)
+    })
 }
 
 /// Character ranges of `[label](target)` links and `<target>` autolinks, end exclusive.
@@ -1155,7 +1173,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       pieces.text(if index == 0 { " · attached: " } else { "; " });
       match self.access.content(self.db, attachment) {
         None => pieces.text("(unavailable link)"),
-        Some(content) => pieces.append(self.hit_label(content, HIT_ATTACHMENT_NOTE_MAX_CHARS)?),
+        Some(content) => pieces.append(self.hit_label(content, NOTE_LABEL_MAX_CHARS)?),
       }
     }
     if attachments.len() > HIT_ATTACHMENTS_MAX {
@@ -1171,11 +1189,16 @@ impl<'a, 'b> Renderer<'a, 'b> {
       self.label(content, &mut pieces)?;
       return Ok(pieces);
     }
-    let line = single_line(content.title.as_deref().unwrap_or(""));
+    // Only the start of a long note is collapsed to one line: a label never needs more. Collapsing whitespace only
+    // shortens text, so a label from the start can be shorter than the budget, but never wrongly uncut.
+    let title = content.title.as_deref().unwrap_or("");
+    let head_end = title.char_indices().nth(note_max_chars * 4).map_or(title.len(), |(index, _)| index);
+    let line = single_line(&title[..head_end]);
     if line.is_empty() {
       pieces.text(&item_link(content));
     } else {
-      let (label, truncated) = excerpt(&line, note_max_chars);
+      let (label, cut) = excerpt(&line, note_max_chars);
+      let truncated = cut || head_end < title.len();
       let label = if truncated { format!("{}…", label.trim_end()) } else { label };
       pieces.text(&format!("[{}]({})", escape_label(&label), link_url(content)));
       if truncated {
@@ -1870,6 +1893,28 @@ mod tests {
     assert_eq!(split_text("aaaa bbbb cccc", 10), ["aaaa bbbb", "cccc"]);
     assert_eq!(split_text(&"z".repeat(25), 10), ["z".repeat(10), "z".repeat(10), "z".repeat(5)]);
     assert_eq!(split_text("short", 10), ["short"]);
+  }
+
+  #[test]
+  fn excerpt_is_the_first_piece_split_text_cuts() {
+    let long_link = format!("see [docs](https://example.com/{}) now", "a".repeat(60));
+    let texts = [
+      "short".to_owned(),
+      "One two. Three four five".to_owned(),
+      format!("{}\n{}", "a".repeat(8), "b".repeat(8)),
+      format!("{}\n\nnext paragraph\nmore", "word ".repeat(9)),
+      long_link.clone(),
+      format!("{long_link}\n{}", "tail ".repeat(50)),
+      "z".repeat(25),
+      format!("{}\n", "x".repeat(10)),
+    ];
+    for text in &texts {
+      for max_chars in [5, 10, 12, 16, 30, 40] {
+        let pieces = split_text(text, max_chars);
+        let expected = (pieces[0].clone(), pieces.len() > 1);
+        assert_eq!(excerpt(text, max_chars), expected, "{text:?} at {max_chars}");
+      }
+    }
   }
 
   #[test]
