@@ -28,7 +28,7 @@ import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid, isUid } from "../util/uid";
 import { arrangeNow } from "./arrange";
-import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe, InitiateLoadResult } from "./load";
+import { groupPageIdMaybe, initiateLoadChildItemsMaybe, initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { isEmptyVeid, VeFns, Veid, VisualElementPath } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
 
@@ -237,7 +237,38 @@ export async function navigateToInfumapItemUrl(store: StoreContextModel, url: st
   if (itemId == null) {
     return false;
   }
+  if (itemState.get(itemId) == null) {
+    store.history.beginNavigationRequest();
+    await initiateLoadItemMaybe(store, itemId);
+    const groupPageId = groupPageIdMaybe(itemId);
+    if (groupPageId != null) {
+      switchToPage(store, { itemId: groupPageId, linkIdMaybe: null }, true, false, false);
+      highlightGroup(store, groupPageId, itemId);
+      return true;
+    }
+  }
   return navigateToContainingPageOfItemWithOptions(store, itemId, { focusTarget: true, fallbackToItem: true });
+}
+
+const GROUP_HIGHLIGHT_MS = 3000;
+let groupHighlightTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Shows a group on its page for a few seconds. A group is not an item, so it is never focused. */
+export function highlightGroup(store: StoreContextModel, pageItemId: Uid, groupId: Uid) {
+  const inspection = { pageItemId, groupId, ownerId: "navigation" };
+  store.overlay.highlightedGroup.set(inspection);
+  if (groupHighlightTimer != null) { clearTimeout(groupHighlightTimer); }
+  groupHighlightTimer = setTimeout(() => {
+    groupHighlightTimer = null;
+    if (store.overlay.highlightedGroup.get() === inspection) { store.overlay.highlightedGroup.set(null); }
+  }, GROUP_HIGHLIGHT_MS);
+}
+
+/** Replaces the browser URL with the current page's, e.g. after opening a group by its id. */
+export function replaceUrlWithCurrentPage(store: StoreContextModel) {
+  const url = currentUrl(store, null);
+  store.history.writeBrowserEntry(url, "replace");
+  store.currentUrlPath.set(url);
 }
 
 export function switchToPage(store: StoreContextModel, pageVeid: Veid, updateHistory: boolean, clearHistory: boolean, replace: boolean, focusPath?: VisualElementPath) {

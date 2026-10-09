@@ -173,6 +173,13 @@ export enum InitiateLoadResult {
 
 const itemLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 const itemLoadInFlight: { [id: Uid]: Promise<InitiateLoadResult> } = {};
+/** Group id -> the page holding it, from the last load of the group id. */
+const groupPageIds = new Map<Uid, Uid>();
+
+/** The page holding the group, if `id` was loaded and turned out to be a group rather than an item. */
+export function groupPageIdMaybe(id: Uid): Uid | null {
+  return groupPageIds.get(id) ?? null;
+}
 
 export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, containerToSortId?: Uid): Promise<InitiateLoadResult> => {
   if (itemLoadInitiatedOrComplete[id]) { return itemLoadInFlight[id] ?? Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
@@ -183,7 +190,16 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
     .then(result => {
       if (!itemLoadInitiatedOrComplete[id]) { return InitiateLoadResult.Failed; };
 
-      if (result != null) {
+      if (result != null && result.groupId != null) {
+        // A group is not an item: the server sent its page. Groups change as members move, so this is not cached.
+        delete itemLoadInitiatedOrComplete[id];
+        const pageId = (result.item as any).id as Uid;
+        groupPageIds.set(id, pageId);
+        if (itemState.get(pageId) == null) {
+          itemState.setItemFromServerObject(result.item, null);
+          requestArrange(store, "load-item");
+        }
+      } else if (result != null) {
         itemState.setItemFromServerObject(result.item, null);
         if (isAttachmentsItem(itemState.get(id)!)) {
           itemState.applyAttachmentItemsSnapshotFromServerObjects(id, result.attachments[id] ?? [], null);

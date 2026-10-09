@@ -111,6 +111,8 @@ pub struct ItemDb {
   attachments_of: HashMap<Uid, Vec<Uid>>,
   /// Item id -> ids of the links and notes that refer to it.
   linked_from: HashMap<Uid, Vec<Uid>>,
+  /// Group id -> ids of the children that carry it, from all loaded users.
+  group_members: HashMap<Uid, Vec<Uid>>,
 }
 
 #[derive(Clone)]
@@ -361,6 +363,7 @@ impl ItemDb {
       children_of: HashMap::new(),
       attachments_of: HashMap::new(),
       linked_from: HashMap::new(),
+      group_members: HashMap::new(),
     }
   }
 
@@ -551,6 +554,9 @@ impl ItemDb {
     for target_id in referenced_item_ids(item) {
       self.linked_from.entry(target_id).or_default().push(item.id.clone());
     }
+    if let Some(group_id) = item.group_id.as_ref() {
+      self.group_members.entry(group_id.clone()).or_default().push(item.id.clone());
+    }
     Ok(())
   }
 
@@ -616,6 +622,16 @@ impl ItemDb {
       linked_from.retain(|id| *id != item.id);
       if linked_from.is_empty() {
         self.linked_from.remove(&target_id);
+      }
+    }
+    if let Some(group_id) = item.group_id.as_ref() {
+      let members = self
+        .group_members
+        .get_mut(group_id)
+        .ok_or(format!("Item '{}' group '{}' is missing a group_members index.", item.id, group_id))?;
+      members.retain(|id| *id != item.id);
+      if members.is_empty() {
+        self.group_members.remove(group_id);
       }
     }
 
@@ -925,6 +941,29 @@ impl ItemDb {
   /// The ids of the links and notes that refer to the item, from all loaded users.
   pub fn get_linked_from_ids(&self, target_id: &Uid) -> Vec<Uid> {
     self.linked_from.get(target_id).cloned().unwrap_or_default()
+  }
+
+  /// The container holding the group: the parent of at least two of the children carrying `group_id`. A group id
+  /// left on a single child is not a group.
+  pub fn group_container_id(&self, group_id: &Uid) -> Option<Uid> {
+    let mut counts = HashMap::<&Uid, usize>::new();
+    for member_id in self.group_members.get(group_id)? {
+      let Some(member) = self.get(member_id).ok() else {
+        continue;
+      };
+      if member.relationship_to_parent != RelationshipToParent::Child {
+        continue;
+      }
+      let Some(parent_id) = member.parent_id.as_ref() else {
+        continue;
+      };
+      let count = counts.entry(parent_id).or_default();
+      *count += 1;
+      if *count == 2 {
+        return Some(parent_id.clone());
+      }
+    }
+    None
   }
 
   pub fn all_loaded_items(&self) -> Vec<ItemAndUserId> {
@@ -2685,6 +2724,46 @@ mod tests {
 
     let reloaded = load(&dir, &user_id, false).await;
     assert_eq!(reloaded.linked_from, db.linked_from);
+  }
+
+  #[tokio::test]
+  async fn group_index_finds_the_container_of_two_or_more_members() {
+    let dir = TempDir(std::env::temp_dir().join(format!("infumap-item-db-test-{}", new_uid())));
+    let user_id = new_uid();
+    std::fs::create_dir_all(dir.0.join(format!("user_{}", user_id))).unwrap();
+    let home_id = new_uid();
+    let mut db = load(&dir, &user_id, true).await;
+    db.add(default_home_page(&user_id, "test", home_id.clone(), 60, 2.0)).await.unwrap();
+    let group_id = new_uid();
+    let mut members = Vec::new();
+    for title in ["a", "b"] {
+      let mut note = Item::new_note(
+        &home_id,
+        vec![128],
+        Vector { x: 0, y: 0 },
+        GRID_SIZE,
+        RelationshipToParent::Child,
+        title,
+        NoteFlags::None,
+        None,
+      );
+      note.owner_id = user_id.clone();
+      note.group_id = Some(group_id.clone());
+      members.push(note.id.clone());
+      db.add(note).await.unwrap();
+    }
+    assert_eq!(db.group_container_id(&group_id), Some(home_id.clone()));
+    assert_eq!(db.group_container_id(&new_uid()), None);
+
+    let mut ungrouped = db.get(&members[0]).unwrap().clone();
+    ungrouped.group_id = None;
+    db.update(&ungrouped).await.unwrap();
+    assert_eq!(db.group_container_id(&group_id), None, "one member left is not a group");
+
+    let reloaded = load(&dir, &user_id, false).await;
+    assert_eq!(reloaded.group_members, db.group_members);
+    db.remove(&members[1]).await.unwrap();
+    assert!(db.group_members.is_empty(), "empty entries are removed");
   }
 
   #[tokio::test]

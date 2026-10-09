@@ -18,7 +18,8 @@
 //!
 //! A line is the hit's location, outermost first, then the hit. Titles above the page or table listing the hit are
 //! plain text. From that container down every item is a link, so get_fragment can read any of them, and the
-//! container says which of its fragments lists the hit when that is past the first. The hit is a linked label
+//! container says which of its fragments lists the hit when that is past the first. A group the hit is in follows
+//! its page. The hit is a linked label
 //! saying what it is, or a table row with its cells. A document hit ends with its best matching sentence and that
 //! sentence's fragment ordinal.
 
@@ -66,6 +67,10 @@ fn result_line(result: &SearchResult, listings: &HashMap<Uid, HitListing>) -> Op
       _ => location_label(element),
     })
     .collect::<Vec<_>>();
+  // A group is not an item on the path; it sits between its page and the member holding the hit.
+  if let (Some((container, _)), Some(group_id)) = (container, listing.and_then(|listing| listing.group_id.as_ref())) {
+    parts.insert(container + 1, format!("[group](infumap://{group_id})"));
+  }
   parts.push(listing.map_or_else(|| element_link(hit), |listing| listing.text.clone()));
   let mut line = parts.join(LOCATION_SEPARATOR);
   if let Some(fragment_match) = document_match(result).filter(|fragment_match| !fragment_match.snippet.is_empty()) {
@@ -157,6 +162,7 @@ mod tests {
     HitListing {
       container_id: container_id.map(str::to_owned),
       container_fragment,
+      group_id: None,
       subject_id: subject_id.to_owned(),
       text: text.to_owned(),
     }
@@ -185,7 +191,13 @@ mod tests {
     let row_text = "[Acme](infumap://a) | Active";
     let listings = HashMap::from([
       ("n".to_owned(), listing(Some("p"), 0, "n", "[Cocktails](infumap://n)")),
-      ("f".to_owned(), listing(Some("p"), 0, "f", "[report.pdf](infumap://f) (file, application/pdf, 9 fragments)")),
+      (
+        "f".to_owned(),
+        HitListing {
+          group_id: Some("g1".to_owned()),
+          ..listing(Some("p"), 0, "f", "[report.pdf](infumap://f) (file, application/pdf, 9 fragments)")
+        },
+      ),
       ("a".to_owned(), listing(Some("t"), 3, "a", row_text)),
       ("s".to_owned(), listing(Some("t"), 3, "a", row_text)),
     ]);
@@ -196,8 +208,8 @@ mod tests {
       serde_json::json!({
         "results": [
           "root › my trips › [malaysia](infumap://p) › [composite](infumap://c) › [Cocktails](infumap://n)",
-          "root › my trips › [malaysia](infumap://p) › [report.pdf](infumap://f) (file, application/pdf, 9 fragments) \
-           — fragment 7: …the match…",
+          "root › my trips › [malaysia](infumap://p) › [group](infumap://g1) › [report.pdf](infumap://f) \
+           (file, application/pdf, 9 fragments) — fragment 7: …the match…",
           "Home › [Tasks \\[2026\\]](infumap://t) (fragment 3) › [Acme](infumap://a) | Active",
           "root › my trips › malaysia › [untitled note](infumap://g)"
         ],

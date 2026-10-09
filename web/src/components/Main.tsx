@@ -37,7 +37,7 @@ import {
   markChildrenLoadAsInitiatedOrComplete,
 } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { ensureQueryItemUnderQueries, preloadQueries, switchToItem, switchToNonPage, switchToPage } from "../layout/navigation";
+import { ensureQueryItemUnderQueries, highlightGroup, preloadQueries, replaceUrlWithCurrentPage, switchToItem, switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -223,6 +223,11 @@ export const Main: Component = () => {
           await openTextDocumentProjection(store, asTextItem(item), false, true);
         } else if (isPage(item)) {
           switchToPage(store, { itemId, linkIdMaybe: null }, false, true, false);
+          if (result.groupId != null) {
+            // A group's id opens its page. The page's own URL replaces the group's, which dissolves as members move.
+            replaceUrlWithCurrentPage(store);
+            highlightGroup(store, itemId, result.groupId);
+          }
         } else {
           switchToItem(store, itemId, true, false);
         }

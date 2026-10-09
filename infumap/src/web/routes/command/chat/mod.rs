@@ -1380,7 +1380,7 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
       name: "get_fragment".to_owned(),
       description:
         "Read an Infumap item's text by its link, a fragment at a time. Works for documents and images (their \
-        extracted text), notes, and pages, tables and composites (their items as lines with links; a child page or \
+        extracted text), notes, and pages, tables, composites and groups (their items as lines with links; a child page or \
         table is one line, so read it by its own link). Ordinals start at 0; to continue, call again with \
         nextFragmentOrdinal until it is absent."
           .to_owned(),
@@ -1859,38 +1859,50 @@ async fn execute_get_fragment_tool_call(
 
   enum Source {
     Container,
+    Group,
     Note(Vec<String>),
     Stored,
   }
   let access = container_fragments::Access { user_id: &session.user_id, scope };
   let (content_id, item_type, title, data_dir, source) = {
     let db = db.lock().await;
-    // A link reads as its target. Unreadable, out-of-scope and missing items are all reported as not found.
-    let Some(content) = db.item.get(&item_id).ok().and_then(|item| access.content(&db, item)) else {
-      return Ok(tool_error_json("Item was not found."));
-    };
-    let source = if is_container_item_type(content.item_type) {
-      Source::Container
-    } else if content.item_type == ItemType::Note {
-      Source::Note(container_fragments::note_fragments(content))
-    } else if is_data_item_type(content.item_type) {
-      Source::Stored
+    // A group is not an item; its id reads as its members.
+    if db.item.get(&item_id).is_err() && container_fragments::group_members(&db, &access, &item_id).is_some() {
+      (item_id.clone(), "group", "group".to_owned(), db.item.data_dir().to_owned(), Source::Group)
     } else {
-      return Ok(tool_error_json("This item has no readable text."));
-    };
-    let title = container_fragments::item_label(content);
-    (content.id.clone(), content.item_type, title, db.item.data_dir().to_owned(), source)
+      // A link reads as its target. Unreadable, out-of-scope and missing items are all reported as not found.
+      let Some(content) = db.item.get(&item_id).ok().and_then(|item| access.content(&db, item)) else {
+        return Ok(tool_error_json("Item was not found."));
+      };
+      let source = if is_container_item_type(content.item_type) {
+        Source::Container
+      } else if content.item_type == ItemType::Note {
+        Source::Note(container_fragments::note_fragments(content))
+      } else if is_data_item_type(content.item_type) {
+        Source::Stored
+      } else {
+        return Ok(tool_error_json("This item has no readable text."));
+      };
+      let title = container_fragments::item_label(content);
+      (content.id.clone(), content.item_type.as_str(), title, db.item.data_dir().to_owned(), source)
+    }
   };
 
   // Container and note fragments are complete by construction; stored fragments are clamped as before.
   let (source_kind, version, records, clamped) = match source {
-    Source::Container => match container_fragments::container_fragments(db, &access, &content_id).await {
-      Ok(fragments) => {
-        let texts = fragments.fragments.into_iter().map(|fragment| fragment.text).collect::<Vec<_>>();
-        ("container".to_owned(), Some(fragments.version), computed_fragment_records(texts), false)
+    source @ (Source::Container | Source::Group) => {
+      let fragments = match source {
+        Source::Group => container_fragments::group_fragments(db, &access, &content_id).await,
+        _ => container_fragments::container_fragments(db, &access, &content_id).await,
+      };
+      match fragments {
+        Ok(fragments) => {
+          let texts = fragments.fragments.into_iter().map(|fragment| fragment.text).collect::<Vec<_>>();
+          ("container".to_owned(), Some(fragments.version), computed_fragment_records(texts), false)
+        }
+        Err(e) => return Ok(tool_error_json(&e.to_string())),
       }
-      Err(e) => return Ok(tool_error_json(&e.to_string())),
-    },
+    }
     Source::Note(texts) => {
       let version = container_fragments::fragments_version(&texts);
       ("note".to_owned(), Some(version), computed_fragment_records(texts), false)
@@ -1944,7 +1956,7 @@ async fn execute_get_fragment_tool_call(
 
   let mut response = serde_json::json!({
     "link": format!("infumap://{}", content_id),
-    "itemType": item_type.as_str(),
+    "itemType": item_type,
     "title": title,
     "sourceKind": source_kind,
     "fragmentCount": fragment_count,
@@ -2643,6 +2655,34 @@ mod tests {
     let container = f.call(Some(&scoped), "get_fragment", get(&f.a)).await;
     let text = container["fragments"][0]["text"].as_str().unwrap();
     assert!(text.contains("[a1]") && !text.contains("[X]"), "{text}");
+  }
+
+  #[tokio::test]
+  async fn get_fragment_reads_a_group_unless_the_scope_leaves_one_member() {
+    let mut t = TestDb::new().await;
+    let a = t.page(&t.home_id.clone(), "A").await;
+    let group_id = new_uid();
+    let in_group = |item: &mut Item| item.group_id = Some(group_id.clone());
+    t.note_with(&a, "first", in_group).await;
+    let excluded = t.note_with(&a, "second", in_group).await;
+    let scope_id = t.page(&t.scopes_id(), "Work").await;
+    t.link(&scope_id, &a).await;
+    let exclude = t.page(&scope_id, "Exclude").await;
+    t.link(&exclude, &excluded).await;
+    let scope = resolve_scope(&t.db, &t.user_id, &scope_id).unwrap();
+    let session = test_session(&t.user_id);
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let get = serde_json::json!({ "link": format!("infumap://{group_id}") });
+
+    let group = call_tool(&db, &session, Some(&InfumapData { scope: None }), "get_fragment", get.clone()).await;
+    assert_eq!(
+      (&group["itemType"], &group["title"], &group["sourceKind"]),
+      (&"group".into(), &"group".into(), &"container".into())
+    );
+    let text = group["fragments"][0]["text"].as_str().unwrap();
+    assert!(text.contains("- [first]") && text.contains("- [second]"), "{text}");
+    let scoped = call_tool(&db, &session, Some(&InfumapData { scope: Some(scope) }), "get_fragment", get).await;
+    assert_eq!(error_of(&scoped), Some("Item was not found."));
   }
 
   #[tokio::test]
