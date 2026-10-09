@@ -107,12 +107,7 @@ enum ChatRunMode {
 struct ChatRequest {
   #[serde(rename = "requestId", default)]
   request_id: Option<String>,
-  #[serde(default)]
-  messages: Option<Vec<ChatHistoryMessage>>,
-  #[serde(rename = "contextItems", default)]
-  context_items: Vec<Value>,
-  #[serde(rename = "userText", default)]
-  user_text: String,
+  messages: Vec<ChatHistoryMessage>,
   #[serde(default)]
   capabilities: Vec<String>,
   mode: ChatRunMode,
@@ -908,59 +903,6 @@ fn chat_stream_response(
     .unwrap_or_else(|_| Response::builder().status(500).body(empty_body()).unwrap())
 }
 
-fn chat_item_id(item: &Value) -> Option<&str> {
-  item.get("id").and_then(Value::as_str).filter(|id| !id.is_empty())
-}
-
-fn chat_item_parent_id(item: &Value) -> Option<&str> {
-  item.get("parentId").and_then(Value::as_str).filter(|parent_id| !parent_id.is_empty())
-}
-
-fn chat_item_title(item: &Value) -> &str {
-  item.get("title").and_then(Value::as_str).unwrap_or("")
-}
-
-fn chat_root_role(item: &Value) -> Option<&'static str> {
-  let title = chat_item_title(item).trim().to_lowercase();
-  if title == "you" || title == "user" {
-    return Some("user");
-  }
-  if title == "assistant" {
-    return Some("assistant");
-  }
-  None
-}
-
-fn collect_chat_text(
-  item_id: &str,
-  items_by_id: &HashMap<String, &Value>,
-  children_by_parent_id: &HashMap<String, Vec<String>>,
-  visited: &mut HashSet<String>,
-  output: &mut Vec<String>,
-) {
-  if !visited.insert(item_id.to_owned()) {
-    return;
-  }
-
-  let Some(item) = items_by_id.get(item_id) else {
-    return;
-  };
-
-  let item_type = item.get("itemType").and_then(Value::as_str).unwrap_or("");
-  if matches!(item_type, "note" | "text" | "file") {
-    let title = chat_item_title(item).trim();
-    if !title.is_empty() {
-      output.push(title.to_owned());
-    }
-  }
-
-  if let Some(children) = children_by_parent_id.get(item_id) {
-    for child_id in children {
-      collect_chat_text(child_id, items_by_id, children_by_parent_id, visited, output);
-    }
-  }
-}
-
 fn text_char_count(text: &str) -> usize {
   text.chars().count()
 }
@@ -1009,54 +951,6 @@ fn chat_history_from_wire_messages(messages: &[OpenAiChatMessage]) -> Vec<ChatHi
     .collect()
 }
 
-fn legacy_wire_messages_from_chat_request(request: &ChatRequest) -> Vec<OpenAiChatMessage> {
-  let mut ids = HashSet::new();
-  let mut items_by_id: HashMap<String, &Value> = HashMap::new();
-  for item in &request.context_items {
-    if let Some(id) = chat_item_id(item) {
-      ids.insert(id.to_owned());
-      items_by_id.insert(id.to_owned(), item);
-    }
-  }
-
-  let mut children_by_parent_id: HashMap<String, Vec<String>> = HashMap::new();
-  for item in &request.context_items {
-    let Some(item_id) = chat_item_id(item) else {
-      continue;
-    };
-    if let Some(parent_id) = chat_item_parent_id(item) {
-      children_by_parent_id.entry(parent_id.to_owned()).or_default().push(item_id.to_owned());
-    }
-  }
-
-  let mut messages = Vec::new();
-  for item in &request.context_items {
-    let Some(item_id) = chat_item_id(item) else {
-      continue;
-    };
-    if chat_item_parent_id(item).is_some_and(|parent_id| ids.contains(parent_id)) {
-      continue;
-    }
-    let Some(role) = chat_root_role(item) else {
-      continue;
-    };
-
-    let mut text_parts = Vec::new();
-    let mut visited = HashSet::new();
-    collect_chat_text(item_id, &items_by_id, &children_by_parent_id, &mut visited, &mut text_parts);
-    let content = text_parts.join("\n\n").trim().to_owned();
-    if !content.is_empty() {
-      messages.push(OpenAiChatMessage::text(role, content));
-    }
-  }
-
-  let current_user_text = request.user_text.trim();
-  if !current_user_text.is_empty() {
-    messages.push(OpenAiChatMessage::text("user", current_user_text.to_owned()));
-  }
-  messages
-}
-
 fn chat_utc_today_line() -> String {
   let now = OffsetDateTime::now_utc();
   format!("Today is {}, {:04}-{:02}-{:02} (UTC).", now.weekday(), now.year(), u8::from(now.month()), now.day())
@@ -1084,14 +978,9 @@ fn chat_system_prompt(infumap_data: Option<&InfumapData>, has_plugin_tools: bool
 }
 
 fn wire_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<OpenAiChatMessage>> {
-  match request.messages.as_deref() {
-    Some(messages) => {
-      let mut wire_messages = explicit_wire_messages(messages)?;
-      shorten_earlier_tool_results(&mut wire_messages);
-      Ok(wire_messages)
-    }
-    None => Ok(legacy_wire_messages_from_chat_request(request)),
-  }
+  let mut wire_messages = explicit_wire_messages(&request.messages)?;
+  shorten_earlier_tool_results(&mut wire_messages);
+  Ok(wire_messages)
 }
 
 /// Replaces long tool results from turns before the latest user message with a summary, so the transcript stops
