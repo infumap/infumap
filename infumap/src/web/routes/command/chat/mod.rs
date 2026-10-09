@@ -1128,6 +1128,9 @@ fn chat_failure_message(message: &str) -> String {
   if message.contains("exceeded maximum tool rounds") {
     return "The request exceeded its maximum tool rounds.".to_owned();
   }
+  if message.contains("stopped at its context length") {
+    return "The conversation is too long for the model's context window.".to_owned();
+  }
   if message.contains("empty chat response") {
     return "The model returned an empty response.".to_owned();
   }
@@ -2352,6 +2355,10 @@ impl OpenAiStreamingCompletion {
     if !self.saw_choice {
       return Err("The model server returned no chat response choices.".into());
     }
+    // A length stop before any answer text means the context window filled up (no max_tokens is sent).
+    if self.finish_reason.as_deref() == Some("length") && self.content.trim().is_empty() {
+      return Err("The model stopped at its context length before producing a response.".into());
+    }
 
     let tool_calls = self
       .tool_calls
@@ -2923,5 +2930,25 @@ mod tests {
     let unscoped = chat_system_prompt(Some(&f.infumap_data(false).await), false, ChatRunMode::DeepResearch);
     assert!(!unscoped.contains("limited to the scope"));
     assert_eq!(chat_failure_message("Scope was not found."), "The selected scope no longer exists.");
+  }
+
+  #[test]
+  fn length_stop_without_answer_reports_context_overflow() {
+    let completion = OpenAiStreamingCompletion {
+      reasoning_content: "Let me".to_owned(),
+      finish_reason: Some("length".to_owned()),
+      saw_choice: true,
+      ..Default::default()
+    };
+    let Err(error) = completion.into_message() else { panic!("expected a context-length error") };
+    assert_eq!(chat_failure_message(error.message()), "The conversation is too long for the model's context window.");
+
+    let truncated_answer = OpenAiStreamingCompletion {
+      content: "Partial answer".to_owned(),
+      finish_reason: Some("length".to_owned()),
+      saw_choice: true,
+      ..Default::default()
+    };
+    assert!(truncated_answer.into_message().is_ok());
   }
 }
