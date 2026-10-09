@@ -164,7 +164,9 @@ pub(super) async fn hit_listings(
           .group_id
           .as_ref()
           .filter(|group_id| group_members(&db, access, group_id).is_some_and(|(page, _)| page.id == container.id));
-        placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned()));
+        // An item's day on a calendar page is where the page shows it, so its result carries it too.
+        let date = (Layout::of(container) == Layout::Calendar).then(|| calendar_prefix(child));
+        placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned(), date));
       }
       labels.push((item_id.clone(), label));
     }
@@ -172,7 +174,7 @@ pub(super) async fn hit_listings(
   };
   let counts = data_fragment_counts(&data_dir, access.user_id, &data_item_ids).await;
   let mut rendered = HashMap::new();
-  for (container_id, _) in placements.values() {
+  for (container_id, ..) in placements.values() {
     if !rendered.contains_key(container_id) {
       rendered.insert(container_id.clone(), container_fragments(db, access, container_id).await.ok());
     }
@@ -183,7 +185,7 @@ pub(super) async fn hit_listings(
       let text = label.render(&counts);
       let mut listing =
         HitListing { container_id: None, container_fragment: 0, group_id: None, subject_id: item_id.clone(), text };
-      let Some((container_id, group_id)) = placements.remove(&item_id) else {
+      let Some((container_id, group_id, date)) = placements.remove(&item_id) else {
         return (item_id, listing);
       };
       let Some(fragments) = rendered.get(&container_id).and_then(Option::as_ref) else {
@@ -198,6 +200,9 @@ pub(super) async fn hit_listings(
           let (text, truncated) = excerpt(&row.text, ROW_LISTING_MAX_CHARS);
           listing.subject_id = row.item_ids[0].clone();
           listing.text = if truncated { format!("{text}…") } else { text };
+        }
+        if let Some(date) = date {
+          listing.text.insert_str(0, &date);
         }
       }
       (item_id, listing)
@@ -576,9 +581,6 @@ fn heading(db: &Db, access: &Access, container: &Item, ancestors: &[&Item]) -> S
     heading.push_str(" in ");
     heading.push_str(&breadcrumb(db, access, ancestors));
   }
-  if container.arrange_algorithm == Some(ArrangeAlgorithm::Calendar) {
-    heading.push_str(" · times in UTC");
-  }
   heading
 }
 
@@ -727,17 +729,14 @@ fn number(value: f64) -> String {
   text.strip_suffix(".0").map(str::to_owned).unwrap_or(text)
 }
 
+/// "2026-01-03 Sat: " for an item on a calendar page, or its first and last days. The calendar places items by day,
+/// so the time of day is left out: it is whatever the item was created with. Dates are taken as stored, without
+/// converting between time zones.
 fn calendar_prefix(item: &Item) -> String {
   let format = |seconds: i64| {
     time::OffsetDateTime::from_unix_timestamp(seconds).ok().map(|date| {
-      format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}",
-        date.year(),
-        u8::from(date.month()),
-        date.day(),
-        date.hour(),
-        date.minute()
-      )
+      let weekday = date.weekday().to_string();
+      format!("{:04}-{:02}-{:02} {}", date.year(), u8::from(date.month()), date.day(), &weekday[..3])
     })
   };
   match (format(item.datetime), item.end_datetime.and_then(format)) {
@@ -1508,6 +1507,37 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn hits_on_calendar_pages_carry_their_day() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let calendar = t.arranged_page(&home, "Calendar", ArrangeAlgorithm::Calendar, "").await;
+    // 2026-01-01 at 23:30, a Thursday: the time is left out, and the day is taken as stored.
+    let dentist = t.note_with(&calendar, "dentist", |item| item.datetime = 1_767_310_200).await;
+    let trip = t
+      .note_with(&calendar, "trip", |item| {
+        item.datetime = 1_767_225_600;
+        item.end_datetime = Some(1_767_398_400);
+      })
+      .await;
+    let composite = t.composite(&calendar).await;
+    let mut item = t.db.item.get(&composite).unwrap().clone();
+    item.datetime = 1_767_398_400;
+    t.db.item.update(&item).await.unwrap();
+    let member = t.note(&composite, "packing", RelationshipToParent::Child).await;
+    let elsewhere = t.note_with(&home, "not on a calendar", |item| item.datetime = 1_767_225_600).await;
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+
+    let listings =
+      hit_listings(&db, &access, &[dentist.clone(), trip.clone(), member.clone(), elsewhere.clone()]).await;
+    assert_eq!(listings[&dentist].text, format!("2026-01-01 Thu: [dentist](infumap://{dentist})"));
+    assert_eq!(listings[&trip].text, format!("2026-01-01 Thu – 2026-01-03 Sat: [trip](infumap://{trip})"));
+    assert_eq!(listings[&member].text, format!("2026-01-03 Sat: [packing](infumap://{member})"), "the composite's day");
+    assert_eq!(listings[&elsewhere].text, format!("[not on a calendar](infumap://{elsewhere})"));
+  }
+
+  #[tokio::test]
   async fn children_follow_spatial_title_and_calendar_order() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
@@ -1535,8 +1565,9 @@ mod tests {
     assert_eq!(titles(spatial_text)[1..], ["first", "second", "third"], "after the geometry legend");
     assert_eq!(titles(&t.texts(&sorted)[0]), ["c", "b", "a", "- (unavailable link)"]);
     let calendar_text = &t.texts(&calendar)[0];
-    assert!(calendar_text.lines().next().unwrap().contains(" · times in UTC · fragment 0 of 0–0"));
-    assert_eq!(body(calendar_text).lines().next().unwrap().split(": ").next().unwrap(), "- 2026-01-01 00:00");
+    assert!(calendar_text.lines().next().unwrap().contains("(page, calendar layout) in "));
+    assert!(!calendar_text.contains("UTC"), "{calendar_text}");
+    assert_eq!(body(calendar_text).lines().next().unwrap().split(": ").next().unwrap(), "- 2026-01-01 Thu");
     assert_eq!(titles(calendar_text), ["earlier", "later"]);
   }
 
