@@ -227,7 +227,8 @@ fn listing_placement<'a>(db: &'a Db, item: &'a Item) -> Option<(&'a Item, &'a It
 /// A container rendered under the database lock, waiting for the stored fragment counts of its data items.
 pub(super) struct ContainerOutline {
   heading: String,
-  columns: Option<String>,
+  /// A line after the heading in every fragment: a table's columns, or the legend for a spatial page's geometry.
+  preamble: Option<String>,
   row_count: Option<usize>,
   separator: &'static str,
   units: Vec<Unit>,
@@ -429,9 +430,9 @@ impl ContainerOutline {
         if let (Some((first, end)), Some(row_count)) = (chunk.rows, self.row_count) {
           text.push_str(&format!(" · rows {}–{} of {row_count}", first + 1, end + 1));
         }
-        if let Some(columns) = &self.columns {
+        if let Some(preamble) = &self.preamble {
           text.push('\n');
-          text.push_str(columns);
+          text.push_str(preamble);
         }
         text.push('\n');
         text.push_str(&chunk.body);
@@ -673,6 +674,59 @@ fn note_urls(note: &Item) -> &[NoteUrl] {
   note.urls.as_deref().unwrap_or(&[])
 }
 
+/// How a spatial page's geometry is given, and the size of its visible area.
+fn spatial_legend(page: &Item) -> String {
+  let width = page.inner_spatial_width_gr.unwrap_or(0) as f64 / GRID_SIZE as f64;
+  let height = page.natural_aspect.filter(|aspect| *aspect > 0.0).map_or(0.0, |aspect| (width / aspect).floor());
+  format!(
+    "Page area {}×{} blocks. Items start with @x,y w×h in blocks from the top left; h is ? where text sets it.",
+    number(width),
+    number(height)
+  )
+}
+
+/// "@x,y w×h " for a child of a spatial page, in blocks. Heights the server can work out are given as the UI
+/// computes them; a height set by text wrapping, as for notes, files and composites, is "?".
+fn spatial_prefix(placement: &Item, content: Option<&Item>) -> String {
+  let blocks = |gr: i64| gr as f64 / GRID_SIZE as f64;
+  // The UI rounds derived heights to half blocks, with half a block the least.
+  let half_blocks = |bl: f64| ((bl * 2.0).round() / 2.0).max(0.5);
+  let position = placement.spatial_position_gr.as_ref().map_or((0, 0), |position| (position.x, position.y));
+  let mut width = blocks(placement.spatial_width_gr.unwrap_or(0));
+  let height = match content {
+    None => Some(1.0),
+    Some(content) => match content.item_type {
+      ItemType::Page => content.natural_aspect.filter(|aspect| *aspect > 0.0).map(|aspect| half_blocks(width / aspect)),
+      ItemType::Image => content
+        .image_size_px
+        .as_ref()
+        .filter(|size| size.w > 0)
+        .map(|size| half_blocks(width * size.h as f64 / size.w as f64)),
+      ItemType::Table => placement.spatial_height_gr.map(blocks),
+      // A link to such a note has a height of its own, as the link's size stands in for the note's.
+      ItemType::Note
+        if NoteFlags::from_bits_truncate(content.flags.unwrap_or(0)).contains(NoteFlags::ExplicitHeight) =>
+      {
+        placement.spatial_height_gr.filter(|height| *height > 0).map(blocks)
+      }
+      ItemType::Rating => {
+        width = 1.0;
+        Some(1.0)
+      }
+      ItemType::Password | ItemType::Search => Some(1.0),
+      _ => None,
+    },
+  };
+  let height = height.map_or("?".to_owned(), number);
+  format!("@{},{} {}×{height} ", number(blocks(position.0)), number(blocks(position.1)), number(width))
+}
+
+/// A number of blocks to one decimal place, without a trailing ".0".
+fn number(value: f64) -> String {
+  let text = format!("{:.1}", value);
+  text.strip_suffix(".0").map(str::to_owned).unwrap_or(text)
+}
+
 fn calendar_prefix(item: &Item) -> String {
   let format = |seconds: i64| {
     time::OffsetDateTime::from_unix_timestamp(seconds).ok().map(|date| {
@@ -702,6 +756,8 @@ enum Layout {
   Document,
   /// Bullet lines with a date prefix.
   Calendar,
+  /// Bullet lines with a position and size prefix.
+  Spatial,
   /// Bullet lines.
   Lines,
 }
@@ -714,6 +770,7 @@ impl Layout {
     match container.arrange_algorithm.filter(|_| container.item_type == ItemType::Page) {
       Some(ArrangeAlgorithm::Document) => Layout::Document,
       Some(ArrangeAlgorithm::Calendar) => Layout::Calendar,
+      Some(ArrangeAlgorithm::SpatialStretch) => Layout::Spatial,
       _ => Layout::Lines,
     }
   }
@@ -826,15 +883,19 @@ impl<'a, 'b> Renderer<'a, 'b> {
     Ok(self.db.item.get_children(&container.id)?.into_iter().filter(|item| self.access.can_read(self.db, item)).count())
   }
 
-  /// The outline of `container`'s units, with its columns when it is tabular.
+  /// The outline of `container`'s units, with its columns when it is tabular, or its size when it is spatial.
   fn outline(self, heading: String, container: &Item, units: Vec<Unit>) -> ContainerOutline {
     let tabular = is_tabular(container);
-    ContainerOutline {
-      heading,
-      columns: tabular
-        .then(|| column_names(container))
+    let preamble = match Layout::of(container) {
+      Layout::Table => Some(column_names(container))
         .filter(|names| !names.is_empty())
         .map(|names| format!("Columns: {}", names.join(" | "))),
+      Layout::Spatial => Some(spatial_legend(container)),
+      _ => None,
+    };
+    ContainerOutline {
+      heading,
+      preamble,
       row_count: tabular.then_some(self.rows.len()),
       separator: if Layout::of(container) == Layout::Document { "\n\n" } else { "\n" },
       units,
@@ -852,7 +913,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       match entry {
         Entry::Item(child) => self.entry_item(layout, child, 0, &mut pieces)?,
         Entry::Group(group_id, members) => {
-          let bullet = if matches!(layout, Layout::Lines | Layout::Calendar) { "- " } else { "" };
+          let bullet = if matches!(layout, Layout::Lines | Layout::Calendar | Layout::Spatial) { "- " } else { "" };
           pieces.text(&format!("{bullet}{} (group, {})", group_link(&group_id), count_label(members.len(), "item")));
           for member in members {
             pieces.text(if layout == Layout::Document { "\n\n" } else { "\n" });
@@ -875,6 +936,10 @@ impl<'a, 'b> Renderer<'a, 'b> {
       // Document pages have no indentation to show grouping with; members follow the group line.
       Layout::Document => self.document_block(child, 0, pieces),
       Layout::Calendar => self.item_lines(child, depth, &calendar_prefix(child), pieces),
+      Layout::Spatial => {
+        let prefix = spatial_prefix(child, self.access.content(self.db, child));
+        self.item_lines(child, depth, &prefix, pieces)
+      }
       Layout::Lines => self.item_lines(child, depth, "", pieces),
     }
   }
@@ -1291,7 +1356,7 @@ mod tests {
       assert!(members.iter().all(|member| holding[0].contains(member)));
     }
     let group_text = t.texts(&spatial).into_iter().find(|text| text.contains("group a")).unwrap();
-    assert!(group_text.contains(&format!("- [group](infumap://{group_id}) (group, 3 items)\n  - [group a]")));
+    assert!(group_text.contains(&format!("- [group](infumap://{group_id}) (group, 3 items)\n  - @0,5 1×? [group a]")));
     let composite_text = t.texts(&list).into_iter().find(|text| text.contains("first member")).unwrap();
     assert!(composite_text.contains("(composite)\n  - [first member]"));
   }
@@ -1405,6 +1470,44 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn spatial_children_start_with_their_position_and_size() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let spatial = t.arranged_page(&home, "Spatial", ArrangeAlgorithm::SpatialStretch, "").await;
+    let at = |x: f64, y: f64| Some(Vector { x: (x * GRID_SIZE as f64) as i64, y: (y * GRID_SIZE as f64) as i64 });
+    let page = t.page(&spatial, "Review").await;
+    let mut item = t.db.item.get(&page).unwrap().clone();
+    (item.spatial_position_gr, item.spatial_width_gr) = (at(2.0, 1.0), Some(10 * GRID_SIZE));
+    t.db.item.update(&item).await.unwrap();
+    t.non_note(&spatial, "photo.jpg", |item| {
+      item.item_type = ItemType::Image;
+      (item.spatial_position_gr, item.spatial_width_gr) = (at(14.0, 1.0), Some(6 * GRID_SIZE));
+      item.image_size_px = Some(Dimensions { w: 400, h: 300 });
+    })
+    .await;
+    t.note_with(&spatial, "plain", |item| item.spatial_position_gr = at(0.0, 8.5)).await;
+    t.note_with(&spatial, "boxed", |item| {
+      item.spatial_position_gr = at(4.0, 8.5);
+      item.flags = Some(NoteFlags::ExplicitHeight.bits());
+      item.spatial_height_gr = Some(3 * GRID_SIZE);
+    })
+    .await;
+    let link = t.link(&spatial, &page).await;
+    let mut item = t.db.item.get(&link).unwrap().clone();
+    (item.spatial_position_gr, item.spatial_width_gr) = (at(21.0, 1.0), Some(4 * GRID_SIZE));
+    t.db.item.update(&item).await.unwrap();
+
+    let text = &t.texts(&spatial)[0];
+    let mut lines = text.lines().skip(1);
+    assert_eq!(
+      lines.next().unwrap(),
+      "Page area 60×30 blocks. Items start with @x,y w×h in blocks from the top left; h is ? where text sets it."
+    );
+    let prefixes = lines.map(|line| line.split(" [").next().unwrap()).collect::<Vec<_>>();
+    assert_eq!(prefixes, ["- @2,1 10×5", "- @14,1 6×4.5", "- @21,1 4×2", "- @0,8.5 1×?", "- @4,8.5 1×3"], "{text}");
+  }
+
+  #[tokio::test]
   async fn children_follow_spatial_title_and_calendar_order() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
@@ -1428,7 +1531,8 @@ mod tests {
         .map(|line| line.split('[').nth(1).map_or(line, |rest| rest.split(']').next().unwrap()).to_owned())
         .collect::<Vec<_>>()
     };
-    assert_eq!(titles(&t.texts(&spatial)[0]), ["first", "second", "third"]);
+    let spatial_text = &t.texts(&spatial)[0];
+    assert_eq!(titles(spatial_text)[1..], ["first", "second", "third"], "after the geometry legend");
     assert_eq!(titles(&t.texts(&sorted)[0]), ["c", "b", "a", "- (unavailable link)"]);
     let calendar_text = &t.texts(&calendar)[0];
     assert!(calendar_text.lines().next().unwrap().contains(" · times in UTC · fragment 0 of 0–0"));
