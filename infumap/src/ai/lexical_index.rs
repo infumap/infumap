@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 use tantivy::collector::{DocSetCollector, TopDocs};
 use tantivy::indexer::NoMergePolicy;
 use tantivy::query::{BooleanQuery, EmptyQuery, Query, TermQuery, TermSetQuery};
-use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::tokenizer::TokenizerManager;
+use tantivy::schema::{
+  Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TextFieldIndexing, TextOptions, Value,
+};
+use tantivy::tokenizer::{Language, LowerCaser, RemoveLongFilter, SimpleTokenizer, Stemmer, TextAnalyzer};
 use tantivy::{DocSet, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher, TERMINATED, TantivyDocument, Term};
 use tokio::fs;
 
@@ -19,13 +21,14 @@ use crate::ai::search_index_paths::user_index_dir;
 pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_DIR_NAME: &str = "document_fragments_tantivy";
 pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "document_fragments_tantivy.tmp";
 pub const DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME: &str = "infumap_document_fragment_index.json";
-pub const DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION: u32 = 1;
+// 2: words are stemmed (English Snowball).
+pub const DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION: u32 = 2;
 pub const ITEM_TITLE_LEXICAL_INDEX_DIR_NAME: &str = "item_titles_tantivy";
 #[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "item_titles_tantivy.tmp";
 pub const ITEM_TITLE_LEXICAL_METADATA_FILENAME: &str = "infumap_item_title_index.json";
-#[allow(dead_code)]
-pub const ITEM_TITLE_LEXICAL_SCHEMA_VERSION: u32 = 1;
+// 2: words are stemmed (English Snowball).
+pub const ITEM_TITLE_LEXICAL_SCHEMA_VERSION: u32 = 2;
 
 const ITEM_ID_FIELD: &str = "item_id";
 const ORDINAL_FIELD: &str = "ordinal";
@@ -37,20 +40,82 @@ const INDEX_WRITER_HEAP_BYTES: usize = 50_000_000;
 const INCREMENTAL_INDEX_WRITER_HEAP_BYTES: usize = 20_000_000;
 const INCREMENTAL_SOURCE_DIGEST: &str = "incremental";
 const NATURAL_TEXT_QUERY_MAX_TERMS: usize = 12;
+const TEXT_TOKENIZER: &str = "en_stem";
 const DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL: &str = "document fragment lexical index";
 const ITEM_TITLE_LEXICAL_INDEX_LABEL: &str = "item title lexical index";
 
-/// How many distinct words a natural-text query has, tokenized as the indexes tokenize text, up to the most a
-/// query uses. Words that no document contains are dropped from the query, so fewer may count.
+/// Words as the indexes store them: split on anything that is not a letter or digit, overlong tokens dropped,
+/// lowercased, and reduced to their English stem, so "staying" matches "stay". Text in other languages goes through the
+/// same English rules at index and query time, so a word always still matches itself.
+fn text_analyzer() -> TextAnalyzer {
+  TextAnalyzer::builder(SimpleTokenizer::default())
+    .filter(RemoveLongFilter::limit(40))
+    .filter(LowerCaser)
+    .filter(Stemmer::new(Language::English))
+    .build()
+}
+
+/// The indexed form of one word: lowercased and stemmed. Empty if the word would not be indexed.
+pub fn index_word(word: &str) -> String {
+  thread_local! {
+    static ANALYZER: std::cell::RefCell<TextAnalyzer> = std::cell::RefCell::new(text_analyzer());
+  }
+  ANALYZER.with(|analyzer| {
+    let mut analyzer = analyzer.borrow_mut();
+    let mut stream = analyzer.token_stream(word);
+    if stream.advance() { stream.token().text.clone() } else { String::new() }
+  })
+}
+
+/// How many distinct words a natural-text query has, as the indexes store them, up to the most a query uses. Words
+/// that no document contains are dropped from the query, so fewer may count.
 pub fn natural_text_word_count(query_text: &str) -> usize {
-  let Some(mut analyzer) = TokenizerManager::default().get("default") else {
-    return 1;
-  };
   let mut words = HashSet::new();
-  analyzer.token_stream(query_text).process(&mut |token| {
+  text_analyzer().token_stream(query_text).process(&mut |token| {
     words.insert(token.text.clone());
   });
   words.len().min(NATURAL_TEXT_QUERY_MAX_TERMS)
+}
+
+/// Removes this user's indexes built with an older schema, such as before stemming, which would no longer match the
+/// queries. The startup check then rebuilds them as it would after a manual deletion. Returns how many were removed.
+pub async fn remove_outdated_lexical_indexes(data_dir: &str, user_id: &str) -> InfuResult<usize> {
+  let indexes = [
+    (
+      document_fragment_lexical_index_dir(data_dir, user_id)?,
+      DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
+      DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION,
+      DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
+    ),
+    (
+      item_title_lexical_index_dir(data_dir, user_id)?,
+      ITEM_TITLE_LEXICAL_METADATA_FILENAME,
+      ITEM_TITLE_LEXICAL_SCHEMA_VERSION,
+      ITEM_TITLE_LEXICAL_INDEX_LABEL,
+    ),
+  ];
+  let mut removed = 0;
+  for (index_dir, metadata_filename, schema_version, index_label) in indexes {
+    let Some(metadata) = read_stored_metadata(&index_dir, metadata_filename, index_label).await? else {
+      continue;
+    };
+    if metadata.schema_version == schema_version {
+      continue;
+    }
+    forget_open_index(&index_dir);
+    fs::remove_dir_all(&index_dir)
+      .await
+      .map_err(|e| format!("Could not remove outdated {} '{}': {}", index_label, index_dir.display(), e))?;
+    log::info!(
+      "Removed {} '{}' built with schema {} (now {}); it will be rebuilt.",
+      index_label,
+      index_dir.display(),
+      metadata.schema_version,
+      schema_version
+    );
+    removed += 1;
+  }
+  Ok(removed)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -649,7 +714,11 @@ fn lexical_schema() -> (Schema, LexicalFields) {
   let source_kind = schema_builder.add_text_field(SOURCE_KIND_FIELD, STRING | STORED);
   let page_start = schema_builder.add_u64_field(PAGE_START_FIELD, STORED);
   let page_end = schema_builder.add_u64_field(PAGE_END_FIELD, STORED);
-  let text = schema_builder.add_text_field(TEXT_FIELD, TEXT | STORED);
+  let text_indexing = TextFieldIndexing::default()
+    .set_tokenizer(TEXT_TOKENIZER)
+    .set_index_option(IndexRecordOption::WithFreqsAndPositions);
+  let text =
+    schema_builder.add_text_field(TEXT_FIELD, TextOptions::default().set_indexing_options(text_indexing).set_stored());
   let schema = schema_builder.build();
   (schema, LexicalFields { item_id, ordinal, source_kind, page_start, page_end, text })
 }
@@ -789,8 +858,11 @@ async fn write_stored_metadata(
 }
 
 fn open_tantivy_index(index_dir: &Path, index_label: &str) -> InfuResult<Index> {
-  Index::open_in_dir(index_dir)
-    .map_err(|e| format!("Could not open {} '{}': {}", index_label, index_dir.display(), e).into())
+  let index = Index::open_in_dir(index_dir)
+    .map_err(|e| format!("Could not open {} '{}': {}", index_label, index_dir.display(), e))?;
+  // Analyzers are not stored with the index, so each opened index needs the one its schema names.
+  index.tokenizers().register(TEXT_TOKENIZER, text_analyzer());
+  Ok(index)
 }
 
 fn index_doc_count(index: &Index, index_label: &str) -> InfuResult<usize> {
@@ -991,6 +1063,69 @@ mod tests {
     assert_eq!(natural_text_word_count("Montreal hotel, montreal HOTEL!"), 2);
     assert_eq!(natural_text_word_count(&(0..20).map(|n| format!("w{n}")).collect::<Vec<_>>().join(" ")), 12);
     assert_eq!(natural_text_word_count(" , "), 0);
+    assert_eq!(natural_text_word_count("stay stays staying stayed"), 1, "words are counted after stemming");
+  }
+
+  #[tokio::test]
+  async fn words_match_their_inflections_and_foreign_words_match_themselves() {
+    let dir = temp_index_dir();
+    let index = TantivyDocumentFragmentIndex::new(dir.clone());
+    let fragment = |item_id: &str, text: &str| LexicalFragment {
+      item_id: item_id.to_owned(),
+      ordinal: 0,
+      source_kind: "text".to_owned(),
+      text: text.to_owned(),
+      page_start: None,
+      page_end: None,
+    };
+    let (english, german) =
+      (fragment("english", "We stayed at two hotels"), fragment("german", "Gemütlichkeit im Café"));
+    index
+      .replace_items_fragments(&[
+        ("english", std::slice::from_ref(&english)),
+        ("german", std::slice::from_ref(&german)),
+      ])
+      .await
+      .unwrap();
+    let ids = |query: &'static str, min_matching_words: usize| {
+      let index = index.clone();
+      async move {
+        let hits = index.search(query, 10, None, min_matching_words).await.unwrap();
+        hits.into_iter().map(|hit| hit.item_id).collect::<Vec<_>>()
+      }
+    };
+    assert_eq!(ids("staying hotel", 2).await, ["english"]);
+    assert_eq!(ids("Gemütlichkeit", 1).await, ["german"]);
+    assert_eq!(ids("café", 1).await, ["german"]);
+    assert_eq!(index_word("Staying"), "stay");
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[tokio::test]
+  async fn indexes_built_with_an_older_schema_are_removed() {
+    let data_dir = temp_index_dir();
+    let data_dir_str = data_dir.to_str().unwrap();
+    let user_id = infusdk::util::uid::new_uid();
+    let content_dir = document_fragment_lexical_index_dir(data_dir_str, &user_id).unwrap();
+    let title_dir = item_title_lexical_index_dir(data_dir_str, &user_id).unwrap();
+    commit_items(&TantivyDocumentFragmentIndex::new(content_dir.clone()), &["a".to_owned()]).await;
+    let title_fragment = fragment("a");
+    open_user_item_title_lexical_index(data_dir_str, &user_id)
+      .unwrap()
+      .replace_items_titles(&[("a", std::slice::from_ref(&title_fragment))])
+      .await
+      .unwrap();
+    assert_eq!(remove_outdated_lexical_indexes(data_dir_str, &user_id).await.unwrap(), 0);
+
+    let metadata_path = content_dir.join(DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME);
+    let mut metadata: serde_json::Value =
+      serde_json::from_str(&std::fs::read_to_string(&metadata_path).unwrap()).unwrap();
+    metadata["schema_version"] = serde_json::json!(1);
+    std::fs::write(&metadata_path, metadata.to_string()).unwrap();
+    assert_eq!(remove_outdated_lexical_indexes(data_dir_str, &user_id).await.unwrap(), 1);
+    assert!(!content_dir.exists(), "the outdated content index is removed");
+    assert!(title_dir.exists(), "the current title index is kept");
+    let _ = std::fs::remove_dir_all(data_dir);
   }
 
   #[tokio::test]
