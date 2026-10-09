@@ -118,12 +118,12 @@ function queryChatToolCallSignature(name: string, args: unknown): string | null 
     return `${name}(${JSON.stringify(query)})`;
   }
   if (name == "get_fragment") {
-    const itemId = queryChatJsonString(record?.itemId);
+    const link = queryChatJsonString(record?.link);
     const ordinal = queryChatJsonNumber(record?.fragmentOrdinal) ?? queryChatJsonNumber(record?.ordinal);
     const count = queryChatJsonNumber(record?.count);
     const parts: Array<string> = [];
-    if (itemId != null) {
-      parts.push(JSON.stringify(itemId));
+    if (link != null) {
+      parts.push(JSON.stringify(link));
     }
     if (ordinal != null) {
       parts.push(String(ordinal));
