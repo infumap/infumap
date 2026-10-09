@@ -247,6 +247,8 @@ pub(super) struct ContainerOutline {
   heading: String,
   /// A line after the heading in every fragment: a table's columns, or the legend for a spatial page's geometry.
   preamble: Option<String>,
+  /// Said in the preamble only when the container needs more than one fragment.
+  multi_fragment_note: Option<&'static str>,
   row_count: Option<usize>,
   separator: &'static str,
   units: Vec<Unit>,
@@ -451,6 +453,10 @@ impl ContainerOutline {
         if let Some(preamble) = &self.preamble {
           text.push('\n');
           text.push_str(preamble);
+          if let Some(note) = self.multi_fragment_note.filter(|_| last > 0) {
+            text.push(' ');
+            text.push_str(note);
+          }
         }
         text.push('\n');
         text.push_str(&chunk.body);
@@ -908,6 +914,9 @@ impl<'a, 'b> Renderer<'a, 'b> {
     ContainerOutline {
       heading,
       preamble,
+      // A neighbour above or below an item can be listed far from it, past a fragment boundary.
+      multi_fragment_note: (Layout::of(container) == Layout::Spatial)
+        .then_some("Listed top to bottom, then left to right; nearby items may be in different fragments."),
       row_count: tabular.then_some(self.rows.len()),
       separator: if Layout::of(container) == Layout::Document { "\n\n" } else { "\n" },
       units,
@@ -1385,6 +1394,12 @@ mod tests {
       assert_eq!(holding.len(), 1, "one fragment holds the whole unit");
       assert!(members.iter().all(|member| holding[0].contains(member)));
     }
+    let note = "; nearby items may be in different fragments.";
+    assert!(
+      t.texts(&spatial).iter().all(|text| text.lines().nth(1).unwrap().ends_with(note)),
+      "said in every fragment"
+    );
+    assert!(t.texts(&list).iter().all(|text| !text.contains(note)), "only on spatial pages");
     let group_text = t.texts(&spatial).into_iter().find(|text| text.contains("group a")).unwrap();
     assert!(group_text.contains(&format!("- [group](infumap://{group_id}) (group, 3 items)\n  - @0,5 1×? [group a]")));
     let composite_text = t.texts(&list).into_iter().find(|text| text.contains("first member")).unwrap();

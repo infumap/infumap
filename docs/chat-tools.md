@@ -182,7 +182,9 @@ How containers are laid out:
 - Spatial pages list children top to bottom, then left to right, each starting with its position
   and size in blocks: `- @14,1 6×4.5 [photo.jpg](infumap://<id>) (image, 2 fragments)`. A line after
   the header gives the page's area and says how to read them, since the model is left to work out
-  what sits next to what. Heights follow the UI where stored data sets them: pages and images from
+  what sits next to what. When the page needs more than one fragment, that line adds that items are
+  listed top to bottom, then left to right, and nearby items may be in different fragments: an item
+  directly above another can be listed far from it. Heights follow the UI where stored data sets them: pages and images from
   their width and aspect, tables and explicit-height notes from their stored height, ratings and
   one-line items as 1. A height set by text wrapping, as for notes, files and composites, is `?`.
   Composite members and attachments have no geometry of their own.
