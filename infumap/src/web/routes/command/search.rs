@@ -154,9 +154,12 @@ pub(super) mod compact {
     #[serde(rename = "itemType")]
     pub item_type: String,
     pub title: Option<String>,
-    /// Titles of the containing items, outermost first.
+    /// Titles of the containing items, outermost first. The one whose fragments list the result is a link.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<String>,
+    /// The listing container's link, when it is not among the location's titles.
+    #[serde(rename = "listedIn", skip_serializing_if = "Option::is_none")]
+    pub listed_in: Option<String>,
     /// Fields the caller adds for this result.
     #[serde(flatten)]
     pub extra: Option<&'a E>,
@@ -180,9 +183,10 @@ pub(super) mod compact {
   pub(super) fn compact_search_response<'a, E>(
     response: &SearchResponse,
     extras: &'a HashMap<Uid, E>,
+    listed_in: &HashMap<Uid, Uid>,
   ) -> CompactSearchResponse<'a, E> {
     CompactSearchResponse {
-      results: response.results.iter().filter_map(|result| compact_search_result(result, extras)).collect(),
+      results: response.results.iter().filter_map(|result| compact_search_result(result, extras, listed_in)).collect(),
       has_more: response.has_more,
     }
   }
@@ -190,17 +194,38 @@ pub(super) mod compact {
   fn compact_search_result<'a, E>(
     result: &SearchResult,
     extras: &'a HashMap<Uid, E>,
+    listed_in: &HashMap<Uid, Uid>,
   ) -> Option<CompactSearchResult<'a, E>> {
     let (item, ancestors) = result.path.split_last()?;
-    let location = ancestors.iter().map(location_label).collect::<Vec<_>>().join(" › ");
+    let container_id = listed_in.get(&item.id);
+    let mut container_linked = false;
+    let location = ancestors
+      .iter()
+      .map(|element| {
+        let label = location_label(element);
+        if container_id == Some(&element.id) {
+          container_linked = true;
+          format!("[{}](infumap://{})", label.replace('[', "\\[").replace(']', "\\]"), element.id)
+        } else {
+          label
+        }
+      })
+      .collect::<Vec<_>>()
+      .join(" › ");
+    // A title match repeats the title, and its ordinal is the title index's, which get_fragment cannot read.
+    let fragment_match = std::iter::once(&result.fragment_match)
+      .flatten()
+      .chain(&result.additional_fragment_matches)
+      .find(|fragment_match| fragment_match.source_kind != ITEM_TITLE_SOURCE_KIND);
     Some(CompactSearchResult {
       link_url: format!("infumap://{}", item.id),
       item_type: item.item_type.clone(),
       title: item.title.as_deref().map(|title| clamp_with_ellipsis(title, TITLE_MAX_CHARS)),
       location: Some(location).filter(|location| !location.is_empty()),
+      listed_in: container_id.filter(|_| !container_linked).map(|container_id| format!("infumap://{container_id}")),
       extra: extras.get(&item.id),
       // Only the best match: further matches cost context and get_fragment reads around this one.
-      fragment_match: result.fragment_match.as_ref().map(compact_search_fragment_match),
+      fragment_match: fragment_match.map(compact_search_fragment_match),
     })
   }
 
@@ -318,11 +343,13 @@ pub(super) async fn run_lexical_search(
 }
 
 /// The chat tool's search response. Each result also gets the fields of its entry in `extras`, keyed by item id.
+/// `listed_in` maps a result's item id to the container whose fragments list it, which is linked in its location.
 pub(super) fn compact_search_response_json<E: Serialize>(
   response: &SearchResponse,
   extras: &HashMap<Uid, E>,
+  listed_in: &HashMap<Uid, Uid>,
 ) -> InfuResult<String> {
-  serde_json::to_string(&compact::compact_search_response(response, extras))
+  serde_json::to_string(&compact::compact_search_response(response, extras, listed_in))
     .map_err(|e| format!("Could not serialize compact search response: {}", e).into())
 }
 

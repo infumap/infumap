@@ -114,20 +114,21 @@ impl ContainerFragments {
 
 /// Where a search hit is listed: the container fragment holding it and, when its unit shows more than the hit,
 /// such as the rest of a table row or composite, the start of that unit.
+///
+/// In a search result, the container is linked in the location, so only a fragment past the first and the excerpt
+/// are serialized.
 #[derive(Serialize)]
 pub(super) struct ItemContext {
-  #[serde(rename = "link", serialize_with = "serialize_link")]
+  #[serde(skip)]
   pub container_id: Uid,
-  #[serde(rename = "fragmentOrdinal")]
+  #[serde(rename = "locationFragment", skip_serializing_if = "is_zero")]
   pub fragment_ordinal: usize,
-  #[serde(rename = "fragmentCount")]
-  pub fragment_count: usize,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub excerpt: Option<String>,
 }
 
-fn serialize_link<S: serde::Serializer>(item_id: &Uid, serializer: S) -> Result<S::Ok, S::Error> {
-  serializer.serialize_str(&format!("infumap://{item_id}"))
+fn is_zero(value: &usize) -> bool {
+  *value == 0
 }
 
 /// Contexts for search hits, keyed by hit id, rendering each container once. A page or table hit points at its own
@@ -160,7 +161,6 @@ pub(super) async fn item_contexts(
     .into_iter()
     .filter_map(|(item_id, container_id)| {
       let fragments = rendered.get(&container_id)?.as_ref()?;
-      let fragment_count = fragments.fragments.len();
       let (fragment_ordinal, excerpt) = if item_id == container_id {
         (0, None)
       } else {
@@ -171,7 +171,7 @@ pub(super) async fn item_contexts(
         });
         (ordinal, excerpt)
       };
-      Some((item_id, ItemContext { container_id, fragment_ordinal, fragment_count, excerpt }))
+      Some((item_id, ItemContext { container_id, fragment_ordinal, excerpt }))
     })
     .collect()
 }
@@ -1342,7 +1342,7 @@ mod tests {
 
     let table_fragments = container_fragments(&db, &access, &table).await.unwrap();
     let cell = &contexts[&cells[100]];
-    assert_eq!((&cell.container_id, cell.fragment_count), (&table, table_fragments.fragments.len()));
+    assert_eq!(cell.container_id, table);
     assert!(cell.fragment_ordinal > 0);
     assert!(table_fragments.fragments[cell.fragment_ordinal].text.contains(&rows[100]));
     let row_text = format!("[Row 100 with a reasonably long name](infumap://{}) | status 100", rows[100]);
