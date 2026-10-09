@@ -28,7 +28,7 @@ starts; an unknown or deleted scope fails the request rather than widening it. E
 applies it:
 
 - `lexical_search` returns only items in the scope. A `within` argument narrows it further. A result
-  whose listing container is outside the scope, such as an include root itself, has no `context`.
+  whose listing container is outside the scope, such as an include root itself, has no container link.
 - `get_fragment` reports an item outside the scope as not found. A container's fragments omit
   children and attachments outside the scope, and a link whose target is outside it is shown as
   `(unavailable link)`.
@@ -53,32 +53,30 @@ disabled.
   "link": "infumap://<id>",
   "itemType": "note",
   "title": "Acme onboarding",
-  "location": "Home › Projects › Tasks",
-  "context": {
-    "link": "infumap://<table id>",
-    "fragmentOrdinal": 4,
-    "fragmentCount": 11,
-    "excerpt": "[Acme onboarding](infumap://<id>) | Active | 2026-01-03"
-  },
+  "location": "Home › Projects › [Tasks](infumap://<table id>)",
+  "locationFragment": 4,
+  "excerpt": "[Acme onboarding](infumap://<id>) | Active | 2026-01-03",
   "fragmentMatch": { "fragmentOrdinal": 3, "text": "…matching sentences…", "pageStart": 4 }
 }
 ```
 
 - `title` is cut at 300 characters. A note cut this way also has `fragmentCount`, the number of
   fragments holding its full text.
-- `location` lists the titles of the containing items, outermost first.
-- `context` is the container fragment that lists the result, for `get_fragment`. It is the page or
-  table holding the result; attachments and composite members belong to the item or composite they
-  are part of, so a table cell's context is its row's table. A page or table result points at its
-  own fragment 0. `excerpt` is the start of the result's block (at most 300 characters) when that
-  block shows more than the result itself: a table row with its cells, a composite, an explicit
+- `location` lists the titles of the containing items, outermost first. The container whose
+  fragments list the result is a link, for `get_fragment`: the page or table holding it, where
+  attachments and composite members belong to the item or composite they are part of, so a table
+  cell's container is its row's table. `locationFragment` is the fragment listing the result, given
+  only when it is past the first. If the container is not among the titles, it is given as
+  `listedIn`. A page or table result has no container link, since its own link is the one to read.
+- `excerpt` is the start of the result's block in that fragment (at most 300 characters), given when
+  the block shows more than the result itself: a table row with its cells, a composite, an explicit
   group, or an item with attachments.
 - `fragmentMatch` is the best matching passage of the item's document text, if any. Its ordinal can
-  be passed to `get_fragment` to read around it.
+  be passed to `get_fragment` to read around it. A match in the title is not given, since the title
+  is already shown.
 
-Contexts are computed from the live database when the search runs, while the search index can lag
-edits by several minutes. A moved item points at its new container, and a deleted item has no
-context.
+The container link is found from the live database when the search runs, while the search index can
+lag edits by several minutes. A moved item links its new container, and a deleted item links none.
 
 ## Reading
 
