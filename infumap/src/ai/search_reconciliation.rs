@@ -59,7 +59,7 @@ use super::geo::{
 use super::image_tagging::{ImageTagArtifactState, image_tagging_artifact_state, is_supported_image_tagging_mime_type};
 use super::lexical_index::{
   FragmentLexicalIndexRebuildStatus, LexicalFragment, document_fragment_lexical_index_dir,
-  open_user_document_fragment_lexical_index, open_user_item_title_lexical_index,
+  open_user_document_fragment_lexical_index, open_user_item_title_lexical_index, remove_outdated_lexical_indexes,
 };
 use super::search_processing::SearchContentKind;
 use super::text_extraction::delete_item_text_dir;
@@ -110,6 +110,7 @@ pub async fn reconcile_search_at_startup(
     let user_started = Instant::now();
     item_ids.sort();
     let live_ids = item_ids.iter().cloned().collect::<HashSet<_>>();
+    remove_outdated_lexical_indexes(data_dir, user_id).await?;
     let title_index = open_user_item_title_lexical_index(data_dir, user_id)?;
     let content_index = open_user_document_fragment_lexical_index(data_dir, user_id)?;
     // Index read/write errors stop startup instead of silently declaring repair

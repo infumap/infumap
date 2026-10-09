@@ -1027,7 +1027,7 @@ fn first_query_term_match_char_range(text: &str, query_terms: &[String]) -> Opti
       }
       current.extend(ch.to_lowercase());
     } else if !current.is_empty() {
-      let stem = light_stem_search_term(&current);
+      let stem = index_word(&current);
       if query_terms.iter().any(|term| term == &stem) {
         return Some((current_start_char, char_idx));
       }
@@ -1037,7 +1037,7 @@ fn first_query_term_match_char_range(text: &str, query_terms: &[String]) -> Opti
 
   if !current.is_empty() {
     let total_chars = text.chars().count();
-    let stem = light_stem_search_term(&current);
+    let stem = index_word(&current);
     if query_terms.iter().any(|term| term == &stem) {
       return Some((current_start_char, total_chars));
     }
@@ -1093,32 +1093,26 @@ fn byte_index_at_char(text: &str, char_idx: usize) -> usize {
   text.char_indices().nth(char_idx).map(|(idx, _)| idx).unwrap_or(text.len())
 }
 
+/// The query's words in their indexed, stemmed form, without stop words unless there is nothing else. Stop words are
+/// recognised before stemming, which would turn "its" into "it".
 fn normalized_search_terms(search_text: &str) -> Vec<String> {
-  let mut raw_terms = tokenize_search_text(search_text)
-    .into_iter()
-    .map(|term| light_stem_search_term(&term))
-    .filter(|term| !term.is_empty())
-    .collect::<Vec<_>>();
-  raw_terms.sort();
-  raw_terms.dedup();
-
-  let mut meaningful_terms = raw_terms
+  let words = tokenize_search_text(search_text);
+  let meaningful = words
     .iter()
-    .filter(|term| term.len() > 1 && !SEARCH_SNIPPET_STOP_WORDS.contains(&term.as_str()))
-    .cloned()
+    .filter(|word| word.len() > 1 && !SEARCH_SNIPPET_STOP_WORDS.contains(&word.as_str()))
     .collect::<Vec<_>>();
-  if meaningful_terms.is_empty() {
-    meaningful_terms = raw_terms;
-  }
-  meaningful_terms
+  let chosen = if meaningful.is_empty() { words.iter().collect() } else { meaningful };
+  let mut terms = chosen.into_iter().map(|word| index_word(word)).filter(|term| !term.is_empty()).collect::<Vec<_>>();
+  terms.sort();
+  terms.dedup();
+  terms
 }
 
 fn sentence_matches_query_terms(sentence: &str, query_terms: &[String]) -> bool {
   if query_terms.is_empty() {
     return false;
   }
-  let sentence_terms =
-    tokenize_search_text(sentence).into_iter().map(|term| light_stem_search_term(&term)).collect::<HashSet<_>>();
+  let sentence_terms = tokenize_search_text(sentence).into_iter().map(|term| index_word(&term)).collect::<HashSet<_>>();
   query_terms.iter().any(|term| sentence_terms.contains(term))
 }
 
@@ -1136,40 +1130,6 @@ fn tokenize_search_text(text: &str) -> Vec<String> {
     terms.push(current);
   }
   terms
-}
-
-fn light_stem_search_term(term: &str) -> String {
-  let mut stem = term.to_owned();
-  if stem.len() > 5 && stem.ends_with("ies") {
-    stem.truncate(stem.len() - 3);
-    stem.push('y');
-  } else if stem.len() > 5 && stem.ends_with("ing") {
-    stem.truncate(stem.len() - 3);
-    remove_doubled_trailing_consonant(&mut stem);
-  } else if stem.len() > 4 && stem.ends_with("ed") {
-    stem.truncate(stem.len() - 2);
-    remove_doubled_trailing_consonant(&mut stem);
-  } else if stem.len() > 4
-    && (stem.ends_with("ches") || stem.ends_with("shes") || stem.ends_with("sses") || stem.ends_with("xes"))
-  {
-    stem.truncate(stem.len() - 2);
-  } else if stem.len() > 3 && stem.ends_with('s') {
-    stem.truncate(stem.len() - 1);
-  }
-  stem
-}
-
-fn remove_doubled_trailing_consonant(term: &mut String) {
-  let mut chars = term.chars().rev();
-  let Some(last) = chars.next() else {
-    return;
-  };
-  let Some(previous) = chars.next() else {
-    return;
-  };
-  if last == previous && !"aeiou".contains(last) {
-    term.truncate(term.len() - last.len_utf8());
-  }
 }
 
 fn collapse_whitespace(text: &str) -> String {
@@ -1382,5 +1342,13 @@ mod tests {
     let second_page = item_ids(&search(3, 6).await.unwrap());
     assert_eq!(second_page.len(), 3);
     assert!(second_page.iter().all(|item_id| !first_page.contains(item_id)), "pages do not overlap");
+  }
+
+  #[test]
+  fn snippets_find_inflected_forms_of_the_query_words() {
+    let text = "The weather was mild. We stayed three nights at the harbour hotels. Breakfast was included.";
+    let (excerpt, _) = search_match_excerpt("text", text, "staying hotel", 300);
+    assert!(excerpt.contains("We stayed three nights at the harbour hotels"), "{excerpt}");
+    assert!(!excerpt.contains("weather"), "{excerpt}");
   }
 }

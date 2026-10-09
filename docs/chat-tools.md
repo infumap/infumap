@@ -48,8 +48,9 @@ disabled.
 
 `text` is required; `numResults` defaults to 8 and accepts 1–20.
 
-A result matches any of the words, compared exactly after lowercasing (there is no stemming), and
-words that no item contains are ignored. Results matching more of the words come first: items
+A result matches any of the words, compared after lowercasing and reducing them to their English
+stem, so "staying" matches "stay" and "hotels" matches "hotel". Text in other languages goes through
+the same rules, so a word always matches itself exactly. Words that no item contains are ignored. Results matching more of the words come first: items
 matching all of them, then those matching one fewer, and so on, each group ranked as usual. Words are
 counted per document fragment, or per item title entry, which also holds the parent's title and the
 item's attachments. So a note matching only one rare word cannot outrank one matching several, and

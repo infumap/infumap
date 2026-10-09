@@ -24,6 +24,8 @@ All of these are derived from the items and their original files, and are regene
 
 Stop the web server before deleting or editing these files. On the next start, Infumap notices what is missing or changed, removes stale search entries, and regenerates in the background. Progress is shown on the `Search processing` page under Queries.
 
+When a new version changes how the indexes store text, as when stemming was added, indexes built by an older version are removed at startup and rebuilt in the same way. Search returns nothing until the rebuild completes.
+
 | Delete | What happens | Why you might |
 | --- | --- | --- |
 | A PDF's or image's `_text` and `_manifest.json` | Extraction runs again with the current GPU tools; fragments and search entries are rebuilt. The item has no searchable content until then. An image's location lookup is kept. | Get better output from upgraded GPU tools, or retry a bad result. |
