@@ -131,6 +131,9 @@ function prepareShiftDragClone(cloned: Item, source: Item): void {
   if (isPage(cloned) && isPage(source) && isMarkdownTextDocumentPage(source.id)) {
     asPageItem(cloned).backgroundColorIndex = 0;
   }
+  // One item is cloned, never a whole group (which has at least two members), so the clone leaves the group.
+  // Otherwise clones of two members dropped on another page would form a second group with the same id.
+  cloned.groupId = null;
   appendCopySuffixToTextLikeClone(cloned);
 }
 
