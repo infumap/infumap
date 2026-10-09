@@ -170,7 +170,13 @@ How containers are laid out:
   included.
 - Document pages render notes as Markdown, with headings, bullets, numbering, indents and code
   blocks, and without a link per note. Long notes are split across fragments rather than cut.
-- Spatial pages list children top to bottom, then left to right. Coordinates are not included.
+- Spatial pages list children top to bottom, then left to right, each starting with its position
+  and size in blocks: `- @14,1 6×4.5 [photo.jpg](infumap://<id>) (image, 2 fragments)`. A line after
+  the header gives the page's area and says how to read them, since the model is left to work out
+  what sits next to what. Heights follow the UI where stored data sets them: pages and images from
+  their width and aspect, tables and explicit-height notes from their stored height, ratings and
+  one-line items as 1. A height set by text wrapping, as for notes, files and composites, is `?`.
+  Composite members and attachments have no geometry of their own.
 - On every kind of page, the members of a group with two or more members are listed together
   where its first member would be, under `[group](infumap://<groupId>) (group, N items)`: indented
   beneath it, or for document pages, following it.
