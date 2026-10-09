@@ -7,8 +7,13 @@ Chats with the Infumap data source enabled have two built-in read-only tools:
   composites.
 
 Both are designed to keep tool results small, because results stay in the chat transcript and weaker
-models have little context to spare. Item ids appear as `infumap://<id>` links, which the model copies
-into its answer as citations.
+models have little context to spare. Items are identified everywhere by a `link`, `infumap://<id>`: tool
+results give it, tool arguments take it, and the model copies it into its answer as a citation.
+
+Arguments also accept what models commonly send instead: a bare id, a whole Markdown link, a link in
+quotes or brackets or followed by punctuation, whole numbers as strings, and near-miss names such as
+`query` for `text` or `ordinal` for `fragmentOrdinal`. A value that still cannot be used is an error,
+not ignored.
 
 Tool results longer than 500 characters are kept whole for the turn that produced them. When the
 next question arrives, they are replaced in the transcript by a short stub with a one-line summary,
@@ -22,7 +27,7 @@ A chat request may name a [scope](scopes.md) with `scopeId`. The scope is resolv
 starts; an unknown or deleted scope fails the request rather than widening it. Every tool then
 applies it:
 
-- `lexical_search` returns only items in the scope. A `pageId` argument narrows it further. A result
+- `lexical_search` returns only items in the scope. A `within` argument narrows it further. A result
   whose listing container is outside the scope, such as an include root itself, has no `context`.
 - `get_fragment` reports an item outside the scope as not found. A container's fragments omit
   children and attachments outside the scope, and a link whose target is outside it is shown as
@@ -38,20 +43,19 @@ disabled.
 ## Searching
 
 ```json
-{ "text": "acme onboarding", "pageId": "<optional page or table id>", "numResults": 8, "pageNum": 1 }
+{ "text": "acme onboarding", "within": "<optional page or table link>", "numResults": 8, "pageNum": 1 }
 ```
 
 `text` is required; `numResults` defaults to 8 and accepts 1–20. Each result looks like:
 
 ```json
 {
-  "itemId": "<id>",
-  "linkUrl": "infumap://<id>",
+  "link": "infumap://<id>",
   "itemType": "note",
   "title": "Acme onboarding",
   "location": "Home › Projects › Tasks",
   "context": {
-    "itemId": "<table id>",
+    "link": "infumap://<table id>",
     "fragmentOrdinal": 4,
     "fragmentCount": 11,
     "excerpt": "[Acme onboarding](infumap://<id>) | Active | 2026-01-03"
@@ -79,11 +83,10 @@ context.
 ## Reading
 
 ```json
-{ "itemId": "<id or infumap:// link>", "fragmentOrdinal": 0, "count": 1, "version": "<optional>" }
+{ "link": "infumap://<id>", "fragmentOrdinal": 0, "count": 1, "version": "<optional>" }
 ```
 
-`itemId` is required; a link reads as its target. `fragmentOrdinal` defaults to 0, and `count`
-returns 1–3 consecutive fragments. The response depends on the item:
+`link` is required; a link item reads as its target. `fragmentOrdinal` defaults to 0, and `count` returns 1–3 consecutive fragments. The response depends on the item:
 
 | Item | `sourceKind` | Fragments |
 | --- | --- | --- |
@@ -95,7 +98,7 @@ Other items, such as ratings and dividers, have no readable text.
 
 ```json
 {
-  "itemId": "<id>", "linkUrl": "infumap://<id>", "itemType": "table", "title": "Tasks",
+  "link": "infumap://<id>", "itemType": "table", "title": "Tasks",
   "sourceKind": "container", "fragmentCount": 11, "version": "3f9a0c2e",
   "fragments": [{ "fragmentOrdinal": 0, "text": "…" }],
   "nextFragmentOrdinal": 1
@@ -131,7 +134,7 @@ How items appear:
   each URL in the note. Longer notes show a 40-character link label, then their text with URLs as Markdown links,
   cut at 600 characters with `(truncated; full text in N fragments)`.
 - Child pages and tables are one line with their item or row count, and tables their column names.
-  They are read by their own id, so rendering never descends into them.
+  They are read by their own link, so rendering never descends into them.
 - Composites are expanded inline, with members indented beneath them. A composite linked inside
   itself is shown once, then as `(composite, shown above)`.
 - Files, text items and images show their type, MIME type and stored fragment count.

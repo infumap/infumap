@@ -65,7 +65,7 @@ You are a chat assistant for an information workspace.
 
 Use lexical_search to find items with a few distinctive words, not the whole question. Split unrelated concepts into \
 separate searches, and retry with fewer or alternate words before concluding something is absent. \
-Use get_fragment to read any item by id, a fragment at a time: documents, notes, pages, tables and composites. \
+Use get_fragment to read any item by its link, a fragment at a time: documents, notes, pages, tables and composites. \
 A container's fragments list its items with links; titles and filenames there are not document contents, and child \
 pages and tables are single lines to read by their own id. A search result's context names the fragment that lists \
 it. Follow nextFragmentOrdinal until it is absent before claiming to have read all of an item. \
@@ -629,27 +629,45 @@ struct OpenAiChatCompletionUsage {
   total_tokens: Option<i64>,
 }
 
+// Tool arguments accept what models commonly send besides the schema: a near-miss name, or a number as a string.
+
 #[derive(Deserialize)]
 struct ChatLexicalSearchToolArguments {
+  #[serde(alias = "query")]
   text: Option<String>,
-  query: Option<String>,
-  #[serde(rename = "pageId")]
-  page_id: Option<Uid>,
-  #[serde(rename = "numResults")]
+  within: Option<String>,
+  #[serde(rename = "numResults", alias = "num_results", default, deserialize_with = "lenient_i64")]
   num_results: Option<i64>,
-  #[serde(rename = "pageNum")]
+  #[serde(rename = "pageNum", alias = "page_num", default, deserialize_with = "lenient_i64")]
   page_num: Option<i64>,
 }
 
 #[derive(Deserialize)]
 struct ChatFragmentToolArguments {
-  #[serde(rename = "itemId")]
-  item_id: Option<String>,
-  #[serde(rename = "fragmentOrdinal")]
+  link: Option<String>,
+  #[serde(
+    rename = "fragmentOrdinal",
+    alias = "fragment_ordinal",
+    alias = "ordinal",
+    default,
+    deserialize_with = "lenient_i64"
+  )]
   fragment_ordinal: Option<i64>,
-  ordinal: Option<i64>,
+  #[serde(default, deserialize_with = "lenient_i64")]
   count: Option<i64>,
   version: Option<String>,
+}
+
+/// A whole number given as a JSON number, including `2.0`, or as a string such as `"2"`.
+fn lenient_i64<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<i64>, D::Error> {
+  let whole = |number: f64| (number.fract() == 0.0).then_some(number as i64);
+  match Option::<Value>::deserialize(deserializer)? {
+    None | Some(Value::Null) => Some(None),
+    Some(Value::Number(number)) => number.as_i64().or_else(|| number.as_f64().and_then(whole)).map(Some),
+    Some(Value::String(text)) => text.trim().parse::<f64>().ok().and_then(whole).map(Some),
+    Some(_) => None,
+  }
+  .ok_or_else(|| serde::de::Error::custom("expected a whole number"))
 }
 
 pub async fn serve_chat_stream_route(
@@ -1329,7 +1347,7 @@ fn lexical_search_tool_spec() -> OpenAiToolSpec {
     tool_type: "function".to_owned(),
     function: OpenAiToolFunctionSpec {
       name: "lexical_search".to_owned(),
-      description: "Search titles, document text, and image descriptions with ordinary words. Prefer a few distinctive terms; split concepts across calls and retry weak searches with fewer or alternate terms. Each result's context gives the itemId and fragmentOrdinal of the container fragment listing it, for get_fragment.".to_owned(),
+      description: "Search titles, document text, and image descriptions with ordinary words. Prefer a few distinctive terms; split concepts across calls and retry weak searches with fewer or alternate terms. Each result's context gives the link and fragmentOrdinal of the container fragment listing it, for get_fragment.".to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
@@ -1337,9 +1355,9 @@ fn lexical_search_tool_spec() -> OpenAiToolSpec {
             "type": "string",
             "description": "Usually 2 to 6 distinctive ordinary words; no Boolean or field syntax."
           },
-          "pageId": {
+          "within": {
             "type": ["string", "null"],
-            "description": "Optional page id; includes that page and all descendants. Omit or use null for the home scope."
+            "description": "Optional link of a page or table; searches it and everything inside it. Omit to search everything."
           },
           "numResults": {
             "type": "integer",
@@ -1365,17 +1383,18 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
     tool_type: "function".to_owned(),
     function: OpenAiToolFunctionSpec {
       name: "get_fragment".to_owned(),
-      description: "Read an Infumap item's text by id, a fragment at a time. Works for documents and images (their \
+      description:
+        "Read an Infumap item's text by its link, a fragment at a time. Works for documents and images (their \
         extracted text), notes, and pages, tables and composites (their items as lines with links; a child page or \
-        table is one line, so read it by its own id). Ordinals start at 0; to continue, call again with \
+        table is one line, so read it by its own link). Ordinals start at 0; to continue, call again with \
         nextFragmentOrdinal until it is absent."
-        .to_owned(),
+          .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
-          "itemId": {
+          "link": {
             "type": "string",
-            "description": "Item id or infumap:// link, from lexical_search or another fragment."
+            "description": "The item's infumap:// link, from lexical_search or a fragment."
           },
           "fragmentOrdinal": {
             "type": "integer",
@@ -1393,7 +1412,7 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
             "description": "Optional version from an earlier response for this item; the response says if it changed."
           }
         },
-        "required": ["itemId"],
+        "required": ["link"],
         "additionalProperties": false
       }),
     },
@@ -1777,7 +1796,7 @@ async fn execute_lexical_search_tool_call(
     Err(e) => return Ok(tool_error_json(&format!("Could not parse lexical_search tool arguments: {}", e))),
   };
 
-  let search_text = arguments.text.or(arguments.query).unwrap_or_default().trim().to_owned();
+  let search_text = arguments.text.unwrap_or_default().trim().to_owned();
   if search_text.is_empty() {
     return Ok(tool_error_json("lexical_search tool argument 'text' is required."));
   }
@@ -1787,8 +1806,15 @@ async fn execute_lexical_search_tool_call(
     .unwrap_or(CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS)
     .clamp(1, CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS);
   let page_num = arguments.page_num.map(|page_num| page_num.max(1));
-  let search_request =
-    search::SearchRequest { page_id: arguments.page_id, text: search_text, num_results, page_num, scope_id: None };
+  let page_id =
+    match arguments.within.as_deref().map(str::trim).filter(|within| !within.is_empty() && *within != "null") {
+      None => None,
+      Some(within) => match item_id_argument(within) {
+        Some(page_id) => Some(page_id),
+        None => return Ok(tool_error_json("lexical_search argument 'within' must be a page or table link.")),
+      },
+    };
+  let search_request = search::SearchRequest { page_id, text: search_text, num_results, page_num, scope_id: None };
 
   match search::run_lexical_search(db, search_request, session, scope).await {
     Ok(response) => {
@@ -1848,12 +1874,11 @@ async fn execute_get_fragment_tool_call(
     Err(e) => return Ok(tool_error_json(&format!("Could not parse get_fragment tool arguments: {}", e))),
   };
 
-  let item_id = arguments.item_id.as_deref().map(str::trim).map(|id| id.strip_prefix("infumap://").unwrap_or(id));
-  let item_id = match item_id.filter(|item_id| !item_id.is_empty()) {
-    Some(item_id) => item_id.to_owned(),
-    None => return Ok(tool_error_json("get_fragment tool argument 'itemId' is required.")),
+  let item_id = match arguments.link.as_deref().and_then(item_id_argument) {
+    Some(item_id) => item_id,
+    None => return Ok(tool_error_json("get_fragment tool argument 'link' must be an item's infumap:// link.")),
   };
-  let first = match arguments.fragment_ordinal.or(arguments.ordinal) {
+  let first = match arguments.fragment_ordinal {
     None => 0,
     Some(ordinal) if ordinal >= 0 => ordinal as usize,
     Some(_) => return Ok(tool_error_json("get_fragment tool argument 'fragmentOrdinal' must be non-negative.")),
@@ -1954,8 +1979,7 @@ async fn execute_get_fragment_tool_call(
     .collect::<Vec<_>>();
 
   let mut response = serde_json::json!({
-    "itemId": content_id,
-    "linkUrl": format!("infumap://{}", content_id),
+    "link": format!("infumap://{}", content_id),
     "itemType": item_type.as_str(),
     "title": title,
     "sourceKind": source_kind,
@@ -1980,6 +2004,21 @@ fn computed_fragment_records(texts: Vec<String>) -> Vec<crate::ai::fragment::Ite
     .enumerate()
     .map(|(ordinal, text)| crate::ai::fragment::ItemFragmentRecord { ordinal, text, page_start: None, page_end: None })
     .collect()
+}
+
+/// The item id in a tool argument: the first run of exactly 32 hex digits. Models pass the link from a result, but
+/// also a bare id, the whole Markdown link, or the link in quotes or brackets or followed by punctuation.
+fn item_id_argument(value: &str) -> Option<Uid> {
+  let chars = value.chars().collect::<Vec<_>>();
+  let mut start = 0;
+  while start < chars.len() {
+    let end = (start..chars.len()).find(|index| !chars[*index].is_ascii_hexdigit()).unwrap_or(chars.len());
+    if end - start == 32 {
+      return Some(chars[start..end].iter().collect::<String>().to_ascii_lowercase());
+    }
+    start = end + 1;
+  }
+  None
 }
 
 fn tool_call_arguments_value(tool_call: &OpenAiToolCall) -> InfuResult<Value> {
@@ -2067,7 +2106,7 @@ fn lexical_search_tool_activity(arguments: &Value, parsed: Option<&Value>) -> (S
     .flat_map(|arr| arr.iter())
     .map(|result| {
       let mut preview = serde_json::json!({
-        "itemId": result.get("itemId").cloned().unwrap_or(Value::Null),
+        "link": result.get("link").cloned().unwrap_or(Value::Null),
         "title": result.get("title").cloned().unwrap_or(Value::Null),
       });
       if let Some(fragment_match) = result.get("fragmentMatch") {
@@ -2656,7 +2695,7 @@ mod tests {
   async fn get_fragment_refuses_out_of_scope_items() {
     let f = fixture().await;
     let scoped = f.infumap_data(true).await;
-    let get = |item_id: &Uid| serde_json::json!({ "itemId": item_id, "fragmentOrdinal": 0 });
+    let get = |item_id: &Uid| serde_json::json!({ "link": format!("infumap://{item_id}"), "fragmentOrdinal": 0 });
 
     for excluded in [&f.x1, &f.x, &f.link_to_b] {
       let result = f.call(Some(&scoped), "get_fragment", get(excluded)).await;
@@ -2702,8 +2741,12 @@ mod tests {
     let mut version = None;
     while let Some(ordinal) = next {
       let result =
-        get(serde_json::json!({ "itemId": format!("infumap://{page}"), "fragmentOrdinal": ordinal, "count": 3 })).await;
-      assert_eq!((result["itemId"].as_str(), result["sourceKind"].as_str()), (Some(page.as_str()), Some("container")));
+        get(serde_json::json!({ "link": format!("infumap://{page}"), "fragmentOrdinal": ordinal, "count": 3 })).await;
+      assert_eq!(
+        (&result["link"], &result["sourceKind"]),
+        (&Value::from(format!("infumap://{page}")), &Value::from("container"))
+      );
+      assert!(result.get("itemId").is_none(), "the link is the only id");
       version.get_or_insert_with(|| result["version"].clone());
       assert_eq!(Some(&result["version"]), version.as_ref());
       for fragment in result["fragments"].as_array().unwrap() {
@@ -2715,18 +2758,18 @@ mod tests {
     }
     assert_eq!(listed, note_ids);
 
-    let first = get(serde_json::json!({ "itemId": page })).await;
+    let first = get(serde_json::json!({ "link": page })).await;
     let count = first["fragmentCount"].as_u64().unwrap();
     assert!(count > 3);
     assert_eq!(first["fragments"].as_array().unwrap().len(), 1, "count defaults to 1 and the ordinal to 0");
     assert_eq!(first["fragments"][0]["fragmentOrdinal"], 0);
     assert_eq!(first["nextFragmentOrdinal"], 1);
     assert!(first.get("changed").is_none());
-    let stale = get(serde_json::json!({ "itemId": page, "version": "00000000" })).await;
+    let stale = get(serde_json::json!({ "link": page, "version": "00000000" })).await;
     assert_eq!(stale["changed"], true);
-    let same = get(serde_json::json!({ "itemId": page, "version": first["version"] })).await;
+    let same = get(serde_json::json!({ "link": page, "version": first["version"] })).await;
     assert!(same.get("changed").is_none());
-    let out_of_range = get(serde_json::json!({ "itemId": page, "fragmentOrdinal": count })).await;
+    let out_of_range = get(serde_json::json!({ "link": page, "fragmentOrdinal": count })).await;
     assert_eq!(
       error_of(&out_of_range),
       Some(
@@ -2737,12 +2780,15 @@ mod tests {
         .as_str()
       )
     );
-    let too_many = get(serde_json::json!({ "itemId": page, "count": 4 })).await;
+    let too_many = get(serde_json::json!({ "link": page, "count": 4 })).await;
     assert_eq!(error_of(&too_many), Some("get_fragment tool argument 'count' must be between 1 and 3."));
 
     // A note reads as its own fragments, and a link reads as its target.
-    let note = get(serde_json::json!({ "itemId": link, "count": 3 })).await;
-    assert_eq!((note["itemId"].as_str(), note["sourceKind"].as_str()), (Some(long_note.as_str()), Some("note")));
+    let note = get(serde_json::json!({ "link": link, "count": 3 })).await;
+    assert_eq!(
+      (&note["link"], &note["sourceKind"]),
+      (&Value::from(format!("infumap://{long_note}")), &Value::from("note"))
+    );
     assert_eq!(note["fragmentCount"], 3, "two 1469-char paragraphs do not fit one fragment");
     assert!(note.get("nextFragmentOrdinal").is_none());
     let texts = note["fragments"]
@@ -2754,7 +2800,7 @@ mod tests {
     assert_eq!(texts.join("\n\n"), long_text);
     assert!(note["title"].as_str().unwrap().chars().count() <= 81, "the title is a label, not the whole note");
 
-    let pending = get(serde_json::json!({ "itemId": file })).await;
+    let pending = get(serde_json::json!({ "link": file })).await;
     assert_eq!(error_of(&pending), Some("This item has no readable text yet."));
 
     let (summary, _) = chat_tool_finished_activity(
@@ -2811,9 +2857,9 @@ mod tests {
     assert_eq!(
       json["results"][0],
       serde_json::json!({
-        "itemId": "r", "linkUrl": "infumap://r", "itemType": "note", "title": "Acme",
+        "link": "infumap://r", "itemType": "note", "title": "Acme",
         "location": "Home › untitled table",
-        "context": { "itemId": "t", "fragmentOrdinal": 2, "fragmentCount": 5, "excerpt": "[Acme](infumap://r) | Active" },
+        "context": { "link": "infumap://t", "fragmentOrdinal": 2, "fragmentCount": 5, "excerpt": "[Acme](infumap://r) | Active" },
         "fragmentMatch": { "fragmentOrdinal": 3, "text": "the match", "pageStart": 4 }
       })
     );
@@ -2858,14 +2904,18 @@ mod tests {
     let messages = vec![
       OpenAiChatMessage::text("user", "what is in my tasks?".to_owned()),
       assistant_calling(vec![
-        call("c1", "get_fragment", serde_json::json!({ "itemId": "t" })),
-        call("c2", "get_fragment", serde_json::json!({ "itemId": "x" })),
+        call("c1", "get_fragment", serde_json::json!({ "link": "infumap://t" })),
+        call("c2", "get_fragment", serde_json::json!({ "link": "infumap://x" })),
       ]),
       OpenAiChatMessage::tool("c1".to_owned(), fragment.clone()),
       OpenAiChatMessage::tool("c2".to_owned(), small.clone()),
       OpenAiChatMessage::text("assistant", "Rows about tasks.".to_owned()),
       OpenAiChatMessage::text("user", "and the next fragment?".to_owned()),
-      assistant_calling(vec![call("c3", "get_fragment", serde_json::json!({ "itemId": "t", "fragmentOrdinal": 1 }))]),
+      assistant_calling(vec![call(
+        "c3",
+        "get_fragment",
+        serde_json::json!({ "link": "infumap://t", "fragmentOrdinal": 1 }),
+      )]),
       OpenAiChatMessage::tool("c3".to_owned(), fragment.clone()),
     ];
 
@@ -2915,10 +2965,40 @@ mod tests {
     assert_eq!(other_run["messages"].as_array().unwrap().len(), 5, "another run starts in full");
   }
 
+  #[test]
+  fn tool_arguments_accept_what_models_commonly_send() {
+    let id = "da9dcb125d644d92a4a1ea635a77149b";
+    for given in [
+      id.to_owned(),
+      format!("infumap://{id}"),
+      format!("  infumap://{}.", id.to_uppercase()),
+      format!("[Tasks](infumap://{id})"),
+      format!("<infumap://{id}>"),
+      format!("\"infumap://{id}\""),
+    ] {
+      assert_eq!(item_id_argument(&given).as_deref(), Some(id), "{given}");
+    }
+    for unusable in ["", "Tasks", "infumap://da9dcb12", &format!("{id}0")] {
+      assert_eq!(item_id_argument(unusable), None, "{unusable}");
+    }
+
+    let parse = |arguments: Value| serde_json::from_value::<ChatFragmentToolArguments>(arguments);
+    let parsed = parse(serde_json::json!({ "link": id, "ordinal": "2", "count": 3.0 })).unwrap();
+    assert_eq!((parsed.fragment_ordinal, parsed.count), (Some(2), Some(3)));
+    assert_eq!(parse(serde_json::json!({ "link": id, "fragment_ordinal": 1 })).unwrap().fragment_ordinal, Some(1));
+    assert!(parse(serde_json::json!({ "link": id, "count": "two" })).is_err());
+    assert!(parse(serde_json::json!({ "link": id, "count": 1.5 })).is_err());
+    let search = serde_json::from_value::<ChatLexicalSearchToolArguments>(
+      serde_json::json!({ "query": "acme", "numResults": "5", "pageNum": null }),
+    )
+    .unwrap();
+    assert_eq!((search.text.as_deref(), search.num_results, search.page_num), (Some("acme"), Some(5), None));
+  }
+
   #[tokio::test]
   async fn infumap_tools_are_refused_when_infumap_data_is_off() {
     let f = fixture().await;
-    let result = f.call(None, "get_fragment", serde_json::json!({ "itemId": f.a })).await;
+    let result = f.call(None, "get_fragment", serde_json::json!({ "link": f.a })).await;
     assert_eq!(error_of(&result), Some("Infumap data is not enabled for this chat."));
   }
 

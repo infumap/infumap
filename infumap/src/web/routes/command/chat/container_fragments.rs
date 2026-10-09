@@ -116,7 +116,7 @@ impl ContainerFragments {
 /// such as the rest of a table row or composite, the start of that unit.
 #[derive(Serialize)]
 pub(super) struct ItemContext {
-  #[serde(rename = "itemId")]
+  #[serde(rename = "link", serialize_with = "serialize_link")]
   pub container_id: Uid,
   #[serde(rename = "fragmentOrdinal")]
   pub fragment_ordinal: usize,
@@ -124,6 +124,10 @@ pub(super) struct ItemContext {
   pub fragment_count: usize,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub excerpt: Option<String>,
+}
+
+fn serialize_link<S: serde::Serializer>(item_id: &Uid, serializer: S) -> Result<S::Ok, S::Error> {
+  serializer.serialize_str(&format!("infumap://{item_id}"))
 }
 
 /// Contexts for search hits, keyed by hit id, rendering each container once. A page or table hit points at its own

@@ -148,9 +148,8 @@ pub(super) mod compact {
 
   #[derive(Serialize)]
   pub(super) struct CompactSearchResult<'a, E> {
-    #[serde(rename = "itemId")]
-    pub item_id: Uid,
-    #[serde(rename = "linkUrl")]
+    /// The result's only id: `infumap://<id>`, which the tools accept wherever they take an id.
+    #[serde(rename = "link")]
     pub link_url: String,
     #[serde(rename = "itemType")]
     pub item_type: String,
@@ -195,7 +194,6 @@ pub(super) mod compact {
     let (item, ancestors) = result.path.split_last()?;
     let location = ancestors.iter().map(location_label).collect::<Vec<_>>().join(" › ");
     Some(CompactSearchResult {
-      item_id: item.id.clone(),
       link_url: format!("infumap://{}", item.id),
       item_type: item.item_type.clone(),
       title: item.title.as_deref().map(|title| clamp_with_ellipsis(title, TITLE_MAX_CHARS)),
