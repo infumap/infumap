@@ -1123,6 +1123,14 @@ async fn handle_get_items(
   let request: GetItemsRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
   let item_id = resolve_get_items_request_item_id(db, &request.id, session_maybe).await?;
+  // A group is not an item. Its id loads the page holding it, and the response names the group to highlight.
+  let (item_id, group_id) = {
+    let db = db.lock().await;
+    match db.item.get(&item_id).is_err().then(|| db.item.group_container_id(&item_id)).flatten() {
+      Some(page_id) => (page_id, Some(item_id)),
+      None => (item_id, None),
+    }
+  };
 
   let session_user_id_maybe = match &session_maybe {
     Some(session) => Some(session.user_id.clone()),
@@ -1237,6 +1245,10 @@ async fn handle_get_items(
       None => Value::Null,
     },
   );
+
+  if let Some(group_id) = group_id {
+    result.insert(String::from("groupId"), Value::String(group_id));
+  }
 
   debug!("Executed 'get-items' command for item '{}' (mode {:?}).", item_id, mode);
 

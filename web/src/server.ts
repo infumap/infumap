@@ -55,6 +55,8 @@ export interface ItemsAndTheirAttachments {
   attachments: { [id: string]: Array<object> },
   syncEpoch: number | null,
   syncVersion: number | null,
+  /** Set when the requested id is a group: `item` is then the page holding it. */
+  groupId: Uid | null,
 }
 
 export interface SearchResult {
@@ -748,6 +750,7 @@ function normalizeFetchedItemsResponse(
     attachments: response.attachments,
     syncEpoch: typeof response.syncEpoch === "number" ? response.syncEpoch : null,
     syncVersion: typeof response.syncVersion === "number" ? response.syncVersion : null,
+    groupId: typeof response.groupId === "string" ? response.groupId : null,
   };
 }
 

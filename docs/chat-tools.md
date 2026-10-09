@@ -76,6 +76,7 @@ Each result is one line of text:
   `get_fragment` can read: the container, any composite or item the result belongs to, and the
   result itself. Attachments and composite members belong to the item or composite they are part of,
   so a table cell's container is its row's table. A page or table result is listed by its parent.
+  A group comes after its page when the result, or the item holding it, is one of its members.
 - `(fragment N)` after the container is the fragment listing the result, given only when it is past
   the first.
 - Composites have no titles and are labelled `composite`; other untitled items are `untitled <type>`.
@@ -103,11 +104,18 @@ edits by several minutes. A moved item links its new container, and a deleted it
 
 | Item | `sourceKind` | Fragments |
 | --- | --- | --- |
-| Page, table, composite | `container` | Its items as lines of text, built on demand (below). |
+| Page, table, composite, group | `container` | Its items as lines of text, built on demand (below). |
 | Note | `note` | Its text, built on demand (below). |
 | File, text, image | stored kind, e.g. `pdf_markdown` | Stored when the document was processed; each is cut at 2,500 characters with `textTruncated`. |
 
 Other items, such as ratings and dividers, have no readable text.
+
+A group is not an item: it is the `groupId` shared by two or more children of a page. Its link is
+`infumap://<groupId>`, and it reads with `itemType` and `title` both `group`: its members as units,
+laid out as its page lays them out, under a header linking the page. A group id left on one child,
+or on one child the scope leaves readable, is not a group and is not found. The same link opened in
+the UI, from the URL bar or a note, shows the group's page with the group highlighted for three
+seconds, and the URL becomes the page's.
 
 ```json
 {
@@ -163,7 +171,9 @@ How containers are laid out:
 - Document pages render notes as Markdown, with headings, bullets, numbering, indents and code
   blocks, and without a link per note. Long notes are split across fragments rather than cut.
 - Spatial pages list children top to bottom, then left to right. Coordinates are not included.
-  Explicit groups with two or more members are listed together under `- Group:`.
+- On every kind of page, the members of a group with two or more members are listed together
+  where its first member would be, under `[group](infumap://<groupId>) (group, N items)`: indented
+  beneath it, or for document pages, following it.
 - Calendar pages list children by date with a `2026-01-03 14:00:` prefix. Times are in UTC, which
   can differ by a day from the browser's local calendar near midnight.
 - Other pages use their stored order, or title order when the container sorts by title (document

@@ -97,15 +97,19 @@ pub(super) struct ContainerFragment {
 pub(super) struct FragmentUnit {
   /// Placements rendered in the unit: a child with its attachments, or a composite or group with its members.
   pub item_ids: Vec<Uid>,
+}
+
+/// A table row on one line, with the placements rendered in it: the row item first, then its cells.
+pub(super) struct Row {
+  pub item_ids: Vec<Uid>,
   pub text: String,
-  /// Whether the unit is a table row, whose first placement is the row item.
-  pub row: bool,
 }
 
 pub(super) struct ContainerFragments {
   /// Changes when anything rendered changes, so a reader can tell that ordinals may have moved.
   pub version: String,
   pub fragments: Vec<ContainerFragment>,
+  pub rows: Vec<Row>,
 }
 
 impl ContainerFragments {
@@ -115,6 +119,11 @@ impl ContainerFragments {
       fragment.units.iter().find(|unit| unit.item_ids.contains(item_id)).map(|unit| (ordinal, unit))
     })
   }
+
+  /// The table row rendering the placement.
+  pub fn row_of(&self, item_id: &Uid) -> Option<&Row> {
+    self.rows.iter().find(|row| row.item_ids.contains(item_id))
+  }
 }
 
 /// How lexical_search shows a hit: the page or table whose fragments list it, and the hit as text.
@@ -123,6 +132,8 @@ pub(super) struct HitListing {
   pub container_id: Option<Uid>,
   /// The container fragment listing the hit.
   pub container_fragment: usize,
+  /// The group in the container that the hit belongs to, or that the item holding it does.
+  pub group_id: Option<Uid>,
   /// The item `text` stands for: the hit, or for a table cell, its row, whose cells hold the cell's text.
   pub subject_id: Uid,
   /// The subject on one line: a table row with its cells, or else a linked label saying what the item is.
@@ -136,11 +147,11 @@ pub(super) async fn hit_listings(
   access: &Access<'_>,
   item_ids: &[Uid],
 ) -> HashMap<Uid, HitListing> {
-  let (labels, containers, data_dir, data_item_ids) = {
+  let (labels, mut placements, data_dir, data_item_ids) = {
     let db = db.lock().await;
     let mut renderer = Renderer::new(&db, access);
     let mut labels = Vec::new();
-    let mut containers = HashMap::new();
+    let mut placements = HashMap::new();
     for item_id in item_ids {
       let Ok(item) = db.item.get(item_id) else {
         continue;
@@ -148,16 +159,20 @@ pub(super) async fn hit_listings(
       let Some(label) = access.content(&db, item).and_then(|content| renderer.hit_label(content).ok()) else {
         continue;
       };
-      if let Some(container) = listing_container(&db, item) {
-        containers.insert(item_id.clone(), container.id.clone());
+      if let Some((container, child)) = listing_placement(&db, item) {
+        let group_id = child
+          .group_id
+          .as_ref()
+          .filter(|group_id| group_members(&db, access, group_id).is_some_and(|(page, _)| page.id == container.id));
+        placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned()));
       }
       labels.push((item_id.clone(), label));
     }
-    (labels, containers, db.item.data_dir().to_owned(), renderer.data_item_ids)
+    (labels, placements, db.item.data_dir().to_owned(), renderer.data_item_ids)
   };
   let counts = data_fragment_counts(&data_dir, access.user_id, &data_item_ids).await;
   let mut rendered = HashMap::new();
-  for container_id in containers.values() {
+  for (container_id, _) in placements.values() {
     if !rendered.contains_key(container_id) {
       rendered.insert(container_id.clone(), container_fragments(db, access, container_id).await.ok());
     }
@@ -166,16 +181,22 @@ pub(super) async fn hit_listings(
     .into_iter()
     .map(|(item_id, label)| {
       let text = label.render(&counts);
-      let mut listing = HitListing { container_id: None, container_fragment: 0, subject_id: item_id.clone(), text };
-      let container_id = containers.get(&item_id);
-      let fragments = container_id.and_then(|container_id| rendered.get(container_id)?.as_ref());
-      if let Some((ordinal, unit)) = fragments.and_then(|fragments| fragments.locate(&item_id)) {
-        listing.container_id = container_id.cloned();
+      let mut listing =
+        HitListing { container_id: None, container_fragment: 0, group_id: None, subject_id: item_id.clone(), text };
+      let Some((container_id, group_id)) = placements.remove(&item_id) else {
+        return (item_id, listing);
+      };
+      let Some(fragments) = rendered.get(&container_id).and_then(Option::as_ref) else {
+        return (item_id, listing);
+      };
+      if let Some((ordinal, _)) = fragments.locate(&item_id) {
+        listing.container_id = Some(container_id);
         listing.container_fragment = ordinal;
+        listing.group_id = group_id;
         // A row's cells are part of the record, so a row or cell hit is shown as the whole row.
-        if unit.row {
-          let (text, truncated) = excerpt(&unit.text, ROW_LISTING_MAX_CHARS);
-          listing.subject_id = unit.item_ids[0].clone();
+        if let Some(row) = fragments.row_of(&item_id) {
+          let (text, truncated) = excerpt(&row.text, ROW_LISTING_MAX_CHARS);
+          listing.subject_id = row.item_ids[0].clone();
           listing.text = if truncated { format!("{text}…") } else { text };
         }
       }
@@ -189,14 +210,14 @@ fn is_listing_container(item: &Item) -> bool {
   matches!(item.item_type, ItemType::Page | ItemType::Table)
 }
 
-/// The page or table whose fragments list `item`. Attachments are listed with the item they are attached to and
-/// composite members with their composite, so for those it climbs further.
-fn listing_container<'a>(db: &'a Db, item: &'a Item) -> Option<&'a Item> {
+/// The page or table whose fragments list `item`, and its child that holds `item`: the item itself, or for an
+/// attachment or composite member, the item or composite it is part of.
+fn listing_placement<'a>(db: &'a Db, item: &'a Item) -> Option<(&'a Item, &'a Item)> {
   let mut current = item;
   for _ in 0..MAX_DEPTH {
     let parent = db.item.get(current.parent_id.as_ref()?).ok()?;
     if current.relationship_to_parent == RelationshipToParent::Child && is_listing_container(parent) {
-      return Some(parent);
+      return Some((parent, current));
     }
     current = parent;
   }
@@ -210,22 +231,25 @@ pub(super) struct ContainerOutline {
   row_count: Option<usize>,
   separator: &'static str,
   units: Vec<Unit>,
+  rows: Vec<(Vec<Uid>, Pieces)>,
   data_item_ids: HashSet<Uid>,
 }
 
 struct Unit {
   pieces: Pieces,
   item_ids: Vec<Uid>,
-  row: Option<usize>,
+  /// The table rows in the unit, first and last, counted from zero.
+  rows: Option<(usize, usize)>,
 }
 
+#[derive(Clone)]
 enum Piece {
   Text(String),
   /// ", N fragments" when the data item has stored fragments, otherwise nothing.
   FragmentCount(Uid),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Pieces(Vec<Piece>);
 
 impl Pieces {
@@ -284,6 +308,20 @@ pub(super) async fn container_fragments(
   Ok(outline.fragments(&counts))
 }
 
+/// A group's members as fragments, laid out as its page lays them out.
+pub(super) async fn group_fragments(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  access: &Access<'_>,
+  group_id: &Uid,
+) -> InfuResult<ContainerFragments> {
+  let (outline, data_dir) = {
+    let db = db.lock().await;
+    (group_outline(&db, access, group_id)?, db.item.data_dir().to_owned())
+  };
+  let counts = data_fragment_counts(&data_dir, access.user_id, &outline.data_item_ids).await;
+  Ok(outline.fragments(&counts))
+}
+
 /// Stored fragment counts. Items without fragments, or whose manifest cannot be read, are left out.
 async fn data_fragment_counts(data_dir: &str, user_id: &str, item_ids: &HashSet<Uid>) -> HashMap<Uid, usize> {
   let counts = stream::iter(item_ids.iter().cloned().map(|item_id| async move {
@@ -306,19 +344,45 @@ pub(super) fn container_outline(db: &Db, access: &Access, container_id: &Uid) ->
   }
   let ancestors = ancestors(db, container, access.user_id)?;
   let mut renderer = Renderer::new(db, access);
-  let tabular = is_tabular(container);
-  let units = renderer.container_units(container)?;
-  Ok(ContainerOutline {
-    heading: heading(db, access, container, &ancestors),
-    columns: tabular
-      .then(|| column_names(container))
-      .filter(|names| !names.is_empty())
-      .map(|names| format!("Columns: {}", names.join(" | "))),
-    row_count: tabular.then_some(units.len()),
-    separator: if container.arrange_algorithm == Some(ArrangeAlgorithm::Document) { "\n\n" } else { "\n" },
-    units,
-    data_item_ids: renderer.data_item_ids,
-  })
+  renderer.active.insert(container.id.clone());
+  let entries = entries(renderer.children(container)?);
+  let units = renderer.layout_units(Layout::of(container), entries)?;
+  Ok(renderer.outline(heading(db, access, container, &ancestors), container, units))
+}
+
+/// The group's page, if the chat can read it, and the members it can read, if they are still a group.
+pub(super) fn group_members<'a>(db: &'a Db, access: &Access, group_id: &Uid) -> Option<(&'a Item, Vec<&'a Item>)> {
+  let page = db.item.get(&db.item.group_container_id(group_id)?).ok().filter(|page| access.can_read(db, page))?;
+  let mut members = db.item.get_children(&page.id).ok()?;
+  members.retain(|member| member.group_id.as_ref() == Some(group_id) && access.can_read(db, member));
+  (members.len() >= 2).then_some((page, members))
+}
+
+/// A group read on its own: its members as units, in the order and layout of its page.
+fn group_outline(db: &Db, access: &Access, group_id: &Uid) -> InfuResult<ContainerOutline> {
+  let (page, _) = group_members(db, access, group_id).ok_or("Item was not found.")?;
+  let mut path = ancestors(db, page, access.user_id)?;
+  path.push(page);
+  let mut renderer = Renderer::new(db, access);
+  renderer.active.insert(page.id.clone());
+  let mut members = renderer.children(page)?;
+  members.retain(|member| member.group_id.as_ref() == Some(group_id));
+  let heading = format!(
+    "{} (group, {}) in {}",
+    group_link(group_id),
+    count_label(members.len(), "item"),
+    breadcrumb(db, access, &path)
+  );
+  let units = renderer.layout_units(Layout::of(page), members.into_iter().map(Entry::Item).collect())?;
+  Ok(renderer.outline(heading, page, units))
+}
+
+fn group_link(group_id: &Uid) -> String {
+  format!("[group](infumap://{group_id})")
+}
+
+fn count_label(count: usize, noun: &str) -> String {
+  format!("{count} {noun}{}", if count == 1 { "" } else { "s" })
 }
 
 impl ContainerOutline {
@@ -346,9 +410,9 @@ impl ContainerOutline {
         }
         chunk.body.push_str(&piece);
         chunk.chars += piece_chars;
-        chunk.units.push(FragmentUnit { item_ids: unit.item_ids.clone(), text: piece, row: unit.row.is_some() });
-        if let Some(row) = unit.row {
-          chunk.rows = Some(chunk.rows.map_or((row, row), |(first, _)| (first, row)));
+        chunk.units.push(FragmentUnit { item_ids: unit.item_ids.clone() });
+        if let Some((first_row, last_row)) = unit.rows {
+          chunk.rows = Some(chunk.rows.map_or((first_row, last_row), |(first, _)| (first, last_row)));
         }
       }
     }
@@ -376,7 +440,9 @@ impl ContainerOutline {
       .collect();
     // Hashing rendered text, not items, is far cheaper and ignores edits a reader cannot see.
     let version = fragments_version(fragments.iter().map(|fragment| &fragment.text));
-    ContainerFragments { version, fragments }
+    let rows =
+      self.rows.iter().map(|(item_ids, pieces)| Row { item_ids: item_ids.clone(), text: pieces.render(counts) });
+    ContainerFragments { version, fragments, rows: rows.collect() }
   }
 }
 
@@ -505,24 +571,32 @@ fn heading(db: &Db, access: &Access, container: &Item, ancestors: &[&Item]) -> S
     item_type => item_type.as_str().to_owned(),
   };
   let mut heading = format!("{} ({kind})", item_link(container));
-  if let Some((parent, above)) = ancestors.split_last() {
-    let mut crumbs = above
-      .iter()
-      .map(|item| clamp_label(item.title.as_deref().unwrap_or(""), BREADCRUMB_TITLE_MAX_CHARS))
-      .collect::<Vec<_>>();
-    // Only the parent is linked, so the model can go up a level without a uid for every ancestor.
-    crumbs.push(if access.can_read(db, parent) {
-      item_link(parent)
-    } else {
-      clamp_label(parent.title.as_deref().unwrap_or(""), BREADCRUMB_TITLE_MAX_CHARS)
-    });
+  if !ancestors.is_empty() {
     heading.push_str(" in ");
-    heading.push_str(&crumbs.join(" › "));
+    heading.push_str(&breadcrumb(db, access, ancestors));
   }
   if container.arrange_algorithm == Some(ArrangeAlgorithm::Calendar) {
     heading.push_str(" · times in UTC");
   }
   heading
+}
+
+/// Titles of `path`, outermost first. Only the last is linked, so the model can go up a level without a uid for
+/// every ancestor.
+fn breadcrumb(db: &Db, access: &Access, path: &[&Item]) -> String {
+  let Some((parent, above)) = path.split_last() else {
+    return String::new();
+  };
+  let mut crumbs = above
+    .iter()
+    .map(|item| clamp_label(item.title.as_deref().unwrap_or(""), BREADCRUMB_TITLE_MAX_CHARS))
+    .collect::<Vec<_>>();
+  crumbs.push(if access.can_read(db, parent) {
+    item_link(parent)
+  } else {
+    clamp_label(parent.title.as_deref().unwrap_or(""), BREADCRUMB_TITLE_MAX_CHARS)
+  });
+  crumbs.join(" › ")
 }
 
 fn link_url(item: &Item) -> String {
@@ -619,6 +693,61 @@ fn calendar_prefix(item: &Item) -> String {
   }
 }
 
+/// How a container lays out its children.
+#[derive(Clone, Copy, PartialEq)]
+enum Layout {
+  /// One row per line with its cells.
+  Table,
+  /// Notes as Markdown.
+  Document,
+  /// Bullet lines with a date prefix.
+  Calendar,
+  /// Bullet lines.
+  Lines,
+}
+
+impl Layout {
+  fn of(container: &Item) -> Layout {
+    if is_tabular(container) {
+      return Layout::Table;
+    }
+    match container.arrange_algorithm.filter(|_| container.item_type == ItemType::Page) {
+      Some(ArrangeAlgorithm::Document) => Layout::Document,
+      Some(ArrangeAlgorithm::Calendar) => Layout::Calendar,
+      _ => Layout::Lines,
+    }
+  }
+}
+
+/// A child of a container, or a group of its children.
+enum Entry<'a> {
+  Item(&'a Item),
+  Group(Uid, Vec<&'a Item>),
+}
+
+/// Children in display order, with each group in place of its first member. A group id held by only one child is
+/// not a group: the other members were moved or deleted.
+fn entries<'a>(children: Vec<&'a Item>) -> Vec<Entry<'a>> {
+  let mut group_sizes = HashMap::<&Uid, usize>::new();
+  for group_id in children.iter().filter_map(|child| child.group_id.as_ref()) {
+    *group_sizes.entry(group_id).or_default() += 1;
+  }
+  let mut written_groups = HashSet::new();
+  let mut entries = Vec::new();
+  for child in &children {
+    match child.group_id.as_ref().filter(|group_id| group_sizes[group_id] >= 2) {
+      Some(group_id) => {
+        if written_groups.insert(group_id) {
+          let members = children.iter().filter(|item| item.group_id.as_ref() == Some(group_id)).copied().collect();
+          entries.push(Entry::Group(group_id.clone(), members));
+        }
+      }
+      None => entries.push(Entry::Item(child)),
+    }
+  }
+  entries
+}
+
 struct Renderer<'a, 'b> {
   db: &'a Db,
   access: &'b Access<'b>,
@@ -627,6 +756,7 @@ struct Renderer<'a, 'b> {
   data_item_ids: HashSet<Uid>,
   placements: usize,
   unit_item_ids: Vec<Uid>,
+  rows: Vec<(Vec<Uid>, Pieces)>,
 }
 
 impl<'a, 'b> Renderer<'a, 'b> {
@@ -638,6 +768,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       data_item_ids: HashSet::new(),
       placements: 0,
       unit_item_ids: Vec::new(),
+      rows: Vec::new(),
     }
   }
 
@@ -648,10 +779,6 @@ impl<'a, 'b> Renderer<'a, 'b> {
     }
     self.unit_item_ids.push(placement.id.clone());
     Ok(())
-  }
-
-  fn finish_unit(&mut self, pieces: Pieces, row: Option<usize>) -> Unit {
-    Unit { pieces, item_ids: std::mem::take(&mut self.unit_item_ids), row }
   }
 
   /// Readable children in the order the container displays them.
@@ -699,101 +826,93 @@ impl<'a, 'b> Renderer<'a, 'b> {
     Ok(self.db.item.get_children(&container.id)?.into_iter().filter(|item| self.access.can_read(self.db, item)).count())
   }
 
-  fn container_units(&mut self, container: &'a Item) -> InfuResult<Vec<Unit>> {
-    self.active.insert(container.id.clone());
-    if is_tabular(container) {
-      return self.table_units(container);
+  /// The outline of `container`'s units, with its columns when it is tabular.
+  fn outline(self, heading: String, container: &Item, units: Vec<Unit>) -> ContainerOutline {
+    let tabular = is_tabular(container);
+    ContainerOutline {
+      heading,
+      columns: tabular
+        .then(|| column_names(container))
+        .filter(|names| !names.is_empty())
+        .map(|names| format!("Columns: {}", names.join(" | "))),
+      row_count: tabular.then_some(self.rows.len()),
+      separator: if Layout::of(container) == Layout::Document { "\n\n" } else { "\n" },
+      units,
+      rows: self.rows,
+      data_item_ids: self.data_item_ids,
     }
-    let children = self.children(container)?;
+  }
+
+  /// One unit per entry. A group is a line linking it, then its members beneath it.
+  fn layout_units(&mut self, layout: Layout, entries: Vec<Entry<'a>>) -> InfuResult<Vec<Unit>> {
     let mut units = Vec::new();
-    match container.arrange_algorithm.filter(|_| container.item_type == ItemType::Page) {
-      Some(ArrangeAlgorithm::Document) => {
-        for child in children {
-          let mut pieces = Pieces::default();
-          self.document_block(child, 0, &mut pieces)?;
-          units.push(self.finish_unit(pieces, None));
-        }
-      }
-      Some(ArrangeAlgorithm::SpatialStretch) => {
-        let mut group_sizes = HashMap::<&str, usize>::new();
-        for child in &children {
-          if let Some(group_id) = child.group_id.as_deref() {
-            *group_sizes.entry(group_id).or_default() += 1;
+    for entry in entries {
+      let mut pieces = Pieces::default();
+      let first_row = self.rows.len();
+      match entry {
+        Entry::Item(child) => self.entry_item(layout, child, 0, &mut pieces)?,
+        Entry::Group(group_id, members) => {
+          let bullet = if matches!(layout, Layout::Lines | Layout::Calendar) { "- " } else { "" };
+          pieces.text(&format!("{bullet}{} (group, {})", group_link(&group_id), count_label(members.len(), "item")));
+          for member in members {
+            pieces.text(if layout == Layout::Document { "\n\n" } else { "\n" });
+            self.entry_item(layout, member, 1, &mut pieces)?;
           }
         }
-        // A groupId held by only one child is not a group (the other members were moved or deleted).
-        let group_of = |item: &Item| item.group_id.clone().filter(|group_id| group_sizes[group_id.as_str()] >= 2);
-        let mut written_groups = HashSet::new();
-        for child in &children {
-          let mut pieces = Pieces::default();
-          match group_of(child) {
-            Some(group_id) => {
-              if !written_groups.insert(group_id.clone()) {
-                continue;
-              }
-              pieces.text("- Group:");
-              for member in children.iter().filter(|item| item.group_id.as_ref() == Some(&group_id)) {
-                pieces.text("\n");
-                self.item_lines(member, 1, "", &mut pieces)?;
-              }
-            }
-            None => self.item_lines(child, 0, "", &mut pieces)?,
-          }
-          units.push(self.finish_unit(pieces, None));
-        }
       }
-      Some(ArrangeAlgorithm::Calendar) => {
-        for child in children {
-          let mut pieces = Pieces::default();
-          self.item_lines(child, 0, &calendar_prefix(child), &mut pieces)?;
-          units.push(self.finish_unit(pieces, None));
-        }
-      }
-      _ => {
-        for child in children {
-          let mut pieces = Pieces::default();
-          self.item_lines(child, 0, "", &mut pieces)?;
-          units.push(self.finish_unit(pieces, None));
-        }
-      }
+      let rows = (self.rows.len() > first_row).then(|| (first_row, self.rows.len() - 1));
+      units.push(Unit { pieces, item_ids: std::mem::take(&mut self.unit_item_ids), rows });
     }
     Ok(units)
   }
 
-  fn table_units(&mut self, table: &'a Item) -> InfuResult<Vec<Unit>> {
-    let mut units = Vec::new();
-    for (index, row) in self.children(table)?.into_iter().enumerate() {
-      let mut pieces = Pieces::default();
-      let content = self.access.content(self.db, row);
-      self.visit(row)?;
-      match content {
-        None => pieces.text("(unavailable link)"),
-        Some(content) => {
-          if content.item_type == ItemType::Note {
-            let text = clamp_label(content.title.as_deref().unwrap_or(""), CELL_MAX_CHARS);
-            pieces.text(&format!("[{}]({})", escape_cell(&escape_label(&text)), link_url(content)));
-            for url in note_urls(content).iter().filter(|url| !url.url.trim().is_empty()) {
-              pieces.text(&format!(" <{}>", url.url.trim()));
-            }
-          } else {
-            self.label(content, &mut pieces)?;
+  fn entry_item(&mut self, layout: Layout, child: &'a Item, depth: usize, pieces: &mut Pieces) -> InfuResult<()> {
+    match layout {
+      Layout::Table => {
+        pieces.text(&"  ".repeat(depth));
+        self.table_row(child, pieces)
+      }
+      // Document pages have no indentation to show grouping with; members follow the group line.
+      Layout::Document => self.document_block(child, 0, pieces),
+      Layout::Calendar => self.item_lines(child, depth, &calendar_prefix(child), pieces),
+      Layout::Lines => self.item_lines(child, depth, "", pieces),
+    }
+  }
+
+  /// A row and its cells on one line, also kept whole for search results.
+  fn table_row(&mut self, row: &'a Item, pieces: &mut Pieces) -> InfuResult<()> {
+    let first_item = self.unit_item_ids.len();
+    let mut row_pieces = Pieces::default();
+    let content = self.access.content(self.db, row);
+    self.visit(row)?;
+    match content {
+      None => row_pieces.text("(unavailable link)"),
+      Some(content) => {
+        if content.item_type == ItemType::Note {
+          let text = clamp_label(content.title.as_deref().unwrap_or(""), CELL_MAX_CHARS);
+          row_pieces.text(&format!("[{}]({})", escape_cell(&escape_label(&text)), link_url(content)));
+          for url in note_urls(content).iter().filter(|url| !url.url.trim().is_empty()) {
+            row_pieces.text(&format!(" <{}>", url.url.trim()));
           }
-          let mut cells = Vec::new();
-          for attachment in self.attachments(content)? {
-            cells.push(self.cell(attachment)?);
-          }
-          while cells.last().is_some_and(Pieces::is_empty) {
-            cells.pop();
-          }
-          for cell in cells {
-            pieces.text(" | ");
-            pieces.append(cell);
-          }
+        } else {
+          self.label(content, &mut row_pieces)?;
+        }
+        let mut cells = Vec::new();
+        for attachment in self.attachments(content)? {
+          cells.push(self.cell(attachment)?);
+        }
+        while cells.last().is_some_and(Pieces::is_empty) {
+          cells.pop();
+        }
+        for cell in cells {
+          row_pieces.text(" | ");
+          row_pieces.append(cell);
         }
       }
-      units.push(self.finish_unit(pieces, Some(index)));
     }
-    Ok(units)
+    self.rows.push((self.unit_item_ids[first_item..].to_vec(), row_pieces.clone()));
+    pieces.append(row_pieces);
+    Ok(())
   }
 
   /// A table cell or attachment on one line. Empty for placeholders and attachments the chat cannot read.
@@ -1172,9 +1291,81 @@ mod tests {
       assert!(members.iter().all(|member| holding[0].contains(member)));
     }
     let group_text = t.texts(&spatial).into_iter().find(|text| text.contains("group a")).unwrap();
-    assert!(group_text.contains("- Group:\n  - [group a]"));
+    assert!(group_text.contains(&format!("- [group](infumap://{group_id}) (group, 3 items)\n  - [group a]")));
     let composite_text = t.texts(&list).into_iter().find(|text| text.contains("first member")).unwrap();
     assert!(composite_text.contains("(composite)\n  - [first member]"));
+  }
+
+  #[tokio::test]
+  async fn groups_are_shown_in_every_layout_and_read_on_their_own() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let mut pages = Vec::new();
+    for (title, arrange) in [
+      ("List", ArrangeAlgorithm::List),
+      ("Grid", ArrangeAlgorithm::Grid),
+      ("Doc", ArrangeAlgorithm::Document),
+      ("Tabular", ArrangeAlgorithm::Table),
+    ] {
+      let page = t.arranged_page(&home, title, arrange, "").await;
+      let group_id = new_uid();
+      t.note(&page, "solo", RelationshipToParent::Child).await;
+      let mut members = Vec::new();
+      for member in ["g one", "g two"] {
+        let group_id = group_id.clone();
+        members.push(t.note_with(&page, member, |item| item.group_id = Some(group_id)).await);
+      }
+      let stale = new_uid();
+      let lone = t.note_with(&page, "lone", |item| item.group_id = Some(stale.clone())).await;
+      pages.push((page, group_id, members, stale, lone));
+    }
+    let texts = pages.iter().map(|(page, ..)| t.texts(page)[0].clone()).collect::<Vec<_>>();
+    let group_line = |index: usize| format!("[group](infumap://{}) (group, 2 items)", pages[index].1);
+    let member_link =
+      |index: usize, member: usize, title: &str| format!("[{title}](infumap://{})", pages[index].2[member]);
+    for index in [0, 1] {
+      let expected = format!(
+        "\n- {}\n  - {}\n  - {}\n",
+        group_line(index),
+        member_link(index, 0, "g one"),
+        member_link(index, 1, "g two")
+      );
+      assert!(texts[index].contains(&expected), "{}", texts[index]);
+    }
+    assert!(texts[2].contains(&format!("\n\n{}\n\ng one\n\ng two\n\n", group_line(2))), "{}", texts[2]);
+    assert!(texts[3].contains(&format!(
+      "\n{}\n  {}\n  {}\n",
+      group_line(3),
+      member_link(3, 0, "g one"),
+      member_link(3, 1, "g two")
+    )));
+    assert!(texts[3].contains("rows 1–4 of 4"), "group members are still counted as rows: {}", texts[3]);
+    for ((_, _, _, stale, _), text) in pages.iter().zip(&texts) {
+      assert!(!text.contains(stale.as_str()) && text.contains("lone"), "a lone member is no group: {text}");
+    }
+
+    let (list, group_id, members, stale, lone) = &pages[0];
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+    let group = group_fragments(&db, &access, group_id).await.unwrap();
+    let text = &group.fragments[0].text;
+    assert!(text.starts_with(&format!("[group](infumap://{group_id}) (group, 2 items) in ")), "{text}");
+    assert!(text.contains(&format!(" › [List](infumap://{list}) · fragment 0 of 0–0\n")), "{text}");
+    assert!(
+      text.ends_with(&format!("\n- [g one](infumap://{})\n- [g two](infumap://{})", members[0], members[1])),
+      "{text}"
+    );
+    let tabular = group_fragments(&db, &access, &pages[3].1).await.unwrap();
+    assert!(tabular.fragments[0].text.contains("· rows 1–2 of 2\nColumns: Title\n"), "{}", tabular.fragments[0].text);
+    assert_eq!(
+      group_fragments(&db, &access, stale).await.err().map(|e| e.to_string()),
+      Some("Item was not found.".to_owned())
+    );
+
+    let listings = hit_listings(&db, &access, &[members[0].clone(), lone.clone()]).await;
+    assert_eq!(listings[&members[0]].group_id.as_ref(), Some(group_id));
+    assert_eq!(listings[lone].group_id, None);
   }
 
   #[tokio::test]

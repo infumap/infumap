@@ -99,7 +99,8 @@ export const PageGroupBoxes: Component<PageGroupBoxesProps> = (props: PageGroupB
 
   const activeGroupId = createMemo(() => {
     if (store.anItemIsMoving.get() || store.overlay.selectionMarqueePx.get() != null) { return null; }
-    const inspection = store.overlay.hoveredGroup.get() ?? store.overlay.focusedGroup.get();
+    const inspection = store.overlay.hoveredGroup.get() ?? store.overlay.focusedGroup.get() ??
+      store.overlay.highlightedGroup.get();
     return inspection?.pageItemId == props.pageItemId ? inspection.groupId : null;
   });
 

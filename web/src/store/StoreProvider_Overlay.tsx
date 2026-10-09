@@ -124,6 +124,8 @@ export interface OverlayStoreContextModel {
   selectedVeids: InfuSignal<Array<Veid>>,
   hoveredGroup: InfuSignal<GroupInspection | null>,
   focusedGroup: InfuSignal<GroupInspection | null>,
+  /** A group shown after navigating to it, cleared after a few seconds. */
+  highlightedGroup: InfuSignal<GroupInspection | null>,
 
   // Main overlays
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
@@ -159,6 +161,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
   const selectedVeids = createInfuSignal<Array<Veid>>([]);
   const hoveredGroup = createInfuSignal<GroupInspection | null>(null);
   const focusedGroup = createInfuSignal<GroupInspection | null>(null);
+  const highlightedGroup = createInfuSignal<GroupInspection | null>(null);
 
   const toolbarPopupInfoMaybe = createInfuSignal<ToolbarPopupInfo | null>(null);
   const toolbarTransientMessage = createInfuSignal<TransientMessage | null>(null);
@@ -183,6 +186,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     selectedVeids.set([]);
     hoveredGroup.set(null);
     focusedGroup.set(null);
+    highlightedGroup.set(null);
     autoFocusSearchInput.set(false);
     autoFocusChatInput.set(false);
     findOverlayVisible.set(false);
@@ -242,6 +246,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     selectedVeids,
     hoveredGroup,
     focusedGroup,
+    highlightedGroup,
 
     isPanicked: createInfuSignal<boolean>(false),
 
