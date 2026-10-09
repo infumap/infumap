@@ -8,8 +8,9 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tantivy::collector::{DocSetCollector, TopDocs};
 use tantivy::indexer::NoMergePolicy;
-use tantivy::query::{BooleanQuery, EmptyQuery, Query, QueryParser, TermQuery, TermSetQuery};
+use tantivy::query::{BooleanQuery, EmptyQuery, Query, TermQuery, TermSetQuery};
 use tantivy::schema::{Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
+use tantivy::tokenizer::TokenizerManager;
 use tantivy::{DocSet, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher, TERMINATED, TantivyDocument, Term};
 use tokio::fs;
 
@@ -39,10 +40,17 @@ const NATURAL_TEXT_QUERY_MAX_TERMS: usize = 12;
 const DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL: &str = "document fragment lexical index";
 const ITEM_TITLE_LEXICAL_INDEX_LABEL: &str = "item title lexical index";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum LexicalQueryMode {
-  QuerySyntax,
-  NaturalText,
+/// How many distinct words a natural-text query has, tokenized as the indexes tokenize text, up to the most a
+/// query uses. Words that no document contains are dropped from the query, so fewer may count.
+pub fn natural_text_word_count(query_text: &str) -> usize {
+  let Some(mut analyzer) = TokenizerManager::default().get("default") else {
+    return 1;
+  };
+  let mut words = HashSet::new();
+  analyzer.token_stream(query_text).process(&mut |token| {
+    words.insert(token.text.clone());
+  });
+  words.len().min(NATURAL_TEXT_QUERY_MAX_TERMS)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -147,19 +155,20 @@ impl TantivyDocumentFragmentIndex {
     maintain_index_in_background(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL, log_label).await
   }
 
+  /// Documents containing at least `min_matching_words` of the query's words, best first.
   pub async fn search(
     &self,
     query_text: &str,
     limit: usize,
     allowed_item_ids: Option<&[String]>,
-    query_mode: LexicalQueryMode,
+    min_matching_words: usize,
   ) -> InfuResult<Vec<FragmentLexicalHit>> {
     search_index(
       &self.index_dir,
       query_text,
       limit,
       allowed_item_ids,
-      query_mode,
+      min_matching_words,
       DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
       DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
     )
@@ -229,19 +238,20 @@ impl TantivyItemTitleIndex {
       .await
   }
 
+  /// Documents containing at least `min_matching_words` of the query's words, best first.
   pub async fn search(
     &self,
     query_text: &str,
     limit: usize,
     allowed_item_ids: Option<&[String]>,
-    query_mode: LexicalQueryMode,
+    min_matching_words: usize,
   ) -> InfuResult<Vec<FragmentLexicalHit>> {
     search_index(
       &self.index_dir,
       query_text,
       limit,
       allowed_item_ids,
-      query_mode,
+      min_matching_words,
       ITEM_TITLE_LEXICAL_METADATA_FILENAME,
       ITEM_TITLE_LEXICAL_INDEX_LABEL,
     )
@@ -546,7 +556,7 @@ async fn search_index(
   query_text: &str,
   limit: usize,
   allowed_item_ids: Option<&[String]>,
-  query_mode: LexicalQueryMode,
+  min_matching_words: usize,
   metadata_filename: &str,
   index_label: &str,
 ) -> InfuResult<Vec<FragmentLexicalHit>> {
@@ -567,12 +577,7 @@ async fn search_index(
   let index = &open_index.index;
   let fields = open_index.fields;
   let searcher = open_index.reader.searcher();
-  let query = match query_mode {
-    LexicalQueryMode::QuerySyntax => parsed_lexical_query(index, fields.text, query_text, index_label),
-    LexicalQueryMode::NaturalText => {
-      natural_text_lexical_query(index, &searcher, fields.text, query_text, index_label)?
-    }
-  };
+  let query = natural_text_lexical_query(index, &searcher, fields.text, query_text, min_matching_words, index_label)?;
   let query = if let Some(item_ids) = allowed_item_ids {
     let item_terms: Vec<Term> = item_ids.iter().map(|item_id| Term::from_field_text(fields.item_id, item_id)).collect();
     Box::new(BooleanQuery::intersection(vec![query, Box::new(TermSetQuery::new(item_terms))])) as Box<dyn Query>
@@ -593,21 +598,12 @@ async fn search_index(
   Ok(hits)
 }
 
-fn parsed_lexical_query(index: &Index, text_field: Field, query_text: &str, index_label: &str) -> Box<dyn Query> {
-  let mut query_parser = QueryParser::for_index(index, vec![text_field]);
-  query_parser.set_conjunction_by_default();
-  let (query, parse_errors) = query_parser.parse_query_lenient(query_text);
-  if !parse_errors.is_empty() {
-    log::debug!("{} query '{}' had {} lenient parser issue(s).", index_label, query_text, parse_errors.len());
-  }
-  query
-}
-
 fn natural_text_lexical_query(
   index: &Index,
   searcher: &Searcher,
   text_field: Field,
   query_text: &str,
+  min_matching_words: usize,
   index_label: &str,
 ) -> InfuResult<Box<dyn Query>> {
   let mut analyzer = index
@@ -635,14 +631,15 @@ fn natural_text_lexical_query(
   candidates.truncate(NATURAL_TEXT_QUERY_MAX_TERMS);
   candidates.sort_by_key(|candidate| candidate.1);
 
-  if candidates.is_empty() {
+  let min_matching_words = min_matching_words.max(1);
+  if candidates.len() < min_matching_words {
     return Ok(Box::new(EmptyQuery));
   }
   let term_queries = candidates
     .into_iter()
     .map(|(_, _, term)| Box::new(TermQuery::new(term, IndexRecordOption::WithFreqs)) as Box<dyn Query>)
     .collect();
-  Ok(Box::new(BooleanQuery::union(term_queries)))
+  Ok(Box::new(BooleanQuery::union_with_minimum_required_clauses(term_queries, min_matching_words)))
 }
 
 fn lexical_schema() -> (Schema, LexicalFields) {
@@ -989,18 +986,55 @@ mod tests {
     let _ = std::fs::remove_dir_all(dir);
   }
 
+  #[test]
+  fn natural_text_words_are_counted_as_the_index_tokenizes_them() {
+    assert_eq!(natural_text_word_count("Montreal hotel, montreal HOTEL!"), 2);
+    assert_eq!(natural_text_word_count(&(0..20).map(|n| format!("w{n}")).collect::<Vec<_>>().join(" ")), 12);
+    assert_eq!(natural_text_word_count(" , "), 0);
+  }
+
+  #[tokio::test]
+  async fn natural_text_can_require_several_words() {
+    let dir = temp_index_dir();
+    let index = TantivyDocumentFragmentIndex::new(dir.clone());
+    let fragment = |item_id: &str, text: &str| LexicalFragment {
+      item_id: item_id.to_owned(),
+      ordinal: 0,
+      source_kind: "text".to_owned(),
+      text: text.to_owned(),
+      page_start: None,
+      page_end: None,
+    };
+    let (one, two, three) =
+      (fragment("one", "montreal"), fragment("two", "montreal hotel"), fragment("three", "montreal hotel stay"));
+    let updates = [
+      ("one", std::slice::from_ref(&one)),
+      ("two", std::slice::from_ref(&two)),
+      ("three", std::slice::from_ref(&three)),
+    ];
+    index.replace_items_fragments(&updates).await.unwrap();
+    let matching = |min_matching_words: usize| {
+      let index = index.clone();
+      async move {
+        let mut ids = index.search("montreal hotel stay unknownword", 10, None, min_matching_words).await.unwrap();
+        ids.sort_by(|a, b| a.item_id.cmp(&b.item_id));
+        ids.into_iter().map(|hit| hit.item_id).collect::<Vec<_>>()
+      }
+    };
+    assert_eq!(matching(1).await, ["one", "three", "two"]);
+    assert_eq!(matching(2).await, ["three", "two"]);
+    assert_eq!(matching(3).await, ["three"]);
+    assert!(matching(4).await.is_empty(), "a word no document contains cannot count");
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
   #[tokio::test]
   async fn cached_search_sees_later_commits_and_removals() {
     let dir = temp_index_dir();
     let index = TantivyDocumentFragmentIndex::new(dir.clone());
     let search = |index: TantivyDocumentFragmentIndex| async move {
-      let mut ids = index
-        .search("zebra", 10, None, LexicalQueryMode::NaturalText)
-        .await
-        .unwrap()
-        .into_iter()
-        .map(|hit| hit.item_id)
-        .collect::<Vec<_>>();
+      let mut ids =
+        index.search("zebra", 10, None, 1).await.unwrap().into_iter().map(|hit| hit.item_id).collect::<Vec<_>>();
       ids.sort();
       ids
     };
