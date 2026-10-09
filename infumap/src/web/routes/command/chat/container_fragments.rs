@@ -43,7 +43,10 @@ const BREADCRUMB_TITLE_MAX_CHARS: usize = 60;
 const MAX_DEPTH: usize = 64;
 const MAX_PLACEMENTS: usize = 50_000;
 const VERSION_CHARS: usize = 8;
-const CONTEXT_EXCERPT_MAX_CHARS: usize = 300;
+/// A table row shown as a search result is cut here.
+const ROW_LISTING_MAX_CHARS: usize = 300;
+/// A note shown as a search result is cut here; its full text is read as fragments of the note.
+const HIT_NOTE_MAX_CHARS: usize = 160;
 
 /// What the chat tools may read: the user's readable items, limited to the chat's scope if it has one.
 pub(super) struct Access<'a> {
@@ -95,6 +98,8 @@ pub(super) struct FragmentUnit {
   /// Placements rendered in the unit: a child with its attachments, or a composite or group with its members.
   pub item_ids: Vec<Uid>,
   pub text: String,
+  /// Whether the unit is a table row, whose first placement is the row item.
+  pub row: bool,
 }
 
 pub(super) struct ContainerFragments {
@@ -112,81 +117,71 @@ impl ContainerFragments {
   }
 }
 
-/// Where a search hit is listed: the container fragment holding it and, when its unit shows more than the hit,
-/// such as the rest of a table row or composite, the start of that unit.
-///
-/// In a search result, the container is linked in the location, so only a fragment past the first and the excerpt
-/// are serialized.
-#[derive(Serialize)]
-pub(super) struct ItemContext {
-  #[serde(skip)]
-  pub container_id: Uid,
-  #[serde(rename = "locationFragment", skip_serializing_if = "is_zero")]
-  pub fragment_ordinal: usize,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub excerpt: Option<String>,
+/// How lexical_search shows a hit: the page or table whose fragments list it, and the hit as text.
+pub(super) struct HitListing {
+  /// The listing container, when it is readable and in the scope.
+  pub container_id: Option<Uid>,
+  /// The container fragment listing the hit.
+  pub container_fragment: usize,
+  /// The item `text` stands for: the hit, or for a table cell, its row, whose cells hold the cell's text.
+  pub subject_id: Uid,
+  /// The subject on one line: a table row with its cells, or else a linked label saying what the item is.
+  pub text: String,
 }
 
-fn is_zero(value: &usize) -> bool {
-  *value == 0
-}
-
-/// Contexts for search hits, keyed by hit id, rendering each container once. A page or table hit points at its own
-/// first fragment. A hit that is gone, or whose container is unreadable or outside the scope, has no context.
-pub(super) async fn item_contexts(
+/// Listings for search hits, keyed by hit id, rendering each container once. A hit that is gone or that the chat
+/// cannot read has no listing.
+pub(super) async fn hit_listings(
   db: &Arc<tokio::sync::Mutex<Db>>,
   access: &Access<'_>,
   item_ids: &[Uid],
-) -> HashMap<Uid, ItemContext> {
-  let mut hits = Vec::new();
-  {
+) -> HashMap<Uid, HitListing> {
+  let (labels, containers, data_dir, data_item_ids) = {
     let db = db.lock().await;
+    let mut renderer = Renderer::new(&db, access);
+    let mut labels = Vec::new();
+    let mut containers = HashMap::new();
     for item_id in item_ids {
       let Ok(item) = db.item.get(item_id) else {
         continue;
       };
-      let container = if is_listing_container(item) { Some(item) } else { listing_container(&db, item) };
-      if let Some(container) = container {
-        hits.push((item_id.clone(), container.id.clone()));
+      let Some(label) = access.content(&db, item).and_then(|content| renderer.hit_label(content).ok()) else {
+        continue;
+      };
+      if let Some(container) = listing_container(&db, item) {
+        containers.insert(item_id.clone(), container.id.clone());
       }
+      labels.push((item_id.clone(), label));
     }
-  }
+    (labels, containers, db.item.data_dir().to_owned(), renderer.data_item_ids)
+  };
+  let counts = data_fragment_counts(&data_dir, access.user_id, &data_item_ids).await;
   let mut rendered = HashMap::new();
-  for (_, container_id) in &hits {
+  for container_id in containers.values() {
     if !rendered.contains_key(container_id) {
       rendered.insert(container_id.clone(), container_fragments(db, access, container_id).await.ok());
     }
   }
-  hits
+  labels
     .into_iter()
-    .filter_map(|(item_id, container_id)| {
-      let fragments = rendered.get(&container_id)?.as_ref()?;
-      let (fragment_ordinal, excerpt) = if item_id == container_id {
-        (0, None)
-      } else {
-        let (ordinal, unit) = fragments.locate(&item_id)?;
-        let excerpt = (unit.item_ids.len() > 1)
-          .then(|| unit_text_around(&unit.text, &item_id))
-          .filter(|text| !text.is_empty())
-          .map(|text| {
-            let (text, truncated) = excerpt(&text, CONTEXT_EXCERPT_MAX_CHARS);
-            if truncated { format!("{text}…") } else { text }
-          });
-        (ordinal, excerpt)
-      };
-      Some((item_id, ItemContext { container_id, fragment_ordinal, excerpt }))
+    .map(|(item_id, label)| {
+      let text = label.render(&counts);
+      let mut listing = HitListing { container_id: None, container_fragment: 0, subject_id: item_id.clone(), text };
+      let container_id = containers.get(&item_id);
+      let fragments = container_id.and_then(|container_id| rendered.get(container_id)?.as_ref());
+      if let Some((ordinal, unit)) = fragments.and_then(|fragments| fragments.locate(&item_id)) {
+        listing.container_id = container_id.cloned();
+        listing.container_fragment = ordinal;
+        // A row's cells are part of the record, so a row or cell hit is shown as the whole row.
+        if unit.row {
+          let (text, truncated) = excerpt(&unit.text, ROW_LISTING_MAX_CHARS);
+          listing.subject_id = unit.item_ids[0].clone();
+          listing.text = if truncated { format!("{text}…") } else { text };
+        }
+      }
+      (item_id, listing)
     })
     .collect()
-}
-
-/// A unit's text without the item's own line, which would repeat the search result. A single-line unit, such as a
-/// table row, is kept whole: the rest of the row is on the item's line.
-fn unit_text_around(text: &str, item_id: &Uid) -> String {
-  if !text.contains('\n') {
-    return text.to_owned();
-  }
-  let own_link = format!("(infumap://{item_id})");
-  text.lines().filter(|line| !line.contains(&own_link)).collect::<Vec<_>>().join("\n")
 }
 
 /// Composites are rendered inside the page or table that holds them, so they never list their own items.
@@ -351,7 +346,7 @@ impl ContainerOutline {
         }
         chunk.body.push_str(&piece);
         chunk.chars += piece_chars;
-        chunk.units.push(FragmentUnit { item_ids: unit.item_ids.clone(), text: piece });
+        chunk.units.push(FragmentUnit { item_ids: unit.item_ids.clone(), text: piece, row: unit.row.is_some() });
         if let Some(row) = unit.row {
           chunk.rows = Some(chunk.rows.map_or((row, row), |(first, _)| (first, row)));
         }
@@ -534,10 +529,14 @@ fn link_url(item: &Item) -> String {
   format!("infumap://{}", item.id)
 }
 
-/// An item's title on one line, cut to label length, or what it is when untitled.
+/// An item's title on one line, cut to label length, or what it is when untitled. Composites have no titles.
 pub(super) fn item_label(item: &Item) -> String {
   let title = single_line(item.title.as_deref().unwrap_or(""));
-  if title.is_empty() { format!("untitled {}", item.item_type.as_str()) } else { clamp_label(&title, LABEL_MAX_CHARS) }
+  match item.item_type {
+    ItemType::Composite => "composite".to_owned(),
+    _ if title.is_empty() => format!("untitled {}", item.item_type.as_str()),
+    _ => clamp_label(&title, LABEL_MAX_CHARS),
+  }
 }
 
 fn item_link(item: &Item) -> String {
@@ -942,6 +941,28 @@ impl<'a, 'b> Renderer<'a, 'b> {
     Ok(())
   }
 
+  /// A search hit's linked label. A note is its text, cut short with the number of fragments holding all of it.
+  fn hit_label(&mut self, content: &'a Item) -> InfuResult<Pieces> {
+    let mut pieces = Pieces::default();
+    if content.item_type != ItemType::Note {
+      self.label(content, &mut pieces)?;
+      return Ok(pieces);
+    }
+    let line = single_line(content.title.as_deref().unwrap_or(""));
+    if line.is_empty() {
+      pieces.text(&item_link(content));
+    } else {
+      let (label, truncated) = excerpt(&line, HIT_NOTE_MAX_CHARS);
+      let label = if truncated { format!("{}…", label.trim_end()) } else { label };
+      pieces.text(&format!("[{}]({})", escape_label(&label), link_url(content)));
+      if truncated {
+        let count = note_fragments(content).len();
+        pieces.text(&format!(" (note, {count} fragment{})", if count == 1 { "" } else { "s" }));
+      }
+    }
+    Ok(pieces)
+  }
+
   /// A linked title and what kind of item it is. Notes are rendered by their callers.
   fn label(&mut self, content: &'a Item, pieces: &mut Pieces) -> InfuResult<()> {
     match content.item_type {
@@ -1327,7 +1348,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn item_contexts_point_at_the_fragment_listing_each_hit() {
+  async fn hit_listings_point_at_the_fragment_listing_each_hit() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
     let page = t.page(&home, "Project").await;
@@ -1342,44 +1363,50 @@ mod tests {
     let composite = t.composite(&page).await;
     let member = t.note(&composite, "member one", RelationshipToParent::Child).await;
     t.note(&composite, "member two", RelationshipToParent::Child).await;
-    let plain = t.note(&page, "plain", RelationshipToParent::Child).await;
+    let long_text = "Words in a sentence. ".repeat(140).trim_end().to_owned();
+    let long = t.note(&page, &long_text, RelationshipToParent::Child).await;
     let child = t.page(&page, "Child").await;
     let attached = t.note(&child, "attached to child page", RelationshipToParent::Attachment).await;
     let user_id = t.user_id.clone();
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let access = Access { user_id: &user_id, scope: None };
 
-    let hits = [&cells[100], &rows[100], &table, &member, &plain, &attached, &child, &new_uid()].map(Uid::clone);
-    let contexts = item_contexts(&db, &access, &hits).await;
-    assert_eq!(contexts.len(), 7, "a missing item has no context");
+    let hits = [&cells[100], &rows[100], &table, &member, &long, &attached, &child, &composite, &new_uid()];
+    let listings = hit_listings(&db, &access, &hits.map(Uid::clone)).await;
+    assert_eq!(listings.len(), 8, "a missing item has no listing");
 
     let table_fragments = container_fragments(&db, &access, &table).await.unwrap();
-    let cell = &contexts[&cells[100]];
-    assert_eq!(cell.container_id, table);
-    assert!(cell.fragment_ordinal > 0);
-    assert!(table_fragments.fragments[cell.fragment_ordinal].text.contains(&rows[100]));
+    let cell = &listings[&cells[100]];
+    assert_eq!(cell.container_id.as_ref(), Some(&table));
+    assert!(cell.container_fragment > 0);
+    assert!(table_fragments.fragments[cell.container_fragment].text.contains(&rows[100]));
     let row_text = format!("[Row 100 with a reasonably long name](infumap://{}) | status 100", rows[100]);
-    assert_eq!(cell.excerpt.as_deref(), Some(row_text.as_str()), "a cell hit brings its whole row");
-    let row = &contexts[&rows[100]];
-    assert_eq!((row.fragment_ordinal, &row.excerpt), (cell.fragment_ordinal, &cell.excerpt));
+    assert_eq!((&cell.subject_id, cell.text.as_str()), (&rows[100], row_text.as_str()), "a cell hit is its row");
+    let row = &listings[&rows[100]];
+    assert_eq!((row.container_fragment, &row.subject_id, &row.text), (cell.container_fragment, &rows[100], &cell.text));
 
-    let own = &contexts[&table];
-    assert_eq!((&own.container_id, own.fragment_ordinal, &own.excerpt), (&table, 0, &None));
-    assert_eq!(contexts[&child].container_id, child, "a page hit points at its own fragments");
-
-    let in_composite = &contexts[&member];
-    assert_eq!(in_composite.container_id, page);
-    let composite_excerpt = in_composite.excerpt.as_deref().unwrap();
-    assert!(composite_excerpt.contains("member two"));
-    assert!(!composite_excerpt.contains("member one"), "the result's own line is left out: {composite_excerpt}");
-    assert_eq!(contexts[&plain].container_id, page);
-    assert!(contexts[&plain].excerpt.is_none(), "a lone note adds nothing to the result");
-    assert_eq!(contexts[&attached].container_id, page, "an attachment is listed with the item it is attached to");
-    assert!(contexts[&attached].excerpt.as_deref().unwrap().ends_with("attached: attached to child page"));
+    let in_page = |item_id: &Uid| {
+      let listing = &listings[item_id];
+      assert_eq!((listing.container_id.as_ref(), listing.subject_id == *item_id), (Some(&page), true));
+      listing.text.as_str()
+    };
+    assert_eq!(in_page(&table), format!("[Tasks](infumap://{table}) (table, 120 rows; columns: Name | Status)"));
+    assert_eq!(
+      in_page(&child),
+      format!("[Child](infumap://{child}) (page, 0 items)"),
+      "a page is listed by its parent"
+    );
+    assert_eq!(in_page(&member), format!("[member one](infumap://{member})"), "a member is only itself");
+    assert_eq!(in_page(&composite), format!("[composite](infumap://{composite}) (composite)"));
+    let long_listing = in_page(&long);
+    assert!(long_listing.starts_with("[Words in a sentence."), "{long_listing}");
+    assert!(long_listing.ends_with(&format!(" sentence.…](infumap://{long}) (note, 2 fragments)")), "{long_listing}");
+    assert!(long_listing.chars().count() < HIT_NOTE_MAX_CHARS + 80, "{long_listing}");
+    assert_eq!(in_page(&attached), format!("[attached to child page](infumap://{attached})"));
   }
 
   #[tokio::test]
-  async fn item_contexts_skip_containers_outside_the_scope() {
+  async fn hit_listings_skip_containers_outside_the_scope() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
     let page = t.page(&home, "Page").await;
@@ -1391,10 +1418,11 @@ mod tests {
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
 
     let scoped =
-      item_contexts(&db, &Access { user_id: &user_id, scope: Some(&scope) }, std::slice::from_ref(&note)).await;
-    assert!(scoped.is_empty());
-    let unscoped = item_contexts(&db, &Access { user_id: &user_id, scope: None }, std::slice::from_ref(&note)).await;
-    assert_eq!(unscoped[&note].container_id, page);
+      hit_listings(&db, &Access { user_id: &user_id, scope: Some(&scope) }, std::slice::from_ref(&note)).await;
+    assert_eq!(scoped[&note].container_id, None);
+    assert_eq!(scoped[&note].text, format!("[included on its own](infumap://{note})"));
+    let unscoped = hit_listings(&db, &Access { user_id: &user_id, scope: None }, std::slice::from_ref(&note)).await;
+    assert_eq!(unscoped[&note].container_id.as_ref(), Some(&page));
   }
 
   #[test]

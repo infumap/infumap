@@ -28,12 +28,13 @@ starts; an unknown or deleted scope fails the request rather than widening it. E
 applies it:
 
 - `lexical_search` returns only items in the scope. A `within` argument narrows it further. A result
-  whose listing container is outside the scope, such as an include root itself, has no container link.
+  whose listing container is outside the scope, such as an include root itself, has no links in its
+  location.
 - `get_fragment` reports an item outside the scope as not found. A container's fragments omit
   children and attachments outside the scope, and a link whose target is outside it is shown as
   `(unavailable link)`.
 
-Locations and fragment breadcrumbs are not filtered. Every ancestor of an excluded item is itself
+Search locations and fragment breadcrumbs are not filtered. Every ancestor of an excluded item is itself
 excluded, so they never reveal excluded content; they can only name containers above an include root,
 and a parent outside the scope is named without a link. The system prompt names the active scope, so
 the model does not mistake an out-of-scope item for a missing one. Context items the user attaches to
@@ -57,38 +58,40 @@ item's attachments. So a note matching only one rare word cannot outrank one mat
 pages of results do not overlap across groups. Scores are scaled by the share of words matched. The
 search box in the UI ranks results the same way.
 
-Each result looks like:
+Each result is one line of text:
 
 ```json
 {
-  "link": "infumap://<id>",
-  "itemType": "note",
-  "title": "Acme onboarding",
-  "location": "Home › Projects › [Tasks](infumap://<table id>)",
-  "locationFragment": 4,
-  "excerpt": "[Acme onboarding](infumap://<id>) | Active | 2026-01-03",
-  "fragmentMatch": { "fragmentOrdinal": 3, "text": "…matching sentences…" }
+  "results": [
+    "root › travel › [malaysia](infumap://<page id>) › [composite](infumap://<id>) › [Cocktails at Four Seasons](infumap://<id>)",
+    "Home › Projects › [Tasks](infumap://<table id>) (fragment 4) › [Acme onboarding](infumap://<id>) | Active | 2026-01-03",
+    "Home › [Reports](infumap://<page id>) › [annual.pdf](infumap://<id>) (file, application/pdf, 312 fragments) — fragment 200: …a drink stall opened in FY2025…"
+  ],
+  "hasMore": false
 }
 ```
 
-- `title` is cut at 300 characters. A note cut this way also has `fragmentCount`, the number of
-  fragments holding its full text.
-- `location` lists the titles of the containing items, outermost first. The container whose
-  fragments list the result is a link, for `get_fragment`: the page or table holding it, where
-  attachments and composite members belong to the item or composite they are part of, so a table
-  cell's container is its row's table. `locationFragment` is the fragment listing the result, given
-  only when it is past the first. If the container is not among the titles, it is given as
-  `listedIn`. A page or table result has no container link, since its own link is the one to read.
-- `excerpt` is the start of the result's block in that fragment (at most 300 characters), given when
-  the block shows more than the result itself: a table row with its cells, a composite, an explicit
-  group, or an item with attachments. A block of several lines leaves out the result's own line,
-  which would repeat it; a table row is kept whole, since the rest of the row is on that line.
-- `fragmentMatch` is the best matching passage of the item's document text, if any. Its ordinal can
-  be passed to `get_fragment` to read around it. A match in the title is not given, since the title
-  is already shown. Page numbers are left out; `get_fragment` gives them when the passage is read.
+- The line starts with the result's location, outermost first. Titles above the page or table whose
+  fragments list the result are plain text. From that container down, every item is a link that
+  `get_fragment` can read: the container, any composite or item the result belongs to, and the
+  result itself. Attachments and composite members belong to the item or composite they are part of,
+  so a table cell's container is its row's table. A page or table result is listed by its parent.
+- `(fragment N)` after the container is the fragment listing the result, given only when it is past
+  the first.
+- Composites have no titles and are labelled `composite`; other untitled items are `untitled <type>`.
+  Location titles are cut at 60 characters.
+- The result itself is its label as in container fragments, such as `(page, 12 items)` or
+  `(file, application/pdf, 312 fragments)`. A note is its text, cut at a sentence or word near 160
+  characters and followed by `(note, N fragments)` when cut.
+- A table row, or a cell of one, is shown as the whole row with its cells, cut at 300 characters. A
+  row and its cell give the same line, which is listed once.
+- `— fragment N: …` ends a result whose document text matched: its best matching sentence, cut to
+  about 220 characters around the first query word, and the fragment holding it, for `get_fragment`.
+  Only files, text items and images have document text; notes, pages and tables match by their titles.
+  Page numbers are left out; `get_fragment` gives them when the passage is read.
 
-The container link is found from the live database when the search runs, while the search index can
-lag edits by several minutes. A moved item links its new container, and a deleted item links none.
+Containers are rendered from the live database when the search runs, while the search index can lag
+edits by several minutes. A moved item links its new container, and a deleted item links none.
 
 ## Reading
 

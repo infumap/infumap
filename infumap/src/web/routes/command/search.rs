@@ -122,6 +122,9 @@ pub struct SearchFragmentMatch {
   pub page_start: Option<usize>,
   #[serde(rename = "pageEnd", skip_serializing_if = "Option::is_none")]
   pub page_end: Option<usize>,
+  /// The best matching sentence, cut around the first query word, for the chat tool's one-line results.
+  #[serde(skip)]
+  pub snippet: String,
 }
 
 #[derive(Serialize)]
@@ -129,124 +132,6 @@ pub struct SearchResponse {
   pub results: Vec<SearchResult>,
   #[serde(rename = "hasMore")]
   pub has_more: bool,
-}
-
-#[allow(dead_code)]
-pub(super) mod compact {
-  use super::*;
-
-  /// Longer titles, usually note text, are cut. The caller can say how many fragments hold the rest.
-  pub(in crate::web::routes::command) const TITLE_MAX_CHARS: usize = 300;
-  const LOCATION_TITLE_MAX_CHARS: usize = 60;
-
-  #[derive(Serialize)]
-  pub(super) struct CompactSearchResponse<'a, E> {
-    pub results: Vec<CompactSearchResult<'a, E>>,
-    #[serde(rename = "hasMore")]
-    pub has_more: bool,
-  }
-
-  #[derive(Serialize)]
-  pub(super) struct CompactSearchResult<'a, E> {
-    /// The result's only id: `infumap://<id>`, which the tools accept wherever they take an id.
-    #[serde(rename = "link")]
-    pub link_url: String,
-    #[serde(rename = "itemType")]
-    pub item_type: String,
-    pub title: Option<String>,
-    /// Titles of the containing items, outermost first. The one whose fragments list the result is a link.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub location: Option<String>,
-    /// The listing container's link, when it is not among the location's titles.
-    #[serde(rename = "listedIn", skip_serializing_if = "Option::is_none")]
-    pub listed_in: Option<String>,
-    /// Fields the caller adds for this result.
-    #[serde(flatten)]
-    pub extra: Option<&'a E>,
-    #[serde(rename = "fragmentMatch", skip_serializing_if = "Option::is_none")]
-    pub fragment_match: Option<CompactSearchFragmentMatch>,
-  }
-
-  #[derive(Serialize)]
-  pub(super) struct CompactSearchFragmentMatch {
-    #[serde(rename = "fragmentOrdinal")]
-    pub fragment_ordinal: usize,
-    pub text: String,
-    #[serde(rename = "textTruncated", skip_serializing_if = "std::ops::Not::not")]
-    pub text_truncated: bool,
-  }
-
-  pub(super) fn compact_search_response<'a, E>(
-    response: &SearchResponse,
-    extras: &'a HashMap<Uid, E>,
-    listed_in: &HashMap<Uid, Uid>,
-  ) -> CompactSearchResponse<'a, E> {
-    CompactSearchResponse {
-      results: response.results.iter().filter_map(|result| compact_search_result(result, extras, listed_in)).collect(),
-      has_more: response.has_more,
-    }
-  }
-
-  fn compact_search_result<'a, E>(
-    result: &SearchResult,
-    extras: &'a HashMap<Uid, E>,
-    listed_in: &HashMap<Uid, Uid>,
-  ) -> Option<CompactSearchResult<'a, E>> {
-    let (item, ancestors) = result.path.split_last()?;
-    let container_id = listed_in.get(&item.id);
-    let mut container_linked = false;
-    let location = ancestors
-      .iter()
-      .map(|element| {
-        let label = location_label(element);
-        if container_id == Some(&element.id) {
-          container_linked = true;
-          format!("[{}](infumap://{})", label.replace('[', "\\[").replace(']', "\\]"), element.id)
-        } else {
-          label
-        }
-      })
-      .collect::<Vec<_>>()
-      .join(" › ");
-    // A title match repeats the title, and its ordinal is the title index's, which get_fragment cannot read.
-    let fragment_match = std::iter::once(&result.fragment_match)
-      .flatten()
-      .chain(&result.additional_fragment_matches)
-      .find(|fragment_match| fragment_match.source_kind != ITEM_TITLE_SOURCE_KIND);
-    Some(CompactSearchResult {
-      link_url: format!("infumap://{}", item.id),
-      item_type: item.item_type.clone(),
-      title: item.title.as_deref().map(|title| clamp_with_ellipsis(title, TITLE_MAX_CHARS)),
-      location: Some(location).filter(|location| !location.is_empty()),
-      listed_in: container_id.filter(|_| !container_linked).map(|container_id| format!("infumap://{container_id}")),
-      extra: extras.get(&item.id),
-      // Only the best match: further matches cost context and get_fragment reads around this one.
-      fragment_match: fragment_match.map(compact_search_fragment_match),
-    })
-  }
-
-  fn location_label(element: &SearchPathElement) -> String {
-    let title = element.title.as_deref().unwrap_or("").split_whitespace().collect::<Vec<_>>().join(" ");
-    if title.is_empty() {
-      format!("untitled {}", element.item_type)
-    } else {
-      clamp_with_ellipsis(&title, LOCATION_TITLE_MAX_CHARS)
-    }
-  }
-
-  fn clamp_with_ellipsis(text: &str, max_chars: usize) -> String {
-    let (clamped, truncated) = clamp_text_chars(text, max_chars);
-    if truncated { format!("{}…", clamped.trim_end()) } else { clamped }
-  }
-
-  /// Page numbers are left out: get_fragment gives them when the passage is read, which is when they can be cited.
-  fn compact_search_fragment_match(fragment_match: &SearchFragmentMatch) -> CompactSearchFragmentMatch {
-    CompactSearchFragmentMatch {
-      fragment_ordinal: fragment_match.fragment_ordinal,
-      text: fragment_match.text.clone(),
-      text_truncated: fragment_match.text_truncated,
-    }
-  }
 }
 
 pub(super) async fn handle_search(
@@ -316,17 +201,6 @@ pub(super) async fn run_lexical_search(
     indexed_search_results(db, &data_dir, &session.user_id, &bounds, &request.text, start_result, end_result).await?;
 
   Ok(search_response_from_results(results, request.num_results))
-}
-
-/// The chat tool's search response. Each result also gets the fields of its entry in `extras`, keyed by item id.
-/// `listed_in` maps a result's item id to the container whose fragments list it, which is linked in its location.
-pub(super) fn compact_search_response_json<E: Serialize>(
-  response: &SearchResponse,
-  extras: &HashMap<Uid, E>,
-  listed_in: &HashMap<Uid, Uid>,
-) -> InfuResult<String> {
-  serde_json::to_string(&compact::compact_search_response(response, extras, listed_in))
-    .map_err(|e| format!("Could not serialize compact search response: {}", e).into())
 }
 
 async fn resolve_search_bounds(
@@ -877,7 +751,7 @@ pub(super) fn exact_title_search_score(title: &str, search_text: &str) -> f32 {
 }
 
 fn search_fragment_match_for_lexical_hit(hit: &FragmentLexicalHit, search_text: &str) -> SearchFragmentMatch {
-  let (text, text_truncated) =
+  let (text, text_truncated, snippet) =
     search_match_excerpt(&hit.source_kind, &hit.text, search_text, SEARCH_FRAGMENT_MATCH_MAX_CHARS);
   SearchFragmentMatch {
     fragment_ordinal: hit.ordinal,
@@ -888,13 +762,15 @@ fn search_fragment_match_for_lexical_hit(hit: &FragmentLexicalHit, search_text: 
     text_truncated,
     page_start: hit.page_start,
     page_end: hit.page_end,
+    snippet,
   }
 }
 
-fn search_match_excerpt(source_kind: &str, text: &str, search_text: &str, max_chars: usize) -> (String, bool) {
+/// Up to a few matching sentences, at most `max_chars` and whether they were cut, and the first of them alone.
+fn search_match_excerpt(source_kind: &str, text: &str, search_text: &str, max_chars: usize) -> (String, bool, String) {
   let display_text = fragment_display_text(source_kind, text);
   if display_text.is_empty() {
-    return (String::new(), false);
+    return (String::new(), false, String::new());
   }
 
   let query_terms = normalized_search_terms(search_text);
@@ -917,7 +793,8 @@ fn search_match_excerpt(source_kind: &str, text: &str, search_text: &str, max_ch
     .collect::<Vec<_>>();
 
   let excerpt = ellipsis_sentence_excerpt(&selected_windows);
-  clamp_text_chars(&excerpt, max_chars)
+  let (excerpt, truncated) = clamp_text_chars(&excerpt, max_chars);
+  (excerpt, truncated, selected_windows.into_iter().next().unwrap_or_default())
 }
 
 fn fragment_display_text(source_kind: &str, text: &str) -> String {
@@ -1347,8 +1224,9 @@ mod tests {
   #[test]
   fn snippets_find_inflected_forms_of_the_query_words() {
     let text = "The weather was mild. We stayed three nights at the harbour hotels. Breakfast was included.";
-    let (excerpt, _) = search_match_excerpt("text", text, "staying hotel", 300);
+    let (excerpt, _, snippet) = search_match_excerpt("text", text, "staying hotel", 300);
     assert!(excerpt.contains("We stayed three nights at the harbour hotels"), "{excerpt}");
     assert!(!excerpt.contains("weather"), "{excerpt}");
+    assert_eq!(snippet, "We stayed three nights at the harbour hotels");
   }
 }
