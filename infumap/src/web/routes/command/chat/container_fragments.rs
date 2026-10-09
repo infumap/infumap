@@ -47,6 +47,9 @@ const VERSION_CHARS: usize = 8;
 const ROW_LISTING_MAX_CHARS: usize = 300;
 /// A note shown as a search result is cut here; its full text is read as fragments of the note.
 const HIT_NOTE_MAX_CHARS: usize = 160;
+/// A search result shows this many of its item's attachments, each cut to a short label.
+const HIT_ATTACHMENTS_MAX: usize = 4;
+const HIT_ATTACHMENT_NOTE_MAX_CHARS: usize = 40;
 
 /// What the chat tools may read: the user's readable items, limited to the chat's scope if it has one.
 pub(super) struct Access<'a> {
@@ -156,7 +159,17 @@ pub(super) async fn hit_listings(
       let Ok(item) = db.item.get(item_id) else {
         continue;
       };
-      let Some(label) = access.content(&db, item).and_then(|content| renderer.hit_label(content).ok()) else {
+      // An attachment is part of the item it is attached to, as a cell is of a row, so a hit on either shows the
+      // item with its attachments.
+      let parent = (item.relationship_to_parent == RelationshipToParent::Attachment)
+        .then(|| db.item.get(item.parent_id.as_ref()?).ok())
+        .flatten()
+        .filter(|parent| access.can_read(&db, parent));
+      let (subject_id, content) = match parent {
+        Some(parent) => (parent.id.clone(), Some(parent)),
+        None => (item_id.clone(), access.content(&db, item)),
+      };
+      let Some(label) = content.and_then(|content| renderer.record_label(content).ok()) else {
         continue;
       };
       if let Some((container, child)) = listing_placement(&db, item) {
@@ -168,7 +181,7 @@ pub(super) async fn hit_listings(
         let date = (Layout::of(container) == Layout::Calendar).then(|| calendar_prefix(child));
         placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned(), date));
       }
-      labels.push((item_id.clone(), label));
+      labels.push((item_id.clone(), subject_id, label));
     }
     (labels, placements, db.item.data_dir().to_owned(), renderer.data_item_ids)
   };
@@ -181,17 +194,17 @@ pub(super) async fn hit_listings(
   }
   labels
     .into_iter()
-    .map(|(item_id, label)| {
+    .map(|(item_id, subject_id, label)| {
       let text = label.render(&counts);
-      let mut listing =
-        HitListing { container_id: None, container_fragment: 0, group_id: None, subject_id: item_id.clone(), text };
+      let mut listing = HitListing { container_id: None, container_fragment: 0, group_id: None, subject_id, text };
       let Some((container_id, group_id, date)) = placements.remove(&item_id) else {
         return (item_id, listing);
       };
       let Some(fragments) = rendered.get(&container_id).and_then(Option::as_ref) else {
         return (item_id, listing);
       };
-      if let Some((ordinal, _)) = fragments.locate(&item_id) {
+      // Document pages do not render attachments, so an attachment is located by its item.
+      if let Some((ordinal, _)) = fragments.locate(&item_id).or_else(|| fragments.locate(&listing.subject_id)) {
         listing.container_id = Some(container_id);
         listing.container_fragment = ordinal;
         listing.group_id = group_id;
@@ -1124,8 +1137,26 @@ impl<'a, 'b> Renderer<'a, 'b> {
     Ok(())
   }
 
-  /// A search hit's linked label. A note is its text, cut short with the number of fragments holding all of it.
-  fn hit_label(&mut self, content: &'a Item) -> InfuResult<Pieces> {
+  /// A search hit's linked label, then links to its attachments: at most a few, each with a short label.
+  fn record_label(&mut self, content: &'a Item) -> InfuResult<Pieces> {
+    let mut pieces = self.hit_label(content, HIT_NOTE_MAX_CHARS)?;
+    let mut attachments = self.attachments(content)?;
+    attachments.retain(|item| item.item_type != ItemType::Placeholder && self.access.can_read(self.db, item));
+    for (index, attachment) in attachments.iter().take(HIT_ATTACHMENTS_MAX).enumerate() {
+      pieces.text(if index == 0 { " · attached: " } else { "; " });
+      match self.access.content(self.db, attachment) {
+        None => pieces.text("(unavailable link)"),
+        Some(content) => pieces.append(self.hit_label(content, HIT_ATTACHMENT_NOTE_MAX_CHARS)?),
+      }
+    }
+    if attachments.len() > HIT_ATTACHMENTS_MAX {
+      pieces.text(&format!("; +{} more", attachments.len() - HIT_ATTACHMENTS_MAX));
+    }
+    Ok(pieces)
+  }
+
+  /// A linked label. A note is its text, cut short with the number of fragments holding all of it.
+  fn hit_label(&mut self, content: &'a Item, note_max_chars: usize) -> InfuResult<Pieces> {
     let mut pieces = Pieces::default();
     if content.item_type != ItemType::Note {
       self.label(content, &mut pieces)?;
@@ -1135,12 +1166,12 @@ impl<'a, 'b> Renderer<'a, 'b> {
     if line.is_empty() {
       pieces.text(&item_link(content));
     } else {
-      let (label, truncated) = excerpt(&line, HIT_NOTE_MAX_CHARS);
+      let (label, truncated) = excerpt(&line, note_max_chars);
       let label = if truncated { format!("{}…", label.trim_end()) } else { label };
       pieces.text(&format!("[{}]({})", escape_label(&label), link_url(content)));
       if truncated {
         let count = note_fragments(content).len();
-        pieces.text(&format!(" (note, {count} fragment{})", if count == 1 { "" } else { "s" }));
+        pieces.text(&format!(" (note, {})", count_label(count, "fragment")));
       }
     }
     Ok(pieces)
@@ -1507,6 +1538,49 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn hits_show_their_item_with_short_links_to_its_attachments() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let doc = t.arranged_page(&home, "Doc", ArrangeAlgorithm::Document, "").await;
+    let mut ids = Vec::new();
+    for page in [&home, &doc] {
+      let item = t.note(page, "Vendor review", RelationshipToParent::Child).await;
+      let tag = t.note(&item, "fat cat", RelationshipToParent::Attachment).await;
+      let long_text = "Notes from the call with the vendor about pricing and the renewal terms";
+      let long = t.note(&item, long_text, RelationshipToParent::Attachment).await;
+      let notes = t.page(&item, "Notes").await;
+      let mut attached_page = t.db.item.get(&notes).unwrap().clone();
+      attached_page.relationship_to_parent = RelationshipToParent::Attachment;
+      attached_page.ordering = [t.db.item.get(&long).unwrap().ordering.clone(), vec![128]].concat();
+      t.db.item.update(&attached_page).await.unwrap();
+      let mut fourth = None;
+      for extra in ["four", "five", "six"] {
+        let id = t.note(&item, extra, RelationshipToParent::Attachment).await;
+        fourth.get_or_insert(id);
+      }
+      ids.push((item, tag, long, notes, fourth.unwrap()));
+    }
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+    let hits = ids.iter().flat_map(|(item, tag, ..)| [item.clone(), tag.clone()]).collect::<Vec<_>>();
+    let listings = hit_listings(&db, &access, &hits).await;
+
+    for (page, (item, tag, long, notes, fourth)) in [&home, &doc].into_iter().zip(&ids) {
+      let expected = format!(
+        "[Vendor review](infumap://{item}) · attached: [fat cat](infumap://{tag}); [Notes from the call with the vendor…](\
+         infumap://{long}) (note, 1 fragment); [Notes](infumap://{notes}) (page, 0 items); [four](infumap://{fourth}); \
+         +2 more"
+      );
+      for hit in [item, tag] {
+        let listing = &listings[hit];
+        assert_eq!((&listing.subject_id, &listing.text), (item, &expected), "{hit}");
+        assert_eq!(listing.container_id.as_ref(), Some(page), "a document page's attachment is located by its item");
+      }
+    }
+  }
+
+  #[tokio::test]
   async fn hits_on_table_pages_are_shown_as_rows() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
@@ -1735,18 +1809,21 @@ mod tests {
       listing.text.as_str()
     };
     assert_eq!(in_page(&table), format!("[Tasks](infumap://{table}) (table, 120 rows; columns: Name | Status)"));
-    assert_eq!(
-      in_page(&child),
-      format!("[Child](infumap://{child}) (page, 0 items)"),
-      "a page is listed by its parent"
-    );
+    let child_text =
+      format!("[Child](infumap://{child}) (page, 0 items) · attached: [attached to child page](infumap://{attached})");
+    assert_eq!(in_page(&child), child_text, "a page is listed by its parent");
     assert_eq!(in_page(&member), format!("[member one](infumap://{member})"), "a member is only itself");
     assert_eq!(in_page(&composite), format!("[composite](infumap://{composite}) (composite)"));
     let long_listing = in_page(&long);
     assert!(long_listing.starts_with("[Words in a sentence."), "{long_listing}");
     assert!(long_listing.ends_with(&format!(" sentence.…](infumap://{long}) (note, 2 fragments)")), "{long_listing}");
     assert!(long_listing.chars().count() < HIT_NOTE_MAX_CHARS + 80, "{long_listing}");
-    assert_eq!(in_page(&attached), format!("[attached to child page](infumap://{attached})"));
+    let attachment = &listings[&attached];
+    assert_eq!(
+      (&attachment.subject_id, &attachment.text),
+      (&child, &child_text),
+      "an attachment is shown with its item"
+    );
   }
 
   #[tokio::test]

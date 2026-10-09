@@ -89,6 +89,12 @@ Each result is one line of text:
   characters and followed by `(note, N fragments)` when cut.
 - A table row, or a cell of one, is shown as the whole row with its cells, cut at 300 characters. A
   row and its cell give the same line, which is listed once.
+- Elsewhere, an item with attachments, or one of its attachments, is shown as the item followed by
+  `· attached:` and links to at most four attachments, then `+N more`. An attachment note is cut at a
+  word near 40 characters and followed by `(note, N fragments)` when cut; other attachments show
+  their label. An item's title entry holds its attachments' titles, so the item matches what its
+  attachments say, and the line shows why. An item and its attachment give the same line, listed
+  once.
 - `— fragment N: …` ends a result whose document text matched: its best matching sentence, cut to
   about 220 characters around the first query word, and the fragment holding it, for `get_fragment`.
   Only files, text items and images have document text; notes, pages and tables match by their titles.
