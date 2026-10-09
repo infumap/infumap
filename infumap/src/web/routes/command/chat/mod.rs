@@ -1244,6 +1244,44 @@ fn append_llm_json_log_section<T: Serialize>(title: &str, value: &T) {
   append_llm_log_section(title, &body);
 }
 
+/// The messages of the last logged request, by request id, so the next request in the same run can log only what
+/// changed. Concurrent runs replace each other's entry, which only costs a full log.
+/// Request id, LLM turn, and the messages as sent.
+type LoggedLlmMessages = (String, usize, Vec<Value>);
+
+fn last_logged_llm_messages() -> &'static Mutex<Option<LoggedLlmMessages>> {
+  static LAST: OnceLock<Mutex<Option<LoggedLlmMessages>>> = OnceLock::new();
+  LAST.get_or_init(|| Mutex::new(None))
+}
+
+/// The request as logged. Tool schemas are the same every round and rarely worth reading, so only their names are
+/// kept. Messages already logged unchanged by the previous request of the same run are replaced by a marker; if an
+/// earlier message differs, the marker says so, since the prompt was rewritten and the provider's cache stops there.
+fn llm_request_log_value(payload: &OpenAiChatCompletionRequest, request_id: &str, llm_turn: usize) -> Value {
+  let mut value = serde_json::to_value(payload).unwrap_or(Value::Null);
+  if let Some(tools) = value.get_mut("tools") {
+    let names = payload.tools.iter().map(|tool| tool.function.name.as_str()).collect::<Vec<_>>();
+    *tools = Value::String(format!("<omitted: {}>", names.join(", ")));
+  }
+  let messages = value.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
+  let mut last = last_logged_llm_messages().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+  if let Some((_, last_turn, last_messages)) = last.as_ref().filter(|(id, _, _)| id == request_id) {
+    let same = messages.iter().zip(last_messages).take_while(|(message, last)| message == last).count();
+    if same > 0 {
+      let unchanged = format!("messages 0–{} unchanged since request {last_turn}", same - 1);
+      let marker = if same < last_messages.len() {
+        format!("<{unchanged}; message {same} onwards differs, so the prompt was rewritten and the cache stops here>")
+      } else {
+        format!("<{unchanged}>")
+      };
+      let logged = std::iter::once(Value::String(marker)).chain(messages[same..].iter().cloned()).collect();
+      value["messages"] = Value::Array(logged);
+    }
+  }
+  *last = Some((request_id.to_owned(), llm_turn, messages));
+  value
+}
+
 fn approx_chars_to_tokens(chars: usize) -> i64 {
   ((chars + 3) / 4) as i64
 }
@@ -2476,7 +2514,8 @@ async fn chat_completion(
     reasoning: OpenAiReasoning::from_config(endpoint.reasoning),
   };
   append_llm_request_metrics_log(llm_turn, messages, tools);
-  append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &payload);
+  let logged_request = llm_request_log_value(&payload, &progress.request_id, llm_turn);
+  append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &logged_request);
   progress.context_tokens(approx_request_tokens(messages, tools), false).await;
   let mut request = client.post(url.clone()).header(reqwest::header::ACCEPT, "text/event-stream").json(&payload);
   if let Some(api_key) = endpoint.api_key.as_deref() {
@@ -2837,6 +2876,36 @@ mod tests {
     let contents =
       |messages: &[OpenAiChatMessage]| messages.iter().map(|message| message.content.clone()).collect::<Vec<_>>();
     assert_eq!(contents(&again), contents(&shortened), "a later turn sends the same bytes");
+  }
+
+  #[test]
+  fn logged_requests_show_only_new_messages_and_flag_rewrites() {
+    let request = |texts: &[&str]| OpenAiChatCompletionRequest {
+      model: "m".to_owned(),
+      messages: texts.iter().map(|text| OpenAiChatMessage::text("user", (*text).to_owned())).collect(),
+      stream: true,
+      stream_options: None,
+      tools: vec![get_fragment_tool_spec()],
+      reasoning: None,
+    };
+    let run = new_uid();
+    let first = llm_request_log_value(&request(&["a", "b"]), &run, 1);
+    assert_eq!(first["messages"].as_array().unwrap().len(), 2, "the first request is logged in full");
+    assert_eq!(first["tools"], "<omitted: get_fragment>");
+
+    let grown = llm_request_log_value(&request(&["a", "b", "c"]), &run, 2);
+    assert_eq!(grown["messages"][0], "<messages 0–1 unchanged since request 1>");
+    assert_eq!(grown["messages"][1]["content"], "c");
+
+    let rewritten = llm_request_log_value(&request(&["a", "x", "c", "d"]), &run, 3);
+    assert_eq!(
+      rewritten["messages"][0],
+      "<messages 0–0 unchanged since request 2; message 1 onwards differs, so the prompt was rewritten and the cache stops here>"
+    );
+    assert_eq!(rewritten["messages"].as_array().unwrap().len(), 4);
+
+    let other_run = llm_request_log_value(&request(&["a", "x", "c", "d", "e"]), &new_uid(), 1);
+    assert_eq!(other_run["messages"].as_array().unwrap().len(), 5, "another run starts in full");
   }
 
   #[tokio::test]
