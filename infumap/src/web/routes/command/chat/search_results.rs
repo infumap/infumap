@@ -105,12 +105,12 @@ fn location_label(element: &SearchPathElement) -> String {
   }
 }
 
-/// The hit's label in a result line, for activity summaries: the first link label after the location, or the
-/// text after it when the hit is not a link.
+/// The hit's label in a result line, for activity summaries: the first link label after the location, skipping a
+/// prefix such as a calendar date, or the text after the location when the hit is not a link.
 pub(super) fn result_line_title(line: &str) -> String {
   let line = line.split(SNIPPET_SEPARATOR).next().unwrap_or(line);
   let own = line.rsplit(LOCATION_SEPARATOR).next().unwrap_or(line);
-  let Some(rest) = own.strip_prefix('[') else {
+  let Some(rest) = own.split_once('[').map(|(_, rest)| rest) else {
     return own.to_owned();
   };
   let mut label = String::new();
@@ -221,5 +221,8 @@ mod tests {
     let titles = json["results"].as_array().unwrap().iter().map(|line| result_line_title(line.as_str().unwrap()));
     assert_eq!(titles.collect::<Vec<_>>(), ["Cocktails", "report.pdf", "Acme", "untitled note"]);
     assert_eq!(result_line_title("Home › [a \\] b](infumap://x)"), "a ] b");
+    let calendar =
+      "Home › [Calendar](infumap://c) › 2026-01-03 Sat: [dentist](infumap://d) · attached: [x](infumap://x)";
+    assert_eq!(result_line_title(calendar), "dentist", "a calendar date before the link is skipped");
   }
 }
