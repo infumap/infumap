@@ -79,6 +79,9 @@ Each result is one line of text:
   A group comes after its page when the result, or the item holding it, is one of its members.
 - `(fragment N)` after the container is the fragment listing the result, given only when it is past
   the first.
+- A result on a calendar page starts with its day as the page lists it, such as
+  `2026-01-03 Sat: [dentist](infumap://<id>)`. For a composite member or an attachment, that is the
+  day of the item holding it.
 - Composites have no titles and are labelled `composite`; other untitled items are `untitled <type>`.
   Location titles are cut at 60 characters.
 - The result itself is its label as in container fragments, such as `(page, 12 items)` or
@@ -180,8 +183,10 @@ How containers are laid out:
 - On every kind of page, the members of a group with two or more members are listed together
   where its first member would be, under `[group](infumap://<groupId>) (group, N items)`: indented
   beneath it, or for document pages, following it.
-- Calendar pages list children by date with a `2026-01-03 14:00:` prefix. Times are in UTC, which
-  can differ by a day from the browser's local calendar near midnight.
+- Calendar pages list children by date with a `2026-01-03 Sat:` prefix, or
+  `2026-01-01 Thu – 2026-01-03 Sat:` for an item spanning days. The calendar places items by day, so
+  no time of day is given; the weekday saves the model working it out. Dates are taken as stored,
+  without converting between time zones.
 - Other pages use their stored order, or title order when the container sorts by title (document
   pages excepted), with unresolved links last.
 
