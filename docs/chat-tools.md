@@ -23,40 +23,21 @@ quotes or brackets or followed by punctuation, whole numbers as strings, and nea
 `query` for `text` or `ordinal` for `fragmentOrdinal`. A value that still cannot be used is an error,
 not ignored.
 
-Tool results longer than 500 characters are kept whole for the turn that produced them. When the
-next question arrives, they are replaced in the transcript by a short stub starting `Shortened earlier`,
-with a one-line summary. A search's stub also keeps the links of its first eight results, labels cut
-at 60 characters, and a `get_fragment` stub keeps the first fragment header, with the item's link and
-location, so a follow-up can read or cite them without searching again. The model calls a tool
-again if a follow-up needs more. Each result is replaced once and identically from then on, and a stub
-is never shortened again, so every turn still reuses the provider's prompt cache up to the previous
-turn's results.
+Tool results stay whole in the transcript for the rest of the chat. Earlier turns' results used to
+be replaced by short stubs from the next question on, to keep context small and the model focused.
+That was dropped: a weak model answered follow-ups from the stubs instead of calling the tool again,
+and made up what it had read. Asked how it had found an answer, one said it had only read a page's
+first fragment, because its stub showed only the first header, when it had read both. Search stubs
+kept only bare links, which it described as anonymous pages.
 
-### Why every turn
+The cost is that a long chat grows by every result, and a small-context model eventually fails with
+"The conversation is too long for the model's context window." Compacting the transcript when it
+nears the model's context size is the planned answer. A compacted result should say plainly that its
+content is gone, so that the model calls the tool again rather than reconstructing it.
 
-There is one setting for every model, chosen for the weakest supported: about 27B parameters with a
-100k-token context. Shortening the previous turn's results on every turn was chosen over the
-alternatives below for that model:
-
-- Focus. Answer quality drops as context grows, well inside the window, and most when it is full of
-  text that looks relevant but is not. Old search results are mostly that: matches on a single common
-  word of an earlier query. A new question, often on a new topic, is not answered among the last one's
-  evidence.
-- Little is lost. The assistant's answers stay whole, with the conclusions drawn from the results and
-  links to what they cite, so the model can read any of those again. A search keeps its results'
-  links. What goes is evidence that was seen but not cited, which a follow-up reads again.
-- The cache cost is small. The prompt cache misses once per turn, from the previous turn's first
-  shortened result, and what is processed again is that turn's stubs, answer and the new question:
-  hundreds of tokens, against the thousands of tokens of results kept out of every later request.
-
-Considered and not chosen:
-
-- Shortening only when the context passes a size, then all old results at once. It is a common
-  approach and caches better, since short chats keep everything, but it leaves earlier results in
-  front of a weak model until the conversation is long.
-- Keeping the previous turn whole and shortening only older ones, since follow-ups mostly refer to
-  the turn just before. Worth doing if the model is seen searching again for results it just had.
-- Limits that follow each model's context size. One setting is simpler to reason about and test.
+The chat server appends each run's requests, responses and full tool results to `/tmp/llm.txt`, under
+a `RUN <time>` line. The log starts over once it passes 10 MB. Within a run, messages already logged
+are shown as `<messages 0–N unchanged since request K>`.
 
 ## Scopes
 
@@ -220,7 +201,8 @@ The item continues. For the next fragment, call get_fragment again with fragment
 - Stored fragments add ` · page N` or ` · pages N–M` when known. A file still being processed
   reports "This item has no readable text yet."
 - A container is rendered again on every call, so ordinals can move if it is edited between calls.
-  Nothing detects that: within a turn it is unlikely, and earlier turns' results are shortened.
+  Nothing detects that. Within a turn it is unlikely; across turns, an earlier result stays in
+  the transcript as it was read, so a later read of an edited container can differ from it.
 
 ### Container fragments
 
