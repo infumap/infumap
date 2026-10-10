@@ -17,6 +17,7 @@ use tokio::time::{Instant, timeout_at};
 use crate::ai::artifact_io::{atomic_write, atomic_write_unsynced, sha256};
 use crate::ai::artifact_paths::{item_fragments_dir, item_fragments_manifest_path, item_fragments_path};
 use crate::ai::fragment::is_lexical_search_source_kind;
+use crate::ai::fragment::sources::lexical_text_and_context;
 use crate::ai::lexical_index::{
   INDEX_MAINTENANCE_FIRST_DELAY, INDEX_MAINTENANCE_INTERVAL, LexicalFragment, open_user_document_fragment_lexical_index,
 };
@@ -95,13 +96,17 @@ pub async fn load_item_search_fragments(
     fragments
       .records
       .into_iter()
-      .map(|record| LexicalFragment {
-        item_id: item_id.to_owned(),
-        ordinal: record.ordinal,
-        source_kind: fragments.source_kind.clone(),
-        text: record.text,
-        page_start: record.page_start,
-        page_end: record.page_end,
+      .map(|record| {
+        let (text, context) = lexical_text_and_context(&fragments.source_kind, &record.text);
+        LexicalFragment {
+          item_id: item_id.to_owned(),
+          ordinal: record.ordinal,
+          source_kind: fragments.source_kind.clone(),
+          text,
+          context,
+          page_start: record.page_start,
+          page_end: record.page_end,
+        }
       })
       .collect(),
   )
@@ -133,6 +138,7 @@ fn indexed_fingerprint(fragments: &[LexicalFragment]) -> InfuResult<String> {
           fragment.ordinal,
           &fragment.source_kind,
           &fragment.text,
+          &fragment.context,
           fragment.page_start,
           fragment.page_end,
         )

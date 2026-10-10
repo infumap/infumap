@@ -15,6 +15,7 @@ use super::super::{FragmentBuildOutcome, clear_item_fragments};
 use super::{FragmentSource, FragmentSourceKind, normalized_text, read_json_if_exists, single_fragment_source};
 
 const IMAGE_DOCUMENT_LEXICAL_CONFIDENCE_THRESHOLD: f64 = 0.9;
+const CONTEXT_LABEL: &str = "Context";
 
 pub struct ImageFragmentBuildResult {
   pub had_fragment_source: bool,
@@ -158,7 +159,7 @@ fn build_image_fragment_text(
   }
 
   if let Some(context_title) = context_title {
-    lower_lines.push(labeled_line("Context", &context_title));
+    lower_lines.push(labeled_line(CONTEXT_LABEL, &context_title));
   }
   if let Some(title) = title {
     lower_lines.push(labeled_line("Title", &title));
@@ -173,6 +174,22 @@ fn build_image_fragment_text(
   }
 
   if sections.is_empty() { None } else { Some(sections.join("\n\n")) }
+}
+
+/// An image fragment's text without its context line, and the context from that line.
+pub(super) fn split_context_line(text: &str) -> (String, Option<String>) {
+  let prefix = format!("{CONTEXT_LABEL}: ");
+  let lines = text.split('\n').collect::<Vec<_>>();
+  // The context line is in the last section, below the caption, which could start the same way. In a text of one
+  // section such a caption is taken for the context, which then only helps the image match.
+  let last_section = lines.iter().rposition(|line| line.is_empty()).map_or(0, |index| index + 1);
+  let Some(index) = lines[last_section..].iter().position(|line| line.starts_with(&prefix)) else {
+    return (text.to_owned(), None);
+  };
+  let index = last_section + index;
+  let context = lines[index][prefix.len()..].to_owned();
+  let rest = [&lines[..index], &lines[index + 1..]].concat().join("\n");
+  (rest.trim_end().to_owned(), Some(context))
 }
 
 fn labeled_line(label: &str, value: &str) -> String {
@@ -367,4 +384,30 @@ struct StoredGeoResult {
   country: Option<String>,
   #[serde(default)]
   other_names: BTreeMap<String, String>,
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn the_context_line_is_split_from_the_text_it_was_built_into() {
+    let artifact = StoredImageTagArtifact {
+      detailed_caption: Some("Context: a beach at dusk".to_owned()),
+      scene: Some("beach".to_owned()),
+      document_confidence: 0.0,
+      tags: vec!["sand".to_owned()],
+      ocr_text: Vec::new(),
+      image_metadata: None,
+    };
+    let text = build_image_fragment_text(Some("Sunset"), Some("Malaysia"), Some(&artifact), None).unwrap();
+    let (rest, context) = split_context_line(&text);
+    assert_eq!(context.as_deref(), Some("Malaysia"));
+    assert_eq!(rest, "beach\nContext: a beach at dusk\nTags: sand\n\nTitle: Sunset", "a caption line is kept");
+
+    let only_context = build_image_fragment_text(None, Some("Malaysia"), Some(&artifact), None).unwrap();
+    assert_eq!(split_context_line(&only_context).0, "beach\nContext: a beach at dusk\nTags: sand");
+    let no_context = build_image_fragment_text(Some("Sunset"), None, Some(&artifact), None).unwrap();
+    assert_eq!(split_context_line(&no_context), (no_context.clone(), None));
+  }
 }

@@ -230,6 +230,7 @@ pub fn lexical_fragment_from_item_title_fragment(fragment: ItemTitleFragment) ->
     ordinal: fragment.ordinal,
     source_kind: fragment.source_kind.to_owned(),
     text: fragment.text,
+    context: fragment.context,
     page_start: None,
     page_end: None,
   }

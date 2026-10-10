@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tantivy::collector::{DocSetCollector, TopDocs};
 use tantivy::indexer::NoMergePolicy;
-use tantivy::query::{BooleanQuery, EmptyQuery, Query, TermQuery, TermSetQuery};
+use tantivy::query::{BooleanQuery, BoostQuery, ConstScoreQuery, EmptyQuery, Occur, Query, TermQuery, TermSetQuery};
 use tantivy::schema::{
   Field, INDEXED, IndexRecordOption, STORED, STRING, Schema, TextFieldIndexing, TextOptions, Value,
 };
@@ -22,13 +22,15 @@ pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_DIR_NAME: &str = "document_fragments_t
 pub const DOCUMENT_FRAGMENT_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "document_fragments_tantivy.tmp";
 pub const DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME: &str = "infumap_document_fragment_index.json";
 // 2: words are stemmed (English Snowball).
-pub const DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION: u32 = 2;
+// 3: an image's context line is indexed apart from its text.
+pub const DOCUMENT_FRAGMENT_LEXICAL_SCHEMA_VERSION: u32 = 3;
 pub const ITEM_TITLE_LEXICAL_INDEX_DIR_NAME: &str = "item_titles_tantivy";
 #[allow(dead_code)]
 pub const ITEM_TITLE_LEXICAL_INDEX_TEMP_DIR_NAME: &str = "item_titles_tantivy.tmp";
 pub const ITEM_TITLE_LEXICAL_METADATA_FILENAME: &str = "infumap_item_title_index.json";
 // 2: words are stemmed (English Snowball).
-pub const ITEM_TITLE_LEXICAL_SCHEMA_VERSION: u32 = 2;
+// 3: the parent's title is indexed apart from the item's own titles.
+pub const ITEM_TITLE_LEXICAL_SCHEMA_VERSION: u32 = 3;
 
 const ITEM_ID_FIELD: &str = "item_id";
 const ORDINAL_FIELD: &str = "ordinal";
@@ -36,10 +38,13 @@ const SOURCE_KIND_FIELD: &str = "source_kind";
 const PAGE_START_FIELD: &str = "page_start";
 const PAGE_END_FIELD: &str = "page_end";
 const TEXT_FIELD: &str = "text";
+const CONTEXT_FIELD: &str = "context";
 const INDEX_WRITER_HEAP_BYTES: usize = 50_000_000;
 const INCREMENTAL_INDEX_WRITER_HEAP_BYTES: usize = 20_000_000;
 const INCREMENTAL_SOURCE_DIGEST: &str = "incremental";
 const NATURAL_TEXT_QUERY_MAX_TERMS: usize = 12;
+/// How much a word found in a document's context counts toward its score, relative to one in its own text.
+const CONTEXT_WORD_WEIGHT: f32 = 0.5;
 const TEXT_TOKENIZER: &str = "en_stem";
 const DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL: &str = "document fragment lexical index";
 const ITEM_TITLE_LEXICAL_INDEX_LABEL: &str = "item title lexical index";
@@ -124,8 +129,21 @@ pub struct LexicalFragment {
   pub ordinal: usize,
   pub source_kind: String,
   pub text: String,
+  /// Where the item is, such as its parent's title. See `MatchedWords`.
+  pub context: Option<String>,
   pub page_start: Option<usize>,
   pub page_end: Option<usize>,
+}
+
+/// Where a search's matching words must be. Words in a document's context count toward the words it matches, so a
+/// note "Cocktails" on the page "Malaysia" matches both words of "malaysia cocktails", but by default context alone
+/// does not match it: the page itself matches "malaysia", and every item on it would too.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MatchedWords {
+  /// At least one in the document's own text.
+  Own,
+  /// Only in its context.
+  ContextOnly,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -172,6 +190,7 @@ struct LexicalFields {
   page_start: Field,
   page_end: Field,
   text: Field,
+  context: Field,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -220,13 +239,14 @@ impl TantivyDocumentFragmentIndex {
     maintain_index_in_background(&self.index_dir, DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL, log_label).await
   }
 
-  /// Documents containing at least `min_matching_words` of the query's words, best first.
+  /// Documents containing at least `min_matching_words` of the query's words, where `matched` says, best first.
   pub async fn search(
     &self,
     query_text: &str,
     limit: usize,
     allowed_item_ids: Option<&[String]>,
     min_matching_words: usize,
+    matched: MatchedWords,
   ) -> InfuResult<Vec<FragmentLexicalHit>> {
     search_index(
       &self.index_dir,
@@ -234,6 +254,7 @@ impl TantivyDocumentFragmentIndex {
       limit,
       allowed_item_ids,
       min_matching_words,
+      matched,
       DOCUMENT_FRAGMENT_LEXICAL_METADATA_FILENAME,
       DOCUMENT_FRAGMENT_LEXICAL_INDEX_LABEL,
     )
@@ -303,13 +324,14 @@ impl TantivyItemTitleIndex {
       .await
   }
 
-  /// Documents containing at least `min_matching_words` of the query's words, best first.
+  /// Documents containing at least `min_matching_words` of the query's words, where `matched` says, best first.
   pub async fn search(
     &self,
     query_text: &str,
     limit: usize,
     allowed_item_ids: Option<&[String]>,
     min_matching_words: usize,
+    matched: MatchedWords,
   ) -> InfuResult<Vec<FragmentLexicalHit>> {
     search_index(
       &self.index_dir,
@@ -317,6 +339,7 @@ impl TantivyItemTitleIndex {
       limit,
       allowed_item_ids,
       min_matching_words,
+      matched,
       ITEM_TITLE_LEXICAL_METADATA_FILENAME,
       ITEM_TITLE_LEXICAL_INDEX_LABEL,
     )
@@ -622,6 +645,7 @@ async fn search_index(
   limit: usize,
   allowed_item_ids: Option<&[String]>,
   min_matching_words: usize,
+  matched: MatchedWords,
   metadata_filename: &str,
   index_label: &str,
 ) -> InfuResult<Vec<FragmentLexicalHit>> {
@@ -642,7 +666,8 @@ async fn search_index(
   let index = &open_index.index;
   let fields = open_index.fields;
   let searcher = open_index.reader.searcher();
-  let query = natural_text_lexical_query(index, &searcher, fields.text, query_text, min_matching_words, index_label)?;
+  let query =
+    natural_text_lexical_query(index, &searcher, fields, query_text, min_matching_words, matched, index_label)?;
   let query = if let Some(item_ids) = allowed_item_ids {
     let item_terms: Vec<Term> = item_ids.iter().map(|item_id| Term::from_field_text(fields.item_id, item_id)).collect();
     Box::new(BooleanQuery::intersection(vec![query, Box::new(TermSetQuery::new(item_terms))])) as Box<dyn Query>
@@ -666,13 +691,14 @@ async fn search_index(
 fn natural_text_lexical_query(
   index: &Index,
   searcher: &Searcher,
-  text_field: Field,
+  fields: LexicalFields,
   query_text: &str,
   min_matching_words: usize,
+  matched: MatchedWords,
   index_label: &str,
 ) -> InfuResult<Box<dyn Query>> {
   let mut analyzer = index
-    .tokenizer_for_field(text_field)
+    .tokenizer_for_field(fields.text)
     .map_err(|e| format!("Could not load {} text analyzer: {}", index_label, e))?;
   let mut token_stream = analyzer.token_stream(query_text);
   let mut seen = HashSet::new();
@@ -683,13 +709,17 @@ fn natural_text_lexical_query(
     }
   });
 
+  let doc_freq = |term: &Term| {
+    searcher.doc_freq(term).map_err(|e| format!("Could not inspect {} term frequency: {}", index_label, e))
+  };
   let mut candidates = Vec::new();
   for (position, token_text) in token_texts.into_iter().enumerate() {
-    let term = Term::from_field_text(text_field, &token_text);
-    let document_frequency =
-      searcher.doc_freq(&term).map_err(|e| format!("Could not inspect {} term frequency: {}", index_label, e))?;
+    let own = Term::from_field_text(fields.text, &token_text);
+    let context = Term::from_field_text(fields.context, &token_text);
+    // Used only to order the words by rarity, so a document counted twice, once per field, does not matter.
+    let document_frequency = doc_freq(&own)? + doc_freq(&context)?;
     if document_frequency > 0 {
-      candidates.push((document_frequency, position, term));
+      candidates.push((document_frequency, position, own, context));
     }
   }
   candidates.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
@@ -700,11 +730,23 @@ fn natural_text_lexical_query(
   if candidates.len() < min_matching_words {
     return Ok(Box::new(EmptyQuery));
   }
-  let term_queries = candidates
-    .into_iter()
-    .map(|(_, _, term)| Box::new(TermQuery::new(term, IndexRecordOption::WithFreqs)) as Box<dyn Query>)
-    .collect();
-  Ok(Box::new(BooleanQuery::union_with_minimum_required_clauses(term_queries, min_matching_words)))
+  let term_query = |term: Term| Box::new(TermQuery::new(term, IndexRecordOption::WithFreqs)) as Box<dyn Query>;
+  let mut own_queries = Vec::new();
+  let mut word_queries = Vec::new();
+  for (_, _, own, context) in candidates {
+    own_queries.push(term_query(own.clone()));
+    // A word counts once, found in either field.
+    let in_context = Box::new(BoostQuery::new(term_query(context), CONTEXT_WORD_WEIGHT));
+    word_queries.push(Box::new(BooleanQuery::union(vec![term_query(own), in_context])) as Box<dyn Query>);
+  }
+  let words = Box::new(BooleanQuery::union_with_minimum_required_clauses(word_queries, min_matching_words));
+  let own = Box::new(BooleanQuery::union(own_queries)) as Box<dyn Query>;
+  let own_requirement = match matched {
+    // Already scored by `words`.
+    MatchedWords::Own => (Occur::Must, Box::new(ConstScoreQuery::new(own, 0.0)) as Box<dyn Query>),
+    MatchedWords::ContextOnly => (Occur::MustNot, own),
+  };
+  Ok(Box::new(BooleanQuery::new(vec![(Occur::Must, words as Box<dyn Query>), own_requirement])))
 }
 
 fn lexical_schema() -> (Schema, LexicalFields) {
@@ -719,8 +761,12 @@ fn lexical_schema() -> (Schema, LexicalFields) {
     .set_index_option(IndexRecordOption::WithFreqsAndPositions);
   let text =
     schema_builder.add_text_field(TEXT_FIELD, TextOptions::default().set_indexing_options(text_indexing).set_stored());
+  let context_indexing =
+    TextFieldIndexing::default().set_tokenizer(TEXT_TOKENIZER).set_index_option(IndexRecordOption::WithFreqs);
+  let context = schema_builder
+    .add_text_field(CONTEXT_FIELD, TextOptions::default().set_indexing_options(context_indexing).set_stored());
   let schema = schema_builder.build();
-  (schema, LexicalFields { item_id, ordinal, source_kind, page_start, page_end, text })
+  (schema, LexicalFields { item_id, ordinal, source_kind, page_start, page_end, text, context })
 }
 
 fn fields_from_schema(schema: &Schema, index_label: &str) -> InfuResult<LexicalFields> {
@@ -737,6 +783,7 @@ fn fields_from_schema(schema: &Schema, index_label: &str) -> InfuResult<LexicalF
       .get_field(PAGE_END_FIELD)
       .map_err(|e| format!("{} schema missing page_end: {}", index_label, e))?,
     text: schema.get_field(TEXT_FIELD).map_err(|e| format!("{} schema missing text: {}", index_label, e))?,
+    context: schema.get_field(CONTEXT_FIELD).map_err(|e| format!("{} schema missing context: {}", index_label, e))?,
   })
 }
 
@@ -752,6 +799,9 @@ fn tantivy_document_for_fragment(fields: LexicalFields, fragment: &LexicalFragme
     doc.add_u64(fields.page_end, page_end as u64);
   }
   doc.add_text(fields.text, &fragment.text);
+  if let Some(context) = &fragment.context {
+    doc.add_text(fields.context, context);
+  }
   doc
 }
 
@@ -778,6 +828,7 @@ fn stored_fragment(doc: &TantivyDocument, fields: LexicalFields, index_label: &s
     ordinal: required_usize_field(doc, fields.ordinal, ORDINAL_FIELD, index_label)?,
     source_kind: required_text_field(doc, fields.source_kind, SOURCE_KIND_FIELD, index_label)?.to_owned(),
     text: required_text_field(doc, fields.text, TEXT_FIELD, index_label)?.to_owned(),
+    context: doc.get_first(fields.context).and_then(|value| value.as_str()).map(str::to_owned),
     page_start: optional_usize_field(doc, fields.page_start, PAGE_START_FIELD, index_label)?,
     page_end: optional_usize_field(doc, fields.page_end, PAGE_END_FIELD, index_label)?,
   })
@@ -980,6 +1031,7 @@ mod tests {
       ordinal: 0,
       source_kind: "text".to_owned(),
       text: format!("zebra {}", item_id),
+      context: None,
       page_start: None,
       page_end: None,
     }
@@ -1075,6 +1127,7 @@ mod tests {
       ordinal: 0,
       source_kind: "text".to_owned(),
       text: text.to_owned(),
+      context: None,
       page_start: None,
       page_end: None,
     };
@@ -1090,7 +1143,7 @@ mod tests {
     let ids = |query: &'static str, min_matching_words: usize| {
       let index = index.clone();
       async move {
-        let hits = index.search(query, 10, None, min_matching_words).await.unwrap();
+        let hits = index.search(query, 10, None, min_matching_words, MatchedWords::Own).await.unwrap();
         hits.into_iter().map(|hit| hit.item_id).collect::<Vec<_>>()
       }
     };
@@ -1137,6 +1190,7 @@ mod tests {
       ordinal: 0,
       source_kind: "text".to_owned(),
       text: text.to_owned(),
+      context: None,
       page_start: None,
       page_end: None,
     };
@@ -1151,7 +1205,10 @@ mod tests {
     let matching = |min_matching_words: usize| {
       let index = index.clone();
       async move {
-        let mut ids = index.search("montreal hotel stay unknownword", 10, None, min_matching_words).await.unwrap();
+        let mut ids = index
+          .search("montreal hotel stay unknownword", 10, None, min_matching_words, MatchedWords::Own)
+          .await
+          .unwrap();
         ids.sort_by(|a, b| a.item_id.cmp(&b.item_id));
         ids.into_iter().map(|hit| hit.item_id).collect::<Vec<_>>()
       }
@@ -1164,12 +1221,59 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn context_words_count_toward_a_match_but_cannot_make_one_alone() {
+    let dir = temp_index_dir();
+    let index = TantivyItemTitleIndex::new(dir.clone());
+    let title = |item_id: &str, text: &str, context: Option<&str>| LexicalFragment {
+      item_id: item_id.to_owned(),
+      ordinal: 1,
+      source_kind: "item_title".to_owned(),
+      text: text.to_owned(),
+      context: context.map(str::to_owned),
+      page_start: None,
+      page_end: None,
+    };
+    let titles = [
+      title("page", "Malaysia", Some("Trips")),
+      title("cocktails", "Cocktails", Some("Malaysia")),
+      title("hotel", "Hotel", Some("Malaysia")),
+      title("elsewhere", "Cocktails", None),
+    ];
+    let updates = titles.iter().map(|title| (title.item_id.as_str(), std::slice::from_ref(title))).collect::<Vec<_>>();
+    index.replace_items_titles(&updates).await.unwrap();
+    let ids = |query: &'static str, min_matching_words: usize, matched: MatchedWords| {
+      let index = index.clone();
+      async move {
+        let mut ids = index.search(query, 10, None, min_matching_words, matched).await.unwrap();
+        ids.sort_by(|a, b| a.item_id.cmp(&b.item_id));
+        ids.into_iter().map(|hit| hit.item_id).collect::<Vec<_>>()
+      }
+    };
+    assert_eq!(ids("malaysia", 1, MatchedWords::Own).await, ["page"]);
+    assert_eq!(ids("malaysia", 1, MatchedWords::ContextOnly).await, ["cocktails", "hotel"]);
+    assert_eq!(ids("malaysia cocktails", 2, MatchedWords::Own).await, ["cocktails"], "context completes a match");
+    assert_eq!(ids("malaysia cocktails", 1, MatchedWords::Own).await, ["cocktails", "elsewhere", "page"]);
+    assert_eq!(ids("trips", 1, MatchedWords::ContextOnly).await, ["page"]);
+    assert_eq!(
+      index.stored_titles_for_items(&["cocktails".to_owned()]).await.unwrap()["cocktails"],
+      vec![titles[1].clone()],
+      "the context is stored, so unchanged titles are recognized"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+  }
+
+  #[tokio::test]
   async fn cached_search_sees_later_commits_and_removals() {
     let dir = temp_index_dir();
     let index = TantivyDocumentFragmentIndex::new(dir.clone());
     let search = |index: TantivyDocumentFragmentIndex| async move {
-      let mut ids =
-        index.search("zebra", 10, None, 1).await.unwrap().into_iter().map(|hit| hit.item_id).collect::<Vec<_>>();
+      let mut ids = index
+        .search("zebra", 10, None, 1, MatchedWords::Own)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|hit| hit.item_id)
+        .collect::<Vec<_>>();
       ids.sort();
       ids
     };
@@ -1191,6 +1295,7 @@ mod tests {
       ordinal: 1,
       source_kind: "item_title".to_owned(),
       text: text.to_owned(),
+      context: None,
       page_start: None,
       page_end: None,
     };

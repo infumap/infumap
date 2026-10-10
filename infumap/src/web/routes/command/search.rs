@@ -294,6 +294,10 @@ fn page_subtree_item_ids(
 /// matching one fewer, and so on, each tier in the usual ranking. A query that matches only the rarest word in a
 /// short note therefore cannot push out items matching more of the words, and pages never overlap across tiers.
 /// Scores are scaled by the share of words matched, so a lower tier never scores above a higher one.
+///
+/// Words in an item's context, its parent's title, count toward the words it matches but cannot match it alone (see
+/// `MatchedWords`). Within a tier, items whose parent is not searched are then also found by their context alone,
+/// scored between the tier and the next.
 async fn indexed_search_results(
   db: &Arc<tokio::sync::Mutex<Db>>,
   data_dir: &str,
@@ -307,26 +311,54 @@ async fn indexed_search_results(
     .map_err(|_| "Search result limit is too large.")?;
   let wanted = usize::try_from(end_result.max(0)).unwrap_or(usize::MAX);
   let word_count = natural_text_word_count(search_text).max(1);
+  let context_only_bounds = context_only_search_bounds(db, bounds).await;
 
   let mut results = Vec::new();
   let mut found = HashSet::new();
-  for min_matching_words in (1..=word_count).rev() {
-    // A lower tier also matches the items already found, so it asks for that many more.
-    let limit = fragment_result_limit.saturating_add(found.len());
-    let (title_results, search_fragment_results) =
-      tier_search_results(db, data_dir, user_id, bounds, min_matching_words, search_text, limit).await;
+  'tiers: for min_matching_words in (1..=word_count).rev() {
     let share = min_matching_words as f32 / word_count as f32;
-    for mut result in mix_search_results(title_results, search_fragment_results) {
-      if search_result_item_id(&result).is_some_and(|item_id| found.insert(item_id)) {
-        result.score *= share;
-        results.push(result);
-      }
+    let mut sub_tiers = vec![(bounds, MatchedWords::Own, share)];
+    if let Some(context_only_bounds) = &context_only_bounds {
+      sub_tiers.push((context_only_bounds, MatchedWords::ContextOnly, share - 0.5 / word_count as f32));
     }
-    if results.len() >= wanted {
-      break;
+    for (bounds, matched, share) in sub_tiers {
+      // A lower tier also matches the items already found, so it asks for that many more.
+      let limit = fragment_result_limit.saturating_add(found.len());
+      let (title_results, search_fragment_results) =
+        tier_search_results(db, data_dir, user_id, bounds, min_matching_words, matched, search_text, limit).await;
+      for mut result in mix_search_results(title_results, search_fragment_results) {
+        if search_result_item_id(&result).is_some_and(|item_id| found.insert(item_id)) {
+          result.score *= share;
+          results.push(result);
+        }
+      }
+      if results.len() >= wanted {
+        break 'tiers;
+      }
     }
   }
   Ok(paginate_mixed_results(results, start_result, end_result))
+}
+
+/// The searched items that are found by their context alone: those whose parent is not searched. Any other item
+/// whose context matches has a parent that matches the same words in its own title, and the parent is found instead
+/// of all it holds. Under a root every parent is searched, so there are none.
+async fn context_only_search_bounds(db: &Arc<tokio::sync::Mutex<Db>>, bounds: &SearchBounds) -> Option<SearchBounds> {
+  let SearchBounds::Items(item_ids) = bounds else {
+    return None;
+  };
+  let db = db.lock().await;
+  let searched = item_ids.iter().collect::<HashSet<_>>();
+  let item_ids = item_ids
+    .iter()
+    .filter(|item_id| {
+      db.item
+        .get(item_id)
+        .is_ok_and(|item| item.parent_id.as_ref().is_none_or(|parent_id| !searched.contains(parent_id)))
+    })
+    .cloned()
+    .collect::<Vec<_>>();
+  (!item_ids.is_empty()).then_some(SearchBounds::Items(item_ids))
 }
 
 /// One query mode's title and fragment results. A failing index is logged and contributes nothing.
@@ -336,30 +368,41 @@ async fn tier_search_results(
   user_id: &Uid,
   bounds: &SearchBounds,
   min_matching_words: usize,
+  matched: MatchedWords,
   search_text: &str,
   limit: usize,
 ) -> (Vec<SearchResult>, Vec<SearchResult>) {
   let title_results =
-    match title_lexical_search_results(db, data_dir, user_id, bounds, min_matching_words, search_text, limit).await {
+    match title_lexical_search_results(db, data_dir, user_id, bounds, min_matching_words, matched, search_text, limit)
+      .await
+    {
       Ok(results) => results,
       Err(e) => {
         warn!("Title lexical search failed for user '{}'; falling back without title lexical results: {}", user_id, e);
         Vec::new()
       }
     };
-  let search_fragment_results =
-    match search_fragment_lexical_search_results(db, data_dir, user_id, bounds, min_matching_words, search_text, limit)
-      .await
-    {
-      Ok(results) => results,
-      Err(e) => {
-        warn!(
-          "Search fragment lexical search failed for user '{}'; falling back without search fragment results: {}",
-          user_id, e
-        );
-        Vec::new()
-      }
-    };
+  let search_fragment_results = match search_fragment_lexical_search_results(
+    db,
+    data_dir,
+    user_id,
+    bounds,
+    min_matching_words,
+    matched,
+    search_text,
+    limit,
+  )
+  .await
+  {
+    Ok(results) => results,
+    Err(e) => {
+      warn!(
+        "Search fragment lexical search failed for user '{}'; falling back without search fragment results: {}",
+        user_id, e
+      );
+      Vec::new()
+    }
+  };
   (title_results, search_fragment_results)
 }
 
@@ -409,12 +452,14 @@ async fn title_lexical_search_results(
   user_id: &Uid,
   bounds: &SearchBounds,
   min_matching_words: usize,
+  matched: MatchedWords,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
   let result =
-    title_lexical_search_results_inner(db, data_dir, user_id, bounds, min_matching_words, search_text, limit).await;
+    title_lexical_search_results_inner(db, data_dir, user_id, bounds, min_matching_words, matched, search_text, limit)
+      .await;
   record_search_backend_metrics("title", started, &result);
   result
 }
@@ -425,6 +470,7 @@ async fn title_lexical_search_results_inner(
   user_id: &Uid,
   bounds: &SearchBounds,
   min_matching_words: usize,
+  matched: MatchedWords,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
@@ -444,7 +490,8 @@ async fn title_lexical_search_results_inner(
     return Ok(Vec::new());
   }
 
-  let title_hits = title_index.search(search_text, limit, bounds.allowed_item_ids(), min_matching_words).await?;
+  let title_hits =
+    title_index.search(search_text, limit, bounds.allowed_item_ids(), min_matching_words, matched).await?;
   if !title_hits.is_empty() {
     debug!(
       "Title lexical search top hits for user '{}': {}",
@@ -487,13 +534,22 @@ async fn search_fragment_lexical_search_results(
   user_id: &Uid,
   bounds: &SearchBounds,
   min_matching_words: usize,
+  matched: MatchedWords,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
   let started = Instant::now();
-  let result =
-    search_fragment_lexical_search_results_inner(db, data_dir, user_id, bounds, min_matching_words, search_text, limit)
-      .await;
+  let result = search_fragment_lexical_search_results_inner(
+    db,
+    data_dir,
+    user_id,
+    bounds,
+    min_matching_words,
+    matched,
+    search_text,
+    limit,
+  )
+  .await;
   record_search_backend_metrics("lexical", started, &result);
   result
 }
@@ -504,6 +560,7 @@ async fn search_fragment_lexical_search_results_inner(
   user_id: &Uid,
   bounds: &SearchBounds,
   min_matching_words: usize,
+  matched: MatchedWords,
   search_text: &str,
   limit: usize,
 ) -> InfuResult<Vec<SearchResult>> {
@@ -525,7 +582,7 @@ async fn search_fragment_lexical_search_results_inner(
 
   let fragment_limit = limit.saturating_mul(SEARCH_LEXICAL_FRAGMENT_MULTIPLIER).max(limit);
   let fragment_hits = lexical_index
-    .search(search_text, fragment_limit, bounds.allowed_item_ids(), min_matching_words)
+    .search(search_text, fragment_limit, bounds.allowed_item_ids(), min_matching_words, matched)
     .await?
     .into_iter()
     .filter(|hit| hit.source_kind != ITEM_TITLE_SOURCE_KIND)
@@ -1157,7 +1214,9 @@ fn search_recursive(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::ai::fragment::sources::item_title_fragment_for_item;
   use crate::ai::lexical_index::LexicalFragment;
+  use crate::ai::title_indexing::lexical_fragment_from_item_title_fragment;
   use crate::web::routes::command::scope::test_db::TestDb;
 
   fn bounds_item_ids(t: &TestDb, page_id: Option<&Uid>, scope_id: Option<&Uid>) -> Vec<Uid> {
@@ -1265,6 +1324,7 @@ mod tests {
           ordinal: 0,
           source_kind,
           text: title.clone(),
+          context: None,
           page_start: None,
           page_end: None,
         }]
@@ -1278,7 +1338,8 @@ mod tests {
     let bounds = SearchBounds::UnderRoot(home);
     let item_ids = |results: &[SearchResult]| results.iter().filter_map(search_result_item_id).collect::<Vec<_>>();
 
-    let (single_query, _) = tier_search_results(&db, &data_dir, &user_id, &bounds, 1, "montreal hotel liked", 10).await;
+    let (single_query, _) =
+      tier_search_results(&db, &data_dir, &user_id, &bounds, 1, MatchedWords::Own, "montreal hotel liked", 10).await;
     assert_eq!(item_ids(&single_query).first(), Some(liked), "one OR query ranks the rare word first");
 
     let search = |start: i64, end: i64| {
@@ -1293,6 +1354,42 @@ mod tests {
     let second_page = item_ids(&search(3, 6).await.unwrap());
     assert_eq!(second_page.len(), 3);
     assert!(second_page.iter().all(|item_id| !first_page.contains(item_id)), "pages do not overlap");
+  }
+
+  #[tokio::test]
+  async fn an_item_matching_only_by_its_parents_title_gives_way_to_the_parent() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let malaysia = t.page(&home, "Malaysia").await;
+    let cocktails = t.note(&malaysia, "Cocktails", RelationshipToParent::Child).await;
+    let hotel = t.note(&malaysia, "Hotel", RelationshipToParent::Child).await;
+    let other_cocktails = t.note(&home, "Cocktails", RelationshipToParent::Child).await;
+    let trip = t.page(&home, "Trip").await;
+    t.link(&trip, &hotel).await;
+    let data_dir = t.db.item.data_dir().to_owned();
+    let user_id = t.user_id.clone();
+    let titles = [&malaysia, &cocktails, &hotel, &other_cocktails, &trip]
+      .into_iter()
+      .map(|id| {
+        let title = item_title_fragment_for_item(&t.db, t.db.item.get(id).unwrap()).unwrap().unwrap();
+        (id.clone(), vec![lexical_fragment_from_item_title_fragment(title)])
+      })
+      .collect::<Vec<_>>();
+    let updates = titles.iter().map(|(id, titles)| (id.as_str(), titles.as_slice())).collect::<Vec<_>>();
+    open_user_item_title_lexical_index(&data_dir, &user_id).unwrap().replace_items_titles(&updates).await.unwrap();
+    let within_trip = search_bounds(&t.db, Some(&trip), None, true, &user_id).unwrap();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let everywhere = SearchBounds::UnderRoot(home);
+    let search = async |bounds: &SearchBounds, text: &str| {
+      let results = indexed_search_results(&db, &data_dir, &user_id, bounds, text, 0, 10).await.unwrap();
+      results.iter().filter_map(search_result_item_id).collect::<Vec<_>>()
+    };
+
+    assert_eq!(search(&everywhere, "malaysia").await, [malaysia.clone()], "the page, not what it holds");
+    let results = search(&everywhere, "malaysia cocktails").await;
+    assert_eq!(results.first(), Some(&cocktails), "its parent's title completes the match");
+    assert_eq!(sorted(results[1..].to_vec()), sorted(vec![malaysia.clone(), other_cocktails.clone()]));
+    assert_eq!(search(&within_trip, "malaysia").await, [hotel.clone()], "a linked item's parent is not searched");
   }
 
   #[test]

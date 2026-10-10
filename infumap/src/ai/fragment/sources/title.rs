@@ -13,7 +13,10 @@ pub struct ItemTitleFragment {
   pub item_id: String,
   pub ordinal: usize,
   pub source_kind: &'static str,
+  /// The item's own title and its attachments' titles.
   pub text: String,
+  /// Its parent's title: where the item is, which helps it match but cannot match it alone.
+  pub context: Option<String>,
 }
 
 pub fn item_title_fragment_for_item(db: &Db, item: &Item) -> InfuResult<Option<ItemTitleFragment>> {
@@ -24,25 +27,15 @@ pub fn item_title_fragment_for_item(db: &Db, item: &Item) -> InfuResult<Option<I
   let Some(title) = normalized_text(item.title.as_deref()) else {
     return Ok(None);
   };
-  let attachment_text = item_attachment_title_text(db, item)?;
-
-  let context_title = parent_title_for_item(db, item, false);
-  let mut lines = Vec::new();
-  lines.push(title);
-  if let Some(context_title) = context_title {
-    if !lines.iter().any(|line| normalized_text_eq(line, &context_title)) {
-      lines.push(context_title);
-    }
-  }
-  if let Some(attachment_text) = attachment_text {
-    lines.push(attachment_text);
-  }
+  let mut lines = vec![title];
+  lines.extend(item_attachment_title_text(db, item)?);
 
   Ok(Some(ItemTitleFragment {
     item_id: item.id.clone(),
     ordinal: ITEM_TITLE_FRAGMENT_ORDINAL,
     source_kind: ITEM_TITLE_SOURCE_KIND,
     text: lines.join("\n"),
+    context: parent_title_for_item(db, item, false),
   }))
 }
 
@@ -55,8 +48,4 @@ fn item_attachment_title_text(db: &Db, item: &Item) -> InfuResult<Option<String>
     .filter_map(|attachment| normalized_text(attachment.title.as_deref()))
     .collect::<Vec<_>>();
   if attachment_titles.is_empty() { Ok(None) } else { Ok(Some(attachment_titles.join(", "))) }
-}
-
-fn normalized_text_eq(left: &str, right: &str) -> bool {
-  left.to_lowercase() == right.to_lowercase()
 }
