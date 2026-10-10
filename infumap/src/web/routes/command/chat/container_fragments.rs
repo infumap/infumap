@@ -58,8 +58,10 @@ const ROW_LISTING_MAX_CHARS: usize = 300;
 const HIT_NOTE_MAX_CHARS: usize = 160;
 /// A search result shows this many of its item's attachments, each cut to a short label.
 const HIT_ATTACHMENTS_MAX: usize = 4;
-/// A search result shows this many of the places that link to its item, the most recently changed first.
+/// A search result shows this many of the places that link to its item, the most recently changed first, and this
+/// many for each page above it.
 const HIT_BACKLINKS_MAX: usize = 3;
+const HIT_ANCESTOR_BACKLINKS_MAX: usize = 2;
 
 /// What the chat tools may read: the user's readable items, limited to the chat's scope if it has one.
 pub(super) struct Access<'a> {
@@ -149,6 +151,8 @@ pub(super) struct HitListing {
   pub subject_id: Uid,
   /// The subject on one line: a table row with its cells, or else a linked label saying what the item is.
   pub text: String,
+  /// " (linked from …)" for the pages above the subject that are linked from elsewhere, keyed by page id.
+  pub ancestor_backlinks: HashMap<Uid, String>,
 }
 
 /// Listings for search hits, keyed by hit id, rendering each container once. A hit that is gone or that the chat
@@ -191,12 +195,12 @@ pub(super) async fn hit_listings(
         let date = (Layout::of(container) == Layout::Calendar).then(|| calendar_prefix(child));
         placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned(), date));
       }
-      let own_container_id = placement.map(|(container, _)| &container.id);
-      let backlinks = match home_page_id.as_ref() {
-        Some(home_page_id) => renderer.backlinks(&subject_id, home_page_id, own_container_id).unwrap_or_default(),
-        None => Pieces::default(),
+      let subject = parent.unwrap_or(item);
+      let (backlinks, ancestor_backlinks) = match home_page_id.as_ref() {
+        Some(home_page_id) => renderer.record_backlinks(item, subject, home_page_id),
+        None => (Pieces::default(), Vec::new()),
       };
-      labels.push((item_id.clone(), subject_id, label, backlinks));
+      labels.push((item_id.clone(), subject_id, label, backlinks, ancestor_backlinks));
     }
     (labels, placements, db.item.data_dir().to_owned(), renderer.data_item_ids)
   };
@@ -209,9 +213,12 @@ pub(super) async fn hit_listings(
   }
   labels
     .into_iter()
-    .map(|(item_id, subject_id, label, backlinks)| {
+    .map(|(item_id, subject_id, label, backlinks, ancestor_backlinks)| {
       let text = label.render(&counts);
-      let mut listing = HitListing { container_id: None, container_fragment: 0, group_id: None, subject_id, text };
+      let ancestor_backlinks =
+        ancestor_backlinks.into_iter().map(|(ancestor_id, pieces)| (ancestor_id, pieces.render(&counts))).collect();
+      let mut listing =
+        HitListing { container_id: None, container_fragment: 0, group_id: None, subject_id, text, ancestor_backlinks };
       let placement = placements.remove(&item_id);
       let fragments = placement.as_ref().and_then(|(container_id, ..)| rendered.get(container_id)?.as_ref());
       // Document pages do not render attachments, so an attachment is located by its item.
@@ -1291,10 +1298,56 @@ impl<'a, 'b> Renderer<'a, 'b> {
     Ok(pieces)
   }
 
-  /// " · linked from: …" for the places that link to `target_id`, the most recently changed first: the page or table
-  /// listing each link, and each note linking to it with an infumap:// URL. Places on the target's own page, outside
-  /// the home tree (such as the trash, the dock or scope definitions) or that the chat cannot read are left out.
-  fn backlinks(&mut self, target_id: &Uid, home_page_id: &Uid, own_container_id: Option<&Uid>) -> InfuResult<Pieces> {
+  /// Where a hit's record and the pages above it are linked from: " · linked from: …" for the subject, the item the
+  /// result stands for, and " (linked from …)" for each page above it, keyed by page id. People often link a page
+  /// rather than the items in it, so the page holding a hit may be what places it in context. A place is given once
+  /// on a line, and never when it is on the hit's path already.
+  fn record_backlinks(&mut self, hit: &'a Item, subject: &'a Item, home_page_id: &Uid) -> (Pieces, Vec<(Uid, Pieces)>) {
+    let mut path = vec![hit];
+    while let Some(parent) = path.last().and_then(|item| self.parent(item)).filter(|_| path.len() <= MAX_DEPTH) {
+      path.push(parent);
+    }
+    let mut seen = path.iter().map(|item| item.id.clone()).collect::<HashSet<_>>();
+    let mut placed = |renderer: &mut Self, item: &'a Item, max: usize| {
+      let own_container_id = listing_placement(renderer.db, item).map(|(container, _)| container.id.clone());
+      let places = renderer.backlink_places(&item.id, home_page_id, own_container_id.as_ref(), &seen);
+      seen.extend(places.iter().take(max).map(|place| place.id.clone()));
+      (!places.is_empty()).then(|| renderer.place_links(&places, max).unwrap_or_default())
+    };
+    let mut backlinks = Pieces::default();
+    if let Some(links) = placed(self, subject, HIT_BACKLINKS_MAX) {
+      backlinks.text(" · linked from: ");
+      backlinks.append(links);
+    }
+    let subject_index = path.iter().position(|item| item.id == subject.id).unwrap_or(0);
+    let mut ancestor_backlinks = Vec::new();
+    for ancestor in path.iter().skip(subject_index + 1) {
+      if let Some(links) = placed(self, ancestor, HIT_ANCESTOR_BACKLINKS_MAX) {
+        let mut pieces = Pieces::default();
+        pieces.text(" (linked from ");
+        pieces.append(links);
+        pieces.text(")");
+        ancestor_backlinks.push((ancestor.id.clone(), pieces));
+      }
+    }
+    (backlinks, ancestor_backlinks)
+  }
+
+  fn parent(&self, item: &Item) -> Option<&'a Item> {
+    self.db.item.get(item.parent_id.as_ref().filter(|parent_id| !is_empty_uid(parent_id))?).ok()
+  }
+
+  /// The places that link to `target_id`, the most recently changed first and each once: the page or table listing
+  /// each link, and each note linking to it with an infumap:// URL. Places on the page holding the target, in `seen`,
+  /// outside the home tree (such as the trash, the dock or scope definitions) or that the chat cannot read are left
+  /// out.
+  fn backlink_places(
+    &self,
+    target_id: &Uid,
+    home_page_id: &Uid,
+    own_container_id: Option<&Uid>,
+    seen: &HashSet<Uid>,
+  ) -> Vec<&'a Item> {
     let mut sources = Vec::new();
     for source_id in self.db.item.get_linked_from_ids(target_id) {
       let Ok(source) = self.db.item.get(&source_id) else {
@@ -1309,27 +1362,36 @@ impl<'a, 'b> Renderer<'a, 'b> {
       if !self.access.can_read(self.db, container) || Some(&container.id) == own_container_id {
         continue;
       }
-      let shown = match source.item_type {
+      let place = match source.item_type {
         ItemType::Link => container,
         ItemType::Note => source,
         _ => continue,
       };
-      sources.push((source.last_modified_date, shown));
-    }
-    sources.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.id.cmp(&b.1.id)));
-    let mut seen = HashSet::new();
-    sources.retain(|(_, shown)| seen.insert(&shown.id));
-    let mut pieces = Pieces::default();
-    for (index, (_, shown)) in sources.iter().take(HIT_BACKLINKS_MAX).enumerate() {
-      pieces.text(if index == 0 { " · linked from: " } else { "; " });
-      if shown.item_type == ItemType::Note {
-        pieces.append(self.hit_label(shown, NOTE_LABEL_MAX_CHARS)?);
-      } else {
-        pieces.text(&item_link(shown));
+      if !seen.contains(&place.id) {
+        sources.push((source.last_modified_date, place));
       }
     }
-    if sources.len() > HIT_BACKLINKS_MAX {
-      pieces.text(&format!("; +{} more", sources.len() - HIT_BACKLINKS_MAX));
+    sources.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.id.cmp(&b.1.id)));
+    let mut distinct = HashSet::new();
+    sources.into_iter().map(|(_, place)| place).filter(|place| distinct.insert(&place.id)).collect()
+  }
+
+  /// Links to at most `max` of `places`, separated by "; ", then "; +N more" for the rest. A note is shown by its
+  /// short label, anything else by its link.
+  fn place_links(&mut self, places: &[&'a Item], max: usize) -> InfuResult<Pieces> {
+    let mut pieces = Pieces::default();
+    for (index, place) in places.iter().take(max).enumerate() {
+      if index > 0 {
+        pieces.text("; ");
+      }
+      if place.item_type == ItemType::Note {
+        pieces.append(self.hit_label(place, NOTE_LABEL_MAX_CHARS)?);
+      } else {
+        pieces.text(&item_link(place));
+      }
+    }
+    if places.len() > max {
+      pieces.text(&format!("; +{} more", places.len() - max));
     }
     Ok(pieces)
   }
@@ -1820,6 +1882,44 @@ mod tests {
     );
     assert_eq!(listings[&booking].text, expected, "own page, trash and scope links are left out");
     assert_eq!(listings[&lonely].text, format!("[not linked](infumap://{lonely})"));
+  }
+
+  #[tokio::test]
+  async fn hits_show_where_the_pages_above_them_are_linked_from() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let bookings = t.page(&home, "bookings").await;
+    let dated = t.page(&bookings, "2025-02-27 -> 2025-03-01").await;
+    let booking = t.note(&dated, "Mandarin Oriental", RelationshipToParent::Child).await;
+    let receipt = t.note(&dated, "receipt", RelationshipToParent::Child).await;
+    let malaysia = t.page(&home, "malaysia").await;
+    let index = t.page(&home, "travel index").await;
+    t.link(&malaysia, &dated).await;
+    t.link(&malaysia, &receipt).await;
+    t.link(&index, &bookings).await;
+    // A link on the page directly above, or on a page the path already names, adds nothing.
+    t.link(&bookings, &dated).await;
+    t.link(&home, &dated).await;
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+
+    let listings = hit_listings(&db, &access, &[booking.clone(), receipt.clone()]).await;
+    let booking_listing = &listings[&booking];
+    assert_eq!(booking_listing.text, format!("[Mandarin Oriental](infumap://{booking})"));
+    assert_eq!(
+      booking_listing.ancestor_backlinks,
+      HashMap::from([
+        (dated.clone(), format!(" (linked from [malaysia](infumap://{malaysia}))")),
+        (bookings.clone(), format!(" (linked from [travel index](infumap://{index}))")),
+      ])
+    );
+    let receipt_listing = &listings[&receipt];
+    assert_eq!(
+      receipt_listing.text,
+      format!("[receipt](infumap://{receipt}) · linked from: [malaysia](infumap://{malaysia})")
+    );
+    assert!(!receipt_listing.ancestor_backlinks.contains_key(&dated), "malaysia is given once on a line");
   }
 
   #[tokio::test]

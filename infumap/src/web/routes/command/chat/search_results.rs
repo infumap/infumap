@@ -19,7 +19,7 @@
 //! A line is the hit's location, outermost first, then the hit. Titles above the page or table listing the hit are
 //! plain text. From that container down every item is a link, so get_fragment can read any of them, and the
 //! container says which of its fragments lists the hit when that is past the first. A group the hit is in follows
-//! its page. The hit is a linked label
+//! its page, and a page linked from elsewhere is followed by where. The hit is a linked label
 //! saying what it is, or a table row with its cells. A document hit ends with its best matching sentence and that
 //! sentence's fragment ordinal.
 
@@ -59,12 +59,17 @@ fn result_line(result: &SearchResult, listings: &HashMap<Uid, HitListing>) -> Op
   let mut parts = ancestors
     .iter()
     .enumerate()
-    .map(|(index, element)| match container {
-      Some((container, fragment)) if index >= container => {
-        let link = element_link(element);
-        if index == container && fragment > 0 { format!("{link} (fragment {fragment})") } else { link }
-      }
-      _ => location_label(element),
+    .map(|(index, element)| {
+      let part = match container {
+        Some((container, fragment)) if index >= container => {
+          let link = element_link(element);
+          if index == container && fragment > 0 { format!("{link} (fragment {fragment})") } else { link }
+        }
+        _ => location_label(element),
+      };
+      // A page linked from elsewhere says so where it is named, since that may be what places the hit in context.
+      let backlinks = listing.and_then(|listing| listing.ancestor_backlinks.get(&element.id));
+      format!("{part}{}", backlinks.map_or("", String::as_str))
     })
     .collect::<Vec<_>>();
   // A group is not an item on the path; it sits between its page and the member holding the hit.
@@ -165,6 +170,7 @@ mod tests {
       group_id: None,
       subject_id: subject_id.to_owned(),
       text: text.to_owned(),
+      ancestor_backlinks: HashMap::new(),
     }
   }
 
@@ -195,6 +201,10 @@ mod tests {
         "f".to_owned(),
         HitListing {
           group_id: Some("g1".to_owned()),
+          ancestor_backlinks: HashMap::from([
+            ("m".to_owned(), " (linked from [index](infumap://i))".to_owned()),
+            ("p".to_owned(), " (linked from [plans](infumap://l))".to_owned()),
+          ]),
           ..listing(Some("p"), 0, "f", "[report.pdf](infumap://f) (file, application/pdf, 9 fragments)")
         },
       ),
@@ -208,8 +218,9 @@ mod tests {
       serde_json::json!({
         "results": [
           "root › my trips › [malaysia](infumap://p) › [composite](infumap://c) › [Cocktails](infumap://n)",
-          "root › my trips › [malaysia](infumap://p) › [group](infumap://g1) › [report.pdf](infumap://f) \
-           (file, application/pdf, 9 fragments) — fragment 7: …the match…",
+          "root › my trips (linked from [index](infumap://i)) › [malaysia](infumap://p) (linked from \
+           [plans](infumap://l)) › [group](infumap://g1) › [report.pdf](infumap://f) (file, application/pdf, \
+           9 fragments) — fragment 7: …the match…",
           "Home › [Tasks \\[2026\\]](infumap://t) (fragment 3) › [Acme](infumap://a) | Active",
           "root › my trips › malaysia › [untitled note](infumap://g)"
         ],
