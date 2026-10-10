@@ -665,7 +665,7 @@ fn link_url(item: &Item) -> String {
 
 /// An item's title on one line, cut to label length, or what it is when untitled. Composites have no titles.
 pub(super) fn item_label(item: &Item) -> String {
-  let title = single_line(item.title.as_deref().unwrap_or(""));
+  let title = plain_label(item.title.as_deref().unwrap_or("")).0;
   match item.item_type {
     ItemType::Composite => "composite".to_owned(),
     _ if title.is_empty() => format!("untitled {}", item.item_type.as_str()),
@@ -675,6 +675,95 @@ pub(super) fn item_label(item: &Item) -> String {
 
 fn item_link(item: &Item) -> String {
   format!("[{}]({})", escape_label(&item_label(item)), link_url(item))
+}
+
+/// Text as a one-line link label, without the Markdown that notes pasted from documents carry: heading, list and
+/// quote markers, emphasis and code marks, and table separator lines are dropped, links and images become their
+/// text, and table cells and lines are joined with " · ". The URLs of the links dropped are returned, for a label
+/// that is all of a note. Plain text keeps its words: only a line-leading "# " is a heading, and a single `*` or
+/// `_` stays.
+fn plain_label(text: &str) -> (String, Vec<String>) {
+  let mut parts = Vec::new();
+  let mut urls = Vec::new();
+  for line in text.lines() {
+    let line = strip_line_marker(line.trim());
+    if line.is_empty() || is_table_separator(line) {
+      continue;
+    }
+    let line = plain_inline(line, &mut urls);
+    let cells = line.trim().strip_prefix('|').map(|row| row.strip_suffix('|').unwrap_or(row));
+    let line = match cells {
+      Some(row) => row.split('|').map(str::trim).filter(|cell| !cell.is_empty()).collect::<Vec<_>>().join(" · "),
+      None => line,
+    };
+    let line = single_line(&line);
+    if !line.is_empty() {
+      parts.push(line);
+    }
+  }
+  let label = parts.join(" · ");
+  // Text that is all syntax, such as a divider of dashes, keeps its characters.
+  if label.is_empty() { (single_line(text), urls) } else { (label, urls) }
+}
+
+/// A line without a leading heading, quote or list marker.
+fn strip_line_marker(line: &str) -> &str {
+  let mut line = line;
+  loop {
+    let hashes = line.len() - line.trim_start_matches('#').len();
+    let digits = line.len() - line.trim_start_matches(|ch: char| ch.is_ascii_digit()).len();
+    let marker = if hashes > 0 && line[hashes..].starts_with(' ') {
+      hashes
+    } else if line.starts_with("> ") || line.starts_with("- ") || line.starts_with("* ") || line.starts_with("+ ") {
+      1
+    } else if digits > 0 && (line[digits..].starts_with(". ") || line[digits..].starts_with(") ")) {
+      digits + 1
+    } else {
+      return line;
+    };
+    line = line[marker..].trim_start();
+  }
+}
+
+fn is_table_separator(line: &str) -> bool {
+  line.contains('-') && line.contains('|') && line.chars().all(|ch| matches!(ch, '|' | '-' | ':' | ' '))
+}
+
+/// A line with links and images as their text, adding their URLs to `urls`, and without `**`, `__` or backticks.
+fn plain_inline(line: &str, urls: &mut Vec<String>) -> String {
+  let chars = line.chars().collect::<Vec<_>>();
+  let mut result = String::with_capacity(line.len());
+  let mut position = 0;
+  for (start, end) in markdown_link_ranges(&chars) {
+    if chars[start] != '[' {
+      continue;
+    }
+    let image = start > 0 && chars[start - 1] == '!';
+    let prefix_end = if image { start - 1 } else { start };
+    result.extend(&chars[position..prefix_end]);
+    let link = chars[start..end].iter().collect::<String>();
+    if let Some((text, url)) = link.strip_prefix('[').and_then(|link| link.rsplit_once("](")) {
+      result.push_str(text);
+      let url = url.strip_suffix(')').unwrap_or(url).trim();
+      if !url.is_empty() && !image {
+        urls.push(url.to_owned());
+      }
+    }
+    position = end;
+  }
+  result.extend(&chars[position..]);
+  result.replace("**", "").replace("__", "").replace('`', "")
+}
+
+/// " <url>" for each of a note's URLs, from its annotations and then from the Markdown links its label dropped.
+fn note_url_suffix(note: &Item, link_urls: &[String]) -> String {
+  let annotated = note_urls(note).iter().map(|url| url.url.trim()).filter(|url| !url.is_empty());
+  let mut seen = HashSet::new();
+  annotated
+    .chain(link_urls.iter().map(String::as_str))
+    .filter(|url| seen.insert(*url))
+    .map(|url| format!(" <{url}>"))
+    .collect()
 }
 
 fn single_line(text: &str) -> String {
@@ -1013,11 +1102,12 @@ impl<'a, 'b> Renderer<'a, 'b> {
       None => row_pieces.text("(unavailable link)"),
       Some(content) => {
         if content.item_type == ItemType::Note {
-          let text = clamp_label(content.title.as_deref().unwrap_or(""), CELL_MAX_CHARS);
+          let (label, link_urls) = plain_label(content.title.as_deref().unwrap_or(""));
+          let (text, cut) = clamp_text_chars(&label, CELL_MAX_CHARS);
+          let text = if cut { format!("{}…", text.trim_end()) } else { text };
           row_pieces.text(&format!("[{}]({})", escape_cell(&escape_label(&text)), link_url(content)));
-          for url in note_urls(content).iter().filter(|url| !url.url.trim().is_empty()) {
-            row_pieces.text(&format!(" <{}>", url.url.trim()));
-          }
+          // A cut label leaves its links' URLs to the note's own text.
+          row_pieces.text(&escape_cell(&note_url_suffix(content, if cut { &[] } else { &link_urls })));
         } else {
           self.label(content, &mut row_pieces)?;
         }
@@ -1079,17 +1169,16 @@ impl<'a, 'b> Renderer<'a, 'b> {
       ItemType::Note => {
         let text = content.title.as_deref().unwrap_or("");
         let urls = note_urls(content);
-        let line = single_line(text);
+        let (line, link_urls) = plain_label(text);
         if line.is_empty() {
           pieces.text(&item_link(content));
         } else if line.chars().count() <= LABEL_MAX_CHARS {
+          // The label is all of the note, so the URLs of links it dropped follow it.
           pieces.text(&format!("[{}]({})", escape_label(&line), link_url(content)));
-          for url in urls.iter().filter(|url| !url.url.trim().is_empty()) {
-            pieces.text(&format!(" <{}>", url.url.trim()));
-          }
+          pieces.text(&note_url_suffix(content, &link_urls));
         } else {
           let (body, truncated) = excerpt(&note_markdown(text, urls), NOTE_INLINE_MAX_CHARS);
-          let label = escape_label(&clamp_label(text, NOTE_LABEL_MAX_CHARS));
+          let label = escape_label(&clamp_label(&line, NOTE_LABEL_MAX_CHARS));
           pieces.text(&format!("[{label}]({}): {body}", link_url(content)));
           if truncated {
             let count = note_fragments(content).len();
@@ -1256,7 +1345,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
     // shortens text, so a label from the start can be shorter than the budget, but never wrongly uncut.
     let title = content.title.as_deref().unwrap_or("");
     let head_end = title.char_indices().nth(note_max_chars * 4).map_or(title.len(), |(index, _)| index);
-    let line = single_line(&title[..head_end]);
+    let line = plain_label(&title[..head_end]).0;
     if line.is_empty() {
       pieces.text(&item_link(content));
     } else {
@@ -2011,6 +2100,55 @@ mod tests {
     assert_eq!(split_text("aaaa bbbb cccc", 10), ["aaaa bbbb", "cccc"]);
     assert_eq!(split_text(&"z".repeat(25), 10), ["z".repeat(10), "z".repeat(10), "z".repeat(5)]);
     assert_eq!(split_text("short", 10), ["short"]);
+  }
+
+  #[test]
+  fn labels_drop_markdown_but_keep_plain_text() {
+    let booking = "####### [Mandarin Oriental, Kuala Lumpur](https://www.booking.com/mo.html)\n\n#### Reservation details\n\n\
+      | Check-in | Thursday, 27 February 2025 |\n|----------|:---|\n| Check-out | Saturday, 1 March 2025 |\n\n\
+      - **2 nights**, `Twin Towers View`\n> ![room](https://img/x.png) quiet\n1. first";
+    let (label, urls) = plain_label(booking);
+    assert_eq!(
+      label,
+      "Mandarin Oriental, Kuala Lumpur · Reservation details · Check-in · Thursday, 27 February 2025 · Check-out · \
+       Saturday, 1 March 2025 · 2 nights, Twin Towers View · room quiet · first"
+    );
+    assert_eq!(urls, ["https://www.booking.com/mo.html"], "an image is not a link to keep");
+    for plain in ["#1 priority", "C# tips", "snake_case_name and a*b", "a | b", "---", "see <https://example.com>"] {
+      assert_eq!(plain_label(plain), (plain.to_owned(), vec![]), "{plain}");
+    }
+    assert_eq!(plain_label("Saturday PLAN:\nLittle India").0, "Saturday PLAN: · Little India");
+  }
+
+  #[tokio::test]
+  async fn note_labels_in_containers_and_results_are_plain() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let page = t.page(&home, "Page").await;
+    let short = t.note(&page, "## [docs](https://example.com/docs) for **setup**", RelationshipToParent::Child).await;
+    let long_text = format!("# [Mandarin Oriental](https://example.com/mo)\n\n{}", "Reservation details. ".repeat(10));
+    let long = t.note(&page, &long_text, RelationshipToParent::Child).await;
+    let table = t.table(&page, "Bookings", &["Name"]).await;
+    let row = t.note(&table, "### [Four Seasons](https://example.com/fs)", RelationshipToParent::Child).await;
+
+    let text = t.texts(&page)[0].clone();
+    assert!(text.contains(&format!("- [docs for setup](infumap://{short}) <https://example.com/docs>\n")), "{text}");
+    assert!(
+      text.contains(&format!("- [Mandarin Oriental · Reservation details.…](infumap://{long}): # [Mandarin")),
+      "{text}"
+    );
+    let table_text = t.texts(&table)[0].clone();
+    assert!(table_text.ends_with(&format!("[Four Seasons](infumap://{row}) <https://example.com/fs>")), "{table_text}");
+
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+    let listings = hit_listings(&db, &access, std::slice::from_ref(&long)).await;
+    assert!(
+      listings[&long].text.starts_with("[Mandarin Oriental · Reservation details. Reservation"),
+      "{}",
+      listings[&long].text
+    );
   }
 
   #[test]
