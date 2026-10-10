@@ -58,6 +58,8 @@ const ROW_LISTING_MAX_CHARS: usize = 300;
 const HIT_NOTE_MAX_CHARS: usize = 160;
 /// A search result shows this many of its item's attachments, each cut to a short label.
 const HIT_ATTACHMENTS_MAX: usize = 4;
+/// A search result shows this many of the places that link to its item, the most recently changed first.
+const HIT_BACKLINKS_MAX: usize = 3;
 
 /// What the chat tools may read: the user's readable items, limited to the chat's scope if it has one.
 pub(super) struct Access<'a> {
@@ -158,6 +160,7 @@ pub(super) async fn hit_listings(
 ) -> HashMap<Uid, HitListing> {
   let (labels, mut placements, data_dir, data_item_ids) = {
     let db = db.lock().await;
+    let home_page_id = db.user.get(&access.user_id.to_owned()).map(|user| user.home_page_id.clone());
     let mut renderer = Renderer::new(&db, access);
     let mut labels = Vec::new();
     let mut placements = HashMap::new();
@@ -178,7 +181,8 @@ pub(super) async fn hit_listings(
       let Some(label) = content.and_then(|content| renderer.record_label(content).ok()) else {
         continue;
       };
-      if let Some((container, child)) = listing_placement(&db, item) {
+      let placement = listing_placement(&db, item);
+      if let Some((container, child)) = placement {
         let group_id = child
           .group_id
           .as_ref()
@@ -187,7 +191,12 @@ pub(super) async fn hit_listings(
         let date = (Layout::of(container) == Layout::Calendar).then(|| calendar_prefix(child));
         placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned(), date));
       }
-      labels.push((item_id.clone(), subject_id, label));
+      let own_container_id = placement.map(|(container, _)| &container.id);
+      let backlinks = match home_page_id.as_ref() {
+        Some(home_page_id) => renderer.backlinks(&subject_id, home_page_id, own_container_id).unwrap_or_default(),
+        None => Pieces::default(),
+      };
+      labels.push((item_id.clone(), subject_id, label, backlinks));
     }
     (labels, placements, db.item.data_dir().to_owned(), renderer.data_item_ids)
   };
@@ -200,17 +209,15 @@ pub(super) async fn hit_listings(
   }
   labels
     .into_iter()
-    .map(|(item_id, subject_id, label)| {
+    .map(|(item_id, subject_id, label, backlinks)| {
       let text = label.render(&counts);
       let mut listing = HitListing { container_id: None, container_fragment: 0, group_id: None, subject_id, text };
-      let Some((container_id, group_id, date)) = placements.remove(&item_id) else {
-        return (item_id, listing);
-      };
-      let Some(fragments) = rendered.get(&container_id).and_then(Option::as_ref) else {
-        return (item_id, listing);
-      };
+      let placement = placements.remove(&item_id);
+      let fragments = placement.as_ref().and_then(|(container_id, ..)| rendered.get(container_id)?.as_ref());
       // Document pages do not render attachments, so an attachment is located by its item.
-      if let Some(ordinal) = fragments.fragment_of(&item_id).or_else(|| fragments.fragment_of(&listing.subject_id)) {
+      let ordinal = fragments
+        .and_then(|fragments| fragments.fragment_of(&item_id).or_else(|| fragments.fragment_of(&listing.subject_id)));
+      if let (Some((container_id, group_id, date)), Some(fragments), Some(ordinal)) = (placement, fragments, ordinal) {
         listing.container_id = Some(container_id);
         listing.container_fragment = ordinal;
         listing.group_id = group_id;
@@ -224,6 +231,7 @@ pub(super) async fn hit_listings(
           listing.text.insert_str(0, &date);
         }
       }
+      listing.text.push_str(&backlinks.render(&counts));
       (item_id, listing)
     })
     .collect()
@@ -232,6 +240,18 @@ pub(super) async fn hit_listings(
 /// Composites are rendered inside the page or table that holds them, so they never list their own items.
 fn is_listing_container(item: &Item) -> bool {
   matches!(item.item_type, ItemType::Page | ItemType::Table)
+}
+
+/// The root page above `item`, or the item itself when it is a root.
+fn root_id<'a>(db: &'a Db, item: &'a Item) -> Option<&'a Uid> {
+  let mut current = item;
+  for _ in 0..MAX_DEPTH {
+    match current.parent_id.as_ref().filter(|parent_id| !is_empty_uid(parent_id)) {
+      None => return Some(&current.id),
+      Some(parent_id) => current = db.item.get(parent_id).ok()?,
+    }
+  }
+  None
 }
 
 /// The page or table whose fragments list `item`, and its child that holds `item`: the item itself, or for an
@@ -1182,6 +1202,49 @@ impl<'a, 'b> Renderer<'a, 'b> {
     Ok(pieces)
   }
 
+  /// " · linked from: …" for the places that link to `target_id`, the most recently changed first: the page or table
+  /// listing each link, and each note linking to it with an infumap:// URL. Places on the target's own page, outside
+  /// the home tree (such as the trash, the dock or scope definitions) or that the chat cannot read are left out.
+  fn backlinks(&mut self, target_id: &Uid, home_page_id: &Uid, own_container_id: Option<&Uid>) -> InfuResult<Pieces> {
+    let mut sources = Vec::new();
+    for source_id in self.db.item.get_linked_from_ids(target_id) {
+      let Ok(source) = self.db.item.get(&source_id) else {
+        continue;
+      };
+      if !self.access.can_read(self.db, source) || root_id(self.db, source) != Some(home_page_id) {
+        continue;
+      }
+      let Some((container, _)) = listing_placement(self.db, source) else {
+        continue;
+      };
+      if !self.access.can_read(self.db, container) || Some(&container.id) == own_container_id {
+        continue;
+      }
+      let shown = match source.item_type {
+        ItemType::Link => container,
+        ItemType::Note => source,
+        _ => continue,
+      };
+      sources.push((source.last_modified_date, shown));
+    }
+    sources.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.id.cmp(&b.1.id)));
+    let mut seen = HashSet::new();
+    sources.retain(|(_, shown)| seen.insert(&shown.id));
+    let mut pieces = Pieces::default();
+    for (index, (_, shown)) in sources.iter().take(HIT_BACKLINKS_MAX).enumerate() {
+      pieces.text(if index == 0 { " · linked from: " } else { "; " });
+      if shown.item_type == ItemType::Note {
+        pieces.append(self.hit_label(shown, NOTE_LABEL_MAX_CHARS)?);
+      } else {
+        pieces.text(&item_link(shown));
+      }
+    }
+    if sources.len() > HIT_BACKLINKS_MAX {
+      pieces.text(&format!("; +{} more", sources.len() - HIT_BACKLINKS_MAX));
+    }
+    Ok(pieces)
+  }
+
   /// A linked label. A note is its text, cut short with the number of fragments holding all of it.
   fn hit_label(&mut self, content: &'a Item, note_max_chars: usize) -> InfuResult<Pieces> {
     let mut pieces = Pieces::default();
@@ -1616,6 +1679,56 @@ mod tests {
         assert_eq!(listing.container_id.as_ref(), Some(page), "a document page's attachment is located by its item");
       }
     }
+  }
+
+  #[tokio::test]
+  async fn hits_show_where_their_item_is_linked_from() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let bookings = t.page(&home, "Bookings").await;
+    let booking = t.note(&bookings, "Four Seasons booking", RelationshipToParent::Child).await;
+    let mut modified = 1_000;
+    let mut touch = async |t: &mut TestDb, item_id: &Uid| {
+      let mut item = t.db.item.get(item_id).unwrap().clone();
+      modified += 1;
+      item.last_modified_date = modified;
+      t.db.item.update(&item).await.unwrap();
+    };
+    let mut pages = Vec::new();
+    for title in ["oldest", "older", "malaysia"] {
+      let page = t.page(&home, title).await;
+      for _ in 0..2 {
+        // A page linking twice is listed once.
+        let link = t.link(&page, &booking).await;
+        touch(&mut t, &link).await;
+      }
+      pages.push(page);
+    }
+    let journal = t.page(&home, "Journal").await;
+    let text = "Booked the hotel for three nights in April";
+    let note = t
+      .note_with(&journal, text, |item| {
+        item.urls = Some(vec![NoteUrl { start: 0, end: 6, url: format!("infumap://{booking}") }])
+      })
+      .await;
+    touch(&mut t, &note).await;
+    for page in [&bookings, &t.trash_id.clone(), &t.scopes_id()] {
+      let link = t.link(page, &booking).await;
+      touch(&mut t, &link).await;
+    }
+    let lonely = t.note(&bookings, "not linked", RelationshipToParent::Child).await;
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+
+    let listings = hit_listings(&db, &access, &[booking.clone(), lonely.clone()]).await;
+    let expected = format!(
+      "[Four Seasons booking](infumap://{booking}) · linked from: [Booked the hotel for three nights in…](infumap://\
+       {note}) (note, 1 fragment); [malaysia](infumap://{}); [older](infumap://{}); +1 more",
+      pages[2], pages[1]
+    );
+    assert_eq!(listings[&booking].text, expected, "own page, trash and scope links are left out");
+    assert_eq!(listings[&lonely].text, format!("[not linked](infumap://{lonely})"));
   }
 
   #[tokio::test]

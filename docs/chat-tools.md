@@ -100,6 +100,13 @@ Each result is one line of text:
   their label. An item's title entry holds its attachments' titles, so the item matches what its
   attachments say, and the line shows why. An item and its attachment give the same line, listed
   once.
+- `· linked from:` ends a result whose item is linked from elsewhere, so the model sees the contexts
+  it was placed in, not only where it lives: the page or table holding each link, and each note
+  linking to it with an `infumap://` URL, shown as a short label. At most three are given, the most
+  recently changed first, then `+N more`. A page linking more than once is given once. Links on the
+  item's own page, outside the home tree (the trash, the dock, scope definitions) or that the chat
+  cannot read are left out. No fragment is given for the linking page. Matching does not use links:
+  the item is found by its own title, text, parent and attachments.
 - `— fragment N: …` ends a result whose document text matched: its best matching sentence, cut to
   about 220 characters around the first query word, and the fragment holding it, for `get_fragment`.
   Only files, text items and images have document text; notes, pages and tables match by their titles.
