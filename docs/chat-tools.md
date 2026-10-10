@@ -13,10 +13,10 @@ Both are designed to keep tool results small, because results stay in the chat t
 models have little context to spare. Results are plain text, not JSON: Markdown escaped inside JSON
 strings is harder for small models to read, and they sometimes copy the escapes into answers. Errors
 are JSON, `{"error": "…"}`, as for every other tool. A result with more to read ends with a line
-saying which call to make next, naming the tool and what to keep, such as
-`More results: call lexical_search again with the same arguments and pageNum 2.` Items are identified
-everywhere by a `link`, `infumap://<id>`: tool results give it, tool arguments take it, and the model
-copies it into its answer as a citation.
+saying which call to make next, naming the tool, such as
+`For more results, call lexical_search again with the same arguments and pageNum 2.` Items are
+identified everywhere by a `link`, `infumap://<id>`: tool results give it, tool arguments take it, and
+the model copies it into its answer as a citation.
 
 Arguments also accept what models commonly send instead: a bare id, a whole Markdown link, a link in
 quotes or brackets or followed by punctuation, whole numbers as strings, and near-miss names such as
@@ -101,14 +101,15 @@ pages of results do not overlap across groups. Scores are scaled by the share of
 search box in the UI ranks results the same way.
 
 Each result is one line of text, and `No results.` stands for none. When there are more pages, a
-blank line and `More results: call lexical_search again with the same arguments and pageNum N.` follow:
+blank line and this follow:
+`For more results, call lexical_search again with the same arguments and pageNum N.`
 
 ```
 root › travel › [malaysia](infumap://<page id>) › [composite](infumap://<id>) › [Cocktails at Four Seasons](infumap://<id>)
 Home › Projects › [Tasks](infumap://<table id>) (fragment 4) › [Acme onboarding](infumap://<id>) | Active | 2026-01-03
 Home › [Reports](infumap://<page id>) › [annual.pdf](infumap://<id>) (file, application/pdf, 312 fragments) — fragment 200: …a drink stall opened in FY2025…
 
-More results: call lexical_search again with the same arguments and pageNum 2.
+For more results, call lexical_search again with the same arguments and pageNum 2.
 ```
 
 - The line starts with the result's location, outermost first. Titles above the page or table whose
@@ -183,8 +184,8 @@ The result is the fragments asked for, each between `<fragment>` and `</fragment
 with a header line: the item's link and kind, ` in ` and its breadcrumb, then ` · fragment N of 0–M`
 when the item has more than one fragment. Only the first fragment in a result gives the location;
 the ones after it would repeat it. While fragments remain, a blank line and
-`Item continues: call get_fragment again with the same link and fragmentOrdinal N.` end the result, and following it until it is absent reads
-the whole item.
+`The item continues. For the next fragment, call get_fragment again with fragmentOrdinal N.` end the
+result, and following it until it is absent reads the whole item.
 
 ```
 <fragment>
@@ -196,7 +197,7 @@ the whole item.
 …text…
 </fragment>
 
-Item continues: call get_fragment again with the same link and fragmentOrdinal 202.
+The item continues. For the next fragment, call get_fragment again with fragmentOrdinal 202.
 ```
 
 - The tags are there because a fragment's text is whatever the user wrote, full of blank lines and
