@@ -2529,7 +2529,15 @@ mod tests {
   }
 
   fn test_session(user_id: &Uid) -> Session {
-    Session { id: new_uid(), user_id: user_id.clone(), expires: 0, issued_at: 0, username: String::new() }
+    Session {
+      id: new_uid(),
+      user_id: user_id.clone(),
+      expires: 0,
+      issued_at: 0,
+      username: String::new(),
+      successor_id: None,
+      predecessor_id: None,
+    }
   }
 
   async fn call_tool(

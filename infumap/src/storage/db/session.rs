@@ -20,7 +20,8 @@ use infusdk::{
 };
 use serde_json::{Map, Value};
 
-const ALL_JSON_FIELDS: [&'static str; 6] = ["__recordType", "id", "userId", "expires", "issuedAt", "username"];
+const ALL_JSON_FIELDS: [&'static str; 8] =
+  ["__recordType", "id", "userId", "expires", "issuedAt", "username", "successorId", "predecessorId"];
 const LEGACY_SESSION_LIFETIME_SECS: i64 = 60 * 60 * 24 * 30;
 
 pub struct Session {
@@ -29,6 +30,10 @@ pub struct Session {
   pub expires: i64,
   pub issued_at: i64,
   pub username: String,
+  /// Set when this session has been rotated: the id the client is being moved to.
+  pub successor_id: Option<Uid>,
+  /// Set on a rotated session: the id it replaces.
+  pub predecessor_id: Option<Uid>,
 }
 
 impl Clone for Session {
@@ -39,6 +44,8 @@ impl Clone for Session {
       expires: self.expires.clone(),
       issued_at: self.issued_at.clone(),
       username: self.username.clone(),
+      successor_id: self.successor_id.clone(),
+      predecessor_id: self.predecessor_id.clone(),
     }
   }
 }
@@ -60,6 +67,12 @@ impl JsonLogSerializable<Session> for Session {
     result.insert(String::from("expires"), Value::Number(self.expires.into()));
     result.insert(String::from("issuedAt"), Value::Number(self.issued_at.into()));
     result.insert(String::from("username"), Value::String(self.username.clone()));
+    if let Some(successor_id) = &self.successor_id {
+      result.insert(String::from("successorId"), Value::String(successor_id.clone()));
+    }
+    if let Some(predecessor_id) = &self.predecessor_id {
+      result.insert(String::from("predecessorId"), Value::String(predecessor_id.clone()));
+    }
     Ok(result)
   }
 
@@ -79,6 +92,8 @@ impl JsonLogSerializable<Session> for Session {
       issued_at,
       username: json::get_string_field(map, "username")?
         .ok_or(format!("'username' field was missing in an entry for session '{}'.", id))?,
+      successor_id: json::get_string_field(map, "successorId")?,
+      predecessor_id: json::get_string_field(map, "predecessorId")?,
     })
   }
 
@@ -105,6 +120,12 @@ impl JsonLogSerializable<Session> for Session {
     if old.username != new.username {
       result.insert(String::from("username"), Value::String(new.username.clone()));
     }
+    if old.successor_id != new.successor_id {
+      result.insert(String::from("successorId"), optional_string_value(&new.successor_id));
+    }
+    if old.predecessor_id != new.predecessor_id {
+      result.insert(String::from("predecessorId"), optional_string_value(&new.predecessor_id));
+    }
 
     Ok(result)
   }
@@ -130,6 +151,19 @@ impl JsonLogSerializable<Session> for Session {
     if let Some(username) = json::get_string_field(map, "username")? {
       self.username = username;
     }
+    if map.contains_key("successorId") {
+      self.successor_id = json::get_string_field(map, "successorId")?;
+    }
+    if map.contains_key("predecessorId") {
+      self.predecessor_id = json::get_string_field(map, "predecessorId")?;
+    }
     Ok(())
+  }
+}
+
+fn optional_string_value(v: &Option<String>) -> Value {
+  match v {
+    Some(s) => Value::String(s.clone()),
+    None => Value::Null,
   }
 }
