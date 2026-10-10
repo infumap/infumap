@@ -62,7 +62,7 @@ import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { OPAQUE_PAGE_BOX_INSET_PX, autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler, prepareNoteParagraphSplit } from "../../input/edit";
@@ -147,7 +147,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     ? documentLineHeightPxForNote(noteItem().flags)
     : LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier;
   // Text is positioned within the outer div's (possibly transparent) border, so bare text steps back over it.
-  const textLeftPx = () => hasBareText() ? -ITEM_BORDER_WIDTH_PX : NOTE_PADDING_PX * textBlockScale();
+  // Horizontally it then steps in by the opaque page box inset, to line up with the opaque pages it often heads.
+  const textLeftPx = () => hasBareText() ? OPAQUE_PAGE_BOX_INSET_PX - ITEM_BORDER_WIDTH_PX : NOTE_PADDING_PX * textBlockScale();
   const textTopPx = () => hasBareText() ? -ITEM_BORDER_WIDTH_PX : (NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
