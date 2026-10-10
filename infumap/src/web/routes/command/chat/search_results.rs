@@ -135,29 +135,6 @@ pub(super) fn result_line_title(line: &str) -> String {
   first_link_label(own).unwrap_or_else(|| own.to_owned())
 }
 
-/// The hit's own link in a result line, with its label cut to `max_chars`: what a shortened search result keeps, so
-/// a follow-up can read or cite an earlier result without searching again.
-pub(super) fn result_line_link(line: &str, max_chars: usize) -> Option<String> {
-  let line = line.split(SNIPPET_SEPARATOR).next().unwrap_or(line);
-  let own = line.rsplit(LOCATION_SEPARATOR).next().unwrap_or(line);
-  let (_, rest) = own.split_once('[')?;
-  let mut label = String::new();
-  let mut chars = rest.char_indices();
-  let close = loop {
-    match chars.next()? {
-      (_, '\\') => label.extend(chars.next().map(|(_, ch)| ch)),
-      (index, ']') => break index,
-      (_, ch) => label.push(ch),
-    }
-  };
-  let target = rest[close + 1..].strip_prefix("(infumap://")?;
-  let id = target.get(..32).filter(|id| id.chars().all(|ch| ch.is_ascii_hexdigit()))?;
-  target[32..].starts_with(')').then_some(())?;
-  let (clamped, truncated) = clamp_text_chars(&label, max_chars);
-  let label = if truncated { format!("{}…", clamped.trim_end()) } else { clamped };
-  Some(format!("[{}](infumap://{id})", label.replace('[', "\\[").replace(']', "\\]")))
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -266,12 +243,5 @@ mod tests {
     let calendar =
       "Home › [Calendar](infumap://c) › 2026-01-03 Sat: [dentist](infumap://d) · attached: [x](infumap://x)";
     assert_eq!(result_line_title(calendar), "dentist", "a calendar date before the link is skipped");
-    let id = "0123456789abcdef0123456789abcdef";
-    let line = format!(
-      "Home › [Trips](infumap://{id}) (linked from [x](infumap://{id})) › 2026-01-03 Sat: [Four \\[Seasons\\] booking](infumap://\
-       {id}) · attached: [a](infumap://{id}) — fragment 2: …snippet…"
-    );
-    assert_eq!(result_line_link(&line, 8).unwrap(), format!("[Four \\[Se…](infumap://{id})"));
-    assert_eq!(result_line_link("Home › untitled", 8), None);
   }
 }
