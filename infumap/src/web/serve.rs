@@ -44,7 +44,8 @@ use super::routes::account::{
 };
 use super::routes::admin::serve_admin_route;
 use super::routes::command::{
-  serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route, serve_command_route,
+  serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route, serve_chat_tool_route,
+  serve_command_route,
 };
 use super::routes::favicons::serve_favicons_route;
 use super::routes::files::serve_files_route;
@@ -84,6 +85,8 @@ pub async fn http_serve(
     (serve_command_route(&db, &object_store, image_cache.clone(), req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path() == "/chat/stream" {
     (serve_chat_stream_route(config.clone(), &db, req).await, CorsPolicy::EmbedAllowed)
+  } else if req.uri().path() == "/chat/tool" {
+    (serve_chat_tool_route(config.clone(), &db, req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path() == "/chat/tool-approval" {
     (serve_chat_tool_approval_route(&db, req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path() == "/chat/models" {

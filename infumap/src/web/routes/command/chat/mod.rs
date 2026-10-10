@@ -51,6 +51,7 @@ const CHAT_MAX_TOOL_ROUNDS: usize = 10_000;
 const CHAT_DEEP_RESEARCH_MAX_TOOL_ROUNDS: usize = 10_000;
 const CHAT_TOOL_APPROVAL_TIMEOUT_SECS: u64 = 300;
 const CHAT_TOOL_APPROVAL_REQUEST_MAX_BYTES: usize = 16 * 1024;
+const CHAT_TOOL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
 const CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
@@ -823,6 +824,72 @@ fn resolve_pending_tool_approval(
       let _ = approval.tx.send(approved);
       Ok(())
     }
+  }
+}
+
+#[derive(Deserialize)]
+struct ChatToolRequest {
+  name: String,
+  arguments: Value,
+  #[serde(rename = "scopeId", default)]
+  scope_id: Option<Uid>,
+}
+
+fn chat_tool_error_response(status: hyper::StatusCode, message: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let mut response = json_response(&serde_json::json!({ "error": message }));
+  *response.status_mut() = status;
+  response
+}
+
+/// Execute only the built-in read-only tools, without starting an LLM run.
+pub async fn serve_chat_tool_route(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  use hyper::StatusCode;
+
+  if request.method() == "OPTIONS" {
+    return cors_response();
+  }
+  if request.method() != "POST" {
+    return chat_tool_error_response(StatusCode::METHOD_NOT_ALLOWED, "Use POST to execute a tool.");
+  }
+  let Some(session) = get_and_validate_session(&request, db).await else {
+    return chat_tool_error_response(StatusCode::FORBIDDEN, "A valid Infumap session is required.");
+  };
+  let request: ChatToolRequest = match incoming_json_with_limit(request, CHAT_TOOL_REQUEST_MAX_BYTES).await {
+    Ok(request) => request,
+    Err(e) => return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Invalid tool request: {e}")),
+  };
+  if !matches!(request.name.as_str(), "lexical_search" | "get_fragment") {
+    return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Unknown built-in tool '{}'.", request.name));
+  }
+  let scope = match request.scope_id {
+    Some(scope_id) => match resolve_scope(&*db.lock().await, &session.user_id, &scope_id) {
+      Ok(scope) => Some(scope),
+      Err(e) => return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Could not resolve scope: {e}")),
+    },
+    None => None,
+  };
+  let infumap_data = InfumapData { scope };
+  let tool_call = OpenAiToolCall {
+    id: String::new(),
+    tool_type: default_tool_call_type(),
+    function: OpenAiToolCallFunction { name: request.name, arguments: request.arguments },
+  };
+  match execute_chat_tool_call(db, &session, &config, &tool_call, Some(&infumap_data), &HashMap::new()).await {
+    Ok(result) => match serde_json::from_str::<Value>(&result) {
+      Ok(result) => {
+        let mut response = json_response(&result);
+        if result.get("error").is_some() {
+          *response.status_mut() = StatusCode::BAD_REQUEST;
+        }
+        response
+      }
+      Err(e) => chat_tool_error_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("Invalid tool result: {e}")),
+    },
+    Err(e) => chat_tool_error_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("Tool execution failed: {e}")),
   }
 }
 

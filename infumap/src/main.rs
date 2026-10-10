@@ -49,6 +49,7 @@ async fn main() {
     .subcommand(cli::fragment::make_clap_subcommand())
     .subcommand(cli::geo::make_clap_subcommand())
     .subcommand(cli::stats::make_clap_subcommand())
+    .subcommand(cli::tool::make_clap_subcommand())
     .subcommand(cli::upload::make_clap_subcommand())
     .subcommand(web::make_clap_subcommand())
     .about("Infumap")
@@ -76,6 +77,7 @@ async fn main() {
         "fragment" => cli::fragment::execute(&arg_sub_matches).await,
         "geo" => cli::geo::execute(&arg_sub_matches).await,
         "stats" => cli::stats::execute(&arg_sub_matches).await,
+        "tool" => cli::tool::execute(&arg_sub_matches).await,
         "upload" => cli::upload::execute(&arg_sub_matches).await,
         _ => {
           println!(".. --help for help.");
@@ -92,6 +94,10 @@ async fn main() {
   match command_result {
     Ok(_) => {}
     Err(e) => {
+      if arg_matches.subcommand_name() == Some("tool") {
+        eprintln!("{}", e);
+        std::process::exit(1);
+      }
       // Not using logger here, as the error may have been in initializing the logger.
       println!("{}", e);
     }
