@@ -35,7 +35,7 @@ import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { desktopPopupIconTextIndentPx, getTextStyleForNote, type InlineTextMeasureSegment, measureDocumentNoteHeightBl, measureLineCount } from '../layout/text';
+import { desktopPopupIconTextIndentPx, getTextStyleForNote, type InlineTextMeasureSegment, measureDocumentNoteHeightBl, measureLineCount, noteTextInsetPx } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemIdFromInfumapUrl, navigateToInfumapItemUrl } from '../layout/navigation';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -814,7 +814,7 @@ export const NoteFns = {
     }
     const widthBl = note.spatialWidthGr / GRID_SIZE;
     const textIndentPx = NoteFns.showsIcon(note, iconContext)
-      ? desktopPopupIconTextIndentPx(widthBl, getTextStyleForNote(note.flags).lineHeightMultiplier)
+      ? desktopPopupIconTextIndentPx(widthBl, getTextStyleForNote(note.flags).lineHeightMultiplier, noteTextInsetPx(note.flags))
       : 0;
     let measuredHeightBl = measureLineCount(note.title, widthBl, note.flags, textIndentPx, noteInlineTextMeasureSegments(note));
     if (measuredHeightBl < 1) { measuredHeightBl = 1; }
@@ -888,6 +888,7 @@ export const NoteFns = {
   calcGeometry_InComposite: (measurable: NoteMeasurable, blockSizePx: Dimensions, compositeWidthBl: number, leftMarginBl: number, topPx: number): ItemGeometry => {
     let cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(measurable));
     cloned.spatialWidthGr = compositeWidthBl * GRID_SIZE;
+    cloned.flags &= ~NoteFlags.HideBorder;
     const sizeBl = NoteFns.calcSpatialDimensionsBl(cloned, true);
     const boundsPx = {
       x: leftMarginBl * blockSizePx.w,

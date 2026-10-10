@@ -21,7 +21,7 @@ import { Component, createRenderEffect, For, Show, untrack } from "solid-js";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
-import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
+import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
@@ -87,6 +87,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const sizeBl = () => {
     if (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) {
       const cloned = NoteFns.asNoteMeasurable(ItemFns.cloneMeasurableFields(props.visualElement.displayItem));
+      cloned.flags &= ~NoteFlags.HideBorder;
       const parentVeid = VeFns.veidFromPath(props.visualElement.parentPath!);
       const parentDisplayItem = itemState.get(parentVeid.itemId)!;
 
@@ -125,10 +126,19 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     const ignoreExplicitHeight = isPopup() && !(noteItem().flags & NoteFlags.ExplicitHeight);
     return NoteFns.calcSpatialDimensionsBl(noteItem(), ignoreExplicitHeight);
   };
-  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2;
+  // With its border hidden, a note's text fills its bounds and scales with its block size, like an
+  // embedded page's title, so a heading made from one lines up with the page titles around it.
+  const hasBareText = () =>
+    !!(noteItem().flags & NoteFlags.HideBorder) && !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc);
+  const textInsetPx = () => hasBareText() ? 0 : NOTE_PADDING_PX;
+  const naturalWidthPx = () => sizeBl().w * LINE_HEIGHT_PX - textInsetPx() * 2;
   const naturalHeightPx = () => sizeBl().h * LINE_HEIGHT_PX;
-  const widthScale = () => (boundsPx().w - NOTE_PADDING_PX * 2) / naturalWidthPx();
-  const heightScale = () => (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
+  const widthScale = () => hasBareText()
+    ? (boundsPx().w - ITEM_BORDER_WIDTH_PX) / naturalWidthPx()
+    : (boundsPx().w - NOTE_PADDING_PX * 2) / naturalWidthPx();
+  const heightScale = () => hasBareText()
+    ? (boundsPx().h - ITEM_BORDER_WIDTH_PX) / naturalHeightPx()
+    : (boundsPx().h - NOTE_PADDING_PX * 2 + (LINE_HEIGHT_PX - FONT_SIZE_PX)) / naturalHeightPx();
   const textBlockScale = () => usesDocumentTypography() && props.visualElement.blockSizePx != null
     ? props.visualElement.blockSizePx.w / LINE_HEIGHT_PX
     : widthScale();
@@ -136,6 +146,9 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const titleLineHeightPx = () => usesDocumentTypography()
     ? documentLineHeightPxForNote(noteItem().flags)
     : LINE_HEIGHT_PX * lineHeightScale() * infuTextStyle().lineHeightMultiplier;
+  // Text is positioned within the outer div's (possibly transparent) border, so bare text steps back over it.
+  const textLeftPx = () => hasBareText() ? -ITEM_BORDER_WIDTH_PX : NOTE_PADDING_PX * textBlockScale();
+  const textTopPx = () => hasBareText() ? -ITEM_BORDER_WIDTH_PX : (NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale();
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
@@ -159,7 +172,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const popupIconTopPx = () => -Math.max(popupIconSizePx().h * 0.03, 0.5);
   const popupTextIndentPx = () => {
     if (!reservePopupIconSpace()) { return 0; }
-    return desktopPopupIconTextIndentPx(sizeBl().w, popupIconSizeMultiplier());
+    return desktopPopupIconTextIndentPx(sizeBl().w, popupIconSizeMultiplier(), textInsetPx());
   };
   const hasListMarker = () => noteHasListMarker(noteItem().flags);
   const titlePaddingLeftPx = () => noteTextBlockPaddingLeftPx(noteItem().flags, popupTextIndentPx());
@@ -423,7 +436,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
     if (!isInDocumentPage()) { return 0; }
     const visualLineHeightPx = titleLineHeightPx() * textBlockScale();
     const visualFontSizePx = infuTextStyle().fontSize * textBlockScale();
-    const visualTextTopPx = (NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale();
+    const visualTextTopPx = textTopPx();
     const visualTextLineBoxBottomPx = visualTextTopPx + sizeBl().h * visualLineHeightPx;
     const bottomSlackPx = Math.max(0, boundsPx().h - visualTextLineBoxBottomPx);
     return Math.max(2, (visualLineHeightPx - visualFontSizePx) / 2 + bottomSlackPx);
@@ -441,8 +454,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderListMarkerMaybe = () =>
     <Show when={hasListMarker()}>
       <span class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
-        style={`left: ${(NOTE_PADDING_PX + listMarkerLeftPx()) * textBlockScale()}px; ` +
-          `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+        style={`left: ${textLeftPx() + listMarkerLeftPx() * textBlockScale()}px; ` +
+          `top: ${textTopPx()}px; ` +
           `width: ${listMarkerWidthPx()}px; ` +
           `line-height: ${titleLineHeightPx()}px; ` +
           `transform: scale(${textBlockScale()}); transform-origin: top left; ` +
@@ -474,8 +487,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       class={`block${infuTextStyle().isCode ? ' font-mono' : ''} ${infuTextStyle().alignClass} ` +
         `${editing || isSelectableReadOnlyDocumentText() ? ' select-text cursor-text' : ''}`}
       style={`position: absolute; ` +
-        `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
-        `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
+        `left: ${textLeftPx()}px; ` +
+        `top: ${textTopPx()}px; ` +
         `width: ${naturalWidthPx()}px; ` +
         `line-height: ${titleLineHeightPx()}px; ` +
         `transform: scale(${textBlockScale()}); transform-origin: top left; ` +

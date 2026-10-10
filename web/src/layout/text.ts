@@ -91,10 +91,19 @@ export function noteBulletMarkerLeftPx(flags: NoteFlags, leadingInsetPx: number 
   return noteListMarkerLeftPx(flags, leadingInsetPx);
 }
 
-export function desktopPopupIconTextIndentPx(widthBl: number, iconSizeBl: number = 1): number {
+/**
+ * Inset of a note's text from the edges of its bounds. A note with its border hidden has none, so a
+ * heading made from one lines up with an embedded page's title. Only a note standing on its own shows
+ * a border of its own, so callers measuring a note inside a composite or document clear HideBorder first.
+ */
+export function noteTextInsetPx(flags: NoteFlags): number {
+  return (flags & NoteFlags.HideBorder) ? 0 : NOTE_PADDING_PX;
+}
+
+export function desktopPopupIconTextIndentPx(widthBl: number, iconSizeBl: number = 1, insetPx: number = NOTE_PADDING_PX): number {
   if (widthBl <= 0) { return 0; }
   return Math.max(
-    (((widthBl * LINE_HEIGHT_PX) - NOTE_PADDING_PX * 2) / widthBl) * iconSizeBl - NOTE_PADDING_PX,
+    (((widthBl * LINE_HEIGHT_PX) - insetPx * 2) / widthBl) * iconSizeBl - insetPx,
     0,
   );
 }
@@ -136,7 +145,7 @@ export function measureDocumentNoteHeightBl(
 ): number {
   const lineHeightPx = documentLineHeightPxForNote(flags);
   const measuredHeightPx = Math.max(
-    measureTextHeightPx(s, widthBl, flags, textIndentPx, lineHeightPx, inlineSegments),
+    measureTextHeightPx(s, widthBl, flags & ~NoteFlags.HideBorder, textIndentPx, lineHeightPx, inlineSegments),
     lineHeightPx,
   );
   return Math.ceil(measuredHeightPx / DOCUMENT_NOTE_HEIGHT_QUANTUM_PX) * DOCUMENT_NOTE_HEIGHT_QUANTUM_PX / LINE_HEIGHT_PX;
@@ -162,12 +171,13 @@ function measureTextHeightPx(
   const style = getTextStyleForNote(flags);
   const paddingLeftPx = noteTextBlockPaddingLeftPx(flags, textIndentPx);
   const actualTextIndentPx = noteTextBlockTextIndentPx(flags, textIndentPx);
+  const insetPx = noteTextInsetPx(flags);
   div.setAttribute("class", `${style.alignClass} ${style.isCode ? ' font-mono' : '' }`);
   div.setAttribute("style",
     `position: absolute; visibility: hidden; pointer-events: none; ` +
     `left: -10000px; top: 0px; z-index: -1; ` +
-    `right: ${widthBl*LINE_HEIGHT_PX - NOTE_PADDING_PX}px; ` +
-    `width: ${widthBl*LINE_HEIGHT_PX - NOTE_PADDING_PX*2}px; ` +
+    `right: ${widthBl*LINE_HEIGHT_PX - insetPx}px; ` +
+    `width: ${widthBl*LINE_HEIGHT_PX - insetPx*2}px; ` +
     `box-sizing: border-box; padding-left: ${paddingLeftPx}px; ` +
     `${style.isBold ? 'font-weight: bold; ' : ""}` +
     `font-size: ${style.fontSize}px; ` +
