@@ -127,7 +127,9 @@ For more results, call lexical_search again with the same arguments and pageNum 
   Location titles are cut at 60 characters.
 - The result itself is its label as in container fragments, such as
   `(file, application/pdf, 312 fragments)`. A note is its text, cut at a sentence or word near 160
-  characters and followed by `(note, N fragments)` when cut.
+  characters, followed by `(note)`, or `(note, N fragments)` when cut. A short note reads like a
+  title, so without its kind a weak model takes it for a page to open. Attachments and linking notes
+  are only marked when cut.
 - A page or table result says how many fragments reading it takes, as `(page, 2 fragments)` or
   `(table, 11 fragments; columns: Name | Status)`, not its items or rows as container fragments do.
   A search result is for deciding what to read, and the fragment count says how much reading that
@@ -246,10 +248,14 @@ How items appear:
   their text; table cells and lines are joined with ` · `. Plain text keeps its words: only a
   line-leading `# ` is a heading, and a single `*` or `_` stays. Note text itself, as `get_fragment`
   reads it or a document page shows it, is unchanged.
-- Notes whose label is up to 80 characters are links: `- [Buy milk](infumap://<id>)`, followed by
-  `<url>` for each URL in the note, including those of Markdown links the label dropped. Longer notes
-  show a 40-character link label, then their text with URLs as Markdown links, cut at 600 characters
-  with `(truncated; full text in N fragments)`.
+- Notes whose label is up to 80 characters are links: `- [Buy milk](infumap://<id>) (note)`, followed
+  by `<url>` for each URL in the note, including those of Markdown links the label dropped. Longer
+  notes show a 40-character link label and `(note)`, then their text with URLs as Markdown links, cut
+  at 600 characters with `(truncated; full text in N fragments)`.
+- `(note)` marks the container's own notes, including group members, so every top-level line says
+  what it is: a short note reads like a title, which a weak model takes for a page to open. Composite
+  members and attachments are left plain, under a line that says what holds them. It costs about 7
+  characters per note.
 - Child pages and tables are one line with their item or row count, and tables their column names.
   They are read by their own link, so rendering never descends into them.
 - Composites are expanded inline, with members indented beneath them, under

@@ -825,6 +825,10 @@ fn note_label(note: &Item, max_chars: usize) -> Option<(String, bool)> {
   Some((if truncated { format!("{}…", label.trim_end()) } else { label }, truncated))
 }
 
+fn note_kind(shown: bool) -> &'static str {
+  if shown { " (note)" } else { "" }
+}
+
 fn single_line(text: &str) -> String {
   text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -1159,12 +1163,12 @@ impl<'a, 'b> Renderer<'a, 'b> {
       }
       // Document pages have no indentation to show grouping with; members follow the group line.
       Layout::Document => self.document_block(child, 0, pieces),
-      Layout::Calendar => self.item_lines(child, depth, &calendar_prefix(child), pieces),
+      Layout::Calendar => self.item_lines(child, depth, &calendar_prefix(child), true, pieces),
       Layout::Spatial => {
         let prefix = spatial_prefix(child, self.access.content(self.db, child));
-        self.item_lines(child, depth, &prefix, pieces)
+        self.item_lines(child, depth, &prefix, true, pieces)
       }
-      Layout::Lines => self.item_lines(child, depth, "", pieces),
+      Layout::Lines => self.item_lines(child, depth, "", true, pieces),
     }
   }
 
@@ -1229,7 +1233,17 @@ impl<'a, 'b> Renderer<'a, 'b> {
   }
 
   /// A bullet line for an item, followed by its attachments and, for a composite, its members.
-  fn item_lines(&mut self, placement: &'a Item, depth: usize, prefix: &str, pieces: &mut Pieces) -> InfuResult<()> {
+  /// A placement's lines. A top-level note says it is one, as everything else in a listing says what it is: a short
+  /// note reads like a title, which a weak model takes for a page to open. Composite members are left plain, under a
+  /// line that says what holds them.
+  fn item_lines(
+    &mut self,
+    placement: &'a Item,
+    depth: usize,
+    prefix: &str,
+    top_level: bool,
+    pieces: &mut Pieces,
+  ) -> InfuResult<()> {
     if depth > MAX_DEPTH {
       return Err("Container is too deeply nested.".into());
     }
@@ -1250,12 +1264,12 @@ impl<'a, 'b> Renderer<'a, 'b> {
           pieces.text(&item_link(content));
         } else if line.chars().count() <= LABEL_MAX_CHARS {
           // The label is all of the note, so the URLs of links it dropped follow it.
-          pieces.text(&format!("[{}]({})", escape_label(&line), link_url(content)));
+          pieces.text(&format!("[{}]({}){}", escape_label(&line), link_url(content), note_kind(top_level)));
           pieces.text(&note_url_suffix(content, &link_urls));
         } else {
           let (body, truncated) = excerpt(&note_markdown(text, urls), NOTE_INLINE_MAX_CHARS);
           let label = escape_label(&clamp_label(&line, NOTE_LABEL_MAX_CHARS));
-          pieces.text(&format!("[{label}]({}): {body}", link_url(content)));
+          pieces.text(&format!("[{label}]({}){}: {body}", link_url(content), note_kind(top_level)));
           if truncated {
             let count = note_fragments(content).len();
             pieces.text(&format!("… (truncated; full text in {count} fragment{})", if count == 1 { "" } else { "s" }));
@@ -1283,7 +1297,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
     if content.item_type == ItemType::Composite && self.active.insert(content.id.clone()) {
       for member in self.children(content)? {
         pieces.text("\n");
-        self.item_lines(member, depth + 1, "", pieces)?;
+        self.item_lines(member, depth + 1, "", false, pieces)?;
       }
       self.active.remove(&content.id);
     }
@@ -1351,14 +1365,14 @@ impl<'a, 'b> Renderer<'a, 'b> {
 
   /// A search hit's linked label, then links to its attachments: at most a few, each with a short label.
   fn record_label(&mut self, content: &'a Item) -> InfuResult<Pieces> {
-    let mut pieces = self.hit_label(content, HIT_NOTE_MAX_CHARS)?;
+    let mut pieces = self.hit_label(content, HIT_NOTE_MAX_CHARS, true)?;
     let mut attachments = self.attachments(content)?;
     attachments.retain(|item| item.item_type != ItemType::Placeholder && self.access.can_read(self.db, item));
     for (index, attachment) in attachments.iter().take(HIT_ATTACHMENTS_MAX).enumerate() {
       pieces.text(if index == 0 { " · attached: " } else { "; " });
       match self.access.content(self.db, attachment) {
         None => pieces.text("(unavailable link)"),
-        Some(content) => pieces.append(self.hit_label(content, NOTE_LABEL_MAX_CHARS)?),
+        Some(content) => pieces.append(self.hit_label(content, NOTE_LABEL_MAX_CHARS, false)?),
       }
     }
     if attachments.len() > HIT_ATTACHMENTS_MAX {
@@ -1454,7 +1468,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
         pieces.text("; ");
       }
       if place.item_type == ItemType::Note {
-        pieces.append(self.hit_label(place, NOTE_LABEL_MAX_CHARS)?);
+        pieces.append(self.hit_label(place, NOTE_LABEL_MAX_CHARS, false)?);
       } else {
         pieces.text(&item_link(place));
       }
@@ -1465,8 +1479,10 @@ impl<'a, 'b> Renderer<'a, 'b> {
     Ok(pieces)
   }
 
-  /// A linked label. A note is its text, cut short with the number of fragments holding all of it.
-  fn hit_label(&mut self, content: &'a Item, note_max_chars: usize) -> InfuResult<Pieces> {
+  /// A linked label. A note is its text, cut short with the number of fragments holding all of it. A search result's
+  /// own note says it is one even when whole: a short note reads like a title, which a weak model takes for a page
+  /// to open.
+  fn hit_label(&mut self, content: &'a Item, note_max_chars: usize, is_result: bool) -> InfuResult<Pieces> {
     let mut pieces = Pieces::default();
     if content.item_type != ItemType::Note {
       self.label(content, &mut pieces)?;
@@ -1479,6 +1495,8 @@ impl<'a, 'b> Renderer<'a, 'b> {
         if truncated {
           let count = note_fragments(content).len();
           pieces.text(&format!(" (note, {})", count_label(count, "fragment")));
+        } else if is_result {
+          pieces.text(" (note)");
         }
       }
     }
@@ -1747,8 +1765,9 @@ mod tests {
     let member_link =
       |index: usize, member: usize, title: &str| format!("[{title}](infumap://{})", pages[index].2[member]);
     for index in [0, 1] {
+      // Group members are the page's own children, so their notes say what they are; table rows do not.
       let expected = format!(
-        "\n- {}\n  - {}\n  - {}\n",
+        "\n- {}\n  - {} (note)\n  - {} (note)\n",
         group_line(index),
         member_link(index, 0, "g one"),
         member_link(index, 1, "g two")
@@ -1777,7 +1796,10 @@ mod tests {
     let position = format!(" › [List](infumap://{list}) · items 1–2 of 2\n");
     assert!(text.contains(&position), "a single fragment has no position, but gives its items: {text}");
     assert!(
-      text.ends_with(&format!("\n- [g one](infumap://{})\n- [g two](infumap://{})", members[0], members[1])),
+      text.ends_with(&format!(
+        "\n- [g one](infumap://{}) (note)\n- [g two](infumap://{}) (note)",
+        members[0], members[1]
+      )),
       "{text}"
     );
     let tabular = group_fragments(&db, &access, &pages[3].1).await.unwrap();
@@ -1901,7 +1923,7 @@ mod tests {
 
     for (page, (item, tag, long, notes, fourth)) in [&home, &doc].into_iter().zip(&ids) {
       let expected = format!(
-        "[Vendor review](infumap://{item}) · attached: [fat cat](infumap://{tag}); [Notes from the call with the vendor…](\
+        "[Vendor review](infumap://{item}) (note) · attached: [fat cat](infumap://{tag}); [Notes from the call with the vendor…](\
          infumap://{long}) (note, 1 fragment); [Notes](infumap://{notes}) (page, 1 fragment); [four](infumap://{fourth}); \
          +2 more"
       );
@@ -1955,12 +1977,12 @@ mod tests {
 
     let listings = hit_listings(&db, &access, &[booking.clone(), lonely.clone()]).await;
     let expected = format!(
-      "[Four Seasons booking](infumap://{booking}) · linked from: [Booked the hotel for three nights in…](infumap://\
+      "[Four Seasons booking](infumap://{booking}) (note) · linked from: [Booked the hotel for three nights in…](infumap://\
        {note}) (note, 1 fragment); [malaysia](infumap://{}); [older](infumap://{}); +1 more",
       pages[2], pages[1]
     );
     assert_eq!(listings[&booking].text, expected, "own page, trash and scope links are left out");
-    assert_eq!(listings[&lonely].text, format!("[not linked](infumap://{lonely})"));
+    assert_eq!(listings[&lonely].text, format!("[not linked](infumap://{lonely}) (note)"));
   }
 
   #[tokio::test]
@@ -1985,7 +2007,7 @@ mod tests {
 
     let listings = hit_listings(&db, &access, &[booking.clone(), receipt.clone()]).await;
     let booking_listing = &listings[&booking];
-    assert_eq!(booking_listing.text, format!("[Mandarin Oriental](infumap://{booking})"));
+    assert_eq!(booking_listing.text, format!("[Mandarin Oriental](infumap://{booking}) (note)"));
     assert_eq!(
       booking_listing.ancestor_backlinks,
       HashMap::from([
@@ -1996,7 +2018,7 @@ mod tests {
     let receipt_listing = &listings[&receipt];
     assert_eq!(
       receipt_listing.text,
-      format!("[receipt](infumap://{receipt}) · linked from: [malaysia](infumap://{malaysia})")
+      format!("[receipt](infumap://{receipt}) (note) · linked from: [malaysia](infumap://{malaysia})")
     );
     assert!(!receipt_listing.ancestor_backlinks.contains_key(&dated), "malaysia is given once on a line");
   }
@@ -2044,10 +2066,14 @@ mod tests {
 
     let listings =
       hit_listings(&db, &access, &[dentist.clone(), trip.clone(), member.clone(), elsewhere.clone()]).await;
-    assert_eq!(listings[&dentist].text, format!("2026-01-01 Thu: [dentist](infumap://{dentist})"));
-    assert_eq!(listings[&trip].text, format!("2026-01-01 Thu – 2026-01-03 Sat: [trip](infumap://{trip})"));
-    assert_eq!(listings[&member].text, format!("2026-01-03 Sat: [packing](infumap://{member})"), "the composite's day");
-    assert_eq!(listings[&elsewhere].text, format!("[not on a calendar](infumap://{elsewhere})"));
+    assert_eq!(listings[&dentist].text, format!("2026-01-01 Thu: [dentist](infumap://{dentist}) (note)"));
+    assert_eq!(listings[&trip].text, format!("2026-01-01 Thu – 2026-01-03 Sat: [trip](infumap://{trip}) (note)"));
+    assert_eq!(
+      listings[&member].text,
+      format!("2026-01-03 Sat: [packing](infumap://{member}) (note)"),
+      "the composite's day"
+    );
+    assert_eq!(listings[&elsewhere].text, format!("[not on a calendar](infumap://{elsewhere}) (note)"));
   }
 
   #[tokio::test]
@@ -2107,10 +2133,10 @@ mod tests {
     assert!(text.contains(&format!("- [Tasks](infumap://{table}) (table, 3 rows; columns: Name | Status)")));
     assert!(!text.contains("hidden row"));
     assert!(text.contains(&format!(
-      "](infumap://{note}): {}… (truncated; full text in 1 fragment)",
+      "](infumap://{note}) (note): {}… (truncated; full text in 1 fragment)",
       "x".repeat(NOTE_INLINE_MAX_CHARS)
     )));
-    assert!(text.contains(&format!("- [tagged](infumap://{tagged})\n  attached: urgent; word word")));
+    assert!(text.contains(&format!("- [tagged](infumap://{tagged}) (note)\n  attached: urgent; word word")));
     assert!(text.contains(&format!("word… [more](infumap://{long_cell})")));
   }
 
@@ -2148,11 +2174,14 @@ mod tests {
     let home = t.home_id.clone();
     let page = t.page(&home, "Page").await;
     let composite = t.composite(&page).await;
-    t.note(&composite, "member", RelationshipToParent::Child).await;
+    let member = t.note(&composite, "member", RelationshipToParent::Child).await;
     t.link(&composite, &composite).await;
 
     let text = t.texts(&page).join("\n");
     assert_eq!(text.matches("member").count(), 1);
+    assert!(text.contains(&format!("\n  - [member](infumap://{member})\n")), "a member is left plain: {text}");
+    let read_alone = t.texts(&composite).join("\n");
+    assert!(read_alone.contains(&format!("\n- [member](infumap://{member}) (note)\n")), "{read_alone}");
     assert!(
       text.contains(&format!("\n  - [composite](infumap://{composite}) (composite, 2 items, shown above)")),
       "{text}"
@@ -2232,7 +2261,7 @@ mod tests {
       "[Child](infumap://{child}) (page, 1 fragment) · attached: [attached to child page](infumap://{attached})"
     );
     assert_eq!(in_page(&child), child_text, "a page is listed by its parent");
-    assert_eq!(in_page(&member), format!("[member one](infumap://{member})"), "a member is only itself");
+    assert_eq!(in_page(&member), format!("[member one](infumap://{member}) (note)"), "a member is only itself");
     assert_eq!(in_page(&composite), format!("[composite](infumap://{composite}) (composite, 2 items)"));
     let long_listing = in_page(&long);
     assert!(long_listing.starts_with("[Words in a sentence."), "{long_listing}");
@@ -2261,7 +2290,7 @@ mod tests {
     let scoped =
       hit_listings(&db, &Access { user_id: &user_id, scope: Some(&scope) }, std::slice::from_ref(&note)).await;
     assert_eq!(scoped[&note].container_id, None);
-    assert_eq!(scoped[&note].text, format!("[included on its own](infumap://{note})"));
+    assert_eq!(scoped[&note].text, format!("[included on its own](infumap://{note}) (note)"));
     let unscoped = hit_listings(&db, &Access { user_id: &user_id, scope: None }, std::slice::from_ref(&note)).await;
     assert_eq!(unscoped[&note].container_id.as_ref(), Some(&page));
   }
@@ -2307,9 +2336,10 @@ mod tests {
     let row = t.note(&table, "### [Four Seasons](https://example.com/fs)", RelationshipToParent::Child).await;
 
     let text = t.texts(&page)[0].clone();
-    assert!(text.contains(&format!("- [docs for setup](infumap://{short}) <https://example.com/docs>\n")), "{text}");
+    let short_line = format!("- [docs for setup](infumap://{short}) (note) <https://example.com/docs>\n");
+    assert!(text.contains(&short_line), "{text}");
     assert!(
-      text.contains(&format!("- [Mandarin Oriental · Reservation details.…](infumap://{long}): # [Mandarin")),
+      text.contains(&format!("- [Mandarin Oriental · Reservation details.…](infumap://{long}) (note): # [Mandarin")),
       "{text}"
     );
     let table_text = t.texts(&table)[0].clone();
