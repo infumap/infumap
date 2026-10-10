@@ -1365,11 +1365,12 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
     function: OpenAiToolFunctionSpec {
       name: "get_fragment".to_owned(),
       description:
-        "Read an Infumap item's text by its link, a fragment at a time. Works for documents and images (their \
+        "Read an Infumap item's text by its link, a few fragments at a time. Works for documents and images (their \
         extracted text), notes, and pages, tables, composites and groups (their items as lines with links; a child page or \
         table is one line, so read it by its own link). Each fragment starts with a header line: the item's link, what \
-        it is, where it is, and \"fragment N of 0–M\" when it has more than one. While a result ends by telling you to \
-        call again, do so to continue."
+        it is, where it is, and \"fragment N of 0–M\" when it has more than one. A container's header also gives the \
+        items or table rows the fragment holds, out of how many. While a result ends by telling you to call again, do \
+        so to continue."
           .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
@@ -1387,7 +1388,7 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
             "type": "integer",
             "minimum": 1,
             "maximum": CHAT_FRAGMENT_TOOL_MAX_COUNT,
-            "description": "Consecutive fragments to return; defaults to 1."
+            "description": "Consecutive fragments to return; defaults to 3."
           }
         },
         "required": ["link"],
@@ -1830,8 +1831,10 @@ async fn execute_get_fragment_tool_call(
     Some(ordinal) if ordinal >= 0 => ordinal as usize,
     Some(_) => return Ok(tool_error_json("get_fragment tool argument 'fragmentOrdinal' must be non-negative.")),
   };
+  // Reading a few fragments by default means most pages come back whole, rather than relying on a weak model to see
+  // that it has more to read.
   let count = match arguments.count {
-    None => 1,
+    None => CHAT_FRAGMENT_TOOL_MAX_COUNT as usize,
     Some(count) if (1..=CHAT_FRAGMENT_TOOL_MAX_COUNT).contains(&count) => count as usize,
     Some(_) => {
       return Ok(tool_error_json(&format!(
@@ -2719,8 +2722,10 @@ mod tests {
     let infumap_data = InfumapData { scope: None };
     let get = |arguments: Value| call_tool(&db, &session, Some(&infumap_data), "get_fragment", arguments);
 
-    // A container is read in full by following the more line. Only a result's first header says where it is.
+    // A container is read in full by following the more line. Only a result's first header says where it is, and
+    // each says which of the page's items it holds.
     let mut listed = Vec::new();
+    let mut items_seen = 0;
     let mut next = Some(0);
     while let Some(ordinal) = next {
       let result =
@@ -2731,6 +2736,10 @@ mod tests {
         let header = fragment.lines().next().unwrap();
         assert!(header.starts_with(&format!("[Notes](infumap://{page}) (page, ")), "{result}");
         assert_eq!(header.contains(&format!(" in [test](infumap://{home})")), index == 0, "{header}");
+        let (first_item, last_item) =
+          header.rsplit_once(" · items ").unwrap().1.split_once(" of 150").unwrap().0.split_once('–').unwrap();
+        assert_eq!(first_item.parse::<usize>().unwrap(), items_seen + 1, "{header}");
+        items_seen = last_item.parse().unwrap();
         for line in fragment.lines().skip(1) {
           listed.push(line.split("(infumap://").nth(1).unwrap().split(')').next().unwrap().to_owned());
         }
@@ -2738,12 +2747,18 @@ mod tests {
       next = more;
     }
     assert_eq!(listed, note_ids);
+    assert_eq!(items_seen, 150);
+    let parent = get(serde_json::json!({ "link": home })).await;
+    assert!(
+      parent.contains(&format!("[Notes](infumap://{page}) (page, 150 items)")),
+      "the parent counts the same items"
+    );
 
     let first = get(serde_json::json!({ "link": page })).await;
     let (_, more) = split_more_line(&first, FRAGMENT_MORE_LINE);
-    assert_eq!(more, Some(1), "count defaults to 1 and the ordinal to 0");
+    assert_eq!(more, Some(3), "count defaults to 3 and the ordinal to 0");
     let (first_ordinal, read_last, last) = fragment_result_range(&first);
-    assert_eq!((first_ordinal, read_last), (0, 0));
+    assert_eq!((first_ordinal, read_last), (0, 2));
     assert!(last >= 3);
     let count = last + 1;
     let out_of_range = get(serde_json::json!({ "link": page, "fragmentOrdinal": count })).await;

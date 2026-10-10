@@ -297,7 +297,7 @@ request; it never falls back to an unrestricted call.
 `tool get_fragment <link-or-id>` accepts:
 
 - **--fragment-ordinal:** Zero-based starting fragment (default: 0).
-- **--count:** Consecutive fragments, 1–3 (default: 1).
+- **--count:** Consecutive fragments, 1–3 (default: 3).
 
 The tools use the same argument handling, access checks, and result formatting as chat. A result
 ending with a `The item continues.` or `For more results,` line has more: run the command again with
