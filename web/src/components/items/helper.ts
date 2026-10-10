@@ -37,7 +37,7 @@ import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
 
 // The visible box of an opaque page is inset within its bounds, so pages placed edge to edge are separated by a thin gap.
-const OPAQUE_PAGE_BOX_INSET_PX = 1;
+export const OPAQUE_PAGE_BOX_INSET_PX = 1;
 
 export const opaquePageBoxInsetPx = (visualElement: VisualElement): number =>
   (visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) ? 0 : OPAQUE_PAGE_BOX_INSET_PX;
