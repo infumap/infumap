@@ -47,6 +47,7 @@ pub mod reconcile;
 pub mod reprocess;
 pub mod restore;
 pub mod stats;
+pub mod tool;
 pub mod upload;
 
 const INFUMAP_CA_CERT_ENV_VAR: &str = "INFUMAP_CA_CERT";

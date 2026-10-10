@@ -265,6 +265,45 @@ Options:
 
 ## API Commands
 
+### tool
+
+Call the built-in read-only LLM tools directly, without invoking an LLM. Requires a running Infumap
+web server and a CLI session created with `infumap login`.
+
+The command prints the tool's JSON result, pretty-printed, to stdout. Tool failures preserve the
+error JSON on stdout, report a diagnostic on stderr, and exit with a nonzero status. Session or
+transport failures report a diagnostic on stderr and also exit with a nonzero status.
+
+```bash
+infumap tool lexical_search "acme onboarding"
+infumap tool lexical_search "budget" --within infumap://<page-id>
+infumap tool lexical_search "budget" --num-results 10 --page-num 2
+infumap tool get_fragment infumap://<item-id>
+infumap tool get_fragment <item-id> --fragment-ordinal 4 --count 3
+infumap tool lexical_search "budget" --session work --scope <scope-id>
+```
+
+Both subcommands accept `-s --session <name>` (default: `default`) and `--scope <scope-id>`.
+These options may appear before or after the tool name. An invalid or deleted scope fails the
+request; it never falls back to an unrestricted call.
+
+`tool lexical_search <text>` accepts:
+
+- **--within:** Page or table link, or bare id, to search within.
+- **--num-results:** Maximum results, 1–20 (default: 8).
+- **--page-num:** One-based results page (default: 1).
+
+`tool get_fragment <link-or-id>` accepts:
+
+- **--fragment-ordinal:** Zero-based starting fragment (default: 0).
+- **--count:** Consecutive fragments, 1–3 (default: 1).
+- **--version:** Version from an earlier result, to detect changes.
+
+The tools use the same argument handling, access checks, and result formatting as chat. Follow
+`nextFragmentOrdinal` in a fragment result to continue reading. See [chat-tools.md](chat-tools.md)
+for the tool behavior and result formats. The local `fragment` command builds artifacts and is
+separate from `tool get_fragment`, which reads them and renders live container contents.
+
 ### login
 
 Open a long-running session on an Infumap instance. An entry in `~/.infumap/cli/sessions.json` is added to keep track of the session.

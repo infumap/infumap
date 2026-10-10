@@ -92,7 +92,9 @@ mod scope;
 mod search;
 
 pub(crate) use chat::{chat_tool_servers_from_config, llama_servers_from_config, validate_chat_backend_config};
-pub use chat::{serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route};
+pub use chat::{
+  serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route, serve_chat_tool_route,
+};
 pub use item_ops::add_item_for_user;
 
 // Uploads are sent as base64 inside JSON. 256 MiB request limit supports roughly

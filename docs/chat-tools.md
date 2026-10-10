@@ -6,6 +6,9 @@ Chats with the Infumap data source enabled have two built-in read-only tools:
 - `get_fragment`: read any item a fragment at a time: documents, images, notes, and pages, tables and
   composites.
 
+The same tools can be called without an LLM using `infumap tool lexical_search "query"` or
+`infumap tool get_fragment infumap://<id>`. See [CLI commands](cli.md#tool) for options.
+
 Both are designed to keep tool results small, because results stay in the chat transcript and weaker
 models have little context to spare. Items are identified everywhere by a `link`, `infumap://<id>`: tool
 results give it, tool arguments take it, and the model copies it into its answer as a citation.
@@ -261,3 +264,23 @@ A note's fragments are its text, with URL annotations as Markdown links, split i
 most 2,500 characters. Each cut is the last one in the second half of the budget after a blank line,
 else a line break, else a sentence, else a word, and never inside a link. Any non-empty note has at
 least fragment 0.
+
+## Direct HTTP calls
+
+`POST /chat/tool` executes either built-in read-only tool using the caller's authenticated Infumap
+session. It does not invoke an LLM or an external MCP tool. The request is a JSON object:
+
+```json
+{
+  "name": "get_fragment",
+  "arguments": { "link": "infumap://<id>", "fragmentOrdinal": 4, "count": 3 },
+  "scopeId": "<optional-scope-id>"
+}
+```
+
+Omit `scopeId` for an unrestricted call. `name` must be `lexical_search` or `get_fragment`;
+`arguments` contains the tool arguments documented above. The response body is the tool result
+JSON itself, without a wrapper. Authentication failures return HTTP 403; invalid requests, scopes,
+unknown tool names, and tool error results return HTTP 400; unexpected execution failures return
+HTTP 500. Unsupported HTTP methods return HTTP 405. These failures have a JSON `error` field.
+Requests are limited to 16 KiB.
