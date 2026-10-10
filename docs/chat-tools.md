@@ -177,8 +177,10 @@ How items appear:
   cut at 600 characters with `(truncated; full text in N fragments)`.
 - Child pages and tables are one line with their item or row count, and tables their column names.
   They are read by their own link, so rendering never descends into them.
-- Composites are expanded inline, with members indented beneath them. A composite linked inside
-  itself is shown once, then as `(composite, shown above)`.
+- Composites are expanded inline, with members indented beneath them, under
+  `[composite](infumap://<id>) (composite, N items)`: the count tells the model the members listed are
+  all of them. A composite linked inside itself is shown once, then as
+  `(composite, N items, shown above)`.
 - Files, text items and images show their type, MIME type and stored fragment count.
 - Attachments follow their item on an `attached:` line.
 - Links render their target and link to it.
