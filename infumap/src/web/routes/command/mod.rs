@@ -58,7 +58,7 @@ use crate::ai::image_pipeline::{
 };
 use crate::ai::image_tagging::{delete_item_image_tag_dir, should_tag_image_item};
 use crate::ai::lexical_index::{
-  FragmentLexicalHit, index_word, natural_text_word_count, open_user_document_fragment_lexical_index,
+  FragmentLexicalHit, MatchedWords, index_word, natural_text_word_count, open_user_document_fragment_lexical_index,
   open_user_item_title_lexical_index, user_document_fragment_lexical_index_exists,
   user_item_title_lexical_index_exists,
 };

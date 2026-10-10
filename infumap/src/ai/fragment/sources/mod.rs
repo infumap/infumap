@@ -8,6 +8,7 @@ use tokio::fs;
 
 use crate::storage::db::Db;
 
+use super::types::{IMAGE_CONTENTS_SOURCE_KIND, IMAGE_DOCUMENT_SOURCE_KIND};
 use super::{FragmentBuildOutcome, FragmentInput, FragmentSource, FragmentSourceKind, write_item_fragments};
 
 mod image;
@@ -56,6 +57,15 @@ fn normalized_text(value: Option<&str>) -> Option<String> {
   let value = value?;
   let collapsed = value.split_whitespace().collect::<Vec<_>>().join(" ");
   if collapsed.is_empty() { None } else { Some(collapsed) }
+}
+
+/// A fragment's text for the lexical index, and apart from it the fragment's context, such as an image's parent title,
+/// which helps the fragment match but cannot match it alone.
+pub fn lexical_text_and_context(source_kind: &str, text: &str) -> (String, Option<String>) {
+  match source_kind {
+    IMAGE_CONTENTS_SOURCE_KIND | IMAGE_DOCUMENT_SOURCE_KIND => image::split_context_line(text),
+    _ => (text.to_owned(), None),
+  }
 }
 
 pub fn search_fragment_context_title_for_item(db: &Db, item: &Item) -> Option<String> {
