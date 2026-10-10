@@ -48,14 +48,14 @@ pub(super) fn search_results_text(
     .collect::<Vec<_>>();
   let mut text = if results.is_empty() { NO_RESULTS.to_owned() } else { results.join("\n") };
   if response.has_more {
-    text.push_str(&more_line("pageNum", page_num + 1));
+    text.push_str(&more_line(SEARCH_MORE_LINE, page_num + 1));
   }
   text
 }
 
 /// The result lines of a search's tool result, and whether it has more pages.
 pub(super) fn result_lines(text: &str) -> (Vec<&str>, bool) {
-  let (results, next_page) = split_more_line(text, "pageNum");
+  let (results, next_page) = split_more_line(text, SEARCH_MORE_LINE);
   let lines = results.lines().filter(|line| !line.trim().is_empty() && *line != NO_RESULTS);
   (lines.collect(), next_page.is_some())
 }
@@ -250,7 +250,7 @@ mod tests {
        Home › [Tasks \\[2026\\]](infumap://t) (fragment 3) › [Acme](infumap://a) | Active\n\
        root › my trips › malaysia › [untitled note](infumap://g)\n\
        \n\
-       More: call again with pageNum 3.",
+       More results: call lexical_search again with the same arguments and pageNum 3.",
       "a cell hit is shown as its row, which is given once"
     );
     let (lines, has_more) = result_lines(&text);

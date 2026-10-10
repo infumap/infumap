@@ -300,7 +300,8 @@ request; it never falls back to an unrestricted call.
 - **--count:** Consecutive fragments, 1–3 (default: 1).
 
 The tools use the same argument handling, access checks, and result formatting as chat. A result
-ending with a `More:` line has more to read: call again with the argument it gives. See [chat-tools.md](chat-tools.md)
+ending with an `Item continues:` or `More results:` line has more: run the command again with
+`--fragment-ordinal` or `--page-num` set to the value it gives. See [chat-tools.md](chat-tools.md)
 for the tool behavior and result formats. The local `fragment` command builds artifacts and is
 separate from `tool get_fragment`, which reads them and renders live container contents.
 
