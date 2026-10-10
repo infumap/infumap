@@ -30,9 +30,15 @@ use crate::web::routes::command::search::{SearchFragmentMatch, SearchPathElement
 const LOCATION_TITLE_MAX_CHARS: usize = 60;
 const LOCATION_SEPARATOR: &str = " › ";
 const SNIPPET_SEPARATOR: &str = " — fragment ";
+const NO_RESULTS: &str = "No results.";
 
-/// The tool result. Results with the same line, such as a table row and one of its cells, are given once.
-pub(super) fn search_results_json(response: &SearchResponse, listings: &HashMap<Uid, HitListing>) -> String {
+/// The tool result: a line per result, then the next page to ask for when there are more. Results with the same
+/// line, such as a table row and one of its cells, are given once.
+pub(super) fn search_results_text(
+  response: &SearchResponse,
+  listings: &HashMap<Uid, HitListing>,
+  page_num: usize,
+) -> String {
   let mut seen = HashSet::new();
   let results = response
     .results
@@ -40,7 +46,18 @@ pub(super) fn search_results_json(response: &SearchResponse, listings: &HashMap<
     .filter_map(|result| result_line(result, listings))
     .filter(|line| seen.insert(line.clone()))
     .collect::<Vec<_>>();
-  serde_json::json!({ "results": results, "hasMore": response.has_more }).to_string()
+  let mut text = if results.is_empty() { NO_RESULTS.to_owned() } else { results.join("\n") };
+  if response.has_more {
+    text.push_str(&more_line("pageNum", page_num + 1));
+  }
+  text
+}
+
+/// The result lines of a search's tool result, and whether it has more pages.
+pub(super) fn result_lines(text: &str) -> (Vec<&str>, bool) {
+  let (results, next_page) = split_more_line(text, "pageNum");
+  let lines = results.lines().filter(|line| !line.trim().is_empty() && *line != NO_RESULTS);
+  (lines.collect(), next_page.is_some())
 }
 
 fn result_line(result: &SearchResult, listings: &HashMap<Uid, HitListing>) -> Option<String> {
@@ -115,19 +132,7 @@ fn location_label(element: &SearchPathElement) -> String {
 pub(super) fn result_line_title(line: &str) -> String {
   let line = line.split(SNIPPET_SEPARATOR).next().unwrap_or(line);
   let own = line.rsplit(LOCATION_SEPARATOR).next().unwrap_or(line);
-  let Some(rest) = own.split_once('[').map(|(_, rest)| rest) else {
-    return own.to_owned();
-  };
-  let mut label = String::new();
-  let mut chars = rest.chars();
-  while let Some(ch) = chars.next() {
-    match ch {
-      '\\' => label.extend(chars.next()),
-      ']' => return label,
-      ch => label.push(ch),
-    }
-  }
-  own.to_owned()
+  first_link_label(own).unwrap_or_else(|| own.to_owned())
 }
 
 /// The hit's own link in a result line, with its label cut to `max_chars`: what a shortened search result keeps, so
@@ -235,24 +240,27 @@ mod tests {
       ("s".to_owned(), listing(Some("t"), 3, "a", row_text)),
     ]);
 
-    let json: Value = serde_json::from_str(&search_results_json(&response, &listings)).unwrap();
+    let text = search_results_text(&response, &listings, 2);
     assert_eq!(
-      json,
-      serde_json::json!({
-        "results": [
-          "root › my trips › [malaysia](infumap://p) › [composite](infumap://c) › [Cocktails](infumap://n)",
-          "root › my trips (linked from [index](infumap://i)) › [malaysia](infumap://p) (linked from \
-           [plans](infumap://l)) › [group](infumap://g1) › [report.pdf](infumap://f) (file, application/pdf, \
-           9 fragments) — fragment 7: …the match…",
-          "Home › [Tasks \\[2026\\]](infumap://t) (fragment 3) › [Acme](infumap://a) | Active",
-          "root › my trips › malaysia › [untitled note](infumap://g)"
-        ],
-        "hasMore": true
-      }),
+      text,
+      "root › my trips › [malaysia](infumap://p) › [composite](infumap://c) › [Cocktails](infumap://n)\n\
+       root › my trips (linked from [index](infumap://i)) › [malaysia](infumap://p) (linked from \
+       [plans](infumap://l)) › [group](infumap://g1) › [report.pdf](infumap://f) (file, application/pdf, \
+       9 fragments) — fragment 7: …the match…\n\
+       Home › [Tasks \\[2026\\]](infumap://t) (fragment 3) › [Acme](infumap://a) | Active\n\
+       root › my trips › malaysia › [untitled note](infumap://g)\n\
+       \n\
+       More: call again with pageNum 3.",
       "a cell hit is shown as its row, which is given once"
     );
+    let (lines, has_more) = result_lines(&text);
+    assert_eq!((lines.len(), has_more), (4, true));
+    assert_eq!(
+      result_lines(&search_results_text(&SearchResponse { results: Vec::new(), has_more: false }, &listings, 1)),
+      (Vec::new(), false)
+    );
 
-    let titles = json["results"].as_array().unwrap().iter().map(|line| result_line_title(line.as_str().unwrap()));
+    let titles = lines.iter().map(|line| result_line_title(line));
     assert_eq!(titles.collect::<Vec<_>>(), ["Cocktails", "report.pdf", "Acme", "untitled note"]);
     assert_eq!(result_line_title("Home › [a \\] b](infumap://x)"), "a ] b");
     let calendar =

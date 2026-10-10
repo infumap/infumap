@@ -67,8 +67,7 @@ pub fn make_clap_subcommand() -> Command {
             .long("count")
             .value_parser(value_parser!(i64).range(1..=3))
             .help("Consecutive fragments, 1–3 (default: 1)."),
-        )
-        .arg(Arg::new("version").long("version").help("Version from an earlier response, to detect changes.")),
+        ),
     )
 }
 
@@ -79,9 +78,7 @@ pub async fn execute(matches: &ArgMatches) -> InfuResult<()> {
     "lexical_search" => {
       (&[("text", "text"), ("within", "within")], &[("num-results", "numResults"), ("page-num", "pageNum")])
     }
-    "get_fragment" => {
-      (&[("link", "link"), ("version", "version")], &[("fragment-ordinal", "fragmentOrdinal"), ("count", "count")])
-    }
+    "get_fragment" => (&[("link", "link")], &[("fragment-ordinal", "fragmentOrdinal"), ("count", "count")]),
     _ => return Err(format!("Unknown built-in tool '{name}'.").into()),
   };
   for &(flag, key) in string_args {
@@ -108,7 +105,18 @@ pub async fn execute(matches: &ArgMatches) -> InfuResult<()> {
   let response = client.post(url).json(&request).send().await.map_err(|e| format!("Could not call tool: {e}"))?;
   named_session.update_from_response(&response).await?;
   let status = response.status();
-  let result: Value = response.json().await.map_err(|e| format!("Invalid tool response (HTTP {status}): {e}"))?;
+  // Results are text, as the model reads them; errors are JSON.
+  let is_text = response
+    .headers()
+    .get(reqwest::header::CONTENT_TYPE)
+    .and_then(|content_type| content_type.to_str().ok())
+    .is_some_and(|content_type| content_type.starts_with("text/plain"));
+  let body = response.text().await.map_err(|e| format!("Invalid tool response (HTTP {status}): {e}"))?;
+  if is_text && status.is_success() {
+    println!("{body}");
+    return Ok(());
+  }
+  let result: Value = serde_json::from_str(&body).map_err(|e| format!("Invalid tool response (HTTP {status}): {e}"))?;
   println!("{}", serde_json::to_string_pretty(&result)?);
   if !status.is_success() || result.get("error").is_some() {
     return Err(format!("Tool '{name}' failed (HTTP {status}); see the JSON result on stdout.").into());
