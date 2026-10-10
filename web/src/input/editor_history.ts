@@ -239,6 +239,7 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
     const isStructural = structural(entry);
     setBusy(true);
     ++groupEpoch;
+    let persisting = false;
     try {
       if (isStructural) {
         // Includes chained composite deletion and any last debounced text save.
@@ -272,9 +273,11 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
       removals.sort((a, b) => depth(b, removals) - depth(a, removals));
       if (isStructural) {
         // Persist first. UI mutations are held while the asynchronous operation runs.
+        persisting = true;
         for (const value of additions) { await server.addItem(ItemFns.fromObject(value.data, value.origin), null, store.general.networkStatus); }
-        for (const value of updates) { await serverOrRemote.updateItem(ItemFns.fromObject(value.data, value.origin), store.general.networkStatus, false); }
-        for (const value of removals) { await server.deleteItem(value.data.id, store.general.networkStatus, false); }
+        for (const value of updates) { await serverOrRemote.updateItem(ItemFns.fromObject(value.data, value.origin), store.general.networkStatus); }
+        for (const value of removals) { await server.deleteItem(value.data.id, store.general.networkStatus); }
+        persisting = false;
         if (epoch !== startedEpoch) { return; }
       }
       recording = false;
@@ -304,7 +307,9 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
     } catch (error) {
       failedWrite = true;
       clear();
-      message("Undo could not be saved. Reload this page before continuing to edit.");
+      // A failed write leaves the items as they are locally, and the failure is reconciled from the server.
+      // A failure while applying the change locally can leave them inconsistent.
+      message(persisting ? "Undo could not be saved." : "Undo could not be saved. Reload this page before continuing to edit.");
       console.warn("Editor history replay failed:", error);
     } finally { recording = true; setBusy(false); }
   };

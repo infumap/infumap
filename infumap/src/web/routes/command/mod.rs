@@ -158,7 +158,13 @@ fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKin
     CommandErrorKind::Auth
   } else if msg.contains("Invalid link URL") {
     CommandErrorKind::Client
-  } else if msg.contains("is missing") || msg.contains("does not exist") || msg.contains("not found") {
+  } else if msg.contains("is missing")
+    || msg.contains("does not exist")
+    || msg.contains("not found")
+    || msg.contains("Unknown item")
+  {
+    // "Unknown item" is the error for an item that has been deleted. The web client relies on this to
+    // tell an item that no longer exists apart from a failure that might not recur.
     CommandErrorKind::NotFound
   } else {
     CommandErrorKind::Server
@@ -1649,6 +1655,16 @@ mod tests {
     let mut unpinned = old_item.clone();
     unpinned.flags = Some(unpinned.flags.unwrap_or(0) & !LIST_PAGE_PIN_BOTTOM_FLAG);
     assert!(scopes_page_update_disallowed(&old_item, &unpinned));
+  }
+
+  #[tokio::test]
+  async fn deleted_item_errors_are_classified_as_not_found() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let page = t.page(&home, "Page").await;
+    t.db.item.remove(&page).await.unwrap();
+    let e = t.db.item.get(&page).unwrap_err();
+    assert!(matches!(classify_command_error(&e), CommandErrorKind::NotFound));
   }
 
   #[tokio::test]

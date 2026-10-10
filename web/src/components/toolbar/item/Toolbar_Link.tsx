@@ -70,7 +70,7 @@ export const Toolbar_Link: Component = () => {
     setLinkTo(newLinkTo);
     requestArrange(store, "toolbar-link-target-change");
     // the server rejects a target that is a link, which can't be checked here if the target is not loaded.
-    serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus, false).catch(() => {
+    serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus).catch(() => {
       if (linkItemOnMount.linkTo != newLinkTo) { return; }
       setLinkTo(previousLinkTo);
       requestArrange(store, "toolbar-link-target-revert");

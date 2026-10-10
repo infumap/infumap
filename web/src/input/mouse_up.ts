@@ -355,7 +355,7 @@ function enqueueTextDocumentMaterializationIfPending(
     }
     for (let i = serverAddedIds.length - 1; i >= 0; --i) {
       try {
-        await server.deleteItem(serverAddedIds[i], store.general.networkStatus, false);
+        await server.deleteItem(serverAddedIds[i], store.general.networkStatus);
       } catch (error) {
         console.error("Text document materialization cleanup failed.", error);
       }
@@ -397,7 +397,7 @@ function enqueueUpdateItem(
     const snapshot = cloneItemSnapshot(item);
     ops.push({
       apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
-      rollback: () => server.deleteItem(snapshot.id, store.general.networkStatus, false),
+      rollback: () => server.deleteItem(snapshot.id, store.general.networkStatus),
     });
     return;
   }
@@ -408,10 +408,10 @@ function enqueueUpdateItem(
 
   const snapshot = cloneItemSnapshot(item);
   ops.push({
-    apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus, false),
+    apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus),
     rollback: rollbackSnapshot == null
       ? undefined
-      : () => serverOrRemote.updateItem(cloneItemSnapshot(rollbackSnapshot), store.general.networkStatus, false),
+      : () => serverOrRemote.updateItem(cloneItemSnapshot(rollbackSnapshot), store.general.networkStatus),
   });
 }
 
@@ -419,7 +419,7 @@ function enqueueAddItem(ops: Array<MovePersistOperation>, store: StoreContextMod
   const snapshot = cloneItemSnapshot(item);
   ops.push({
     apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
-    rollback: () => server.deleteItem(snapshot.id, store.general.networkStatus, false),
+    rollback: () => server.deleteItem(snapshot.id, store.general.networkStatus),
   });
 }
 
@@ -430,7 +430,7 @@ function enqueueDeleteItem(
   rollbackSnapshot?: Item | null,
 ): void {
   ops.push({
-    apply: () => server.deleteItem(id, store.general.networkStatus, false),
+    apply: () => server.deleteItem(id, store.general.networkStatus),
     rollback: rollbackSnapshot == null
       ? undefined
       : () => server.addItem(cloneItemSnapshot(rollbackSnapshot), null, store.general.networkStatus).then(() => undefined),
@@ -507,7 +507,7 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
   if (context.activeTreeItemId != null && !rollbackIds.has(context.activeTreeItemId) && itemState.get(context.activeTreeItemId) != null) {
     itemState.delete(context.activeTreeItemId);
     if (deleteCreatedTreeItemOnServer) {
-      void server.deleteItem(context.activeTreeItemId, store.general.networkStatus, false).catch((error) => {
+      void server.deleteItem(context.activeTreeItemId, store.general.networkStatus).catch((error) => {
         console.error("Rollback cleanup failed while deleting dragged item:", error);
       });
     }
@@ -651,7 +651,7 @@ function buildCleanupPersistedPlaceholderOperations(
     ops.push({
       apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
       rollback: async () => {
-        await server.deleteItem(snapshot.id, store.general.networkStatus, false);
+        await server.deleteItem(snapshot.id, store.general.networkStatus);
       },
     });
   }
@@ -675,7 +675,7 @@ function buildCleanupPersistedPlaceholderOperations(
   for (const placeholderSnapshot of placeholderSnapshotsToDelete) {
     ops.push({
       apply: async () => {
-        await server.deleteItem(placeholderSnapshot.id, store.general.networkStatus, false);
+        await server.deleteItem(placeholderSnapshot.id, store.general.networkStatus);
         if (itemState.get(placeholderSnapshot.id) != null) {
           itemState.delete(placeholderSnapshot.id);
         }
@@ -724,7 +724,7 @@ function buildCleanupCollapsedCompositeOperation(
           requestArrange(store, "mouse-up-cleanup-empty-composite-local");
         }
         try {
-          await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
+          await server.deleteItem(compositeItem.id, store.general.networkStatus);
         } catch (error) {
           if (deletedLocally && itemState.get(compositeSnapshot.id) == null) {
             const compositeRestore = asCompositeItem(cloneItemSnapshot(compositeSnapshot));
@@ -767,8 +767,8 @@ function buildCleanupCollapsedCompositeOperation(
   childSnapshot.ordering = new Uint8Array(compositeItem.ordering);
   ops.push({
     apply: async () => {
-      await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus, false);
-      await server.deleteItem(compositeItem.id, store.general.networkStatus, false);
+      await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus);
+      await server.deleteItem(compositeItem.id, store.general.networkStatus);
       asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
       if (child.parentId != compositeItem.parentId || child.relationshipToParent != RelationshipToParent.Child) {
         itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
@@ -790,7 +790,7 @@ function buildCleanupCollapsedCompositeOperation(
       }
       restorePositionalItemSnapshot(childOriginalSnapshot);
       await server.addItem(cloneItemSnapshot(compositeSnapshot), null, store.general.networkStatus).then(() => undefined);
-      await serverOrRemote.updateItem(cloneItemSnapshot(childOriginalSnapshot), store.general.networkStatus, false);
+      await serverOrRemote.updateItem(cloneItemSnapshot(childOriginalSnapshot), store.general.networkStatus);
     },
   });
 }
@@ -860,7 +860,7 @@ async function rollbackMoveServerState(
     itemState.get(rollbackContext.activeTreeItemId) == null
   ) {
     try {
-      await server.deleteItem(rollbackContext.activeTreeItemId, store.general.networkStatus, false);
+      await server.deleteItem(rollbackContext.activeTreeItemId, store.general.networkStatus);
     } catch (error) {
       console.error("Rollback failed while deleting created dragged item on server.", error);
       failures.push(`delete created dragged item '${rollbackContext.activeTreeItemId}': ${describeRollbackError(error)}`);
@@ -873,7 +873,7 @@ async function rollbackMoveServerState(
       continue;
     }
     try {
-      await serverOrRemote.updateItem(cloneItemSnapshot(item), store.general.networkStatus, false);
+      await serverOrRemote.updateItem(cloneItemSnapshot(item), store.general.networkStatus);
     } catch (error) {
       console.error(`Rollback failed while restoring item '${entry.id}' on the server.`, error);
       failures.push(`restore item '${entry.id}' on server: ${describeRollbackError(error)}`);

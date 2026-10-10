@@ -313,7 +313,7 @@ export async function ensureQueryItemUnderQueries(store: StoreContextModel, quer
       if (!(child.flags & SearchFlags.ListPagePinTop) || (child.flags & SearchFlags.ListPagePinBottom)) {
         child.flags &= ~SearchFlags.ListPagePinBottom;
         child.flags |= SearchFlags.ListPagePinTop;
-        void server.updateItem(child, store.general.networkStatus, false);
+        void server.updateItem(child, store.general.networkStatus);
       }
       return childId;
     }
@@ -376,7 +376,7 @@ export async function navigateToQueries(store: StoreContextModel): Promise<void>
   const queriesPage = asPageItem(queriesPageMaybe);
   if (queriesPage.title == "Searches") {
     queriesPage.title = "Queries";
-    void server.updateItem(queriesPage, store.general.networkStatus, false);
+    void server.updateItem(queriesPage, store.general.networkStatus);
   }
 
   const queryItemId = await ensureQueryItemUnderQueries(store, queriesPageId);

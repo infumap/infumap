@@ -24,13 +24,16 @@ import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "./util/uid";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
-import { isContainer } from "./items/base/container-item";
+import { asContainerItem, isContainer } from "./items/base/container-item";
+import { asAttachmentsItem, isAttachmentsItem } from "./items/base/attachments-item";
 import { requestArrange } from "./layout/arrange";
-import { itemState } from "./store/ItemState";
+import { itemState, wouldCreateRelationshipCycle } from "./store/ItemState";
+import { TransientMessageType } from "./store/StoreProvider_Overlay";
 import { MouseActionState } from "./input/state";
 import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./util/remoteSession";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
-import { switchToItem, switchToPage } from "./layout/navigation";
+import { VeFns, Veid } from "./layout/visual-element";
+import { navigateToLocalRoot, switchToItem, switchToPage } from "./layout/navigation";
 import { initiateLoadChildItemsMaybe } from "./layout/load";
 
 // Global request tracking - will be set by store initialization
@@ -336,9 +339,23 @@ interface ServerCommand {
   command: string,
   payload: object,
   base64data: string | null,
-  panicLogoutOnError: boolean,
   resolve: (response: any) => void,
   reject: (reason: any) => void,
+}
+
+/** A command the server received but did not carry out. */
+export class CommandFailedError extends Error {
+  /** "auth", "client", "not-found" or "server". */
+  readonly failReason: string | null;
+
+  constructor(command: string, failReason: string | null) {
+    super(`'${command}' command failed. Reason: ${failReason}`);
+    this.failReason = failReason;
+  }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof CommandFailedError && error.failReason == "not-found";
 }
 
 function shouldSkipClientOnlyItemUpdate(item: Item): boolean {
@@ -537,13 +554,16 @@ function serveWaiting(networkStatus: NumberSignal) {
         serveWaiting(networkStatus);
       };
 
-      sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+      sendCommand(command.host, command.command, command.payload, command.base64data)
         .then((resp: any) => {
           command.resolve(resp);
         })
         .catch((error) => {
           command.reject(error);
           trackNetworkCommandError(command, error);
+          if (isMutationCommand(command.command)) {
+            handleFailedMutation(command, error);
+          }
         })
         .finally(finalizeCommand);
 
@@ -572,7 +592,7 @@ function serveWaiting(networkStatus: NumberSignal) {
       serveWaiting(networkStatus);
     };
 
-    sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+    sendCommand(command.host, command.command, command.payload, command.base64data)
       .then((resp: any) => {
         command.resolve(resp);
       })
@@ -591,12 +611,11 @@ function constructCommandPromise(
   command: string,
   payload: object,
   base64data: string | null,
-  panicLogoutOnError: boolean,
   networkStatus: NumberSignal): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
       requestId: nextNetworkRequestId++,
-      host, command, payload, base64data, panicLogoutOnError,
+      host, command, payload, base64data,
       resolve, reject
     };
     incrementPendingMutations(command);
@@ -617,7 +636,6 @@ async function streamChatCommand(
     command: COMMAND_CHAT,
     payload,
     base64data: null,
-    panicLogoutOnError: false,
     resolve: () => { },
     reject: () => { },
   };
@@ -672,6 +690,13 @@ async function streamChatCommand(
 
 const localContainerSyncVersions = new Map<Uid, { epoch: number | null, version: number | null }>();
 
+// A failed mutation can leave local state the server does not have. Rather than undoing the local change,
+// which would be wrong if the server applied part of it, or if later mutations built on it, the item is
+// re-fetched once no mutations are in flight, and the containers it was in are synced from a snapshot.
+const itemsToReconcile = new Set<Uid>();
+// Kept apart from localContainerSyncVersions so that a sync ack can't cancel the request for a snapshot.
+const containersToResnapshot = new Set<Uid>();
+
 function setLocalContainerSyncVersion(
   containerId: Uid,
   epoch: number | null | undefined,
@@ -705,8 +730,10 @@ function setLocalContainerSyncVersion(
   localContainerSyncVersions.set(containerId, { epoch: normalizedEpoch, version: normalizedVersion });
 }
 
-export function clearLocalContainerSyncVersions(): void {
+export function clearLocalSyncState(): void {
   localContainerSyncVersions.clear();
+  itemsToReconcile.clear();
+  containersToResnapshot.clear();
 }
 
 function applySyncAck(syncAck: ContainerSyncAck | null | undefined): void {
@@ -797,6 +824,7 @@ function applyContainerSyncUpdate(update: SyncContainerUpdate): boolean {
   }
   const container = itemState.get(update.id);
   if (!container || !isContainer(container)) {
+    containersToResnapshot.delete(update.id);
     setLocalContainerSyncVersion(update.id, update.epoch, update.version, true);
     return false;
   }
@@ -809,6 +837,7 @@ function applyContainerSyncUpdate(update: SyncContainerUpdate): boolean {
     }
     itemState.applyContainerSnapshotFromServerObjects(update.id, snapshot.children, snapshot.attachments ?? {}, null);
     itemState.getAsContainerItem(update.id)!.childrenLoaded = true;
+    containersToResnapshot.delete(update.id);
     changed = true;
   } else {
     changed = applyContainerSyncDelta(update);
@@ -839,10 +868,12 @@ function getTrackedLocalContainerSubscriptions(): Array<SyncContainerSubscriptio
       if (!existing) {
         localContainerSyncVersions.set(containerId, { epoch: null, version: null });
       }
+      // An unknown version gets a snapshot.
+      const known = containersToResnapshot.has(containerId) ? null : localContainerSyncVersions.get(containerId);
       return {
         id: containerId,
-        knownEpoch: localContainerSyncVersions.get(containerId)?.epoch ?? null,
-        knownVersion: localContainerSyncVersions.get(containerId)?.version ?? null,
+        knownEpoch: known?.epoch ?? null,
+        knownVersion: known?.version ?? null,
         knownItemType: itemState.get(containerId)!.itemType,
         knownLastModifiedDate: itemState.get(containerId)!.lastModifiedDate,
       };
@@ -854,12 +885,12 @@ export const server = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise(null, COMMAND_GET_ITEMS, { id, mode }, null, false, networkStatus)
+    return constructCommandPromise(null, COMMAND_GET_ITEMS, { id, mode }, null, networkStatus)
       .then((response: any) => normalizeFetchedItemsResponse(id, mode, response));
   },
 
   addItemFromPartialObject: async (item: object, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data, false, networkStatus)
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data, networkStatus)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
         return extractMutationItem(response);
@@ -867,19 +898,19 @@ export const server = {
   },
 
   addItem: async (item: Item, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data, false, networkStatus)
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data, networkStatus)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
         return extractMutationItem(response);
       });
   },
 
-  updateItem: async (item: Item, networkStatus: NumberSignal, panicLogoutOnError: boolean = true): Promise<void> => {
+  updateItem: async (item: Item, networkStatus: NumberSignal): Promise<void> => {
     if (shouldSkipClientOnlyItemUpdate(item)) {
       console.warn(`Skipping update for client-only item '${item.id}'.`);
       return;
     }
-    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, panicLogoutOnError, networkStatus)
+    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, networkStatus)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
       });
@@ -893,7 +924,7 @@ export const server = {
     networkStatus: NumberSignal,
   ): Promise<object> => {
     return constructCommandPromise(
-      null, COMMAND_CONVERT_PAGE_TABLE, { id, expectedItemType, targetItemType, defaultPageAspect }, null, false, networkStatus,
+      null, COMMAND_CONVERT_PAGE_TABLE, { id, expectedItemType, targetItemType, defaultPageAspect }, null, networkStatus,
     ).then((response: MutationCommandResponse) => {
       if (response?.item == null) {
         throw new Error(`Conversion of item '${id}' did not return the converted item.`);
@@ -903,8 +934,8 @@ export const server = {
     });
   },
 
-  deleteItem: async (id: Uid, networkStatus: NumberSignal, panicLogoutOnError: boolean = true): Promise<void> => {
-    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null, panicLogoutOnError, networkStatus)
+  deleteItem: async (id: Uid, networkStatus: NumberSignal): Promise<void> => {
+    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null, networkStatus)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
       });
@@ -917,17 +948,17 @@ export const server = {
     pageNumMaybe?: number,
     scopeIdMaybe?: Uid | null,
   ): Promise<SearchResponse> => {
-    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum: pageNumMaybe, scopeId: scopeIdMaybe ?? null }, null, false, networkStatus)
+    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum: pageNumMaybe, scopeId: scopeIdMaybe ?? null }, null, networkStatus)
       .then((response: any) => normalizeSearchResponse(response));
   },
 
   listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {
-    return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null, false, networkStatus);
+    return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null, networkStatus);
   },
 
   /** The user's links and notes that refer to an item they own. Local items only: backlinks are not tracked across servers. */
   getBacklinks: async (itemId: Uid, networkStatus: NumberSignal): Promise<GetBacklinksResponse> => {
-    return constructCommandPromise(null, COMMAND_GET_BACKLINKS, { itemId }, null, false, networkStatus);
+    return constructCommandPromise(null, COMMAND_GET_BACKLINKS, { itemId }, null, networkStatus);
   },
 
   chatStream: async (
@@ -950,7 +981,7 @@ export const server = {
   },
 
   emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
-    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, {}, null, true, networkStatus)
+    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, {}, null, networkStatus)
       .then((response: EmptyTrashCommandResponse) => {
         applySyncAck(response?.syncAck);
         return {
@@ -966,7 +997,7 @@ export const server = {
     subscriptions: Array<SyncContainerSubscription>,
     networkStatus: NumberSignal,
   ): Promise<Array<SyncContainerUpdate>> => {
-    return constructCommandPromise(null, COMMAND_SYNC_CONTAINERS, { subscriptions }, null, false, networkStatus)
+    return constructCommandPromise(null, COMMAND_SYNC_CONTAINERS, { subscriptions }, null, networkStatus)
       .then((response: { updates?: Array<SyncContainerUpdate> }) => response.updates ?? []);
   }
 }
@@ -1007,7 +1038,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
         serveWaiting_remote(networkStatus);
       };
 
-      sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+      sendCommand(command.host, command.command, command.payload, command.base64data)
         .then((resp: any) => {
           command.resolve(resp);
         })
@@ -1041,7 +1072,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
       serveWaiting_remote(networkStatus);
     };
 
-    sendCommand(command.host, command.command, command.payload, command.base64data, command.panicLogoutOnError)
+    sendCommand(command.host, command.command, command.payload, command.base64data)
       .then((resp: any) => {
         command.resolve(resp);
       })
@@ -1058,12 +1089,11 @@ function constructCommandPromise_remote(
   command: string,
   payload: object,
   base64data: string | null,
-  panicLogoutOnError: boolean,
   networkStatus: NumberSignal): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
       requestId: nextNetworkRequestId++,
-      host, command, payload, base64data, panicLogoutOnError,
+      host, command, payload, base64data,
       resolve, reject
     };
     incrementPendingMutations(command);
@@ -1077,7 +1107,7 @@ export const remote = {
    * fetch an item and/or it's children and their attachments.
    */
   fetchItems: async (host: string, id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise_remote(host, COMMAND_GET_ITEMS, { id, mode }, null, false, networkStatus)
+    return constructCommandPromise_remote(host, COMMAND_GET_ITEMS, { id, mode }, null, networkStatus)
       .then((response: any) => normalizeFetchedItemsResponse(id, mode, response, false));
   },
 
@@ -1089,16 +1119,16 @@ export const remote = {
       console.warn(`Skipping remote update for client-only item '${item.id}'.`);
       return;
     }
-    return constructCommandPromise_remote(host, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, false, networkStatus);
+    return constructCommandPromise_remote(host, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, networkStatus);
   },
 
 }
 
 
 export const serverOrRemote = {
-  updateItem: async (item: Item, networkStatus: NumberSignal, panicLogoutOnError: boolean = true) => {
+  updateItem: async (item: Item, networkStatus: NumberSignal) => {
     if (item.origin == null) {
-      await server.updateItem(item, networkStatus, panicLogoutOnError);
+      await server.updateItem(item, networkStatus);
     } else {
       await remote.updateItem(item.origin, item, networkStatus);
     }
@@ -1158,13 +1188,251 @@ function shouldRetryContainerSyncLater(): boolean {
   return document.hidden || mutationsInFlight() || !MouseActionState.empty();
 }
 
+const FAILED_MUTATION_MESSAGE_MS = 5000;
+
+function handleFailedMutation(command: ServerCommand, error: unknown): void {
+  const store = activeContainerSyncStore;
+  const payload = command.payload as { id?: unknown, parentId?: unknown };
+  if (typeof payload.id == "string") {
+    itemsToReconcile.add(payload.id);
+  }
+  // The item may be fine, and its parent deleted.
+  if (isNotFoundError(error) && typeof payload.parentId == "string" && payload.parentId != EMPTY_UID) {
+    itemsToReconcile.add(payload.parentId);
+  }
+  if (command.command == COMMAND_EMPTY_TRASH) {
+    // Some of the trash may have been deleted.
+    const trashPageId = store?.user.getUserMaybe()?.trashPageId;
+    if (trashPageId != null) {
+      containersToResnapshot.add(trashPageId);
+    }
+  }
+  if (store == null) {
+    return;
+  }
+
+  showFailedMutationMessage(store, error);
+  if (error instanceof CommandFailedError) {
+    void logoutIfSessionEnded(store);
+  }
+  requestContainerSyncSoon(store);
+}
+
+function showFailedMutationMessage(store: StoreContextModel, error: unknown): void {
+  const text = !(error instanceof CommandFailedError)
+    ? "Couldn't save change: the server could not be reached."
+    : error.failReason == "not-found"
+      ? "Couldn't save change: the item no longer exists."
+      : "Couldn't save change.";
+  const message = { text, type: TransientMessageType.Error };
+  store.overlay.toolbarTransientMessage.set(message);
+  window.setTimeout(() => {
+    if (store.overlay.toolbarTransientMessage.get() === message) {
+      store.overlay.toolbarTransientMessage.set(null);
+    }
+  }, FAILED_MUTATION_MESSAGE_MS);
+}
+
+let sessionCheckInFlight = false;
+
+/**
+ * Mutations also fail once the session has ended, e.g. it expired, or the user logged out in another tab.
+ * Only then is logging out the right response to a failure.
+ */
+async function logoutIfSessionEnded(store: StoreContextModel): Promise<void> {
+  const userId = store.user.getUserMaybe()?.userId;
+  const logoutMaybe = logout;
+  if (sessionCheckInFlight || userId == null || logoutMaybe == null) {
+    return;
+  }
+  // Held through the logout, which saves pending text edits: those fail too, and must not start another.
+  sessionCheckInFlight = true;
+  try {
+    const r = await post(null, "/account/validate-session", {});
+    // A different user may have logged in, in another tab.
+    if (r?.success === false || (r?.success === true && r.userId !== userId)) {
+      await logoutMaybe();
+    }
+  } catch (_e) {
+    // Without a response, whether the session has ended is unknown.
+  } finally {
+    sessionCheckInFlight = false;
+  }
+}
+
+/**
+ * Re-fetches items whose mutations failed, and replaces the local versions with the server's. Returns false,
+ * leaving them to be reconciled later, if local state may have changed while they were being fetched.
+ */
+async function reconcileFailedItems(store: StoreContextModel): Promise<boolean> {
+  const ids = [...itemsToReconcile];
+  itemsToReconcile.clear();
+  const results = await Promise.allSettled(ids.map(id =>
+    server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)));
+  if (textEditInProgressForContainerSync(store) || shouldRetryContainerSyncLater()) {
+    ids.forEach(id => itemsToReconcile.add(id));
+    return false;
+  }
+
+  const goneIds = new Set<Uid>();
+  results.forEach((result, i) => {
+    const id = ids[i];
+    // e.g. a clipboard text item that couldn't be saved, kept so the user can try again.
+    if (itemState.get(id)?.clientOnly === true) {
+      return;
+    }
+    if (result.status == "fulfilled") {
+      reconcileItem(id, result.value);
+    } else if (isNotFoundError(result.reason)) {
+      goneIds.add(id);
+    } else if (result.reason instanceof CommandFailedError) {
+      // Trying again won't help, but the containers it is in can still be synced.
+      console.warn(`Could not reconcile item '${id}' after a failed mutation:`, result.reason);
+      markContainerForResnapshot(itemState.get(id));
+    } else {
+      // e.g. the server could not be reached.
+      itemsToReconcile.add(id);
+    }
+  });
+
+  if (goneIds.size > 0) {
+    if (currentPageWithin(store, goneIds)) {
+      void navigateToLocalRoot(store);
+    }
+    if (currentPageWithin(store, goneIds)) {
+      // The home page is being loaded. Remove them once it is shown.
+      goneIds.forEach(id => itemsToReconcile.add(id));
+    } else {
+      if (veidWithin(store.history.currentPopupSpecVeid(), goneIds)) {
+        store.history.popAllPopups();
+      }
+      goneIds.forEach(removeReconciledItem);
+      const focusPath = store.history.getFocusPathMaybe();
+      if (focusPath != null && itemState.get(VeFns.veidFromPath(focusPath).itemId) == null) {
+        store.history.setFocus(store.history.currentPagePath()!);
+      }
+    }
+  }
+
+  requestArrange(store, "reconcile-failed-mutations");
+  store.touchToolbar();
+  return true;
+}
+
+function reconcileItem(id: Uid, fetched: ItemsAndTheirAttachments): void {
+  if (fetched.groupId != null || (fetched.item as { id?: unknown })?.id != id) {
+    return;
+  }
+  const localItem = itemState.get(id);
+  markContainerForResnapshot(localItem);
+  const item = itemState.upsertItemFromServerObject(fetched.item, null);
+  if (localItem != null &&
+    (localItem.parentId != item.parentId || localItem.relationshipToParent != item.relationshipToParent)) {
+    unlinkFromLocalParent(id, localItem.parentId, localItem.relationshipToParent);
+  }
+  linkToLocalParent(item);
+  if (isAttachmentsItem(item)) {
+    itemState.applyAttachmentItemsSnapshotFromServerObjects(id, fetched.attachments[id] ?? [], null);
+  }
+  if (localItem == null && isContainer(item)) {
+    // Its children were removed along with it.
+    containersToResnapshot.add(id);
+  }
+  markContainerForResnapshot(item);
+}
+
+function removeReconciledItem(id: Uid): void {
+  const item = itemState.get(id);
+  if (item == null) {
+    return;
+  }
+  markContainerForResnapshot(item);
+  unlinkFromLocalParent(id, item.parentId, item.relationshipToParent);
+  itemState.pruneRelationshipSubtreeIfCurrent(id, item.parentId, item.relationshipToParent as RelationshipToParent);
+}
+
+function unlinkFromLocalParent(id: Uid, parentId: Uid, relationshipToParent: string): void {
+  const parent = itemState.get(parentId);
+  if (parent == null) {
+    return;
+  }
+  if (relationshipToParent == RelationshipToParent.Child && isContainer(parent)) {
+    const container = asContainerItem(parent);
+    container.computed_children = container.computed_children.filter(childId => childId != id);
+  } else if (relationshipToParent == RelationshipToParent.Attachment && isAttachmentsItem(parent)) {
+    const attachmentsItem = asAttachmentsItem(parent);
+    attachmentsItem.computed_attachments = attachmentsItem.computed_attachments.filter(attachmentId => attachmentId != id);
+  }
+}
+
+function linkToLocalParent(item: Item): void {
+  const parent = itemState.get(item.parentId);
+  if (parent == null || wouldCreateRelationshipCycle(item.id, parent.id)) {
+    return;
+  }
+  if (item.relationshipToParent == RelationshipToParent.Child && isContainer(parent)) {
+    const container = asContainerItem(parent);
+    // If the other children haven't been loaded yet, loading them replaces the list.
+    if (!container.computed_children.includes(item.id)) {
+      container.computed_children = [...container.computed_children, item.id];
+    }
+    itemState.sortChildren(container.id);
+  } else if (item.relationshipToParent == RelationshipToParent.Attachment && isAttachmentsItem(parent)) {
+    const attachmentsItem = asAttachmentsItem(parent);
+    if (!attachmentsItem.computed_attachments.includes(item.id)) {
+      attachmentsItem.computed_attachments = [...attachmentsItem.computed_attachments, item.id];
+    }
+    itemState.sortAttachments(attachmentsItem.id);
+  }
+}
+
+/** A container's snapshot includes its children's attachments, so an attachment's is that of its parent. */
+function markContainerForResnapshot(item: Item | null): void {
+  if (item == null) {
+    return;
+  }
+  const containerId = item.relationshipToParent == RelationshipToParent.Attachment
+    ? itemState.get(item.parentId)?.parentId
+    : item.parentId;
+  const container = containerId == null ? null : itemState.get(containerId);
+  if (container != null && isContainer(container)) {
+    containersToResnapshot.add(container.id);
+  }
+}
+
+/** Whether the item, or one of its loaded ancestors, is one of ids. */
+function itemWithin(itemId: Uid | null, ids: Set<Uid>): boolean {
+  const seen = new Set<Uid>();
+  let id = itemId;
+  while (id != null && id != EMPTY_UID && !seen.has(id)) {
+    if (ids.has(id)) {
+      return true;
+    }
+    seen.add(id);
+    id = itemState.get(id)?.parentId ?? null;
+  }
+  return false;
+}
+
+function veidWithin(veid: Veid | null, ids: Set<Uid>): boolean {
+  return veid != null && (itemWithin(veid.itemId, ids) || itemWithin(veid.linkIdMaybe, ids));
+}
+
+function currentPageWithin(store: StoreContextModel, ids: Set<Uid>): boolean {
+  const pageVeid = store.history.currentPageVeid();
+  if (pageVeid?.itemId == SOLO_ITEM_HOLDER_PAGE_UID) {
+    const soloItemIds = itemState.getAsContainerItem(SOLO_ITEM_HOLDER_PAGE_UID)?.computed_children ?? [];
+    return soloItemIds.some(id => itemWithin(id, ids));
+  }
+  return veidWithin(pageVeid, ids);
+}
+
 async function performContainerSync(store: StoreContextModel): Promise<void> {
   if (textEditInProgressForContainerSync(store)) {
     return;
   }
 
-  const subscriptions = getTrackedLocalContainerSubscriptions();
-  if (subscriptions.length === 0) {
+  if (getTrackedLocalContainerSubscriptions().length === 0 && itemsToReconcile.size === 0) {
     return;
   }
 
@@ -1180,6 +1448,16 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
 
   containerSyncInFlight = true;
   try {
+    if (itemsToReconcile.size > 0 && !await reconcileFailedItems(store)) {
+      containerSyncRerunRequested = true;
+      return;
+    }
+    // After reconciling, which can request snapshots.
+    const subscriptions = getTrackedLocalContainerSubscriptions();
+    if (subscriptions.length === 0) {
+      return;
+    }
+
     const updates = await server.syncContainers(subscriptions, store.general.networkStatus);
     if (textEditInProgressForContainerSync(store)) {
       return;
@@ -1289,10 +1567,7 @@ export function stopContainerSyncLoop(): void {
   console.log("Stopped container sync loop");
 }
 
-/**
- * TODO (HIGH): panic logout on error is to ensure consistent state, but is highly disruptive. do something better.
- */
-async function sendCommand(host: string | null, command: string, payload: object, base64Data: string | null, panicLogoutOnError: boolean): Promise<any> {
+async function sendCommand(host: string | null, command: string, payload: object, base64Data: string | null): Promise<any> {
   const d: any = { command, jsonData: JSON.stringify(payload) };
   if (base64Data) { d.base64Data = base64Data; }
   const r = await post(host, '/command', d);
@@ -1303,14 +1578,7 @@ async function sendCommand(host: string | null, command: string, payload: object
     throw new Error(`'${command}' command returned a malformed response.`);
   }
   if (!r.success) {
-    if (logout != null && command != COMMAND_GET_ITEMS) {
-      if (panicLogoutOnError) {
-        await logout();
-      }
-      throw new Error(`'${command}' command failed. Reason: ${r.failReason}`);
-    } else {
-      throw new Error(`'${command}' command failed. Reason: ${r.failReason}`);
-    }
+    throw new CommandFailedError(command, typeof r.failReason == "string" ? r.failReason : null);
   }
   if (typeof r.jsonData !== "string") {
     throw new Error(`'${command}' command returned malformed jsonData.`);
