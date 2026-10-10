@@ -17,7 +17,7 @@
 use infusdk::db::kv_store::KVStore;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{Uid, is_uid, new_uid};
-use log::{info, warn};
+use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -118,6 +118,8 @@ impl SessionDb {
       expires: now_unix_secs + SESSION_LIFETIME_SECS,
       issued_at: now_unix_secs,
       username: String::from(username),
+      successor_id: None,
+      predecessor_id: None,
     };
     let store = self.store_by_user_id.get_mut(user_id).ok_or(format!("No session store for user '{}'.", user_id))?;
     store.add(session.clone()).await?;
@@ -125,6 +127,13 @@ impl SessionDb {
     Ok(session)
   }
 
+  /// Called after each successful request authenticated with session `id`. Returns the session whose id the
+  /// client should be sent (via cookie or header) in place of `id`, if any.
+  ///
+  /// Rotation is two-phase so that a client which never receives or never persists the new id (e.g. the
+  /// response is lost when an iOS web app is suspended) isn't logged out: the prior session stays fully valid,
+  /// and its successor keeps being re-sent, until the client first presents the successor. Only then does the
+  /// prior session's short grace period start.
   pub async fn rotate_session_if_due(&mut self, id: &Uid, min_age_secs: i64) -> InfuResult<Option<Session>> {
     let user_id = match self.user_id_by_session_id.get(id) {
       Some(user_id) => user_id.clone(),
@@ -149,19 +158,42 @@ impl SessionDb {
       self.user_id_by_session_id.remove(id);
       return Ok(None);
     }
+
+    // Already rotated: keep re-sending the successor until the client uses it. Never issue a second one.
+    if let Some(successor_id) = &existing.successor_id {
+      return Ok(match store.get(successor_id) {
+        Some(successor) if successor.expires > now_unix_secs => {
+          debug!("Re-sending successor '{}' of session '{}'.", successor_id, id);
+          Some(successor.clone())
+        }
+        _ => None,
+      });
+    }
+
+    // First use of a rotated session confirms the client has it: start the predecessor's grace period, which
+    // only remains so that in-flight parallel requests made with the prior cookie/header don't fail.
+    if let Some(predecessor_id) = &existing.predecessor_id {
+      if let Some(predecessor) = store.get(predecessor_id) {
+        let grace_expires = now_unix_secs + SESSION_ROTATION_GRACE_SECS;
+        if predecessor.expires > grace_expires {
+          info!(
+            "Session '{}' for user '{}' confirmed {}s after rotation; prior session '{}' expires in {}s.",
+            id,
+            user_id,
+            now_unix_secs - existing.issued_at,
+            predecessor_id,
+            SESSION_ROTATION_GRACE_SECS
+          );
+          let mut predecessor = predecessor.clone();
+          predecessor.expires = grace_expires;
+          store.update(predecessor).await?;
+        }
+      }
+    }
+
     if now_unix_secs - existing.issued_at < min_age_secs {
       return Ok(None);
     }
-
-    // Keep the old session id valid briefly so in-flight parallel requests using the prior
-    // cookie/header don't start failing immediately after one request rotates successfully.
-    let grace_existing = Session {
-      id: existing.id.clone(),
-      user_id: existing.user_id.clone(),
-      expires: (now_unix_secs + SESSION_ROTATION_GRACE_SECS).min(existing.expires),
-      issued_at: now_unix_secs,
-      username: existing.username.clone(),
-    };
 
     let rotated = Session {
       id: new_uid(),
@@ -169,14 +201,21 @@ impl SessionDb {
       expires: existing.expires,
       issued_at: now_unix_secs,
       username: existing.username.clone(),
+      successor_id: None,
+      predecessor_id: Some(existing.id.clone()),
     };
+    let mut rotated_existing = existing.clone();
+    rotated_existing.successor_id = Some(rotated.id.clone());
 
-    store.update(grace_existing).await?;
     store.add(rotated.clone()).await?;
-    self.user_id_by_session_id.insert(rotated.id.clone(), user_id);
+    store.update(rotated_existing).await?;
+    self.user_id_by_session_id.insert(rotated.id.clone(), user_id.clone());
+    info!("Rotated session '{}' for user '{}' to '{}'.", id, user_id, rotated.id);
     Ok(Some(rotated))
   }
 
+  /// Deletes the session along with any sessions linked to it by rotation, so that e.g. logging out with a
+  /// prior session id doesn't leave its successor usable.
   pub async fn delete_session(&mut self, id: &str) -> InfuResult<String> {
     let user_id = self.user_id_by_session_id.get(id).ok_or(format!("Unknown session id '{}'.", id))?.clone();
     let store =
@@ -185,7 +224,18 @@ impl SessionDb {
     if self.user_id_by_session_id.remove(id) == None {
       return Err(format!("Session '{}' has no user_id mapping to remove", id).into());
     }
-    store.remove(id).await?;
+    let removed = store.remove(id).await?;
+
+    let mut linked_ids: Vec<Uid> = removed.successor_id.into_iter().chain(removed.predecessor_id).collect();
+    while let Some(linked_id) = linked_ids.pop() {
+      if store.get(&linked_id).is_none() {
+        continue;
+      }
+      let linked = store.remove(&linked_id).await?;
+      self.user_id_by_session_id.remove(&linked_id);
+      linked_ids.extend(linked.successor_id.into_iter().chain(linked.predecessor_id));
+    }
+
     Ok(user_id.clone())
   }
 
@@ -223,5 +273,79 @@ impl SessionDb {
     log_path.push(String::from("user_") + user_id);
     log_path.push(SESSION_LOG_FILENAME);
     Ok(log_path)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  struct TempDir(PathBuf);
+
+  impl Drop for TempDir {
+    fn drop(&mut self) {
+      let _ = std::fs::remove_dir_all(&self.0);
+    }
+  }
+
+  async fn setup() -> (TempDir, SessionDb, Uid) {
+    let dir = TempDir(std::env::temp_dir().join(format!("infumap-session-db-test-{}", new_uid())));
+    let user_id = new_uid();
+    std::fs::create_dir_all(dir.0.join(format!("user_{}", user_id))).unwrap();
+    let db = SessionDb::init(dir.0.to_str().unwrap()).await.unwrap();
+    (dir, db, user_id)
+  }
+
+  fn now() -> i64 {
+    SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
+  }
+
+  #[tokio::test]
+  async fn prior_session_stays_valid_until_successor_is_used() {
+    let (_dir, mut db, user_id) = setup().await;
+    let a = db.create_session(&user_id, "test").await.unwrap();
+
+    let b = db.rotate_session_if_due(&a.id, 0).await.unwrap().unwrap();
+    assert_ne!(b.id, a.id);
+
+    // Client never received b: a keeps working, and b (not a new session) is re-sent.
+    let resent = db.rotate_session_if_due(&a.id, 0).await.unwrap().unwrap();
+    assert_eq!(resent.id, b.id);
+    assert_eq!(db.get_session(&a.id).unwrap().unwrap().expires, a.expires);
+
+    // Client uses b: a enters its grace period, b is not rotated again yet.
+    assert!(db.rotate_session_if_due(&b.id, SESSION_ROTATION_INTERVAL_SECS).await.unwrap().is_none());
+    let a_after = db.get_session(&a.id).unwrap().unwrap();
+    assert!(a_after.expires <= now() + SESSION_ROTATION_GRACE_SECS);
+    assert_eq!(db.get_session(&b.id).unwrap().unwrap().expires, a.expires);
+
+    // In-flight requests with a during the grace period are still pointed at b.
+    assert_eq!(db.rotate_session_if_due(&a.id, 0).await.unwrap().unwrap().id, b.id);
+  }
+
+  #[tokio::test]
+  async fn deleting_either_session_deletes_both() {
+    let (_dir, mut db, user_id) = setup().await;
+    let a = db.create_session(&user_id, "test").await.unwrap();
+    let b = db.rotate_session_if_due(&a.id, 0).await.unwrap().unwrap();
+    db.delete_session(&a.id).await.unwrap();
+    assert!(db.get_session(&b.id).unwrap().is_none());
+
+    let c = db.create_session(&user_id, "test").await.unwrap();
+    let d = db.rotate_session_if_due(&c.id, 0).await.unwrap().unwrap();
+    db.delete_session(&d.id).await.unwrap();
+    assert!(db.get_session(&c.id).unwrap().is_none());
+  }
+
+  #[tokio::test]
+  async fn rotation_links_survive_reload() {
+    let (dir, mut db, user_id) = setup().await;
+    let a = db.create_session(&user_id, "test").await.unwrap();
+    let b = db.rotate_session_if_due(&a.id, 0).await.unwrap().unwrap();
+    drop(db);
+
+    let mut db = SessionDb::init(dir.0.to_str().unwrap()).await.unwrap();
+    assert_eq!(db.rotate_session_if_due(&a.id, 0).await.unwrap().unwrap().id, b.id);
+    assert_eq!(db.get_session(&b.id).unwrap().unwrap().predecessor_id, Some(a.id.clone()));
   }
 }
