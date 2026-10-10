@@ -44,6 +44,7 @@ import {
   calculateCalendarMonthLayouts,
   calculateCalendarRangeMonthSegments,
   calculateCalendarVerticalLayout,
+  CalendarDate,
   calendarDateFromDateTime,
   calendarMiniTitleHeightPx,
   calendarMiniTitleTopPx,
@@ -63,6 +64,7 @@ import { Item, ItemType } from "../../items/base/item";
 import { getMovingTreeItemInParentMaybe } from "./util";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { linkHasTriangle, linkTriangleHitbox } from "../link-triangle";
+import { getMonthInfo } from "../../util/time";
 
 function openPopupHitboxes(
   popupClickAreaBoundsPx: { x: number, y: number, w: number, h: number },
@@ -235,8 +237,10 @@ function isLastCalendarLinkOccurrence(child: LinkItem, siblingIds: ReadonlyArray
 }
 
 function calendarRangeValues(
+  store: StoreContextModel,
   child: Item,
   siblingIds: ReadonlyArray<string>,
+  lastVisibleDate: CalendarDate | null,
 ): { ownerItem: Item, endDateTime: number | null } | null {
   if (!isLink(child)) {
     return { ownerItem: child, endDateTime: child.endDateTime };
@@ -245,7 +249,16 @@ function calendarRangeValues(
   const link = asLinkItem(child);
   if (!isLastCalendarLinkOccurrence(link, siblingIds)) { return null; }
   const ownerItem = itemState.get(LinkFns.getLinkToId(link));
-  if (ownerItem == null || isLink(ownerItem)) { return null; }
+  if (ownerItem == null) {
+    // Only links on visible days are arranged, which loads their targets. The range of a link on an earlier day may
+    // still reach a visible day, and is known only once its target is loaded.
+    if (lastVisibleDate != null &&
+      compareCalendarDates(calendarDateFromDateTime(link.dateTime), lastVisibleDate) <= 0) {
+      getVePropertiesForItem(store, link);
+    }
+    return null;
+  }
+  if (isLink(ownerItem)) { return null; }
   return {
     ownerItem,
     endDateTime: moveCalendarDateTimeRangeToStart(
@@ -413,9 +426,14 @@ function arrangeMiniCalendarPage(
     });
   }
 
+  const lastVisibleDayLayout = calendarMiniDayLayouts[calendarMiniDayLayouts.length - 1] ?? null;
+  const lastVisibleDate = lastVisibleDayLayout == null
+    ? null
+    : { year: lastVisibleDayLayout.year, month: lastVisibleDayLayout.month, day: lastVisibleDayLayout.day };
   const calendarRangeLayouts: Array<CalendarRangeLayout> = [];
   for (const child of calendarChildren) {
-    const rangeValues = calendarRangeValues(child, displayItem_pageWithChildren.computed_children);
+    const rangeValues = calendarRangeValues(
+      store, child, displayItem_pageWithChildren.computed_children, lastVisibleDate);
     if (rangeValues == null) { continue; }
     const { ownerItem: rangeOwnerItem, endDateTime } = rangeValues;
     const itemBounds = itemBoundsById.get(child.id) ?? null;
@@ -859,9 +877,16 @@ export function arrange_calendar_page(
     });
   });
 
+  const lastVisibleMonth = calendarWindow.months[calendarWindow.months.length - 1];
+  const lastVisibleDate = {
+    year: lastVisibleMonth.year,
+    month: lastVisibleMonth.month,
+    day: getMonthInfo(lastVisibleMonth.month, lastVisibleMonth.year).daysInMonth,
+  };
   const calendarRangeLayouts: Array<CalendarRangeLayout> = [];
   for (const child of calendarChildren) {
-    const rangeValues = calendarRangeValues(child, displayItem_pageWithChildren.computed_children);
+    const rangeValues = calendarRangeValues(
+      store, child, displayItem_pageWithChildren.computed_children, lastVisibleDate);
     if (rangeValues == null) { continue; }
     const { ownerItem: rangeOwnerItem, endDateTime } = rangeValues;
     const itemBounds = itemBoundsById.get(child.id) ?? null;
