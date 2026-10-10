@@ -1241,7 +1241,7 @@ fn lexical_search_tool_spec() -> OpenAiToolSpec {
           },
           "within": {
             "type": ["string", "null"],
-            "description": "Optional link of a page or table; searches it and everything inside it. Omit to search everything."
+            "description": "Optional link of a page or table; searches it, everything inside it, and items linked into it. Omit to search everything."
           },
           "numResults": {
             "type": "integer",

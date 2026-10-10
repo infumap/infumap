@@ -48,6 +48,12 @@ Infumap data source is disabled.
 
 `text` is required; `numResults` defaults to 8 and accepts 1–20.
 
+`within` searches the page or table and everything under it, at any depth, and also the items linked
+into it from elsewhere, with their attachments: what reading the page shows through links. A linked
+page is searched itself but not what it holds, since a link can point anywhere, such as to the home
+page. A linked result keeps the location where it lives. The search box in the UI does not include
+linked items.
+
 A result matches any of the words, compared after lowercasing and reducing them to their English
 stem, so "staying" matches "stay" and "hotels" matches "hotel". Text in other languages goes through
 the same rules, so a word always matches itself exactly. Words that no item contains are ignored. Results matching more of the words come first: items

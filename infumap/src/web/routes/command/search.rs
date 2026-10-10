@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::scope::{ResolvedScope, resolve_scope};
+use super::scope::{ResolvedScope, readable, resolve_content, resolve_scope};
 use super::*;
 
 const SEARCH_RRF_K: f64 = 60.0;
@@ -179,7 +179,7 @@ pub(super) async fn run_search(
         Some(scope_id) => Some(resolve_scope(&*db.lock().await, &session.user_id, scope_id)?),
         None => None,
       };
-      let (data_dir, bounds) = resolve_search_bounds(db, page_id.as_ref(), scope.as_ref(), session).await?;
+      let (data_dir, bounds) = resolve_search_bounds(db, page_id.as_ref(), scope.as_ref(), false, session).await?;
       indexed_search_results(db, &data_dir, &session.user_id, &bounds, &request.text, start_result, end_result).await?
     }
   };
@@ -195,7 +195,8 @@ pub(super) async fn run_lexical_search(
 ) -> InfuResult<SearchResponse> {
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
-  let (data_dir, bounds) = resolve_search_bounds(db, request.page_id.as_ref(), scope, session).await?;
+  // The chat reads a page with its linked items, so searching within it covers them too.
+  let (data_dir, bounds) = resolve_search_bounds(db, request.page_id.as_ref(), scope, true, session).await?;
 
   let results =
     indexed_search_results(db, &data_dir, &session.user_id, &bounds, &request.text, start_result, end_result).await?;
@@ -207,11 +208,12 @@ async fn resolve_search_bounds(
   db: &Arc<tokio::sync::Mutex<Db>>,
   page_id: Option<&Uid>,
   scope: Option<&ResolvedScope>,
+  with_linked_items: bool,
   session: &Session,
 ) -> InfuResult<(String, SearchBounds)> {
   let db = db.lock().await;
   let started = Instant::now();
-  let bounds = search_bounds(&db, page_id, scope, &session.user_id)?;
+  let bounds = search_bounds(&db, page_id, scope, with_linked_items, &session.user_id)?;
   if let SearchBounds::Items(item_ids) = &bounds {
     debug!(
       "Resolved search bounds for user '{}' to {} item(s) in {:?}.",
@@ -223,10 +225,13 @@ async fn resolve_search_bounds(
   Ok((db.item.data_dir().to_owned(), bounds))
 }
 
+/// With `with_linked_items`, a page restriction also covers the items linked into the page; see
+/// page_subtree_item_ids.
 fn search_bounds(
   db: &Db,
   page_id: Option<&Uid>,
   scope: Option<&ResolvedScope>,
+  with_linked_items: bool,
   user_id: &Uid,
 ) -> InfuResult<SearchBounds> {
   Ok(match (page_id, scope) {
@@ -234,23 +239,55 @@ fn search_bounds(
       let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
       SearchBounds::UnderRoot(user.home_page_id.clone())
     }
-    (Some(page_id), None) => SearchBounds::Items(page_subtree_item_ids(db, page_id, user_id)?),
+    (Some(page_id), None) => SearchBounds::Items(page_subtree_item_ids(db, page_id, with_linked_items, user_id)?),
     (None, Some(scope)) => SearchBounds::Items(scope.allowed_item_ids(db, user_id)?),
     (Some(page_id), Some(scope)) => {
-      let mut item_ids = page_subtree_item_ids(db, page_id, user_id)?;
+      let mut item_ids = page_subtree_item_ids(db, page_id, with_linked_items, user_id)?;
       item_ids.retain(|item_id| db.item.get(item_id).is_ok_and(|item| scope.contains(db, item)));
       SearchBounds::Items(item_ids)
     }
   })
 }
 
-fn page_subtree_item_ids(db: &Db, search_root_id: &Uid, user_id: &Uid) -> InfuResult<Vec<Uid>> {
+/// The page and everything under it. With `with_linked_items`, also the targets of the links anywhere under it, with
+/// their attachments: items the page shows through links. A linked page's own contents are not added, since a link
+/// can point anywhere, such as to the home page.
+fn page_subtree_item_ids(
+  db: &Db,
+  search_root_id: &Uid,
+  with_linked_items: bool,
+  user_id: &Uid,
+) -> InfuResult<Vec<Uid>> {
   let search_root = db.item.get(search_root_id).map_err(|_| "Search scope was not found.")?;
   if &search_root.owner_id != user_id || search_root.item_type == ItemType::Password {
     return Err("Search scope was not found.".into());
   }
 
-  super::scope::subtree_item_ids(db, vec![search_root_id.clone()], &HashSet::new(), user_id)
+  let mut item_ids = super::scope::subtree_item_ids(db, vec![search_root_id.clone()], &HashSet::new(), user_id)?;
+  if with_linked_items {
+    let mut linked = Vec::new();
+    for item_id in &item_ids {
+      let item = db.item.get(item_id)?;
+      if item.item_type != ItemType::Link {
+        continue;
+      }
+      let Some(target) = resolve_content(db, item, user_id) else {
+        continue;
+      };
+      linked.push(target.id.clone());
+      linked.extend(
+        db.item
+          .get_attachments(&target.id)?
+          .into_iter()
+          .filter(|item| readable(item, user_id))
+          .map(|item| item.id.clone()),
+      );
+    }
+    item_ids.extend(linked);
+    item_ids.sort();
+    item_ids.dedup();
+  }
+  Ok(item_ids)
 }
 
 /// A query matches any of its words. Results are fetched in tiers, items matching all the words first, then those
@@ -1125,7 +1162,7 @@ mod tests {
 
   fn bounds_item_ids(t: &TestDb, page_id: Option<&Uid>, scope_id: Option<&Uid>) -> Vec<Uid> {
     let scope = scope_id.map(|scope_id| resolve_scope(&t.db, &t.user_id, scope_id).unwrap());
-    match search_bounds(&t.db, page_id, scope.as_ref(), &t.user_id).unwrap() {
+    match search_bounds(&t.db, page_id, scope.as_ref(), false, &t.user_id).unwrap() {
       SearchBounds::Items(item_ids) => item_ids,
       SearchBounds::UnderRoot(root_id) => panic!("expected an item restriction, got root '{}'", root_id),
     }
@@ -1134,6 +1171,43 @@ mod tests {
   fn sorted(mut item_ids: Vec<Uid>) -> Vec<Uid> {
     item_ids.sort();
     item_ids
+  }
+
+  #[tokio::test]
+  async fn within_a_page_the_chat_also_searches_items_linked_into_it() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let trip = t.page(&home, "Trip").await;
+    let plan = t.note(&trip, "plan", RelationshipToParent::Child).await;
+    let bookings = t.page(&home, "Bookings").await;
+    let booking = t.note(&bookings, "booking", RelationshipToParent::Child).await;
+    let tag = t.note(&booking, "hotel", RelationshipToParent::Attachment).await;
+    let archive = t.page(&home, "Archive").await;
+    let archived = t.note(&archive, "archived", RelationshipToParent::Child).await;
+    let to_booking = t.link(&trip, &booking).await;
+    let to_archive = t.link(&trip, &archive).await;
+    let scope_id = t.page(&t.scopes_id(), "No bookings").await;
+    t.link(&scope_id, &home).await;
+    let exclude = t.page(&scope_id, "Exclude").await;
+    t.link(&exclude, &bookings).await;
+    let scope = resolve_scope(&t.db, &t.user_id, &scope_id).unwrap();
+    let bounds = |linked: bool, scope: Option<&ResolvedScope>| match search_bounds(
+      &t.db,
+      Some(&trip),
+      scope,
+      linked,
+      &t.user_id,
+    ) {
+      Ok(SearchBounds::Items(item_ids)) => item_ids,
+      _ => panic!("expected an item restriction"),
+    };
+
+    let own = vec![trip.clone(), plan.clone(), to_booking.clone(), to_archive.clone()];
+    assert_eq!(bounds(false, None), sorted(own.clone()));
+    let with_linked = [own.clone(), vec![booking.clone(), tag.clone(), archive.clone()]].concat();
+    assert_eq!(bounds(true, None), sorted(with_linked), "a linked page is added, not what it holds");
+    assert!(!bounds(true, None).contains(&archived));
+    assert_eq!(bounds(true, Some(&scope)), sorted([own, vec![archive]].concat()), "the scope still applies");
   }
 
   #[tokio::test]
@@ -1152,7 +1226,7 @@ mod tests {
     let b_only = t.page(&scopes_id, "B only").await;
     t.link(&b_only, &b).await;
 
-    match search_bounds(&t.db, None, None, &t.user_id).unwrap() {
+    match search_bounds(&t.db, None, None, false, &t.user_id).unwrap() {
       SearchBounds::UnderRoot(root_id) => assert_eq!(root_id, home),
       SearchBounds::Items(_) => panic!("an unrestricted search should cover the home tree"),
     }
