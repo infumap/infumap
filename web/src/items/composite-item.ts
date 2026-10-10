@@ -34,7 +34,7 @@ import { PositionalMixin } from './base/positional-item';
 import { itemState } from '../store/ItemState';
 import { ItemFns } from './base/item-polymorphism';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
-import { CompositeFlags, FlagsMixin } from './base/flags-item';
+import { CompositeFlags, FlagsMixin, NoteFlags } from './base/flags-item';
 import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { arrangeNow, requestArrange } from '../layout/arrange';
@@ -196,6 +196,9 @@ export const CompositeFns = {
         }
       } else if (isXSizableItem(cloned)) {
         asXSizableItem(cloned).spatialWidthGr = composite.spatialWidthGr;
+      }
+      if (isNote(cloned)) {
+        NoteFns.asNoteMeasurable(cloned).flags &= ~NoteFlags.HideBorder;
       }
       const sizeBl = isNote(cloned)
         ? useDocumentTypography

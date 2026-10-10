@@ -17,7 +17,7 @@
 */
 
 import { Component, For, Match, Show, Switch, createEffect, onMount } from "solid-js";
-import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
+import { ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
 import { ListPageRowBand, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
@@ -28,6 +28,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, PageFns, isPage } from "../../items/page-item";
+import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { linkHasTriangle } from "../../layout/link-triangle";
@@ -158,7 +159,15 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
   }
 
   const embeddedInteractiveTitleHeightPx = () => pageFns().boundsPx().h - pageFns().viewportBoundsPx().h;
-  const titleScale = () => embeddedInteractiveTitleHeightPx() / LINE_HEIGHT_PX;
+  // Title text scales with block width, like note text, so it matches a borderless heading note
+  // even when the page is stretched and its blocks aren't square. The line box still fills the title row.
+  const titleBlockWidthPx = () => {
+    if (props.visualElement.blockSizePx != null) { return props.visualElement.blockSizePx.w; }
+    if (isDockItem()) { return embeddedInteractiveTitleHeightPx(); }
+    const sizeBl = ItemFns.calcSpatialDimensionsBl(props.visualElement.linkItemMaybe ?? pageFns().pageItem());
+    return (pageFns().boundsPx().w - ITEM_BORDER_WIDTH_PX) / sizeBl.w;
+  };
+  const titleScale = () => titleBlockWidthPx() / LINE_HEIGHT_PX;
 
   const vePath = () => VeFns.veToPath(props.visualElement);
   const titleEditHandlers = createPageTitleEditHandlers(
@@ -274,7 +283,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <div id={titleHasEditId() ? vePath() + ":title" : undefined}
           class={`absolute font-bold ${isEditingTitle() ? "select-text cursor-text" : ""}`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w / titleScale()}px; height: ${embeddedInteractiveTitleHeightPx() / titleScale()}px; ` +
-            `line-height: ${LINE_HEIGHT_PX}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
+            `line-height: ${embeddedInteractiveTitleHeightPx() / titleScale()}px; transform: scale(${titleScale()}); transform-origin: top left; ` +
             `overflow-wrap: break-word;` +
             `outline: 0px solid transparent;`}
           spellcheck={isEditingTitle()}
