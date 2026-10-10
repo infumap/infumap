@@ -162,10 +162,11 @@ pub(super) async fn hit_listings(
   access: &Access<'_>,
   item_ids: &[Uid],
 ) -> HashMap<Uid, HitListing> {
-  let (labels, mut placements, data_dir, data_item_ids) = {
+  let (labels, mut placements, data_dir, data_item_ids, container_item_ids) = {
     let db = db.lock().await;
     let home_page_id = db.user.get(&access.user_id.to_owned()).map(|user| user.home_page_id.clone());
     let mut renderer = Renderer::new(&db, access);
+    renderer.search_labels = true;
     let mut labels = Vec::new();
     let mut placements = HashMap::new();
     for item_id in item_ids {
@@ -202,13 +203,19 @@ pub(super) async fn hit_listings(
       };
       labels.push((item_id.clone(), subject_id, label, backlinks, ancestor_backlinks));
     }
-    (labels, placements, db.item.data_dir().to_owned(), renderer.data_item_ids)
+    (labels, placements, db.item.data_dir().to_owned(), renderer.data_item_ids, renderer.container_item_ids)
   };
-  let counts = data_fragment_counts(&data_dir, access.user_id, &data_item_ids).await;
+  let mut counts = data_fragment_counts(&data_dir, access.user_id, &data_item_ids).await;
   let mut rendered = HashMap::new();
-  for (container_id, ..) in placements.values() {
+  for container_id in placements.values().map(|(container_id, ..)| container_id).chain(&container_item_ids) {
     if !rendered.contains_key(container_id) {
       rendered.insert(container_id.clone(), container_fragments(db, access, container_id).await.ok());
+    }
+  }
+  // Rendered as get_fragment renders them, so the counts agree with what reading them gives.
+  for container_id in &container_item_ids {
+    if let Some(fragments) = rendered.get(container_id).and_then(Option::as_ref) {
+      counts.insert(container_id.clone(), fragments.fragments.len());
     }
   }
   labels
@@ -284,6 +291,8 @@ pub(super) struct ContainerOutline {
   /// Said in the preamble only when the container needs more than one fragment.
   multi_fragment_note: Option<&'static str>,
   row_count: Option<usize>,
+  /// Top-level children, counted for containers that are not tables, whose rows are counted instead.
+  item_count: Option<usize>,
   separator: &'static str,
   units: Vec<Unit>,
   rows: Vec<(Vec<Uid>, Pieces)>,
@@ -295,12 +304,15 @@ struct Unit {
   item_ids: Vec<Uid>,
   /// The table rows in the unit, first and last, counted from zero.
   rows: Option<(usize, usize)>,
+  /// The top-level children in the unit, first and last, counted from zero: one, or a group's members.
+  items: Option<(usize, usize)>,
 }
 
 #[derive(Clone)]
 enum Piece {
   Text(String),
-  /// ", N fragments" when the data item has stored fragments, otherwise nothing.
+  /// ", N fragments" when the data item has stored fragments, or for a search result's page or table, when it was
+  /// rendered; otherwise nothing.
   FragmentCount(Uid),
 }
 
@@ -444,6 +456,7 @@ impl ContainerOutline {
       chars: usize,
       units: Vec<FragmentUnit>,
       rows: Option<(usize, usize)>,
+      items: Option<(usize, usize)>,
     }
     let separator_chars = self.separator.chars().count();
     let mut chunks: Vec<Chunk> = Vec::new();
@@ -453,7 +466,7 @@ impl ContainerOutline {
         let piece_chars = piece.chars().count();
         let fits = chunks.last().is_some_and(|chunk| chunk.chars + separator_chars + piece_chars <= FRAGMENT_MAX_CHARS);
         if !fits {
-          chunks.push(Chunk { body: String::new(), chars: 0, units: Vec::new(), rows: None });
+          chunks.push(Chunk { body: String::new(), chars: 0, units: Vec::new(), rows: None, items: None });
         }
         let chunk = chunks.last_mut().expect("a chunk was just pushed");
         if !chunk.body.is_empty() {
@@ -466,10 +479,13 @@ impl ContainerOutline {
         if let Some((first_row, last_row)) = unit.rows {
           chunk.rows = Some(chunk.rows.map_or((first_row, last_row), |(first, _)| (first, last_row)));
         }
+        if let Some((first_item, last_item)) = unit.items {
+          chunk.items = Some(chunk.items.map_or((first_item, last_item), |(first, _)| (first, last_item)));
+        }
       }
     }
     if chunks.is_empty() {
-      chunks.push(Chunk { body: "(empty)".to_owned(), chars: 0, units: Vec::new(), rows: None });
+      chunks.push(Chunk { body: "(empty)".to_owned(), chars: 0, units: Vec::new(), rows: None, items: None });
     }
 
     let last = chunks.len() - 1;
@@ -478,8 +494,12 @@ impl ContainerOutline {
       .enumerate()
       .map(|(ordinal, chunk)| {
         let mut text = format!("{}{}{}", self.heading, self.location, fragment_position(ordinal, last));
+        // Saying which rows or items a fragment holds, out of how many, tells the model at the top whether it has seen
+        // them all, without counting lines.
         if let (Some((first, end)), Some(row_count)) = (chunk.rows, self.row_count) {
           text.push_str(&format!(" · rows {}–{} of {row_count}", first + 1, end + 1));
+        } else if let (Some((first, end)), Some(item_count)) = (chunk.items, self.item_count) {
+          text.push_str(&format!(" · items {}–{} of {item_count}", first + 1, end + 1));
         }
         if let Some(preamble) = &self.preamble {
           text.push('\n');
@@ -995,6 +1015,10 @@ struct Renderer<'a, 'b> {
   /// Containers being expanded, so a link cannot expand a composite inside itself.
   active: HashSet<Uid>,
   data_item_ids: HashSet<Uid>,
+  /// Labels search results: pages and tables give their fragment counts, rather than their items or rows.
+  search_labels: bool,
+  /// Pages and tables whose fragment counts the labels need.
+  container_item_ids: HashSet<Uid>,
   placements: usize,
   unit_item_ids: Vec<Uid>,
   rows: Vec<(Vec<Uid>, Pieces)>,
@@ -1007,6 +1031,8 @@ impl<'a, 'b> Renderer<'a, 'b> {
       access,
       active: HashSet::new(),
       data_item_ids: HashSet::new(),
+      search_labels: false,
+      container_item_ids: HashSet::new(),
       placements: 0,
       unit_item_ids: Vec::new(),
       rows: Vec::new(),
@@ -1085,6 +1111,9 @@ impl<'a, 'b> Renderer<'a, 'b> {
       multi_fragment_note: (Layout::of(container) == Layout::Spatial)
         .then_some("Listed top to bottom, then left to right; nearby items may be in different fragments."),
       row_count: tabular.then_some(self.rows.len()),
+      item_count: (!tabular)
+        .then(|| units.iter().filter_map(|unit| unit.items).map(|(_, last)| last + 1).max())
+        .flatten(),
       separator: if Layout::of(container) == Layout::Document { "\n\n" } else { "\n" },
       units,
       rows: self.rows,
@@ -1095,12 +1124,18 @@ impl<'a, 'b> Renderer<'a, 'b> {
   /// One unit per entry. A group is a line linking it, then its members beneath it.
   fn layout_units(&mut self, layout: Layout, entries: Vec<Entry<'a>>) -> InfuResult<Vec<Unit>> {
     let mut units = Vec::new();
+    let mut next_item = 0;
     for entry in entries {
       let mut pieces = Pieces::default();
       let first_row = self.rows.len();
+      let first_item = next_item;
       match entry {
-        Entry::Item(child) => self.entry_item(layout, child, 0, &mut pieces)?,
+        Entry::Item(child) => {
+          next_item += 1;
+          self.entry_item(layout, child, 0, &mut pieces)?
+        }
         Entry::Group(group_id, members) => {
+          next_item += members.len();
           let bullet = if matches!(layout, Layout::Lines | Layout::Calendar | Layout::Spatial) { "- " } else { "" };
           pieces.text(&format!("{bullet}{} (group, {})", group_link(&group_id), count_label(members.len(), "item")));
           for member in members {
@@ -1110,7 +1145,8 @@ impl<'a, 'b> Renderer<'a, 'b> {
         }
       }
       let rows = (self.rows.len() > first_row).then(|| (first_row, self.rows.len() - 1));
-      units.push(Unit { pieces, item_ids: std::mem::take(&mut self.unit_item_ids), rows });
+      let items = Some((first_item, next_item - 1));
+      units.push(Unit { pieces, item_ids: std::mem::take(&mut self.unit_item_ids), rows, items });
     }
     Ok(units)
   }
@@ -1452,6 +1488,18 @@ impl<'a, 'b> Renderer<'a, 'b> {
   /// A linked title and what kind of item it is. Notes are rendered by their callers.
   fn label(&mut self, content: &'a Item, pieces: &mut Pieces) -> InfuResult<()> {
     match content.item_type {
+      // A search result says how many reads a page or table takes. Its items or rows are given where it is read, and
+      // where its parent lists it: never both counts on one line, which a weak model could mix up.
+      ItemType::Page | ItemType::Table if self.search_labels => {
+        self.container_item_ids.insert(content.id.clone());
+        pieces.text(&format!("{} ({}", item_link(content), content.item_type.as_str()));
+        pieces.fragment_count(&content.id);
+        let columns = if content.item_type == ItemType::Table { column_names(content) } else { Vec::new() };
+        if !columns.is_empty() {
+          pieces.text(&format!("; columns: {}", columns.join(" | ")));
+        }
+        pieces.text(")");
+      }
       ItemType::Page => {
         let count = self.readable_child_count(content)?;
         pieces.text(&format!("{} (page, {count} item{})", item_link(content), if count == 1 { "" } else { "s" }));
@@ -1726,7 +1774,8 @@ mod tests {
     let group = group_fragments(&db, &access, group_id).await.unwrap();
     let text = &group.fragments[0].text;
     assert!(text.starts_with(&format!("[group](infumap://{group_id}) (group, 2 items) in ")), "{text}");
-    assert!(text.contains(&format!(" › [List](infumap://{list})\n")), "a single fragment has no position: {text}");
+    let position = format!(" › [List](infumap://{list}) · items 1–2 of 2\n");
+    assert!(text.contains(&position), "a single fragment has no position, but gives its items: {text}");
     assert!(
       text.ends_with(&format!("\n- [g one](infumap://{})\n- [g two](infumap://{})", members[0], members[1])),
       "{text}"
@@ -1756,6 +1805,10 @@ mod tests {
     assert!(texts.len() >= 2);
     let rejoined = texts.iter().map(|text| body(text)).collect::<Vec<_>>().join(" ");
     assert_eq!(single_line(&rejoined), single_line(&format!("Intro {paragraph}")));
+    // The split note is counted in every fragment holding part of it.
+    let headers = texts.iter().map(|text| text.lines().next().unwrap()).collect::<Vec<_>>();
+    assert!(headers.len() >= 3 && headers[0].ends_with(" · items 1–1 of 2"), "{headers:?}");
+    assert!(headers[1..].iter().all(|header| header.ends_with(" · items 2–2 of 2")), "{headers:?}");
   }
 
   #[tokio::test]
@@ -1849,7 +1902,7 @@ mod tests {
     for (page, (item, tag, long, notes, fourth)) in [&home, &doc].into_iter().zip(&ids) {
       let expected = format!(
         "[Vendor review](infumap://{item}) · attached: [fat cat](infumap://{tag}); [Notes from the call with the vendor…](\
-         infumap://{long}) (note, 1 fragment); [Notes](infumap://{notes}) (page, 0 items); [four](infumap://{fourth}); \
+         infumap://{long}) (note, 1 fragment); [Notes](infumap://{notes}) (page, 1 fragment); [four](infumap://{fourth}); \
          +2 more"
       );
       for hit in [item, tag] {
@@ -2083,7 +2136,8 @@ mod tests {
     assert!(!text.contains("Secret"));
     assert!(!text.contains("Elsewhere"));
     assert!(text.contains("- (unavailable link)"));
-    assert!(text.lines().next().unwrap().ends_with(" in test"), "the out-of-scope parent is not linked: {text}");
+    let header = text.lines().next().unwrap();
+    assert!(header.ends_with(" in test · items 1–2 of 2"), "the out-of-scope parent is not linked: {text}");
     assert!(container_outline(&t.db, &access, &secret).is_err());
     assert!(container_outline(&t.db, &access, &home).is_err());
   }
@@ -2171,9 +2225,12 @@ mod tests {
       assert_eq!((listing.container_id.as_ref(), listing.subject_id == *item_id), (Some(&page), true));
       listing.text.as_str()
     };
-    assert_eq!(in_page(&table), format!("[Tasks](infumap://{table}) (table, 120 rows; columns: Name | Status)"));
-    let child_text =
-      format!("[Child](infumap://{child}) (page, 0 items) · attached: [attached to child page](infumap://{attached})");
+    let table_label = format!("[Tasks](infumap://{table}) (table, 5 fragments; columns: Name | Status)");
+    assert_eq!(in_page(&table), table_label, "a result says how many reads a table takes, not its rows");
+    assert_eq!(table_fragments.fragments.len(), 5);
+    let child_text = format!(
+      "[Child](infumap://{child}) (page, 1 fragment) · attached: [attached to child page](infumap://{attached})"
+    );
     assert_eq!(in_page(&child), child_text, "a page is listed by its parent");
     assert_eq!(in_page(&member), format!("[member one](infumap://{member})"), "a member is only itself");
     assert_eq!(in_page(&composite), format!("[composite](infumap://{composite}) (composite, 2 items)"));

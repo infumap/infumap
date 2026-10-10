@@ -66,7 +66,7 @@ pub fn make_clap_subcommand() -> Command {
           Arg::new("count")
             .long("count")
             .value_parser(value_parser!(i64).range(1..=3))
-            .help("Consecutive fragments, 1–3 (default: 1)."),
+            .help("Consecutive fragments, 1–3 (default: 3)."),
         ),
     )
 }

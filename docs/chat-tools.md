@@ -125,9 +125,15 @@ For more results, call lexical_search again with the same arguments and pageNum 
   day of the item holding it.
 - Composites have no titles and are labelled `composite`; other untitled items are `untitled <type>`.
   Location titles are cut at 60 characters.
-- The result itself is its label as in container fragments, such as `(page, 12 items)` or
+- The result itself is its label as in container fragments, such as
   `(file, application/pdf, 312 fragments)`. A note is its text, cut at a sentence or word near 160
   characters and followed by `(note, N fragments)` when cut.
+- A page or table result says how many fragments reading it takes, as `(page, 2 fragments)` or
+  `(table, 11 fragments; columns: Name | Status)`, not its items or rows as container fragments do.
+  A search result is for deciding what to read, and the fragment count says how much reading that
+  is. Items and rows are given where the model reads the container, so no line carries two counts a
+  weak model could mix up. The count is exact: the container is rendered as `get_fragment` renders
+  it, once per page or table result, and an empty one is `1 fragment`.
 - A table row, or a cell of one, is shown as the whole row with its cells, cut at 300 characters. A
   row and its cell give the same line, which is listed once.
 - Elsewhere, an item with attachments, or one of its attachments, is shown as the item followed by
@@ -163,7 +169,9 @@ edits by several minutes. A moved item links its new container, and a deleted it
 { "link": "infumap://<id>", "fragmentOrdinal": 0, "count": 1 }
 ```
 
-`link` is required; a link item reads as its target. `fragmentOrdinal` defaults to 0, and `count` returns 1–3 consecutive fragments. The fragments depend on the item:
+`link` is required; a link item reads as its target. `fragmentOrdinal` defaults to 0, and `count`
+returns 1–3 consecutive fragments, 3 by default, so most pages come back whole on the first call
+rather than relying on the model to see that it has more to read. The fragments depend on the item:
 
 | Item | Fragments |
 | --- | --- |
@@ -223,7 +231,11 @@ Columns: Name | Status | Due
 ```
 
 The header links the container and its parent. Table fragments add their row range and repeat the
-column names. The body is at most 2,500 characters, made of units that are never split across
+column names. Other containers add their item range, `items 1–20 of 40`, counting top-level
+children: each member of a group, and a composite as one. That count equals the `(page, 40 items)`
+the parent lists. A long note split across fragments of a document page is counted in each. The
+range is given even for a container read in one fragment, and tells the model at the top of the
+result whether it has seen everything, without counting lines. The body is at most 2,500 characters, made of units that are never split across
 fragments unless one alone is too long: a top-level item with its attachments, a table row, a
 composite, or an explicit group.
 
