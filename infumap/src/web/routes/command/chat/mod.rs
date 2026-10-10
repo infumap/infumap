@@ -57,6 +57,9 @@ const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
 const CHAT_FRAGMENT_TOOL_MAX_COUNT: i64 = 3;
 const CHAT_HISTORY_TOOL_RESULT_MAX_CHARS: usize = 500;
 const CHAT_HISTORY_TOOL_SUMMARY_MAX_CHARS: usize = 300;
+/// A shortened search keeps the links of this many of its results, each label cut to this length.
+const CHAT_HISTORY_SEARCH_LINKS_MAX: usize = 8;
+const CHAT_HISTORY_SEARCH_LINK_LABEL_MAX_CHARS: usize = 60;
 const CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS: usize = 280;
 const CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS: usize = 80;
 const CHAT_TOOL_SUMMARY_TITLE_COUNT: usize = 3;
@@ -984,10 +987,12 @@ fn wire_messages_from_chat_request(request: &ChatRequest) -> InfuResult<Vec<Open
 }
 
 /// Replaces long tool results from turns before the latest user message with a summary, so the transcript stops
-/// growing by every result. The model can call the tool again if a follow-up needs the content. A result is
-/// rewritten once, when the turn after it starts, and the same way every turn after that: the stub is never long
-/// enough to be shortened again, and the client keeps the returned transcript. So each turn still reuses the
-/// prompt cache up to the previous turn's results.
+/// growing by every result and the next question is not answered among the last one's evidence, which weaker models
+/// are easily distracted by. A search keeps its results' links, so a follow-up can read or cite one without
+/// searching again; the assistant's answers, which link what they cite, stay whole. The model can call a tool again
+/// if a follow-up needs more. A result is rewritten once, when the turn after it starts, and the same way every turn
+/// after that: a stub is never shortened again, and the client keeps the returned transcript. So each turn still
+/// reuses the prompt cache up to the previous turn's results. See docs/chat-tools.md for the tradeoff.
 fn shorten_earlier_tool_results(messages: &mut [OpenAiChatMessage]) {
   let Some(latest_user) = messages.iter().rposition(|message| message.role == "user") else {
     return;
@@ -1006,16 +1011,35 @@ fn shorten_earlier_tool_results(messages: &mut [OpenAiChatMessage]) {
     if text_char_count(content) <= CHAT_HISTORY_TOOL_RESULT_MAX_CHARS {
       continue;
     }
+    let parsed = serde_json::from_str::<Value>(content).ok();
+    if parsed.as_ref().and_then(|value| value.get("shortened")).and_then(Value::as_bool) == Some(true) {
+      continue;
+    }
     let call = message.tool_call_id.as_ref().and_then(|call_id| calls.get(call_id));
     let name = call.map_or("", |call| call.function.name.as_str());
     let arguments = call.and_then(|call| tool_call_arguments_value(call).ok()).unwrap_or(Value::Null);
     let (summary, _) = chat_tool_finished_activity(name, &arguments, content);
     let (summary, _) = clamp_text_chars(&summary, CHAT_HISTORY_TOOL_SUMMARY_MAX_CHARS);
-    let stub = serde_json::json!({
+    let mut stub = serde_json::json!({
       "shortened": true,
       "summary": summary,
       "note": "Result from an earlier turn, shortened to save context. Call the tool again if you need its content."
     });
+    let links = (name == "lexical_search")
+      .then(|| parsed.as_ref()?.get("results")?.as_array().cloned())
+      .flatten()
+      .into_iter()
+      .flatten()
+      .filter_map(|line| search_results::result_line_link(line.as_str()?, CHAT_HISTORY_SEARCH_LINK_LABEL_MAX_CHARS))
+      .take(CHAT_HISTORY_SEARCH_LINKS_MAX)
+      .collect::<Vec<_>>();
+    if !links.is_empty() {
+      stub["results"] = serde_json::json!(links);
+      stub["note"] = serde_json::json!(
+        "Search from an earlier turn, shortened to save context to its results' links, which get_fragment reads. \
+         Search again for their locations and snippets."
+      );
+    }
     stubs.push((index, stub.to_string()));
   }
   for (index, stub) in stubs {
@@ -2698,14 +2722,26 @@ mod tests {
     })
     .to_string();
     let small = serde_json::json!({ "error": "Item was not found." }).to_string();
+    let ids = (0..10).map(|index| format!("{index:032x}")).collect::<Vec<_>>();
+    let lines = ids
+      .iter()
+      .map(|id| {
+        format!(
+          "Home › [Tasks](infumap://t) › [task {id} with a long title](infumap://{id}) | Active — fragment 1: …x…"
+        )
+      })
+      .collect::<Vec<_>>();
+    let search = serde_json::json!({ "results": lines, "hasMore": true }).to_string();
     let messages = vec![
       OpenAiChatMessage::text("user", "what is in my tasks?".to_owned()),
       assistant_calling(vec![
         call("c1", "get_fragment", serde_json::json!({ "link": "infumap://t" })),
         call("c2", "get_fragment", serde_json::json!({ "link": "infumap://x" })),
+        call("c4", "lexical_search", serde_json::json!({ "text": "tasks" })),
       ]),
       OpenAiChatMessage::tool("c1".to_owned(), fragment.clone()),
       OpenAiChatMessage::tool("c2".to_owned(), small.clone()),
+      OpenAiChatMessage::tool("c4".to_owned(), search),
       OpenAiChatMessage::text("assistant", "Rows about tasks.".to_owned()),
       OpenAiChatMessage::text("user", "and the next fragment?".to_owned()),
       assistant_calling(vec![call(
@@ -2723,7 +2759,12 @@ mod tests {
     assert_eq!(stub["summary"], "\"Tasks\" · fragment 0 of 0–10 · 2000 chars");
     assert!(shortened[2].content.as_deref().unwrap().chars().count() <= CHAT_HISTORY_TOOL_RESULT_MAX_CHARS);
     assert_eq!(shortened[3].content.as_deref(), Some(small.as_str()), "short results are kept");
-    assert_eq!(shortened[7].content.as_deref(), Some(fragment.as_str()), "results after the latest question are kept");
+    assert_eq!(shortened[8].content.as_deref(), Some(fragment.as_str()), "results after the latest question are kept");
+    let search_stub: Value = serde_json::from_str(shortened[4].content.as_deref().unwrap()).unwrap();
+    let links = search_stub["results"].as_array().unwrap();
+    assert_eq!(links.len(), CHAT_HISTORY_SEARCH_LINKS_MAX, "a search keeps its first results' links");
+    assert_eq!(links[0], format!("[task {} with a long title](infumap://{})", ids[0], ids[0]));
+    assert!(shortened[4].content.as_deref().unwrap().chars().count() > CHAT_HISTORY_TOOL_RESULT_MAX_CHARS);
 
     let mut again = shortened.clone();
     shorten_earlier_tool_results(&mut again);
