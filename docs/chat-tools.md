@@ -16,10 +16,38 @@ quotes or brackets or followed by punctuation, whole numbers as strings, and nea
 not ignored.
 
 Tool results longer than 500 characters are kept whole for the turn that produced them. When the
-next question arrives, they are replaced in the transcript by a short stub with a one-line summary,
-and the model calls the tool again if a follow-up needs the content. Each result is replaced once and
-identically from then on, so every turn still reuses the provider's prompt cache up to the previous
+next question arrives, they are replaced in the transcript by a short stub with a one-line summary.
+A search's stub also keeps the links of its first eight results, labels cut at 60 characters, so a
+follow-up can read or cite one with `get_fragment` without searching again. The model calls a tool
+again if a follow-up needs more. Each result is replaced once and identically from then on, and a stub
+is never shortened again, so every turn still reuses the provider's prompt cache up to the previous
 turn's results.
+
+### Why every turn
+
+There is one setting for every model, chosen for the weakest supported: about 27B parameters with a
+100k-token context. Shortening the previous turn's results on every turn was chosen over the
+alternatives below for that model:
+
+- Focus. Answer quality drops as context grows, well inside the window, and most when it is full of
+  text that looks relevant but is not. Old search results are mostly that: matches on a single common
+  word of an earlier query. A new question, often on a new topic, is not answered among the last one's
+  evidence.
+- Little is lost. The assistant's answers stay whole, with the conclusions drawn from the results and
+  links to what they cite, so the model can read any of those again. A search keeps its results'
+  links. What goes is evidence that was seen but not cited, which a follow-up reads again.
+- The cache cost is small. The prompt cache misses once per turn, from the previous turn's first
+  shortened result, and what is processed again is that turn's stubs, answer and the new question:
+  hundreds of tokens, against the thousands of tokens of results kept out of every later request.
+
+Considered and not chosen:
+
+- Shortening only when the context passes a size, then all old results at once. It is a common
+  approach and caches better, since short chats keep everything, but it leaves earlier results in
+  front of a weak model until the conversation is long.
+- Keeping the previous turn whole and shortening only older ones, since follow-ups mostly refer to
+  the turn just before. Worth doing if the model is seen searching again for results it just had.
+- Limits that follow each model's context size. One setting is simpler to reason about and test.
 
 ## Scopes
 
