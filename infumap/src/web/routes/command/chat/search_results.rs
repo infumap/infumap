@@ -250,7 +250,7 @@ mod tests {
        Home › [Tasks \\[2026\\]](infumap://t) (fragment 3) › [Acme](infumap://a) | Active\n\
        root › my trips › malaysia › [untitled note](infumap://g)\n\
        \n\
-       More results: call lexical_search again with the same arguments and pageNum 3.",
+       For more results, call lexical_search again with the same arguments and pageNum 3.",
       "a cell hit is shown as its row, which is given once"
     );
     let (lines, has_more) = result_lines(&text);

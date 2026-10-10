@@ -2010,9 +2010,12 @@ fn tool_call_arguments_value(tool_call: &OpenAiToolCall) -> InfuResult<Value> {
 }
 
 /// How a tool result with more to read ends, after a blank line: the call to make next, then the value to make it
-/// with. It names the tool and what to keep, since a weak model may otherwise leave out the link or the query.
-const FRAGMENT_MORE_LINE: &str = "Item continues: call get_fragment again with the same link and fragmentOrdinal ";
-const SEARCH_MORE_LINE: &str = "More results: call lexical_search again with the same arguments and pageNum ";
+/// with. An item's says it is unfinished, since reading on is not optional before claiming to have read it all. A
+/// search's says to keep its arguments, which appear nowhere in the result, so a weak model may otherwise change
+/// them; a link is in every fragment header.
+const FRAGMENT_MORE_LINE: &str =
+  "The item continues. For the next fragment, call get_fragment again with fragmentOrdinal ";
+const SEARCH_MORE_LINE: &str = "For more results, call lexical_search again with the same arguments and pageNum ";
 const FRAGMENT_OPEN_TAG: &str = "<fragment>";
 const FRAGMENT_CLOSE_TAG: &str = "</fragment>";
 /// Follows a stored fragment's text where it was cut, then the length it was cut at.
@@ -2772,7 +2775,7 @@ mod tests {
 
     let read = "<fragment>\n[Notes](infumap://n) (page, list layout) in [test](infumap://h) · fragment 3 of 0–6\nab\n\
                 </fragment>\n<fragment>\n[Notes](infumap://n) (page, list layout) · fragment 4 of 0–6\ncd\n</fragment>\n\n\
-                Item continues: call get_fragment again with the same link and fragmentOrdinal 5.";
+                The item continues. For the next fragment, call get_fragment again with fragmentOrdinal 5.";
     let (summary, _) = chat_tool_finished_activity("get_fragment", &Value::Null, read);
     assert_eq!(summary, format!("\"Notes\" · fragments 3–4 of 0–6 · {} chars", read.chars().count()));
   }
