@@ -1,6 +1,9 @@
 
 # Todo
 
+- Large containers: load items progressively so containers with many items remain responsive without fetching
+  and rendering all their contents at once.
+
 - Calendar ranges on links: a link's range is that of its target, and the server doesn't send link targets with a
   page's children. So that ranges starting before the visible window still show, each past link's target is fetched
   with its own request the first time the calendar is shown (`calendarRangeValues` in
@@ -12,9 +15,11 @@
   being its own parent and checks the immediate parent's type. Validate the full ancestor chain on the server
   ([item_db.rs](../infumap/src/storage/db/item_db.rs), [move_target.ts](../web/src/input/move_target.ts)).
 
-- Recovery after failed commands: `sendCommand` can force logout after a failed mutation to avoid inconsistent
-  client state. Reconcile or roll back the affected state and show a useful error so a rejected operation doesn't
-  end the session ([server.ts](../web/src/server.ts)).
+- Container sync with a deleted container: `handle_sync_containers` fails the whole request if any subscribed
+  container no longer exists or can't be accessed. So a client showing a page that was deleted elsewhere (e.g. its
+  trash was emptied on another device) gets no sync updates for any container until it navigates away. Report such
+  containers per subscription instead, and have the client remove them and leave any view of them, as reconciling a
+  failed mutation does ([mod.rs](../infumap/src/web/routes/command/mod.rs), [server.ts](../web/src/server.ts)).
 
 - Log-file locking: `KVStore` has no mechanism to prevent multiple processes opening the same log. Add exclusive
   locking so a second server or a local CLI command can't write concurrently to the same store

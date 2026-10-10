@@ -18,7 +18,7 @@
 
 import { Component, onCleanup, onMount, Show } from "solid-js";
 import {
-  clearLocalContainerSyncVersions,
+  clearLocalSyncState,
   GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS,
   ItemsAndTheirAttachments,
   remote,
@@ -487,7 +487,7 @@ export const Main: Component = () => {
     itemState.clear();
     VesCache.clear();
     clearLoadState();
-    clearLocalContainerSyncVersions();
+    clearLocalSyncState();
     await store.user.logout();
     switchToNonPage(store, '/login');
   };

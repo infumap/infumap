@@ -680,6 +680,7 @@ async function uploadFilesToTarget(
       requestArrange(store, isImageUpload ? "upload-image" : itemType == ItemType.Text ? "upload-text" : "upload-file");
     } catch (error) {
       console.warn(`Failed to add ${file.name}:`, error);
+      showTransientMessage(store, `Couldn't upload ${file.name}`, TransientMessageType.Error, 5000);
     }
   }
 
