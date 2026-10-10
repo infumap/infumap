@@ -1289,8 +1289,10 @@ impl<'a, 'b> Renderer<'a, 'b> {
         pieces.text(")");
       }
       ItemType::Composite => {
+        // The count says the members listed beneath are all of them, so the model need not read it again.
+        let count = count_label(self.readable_child_count(content)?, "item");
         let repeated = if self.active.contains(&content.id) { ", shown above" } else { "" };
-        pieces.text(&format!("[composite]({}) (composite{repeated})", link_url(content)));
+        pieces.text(&format!("[composite]({}) (composite, {count}{repeated})", link_url(content)));
       }
       ItemType::File | ItemType::Text | ItemType::Image => {
         self.data_item_ids.insert(content.id.clone());
@@ -1489,7 +1491,7 @@ mod tests {
     let group_text = t.texts(&spatial).into_iter().find(|text| text.contains("group a")).unwrap();
     assert!(group_text.contains(&format!("- [group](infumap://{group_id}) (group, 3 items)\n  - @0,5 1×? [group a]")));
     let composite_text = t.texts(&list).into_iter().find(|text| text.contains("first member")).unwrap();
-    assert!(composite_text.contains("(composite)\n  - [first member]"));
+    assert!(composite_text.contains("(composite, 3 items)\n  - [first member]"));
   }
 
   #[tokio::test]
@@ -1885,7 +1887,10 @@ mod tests {
 
     let text = t.texts(&page).join("\n");
     assert_eq!(text.matches("member").count(), 1);
-    assert!(text.contains(&format!("\n  - [composite](infumap://{composite}) (composite, shown above)")), "{text}");
+    assert!(
+      text.contains(&format!("\n  - [composite](infumap://{composite}) (composite, 2 items, shown above)")),
+      "{text}"
+    );
   }
 
   #[tokio::test]
@@ -1964,7 +1969,7 @@ mod tests {
       format!("[Child](infumap://{child}) (page, 0 items) · attached: [attached to child page](infumap://{attached})");
     assert_eq!(in_page(&child), child_text, "a page is listed by its parent");
     assert_eq!(in_page(&member), format!("[member one](infumap://{member})"), "a member is only itself");
-    assert_eq!(in_page(&composite), format!("[composite](infumap://{composite}) (composite)"));
+    assert_eq!(in_page(&composite), format!("[composite](infumap://{composite}) (composite, 2 items)"));
     let long_listing = in_page(&long);
     assert!(long_listing.starts_with("[Words in a sentence."), "{long_listing}");
     assert!(long_listing.ends_with(&format!(" sentence.…](infumap://{long}) (note, 2 fragments)")), "{long_listing}");
