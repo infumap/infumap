@@ -10,8 +10,12 @@ The same tools can be called without an LLM using `infumap tool lexical_search "
 `infumap tool get_fragment infumap://<id>`. See [CLI commands](cli.md#tool) for options.
 
 Both are designed to keep tool results small, because results stay in the chat transcript and weaker
-models have little context to spare. Items are identified everywhere by a `link`, `infumap://<id>`: tool
-results give it, tool arguments take it, and the model copies it into its answer as a citation.
+models have little context to spare. Results are plain text, not JSON: Markdown escaped inside JSON
+strings is harder for small models to read, and they sometimes copy the escapes into answers. Errors
+are JSON, `{"error": "…"}`, as for every other tool. A result with more to read ends with a line
+naming the argument to call again with, such as `More: call again with pageNum 2.` Items are identified
+everywhere by a `link`, `infumap://<id>`: tool results give it, tool arguments take it, and the model
+copies it into its answer as a citation.
 
 Arguments also accept what models commonly send instead: a bare id, a whole Markdown link, a link in
 quotes or brackets or followed by punctuation, whole numbers as strings, and near-miss names such as
@@ -19,9 +23,10 @@ quotes or brackets or followed by punctuation, whole numbers as strings, and nea
 not ignored.
 
 Tool results longer than 500 characters are kept whole for the turn that produced them. When the
-next question arrives, they are replaced in the transcript by a short stub with a one-line summary.
-A search's stub also keeps the links of its first eight results, labels cut at 60 characters, so a
-follow-up can read or cite one with `get_fragment` without searching again. The model calls a tool
+next question arrives, they are replaced in the transcript by a short stub starting `Shortened earlier`,
+with a one-line summary. A search's stub also keeps the links of its first eight results, labels cut
+at 60 characters, and a `get_fragment` stub keeps the first fragment header, with the item's link and
+location, so a follow-up can read or cite them without searching again. The model calls a tool
 again if a follow-up needs more. Each result is replaced once and identically from then on, and a stub
 is never shortened again, so every turn still reuses the provider's prompt cache up to the previous
 turn's results.
@@ -94,17 +99,15 @@ item's attachments. So a note matching only one rare word cannot outrank one mat
 pages of results do not overlap across groups. Scores are scaled by the share of words matched. The
 search box in the UI ranks results the same way.
 
-Each result is one line of text:
+Each result is one line of text, and `No results.` stands for none. When there are more pages, a
+blank line and `More: call again with pageNum N.` follow:
 
-```json
-{
-  "results": [
-    "root › travel › [malaysia](infumap://<page id>) › [composite](infumap://<id>) › [Cocktails at Four Seasons](infumap://<id>)",
-    "Home › Projects › [Tasks](infumap://<table id>) (fragment 4) › [Acme onboarding](infumap://<id>) | Active | 2026-01-03",
-    "Home › [Reports](infumap://<page id>) › [annual.pdf](infumap://<id>) (file, application/pdf, 312 fragments) — fragment 200: …a drink stall opened in FY2025…"
-  ],
-  "hasMore": false
-}
+```
+root › travel › [malaysia](infumap://<page id>) › [composite](infumap://<id>) › [Cocktails at Four Seasons](infumap://<id>)
+Home › Projects › [Tasks](infumap://<table id>) (fragment 4) › [Acme onboarding](infumap://<id>) | Active | 2026-01-03
+Home › [Reports](infumap://<page id>) › [annual.pdf](infumap://<id>) (file, application/pdf, 312 fragments) — fragment 200: …a drink stall opened in FY2025…
+
+More: call again with pageNum 2.
 ```
 
 - The line starts with the result's location, outermost first. Titles above the page or table whose
@@ -155,47 +158,53 @@ edits by several minutes. A moved item links its new container, and a deleted it
 ## Reading
 
 ```json
-{ "link": "infumap://<id>", "fragmentOrdinal": 0, "count": 1, "version": "<optional>" }
+{ "link": "infumap://<id>", "fragmentOrdinal": 0, "count": 1 }
 ```
 
-`link` is required; a link item reads as its target. `fragmentOrdinal` defaults to 0, and `count` returns 1–3 consecutive fragments. The response depends on the item:
+`link` is required; a link item reads as its target. `fragmentOrdinal` defaults to 0, and `count` returns 1–3 consecutive fragments. The fragments depend on the item:
 
-| Item | `sourceKind` | Fragments |
-| --- | --- | --- |
-| Page, table, composite, group | `container` | Its items as lines of text, built on demand (below). |
-| Note | `note` | Its text, built on demand (below). |
-| File, text, image | stored kind, e.g. `pdf_markdown` | Stored when the document was processed; each is cut at 2,500 characters with `textTruncated`. |
+| Item | Fragments |
+| --- | --- |
+| Page, table, composite, group | Its items as lines of text, built on demand (below). |
+| Note | Its text, built on demand (below). |
+| File, text, image | Stored when the document was processed; each is cut at 2,500 characters, ending `… (cut at 2500 characters)`. |
 
 Other items, such as ratings and dividers, have no readable text.
 
 A group is not an item: it is the `groupId` shared by two or more children of a page. Its link is
-`infumap://<groupId>`, and it reads with `itemType` and `title` both `group`: its members as units,
-laid out as its page lays them out, under a header linking the page. A group id left on one child,
+`infumap://<groupId>`, and it reads as its members as units, laid out as its page lays them out,
+under a header `[group](infumap://<groupId>) (group, N items) in …` linking the page. A group id left on one child,
 or on one child the scope leaves readable, is not a group and is not found. The same link opened in
 the UI, from the URL bar or a note, shows the group's page with the group highlighted for three
 seconds, and the URL becomes the page's.
 
-```json
-{
-  "link": "infumap://<id>", "itemType": "table", "title": "Tasks",
-  "sourceKind": "container", "fragmentCount": 11, "version": "3f9a0c2e",
-  "fragments": [{ "fragmentOrdinal": 0, "text": "…" }],
-  "nextFragmentOrdinal": 1
-}
+The result is the fragments asked for, separated by blank lines, each starting with a header line:
+the item's link and kind, ` in ` and its breadcrumb, then ` · fragment N of 0–M` when the item has
+more than one fragment. Only the first fragment in a result gives the location; the ones after it
+would repeat it. While fragments remain, a blank line and `More: call again with fragmentOrdinal N.`
+end the result, and following it until it is absent reads the whole item.
+
+```
+[annual.pdf](infumap://<id>) (file, application/pdf) in Home › [Reports](infumap://<id>) · fragment 200 of 0–311 · pages 57–58
+…text…
+
+[annual.pdf](infumap://<id>) (file, application/pdf) · fragment 201 of 0–311 · page 58
+…text…
+
+More: call again with fragmentOrdinal 202.
 ```
 
-- `title` is a plain label of at most 80 characters, not a note's full text.
-- `nextFragmentOrdinal` is present while fragments remain. Following it until it is absent reads the
-  whole item.
-- `version` (containers and notes) changes when the item's rendered text changes. When the request
-  passes a different `version`, the response adds `changed: true`, since ordinals may have moved.
-- Stored fragments also carry `pageStart` and `pageEnd` when known. A file still being processed
+- A note's header label is its start, cut near 40 characters: its text follows, so the label only
+  needs to identify it.
+- Stored fragments add ` · page N` or ` · pages N–M` when known. A file still being processed
   reports "This item has no readable text yet."
+- A container is rendered again on every call, so ordinals can move if it is edited between calls.
+  Nothing detects that: within a turn it is unlikely, and earlier turns' results are shortened.
 
 ### Container fragments
 
 Containers change whenever the user edits them, so their fragments are rendered from the live
-database on each call and never stored. Each fragment starts with a header:
+database on each call and never stored. Each fragment starts with the header described above:
 
 ```
 [Tasks](infumap://<id>) (table) in Home › Projects › [Acme](infumap://<id>) · fragment 4 of 0–10 · rows 81–100 of 213
@@ -280,7 +289,7 @@ session. It does not invoke an LLM or an external MCP tool. The request is a JSO
 
 Omit `scopeId` for an unrestricted call. `name` must be `lexical_search` or `get_fragment`;
 `arguments` contains the tool arguments documented above. The response body is the tool result
-JSON itself, without a wrapper. Authentication failures return HTTP 403; invalid requests, scopes,
+itself, without a wrapper: `text/plain` for a result, or JSON for a tool error. Authentication failures return HTTP 403; invalid requests, scopes,
 unknown tool names, and tool error results return HTTP 400; unexpected execution failures return
 HTTP 500. Unsupported HTTP methods return HTTP 405. These failures have a JSON `error` field.
 Requests are limited to 16 KiB.

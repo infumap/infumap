@@ -37,7 +37,6 @@ use crate::ai::fragment::read_item_fragment_metadata;
 use crate::web::routes::command::scope::{ResolvedScope, readable, resolve_content};
 use futures_util::{StreamExt, stream};
 use infusdk::item::{NoteFlags, NoteUrl};
-use sha2::{Digest, Sha256};
 
 /// Body text per fragment, excluding its header. The same budget get_fragment applies to documents.
 const FRAGMENT_MAX_CHARS: usize = CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS;
@@ -51,7 +50,6 @@ const NOTE_LABEL_MAX_CHARS: usize = 40;
 const BREADCRUMB_TITLE_MAX_CHARS: usize = 60;
 const MAX_DEPTH: usize = 64;
 const MAX_PLACEMENTS: usize = 50_000;
-const VERSION_CHARS: usize = 8;
 /// A table row shown as a search result is cut here.
 const ROW_LISTING_MAX_CHARS: usize = 300;
 /// A note shown as a search result is cut here; its full text is read as fragments of the note.
@@ -121,8 +119,10 @@ pub(super) struct Row {
 }
 
 pub(super) struct ContainerFragments {
-  /// Changes when anything rendered changes, so a reader can tell that ordinals may have moved.
-  pub version: String,
+  /// The container's link and kind, which starts every fragment's header, then its `location`.
+  pub heading: String,
+  /// " in " and the container's breadcrumb, or nothing for a root page.
+  pub location: String,
   pub fragments: Vec<ContainerFragment>,
   pub rows: Vec<Row>,
 }
@@ -278,6 +278,7 @@ fn listing_placement<'a>(db: &'a Db, item: &'a Item) -> Option<(&'a Item, &'a It
 /// A container rendered under the database lock, waiting for the stored fragment counts of its data items.
 pub(super) struct ContainerOutline {
   heading: String,
+  location: String,
   /// A line after the heading in every fragment: a table's columns, or the legend for a spatial page's geometry.
   preamble: Option<String>,
   /// Said in the preamble only when the container needs more than one fragment.
@@ -401,7 +402,8 @@ pub(super) fn container_outline(db: &Db, access: &Access, container_id: &Uid) ->
   renderer.active.insert(container.id.clone());
   let entries = entries(renderer.children(container)?);
   let units = renderer.layout_units(Layout::of(container), entries)?;
-  Ok(renderer.outline(heading(db, access, container, &ancestors), container, units))
+  let (heading, location) = heading(db, access, container, &ancestors);
+  Ok(renderer.outline(heading, location, container, units))
 }
 
 /// The group's page, if the chat can read it, and the members it can read, if they are still a group.
@@ -421,14 +423,10 @@ fn group_outline(db: &Db, access: &Access, group_id: &Uid) -> InfuResult<Contain
   renderer.active.insert(page.id.clone());
   let mut members = renderer.children(page)?;
   members.retain(|member| member.group_id.as_ref() == Some(group_id));
-  let heading = format!(
-    "{} (group, {}) in {}",
-    group_link(group_id),
-    count_label(members.len(), "item"),
-    breadcrumb(db, access, &path)
-  );
+  let heading = format!("{} (group, {})", group_link(group_id), count_label(members.len(), "item"));
+  let location = format!(" in {}", breadcrumb(db, access, &path));
   let units = renderer.layout_units(Layout::of(page), members.into_iter().map(Entry::Item).collect())?;
-  Ok(renderer.outline(heading, page, units))
+  Ok(renderer.outline(heading, location, page, units))
 }
 
 fn group_link(group_id: &Uid) -> String {
@@ -479,7 +477,7 @@ impl ContainerOutline {
       .into_iter()
       .enumerate()
       .map(|(ordinal, chunk)| {
-        let mut text = format!("{} · fragment {ordinal} of 0–{last}", self.heading);
+        let mut text = format!("{}{}{}", self.heading, self.location, fragment_position(ordinal, last));
         if let (Some((first, end)), Some(row_count)) = (chunk.rows, self.row_count) {
           text.push_str(&format!(" · rows {}–{} of {row_count}", first + 1, end + 1));
         }
@@ -496,22 +494,42 @@ impl ContainerOutline {
         ContainerFragment { text, units: chunk.units }
       })
       .collect();
-    // Hashing rendered text, not items, is far cheaper and ignores edits a reader cannot see.
-    let version = fragments_version(fragments.iter().map(|fragment| &fragment.text));
     let rows =
       self.rows.iter().map(|(item_ids, pieces)| Row { item_ids: item_ids.clone(), text: pieces.render(counts) });
-    ContainerFragments { version, fragments, rows: rows.collect() }
+    ContainerFragments {
+      heading: self.heading.clone(),
+      location: self.location.clone(),
+      fragments,
+      rows: rows.collect(),
+    }
   }
 }
 
-/// Changes when the fragment texts change.
-pub(super) fn fragments_version<'a>(texts: impl IntoIterator<Item = &'a String>) -> String {
-  let mut hasher = Sha256::new();
-  for text in texts {
-    hasher.update(text);
-    hasher.update([0]);
-  }
-  format!("{:x}", hasher.finalize())[..VERSION_CHARS].to_owned()
+/// " · fragment N of 0–M" in a fragment header, or nothing for an item read in one fragment.
+pub(super) fn fragment_position(ordinal: usize, last: usize) -> String {
+  if last == 0 { String::new() } else { format!(" · fragment {ordinal} of 0–{last}") }
+}
+
+/// The start of a note's or document's fragment headers, as for containers: its link and kind, then " in " and its
+/// breadcrumb. The location is left out when the chat cannot read the item's ancestors.
+pub(super) fn item_heading(db: &Db, access: &Access, content: &Item) -> (String, String) {
+  let heading = match content.item_type {
+    // A note's text follows its header, so the label need only identify it.
+    ItemType::Note => match note_label(content, NOTE_LABEL_MAX_CHARS) {
+      Some((label, _)) => format!("[{}]({}) (note)", escape_label(&label), link_url(content)),
+      None => format!("{} (note)", item_link(content)),
+    },
+    ItemType::File => match content.mime_type.as_deref().filter(|mime_type| !mime_type.is_empty()) {
+      Some(mime_type) => format!("{} (file, {mime_type})", item_link(content)),
+      None => format!("{} (file)", item_link(content)),
+    },
+    item_type => format!("{} ({})", item_link(content), item_type.as_str()),
+  };
+  let location = match ancestors(db, content, access.user_id) {
+    Ok(path) if !path.is_empty() => format!(" in {}", breadcrumb(db, access, &path)),
+    _ => String::new(),
+  };
+  (heading, location)
 }
 
 /// A note's text, with its URLs as Markdown links, split into fragments. An empty note has none.
@@ -635,17 +653,15 @@ fn layout_name(arrange_algorithm: Option<ArrangeAlgorithm>) -> &'static str {
   }
 }
 
-fn heading(db: &Db, access: &Access, container: &Item, ancestors: &[&Item]) -> String {
+/// The container's link and kind, and its location: " in " and its breadcrumb, or nothing for a root page.
+fn heading(db: &Db, access: &Access, container: &Item, ancestors: &[&Item]) -> (String, String) {
   let kind = match container.item_type {
     ItemType::Page => format!("page, {} layout", layout_name(container.arrange_algorithm)),
     item_type => item_type.as_str().to_owned(),
   };
-  let mut heading = format!("{} ({kind})", item_link(container));
-  if !ancestors.is_empty() {
-    heading.push_str(" in ");
-    heading.push_str(&breadcrumb(db, access, ancestors));
-  }
-  heading
+  let location =
+    if ancestors.is_empty() { String::new() } else { format!(" in {}", breadcrumb(db, access, ancestors)) };
+  (format!("{} ({kind})", item_link(container)), location)
 }
 
 /// Titles of `path`, outermost first. Only the last is linked, so the model can go up a level without a uid for
@@ -771,6 +787,22 @@ fn note_url_suffix(note: &Item, link_urls: &[String]) -> String {
     .filter(|url| seen.insert(*url))
     .map(|url| format!(" <{url}>"))
     .collect()
+}
+
+/// The start of a note as a plain one-line label, cut at a word near `max_chars` and ending in "…" when cut, and
+/// whether it was cut; none for a note without text.
+fn note_label(note: &Item, max_chars: usize) -> Option<(String, bool)> {
+  // Only the start of a long note is collapsed to one line: a label never needs more. Collapsing whitespace only
+  // shortens text, so a label from the start can be shorter than the budget, but never wrongly uncut.
+  let title = note.title.as_deref().unwrap_or("");
+  let head_end = title.char_indices().nth(max_chars * 4).map_or(title.len(), |(index, _)| index);
+  let line = plain_label(&title[..head_end]).0;
+  if line.is_empty() {
+    return None;
+  }
+  let (label, cut) = excerpt(&line, max_chars);
+  let truncated = cut || head_end < title.len();
+  Some((if truncated { format!("{}…", label.trim_end()) } else { label }, truncated))
 }
 
 fn single_line(text: &str) -> String {
@@ -1036,7 +1068,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
   }
 
   /// The outline of `container`'s units, with its columns when it is tabular, or its size when it is spatial.
-  fn outline(self, heading: String, container: &Item, units: Vec<Unit>) -> ContainerOutline {
+  fn outline(self, heading: String, location: String, container: &Item, units: Vec<Unit>) -> ContainerOutline {
     let tabular = is_tabular(container);
     let preamble = match Layout::of(container) {
       Layout::Table => Some(column_names(container))
@@ -1047,6 +1079,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
     };
     ContainerOutline {
       heading,
+      location,
       preamble,
       // A neighbour above or below an item can be listed far from it, past a fragment boundary.
       multi_fragment_note: (Layout::of(container) == Layout::Spatial)
@@ -1403,21 +1436,14 @@ impl<'a, 'b> Renderer<'a, 'b> {
       self.label(content, &mut pieces)?;
       return Ok(pieces);
     }
-    // Only the start of a long note is collapsed to one line: a label never needs more. Collapsing whitespace only
-    // shortens text, so a label from the start can be shorter than the budget, but never wrongly uncut.
-    let title = content.title.as_deref().unwrap_or("");
-    let head_end = title.char_indices().nth(note_max_chars * 4).map_or(title.len(), |(index, _)| index);
-    let line = plain_label(&title[..head_end]).0;
-    if line.is_empty() {
-      pieces.text(&item_link(content));
-    } else {
-      let (label, cut) = excerpt(&line, note_max_chars);
-      let truncated = cut || head_end < title.len();
-      let label = if truncated { format!("{}…", label.trim_end()) } else { label };
-      pieces.text(&format!("[{}]({})", escape_label(&label), link_url(content)));
-      if truncated {
-        let count = note_fragments(content).len();
-        pieces.text(&format!(" (note, {})", count_label(count, "fragment")));
+    match note_label(content, note_max_chars) {
+      None => pieces.text(&item_link(content)),
+      Some((label, truncated)) => {
+        pieces.text(&format!("[{}]({})", escape_label(&label), link_url(content)));
+        if truncated {
+          let count = note_fragments(content).len();
+          pieces.text(&format!(" (note, {})", count_label(count, "fragment")));
+        }
       }
     }
     Ok(pieces)
@@ -1700,7 +1726,7 @@ mod tests {
     let group = group_fragments(&db, &access, group_id).await.unwrap();
     let text = &group.fragments[0].text;
     assert!(text.starts_with(&format!("[group](infumap://{group_id}) (group, 2 items) in ")), "{text}");
-    assert!(text.contains(&format!(" › [List](infumap://{list}) · fragment 0 of 0–0\n")), "{text}");
+    assert!(text.contains(&format!(" › [List](infumap://{list})\n")), "a single fragment has no position: {text}");
     assert!(
       text.ends_with(&format!("\n- [g one](infumap://{})\n- [g two](infumap://{})", members[0], members[1])),
       "{text}"
@@ -2057,10 +2083,7 @@ mod tests {
     assert!(!text.contains("Secret"));
     assert!(!text.contains("Elsewhere"));
     assert!(text.contains("- (unavailable link)"));
-    assert!(
-      text.lines().next().unwrap().contains(" in test · fragment"),
-      "the out-of-scope parent is not linked: {text}"
-    );
+    assert!(text.lines().next().unwrap().ends_with(" in test"), "the out-of-scope parent is not linked: {text}");
     assert!(container_outline(&t.db, &access, &secret).is_err());
     assert!(container_outline(&t.db, &access, &home).is_err());
   }
@@ -2083,7 +2106,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn data_items_show_stored_fragment_counts_and_version_tracks_changes() {
+  async fn data_items_show_stored_fragment_counts() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
     let page = t.page(&home, "Files").await;
@@ -2102,11 +2125,6 @@ mod tests {
     let with = outline.fragments(&HashMap::from([(file.clone(), 12)]));
     assert!(without.fragments[0].text.contains(&format!("[report.pdf](infumap://{file}) (file, application/pdf)")));
     assert!(with.fragments[0].text.contains("(file, application/pdf, 12 fragments)"));
-    assert_ne!(without.version, with.version, "a document finishing processing changes the text");
-    assert_eq!(without.version.len(), VERSION_CHARS);
-    assert_eq!(without.version, t.outline(&page).fragments(&HashMap::new()).version);
-    t.note(&page, "new", RelationshipToParent::Child).await;
-    assert_ne!(without.version, t.outline(&page).fragments(&HashMap::new()).version);
     assert_eq!(without.fragments[0].units.iter().map(|unit| unit.item_ids.clone()).collect::<Vec<_>>(), [[file]]);
   }
 

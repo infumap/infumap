@@ -270,8 +270,9 @@ Options:
 Call the built-in read-only LLM tools directly, without invoking an LLM. Requires a running Infumap
 web server and a CLI session created with `infumap login`.
 
-The command prints the tool's JSON result, pretty-printed, to stdout. Tool failures preserve the
-error JSON on stdout, report a diagnostic on stderr, and exit with a nonzero status. Session or
+The command prints the tool's result to stdout as the model reads it, in plain text. Tool failures
+print the error JSON, pretty-printed, on stdout, report a diagnostic on stderr, and exit with a
+nonzero status. Session or
 transport failures report a diagnostic on stderr and also exit with a nonzero status.
 
 ```bash
@@ -297,10 +298,9 @@ request; it never falls back to an unrestricted call.
 
 - **--fragment-ordinal:** Zero-based starting fragment (default: 0).
 - **--count:** Consecutive fragments, 1–3 (default: 1).
-- **--version:** Version from an earlier result, to detect changes.
 
-The tools use the same argument handling, access checks, and result formatting as chat. Follow
-`nextFragmentOrdinal` in a fragment result to continue reading. See [chat-tools.md](chat-tools.md)
+The tools use the same argument handling, access checks, and result formatting as chat. A result
+ending with a `More:` line has more to read: call again with the argument it gives. See [chat-tools.md](chat-tools.md)
 for the tool behavior and result formats. The local `fragment` command builds artifacts and is
 separate from `tool get_fragment`, which reads them and renders live container contents.
 
