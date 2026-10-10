@@ -147,7 +147,7 @@ seconds, and the URL becomes the page's.
 }
 ```
 
-- `title` is a label of at most 80 characters, not a note's full text.
+- `title` is a plain label of at most 80 characters, not a note's full text.
 - `nextFragmentOrdinal` is present while fragments remain. Following it until it is absent reads the
   whole item.
 - `version` (containers and notes) changes when the item's rendered text changes. When the request
@@ -172,9 +172,15 @@ composite, or an explicit group.
 
 How items appear:
 
-- Notes of up to 80 characters are links: `- [Buy milk](infumap://<id>)`, followed by `<url>` for
-  each URL in the note. Longer notes show a 40-character link label, then their text with URLs as Markdown links,
-  cut at 600 characters with `(truncated; full text in N fragments)`.
+- Note labels are plain: Markdown that notes pasted from documents carry is dropped from them. Heading,
+  list and quote markers, `**`, `__`, backticks and table separator lines go; links and images become
+  their text; table cells and lines are joined with ` · `. Plain text keeps its words: only a
+  line-leading `# ` is a heading, and a single `*` or `_` stays. Note text itself, as `get_fragment`
+  reads it or a document page shows it, is unchanged.
+- Notes whose label is up to 80 characters are links: `- [Buy milk](infumap://<id>)`, followed by
+  `<url>` for each URL in the note, including those of Markdown links the label dropped. Longer notes
+  show a 40-character link label, then their text with URLs as Markdown links, cut at 600 characters
+  with `(truncated; full text in N fragments)`.
 - Child pages and tables are one line with their item or row count, and tables their column names.
   They are read by their own link, so rendering never descends into them.
 - Composites are expanded inline, with members indented beneath them, under
