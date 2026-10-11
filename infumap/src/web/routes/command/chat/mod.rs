@@ -1257,7 +1257,7 @@ fn search_tool_spec() -> OpenAiToolSpec {
       name: "search".to_owned(),
       description: "Search the user's Infumap workspace: item titles, document text and image descriptions. It is a \
         stemmed keyword search, not a semantic one: it matches any of the words, ranking items that match more of them \
-        first. Links in results can be read with get_fragment."
+        first. infumap:// links in results can be read with get_fragment."
         .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
