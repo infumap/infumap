@@ -163,9 +163,10 @@ edits by several minutes. A moved item links its new container, and a deleted it
 ```
 
 `link` is required; a link item reads as its target. `fragmentOrdinal` defaults to 0. Each call
-returns up to 3 consecutive fragments, so most pages come back whole on the first call. There is no
-argument for how many: a weak model given one tends to read a fragment at a time and stop early.
-The fragments depend on the item:
+returns one fragment: a result is always one header and one piece of text, the simplest shape for a
+weak model to follow. Fragments are about 2,500 characters, chosen as the amount to give a model at a
+time. Returning three per call was tried: a model given two fragments in one result used only the
+first. The fragments depend on the item:
 
 | Item | Fragments |
 | --- | --- |
@@ -182,12 +183,11 @@ or on one child the scope leaves readable, is not a group and is not found. The 
 the UI, from the URL bar or a note, shows the group's page with the group highlighted for three
 seconds, and the URL becomes the page's.
 
-The result is the fragments asked for, each between `<fragment>` and `</fragment>` lines and starting
-with a header line: the item's link and kind, ` in ` and its breadcrumb, then ` · fragment N of 0–M`
-when the item has more than one fragment. Only the first fragment in a result gives the location;
-the ones after it would repeat it. An item with attachments has an `attached: …` line after the
-first header, as its listing shows them, since its own text never mentions them: a note holding a
-page would otherwise show no sign of it. While fragments remain, a blank line and
+The result is the fragment between `<fragment>` and `</fragment>` lines, starting with a header line:
+the item's link and kind, ` in ` and its breadcrumb, then ` · fragment N of 0–M` when the item has
+more than one fragment. An item with attachments has an `attached: …` line after the header, as its
+listing shows them, since its own text never mentions them: a note holding a page would otherwise
+show no sign of it. While fragments remain, a blank line and
 `The item continues. For the next fragment, call get_fragment again with fragmentOrdinal N.` end the
 result, and following it until it is absent reads the whole item.
 
@@ -196,16 +196,12 @@ result, and following it until it is absent reads the whole item.
 [annual.pdf](infumap://<id>) (file, application/pdf) in Home › [Reports](infumap://<id>) · fragment 200 of 0–311 · pages 57–58
 …text…
 </fragment>
-<fragment>
-[annual.pdf](infumap://<id>) (file, application/pdf) · fragment 201 of 0–311 · page 58
-…text…
-</fragment>
 
-The item continues. For the next fragment, call get_fragment again with fragmentOrdinal 202.
+The item continues. For the next fragment, call get_fragment again with fragmentOrdinal 201.
 ```
 
 - The tags are there because a fragment's text is whatever the user wrote, full of blank lines and
-  lines that could pass for a header. They mark where each fragment starts and ends, and leave the
+  lines that could pass for a header. They mark where the fragment starts and ends, and leave the
   more line outside them, so the model reads it as the tool's and not the item's. A `</fragment>` in
   item text is given as `<\/fragment>`, so it cannot end the fragment early. Search results need no
   tags: each is one line.

@@ -48,7 +48,7 @@ pub fn make_clap_subcommand() -> Command {
     )
     .subcommand(
       Command::new("get_fragment")
-        .about("Read an item's text or contents, 3 fragments at a time.")
+        .about("Read an item's text or contents, a fragment at a time.")
         .arg(Arg::new("link").required(true).help("Item infumap:// link or bare id."))
         .arg(
           Arg::new("fragment-ordinal")
