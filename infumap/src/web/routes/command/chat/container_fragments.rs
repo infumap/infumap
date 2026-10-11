@@ -153,6 +153,35 @@ pub(super) struct HitListing {
   pub text: String,
   /// " (linked from …)" for the pages above the subject that are linked from elsewhere, keyed by page id.
   pub ancestor_backlinks: HashMap<Uid, String>,
+  /// How the steps above the subject that are attachments are shown, keyed by item id.
+  pub ancestor_marks: HashMap<Uid, PathMark>,
+}
+
+/// How a location path shows a step that is an attachment, which a weak model would otherwise take for a folder: the
+/// item holding it says what it is, a table row as "(row)", and an attachment outside a table follows "attached: ".
+#[derive(Clone, Default, PartialEq, Debug)]
+pub(super) struct PathMark {
+  pub prefix: &'static str,
+  pub suffix: String,
+}
+
+/// Marks for the attachment steps of `chain`, outermost first.
+fn attachment_marks(chain: &[&Item]) -> HashMap<Uid, PathMark> {
+  let mut marks = HashMap::<Uid, PathMark>::new();
+  for index in 1..chain.len() {
+    if chain[index].relationship_to_parent != RelationshipToParent::Attachment {
+      continue;
+    }
+    let holder = chain[index - 1];
+    // A table shows an item's attachments as the cells of its row, so the attachment is in the row.
+    let row = index >= 2 && is_tabular(chain[index - 2]);
+    marks.entry(holder.id.clone()).or_default().suffix =
+      if row { " (row)".to_owned() } else { format!(" ({})", holder.item_type.as_str()) };
+    if !row {
+      marks.entry(chain[index].id.clone()).or_default().prefix = "attached: ";
+    }
+  }
+  marks
 }
 
 /// Listings for search hits, keyed by hit id, rendering each container once. A hit that is gone or that the chat
@@ -197,11 +226,14 @@ pub(super) async fn hit_listings(
         placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned(), date));
       }
       let subject = parent.unwrap_or(item);
+      let mut chain = ancestors(&db, subject, access.user_id).unwrap_or_default();
+      chain.push(subject);
+      let ancestor_marks = attachment_marks(&chain);
       let (backlinks, ancestor_backlinks) = match home_page_id.as_ref() {
         Some(home_page_id) => renderer.record_backlinks(item, subject, home_page_id),
         None => (Pieces::default(), Vec::new()),
       };
-      labels.push((item_id.clone(), subject_id, label, backlinks, ancestor_backlinks));
+      labels.push((item_id.clone(), subject_id, label, backlinks, ancestor_backlinks, ancestor_marks));
     }
     (labels, placements, db.item.data_dir().to_owned(), renderer.data_item_ids, renderer.container_item_ids)
   };
@@ -220,12 +252,19 @@ pub(super) async fn hit_listings(
   }
   labels
     .into_iter()
-    .map(|(item_id, subject_id, label, backlinks, ancestor_backlinks)| {
+    .map(|(item_id, subject_id, label, backlinks, ancestor_backlinks, ancestor_marks)| {
       let text = label.render(&counts);
       let ancestor_backlinks =
         ancestor_backlinks.into_iter().map(|(ancestor_id, pieces)| (ancestor_id, pieces.render(&counts))).collect();
-      let mut listing =
-        HitListing { container_id: None, container_fragment: 0, group_id: None, subject_id, text, ancestor_backlinks };
+      let mut listing = HitListing {
+        container_id: None,
+        container_fragment: 0,
+        group_id: None,
+        subject_id,
+        text,
+        ancestor_backlinks,
+        ancestor_marks,
+      };
       let placement = placements.remove(&item_id);
       let fragments = placement.as_ref().and_then(|(container_id, ..)| rendered.get(container_id)?.as_ref());
       // Document pages do not render attachments, so an attachment is located by its item.
@@ -436,7 +475,7 @@ fn group_outline(db: &Db, access: &Access, group_id: &Uid) -> InfuResult<Contain
   let mut members = renderer.children(page)?;
   members.retain(|member| member.group_id.as_ref() == Some(group_id));
   let heading = format!("{} (group, {})", group_link(group_id), count_label(members.len(), "item"));
-  let location = format!(" in {}", breadcrumb(db, access, &path));
+  let location = location(db, access, &path, None);
   let units = renderer.layout_units(Layout::of(page), members.into_iter().map(Entry::Item).collect())?;
   Ok(renderer.outline(heading, location, page, units))
 }
@@ -545,10 +584,8 @@ pub(super) fn item_heading(db: &Db, access: &Access, content: &Item) -> (String,
     },
     item_type => format!("{} ({})", item_link(content), item_type.as_str()),
   };
-  let location = match ancestors(db, content, access.user_id) {
-    Ok(path) if !path.is_empty() => format!(" in {}", breadcrumb(db, access, &path)),
-    _ => String::new(),
-  };
+  let path = ancestors(db, content, access.user_id).unwrap_or_default();
+  let location = location(db, access, &path, Some(content));
   (heading, location)
 }
 
@@ -673,33 +710,69 @@ fn layout_name(arrange_algorithm: Option<ArrangeAlgorithm>) -> &'static str {
   }
 }
 
-/// The container's link and kind, and its location: " in " and its breadcrumb, or nothing for a root page.
+/// The container's link and kind, and its location, or nothing for a root page.
 fn heading(db: &Db, access: &Access, container: &Item, ancestors: &[&Item]) -> (String, String) {
   let kind = match container.item_type {
     ItemType::Page => format!("page, {} layout", layout_name(container.arrange_algorithm)),
     item_type => item_type.as_str().to_owned(),
   };
-  let location =
-    if ancestors.is_empty() { String::new() } else { format!(" in {}", breadcrumb(db, access, ancestors)) };
-  (format!("{} ({kind})", item_link(container)), location)
+  (format!("{} ({kind})", item_link(container)), location(db, access, ancestors, Some(container)))
 }
 
-/// Titles of `path`, outermost first. Only the last is linked, so the model can go up a level without a uid for
-/// every ancestor.
-fn breadcrumb(db: &Db, access: &Access, path: &[&Item]) -> String {
-  let Some((parent, above)) = path.split_last() else {
+/// " in " and the breadcrumb of `path`, the ancestors of `item` (a group's when it is none), or " attached to "
+/// when `item` is an attachment outside a table. Nothing for an empty path.
+fn location(db: &Db, access: &Access, path: &[&Item], item: Option<&Item>) -> String {
+  if path.is_empty() {
     return String::new();
-  };
-  let mut crumbs = above
-    .iter()
-    .map(|item| clamp_label(item.title.as_deref().unwrap_or(""), BREADCRUMB_TITLE_MAX_CHARS))
-    .collect::<Vec<_>>();
-  crumbs.push(if access.can_read(db, parent) {
-    item_link(parent)
-  } else {
-    clamp_label(parent.title.as_deref().unwrap_or(""), BREADCRUMB_TITLE_MAX_CHARS)
+  }
+  let chain = path.iter().copied().chain(item).collect::<Vec<_>>();
+  let marks = attachment_marks(&chain);
+  let attached = item.and_then(|item| marks.get(&item.id)).is_some_and(|mark| !mark.prefix.is_empty());
+  format!(" {} {}", if attached { "attached to" } else { "in" }, breadcrumb(db, access, path, &marks))
+}
+
+/// Titles of `path`, outermost first, with attachment steps marked. Only the last is linked, so the model can go up a
+/// level without a uid for every ancestor.
+fn breadcrumb(db: &Db, access: &Access, path: &[&Item], marks: &HashMap<Uid, PathMark>) -> String {
+  let last = path.len().saturating_sub(1);
+  let crumbs = path.iter().enumerate().map(|(index, item)| {
+    let label = if index == last && access.can_read(db, item) {
+      item_link(item)
+    } else {
+      clamp_label(item.title.as_deref().unwrap_or(""), BREADCRUMB_TITLE_MAX_CHARS)
+    };
+    let mark = marks.get(&item.id).cloned().unwrap_or_default();
+    format!("{}{label}{}", mark.prefix, mark.suffix)
   });
-  crumbs.join(" › ")
+  crumbs.collect::<Vec<_>>().join(" › ")
+}
+
+/// An item's attachments as its listing shows them, for when it is read on its own: otherwise a note holding a page
+/// shows no sign of it. None for an item without attachments the chat can read.
+pub(super) async fn attached_line(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  access: &Access<'_>,
+  item_id: &Uid,
+) -> Option<String> {
+  let (pieces, data_dir, data_item_ids) = {
+    let db = db.lock().await;
+    let item = db.item.get(item_id).ok()?;
+    let mut renderer = Renderer::new(&db, access);
+    let mut pieces = Pieces::default();
+    for attachment in renderer.attachments(item).ok()? {
+      let cell = renderer.cell(attachment).ok()?;
+      if !cell.is_empty() {
+        pieces.text(if pieces.is_empty() { "attached: " } else { "; " });
+        pieces.append(cell);
+      }
+    }
+    if pieces.is_empty() {
+      return None;
+    }
+    (pieces, db.item.data_dir().to_owned(), renderer.data_item_ids)
+  };
+  let counts = data_fragment_counts(&data_dir, access.user_id, &data_item_ids).await;
+  Some(pieces.render(&counts))
 }
 
 fn link_url(item: &Item) -> String {
@@ -1568,12 +1641,27 @@ mod tests {
 
   impl TestDb {
     async fn arranged_page(&mut self, parent_id: &Uid, title: &str, arrange: ArrangeAlgorithm, order: &str) -> Uid {
+      self.page_as(parent_id, title, arrange, order, RelationshipToParent::Child).await
+    }
+
+    async fn attached_page(&mut self, parent_id: &Uid, title: &str) -> Uid {
+      self.page_as(parent_id, title, ArrangeAlgorithm::List, "", RelationshipToParent::Attachment).await
+    }
+
+    async fn page_as(
+      &mut self,
+      parent_id: &Uid,
+      title: &str,
+      arrange: ArrangeAlgorithm,
+      order: &str,
+      relationship: RelationshipToParent,
+    ) -> Uid {
       let item = Item::new_page(
         Some(parent_id),
         vec![],
         Vector { x: 0, y: 0 },
         GRID_SIZE,
-        RelationshipToParent::Child,
+        relationship,
         title,
         order,
         0,
@@ -2186,6 +2274,50 @@ mod tests {
       text.contains(&format!("\n  - [composite](infumap://{composite}) (composite, 2 items, shown above)")),
       "{text}"
     );
+  }
+
+  #[tokio::test]
+  async fn attachment_steps_are_marked_in_locations() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let table = t.table(&home, "Trips", &["Name"]).await;
+    let row = t.note(&table, "Acme onboarding", RelationshipToParent::Child).await;
+    let in_row = t.attached_page(&row, "Toronto").await;
+    let review = t.note(&in_row, "review", RelationshipToParent::Child).await;
+    let notes = t.page(&home, "Notes").await;
+    let plans = t.note(&notes, "Plans", RelationshipToParent::Child).await;
+    let attached = t.attached_page(&plans, "Paris").await;
+    let museum = t.note(&attached, "museum", RelationshipToParent::Child).await;
+    let header = |id: &Uid| t.texts(id)[0].lines().next().unwrap().to_owned();
+
+    // In a table an attachment is a cell of its row; elsewhere it is attached to an item that says what it is.
+    let toronto = format!(
+      "[Toronto](infumap://{in_row}) (page, list layout) in test › Trips › [Acme onboarding](infumap://{row}) (row)"
+    );
+    assert!(header(&in_row).starts_with(&toronto), "{}", header(&in_row));
+    let paris = format!(
+      "[Paris](infumap://{attached}) (page, list layout) attached to test › Notes › [Plans](infumap://{plans}) (note)"
+    );
+    assert!(header(&attached).starts_with(&paris), "{}", header(&attached));
+    let access = Access { user_id: &t.user_id, scope: None };
+    let (_, location) = item_heading(&t.db, &access, t.db.item.get(&museum).unwrap());
+    assert_eq!(location, format!(" in test › Notes › Plans (note) › attached: [Paris](infumap://{attached})"));
+
+    let user_id = t.user_id.clone();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let access = Access { user_id: &user_id, scope: None };
+    let listings = hit_listings(&db, &access, &[review.clone(), museum.clone()]).await;
+    let mark = |prefix: &'static str, suffix: &str| PathMark { prefix, suffix: suffix.to_owned() };
+    assert_eq!(listings[&review].ancestor_marks, HashMap::from([(row.clone(), mark("", " (row)"))]));
+    assert_eq!(
+      listings[&museum].ancestor_marks,
+      HashMap::from([(plans.clone(), mark("", " (note)")), (attached.clone(), mark("attached: ", ""))])
+    );
+
+    // A note read on its own shows what is attached to it, as its listing does.
+    let line = attached_line(&db, &access, &plans).await.unwrap();
+    assert_eq!(line, format!("attached: [Paris](infumap://{attached}) (page, 1 item)"));
+    assert_eq!(attached_line(&db, &access, &museum).await, None);
   }
 
   #[tokio::test]
