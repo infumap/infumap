@@ -210,8 +210,8 @@ mod tests {
         HitListing {
           group_id: Some("g1".to_owned()),
           ancestor_backlinks: HashMap::from([
-            ("m".to_owned(), " (linked from [index](infumap://i))".to_owned()),
-            ("p".to_owned(), " (linked from [plans](infumap://l))".to_owned()),
+            ("m".to_owned(), " (also linked from [index](infumap://i))".to_owned()),
+            ("p".to_owned(), " (also linked from [plans](infumap://l))".to_owned()),
           ]),
           ..listing(Some("p"), 0, "f", "[report.pdf](infumap://f) (file, application/pdf, 9 fragments)")
         },
@@ -224,7 +224,7 @@ mod tests {
     assert_eq!(
       text,
       "root › my trips › [malaysia](infumap://p) › [composite](infumap://c) › [Cocktails](infumap://n)\n\
-       root › my trips (linked from [index](infumap://i)) › [malaysia](infumap://p) (linked from \
+       root › my trips (also linked from [index](infumap://i)) › [malaysia](infumap://p) (also linked from \
        [plans](infumap://l)) › [group](infumap://g1) › [report.pdf](infumap://f) (file, application/pdf, \
        9 fragments) — fragment 7: …the match…\n\
        Home › [Tasks \\[2026\\]](infumap://t) (fragment 3) › [Acme](infumap://a) | Active\n\
