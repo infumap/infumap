@@ -2,11 +2,11 @@
 
 Chats with the Infumap data source enabled have two built-in read-only tools:
 
-- `lexical_search`: find items using their titles and indexed document text.
+- `search`: find items using their titles and indexed document text.
 - `get_fragment`: read any item a fragment at a time: documents, images, notes, and pages, tables and
   composites.
 
-The same tools can be called without an LLM using `infumap tool lexical_search "query"` or
+The same tools can be called without an LLM using `infumap tool search "query"` or
 `infumap tool get_fragment infumap://<id>`. See [CLI commands](cli.md#tool) for options.
 
 Both are designed to keep tool results small, because results stay in the chat transcript and weaker
@@ -14,7 +14,7 @@ models have little context to spare. Results are plain text, not JSON: Markdown 
 strings is harder for small models to read, and they sometimes copy the escapes into answers. Errors
 are JSON, `{"error": "…"}`, as for every other tool. A result with more to read ends with a line
 saying which call to make next, naming the tool, such as
-`For more results, call lexical_search again with the same arguments and pageNum 2.` Items are
+`For more results, call search again with the same arguments and pageNum 2.` Items are
 identified everywhere by a `link`, `infumap://<id>`: tool results give it, tool arguments take it, and
 the model copies it into its answer as a citation.
 
@@ -46,7 +46,7 @@ A chat request may name a [scope](scopes.md) with `scopeId`. The scope is resolv
 starts; an unknown or deleted scope fails the request rather than widening it. Every tool then
 applies it:
 
-- `lexical_search` returns only items in the scope. A `within` argument narrows it further. A result
+- `search` returns only items in the scope. A `within` argument narrows it further. A result
   whose listing container is outside the scope, such as an include root itself, has no links in its
   location.
 - `get_fragment` reports an item outside the scope as not found. A container's fragments omit
@@ -84,14 +84,14 @@ search box in the UI ranks results the same way.
 
 Each result is one line of text, and `No results.` stands for none. When there are more pages, a
 blank line and this follow:
-`For more results, call lexical_search again with the same arguments and pageNum N.`
+`For more results, call search again with the same arguments and pageNum N.`
 
 ```
 root › travel › [malaysia](infumap://<page id>) › [composite](infumap://<id>) › [Cocktails at Four Seasons](infumap://<id>)
 Home › Projects › [Tasks](infumap://<table id>) (fragment 4) › [Acme onboarding](infumap://<id>) | Active | 2026-01-03
 Home › [Reports](infumap://<page id>) › [annual.pdf](infumap://<id>) (file, application/pdf, 312 fragments) — fragment 200: …a drink stall opened in FY2025…
 
-For more results, call lexical_search again with the same arguments and pageNum 2.
+For more results, call search again with the same arguments and pageNum 2.
 ```
 
 - The line starts with the result's location, outermost first. Titles above the page or table whose
@@ -308,7 +308,7 @@ session. It does not invoke an LLM or an external MCP tool. The request is a JSO
 }
 ```
 
-Omit `scopeId` for an unrestricted call. `name` must be `lexical_search` or `get_fragment`;
+Omit `scopeId` for an unrestricted call. `name` must be `search` or `get_fragment`;
 `arguments` contains the tool arguments documented above. The response body is the tool result
 itself, without a wrapper: `text/plain` for a result, or JSON for a tool error. Authentication failures return HTTP 403; invalid requests, scopes,
 unknown tool names, and tool error results return HTTP 400; unexpected execution failures return

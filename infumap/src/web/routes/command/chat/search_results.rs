@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! lexical_search results as one line each.
+//! search tool results as one line each.
 //!
 //! A line is the hit's location, outermost first, then the hit. Titles above the page or table listing the hit are
 //! plain text. From that container down every item is a link, so get_fragment can read any of them, and the
@@ -230,7 +230,7 @@ mod tests {
        Home › [Tasks \\[2026\\]](infumap://t) (fragment 3) › [Acme](infumap://a) | Active\n\
        root › my trips › malaysia › [untitled note](infumap://g)\n\
        \n\
-       For more results, call lexical_search again with the same arguments and pageNum 3.",
+       For more results, call search again with the same arguments and pageNum 3.",
       "a cell hit is shown as its row, which is given once"
     );
     let (lines, has_more) = result_lines(&text);

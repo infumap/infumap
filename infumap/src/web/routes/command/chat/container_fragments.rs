@@ -15,7 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Pages, tables, composites, groups and notes as bounded text fragments for the chat tools, and the lines that
-//! show lexical_search hits.
+//! show search tool hits.
 //!
 //! Containers and notes change whenever the user edits them, so their fragments are built on demand from the
 //! live database and never stored. A note's fragments are its text split at paragraph, line, sentence or word
@@ -139,7 +139,7 @@ impl ContainerFragments {
   }
 }
 
-/// How lexical_search shows a hit: the page or table whose fragments list it, and the hit as text.
+/// How the search tool shows a hit: the page or table whose fragments list it, and the hit as text.
 pub(super) struct HitListing {
   /// The listing container, when it is readable and in the scope.
   pub container_id: Option<Uid>,
