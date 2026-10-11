@@ -119,10 +119,6 @@ pub(super) struct Row {
 }
 
 pub(super) struct ContainerFragments {
-  /// The container's link and kind, which starts every fragment's header, then its `location`.
-  pub heading: String,
-  /// " in " and the container's breadcrumb, or nothing for a root page.
-  pub location: String,
   pub fragments: Vec<ContainerFragment>,
   pub rows: Vec<Row>,
 }
@@ -555,12 +551,7 @@ impl ContainerOutline {
       .collect();
     let rows =
       self.rows.iter().map(|(item_ids, pieces)| Row { item_ids: item_ids.clone(), text: pieces.render(counts) });
-    ContainerFragments {
-      heading: self.heading.clone(),
-      location: self.location.clone(),
-      fragments,
-      rows: rows.collect(),
-    }
+    ContainerFragments { fragments, rows: rows.collect() }
   }
 }
 

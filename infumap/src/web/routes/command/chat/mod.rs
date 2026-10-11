@@ -56,9 +56,6 @@ const CHAT_TOOL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 /// know how many it needs, and asks for the most it can.
 const CHAT_SEARCH_TOOL_PAGE_SIZE: i64 = 10;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
-/// Consecutive fragments get_fragment returns. A fixed number means most pages come back whole on the first call, and a
-/// weak model cannot read one fragment at a time and stop early.
-const CHAT_FRAGMENT_TOOL_FRAGMENTS_PER_CALL: usize = 3;
 const CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS: usize = 280;
 const CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS: usize = 80;
 const CHAT_TOOL_SUMMARY_TITLE_COUNT: usize = 3;
@@ -1294,7 +1291,7 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
       description:
         "Read an Infumap item by its link. A document or image gives its extracted text, a note its text, and a page, \
         table, composite or group its items as lines with links; a page or table inside one is a single line, read by its \
-        own link. Long items come in fragments, 3 per call."
+        own link. Long items come in fragments, one per call."
           .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
@@ -1795,7 +1792,7 @@ async fn execute_get_fragment_tool_call(
       match fragments {
         Ok(fragments) => {
           let texts = fragments.fragments.into_iter().map(|fragment| fragment.text).collect::<Vec<_>>();
-          (fragments.heading, fragments.location, computed_fragment_records(texts), true, false)
+          (String::new(), String::new(), computed_fragment_records(texts), true, false)
         }
         Err(e) => return Ok(tool_error_json(&e.to_string())),
       }
@@ -1830,60 +1827,41 @@ async fn execute_get_fragment_tool_call(
       fragment_count - 1
     )));
   }
-  let end = (first + CHAT_FRAGMENT_TOOL_FRAGMENTS_PER_CALL).min(fragment_count);
-  let full_heading = format!("{heading}{location}");
-  let mut texts = records
-    .into_iter()
-    .filter(|record| (first..end).contains(&record.ordinal))
-    .enumerate()
-    .map(|(index, record)| {
-      // The first fragment in a result says where the item is; the ones after it need not repeat it.
-      if headed {
-        return match record.text.strip_prefix(&full_heading).filter(|_| index > 0) {
-          Some(rest) => format!("{heading}{rest}"),
-          None => record.text,
-        };
-      }
-      let mut text = format!(
-        "{heading}{}{}",
-        if index == 0 { location.as_str() } else { "" },
-        container_fragments::fragment_position(record.ordinal, fragment_count - 1)
-      );
-      match (record.page_start, record.page_end) {
-        (Some(start), Some(end)) if start != end => text.push_str(&format!(" · pages {start}–{end}")),
-        (Some(page), _) | (None, Some(page)) => text.push_str(&format!(" · page {page}")),
-        (None, None) => {}
-      }
-      text.push('\n');
-      let (body, truncated) = if clamped {
-        clamp_text_chars(&record.text, CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS)
-      } else {
-        (record.text, false)
-      };
-      text.push_str(&body);
-      if truncated {
-        text.push_str(&format!("{FRAGMENT_CUT_MARKER}{CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS} characters)"));
-      }
-      text
-    })
-    .collect::<Vec<_>>();
+  let Some(record) = records.into_iter().find(|record| record.ordinal == first) else {
+    return Ok(tool_error_json(&format!("Fragment {first} of this item could not be read.")));
+  };
+  let mut text = if headed {
+    record.text
+  } else {
+    let mut text =
+      format!("{heading}{location}{}", container_fragments::fragment_position(record.ordinal, fragment_count - 1));
+    match (record.page_start, record.page_end) {
+      (Some(start), Some(end)) if start != end => text.push_str(&format!(" · pages {start}–{end}")),
+      (Some(page), _) | (None, Some(page)) => text.push_str(&format!(" · page {page}")),
+      (None, None) => {}
+    }
+    text.push('\n');
+    let (body, truncated) =
+      if clamped { clamp_text_chars(&record.text, CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS) } else { (record.text, false) };
+    text.push_str(&body);
+    if truncated {
+      text.push_str(&format!("{FRAGMENT_CUT_MARKER}{CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS} characters)"));
+    }
+    text
+  };
 
-  // An item read on its own shows its attachments as its listing does, after the first header, so a note holding a
-  // page is seen to hold it.
-  if let (Some(line), Some(first)) =
-    (container_fragments::attached_line(db, &access, &content_id).await, texts.first_mut())
-  {
-    let header_end = first.find('\n').unwrap_or(first.len());
-    first.insert_str(header_end, &format!("\n{line}"));
+  // An item read on its own shows its attachments as its listing does, after the header, so a note holding a page is
+  // seen to hold it.
+  if let Some(line) = container_fragments::attached_line(db, &access, &content_id).await {
+    let header_end = text.find('\n').unwrap_or(text.len());
+    text.insert_str(header_end, &format!("\n{line}"));
   }
-  // Tags mark where each fragment, header included, starts and ends, since its text is anything the user wrote. The
+  // Tags mark where the fragment, header included, starts and ends, since its text is anything the user wrote. The
   // more line follows them, so it reads as the tool's, not the item's.
-  let fragments = texts.iter().map(|text| {
-    format!("{FRAGMENT_OPEN_TAG}\n{}\n{FRAGMENT_CLOSE_TAG}", text.replace(FRAGMENT_CLOSE_TAG, "<\\/fragment>"))
-  });
-  let mut result = fragments.collect::<Vec<_>>().join("\n");
-  if end < fragment_count {
-    result.push_str(&more_line(FRAGMENT_MORE_LINE, end));
+  let text = text.replace(FRAGMENT_CLOSE_TAG, "<\\/fragment>");
+  let mut result = format!("{FRAGMENT_OPEN_TAG}\n{text}\n{FRAGMENT_CLOSE_TAG}");
+  if first + 1 < fragment_count {
+    result.push_str(&more_line(FRAGMENT_MORE_LINE, first + 1));
   }
   Ok(result)
 }
@@ -2107,39 +2085,31 @@ fn fetch_page_tool_activity(parsed: Option<&Value>) -> (String, Value) {
   )
 }
 
-/// The header of the first fragment in a get_fragment result.
+/// The header of a get_fragment result's fragment.
 fn fragment_result_header(result: &str) -> &str {
   let mut lines = result.lines().skip_while(|line| *line == FRAGMENT_OPEN_TAG);
   lines.next().unwrap_or("")
 }
 
-/// The fragments a get_fragment result read, from its first header and its more line: the first, the last, and the
-/// item's last ordinal. An item read in one fragment has no position in its header.
-fn fragment_result_range(result: &str) -> (usize, usize, usize) {
-  let header = fragment_result_header(result);
-  let position = header.rsplit_once(" · fragment ").and_then(|(_, position)| {
+/// The fragment a get_fragment result read and the item's last ordinal, from its header. An item read in one fragment
+/// has no position in its header.
+fn fragment_result_position(result: &str) -> (usize, usize) {
+  let position = fragment_result_header(result).rsplit_once(" · fragment ").and_then(|(_, position)| {
     let (ordinal, last) = position.split_once(" of 0–")?;
-    let last = last.split(' ').next()?;
-    Some((ordinal.parse().ok()?, last.parse().ok()?))
+    Some((ordinal.parse().ok()?, last.split(' ').next()?.parse().ok()?))
   });
-  let (first, last) = position.unwrap_or((0, 0));
-  let (_, next) = split_more_line(result, FRAGMENT_MORE_LINE);
-  (first, next.map_or(last, |next| next.saturating_sub(1)), last)
+  position.unwrap_or((0, 0))
 }
 
 fn get_fragment_tool_activity(result: &str) -> (String, Value) {
-  let (first, read_last, last) = fragment_result_range(result);
+  let (ordinal, last) = fragment_result_position(result);
   let mut summary = String::new();
   if let Some(title) = first_link_label(fragment_result_header(result)) {
     let (clipped_title, _) = clamp_text_chars(&title, CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS);
     summary.push_str(&format!("\"{clipped_title}\" · "));
   }
   if last > 0 {
-    if first == read_last {
-      summary.push_str(&format!("fragment {first} of 0–{last} · "));
-    } else {
-      summary.push_str(&format!("fragments {first}–{read_last} of 0–{last} · "));
-    }
+    summary.push_str(&format!("fragment {ordinal} of 0–{last} · "));
   }
   summary.push_str(&format!("{} chars", text_char_count(result)));
   if result.contains(FRAGMENT_CUT_MARKER) {
@@ -2557,11 +2527,10 @@ mod tests {
     execute_chat_tool_call(db, session, &Config::default(), &tool_call, infumap_data, &HashMap::new()).await.unwrap()
   }
 
-  /// The fragments in a get_fragment result, without their tags, and the more line's ordinal.
-  fn fragment_texts(result: &str) -> (Vec<&str>, Option<usize>) {
+  /// The fragment in a get_fragment result, without its tags, and the more line's ordinal.
+  fn fragment_text(result: &str) -> (&str, Option<usize>) {
     let (body, more) = split_more_line(result, FRAGMENT_MORE_LINE);
-    let body = body.strip_prefix("<fragment>\n").unwrap().strip_suffix("\n</fragment>").unwrap();
-    (body.split("\n</fragment>\n<fragment>\n").collect(), more)
+    (body.strip_prefix("<fragment>\n").unwrap().strip_suffix("\n</fragment>").unwrap(), more)
   }
 
   /// A tool error, which is JSON; results are text.
@@ -2639,27 +2608,26 @@ mod tests {
     let infumap_data = InfumapData { scope: None };
     let get = |arguments: Value| call_tool(&db, &session, Some(&infumap_data), "get_fragment", arguments);
 
-    // A container is read in full by following the more line. Only a result's first header says where it is, and
-    // each says which of the page's items it holds.
+    // A container is read in full by following the more line, a fragment a call, each header saying which of the
+    // page's items it holds.
     let mut listed = Vec::new();
     let mut items_seen = 0;
     let mut next = Some(0);
     while let Some(ordinal) = next {
       let result = get(serde_json::json!({ "link": format!("infumap://{page}"), "fragmentOrdinal": ordinal })).await;
-      let (fragments, more) = fragment_texts(&result);
-      assert_eq!(fragments.len(), if more.is_some() { 3 } else { fragments.len() }, "{result}");
-      for (index, fragment) in fragments.iter().enumerate() {
-        let header = fragment.lines().next().unwrap();
-        assert!(header.starts_with(&format!("[Notes](infumap://{page}) (page, ")), "{result}");
-        assert_eq!(header.contains(&format!(" in [test](infumap://{home})")), index == 0, "{header}");
-        let (first_item, last_item) =
-          header.rsplit_once(" · items ").unwrap().1.split_once(" of 150").unwrap().0.split_once('–').unwrap();
-        assert_eq!(first_item.parse::<usize>().unwrap(), items_seen + 1, "{header}");
-        items_seen = last_item.parse().unwrap();
-        for line in fragment.lines().skip(1) {
-          listed.push(line.split("(infumap://").nth(1).unwrap().split(')').next().unwrap().to_owned());
-        }
+      let (fragment, more) = fragment_text(&result);
+      let header = fragment.lines().next().unwrap();
+      let expected =
+        format!("[Notes](infumap://{page}) (page, list layout) in [test](infumap://{home}) · fragment {ordinal} of 0–");
+      assert!(header.starts_with(&expected), "{header}");
+      let (first_item, last_item) =
+        header.rsplit_once(" · items ").unwrap().1.split_once(" of 150").unwrap().0.split_once('–').unwrap();
+      assert_eq!(first_item.parse::<usize>().unwrap(), items_seen + 1, "{header}");
+      items_seen = last_item.parse().unwrap();
+      for line in fragment.lines().skip(1) {
+        listed.push(line.split("(infumap://").nth(1).unwrap().split(')').next().unwrap().to_owned());
       }
+      assert_eq!(more, Some(ordinal + 1).filter(|_| items_seen < 150));
       next = more;
     }
     assert_eq!(listed, note_ids);
@@ -2672,9 +2640,9 @@ mod tests {
 
     let first = get(serde_json::json!({ "link": page })).await;
     let (_, more) = split_more_line(&first, FRAGMENT_MORE_LINE);
-    assert_eq!(more, Some(3), "a call reads 3 fragments, from 0 by default");
-    let (first_ordinal, read_last, last) = fragment_result_range(&first);
-    assert_eq!((first_ordinal, read_last), (0, 2));
+    assert_eq!(more, Some(1), "a call reads one fragment, from 0 by default");
+    let (ordinal, last) = fragment_result_position(&first);
+    assert_eq!(ordinal, 0);
     assert!(last >= 3);
     let count = last + 1;
     let out_of_range = get(serde_json::json!({ "link": page, "fragmentOrdinal": count })).await;
@@ -2684,18 +2652,19 @@ mod tests {
     );
 
     // A note reads as its own fragments under a short label, and a link reads as its target.
-    let note = get(serde_json::json!({ "link": link })).await;
-    let (fragments, more) = fragment_texts(&note);
-    assert_eq!((fragments.len(), more), (3, None), "two 1469-char paragraphs do not fit one fragment");
-    let (label, _) = fragments[0].lines().next().unwrap().split_once("](").unwrap();
-    assert!(label.starts_with("[Words in a sentence.") && label.ends_with('…') && label.chars().count() <= 42);
-    let location = format!(" in [test](infumap://{home})");
     let mut bodies = Vec::new();
-    for (ordinal, fragment) in fragments.iter().enumerate() {
+    for ordinal in 0..3 {
+      let note = get(serde_json::json!({ "link": link, "fragmentOrdinal": ordinal })).await;
+      let (fragment, more) = fragment_text(&note);
+      assert_eq!(more, Some(ordinal + 1).filter(|next| *next < 3), "two 1469-char paragraphs do not fit one fragment");
       let (header, body) = fragment.split_once('\n').unwrap();
-      let location = if ordinal == 0 { location.as_str() } else { "" };
-      assert_eq!(header, format!("{label}](infumap://{long_note}) (note){location} · fragment {ordinal} of 0–2"));
-      bodies.push(body);
+      let (label, rest) = header.split_once("](").unwrap();
+      assert!(label.starts_with("[Words in a sentence.") && label.ends_with('…') && label.chars().count() <= 42);
+      assert_eq!(
+        rest,
+        format!("infumap://{long_note}) (note) in [test](infumap://{home}) · fragment {ordinal} of 0–2")
+      );
+      bodies.push(body.to_owned());
     }
     assert_eq!(bodies.join("\n\n"), long_text);
 
@@ -2703,10 +2672,9 @@ mod tests {
     assert_eq!(error_of(&pending).as_deref(), Some("This item has no readable text yet."));
 
     let read = "<fragment>\n[Notes](infumap://n) (page, list layout) in [test](infumap://h) · fragment 3 of 0–6\nab\n\
-                </fragment>\n<fragment>\n[Notes](infumap://n) (page, list layout) · fragment 4 of 0–6\ncd\n</fragment>\n\n\
-                The item continues. For the next fragment, call get_fragment again with fragmentOrdinal 5.";
+                </fragment>\n\nThe item continues. For the next fragment, call get_fragment again with fragmentOrdinal 4.";
     let (summary, _) = chat_tool_finished_activity("get_fragment", &Value::Null, read);
-    assert_eq!(summary, format!("\"Notes\" · fragments 3–4 of 0–6 · {} chars", read.chars().count()));
+    assert_eq!(summary, format!("\"Notes\" · fragment 3 of 0–6 · {} chars", read.chars().count()));
   }
 
   #[tokio::test]
