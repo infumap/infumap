@@ -1463,7 +1463,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
     };
     let mut backlinks = Pieces::default();
     if let Some(links) = placed(self, subject, HIT_BACKLINKS_MAX) {
-      backlinks.text(" · linked from: ");
+      backlinks.text(" · also linked from: ");
       backlinks.append(links);
     }
     let subject_index = path.iter().position(|item| item.id == subject.id).unwrap_or(0);
@@ -1471,7 +1471,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
     for ancestor in path.iter().skip(subject_index + 1) {
       if let Some(links) = placed(self, ancestor, HIT_ANCESTOR_BACKLINKS_MAX) {
         let mut pieces = Pieces::default();
-        pieces.text(" (linked from ");
+        pieces.text(" (also linked from ");
         pieces.append(links);
         pieces.text(")");
         ancestor_backlinks.push((ancestor.id.clone(), pieces));
@@ -2056,7 +2056,7 @@ mod tests {
 
     let listings = hit_listings(&db, &access, &[booking.clone(), lonely.clone()]).await;
     let expected = format!(
-      "[Four Seasons booking](infumap://{booking}) (note) · linked from: [Booked the hotel for three nights in…](infumap://\
+      "[Four Seasons booking](infumap://{booking}) (note) · also linked from: [Booked the hotel for three nights in…](infumap://\
        {note}) (note, 1 fragment); [malaysia](infumap://{}); [older](infumap://{}); +1 more",
       pages[2], pages[1]
     );
@@ -2090,14 +2090,14 @@ mod tests {
     assert_eq!(
       booking_listing.ancestor_backlinks,
       HashMap::from([
-        (dated.clone(), format!(" (linked from [malaysia](infumap://{malaysia}))")),
-        (bookings.clone(), format!(" (linked from [travel index](infumap://{index}))")),
+        (dated.clone(), format!(" (also linked from [malaysia](infumap://{malaysia}))")),
+        (bookings.clone(), format!(" (also linked from [travel index](infumap://{index}))")),
       ])
     );
     let receipt_listing = &listings[&receipt];
     assert_eq!(
       receipt_listing.text,
-      format!("[receipt](infumap://{receipt}) (note) · linked from: [malaysia](infumap://{malaysia})")
+      format!("[receipt](infumap://{receipt}) (note) · also linked from: [malaysia](infumap://{malaysia})")
     );
     assert!(!receipt_listing.ancestor_backlinks.contains_key(&dated), "malaysia is given once on a line");
   }

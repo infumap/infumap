@@ -135,19 +135,21 @@ For more results, call search again with the same arguments and pageNum 2.
   their label. An item's title entry holds its attachments' titles, so the item matches what its
   attachments say, and the line shows why. An item and its attachment give the same line, listed
   once.
-- `· linked from:` ends a result whose item is linked from elsewhere, so the model sees the contexts
-  it was placed in, not only where it lives: the page or table holding each link, and each note
+- `· also linked from:` ends a result whose item is linked from elsewhere, so the model sees the
+  contexts it was placed in, not only where it lives; "also" says these are in addition to the
+  location the line starts with: the page or table holding each link, and each note
   linking to it with an `infumap://` URL, shown as a short label. At most three are given, the most
   recently changed first, then `+N more`. A page linking more than once is given once. Links on the
   item's own page, outside the home tree (the trash, the dock, scope definitions) or that the chat
   cannot read are left out. No fragment is given for the linking page. Matching does not use links:
   the item is found by its own title, text, parent and attachments.
 - A page in the location that is linked from elsewhere is followed by
-  `(linked from [malaysia](infumap://<id>))`, at most two places then `+N more`, by the same rules. People
-  often link a page rather than the items in it, so the page holding a result may be what places it
-  in context: `bookings › [2025-02-27](…) (linked from [malaysia](…)) › [Mandarin Oriental](…)`. A link
-  on the page directly above the linked page adds nothing and is left out, and a place is given once on a
-  line, never when the location names it already.
+  `(also linked from [malaysia](infumap://<id>))`, at most two places then `+N more`, by the same
+  rules. People often link a page rather than the items in it, so the page holding a result may be
+  what places it in context:
+  `bookings › [2025-02-27](…) (also linked from [malaysia](…)) › [Mandarin Oriental](…)`. A link on
+  the page directly above the linked page adds nothing and is left out, and a place is given once on
+  a line, never when the location names it already.
 - `— fragment N: …` ends a result whose document text matched: its best matching sentence, cut to
   about 220 characters around the first query word, and the fragment holding it, for `get_fragment`.
   Only files, text items and images have document text; notes, pages and tables match by their titles.
