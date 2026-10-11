@@ -62,10 +62,12 @@ Infumap data source is disabled.
 ## Searching
 
 ```json
-{ "text": "acme onboarding", "within": "<optional page or table link>", "numResults": 8, "pageNum": 1 }
+{ "text": "acme onboarding", "within": "<optional page or table link>", "pageNum": 1 }
 ```
 
-`text` is required; `numResults` defaults to 8 and accepts 1–20.
+`text` is required. Results come 10 to a page; `pageNum` defaults to 1. There is no argument for the
+number of results: a weak model does not know how many it needs and asks for the most it can, while
+paging lets it fetch more only when it does.
 
 `within` searches the page or table and everything under it, at any depth, and also the items linked
 into it from elsewhere, with their attachments: what reading the page shows through links. A linked

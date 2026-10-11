@@ -278,7 +278,7 @@ transport failures report a diagnostic on stderr and also exit with a nonzero st
 ```bash
 infumap tool search "acme onboarding"
 infumap tool search "budget" --within infumap://<page-id>
-infumap tool search "budget" --num-results 10 --page-num 2
+infumap tool search "budget" --page-num 2
 infumap tool get_fragment infumap://<item-id>
 infumap tool get_fragment <item-id> --fragment-ordinal 4 --count 3
 infumap tool search "budget" --session work --scope <scope-id>
@@ -291,8 +291,7 @@ request; it never falls back to an unrestricted call.
 `tool search <text>` accepts:
 
 - **--within:** Page or table link, or bare id, to search within.
-- **--num-results:** Maximum results, 1–20 (default: 8).
-- **--page-num:** One-based results page (default: 1).
+- **--page-num:** One-based page of 10 results (default: 1).
 
 `tool get_fragment <link-or-id>` accepts:
 

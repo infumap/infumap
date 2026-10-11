@@ -52,8 +52,9 @@ const CHAT_DEEP_RESEARCH_MAX_TOOL_ROUNDS: usize = 10_000;
 const CHAT_TOOL_APPROVAL_TIMEOUT_SECS: u64 = 300;
 const CHAT_TOOL_APPROVAL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 const CHAT_TOOL_REQUEST_MAX_BYTES: usize = 16 * 1024;
-const CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS: i64 = 8;
-const CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS: i64 = 20;
+/// Results per page of the search tool. The model pages for more rather than choosing a size: a weak model does not
+/// know how many it needs, and asks for the most it can.
+const CHAT_SEARCH_TOOL_PAGE_SIZE: i64 = 10;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
 const CHAT_FRAGMENT_TOOL_MAX_COUNT: i64 = 3;
 const CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS: usize = 280;
@@ -627,8 +628,6 @@ struct ChatSearchToolArguments {
   #[serde(alias = "query")]
   text: Option<String>,
   within: Option<String>,
-  #[serde(rename = "numResults", alias = "num_results", default, deserialize_with = "lenient_i64")]
-  num_results: Option<i64>,
   #[serde(rename = "pageNum", alias = "page_num", default, deserialize_with = "lenient_i64")]
   page_num: Option<i64>,
 }
@@ -1271,16 +1270,10 @@ fn search_tool_spec() -> OpenAiToolSpec {
             "type": ["string", "null"],
             "description": "Optional link of a page or table; searches it, everything inside it, and items linked into it. Omit to search everything."
           },
-          "numResults": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS,
-            "description": "Maximum number of search results to return."
-          },
           "pageNum": {
             "type": "integer",
             "minimum": 1,
-            "description": "Optional one-based page of search results."
+            "description": "Optional one-based page of 10 results."
           }
         },
         "required": ["text"],
@@ -1711,10 +1704,6 @@ async fn execute_search_tool_call(
     return Ok(tool_error_json("search tool argument 'text' is required."));
   }
 
-  let num_results = arguments
-    .num_results
-    .unwrap_or(CHAT_LEXICAL_SEARCH_TOOL_DEFAULT_NUM_RESULTS)
-    .clamp(1, CHAT_LEXICAL_SEARCH_TOOL_MAX_NUM_RESULTS);
   let page_num = arguments.page_num.map(|page_num| page_num.max(1));
   let page_id =
     match arguments.within.as_deref().map(str::trim).filter(|within| !within.is_empty() && *within != "null") {
@@ -1724,7 +1713,13 @@ async fn execute_search_tool_call(
         None => return Ok(tool_error_json("search tool argument 'within' must be a page or table link.")),
       },
     };
-  let search_request = search::SearchRequest { page_id, text: search_text, num_results, page_num, scope_id: None };
+  let search_request = search::SearchRequest {
+    page_id,
+    text: search_text,
+    num_results: CHAT_SEARCH_TOOL_PAGE_SIZE,
+    page_num,
+    scope_id: None,
+  };
 
   match search::run_lexical_search(db, search_request, session, scope).await {
     Ok(response) => {
@@ -2816,10 +2811,10 @@ mod tests {
     assert!(parse(serde_json::json!({ "link": id, "count": "two" })).is_err());
     assert!(parse(serde_json::json!({ "link": id, "count": 1.5 })).is_err());
     let search = serde_json::from_value::<ChatSearchToolArguments>(
-      serde_json::json!({ "query": "acme", "numResults": "5", "pageNum": null }),
+      serde_json::json!({ "query": "acme", "numResults": 5, "pageNum": "2" }),
     )
     .unwrap();
-    assert_eq!((search.text.as_deref(), search.num_results, search.page_num), (Some("acme"), Some(5), None));
+    assert_eq!((search.text.as_deref(), search.page_num), (Some("acme"), Some(2)), "numResults is ignored");
   }
 
   #[tokio::test]

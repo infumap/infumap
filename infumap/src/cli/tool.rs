@@ -40,16 +40,10 @@ pub fn make_clap_subcommand() -> Command {
         .arg(Arg::new("text").required(true).help("Search words; quote queries containing spaces."))
         .arg(Arg::new("within").long("within").help("Page or table link (or bare id) to search within."))
         .arg(
-          Arg::new("num-results")
-            .long("num-results")
-            .value_parser(value_parser!(i64).range(1..=20))
-            .help("Maximum results, 1–20 (default: 8)."),
-        )
-        .arg(
           Arg::new("page-num")
             .long("page-num")
             .value_parser(value_parser!(i64).range(1..))
-            .help("One-based results page (default: 1)."),
+            .help("One-based page of 10 results (default: 1)."),
         ),
     )
     .subcommand(
@@ -75,7 +69,7 @@ pub async fn execute(matches: &ArgMatches) -> InfuResult<()> {
   let (name, arguments_matches) = matches.subcommand().ok_or("A tool name is required.")?;
   let mut arguments = serde_json::Map::new();
   let (string_args, number_args): (&[(&str, &str)], &[(&str, &str)]) = match name {
-    "search" => (&[("text", "text"), ("within", "within")], &[("num-results", "numResults"), ("page-num", "pageNum")]),
+    "search" => (&[("text", "text"), ("within", "within")], &[("page-num", "pageNum")]),
     "get_fragment" => (&[("link", "link")], &[("fragment-ordinal", "fragmentOrdinal"), ("count", "count")]),
     _ => return Err(format!("Unknown built-in tool '{name}'.").into()),
   };
