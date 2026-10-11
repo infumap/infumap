@@ -35,9 +35,10 @@ The cost is that a long chat grows by every result, and a small-context model ev
 nears the model's context size is the planned answer. A compacted result should say plainly that its
 content is gone, so that the model calls the tool again rather than reconstructing it.
 
-The chat server appends each run's requests, responses and full tool results to `/tmp/llm.txt`, under
-a `RUN <time>` line. The log starts over once it passes 10 MB. Within a run, messages already logged
-are shown as `<messages 0–N unchanged since request K>`.
+The chat server writes each run's requests, responses and full tool results to `/tmp/llm.txt`,
+starting the file over for every message sent. Earlier turns are not lost: history is sent as it
+was, so the run's first request, logged in full, holds the whole conversation. Later requests in
+the run show messages already logged as `<messages 0–N unchanged since request K>`.
 
 ## Scopes
 

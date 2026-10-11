@@ -60,7 +60,6 @@ const CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS: usize = 280;
 const CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS: usize = 80;
 const CHAT_TOOL_SUMMARY_TITLE_COUNT: usize = 3;
 const LLM_LOG_PATH: &str = "/tmp/llm.txt";
-const LLM_LOG_MAX_BYTES: u64 = 10 * 1024 * 1024;
 // How the tools work is in their descriptions; this keeps only the instructions that change what the model does.
 const CHAT_INFUMAP_SYSTEM_PROMPT: &str = "\
 You answer questions using the user's Infumap workspace. Search with lexical_search and retry with other words \
@@ -1139,15 +1138,12 @@ fn reqwest_error_for_log(error: &reqwest::Error) -> String {
   format!("{}{}", error_chain_for_log(error), kind_suffix)
 }
 
-/// Starts a run's section of the LLM log. Runs are appended, so a follow-up question does not erase the turn it asks
-/// about; the log starts over once it passes LLM_LOG_MAX_BYTES.
-fn start_llm_log_run() {
-  let too_big = std::fs::metadata(LLM_LOG_PATH).is_ok_and(|metadata| metadata.len() > LLM_LOG_MAX_BYTES);
-  if too_big && let Err(e) = std::fs::write(LLM_LOG_PATH, "") {
+/// Starts the LLM log over for a run. Earlier turns are not lost: history is sent as it was, so the run's first request,
+/// logged in full, holds the whole conversation.
+fn reset_llm_log() {
+  if let Err(e) = std::fs::write(LLM_LOG_PATH, "") {
     warn!("Could not reset LLM log '{}': {}", LLM_LOG_PATH, e);
   }
-  let started = OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339).unwrap_or_default();
-  append_llm_log_section(&format!("RUN {started}"), "");
 }
 
 fn append_llm_log_section(title: &str, body: &str) {
@@ -1542,7 +1538,7 @@ async fn run_chat_with_tools(
   request: &ChatRequest,
   progress: &ChatProgressReporter,
 ) -> InfuResult<ChatRunResult> {
-  start_llm_log_run();
+  reset_llm_log();
 
   let endpoint =
     resolve_chat_endpoint(config.as_ref(), request.model.as_ref().unwrap_or(&ChatModelSelection::default()))?;
