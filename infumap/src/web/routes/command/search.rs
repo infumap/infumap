@@ -1066,7 +1066,7 @@ fn byte_index_at_char(text: &str, char_idx: usize) -> usize {
 
 /// The query's words in their indexed, stemmed form, without stop words unless there is nothing else. Stop words are
 /// recognised before stemming, which would turn "its" into "it".
-fn normalized_search_terms(search_text: &str) -> Vec<String> {
+pub(crate) fn normalized_search_terms(search_text: &str) -> Vec<String> {
   let words = tokenize_search_text(search_text);
   let meaningful = words
     .iter()
@@ -1079,7 +1079,7 @@ fn normalized_search_terms(search_text: &str) -> Vec<String> {
   terms
 }
 
-fn sentence_matches_query_terms(sentence: &str, query_terms: &[String]) -> bool {
+pub(crate) fn sentence_matches_query_terms(sentence: &str, query_terms: &[String]) -> bool {
   if query_terms.is_empty() {
     return false;
   }
