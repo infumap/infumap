@@ -77,16 +77,18 @@ fn result_line(result: &SearchResult, listings: &HashMap<Uid, HitListing>) -> Op
     .iter()
     .enumerate()
     .map(|(index, element)| {
+      // An attachment step says so, or a note holding a page reads as a folder.
+      let mark = listing.and_then(|listing| listing.ancestor_marks.get(&element.id)).cloned().unwrap_or_default();
       let part = match container {
         Some((container, fragment)) if index >= container => {
-          let link = element_link(element);
+          let link = format!("{}{}", element_link(element), mark.suffix);
           if index == container && fragment > 0 { format!("{link} (fragment {fragment})") } else { link }
         }
-        _ => location_label(element),
+        _ => format!("{}{}", location_label(element), mark.suffix),
       };
       // A page linked from elsewhere says so where it is named, since that may be what places the hit in context.
       let backlinks = listing.and_then(|listing| listing.ancestor_backlinks.get(&element.id));
-      format!("{part}{}", backlinks.map_or("", String::as_str))
+      format!("{}{part}{}", mark.prefix, backlinks.map_or("", String::as_str))
     })
     .collect::<Vec<_>>();
   // A group is not an item on the path; it sits between its page and the member holding the hit.
@@ -176,6 +178,7 @@ mod tests {
       subject_id: subject_id.to_owned(),
       text: text.to_owned(),
       ancestor_backlinks: HashMap::new(),
+      ancestor_marks: HashMap::new(),
     }
   }
 
@@ -243,5 +246,28 @@ mod tests {
     let calendar =
       "Home › [Calendar](infumap://c) › 2026-01-03 Sat: [dentist](infumap://d) · attached: [x](infumap://x)";
     assert_eq!(result_line_title(calendar), "dentist", "a calendar date before the link is skipped");
+  }
+
+  #[test]
+  fn attachment_steps_say_so() {
+    use super::super::container_fragments::PathMark;
+    let path = vec![
+      element("page", "Home", "h"),
+      element("page", "Notes", "n"),
+      element("note", "Plans", "pl"),
+      element("page", "Paris", "pa"),
+      element("note", "museum", "m"),
+    ];
+    let response = SearchResponse { results: vec![result(path, Vec::new())], has_more: false };
+    let mut museum = listing(Some("pa"), 0, "m", "[museum](infumap://m) (note)");
+    museum.ancestor_marks = HashMap::from([
+      ("pl".to_owned(), PathMark { prefix: "", suffix: " (note)".to_owned() }),
+      ("pa".to_owned(), PathMark { prefix: "attached: ", suffix: String::new() }),
+    ]);
+    let listings = HashMap::from([("m".to_owned(), museum)]);
+    assert_eq!(
+      search_results_text(&response, &listings, 1),
+      "Home › Notes › Plans (note) › attached: [Paris](infumap://pa) › [museum](infumap://m) (note)"
+    );
   }
 }

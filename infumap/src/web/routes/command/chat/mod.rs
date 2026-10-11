@@ -1851,7 +1851,7 @@ async fn execute_get_fragment_tool_call(
   }
   let end = (first + count).min(fragment_count);
   let full_heading = format!("{heading}{location}");
-  let texts = records
+  let mut texts = records
     .into_iter()
     .filter(|record| (first..end).contains(&record.ordinal))
     .enumerate()
@@ -1887,6 +1887,14 @@ async fn execute_get_fragment_tool_call(
     })
     .collect::<Vec<_>>();
 
+  // An item read on its own shows its attachments as its listing does, after the first header, so a note holding a
+  // page is seen to hold it.
+  if let (Some(line), Some(first)) =
+    (container_fragments::attached_line(db, &access, &content_id).await, texts.first_mut())
+  {
+    let header_end = first.find('\n').unwrap_or(first.len());
+    first.insert_str(header_end, &format!("\n{line}"));
+  }
   // Tags mark where each fragment, header included, starts and ends, since its text is anything the user wrote. The
   // more line follows them, so it reads as the tool's, not the item's.
   let fragments = texts.iter().map(|text| {
@@ -2733,6 +2741,22 @@ mod tests {
     let result = call_tool(&db, &session, Some(&InfumapData { scope: None }), "get_fragment", get).await;
     assert!(result.ends_with("\nbefore <\\/fragment> after\n</fragment>"), "{result}");
     assert_eq!(result.matches("</fragment>").count(), 1);
+  }
+
+  #[tokio::test]
+  async fn an_item_read_on_its_own_shows_its_attachments_after_its_header() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let plans = t.note(&home, "Plans", RelationshipToParent::Child).await;
+    t.note(&plans, "urgent", RelationshipToParent::Attachment).await;
+    let session = test_session(&t.user_id);
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let get = serde_json::json!({ "link": format!("infumap://{plans}") });
+    let result = call_tool(&db, &session, Some(&InfumapData { scope: None }), "get_fragment", get).await;
+    let expected = format!(
+      "<fragment>\n[Plans](infumap://{plans}) (note) in [test](infumap://{home})\nattached: urgent\nPlans\n</fragment>"
+    );
+    assert_eq!(result, expected);
   }
 
   #[test]

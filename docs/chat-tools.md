@@ -99,6 +99,13 @@ For more results, call lexical_search again with the same arguments and pageNum 
   result itself. Attachments and composite members belong to the item or composite they are part of,
   so a table cell's container is its row's table. A page or table result is listed by its parent.
   A group comes after its page when the result, or the item holding it, is one of its members.
+- A location step that is an attachment says so. A path follows parent links, and an attachment's
+  parent is the item it is attached to, so without a mark a note holding a page reads as a folder.
+  In a table, where attachments are the cells of a row, the holding item is followed by `(row)`:
+  `Trips › Acme onboarding (row) › [Toronto](…)`. Elsewhere it is followed by its kind and the
+  attachment by `attached: `: `Notes › Plans (note) › attached: [Paris](…)`. Fragment headers mark
+  their breadcrumbs the same way, and an item attached outside a table is placed with ` attached to `
+  rather than ` in `.
 - `(fragment N)` after the container is the fragment listing the result, given only when it is past
   the first.
 - A result on a calendar page starts with its day as the page lists it, such as
@@ -174,7 +181,9 @@ seconds, and the URL becomes the page's.
 The result is the fragments asked for, each between `<fragment>` and `</fragment>` lines and starting
 with a header line: the item's link and kind, ` in ` and its breadcrumb, then ` · fragment N of 0–M`
 when the item has more than one fragment. Only the first fragment in a result gives the location;
-the ones after it would repeat it. While fragments remain, a blank line and
+the ones after it would repeat it. An item with attachments has an `attached: …` line after the
+first header, as its listing shows them, since its own text never mentions them: a note holding a
+page would otherwise show no sign of it. While fragments remain, a blank line and
 `The item continues. For the next fragment, call get_fragment again with fragmentOrdinal N.` end the
 result, and following it until it is absent reads the whole item.
 
