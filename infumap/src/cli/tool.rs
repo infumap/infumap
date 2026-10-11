@@ -35,7 +35,7 @@ pub fn make_clap_subcommand() -> Command {
     )
     .arg(Arg::new("scope").long("scope").global(true).help("Scope id limiting what the tool can search or read."))
     .subcommand(
-      Command::new("lexical_search")
+      Command::new("search")
         .about("Search item titles and indexed document text.")
         .arg(Arg::new("text").required(true).help("Search words; quote queries containing spaces."))
         .arg(Arg::new("within").long("within").help("Page or table link (or bare id) to search within."))
@@ -75,9 +75,7 @@ pub async fn execute(matches: &ArgMatches) -> InfuResult<()> {
   let (name, arguments_matches) = matches.subcommand().ok_or("A tool name is required.")?;
   let mut arguments = serde_json::Map::new();
   let (string_args, number_args): (&[(&str, &str)], &[(&str, &str)]) = match name {
-    "lexical_search" => {
-      (&[("text", "text"), ("within", "within")], &[("num-results", "numResults"), ("page-num", "pageNum")])
-    }
+    "search" => (&[("text", "text"), ("within", "within")], &[("num-results", "numResults"), ("page-num", "pageNum")]),
     "get_fragment" => (&[("link", "link")], &[("fragment-ordinal", "fragmentOrdinal"), ("count", "count")]),
     _ => return Err(format!("Unknown built-in tool '{name}'.").into()),
   };

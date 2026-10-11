@@ -45,6 +45,7 @@ function queryChatRoundHasContent(round: QueryChatActivityModelRound): boolean {
 function queryChatToolDisplayName(name: string): string {
   switch (name) {
     case "find":
+    case "search":
     case "lexical_search":
       return "Search Infumap";
     case "search_text":
@@ -110,7 +111,7 @@ function queryChatToolDurationLabel(durationMs: number): string {
 
 function queryChatToolCallSignature(name: string, args: unknown): string | null {
   const record = queryChatJsonRecord(args);
-  if (name == "lexical_search" || name == "find") {
+  if (name == "search" || name == "lexical_search" || name == "find") {
     const query = queryChatJsonString(record?.text) ?? queryChatJsonString(record?.query);
     if (query == null) {
       return record == null ? null : `${name}()`;

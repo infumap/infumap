@@ -276,19 +276,19 @@ nonzero status. Session or
 transport failures report a diagnostic on stderr and also exit with a nonzero status.
 
 ```bash
-infumap tool lexical_search "acme onboarding"
-infumap tool lexical_search "budget" --within infumap://<page-id>
-infumap tool lexical_search "budget" --num-results 10 --page-num 2
+infumap tool search "acme onboarding"
+infumap tool search "budget" --within infumap://<page-id>
+infumap tool search "budget" --num-results 10 --page-num 2
 infumap tool get_fragment infumap://<item-id>
 infumap tool get_fragment <item-id> --fragment-ordinal 4 --count 3
-infumap tool lexical_search "budget" --session work --scope <scope-id>
+infumap tool search "budget" --session work --scope <scope-id>
 ```
 
 Both subcommands accept `-s --session <name>` (default: `default`) and `--scope <scope-id>`.
 These options may appear before or after the tool name. An invalid or deleted scope fails the
 request; it never falls back to an unrestricted call.
 
-`tool lexical_search <text>` accepts:
+`tool search <text>` accepts:
 
 - **--within:** Page or table link, or bare id, to search within.
 - **--num-results:** Maximum results, 1–20 (default: 8).

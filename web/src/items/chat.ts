@@ -190,7 +190,7 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
       }
       return "Waiting for approval";
     case "tool_call_started":
-      if (event.name == "find" || event.name == "lexical_search") {
+      if (event.name == "search" || event.name == "find" || event.name == "lexical_search") {
         return "Finding items";
       }
       if (event.name == "search_text") {
@@ -207,7 +207,7 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
       }
       return `Running ${event.name}`;
     case "tool_call_finished":
-      if (event.name == "find" || event.name == "lexical_search") {
+      if (event.name == "search" || event.name == "find" || event.name == "lexical_search") {
         return "Find complete";
       }
       if (event.name == "search_text") {
