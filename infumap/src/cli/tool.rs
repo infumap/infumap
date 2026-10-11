@@ -48,19 +48,13 @@ pub fn make_clap_subcommand() -> Command {
     )
     .subcommand(
       Command::new("get_fragment")
-        .about("Read an item's text or contents, a fragment at a time.")
+        .about("Read an item's text or contents, 3 fragments at a time.")
         .arg(Arg::new("link").required(true).help("Item infumap:// link or bare id."))
         .arg(
           Arg::new("fragment-ordinal")
             .long("fragment-ordinal")
             .value_parser(value_parser!(i64).range(0..))
             .help("Zero-based starting fragment (default: 0)."),
-        )
-        .arg(
-          Arg::new("count")
-            .long("count")
-            .value_parser(value_parser!(i64).range(1..=3))
-            .help("Consecutive fragments, 1–3 (default: 3)."),
         ),
     )
 }
@@ -70,7 +64,7 @@ pub async fn execute(matches: &ArgMatches) -> InfuResult<()> {
   let mut arguments = serde_json::Map::new();
   let (string_args, number_args): (&[(&str, &str)], &[(&str, &str)]) = match name {
     "search" => (&[("text", "text"), ("within", "within")], &[("page-num", "pageNum")]),
-    "get_fragment" => (&[("link", "link")], &[("fragment-ordinal", "fragmentOrdinal"), ("count", "count")]),
+    "get_fragment" => (&[("link", "link")], &[("fragment-ordinal", "fragmentOrdinal")]),
     _ => return Err(format!("Unknown built-in tool '{name}'.").into()),
   };
   for &(flag, key) in string_args {

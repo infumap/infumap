@@ -159,12 +159,13 @@ edits by several minutes. A moved item links its new container, and a deleted it
 ## Reading
 
 ```json
-{ "link": "infumap://<id>", "fragmentOrdinal": 0, "count": 1 }
+{ "link": "infumap://<id>", "fragmentOrdinal": 0 }
 ```
 
-`link` is required; a link item reads as its target. `fragmentOrdinal` defaults to 0, and `count`
-returns 1–3 consecutive fragments, 3 by default, so most pages come back whole on the first call
-rather than relying on the model to see that it has more to read. The fragments depend on the item:
+`link` is required; a link item reads as its target. `fragmentOrdinal` defaults to 0. Each call
+returns up to 3 consecutive fragments, so most pages come back whole on the first call. There is no
+argument for how many: a weak model given one tends to read a fragment at a time and stop early.
+The fragments depend on the item:
 
 | Item | Fragments |
 | --- | --- |
@@ -305,7 +306,7 @@ session. It does not invoke an LLM or an external MCP tool. The request is a JSO
 ```json
 {
   "name": "get_fragment",
-  "arguments": { "link": "infumap://<id>", "fragmentOrdinal": 4, "count": 3 },
+  "arguments": { "link": "infumap://<id>", "fragmentOrdinal": 4 },
   "scopeId": "<optional-scope-id>"
 }
 ```

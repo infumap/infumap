@@ -280,7 +280,7 @@ infumap tool search "acme onboarding"
 infumap tool search "budget" --within infumap://<page-id>
 infumap tool search "budget" --page-num 2
 infumap tool get_fragment infumap://<item-id>
-infumap tool get_fragment <item-id> --fragment-ordinal 4 --count 3
+infumap tool get_fragment <item-id> --fragment-ordinal 4
 infumap tool search "budget" --session work --scope <scope-id>
 ```
 
@@ -296,7 +296,6 @@ request; it never falls back to an unrestricted call.
 `tool get_fragment <link-or-id>` accepts:
 
 - **--fragment-ordinal:** Zero-based starting fragment (default: 0).
-- **--count:** Consecutive fragments, 1–3 (default: 3).
 
 The tools use the same argument handling, access checks, and result formatting as chat. A result
 ending with a `The item continues.` or `For more results,` line has more: run the command again with
