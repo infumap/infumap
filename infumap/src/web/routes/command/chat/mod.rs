@@ -56,7 +56,9 @@ const CHAT_TOOL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 /// know how many it needs, and asks for the most it can.
 const CHAT_SEARCH_TOOL_PAGE_SIZE: i64 = 10;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
-const CHAT_FRAGMENT_TOOL_MAX_COUNT: i64 = 3;
+/// Consecutive fragments get_fragment returns. A fixed number means most pages come back whole on the first call, and a
+/// weak model cannot read one fragment at a time and stop early.
+const CHAT_FRAGMENT_TOOL_FRAGMENTS_PER_CALL: usize = 3;
 const CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS: usize = 280;
 const CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS: usize = 80;
 const CHAT_TOOL_SUMMARY_TITLE_COUNT: usize = 3;
@@ -643,8 +645,6 @@ struct ChatFragmentToolArguments {
     deserialize_with = "lenient_i64"
   )]
   fragment_ordinal: Option<i64>,
-  #[serde(default, deserialize_with = "lenient_i64")]
-  count: Option<i64>,
 }
 
 /// A whole number given as a JSON number, including `2.0`, or as a string such as `"2"`.
@@ -1258,22 +1258,25 @@ fn search_tool_spec() -> OpenAiToolSpec {
     tool_type: "function".to_owned(),
     function: OpenAiToolFunctionSpec {
       name: "search".to_owned(),
-      description: "Search the user's Infumap workspace: titles, document text, and image descriptions, with ordinary words. Prefer a few distinctive terms; split concepts across calls and retry weak searches with fewer or alternate terms. Each result is one line: where the item is, then the item. Linked items can be read with get_fragment; \"(fragment N)\" after a container is the fragment listing the item, and \"— fragment N:\" gives a document's best matching passage. A result that ends by telling you to call again has further pages.".to_owned(),
+      description: "Search the user's Infumap workspace: item titles, document text and image descriptions. It is a \
+        stemmed keyword search, not a semantic one: it matches any of the words, ranking items that match more of them \
+        first. Links in results can be read with get_fragment."
+        .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
           "text": {
             "type": "string",
-            "description": "Usually 2 to 6 distinctive ordinary words; no Boolean or field syntax."
+            "description": "A few distinctive words; no quotes, Boolean operators or field syntax."
           },
           "within": {
             "type": ["string", "null"],
-            "description": "Optional link of a page or table; searches it, everything inside it, and items linked into it. Omit to search everything."
+            "description": "A page or table link, to search only inside it, including items linked into it."
           },
           "pageNum": {
             "type": "integer",
             "minimum": 1,
-            "description": "Optional one-based page of 10 results."
+            "description": "Page of 10 results, from 1."
           }
         },
         "required": ["text"],
@@ -1289,30 +1292,21 @@ fn get_fragment_tool_spec() -> OpenAiToolSpec {
     function: OpenAiToolFunctionSpec {
       name: "get_fragment".to_owned(),
       description:
-        "Read an Infumap item's text by its link, a few fragments at a time. Works for documents and images (their \
-        extracted text), notes, and pages, tables, composites and groups (their items as lines with links; a child page or \
-        table is one line, so read it by its own link). Each fragment starts with a header line: the item's link, what \
-        it is, where it is, and \"fragment N of 0–M\" when it has more than one. A container's header also gives the \
-        items or table rows the fragment holds, out of how many. While a result ends by telling you to call again, do \
-        so to continue."
+        "Read an Infumap item by its link. A document or image gives its extracted text, a note its text, and a page, \
+        table, composite or group its items as lines with links; a page or table inside one is a single line, read by its \
+        own link. Long items come in fragments, 3 per call."
           .to_owned(),
       parameters: serde_json::json!({
         "type": "object",
         "properties": {
           "link": {
             "type": "string",
-            "description": "The item's infumap:// link, from search or a fragment."
+            "description": "An infumap:// link from search results or an earlier read."
           },
           "fragmentOrdinal": {
             "type": "integer",
             "minimum": 0,
-            "description": "Fragment to start at; defaults to 0. search gives the ordinal of a match."
-          },
-          "count": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": CHAT_FRAGMENT_TOOL_MAX_COUNT,
-            "description": "Consecutive fragments to return; defaults to 3."
+            "description": "Fragment to start at, from 0 (the default); search results give the one holding a match."
           }
         },
         "required": ["link"],
@@ -1757,17 +1751,6 @@ async fn execute_get_fragment_tool_call(
     Some(ordinal) if ordinal >= 0 => ordinal as usize,
     Some(_) => return Ok(tool_error_json("get_fragment tool argument 'fragmentOrdinal' must be non-negative.")),
   };
-  // Reading a few fragments by default means most pages come back whole, rather than relying on a weak model to see
-  // that it has more to read.
-  let count = match arguments.count {
-    None => CHAT_FRAGMENT_TOOL_MAX_COUNT as usize,
-    Some(count) if (1..=CHAT_FRAGMENT_TOOL_MAX_COUNT).contains(&count) => count as usize,
-    Some(_) => {
-      return Ok(tool_error_json(&format!(
-        "get_fragment tool argument 'count' must be between 1 and {CHAT_FRAGMENT_TOOL_MAX_COUNT}."
-      )));
-    }
-  };
 
   enum Source {
     Container,
@@ -1847,7 +1830,7 @@ async fn execute_get_fragment_tool_call(
       fragment_count - 1
     )));
   }
-  let end = (first + count).min(fragment_count);
+  let end = (first + CHAT_FRAGMENT_TOOL_FRAGMENTS_PER_CALL).min(fragment_count);
   let full_heading = format!("{heading}{location}");
   let mut texts = records
     .into_iter()
@@ -2662,8 +2645,7 @@ mod tests {
     let mut items_seen = 0;
     let mut next = Some(0);
     while let Some(ordinal) = next {
-      let result =
-        get(serde_json::json!({ "link": format!("infumap://{page}"), "fragmentOrdinal": ordinal, "count": 3 })).await;
+      let result = get(serde_json::json!({ "link": format!("infumap://{page}"), "fragmentOrdinal": ordinal })).await;
       let (fragments, more) = fragment_texts(&result);
       assert_eq!(fragments.len(), if more.is_some() { 3 } else { fragments.len() }, "{result}");
       for (index, fragment) in fragments.iter().enumerate() {
@@ -2690,7 +2672,7 @@ mod tests {
 
     let first = get(serde_json::json!({ "link": page })).await;
     let (_, more) = split_more_line(&first, FRAGMENT_MORE_LINE);
-    assert_eq!(more, Some(3), "count defaults to 3 and the ordinal to 0");
+    assert_eq!(more, Some(3), "a call reads 3 fragments, from 0 by default");
     let (first_ordinal, read_last, last) = fragment_result_range(&first);
     assert_eq!((first_ordinal, read_last), (0, 2));
     assert!(last >= 3);
@@ -2700,11 +2682,9 @@ mod tests {
       error_of(&out_of_range),
       Some(format!("fragmentOrdinal {count} is out of range; this item has {count} fragments, ordinals 0 to {last}."))
     );
-    let too_many = get(serde_json::json!({ "link": page, "count": 4 })).await;
-    assert_eq!(error_of(&too_many).as_deref(), Some("get_fragment tool argument 'count' must be between 1 and 3."));
 
     // A note reads as its own fragments under a short label, and a link reads as its target.
-    let note = get(serde_json::json!({ "link": link, "count": 3 })).await;
+    let note = get(serde_json::json!({ "link": link })).await;
     let (fragments, more) = fragment_texts(&note);
     assert_eq!((fragments.len(), more), (3, None), "two 1469-char paragraphs do not fit one fragment");
     let (label, _) = fragments[0].lines().next().unwrap().split_once("](").unwrap();
@@ -2805,11 +2785,11 @@ mod tests {
     }
 
     let parse = |arguments: Value| serde_json::from_value::<ChatFragmentToolArguments>(arguments);
-    let parsed = parse(serde_json::json!({ "link": id, "ordinal": "2", "count": 3.0 })).unwrap();
-    assert_eq!((parsed.fragment_ordinal, parsed.count), (Some(2), Some(3)));
-    assert_eq!(parse(serde_json::json!({ "link": id, "fragment_ordinal": 1 })).unwrap().fragment_ordinal, Some(1));
-    assert!(parse(serde_json::json!({ "link": id, "count": "two" })).is_err());
-    assert!(parse(serde_json::json!({ "link": id, "count": 1.5 })).is_err());
+    let parsed = parse(serde_json::json!({ "link": id, "ordinal": "2", "count": 1 })).unwrap();
+    assert_eq!(parsed.fragment_ordinal, Some(2), "count is ignored");
+    assert_eq!(parse(serde_json::json!({ "link": id, "fragment_ordinal": 1.0 })).unwrap().fragment_ordinal, Some(1));
+    assert!(parse(serde_json::json!({ "link": id, "fragmentOrdinal": "two" })).is_err());
+    assert!(parse(serde_json::json!({ "link": id, "fragmentOrdinal": 1.5 })).is_err());
     let search = serde_json::from_value::<ChatSearchToolArguments>(
       serde_json::json!({ "query": "acme", "numResults": 5, "pageNum": "2" }),
     )
