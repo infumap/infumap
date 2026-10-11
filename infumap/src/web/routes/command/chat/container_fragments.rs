@@ -35,6 +35,7 @@
 use super::*;
 use crate::ai::fragment::read_item_fragment_metadata;
 use crate::web::routes::command::scope::{ResolvedScope, readable, resolve_content};
+use crate::web::routes::command::search::{normalized_search_terms, sentence_matches_query_terms};
 use futures_util::{StreamExt, stream};
 use infusdk::item::{NoteFlags, NoteUrl};
 
@@ -186,24 +187,27 @@ pub(super) async fn hit_listings(
   db: &Arc<tokio::sync::Mutex<Db>>,
   access: &Access<'_>,
   item_ids: &[Uid],
+  search_text: &str,
 ) -> HashMap<Uid, HitListing> {
   let (labels, mut placements, data_dir, data_item_ids, container_item_ids) = {
     let db = db.lock().await;
     let home_page_id = db.user.get(&access.user_id.to_owned()).map(|user| user.home_page_id.clone());
     let mut renderer = Renderer::new(&db, access);
     renderer.search_labels = true;
+    renderer.query_terms = normalized_search_terms(search_text);
     let mut labels = Vec::new();
     let mut placements = HashMap::new();
     for item_id in item_ids {
       let Ok(item) = db.item.get(item_id) else {
         continue;
       };
-      // An attachment is part of the item it is attached to, as a cell is of a row, so a hit on either shows the
-      // item with its attachments.
+      // A cell is part of its row, so a hit on a cell shows the row. Any other attachment is its own result, after
+      // the item it is attached to, so its snippet sits beside it.
       let parent = (item.relationship_to_parent == RelationshipToParent::Attachment)
         .then(|| db.item.get(item.parent_id.as_ref()?).ok())
         .flatten()
-        .filter(|parent| access.can_read(&db, parent));
+        .filter(|parent| access.can_read(&db, parent))
+        .filter(|parent| parent.parent_id.as_ref().and_then(|id| db.item.get(id).ok()).is_some_and(is_tabular));
       let (subject_id, content) = match parent {
         Some(parent) => (parent.id.clone(), Some(parent)),
         None => (item_id.clone(), access.content(&db, item)),
@@ -219,12 +223,16 @@ pub(super) async fn hit_listings(
           .filter(|group_id| group_members(&db, access, group_id).is_some_and(|(page, _)| page.id == container.id));
         // An item's day on a calendar page is where the page shows it, so its result carries it too.
         let date = (Layout::of(container) == Layout::Calendar).then(|| calendar_prefix(child));
-        placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned(), date));
+        placements.insert(item_id.clone(), (container.id.clone(), group_id.cloned(), date, child.id.clone()));
       }
       let subject = parent.unwrap_or(item);
       let mut chain = ancestors(&db, subject, access.user_id).unwrap_or_default();
       chain.push(subject);
       let ancestor_marks = attachment_marks(&chain);
+      let mut label = label;
+      if let Some(mark) = ancestor_marks.get(&subject.id).filter(|mark| !mark.prefix.is_empty()) {
+        label.0.insert(0, Piece::Text(mark.prefix.to_owned()));
+      }
       let (backlinks, ancestor_backlinks) = match home_page_id.as_ref() {
         Some(home_page_id) => renderer.record_backlinks(item, subject, home_page_id),
         None => (Pieces::default(), Vec::new()),
@@ -263,10 +271,13 @@ pub(super) async fn hit_listings(
       };
       let placement = placements.remove(&item_id);
       let fragments = placement.as_ref().and_then(|(container_id, ..)| rendered.get(container_id)?.as_ref());
-      // Document pages do not render attachments, so an attachment is located by its item.
-      let ordinal = fragments
-        .and_then(|fragments| fragments.fragment_of(&item_id).or_else(|| fragments.fragment_of(&listing.subject_id)));
-      if let (Some((container_id, group_id, date)), Some(fragments), Some(ordinal)) = (placement, fragments, ordinal) {
+      // Document pages do not render attachments, so an attachment is located by the child of the container holding it.
+      let child_id = placement.as_ref().map(|(.., child_id)| child_id);
+      let ordinal = fragments.and_then(|fragments| {
+        fragments.fragment_of(&item_id).or_else(|| child_id.and_then(|child_id| fragments.fragment_of(child_id)))
+      });
+      if let (Some((container_id, group_id, date, _)), Some(fragments), Some(ordinal)) = (placement, fragments, ordinal)
+      {
         listing.container_id = Some(container_id);
         listing.container_fragment = ordinal;
         listing.group_id = group_id;
@@ -1087,6 +1098,8 @@ struct Renderer<'a, 'b> {
   search_labels: bool,
   /// Pages and tables whose fragment counts the labels need.
   container_item_ids: HashSet<Uid>,
+  /// A search's stemmed words: a result's attachments are shown only when their titles hold one.
+  query_terms: Vec<String>,
   placements: usize,
   unit_item_ids: Vec<Uid>,
   rows: Vec<(Vec<Uid>, Pieces)>,
@@ -1101,6 +1114,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       data_item_ids: HashSet::new(),
       search_labels: false,
       container_item_ids: HashSet::new(),
+      query_terms: Vec::new(),
       placements: 0,
       unit_item_ids: Vec::new(),
       rows: Vec::new(),
@@ -1427,11 +1441,17 @@ impl<'a, 'b> Renderer<'a, 'b> {
     Ok(())
   }
 
-  /// A search hit's linked label, then links to its attachments: at most a few, each with a short label.
+  /// A search hit's linked label, then links to the attachments whose titles hold a search word: an item's title entry
+  /// holds its attachments' titles, so these may be why it matched. At most a few, each with a short label.
   fn record_label(&mut self, content: &'a Item) -> InfuResult<Pieces> {
     let mut pieces = self.hit_label(content, HIT_NOTE_MAX_CHARS, true)?;
     let mut attachments = self.attachments(content)?;
-    attachments.retain(|item| item.item_type != ItemType::Placeholder && self.access.can_read(self.db, item));
+    attachments.retain(|item| {
+      let title = self.access.content(self.db, item).and_then(|content| content.title.as_deref());
+      item.item_type != ItemType::Placeholder
+        && self.access.can_read(self.db, item)
+        && title.is_some_and(|title| sentence_matches_query_terms(title, &self.query_terms))
+    });
     for (index, attachment) in attachments.iter().take(HIT_ATTACHMENTS_MAX).enumerate() {
       pieces.text(if index == 0 { " · attached: " } else { "; " });
       match self.access.content(self.db, attachment) {
@@ -1888,7 +1908,7 @@ mod tests {
       Some("Item was not found.".to_owned())
     );
 
-    let listings = hit_listings(&db, &access, &[members[0].clone(), lone.clone()]).await;
+    let listings = hit_listings(&db, &access, &[members[0].clone(), lone.clone()], "").await;
     assert_eq!(listings[&members[0]].group_id.as_ref(), Some(group_id));
     assert_eq!(listings[lone].group_id, None);
   }
@@ -1972,7 +1992,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn hits_show_their_item_with_short_links_to_its_attachments() {
+  async fn hits_show_only_attachments_holding_a_search_word_and_an_attachment_is_its_own_result() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
     let doc = t.arranged_page(&home, "Doc", ArrangeAlgorithm::Document, "").await;
@@ -1982,35 +2002,38 @@ mod tests {
       let tag = t.note(&item, "fat cat", RelationshipToParent::Attachment).await;
       let long_text = "Notes from the call with the vendor about pricing and the renewal terms";
       let long = t.note(&item, long_text, RelationshipToParent::Attachment).await;
-      let notes = t.page(&item, "Notes").await;
-      let mut attached_page = t.db.item.get(&notes).unwrap().clone();
-      attached_page.relationship_to_parent = RelationshipToParent::Attachment;
-      attached_page.ordering = [t.db.item.get(&long).unwrap().ordering.clone(), vec![128]].concat();
-      t.db.item.update(&attached_page).await.unwrap();
-      let mut fourth = None;
-      for extra in ["four", "five", "six"] {
-        let id = t.note(&item, extra, RelationshipToParent::Attachment).await;
-        fourth.get_or_insert(id);
+      let notes = t.attached_page(&item, "Notes").await;
+      let mut matching = Vec::new();
+      for extra in ["cats four", "cat five", "cat six"] {
+        matching.push(t.note(&item, extra, RelationshipToParent::Attachment).await);
       }
-      ids.push((item, tag, long, notes, fourth.unwrap()));
+      ids.push((item, tag, long, notes, matching));
     }
     let user_id = t.user_id.clone();
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let access = Access { user_id: &user_id, scope: None };
     let hits = ids.iter().flat_map(|(item, tag, ..)| [item.clone(), tag.clone()]).collect::<Vec<_>>();
-    let listings = hit_listings(&db, &access, &hits).await;
+    let listings = hit_listings(&db, &access, &hits, "vendor cat").await;
 
-    for (page, (item, tag, long, notes, fourth)) in [&home, &doc].into_iter().zip(&ids) {
+    for (page, (item, tag, long, notes, matching)) in [&home, &doc].into_iter().zip(&ids) {
+      // Only attachments holding a search word may be why the item matched: "Notes" holds none, and "cats" matches
+      // by its stem.
       let expected = format!(
-        "[Vendor review](infumap://{item}) (note) · attached: [fat cat](infumap://{tag}); [Notes from the call with the vendor…](\
-         infumap://{long}) (note, 1 fragment); [Notes](infumap://{notes}) (page, 1 fragment); [four](infumap://{fourth}); \
-         +2 more"
+        "[Vendor review](infumap://{item}) (note) · attached: [fat cat](infumap://{tag}); [Notes from the call with the \
+         vendor…](infumap://{long}) (note, 1 fragment); [cats four](infumap://{}); [cat five](infumap://{}); +1 more",
+        matching[0], matching[1]
       );
-      for hit in [item, tag] {
-        let listing = &listings[hit];
-        assert_eq!((&listing.subject_id, &listing.text), (item, &expected), "{hit}");
-        assert_eq!(listing.container_id.as_ref(), Some(page), "a document page's attachment is located by its item");
-      }
+      assert_eq!(listings[item].text, expected);
+      assert!(!listings[item].text.contains(notes.as_str()));
+
+      // An attachment is its own result, after its item, which the location marks.
+      let attachment = &listings[tag];
+      assert_eq!(
+        (&attachment.subject_id, attachment.text.as_str()),
+        (tag, format!("attached: [fat cat](infumap://{tag}) (note)").as_str())
+      );
+      assert_eq!(attachment.ancestor_marks.get(item).map(|mark| mark.suffix.as_str()), Some(" (note)"));
+      assert_eq!(attachment.container_id.as_ref(), Some(page), "a document page's attachment is located by its item");
     }
   }
 
@@ -2054,7 +2077,7 @@ mod tests {
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let access = Access { user_id: &user_id, scope: None };
 
-    let listings = hit_listings(&db, &access, &[booking.clone(), lonely.clone()]).await;
+    let listings = hit_listings(&db, &access, &[booking.clone(), lonely.clone()], "").await;
     let expected = format!(
       "[Four Seasons booking](infumap://{booking}) (note) · also linked from: [Booked the hotel for three nights in…](infumap://\
        {note}) (note, 1 fragment); [malaysia](infumap://{}); [older](infumap://{}); +1 more",
@@ -2084,7 +2107,7 @@ mod tests {
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let access = Access { user_id: &user_id, scope: None };
 
-    let listings = hit_listings(&db, &access, &[booking.clone(), receipt.clone()]).await;
+    let listings = hit_listings(&db, &access, &[booking.clone(), receipt.clone()], "").await;
     let booking_listing = &listings[&booking];
     assert_eq!(booking_listing.text, format!("[Mandarin Oriental](infumap://{booking}) (note)"));
     assert_eq!(
@@ -2113,7 +2136,7 @@ mod tests {
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let access = Access { user_id: &user_id, scope: None };
 
-    let listings = hit_listings(&db, &access, &[row.clone(), cell.clone()]).await;
+    let listings = hit_listings(&db, &access, &[row.clone(), cell.clone()], "").await;
     let row_text = format!("[Alice](infumap://{row}) | alice@example.com");
     for hit in [&row, &cell] {
       assert_eq!((&listings[hit].subject_id, &listings[hit].text), (&row, &row_text));
@@ -2144,7 +2167,7 @@ mod tests {
     let access = Access { user_id: &user_id, scope: None };
 
     let listings =
-      hit_listings(&db, &access, &[dentist.clone(), trip.clone(), member.clone(), elsewhere.clone()]).await;
+      hit_listings(&db, &access, &[dentist.clone(), trip.clone(), member.clone(), elsewhere.clone()], "").await;
     assert_eq!(listings[&dentist].text, format!("2026-01-01 Thu: [dentist](infumap://{dentist}) (note)"));
     assert_eq!(listings[&trip].text, format!("2026-01-01 Thu – 2026-01-03 Sat: [trip](infumap://{trip}) (note)"));
     assert_eq!(
@@ -2297,7 +2320,7 @@ mod tests {
     let user_id = t.user_id.clone();
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let access = Access { user_id: &user_id, scope: None };
-    let listings = hit_listings(&db, &access, &[review.clone(), museum.clone()]).await;
+    let listings = hit_listings(&db, &access, &[review.clone(), museum.clone()], "").await;
     let mark = |prefix: &'static str, suffix: &str| PathMark { prefix, suffix: suffix.to_owned() };
     assert_eq!(listings[&review].ancestor_marks, HashMap::from([(row.clone(), mark("", " (row)"))]));
     assert_eq!(
@@ -2359,7 +2382,7 @@ mod tests {
     let access = Access { user_id: &user_id, scope: None };
 
     let hits = [&cells[100], &rows[100], &table, &member, &long, &attached, &child, &composite, &new_uid()];
-    let listings = hit_listings(&db, &access, &hits.map(Uid::clone)).await;
+    let listings = hit_listings(&db, &access, &hits.map(Uid::clone), "attached").await;
     assert_eq!(listings.len(), 8, "a missing item has no listing");
 
     let table_fragments = container_fragments(&db, &access, &table).await.unwrap();
@@ -2392,10 +2415,11 @@ mod tests {
     assert!(long_listing.chars().count() < HIT_NOTE_MAX_CHARS + 80, "{long_listing}");
     let attachment = &listings[&attached];
     assert_eq!(
-      (&attachment.subject_id, &attachment.text),
-      (&child, &child_text),
-      "an attachment is shown with its item"
+      (&attachment.subject_id, attachment.text.as_str()),
+      (&attached, format!("attached: [attached to child page](infumap://{attached}) (note)").as_str()),
+      "an attachment is its own result"
     );
+    assert_eq!(attachment.container_id.as_ref(), Some(&page), "located by the child page holding it");
   }
 
   #[tokio::test]
@@ -2411,10 +2435,10 @@ mod tests {
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
 
     let scoped =
-      hit_listings(&db, &Access { user_id: &user_id, scope: Some(&scope) }, std::slice::from_ref(&note)).await;
+      hit_listings(&db, &Access { user_id: &user_id, scope: Some(&scope) }, std::slice::from_ref(&note), "").await;
     assert_eq!(scoped[&note].container_id, None);
     assert_eq!(scoped[&note].text, format!("[included on its own](infumap://{note}) (note)"));
-    let unscoped = hit_listings(&db, &Access { user_id: &user_id, scope: None }, std::slice::from_ref(&note)).await;
+    let unscoped = hit_listings(&db, &Access { user_id: &user_id, scope: None }, std::slice::from_ref(&note), "").await;
     assert_eq!(unscoped[&note].container_id.as_ref(), Some(&page));
   }
 
@@ -2471,7 +2495,7 @@ mod tests {
     let user_id = t.user_id.clone();
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let access = Access { user_id: &user_id, scope: None };
-    let listings = hit_listings(&db, &access, std::slice::from_ref(&long)).await;
+    let listings = hit_listings(&db, &access, std::slice::from_ref(&long), "").await;
     assert!(
       listings[&long].text.starts_with("[Mandarin Oriental · Reservation details. Reservation"),
       "{}",

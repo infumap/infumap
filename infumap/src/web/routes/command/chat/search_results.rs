@@ -270,4 +270,29 @@ mod tests {
       "Home › Notes › Plans (note) › attached: [Paris](infumap://pa) › [museum](infumap://m) (note)"
     );
   }
+
+  #[test]
+  fn an_attachment_result_carries_its_own_snippet() {
+    use super::super::container_fragments::PathMark;
+    let path = vec![
+      element("page", "Home", "h"),
+      element("page", "Reports", "r"),
+      element("file", "booking.pdf", "b"),
+      element("file", "folio.pdf", "f"),
+    ];
+    let response =
+      SearchResponse { results: vec![result(path, vec![fragment_match(0, "pdf_markdown")])], has_more: false };
+    let mut folio =
+      listing(Some("r"), 0, "f", "attached: [folio.pdf](infumap://f) (file, application/pdf, 1 fragment)");
+    folio.ancestor_marks = HashMap::from([
+      ("b".to_owned(), PathMark { prefix: "", suffix: " (file)".to_owned() }),
+      ("f".to_owned(), PathMark { prefix: "attached: ", suffix: String::new() }),
+    ]);
+    let listings = HashMap::from([("f".to_owned(), folio)]);
+    assert_eq!(
+      search_results_text(&response, &listings, 1),
+      "Home › [Reports](infumap://r) › [booking.pdf](infumap://b) (file) › attached: [folio.pdf](infumap://f) (file, \
+       application/pdf, 1 fragment) — fragment 0: …the match…"
+    );
+  }
 }

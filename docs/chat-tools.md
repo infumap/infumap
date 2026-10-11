@@ -129,12 +129,16 @@ For more results, call search again with the same arguments and pageNum 2.
   it, once per page or table result, and an empty one is `1 fragment`.
 - A table row, or a cell of one, is shown as the whole row with its cells, cut at 300 characters. A
   row and its cell give the same line, which is listed once.
-- Elsewhere, an item with attachments, or one of its attachments, is shown as the item followed by
-  `· attached:` and links to at most four attachments, then `+N more`. An attachment note is cut at a
-  word near 40 characters and followed by `(note, N fragments)` when cut; other attachments show
-  their label. An item's title entry holds its attachments' titles, so the item matches what its
-  attachments say, and the line shows why. An item and its attachment give the same line, listed
-  once.
+- An item's title entry holds its attachments' titles, so an item can match because of what an
+  attachment is called. Its line then ends with `· attached:` and links to the attachments whose
+  titles hold a search word, after stemming, at most four, then `+N more`. Attachments holding none
+  are left out: they cannot explain the match, and reading the item lists them all. An attachment
+  note is cut at a word near 40 characters and followed by `(note, N fragments)` when cut; other
+  attachments show their label.
+- Outside a table, an attachment that matches is its own result, after the item it is attached to:
+  `[booking.pdf](…) (file) › attached: [folio.pdf](…) (file, application/pdf, 1 fragment) — fragment 0: …`.
+  Its snippet and fragment number then sit beside the file they belong to. An item and its
+  attachment that both match give two lines.
 - `· also linked from:` ends a result whose item is linked from elsewhere, so the model sees the
   contexts it was placed in, not only where it lives; "also" says these are in addition to the
   location the line starts with: the page or table holding each link, and each note

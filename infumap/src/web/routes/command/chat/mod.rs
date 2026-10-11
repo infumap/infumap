@@ -1706,7 +1706,7 @@ async fn execute_search_tool_call(
     };
   let search_request = search::SearchRequest {
     page_id,
-    text: search_text,
+    text: search_text.clone(),
     num_results: CHAT_SEARCH_TOOL_PAGE_SIZE,
     page_num,
     scope_id: None,
@@ -1717,7 +1717,7 @@ async fn execute_search_tool_call(
       let item_ids = response.results.iter().filter_map(|result| result.path.last()).map(|item| item.id.clone());
       let item_ids = item_ids.collect::<Vec<_>>();
       let access = container_fragments::Access { user_id: &session.user_id, scope };
-      let listings = container_fragments::hit_listings(db, &access, &item_ids).await;
+      let listings = container_fragments::hit_listings(db, &access, &item_ids, &search_text).await;
       Ok(search_results::search_results_text(&response, &listings, page_num.unwrap_or(1) as usize))
     }
     Err(e) => Ok(tool_error_json(&format!("search failed: {}", e))),
