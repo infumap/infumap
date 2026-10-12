@@ -39,6 +39,7 @@ import { arrangeNow } from "../layout/arrange";
 import { catalogResultControlsTopInsetPx, hasCatalogResultContext } from "../layout/catalog-display";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
 import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { itemState } from "../store/ItemState";
@@ -96,7 +97,12 @@ function isCopyOnlyMoveOutHover(hitInfo: ReturnType<typeof HitInfoFns.hit>): boo
 }
 
 
-function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
+export function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
+  // The selected item of a list page is rendered via a synthetic link that is not in itemState and is
+  // recreated on each arrange, so a resize applies to the actual link (if any), else the item itself.
+  if (activeVisualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM) {
+    return asPositionalItem(activeVisualElement.actualLinkItemMaybe ?? activeVisualElement.displayItem);
+  }
   const activeElementPath = MouseActionState.getActiveElementPath();
   const itemStateTreeItem = activeElementPath ? VeFns.treeItemFromPath(activeElementPath) : null;
   if (itemStateTreeItem && isPositionalItem(itemStateTreeItem)) {

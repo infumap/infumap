@@ -65,7 +65,7 @@ import {
   shiftCalendarDateTimeByDays,
 } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
-import { mouseMove_handleNoButtonDown } from "./mouse_move";
+import { mouseMove_handleNoButtonDown, resolveActiveTreeItemForResize } from "./mouse_move";
 import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
@@ -1140,14 +1140,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
     case MouseAction.Resizing: {
       DoubleClickState.preventDoubleClick();
-      const itemStateTreeItem = MouseActionState.getActiveElementPath()
-        ? VeFns.treeItemFromPath(MouseActionState.getActiveElementPath()!)
-        : null;
-      const resizeActiveItem = asPositionalItem(
-        itemStateTreeItem && isPositionalItem(itemStateTreeItem)
-          ? itemStateTreeItem
-          : VeFns.treeItem(activeVisualElement)
-      );
+      const resizeActiveItem = resolveActiveTreeItemForResize(activeVisualElement);
       const xsized = isLink(resizeActiveItem)
         ? MouseActionState.getStartWidthBl()! * GRID_SIZE != asLinkItem(resizeActiveItem).spatialWidthGr
         : MouseActionState.getStartWidthBl()! * GRID_SIZE != asXSizableItem(resizeActiveItem).spatialWidthGr;
