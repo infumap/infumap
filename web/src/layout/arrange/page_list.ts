@@ -603,8 +603,16 @@ export function arrangeSelectedListItem(
   li.creationDate = 0;
   li.lastModifiedDate = 0;
   li.dateTime = 0;
-  if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
-  if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
+  if (actualLinkItemMaybe != null) {
+    // A link may be sized differently to the item it links to, and the link's size takes precedence.
+    const actualLink = asLinkItem(actualLinkItemMaybe);
+    li.spatialWidthGr = actualLink.spatialWidthGr;
+    li.spatialHeightGr = actualLink.spatialHeightGr;
+    li.aspectOverride = actualLink.aspectOverride;
+  } else {
+    if (isXSizableItem(item)) { li.spatialWidthGr = asXSizableItem(item).spatialWidthGr; }
+    if (isYSizableItem(item)) { li.spatialHeightGr = asYSizableItem(item).spatialHeightGr; }
+  }
   li.spatialPositionGr = { x: 0.0, y: 0.0 };
 
 
