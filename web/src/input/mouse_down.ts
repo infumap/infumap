@@ -204,7 +204,7 @@ function extendLinearTextSelectionOnShiftClick(store: StoreContextModel): boolea
       store.overlay.contextMenuInfo.get() != null ||
       store.overlay.tableColumnContextMenuInfo.get() != null ||
       store.overlay.editUserSettingsInfo.get() != null ||
-      isInsideToolbarControlArea()) {
+      isInsideToolbarControlArea(store)) {
     return false;
   }
 
@@ -308,7 +308,9 @@ function isInsideElementClientBounds(elementId: string): boolean {
 /**
  * Whether or not the mouse cursor is inside the non-title part of the toolbar.
  */
-function isInsideToolbarControlArea(): boolean {
+function isInsideToolbarControlArea(store: StoreContextModel): boolean {
+  // Attachments of the pages whose titles are in the toolbar are rendered above it.
+  if (HitInfoFns.isOverTopTitledPageAttachment(store, CursorEventState.getLatestDesktopPx(store))) { return false; }
   return isInsideElementClientBounds("toolbarRightSectionDiv") ||
     isInsideElementClientBounds("toolbarItemOptionsDiv");
 }
@@ -405,7 +407,10 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       }
     }, 0);
   }
-  for (let i = 0; i < toolbarTitleDivs.length; ++i) {
+  // Attachments of the pages whose titles are in the toolbar straddle its bottom edge, and are rendered above it.
+  const isOverToolbarAttachment = CursorEventState.getLatestDesktopPx(store).y < 0 &&
+    HitInfoFns.isOverTopTitledPageAttachment(store, CursorEventState.getLatestDesktopPx(store));
+  for (let i = 0; i < toolbarTitleDivs.length && !isOverToolbarAttachment; ++i) {
     const toolbarTitleDiv = toolbarTitleDivs[i];
     const canEditToolbarTitle = toolbarTitleDiv.isContentEditable;
     const titleBounds = boundingBoxFromDOMRect(toolbarTitleDiv.getBoundingClientRect())!;
@@ -426,7 +431,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       return MouseEventActionFlags.None;
     }
   }
-  if (toolbarTrailingTitleEditArea && toolbarTitleDivs.length > 0) {
+  if (toolbarTrailingTitleEditArea && toolbarTitleDivs.length > 0 && !isOverToolbarAttachment) {
     const trailingBounds = boundingBoxFromDOMRect(toolbarTrailingTitleEditArea.getBoundingClientRect())!;
     if (isInside(CursorEventState.getLatestClientPx(), trailingBounds)) {
       const lastToolbarTitleIdx = toolbarTitleDivs.length - 1;
@@ -457,7 +462,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   // Toolbar titles were handled above; remaining toolbar clicks belong to its
   // controls, never to scrolled content or document text selection underneath.
-  if (CursorEventState.getLatestDesktopPx(store).y < 0) {
+  if (CursorEventState.getLatestDesktopPx(store).y < 0 && !isOverToolbarAttachment) {
     return store.overlay.textEditInfo() ? MouseEventActionFlags.PreventDefault : MouseEventActionFlags.None;
   }
 
@@ -469,7 +474,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
   // Editing text using a content editable div (variety of item types).
   if (store.overlay.textEditInfo()) {
-    if (isInsideToolbarControlArea()) { return MouseEventActionFlags.PreventDefault; }
+    if (isInsideToolbarControlArea(store)) { return MouseEventActionFlags.PreventDefault; }
 
     const editingItemPathForGate = store.overlay.textEditInfo()!.itemPath;
     const editingItemForGate = itemState.get(VeFns.veidFromPath(editingItemPathForGate).itemId);
@@ -580,7 +585,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     ));
   }
 
-  if (isInsideToolbarControlArea()) {
+  if (isInsideToolbarControlArea(store)) {
     return MouseEventActionFlags.None;
   }
 
