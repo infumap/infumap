@@ -14,8 +14,8 @@ use tokio::task;
 use tokio::time::sleep;
 
 use crate::ai::fragment::sources::{
-  build_markdown_fragment_artifact, build_pdf_fragment_artifact, build_text_fragment_artifact,
-  pdf_fragment_source_for_item,
+  build_chat_fragment_artifact, build_markdown_fragment_artifact, build_pdf_fragment_artifact,
+  build_text_fragment_artifact, pdf_fragment_source_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
@@ -29,6 +29,7 @@ use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
 use crate::storage::object::ObjectStore;
+use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
@@ -49,6 +50,7 @@ enum DocumentFragmentKind {
   Pdf,
   Markdown,
   Text,
+  Chat,
 }
 
 impl DocumentFragmentKind {
@@ -57,6 +59,7 @@ impl DocumentFragmentKind {
       PDF_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Pdf),
       MARKDOWN_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Markdown),
       TEXT_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Text),
+      CHAT_TRANSCRIPT_MIME_TYPE => Some(DocumentFragmentKind::Chat),
       _ => None,
     }
   }
@@ -66,11 +69,12 @@ impl DocumentFragmentKind {
       DocumentFragmentKind::Pdf => "PDF",
       DocumentFragmentKind::Markdown => "Markdown",
       DocumentFragmentKind::Text => "text",
+      DocumentFragmentKind::Chat => "chat",
     }
   }
 
   fn needs_source_object(self) -> bool {
-    matches!(self, DocumentFragmentKind::Markdown | DocumentFragmentKind::Text)
+    matches!(self, DocumentFragmentKind::Markdown | DocumentFragmentKind::Text | DocumentFragmentKind::Chat)
   }
 }
 
@@ -430,6 +434,15 @@ async fn build_document_fragment_artifact(
         object_encryption_key.as_deref().ok_or("Text fragmenting requires a source object encryption key.")?;
       Ok(
         build_text_fragment_artifact(&config.data_dir, config.object_store.clone(), item, object_encryption_key)
+          .await?
+          .outcome,
+      )
+    }
+    DocumentFragmentKind::Chat => {
+      let object_encryption_key =
+        object_encryption_key.as_deref().ok_or("Chat fragmenting requires a source object encryption key.")?;
+      Ok(
+        build_chat_fragment_artifact(&config.data_dir, config.object_store.clone(), item, object_encryption_key)
           .await?
           .outcome,
       )

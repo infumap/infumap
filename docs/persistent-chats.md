@@ -278,12 +278,13 @@ Scopes constrain retrieval, not information already copied into a conversation. 
 different scope retains its previous answers and tool results in the model history, and a persisted chat's
 searchable text follows the scope of that item, not the scopes of its original sources. Document this.
 
-Live chat titles are title-indexed: title indexing covers any item with a non-empty title
-(`item_title_fragment_for_item` in [title.rs](../infumap/src/ai/fragment/sources/title.rs)), and query items have
-titles since step 2. That includes the model's `search` tool. The titles are a few words of the first prompt (or a
-generated title), not answers, so this does not reintroduce the problem of a model citing its own earlier answers;
-revisit if it turns out to be noise. Indexing live chat content is deferred: the content changes on every turn, so
-its fragments would be regenerated repeatedly, and the Queries page list already covers finding a recent chat.
+Live chats are not found by search, neither the user's nor the model's. Their titles are title-indexed (title indexing
+covers any item with a non-empty title, and query items have titles since step 2), but a search without a scope covers
+the home page tree, and the Queries page is a separate root page outside it (`search_bounds` in
+[search.rs](../infumap/src/web/routes/command/search.rs)). (An earlier version of this section said live chat titles
+reached the model's `search` tool; they do not.) Indexing live chat content is deferred too: the content changes on
+every turn, so its fragments would be regenerated repeatedly, and the Queries page list already covers finding a recent
+chat.
 
 ## Other details
 
@@ -470,6 +471,15 @@ the chat route ignores requests without a query item id.
     did not show its handle; not investigated, and possibly a test artifact.
 13. **Search for persisted chats.** Chat content-kind recognition, visible-text fragments, reconciliation and
     source-kind support, excluded from the model's `search` tool by default.
+    Done 2026-10-13: the chat MIME type is a content kind and a document fragment kind, with the `chat` fragment
+    source kind, allowed in the lexical index. Its source is the local text copy (the transcript's bytes, which also
+    fingerprint it), as for Markdown and text, and its fragments come from `chat_visible_text` in
+    [markdown.rs](../infumap/src/ai/fragment/sources/markdown.rs): each turn's user text and completed answer,
+    without labels, through the Markdown fragmenter. Reconciliation expects `chat` fragments for a chat, never
+    `text`. The chat's `search` tool sets `exclude_chats` on its search, so no persisted chat is returned to the model;
+    the user's search is unchanged and finds them. The exclusion is not optional for the model yet. Checked end to
+    end: a persisted chat's fragments held only the visible conversation, startup reconciliation accepted them, and
+    the user's search found the chat by words only in its content.
 14. **Docs.** Backup and durability of live chats, encryption, scope limitations, [chat-tools.md](chat-tools.md).
 15. **Turn dropdowns on `.chat` pages** (later). Generalize activity ownership to document pages, with anchors for
     unsuccessful turns.

@@ -4,6 +4,7 @@ pub const ITEM_TITLE_SOURCE_KIND: &str = "item_title";
 pub const IMAGE_CONTENTS_SOURCE_KIND: &str = "image_contents";
 const MARKDOWN_SOURCE_KIND: &str = "markdown";
 const TEXT_SOURCE_KIND: &str = "text";
+pub const CHAT_SOURCE_KIND: &str = "chat";
 pub const IMAGE_DOCUMENT_SOURCE_KIND: &str = "image_document_contents";
 
 #[derive(Clone, Copy)]
@@ -14,6 +15,8 @@ pub enum FragmentSourceKind {
   Text,
   PdfMarkdown,
   PdfFirstPageCaption,
+  /// The visible conversation of a persisted chat.
+  Chat,
 }
 
 impl FragmentSourceKind {
@@ -25,6 +28,7 @@ impl FragmentSourceKind {
       FragmentSourceKind::Text => TEXT_SOURCE_KIND,
       FragmentSourceKind::PdfMarkdown => PDF_MARKDOWN_SOURCE_KIND,
       FragmentSourceKind::PdfFirstPageCaption => PDF_FIRST_PAGE_CAPTION_SOURCE_KIND,
+      FragmentSourceKind::Chat => CHAT_SOURCE_KIND,
     }
   }
 }
@@ -39,6 +43,7 @@ pub fn is_lexical_search_source_kind(source_kind: &str) -> bool {
       | TEXT_SOURCE_KIND
       | IMAGE_CONTENTS_SOURCE_KIND
       | IMAGE_DOCUMENT_SOURCE_KIND
+      | CHAT_SOURCE_KIND
   )
 }
 

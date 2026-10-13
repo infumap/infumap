@@ -11,6 +11,7 @@
 use infusdk::util::infu::InfuResult;
 
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
+use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SearchContentKind {
@@ -18,12 +19,14 @@ pub enum SearchContentKind {
   Image,
   Markdown,
   Text,
+  Chat,
 }
 
 impl SearchContentKind {
   pub fn from_mime_type(mime_type: Option<&str>) -> Option<Self> {
     match mime_type? {
       "application/pdf" => Some(Self::Pdf),
+      CHAT_TRANSCRIPT_MIME_TYPE => Some(Self::Chat),
       "text/markdown" => Some(Self::Markdown),
       "text/plain" => Some(Self::Text),
       mime_type if is_supported_image_tagging_mime_type(Some(mime_type)) => Some(Self::Image),

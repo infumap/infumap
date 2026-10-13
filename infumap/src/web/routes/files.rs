@@ -918,6 +918,7 @@ async fn get_item_search_status(
     Some(SearchContentKind::Image) => "image",
     Some(SearchContentKind::Markdown) => "Markdown",
     Some(SearchContentKind::Text) => "plain text",
+    Some(SearchContentKind::Chat) => "chat (the visible conversation)",
     None => "not supported (title only)",
   };
   let mut lines =

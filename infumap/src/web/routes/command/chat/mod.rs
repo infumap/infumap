@@ -1011,9 +1011,7 @@ pub async fn serve_chat_title_route(
   }
 }
 
-/// The MIME type of a persisted chat. Set explicitly, since detection would give text/plain, which would send the raw
-/// JSONL to the plain-text indexer. Nothing processes it until chat indexing recognizes it.
-const CHAT_TRANSCRIPT_MIME_TYPE: &str = "application/x-infumap-chat";
+use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
 const CHAT_PERSIST_REQUEST_MAX_BYTES: usize = 64 * 1024;
 
 #[derive(Deserialize)]
@@ -2552,6 +2550,7 @@ async fn execute_search_tool_call(
     num_results: CHAT_SEARCH_TOOL_PAGE_SIZE,
     page_num,
     scope_id: None,
+    exclude_chats: true,
   };
 
   match search::run_lexical_search(db, search_request, session, scope).await {
