@@ -353,6 +353,10 @@ the chat route ignores requests without a query item id.
    the next turn's history.
 4. **Activity collection.** Collect model rounds, tool calls and timing in `ChatProgressReporter` and write them
    into `turn` records, including partial rounds of unsuccessful turns.
+   Done 2026-10-13: [activity.rs](../infumap/src/web/routes/command/chat/activity.rs) applies each event as
+   `ChatProgressReporter` sends it, mirroring `reduceQueryChatStreamEvent` in [chat.ts](../web/src/items/chat.ts);
+   the two must be kept in step. A turn's end records every round as complete, as the client shows them; a tool
+   call that was running or awaiting approval keeps that status.
 5. **Load endpoint for live chats.** Returns turns, revision, running state, last turn settings and last context
    token count for a query item.
 6. **Client switchover.** These land together, because each alone leaves a broken state: the client sends the query
