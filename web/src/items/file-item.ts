@@ -345,11 +345,11 @@ export const FileFns = {
   iconRenderContextFromVisualElement,
 
   showsIcon: (file: FileMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): boolean => {
-    return itemIconKind(file.iconMode, context, false) != ItemIconMode.None;
+    return itemIconKind(file.iconMode, context, false, true) != ItemIconMode.None;
   },
 
   emoji: (file: FileMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): string | null => {
-    if (itemIconKind(file.iconMode, context, false) != ItemIconMode.Symbol) { return null; }
+    if (itemIconKind(file.iconMode, context, false, true) != ItemIconMode.Symbol) { return null; }
     const emoji = file.emoji?.trim();
     return emoji && emoji != "" ? emoji : null;
   },
