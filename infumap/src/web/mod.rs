@@ -241,6 +241,8 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     info!("Done loading all items for all users.");
   }
 
+  crate::web::routes::command::remove_orphan_chat_transcripts(&db).await?;
+
   let location_enabled = crate::ai::geo::geoapify_api_key_from_config(config.as_ref())?.is_some();
   let startup_work = Arc::new(
     crate::ai::search_reconciliation::reconcile_search_at_startup(&data_dir, db.clone(), location_enabled).await?,

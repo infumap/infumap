@@ -1126,7 +1126,13 @@ function setQueryChatRevision(store: StoreContextModel, queryItem: QueryItem, re
 }
 
 /** On a chat's first turn, titles its query item from the prompt, unless it already has a title. */
-function setDerivedQueryChatTitle(store: StoreContextModel, queryItem: QueryItem, prompt: string): void {
+function setDerivedQueryChatTitle(store: StoreContextModel, queryItemMaybeStale: QueryItem, prompt: string): void {
+  // Syncing replaces item objects, so change the current one.
+  const current = itemState.get(queryItemMaybeStale.id);
+  if (current == null || !isQueryItem(current)) {
+    return;
+  }
+  const queryItem = asQueryItem(current);
   if (queryItem.title != "") {
     return;
   }

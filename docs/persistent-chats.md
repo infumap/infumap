@@ -83,14 +83,16 @@ Queries page is sent to the client with `capabilities: { move: false, resize: fa
 rejects any change to its parent, relationship or ordering (`is_queries_page_query_item` and
 `item_move_fields_changed_to_disallowed_layout` in [command/mod.rs](../infumap/src/web/routes/command/mod.rs);
 [item_ops.rs](../infumap/src/web/routes/command/item_ops.rs)). Flag and title changes are allowed. Keep it for
-generic updates, so no path other than persist can take a chat out of the page, and relax it in two ways:
+generic updates, so no path other than persist can take a chat out of the page, with these exceptions (step 7):
 
-- An unpinned chat query item may be moved into the trash, which is how it is deleted.
-- The client may start a drag on an unpinned chat query item despite `move: false`. Dropping it outside the Queries
-  page calls persist rather than sending an ordinary move. Dropping it back inside the page does nothing, since
-  ordering changes stay rejected.
-
-The pinned query item stays fixed.
+- An unpinned chat query item is sent with `capabilities: { resize: false }`, so it can be dragged. The pinned one
+  stays `move: false` and fixed.
+- The server accepts moving an unpinned chat query item into the trash, which is how it is deleted, unless a turn is
+  running. It accepts moving a query item from the trash back to the Queries page, unpinned, and rejects moving it
+  from the trash anywhere else.
+- The client rejects a drop of a chat anywhere but the trash, and of a trashed query item anywhere but the Queries
+  page, with a message, before anything is sent (`chatDropRejectionMessage` in
+  [mouse_up.ts](../web/src/input/mouse_up.ts)). In step 9, a drop outside the Queries page calls persist instead.
 
 A failure or crash before step 2 leaves the live chat untouched and an orphan blob, as a failed upload does today.
 A crash between steps 2 and 3 leaves a persisted copy and the live chat, both valid; the user deletes one. A crash
@@ -386,14 +388,23 @@ the chat route ignores requests without a query item id.
    - Checked end to end with Playwright against a fake llama-server: first turn and derived title, restore after
      reload, a conflict from another tab (reloaded, draft kept), stopping mid-answer, New chat, opening and continuing
      an earlier chat, and a turn refused while another runs.
+   - Fixed in step 7: New chat and the derived title changed the query item object they were given, but syncing
+     replaces item objects (`upsertItemFromServerObject`), so after a sync the change went to a stale copy. New chat
+     then sent the unpin but found the item still pinned locally, and created no new current chat. Both now change
+     the object in `itemState`.
 7. **Delete.** Let the server guard accept moving an unpinned chat query item into the trash. Remove the
    transcript on permanent deletion of its query item, and remove orphan transcripts at startup.
+   Done 2026-10-13: the guard exceptions above; `delete_query_item_transcript` on `delete-item` and `empty-trash`,
+   which keeps the file if a turn is still running; `remove_orphan_chat_transcripts` at startup, after items load,
+   which also removes temporary files left by an interrupted create. Checked end to end: drag to the dock trash,
+   refused drops (reorder in the list, drop on the chat area), restore, empty trash, refusal while a turn runs,
+   and startup cleanup.
 8. **Generated titles.** A server title endpoint over capped visible text, applied only to derived titles. Call it
    when New chat unpins a chat (and later Continue). Move the title prompt to the server.
 9. **Persist.** A server endpoint takes the query item id and the drop placement, generates a title if it is still
-   the derived one, runs the persist sequence with the dedicated MIME type, and returns the new item. Let the client
-   start a drag on an unpinned chat query item despite `move: false`; dropping it outside the Queries page (other
-   than into the trash) calls persist. Remove the whole-chat Materialize button.
+   the derived one, runs the persist sequence with the dedicated MIME type, and returns the new item. In
+   `chatDropRejectionMessage`'s place, dropping an earlier chat outside the Queries page (other than into the trash)
+   calls persist. Remove the whole-chat Materialize button.
 10. **`.chat` document page.** Read-only, text only. Extend the load endpoint to `.chat` items, reading the content
     from the object store.
 11. **Continue and move back.** A server endpoint copies a `.chat` item into a new pinned query item with a fresh

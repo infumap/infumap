@@ -22,11 +22,12 @@ use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::ImageReader;
 use infusdk::item::{
-  ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG,
-  PAGE_SHOW_TABLE_COL_HEADER_FLAG, PermissionFlags, RelationshipToParent, SavedPageSettings, SavedTableSettings,
-  TableColumn, TableFlags, embedded_table_size_from_page, is_attachments_item_type, is_composite_item,
-  is_container_item_type, is_data_item_type, is_flags_item_type, is_image_item, is_link_item, is_page_item,
-  is_permission_flags_item_type, is_positionable_type, is_table_item, page_width_from_table,
+  ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, LIST_PAGE_PIN_TOP_FLAG,
+  PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG, PAGE_SHOW_TABLE_COL_HEADER_FLAG, PermissionFlags, RelationshipToParent,
+  SavedPageSettings, SavedTableSettings, TableColumn, TableFlags, embedded_table_size_from_page,
+  is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type,
+  is_image_item, is_link_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item,
+  page_width_from_table,
 };
 use infusdk::util::geometry::{Dimensions, GRID_SIZE, Vector};
 use infusdk::util::infu::InfuResult;
@@ -93,7 +94,8 @@ mod search;
 
 pub(crate) use chat::{chat_tool_servers_from_config, llama_servers_from_config, validate_chat_backend_config};
 pub use chat::{
-  serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route, serve_chat_tool_route,
+  remove_orphan_chat_transcripts, serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route,
+  serve_chat_tool_route,
 };
 pub use item_ops::add_item_for_user;
 
@@ -567,6 +569,12 @@ fn non_movable_item_capabilities_json() -> Value {
   Value::Object(capabilities)
 }
 
+fn non_resizable_item_capabilities_json() -> Value {
+  let mut capabilities = serde_json::Map::new();
+  capabilities.insert(String::from("resize"), Value::Bool(false));
+  Value::Object(capabilities)
+}
+
 fn queries_page_query_item_position_gr() -> Vector<i64> {
   Vector { x: 9 * GRID_SIZE, y: GRID_SIZE }
 }
@@ -586,6 +594,43 @@ fn is_queries_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
       .parent_id
       .as_ref()
       .is_some_and(|parent_id| db.user.get(&item.owner_id).is_some_and(|user| &user.queries_page_id == parent_id))
+}
+
+fn is_unpinned(item: &Item) -> bool {
+  item.flags.unwrap_or(0) & LIST_PAGE_PIN_TOP_FLAG == 0
+}
+
+fn is_in_trash(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
+  item.relationship_to_parent == RelationshipToParent::Child
+    && item
+      .parent_id
+      .as_ref()
+      .is_some_and(|parent_id| db.user.get(&item.owner_id).is_some_and(|user| &user.trash_page_id == parent_id))
+}
+
+/// An earlier chat in the Queries page moved into the trash, which is how a chat is deleted. The current (pinned) chat
+/// stays where it is. See docs/persistent-chats.md.
+fn is_chat_moved_to_trash(db: &MutexGuard<'_, Db>, old_item: &Item, new_item: &Item) -> bool {
+  is_queries_page_query_item(db, old_item)
+    && is_unpinned(old_item)
+    && is_unpinned(new_item)
+    && is_in_trash(db, new_item)
+}
+
+/// A query item in the trash moved back to the Queries page, as an earlier chat.
+fn is_chat_restored_from_trash(db: &MutexGuard<'_, Db>, old_item: &Item, new_item: &Item) -> bool {
+  old_item.item_type == ItemType::Search
+    && is_in_trash(db, old_item)
+    && is_queries_page_query_item(db, new_item)
+    && is_unpinned(new_item)
+}
+
+/// A query item leaving the trash for anywhere but the Queries page, where its chat could not be reached.
+fn is_query_item_moved_from_trash_elsewhere(db: &MutexGuard<'_, Db>, old_item: &Item, new_item: &Item) -> bool {
+  old_item.item_type == ItemType::Search
+    && is_in_trash(db, old_item)
+    && !is_in_trash(db, new_item)
+    && !is_queries_page_query_item(db, new_item)
 }
 
 fn item_spatial_position_matches(item: &Item, position_gr: &Vector<i64>) -> bool {
@@ -625,7 +670,10 @@ fn item_to_api_json_map_with_capabilities(
   if is_queries_page_item(db, item) {
     item_json.insert(String::from("arrangeAlgorithm"), Value::String(ArrangeAlgorithm::List.as_str().to_owned()));
   }
-  if is_queries_page_query_item(db, item) || is_scopes_page_item(item) {
+  if is_queries_page_query_item(db, item) && is_unpinned(item) {
+    // An earlier chat can be dragged, to the trash only; the update guard rejects any other move.
+    item_json.insert(String::from("capabilities"), non_resizable_item_capabilities_json());
+  } else if is_queries_page_query_item(db, item) || is_scopes_page_item(item) {
     item_json.insert(String::from("capabilities"), non_movable_item_capabilities_json());
   }
   if is_queries_page_query_item(db, item) {
@@ -1658,6 +1706,81 @@ mod tests {
     let mut unpinned = old_item.clone();
     unpinned.flags = Some(unpinned.flags.unwrap_or(0) & !LIST_PAGE_PIN_BOTTOM_FLAG);
     assert!(scopes_page_update_disallowed(&old_item, &unpinned));
+  }
+
+  #[tokio::test]
+  async fn earlier_chats_move_only_to_and_from_the_trash() {
+    let mut t = TestDb::new().await;
+    let user = t.db.user.get(&t.user_id).unwrap().clone();
+    let query = |flags: i64| {
+      let mut item = Item::new_query(
+        &user.queries_page_id,
+        vec![],
+        queries_page_query_item_position_gr(),
+        queries_page_query_item_width_gr(),
+        RelationshipToParent::Child,
+      );
+      item.flags = Some(flags);
+      item
+    };
+    let pinned_id = t.add(query(LIST_PAGE_PIN_TOP_FLAG)).await;
+    let earlier_id = t.add(query(0)).await;
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let session = Some(Session {
+      id: new_uid(),
+      user_id: user.id.clone(),
+      expires: 0,
+      issued_at: 0,
+      username: String::new(),
+      successor_id: None,
+      predecessor_id: None,
+    });
+    let get = |id: &Uid| {
+      let db = db.clone();
+      let id = id.clone();
+      async move { db.lock().await.item.get(&id).unwrap().clone() }
+    };
+    let update = |item: Item| {
+      let db = db.clone();
+      let session = session.clone();
+      async move {
+        let json = serde_json::to_string(&item.to_api_json().unwrap()).unwrap();
+        item_ops::handle_update_item(&db, &json, &session).await
+      }
+    };
+    let moved_to = |mut item: Item, parent_id: &Uid| {
+      item.parent_id = Some(parent_id.clone());
+      item
+    };
+
+    {
+      let db = db.lock().await;
+      let earlier = db.item.get(&earlier_id).unwrap();
+      let capabilities = item_to_api_json_map_with_capabilities(&db, earlier).unwrap()["capabilities"].clone();
+      assert_eq!(capabilities, serde_json::json!({ "resize": false }));
+      let pinned = db.item.get(&pinned_id).unwrap();
+      let capabilities = item_to_api_json_map_with_capabilities(&db, pinned).unwrap()["capabilities"].clone();
+      assert_eq!(capabilities, serde_json::json!({ "move": false, "resize": false }));
+    }
+
+    assert!(update(moved_to(get(&pinned_id).await, &user.trash_page_id)).await.is_err(), "current chat to trash");
+    assert!(update(moved_to(get(&earlier_id).await, &user.home_page_id)).await.is_err(), "earlier chat elsewhere");
+    let mut reordered = get(&earlier_id).await;
+    reordered.ordering = vec![1];
+    assert!(update(reordered).await.is_err(), "earlier chat reordered");
+
+    update(moved_to(get(&earlier_id).await, &user.trash_page_id)).await.unwrap();
+    assert_eq!(get(&earlier_id).await.parent_id.as_ref(), Some(&user.trash_page_id));
+    assert!(update(moved_to(get(&earlier_id).await, &user.home_page_id)).await.is_err(), "trash to elsewhere");
+    let mut restored_pinned = moved_to(get(&earlier_id).await, &user.queries_page_id);
+    restored_pinned.flags = Some(LIST_PAGE_PIN_TOP_FLAG);
+    assert!(update(restored_pinned).await.is_err(), "restored as a second current chat");
+    update(moved_to(get(&earlier_id).await, &user.queries_page_id)).await.unwrap();
+    assert_eq!(get(&earlier_id).await.parent_id.as_ref(), Some(&user.queries_page_id));
+
+    let mut unpinned = get(&pinned_id).await;
+    unpinned.flags = Some(0);
+    update(unpinned).await.unwrap();
   }
 
   #[tokio::test]
