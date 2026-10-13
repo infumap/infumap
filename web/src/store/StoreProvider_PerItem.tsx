@@ -18,7 +18,7 @@
 
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
-import type { ChatMessage, ChatModelSelection, SearchResult } from "../server";
+import type { ChatModelSelection, SearchResult } from "../server";
 import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
@@ -60,6 +60,8 @@ export interface QueryChatCompletedActivity {
   completedAt: number,
 }
 
+export type QueryChatLoadState = "unloaded" | "loading" | "loaded" | "failed";
+
 export interface QueryRuntime {
   mode: QueryMode,
   text: string,
@@ -77,7 +79,15 @@ export interface QueryRuntime {
     composerHeightPx: number | null,
     activityHeightPx: number | null,
     rootItemIds: Array<Uid>,
-    messages: Array<ChatMessage>,
+    /** Roots that note an unsuccessful turn's outcome, rather than being a user or assistant turn. */
+    outcomeRootIds: Array<Uid>,
+    /**
+     * The transcript revision to send with the next turn. The server's transcript holds the model history; the client
+     * keeps none. See docs/persistent-chats.md.
+     */
+    revision: number,
+    /** Whether the transcript has been loaded into the chat view since the chat was last cleared. */
+    loadState: QueryChatLoadState,
     capabilities: Array<ChatCapability>,
     /** The backend, model and reasoning effort to use. Null means the server's default. */
     model: ChatModelSelection | null,
@@ -170,7 +180,9 @@ export function makePerItemStore(): PerItemStoreContextModel {
       composerHeightPx: null,
       activityHeightPx: null,
       rootItemIds: [],
-      messages: [],
+      outcomeRootIds: [],
+      revision: 0,
+      loadState: "unloaded",
       capabilities: ["infumap_data", ...extraDefaultCapabilities],
       model: null,
       completedActivities: [],

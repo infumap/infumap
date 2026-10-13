@@ -25,7 +25,9 @@ import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { queryScopeIdForRequest } from "./query-scope";
 import { asContainerItem, isContainer } from "./base/container-item";
-import { clearQueryChat, ensureTemporaryQueryChatPage, submitQueryChatMessage } from "./chat";
+import { ensureQueryItemUnderQueries } from "../layout/navigation";
+import { SearchFlags } from "./base/flags-item";
+import { clearQueryChat, ensureTemporaryQueryChatPage, isLiveQueryChat, resetQueryChatSession, submitQueryChatMessage } from "./chat";
 import {
   QueryItem,
   getQuerySearchLoadedPageCount,
@@ -181,13 +183,14 @@ export async function loadMoreQuerySearchResults(
   return true;
 }
 
+/** Returns false if the message was not recorded, and should be given back to the user as a draft. */
 export async function startQueryChat(
   store: StoreContextModel,
   queryItem: QueryItem,
   initialText: string,
   queryItemPath: VisualElementPath,
   deepResearch: boolean = false,
-): Promise<void> {
+): Promise<boolean> {
   clearQueryChat(store, queryItem);
   ensureTemporaryQueryChatPage(store, queryItem);
 
@@ -195,5 +198,37 @@ export async function startQueryChat(
   store.history.setFocus(queryItemPath);
   store.overlay.autoFocusChatInput.set(true);
   arrangeNow(store, "query-start-chat");
-  await submitQueryChatMessage(store, queryItem, initialText, deepResearch);
+  return await submitQueryChatMessage(store, queryItem, initialText, deepResearch);
+}
+
+/** Whether a query item is an earlier chat in the Queries page, rather than the current one. */
+export function isQueryChatHistoryEntry(store: StoreContextModel, queryItem: QueryItem): boolean {
+  return isLiveQueryChat(store, queryItem) && (queryItem.flags & SearchFlags.ListPagePinTop) == 0;
+}
+
+/**
+ * Starts a new chat. The current chat keeps its transcript and becomes the newest earlier chat in the Queries page,
+ * and a new pinned query item becomes the current chat. A chat without a transcript is just reset.
+ */
+export async function startNewQueryChat(store: StoreContextModel, queryItem: QueryItem): Promise<void> {
+  const user = store.user.getUserMaybe();
+  const hasTranscript = getQueryRuntime(store, queryItem).chat.revision > 0;
+  if (user == null || !isLiveQueryChat(store, queryItem) || (!hasTranscript && !isQueryChatHistoryEntry(store, queryItem))) {
+    resetQueryChatSession(store, queryItem, "query-chat-discard");
+    return;
+  }
+
+  if ((queryItem.flags & SearchFlags.ListPagePinTop) != 0) {
+    // Unpinning is a flag change, which the server allows. It is already ordered before every earlier chat, since
+    // each pinned query item is created at the start of the page's children.
+    queryItem.flags &= ~SearchFlags.ListPagePinTop;
+    await server.updateItem(queryItem, store.general.networkStatus);
+  }
+  const queriesPageVeid = { itemId: user.queriesPageId, linkIdMaybe: null };
+  const currentId = await ensureQueryItemUnderQueries(store, user.queriesPageId);
+  if (currentId != null) {
+    store.perItem.setSelectedListPageItem(queriesPageVeid, { itemId: currentId, linkIdMaybe: null });
+    store.overlay.autoFocusSearchInput.set(true);
+  }
+  arrangeNow(store, "query-new-chat");
 }

@@ -27,7 +27,8 @@ continue them.
 Only query items under the Queries page have transcripts. Query items are only created there
 (`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), and the server already keeps
 them there (see "The server guards chat moves"), so a query item elsewhere can only come from data older than that
-guard. It gets no transcript.
+guard. It gets no transcript, and the client no longer has an in-memory chat for it: a chat there fails with "The chat
+was not found".
 
 ### Why transcripts are outside the object store
 
@@ -371,6 +372,20 @@ the chat route ignores requests without a query item id.
    New chat replaces Clear, unpinning the current query item and creating a new pinned one;
    `ensureQueryItemUnderQueries` finds the pinned item; search mode is hidden on unpinned items; the derived title
    is set on the first turn; revision conflicts refresh while preserving the draft.
+   Done 2026-10-13: [chat.ts](../web/src/items/chat.ts) (`submitQueryChatMessage`, `ensureQueryChatLoaded`),
+   [query.ts](../web/src/items/query.ts) (`startNewQueryChat`), [navigation.ts](../web/src/layout/navigation.ts),
+   [Query.tsx](../web/src/components/items/Query.tsx). Details:
+   - The query runtime keeps `revision` and a load state instead of a message list. The transcript is loaded when the
+     query item is shown, and before the first turn is sent, so a submit never races an unfinished load.
+   - Unsuccessful turns get a one-line outcome note, both when they happen and when loaded. A turn the server did not
+     record (refused before `turn_accepted`, or stopped before it) is removed and its text given back as a draft.
+   - Whole-chat and single-response Materialize still work: title generation sends the visible conversation without
+     a query item id, so the server records nothing.
+   - `ensureQueryItemUnderQueries` creates a new pinned query item if none is pinned. For older data whose single query
+     item is unpinned and untitled, it pins that one instead.
+   - Checked end to end with Playwright against a fake llama-server: first turn and derived title, restore after
+     reload, a conflict from another tab (reloaded, draft kept), stopping mid-answer, New chat, opening and continuing
+     an earlier chat, and a turn refused while another runs.
 7. **Delete.** Let the server guard accept moving an unpinned chat query item into the trash. Remove the
    transcript on permanent deletion of its query item, and remove orphan transcripts at startup.
 8. **Generated titles.** A server title endpoint over capped visible text, applied only to derived titles. Call it

@@ -305,18 +305,24 @@ export async function ensureQueryItemUnderQueries(store: StoreContextModel, quer
 
   await initiateLoadChildItemsMaybe(store, { itemId: queriesPageId, linkIdMaybe: null });
 
+  // The pinned query item is the current chat; unpinned ones are earlier chats. See docs/persistent-chats.md.
   const queriesPage = asPageItem(itemState.get(queriesPageId)!);
-  for (const childId of queriesPage.computed_children) {
-    const childMaybe = itemState.get(childId);
-    if (isQueryItem(childMaybe)) {
-      const child = asQueryItem(childMaybe!);
-      if (!(child.flags & SearchFlags.ListPagePinTop) || (child.flags & SearchFlags.ListPagePinBottom)) {
-        child.flags &= ~SearchFlags.ListPagePinBottom;
-        child.flags |= SearchFlags.ListPagePinTop;
-        void server.updateItem(child, store.general.networkStatus);
-      }
-      return childId;
-    }
+  const queryItems = queriesPage.computed_children
+    .map(childId => itemState.get(childId))
+    .filter(isQueryItem)
+    .map(child => asQueryItem(child));
+  const pinned = queryItems.find(child => (child.flags & SearchFlags.ListPagePinTop) != 0);
+  if (pinned != null) {
+    return pinned.id;
+  }
+  // Data from before chats were kept had one query item, which may not be pinned. An untitled one has never been
+  // used for a chat, so it can be the current chat.
+  const unused = queryItems.length == 1 && queryItems[0].title == "" ? queryItems[0] : null;
+  if (unused != null) {
+    unused.flags &= ~SearchFlags.ListPagePinBottom;
+    unused.flags |= SearchFlags.ListPagePinTop;
+    void server.updateItem(unused, store.general.networkStatus);
+    return unused.id;
   }
 
   const queryItem = QueryFns.create(
