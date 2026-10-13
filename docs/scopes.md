@@ -63,3 +63,8 @@ you choose another. They never fall back to searching everything.
 A scope limits what search and the chat tools return. It is not a permission: you can still open and
 browse every item, and result previews show a page's contents as usual. Titles of the pages that
 contain an included item may appear in search result paths.
+
+A scope limits what a chat can find, not what is already in it. A chat continued under a different scope keeps its
+earlier answers and everything the model read for them, whatever their scope. A [chat kept as a `.chat` item](chats.md)
+is searched according to where the item is, not where the items its answers quote are, so its text can repeat content
+from outside the scope of a later search.

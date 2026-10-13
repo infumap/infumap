@@ -6,7 +6,7 @@ TODO: Discussion of various data formats.
 
 Each user lives under `user_<user_id>` in the configured data directory. In addition to the user and item logs, derived AI/search artifacts are stored alongside the user's data:
 
-- `text/<first-two-item-id-chars>/<item_id>_text` is the item's local text: extracted Markdown for a PDF, the image description (JSON) for an image, or a copy of the original for a Markdown or plain text item. `<item_id>_manifest.json` describes it.
+- `text/<first-two-item-id-chars>/<item_id>_text` is the item's local text: extracted Markdown for a PDF, the image description (JSON) for an image, or a copy of the original for a Markdown, plain text or `.chat` item. `<item_id>_manifest.json` describes it.
 - `text/<first-two-item-id-chars>/<item_id>_geo.json` and `<item_id>_geo_manifest.json` hold an image's location lookup, when location lookup is configured.
 - `fragments/<first-two-item-id-chars>/<item_id>/fragments.jsonl` contains the searchable fragments built from the local text.
 - `fragments/<first-two-item-id-chars>/<item_id>/fragments_manifest.json` describes the fragment build.
@@ -18,7 +18,17 @@ Each user lives under `user_<user_id>` in the configured data directory. In addi
 - `rebuild_search_index_checkpoint.json` records resumable `rebuild-search-index` progress and is removed after a successful rebuild.
 - `search_status.json` may exist in older installations. It is no longer used and can be deleted.
 
-All of these are derived from the items and their original files, and are regenerated automatically when missing. Index changes are committed in batches at most every 10 minutes, so search can lag behind edits and new content by that long. About once a day (first an hour after startup) the server merges accumulated index segments in the background; no manual compaction is needed. Originals never change after upload, so existing local text is always treated as correct and is never re-checked against its original.
+All of these are derived from the items and their original files, and are regenerated automatically when missing (`chats/`, below, is the exception). Index changes are committed in batches at most every 10 minutes, so search can lag behind edits and new content by that long. About once a day (first an hour after startup) the server merges accumulated index segments in the background; no manual compaction is needed. Originals never change after upload, so existing local text is always treated as correct and is never re-checked against its original.
+
+### Chats
+
+`chats/<query_item_id>.chat` holds the chats in the Queries page, one file per query item (see [Chats](chats.md)). Unlike everything else here, these are primary data, not derived:
+
+- They are not in backups, and nothing regenerates them. Losing the data directory loses them. A chat dragged out of the Queries page is moved into the object store as a `.chat` item, and its file here is removed.
+- They are stored as plain text, not encrypted like objects.
+- Each file is JSON Lines: a header, then a record for each message sent and for how its response ended, with the model's messages and the turn's activity. It is appended to and synced as a chat runs.
+
+Do not edit or delete them while the server runs. At startup, a file whose query item no longer exists is removed, along with temporary files left by an interrupted write. A query item whose file is missing, as after restoring the item database from a backup, shows as an empty chat.
 
 ### Deleting derived files
 
