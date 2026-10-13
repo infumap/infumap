@@ -25,7 +25,7 @@ import { JustifiedInsertion, justifiedInsertionFromDesktopPx } from "./layout/ju
 import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
-import { asAttachmentsItem, AttachmentsItem, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
+import { asAttachmentsItem, AttachmentsItem, attachmentAnchorRightPxForVe, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
 import { itemCanEdit } from "./items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "./items/base/flags-item";
 import { ItemType } from "./items/base/item";
@@ -190,6 +190,7 @@ function attachmentInsertIndexFromDesktopPx(store: StoreContextModel, attachVe: 
   const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
   const clampedIndex = calcSpatialAttachmentInsertIndex(
     veBoundsPx,
+    attachmentAnchorRightPxForVe(attachVe, veBoundsPx.w),
     attachmentBlockSizePxForVe(attachVe, veBoundsPx.w),
     desktopPx.x,
     attachItem.computed_attachments.length,

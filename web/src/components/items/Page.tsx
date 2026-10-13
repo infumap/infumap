@@ -220,10 +220,11 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const innerSizeBl = ItemFns.calcSpatialDimensionsBl(props.visualElement.displayItem);
       const blockSizePx = props.visualElement.attachmentBlockSizePx ?? pageFns.boundsPx().w / innerSizeBl.w;
       const insertIndex = store.perVe.getMoveOverAttachmentIndex(pageFns.vePath());
-      // Special case for position 0: align with right edge of parent item
+      // Special case for position 0: align with the anchor (by default the right edge of the parent item)
       const xOffset = insertIndex === 0 ? -4 : -2;
+      const anchorRightPx = props.visualElement.attachmentAnchorRightPx ?? pageFns.boundsPx().w;
       return {
-        x: pageFns.boundsPx().w - insertIndex * blockSizePx + xOffset,
+        x: anchorRightPx - insertIndex * blockSizePx + xOffset,
         y: -blockSizePx / 2,
         w: 4,
         h: blockSizePx,

@@ -51,15 +51,21 @@ export function calcSpatialAttachmentStripWidthPx(parentWidthPx: number, blockWi
   return Math.min(parentWidthPx, blockWidthPx * (attachmentCount + 1));
 }
 
+/**
+ * The attach (drop target) strip along the top of an item. It ends at anchorRightPx (relative to the left of the
+ * item), which defaults to the right edge of the item.
+ */
 export function calcSpatialAttachmentHitboxBoundsPx(
   innerBoundsPx: BoundingBox,
   blockWidthPx: number,
   blockHeightPx: number,
   attachmentCount: number,
+  anchorRightPx: number | null = null,
 ): BoundingBox {
-  const stripWidthPx = calcSpatialAttachmentStripWidthPx(innerBoundsPx.w, blockWidthPx, attachmentCount);
+  const rightPx = anchorRightPx ?? innerBoundsPx.w;
+  const stripWidthPx = calcSpatialAttachmentStripWidthPx(rightPx, blockWidthPx, attachmentCount);
   return {
-    x: innerBoundsPx.w - stripWidthPx,
+    x: rightPx - stripWidthPx,
     y: -blockHeightPx / 2,
     w: stripWidthPx,
     h: blockHeightPx,
@@ -67,14 +73,20 @@ export function calcSpatialAttachmentHitboxBoundsPx(
 }
 
 /**
- * Sets the block size used for attachments of the item with the provided geometry, and updates any
- * attach (drop target) hitboxes to match. If ensureAttachHitbox is true, an attach hitbox is added
- * if there isn't one already.
+ * Sets the block size and (optionally) the right anchor used for attachments of the item with the provided
+ * geometry, and updates any attach (drop target) hitboxes to match. If ensureAttachHitbox is true, an attach
+ * hitbox is added if there isn't one already.
  */
-export function setGeometryAttachmentBlockSizePx(geometry: ItemGeometry, attachmentCount: number, blockSizePx: number, ensureAttachHitbox: boolean) {
+export function setGeometryAttachmentBlockSizePx(
+  geometry: ItemGeometry,
+  attachmentCount: number,
+  blockSizePx: number,
+  ensureAttachHitbox: boolean,
+  anchorRightPx: number | null = null) {
   geometry.attachmentBlockSizePx = blockSizePx;
+  if (anchorRightPx != null) { geometry.attachmentAnchorRightPx = anchorRightPx; }
   const innerBoundsPx = zeroBoundingBoxTopLeft(geometry.boundsPx);
-  const attachBoundsPx = calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx, blockSizePx, attachmentCount);
+  const attachBoundsPx = calcSpatialAttachmentHitboxBoundsPx(innerBoundsPx, blockSizePx, blockSizePx, attachmentCount, geometry.attachmentAnchorRightPx ?? null);
   let hasAttachHitbox = false;
   for (let i = 0; i < geometry.hitboxes.length; ++i) {
     const hitbox = geometry.hitboxes[i];
@@ -97,13 +109,23 @@ export function attachmentBlockSizePxForVe(ve: VisualElement, veWidthPx: number)
   return veWidthPx / ItemFns.calcSpatialDimensionsBl(ve.displayItem).w;
 }
 
+/**
+ * The x position (px, relative to the left of the visual element) of the right edge of the right-most attachment
+ * slot of the provided visual element, where the visual element is rendered with width veWidthPx.
+ */
+export function attachmentAnchorRightPxForVe(ve: VisualElement, veWidthPx: number): number {
+  if (ve.attachmentAnchorRightPx != null) { return ve.attachmentAnchorRightPx * veWidthPx / ve.boundsPx.w; }
+  return veWidthPx;
+}
+
 export function calcSpatialAttachmentInsertIndex(
   veBoundsPx: BoundingBox,
+  anchorRightPx: number,
   blockSizePx: number,
   desktopX: number,
   attachmentCount: number,
 ): number {
-  const mouseXFromRight = veBoundsPx.x + veBoundsPx.w - desktopX;
+  const mouseXFromRight = veBoundsPx.x + anchorRightPx - desktopX;
   const slotIndex = Math.floor(mouseXFromRight / blockSizePx);
   return Math.max(0, Math.min(slotIndex, attachmentCount));
 }

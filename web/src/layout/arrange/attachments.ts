@@ -55,13 +55,13 @@ export interface ArrangedAttachments {
 }
 
 /**
- * Attachments are laid out right to left from the top right corner of the item. Those that don't fit within
- * the width of the item are not rendered. If any of these are not placeholders (gaps), space is reserved for
- * a marker to the left of the visible attachments.
+ * Attachments are laid out right to left from the anchor (by default the top right corner of the item). Those
+ * that don't fit between the left of the item and the anchor are not rendered. If any of these are not
+ * placeholders (gaps), space is reserved for a marker to the left of the visible attachments.
  */
-function calcVisibleAttachments(attachmentIds: Array<Uid>, parentWidthPx: number, blockSizePx: number): { visibleCount: number, overflowMarkerPx: AttachmentsOverflowMarker | null } {
+function calcVisibleAttachments(attachmentIds: Array<Uid>, anchorRightPx: number, blockSizePx: number): { visibleCount: number, overflowMarkerPx: AttachmentsOverflowMarker | null } {
   const EPSILON = 0.001;
-  const slotsThatFit = Math.max(0, Math.floor(parentWidthPx / blockSizePx + EPSILON));
+  const slotsThatFit = Math.max(0, Math.floor(anchorRightPx / blockSizePx + EPSILON));
   if (attachmentIds.length <= slotsThatFit) {
     return { visibleCount: attachmentIds.length, overflowMarkerPx: null };
   }
@@ -72,11 +72,11 @@ function calcVisibleAttachments(attachmentIds: Array<Uid>, parentWidthPx: number
   if (!overflowIncludesItem) {
     return { visibleCount: slotsThatFit, overflowMarkerPx: null };
   }
-  const visibleCount = Math.max(0, Math.floor(parentWidthPx / blockSizePx - OVERFLOW_MARKER_SPACE_PROP + EPSILON));
+  const visibleCount = Math.max(0, Math.floor(anchorRightPx / blockSizePx - OVERFLOW_MARKER_SPACE_PROP + EPSILON));
   return {
     visibleCount,
     overflowMarkerPx: {
-      rightX: parentWidthPx - visibleCount * blockSizePx - OVERFLOW_MARKER_GAP_PROP * blockSizePx,
+      rightX: anchorRightPx - visibleCount * blockSizePx - OVERFLOW_MARKER_GAP_PROP * blockSizePx,
       centerY: 0,
       blockSizePx,
     },
@@ -89,7 +89,8 @@ export function arrangeItemAttachments(
   parentItemSizeBl: Dimensions,
   parentItemBoundsPx: BoundingBox,
   parentItemVePath: VisualElementPath,
-  blockSizePxMaybe?: number): ArrangedAttachments {
+  blockSizePxMaybe?: number,
+  anchorRightPxMaybe?: number): ArrangedAttachments {
 
   // Attachment geometry derives block size from parent bounds / parent size. Override the latter
   // to achieve a specific block size.
@@ -100,8 +101,9 @@ export function arrangeItemAttachments(
     };
   }
 
+  const anchorRightPx = anchorRightPxMaybe ?? parentItemBoundsPx.w;
   const { visibleCount, overflowMarkerPx } =
-    calcVisibleAttachments(attachmentIds, parentItemBoundsPx.w, parentItemBoundsPx.w / parentItemSizeBl.w);
+    calcVisibleAttachments(attachmentIds, anchorRightPx, parentItemBoundsPx.w / parentItemSizeBl.w);
 
   const attachmentPaths: Array<VisualElementPath> = [];
   for (let i = 0; i < visibleCount; ++i) {
@@ -122,12 +124,15 @@ export function arrangeItemAttachments(
     let isSelected = false;
 
     const attachmentGeometry = ItemFns.calcGeometry_Attachment(attachmentItem, parentItemBoundsPx, parentItemSizeBl, i, isSelected);
+    // Attachment geometry is laid out from the right edge of the parent, so shift it to the anchor. Hitboxes are
+    // relative to boundsPx, so don't need adjusting.
+    const attachmentBoundsPx = { ...attachmentGeometry.boundsPx, x: attachmentGeometry.boundsPx.x + anchorRightPx - parentItemBoundsPx.w };
 
     const veSpec: VisualElementSpec = {
       displayItem: attachmentDisplayItem,
       linkItemMaybe: attachmentLinkItemMaybe,
       actualLinkItemMaybe: attachmentLinkItemMaybe,
-      boundsPx: attachmentGeometry.boundsPx,
+      boundsPx: attachmentBoundsPx,
       hitboxes: attachmentGeometry.hitboxes,
       parentPath: parentItemVePath,
       flags: VisualElementFlags.Attachment |

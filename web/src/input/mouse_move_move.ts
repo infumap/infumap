@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
-import { asAttachmentsItem, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "../items/base/attachments-item";
+import { asAttachmentsItem, attachmentAnchorRightPxForVe, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanCopy, itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
@@ -649,6 +649,7 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
       const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
       const clampedIndex = calcSpatialAttachmentInsertIndex(
         veBoundsPx,
+        attachmentAnchorRightPxForVe(attachVe, veBoundsPx.w),
         attachmentBlockSizePxForVe(attachVe, veBoundsPx.w),
         desktopPosPx.x,
         attachItem.computed_attachments.length,

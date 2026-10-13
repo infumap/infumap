@@ -100,6 +100,7 @@ export const arrangeTable = (
     row: tableGeometry.row,
     col: tableGeometry.col,
     attachmentBlockSizePx: tableGeometry.attachmentBlockSizePx ?? null,
+    attachmentAnchorRightPx: tableGeometry.attachmentAnchorRightPx ?? null,
     parentPath,
   };
 
@@ -112,7 +113,7 @@ export const arrangeTable = (
   tableSpec.childAreaBoundsPx = childAreaBoundsPx;
 
   const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Table == null ? displayItem_Table : linkItemMaybe_Table);
-  const attachments = arrangeItemAttachments(store, displayItem_Table.computed_attachments, parentItemSizeBl, tableGeometry.boundsPx, tableVePath, tableGeometry.attachmentBlockSizePx);
+  const attachments = arrangeItemAttachments(store, displayItem_Table.computed_attachments, parentItemSizeBl, tableGeometry.boundsPx, tableVePath, tableGeometry.attachmentBlockSizePx, tableGeometry.attachmentAnchorRightPx);
 
   const tableRelationships: VisualElementRelationships = {
     childrenVes: windowState.childrenVes,
