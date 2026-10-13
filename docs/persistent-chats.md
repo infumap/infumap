@@ -319,6 +319,7 @@ the chat route ignores requests without a query item id.
 1. **Server chat store.** Read, append and delete for `user_{id}/chats/{query_item_id}.chat`, with per-chat
    locking, synced appends, revisions as `user` record counts, incomplete-tail repair, and interrupted turns
    derived on read. Tests: round-trip, an incomplete last line, rebuilding the message list after a cancelled turn.
+   Done 2026-10-13: [transcript.rs](../infumap/src/web/routes/command/chat/transcript.rs).
 2. **Query item titles.** Add query items to `is_titled_item_type` with a missing title defaulting to empty on the
    server and client, and show the title in `Query_LineItem`, falling back to "Query".
 3. **Chat route writes transcripts.** The request takes a query item id, request id, expected revision and user
