@@ -941,21 +941,40 @@ function hitTopTitledPageAttachmentMaybe(
   const umbrellaVe = store.umbrellaVisualElement.get();
   let pageVes: VisualElementSignal | null = VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))()[0] ?? null;
   if (pageVes == null || !(pageVes.get().flags & VisualElementFlags.TopLevelRoot)) { return null; }
-  let parentPageVe: VisualElement | null = null;
-  // Neither the top level page nor list page roots scroll at the page level, so no scroll offset is needed.
-  let posRelativeToPageBoundsPx = { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y };
-  while (pageVes != null) {
-    const pageVe: VisualElement = pageVes.get();
+  // The top level page's viewport is its bounds, and it doesn't scroll at the page level when it is a list page.
+  const posRelativeToPagePx = { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y };
+  return hitRootAttachmentMaybe(
+      pageVes, null, null, pageVes.get(), posRelativeToPagePx, ignoreItems, hitboxOptions, "hitTopTitledPageAttachmentMaybe") ??
+    hitSelectedPageAttachmentMaybe(pageVes.get(), posRelativeToPagePx, ignoreItems, hitboxOptions);
+}
+
+/**
+ * Hit test the attachments of the selected page of a list page (and of its selected page, etc.). These straddle the
+ * top of the list page's viewport, so may be over its title (in the toolbar, a popup title bar, or the title of an
+ * embedded page), and need to be checked before the list page's own hitboxes. posRelativeToViewportPx is relative to
+ * the top left of the list page's viewport, not including any scroll offset.
+ */
+function hitSelectedPageAttachmentMaybe(
+  listPageVe: VisualElement,
+  posRelativeToViewportPx: Vector,
+  ignoreItems: Set<Uid>,
+  hitboxOptions: HitboxScanOptions,
+): HitInfo | null {
+  let parentPageVe = listPageVe;
+  let posRelativeToPagePx = posRelativeToViewportPx;
+  while (true) {
+    const selectedVes: VisualElementSignal | null = VesCache.render.getSelected(VeFns.veToPath(parentPageVe))() ?? null;
+    if (selectedVes == null || !(selectedVes.get().flags & VisualElementFlags.ListPageRoot) || !isPage(selectedVes.get().displayItem)) {
+      return null;
+    }
+    const selectedVe = selectedVes.get();
+    // The viewport of a list page root is its bounds.
+    posRelativeToPagePx = vectorSubtract(posRelativeToPagePx, getBoundingBoxTopLeft(selectedVe.boundsPx));
     const hit = hitRootAttachmentMaybe(
-      pageVes, null, parentPageVe, pageVe, posRelativeToPageBoundsPx, ignoreItems, hitboxOptions, "hitTopTitledPageAttachmentMaybe");
+      selectedVes, null, parentPageVe, selectedVe, posRelativeToPagePx, ignoreItems, hitboxOptions, "hitSelectedPageAttachmentMaybe");
     if (hit) { return hit; }
-    const selectedVes: VisualElementSignal | null = VesCache.render.getSelected(VeFns.veToPath(pageVe))() ?? null;
-    if (selectedVes == null || !(selectedVes.get().flags & VisualElementFlags.ListPageRoot) || !isPage(selectedVes.get().displayItem)) { break; }
-    posRelativeToPageBoundsPx = vectorSubtract(posRelativeToPageBoundsPx, getBoundingBoxTopLeft(selectedVes.get().boundsPx));
-    parentPageVe = pageVe;
-    pageVes = selectedVes;
+    parentPageVe = selectedVe;
   }
-  return null;
 }
 
 /**
@@ -1004,7 +1023,10 @@ function hitPagePopupRootMaybe(
     const attachmentHit = hitRootAttachmentMaybe(
       popupRootVesMaybe, null, parentRootInfo.rootVe, popupRootVeMaybe,
       vectorSubtract(popupPosRelativeToTopLevelVePx, getBoundingBoxTopLeft(popupRootVeMaybe.boundsPx)),
-      ignoreItems, hitboxOptions, "hitPagePopupRootMaybe-attachment");
+      ignoreItems, hitboxOptions, "hitPagePopupRootMaybe-attachment") ??
+      hitSelectedPageAttachmentMaybe(
+        popupRootVeMaybe, vectorSubtract(popupPosRelativeToTopLevelVePx, getBoundingBoxTopLeft(popupRootVeMaybe.viewportBoundsPx!)),
+        ignoreItems, hitboxOptions);
     if (attachmentHit) { return { ...parentRootInfo, hitMaybe: attachmentHit }; }
     if (isInside(popupPosRelativeToTopLevelVePx, popupRootVeMaybe.boundsPx)) {
       rootVes = popupRootVesMaybe;
@@ -1168,7 +1190,10 @@ function hitEmbeddedRootMaybe(
       // found by hitChildMaybe, but those below it would be hidden by entering the embedded page.
       const attachmentHit = hitRootAttachmentMaybe(
         parentRootInfo.rootVes, rootVe, parentRootInfo.parentRootVe, rootVe,
-        posRelativeToEmbeddedRootBoundsPx, ignoreItems, hitboxOptions, "hitEmbeddedRootMaybe-attachment", childVe);
+        posRelativeToEmbeddedRootBoundsPx, ignoreItems, hitboxOptions, "hitEmbeddedRootMaybe-attachment", childVe) ??
+        hitSelectedPageAttachmentMaybe(
+          childVe, vectorSubtract(posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.viewportBoundsPx!)),
+          ignoreItems, hitboxOptions);
       if (attachmentHit) { return { ...parentRootInfo, hitMaybe: attachmentHit }; }
       const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(childVe, posRelativeToEmbeddedRootBoundsPx, undefined, hitboxOptions);
       return ({ parentRootVe: parentRootInfo.rootVe, rootVes: childVes, rootVe: childVe, posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx, posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx, hitMaybe: hitboxType != HitboxFlags.None ? new HitBuilder(parentRootInfo.rootVe, childVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToEmbeddedRootBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determineEmbeddedRootMaybe").build() : null });

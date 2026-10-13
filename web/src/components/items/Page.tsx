@@ -41,8 +41,8 @@ import { Page_EmbeddedInteractive } from "./Page_EmbeddedInteractive";
 import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
+import { pageAttachInsertBarBoundsPx } from "./PageAttachments";
 import { OUTLINE_COLOR, outlineTextWidthPx } from "./LineItemOutline";
-import { ItemFns } from "../../items/base/item-polymorphism";
 import { calculateCalendarDimensionsForVisualElement, calculateCalendarWindowForPage, decodeCalendarCombinedIndex, getCalendarDayMetrics, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { calcCatalogLayout, CATALOG_DETAIL_COLUMN_PADDING_PX } from "../../layout/catalog";
@@ -216,20 +216,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       }
     },
 
-    attachInsertBarPx: (): BoundingBox => {
-      const innerSizeBl = ItemFns.calcSpatialDimensionsBl(props.visualElement.displayItem);
-      const blockSizePx = props.visualElement.attachmentBlockSizePx ?? pageFns.boundsPx().w / innerSizeBl.w;
-      const insertIndex = store.perVe.getMoveOverAttachmentIndex(pageFns.vePath());
-      // Special case for position 0: align with the anchor (by default the right edge of the parent item)
-      const xOffset = insertIndex === 0 ? -4 : -2;
-      const anchorRightPx = props.visualElement.attachmentAnchorRightPx ?? pageFns.boundsPx().w;
-      return {
-        x: anchorRightPx - insertIndex * blockSizePx + xOffset,
-        y: -blockSizePx / 2,
-        w: 4,
-        h: blockSizePx,
-      };
-    },
+    attachInsertBarPx: (): BoundingBox => pageAttachInsertBarBoundsPx(store, props.visualElement),
 
     moveOutOfCompositeBox: (): BoundingBox => {
       const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);

@@ -527,7 +527,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
             style={autoMovedIntoViewWarningStyle(pageFns().boundsPx().w, pageFns().boundsPx().h)} />
         </Show>
       </div>
-      <PageAttachments visualElement={props.visualElement} pageFns={pageFns()}
+      <PageAttachments visualElement={props.visualElement}
         positionStyle={`left: 0px; top: 0px; ${VeFns.zIndexStyle(props.visualElement)}`} />
     </div>
   );
