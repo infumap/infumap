@@ -1701,7 +1701,9 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
         scheduleMoveCommit(store, ops, "mouse-up-move-to-calendar-page");
         return;
       } else if (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Document ||
-        targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+        targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
+        // e.g. an item moved within the rows of a container expanded in the list.
+        (targetPageItem.arrangeAlgorithm == ArrangeAlgorithm.List && !!(overContainerVe.flags & VisualElementFlags.ShowChildren))) {
         mouseUpHandler_moving_toOrderedPage(store, activeItem, overContainerVe);
         return;
       } else {
