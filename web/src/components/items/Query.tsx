@@ -119,7 +119,7 @@ const QUERY_SEARCH_ARRANGE_OPTIONS = [
  */
 const QUERY_INPUT_MODE_OPTIONS = [
   { value: "search", label: "Search", icon: "bi-search" },
-  { value: "chat", label: "Chat", icon: "bi-chat" },
+  { value: "chat", label: "Chat", icon: "far fa-comments" },
   { value: "deep-research", label: "Deep research", icon: "bi-binoculars" },
 ] as const;
 type QueryInputModeOption = typeof QUERY_INPUT_MODE_OPTIONS[number]["value"];

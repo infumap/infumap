@@ -21,6 +21,7 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { TextFns, asTextItem, clipboardTextCreateShowsPlaceholder, textDisplayTitle } from "../../items/text-item";
+import { defaultTextIconClass } from "./text-icon";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
@@ -145,7 +146,7 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
-        <Show when={emoji()} fallback={<i class={`far fa-file-lines`} />}>
+        <Show when={emoji()} fallback={<i class={defaultTextIconClass(textItem())} />}>
           <span class="inline-block leading-none"
             style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
             {emoji()}

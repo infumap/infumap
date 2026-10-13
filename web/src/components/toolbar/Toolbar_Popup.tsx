@@ -43,6 +43,7 @@ import {
 import { calculateChildrenStats, formatBytes } from "../../util/item-metadata";
 import { FileFns, asFileItem, isFile } from "../../items/file-item";
 import { TextFns, asTextItem, isText } from "../../items/text-item";
+import { defaultTextIconClass } from "../items/text-icon";
 import { PasswordFns, asPasswordItem, isPassword } from "../../items/password-item";
 import { isImage } from "../../items/image-item";
 import { asDataItem, isDataItem } from "../../items/base/data-item";
@@ -648,7 +649,7 @@ export const Toolbar_Popup: Component = () => {
           DEFAULT_NOTE_ICON_TEXT;
   const defaultItemIconClass = (): string =>
     isFile(getToolbarFocusItem(store)) ? "fas fa-file" :
-      isText(getToolbarFocusItem(store)) ? "far fa-file-lines" :
+      isText(getToolbarFocusItem(store)) ? defaultTextIconClass(textItem()) :
         isPassword(getToolbarFocusItem(store)) ? "fas fa-eye-slash" :
           "fas fa-sticky-note";
   const itemIconLabel = (): string =>

@@ -1255,7 +1255,7 @@ export function isChatTextItem(textItem: TextItem): boolean {
   return textItem.mimeType == CHAT_TRANSCRIPT_MIME_TYPE;
 }
 
-function isMarkdownTextItem(textItem: TextItem): boolean {
+export function isMarkdownTextItem(textItem: TextItem): boolean {
   const mimeType = (textItem.mimeType ?? "").toLowerCase();
   const title = textItem.title.toLowerCase();
   return mimeType == "text/markdown" ||
