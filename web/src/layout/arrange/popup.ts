@@ -438,7 +438,7 @@ interface PopupContainer {
 }
 
 /**
- * Document, grid, justified and catalog pages don't lay their children out on the page's spatial grid, and popups
+ * Document, grid, justified, catalog and list pages don't lay their children out on the page's spatial grid, and popups
  * are rendered relative to the (scrollable) page viewport rather than the child area. So the popup container spans
  * the viewport (or the child area, if larger), using the block size from PageFns.calcNonSpatialPopupBlockSizePxMaybe.
  */

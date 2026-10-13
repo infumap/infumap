@@ -530,7 +530,7 @@ export function arrange_list_page(
     const currentPopupSpec = store.history.currentPopupSpec();
     if (currentPopupSpec != null) {
       pageRelationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
-        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.List, geometry.viewportBoundsPx!)
+        ? arrangeSourceAnchoredPopupPath(store, displayItem_pageWithChildren, pageWithChildrenVePath, ArrangeAlgorithm.List, pageSpec.childAreaBoundsPx!, geometry.viewportBoundsPx!)
         : arrangeCellPopupPath(store);
     }
   }
