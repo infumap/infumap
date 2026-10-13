@@ -224,14 +224,32 @@ export const RatingFns = {
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h
     };
+    // As for a rating in a composite, clicking the value (in the icon block) changes it, and clicking the rest of the
+    // row selects or focuses the rating.
+    const valueClickBoundsPx = {
+      x: innerBoundsPx.x,
+      y: innerBoundsPx.y,
+      w: Math.min(blockSizePx.w, innerBoundsPx.w),
+      h: innerBoundsPx.h,
+    };
+    const restClickBoundsPx = {
+      x: valueClickBoundsPx.x + valueClickBoundsPx.w,
+      y: innerBoundsPx.y,
+      w: innerBoundsPx.w - valueClickBoundsPx.w,
+      h: innerBoundsPx.h,
+    };
+    const hitboxes = [
+      HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+      HitboxFns.create(HitboxFlags.Click | HitboxFlags.ShowPointer, valueClickBoundsPx),
+    ];
+    if (restClickBoundsPx.w > 0) {
+      hitboxes.push(HitboxFns.create(HitboxFlags.Click, restClickBoundsPx, { focusOnly: true }));
+    }
     return {
       boundsPx,
       blockSizePx,
       viewportBoundsPx: null,
-      hitboxes: [
-        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
-        HitboxFns.create(HitboxFlags.Click, innerBoundsPx)
-      ]
+      hitboxes
     };
   },
 
@@ -256,8 +274,8 @@ export const RatingFns = {
 
   handleClick: (store: StoreContextModel, visualElementSignal: VisualElementSignal, hitboxMeta: HitboxMeta | null = null): void => {
     const visualElement = visualElementSignal.get();
-    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (hitboxMeta?.focusOnly) {
+      if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
       // Clicks beside a rating in a document page do nothing.
       if (isInsideDocumentPageClickContext(visualElement)) { return; }
       store.history.setFocus(VeFns.veToPath(visualElement));
