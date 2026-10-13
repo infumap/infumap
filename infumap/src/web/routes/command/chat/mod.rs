@@ -35,7 +35,7 @@ mod container_fragments;
 mod markdown;
 mod mcp;
 mod search_results;
-// Not used by the chat route yet; see step 3 in docs/persistent-chats.md.
+// Loading, persisting and deleting transcripts are not wired up yet; see docs/persistent-chats.md.
 #[allow(dead_code)]
 mod transcript;
 use backend::{
@@ -45,6 +45,10 @@ use backend::{
 pub(crate) use backend::{llama_servers_from_config, validate_chat_backend_config};
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
+use transcript::{
+  LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript, TranscriptHeader, TurnOutcome, TurnRecord, TurnSettings,
+  UserRecord, try_lock_transcript,
+};
 
 // Both ceilings are backstops against a model that loops forever, not budgets:
 // a run reaches either only if something has gone wrong. The deep research
@@ -110,7 +114,19 @@ enum ChatRunMode {
 struct ChatRequest {
   #[serde(rename = "requestId", default)]
   request_id: Option<String>,
+  /// The model history, for a chat without a transcript. Empty for a live chat, whose history comes from its
+  /// transcript and is filled in when its turn starts.
+  #[serde(default)]
   messages: Vec<ChatHistoryMessage>,
+  /// A query item in the Queries page whose transcript holds the chat. See docs/persistent-chats.md.
+  #[serde(rename = "queryItemId", default)]
+  query_item_id: Option<Uid>,
+  /// For a live chat: the transcript revision the client last saw. A different revision rejects the request.
+  #[serde(rename = "expectedRevision", default)]
+  expected_revision: Option<usize>,
+  /// For a live chat: the new user message.
+  #[serde(default)]
+  text: Option<String>,
   #[serde(default)]
   capabilities: Vec<String>,
   mode: ChatRunMode,
@@ -255,6 +271,14 @@ enum ChatStreamEventKind {
     result_preview: Value,
   },
   Materializing,
+  /// A live chat's user message was recorded; the transcript is now at this revision.
+  TurnAccepted {
+    revision: usize,
+  },
+  /// A live chat's transcript is not at the expected revision, so nothing was recorded.
+  TranscriptConflict {
+    revision: usize,
+  },
   ContextTokens {
     tokens: i64,
     exact: bool,
@@ -687,7 +711,7 @@ pub async fn serve_chat_stream_route(
     }
   };
 
-  let request: ChatRequest = match incoming_json_with_limit(request, COMMAND_REQUEST_MAX_BYTES).await {
+  let mut request: ChatRequest = match incoming_json_with_limit(request, COMMAND_REQUEST_MAX_BYTES).await {
     Ok(request) => request,
     Err(e) => {
       error!("An error occurred parsing chat stream payload for user '{}': {}", session.user_id, e);
@@ -698,23 +722,44 @@ pub async fn serve_chat_stream_route(
     }
   };
 
+  let stream_request_id = request.stream_request_id();
+  let mut live_turn = match request.query_item_id.is_some() {
+    true => match start_live_chat_turn(db, &session, &mut request, &stream_request_id).await {
+      Ok(turn) => Some(turn),
+      Err(event) => return single_chat_stream_event_response(stream_request_id, event),
+    },
+    false => None,
+  };
+
   let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(16);
-  let progress = ChatProgressReporter { request_id: request.stream_request_id(), tx: tx.clone() };
+  let progress = ChatProgressReporter { request_id: stream_request_id, tx: tx.clone() };
   let disconnect = tx.clone();
   let user_id = session.user_id.clone();
   let db = db.clone();
 
   tokio::spawn(async move {
+    if let Some(turn) = &live_turn {
+      progress.send(ChatStreamEventKind::TurnAccepted { revision: turn.revision() }).await;
+    }
     progress.status("Preparing request").await;
     let result = tokio::select! {
       _ = disconnect.closed() => {
         debug!("Cancelling streaming chat request '{}' for user '{}' after the client disconnected.", progress.request_id, user_id);
         cancel_pending_tool_approvals(&progress.request_id);
+        if let Some(turn) = live_turn.as_mut() {
+          if let Err(e) = turn.end(TurnOutcome::Cancelled, vec![], None).await {
+            warn!("Could not record the cancellation of chat request '{}' for user '{}': {}", progress.request_id, user_id, e);
+          }
+        }
         return;
       }
       result = run_chat_with_tools(config, &db, &session, &request, &progress) => result,
     };
     cancel_pending_tool_approvals(&progress.request_id);
+    let result = match (result, live_turn.as_mut()) {
+      (Ok(result), Some(turn)) => turn.end_completed(result).await,
+      (result, _) => result,
+    };
     match result {
       Ok(result) => {
         progress.send(ChatStreamEventKind::Materializing).await;
@@ -724,12 +769,161 @@ pub async fn serve_chat_stream_route(
       }
       Err(e) => {
         warn!("An error occurred servicing a streaming chat request for user '{}': {}.", user_id, e);
-        progress.send(ChatStreamEventKind::error(&chat_failure_message(e.message()))).await;
+        let message = chat_failure_message(e.message());
+        if let Some(turn) = live_turn.as_mut().filter(|turn| !turn.ended) {
+          if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.clone())).await {
+            warn!(
+              "Could not record the failure of chat request '{}' for user '{}': {}",
+              progress.request_id, user_id, e
+            );
+          }
+        }
+        progress.send(ChatStreamEventKind::error(&message)).await;
       }
     }
   });
 
   chat_stream_response(rx)
+}
+
+fn unix_now_millis() -> i64 {
+  std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |duration| duration.as_millis() as i64)
+}
+
+/// A turn of a live chat. It holds the chat lock from its start until the stream task ends, so a second turn, a
+/// persist or a delete of the chat is rejected meanwhile.
+struct LiveChatTurn {
+  transcript: LockedTranscript,
+  request_id: String,
+  started_at: i64,
+  /// The number of history messages before this turn's user message.
+  history_len: usize,
+  ended: bool,
+}
+
+impl LiveChatTurn {
+  fn revision(&self) -> usize {
+    self.transcript.transcript().map_or(0, Transcript::revision)
+  }
+
+  async fn end(
+    &mut self,
+    outcome: TurnOutcome,
+    messages: Vec<ChatHistoryMessage>,
+    error: Option<String>,
+  ) -> InfuResult<()> {
+    let record = TurnRecord {
+      request_id: self.request_id.clone(),
+      messages,
+      // Activity is collected in a later step; see docs/persistent-chats.md.
+      rounds: vec![],
+      started_at: self.started_at,
+      ended_at: unix_now_millis(),
+      outcome,
+      error,
+    };
+    self.transcript.append_turn(record).await?;
+    self.ended = true;
+    Ok(())
+  }
+
+  /// Records the messages the turn added, before completion is reported. If that fails, the turn is reported as
+  /// failed rather than shown: the transcript is the history, so an answer it does not hold would not be in the next
+  /// turn's history.
+  async fn end_completed(&mut self, result: ChatRunResult) -> InfuResult<ChatRunResult> {
+    let Some(added) = result.messages.get(self.history_len + 1..).filter(|added| !added.is_empty()) else {
+      return Err("The chat result does not include the new turn.".into());
+    };
+    self
+      .end(TurnOutcome::Completed, added.to_vec(), None)
+      .await
+      .map_err(|e| format!("Could not save the chat turn to its transcript: {}", e))?;
+    Ok(result)
+  }
+}
+
+/// Starts a turn of a live chat: checks the query item and the expected revision, records the user message, and
+/// replaces the request's messages with the history from the transcript. On failure, returns the event to send.
+async fn start_live_chat_turn(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  request: &mut ChatRequest,
+  request_id: &str,
+) -> Result<LiveChatTurn, ChatStreamEventKind> {
+  let error = |message: &str| ChatStreamEventKind::error(message);
+  let query_item_id = request.query_item_id.clone().ok_or_else(|| error("Chat request has no query item id."))?;
+  if !request.messages.is_empty() {
+    return Err(error("A chat request with a query item id must not include messages."));
+  }
+  let text = request
+    .text
+    .as_deref()
+    .map(str::trim)
+    .filter(|text| !text.is_empty())
+    .ok_or_else(|| error("Chat request did not contain any message text."))?
+    .to_owned();
+  let expected_revision = request
+    .expected_revision
+    .ok_or_else(|| error("A chat request with a query item id needs an expected revision."))?;
+
+  let data_dir = {
+    let db = db.lock().await;
+    let is_chat = db
+      .item
+      .get(&query_item_id)
+      .is_ok_and(|item| item.owner_id == session.user_id && super::is_queries_page_query_item(&db, item));
+    if !is_chat {
+      return Err(error("The chat was not found."));
+    }
+    db.item.data_dir().to_owned()
+  };
+
+  let transcript_error = |e: infusdk::util::infu::InfuError| {
+    warn!("Could not use the transcript of chat '{}' for user '{}': {}", query_item_id, session.user_id, e);
+    error("Could not read or write the chat transcript.")
+  };
+  let mut transcript = try_lock_transcript(&data_dir, &session.user_id, &query_item_id)
+    .await
+    .map_err(transcript_error)?
+    .ok_or_else(|| error("A response is already running in this chat."))?;
+  let revision = transcript.transcript().map_or(0, Transcript::revision);
+  if revision != expected_revision {
+    return Err(ChatStreamEventKind::TranscriptConflict { revision });
+  }
+  if transcript.transcript().is_none() {
+    let header = TranscriptHeader {
+      version: TRANSCRIPT_FORMAT_VERSION,
+      query_item_id: query_item_id.clone(),
+      created_at: unix_now_millis(),
+    };
+    transcript.create(header).await.map_err(transcript_error)?;
+  }
+
+  let started_at = unix_now_millis();
+  let user = UserRecord {
+    request_id: request_id.to_owned(),
+    started_at,
+    text: text.clone(),
+    settings: TurnSettings {
+      model: request.model.clone(),
+      capabilities: request.capabilities.clone(),
+      scope_id: request.scope_id.clone(),
+      mode: request.mode,
+    },
+  };
+  transcript.append_user(user).await.map_err(transcript_error)?;
+
+  let mut messages = transcript.transcript().map(Transcript::history).unwrap_or_default();
+  let history_len = messages.len();
+  messages.push(ChatHistoryMessage {
+    role: "user".to_owned(),
+    content: Some(text),
+    reasoning_content: None,
+    tool_call_id: None,
+    tool_calls: None,
+  });
+  request.messages = messages;
+  Ok(LiveChatTurn { transcript, request_id: request_id.to_owned(), started_at, history_len, ended: false })
 }
 
 #[derive(Deserialize)]
@@ -2803,5 +2997,224 @@ mod tests {
       ..Default::default()
     };
     assert!(truncated_answer.into_message().is_ok());
+  }
+}
+
+#[cfg(test)]
+mod live_chat_tests {
+  use super::*;
+  use crate::web::routes::command::scope::test_db::{TempDir, TestDb};
+
+  struct Fixture {
+    db: Arc<tokio::sync::Mutex<Db>>,
+    session: Session,
+    data_dir: String,
+    query_item_id: Uid,
+    home_query_item_id: Uid,
+    note_id: Uid,
+    _dir: TempDir,
+  }
+
+  async fn fixture() -> Fixture {
+    let mut t = TestDb::new().await;
+    let queries_page_id = t.db.user.get(&t.user_id).unwrap().queries_page_id.clone();
+    let query = |parent_id: &Uid| {
+      Item::new_query(parent_id, vec![], Vector { x: 0, y: 0 }, GRID_SIZE, RelationshipToParent::Child)
+    };
+    let query_item_id = t.add(query(&queries_page_id)).await;
+    let home = t.home_id.clone();
+    let home_query_item_id = t.add(query(&home)).await;
+    let note_id = t.note(&home, "note", RelationshipToParent::Child).await;
+    let session = Session {
+      id: new_uid(),
+      user_id: t.user_id.clone(),
+      expires: 0,
+      issued_at: 0,
+      username: String::new(),
+      successor_id: None,
+      predecessor_id: None,
+    };
+    let data_dir = t.db.item.data_dir().to_owned();
+    Fixture {
+      db: Arc::new(tokio::sync::Mutex::new(t.db)),
+      session,
+      data_dir,
+      query_item_id,
+      home_query_item_id,
+      note_id,
+      _dir: t.dir,
+    }
+  }
+
+  fn request(query_item_id: &Uid, expected_revision: usize, text: &str) -> ChatRequest {
+    serde_json::from_value(serde_json::json!({
+      "queryItemId": query_item_id,
+      "expectedRevision": expected_revision,
+      "text": text,
+      "mode": "chat",
+      "capabilities": ["infumap_data"],
+      "scopeId": new_uid(),
+    }))
+    .unwrap()
+  }
+
+  fn message(role: &str, content: &str) -> ChatHistoryMessage {
+    ChatHistoryMessage {
+      role: role.to_owned(),
+      content: Some(content.to_owned()),
+      reasoning_content: None,
+      tool_call_id: None,
+      tool_calls: None,
+    }
+  }
+
+  fn contents(messages: &[ChatHistoryMessage]) -> Vec<(String, String)> {
+    messages.iter().map(|m| (m.role.clone(), m.content.clone().unwrap_or_default())).collect()
+  }
+
+  fn pairs(expected: &[(&str, &str)]) -> Vec<(String, String)> {
+    expected.iter().map(|(role, content)| (role.to_string(), content.to_string())).collect()
+  }
+
+  fn error_message(event: ChatStreamEventKind) -> String {
+    match event {
+      ChatStreamEventKind::Error { message } => message,
+      _ => panic!("expected an error event"),
+    }
+  }
+
+  impl Fixture {
+    async fn start(&self, request: &mut ChatRequest, request_id: &str) -> Result<LiveChatTurn, ChatStreamEventKind> {
+      start_live_chat_turn(&self.db, &self.session, request, request_id).await
+    }
+
+    /// Runs a turn whose model answers `answer`, recording it as completed.
+    async fn complete_turn(&self, expected_revision: usize, text: &str, answer: &str) {
+      let mut request = request(&self.query_item_id, expected_revision, text);
+      let mut turn = self.start(&mut request, &format!("r-{text}")).await.ok().unwrap();
+      let mut messages = request.messages.clone();
+      messages.push(message("assistant", answer));
+      turn.end_completed(ChatRunResult { assistant_text: answer.to_owned(), messages }).await.ok().unwrap();
+    }
+
+    async fn transcript(&self) -> Transcript {
+      transcript::read_transcript(&self.data_dir, &self.session.user_id, &self.query_item_id).await.unwrap().unwrap()
+    }
+  }
+
+  #[tokio::test]
+  async fn first_turn_creates_the_transcript_and_records_the_turn() {
+    let f = fixture().await;
+    let mut request = request(&f.query_item_id, 0, "  first question ");
+    let mut turn = f.start(&mut request, "r1").await.ok().unwrap();
+    assert_eq!(turn.revision(), 1);
+    assert_eq!(contents(&request.messages), pairs(&[("user", "first question")]));
+
+    let transcript = f.transcript().await;
+    assert_eq!(transcript.header.query_item_id, f.query_item_id);
+    assert_eq!(transcript.turns[0].user.text, "first question");
+    assert_eq!(transcript.turns[0].user.settings.scope_id, request.scope_id);
+    assert_eq!(transcript.turns[0].user.settings.capabilities, vec!["infumap_data".to_owned()]);
+    assert!(transcript.turns[0].end.is_none());
+
+    let mut messages = request.messages.clone();
+    messages.extend([message("assistant", "calling"), message("tool", "result"), message("assistant", "answer")]);
+    turn.end_completed(ChatRunResult { assistant_text: "answer".to_owned(), messages }).await.ok().unwrap();
+    drop(turn);
+
+    let transcript = f.transcript().await;
+    assert_eq!(transcript.turn_status(0, false), transcript::TurnStatus::Completed);
+    assert_eq!(
+      contents(&transcript.history()),
+      pairs(&[("user", "first question"), ("assistant", "calling"), ("tool", "result"), ("assistant", "answer")])
+    );
+  }
+
+  #[tokio::test]
+  async fn later_turns_get_their_history_from_completed_turns() {
+    let f = fixture().await;
+    f.complete_turn(0, "q1", "a1").await;
+
+    let mut request2 = request(&f.query_item_id, 1, "q2");
+    let mut turn = f.start(&mut request2, "r2").await.ok().unwrap();
+    assert_eq!(turn.revision(), 2);
+    assert_eq!(contents(&request2.messages), pairs(&[("user", "q1"), ("assistant", "a1"), ("user", "q2")]));
+    turn.end(TurnOutcome::Cancelled, vec![], None).await.unwrap();
+    drop(turn);
+
+    let mut request3 = request(&f.query_item_id, 2, "q3");
+    let turn = f.start(&mut request3, "r3").await.ok().unwrap();
+    assert_eq!(contents(&request3.messages), pairs(&[("user", "q1"), ("assistant", "a1"), ("user", "q3")]));
+    drop(turn);
+
+    let transcript = f.transcript().await;
+    assert_eq!(transcript.turn_status(1, false), transcript::TurnStatus::Cancelled);
+    assert_eq!(transcript.turn_status(2, false), transcript::TurnStatus::Interrupted);
+  }
+
+  #[tokio::test]
+  async fn stale_revision_is_rejected_without_recording() {
+    let f = fixture().await;
+    f.complete_turn(0, "q1", "a1").await;
+    let mut stale = request(&f.query_item_id, 0, "q2");
+    match f.start(&mut stale, "r2").await {
+      Err(ChatStreamEventKind::TranscriptConflict { revision }) => assert_eq!(revision, 1),
+      _ => panic!("expected a transcript conflict"),
+    }
+    assert_eq!(f.transcript().await.revision(), 1);
+  }
+
+  #[tokio::test]
+  async fn second_turn_is_rejected_while_one_runs() {
+    let f = fixture().await;
+    let mut first = request(&f.query_item_id, 0, "q1");
+    let turn = f.start(&mut first, "r1").await.ok().unwrap();
+    let mut second = request(&f.query_item_id, 1, "q2");
+    let message = error_message(f.start(&mut second, "r2").await.err().unwrap());
+    assert!(message.contains("already running"), "{message}");
+    drop(turn);
+    assert!(f.start(&mut second, "r2").await.is_ok());
+  }
+
+  #[tokio::test]
+  async fn only_query_items_in_the_queries_page_are_chats() {
+    let f = fixture().await;
+    for id in [&f.home_query_item_id, &f.note_id, &new_uid()] {
+      let mut request = request(id, 0, "q");
+      let message = error_message(f.start(&mut request, "r").await.err().unwrap());
+      assert!(message.contains("not found"), "{message}");
+    }
+    let other_user = Session { user_id: new_uid(), ..f.session.clone() };
+    let mut request = request(&f.query_item_id, 0, "q");
+    assert!(start_live_chat_turn(&f.db, &other_user, &mut request, "r").await.is_err());
+  }
+
+  #[tokio::test]
+  async fn malformed_live_requests_are_rejected() {
+    let f = fixture().await;
+    let mut with_messages = request(&f.query_item_id, 0, "q");
+    with_messages.messages = vec![message("user", "q")];
+    assert!(f.start(&mut with_messages, "r").await.is_err());
+    let mut blank = request(&f.query_item_id, 0, "   ");
+    assert!(f.start(&mut blank, "r").await.is_err());
+    let mut no_revision = request(&f.query_item_id, 0, "q");
+    no_revision.expected_revision = None;
+    assert!(f.start(&mut no_revision, "r").await.is_err());
+    assert!(transcript::read_transcript(&f.data_dir, &f.session.user_id, &f.query_item_id).await.unwrap().is_none());
+  }
+
+  #[tokio::test]
+  async fn result_without_the_new_turn_is_not_recorded_as_completed() {
+    let f = fixture().await;
+    let mut request = request(&f.query_item_id, 0, "q1");
+    let mut turn = f.start(&mut request, "r1").await.ok().unwrap();
+    let result = ChatRunResult { assistant_text: "a".to_owned(), messages: request.messages.clone() };
+    assert!(turn.end_completed(result).await.is_err());
+    assert!(!turn.ended);
+    turn.end(TurnOutcome::Error, vec![], Some("failed".to_owned())).await.unwrap();
+    drop(turn);
+    let transcript = f.transcript().await;
+    assert_eq!(transcript.turn_status(0, false), transcript::TurnStatus::Error);
+    assert!(transcript.history().is_empty());
   }
 }
