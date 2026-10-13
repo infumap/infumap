@@ -21,16 +21,20 @@
 use serde_json::Value;
 
 use super::ChatStreamEventKind;
-use super::transcript::{ActivityRound, ActivityToolCall, ActivityToolCallStatus};
+use super::transcript::{ActivityRound, ActivityToolCall, ActivityToolCallStatus, ContextTokenCount};
 
 #[derive(Default)]
 pub(super) struct ChatActivity {
   rounds: Vec<ActivityRound>,
+  context_tokens: Option<ContextTokenCount>,
 }
 
 impl ChatActivity {
   pub(super) fn apply(&mut self, event: &ChatStreamEventKind) {
     match event {
+      ChatStreamEventKind::ContextTokens { tokens, exact } => {
+        self.context_tokens = Some(ContextTokenCount { tokens: *tokens, exact: *exact });
+      }
       ChatStreamEventKind::ModelRoundStarted { round } => {
         self.complete_rounds();
         self.round(*round).complete = false;
@@ -99,6 +103,10 @@ impl ChatActivity {
   /// that was running or awaiting approval keeps that status.
   pub(super) fn finished_rounds(&self) -> Vec<ActivityRound> {
     self.rounds.iter().cloned().map(|round| ActivityRound { complete: true, ..round }).collect()
+  }
+
+  pub(super) fn context_tokens(&self) -> Option<ContextTokenCount> {
+    self.context_tokens
   }
 
   fn complete_rounds(&mut self) {
@@ -185,6 +193,7 @@ mod tests {
     assert_eq!(second.answer, "The answer");
     assert!(!second.complete);
     assert!(activity.finished_rounds().iter().all(|round| round.complete));
+    assert_eq!(activity.context_tokens(), Some(ContextTokenCount { tokens: 100, exact: true }));
   }
 
   #[test]
