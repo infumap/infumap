@@ -25,7 +25,7 @@ import { CompositeFns, asCompositeItem, isComposite } from "../../items/composit
 import { isLink } from "../../items/link-item";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { isPassword } from "../../items/password-item";
-import { isQueryItem } from "../../items/query-item";
+import { QueryFns, asQueryItem, isQueryItem } from "../../items/query-item";
 import { VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { itemState } from "../../store/ItemState";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
@@ -55,8 +55,8 @@ function displayedTextLength(item: Item): number {
     const topItem = itemState.get(composite.computed_children[0]);
     return topItem && isTitledItem(topItem) ? asTitledItem(topItem).title.length : 0;
   }
+  if (isQueryItem(item)) { return QueryFns.displayTitle(asQueryItem(item)).length; }
   if (isTitledItem(item)) { return asTitledItem(item).title.length; }
-  if (isQueryItem(item)) { return "Query".length; }
   if (isPassword(item)) { return 8; }
   if (isLink(item)) { return 12; }
   return 0;

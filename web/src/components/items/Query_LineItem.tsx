@@ -23,6 +23,7 @@ import { VisualElementProps } from "../VisualElement";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, lineItemTextClippedWidthCssPx } from "./helper";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
+import { QueryFns, asQueryItem } from "../../items/query-item";
 
 
 export const Query_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -69,7 +70,7 @@ export const Query_LineItem: Component<VisualElementProps> = (props: VisualEleme
         style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
           `width: ${lineItemTextClippedWidthCssPx(props.visualElement, Math.max(0, boundsPx().w - oneBlockWidthPx()), scale())}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
-        Query
+        {QueryFns.displayTitle(asQueryItem(props.visualElement.displayItem))}
       </div>
     </>
   );

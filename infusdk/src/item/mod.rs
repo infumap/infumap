@@ -493,6 +493,7 @@ pub fn is_titled_item_type(item_type: ItemType) -> bool {
     || item_type == ItemType::Table
     || item_type == ItemType::Composite
     || item_type == ItemType::Image
+    || item_type == ItemType::Search
 }
 
 pub fn is_tabular_item_type(item_type: ItemType) -> bool {
@@ -2675,7 +2676,8 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
         }
       }
       None => {
-        if item_type == ItemType::Composite {
+        // Query items were untitled before titles were added for chat history, so older records have none.
+        if item_type == ItemType::Composite || item_type == ItemType::Search {
           Ok(Some(String::new()))
         } else if is_titled_item_type(item_type) {
           Err(expected_for_err("title", item_type, &id))
@@ -3602,7 +3604,7 @@ impl Item {
       order_children_by: None,
       spatial_width_gr: Some(spatial_width_gr),
       spatial_height_gr: None,
-      title: None,
+      title: Some(String::new()),
       url: None,
       urls: None,
       emoji: None,
@@ -4087,5 +4089,34 @@ impl Item {
     // Combine all hashes
     let hash_refs: Vec<&Uid> = hashes.iter().collect();
     combine_hashes(&hash_refs)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn query_item() -> Item {
+    let mut item =
+      Item::new_query(&new_uid(), vec![128], Vector { x: 0, y: 0 }, 4 * GRID_SIZE, RelationshipToParent::Child);
+    item.owner_id = new_uid();
+    item
+  }
+
+  #[test]
+  fn query_item_without_title_loads_with_empty_title() {
+    let mut map = to_json(&query_item()).unwrap();
+    map.remove("title");
+    assert_eq!(from_json(&map).unwrap().title.as_deref(), Some(""));
+  }
+
+  #[test]
+  fn query_item_title_round_trips_and_updates() {
+    let old = query_item();
+    let mut new = old.clone();
+    new.title = Some("Rust lifetimes".to_owned());
+    assert_eq!(from_json(&to_json(&new).unwrap()).unwrap().title.as_deref(), Some("Rust lifetimes"));
+    let update = Item::create_json_update(&old, &new).unwrap();
+    assert_eq!(update.get("title"), Some(&Value::String("Rust lifetimes".to_owned())));
   }
 }
