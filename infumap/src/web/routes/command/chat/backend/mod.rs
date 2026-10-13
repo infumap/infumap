@@ -118,13 +118,13 @@ pub enum ChatReasoning {
 
 /// The backend, model and reasoning effort the client asked for. Every field is optional - an
 /// absent field falls back to what the instance is configured to use.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ChatModelSelection {
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub backend: Option<String>,
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub model: Option<String>,
-  #[serde(rename = "reasoningEffort", default)]
+  #[serde(rename = "reasoningEffort", default, skip_serializing_if = "Option::is_none")]
   pub reasoning_effort: Option<String>,
 }
 

@@ -35,6 +35,9 @@ mod container_fragments;
 mod markdown;
 mod mcp;
 mod search_results;
+// Not used by the chat route yet; see step 3 in docs/persistent-chats.md.
+#[allow(dead_code)]
+mod transcript;
 use backend::{
   ChatBackend, ChatEndpoint, ChatModelSelection, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends,
   resolve_chat_endpoint,
@@ -96,7 +99,7 @@ limitations, and use exact Markdown links returned by tools for citations near t
 a citation or imply that a search-result snippet was fully read. Prefer a clear structure suited to the question over \
 a fixed template.";
 
-#[derive(Clone, Copy, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Copy, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum ChatRunMode {
   Chat,
