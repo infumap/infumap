@@ -1874,6 +1874,31 @@ export const PageFns = {
 
   getListPageVisibleRows: getListPageVisibleRowsImpl,
 
+  /**
+   * Resolve a list page insertion index (a position among its line item rows, which include the rows of expanded
+   * containers) to the container and child index to insert at. As for tables, the position directly below an
+   * expanded container is the first position in it, and the position below the last row is after that row in its
+   * container. insertIndex indexes computed_children with ignoreId removed.
+   */
+  listPageInsertionTarget: (listPageVe: VisualElement, moveOverIndex: number, ignoreId: Uid | null): { parentContainer: ContainerItem, insertIndex: number } => {
+    const page = asPageItem(listPageVe.displayItem);
+    const rowVes = VesCache.render.getLineChildren(VeFns.veToPath(listPageVe))().map(ve => ve.get());
+    const targetAtRow = (rowVe: VisualElement, offset: number) => {
+      const treeItem = VeFns.treeItem(rowVe);
+      const parentContainer = asContainerItem(itemState.get(treeItem.parentId)!);
+      const siblingIds = parentContainer.computed_children.filter(id => id != ignoreId);
+      return { parentContainer, insertIndex: siblingIds.indexOf(treeItem.id) + offset };
+    };
+    if (moveOverIndex < rowVes.length) {
+      return targetAtRow(rowVes[Math.max(0, moveOverIndex)], 0);
+    }
+    const lastRowVe = rowVes[rowVes.length - 1];
+    if (lastRowVe != null && VeFns.treeItem(lastRowVe).parentId != page.id) {
+      return targetAtRow(lastRowVe, 1);
+    }
+    return { parentContainer: page, insertIndex: page.computed_children.filter(id => id != ignoreId).length };
+  },
+
   moveListPageSelectionOffChild: (
     store: StoreContextModel,
     page: PageItem,
