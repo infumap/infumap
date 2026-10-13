@@ -449,7 +449,11 @@ export function arrange_list_page(
     }
   }
 
-  if (movingItemInThisPage && shouldArrangeListContents && !isBackgroundRenderOfPopupPage) {
+  // The moving item may be a visible row while being arranged elsewhere (e.g. moved into the selected page, which is
+  // expanded in the list). That container draws it, so it must not also be drawn here.
+  const activeElementPath = MouseActionState.getActiveElementPath();
+  const movingItemIsArrangedHere = activeElementPath == null || VeFns.parentPath(activeElementPath) == pageWithChildrenVePath;
+  if (movingItemInThisPage && movingItemIsArrangedHere && shouldArrangeListContents && !isBackgroundRenderOfPopupPage) {
     const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
