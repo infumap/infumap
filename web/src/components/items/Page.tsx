@@ -26,6 +26,8 @@ import { VisualElementProps } from "../VisualElement";
 import { HitboxFlags } from "../../layout/hitbox";
 import { BoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { itemState } from "../../store/ItemState";
+import { ContainerItem } from "../../items/base/container-item";
+import { Uid } from "../../util/uid";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { VisualElementFlags, VeFns, VisualElement, type ListPageRowBand } from "../../layout/visual-element";
 import { PermissionFlags } from "../../items/base/permission-flags-item";
@@ -741,9 +743,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (!store.perVe.getMovingItemIsOver(pageFns.vePath())) {
         return <></>;
       }
-      if (store.perVe.getMovingItemIsOver(pageFns.vePath()) &&
-        pageFns.pageItem().orderChildrenBy != "" &&
-        pageFns.pageItem().arrangeAlgorithm != ArrangeAlgorithm.Document) {
+      if (store.perVe.getMovingItemIsOver(pageFns.vePath()) && pageFns.moveOverTargetIsOrdered()) {
         return pageFns.renderMoveOverSortedMaybe();
       }
       if (store.perVe.getMovingItemIsOver(pageFns.vePath())) {
@@ -751,12 +751,66 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       }
     },
 
+    // In a list page, the insertion point may be inside an expanded container, whose ordering (not the page's)
+    // determines where a drop lands.
+    moveOverTargetIsOrdered: (): boolean => {
+      const page = pageFns.pageItem();
+      if (page.arrangeAlgorithm == ArrangeAlgorithm.Document) {
+        return false;
+      }
+      return pageFns.moveOverTargetContainer().orderChildrenBy != "";
+    },
+
+    moveOverTargetContainer: (): ContainerItem => {
+      const page = pageFns.pageItem();
+      const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
+      if (page.arrangeAlgorithm != ArrangeAlgorithm.List || moveOverIndex < 0) {
+        return page;
+      }
+      return PageFns.listPageInsertionTarget(props.visualElement, moveOverIndex, null).parentContainer;
+    },
+
+    // The bounds of the rows of an expanded container in a list page: the container's own row and those of its
+    // (possibly nested) children.
+    listExpandedContainerRowsBoundsPx: (containerId: Uid): BoundingBox | null => {
+      const pageId = pageFns.pageItem().id;
+      const isInContainer = (rowVe: VisualElement): boolean => {
+        if (rowVe.displayItem.id == containerId) { return true; }
+        let parentId: Uid | null = VeFns.treeItem(rowVe).parentId;
+        while (parentId != null && parentId != pageId) {
+          if (parentId == containerId) { return true; }
+          parentId = itemState.get(parentId)?.parentId ?? null;
+        }
+        return false;
+      };
+      const rowBoundsPx = pageFns.lineChildrenForListBand("middle")
+        .map(childVe => childVe.get())
+        .filter(isInContainer)
+        .map(rowVe => rowVe.boundsPx);
+      if (rowBoundsPx.length == 0) {
+        return null;
+      }
+      const topPx = Math.min(...rowBoundsPx.map(b => b.y));
+      const bottomPx = Math.max(...rowBoundsPx.map(b => b.y + b.h));
+      return {
+        x: 0,
+        y: topPx,
+        w: props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx(),
+        h: bottomPx - topPx,
+      };
+    },
+
     renderMoveOverSortedMaybe: () => {
       if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
-        const topPx = 0;
+        const targetContainer = pageFns.moveOverTargetContainer();
+        const containerRowsBoundsPx = targetContainer.id != pageFns.pageItem().id
+          ? pageFns.listExpandedContainerRowsBoundsPx(targetContainer.id)
+          : null;
+        const topPx = containerRowsBoundsPx?.y ?? 0;
         const leftPx = 0;
         const widthPx = props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx();
-        const heightPx = props.visualElement.listViewportBoundsPx?.h ?? props.visualElement.viewportBoundsPx!.h;
+        const heightPx = containerRowsBoundsPx?.h ??
+          props.visualElement.listViewportBoundsPx?.h ?? props.visualElement.viewportBoundsPx!.h;
         return (
           <div class="absolute pointer-events-none"
             style={`background-color: #0044ff0a; ` +
