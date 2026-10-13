@@ -122,6 +122,13 @@ export const HitInfoFns = {
     const ignoreSet = new Set<Uid>(ignoreItems);
     return getHitInfo(store, posOnDesktopPx, ignoreSet, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, false, true);
   },
+  /**
+   * Whether the position is over an attachment of a page whose title is shown in the toolbar. These are rendered
+   * above the toolbar, so take precedence over it.
+   */
+  isOverTopTitledPageAttachment: (store: StoreContextModel, posOnDesktopPx: Vector): boolean => {
+    return hitTopTitledPageAttachmentMaybe(store, posOnDesktopPx, new Set<Uid>(), {}) != null;
+  },
 };
 
 function parentVe(ve: VisualElement): VisualElement {
@@ -365,6 +372,9 @@ export function getHitInfo(
   const hitboxOptions: HitboxScanOptions = { allowCopyMove, includeDropTargets, excludeCompositeMoveOut };
   const umbrellaVe: VisualElement = store.umbrellaVisualElement.get();
   assert(VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))().length == 1, "expecting umbrella visual element to have exactly one child");
+  // Rendered above everything else, including the toolbar, which they straddle the bottom edge of.
+  const topTitledAttachmentHit = hitTopTitledPageAttachmentMaybe(store, posOnDesktopPx, ignoreItems, hitboxOptions);
+  if (topTitledAttachmentHit) { return topTitledAttachmentHit; }
   // Desktop coordinates start below the toolbar. Check before adding scroll
   // offsets, which can otherwise turn toolbar positions into hits on hidden items.
   if (posOnDesktopPx.y < 0) {
@@ -385,9 +395,9 @@ export function getHitInfo(
   if (hitTop) { return hitTop; }
   type RootResolver = (info: RootInfo) => RootInfo;
   const resolvers: Array<RootResolver> = [
-    (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, hitboxOptions),
+    (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, hitboxOptions),
     (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, allowOutsideBoundsHitboxes, hitboxOptions),
-    (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, hitboxOptions),
+    (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, hitboxOptions),
     (info) => hitCalendarMiniRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive, hitboxOptions),
     (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive, hitboxOptions),
   ];
@@ -885,6 +895,70 @@ function hitNonPagePopupMaybe(
 
 
 /**
+ * Hit test the attachments of a root-like page (the top level page, a popup, the selected page of a list page or an
+ * embedded interactive page). They straddle the page's top edge, so are partly outside its bounds, and need to be
+ * checked before the page is entered. posRelativeToOwnerBoundsPx is relative to the top left of the bounds of the
+ * page (ownerVe, which defaults to rootVes), not including any scroll offset.
+ */
+function hitRootAttachmentMaybe(
+  rootVes: VisualElementSignal,
+  subRootVe: VisualElement | null,
+  parentRootVe: VisualElement | null,
+  overPositionableVe: VisualElement,
+  posRelativeToOwnerBoundsPx: Vector,
+  ignoreItems: Set<Uid>,
+  hitboxOptions: HitboxScanOptions,
+  debugCreatedAt: string,
+  ownerVe: VisualElement = rootVes.get(),
+): HitInfo | null {
+  const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(ownerVe))(), posRelativeToOwnerBoundsPx, ignoreItems, true, hitboxOptions);
+  if (!hit) { return null; }
+  return {
+    overVes: hit.attachmentVes,
+    rootVes,
+    subRootVe,
+    subSubRootVe: null,
+    parentRootVe,
+    hitboxType: hit.flags,
+    compositeHitboxTypeMaybe: HitboxFlags.None,
+    overElementMeta: hit.meta,
+    overPositionableVe,
+    overPositionGr: { x: 0, y: 0 },
+    debugCreatedAt,
+  };
+}
+
+/**
+ * Hit test the attachments of the pages whose titles are shown in the toolbar (the top level page, and the selected
+ * pages of top level list pages). These straddle the bottom edge of the toolbar, and are rendered above it.
+ */
+function hitTopTitledPageAttachmentMaybe(
+  store: StoreContextModel,
+  posOnDesktopPx: Vector,
+  ignoreItems: Set<Uid>,
+  hitboxOptions: HitboxScanOptions,
+): HitInfo | null {
+  const umbrellaVe = store.umbrellaVisualElement.get();
+  let pageVes: VisualElementSignal | null = VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))()[0] ?? null;
+  if (pageVes == null || !(pageVes.get().flags & VisualElementFlags.TopLevelRoot)) { return null; }
+  let parentPageVe: VisualElement | null = null;
+  // Neither the top level page nor list page roots scroll at the page level, so no scroll offset is needed.
+  let posRelativeToPageBoundsPx = { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y };
+  while (pageVes != null) {
+    const pageVe: VisualElement = pageVes.get();
+    const hit = hitRootAttachmentMaybe(
+      pageVes, null, parentPageVe, pageVe, posRelativeToPageBoundsPx, ignoreItems, hitboxOptions, "hitTopTitledPageAttachmentMaybe");
+    if (hit) { return hit; }
+    const selectedVes: VisualElementSignal | null = VesCache.render.getSelected(VeFns.veToPath(pageVe))() ?? null;
+    if (selectedVes == null || !(selectedVes.get().flags & VisualElementFlags.ListPageRoot) || !isPage(selectedVes.get().displayItem)) { break; }
+    posRelativeToPageBoundsPx = vectorSubtract(posRelativeToPageBoundsPx, getBoundingBoxTopLeft(selectedVes.get().boundsPx));
+    parentPageVe = pageVe;
+    pageVes = selectedVes;
+  }
+  return null;
+}
+
+/**
  * Scans the hitboxes of a root that was already the root before the current resolver, where the position includes
  * the root's scroll offset. The attach strips along the top (and composite attach strip along the bottom) of a root
  * don't scroll with its contents, so are excluded. They are scanned at the unscrolled position when the root is
@@ -910,6 +984,7 @@ function hitPagePopupRootMaybe(
   parentRootInfo: RootInfo,
   posOnDesktopPx: Vector,
   canHitEmbeddedInteractive: boolean,
+  ignoreItems: Set<Uid>,
   hitboxOptions: HitboxScanOptions,
 ): RootInfo {
   let rootVe = parentRootInfo.rootVe;
@@ -925,6 +1000,12 @@ function hitPagePopupRootMaybe(
     const popupRootVesMaybe = popupVes!;
     const popupRootVeMaybe = popupRootVesMaybe.get();
     const popupPosRelativeToTopLevelVePx = (popupRootVeMaybe.flags & VisualElementFlags.Fixed) ? { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y } : posRelativeToRootVeBoundsPx;
+    // Attachments straddle the popup's top edge, so check them before the popup bounds test.
+    const attachmentHit = hitRootAttachmentMaybe(
+      popupRootVesMaybe, null, parentRootInfo.rootVe, popupRootVeMaybe,
+      vectorSubtract(popupPosRelativeToTopLevelVePx, getBoundingBoxTopLeft(popupRootVeMaybe.boundsPx)),
+      ignoreItems, hitboxOptions, "hitPagePopupRootMaybe-attachment");
+    if (attachmentHit) { return { ...parentRootInfo, hitMaybe: attachmentHit }; }
     if (isInside(popupPosRelativeToTopLevelVePx, popupRootVeMaybe.boundsPx)) {
       rootVes = popupRootVesMaybe;
       rootVe = popupRootVeMaybe;
@@ -969,7 +1050,7 @@ function hitPagePopupRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
-  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive, hitboxOptions); }
+  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, hitboxOptions); }
   return result;
 }
 
@@ -979,6 +1060,7 @@ function hitPageSelectedRootMaybe(
   parentRootInfo: RootInfo,
   posOnDesktopPx: Vector,
   canHitEmbeddedInteractive: boolean,
+  ignoreItems: Set<Uid>,
   hitboxOptions: HitboxScanOptions,
 ): RootInfo {
   let rootVe = parentRootInfo.rootVe;
@@ -992,6 +1074,12 @@ function hitPageSelectedRootMaybe(
     const newRootVesMaybe = selectedVes!;
     const newRootVeMaybe = newRootVesMaybe.get();
     if (isPage(newRootVeMaybe.displayItem)) {
+      // Attachments straddle the selected page's top edge, so check them before the bounds test.
+      const attachmentHit = hitRootAttachmentMaybe(
+        newRootVesMaybe, null, rootVe, newRootVeMaybe,
+        vectorSubtract(posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(newRootVeMaybe.boundsPx)),
+        ignoreItems, hitboxOptions, "hitPageSelectedRootMaybe-attachment");
+      if (attachmentHit) { return { ...parentRootInfo, hitMaybe: attachmentHit }; }
       if (isInside(posRelativeToRootVeViewportPx, newRootVeMaybe.boundsPx)) {
         rootVes = newRootVesMaybe;
         rootVe = newRootVeMaybe;
@@ -1036,7 +1124,7 @@ function hitPageSelectedRootMaybe(
   // If root changed, parentRootVe is the previous root. Otherwise preserve the original parentRootVe.
   const effectiveParentRootVe = changedRoot ? parentRootInfo.rootVe : parentRootInfo.parentRootVe;
   let result: RootInfo = { parentRootVe: effectiveParentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe };
-  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive, hitboxOptions); }
+  if (changedRoot && VesCache.render.getSelected(VeFns.veToPath(rootVe))()) { return hitPageSelectedRootMaybe(store, result, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, hitboxOptions); }
   return result;
 }
 
@@ -1076,6 +1164,12 @@ function hitEmbeddedRootMaybe(
       });
       const newPosRelativeToRootVeViewportPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.viewportBoundsPx!.x - scrollPropX * Math.max(0, childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.viewportBoundsPx!.y - scrollPropY * Math.max(0, childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
       const newPosRelativeToRootVeBoundsPx = vectorSubtract(posRelativeToRootVeViewportPx, { x: childVe.boundsPx.x - scrollPropX * Math.max(0, childVe.childAreaBoundsPx!.w - childVe.viewportBoundsPx!.w), y: childVe.boundsPx.y - scrollPropY * Math.max(0, childVe.childAreaBoundsPx!.h - childVe.viewportBoundsPx!.h) });
+      // As for other children, attachments of an embedded page belong to its parent. Those above its top edge are
+      // found by hitChildMaybe, but those below it would be hidden by entering the embedded page.
+      const attachmentHit = hitRootAttachmentMaybe(
+        parentRootInfo.rootVes, rootVe, parentRootInfo.parentRootVe, rootVe,
+        posRelativeToEmbeddedRootBoundsPx, ignoreItems, hitboxOptions, "hitEmbeddedRootMaybe-attachment", childVe);
+      if (attachmentHit) { return { ...parentRootInfo, hitMaybe: attachmentHit }; }
       const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(childVe, posRelativeToEmbeddedRootBoundsPx, undefined, hitboxOptions);
       return ({ parentRootVe: parentRootInfo.rootVe, rootVes: childVes, rootVe: childVe, posRelativeToRootVeViewportPx: newPosRelativeToRootVeViewportPx, posRelativeToRootVeBoundsPx: newPosRelativeToRootVeBoundsPx, hitMaybe: hitboxType != HitboxFlags.None ? new HitBuilder(parentRootInfo.rootVe, childVes).over(childVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToEmbeddedRootBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("determineEmbeddedRootMaybe").build() : null });
     }
