@@ -16,6 +16,7 @@
 
 use super::scope::{ResolvedScope, readable, resolve_content, resolve_scope};
 use super::*;
+use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
 
 const SEARCH_RRF_K: f64 = 60.0;
 const SEARCH_TITLE_LEXICAL_WEIGHT: f64 = 1.35;
@@ -49,6 +50,10 @@ pub struct SearchRequest {
   /// command only: chat resolves its scope once per run and passes it to `run_lexical_search`.
   #[serde(rename = "scopeId", default)]
   pub scope_id: Option<Uid>,
+  /// Leaves out persisted chats. Set by the chat's `search` tool, so a model does not find its own earlier answers,
+  /// including made-up ones, and cite them as sources. Not settable by a client.
+  #[serde(skip)]
+  pub exclude_chats: bool,
 }
 
 /// Which items a search may return.
@@ -180,7 +185,8 @@ pub(super) async fn run_search(
         None => None,
       };
       let (data_dir, bounds) = resolve_search_bounds(db, page_id.as_ref(), scope.as_ref(), false, session).await?;
-      indexed_search_results(db, &data_dir, &session.user_id, &bounds, &request.text, start_result, end_result).await?
+      indexed_search_results(db, &data_dir, &session.user_id, &bounds, &request.text, start_result, end_result, false)
+        .await?
     }
   };
 
@@ -198,8 +204,17 @@ pub(super) async fn run_lexical_search(
   // The chat reads a page with its linked items, so searching within it covers them too.
   let (data_dir, bounds) = resolve_search_bounds(db, request.page_id.as_ref(), scope, true, session).await?;
 
-  let results =
-    indexed_search_results(db, &data_dir, &session.user_id, &bounds, &request.text, start_result, end_result).await?;
+  let results = indexed_search_results(
+    db,
+    &data_dir,
+    &session.user_id,
+    &bounds,
+    &request.text,
+    start_result,
+    end_result,
+    request.exclude_chats,
+  )
+  .await?;
 
   Ok(search_response_from_results(results, request.num_results))
 }
@@ -306,6 +321,7 @@ async fn indexed_search_results(
   search_text: &str,
   start_result: i64,
   end_result: i64,
+  exclude_chats: bool,
 ) -> InfuResult<Vec<SearchResult>> {
   let fragment_result_limit = usize::try_from(end_result.saturating_add(SEARCH_CANDIDATE_OVERFETCH).max(1))
     .map_err(|_| "Search result limit is too large.")?;
@@ -326,7 +342,16 @@ async fn indexed_search_results(
       let limit = fragment_result_limit.saturating_add(found.len());
       let (title_results, search_fragment_results) =
         tier_search_results(db, data_dir, user_id, bounds, min_matching_words, matched, search_text, limit).await;
-      for mut result in mix_search_results(title_results, search_fragment_results) {
+      let mut tier_results = mix_search_results(title_results, search_fragment_results);
+      if exclude_chats {
+        let db = db.lock().await;
+        tier_results.retain(|result| {
+          !search_result_item_id(result).is_some_and(|item_id| {
+            db.item.get(&item_id).is_ok_and(|item| item.mime_type.as_deref() == Some(CHAT_TRANSCRIPT_MIME_TYPE))
+          })
+        });
+      }
+      for mut result in tier_results {
         if search_result_item_id(&result).is_some_and(|item_id| found.insert(item_id)) {
           result.score *= share;
           results.push(result);
@@ -1296,6 +1321,50 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn the_chat_search_tool_leaves_out_persisted_chats() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let note = t.note(&home, "kiwi notes", RelationshipToParent::Child).await;
+    let chat = t
+      .non_note(&home, "kiwi chat.chat", |item| {
+        item.item_type = ItemType::Text;
+        item.mime_type = Some(CHAT_TRANSCRIPT_MIME_TYPE.to_owned());
+        item.file_size_bytes = Some(1);
+        item.original_creation_date = Some(0);
+      })
+      .await;
+    let data_dir = t.db.item.data_dir().to_owned();
+    let user_id = t.user_id.clone();
+    let fragment = |item_id: &Uid, text: &str| LexicalFragment {
+      item_id: item_id.clone(),
+      ordinal: 0,
+      source_kind: ITEM_TITLE_SOURCE_KIND.to_owned(),
+      text: text.to_owned(),
+      context: None,
+      page_start: None,
+      page_end: None,
+    };
+    let (note_fragments, chat_fragments) = (vec![fragment(&note, "kiwi notes")], vec![fragment(&chat, "kiwi chat")]);
+    let updates = vec![(note.as_str(), note_fragments.as_slice()), (chat.as_str(), chat_fragments.as_slice())];
+    open_user_item_title_lexical_index(&data_dir, &user_id).unwrap().replace_items_titles(&updates).await.unwrap();
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let bounds = SearchBounds::UnderRoot(home);
+    let found = |exclude_chats: bool| {
+      let (db, data_dir, user_id, bounds) = (db.clone(), data_dir.clone(), user_id.clone(), &bounds);
+      async move {
+        let results = indexed_search_results(&db, &data_dir, &user_id, bounds, "kiwi", 0, 10, exclude_chats).await;
+        let mut ids = results.unwrap().iter().filter_map(search_result_item_id).collect::<Vec<_>>();
+        ids.sort();
+        ids
+      }
+    };
+    let mut both = vec![note.clone(), chat.clone()];
+    both.sort();
+    assert_eq!(found(false).await, both);
+    assert_eq!(found(true).await, vec![note.clone()]);
+  }
+
+  #[tokio::test]
   async fn natural_text_results_matching_more_words_come_first() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
@@ -1343,7 +1412,7 @@ mod tests {
     assert_eq!(item_ids(&single_query).first(), Some(liked), "one OR query ranks the rare word first");
 
     let search = |start: i64, end: i64| {
-      indexed_search_results(&db, &data_dir, &user_id, &bounds, "montreal hotel liked", start, end)
+      indexed_search_results(&db, &data_dir, &user_id, &bounds, "montreal hotel liked", start, end, false)
     };
     let first_results = search(0, 3).await.unwrap();
     let scores = first_results.iter().map(|result| result.score).collect::<Vec<_>>();
@@ -1381,7 +1450,7 @@ mod tests {
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let everywhere = SearchBounds::UnderRoot(home);
     let search = async |bounds: &SearchBounds, text: &str| {
-      let results = indexed_search_results(&db, &data_dir, &user_id, bounds, text, 0, 10).await.unwrap();
+      let results = indexed_search_results(&db, &data_dir, &user_id, bounds, text, 0, 10, false).await.unwrap();
       results.iter().filter_map(search_result_item_id).collect::<Vec<_>>()
     };
 

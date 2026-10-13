@@ -9,6 +9,6 @@ pub use artifacts::{
   read_item_fragment_metadata, read_item_fragments, write_item_fragments,
 };
 pub use types::{
-  FragmentBuildOutcome, FragmentInput, FragmentSource, FragmentSourceKind, ITEM_TITLE_SOURCE_KIND,
+  CHAT_SOURCE_KIND, FragmentBuildOutcome, FragmentInput, FragmentSource, FragmentSourceKind, ITEM_TITLE_SOURCE_KIND,
   is_lexical_search_source_kind, is_markdown_document_source_kind,
 };

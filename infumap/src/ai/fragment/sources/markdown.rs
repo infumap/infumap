@@ -11,12 +11,13 @@ use tokio::fs;
 use crate::ai::artifact_io::{atomic_write, sha256};
 use crate::ai::artifact_paths::{item_text_content_path, item_text_manifest_path};
 use crate::storage::object::{self as storage_object, ObjectStore};
+use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
 
 use super::pdf::markdown_fragment_source;
 use super::{FragmentSource, FragmentSourceKind, write_fragment_source_artifact};
 use crate::ai::fragment::FragmentBuildOutcome;
 
-const LOCAL_COPY_MIME_TYPES: [&str; 2] = ["text/markdown", "text/plain"];
+const LOCAL_COPY_MIME_TYPES: [&str; 3] = ["text/markdown", "text/plain", CHAT_TRANSCRIPT_MIME_TYPE];
 
 pub struct ObjectTextFragmentBuildResult {
   pub had_fragment_source: bool,
@@ -147,6 +148,62 @@ pub async fn build_text_fragment_artifact(
   Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
 }
 
+async fn chat_fragment_source_for_item(
+  data_dir: &str,
+  object_store: Arc<ObjectStore>,
+  item: &Item,
+  object_encryption_key: &str,
+) -> InfuResult<(Option<FragmentSource>, String)> {
+  let file_bytes = read_or_create_local_text_copy(data_dir, object_store, item, object_encryption_key, "chat").await?;
+  let input = sha256(&file_bytes);
+  let Some(text) = chat_visible_text(&file_bytes, &item.id)? else {
+    return Ok((None, input));
+  };
+  Ok((markdown_fragment_source(FragmentSourceKind::Chat, &text), input))
+}
+
+/// The visible conversation of a chat transcript: each turn's user text and, for a completed turn, the assistant's
+/// answer, in order. Not reasoning, tool calls and results, or activity: search is for the conversation, not what was
+/// fetched along the way. Without labels, so words like "assistant" do not match every chat. The format is the chat
+/// route's (transcript.rs); it is read loosely here, and an unreadable line is skipped.
+fn chat_visible_text(bytes: &[u8], item_id: &str) -> InfuResult<Option<String>> {
+  use serde_json::Value;
+  let text = std::str::from_utf8(bytes).map_err(|e| format!("Chat '{}' is not valid UTF-8: {}", item_id, e))?;
+  let mut parts = vec![];
+  for line in text.lines() {
+    let Ok(record) = serde_json::from_str::<Value>(line) else { continue };
+    let part = match record.get("type").and_then(Value::as_str) {
+      Some("user") => record.get("text").and_then(Value::as_str),
+      Some("turn") if record.get("outcome").and_then(Value::as_str) == Some("completed") => record
+        .get("messages")
+        .and_then(Value::as_array)
+        .and_then(|messages| messages.last())
+        .filter(|message| message.get("role").and_then(Value::as_str) == Some("assistant"))
+        .and_then(|message| message.get("content"))
+        .and_then(Value::as_str),
+      _ => None,
+    };
+    if let Some(part) = part.map(str::trim).filter(|part| !part.is_empty()) {
+      parts.push(part.to_owned());
+    }
+  }
+  Ok(normalize_text_source(&parts.join("\n\n")))
+}
+
+pub async fn build_chat_fragment_artifact(
+  data_dir: &str,
+  object_store: Arc<ObjectStore>,
+  item: &Item,
+  object_encryption_key: &str,
+) -> InfuResult<ObjectTextFragmentBuildResult> {
+  let (fragment_source, input) =
+    chat_fragment_source_for_item(data_dir, object_store, item, object_encryption_key).await?;
+  let had_fragment_source = fragment_source.is_some();
+  let outcome =
+    write_fragment_source_artifact(data_dir, item, fragment_source, FragmentSourceKind::Chat, input).await?;
+  Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
+}
+
 fn normalize_utf8_text_source(bytes: &[u8], item_id: &str, source_label: &str) -> InfuResult<Option<String>> {
   let bytes = bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(bytes);
   let text =
@@ -266,4 +323,27 @@ fn decode_windows_1252(bytes: &[u8]) -> String {
 struct DecodedText {
   text: String,
   encoding: &'static str,
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn chat_visible_text_is_the_questions_and_completed_answers() {
+    let transcript = [
+      r#"{"type":"header","version":1,"queryItemId":"q","createdAt":1}"#,
+      r#"{"type":"user","requestId":"r1","startedAt":1,"text":"How do lifetimes work?","settings":{"mode":"chat"}}"#,
+      r#"{"type":"turn","requestId":"r1","messages":[{"role":"assistant","content":"calling","toolCalls":[]},{"role":"tool","content":"fetched page text"},{"role":"assistant","content":"They bound borrows.","reasoningContent":"hidden"}],"rounds":[{"number":1,"reasoning":"thinking","answer":"","toolCalls":[],"complete":true}],"startedAt":1,"endedAt":2,"outcome":"completed"}"#,
+      r#"{"type":"user","requestId":"r2","startedAt":3,"text":"And traits?","settings":{"mode":"chat"}}"#,
+      r#"{"type":"turn","requestId":"r2","messages":[],"rounds":[{"number":1,"reasoning":"","answer":"partial","toolCalls":[],"complete":true}],"startedAt":3,"endedAt":4,"outcome":"cancelled"}"#,
+      "not json",
+      r#"{"type":"user","requestId":"r3","startedAt":5,"text":"Interrupted question""#,
+    ]
+    .join("\n");
+    let text = chat_visible_text(transcript.as_bytes(), "item").unwrap().unwrap();
+    assert_eq!(text, "How do lifetimes work?\n\nThey bound borrows.\n\nAnd traits?");
+    assert!(chat_visible_text(b"", "item").unwrap().is_none());
+    assert!(chat_visible_text(&[0xff, 0xfe, 0x00], "item").is_err());
+  }
 }

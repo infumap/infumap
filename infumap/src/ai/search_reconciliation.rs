@@ -48,8 +48,8 @@ use super::fragment::sources::{
   search_fragment_context_title_for_item,
 };
 use super::fragment::{
-  FRAGMENTER_VERSION, FRAGMENTS_SCHEMA_VERSION, delete_item_fragment_artifacts, fragment_inputs_are_current,
-  read_item_fragments,
+  CHAT_SOURCE_KIND, FRAGMENTER_VERSION, FRAGMENTS_SCHEMA_VERSION, delete_item_fragment_artifacts,
+  fragment_inputs_are_current, read_item_fragments,
 };
 use super::fragment_indexing::{commit_user_updates, item_fragment_index_is_current, load_item_search_fragments};
 use super::geo::{
@@ -407,10 +407,12 @@ async fn reconcile_item_artifacts(data_dir: &str, item: &Item, context: Option<&
   };
   let input = match kind {
     // Without a local copy the worker must read the original once to make one.
-    SearchContentKind::Markdown | SearchContentKind::Text => match read_local_text_copy(data_dir, item).await? {
-      Some(bytes) => sha256(&bytes),
-      None => return Ok(false),
-    },
+    SearchContentKind::Markdown | SearchContentKind::Text | SearchContentKind::Chat => {
+      match read_local_text_copy(data_dir, item).await? {
+        Some(bytes) => sha256(&bytes),
+        None => return Ok(false),
+      }
+    }
     SearchContentKind::Image | SearchContentKind::Pdf => {
       let manifest_path = item_text_manifest_path(data_dir, &item.owner_id, &item.id)?;
       if let Some(manifest) = read_json(&manifest_path).await? {
@@ -449,6 +451,8 @@ async fn reconcile_item_artifacts(data_dir: &str, item: &Item, context: Option<&
   Ok(match kind {
     SearchContentKind::Markdown => fragments.source_kind == "markdown",
     SearchContentKind::Text => fragments.source_kind == "text",
+    // Never "text": raw transcript JSONL must not be indexed as plain text.
+    SearchContentKind::Chat => fragments.source_kind == CHAT_SOURCE_KIND,
     SearchContentKind::Pdf => matches!(fragments.source_kind.as_str(), "pdf_markdown" | "pdf_first_page_caption"),
     SearchContentKind::Image => matches!(fragments.source_kind.as_str(), "image_contents" | "image_document_contents"),
   })
