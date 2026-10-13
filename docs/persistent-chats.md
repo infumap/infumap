@@ -201,9 +201,11 @@ loads its transcript into the chat view the same way.
 The Queries page is a list page with manual ordering. Today it holds one query item pinned to the top
 (`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), the Scopes page pinned to the
 bottom (`default_scopes_page` in [routes/mod.rs](../infumap/src/web/routes/mod.rs)), and `.md` items that
-Materialize creates in between (Materialize goes, see "Other details"). With each chat a query item, the middle band
-is the chat history and no second list is needed. Pinning to the top and bottom bands is generic list page
-behavior.
+Materialize creates in between (Materialize goes, see "Other details"). The server also adds two virtual,
+read-only search status pages ("Search processing", "Search needs attention") to the page's children, pinned to the
+bottom with the Scopes page. With each
+chat a query item, the middle band is the chat history and no second list is needed. Pinning to the top and bottom
+bands is generic list page behavior.
 
 - **The pinned query item is the current chat.** It is where new searches and chats start. Its transcript file is
   created on its first chat turn.
@@ -343,6 +345,12 @@ the chat route ignores requests without a query item id.
    text. Validate the query item, reject stale submissions before appending, create the file on the first turn,
    sync the `user` record, rebuild history from completed turns, and record the outcome on completion, error or
    disconnect.
+   Done 2026-10-13: `start_live_chat_turn` and `LiveChatTurn` in
+   [chat/mod.rs](../infumap/src/web/routes/command/chat/mod.rs). A live chat stream starts with a `turn_accepted`
+   event carrying the new revision; a stale request gets a single `transcript_conflict` event with the current
+   revision. Checked end to end against a fake llama-server: completion, a stale revision, a backend error, a client
+   disconnect mid-answer, and a second turn while one runs. Failed and cancelled turns were recorded but left out of
+   the next turn's history.
 4. **Activity collection.** Collect model rounds, tool calls and timing in `ChatProgressReporter` and write them
    into `turn` records, including partial rounds of unsuccessful turns.
 5. **Load endpoint for live chats.** Returns turns, revision, running state, last turn settings and last context
