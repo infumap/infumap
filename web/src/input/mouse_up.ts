@@ -31,6 +31,7 @@ import { asCompositeItem, isComposite, CompositeFns, CompositeItem } from "../it
 import { asFileItem, isFile } from "../items/file-item";
 import { TextFns, asTextItem, isText } from "../items/text-item";
 import { continuePersistedChat } from "../items/query";
+import { clearQueryChat } from "../items/chat";
 import { isChatTextItem } from "../items/text-document";
 import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
@@ -504,9 +505,18 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
       // The server has persisted the chat, so nothing after this may fail the move: a rollback would undo it locally
       // only. A local error is logged, and syncing corrects the local state.
       try {
-        if (itemState.get(queryItem.id) != null) {
-          itemState.delete(queryItem.id);
+        const focusPath = store.history.getFocusPathMaybe();
+        if (focusPath != null && focusPath.split("-").some(part => VeFns.veidFromPath(part).itemId == queryItem.id)) {
+          store.history.popAllPopups();
+          const pagePath = store.history.currentPagePath();
+          if (pagePath != null) {
+            store.history.setFocus(pagePath);
+          }
         }
+        clearQueryChat(store, queryItem);
+        // Sync may have replaced the moved query item with an older server copy. Remove its id from every loaded
+        // parent, including the drop target, before adding the persisted text item there.
+        itemState.removeDeletedItems([queryItem.id]);
         itemState.add(ItemFns.fromObject(response.item, null));
         requestArrange(store, "chat-persisted");
       } catch (e) {
