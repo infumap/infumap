@@ -760,6 +760,12 @@ async function streamChatCommand(
 
 const localContainerSyncVersions = new Map<Uid, { epoch: number | null, version: number | null }>();
 
+// The Queries page combines a real item version with a hash of search processing status. Its version is an equality
+// token, not a monotonically increasing number.
+function isQueriesContainer(containerId: Uid): boolean {
+  return activeContainerSyncStore?.user.getUserMaybe()?.queriesPageId == containerId;
+}
+
 // A failed mutation can leave local state the server does not have. Rather than undoing the local change,
 // which would be wrong if the server applied part of it, or if later mutations built on it, the item is
 // re-fetched once no mutations are in flight, and the containers it was in are synced from a snapshot.
@@ -791,7 +797,7 @@ function setLocalContainerSyncVersion(
       return;
     }
   }
-  if (allowRegression && existing && existing.epoch === normalizedEpoch &&
+  if (allowRegression && !isQueriesContainer(containerId) && existing && existing.epoch === normalizedEpoch &&
       existing.version != null && normalizedVersion != null && existing.version > normalizedVersion) {
     console.warn(
       `Container sync version regressed for '${containerId}' within epoch ${normalizedEpoch}; accepting authoritative server state ${normalizedVersion} after local cache held ${existing.version}.`
@@ -811,6 +817,8 @@ function applySyncAck(syncAck: ContainerSyncAck | null | undefined): void {
     return;
   }
   for (const container of syncAck.containers) {
+    // Mutation acknowledgements contain the real item version, not the Queries page's combined token.
+    if (isQueriesContainer(container.id)) { continue; }
     setLocalContainerSyncVersion(container.id, container.epoch, container.version);
   }
   requestContainerSyncSoon();
@@ -822,7 +830,8 @@ function maybeTrackFetchedContainerSyncVersion(requestId: string, response: any,
     return;
   }
   const containerId = (response.item?.id ?? requestId) as Uid;
-  setLocalContainerSyncVersion(containerId, response.syncEpoch ?? null, response.syncVersion ?? null);
+  setLocalContainerSyncVersion(
+    containerId, response.syncEpoch ?? null, response.syncVersion ?? null, isQueriesContainer(containerId));
 }
 
 function normalizeFetchedItemsResponse(
