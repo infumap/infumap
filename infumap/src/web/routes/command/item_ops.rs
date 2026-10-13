@@ -561,12 +561,23 @@ pub(super) async fn handle_update_item(
   {
     return Err(format!("Queries page '{}' must use list arrangement.", item.id).into());
   }
-  if (is_queries_page_query_item(&db, &old_item) || is_queries_page_query_item(&db, &item))
+  let chat_moved_to_trash = is_chat_moved_to_trash(&db, &old_item, &item);
+  let chat_restored_from_trash = is_chat_restored_from_trash(&db, &old_item, &item);
+  if chat_moved_to_trash && chat::chat_turn_running(&session.user_id, &item.id) {
+    return Err(format!("Chat '{}' cannot be deleted while a response is running.", item.id).into());
+  }
+  if is_query_item_moved_from_trash_elsewhere(&db, &old_item, &item) {
+    return Err(format!("Query item '{}' can only be restored from the trash to the Queries page.", item.id).into());
+  }
+  let chat_trash_move = chat_moved_to_trash || chat_restored_from_trash;
+  if !chat_trash_move
+    && (is_queries_page_query_item(&db, &old_item) || is_queries_page_query_item(&db, &item))
     && item_move_fields_changed_to_disallowed_layout(&old_item, &item)
   {
     return Err(format!("Queries page query item '{}' cannot be moved.", item.id).into());
   }
-  if (is_queries_page_query_item(&db, &old_item) || is_queries_page_query_item(&db, &item))
+  if !chat_trash_move
+    && (is_queries_page_query_item(&db, &old_item) || is_queries_page_query_item(&db, &item))
     && item_resize_fields_changed_to_disallowed_layout(&old_item, &item)
   {
     return Err(format!("Queries page query item '{}' cannot be resized.", item.id).into());
@@ -955,6 +966,7 @@ pub(super) async fn handle_delete_item<'a>(
   delete_item_image_tag_dir(&data_dir, &session.user_id, &request.id).await?;
   delete_item_geo_artifacts(&data_dir, &session.user_id, &request.id).await?;
   delete_item_fragment_artifacts(&data_dir, &session.user_id, &request.id).await?;
+  chat::delete_query_item_transcript(&data_dir, &session.user_id, &item).await;
   enqueue_item_search_index_removal(&session.user_id, &request.id);
 
   let _item = db.item.remove(&request.id).await?;
@@ -1174,6 +1186,7 @@ async fn delete_recursive(
     delete_item_image_tag_dir(&data_dir, user_id, &item.id).await?;
     delete_item_geo_artifacts(&data_dir, user_id, &item.id).await?;
     delete_item_fragment_artifacts(&data_dir, user_id, &item.id).await?;
+    chat::delete_query_item_transcript(&data_dir, user_id, &item).await;
     enqueue_item_search_index_removal(user_id, &item.id);
 
     let _item = db.item.remove(&item_id).await?;

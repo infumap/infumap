@@ -1011,6 +1011,10 @@ function currentDropTargetRejectionMessage(store: StoreContextModel): string | n
   if (resolvedTarget.validity != "valid") {
     return CANT_DROP_HERE_MESSAGE;
   }
+  const chatRejection = chatDropRejectionMessage(store, resolvedTarget.hoverContainerVe);
+  if (chatRejection != null) {
+    return chatRejection;
+  }
 
   if (textDocumentMaterializeMove || itemCopyMove) {
     return resolvedTarget.hoverContainerVe.displayItem.origin != null ||
@@ -1020,6 +1024,35 @@ function currentDropTargetRejectionMessage(store: StoreContextModel): string | n
       : null;
   }
 
+  return null;
+}
+
+/**
+ * An earlier chat in the Queries page can only be moved to the trash, which deletes it, and a chat in the trash only
+ * back to the Queries page. The server rejects any other move of them. See docs/persistent-chats.md.
+ */
+function chatDropRejectionMessage(store: StoreContextModel, targetVe: VisualElement): string | null {
+  const user = store.user.getUserMaybe();
+  if (user == null) {
+    return null;
+  }
+  const attaching = MouseActionState.getMoveOverAttachHitboxPath() != null ||
+    MouseActionState.getMoveOverAttachCompositePath() != null;
+  const targetId = targetVe.displayItem.id;
+  // The drag reparents items as it goes, so where each item started is in the rollback snapshot.
+  for (const entry of MouseActionState.getMoveRollback() ?? []) {
+    const item = itemState.get(entry.id);
+    if (item == null || !isQueryItem(item)) {
+      continue;
+    }
+    if (entry.parentId == user.queriesPageId && (attaching || targetId != user.trashPageId)) {
+      return "A chat can only be moved to the trash";
+    }
+    if (entry.parentId == user.trashPageId &&
+      (attaching || (targetId != user.queriesPageId && targetId != user.trashPageId))) {
+      return "A chat can only be restored to the Queries page";
+    }
+  }
   return null;
 }
 

@@ -30,6 +30,8 @@ import { SearchFlags } from "./base/flags-item";
 import { clearQueryChat, ensureTemporaryQueryChatPage, isLiveQueryChat, resetQueryChatSession, submitQueryChatMessage } from "./chat";
 import {
   QueryItem,
+  asQueryItem,
+  isQueryItem,
   getQuerySearchLoadedPageCount,
   getQuerySearchResults,
   getQueryRuntime,
@@ -210,7 +212,13 @@ export function isQueryChatHistoryEntry(store: StoreContextModel, queryItem: Que
  * Starts a new chat. The current chat keeps its transcript and becomes the newest earlier chat in the Queries page,
  * and a new pinned query item becomes the current chat. A chat without a transcript is just reset.
  */
-export async function startNewQueryChat(store: StoreContextModel, queryItem: QueryItem): Promise<void> {
+export async function startNewQueryChat(store: StoreContextModel, queryItemMaybeStale: QueryItem): Promise<void> {
+  // Syncing replaces item objects, so change the current one, not a reference that may be from before a sync.
+  const queryItemMaybe = itemState.get(queryItemMaybeStale.id);
+  if (queryItemMaybe == null || !isQueryItem(queryItemMaybe)) {
+    return;
+  }
+  const queryItem = asQueryItem(queryItemMaybe);
   const user = store.user.getUserMaybe();
   const hasTranscript = getQueryRuntime(store, queryItem).chat.revision > 0;
   if (user == null || !isLiveQueryChat(store, queryItem) || (!hasTranscript && !isQueryChatHistoryEntry(store, queryItem))) {

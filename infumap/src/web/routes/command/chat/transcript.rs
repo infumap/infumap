@@ -430,15 +430,61 @@ impl LockedTranscript {
     }
     transcript.apply(record)
   }
+}
 
-  #[allow(dead_code)] // Used once deleting a chat removes its transcript.
-  pub(super) async fn delete(self) -> InfuResult<()> {
-    match fs::remove_file(&self.path).await {
-      Ok(()) => Ok(()),
-      Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-      Err(e) => Err(e.into()),
+async fn remove_file_if_present(path: &std::path::Path) -> InfuResult<()> {
+  match fs::remove_file(path).await {
+    Ok(()) => Ok(()),
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+    Err(e) => Err(e.into()),
+  }
+}
+
+/// Removes a transcript, unless the chat lock is held: a turn still running keeps its file. Returns whether the
+/// transcript is gone. Does not read the file, so a malformed transcript is removed too.
+pub(super) async fn remove_transcript_unless_locked(
+  data_dir: &str,
+  user_id: &Uid,
+  query_item_id: &Uid,
+) -> InfuResult<bool> {
+  let path = transcript_path(data_dir, user_id, query_item_id)?;
+  let Ok(_guard) = chat_lock(user_id, query_item_id).try_lock_owned() else {
+    return Ok(false);
+  };
+  remove_file_if_present(&path).await?;
+  Ok(true)
+}
+
+/// Removes the transcripts of a user whose query item is not live, and temporary files left by an interrupted
+/// create. Returns the number of transcripts removed. For use at startup, before any chat can run.
+pub(super) async fn remove_orphan_transcripts(
+  data_dir: &str,
+  user_id: &Uid,
+  is_live: impl Fn(&Uid) -> bool,
+) -> InfuResult<usize> {
+  let mut dir = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
+  dir.push(format!("user_{}", user_id));
+  dir.push(CHATS_DIR_NAME);
+  let mut entries = match fs::read_dir(&dir).await {
+    Ok(entries) => entries,
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+    Err(e) => return Err(e.into()),
+  };
+  let mut removed = 0;
+  while let Some(entry) = entries.next_entry().await? {
+    let name = entry.file_name().to_string_lossy().into_owned();
+    if name.starts_with(".artifact-") && name.ends_with(".tmp") {
+      remove_file_if_present(&entry.path()).await?;
+      continue;
+    }
+    let Some(query_item_id) = name.strip_suffix(".chat").filter(|id| is_uid(id)).map(str::to_owned) else {
+      continue;
+    };
+    if !is_live(&query_item_id) && remove_transcript_unless_locked(data_dir, user_id, &query_item_id).await? {
+      removed += 1;
     }
   }
+  Ok(removed)
 }
 
 fn record_line(record: &TranscriptRecord) -> InfuResult<String> {
@@ -705,7 +751,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn create_and_delete() {
+  async fn create_and_remove() {
     let f = Fixture::new();
     let mut locked = f.lock().await;
     assert!(locked.append_user(user("r1", "first")).await.is_err());
@@ -714,9 +760,37 @@ mod tests {
     let header =
       TranscriptHeader { version: TRANSCRIPT_FORMAT_VERSION, query_item_id: f.query_item_id.clone(), created_at: 2 };
     assert!(locked.create(header).await.is_err());
-    locked.delete().await.unwrap();
+    // A running turn holds the lock, so its transcript is kept.
+    assert!(!remove_transcript_unless_locked(f.data_dir(), &f.user_id, &f.query_item_id).await.unwrap());
+    assert!(f.read().await.is_some());
+    drop(locked);
+    assert!(remove_transcript_unless_locked(f.data_dir(), &f.user_id, &f.query_item_id).await.unwrap());
     assert!(f.read().await.is_none());
-    f.lock().await.delete().await.unwrap();
+    assert!(remove_transcript_unless_locked(f.data_dir(), &f.user_id, &f.query_item_id).await.unwrap());
+  }
+
+  #[tokio::test]
+  async fn orphan_transcripts_are_removed() {
+    let f = Fixture::new();
+    drop(f.create().await);
+    let orphan_id = new_uid();
+    let mut locked = try_lock_transcript(f.data_dir(), &f.user_id, &orphan_id).await.unwrap().unwrap();
+    let header =
+      TranscriptHeader { version: TRANSCRIPT_FORMAT_VERSION, query_item_id: orphan_id.clone(), created_at: 1 };
+    locked.create(header).await.unwrap();
+    drop(locked);
+    let chats_dir = f.path().parent().unwrap().to_path_buf();
+    fs::write(chats_dir.join(".artifact-x.tmp"), b"partial").await.unwrap();
+    fs::write(chats_dir.join("notes.txt"), b"unrelated").await.unwrap();
+
+    let live = f.query_item_id.clone();
+    let removed = remove_orphan_transcripts(f.data_dir(), &f.user_id, |id| *id == live).await.unwrap();
+    assert_eq!(removed, 1);
+    assert!(f.read().await.is_some());
+    assert!(read_transcript(f.data_dir(), &f.user_id, &orphan_id).await.unwrap().is_none());
+    assert!(!chats_dir.join(".artifact-x.tmp").exists());
+    assert!(chats_dir.join("notes.txt").exists());
+    assert_eq!(remove_orphan_transcripts(f.data_dir(), &new_uid(), |_| false).await.unwrap(), 0);
   }
 
   #[test]

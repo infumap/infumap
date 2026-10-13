@@ -854,6 +854,41 @@ impl LiveChatTurn {
   }
 }
 
+/// Whether a turn of a live chat is running, so its query item must not be deleted now.
+pub(super) fn chat_turn_running(user_id: &Uid, query_item_id: &Uid) -> bool {
+  chat_is_locked(user_id, query_item_id)
+}
+
+/// Removes a query item's transcript when the item is permanently deleted. A turn still running on it keeps the file
+/// until startup cleanup, once the item is gone.
+pub(super) async fn delete_query_item_transcript(data_dir: &str, user_id: &Uid, item: &Item) {
+  if item.item_type != ItemType::Search {
+    return;
+  }
+  match transcript::remove_transcript_unless_locked(data_dir, user_id, &item.id).await {
+    Ok(true) => {}
+    Ok(false) => debug!("Kept the transcript of deleted chat '{}' while a response is running.", item.id),
+    Err(e) => warn!("Could not remove the transcript of deleted chat '{}': {}", item.id, e),
+  }
+}
+
+/// Removes transcripts whose query item no longer exists, for example after a crash between deleting a chat's query
+/// item and its transcript. Runs at startup, after items are loaded and before any chat can run.
+pub async fn remove_orphan_chat_transcripts(db: &Arc<tokio::sync::Mutex<Db>>) -> InfuResult<()> {
+  let db = db.lock().await;
+  let data_dir = db.item.data_dir().to_owned();
+  let user_ids = db.user.all_user_ids().iter().map(|id| (*id).clone()).collect::<Vec<Uid>>();
+  for user_id in user_ids {
+    let is_live =
+      |id: &Uid| db.item.get(id).is_ok_and(|item| item.owner_id == user_id && item.item_type == ItemType::Search);
+    let removed = transcript::remove_orphan_transcripts(&data_dir, &user_id, is_live).await?;
+    if removed > 0 {
+      log::info!("Removed {} chat transcript(s) without a query item for user '{}'.", removed, user_id);
+    }
+  }
+  Ok(())
+}
+
 /// The data directory holding a live chat's transcript, if `query_item_id` is a query item of the session user in
 /// their Queries page. Only those have transcripts.
 async fn live_chat_data_dir(
