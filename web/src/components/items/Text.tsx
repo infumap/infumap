@@ -19,6 +19,7 @@
 import { commitActiveTextEdit, edit_inputListener } from "../../input/edit";
 import { Component, For, Match, Show, Switch } from "solid-js";
 import { TextFns, asTextItem, clipboardTextCreateShowsPlaceholder, textDisplayTitle } from "../../items/text-item";
+import { defaultTextIconClass } from "./text-icon";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../../items/base/flags-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
@@ -346,7 +347,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
             `width: ${blockSize().w / popupIconScale()}px; height: ${blockSize().h / popupIconScale()}px; ` +
             `transform: scale(${popupIconScale()}); transform-origin: top left; ` +
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`}>
-          <Show when={emoji()} fallback={<i class="far fa-file-lines" />}>
+          <Show when={emoji()} fallback={<i class={defaultTextIconClass(textItem())} />}>
             <span class="inline-block leading-none"
               style={`font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; transform: translateY(1px);`}>
               {emoji()}
