@@ -1144,6 +1144,167 @@ pub async fn serve_chat_persist_route(
   }
 }
 
+const CHAT_CONTINUE_REQUEST_MAX_BYTES: usize = 16 * 1024;
+
+#[derive(Deserialize)]
+struct ChatContinueRequest {
+  #[serde(rename = "chatItemId")]
+  chat_item_id: Uid,
+  /// Moves the chat back to the Queries page, trashing its `.chat` item, rather than copying it.
+  #[serde(rename = "trashOriginal", default)]
+  trash_original: bool,
+}
+
+#[derive(Serialize)]
+struct ChatContinueResponse {
+  /// The new current chat.
+  #[serde(rename = "queryItem")]
+  query_item: Value,
+  /// The previous current chat, now an earlier chat, if it had a transcript.
+  #[serde(rename = "unpinnedQueryItemId")]
+  unpinned_query_item_id: Option<Uid>,
+  /// The previous current chat, deleted because it had never been used.
+  #[serde(rename = "deletedQueryItemId")]
+  deleted_query_item_id: Option<Uid>,
+}
+
+/// Continues a persisted chat: copies its transcript, under a new header, into a new pinned query item in the Queries
+/// page, which becomes the current chat. A previous current chat with a transcript becomes an earlier chat; one never
+/// used is deleted. The `.chat` item stays where it is, or with `trash_original` goes to the trash. The transcript is
+/// written before its query item is added, so a crash leaves at worst an orphan transcript, which startup cleanup
+/// removes. See docs/persistent-chats.md.
+async fn continue_persisted_chat(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  session: &Session,
+  request: &ChatContinueRequest,
+) -> InfuResult<ChatContinueResponse> {
+  let user_id = &session.user_id;
+  let source = read_persisted_chat(db, object_store.clone(), session, &request.chat_item_id).await?;
+  if source.turns.is_empty() {
+    return Err("The chat has no turns to continue.".into());
+  }
+  let (data_dir, queries_page_id, title, current, ordering) = {
+    let db = db.lock().await;
+    let user = db.user.get(user_id).ok_or("The user was not found.")?;
+    let chat_item = db.item.get(&request.chat_item_id)?;
+    let file_title = chat_item.title.clone().unwrap_or_default();
+    let title = file_title.strip_suffix(".chat").unwrap_or(&file_title).to_owned();
+    let children = db.item.get_children(&user.queries_page_id)?;
+    let current = children
+      .iter()
+      .find(|item| item.item_type == ItemType::Search && !super::is_unpinned(item))
+      .map(|item| (*item).clone());
+    let ordering =
+      crate::util::ordering::new_ordering_at_beginning(children.iter().map(|item| item.ordering.clone()).collect());
+    (db.item.data_dir().to_owned(), user.queries_page_id.clone(), title, current, ordering)
+  };
+
+  let query_item_id = new_uid();
+  let mut transcript =
+    try_lock_transcript(&data_dir, user_id, &query_item_id).await?.ok_or("The new chat's transcript is locked.")?;
+  let header = TranscriptHeader {
+    version: TRANSCRIPT_FORMAT_VERSION,
+    query_item_id: query_item_id.clone(),
+    created_at: unix_now_millis(),
+  };
+  transcript.create_copy(header, &source).await?;
+
+  let mut query_item = Item::new_query(
+    &queries_page_id,
+    ordering,
+    super::queries_page_query_item_position_gr(),
+    super::queries_page_query_item_width_gr(),
+    RelationshipToParent::Child,
+  );
+  query_item.id = query_item_id.clone();
+  query_item.owner_id = user_id.clone();
+  query_item.flags = Some(LIST_PAGE_PIN_TOP_FLAG);
+  query_item.title = Some(title);
+  let added = super::item_ops::add_item_for_user(
+    db,
+    object_store.clone(),
+    &serde_json::to_string(&query_item.to_api_json()?)?,
+    &None,
+    user_id,
+  )
+  .await?
+  .ok_or("Adding the chat's query item returned nothing.")?;
+  drop(transcript);
+  let added: Value = serde_json::from_str(&added)?;
+  let query_item_json = added.get("item").cloned().ok_or("Adding the chat's query item returned no item.")?;
+
+  let session_maybe = Some(session.clone());
+  let mut unpinned_query_item_id = None;
+  let mut deleted_query_item_id = None;
+  if let Some(mut current) = current {
+    let used = read_transcript(&data_dir, user_id, &current.id).await?.is_some_and(|t| !t.turns.is_empty());
+    if used {
+      current.flags = Some(current.flags.unwrap_or(0) & !LIST_PAGE_PIN_TOP_FLAG);
+      let json = serde_json::to_string(&current.to_api_json()?)?;
+      super::item_ops::handle_update_item(db, &json, &session_maybe).await?;
+      unpinned_query_item_id = Some(current.id);
+    } else {
+      let json = serde_json::json!({ "id": current.id }).to_string();
+      super::item_ops::handle_delete_item(db, object_store.clone(), image_cache, &json, &session_maybe).await?;
+      deleted_query_item_id = Some(current.id);
+    }
+  }
+
+  if request.trash_original {
+    let chat_item = {
+      let db = db.lock().await;
+      let mut chat_item = db.item.get(&request.chat_item_id)?.clone();
+      let trash_page_id = db.user.get(user_id).ok_or("The user was not found.")?.trash_page_id.clone();
+      let trash_orderings = db.item.get_children(&trash_page_id)?.iter().map(|item| item.ordering.clone()).collect();
+      chat_item.parent_id = Some(trash_page_id);
+      chat_item.relationship_to_parent = RelationshipToParent::Child;
+      chat_item.ordering = new_ordering_at_end(trash_orderings);
+      chat_item
+    };
+    let json = serde_json::to_string(&chat_item.to_api_json()?)?;
+    super::item_ops::handle_update_item(db, &json, &session_maybe).await?;
+  }
+
+  Ok(ChatContinueResponse { query_item: query_item_json, unpinned_query_item_id, deleted_query_item_id })
+}
+
+/// Continues a persisted chat as the current chat; see `continue_persisted_chat`.
+pub async fn serve_chat_continue_route(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  if request.method() == "OPTIONS" {
+    debug!("Serving OPTIONS request for chat continue, assuming CORS query.");
+    return cors_response();
+  }
+  if request.method() != "POST" {
+    return not_found_response();
+  }
+  let Some(session) = get_and_validate_session(&request, db).await else {
+    return forbidden_response();
+  };
+  let request: ChatContinueRequest = match incoming_json_with_limit(request, CHAT_CONTINUE_REQUEST_MAX_BYTES).await {
+    Ok(request) => request,
+    Err(e) => {
+      error!("An error occurred parsing chat continue payload for user '{}': {}", session.user_id, e);
+      return Response::builder().status(400).body(empty_body()).unwrap();
+    }
+  };
+  match continue_persisted_chat(db, object_store, image_cache, &session, &request).await {
+    Ok(response) => json_response(&response),
+    Err(e) => {
+      warn!("Could not continue chat '{}' of user '{}': {}", request.chat_item_id, session.user_id, e);
+      let mut response = json_response(&ChatPersistError { error: e.message().to_owned() });
+      *response.status_mut() = hyper::StatusCode::CONFLICT;
+      response
+    }
+  }
+}
+
 /// Whether a turn of a live chat is running, so its query item must not be deleted now.
 pub(super) fn chat_turn_running(user_id: &Uid, query_item_id: &Uid) -> bool {
   chat_is_locked(user_id, query_item_id)

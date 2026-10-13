@@ -440,6 +440,22 @@ the chat route ignores requests without a query item id.
 11. **Continue and move back.** A server endpoint copies a `.chat` item into a new pinned query item with a fresh
     header, optionally trashing the original. Add the Continue button to `Toolbar_Text` for `.chat` items (copy),
     and handle dropping a `.chat` item onto the Queries page (move). Generate a title for the chat this unpins.
+    Done 2026-10-13: `POST /chat/continue` with `{ chatItemId, trashOriginal }` (`continue_persisted_chat` in
+    [chat/mod.rs](../infumap/src/web/routes/command/chat/mod.rs)). It writes the copied transcript first, under a new
+    header, then adds the new pinned query item (ordered before every other child, with
+    `new_ordering_at_beginning`, a port of the client's). The previous current chat is unpinned if it has a
+    transcript, or deleted if it was never used, so continuing doesn't leave an empty earlier chat. With
+    `trashOriginal` the `.chat` item goes to the trash. The client (`continuePersistedChat` in
+    [query.ts](../web/src/items/query.ts)) asks for a title for the unpinned chat and opens the continued chat. Continue
+    is a button in the text item toolbar and, since that is not the toolbar shown on a `.chat` document page, in the
+    page toolbar there too. Dropping a `.chat` item onto the Queries page continues it with `trashOriginal`, wherever
+    it was dropped in the list. Checked end to end: Continue from the `.chat` page (copied history reached the model),
+    and a drag from a dock page popup onto the Queries list (the `.chat` item went to the trash).
+    Fixed here, data loss: when a step after a successful server call failed locally, the move rollback treated the
+    dragged item, already removed locally, as one the drag had created and deleted it on the server, permanently
+    deleting a `.chat` item. Now a chat operation that has succeeded never fails the move (local errors are logged),
+    and a rollback never deletes an item a chat operation handles (`chatOperationHandlesDraggedItem` in
+    [mouse_up.ts](../web/src/input/mouse_up.ts)).
 12. **Shift-drag copy of turns.** Enable copying turn composites out of the live chat view, then remove
     single-response Materialize. Independent of the other steps; can be done at any point.
 13. **Search for persisted chats.** Chat content-kind recognition, visible-text fragments, reconciliation and

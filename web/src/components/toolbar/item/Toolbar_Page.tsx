@@ -34,7 +34,8 @@ import { getPageCalendarDisplayMode, PageCalendarDisplayMode, PageFlags } from "
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
-import { isVirtualTextDocumentPage, openTextItemFileInNewTab, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../../items/text-document";
+import { isChatTextItem, isVirtualTextDocumentPage, openTextItemFileInNewTab, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../../items/text-document";
+import { continuePersistedChat } from "../../../items/query";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { VeFns, VisualElementFlags } from "../../../layout/visual-element";
@@ -58,6 +59,7 @@ export const Toolbar_Page: Component = () => {
   let justifiedRowAspectDiv: HTMLDivElement | undefined;
   let numColsDiv: HTMLDivElement | undefined;
   let openTextFileDiv: HTMLDivElement | undefined;
+  let continueChatDiv: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(pageItem());
@@ -490,6 +492,25 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(openTextFileDiv!.getBoundingClientRect());
   };
 
+  /** The persisted chat this page shows, if it is the document page of a `.chat` item on this server. */
+  const sourceChatItem = () => {
+    store.touchToolbarDependency();
+    const source = sourceTextItemForVirtualTextDocumentPage(pageItem().id);
+    return source != null && isChatTextItem(source) && source.origin == null ? source : null;
+  };
+  const handleContinueChat = () => {
+    const source = sourceChatItem();
+    if (source == null) { return; }
+    void continuePersistedChat(store, source.id, false).catch(e => {
+      const text = e instanceof Error ? e.message : "could not continue the chat";
+      store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
+      setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 5000);
+    });
+  };
+  const handleContinueChatDown = () => {
+    ClickState.setButtonClickBoundsPx(continueChatDiv!.getBoundingClientRect());
+  };
+
 
   const documentControls = () => (
     <>
@@ -647,6 +668,12 @@ export const Toolbar_Page: Component = () => {
           </Show>
           <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
         </Show>
+      </Show>
+
+      <Show when={sourceChatItem() != null}>
+        <div ref={continueChatDiv} class="inline-block" onMouseDown={handleContinueChatDown}>
+          <InfuIconButton icon="fa fa-comments" highlighted={false} clickHandler={handleContinueChat} title="Continue chat" />
+        </div>
       </Show>
 
       <Toolbar_MoreActions />

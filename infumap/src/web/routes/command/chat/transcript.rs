@@ -401,6 +401,25 @@ impl LockedTranscript {
     Ok(())
   }
 
+  /// Creates the file as a copy of `source`'s turns under a new header, atomically and synced: for continuing a
+  /// persisted chat in a new live chat.
+  pub(super) async fn create_copy(&mut self, header: TranscriptHeader, source: &Transcript) -> InfuResult<()> {
+    if self.transcript.is_some() {
+      return Err(format!("Transcript '{}' already exists.", self.path.display()).into());
+    }
+    let mut content = record_line(&TranscriptRecord::Header(header))?;
+    for turn in &source.turns {
+      content.push_str(&record_line(&TranscriptRecord::User(turn.user.clone()))?);
+      if let Some(end) = &turn.end {
+        content.push_str(&record_line(&TranscriptRecord::Turn(end.clone()))?);
+      }
+    }
+    let transcript = parse_transcript(content.as_bytes())?.ok_or("The copied transcript has no header.")?;
+    atomic_write(&self.path, content.as_bytes()).await?;
+    self.transcript = Some(transcript);
+    Ok(())
+  }
+
   /// The file's bytes: its complete records, since taking the lock truncated any incomplete last line.
   pub(super) async fn bytes(&self) -> InfuResult<Vec<u8>> {
     Ok(fs::read(&self.path).await?)
@@ -802,6 +821,32 @@ mod tests {
     assert!(!chats_dir.join(".artifact-x.tmp").exists());
     assert!(chats_dir.join("notes.txt").exists());
     assert_eq!(remove_orphan_transcripts(f.data_dir(), &new_uid(), |_| false).await.unwrap(), 0);
+  }
+
+  #[tokio::test]
+  async fn copy_has_the_turns_under_a_new_header() {
+    let f = Fixture::new();
+    let mut locked = f.create().await;
+    locked.append_user(user("r1", "first")).await.unwrap();
+    locked.append_turn(turn("r1", TurnOutcome::Completed, vec![message("assistant", "answer one")])).await.unwrap();
+    locked.append_user(user("r2", "second")).await.unwrap();
+    locked.append_turn(turn("r2", TurnOutcome::Cancelled, vec![])).await.unwrap();
+    drop(locked);
+    let source = f.read().await.unwrap();
+
+    let copy_id = new_uid();
+    let mut copy = try_lock_transcript(f.data_dir(), &f.user_id, &copy_id).await.unwrap().unwrap();
+    let header = TranscriptHeader { version: TRANSCRIPT_FORMAT_VERSION, query_item_id: copy_id.clone(), created_at: 5 };
+    copy.create_copy(header.clone(), &source).await.unwrap();
+    assert!(copy.create_copy(header, &source).await.is_err());
+    copy.append_user(user("r3", "third")).await.unwrap();
+    drop(copy);
+
+    let copied = read_transcript(f.data_dir(), &f.user_id, &copy_id).await.unwrap().unwrap();
+    assert_eq!(copied.header.query_item_id, copy_id);
+    assert_eq!(copied.revision(), 3);
+    assert_eq!(copied.turn_status(1, false), TurnStatus::Cancelled);
+    assert_eq!(history_json(&copied), history_json(&source));
   }
 
   #[test]

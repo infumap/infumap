@@ -20,12 +20,14 @@ import { arrangeNow, requestArrange } from "../layout/arrange";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../layout/load";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VisualElementPath, VeFns } from "../layout/visual-element";
-import { server } from "../server";
+import { server, type ContinueChatResponse } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { queryScopeIdForRequest } from "./query-scope";
 import { asContainerItem, isContainer } from "./base/container-item";
-import { ensureQueryItemUnderQueries } from "../layout/navigation";
+import type { Uid } from "../util/uid";
+import { ensureQueryItemUnderQueries, navigateToQueries } from "../layout/navigation";
+import { ItemFns } from "./base/item-polymorphism";
 import { SearchFlags } from "./base/flags-item";
 import {
   clearQueryChat,
@@ -208,6 +210,74 @@ export async function startQueryChat(
   store.overlay.autoFocusChatInput.set(true);
   arrangeNow(store, "query-start-chat");
   return await submitQueryChatMessage(store, queryItem, initialText, deepResearch);
+}
+
+/**
+ * Continues a persisted chat as the current chat in the Queries page, and opens it there. With `trashOriginal` it is a
+ * move back, and the `.chat` item goes to the trash; otherwise a copy, and it stays. The previous current chat becomes
+ * an earlier chat (and gets a generated title), or is deleted if it was never used. Throws with the server's reason.
+ */
+export async function continuePersistedChat(store: StoreContextModel, chatItemId: Uid, trashOriginal: boolean): Promise<void> {
+  const response = await server.continueChat(chatItemId, trashOriginal);
+  // The server has acted, so a local error must not look like a refusal: when moving back by drag, that would roll the
+  // move back locally only. Logged instead; syncing corrects the local state.
+  try {
+    await applyContinuedChat(store, chatItemId, trashOriginal, response);
+  } catch (e) {
+    console.error("The chat was continued, but showing it failed:", e);
+  }
+}
+
+async function applyContinuedChat(
+  store: StoreContextModel,
+  chatItemId: Uid,
+  trashOriginal: boolean,
+  response: ContinueChatResponse,
+): Promise<void> {
+  const user = store.user.getUserMaybe();
+  if (user == null) { return; }
+  // A popup may show the moved `.chat` item, and focus may be on it or on the previous current chat.
+  store.history.popAllPopups();
+  const pagePath = store.history.currentPagePath();
+  if (pagePath != null) {
+    store.history.setFocus(pagePath);
+  }
+
+  if (response.unpinnedQueryItemId != null) {
+    const unpinned = itemState.get(response.unpinnedQueryItemId);
+    if (unpinned != null && isQueryItem(unpinned)) {
+      asQueryItem(unpinned).flags &= ~SearchFlags.ListPagePinTop;
+      unpinned.capabilities = { resize: false };
+    }
+    void generateQueryChatTitle(store, response.unpinnedQueryItemId);
+  }
+  const queryItem = ItemFns.fromObject(response.queryItem, null);
+  queryItem.capabilities = { move: false, resize: false };
+  const queriesPage = itemState.get(queryItem.parentId);
+  if (itemState.get(queryItem.id) == null && queriesPage != null && isContainer(queriesPage) &&
+    asContainerItem(queriesPage).childrenLoaded) {
+    itemState.add(queryItem);
+  }
+
+  // Show the continued chat before removing anything locally: until the selection moves to it, the previous current
+  // chat may still be shown, and may take focus.
+  if (store.history.currentPageVeid()?.itemId == user.queriesPageId) {
+    store.perItem.setSelectedListPageItem(
+      { itemId: user.queriesPageId, linkIdMaybe: null },
+      { itemId: queryItem.id, linkIdMaybe: null },
+    );
+    arrangeNow(store, "query-chat-continued");
+  } else {
+    await navigateToQueries(store);
+  }
+
+  if (response.deletedQueryItemId != null && itemState.get(response.deletedQueryItemId) != null) {
+    itemState.delete(response.deletedQueryItemId);
+  }
+  if (trashOriginal && itemState.get(chatItemId) != null) {
+    itemState.delete(chatItemId);
+  }
+  requestArrange(store, "query-chat-continued-cleanup");
 }
 
 /** Whether a query item is an earlier chat in the Queries page, rather than the current one. */

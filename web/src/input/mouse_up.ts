@@ -30,6 +30,8 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns, CompositeItem } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
 import { TextFns, asTextItem, isText } from "../items/text-item";
+import { continuePersistedChat } from "../items/query";
+import { isChatTextItem } from "../items/text-document";
 import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
@@ -76,6 +78,13 @@ import { appendEmptyNoteToDocumentPage } from "./edit";
 
 /** A move the server refused for a reason worth showing the user, instead of the generic failure message. */
 class MoveRejectedError extends Error { }
+
+/**
+ * Set when a chat persist or continue operation handles the dragged item on the server. The item is then removed
+ * locally once the server has acted, so a rollback must never take its absence to mean the drag created it, and delete
+ * it on the server.
+ */
+let chatOperationHandlesDraggedItem = false;
 
 interface MovePersistOperation {
   apply: () => Promise<void>,
@@ -425,6 +434,10 @@ function enqueueUpdateItem(
     return;
   }
 
+  if (enqueueChatContinueIfDropped(ops, store, item)) {
+    return;
+  }
+
   const snapshot = cloneItemSnapshot(item);
   ops.push({
     apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus),
@@ -455,6 +468,7 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
   chatItem.dateTime = item.dateTime;
   chatItem.groupId = item.groupId;
   const chatItemObject = ItemFns.toObject(chatItem);
+  chatOperationHandlesDraggedItem = true;
   ops.push({
     apply: async () => {
       let response: { item: object };
@@ -463,11 +477,43 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
       } catch (e) {
         throw new MoveRejectedError(e instanceof Error ? e.message : "Couldn't keep the chat");
       }
-      if (itemState.get(queryItem.id) != null) {
-        itemState.delete(queryItem.id);
+      // The server has persisted the chat, so nothing after this may fail the move: a rollback would undo it locally
+      // only. A local error is logged, and syncing corrects the local state.
+      try {
+        if (itemState.get(queryItem.id) != null) {
+          itemState.delete(queryItem.id);
+        }
+        itemState.add(ItemFns.fromObject(response.item, null));
+        requestArrange(store, "chat-persisted");
+      } catch (e) {
+        console.error("The chat was persisted, but showing it failed:", e);
       }
-      itemState.add(ItemFns.fromObject(response.item, null));
-      requestArrange(store, "chat-persisted");
+    },
+  });
+  return true;
+}
+
+/**
+ * A persisted chat dropped onto the Queries page moves back there: it is continued as the current chat, wherever it was
+ * dropped in the list, and its `.chat` item goes to the trash. If that fails, the move is rolled back.
+ */
+function enqueueChatContinueIfDropped(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): boolean {
+  const user = store.user.getUserMaybe();
+  if (user == null || !isText(item) || !isChatTextItem(asTextItem(item)) || item.origin != null) {
+    return false;
+  }
+  const startParentId = MouseActionState.getMoveRollback()?.find(entry => entry.id == item.id)?.parentId;
+  if (item.parentId != user.queriesPageId || startParentId == user.queriesPageId) {
+    return false;
+  }
+  chatOperationHandlesDraggedItem = true;
+  ops.push({
+    apply: async () => {
+      try {
+        await continuePersistedChat(store, item.id, true);
+      } catch (e) {
+        throw new MoveRejectedError(e instanceof Error ? e.message : "Couldn't continue the chat");
+      }
     },
   });
   return true;
@@ -518,7 +564,9 @@ function captureMoveRollbackContext(rollbackExtras: (() => void) | null = null):
   const activeElementPath = MouseActionState.getActiveElementPath();
   const activeTreeItemServerCleanupHandledByOps =
     MouseActionState.getTextDocumentMaterializeMove() != null ||
-    MouseActionState.getItemCopyMove() != null;
+    MouseActionState.getItemCopyMove() != null ||
+    chatOperationHandlesDraggedItem;
+  chatOperationHandlesDraggedItem = false;
   return {
     snapshot: (MouseActionState.getMoveRollback() ?? []).map(entry => ({
       ...entry,
