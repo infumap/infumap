@@ -245,6 +245,19 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
   };
   const popupRootVeMaybe = () => VesCache.render.getPopup(VeFns.veToPath(props.visualElement))()?.get() ?? null;
 
+  // The attachments of the selected page of a list page in a popup (or its selected page, etc.) straddle the top of
+  // the popup's viewport, which clips its contents, so they are rendered by the popup.
+  const attachmentsAreRenderedByPopup = (): boolean => {
+    let ve = props.visualElement;
+    while (ve.flags & VisualElementFlags.ListPageRoot) {
+      const parentVe = ve.parentPath == null ? null : VesCache.current.readNode(ve.parentPath);
+      if (parentVe == null) { return false; }
+      if (parentVe.flags & VisualElementFlags.Popup) { return true; }
+      ve = parentVe;
+    }
+    return false;
+  };
+
   const renderSelectedRootMaybe = () =>
     <Show when={selectedRootVeMaybe()}>
       {selectedVe => <VisualElement_Desktop visualElement={selectedVe()} />}
@@ -866,8 +879,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           </Match>
         </Switch>
         {/* Above the popup (rendered in the viewport) and, for pages whose titles are in the toolbar, the toolbar. */}
-        <PageAttachments visualElement={props.visualElement} pageFns={pageFns()}
-          positionStyle={`left: 0px; top: 0px; z-index: ${Z_INDEX_GLOBAL_POPUP + 1};`} />
+        <Show when={!attachmentsAreRenderedByPopup()}>
+          <PageAttachments visualElement={props.visualElement}
+            positionStyle={`left: 0px; top: 0px; z-index: ${Z_INDEX_GLOBAL_POPUP + 1};`} />
+        </Show>
       </div>
     </>
   );

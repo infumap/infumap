@@ -740,6 +740,26 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       zIndexStyle={VeFns.zIndexStyle(props.visualElement)}
     />;
 
+  // The attachments of the selected page of a list page (and of its selected page, etc.) straddle the top of the
+  // popup's viewport, which clips its contents, so they are rendered here (above the title bar), rather than by the
+  // selected page. Positions are of the top left of each selected page's bounds.
+  const selectedPagesWithAttachmentsPx = (): Array<{ ve: VisualElement, x: number, y: number }> => {
+    const result: Array<{ ve: VisualElement, x: number, y: number }> = [];
+    let x = pageFns().viewportBoundsPx().x;
+    let y = pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0);
+    let parentVe = props.visualElement;
+    while (true) {
+      const selectedVe = VesCache.render.getSelected(VeFns.veToPath(parentVe))()?.get() ?? null;
+      if (selectedVe == null || !(selectedVe.flags & VisualElementFlags.ListPageRoot) || !isPage(selectedVe.displayItem)) { break; }
+      // The viewport of a list page root is its bounds.
+      x += selectedVe.boundsPx.x;
+      y += selectedVe.boundsPx.y;
+      result.push({ ve: selectedVe, x, y });
+      parentVe = selectedVe;
+    }
+    return result;
+  };
+
   const renderBorder = () =>
     <div class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} pointer-events-none`}
       style={`left: ${pageFns().boundsPx().x}px; ` +
@@ -777,11 +797,16 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       {renderPopupTitle()}
       {renderPopupActionStripMaybe()}
       {renderBorder()}
-      <PageAttachments visualElement={props.visualElement} pageFns={pageFns()}
+      <PageAttachments visualElement={props.visualElement}
         positionStyle={`position: ${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}; ` +
           `left: ${pageFns().boundsPx().x}px; ` +
           `top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
           `${VeFns.zIndexStyle(props.visualElement)}`} />
+      <For each={selectedPagesWithAttachmentsPx()}>{selected =>
+        <PageAttachments visualElement={selected.ve}
+          positionStyle={`position: ${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}; ` +
+            `left: ${selected.x}px; top: ${selected.y}px; ${VeFns.zIndexStyle(props.visualElement)}`} />
+      }</For>
     </>
   );
 }
