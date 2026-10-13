@@ -1026,6 +1026,22 @@ export const server = {
     return streamChatCommand(payload, networkStatus, onEvent, signal);
   },
 
+  /**
+   * Gives an earlier chat a generated title, if its title is still the one derived from its first prompt. Returns its
+   * title afterwards. The server applies the title itself.
+   */
+  generateChatTitle: async (queryItemId: Uid): Promise<{ title: string }> => {
+    const fetchResult = await fetch("/chat/title", {
+      method: "POST",
+      headers: { "Accept": "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ queryItemId }),
+    });
+    if (!fetchResult.ok) {
+      throw new Error(`Chat title request failed: ${fetchResult.status}`);
+    }
+    return await fetchResult.json();
+  },
+
   chatBackends: async (): Promise<ChatBackends> => {
     return fetchChatBackends();
   },

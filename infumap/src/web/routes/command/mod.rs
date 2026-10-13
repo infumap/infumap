@@ -94,8 +94,8 @@ mod search;
 
 pub(crate) use chat::{chat_tool_servers_from_config, llama_servers_from_config, validate_chat_backend_config};
 pub use chat::{
-  remove_orphan_chat_transcripts, serve_chat_models_route, serve_chat_stream_route, serve_chat_tool_approval_route,
-  serve_chat_tool_route,
+  remove_orphan_chat_transcripts, serve_chat_models_route, serve_chat_stream_route, serve_chat_title_route,
+  serve_chat_tool_approval_route, serve_chat_tool_route,
 };
 pub use item_ops::add_item_for_user;
 

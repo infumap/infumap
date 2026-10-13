@@ -523,6 +523,36 @@ pub async fn add_item_for_user(
   }
 }
 
+/// Sets an item's title, only if it is still `expected_title`, so a title someone set meanwhile is kept. Syncs and
+/// reindexes like `update-item`. Returns the item's title afterwards.
+pub(super) async fn set_item_title_if_unchanged(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  user_id: &Uid,
+  item_id: &Uid,
+  expected_title: &str,
+  title: &str,
+) -> InfuResult<String> {
+  let mut db = db.lock().await;
+  let mut item = db.item.get(item_id)?.clone();
+  if &item.owner_id != user_id {
+    return Err(format!("User '{}' does not own item '{}'.", user_id, item_id).into());
+  }
+  let current = item.title.clone().unwrap_or_default();
+  if current != expected_title {
+    return Ok(current);
+  }
+  item.title = Some(title.to_owned());
+  db.item.update(&item).await?;
+  let mut deltas_by_container = HashMap::new();
+  if let Some(container_id) = maybe_container_id_for_child_item(&item) {
+    merge_container_delta(&mut deltas_by_container, &container_id, build_child_upsert_delta(&db, &item)?);
+  }
+  flush_container_sync_changes(&mut db, user_id, deltas_by_container, HashSet::new());
+  drop(db);
+  enqueue_item_title_index_update(user_id, item_id);
+  Ok(title.to_owned())
+}
+
 pub(super) async fn handle_update_item(
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,

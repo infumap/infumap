@@ -27,7 +27,14 @@ import { queryScopeIdForRequest } from "./query-scope";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { ensureQueryItemUnderQueries } from "../layout/navigation";
 import { SearchFlags } from "./base/flags-item";
-import { clearQueryChat, ensureTemporaryQueryChatPage, isLiveQueryChat, resetQueryChatSession, submitQueryChatMessage } from "./chat";
+import {
+  clearQueryChat,
+  ensureTemporaryQueryChatPage,
+  generateQueryChatTitle,
+  isLiveQueryChat,
+  resetQueryChatSession,
+  submitQueryChatMessage,
+} from "./chat";
 import {
   QueryItem,
   asQueryItem,
@@ -231,6 +238,8 @@ export async function startNewQueryChat(store: StoreContextModel, queryItemMaybe
     // each pinned query item is created at the start of the page's children.
     queryItem.flags &= ~SearchFlags.ListPagePinTop;
     await server.updateItem(queryItem, store.general.networkStatus);
+    // After the chat, not alongside a response, so it does not compete with one for a local model.
+    void generateQueryChatTitle(store, queryItem.id);
   }
   const queriesPageVeid = { itemId: user.queriesPageId, linkIdMaybe: null };
   const currentId = await ensureQueryItemUnderQueries(store, user.queriesPageId);
