@@ -26,16 +26,14 @@ import { CompositeFlags, PageFlags } from "./base/flags-item";
 import { ClientOnlyItemKind, Item } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
-import { NoteFns, asNoteItem, isNote } from "./note-item";
+import { NoteFns } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
 import { queryScopeIdForRequest } from "./query-scope";
-import { TextFns } from "./text-item";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import {
   ChatTranscriptConflictError,
   server,
-  type ChatMessage,
   type ChatModelSelection,
   type ChatStreamEvent,
   type ChatStreamPhase,
@@ -46,7 +44,6 @@ import {
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
-import { base64ArrayBuffer } from "../util/base64ArrayBuffer";
 import {
   setExtraDefaultChatCapabilities,
   type ChatCapability,
@@ -57,9 +54,7 @@ import {
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
-const MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE = "Chat";
-const MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS = 100;
-export type QueryChatMaterializationPhase = "generating_title" | "creating_markdown";
+const QUERY_CHAT_FALLBACK_TITLE = "Chat";
 
 function markAsQueryChatPage(item: Item): void {
   item.clientOnly = true;
@@ -74,6 +69,11 @@ function makeQueryChatItemReadOnly(item: Item): void {
     copy: false,
     resize: false,
   };
+}
+
+/** A turn can be copied out of the chat by shift-dragging it, with its content; nothing in the chat can be moved. */
+function makeQueryChatTurnCopyable(item: Item): void {
+  item.capabilities = { ...item.capabilities, copy: true };
 }
 
 export type ChatStreamingToolCall = QueryChatActivityToolCall;
@@ -500,83 +500,13 @@ function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
 function titleFromPrompt(prompt: string): string {
   const titleWords = prompt.trim().replace(/\s+/g, " ").split(" ").filter(word => word != "").slice(0, 3);
   if (titleWords.length == 0) {
-    return MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE;
+    return QUERY_CHAT_FALLBACK_TITLE;
   }
   return titleWords.join(" ");
 }
 
-function titleFromModelResponse(response: string): string | null {
-  const firstLine = response.split(/\r?\n/).find(line => line.trim() != "");
-  if (firstLine == null) {
-    return null;
-  }
-  let title = firstLine
-    .replace(/^\s{0,3}#{1,6}\s+/, "")
-    .replace(/^title\s*:\s*/i, "")
-    .trim()
-    .replace(/^[*_"'`]+|[*_"'`]+$/g, "")
-    .replace(/[.!?]+$/, "")
-    .trim()
-    .replace(/\s+/g, " ");
-  if (title == "") {
-    return null;
-  }
-  const chars = [...title];
-  if (chars.length <= MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS) {
-    return title;
-  }
-  title = chars.slice(0, MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS).join("");
-  const lastSpace = title.lastIndexOf(" ");
-  return (lastSpace > 0 ? title.slice(0, lastSpace) : title).trim();
-}
-
-async function generateMaterializedQueryChatTitle(
-  store: StoreContextModel,
-  queryItem: QueryItem,
-  titlePrompt: string,
-): Promise<string | null> {
-  const messages = queryChatVisibleMessages(store, queryItem);
-  if (messages.length == 0) {
-    return null;
-  }
-  // Sent without the query item id, so the server uses these messages and records nothing.
-  const response = await server.chatStream({
-    requestId: newUid(),
-    messages: [...messages, { role: "user", content: titlePrompt }],
-    capabilities: queryChatCapabilities(store, queryItem),
-    mode: "chat",
-    model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
-    scopeId: queryScopeIdForRequest(store, queryItem),
-  }, store.general.networkStatus, () => {});
-  return titleFromModelResponse(response.assistantText);
-}
-
-function materializedAssistantSectionTitlePrompt(turnNumber: number, assistantText: string): string {
-  const excerptChars = [...assistantText.trim().replace(/\s+/g, " ")].slice(0, 180);
-  const excerpt = excerptChars.join("");
-  const target = excerpt == ""
-    ? `The target is assistant turn ${turnNumber}. `
-    : `The target is assistant turn ${turnNumber}, beginning with ${JSON.stringify(excerpt)}. `;
-  return "Give the selected assistant response in this conversation a concise, informative document title. " +
-    target +
-    "Name that response's underlying topic or answer, not the assistant's process, search method, sources, or caveats. " +
-    "Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually " +
-    "two to four words and never more than six. Use title case. Do not begin with words such as Finding, " +
-    "Researching, Searching, Exploring, or Analyzing. " +
-    "Use plain text only, with no Markdown, quotation marks, or ending punctuation. Reply with only the title.";
-}
-
 function queryChatRootIds(store: StoreContextModel, queryItem: QueryItem): Array<Uid> {
   return getQueryRuntime(store, queryItem).chat.rootItemIds ?? [];
-}
-
-/**
- * The visible conversation, as user and assistant messages: the user's text and each completed turn's answer, without
- * tool exchanges or reasoning. The client keeps no model history; the server's transcript holds it.
- */
-function queryChatVisibleMessages(store: StoreContextModel, queryItem: QueryItem): Array<ChatMessage> {
-  return queryChatVisibleTurns(store, queryItem)
-    .map(turn => ({ role: turn.role, content: turn.text }));
 }
 
 function textCharCount(text: string): number {
@@ -888,6 +818,7 @@ function addLocalQueryUserTurn(store: StoreContextModel, queryItem: QueryItem, t
     newOrderingAtEnd(queryChatRootOrderings(store, queryItem)),
     true,
   );
+  makeQueryChatTurnCopyable(composite);
   const note = createTurnNote(
     queryItem.ownerId,
     composite.id,
@@ -1036,6 +967,9 @@ function insertQueryChatAssistantTurn(
     batch(() => {
       for (const item of staged.itemsInInsertionOrder) {
         prepareReturnedItem(item, true);
+        if (staged.rootIds.includes(item.id)) {
+          makeQueryChatTurnCopyable(item);
+        }
         insertedItems.push(item);
         itemState.add(item);
       }
@@ -1403,81 +1337,6 @@ export function queryChatHasContent(store: StoreContextModel, queryItem: QueryIt
   return queryChatRootIds(store, queryItem).length > 0;
 }
 
-interface QueryChatVisibleTurn {
-  role: "user" | "assistant",
-  text: string,
-}
-
-/** The visible turns, in order. Follows the visible items, not a model transcript with its tool exchanges. */
-function queryChatVisibleTurns(store: StoreContextModel, queryItem: QueryItem): Array<QueryChatVisibleTurn> {
-  const chat = getQueryRuntime(store, queryItem).chat;
-  const activityByRootId = new Map<Uid, QueryChatCompletedActivity>();
-  for (const activity of chat.completedActivities) {
-    for (const rootId of activity.assistantRootIds) {
-      activityByRootId.set(rootId, activity);
-    }
-  }
-  const outcomeRootIds = new Set(chat.outcomeRootIds);
-
-  const turns: Array<QueryChatVisibleTurn> = [];
-  const addedActivities = new Set<string>();
-  for (const rootId of chat.rootItemIds) {
-    if (outcomeRootIds.has(rootId)) { continue; }
-    const activity = activityByRootId.get(rootId);
-    if (activity != null) {
-      if (!addedActivities.has(activity.requestId)) {
-        turns.push({ role: "assistant", text: activity.assistantText });
-        addedActivities.add(activity.requestId);
-      }
-      continue;
-    }
-
-    const root = itemState.get(rootId);
-    if (root == null) { continue; }
-    const notes = isContainer(root)
-      ? asContainerItem(root).computed_children.map(id => itemState.get(id))
-      : [root];
-    const text = notes.filter(item => item != null && isNote(item))
-      .map(item => asNoteItem(item!).title).join("\n\n");
-    if (text != "") {
-      turns.push({ role: "user", text });
-    }
-  }
-  return turns;
-}
-
-async function createQueryChatMarkdownItem(
-  store: StoreContextModel,
-  queryItem: QueryItem,
-  title: string,
-  markdown: string,
-): Promise<boolean> {
-  // The server uses the extension to recognize Markdown when detecting the data's MIME type.
-  const filename = /\.(md|markdown)$/i.test(title) ? title : `${title}.md`;
-  const textItem = TextFns.create(
-    queryItem.ownerId,
-    queryItem.parentId,
-    RelationshipToParent.Child,
-    filename,
-    itemState.newOrderingDirectlyAfterChild(queryItem.parentId, queryItem.id),
-  );
-  const bytes = new TextEncoder().encode(markdown);
-  textItem.mimeType = "text/markdown";
-  textItem.fileSizeBytes = bytes.byteLength;
-
-  try {
-    const returnedItem = await server.addItem(textItem, base64ArrayBuffer(bytes.buffer), store.general.networkStatus);
-    itemState.add(ItemFns.fromObject(returnedItem, null));
-    requestArrange(store, "query-chat-markdown-created");
-    showChatMessage(store, "Markdown item created", TransientMessageType.Info);
-    return true;
-  } catch (e) {
-    console.error("Failed to create Markdown from chat:", e);
-    showChatMessage(store, "Could not create Markdown item", TransientMessageType.Error);
-    return false;
-  }
-}
-
 function showChatMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
   const message = { text, type };
   store.overlay.toolbarTransientMessage.set(message);
@@ -1528,49 +1387,4 @@ export function resetQueryChatSession(store: StoreContextModel, queryItem: Query
   if (arrangeReason != null) {
     requestArrange(store, arrangeReason);
   }
-}
-
-export async function materializeQueryChatAssistantSection(
-  store: StoreContextModel,
-  queryId: Uid,
-  sectionRootId: Uid,
-  activityRequestId: string,
-  turnNumber: number,
-  onPhase?: (phase: QueryChatMaterializationPhase) => void,
-): Promise<boolean> {
-  const queryItemMaybe = itemState.get(queryId);
-  if (!queryItemMaybe || !isQueryItem(queryItemMaybe)) {
-    console.error("Failed to materialize query chat section: query item is missing.", queryId);
-    return false;
-  }
-  const queryItem = asQueryItem(queryItemMaybe);
-  const sectionRoot = itemState.get(sectionRootId);
-  const activity = getQueryRuntime(store, queryItem).chat.completedActivities
-    .find(candidate => candidate.requestId == activityRequestId);
-  if (!sectionRoot || !isContainer(sectionRoot) || !activity?.assistantRootIds.includes(sectionRootId)) {
-    console.error("Failed to materialize query chat section: assistant section is missing.", sectionRootId);
-    return false;
-  }
-  const parent = itemState.get(queryItem.parentId);
-  if (!parent || !isContainer(parent)) {
-    console.error("Failed to materialize query chat section: no valid parent container.", queryItem);
-    return false;
-  }
-
-  const assistantText = activity.assistantText;
-  const cleanedFallbackText = titleFromModelResponse(assistantText) ?? assistantText;
-  const fallbackTitle = titleFromPrompt(cleanedFallbackText);
-  let generatedTitle: string | null = null;
-  onPhase?.("generating_title");
-  try {
-    generatedTitle = await generateMaterializedQueryChatTitle(
-      store,
-      queryItem,
-      materializedAssistantSectionTitlePrompt(turnNumber, assistantText),
-    );
-  } catch (e) {
-    console.warn("Failed to generate a query chat response document title; using the response-derived fallback:", e);
-  }
-  onPhase?.("creating_markdown");
-  return createQueryChatMarkdownItem(store, queryItem, generatedTitle ?? fallbackTitle, assistantText);
 }

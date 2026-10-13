@@ -291,7 +291,7 @@ its fragments would be regenerated repeatedly, and the Queries page list already
   one (for example, a chat persisted while still pinned, or after a failed title call), persisting runs the same
   title generation first, and falls back to the derived title if it fails. The title prompt moves from the client
   (`MATERIALIZED_QUERY_CHAT_TITLE_PROMPT` in [chat.ts](../web/src/items/chat.ts)) to the server.
-- **Materialize goes.** Persisting a chat replaces materializing the whole chat as `.md`. Single-response
+- **Materialize goes** (done in steps 9 and 12). Persisting a chat replaces materializing the whole chat as `.md`. Single-response
   Materialize is replaced by shift-dragging a turn composite out of the live chat view, which copies it into the
   tree as editable notes rather than a `.md` file. Today that is disabled: chat turn items are created with
   `copy: false` (`makeQueryChatItemReadOnly` in [chat.ts](../web/src/items/chat.ts)). Enabling copy on turn
@@ -458,6 +458,16 @@ the chat route ignores requests without a query item id.
     [mouse_up.ts](../web/src/input/mouse_up.ts)).
 12. **Shift-drag copy of turns.** Enable copying turn composites out of the live chat view, then remove
     single-response Materialize. Independent of the other steps; can be done at any point.
+    Done 2026-10-13: turn roots in the live chat view are `copy: true` (`makeQueryChatTurnCopyable` in
+    [chat.ts](../web/src/items/chat.ts)), so shift-dragging a turn's move-out handle (shown when the turn is hovered)
+    copies it. A copy-drag used to clone only the dragged item, which for a read-only container meant an empty copy;
+    now it clones the descendants too (`cloneDescendantsForCopy` in
+    [mouse_move_move.ts](../web/src/input/mouse_move_move.ts)) and adds them after it, parents first, removing them
+    again if the drop fails. That also makes copies of tables out of read-only text documents keep their rows.
+    Single-response Materialize, its button in the turn dropdown, and the client's title code are removed. Checked
+    end to end: a "You" turn, an "Assistant" turn, and an "Assistant" turn with a table (rows and cell attachments)
+    were copied into a page; a plain drag changed nothing. In the test, with the chat view scrolled, hovering a turn
+    did not show its handle; not investigated, and possibly a test artifact.
 13. **Search for persisted chats.** Chat content-kind recognition, visible-text fragments, reconciliation and
     source-kind support, excluded from the model's `search` tool by default.
 14. **Docs.** Backup and durability of live chats, encryption, scope limitations, [chat-tools.md](chat-tools.md).

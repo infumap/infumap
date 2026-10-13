@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
-import { asAttachmentsItem, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex } from "../items/base/attachments-item";
+import { asAttachmentsItem, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanCopy, itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
@@ -51,7 +51,8 @@ import { HitInfoFns } from "./hit";
 import { dockListPageIconMoveTargetMaybe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
 import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "../layout/arrange/dock";
-import { asContainerItem } from "../items/base/container-item";
+import { asContainerItem, isContainer } from "../items/base/container-item";
+import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { newUid } from "../util/uid";
 import { isDataItem } from "../items/base/data-item";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
@@ -135,6 +136,40 @@ function prepareShiftDragClone(cloned: Item, source: Item): void {
   // Otherwise clones of two members dropped on another page would form a second group with the same id.
   cloned.groupId = null;
   appendCopySuffixToTextLikeClone(cloned);
+}
+
+/**
+ * Copies `source`'s descendants under its copy `cloned`, for a copy-drag of a container that can be copied but not
+ * moved, such as a turn of a chat. A move clones only the dragged item; a copy of a read-only container would be empty
+ * without this. Returns the copies' ids, parents first, for adding them after `cloned`.
+ */
+function cloneDescendantsForCopy(source: Item, cloned: Item): Array<string> {
+  const ids: Array<string> = [];
+  const visit = (sourceParent: Item, clonedParent: Item): void => {
+    if (isContainer(clonedParent)) {
+      asContainerItem(clonedParent).computed_children = [];
+      asContainerItem(clonedParent).childrenLoaded = true;
+      markChildrenLoadAsInitiatedOrComplete(clonedParent.id);
+    }
+    if (isAttachmentsItem(clonedParent)) {
+      asAttachmentsItem(clonedParent).computed_attachments = [];
+    }
+    const childIds = isContainer(sourceParent) ? asContainerItem(sourceParent).computed_children : [];
+    const attachmentIds = isAttachmentsItem(sourceParent) ? asAttachmentsItem(sourceParent).computed_attachments : [];
+    for (const id of [...childIds, ...attachmentIds]) {
+      const sourceItem = itemState.get(id);
+      if (sourceItem == null) { continue; }
+      const copy = ItemFns.fromObject(ItemFns.toObject(sourceItem), null);
+      copy.id = newUid();
+      copy.parentId = clonedParent.id;
+      copy.groupId = null;
+      itemState.add(copy);
+      ids.push(copy.id);
+      visit(sourceItem, copy);
+    }
+  };
+  visit(source, cloned);
+  return ids;
 }
 
 function moveRollbackOrderingForChild(childId: string): Uint8Array | null {
@@ -365,7 +400,8 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       prepareShiftDragClone(cloned, toClone);
       itemState.add(cloned);
       if (copyOnlyMove) {
-        MouseActionState.setItemCopyMove({ pendingItemId: cloned.id });
+        const pendingDescendantIds = cloneDescendantsForCopy(toClone, cloned);
+        MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds });
       } else {
         server.addItem(cloned, null, store.general.networkStatus);
       }
