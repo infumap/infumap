@@ -152,6 +152,7 @@ pub(super) async fn add_item_for_user_with_mime_type(
   session_user_id: &str,
   mime_type: Option<&str>,
 ) -> InfuResult<Option<String>> {
+  let upload_started = Instant::now();
   let session_user_id = session_user_id.to_owned();
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
@@ -381,6 +382,10 @@ pub(super) async fn add_item_for_user_with_mime_type(
     (item, encryption_key)
     // Lock is released here when `db` goes out of scope.
   };
+  let validation_ms = upload_started.elapsed().as_millis();
+  let mut decode_ms = 0;
+  let mut storage_ms = 0;
+  let mut image_ms = 0;
 
   // ========================================================================
   // PHASE 2: I/O Operations without database lock
@@ -388,6 +393,7 @@ pub(super) async fn add_item_for_user_with_mime_type(
   // hold the lock during these operations.
   // ========================================================================
   if is_data_item_type(item.item_type) {
+    let decode_started = Instant::now();
     let base64_data = base64_data_maybe.as_ref().ok_or(format!(
       "Add item request has no base64 data, when this is expected for item of type {}.",
       item.item_type
@@ -409,12 +415,16 @@ pub(super) async fn add_item_for_user_with_mime_type(
       );
     }
     item.mime_type = Some(mime_type.map(str::to_owned).unwrap_or_else(|| detect_data_item_mime_type(&item, &decoded)));
+    decode_ms = decode_started.elapsed().as_millis();
     let object_encryption_key = object_encryption_key_maybe
       .as_ref()
       .ok_or("Internal error: encryption key should have been set for data item.")?;
+    let storage_started = Instant::now();
     object::put(object_store.clone(), &session_user_id, &item.id, &decoded, object_encryption_key).await?;
+    storage_ms = storage_started.elapsed().as_millis();
 
     if is_image_item(&item) {
+      let image_started = Instant::now();
       let title = match &item.title {
         Some(title) => title,
         None => {
@@ -477,6 +487,7 @@ pub(super) async fn add_item_for_user_with_mime_type(
         );
       }
       item.image_size_px = Some(Dimensions { w: width as i64, h: height as i64 });
+      image_ms = image_started.elapsed().as_millis();
     }
   } else {
     if base64_data_maybe.is_some() {
@@ -485,6 +496,7 @@ pub(super) async fn add_item_for_user_with_mime_type(
   }
 
   let serialized_item = item.to_api_json()?;
+  let database_started = Instant::now();
 
   // ========================================================================
   // PHASE 3: Database insert with lock
@@ -532,6 +544,18 @@ pub(super) async fn add_item_for_user_with_mime_type(
     }
     enqueue_pdf_item_if_active(&queued_item);
     enqueue_document_fragment_item_if_active(&queued_item);
+    if is_data_item_type(queued_item.item_type) {
+      info!(
+        "Upload item '{}' completed: validation={} ms, decode={} ms, storage={} ms, image={} ms, database={} ms, total={} ms",
+        item_id,
+        validation_ms,
+        decode_ms,
+        storage_ms,
+        image_ms,
+        database_started.elapsed().as_millis(),
+        upload_started.elapsed().as_millis()
+      );
+    }
     return json_with_sync_ack(sync_ack, Some(serialized_item));
   }
 }

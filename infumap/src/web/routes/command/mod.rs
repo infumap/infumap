@@ -36,7 +36,7 @@ use infusdk::util::time::unix_now_secs_i64;
 use infusdk::util::time::unix_now_secs_u64;
 use infusdk::util::uid::{EMPTY_UID, Uid, is_empty_uid, is_uid, new_uid};
 use infusdk::web::WebApiJsonSerializable;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use once_cell::sync::Lazy;
 use prometheus::{IntCounterVec, opts};
 use serde::{Deserialize, Serialize};
@@ -188,6 +188,7 @@ pub async fn serve_command_route(
 
   let session_maybe = get_and_validate_session(&request, db).await;
 
+  let body_started = Instant::now();
   let request: CommandRequest = match incoming_json_with_limit(request, COMMAND_REQUEST_MAX_BYTES).await {
     Ok(r) => r,
     Err(e) => {
@@ -201,6 +202,17 @@ pub async fn serve_command_route(
       });
     }
   };
+
+  if request.command == "add-item" {
+    if let Some(base64_data) = &request.base64_data {
+      info!(
+        "Upload request body received for user '{}' ({} base64 bytes) in {} ms",
+        session_maybe.as_ref().map_or("sessionless", |session| session.user_id.as_str()),
+        base64_data.len(),
+        body_started.elapsed().as_millis()
+      );
+    }
+  }
 
   if let Some(session) = &session_maybe {
     debug!("Received '{}' command from user '{}'.", request.command, session.user_id);
