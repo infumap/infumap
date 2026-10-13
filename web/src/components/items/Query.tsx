@@ -87,6 +87,7 @@ import {
   cancelQueryChatRequest,
   chatStreamingStateForQuery,
   ensureQueryChatLoaded,
+  isLiveQueryChat,
   queryChatContextTokenDisplay,
   queryChatHasContent,
   queryChatUsesInfumapData,
@@ -1063,6 +1064,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </div>
             </Show>
             <div class="ml-auto flex shrink-0 items-center gap-2 pl-3">
+              <Show when={isLiveQueryChat(store, queryItem()) && queryChatHasContent(store, queryItem())}>
+                {/* Chats in the Queries page are kept in the server's data directory, outside backups. */}
+                <span
+                  class="flex shrink-0 items-center text-[#999]"
+                  style="font-size: 13px; line-height: 20px;"
+                  title={"Not backed up. Chats in the Queries page are kept on the server but not in backups. " +
+                    "To keep this chat with your items, drag it out of the Queries page (start a new chat first)."}
+                  aria-label="Not backed up">
+                  <i class="bi-cloud-slash" />
+                </span>
+              </Show>
               <Show when={queryChatUsesInfumapData(store, queryItem())}>
                 <QueryScopePicker
                   queryItem={queryItem}

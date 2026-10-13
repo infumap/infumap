@@ -1914,6 +1914,11 @@ function createChatDocumentItems(
     result.allItems.push(item);
   };
 
+  // A turn can be copied out by shift-dragging it, with its content, as in the chat window.
+  const makeCopyable = (item: Item): void => {
+    if (virtual) { item.capabilities = readonlyCopyableCapabilities; }
+  };
+
   chat.turns.forEach((turn, turnIndex) => {
     const composite = CompositeFns.create(ownerId, page.id, RelationshipToParent.Child, newOrdering());
     composite.id = idFor(`${turnIndex}:you`);
@@ -1921,6 +1926,7 @@ function createChatDocumentItems(
     composite.flags |= CompositeFlags.ShowTitle;
     addRoot(composite);
     add(composite);
+    makeCopyable(composite);
     const note = NoteFns.create(ownerId, composite.id, RelationshipToParent.Child, turn.text, newOrdering());
     note.id = idFor(`${turnIndex}:you-text`);
     add(note);
@@ -1952,6 +1958,7 @@ function createChatDocumentItems(
           asCompositeItem(root).flags |= CompositeFlags.ShowTitle;
         }
         visit(root);
+        makeCopyable(root);
       }
     } else {
       const outcome = queryChatOutcomeText(turn.status, turn.error);
