@@ -30,7 +30,7 @@ import { itemCanEdit } from "./items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "./items/base/flags-item";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { ArrangeAlgorithm, PageItem, asPageItem, isPage } from "./items/page-item";
+import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./items/page-item";
 import { PlaceholderFns, isPlaceholder } from "./items/placeholder-item";
 import { isTable, TableFns } from "./items/table-item";
 import { requestArrange } from "./layout/arrange";
@@ -73,7 +73,7 @@ type UploadTarget =
   | { kind: "page-background", parent: PageItem }
   | { kind: "page-ordered", parent: PageItem, insertIndex: number }
   | { kind: "page-child-container", parent: PageItem }
-  | { kind: "table-row", parentId: string, insertIndex: number }
+  | { kind: "container-row", parentId: string, insertIndex: number }
   | { kind: "table-cell-attachment", parent: AttachmentsItem, insertPosition: number }
   | { kind: "attach-hitbox", parent: AttachmentsItem, insertPosition: number };
 
@@ -137,7 +137,7 @@ function uploadTargetAcceptsManualChildAdd(target: UploadTarget): boolean {
       return target.parent.clientOnly !== true &&
         itemCanEdit(target.parent) &&
         itemCanAcceptManualChildren(target.parent);
-    case "table-row":
+    case "container-row":
       return parentChainAcceptsManualChildAdd(target.parentId);
     case "table-cell-attachment":
     case "attach-hitbox":
@@ -343,9 +343,18 @@ function resolveExternalUploadTarget(
         store.externalFileDragActive.set(true);
       }
 
+      const orderedPage = asPageItem(orderedPageTargetVeMaybe.displayItem);
+      if (orderedPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
+        const insertionTarget = PageFns.listPageInsertionTarget(orderedPageTargetVeMaybe, insertIndex, null);
+        return {
+          kind: "container-row",
+          parentId: insertionTarget.parentContainer.id,
+          insertIndex: insertionTarget.insertIndex,
+        };
+      }
       return {
         kind: "page-ordered",
-        parent: asPageItem(orderedPageTargetVeMaybe.displayItem),
+        parent: orderedPage,
         insertIndex,
       };
     }
@@ -400,7 +409,7 @@ function resolveExternalUploadTarget(
     } else {
       const insertionTarget = TableFns.tableInsertionTarget(store, tableContainerVeMaybe, insertRow);
       target = {
-        kind: "table-row",
+        kind: "container-row",
         parentId: insertionTarget.parentContainer.id,
         insertIndex: insertionTarget.insertIndex,
       };
@@ -568,7 +577,7 @@ function placementForUploadTarget(
         useDropPosition: false,
       };
 
-    case "table-row":
+    case "container-row":
       return {
         parentId: target.parentId,
         relationshipToParent: RelationshipToParent.Child,

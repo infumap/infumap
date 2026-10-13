@@ -19,7 +19,7 @@
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanEdit } from "../items/base/capabilities-item";
-import { asContainerItem, isContainer } from "../items/base/container-item";
+import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import { GroupFns } from "../items/base/group-item";
 import { ClientOnlyItemKind, Item } from "../items/base/item";
@@ -49,7 +49,7 @@ import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, isEmptyVeid, is
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
-import { itemState } from "../store/ItemState";
+import { itemState, wouldCreateRelationshipCycle } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry } from "./state";
@@ -290,6 +290,18 @@ function visualElementAcceptsManualChildAdd(visualElement: VisualElement): boole
       return page.clientOnly !== true && itemCanEdit(page) && itemCanAcceptManualChildren(page);
     }
     currentVe = currentVe.parentPath ? MouseActionState.readVisualElement(currentVe.parentPath) : null;
+  }
+  return true;
+}
+
+function containerAcceptsManualChildAdd(container: ContainerItem): boolean {
+  let current: Item | null = container;
+  while (current != null) {
+    if (isPage(current)) {
+      const page = asPageItem(current);
+      return page.clientOnly !== true && itemCanEdit(page) && itemCanAcceptManualChildren(page);
+    }
+    current = current.parentId != null ? itemState.get(current.parentId) : null;
   }
   return true;
 }
@@ -1657,17 +1669,38 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
   const pageItem = asPageItem(overContainerVe.displayItem);
   const path = VeFns.veToPath(overContainerVe);
   const idx = store.perVe.getMoveOverIndex(path);
+  // In a list page, the insertion point may be inside an expanded container.
+  const insertionTarget = pageItem.arrangeAlgorithm == ArrangeAlgorithm.List
+    ? PageFns.listPageInsertionTarget(overContainerVe, idx, activeItem.id)
+    : { parentContainer: pageItem, insertIndex: idx };
+  const moveToParent = insertionTarget.parentContainer;
+  if (moveToParent.id != pageItem.id) {
+    if (wouldCreateRelationshipCycle(activeItem.id, moveToParent.id)) {
+      rollbackInvalidMove(store);
+      showMoveDropRejectedMessage(store, "Can't move an item into itself");
+      MouseActionState.set(null);
+      arrangeNow(store, "mouse-up-reject-list-page-nested-cycle");
+      return;
+    }
+    if (!containerAcceptsManualChildAdd(moveToParent)) {
+      rollbackInvalidMove(store);
+      showMoveDropRejectedMessage(store, "Can't add items to this page");
+      MouseActionState.set(null);
+      arrangeNow(store, "mouse-up-reject-list-page-nested-manual-child-add-disabled");
+      return;
+    }
+  }
   const insertIndex =
-    pageItem.arrangeAlgorithm != ArrangeAlgorithm.Document && pageItem.orderChildrenBy != ""
+    pageItem.arrangeAlgorithm != ArrangeAlgorithm.Document && moveToParent.orderChildrenBy
       ? 0
-      : idx;
-  const moveToOrdering = itemState.newOrderingAtChildrenPosition(pageItem.id, insertIndex, activeItem.id);
+      : insertionTarget.insertIndex;
+  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveToParent.id, insertIndex, activeItem.id);
 
-  if (activeItem.parentId != pageItem.id) {
-    itemState.moveToNewParent(activeItem, pageItem.id, RelationshipToParent.Child, moveToOrdering);
+  if (activeItem.parentId != moveToParent.id) {
+    itemState.moveToNewParent(activeItem, moveToParent.id, RelationshipToParent.Child, moveToOrdering);
   } else {
     activeItem.ordering = moveToOrdering;
-    itemState.sortChildren(pageItem.id);
+    itemState.sortChildren(moveToParent.id);
   }
 
   if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
