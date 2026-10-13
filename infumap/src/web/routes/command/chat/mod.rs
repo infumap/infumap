@@ -854,6 +854,163 @@ impl LiveChatTurn {
   }
 }
 
+const CHAT_TITLE_PROMPT: &str = "Give this conversation a concise, informative document title. \
+Name the user's underlying topic or question, not the assistant's process, search method, sources, or caveats. \
+Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually \
+two to four words and never more than six. Use title case. Do not begin with words such as Finding, \
+Researching, Searching, Exploring, or Analyzing. \
+Use plain text only, with no Markdown, quotation marks, or ending punctuation. Reply with only the title.";
+const CHAT_TITLE_FALLBACK: &str = "Chat";
+const CHAT_TITLE_MAX_CHARS: usize = 100;
+/// The visible conversation sent for a title is cut to this, so the call stays short however long the chat is. The
+/// topic is nearly always set by the first exchanges.
+const CHAT_TITLE_INPUT_MAX_CHARS: usize = 4_000;
+const CHAT_TITLE_REQUEST_MAX_BYTES: usize = 16 * 1024;
+
+/// The title a chat gets on its first turn: the first three words of its first prompt. Must match `titleFromPrompt`
+/// in the client's chat.ts, which sets it.
+fn title_from_prompt(prompt: &str) -> String {
+  let words = prompt.split_whitespace().take(3).collect::<Vec<_>>();
+  if words.is_empty() { CHAT_TITLE_FALLBACK.to_owned() } else { words.join(" ") }
+}
+
+/// A title from a model's reply: its first line, without Markdown, quotes, a "Title:" label or ending punctuation.
+fn title_from_model_response(response: &str) -> Option<String> {
+  let first_line = response.lines().find(|line| !line.trim().is_empty())?;
+  let mut title = first_line.trim_start();
+  let heading_marks = title.chars().take_while(|c| *c == '#').count();
+  if (1..=6).contains(&heading_marks) && title[heading_marks..].starts_with(char::is_whitespace) {
+    title = &title[heading_marks..];
+  }
+  let mut title = title.trim().to_owned();
+  if title.len() >= 6 && title[..6].eq_ignore_ascii_case("title:") {
+    title = title[6..].trim().to_owned();
+  }
+  let quote_like = |c: char| matches!(c, '*' | '_' | '"' | '\'' | '`');
+  let title = title.trim_matches(quote_like).trim_end_matches(['.', '!', '?']).trim();
+  let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+  if title.is_empty() {
+    return None;
+  }
+  if title.chars().count() <= CHAT_TITLE_MAX_CHARS {
+    return Some(title);
+  }
+  let cut = title.chars().take(CHAT_TITLE_MAX_CHARS).collect::<String>();
+  Some(match cut.rfind(' ') {
+    Some(last_space) if last_space > 0 => cut[..last_space].trim().to_owned(),
+    _ => cut,
+  })
+}
+
+/// The visible conversation, as the model sees it for a title: each turn's user text and, for a completed turn, its
+/// answer, without tool exchanges or reasoning, cut to `CHAT_TITLE_INPUT_MAX_CHARS` in all.
+fn chat_title_input_messages(transcript: &Transcript) -> Vec<OpenAiChatMessage> {
+  let mut remaining = CHAT_TITLE_INPUT_MAX_CHARS;
+  let mut messages = vec![];
+  let mut push = |role: &str, text: &str, messages: &mut Vec<OpenAiChatMessage>| {
+    if remaining == 0 || text.trim().is_empty() {
+      return;
+    }
+    let text = text.chars().take(remaining).collect::<String>();
+    remaining -= text.chars().count();
+    messages.push(OpenAiChatMessage::text(role, text));
+  };
+  for turn in &transcript.turns {
+    push("user", &turn.user.text, &mut messages);
+    let answer = turn
+      .end
+      .as_ref()
+      .filter(|end| end.outcome == TurnOutcome::Completed)
+      .and_then(|end| end.messages.last())
+      .filter(|message| message.role == "assistant")
+      .and_then(|message| message.content.as_deref());
+    if let Some(answer) = answer {
+      push("assistant", answer, &mut messages);
+    }
+  }
+  messages
+}
+
+/// Gives a live chat a generated title, if its title is still the one derived from its first prompt (or none), and
+/// returns its title afterwards. A title set any other way is kept, including one set while the title is generated.
+async fn generate_live_chat_title(
+  config: &Config,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  query_item_id: &Uid,
+) -> InfuResult<String> {
+  let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
+  let transcript =
+    read_transcript(&data_dir, &session.user_id, query_item_id).await?.ok_or("The chat has no turns.")?;
+  let first_turn = transcript.turns.first().ok_or("The chat has no turns.")?;
+  let derived = title_from_prompt(&first_turn.user.text);
+  let current = db.lock().await.item.get(query_item_id)?.title.clone().unwrap_or_default();
+  if !current.is_empty() && current != derived {
+    return Ok(current);
+  }
+
+  let selection = transcript.turns.last().and_then(|turn| turn.user.settings.model.clone()).unwrap_or_default();
+  let endpoint = resolve_chat_endpoint(config, &selection)?;
+  let mut messages = chat_title_input_messages(&transcript);
+  messages.push(OpenAiChatMessage::text("user", CHAT_TITLE_PROMPT.to_owned()));
+  // Nobody reads this call's progress. A closed channel makes every send return at once.
+  let (tx, rx) = mpsc::channel(1);
+  drop(rx);
+  let progress = ChatProgressReporter { request_id: new_chat_request_id(), tx, activity: None };
+  let round = run_chat_model_round(&endpoint, &messages, &[], 1, 0, &progress).await?;
+  let title = round
+    .assistant_message
+    .content
+    .as_deref()
+    .and_then(title_from_model_response)
+    .ok_or("The model did not reply with a title.")?;
+  super::item_ops::set_item_title_if_unchanged(db, &session.user_id, query_item_id, &current, &title).await
+}
+
+#[derive(Deserialize)]
+struct ChatTitleRequest {
+  #[serde(rename = "queryItemId")]
+  query_item_id: Uid,
+}
+
+#[derive(Serialize)]
+struct ChatTitleResponse {
+  title: String,
+}
+
+/// Generates a title for an earlier chat; see `generate_live_chat_title`. Called when New chat leaves a chat behind,
+/// so it runs after the chat, not alongside a response.
+pub async fn serve_chat_title_route(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  if request.method() == "OPTIONS" {
+    debug!("Serving OPTIONS request for chat title, assuming CORS query.");
+    return cors_response();
+  }
+  if request.method() != "POST" {
+    return not_found_response();
+  }
+  let Some(session) = get_and_validate_session(&request, db).await else {
+    return forbidden_response();
+  };
+  let request: ChatTitleRequest = match incoming_json_with_limit(request, CHAT_TITLE_REQUEST_MAX_BYTES).await {
+    Ok(request) => request,
+    Err(e) => {
+      error!("An error occurred parsing chat title payload for user '{}': {}", session.user_id, e);
+      return Response::builder().status(400).body(empty_body()).unwrap();
+    }
+  };
+  match generate_live_chat_title(config.as_ref(), db, &session, &request.query_item_id).await {
+    Ok(title) => json_response(&ChatTitleResponse { title }),
+    Err(e) => {
+      warn!("Could not generate a title for chat '{}' of user '{}': {}", request.query_item_id, session.user_id, e);
+      Response::builder().status(500).body(empty_body()).unwrap()
+    }
+  }
+}
+
 /// Whether a turn of a live chat is running, so its query item must not be deleted now.
 pub(super) fn chat_turn_running(user_id: &Uid, query_item_id: &Uid) -> bool {
   chat_is_locked(user_id, query_item_id)
@@ -3460,6 +3617,42 @@ mod live_chat_tests {
     let json = serde_json::json!({ "queryItemId": f.query_item_id }).to_string();
     assert!(handle_load_chat(&f.db, &json, &Some(other_user)).await.is_err());
     assert!(handle_load_chat(&f.db, &json, &None).await.is_err());
+  }
+
+  #[test]
+  fn titles_from_prompts_and_model_replies() {
+    assert_eq!(title_from_prompt("  how do   rust lifetimes work? "), "how do rust");
+    assert_eq!(title_from_prompt("   "), "Chat");
+    assert_eq!(title_from_model_response("\n## Rust Lifetimes.\nmore"), Some("Rust Lifetimes".to_owned()));
+    assert_eq!(title_from_model_response("Title: \"Borrow   Checker\""), Some("Borrow Checker".to_owned()));
+    assert_eq!(title_from_model_response("Borrow Checker!?"), Some("Borrow Checker".to_owned()));
+    assert_eq!(title_from_model_response("**Async Rust**"), Some("Async Rust".to_owned()));
+    assert_eq!(title_from_model_response("#hashtag"), Some("#hashtag".to_owned()));
+    assert_eq!(title_from_model_response(" \n \"\" "), None);
+    let long = title_from_model_response(&"word ".repeat(40)).unwrap();
+    assert!(long.chars().count() <= CHAT_TITLE_MAX_CHARS && !long.ends_with(' '));
+  }
+
+  #[tokio::test]
+  async fn title_input_is_the_visible_conversation_capped() {
+    let f = fixture().await;
+    f.complete_turn(0, "first question", "first answer").await;
+    let mut request2 = request(&f.query_item_id, 1, "failed question");
+    let mut turn = f.start(&mut request2, "r2").await.ok().unwrap();
+    turn.end(TurnOutcome::Error, vec![], Some("failed".to_owned())).await.unwrap();
+    drop(turn);
+    let long = "x".repeat(CHAT_TITLE_INPUT_MAX_CHARS);
+    f.complete_turn(2, &long, "late answer").await;
+
+    let messages = chat_title_input_messages(&f.transcript().await);
+    let pairs = messages.iter().map(|m| (m.role.as_str(), m.content.clone().unwrap())).collect::<Vec<_>>();
+    assert_eq!(pairs[0], ("user", "first question".to_owned()));
+    assert_eq!(pairs[1], ("assistant", "first answer".to_owned()));
+    assert_eq!(pairs[2], ("user", "failed question".to_owned()));
+    assert_eq!(pairs[3].0, "user");
+    assert_eq!(pairs.len(), 4, "the cap leaves no room for the late answer");
+    let total = pairs.iter().map(|(_, text)| text.chars().count()).sum::<usize>();
+    assert_eq!(total, CHAT_TITLE_INPUT_MAX_CHARS);
   }
 
   #[tokio::test]

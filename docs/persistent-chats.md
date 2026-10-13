@@ -401,6 +401,15 @@ the chat route ignores requests without a query item id.
    and startup cleanup.
 8. **Generated titles.** A server title endpoint over capped visible text, applied only to derived titles. Call it
    when New chat unpins a chat (and later Continue). Move the title prompt to the server.
+   Done 2026-10-13: `POST /chat/title` with `{ queryItemId }` (`generate_live_chat_title` in
+   [chat/mod.rs](../infumap/src/web/routes/command/chat/mod.rs)), using the last turn's model selection. A title
+   that is empty also counts as derived. The server applies the title itself, with a sync delta and title reindex,
+   through `set_item_title_if_unchanged` in [item_ops.rs](../infumap/src/web/routes/command/item_ops.rs), which
+   keeps a title set while the call ran. The client calls it after New chat's unpin and shows the result. The
+   client's copy of the prompt stays until Materialize is removed (steps 9 and 12); Continue calls the endpoint in
+   step 11. Checked end to end: New chat replaced "how do rust" with the generated title, and a chat renamed by hand
+   kept its name with no model call. As with any `update-item`, a client whose copy of the item is stale (renamed in
+   another tab and not yet synced) sends its old title with the unpin.
 9. **Persist.** A server endpoint takes the query item id and the drop placement, generates a title if it is still
    the derived one, runs the persist sequence with the dedicated MIME type, and returns the new item. In
    `chatDropRejectionMessage`'s place, dropping an earlier chat outside the Queries page (other than into the trash)

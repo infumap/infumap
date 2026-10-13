@@ -503,6 +503,7 @@ function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
   setQueryChatStreamingState(queryId, reduceQueryChatStreamEvent(current, event));
 }
 
+/** Must match `title_from_prompt` on the server, which uses it to tell a derived title from one set otherwise. */
 function titleFromPrompt(prompt: string): string {
   const titleWords = prompt.trim().replace(/\s+/g, " ").split(" ").filter(word => word != "").slice(0, 3);
   if (titleWords.length == 0) {
@@ -1123,6 +1124,23 @@ function removeQueryChatRoot(store: StoreContextModel, queryItem: QueryItem, roo
 
 function setQueryChatRevision(store: StoreContextModel, queryItem: QueryItem, revision: number): void {
   updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, revision } }));
+}
+
+/**
+ * Asks the server for a generated title for an earlier chat, in the background, and shows it. The server only
+ * replaces a title derived from the first prompt, and applies it itself.
+ */
+export async function generateQueryChatTitle(store: StoreContextModel, queryItemId: Uid): Promise<void> {
+  try {
+    const { title } = await server.generateChatTitle(queryItemId);
+    const current = itemState.get(queryItemId);
+    if (current != null && isQueryItem(current) && asQueryItem(current).title != title) {
+      asQueryItem(current).title = title;
+      requestArrange(store, "query-chat-generated-title");
+    }
+  } catch (e) {
+    console.warn("Could not generate a chat title:", e);
+  }
 }
 
 /** On a chat's first turn, titles its query item from the prompt, unless it already has a title. */
