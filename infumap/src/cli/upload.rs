@@ -17,7 +17,7 @@
 use std::io::Cursor;
 use std::io::Write;
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::time::UNIX_EPOCH;
 
 use base64::{Engine as _, engine::general_purpose};
@@ -242,6 +242,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       continue;
     }
 
+    let preparation_started = Instant::now();
     let mut f = File::open(&path).await?;
     let metadata = tokio::fs::metadata(&path).await?;
     let mut buffer = vec![0; metadata.len() as usize];
@@ -306,8 +307,12 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       json_data: add_item_request,
       base64_data: Some(base_64_encoded),
     };
+    let preparation_ms = preparation_started.elapsed().as_millis();
+    let request_started = Instant::now();
+    let mut attempts = 0;
 
     loop {
+      attempts += 1;
       let add_item_response = client.post(named_session.command_url()?.clone()).json(&send_request).send().await;
       match add_item_response {
         Ok(r) => {
@@ -317,10 +322,21 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
           }
           let json_response: CommandResponse = r.json().await.map_err(|e| e.to_string())?;
           if !json_response.success {
-            println!("Infumap rejected the add-item command - skipping.");
+            println!(
+              "Infumap rejected the add-item command - skipping (preparation {} ms, request {} ms, {} attempt(s)).",
+              preparation_ms,
+              request_started.elapsed().as_millis(),
+              attempts
+            );
             num_skipped += 1;
           } else {
-            println!("success!");
+            println!(
+              "success! ({} bytes, preparation {} ms, request {} ms, {} attempt(s))",
+              metadata.len(),
+              preparation_ms,
+              request_started.elapsed().as_millis(),
+              attempts
+            );
           }
           break;
         }

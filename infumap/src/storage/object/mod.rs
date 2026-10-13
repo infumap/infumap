@@ -16,11 +16,12 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Instant;
 
 use async_trait::async_trait;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
-use log::warn;
+use log::{info, warn};
 use tokio::task::JoinSet;
 
 use crate::storage::file as storage_file;
@@ -174,28 +175,48 @@ pub async fn put(
   val: &Vec<u8>,
   encryption_key: &str,
 ) -> InfuResult<()> {
+  let put_started = Instant::now();
   let mut set = JoinSet::new();
 
   let encrypted_val = Arc::new(encrypt_file_data(encryption_key, val, filename(user_id, id).as_str())?);
+  info!(
+    "Object upload '{}' encrypted {} bytes in {} ms; stores: local={}, s3_1={}, s3_2={}",
+    id,
+    val.len(),
+    put_started.elapsed().as_millis(),
+    object_store.file_store.is_some(),
+    object_store.s3_1_data_store.is_some(),
+    object_store.s3_2_data_store.is_some()
+  );
 
   if let Some(file_store) = &object_store.file_store {
-    async fn fs_put(
-      file_store: Arc<Mutex<storage_file::FileStore>>,
-      user_id: Uid,
-      id: Uid,
-      encrypted_val: Arc<Vec<u8>>,
-    ) -> InfuResult<()> {
-      storage_file::put(file_store, user_id.clone(), id.clone(), encrypted_val.clone()).await
-    }
-    set.spawn(fs_put(file_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
+    let (file_store, user_id, id, encrypted_val) =
+      (file_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone());
+    set.spawn(async move {
+      let started = Instant::now();
+      let result = storage_file::put(file_store, user_id, id, encrypted_val).await;
+      ("local", started.elapsed(), result)
+    });
   }
 
   if let Some(s3_1_store) = &object_store.s3_1_data_store {
-    set.spawn(storage_s3::put(s3_1_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
+    let (s3_store, user_id, id, encrypted_val) =
+      (s3_1_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone());
+    set.spawn(async move {
+      let started = Instant::now();
+      let result = storage_s3::put(s3_store, user_id, id, encrypted_val).await;
+      ("s3_1", started.elapsed(), result)
+    });
   }
 
   if let Some(s3_2_store) = &object_store.s3_2_data_store {
-    set.spawn(storage_s3::put(s3_2_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone()));
+    let (s3_store, user_id, id, encrypted_val) =
+      (s3_2_store.clone(), user_id.clone(), id.clone(), encrypted_val.clone());
+    set.spawn(async move {
+      let started = Instant::now();
+      let result = storage_s3::put(s3_store, user_id, id, encrypted_val).await;
+      ("s3_2", started.elapsed(), result)
+    });
   }
 
   let mut errors = vec![];
@@ -205,10 +226,14 @@ pub async fn put(
       break;
     };
     let res = res.map_err(|e| format!("Async join error: {}", e))?;
-    match res {
-      Err(e) => errors.push(e),
-      Ok(_) => {}
-    };
+    let (store_name, elapsed, result) = res;
+    match result {
+      Err(e) => {
+        warn!("Object upload '{}' to {} failed after {} ms: {}", id, store_name, elapsed.as_millis(), e);
+        errors.push(e);
+      }
+      Ok(()) => info!("Object upload '{}' to {} completed in {} ms", id, store_name, elapsed.as_millis()),
+    }
   }
 
   if errors.len() == 0 {

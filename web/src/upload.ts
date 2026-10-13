@@ -660,6 +660,7 @@ async function uploadFilesToTarget(
 
   for (let i = 0; i < files.length; ++i) {
     const file = files[i];
+    const uploadStarted = performance.now();
     const placement = placementForUploadTarget(store, target, i);
     const posPx = placement.pageParentMaybe != null
       ? uploadPositionForPage(store, desktopPx, placement.pageParentMaybe, placement.useDropPosition)
@@ -682,13 +683,17 @@ async function uploadFilesToTarget(
       defaultWidthGr,
     );
     const partialObject = makeUploadPartialObject(file, placement, posPx, spatialWidthGr, itemType);
+    const preparationMs = Math.round(performance.now() - uploadStarted);
+    const requestStarted = performance.now();
 
     try {
       const returnedItem = await server.addItemFromPartialObject(partialObject, base64Data, store.general.networkStatus);
       itemState.add(ItemFns.fromObject(returnedItem, null));
       requestArrange(store, isImageUpload ? "upload-image" : itemType == ItemType.Text ? "upload-text" : "upload-file");
+      console.info(`Upload ${i + 1}/${files.length} (${file.size} bytes) completed: preparation ${preparationMs} ms, request ${Math.round(performance.now() - requestStarted)} ms`);
     } catch (error) {
       console.warn(`Failed to add ${file.name}:`, error);
+      console.info(`Upload ${i + 1}/${files.length} (${file.size} bytes) failed: preparation ${preparationMs} ms, request ${Math.round(performance.now() - requestStarted)} ms`);
       showTransientMessage(store, `Couldn't upload ${file.name}`, TransientMessageType.Error, 5000);
     }
   }
