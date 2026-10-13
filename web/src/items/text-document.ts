@@ -2065,7 +2065,9 @@ export function isMarkdownTextDocumentPage(pageId: Uid): boolean {
 
 export function openTextItemFileInNewTab(store: StoreContextModel, textItem: TextItem): void {
   if (textItem.origin == null) {
-    window.open('/files/' + textItem.id, '_blank', 'noopener');
+    // Use a different URL for chats so an earlier cached attachment response is not reused.
+    const url = '/files/' + textItem.id + (isChatTextItem(textItem) ? '?view=chat' : '');
+    window.open(url, '_blank', 'noopener');
     return;
   }
   void openRemoteFileInNewTab(textItem.origin, textItem.id)
