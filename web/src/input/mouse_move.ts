@@ -1607,7 +1607,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       ((HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.Popup) ||
         (pageUsesEmbeddedInteractiveMode(asPageItem(HitInfoFns.getHitVe(hitInfo).displayItem)) &&
           !(hitInfo.hitboxType & HitboxFlags.ContentEditable) &&
-          !(HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.InsideTable)))) {
+          !(HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.InsideTable) &&
+          !(HitInfoFns.getHitVe(hitInfo).flags & VisualElementFlags.LineItem)))) {
       document.body.style.cursor = "move";
     } else if (hitInfo.hitboxType & HitboxFlags.ShiftLeft) {
       document.body.style.cursor = "zoom-in";
