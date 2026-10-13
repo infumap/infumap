@@ -116,6 +116,16 @@ pub(super) struct TurnRecord {
   pub(super) outcome: TurnOutcome,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(super) error: Option<String>,
+  /// The last context token count reported during the turn.
+  #[serde(rename = "contextTokens", default, skip_serializing_if = "Option::is_none")]
+  pub(super) context_tokens: Option<ContextTokenCount>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct ContextTokenCount {
+  pub(super) tokens: i64,
+  /// Whether the count came from the backend, rather than being estimated.
+  pub(super) exact: bool,
 }
 
 /// One model round, in the shape of the client's `QueryChatActivityModelRound`.
@@ -161,6 +171,7 @@ pub(super) enum ActivityToolCallStatus {
 }
 
 pub(super) struct Transcript {
+  #[allow(dead_code)] // Read only by tests until Continue rewrites the header.
   pub(super) header: TranscriptHeader,
   pub(super) turns: Vec<TranscriptTurn>,
 }
@@ -171,7 +182,8 @@ pub(super) struct TranscriptTurn {
   pub(super) end: Option<TurnRecord>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub(super) enum TurnStatus {
   Running,
   Completed,
@@ -419,6 +431,7 @@ impl LockedTranscript {
     transcript.apply(record)
   }
 
+  #[allow(dead_code)] // Used once deleting a chat removes its transcript.
   pub(super) async fn delete(self) -> InfuResult<()> {
     match fs::remove_file(&self.path).await {
       Ok(()) => Ok(()),
@@ -532,6 +545,7 @@ mod tests {
       ended_at: 20,
       outcome,
       error: if outcome == TurnOutcome::Error { Some("backend failed".to_owned()) } else { None },
+      context_tokens: None,
     }
   }
 

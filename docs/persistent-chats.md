@@ -359,6 +359,13 @@ the chat route ignores requests without a query item id.
    call that was running or awaiting approval keeps that status.
 5. **Load endpoint for live chats.** Returns turns, revision, running state, last turn settings and last context
    token count for a query item.
+   Done 2026-10-13: the `load-chat` command (`handle_load_chat` in
+   [chat/mod.rs](../infumap/src/web/routes/command/chat/mod.rs)), taking `{ queryItemId }`. Each turn has its
+   request id, text, status (`running`, `completed`, `cancelled`, `error`, `interrupted`), times, error, and for a
+   completed turn the assistant text and its items, built as for `final_items`; plus its rounds. A query item without
+   a transcript loads as an empty chat at revision 0, so the missing-transcript case is not distinguished yet. Turn
+   records now also store the last context token count of the turn (`contextTokens`), which the response returns
+   from the latest ended turn.
 6. **Client switchover.** These land together, because each alone leaves a broken state: the client sends the query
    item id and holds no message list; selecting a query item restores its transcript, settings and token count;
    New chat replaces Clear, unpinning the current query item and creating a new pinned one;

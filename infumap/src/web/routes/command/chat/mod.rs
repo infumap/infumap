@@ -36,8 +36,6 @@ mod container_fragments;
 mod markdown;
 mod mcp;
 mod search_results;
-// Loading, persisting and deleting transcripts are not wired up yet; see docs/persistent-chats.md.
-#[allow(dead_code)]
 mod transcript;
 use activity::ChatActivity;
 use backend::{
@@ -48,8 +46,8 @@ pub(crate) use backend::{llama_servers_from_config, validate_chat_backend_config
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
 use transcript::{
-  LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript, TranscriptHeader, TurnOutcome, TurnRecord, TurnSettings,
-  UserRecord, try_lock_transcript,
+  ActivityRound, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript, TranscriptHeader,
+  TurnOutcome, TurnRecord, TurnSettings, TurnStatus, UserRecord, chat_is_locked, read_transcript, try_lock_transcript,
 };
 
 // Both ceilings are backstops against a model that loops forever, not budgets:
@@ -822,14 +820,19 @@ impl LiveChatTurn {
     messages: Vec<ChatHistoryMessage>,
     error: Option<String>,
   ) -> InfuResult<()> {
+    let (rounds, context_tokens) = {
+      let activity = self.activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+      (activity.finished_rounds(), activity.context_tokens())
+    };
     let record = TurnRecord {
       request_id: self.request_id.clone(),
       messages,
-      rounds: self.activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).finished_rounds(),
+      rounds,
       started_at: self.started_at,
       ended_at: unix_now_millis(),
       outcome,
       error,
+      context_tokens,
     };
     self.transcript.append_turn(record).await?;
     self.ended = true;
@@ -849,6 +852,121 @@ impl LiveChatTurn {
       .map_err(|e| format!("Could not save the chat turn to its transcript: {}", e))?;
     Ok(result)
   }
+}
+
+/// The data directory holding a live chat's transcript, if `query_item_id` is a query item of the session user in
+/// their Queries page. Only those have transcripts.
+async fn live_chat_data_dir(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  query_item_id: &Uid,
+) -> InfuResult<String> {
+  let db = db.lock().await;
+  let is_chat = db
+    .item
+    .get(query_item_id)
+    .is_ok_and(|item| item.owner_id == session.user_id && super::is_queries_page_query_item(&db, item));
+  if !is_chat {
+    return Err("The chat was not found.".into());
+  }
+  Ok(db.item.data_dir().to_owned())
+}
+
+#[derive(Deserialize)]
+struct LoadChatRequest {
+  #[serde(rename = "queryItemId")]
+  query_item_id: Uid,
+}
+
+#[derive(Serialize)]
+struct LoadChatResponse {
+  /// The revision to send as `expectedRevision` with the next turn.
+  revision: usize,
+  /// Whether a turn holds the chat lock now. Briefly also true during a persist or delete.
+  running: bool,
+  /// The settings of the last turn, to restore into the query runtime. None before the first turn.
+  #[serde(rename = "lastSettings")]
+  last_settings: Option<TurnSettings>,
+  /// The last context token count recorded by an ended turn.
+  #[serde(rename = "contextTokens")]
+  context_tokens: Option<ContextTokenCount>,
+  turns: Vec<LoadChatTurn>,
+}
+
+#[derive(Serialize)]
+struct LoadChatTurn {
+  #[serde(rename = "requestId")]
+  request_id: String,
+  text: String,
+  status: TurnStatus,
+  #[serde(rename = "startedAt")]
+  started_at: i64,
+  #[serde(rename = "endedAt")]
+  ended_at: Option<i64>,
+  error: Option<String>,
+  /// The answer of a completed turn, and the chat window's items built from it as for `final_items`.
+  #[serde(rename = "assistantText")]
+  assistant_text: Option<String>,
+  items: Option<Value>,
+  rounds: Vec<ActivityRound>,
+}
+
+fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: bool) -> LoadChatResponse {
+  let Some(transcript) = transcript else {
+    return LoadChatResponse { revision: 0, running, last_settings: None, context_tokens: None, turns: vec![] };
+  };
+  let turns = transcript
+    .turns
+    .iter()
+    .enumerate()
+    .map(|(index, turn)| {
+      let status = transcript.turn_status(index, running);
+      let end = turn.end.as_ref();
+      let assistant_text = end
+        .filter(|end| end.outcome == TurnOutcome::Completed)
+        .and_then(|end| end.messages.last())
+        .filter(|message| message.role == "assistant")
+        .and_then(|message| message.content.clone());
+      let items = assistant_text.as_deref().map(|text| {
+        chat_response_items_json(owner_id, text).get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()))
+      });
+      LoadChatTurn {
+        request_id: turn.user.request_id.clone(),
+        text: turn.user.text.clone(),
+        status,
+        started_at: turn.user.started_at,
+        ended_at: end.map(|end| end.ended_at),
+        error: end.and_then(|end| end.error.clone()),
+        assistant_text,
+        items,
+        rounds: end.map(|end| end.rounds.clone()).unwrap_or_default(),
+      }
+    })
+    .collect();
+  LoadChatResponse {
+    revision: transcript.revision(),
+    running,
+    last_settings: transcript.turns.last().map(|turn| turn.user.settings.clone()),
+    context_tokens: transcript.turns.iter().rev().find_map(|turn| turn.end.as_ref().and_then(|end| end.context_tokens)),
+    turns,
+  }
+}
+
+/// Loads a live chat for the chat view: its turns, revision and running state. A query item without a transcript
+/// loads as an empty chat at revision 0.
+pub(super) async fn handle_load_chat(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to load a chat.")?;
+  let request: LoadChatRequest = serde_json::from_str(json_data)?;
+  let data_dir = live_chat_data_dir(db, session, &request.query_item_id).await?;
+  let running = chat_is_locked(&session.user_id, &request.query_item_id);
+  let transcript = read_transcript(&data_dir, &session.user_id, &request.query_item_id).await?;
+  let response = load_chat_response(&session.user_id, transcript.as_ref(), running);
+  debug!("Executed 'load-chat' command for user '{}'.", session.user_id);
+  Ok(Some(serde_json::to_string(&response)?))
 }
 
 /// Starts a turn of a live chat: checks the query item and the expected revision, records the user message, and
@@ -875,17 +993,7 @@ async fn start_live_chat_turn(
     .expected_revision
     .ok_or_else(|| error("A chat request with a query item id needs an expected revision."))?;
 
-  let data_dir = {
-    let db = db.lock().await;
-    let is_chat = db
-      .item
-      .get(&query_item_id)
-      .is_ok_and(|item| item.owner_id == session.user_id && super::is_queries_page_query_item(&db, item));
-    if !is_chat {
-      return Err(error("The chat was not found."));
-    }
-    db.item.data_dir().to_owned()
-  };
+  let data_dir = live_chat_data_dir(db, session, &query_item_id).await.map_err(|e| error(&e.message()))?;
 
   let transcript_error = |e: infusdk::util::infu::InfuError| {
     warn!("Could not use the transcript of chat '{}' for user '{}': {}", query_item_id, session.user_id, e);
@@ -3238,6 +3346,85 @@ mod live_chat_tests {
     assert_eq!(rounds[0].reasoning, "thinking");
     assert!(rounds[0].complete);
     assert_eq!(rounds[0].tool_calls[0].status, transcript::ActivityToolCallStatus::Running);
+  }
+
+  impl Fixture {
+    async fn load(&self, query_item_id: &Uid) -> InfuResult<Value> {
+      let json = serde_json::json!({ "queryItemId": query_item_id }).to_string();
+      let response = handle_load_chat(&self.db, &json, &Some(self.session.clone())).await?;
+      Ok(serde_json::from_str(&response.unwrap()).unwrap())
+    }
+  }
+
+  #[tokio::test]
+  async fn load_without_a_transcript_is_an_empty_chat() {
+    let f = fixture().await;
+    let loaded = f.load(&f.query_item_id).await.unwrap();
+    assert_eq!(
+      loaded,
+      serde_json::json!({ "revision": 0, "running": false, "lastSettings": null, "contextTokens": null, "turns": [] })
+    );
+  }
+
+  #[tokio::test]
+  async fn load_returns_turns_settings_and_running_state() {
+    let f = fixture().await;
+    let mut request1 = request(&f.query_item_id, 0, "q1");
+    let mut turn = f.start(&mut request1, "r1").await.ok().unwrap();
+    turn.activity.lock().unwrap().apply(&ChatStreamEventKind::context_tokens(1234, true));
+    let mut messages = request1.messages.clone();
+    messages.push(message("assistant", "# Heading\n\nThe answer."));
+    turn.end_completed(ChatRunResult { assistant_text: "The answer.".to_owned(), messages }).await.ok().unwrap();
+    drop(turn);
+
+    let mut request2 = request(&f.query_item_id, 1, "q2");
+    let mut turn = f.start(&mut request2, "r2").await.ok().unwrap();
+    turn.end(TurnOutcome::Error, vec![], Some("backend failed".to_owned())).await.unwrap();
+    drop(turn);
+
+    let mut request3 = request(&f.query_item_id, 2, "q3");
+    request3.mode = ChatRunMode::DeepResearch;
+    let running_turn = f.start(&mut request3, "r3").await.ok().unwrap();
+
+    let loaded = f.load(&f.query_item_id).await.unwrap();
+    assert_eq!(loaded["revision"], 3);
+    assert_eq!(loaded["running"], true);
+    assert_eq!(loaded["lastSettings"]["mode"], "deep_research");
+    assert_eq!(loaded["lastSettings"]["capabilities"], serde_json::json!(["infumap_data"]));
+    assert_eq!(loaded["contextTokens"], serde_json::json!({ "tokens": 1234, "exact": true }));
+    let turns = loaded["turns"].as_array().unwrap();
+    assert_eq!(turns.len(), 3);
+
+    assert_eq!(turns[0]["requestId"], "r1");
+    assert_eq!(turns[0]["text"], "q1");
+    assert_eq!(turns[0]["status"], "completed");
+    assert_eq!(turns[0]["assistantText"], "# Heading\n\nThe answer.");
+    assert!(!turns[0]["items"].as_array().unwrap().is_empty());
+    assert!(turns[0]["endedAt"].is_i64());
+
+    assert_eq!(turns[1]["status"], "error");
+    assert_eq!(turns[1]["error"], "backend failed");
+    assert!(turns[1]["assistantText"].is_null());
+    assert!(turns[1]["items"].is_null());
+
+    assert_eq!(turns[2]["status"], "running");
+    assert!(turns[2]["endedAt"].is_null());
+
+    drop(running_turn);
+    let loaded = f.load(&f.query_item_id).await.unwrap();
+    assert_eq!(loaded["running"], false);
+    assert_eq!(loaded["turns"][2]["status"], "interrupted");
+  }
+
+  #[tokio::test]
+  async fn load_rejects_items_that_are_not_chats() {
+    let f = fixture().await;
+    assert!(f.load(&f.home_query_item_id).await.is_err());
+    assert!(f.load(&f.note_id).await.is_err());
+    let other_user = Session { user_id: new_uid(), ..f.session.clone() };
+    let json = serde_json::json!({ "queryItemId": f.query_item_id }).to_string();
+    assert!(handle_load_chat(&f.db, &json, &Some(other_user)).await.is_err());
+    assert!(handle_load_chat(&f.db, &json, &None).await.is_err());
   }
 
   #[tokio::test]
