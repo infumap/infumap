@@ -6,58 +6,84 @@ Today chat transcripts are held in memory only and are lost when the chat is cle
 "Materialize" writes a `.md` text item holding only the visible user and assistant text, without tool calls,
 reasoning or the turn activity dropdown ([chat.ts](../web/src/items/chat.ts), `queryChatMarkdown`).
 
-The proposal: chats are files from their first turn, can be continued on the Queries page, and are moved into the
-item DB by dragging.
+The proposal: each chat is a query item in the Queries page, with its transcript in a file from the first turn.
+Chats can be continued there, are persisted into the item tree by dragging them out, and can be dragged back in to
+continue them.
 
 ## Live chats and persisted chats
 
-- **Live chat.** Created on the first turn of a chat, as a `.chat` file in a `chats` folder in the user's data
-  directory, next to the files and indexes. It is appended to on each turn. Only live chats can be continued, and
-  they are listed in the Queries page's chat view.
-- **Persisted chat.** Dragging a live chat from the history list to somewhere in the item tree **moves** it: a
-  `.chat` text item is created and the live file is removed. The text item's content is immutable, like any other
-  text item, so a persisted chat is read-only.
-- **Continuing a persisted chat.** A "Continue" action on the `.chat` document page **copies** it: a new live chat
-  is created from the item's content, with a new uid, and the item stays where it is. There is no move in this
-  direction (see below).
+- **Live chat.** A query item under the Queries page, plus a transcript file `chats/{query_item_id}.chat` in the
+  user's data directory, next to the files and indexes. The file is created on the chat's first turn and appended
+  to on each turn. The query item is an ordinary DB item, so the Queries page's list shows, selects, orders and
+  deletes live chats with the existing list page machinery. Only live chats can be continued.
+- **Persisted chat.** Dragging a live chat out of the Queries page into the item tree **persists** it: a `.chat`
+  text item is created at the drop location, and the query item and its transcript file are removed. The text
+  item's content is immutable, like any other text item, so a persisted chat is read-only.
+- **Continuing a persisted chat.** Dragging a `.chat` item into the Queries page **moves** it back: a new live
+  chat is created from its content and the `.chat` item goes to the trash. A "Continue" button in the text item
+  toolbar **copies** it: a new live chat is created and the item stays where it is. Either way the live chat gets a
+  new uid (see below). A persisted chat is never continued in place.
 
-### Why live chats are outside the item DB
+Only query items under the Queries page have transcripts. Query items are only created there
+(`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), and dropping one outside the
+page persists it, so a query item elsewhere can only come from older data. It gets no transcript.
+
+### Why transcripts are outside the object store
 
 Text item content is immutable after creation and may be stored in S3, in two S3 stores, or in S3 and locally.
 Rewriting a blob on every turn would mean writes to every store without atomicity across them. Everything derived
 from content would also need invalidating, because it is keyed by item id: fragment artifacts, the content index,
 and the search startup check stamps ([search_reconciliation.rs](../infumap/src/ai/search_reconciliation.rs)).
-Keeping the mutable phase in a local file and freezing it on the move avoids all of this.
+Keeping the mutable phase in a local file and freezing it on persist avoids all of this. The query item record is
+small and its fields change rarely, so it can live in the item DB.
 
-### Why moving back to the Queries page is not allowed
+### Why moving back to the Queries page changes the uid
 
-Blobs are stored under `{user_id}_{item_id}` ([object/mod.rs](../infumap/src/storage/object/mod.rs)). If a chat
-were moved out, continued, and moved back in with the same uid, its content would change under the same id. File
-responses are cached by the browser (`private, max-age=…` in [files.rs](../infumap/src/web/routes/files.rs)), and
-the client and server also cache text and derived artifacts by item id. Moving out would also break links to the
-item and leave nowhere for its attachments. The rule is: **content under a uid never changes**.
+Blobs are stored under `{user_id}_{item_id}` ([object/mod.rs](../infumap/src/storage/object/mod.rs)). If a
+persisted chat were moved back, continued, and persisted again with the same uid, its content would change under
+the same id. File responses are cached by the browser (`private, max-age=…` in
+[files.rs](../infumap/src/web/routes/files.rs)), and the client and server also cache text and derived artifacts
+by item id. The rule is: **content under a uid never changes**.
 
-The cost is that continuing a persisted chat and persisting it again creates a second item. The user deletes the
-old one if they want only one.
+So moving a chat back creates a new query item with a new uid and sends the `.chat` item to the trash; the old
+uid's content is deleted with the item, never rewritten. Links to the `.chat` item break, and its attachments go
+to the trash with it. Trashing rather than deleting keeps the move reversible. Persisting the chat again gives it
+another new uid.
 
-### The move
+Continuing in place (replacing a text item's content) would need replaceable text item content, a general feature
+that chat should not be the reason for.
 
-The client creates the chat uid. The server validates its format and rejects it on the first turn if it is already
-an item id. The move into the DB creates the text item with that same uid, which makes the uid the move's
-idempotency key: **a live chat whose uid exists as an item of the same user has been persisted**, and its file is
-dead.
+### Persisting
 
-Persisting takes the per-chat lock, rejects a chat with a running turn, and follows the same order as adding any
-data item ([item_ops.rs](../infumap/src/web/routes/command/item_ops.rs)): write the file's bytes with
-`object::put`, which fails unless every configured store succeeded, then commit the item, then remove the file.
+A query item cannot become a file item under the same uid, so the `.chat` item gets a new uid. Dropping a chat
+query item outside the Queries page calls a persist endpoint instead of the ordinary move. Moving it to the trash
+is a delete, not a persist.
 
-- A failure or crash before the commit leaves the live file in place and an orphan blob, as a failed upload does
-  today. Nothing references the blob, so a later persist may overwrite it, even with different bytes after more
-  turns.
-- A crash after the commit leaves a dead file. Listing, loading and turn submission check for an item with the
-  chat's uid and delete the file instead of using it. Retrying the persist returns the existing item.
+The request carries the same placement fields the client would send for an ordinary move to the drop location
+(parent, relationship, ordering, and spatial position and width where the target needs them). The endpoint takes
+the per-chat lock, rejects a chat with a running turn, and then:
 
-The commit only happens after the put succeeded, so the item's existence is sufficient proof. No separate move
+1. writes the transcript's bytes under the new uid with `object::put`, which fails unless every configured store
+   succeeded, as when adding any data item ([item_ops.rs](../infumap/src/web/routes/command/item_ops.rs))
+2. commits the `.chat` item at the drop location, with a dedicated MIME type such as `application/x-infumap-chat`
+3. deletes the query item
+4. removes the transcript file
+
+It returns the new item, and the client replaces the query item with it.
+
+The MIME type is set explicitly, not detected. Detection from the bytes would give `text/plain` for JSONL
+(`detect_data_item_mime_type` in [item_ops.rs](../infumap/src/web/routes/command/item_ops.rs)), and the search
+pipeline indexes `text/plain` ([search_processing.rs](../infumap/src/ai/search_processing.rs)). The dedicated type
+is ignored by indexing until chat indexing is added, and is how the client recognizes a `.chat` item.
+
+**The server guards chat moves.** Persist is triggered by a client drop, but other paths can change an item's
+parent (a generic item update, cut and paste, keyboard commands). The server rejects any change that moves a chat
+query item out of the Queries page other than into the trash; persist is the only way out. Otherwise a query item
+with a transcript could end up somewhere its chat cannot be reached.
+
+A failure or crash before step 2 leaves the live chat untouched and an orphan blob, as a failed upload does today.
+A crash between steps 2 and 3 leaves a persisted copy and the live chat, both valid; the user deletes one. A crash
+between steps 3 and 4 leaves an orphan transcript file, which startup cleanup removes (see "Deleting"). No move
 journal is needed.
 
 ## The server owns the transcript
@@ -67,16 +93,17 @@ Today the client keeps the model's message list in the query runtime and sends a
 sent, there would be two copies of the transcript that can disagree: after a reload, with two tabs on the same
 chat, or after a cancelled turn.
 
-Instead the file is the authoritative transcript. A chat request carries the chat's uid, a request id, the
-expected transcript revision and the new user text, not the message list. The server reads the history from the
-file, runs the turn, and appends to the file. Requests without a chat uid stay as they are now and write nothing.
+Instead the file is the authoritative transcript. A chat request carries the query item id, a request id, the
+expected transcript revision and the new user text, not the message list. The server checks that the id is a
+query item of the session user under their Queries page, reads the history from the file, runs the turn, and
+appends to the file. Requests without a query item id stay as they are now and write nothing.
 
 - **A disconnect still cancels the turn.** The server cancels the run when the client disconnects
   ([chat/mod.rs](../infumap/src/web/routes/command/chat/mod.rs), `disconnect.closed()`), and this stays. A
   reload or closed tab during a turn records it as cancelled; there is no reattaching to a running turn.
 - **One turn at a time.** The server holds a per-chat lock for the length of a turn and rejects a second turn on
-  the same chat while one is running. Persist and delete take the same lock and also reject a running turn. A
-  persisted or deleted chat cannot accept another turn.
+  the same chat while one is running. Persist and permanent delete take the same lock and also reject a running
+  turn. A persisted or deleted chat cannot accept another turn.
 - **Stale tabs and retries.** The transcript revision is the number of `user` records in the file. Load responses
   and turn acknowledgements include it. A request is accepted only if its expected revision matches; otherwise it
   is rejected without appending, and the client reloads the transcript, preserves the draft, and lets the user
@@ -115,7 +142,9 @@ transcript is not enough. It can't hold the above, and it can't be parsed back r
 
 Records, each with a `type` field:
 
-- `header`: format version, uid, creation time. First line only.
+- `header`: format version, the query item id it was created for, creation time. First line only. A persisted
+  `.chat` item keeps the header unchanged; the id is informational and is not the item's id. Continuing a `.chat`
+  item writes a fresh header with the new query item id, followed by the copied records.
 - `user`: request id, start time, the user's text, and the settings the turn ran with (model selection,
   capabilities, scope id, mode). Settings are per turn, not in the header, because they can change between turns.
 - `turn`: request id, the messages the turn added to the transcript (assistant and tool messages, as
@@ -135,17 +164,20 @@ silently skip malformed records in the middle of a file.
 ## Rendering
 
 Opening a `.chat` item works like opening a `.md` text item: a document page is generated on the fly. Each turn
-is a composite, as in the chat window now. Loading a live chat into the chat window after a reload works the same
-way.
+is a composite, as in the chat window now. Selecting a live chat in the Queries page, including after a reload,
+loads its transcript into the chat view the same way.
 
 - **Markdown conversion.** Use the server's
   [markdown.rs](../infumap/src/web/routes/command/chat/markdown.rs) (`chat_response_items_json`). It already builds
   the chat window's items, so a reopened chat looks the same as it did when it ran. A load endpoint returns, per
   turn, the user text, the assistant items, outcome, error details and recorded activity, for live and persisted
-  chats alike, along with the transcript revision and whether a turn is running. Merging it with the client
+  chats alike. For a live chat it also returns the transcript revision, whether a turn is running, the settings of
+  the last turn, and the last context token count reported for it. Merging it with the client
   converter in [text-document.ts](../web/src/items/text-document.ts) is separate work and doesn't block this.
 - **Unsuccessful turns.** A cancelled, failed or interrupted turn is shown as the user text followed by a one-line
   outcome note with any error details. Pending tool approvals from an ended turn must not remain actionable.
+- **Missing transcript.** A query item whose transcript file is missing (for example after restoring the item DB
+  from a backup) shows an empty, read-only chat with a "transcript not available" note.
 - **Turn dropdown.** Keep activity as side data rather than adding a persistent composite property. The live chat
   view restores dropdowns after a reload. The current helpers in
   [query-chat-activity-ui.ts](../web/src/items/query-chat-activity-ui.ts) depend on a query-backed page and anchor
@@ -154,12 +186,58 @@ way.
   and anchors for unsuccessful turns, and are a later step; the data is already in the file. A turn composite
   copied out of the generated page (shift-drag) loses its trace, and that is acceptable.
 
+## Listing live chats
+
+The Queries page is a list page. Today it holds one query item, pinned to the top
+(`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), plus `.md` items that
+Materialize creates there (Materialize goes, see "Other details"). With each chat a query item, the page's list
+is the chat history and no second list is needed.
+
+- **The pinned query item is the current chat.** It is where new searches and chats start. Its transcript file is
+  created on its first chat turn.
+- **New chat** (replacing Clear) is available when the current chat has a transcript. It unpins the current query
+  item, which stays in the list as the newest history entry, and creates a new pinned query item. It is disabled
+  while a turn is running. `ensureQueryItemUnderQueries` changes to find the pinned query item rather than the
+  first one, and creates one if none is pinned.
+- **History entries** are the unpinned query items, newest first: an unpinned item is ordered directly after the
+  pinned one. Selecting one shows its chat, which can be continued. Unpinned items are chat only; their search mode
+  is hidden.
+- **Restoring a chat** loads its transcript and puts the settings of its last turn (model selection,
+  capabilities, scope, mode) into the query runtime, so continuing it does not silently switch to whatever was
+  last used elsewhere. The context token display starts from the last reported count. Today it is estimated from the
+  client-held message list ([chat.ts](../web/src/items/chat.ts), `estimateChatContextTokens`), which no longer
+  exists; while drafting, add the estimate for the draft text to the last count.
+- **Titles.** Query items have no title today (`SearchMeasurable` in
+  [search-item.ts](../web/src/items/search-item.ts) has no `TitledMixin`), so add one on the client and server. On
+  the first turn, the client sets the title from the first prompt (`titleFromPrompt` in
+  [chat.ts](../web/src/items/chat.ts)) with an ordinary item update. Renaming is an ordinary title edit.
+- **Generated titles.** When New chat or Continue unpins a chat, the client calls a server title endpoint for the
+  unpinned query item, in the background. The history list is where titles matter, and three words of the first
+  prompt are a poor label there. The server builds the title prompt from the visible user and final assistant text
+  only, capped at a few thousand characters, so that the call is short even for long chats with large tool results.
+  It updates the item title only if the title still equals the derived one (a server-side port of
+  `titleFromPrompt`), so a manual rename always wins. It returns the new title for the client to apply. A failed
+  call leaves the derived title. On a single local llama-server the call can still overlap with the next chat's
+  first response; the capped input keeps that short.
+- **Continuing a persisted chat.** Both the move (dragging a `.chat` item into the Queries page) and the copy (the
+  Continue button) unpin the current chat, as New chat does, and create a new pinned query item whose transcript is
+  a copy of the `.chat` item's content, with the item's title. The drop position is ignored: the continued chat
+  always becomes the current chat. The move then sends the `.chat` item to the trash. A crash between creating the
+  query item and trashing the `.chat` item leaves both, which is harmless.
+- **Continue button.** Text items have their own toolbar
+  ([Toolbar_Text.tsx](../web/src/components/toolbar/item/Toolbar_Text.tsx): item icon, open text file). Add
+  Continue there, shown only for `.chat` items, so it works on a selected `.chat` item as well as on its document
+  page. Check that `Toolbar_Text` is the toolbar shown while a text item's generated document page is open.
+- **Deleting** a chat is an ordinary item delete. The transcript file stays while the query item is in the trash,
+  so restoring it works, and is removed when the item is permanently deleted. At startup, after the item DB is
+  loaded, transcript files whose query item does not exist are removed.
+
 ## Search indexing
 
-Chats should be searchable. Do it for persisted chats first and defer live chats.
+Chats should be searchable. Do it for persisted chats first and defer live chat content.
 
 - **Persisted chats are ordinary items.** They go through the normal fragment pipeline with a new `.chat`
-  fragment source. Add explicit chat format recognition to MIME detection, content-kind classification, fragment
+  fragment source. The dedicated MIME type is set at persist; add it to content-kind classification, fragment
   generation, source-kind allowlists and reconciliation. Reconciliation currently checks MIME types and expected
   fragment source kinds explicitly ([search_reconciliation.rs](../infumap/src/ai/search_reconciliation.rs)); it
   needs to recognize chat artifacts and their input fingerprints. Raw chat JSONL must never fall through to the
@@ -173,76 +251,85 @@ Scopes constrain retrieval, not information already copied into a conversation. 
 different scope retains its previous answers and tool results in the model history, and a persisted chat's
 searchable text follows the scope of that item, not the scopes of its original sources. Document this.
 
-Live chat search is deferred: the live chat list already covers finding a recent chat. It would need its own
-search result type (the lexical index, breadcrumbs and scope filtering all assume items), an exemption from
-reconciliation's orphan cleanup, and exclusion from scoped searches.
-
-## Listing live chats
-
-The Queries page is a list page whose children are DB items: the pinned query item, plus `.md` items that
-Materialize creates there. Live chats are not items, so listing them among those children would mean virtual
-entries in list layout, hit testing and drag handling.
-
-Instead, a history list inside the query item's chat view shows live chats newest first, labelled with a title
-derived from the first prompt (`titleFromPrompt` in [chat.ts](../web/src/items/chat.ts)). It opens a chat into the
-chat view, deletes one, and is where a drag out to the item tree starts. Live chats cannot be renamed; a persisted
-chat is renamed like any item.
-
-**Current chat.** The client remembers the current chat uid per query item in browser storage. On load, it
-restores that chat if it is still live. Clearing the chat sets a fresh uid with no file yet, so a reload after
-clearing shows an empty chat rather than the previous one. If nothing is remembered, the chat view starts empty and
-the history list is the way back.
+Live chats are items, so once query items have titles, title search may cover them through the existing title
+indexing (not checked). Indexing live chat content is deferred: the content changes on every turn, so its
+fragments would be regenerated repeatedly, and the Queries page list already covers finding a recent chat.
 
 ## Other details
 
-- **Title.** Live chats have no stored title. When a chat is persisted, generate the item title with an LLM call
-  over the transcript, as Materialize does today, falling back to the first-prompt title if the call fails.
-- **Materialize.** Persisting a chat replaces materializing the whole chat as `.md`, so that button goes.
-  Materializing a single assistant response as `.md` does something different and can stay.
+- **Title of a persisted chat.** The `.chat` item takes the query item's title. If the title is still the derived
+  one (for example, a chat persisted while still pinned, or after a failed title call), persisting runs the same
+  title generation first, and falls back to the derived title if it fails. The title prompt moves from the client
+  (`MATERIALIZED_QUERY_CHAT_TITLE_PROMPT` in [chat.ts](../web/src/items/chat.ts)) to the server.
+- **Materialize goes.** Persisting a chat replaces materializing the whole chat as `.md`. Single-response
+  Materialize is replaced by shift-dragging a turn composite out of the live chat view, which copies it into the
+  tree as editable notes rather than a `.md` file. Today that is disabled: chat turn items are created with
+  `copy: false` (`makeQueryChatItemReadOnly` in [chat.ts](../web/src/items/chat.ts)). Enabling copy on turn
+  composites may need more than the flag, since they are client-only items built from generated items. With both
+  buttons gone, the Queries page holds only chats.
 - **Backups.** Backups contain the item DB logs only; item content is protected by the object store's own
-  redundancy. Live chats are in neither, even though they are primary data and may be long-lived. State this in
-  the UI and docs: a live chat is lost with the server's data directory, and persisting it into the item tree puts
-  its content in the object store and its metadata in backups. Surviving a reload does not mean a live chat is safe.
+  redundancy. Live chat query items are in backups, but their transcripts are in neither, even though they are
+  primary data and may be long-lived. State this in the UI and docs: a live chat's transcript is lost with the
+  server's data directory, and persisting it into the item tree puts its content in the object store. Surviving a
+  reload does not mean a live chat is safe.
 - **Encryption.** Live chat files are plaintext on disk, unlike blobs in the object store. Derived artifacts and
   indexes in the data directory are also plaintext, but live chats are primary data and not derived from an
-  encrypted source. Say so in the docs, or encrypt them with the user's object key.
-- **Retention.** Live chats accumulate. The history list needs a way to delete them, and possibly to expire them.
+  encrypted source. Decided: keep them plaintext and say so in the docs.
+- **Retention.** Live chats accumulate in the Queries page. Deleting is an ordinary item delete; expiry may be
+  added later.
+- **Saved searches are out of scope.** Results come from the live DB and go stale, so only the query would be
+  worth saving, and the existing materialize button for search results covers keeping results. A search history
+  would be cheap later (unpinned query items that keep their search text), but nothing asks for it yet.
 
 ## Implementation steps
 
-Each step can be committed on its own. After step 5, chats survive a reload.
+Each step can be committed on its own. After step 6, chats survive a reload. Steps 1 to 5 change nothing visible:
+the chat route ignores requests without a query item id.
 
-1. **Server chat store.** Read, append, list and delete for `user_{id}/chats/{uid}.chat`, with per-chat locking,
-   synced appends, revisions as `user` record counts, incomplete-tail repair, and interrupted turns derived on read.
-   Tests: round-trip, an incomplete last line, rebuilding the message list after a cancelled turn.
-2. **Chat route writes the file.** The request takes a chat uid, request id, expected revision and user text.
-   Validate the uid, reject stale submissions before appending, create the file on the first turn, sync the `user`
-   record, rebuild history, collect activity in `ChatProgressReporter`, and record the outcome on completion, error
-   or disconnect.
-3. **Load, list and delete endpoints.** Include revision and running state in load responses.
-4. **Client sends the chat uid.** The query runtime holds the chat uid instead of the message list, and remembers
-   it per query item. Clearing the chat starts a new one. Refresh after revision conflicts while preserving the
-   draft.
-5. **Restore on load.** Opening the Queries page restores the remembered chat if it is still live, including
-   outcome notes and turn dropdowns.
-6. **History list** in the chat view: open, delete.
-7. **Persist.** A server endpoint takes the chat uid, parent and ordering, puts the blob, commits the `.chat` item
-   with the same uid and an LLM-generated title, then removes the file. Treat a live file whose uid is an item as
-   dead. Then add the drag from the history list.
-8. **`.chat` document page.** Read-only, built from the load endpoint, text only.
-9. **Continue.** A server endpoint copies a `.chat` item into a new live chat. Add the Continue button on the
-   `.chat` page.
-10. **Remove whole-chat Materialize.**
-11. **Search for persisted chats.** Chat MIME/content recognition, visible-text fragments, reconciliation and
+0. **Check the single-query-item assumption.** The design depends on several query items under the Queries page.
+   Known so far: the query runtime and the temporary chat page are keyed by query item id, and
+   [key.ts](../web/src/input/key.ts) and [page_list.ts](../web/src/layout/arrange/page_list.ts) test "is a query
+   item", not "is the query item". `ensureQueryItemUnderQueries` is the only assumption found. Still to check:
+   [Query.tsx](../web/src/components/items/Query.tsx), and selection and focus with several query items in the list.
+   If this fails, revisit the design before building on it.
+1. **Server chat store.** Read, append and delete for `user_{id}/chats/{query_item_id}.chat`, with per-chat
+   locking, synced appends, revisions as `user` record counts, incomplete-tail repair, and interrupted turns
+   derived on read. Tests: round-trip, an incomplete last line, rebuilding the message list after a cancelled turn.
+2. **Query item titles.** Add a title to query items on the client and server, and show it in the list page.
+3. **Chat route writes transcripts.** The request takes a query item id, request id, expected revision and user
+   text. Validate the query item, reject stale submissions before appending, create the file on the first turn,
+   sync the `user` record, rebuild history from completed turns, and record the outcome on completion, error or
+   disconnect.
+4. **Activity collection.** Collect model rounds, tool calls and timing in `ChatProgressReporter` and write them
+   into `turn` records, including partial rounds of unsuccessful turns.
+5. **Load endpoint for live chats.** Returns turns, revision, running state, last turn settings and last context
+   token count for a query item.
+6. **Client switchover.** These land together, because each alone leaves a broken state: the client sends the query
+   item id and holds no message list; selecting a query item restores its transcript, settings and token count;
+   New chat replaces Clear, unpinning the current query item and creating a new pinned one;
+   `ensureQueryItemUnderQueries` finds the pinned item; search mode is hidden on unpinned items; the derived title
+   is set on the first turn; revision conflicts refresh while preserving the draft. Add the server guard on chat
+   query item moves.
+7. **Delete.** Remove the transcript on permanent deletion of its query item, and remove orphan transcripts at
+   startup.
+8. **Generated titles.** A server title endpoint over capped visible text, applied only to derived titles. Call it
+   when New chat unpins a chat (and later Continue). Move the title prompt to the server.
+9. **Persist.** A server endpoint takes the query item id and the drop placement, generates a title if it is still
+   the derived one, runs the persist sequence with the dedicated MIME type, and returns the new item. Dropping a
+   chat query item outside the Queries page (other than into the trash) calls it. Remove the whole-chat Materialize
+   button.
+10. **`.chat` document page.** Read-only, text only. Extend the load endpoint to `.chat` items, reading the content
+    from the object store.
+11. **Continue and move back.** A server endpoint copies a `.chat` item into a new pinned query item with a fresh
+    header, optionally trashing the original. Add the Continue button to `Toolbar_Text` for `.chat` items (copy),
+    and handle dropping a `.chat` item onto the Queries page (move). Generate a title for the chat this unpins.
+12. **Shift-drag copy of turns.** Enable copying turn composites out of the live chat view, then remove
+    single-response Materialize. Independent of the other steps; can be done at any point.
+13. **Search for persisted chats.** Chat content-kind recognition, visible-text fragments, reconciliation and
     source-kind support, excluded from the model's `search` tool by default.
-12. **Docs.** Backup and durability of live chats, encryption, scope limitations, [chat-tools.md](chat-tools.md).
-13. **Turn dropdowns on `.chat` pages** (later). Generalize activity ownership to document pages, with anchors for
+14. **Docs.** Backup and durability of live chats, encryption, scope limitations, [chat-tools.md](chat-tools.md).
+15. **Turn dropdowns on `.chat` pages** (later). Generalize activity ownership to document pages, with anchors for
     unsuccessful turns.
 
-## Open questions
-
-- Should persisted chats ever be continued in place? That needs replaceable text item content, a general feature
-  that chat should not be the reason for. If text items become editable for other reasons, revisit this.
-- Encrypt live chat files with the user's object key, or document that they are plaintext?
-- Should saved searches work the same way? Lower value than chats: results go stale, so what would be saved is the
-  query rather than its results, and the existing materialize button may already cover it.
+End-to-end checks on a throwaway test server, at least after steps 6, 9 and 11: reload mid-chat, two tabs, New
+chat, persist, move back and Continue.
