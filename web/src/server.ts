@@ -1042,6 +1042,23 @@ export const server = {
     return await fetchResult.json();
   },
 
+  /**
+   * Moves an earlier chat into the item tree as a `.chat` text item, created from `chatItem`, placed where the chat was
+   * dropped; the server sets its id, title, MIME type and data. Deletes the chat's query item. Returns the new item.
+   */
+  persistChat: async (queryItemId: Uid, chatItem: object): Promise<{ item: object }> => {
+    const fetchResult = await fetch("/chat/persist", {
+      method: "POST",
+      headers: { "Accept": "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ queryItemId, item: chatItem }),
+    });
+    if (!fetchResult.ok) {
+      const body = await fetchResult.json().catch(() => null);
+      throw new Error(typeof body?.error == "string" ? body.error : `Keeping the chat failed: ${fetchResult.status}`);
+    }
+    return await fetchResult.json();
+  },
+
   chatBackends: async (): Promise<ChatBackends> => {
     return fetchChatBackends();
   },

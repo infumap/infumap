@@ -237,6 +237,9 @@ export async function startNewQueryChat(store: StoreContextModel, queryItemMaybe
     // Unpinning is a flag change, which the server allows. It is already ordered before every earlier chat, since
     // each pinned query item is created at the start of the page's children.
     queryItem.flags &= ~SearchFlags.ListPagePinTop;
+    // The server sends an earlier chat as movable (to the trash or out of the Queries page), and the current one as not.
+    // Match it now, rather than when the item is next synced.
+    queryItem.capabilities = { resize: false };
     await server.updateItem(queryItem, store.general.networkStatus);
     // After the chat, not alongside a response, so it does not compete with one for a local model.
     void generateQueryChatTitle(store, queryItem.id);

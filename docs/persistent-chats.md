@@ -414,6 +414,18 @@ the chat route ignores requests without a query item id.
    the derived one, runs the persist sequence with the dedicated MIME type, and returns the new item. In
    `chatDropRejectionMessage`'s place, dropping an earlier chat outside the Queries page (other than into the trash)
    calls persist. Remove the whole-chat Materialize button.
+   Done 2026-10-13: `POST /chat/persist` with `{ queryItemId, item }` (`persist_live_chat` in
+   [chat/mod.rs](../infumap/src/web/routes/command/chat/mod.rs)). The client builds `item` with `TextFns` from the
+   drop's placement, in `enqueueChatPersistIfDropped` in [mouse_up.ts](../web/src/input/mouse_up.ts), which replaces
+   the moved chat's ordinary update. The server sets the id, the title (`<title>.chat`), the size and
+   `application/x-infumap-chat`, and adds it through `add_item_for_user_with_mime_type`, then deletes the query item
+   through `handle_delete_item` and removes the transcript. Only an earlier (unpinned) chat can be persisted. A refusal
+   (running turn, current chat) rolls the move back and shows the server's reason. Whole-chat Materialize is removed.
+   Until step 10, opening a `.chat` item does not render it as a chat. Checked end to end: a chat dragged onto a page
+   in the dock became `Rust Lifetimes.chat` there, its file content equal to the transcript, the query item and
+   transcript gone; a drag during a running turn was refused with its reason and rolled back.
+   Fixed here: New chat now marks the unpinned chat movable locally (`capabilities: { resize: false }`), as the server
+   does; before, it stayed undraggable until the page reloaded.
 10. **`.chat` document page.** Read-only, text only. Extend the load endpoint to `.chat` items, reading the content
     from the object store.
 11. **Continue and move back.** A server endpoint copies a `.chat` item into a new pinned query item with a fresh

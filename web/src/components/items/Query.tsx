@@ -87,7 +87,6 @@ import {
   cancelQueryChatRequest,
   chatStreamingStateForQuery,
   ensureQueryChatLoaded,
-  materializeQueryChat,
   queryChatContextTokenDisplay,
   queryChatHasContent,
   queryChatUsesInfumapData,
@@ -132,7 +131,6 @@ const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
 const QUERY_CHAT_ACTIVITY_FOLLOW_THRESHOLD_PX = 24;
 const QUERY_CHAT_ACTIVITY_EXPANDED_TOP_INSET_PX = 12;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
-const QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 
 
@@ -148,8 +146,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatText, setChatText] = createSignal("");
   const [deepResearch, setDeepResearch] = createSignal(false);
   const [isSendingChat, setIsSendingChat] = createSignal(false);
-  const [isMaterializingChat, setIsMaterializingChat] = createSignal(false);
-  const [materializingChatStatus, setMaterializingChatStatus] = createSignal("Generating document title");
   const [queryTextareaHeightPx, setQueryTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatTextareaHeightPx, setChatTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
   const [chatActivityNowMs, setChatActivityNowMs] = createSignal(Date.now());
@@ -542,7 +538,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const startNewChat = async () => {
-    if (isStartingChat() || isSendingChat() || isMaterializingChat()) {
+    if (isStartingChat() || isSendingChat()) {
       return;
     }
     const wasHistoryEntry = isChatHistoryEntry();
@@ -634,22 +630,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     } finally {
       setDeepResearch(false);
       setIsSendingChat(false);
-    }
-  };
-
-  const materializeCurrentChat = async () => {
-    if (isMaterializingChat() || !queryChatHasContent(store, queryItem())) {
-      return;
-    }
-    setIsMaterializingChat(true);
-    setMaterializingChatStatus("Generating document title");
-    try {
-      await materializeQueryChat(store, queryItem(), phase => {
-        setMaterializingChatStatus(phase == "generating_title" ? "Generating document title" : "Creating Markdown item");
-      });
-      focusChatTextareaSoon();
-    } finally {
-      setIsMaterializingChat(false);
     }
   };
 
@@ -1143,24 +1123,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </button>
             <button
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
-              style={`width: ${QUERY_CHAT_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-              type="button"
-              title={isMaterializingChat() ? materializingChatStatus() : "Create Markdown from chat"}
-              aria-label={isMaterializingChat() ? materializingChatStatus() : "Create Markdown from chat"}
-              disabled={chatRequestActive() || isMaterializingChat() || !queryChatHasContent(store, queryItem())}
-              onClick={() => void materializeCurrentChat()}>
-              <i class={isMaterializingChat() ? "fa fa-circle-notch fa-spin" : "bi-file-earmark-plus"} />
-              <Show when={isMaterializingChat()}>
-                <span class="sr-only" role="status" aria-live="polite">{materializingChatStatus()}</span>
-              </Show>
-            </button>
-            <button
-              class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
               title="New chat"
               aria-label="New chat"
-              disabled={chatRequestActive() || isMaterializingChat()}
+              disabled={chatRequestActive()}
               onClick={() => void startNewChat()}>
               <i class="bi-plus-lg" />
             </button>

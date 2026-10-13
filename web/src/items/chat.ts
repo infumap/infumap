@@ -59,13 +59,6 @@ import { EMPTY_UID, Uid, newUid } from "../util/uid";
 
 const MATERIALIZED_QUERY_CHAT_FALLBACK_TITLE = "Chat";
 const MATERIALIZED_QUERY_CHAT_TITLE_MAX_CHARS = 100;
-const MATERIALIZED_QUERY_CHAT_TITLE_PROMPT = "Give this conversation a concise, informative document title. " +
-  "Name the user's underlying topic or question, not the assistant's process, search method, sources, or caveats. " +
-  "Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually " +
-  "two to four words and never more than six. Use title case. Do not begin with words such as Finding, " +
-  "Researching, Searching, Exploring, or Analyzing. " +
-  "Use plain text only, with no Markdown, quotation marks, or ending punctuation. Reply with only the title.";
-
 export type QueryChatMaterializationPhase = "generating_title" | "creating_markdown";
 
 function markAsQueryChatPage(item: Item): void {
@@ -540,7 +533,7 @@ function titleFromModelResponse(response: string): string | null {
 async function generateMaterializedQueryChatTitle(
   store: StoreContextModel,
   queryItem: QueryItem,
-  titlePrompt: string = MATERIALIZED_QUERY_CHAT_TITLE_PROMPT,
+  titlePrompt: string,
 ): Promise<string | null> {
   const messages = queryChatVisibleMessages(store, queryItem);
   if (messages.length == 0) {
@@ -1406,24 +1399,6 @@ function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, re
   requestArrange(store, "query-chat-loaded");
 }
 
-function firstPromptInQueryChat(store: StoreContextModel, queryItem: QueryItem): string {
-  for (const rootId of queryChatRootIds(store, queryItem)) {
-    const root = itemState.get(rootId);
-    if (!root) { continue; }
-    if (isNote(root)) {
-      return asNoteItem(root).title;
-    }
-    if (!isContainer(root)) { continue; }
-    for (const childId of asContainerItem(root).computed_children) {
-      const child = itemState.get(childId);
-      if (child && isNote(child)) {
-        return asNoteItem(child).title;
-      }
-    }
-  }
-  return "";
-}
-
 export function queryChatHasContent(store: StoreContextModel, queryItem: QueryItem): boolean {
   return queryChatRootIds(store, queryItem).length > 0;
 }
@@ -1469,12 +1444,6 @@ function queryChatVisibleTurns(store: StoreContextModel, queryItem: QueryItem): 
     }
   }
   return turns;
-}
-
-function queryChatMarkdown(store: StoreContextModel, queryItem: QueryItem): string {
-  return queryChatVisibleTurns(store, queryItem)
-    .map(turn => `**${turn.role == "user" ? "You" : "Assistant"}**\n\n${turn.text}`)
-    .join("\n\n---\n\n");
 }
 
 async function createQueryChatMarkdownItem(
@@ -1559,35 +1528,6 @@ export function resetQueryChatSession(store: StoreContextModel, queryItem: Query
   if (arrangeReason != null) {
     requestArrange(store, arrangeReason);
   }
-}
-
-export async function materializeQueryChat(
-  store: StoreContextModel,
-  queryItem: QueryItem,
-  onPhase?: (phase: QueryChatMaterializationPhase) => void,
-): Promise<boolean> {
-  if (!queryChatHasContent(store, queryItem)) {
-    return false;
-  }
-  const parent = itemState.get(queryItem.parentId);
-  if (!parent || !isContainer(parent)) {
-    console.error("Failed to materialize query chat: no valid parent container.", queryItem);
-    return false;
-  }
-  const markdown = queryChatMarkdown(store, queryItem);
-  if (markdown == "") {
-    return false;
-  }
-  const fallbackTitle = titleFromPrompt(firstPromptInQueryChat(store, queryItem));
-  let generatedTitle: string | null = null;
-  onPhase?.("generating_title");
-  try {
-    generatedTitle = await generateMaterializedQueryChatTitle(store, queryItem);
-  } catch (e) {
-    console.warn("Failed to generate a query chat document title; using the prompt-derived fallback:", e);
-  }
-  onPhase?.("creating_markdown");
-  return createQueryChatMarkdownItem(store, queryItem, generatedTitle ?? fallbackTitle, markdown);
 }
 
 export async function materializeQueryChatAssistantSection(

@@ -1011,6 +1011,139 @@ pub async fn serve_chat_title_route(
   }
 }
 
+/// The MIME type of a persisted chat. Set explicitly, since detection would give text/plain, which would send the raw
+/// JSONL to the plain-text indexer. Nothing processes it until chat indexing recognizes it.
+const CHAT_TRANSCRIPT_MIME_TYPE: &str = "application/x-infumap-chat";
+const CHAT_PERSIST_REQUEST_MAX_BYTES: usize = 64 * 1024;
+
+#[derive(Deserialize)]
+struct ChatPersistRequest {
+  #[serde(rename = "queryItemId")]
+  query_item_id: Uid,
+  /// The `.chat` text item to create, placed where the chat was dropped. Its id, title, MIME type and size are set
+  /// here.
+  item: serde_json::Map<String, Value>,
+}
+
+#[derive(Serialize)]
+struct ChatPersistError {
+  error: String,
+}
+
+/// Moves an earlier chat into the item tree as a `.chat` text item. Under the chat lock: writes the transcript's bytes
+/// to the object store and commits the item, as adding any data item does; then deletes the query item; then removes
+/// the transcript file. A crash before the commit leaves the chat as it was and an unreferenced blob; between the
+/// commit and the delete, both a persisted copy and the live chat; after the delete, an orphan transcript that startup
+/// cleanup removes. Returns the add-item response, with the new item. See docs/persistent-chats.md.
+async fn persist_live_chat(
+  config: &Config,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  session: &Session,
+  request: &ChatPersistRequest,
+) -> InfuResult<String> {
+  let query_item_id = &request.query_item_id;
+  let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
+  let current_title = {
+    let db = db.lock().await;
+    let item = db.item.get(query_item_id)?;
+    if !super::is_unpinned(item) {
+      return Err("The current chat can't be moved out of the Queries page; start a new chat first.".into());
+    }
+    item.title.clone().unwrap_or_default()
+  };
+
+  // A generated title if the title is still derived from the first prompt; otherwise, or if that fails, the title as
+  // it is.
+  let title = match generate_live_chat_title(config, db, session, query_item_id).await {
+    Ok(title) => title,
+    Err(e) => {
+      warn!("Could not generate a title for chat '{}' while persisting it: {}", query_item_id, e);
+      current_title
+    }
+  };
+  let title = if title.trim().is_empty() { CHAT_TITLE_FALLBACK.to_owned() } else { title };
+
+  let transcript = try_lock_transcript(&data_dir, &session.user_id, query_item_id)
+    .await?
+    .ok_or("A response is running in this chat. Try again when it has finished.")?;
+  if transcript.transcript().is_none_or(|transcript| transcript.turns.is_empty()) {
+    return Err("The chat has no turns to keep.".into());
+  }
+  let bytes = transcript.bytes().await?;
+
+  let mut item_map = request.item.clone();
+  item_map.insert("id".to_owned(), Value::String(new_uid()));
+  item_map.insert("itemType".to_owned(), Value::String(ItemType::Text.as_str().to_owned()));
+  item_map.insert("ownerId".to_owned(), Value::String(session.user_id.clone()));
+  item_map.insert("title".to_owned(), Value::String(format!("{}.chat", title)));
+  item_map.insert("fileSizeBytes".to_owned(), Value::Number(bytes.len().into()));
+  item_map.remove("mimeType");
+  let item_json = serde_json::to_string(&Value::Object(item_map))?;
+  let base64_data = Some(general_purpose::STANDARD.encode(&bytes));
+  let added = super::item_ops::add_item_for_user_with_mime_type(
+    db,
+    object_store.clone(),
+    &item_json,
+    &base64_data,
+    &session.user_id,
+    Some(CHAT_TRANSCRIPT_MIME_TYPE),
+  )
+  .await?
+  .ok_or("Adding the chat item returned nothing.")?;
+
+  // The transcript is kept while this holds the chat lock, so deleting the query item leaves it for us to remove.
+  let delete_json = serde_json::json!({ "id": query_item_id }).to_string();
+  if let Err(e) =
+    super::item_ops::handle_delete_item(db, object_store, image_cache, &delete_json, &Some(session.clone())).await
+  {
+    warn!("Persisted chat '{}', but could not delete its query item, so both remain: {}", query_item_id, e);
+    return Ok(added);
+  }
+  if let Err(e) = transcript.remove().await {
+    warn!("Persisted chat '{}', but could not remove its transcript; startup cleanup will: {}", query_item_id, e);
+  }
+  Ok(added)
+}
+
+/// Persists an earlier chat dropped outside the Queries page; see `persist_live_chat`.
+pub async fn serve_chat_persist_route(
+  config: Arc<Config>,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  if request.method() == "OPTIONS" {
+    debug!("Serving OPTIONS request for chat persist, assuming CORS query.");
+    return cors_response();
+  }
+  if request.method() != "POST" {
+    return not_found_response();
+  }
+  let Some(session) = get_and_validate_session(&request, db).await else {
+    return forbidden_response();
+  };
+  let request: ChatPersistRequest = match incoming_json_with_limit(request, CHAT_PERSIST_REQUEST_MAX_BYTES).await {
+    Ok(request) => request,
+    Err(e) => {
+      error!("An error occurred parsing chat persist payload for user '{}': {}", session.user_id, e);
+      return Response::builder().status(400).body(empty_body()).unwrap();
+    }
+  };
+  let result = persist_live_chat(config.as_ref(), db, object_store, image_cache, &session, &request).await;
+  match result.and_then(|added| Ok(serde_json::from_str::<Value>(&added)?)) {
+    Ok(added) => json_response(&added),
+    Err(e) => {
+      warn!("Could not persist chat '{}' of user '{}': {}", request.query_item_id, session.user_id, e);
+      let mut response = json_response(&ChatPersistError { error: e.message().to_owned() });
+      *response.status_mut() = hyper::StatusCode::CONFLICT;
+      response
+    }
+  }
+}
+
 /// Whether a turn of a live chat is running, so its query item must not be deleted now.
 pub(super) fn chat_turn_running(user_id: &Uid, query_item_id: &Uid) -> bool {
   chat_is_locked(user_id, query_item_id)

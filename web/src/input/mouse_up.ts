@@ -29,14 +29,14 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite, CompositeFns, CompositeItem } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
-import { asTextItem, isText } from "../items/text-item";
+import { TextFns, asTextItem, isText } from "../items/text-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
-import { isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
+import { asQueryItem, isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { getMovingDockItems } from "../layout/arrange/dock";
 import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
@@ -73,6 +73,9 @@ import { NativeTextSelectionState } from "./native_text_selection";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
 import { appendEmptyNoteToDocumentPage } from "./edit";
 
+
+/** A move the server refused for a reason worth showing the user, instead of the generic failure message. */
+class MoveRejectedError extends Error { }
 
 interface MovePersistOperation {
   apply: () => Promise<void>,
@@ -418,6 +421,10 @@ function enqueueUpdateItem(
     return;
   }
 
+  if (enqueueChatPersistIfDropped(ops, store, item)) {
+    return;
+  }
+
   const snapshot = cloneItemSnapshot(item);
   ops.push({
     apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus),
@@ -425,6 +432,45 @@ function enqueueUpdateItem(
       ? undefined
       : () => serverOrRemote.updateItem(cloneItemSnapshot(rollbackSnapshot), store.general.networkStatus),
   });
+}
+
+/**
+ * An earlier chat dropped outside the Queries page, other than into the trash, is kept there as a `.chat` text item:
+ * persist creates it in the chat's place and deletes the chat's query item. If it fails, the move is rolled back and
+ * the chat stays in the Queries page. See docs/persistent-chats.md.
+ */
+function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): boolean {
+  const user = store.user.getUserMaybe();
+  if (user == null || !isQueryItem(item)) {
+    return false;
+  }
+  const startParentId = MouseActionState.getMoveRollback()?.find(entry => entry.id == item.id)?.parentId;
+  if (startParentId != user.queriesPageId || item.parentId == user.queriesPageId || item.parentId == user.trashPageId) {
+    return false;
+  }
+
+  const queryItem = asQueryItem(item);
+  const chatItem = TextFns.create(item.ownerId, item.parentId, item.relationshipToParent, ".chat", new Uint8Array(item.ordering));
+  chatItem.spatialPositionGr = { ...queryItem.spatialPositionGr };
+  chatItem.dateTime = item.dateTime;
+  chatItem.groupId = item.groupId;
+  const chatItemObject = ItemFns.toObject(chatItem);
+  ops.push({
+    apply: async () => {
+      let response: { item: object };
+      try {
+        response = await server.persistChat(queryItem.id, chatItemObject);
+      } catch (e) {
+        throw new MoveRejectedError(e instanceof Error ? e.message : "Couldn't keep the chat");
+      }
+      if (itemState.get(queryItem.id) != null) {
+        itemState.delete(queryItem.id);
+      }
+      itemState.add(ItemFns.fromObject(response.item, null));
+      requestArrange(store, "chat-persisted");
+    },
+  });
+  return true;
 }
 
 function enqueueAddItem(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): void {
@@ -928,7 +974,10 @@ async function commitMoveOperations(
     if (rollbackFailures.length > 0) {
       panicCatastrophicMoveRollback(store, error, rollbackFailures);
     }
-    showMoveDropRejectedMessage(store, "Couldn't save move. Restored original location.");
+    showMoveDropRejectedMessage(
+      store,
+      error instanceof MoveRejectedError ? error.message : "Couldn't save move. Restored original location.",
+    );
     arrangeNow(store, "mouse-up-rollback-server-failure");
     return;
   }
@@ -1028,8 +1077,9 @@ function currentDropTargetRejectionMessage(store: StoreContextModel): string | n
 }
 
 /**
- * An earlier chat in the Queries page can only be moved to the trash, which deletes it, and a chat in the trash only
- * back to the Queries page. The server rejects any other move of them. See docs/persistent-chats.md.
+ * An earlier chat can't be reordered in the Queries page, attached to an item or dropped on another server's page.
+ * Dropped into the trash it is deleted; dropped anywhere else it is persisted (`enqueueChatPersistIfDropped`). A
+ * chat in the trash can only go back to the Queries page. See docs/persistent-chats.md.
  */
 function chatDropRejectionMessage(store: StoreContextModel, targetVe: VisualElement): string | null {
   const user = store.user.getUserMaybe();
@@ -1045,8 +1095,16 @@ function chatDropRejectionMessage(store: StoreContextModel, targetVe: VisualElem
     if (item == null || !isQueryItem(item)) {
       continue;
     }
-    if (entry.parentId == user.queriesPageId && (attaching || targetId != user.trashPageId)) {
-      return "A chat can only be moved to the trash";
+    if (entry.parentId == user.queriesPageId) {
+      if (attaching) {
+        return "A chat can't be attached to an item";
+      }
+      if (targetId == user.queriesPageId) {
+        return "Earlier chats are kept newest first, so a chat can't be reordered";
+      }
+      if (targetVe.displayItem.origin != null) {
+        return "A chat can't be kept on another server";
+      }
     }
     if (entry.parentId == user.trashPageId &&
       (attaching || (targetId != user.queriesPageId && targetId != user.trashPageId))) {
