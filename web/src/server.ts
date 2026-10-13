@@ -22,7 +22,7 @@ import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
 import type { QueryChatActivityModelRound } from "./store/StoreProvider_PerItem";
 import { NumberSignal } from "./util/signals";
-import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "./util/uid";
+import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "./util/uid";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
 import { asContainerItem, isContainer } from "./items/base/container-item";
@@ -863,7 +863,9 @@ function applyContainerSyncDelta(update: SyncContainerUpdate): boolean {
   }
 
   const childDeleteIds = new Set(update.childDeletes ?? []);
-  const nextChildIds = containerItem.computed_children.filter(childId => !childDeleteIds.has(childId));
+  // A local move or delete can remove an item while an older sync response is still in flight.
+  const nextChildIds = containerItem.computed_children.filter(childId =>
+    !childDeleteIds.has(childId) && itemState.get(childId) != null);
 
   for (const childObject of update.children ?? []) {
     const childItem = itemState.upsertItemFromServerObject(childObject, null);
@@ -1620,6 +1622,18 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
       if (applyContainerSyncUpdate(update)) {
         shouldArrange = true;
         didChange = true;
+      }
+    }
+
+    // A sync deletion can remove the currently focused item, including the selected panel of a list page.
+    const focusPath = store.history.getFocusPathMaybe();
+    if (focusPath != null && focusPath.split("-").some(part =>
+      part != UMBRELLA_PAGE_UID && itemState.get(VeFns.veidFromPath(part).itemId) == null)) {
+      store.history.popAllPopups();
+      const pagePath = store.history.currentPagePath();
+      if (pagePath != null && itemState.get(VeFns.veidFromPath(pagePath).itemId) != null) {
+        store.history.setFocus(pagePath);
+        shouldArrange = true;
       }
     }
 
