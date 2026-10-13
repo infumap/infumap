@@ -143,7 +143,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
   const reservePopupIconSpace = () =>
     PasswordFns.showsIcon(passwordItem()) &&
-    (hasPopupHandle() || isPopup());
+    (hasPopupHandle() || isPopup() || isInComposite());
   const shouldRenderIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
@@ -220,7 +220,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
   }
 
   const isInComposite = () =>
-    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+    props.visualElement.parentPath != null &&
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath).itemId));
 
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&

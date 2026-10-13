@@ -45,7 +45,7 @@ import {
 } from "../../layout/text";
 import { HitboxFlags } from "../../layout/hitbox";
 import { useStore } from "../../store/StoreProvider";
-import { CompositeFns } from "../../items/composite-item";
+import { CompositeFns, isComposite } from "../../items/composite-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { VesCache } from "../../layout/ves-cache";
@@ -153,10 +153,13 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const showTriangleDetail = () => (boundsPx().h / naturalHeightPx()) > 0.5;
   const lineClamp = () => isPopup() ? 1000 : Math.floor(sizeBl().h);
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
+  const isInComposite = () =>
+    props.visualElement.parentPath != null &&
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath).itemId));
   const iconContext = () => ItemIconRenderContext.Spatial;
   const reservePopupIconSpace = () =>
     NoteFns.showsIcon(noteItem(), iconContext()) &&
-    (hasPopupHandle() || isPopup());
+    (hasPopupHandle() || isPopup() || isInComposite());
   const shouldRenderIcon = () => reservePopupIconSpace();
   const popupIconSizeMultiplier = () => infuTextStyle().lineHeightMultiplier;
   const popupIconSizePx = () => ({
