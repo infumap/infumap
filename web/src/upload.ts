@@ -187,7 +187,8 @@ function syncExternalUploadAttachHover(store: StoreContextModel, nextPath: Visua
 function attachmentInsertIndexFromDesktopPx(store: StoreContextModel, attachVe: VisualElement, desktopPx: Vector): number {
   const attachVePath = VeFns.veToPath(attachVe);
   const attachItem = asAttachmentsItem(attachVe.displayItem);
-  const veBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, attachVe);
+  // Attachments are laid out along the top of the item, which (unlike the contents of a page) doesn't scroll.
+  const veBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, attachVe);
   const clampedIndex = calcSpatialAttachmentInsertIndex(
     veBoundsPx,
     attachmentAnchorRightPxForVe(attachVe, veBoundsPx.w),

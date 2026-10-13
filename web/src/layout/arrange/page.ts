@@ -17,12 +17,15 @@
 */
 
 import { LINE_HEIGHT_PX } from "../../constants";
+import { calcSpatialAttachmentHitboxBoundsPx } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
+import { zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -107,6 +110,20 @@ export const arrangePageWithChildren = (
     pageSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
     pageSpec.attachmentBlockSizePx = attachmentsLayout.blockSizePx ?? null;
     pageSpec.attachmentAnchorRightPx = attachmentsLayout.anchorRightPx ?? null;
+
+    // The geometry of root pages is not calculated by the page item (which positions the attach hitbox of other
+    // pages), so the attach hitbox is positioned here. The hitboxes array may be shared with the geometry, so
+    // isn't modified in place.
+    if (arrangeFlagIsRoot(flags)) {
+      const blockSizePx = attachmentsLayout.blockSizePx ?? geometry.viewportBoundsPx!.w / parentItemSizeBl.w;
+      const attachBoundsPx = calcSpatialAttachmentHitboxBoundsPx(
+        zeroBoundingBoxTopLeft(geometry.viewportBoundsPx!), blockSizePx, blockSizePx,
+        displayItem_pageWithChildren.computed_attachments.length, attachmentsLayout.anchorRightPx ?? null);
+      pageSpec.hitboxes = [
+        ...(pageSpec.hitboxes ?? []).filter(hitbox => !(hitbox.type & HitboxFlags.Attach)),
+        HitboxFns.create(HitboxFlags.Attach, attachBoundsPx),
+      ];
+    }
   }
 
   if (flags & ArrangeItemFlags.InsideCompositeOrDoc) {

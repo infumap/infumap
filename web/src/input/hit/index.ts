@@ -21,7 +21,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { isQueryItem } from "../../items/query-item";
 import { isTable } from "../../items/table-item";
 import { isContainer } from "../../items/base/container-item";
-import { HitboxFlags, HitboxFns } from "../../layout/hitbox";
+import { HitboxFlags, HitboxFns, HitboxMeta } from "../../layout/hitbox";
 import { getDockScrollYPx } from "../../layout/arrange/dock";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement, VisualElementFlags, VeFns, isTableView } from "../../layout/visual-element";
@@ -884,6 +884,27 @@ function hitNonPagePopupMaybe(
 }
 
 
+/**
+ * Scans the hitboxes of a root that was already the root before the current resolver, where the position includes
+ * the root's scroll offset. The attach strips along the top (and composite attach strip along the bottom) of a root
+ * don't scroll with its contents, so are excluded. They are scanned at the unscrolled position when the root is
+ * entered, except for the top level root, which is never entered, so its attach strip is scanned here.
+ */
+function scanUnchangedRootHitboxes(
+  store: StoreContextModel,
+  rootVe: VisualElement,
+  posRelativeToRootVeBoundsScrolledPx: Vector,
+  posOnDesktopPx: Vector,
+  hitboxOptions: HitboxScanOptions,
+): { flags: HitboxFlags, meta: HitboxMeta | null } {
+  const result = scanHitboxes(rootVe, posRelativeToRootVeBoundsScrolledPx, undefined, { ...hitboxOptions, includeDropTargets: false });
+  if (!hitboxOptions.includeDropTargets || !(rootVe.flags & VisualElementFlags.TopLevelRoot)) { return result; }
+  const posRelativeToRootVeBoundsPx = { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y };
+  const { flags: attachFlags, meta: attachMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx, undefined, hitboxOptions);
+  if (attachFlags & HitboxFlags.Attach) { return { flags: HitboxFlags.Attach, meta: attachMeta }; }
+  return result;
+}
+
 function hitPagePopupRootMaybe(
   store: StoreContextModel,
   parentRootInfo: RootInfo,
@@ -896,6 +917,7 @@ function hitPagePopupRootMaybe(
   let posRelativeToRootVeBoundsPx = parentRootInfo.posRelativeToRootVeBoundsPx;
   let posForRootHitboxScan = posRelativeToRootVeBoundsPx;
   let changedRoot = false;
+  const unchangedRootPosOnDesktopPx = posOnDesktopPx;
   const popupVes = VesCache.render.getPopup(VeFns.veToPath(rootVe))();
   if (popupVes && isPage(popupVes.get().displayItem)) {
     posOnDesktopPx = { ...posOnDesktopPx };
@@ -925,7 +947,9 @@ function hitPagePopupRootMaybe(
       changedRoot = true;
     }
   }
-  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan, undefined, hitboxOptions);
+  const { flags: scannedHitboxType, meta: hitboxMeta } = changedRoot
+    ? scanHitboxes(rootVe, posForRootHitboxScan, undefined, hitboxOptions)
+    : scanUnchangedRootHitboxes(store, rootVe, posForRootHitboxScan, unchangedRootPosOnDesktopPx, hitboxOptions);
   const hitboxType = selectedPopupListRootHitboxType(rootVe, scannedHitboxType);
   let hitMaybe = null as HitInfo | null;
   if (hitboxType != HitboxFlags.None) {
@@ -992,7 +1016,9 @@ function hitPageSelectedRootMaybe(
   const posForRootHitboxScan = changedRoot
     ? vectorSubtract(posRelativeToRootVeViewportPx, { x: rootVe.boundsPx.x, y: rootVe.boundsPx.y })
     : posRelativeToRootVeBoundsPx;
-  const { flags: scannedHitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posForRootHitboxScan, undefined, hitboxOptions);
+  const { flags: scannedHitboxType, meta: hitboxMeta } = changedRoot
+    ? scanHitboxes(rootVe, posForRootHitboxScan, undefined, hitboxOptions)
+    : scanUnchangedRootHitboxes(store, rootVe, posForRootHitboxScan, posOnDesktopPx, hitboxOptions);
   const hitboxType = selectedPopupListRootHitboxType(rootVe, scannedHitboxType);
   let hitMaybe = null as HitInfo | null;
   if (hitboxType != HitboxFlags.None) {
