@@ -188,6 +188,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if ((existingVe.evaluatedTitle ?? null) !== (specValueOrDefault(preparedSpec.evaluatedTitle, NONE_VISUAL_ELEMENT.evaluatedTitle) ?? null)) { return false; }
   if ((existingVe.listItemNumber ?? null) !== (specValueOrDefault(preparedSpec.listItemNumber, NONE_VISUAL_ELEMENT.listItemNumber) ?? null)) { return false; }
   if ((existingVe.attachmentBlockSizePx ?? null) !== (specValueOrDefault(preparedSpec.attachmentBlockSizePx, NONE_VISUAL_ELEMENT.attachmentBlockSizePx) ?? null)) { return false; }
+  if ((existingVe.attachmentAnchorRightPx ?? null) !== (specValueOrDefault(preparedSpec.attachmentAnchorRightPx, NONE_VISUAL_ELEMENT.attachmentAnchorRightPx) ?? null)) { return false; }
   if (!attachmentsOverflowMarkersEqual(existingVe.attachmentsOverflowMarkerPx, specValueOrDefault(preparedSpec.attachmentsOverflowMarkerPx, NONE_VISUAL_ELEMENT.attachmentsOverflowMarkerPx))) { return false; }
 
   return true;

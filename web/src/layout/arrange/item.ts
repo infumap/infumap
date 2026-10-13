@@ -293,6 +293,7 @@ export const arrangeItemNoChildren = (
     col: itemGeometry.col,
     listItemNumber: itemGeometry.listItemNumber ?? null,
     attachmentBlockSizePx: itemGeometry.attachmentBlockSizePx ?? null,
+    attachmentAnchorRightPx: itemGeometry.attachmentAnchorRightPx ?? null,
     hitboxes,
     parentPath: parentVePath,
   };
@@ -316,7 +317,7 @@ export const arrangeItemNoChildren = (
   if (isAttachmentsItem(displayItem) &&
     !shallowTrashLink) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe == null ? displayItem : linkItemMaybe);
-    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath, itemGeometry.attachmentBlockSizePx);
+    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem).computed_attachments, parentItemSizeBl, itemGeometry.boundsPx, currentVePath, itemGeometry.attachmentBlockSizePx, itemGeometry.attachmentAnchorRightPx);
     itemRelationships.attachmentsPaths = attachments.paths;
     itemVisualElementSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
   } else {

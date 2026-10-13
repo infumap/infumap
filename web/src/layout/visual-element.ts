@@ -389,6 +389,12 @@ export interface VisualElement {
   attachmentBlockSizePx: number | null,
 
   /**
+   * If set, the x position (px, relative to the left of boundsPx) of the right edge of the right-most attachment
+   * slot, in place of the right edge of boundsPx. See ItemGeometry.attachmentAnchorRightPx.
+   */
+  attachmentAnchorRightPx: number | null,
+
+  /**
    * If there are more attachments than fit along the top of the item, the overflow is not rendered, and a marker
    * is drawn at this position (relative to the same origin as the attachments) instead.
    */
@@ -497,6 +503,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   evaluatedTitle: null,
   listItemNumber: null,
   attachmentBlockSizePx: null,
+  attachmentAnchorRightPx: null,
   attachmentsOverflowMarkerPx: null,
 
   displayItemFingerprint: "",
@@ -543,6 +550,7 @@ export interface VisualElementSpec {
   evaluatedTitle?: string | null,
   listItemNumber?: number | null,
   attachmentBlockSizePx?: number | null,
+  attachmentAnchorRightPx?: number | null,
   attachmentsOverflowMarkerPx?: AttachmentsOverflowMarker | null,
 }
 
@@ -611,6 +619,7 @@ export const VeFns = {
       evaluatedTitle: null,
       listItemNumber: null,
       attachmentBlockSizePx: null,
+      attachmentAnchorRightPx: null,
       attachmentsOverflowMarkerPx: null,
 
       displayItemFingerprint: "",
@@ -660,6 +669,7 @@ export const VeFns = {
     ve.evaluatedTitle = null;
     ve.listItemNumber = null;
     ve.attachmentBlockSizePx = null;
+    ve.attachmentAnchorRightPx = null;
     ve.attachmentsOverflowMarkerPx = null;
 
     ve.displayItemFingerprint = "";
@@ -1285,6 +1295,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.evaluatedTitle) != 'undefined') { result.evaluatedTitle = override.evaluatedTitle; }
   if (typeof (override.listItemNumber) != 'undefined') { result.listItemNumber = override.listItemNumber; }
   if (typeof (override.attachmentBlockSizePx) != 'undefined') { result.attachmentBlockSizePx = override.attachmentBlockSizePx; }
+  if (typeof (override.attachmentAnchorRightPx) != 'undefined') { result.attachmentAnchorRightPx = override.attachmentAnchorRightPx; }
   if (typeof (override.attachmentsOverflowMarkerPx) != 'undefined') { result.attachmentsOverflowMarkerPx = override.attachmentsOverflowMarkerPx; }
   if (typeof (override.displayItemFingerprint) != 'undefined') { result.displayItemFingerprint = override.displayItemFingerprint; }
   // tableVesRows is moved to VesCache, do not copy to VisualElement

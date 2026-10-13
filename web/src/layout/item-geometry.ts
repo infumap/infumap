@@ -61,6 +61,13 @@ export interface ItemGeometry {
   attachmentBlockSizePx?: number,
 
   /**
+   * If set, the x position (px, relative to the left of boundsPx) of the right edge of the right-most attachment
+   * slot, rather than the right edge of boundsPx. Attachments (and the attach drop target) are laid out right to
+   * left from here.
+   */
+  attachmentAnchorRightPx?: number,
+
+  /**
    * Hitboxes.
    * Higher index => higher precedence.
    * Hitbox boundsPx are relative to this item's boundsPx.

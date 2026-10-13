@@ -282,12 +282,13 @@ function arrangeCompositeChildItemPath(
     blockSizePx,
     listItemNumber: geometry.listItemNumber ?? null,
     attachmentBlockSizePx: geometry.attachmentBlockSizePx ?? null,
+    attachmentAnchorRightPx: geometry.attachmentAnchorRightPx ?? null,
   };
 
   const compositeChildRelationships: VisualElementRelationships = {};
   if (isAttachmentsItem(displayItem_childItem)) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
-    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath, geometry.attachmentBlockSizePx);
+    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath, geometry.attachmentBlockSizePx, geometry.attachmentAnchorRightPx);
     compositeChildRelationships.attachmentsPaths = attachments.paths;
     compositeChildVeSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
   } else {

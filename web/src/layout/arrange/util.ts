@@ -254,6 +254,7 @@ export function scaleGeometry(geometry: ItemGeometry, areaBoundsPx: BoundingBox,
     viewportBoundsPx: geometry.viewportBoundsPx == null ? null : scaleBoundsPx(geometry.viewportBoundsPx),
     blockSizePx: { w: geometry.blockSizePx.w * scale, h: geometry.blockSizePx.h * scale },
     attachmentBlockSizePx: geometry.attachmentBlockSizePx == null ? undefined : geometry.attachmentBlockSizePx * scale,
+    attachmentAnchorRightPx: geometry.attachmentAnchorRightPx == null ? undefined : geometry.attachmentAnchorRightPx * scale,
     // Hitbox bounds are relative to the item's bounds.
     hitboxes: geometry.hitboxes.map(hitbox => ({
       ...hitbox,
