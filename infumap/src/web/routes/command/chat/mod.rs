@@ -30,6 +30,7 @@ use uuid::Uuid;
 use super::scope::{ResolvedScope, resolve_scope};
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
+mod activity;
 mod backend;
 mod container_fragments;
 mod markdown;
@@ -38,6 +39,7 @@ mod search_results;
 // Loading, persisting and deleting transcripts are not wired up yet; see docs/persistent-chats.md.
 #[allow(dead_code)]
 mod transcript;
+use activity::ChatActivity;
 use backend::{
   ChatBackend, ChatEndpoint, ChatModelSelection, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends,
   resolve_chat_endpoint,
@@ -354,10 +356,15 @@ fn new_chat_request_id() -> String {
 struct ChatProgressReporter {
   request_id: String,
   tx: mpsc::Sender<Result<Frame<Bytes>, hyper::Error>>,
+  /// For a live chat turn: collects the activity from the events as they are sent, for its transcript.
+  activity: Option<Arc<Mutex<ChatActivity>>>,
 }
 
 impl ChatProgressReporter {
   async fn send(&self, kind: ChatStreamEventKind) {
+    if let Some(activity) = &self.activity {
+      activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).apply(&kind);
+    }
     let event = ChatStreamEvent { request_id: self.request_id.clone(), kind };
     let line = match serde_json::to_string(&event) {
       Ok(line) => format!("{line}\n"),
@@ -732,7 +739,8 @@ pub async fn serve_chat_stream_route(
   };
 
   let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(16);
-  let progress = ChatProgressReporter { request_id: stream_request_id, tx: tx.clone() };
+  let activity = live_turn.as_ref().map(|turn| turn.activity.clone());
+  let progress = ChatProgressReporter { request_id: stream_request_id, tx: tx.clone(), activity };
   let disconnect = tx.clone();
   let user_id = session.user_id.clone();
   let db = db.clone();
@@ -798,6 +806,8 @@ struct LiveChatTurn {
   started_at: i64,
   /// The number of history messages before this turn's user message.
   history_len: usize,
+  /// Filled in by the turn's progress reporter.
+  activity: Arc<Mutex<ChatActivity>>,
   ended: bool,
 }
 
@@ -815,8 +825,7 @@ impl LiveChatTurn {
     let record = TurnRecord {
       request_id: self.request_id.clone(),
       messages,
-      // Activity is collected in a later step; see docs/persistent-chats.md.
-      rounds: vec![],
+      rounds: self.activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).finished_rounds(),
       started_at: self.started_at,
       ended_at: unix_now_millis(),
       outcome,
@@ -923,7 +932,14 @@ async fn start_live_chat_turn(
     tool_calls: None,
   });
   request.messages = messages;
-  Ok(LiveChatTurn { transcript, request_id: request_id.to_owned(), started_at, history_len, ended: false })
+  Ok(LiveChatTurn {
+    transcript,
+    request_id: request_id.to_owned(),
+    started_at,
+    history_len,
+    activity: Arc::new(Mutex::new(ChatActivity::default())),
+    ended: false,
+  })
 }
 
 #[derive(Deserialize)]
@@ -1144,7 +1160,7 @@ fn single_chat_stream_event_response(
 ) -> Response<BoxBody<Bytes, hyper::Error>> {
   let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(1);
   tokio::spawn(async move {
-    let reporter = ChatProgressReporter { request_id, tx };
+    let reporter = ChatProgressReporter { request_id, tx, activity: None };
     reporter.send(event).await;
   });
   chat_stream_response(rx)
@@ -3201,6 +3217,27 @@ mod live_chat_tests {
     no_revision.expected_revision = None;
     assert!(f.start(&mut no_revision, "r").await.is_err());
     assert!(transcript::read_transcript(&f.data_dir, &f.session.user_id, &f.query_item_id).await.unwrap().is_none());
+  }
+
+  #[tokio::test]
+  async fn turn_records_the_activity_sent_so_far() {
+    let f = fixture().await;
+    let mut request = request(&f.query_item_id, 0, "q1");
+    let mut turn = f.start(&mut request, "r1").await.ok().unwrap();
+    let (tx, _rx) = mpsc::channel(16);
+    let progress = ChatProgressReporter { request_id: "r1".to_owned(), tx, activity: Some(turn.activity.clone()) };
+    progress.model_round_started(1).await;
+    progress.reasoning_delta(1, "thinking".to_owned()).await;
+    progress.tool_call_started(1, "c1", "search", serde_json::json!({ "text": "x" })).await;
+    turn.end(TurnOutcome::Cancelled, vec![], None).await.unwrap();
+    drop(turn);
+
+    let transcript = f.transcript().await;
+    let rounds = &transcript.turns[0].end.as_ref().unwrap().rounds;
+    assert_eq!(rounds.len(), 1);
+    assert_eq!(rounds[0].reasoning, "thinking");
+    assert!(rounds[0].complete);
+    assert_eq!(rounds[0].tool_calls[0].status, transcript::ActivityToolCallStatus::Running);
   }
 
   #[tokio::test]
