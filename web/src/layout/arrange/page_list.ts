@@ -524,7 +524,7 @@ export function arrange_list_page(
     const selectedIsPage = isPage(itemState.get(panelVeid.itemId)!);
     const canShiftLeft = arrangeFlagIsRoot(flags) && isPage(selectedItem);
     if (boundsPx.w >= MIN_RENDERED_NESTED_LIST_WIDTH_PX) {
-      pageRelationships.selectedPath = arrangeSelectedListItemPath(store, panelVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup, isPreview ? listScale : null);
+      pageRelationships.selectedPath = arrangeSelectedListItemPath(store, panelVeid, boundsPx, pageWithChildrenVePath, canShiftLeft, selectedIsPage, insidePopup, isPreview ? listScale : null, blockSizePx.w);
     }
   }
 
@@ -562,7 +562,8 @@ function activeMovingActualVeidMaybe(): Veid | null {
 /**
  * Arranges the selected item of a list page, in the area to the right of the list. If previewScale is set, the list
  * page is a non-interactive preview drawn at that scale, and the selected item is drawn as a miniature of how it is
- * shown at full size.
+ * shown at full size. listBlockSizePx is the block size of the list, which is used for the attachments of a selected
+ * page (rendered as a list page root).
  */
 export function arrangeSelectedListItem(
   store: StoreContextModel,
@@ -572,7 +573,8 @@ export function arrangeSelectedListItem(
   canShiftLeft: boolean,
   renderAsListPageRoot: boolean,
   insidePopup: boolean,
-  previewScale: number | null): VisualElementSignal | null {
+  previewScale: number | null,
+  listBlockSizePx: number): VisualElementSignal | null {
 
   const item = itemState.get(veid.itemId);
   if (!item) {
@@ -652,6 +654,7 @@ export function arrangeSelectedListItem(
       blockSizePx: previewScale == null
         ? NATURAL_BLOCK_SIZE_PX
         : { w: NATURAL_BLOCK_SIZE_PX.w * previewScale, h: NATURAL_BLOCK_SIZE_PX.h * previewScale },
+      attachmentBlockSizePx: renderAsListPageRoot ? listBlockSizePx : undefined,
     };
   } else {
     // A rating has nothing more to show when large, so is drawn at its natural size rather than filling the area.
@@ -692,9 +695,10 @@ export function arrangeSelectedListItemPath(
   canShiftLeft: boolean,
   renderAsListPageRoot: boolean,
   insidePopup: boolean,
-  previewScale: number | null): VisualElementPath | null {
+  previewScale: number | null,
+  listBlockSizePx: number): VisualElementPath | null {
 
-  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, renderAsListPageRoot, insidePopup, previewScale);
+  const selectedVes = arrangeSelectedListItem(store, veid, boundsPx, currentPath, canShiftLeft, renderAsListPageRoot, insidePopup, previewScale, listBlockSizePx);
   return selectedVes ? VeFns.veToPath(selectedVes.get()) : null;
 }
 

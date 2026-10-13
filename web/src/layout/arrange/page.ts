@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { LINE_HEIGHT_PX } from "../../constants";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
@@ -98,13 +99,14 @@ export const arrangePageWithChildren = (
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  if (!(arrangeFlagIsRoot(flags))) {
+  const attachmentsLayout = pageAttachmentsLayout(store, flags, effectiveArrange, geometry, pageSpec);
+  if (attachmentsLayout != null) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_pageWithChildren == null ? displayItem_pageWithChildren : linkItemMaybe_pageWithChildren);
-    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath, geometry.attachmentBlockSizePx, geometry.attachmentAnchorRightPx);
+    const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath, attachmentsLayout.blockSizePx, attachmentsLayout.anchorRightPx);
     pageRelationships.attachmentsPaths = attachments.paths;
     pageSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
-    pageSpec.attachmentBlockSizePx = geometry.attachmentBlockSizePx ?? null;
-    pageSpec.attachmentAnchorRightPx = geometry.attachmentAnchorRightPx ?? null;
+    pageSpec.attachmentBlockSizePx = attachmentsLayout.blockSizePx ?? null;
+    pageSpec.attachmentAnchorRightPx = attachmentsLayout.anchorRightPx ?? null;
   }
 
   if (flags & ArrangeItemFlags.InsideCompositeOrDoc) {
@@ -119,4 +121,39 @@ export const arrangePageWithChildren = (
     VesCache.table.setRenderRows(pageWithChildrenVePath, tableRenderRows);
   }
   return pageSignal;
+}
+
+
+/**
+ * The block size and right anchor to lay out the attachments of a page with, or null if they are not shown.
+ * Undefined values mean the defaults (block size implied by the page's bounds, anchored at its right edge).
+ */
+function pageAttachmentsLayout(
+  store: StoreContextModel,
+  flags: ArrangeItemFlags,
+  effectiveArrange: ArrangeAlgorithm,
+  geometry: ItemGeometry,
+  pageSpec: VisualElementSpec): { blockSizePx: number | undefined, anchorRightPx: number | undefined } | null {
+
+  if (!arrangeFlagIsRoot(flags)) {
+    return { blockSizePx: geometry.attachmentBlockSizePx, anchorRightPx: geometry.attachmentAnchorRightPx };
+  }
+
+  if (flags & ArrangeItemFlags.IsDockRoot) { return null; }
+
+  // A page whose title is shown in the toolbar (the top root, and the selected pages of top level list pages). Its top
+  // edge is the bottom of the toolbar. If the toolbar is hidden (e.g. for presentations), attachments are not shown.
+  const isTopTitled = !(flags & ArrangeItemFlags.IsPopupRoot) && geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
+  if (isTopTitled && store.topToolbarHeightPx() == 0) { return null; }
+
+  const blockSizePx = (isTopTitled || (flags & ArrangeItemFlags.IsPopupRoot))
+    ? LINE_HEIGHT_PX
+    : geometry.attachmentBlockSizePx;
+
+  // The selected item of a list page is shown to the right of the list, so attachments are aligned to the list.
+  const anchorRightPx = (effectiveArrange == ArrangeAlgorithm.List && pageSpec.listViewportBoundsPx != null)
+    ? pageSpec.listViewportBoundsPx.w
+    : geometry.attachmentAnchorRightPx;
+
+  return { blockSizePx, anchorRightPx };
 }
