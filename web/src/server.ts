@@ -304,11 +304,11 @@ export interface LoadChatResponse {
 }
 
 export interface ContinueChatResponse {
-  /** The new current chat. */
+  /** The new chat history entry, selected after Continue. */
   queryItem: object,
-  /** The previous current chat, now an earlier chat. */
+  /** A previously pinned chat moved into history while preparing New Query. */
   unpinnedQueryItemId: Uid | null,
-  /** The previous current chat, deleted because it had never been used. */
+  /** Retained for existing clients; Continue no longer deletes New Query. */
   deletedQueryItemId: Uid | null,
 }
 
@@ -378,6 +378,11 @@ interface MutationCommandResponse {
   syncAck?: ContainerSyncAck,
 }
 
+export interface EnsureQueryEntryResponse {
+  queryItem: object,
+  archivedQueryItems: Array<object>,
+}
+
 interface EmptyTrashCommandResponse extends EmptyTrashResult {
   syncAck?: ContainerSyncAck,
 }
@@ -423,6 +428,7 @@ const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_SCOPES = "list-scopes";
 const COMMAND_LOAD_CHAT = "load-chat";
+const COMMAND_ENSURE_QUERY_ENTRY = "ensure-query-entry";
 const COMMAND_GET_BACKLINKS = "get-backlinks";
 const COMMAND_CHAT = "chat";
 const COMMAND_EMPTY_TRASH = "empty-trash";
@@ -469,6 +475,9 @@ function getCommandDescription(command: string, payload: any): { description: st
     case COMMAND_CHAT:
       description = "Generating query response";
       break;
+    case COMMAND_ENSURE_QUERY_ENTRY:
+      description = "Preparing New Query";
+      break;
     case COMMAND_EMPTY_TRASH:
       description = "Emptying trash";
       break;
@@ -489,6 +498,7 @@ const inProgressReadCommands: Array<ServerCommand> = [];
 const inProgressStreamingCommands: Array<ServerCommand> = [];
 const MUTATION_COMMANDS = new Set<string>([
   COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_CONVERT_PAGE_TABLE, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH,
+  COMMAND_ENSURE_QUERY_ENTRY,
 ]);
 let pendingMutationCommands = 0;
 let nextNetworkRequestId = 1;
@@ -1014,6 +1024,15 @@ export const server = {
 
   listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {
     return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null, networkStatus);
+  },
+
+  ensureQueryEntry: async (firstTurnQueryItemId: Uid | null, networkStatus: NumberSignal): Promise<EnsureQueryEntryResponse> => {
+    return constructCommandPromise(
+      null, COMMAND_ENSURE_QUERY_ENTRY, { firstTurnQueryItemId }, null, networkStatus,
+    ).then((response: EnsureQueryEntryResponse & { syncAck?: ContainerSyncAck }) => {
+      applySyncAck(response.syncAck);
+      return response;
+    });
   },
 
   /** A live chat's transcript, for the chat view. A query item without one loads as an empty chat. */

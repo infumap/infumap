@@ -20,9 +20,8 @@ import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
 import { Item } from "../items/base/item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { QueryFns, asQueryItem, isQueryItem } from "../items/query-item";
+import { ensureQueryEntryUnderQueries } from "../items/query-entry";
 import { sourceTextItemForVirtualTextDocumentPage, textDocumentUrl } from "../items/text-document";
-import { SearchFlags } from "../items/base/flags-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
@@ -305,41 +304,10 @@ export async function ensureQueryItemUnderQueries(store: StoreContextModel, quer
 
   await initiateLoadChildItemsMaybe(store, { itemId: queriesPageId, linkIdMaybe: null });
 
-  // The pinned query item is the current chat; unpinned ones are earlier chats. See docs/persistent-chats.md.
-  const queriesPage = asPageItem(itemState.get(queriesPageId)!);
-  const queryItems = queriesPage.computed_children
-    .map(childId => itemState.get(childId))
-    .filter(isQueryItem)
-    .map(child => asQueryItem(child));
-  const pinned = queryItems.find(child => (child.flags & SearchFlags.ListPagePinTop) != 0);
-  if (pinned != null) {
-    return pinned.id;
-  }
-  // Data from before chats were kept had one query item, which may not be pinned. An untitled one has never been
-  // used for a chat, so it can be the current chat.
-  const unused = queryItems.length == 1 && queryItems[0].title == "" ? queryItems[0] : null;
-  if (unused != null) {
-    unused.flags &= ~SearchFlags.ListPagePinBottom;
-    unused.flags |= SearchFlags.ListPagePinTop;
-    void server.updateItem(unused, store.general.networkStatus);
-    return unused.id;
-  }
-
-  const queryItem = QueryFns.create(
-    queriesPage.ownerId,
-    queriesPageId,
-    RelationshipToParent.Child,
-    itemState.newOrderingAtBeginningOfChildren(queriesPageId),
-  );
-  queryItem.flags |= SearchFlags.ListPagePinTop;
-  itemState.add(queryItem);
-
   try {
-    await server.addItem(queryItem, null, store.general.networkStatus);
-    return queryItem.id;
+    return (await ensureQueryEntryUnderQueries(store, queriesPageId))?.queryItemId ?? null;
   } catch (e) {
-    console.error("Failed to create default query item under Queries page:", e);
-    itemState.delete(queryItem.id);
+    console.error("Failed to ensure New Query under the Queries page:", e);
     return null;
   }
 }
