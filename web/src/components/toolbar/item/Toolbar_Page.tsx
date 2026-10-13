@@ -671,7 +671,7 @@ export const Toolbar_Page: Component = () => {
       </Show>
 
       <Show when={sourceChatItem() != null}>
-        <div ref={continueChatDiv} class="inline-block" onMouseDown={handleContinueChatDown}>
+        <div ref={continueChatDiv} class="inline-block ml-[5px]" onMouseDown={handleContinueChatDown}>
           <InfuIconButton icon="fa fa-comments" highlighted={false} clickHandler={handleContinueChat} title="Continue chat" />
         </div>
       </Show>
