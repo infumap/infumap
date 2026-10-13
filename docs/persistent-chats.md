@@ -25,9 +25,9 @@ continue them.
   new uid (see below). A persisted chat is never continued in place.
 
 Only query items under the Queries page have transcripts. Query items are only created there
-(`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), but no input code stops one
-being dragged out today, so existing data may have query items elsewhere. They get no transcript. Once the server
-guards chat moves (see "Persisting"), a query item can only leave the page by being persisted or trashed.
+(`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), and the server already keeps
+them there (see "The server guards chat moves"), so a query item elsewhere can only come from data older than that
+guard. It gets no transcript.
 
 ### Why transcripts are outside the object store
 
@@ -77,10 +77,19 @@ The MIME type is set explicitly, not detected. Detection from the bytes would gi
 pipeline indexes `text/plain` ([search_processing.rs](../infumap/src/ai/search_processing.rs)). The dedicated type
 is ignored by indexing until chat indexing is added, and is how the client recognizes a `.chat` item.
 
-**The server guards chat moves.** Persist is triggered by a client drop, but other paths can change an item's
-parent (a generic item update, cut and paste, keyboard commands). The server rejects any change that moves a chat
-query item out of the Queries page other than into the trash; persist is the only way out. Otherwise a query item
-with a transcript could end up somewhere its chat cannot be reached.
+**The server guards chat moves.** A guard already exists, stricter than needed: every query item under the
+Queries page is sent to the client with `capabilities: { move: false, resize: false }`, and `handle_update_item`
+rejects any change to its parent, relationship or ordering (`is_queries_page_query_item` and
+`item_move_fields_changed_to_disallowed_layout` in [command/mod.rs](../infumap/src/web/routes/command/mod.rs);
+[item_ops.rs](../infumap/src/web/routes/command/item_ops.rs)). Flag and title changes are allowed. Keep it for
+generic updates, so no path other than persist can take a chat out of the page, and relax it in two ways:
+
+- An unpinned chat query item may be moved into the trash, which is how it is deleted.
+- The client may start a drag on an unpinned chat query item despite `move: false`. Dropping it outside the Queries
+  page calls persist rather than sending an ordinary move. Dropping it back inside the page does nothing, since
+  ordering changes stay rejected.
+
+The pinned query item stays fixed.
 
 A failure or crash before step 2 leaves the live chat untouched and an orphan blob, as a failed upload does today.
 A crash between steps 2 and 3 leaves a persisted copy and the live chat, both valid; the user deletes one. A crash
@@ -202,9 +211,10 @@ behavior.
   item, which stays in the list as the newest history entry, and creates a new pinned query item. It is disabled
   while a turn is running. `ensureQueryItemUnderQueries` changes to find the pinned query item rather than the
   first one, and creates one if none is pinned.
-- **History entries** are the unpinned query items, newest first: an unpinned item is ordered directly after the
-  pinned one. Selecting one shows its chat, which can be continued. Unpinned items are chat only; their search mode
-  is hidden.
+- **History entries** are the unpinned query items, newest first. No reordering is needed, which matters because
+  the server rejects ordering changes for these items: each new pinned query item is created at the beginning of the
+  page's children, so once unpinned it already sorts before every older chat. Unpinning only changes flags.
+  Selecting one shows its chat, which can be continued. Unpinned items are chat only; their search mode is hidden.
 - **Restoring a chat** loads its transcript and puts the settings of its last turn (model selection,
   capabilities, scope, mode) into the query runtime, so continuing it does not silently switch to whatever was
   last used elsewhere. The context token display starts from the last reported count. Today it is estimated from the
@@ -263,9 +273,12 @@ Scopes constrain retrieval, not information already copied into a conversation. 
 different scope retains its previous answers and tool results in the model history, and a persisted chat's
 searchable text follows the scope of that item, not the scopes of its original sources. Document this.
 
-Live chats are items, so once query items have titles, title search may cover them through the existing title
-indexing (not checked). Indexing live chat content is deferred: the content changes on every turn, so its
-fragments would be regenerated repeatedly, and the Queries page list already covers finding a recent chat.
+Live chat titles are title-indexed: title indexing covers any item with a non-empty title
+(`item_title_fragment_for_item` in [title.rs](../infumap/src/ai/fragment/sources/title.rs)), and query items have
+titles since step 2. That includes the model's `search` tool. The titles are a few words of the first prompt (or a
+generated title), not answers, so this does not reintroduce the problem of a model citing its own earlier answers;
+revisit if it turns out to be noise. Indexing live chat content is deferred: the content changes on every turn, so
+its fragments would be regenerated repeatedly, and the Queries page list already covers finding a recent chat.
 
 ## Other details
 
@@ -314,7 +327,8 @@ the chat route ignores requests without a query item id.
      the pinned one instead (step 6). It is also what selects the current chat on entering the Queries page.
    - Found along the way, now in the design: the Scopes page is pinned to the bottom of the Queries page; the list
      line item has a hard-coded "Query" label; a server-side title on query items needs a default for existing
-     records; query items can be dragged out of the Queries page today.
+     records. (This step also said query items could be dragged out of the Queries page today. That was wrong: the
+     server already makes them non-movable, found during step 2.)
    Still unverified until step 6 runs: selection and focus behavior with several query items in the list.
 1. **Server chat store.** Read, append and delete for `user_{id}/chats/{query_item_id}.chat`, with per-chat
    locking, synced appends, revisions as `user` record counts, incomplete-tail repair, and interrupted turns
@@ -322,6 +336,9 @@ the chat route ignores requests without a query item id.
    Done 2026-10-13: [transcript.rs](../infumap/src/web/routes/command/chat/transcript.rs).
 2. **Query item titles.** Add query items to `is_titled_item_type` with a missing title defaulting to empty on the
    server and client, and show the title in `Query_LineItem`, falling back to "Query".
+   Done 2026-10-13: [infusdk item/mod.rs](../infusdk/src/item/mod.rs),
+   [search-item.ts](../web/src/items/search-item.ts), [titled-item.ts](../web/src/items/base/titled-item.ts),
+   [Query_LineItem.tsx](../web/src/components/items/Query_LineItem.tsx). There is no rename UI for query items yet.
 3. **Chat route writes transcripts.** The request takes a query item id, request id, expected revision and user
    text. Validate the query item, reject stale submissions before appending, create the file on the first turn,
    sync the `user` record, rebuild history from completed turns, and record the outcome on completion, error or
@@ -334,16 +351,15 @@ the chat route ignores requests without a query item id.
    item id and holds no message list; selecting a query item restores its transcript, settings and token count;
    New chat replaces Clear, unpinning the current query item and creating a new pinned one;
    `ensureQueryItemUnderQueries` finds the pinned item; search mode is hidden on unpinned items; the derived title
-   is set on the first turn; revision conflicts refresh while preserving the draft. Add the server guard on chat
-   query item moves.
-7. **Delete.** Remove the transcript on permanent deletion of its query item, and remove orphan transcripts at
-   startup.
+   is set on the first turn; revision conflicts refresh while preserving the draft.
+7. **Delete.** Let the server guard accept moving an unpinned chat query item into the trash. Remove the
+   transcript on permanent deletion of its query item, and remove orphan transcripts at startup.
 8. **Generated titles.** A server title endpoint over capped visible text, applied only to derived titles. Call it
    when New chat unpins a chat (and later Continue). Move the title prompt to the server.
 9. **Persist.** A server endpoint takes the query item id and the drop placement, generates a title if it is still
-   the derived one, runs the persist sequence with the dedicated MIME type, and returns the new item. Dropping a
-   chat query item outside the Queries page (other than into the trash) calls it. Remove the whole-chat Materialize
-   button.
+   the derived one, runs the persist sequence with the dedicated MIME type, and returns the new item. Let the client
+   start a drag on an unpinned chat query item despite `move: false`; dropping it outside the Queries page (other
+   than into the trash) calls persist. Remove the whole-chat Materialize button.
 10. **`.chat` document page.** Read-only, text only. Extend the load endpoint to `.chat` items, reading the content
     from the object store.
 11. **Continue and move back.** A server endpoint copies a `.chat` item into a new pinned query item with a fresh

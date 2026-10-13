@@ -32,10 +32,12 @@ import { FlagsMixin, SearchFlags } from "./base/flags-item";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
 import { ClientOnlyItemKind, Item, ItemType, ItemTypeMixin, LEGACY_SEARCH_ITEM_TYPE } from "./base/item";
 import { PositionalMixin } from "./base/positional-item";
+import { TitledMixin } from "./base/titled-item";
 import { XSizableMixin } from "./base/x-sizeable-item";
 
 
 const DEFAULT_WIDTH_GR = GRID_SIZE * 4;
+const UNTITLED_QUERY_DISPLAY_TITLE = "Query";
 export const SEARCH_WORKSPACE_TOP_INSET_PX = 25;
 export const SEARCH_WORKSPACE_SIDE_INSET_PX = 26;
 export const SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX = 44;
@@ -131,7 +133,7 @@ export function calcSearchWorkspaceResultsBoundsPx(boundsPx: BoundingBox): Bound
   };
 }
 
-export interface SearchItem extends SearchMeasurable, Item { }
+export interface SearchItem extends SearchMeasurable, TitledMixin, Item { }
 export interface SearchMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, FlagsMixin { }
 
 
@@ -151,6 +153,7 @@ export const SearchFns = {
       dateTime: currentUnixTimeSeconds(),
       endDateTime: null,
       ordering,
+      title: "",
       flags: SearchFlags.None,
       spatialPositionGr: { x: 0.0, y: 0.0 },
       spatialWidthGr: DEFAULT_WIDTH_GR,
@@ -172,6 +175,7 @@ export const SearchFns = {
       dateTime: o.dateTime,
       endDateTime: o.endDateTime ?? null,
       ordering: new Uint8Array(o.ordering),
+      title: o.title ?? "",
       flags: o.flags ?? SearchFlags.None,
       spatialPositionGr: o.spatialPositionGr ?? { x: 0.0, y: 0.0 },
       spatialWidthGr: o.spatialWidthGr ?? DEFAULT_WIDTH_GR,
@@ -191,6 +195,7 @@ export const SearchFns = {
       dateTime: search.dateTime,
       endDateTime: search.endDateTime,
       ordering: Array.from(search.ordering),
+      title: search.title,
       flags: search.flags,
       spatialPositionGr: search.spatialPositionGr,
       spatialWidthGr: search.spatialWidthGr,
@@ -339,8 +344,13 @@ export const SearchFns = {
   },
 
   getFingerprint: (searchItem: SearchItem): string => {
-    return `${searchItem.flags}`;
-  }
+    return `${searchItem.flags}~~~!@#~~~${searchItem.title}`;
+  },
+
+  /** The title shown for the item, which is a placeholder until it has one. */
+  displayTitle: (searchItem: SearchItem): string => {
+    return searchItem.title == "" ? UNTITLED_QUERY_DISPLAY_TITLE : searchItem.title;
+  },
 };
 
 
