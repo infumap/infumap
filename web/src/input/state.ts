@@ -69,6 +69,8 @@ export interface TextDocumentMaterializeMoveState {
 
 export interface ItemCopyMoveState {
   pendingItemId: string,
+  /** Copies of the item's descendants (children, and their children and attachments), parents first. */
+  pendingDescendantIds: Array<string>,
 }
 
 export interface CalendarRangeResizeState {

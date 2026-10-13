@@ -94,6 +94,8 @@ interface MovePersistOperation {
 interface MoveRollbackContext {
   snapshot: Array<MoveRollbackSnapshotEntry>,
   activeTreeItemId: string | null,
+  /** Copies of the dragged item's descendants, parents first, for a copy-drag. Removed before the item. */
+  copiedDescendantIds: Array<string>,
   newPlaceholderItemId: string | null,
   rollbackExtras: (() => void) | null,
   activeTreeItemServerCleanupHandledByOps: boolean,
@@ -419,9 +421,31 @@ function enqueueUpdateItem(
   const itemCopyMove = MouseActionState.getItemCopyMove();
   if (itemCopyMove?.pendingItemId == item.id) {
     const snapshot = cloneItemSnapshot(item);
+    const descendantIds = [...itemCopyMove.pendingDescendantIds];
+    const deleteFromServer = async (ids: Array<string>) => {
+      for (const id of [...ids].reverse()) {
+        await server.deleteItem(id, store.general.networkStatus).catch(e => console.error(`Could not delete copy '${id}':`, e));
+      }
+    };
     ops.push({
-      apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
-      rollback: () => server.deleteItem(snapshot.id, store.general.networkStatus),
+      apply: async () => {
+        const added: Array<string> = [];
+        try {
+          await server.addItem(snapshot, null, store.general.networkStatus);
+          added.push(snapshot.id);
+          for (const id of descendantIds) {
+            const descendant = itemState.get(id);
+            if (descendant == null) { continue; }
+            await server.addItem(cloneItemSnapshot(descendant), null, store.general.networkStatus);
+            added.push(id);
+          }
+        } catch (e) {
+          // Not a completed operation, so it is not rolled back with the others: undo what it added.
+          await deleteFromServer(added);
+          throw e;
+        }
+      },
+      rollback: () => deleteFromServer([snapshot.id, ...descendantIds]),
     });
     return;
   }
@@ -573,6 +597,7 @@ function captureMoveRollbackContext(rollbackExtras: (() => void) | null = null):
       ordering: new Uint8Array(entry.ordering),
       spatialPositionGr: { ...entry.spatialPositionGr },
     })),
+    copiedDescendantIds: [...(MouseActionState.getItemCopyMove()?.pendingDescendantIds ?? [])],
     activeTreeItemId: activeElementPath != null
       ? (() => {
         const veid = VeFns.veidFromPath(activeElementPath);
@@ -610,6 +635,11 @@ function captureMoveFinalizeContext(): MoveFinalizeContext {
 
 function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, deleteCreatedTreeItemOnServer: boolean = true): void {
   const rollbackIds = new Set(context.snapshot.map(entry => entry.id));
+  for (const id of [...context.copiedDescendantIds].reverse()) {
+    if (itemState.get(id) != null) {
+      itemState.delete(id);
+    }
+  }
   if (context.activeTreeItemId != null && !rollbackIds.has(context.activeTreeItemId) && itemState.get(context.activeTreeItemId) != null) {
     itemState.delete(context.activeTreeItemId);
     if (deleteCreatedTreeItemOnServer) {
