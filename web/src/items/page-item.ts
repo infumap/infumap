@@ -904,7 +904,8 @@ export const PageFns = {
     return page.arrangeAlgorithm == ArrangeAlgorithm.Document ||
       page.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
       page.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
-      page.arrangeAlgorithm == ArrangeAlgorithm.Catalog;
+      page.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
+      page.arrangeAlgorithm == ArrangeAlgorithm.List;
   },
 
   calcNonSpatialPopupBlockSizePxMaybe: (page: PageItem, childAreaBoundsPx: BoundingBox): Dimensions | null => {
@@ -914,7 +915,8 @@ export const PageFns = {
       case ArrangeAlgorithm.Grid:
       case ArrangeAlgorithm.Justified:
       case ArrangeAlgorithm.Catalog:
-        // Children are scaled to fit their cells, so there is no page block size. Use the natural one.
+      case ArrangeAlgorithm.List:
+        // Children are scaled to fit their cells (or drawn as list rows), so there is no page block size. Use the natural one.
         return { w: NATURAL_BLOCK_SIZE_PX.w, h: NATURAL_BLOCK_SIZE_PX.h };
       default:
         return null;
