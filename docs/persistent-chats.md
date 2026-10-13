@@ -486,8 +486,10 @@ the chat route ignores requests without a query item id.
     [data.md](data.md) describes `chats/` as primary data that is not backed up, regenerated or encrypted;
     [security.md](security.md) and [scopes.md](scopes.md) note the plaintext storage and the scope limit; and
     [chat-tools.md](chat-tools.md) describes the server-kept transcript, the exclusion of persisted chats from
-    `search`, and `get_fragment` on a `.chat` item. Not done: the design asked for the backup caveat in the UI too;
-    nothing in the UI says it yet.
+    `search`, and `get_fragment` on a `.chat` item. The backup caveat is also in the UI: a muted crossed-out cloud
+    with an explanatory tooltip in the settings row of a chat in the Queries page that has content.
+    Also done afterwards: turns on a `.chat` item's page can be shift-dragged out, as in the chat window (turn roots
+    there get `readonlyCopyableCapabilities` in `createChatDocumentItems`).
 15. **Turn dropdowns on `.chat` pages** (later). Generalize activity ownership to document pages, with anchors for
     unsuccessful turns.
 

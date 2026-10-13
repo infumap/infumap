@@ -49,8 +49,9 @@ you only want one.
 
 ## Copying part of a chat
 
-Hover a turn in a chat to show its handle, then shift-drag the handle onto a page. The turn is copied there as
-editable items: your message, or the response with its text, tables and lists. The chat is unchanged.
+Hover a turn in a chat, or on a `.chat` item's page, to show its handle, then shift-drag the handle onto a page. The
+turn is copied there as editable items: your message, or the response with its text, tables and lists. The chat is
+unchanged.
 
 ## Search
 
@@ -63,7 +64,8 @@ editable items: your message, or the response with its text, tables and lists. T
 ## Things to know
 
 - **Chats in the Queries page are not backed up.** They are kept in the server's data directory, not in your items,
-  so backups do not include them, and losing the data directory loses them. Surviving a reload does not mean a chat
+  so backups do not include them, and losing the data directory loses them. The crossed-out cloud next to a chat's
+  settings is this reminder. Surviving a reload does not mean a chat
   is safe. Keep a chat to store it with your items: its content is then held in the object store like any other file.
 - **Chats in the Queries page are not encrypted on disk.** Unlike your files in the object store, they are stored as
   plain text in the data directory. See [Security](security.md).
