@@ -401,6 +401,16 @@ impl LockedTranscript {
     Ok(())
   }
 
+  /// The file's bytes: its complete records, since taking the lock truncated any incomplete last line.
+  pub(super) async fn bytes(&self) -> InfuResult<Vec<u8>> {
+    Ok(fs::read(&self.path).await?)
+  }
+
+  /// Removes the file, under the lock.
+  pub(super) async fn remove(self) -> InfuResult<()> {
+    remove_file_if_present(&self.path).await
+  }
+
   pub(super) async fn append_user(&mut self, user: UserRecord) -> InfuResult<()> {
     self.append(TranscriptRecord::User(user)).await
   }
@@ -599,6 +609,13 @@ mod tests {
     serde_json::to_value(transcript.history()).unwrap()
   }
 
+  /// Appends bytes directly, as a failed or foreign write would. Synchronous, so the bytes are in the file when this
+  /// returns: a dropped tokio file finishes its last write in the background.
+  fn append_raw(path: &Path, bytes: &[u8]) {
+    use std::io::Write as _;
+    std::fs::OpenOptions::new().append(true).open(path).unwrap().write_all(bytes).unwrap();
+  }
+
   async fn file_len(path: &Path) -> u64 {
     fs::metadata(path).await.unwrap().len()
   }
@@ -668,10 +685,7 @@ mod tests {
     locked.append_user(user("r1", "first")).await.unwrap();
     drop(locked);
     let complete = file_len(&f.path()).await;
-    {
-      let mut file = fs::OpenOptions::new().append(true).open(f.path()).await.unwrap();
-      file.write_all(b"{\"type\":\"turn\",\"requestId\":\"r1\",\"mess").await.unwrap();
-    }
+    append_raw(&f.path(), b"{\"type\":\"turn\",\"requestId\":\"r1\",\"mess");
 
     let transcript = f.read().await.unwrap();
     assert_eq!(transcript.revision(), 1);
@@ -691,10 +705,7 @@ mod tests {
     let mut locked = f.create().await;
     locked.append_user(user("r1", "first")).await.unwrap();
     drop(locked);
-    {
-      let mut file = fs::OpenOptions::new().append(true).open(f.path()).await.unwrap();
-      file.write_all(b"not json\n").await.unwrap();
-    }
+    append_raw(&f.path(), b"not json\n");
     assert!(read_transcript(f.data_dir(), &f.user_id, &f.query_item_id).await.is_err());
     assert!(try_lock_transcript(f.data_dir(), &f.user_id, &f.query_item_id).await.is_err());
   }

@@ -139,6 +139,19 @@ pub async fn add_item_for_user(
   base64_data_maybe: &Option<String>,
   session_user_id: &str,
 ) -> InfuResult<Option<String>> {
+  add_item_for_user_with_mime_type(db, object_store, json_data, base64_data_maybe, session_user_id, None).await
+}
+
+/// Adds an item as `add_item_for_user` does. A data item gets `mime_type` if given, rather than one detected from its
+/// data, for formats detection cannot tell apart, such as a chat transcript (JSONL, which detects as text/plain).
+pub(super) async fn add_item_for_user_with_mime_type(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  json_data: &str,
+  base64_data_maybe: &Option<String>,
+  session_user_id: &str,
+  mime_type: Option<&str>,
+) -> InfuResult<Option<String>> {
   let session_user_id = session_user_id.to_owned();
 
   let deserializer = serde_json::Deserializer::from_str(json_data);
@@ -395,7 +408,7 @@ pub async fn add_item_for_user(
         .into(),
       );
     }
-    item.mime_type = Some(detect_data_item_mime_type(&item, &decoded));
+    item.mime_type = Some(mime_type.map(str::to_owned).unwrap_or_else(|| detect_data_item_mime_type(&item, &decoded)));
     let object_encryption_key = object_encryption_key_maybe
       .as_ref()
       .ok_or("Internal error: encryption key should have been set for data item.")?;
