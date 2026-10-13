@@ -481,6 +481,13 @@ the chat route ignores requests without a query item id.
     end: a persisted chat's fragments held only the visible conversation, startup reconciliation accepted them, and
     the user's search found the chat by words only in its content.
 14. **Docs.** Backup and durability of live chats, encryption, scope limitations, [chat-tools.md](chat-tools.md).
+    Done 2026-10-13: a user guide, [chats.md](chats.md), linked from the docs index, covers the current and earlier
+    chats, deleting, keeping, continuing, copying turns, search, and the backup, encryption and scope caveats.
+    [data.md](data.md) describes `chats/` as primary data that is not backed up, regenerated or encrypted;
+    [security.md](security.md) and [scopes.md](scopes.md) note the plaintext storage and the scope limit; and
+    [chat-tools.md](chat-tools.md) describes the server-kept transcript, the exclusion of persisted chats from
+    `search`, and `get_fragment` on a `.chat` item. Not done: the design asked for the backup caveat in the UI too;
+    nothing in the UI says it yet.
 15. **Turn dropdowns on `.chat` pages** (later). Generalize activity ownership to document pages, with anchors for
     unsuccessful turns.
 

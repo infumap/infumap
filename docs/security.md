@@ -71,6 +71,11 @@ Infumap is written in Rust.  Lessens risk of memory safety vulnerabilities, lang
 
 Implemented.
 
+Chats in the Queries page are an exception: they are stored as plain text in the data directory
+(`user_<user_id>/chats/`), not in the object store, until they are dragged out into the item tree. They are primary data,
+not derived from encrypted originals as the search artifacts in the data directory are. See [Chats](chats.md) and
+[Data](data.md#chats).
+
 
 ## SSH keys.
 

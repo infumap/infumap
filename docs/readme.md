@@ -1,6 +1,7 @@
 # Infumap
 
 - [Backlinks](backlinks.md)
+- [Chats](chats.md)
 - [CLI](cli.md)
 - [Configuration](configuration.md)
 - [Developer](developer.md)

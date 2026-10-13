@@ -23,6 +23,11 @@ quotes or brackets or followed by punctuation, whole numbers as strings, and nea
 `query` for `text` or `ordinal` for `fragmentOrdinal`. A value that still cannot be used is an error,
 not ignored.
 
+The transcript is kept on the server, one file per chat (see [Chats](chats.md) and
+`docs/persistent-chats.md`). Each request carries only the new message; the server builds the model's history from
+the transcript. A turn that is stopped or fails is recorded but contributes nothing to later history, not even its
+question, so the history never has two user messages in a row.
+
 Tool results stay whole in the transcript for the rest of the chat. Earlier turns' results used to
 be replaced by short stubs from the next question on, to keep context small and the model focused.
 That was dropped: a weak model answered follow-ups from the stubs instead of calling the tool again,
@@ -53,6 +58,9 @@ applies it:
   children and attachments outside the scope, and a link whose target is outside it is shown as
   `(unavailable link)`.
 
+A scope limits retrieval only. A chat continued under a different scope keeps earlier answers and tool results in its
+history, and a persisted chat's searchable text follows where its `.chat` item is, not the scopes of what it quotes.
+
 Search locations and fragment breadcrumbs are not filtered. Every ancestor of an excluded item is itself
 excluded, so they never reveal excluded content; they can only name containers above an include root,
 and a parent outside the scope is named without a link. The system prompt names the active scope, so
@@ -65,7 +73,12 @@ Infumap data source is disabled.
 { "text": "acme onboarding", "within": "<optional page or table link>", "pageNum": 1 }
 ```
 
-`text` is required. Results come 10 to a page; `pageNum` defaults to 1. There is no argument for the
+`text` is required. Results come 10 to a page; `pageNum` defaults to 1.
+
+Persisted chats (`.chat` items) are never returned, by the tool, `POST /chat/tool` or `infumap tool search`.
+Otherwise a model finds its own earlier answers, including made-up ones, and cites them as sources; weak models do
+this most. The search box in the UI does return them. Chats in the Queries page are outside the home page tree, so
+no search returns them. There is no argument for the
 number of results: a weak model does not know how many it needs and asks for the most it can, while
 paging lets it fetch more only when it does.
 
@@ -179,6 +192,7 @@ first. The fragments depend on the item:
 | Page, table, composite, group | Its items as lines of text, built on demand (below). |
 | Note | Its text, built on demand (below). |
 | File, text, image | Stored when the document was processed; each is cut at 2,500 characters, ending `… (cut at 2500 characters)`. |
+| `.chat` item | Stored like a text item's: its visible conversation, each message and completed answer, without tool results or reasoning. |
 
 Other items, such as ratings and dividers, have no readable text.
 
