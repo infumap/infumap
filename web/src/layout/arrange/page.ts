@@ -102,9 +102,9 @@ export const arrangePageWithChildren = (
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const attachmentsLayout = pageAttachmentsLayout(store, flags, effectiveArrange, geometry, pageSpec);
+  const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_pageWithChildren == null ? displayItem_pageWithChildren : linkItemMaybe_pageWithChildren);
+  const attachmentsLayout = pageAttachmentsLayout(store, flags, effectiveArrange, geometry, pageSpec, geometry.viewportBoundsPx!.w / parentItemSizeBl.w);
   if (attachmentsLayout != null) {
-    const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_pageWithChildren == null ? displayItem_pageWithChildren : linkItemMaybe_pageWithChildren);
     const attachments = arrangeItemAttachments(store, displayItem_pageWithChildren.computed_attachments, parentItemSizeBl, geometry.viewportBoundsPx!, pageWithChildrenVePath, attachmentsLayout.blockSizePx, attachmentsLayout.anchorRightPx);
     pageRelationships.attachmentsPaths = attachments.paths;
     pageSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
@@ -141,16 +141,22 @@ export const arrangePageWithChildren = (
 }
 
 
+// Space between the right-most attachment slot and the edge of the window, or the line between a list and its
+// selected item, as a proportion of the block size.
+const ATTACHMENTS_ANCHOR_INSET_BL = 0.25;
+
 /**
  * The block size and right anchor to lay out the attachments of a page with, or null if they are not shown.
- * Undefined values mean the defaults (block size implied by the page's bounds, anchored at its right edge).
+ * Undefined values mean the defaults (block size implied by the page's bounds, i.e. impliedBlockSizePx, anchored at
+ * its right edge).
  */
 function pageAttachmentsLayout(
   store: StoreContextModel,
   flags: ArrangeItemFlags,
   effectiveArrange: ArrangeAlgorithm,
   geometry: ItemGeometry,
-  pageSpec: VisualElementSpec): { blockSizePx: number | undefined, anchorRightPx: number | undefined } | null {
+  pageSpec: VisualElementSpec,
+  impliedBlockSizePx: number): { blockSizePx: number | undefined, anchorRightPx: number | undefined } | null {
 
   if (!arrangeFlagIsRoot(flags)) {
     return { blockSizePx: geometry.attachmentBlockSizePx, anchorRightPx: geometry.attachmentAnchorRightPx };
@@ -168,9 +174,16 @@ function pageAttachmentsLayout(
     : geometry.attachmentBlockSizePx;
 
   // The selected item of a list page is shown to the right of the list, so attachments are aligned to the list.
-  const anchorRightPx = (effectiveArrange == ArrangeAlgorithm.List && pageSpec.listViewportBoundsPx != null)
-    ? pageSpec.listViewportBoundsPx.w
+  const isAlignedToList = effectiveArrange == ArrangeAlgorithm.List && pageSpec.listViewportBoundsPx != null;
+  let anchorRightPx = isAlignedToList
+    ? pageSpec.listViewportBoundsPx!.w
     : geometry.attachmentAnchorRightPx;
+
+  // Unlike the right edge of an item, the edge of the window and the line between a list and its selected item
+  // aren't strong visual boundaries, so attachments right up against them look cramped.
+  if (isTopTitled || isAlignedToList) {
+    anchorRightPx = (anchorRightPx ?? geometry.viewportBoundsPx!.w) - ATTACHMENTS_ANCHOR_INSET_BL * (blockSizePx ?? impliedBlockSizePx);
+  }
 
   return { blockSizePx, anchorRightPx };
 }
