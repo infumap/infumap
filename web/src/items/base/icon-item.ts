@@ -58,11 +58,13 @@ export function itemIconKind(
   iconMode: ItemIconMode,
   context: ItemIconRenderContext,
   faviconAvailable: boolean,
+  showAutoIconInSpatial: boolean = false,
 ): ItemIconMode.None | ItemIconMode.Symbol | ItemIconMode.Favicon {
   if (iconMode == ItemIconMode.None) { return ItemIconMode.None; }
   if (iconMode == ItemIconMode.Symbol) { return ItemIconMode.Symbol; }
   if (iconMode == ItemIconMode.Favicon) { return ItemIconMode.Favicon; }
-  if (context != ItemIconRenderContext.Line) { return ItemIconMode.None; }
+  if (context != ItemIconRenderContext.Line &&
+    !(showAutoIconInSpatial && context == ItemIconRenderContext.Spatial)) { return ItemIconMode.None; }
   return faviconAvailable ? ItemIconMode.Favicon : ItemIconMode.Symbol;
 }
 

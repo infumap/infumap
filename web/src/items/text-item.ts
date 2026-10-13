@@ -438,11 +438,11 @@ export const TextFns = {
   iconRenderContextFromVisualElement,
 
   showsIcon: (text: TextMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): boolean => {
-    return itemIconKind(text.iconMode, context, false) != ItemIconMode.None;
+    return itemIconKind(text.iconMode, context, false, true) != ItemIconMode.None;
   },
 
   emoji: (text: TextMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): string | null => {
-    if (itemIconKind(text.iconMode, context, false) != ItemIconMode.Symbol) { return null; }
+    if (itemIconKind(text.iconMode, context, false, true) != ItemIconMode.Symbol) { return null; }
     const emoji = text.emoji?.trim();
     return emoji && emoji != "" ? emoji : null;
   },
