@@ -155,7 +155,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
   const hasPopupHandle = () => props.visualElement.hitboxes.some(hb => !!(hb.type & HitboxFlags.OpenPopup));
   const reservePopupIconSpace = () =>
     TextFns.showsIcon(textItem()) &&
-    (hasPopupHandle() || isPopup());
+    (hasPopupHandle() || isPopup() || isInComposite());
   const shouldRenderIcon = () => reservePopupIconSpace();
   const popupIconBoundsPx = (): BoundingBox => ({
     x: 1,
@@ -275,7 +275,8 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
   }
 
   const isInComposite = () =>
-    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath!).itemId));
+    props.visualElement.parentPath != null &&
+    isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath).itemId));
 
   const showMoveOutOfCompositeArea = () =>
     store.user.getUserMaybe() != null &&
