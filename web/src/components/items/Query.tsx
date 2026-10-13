@@ -78,17 +78,19 @@ import {
   clearQuerySearchSelection,
   loadMoreQuerySearchResults,
   clearQuerySearch,
+  isQueryChatHistoryEntry,
   runQuerySearch,
+  startNewQueryChat,
   startQueryChat,
 } from "../../items/query";
 import {
   cancelQueryChatRequest,
   chatStreamingStateForQuery,
+  ensureQueryChatLoaded,
   materializeQueryChat,
   queryChatContextTokenDisplay,
   queryChatHasContent,
   queryChatUsesInfumapData,
-  resetQueryChatSession,
   applyQueryChatDefaultPluginCapabilities,
   submitQueryChatMessage,
 } from "../../items/chat";
@@ -238,8 +240,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const searchHasMoreResults = () => getQuerySearchHasMoreResults(store, queryItem());
   const hasSubmittedQuery = () => queryMode() != null;
   const hasSearchResults = () => (getQuerySearchResults(store, queryItem())?.length ?? 0) > 0;
+  /** An earlier chat in the Queries page can only be continued, not used to search. */
+  const isChatHistoryEntry = () => isQueryChatHistoryEntry(store, queryItem());
   /** Search mode hides the mode selector, so a submit from there always refines the search. */
-  const selectedInputMode = (): QueryInputMode => isSearchMode() ? "search" : store.general.queryInputMode();
+  const selectedInputMode = (): QueryInputMode =>
+    isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
   const sendButtonTitle = () => selectedInputMode() == "chat"
     ? (deepResearch() ? "Start deep research" : "Send chat")
     : "Run search";
@@ -371,7 +376,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setSearchingSerial(null);
     const useDeepResearch = deepResearch();
     try {
-      await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch);
+      const recorded = await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch);
+      if (!recorded && chatText() == "") {
+        setChatText(text);
+        resizeChatTextareaSoon();
+      }
     } finally {
       setDeepResearch(false);
       setIsStartingChat(false);
@@ -532,13 +541,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     focusNewQueryInput();
   };
 
-  const discardCurrentChat = () => {
+  const startNewChat = async () => {
     if (isStartingChat() || isSendingChat() || isMaterializingChat()) {
       return;
     }
+    const wasHistoryEntry = isChatHistoryEntry();
     resetLocalQuerySessionUi();
-    resetQueryChatSession(store, queryItem(), "query-chat-discard");
-    focusNewQueryInput();
+    await startNewQueryChat(store, queryItem());
+    if (!wasHistoryEntry && getQueryRuntime(store, queryItem()).chat.revision == 0) {
+      // The chat had no transcript, so it was reset in place rather than moved to the earlier chats.
+      focusNewQueryInput();
+    }
   };
 
   const materializeCurrentResults = async (editingElMaybe?: HTMLElement | null) => {
@@ -613,7 +626,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setIsSendingChat(true);
     const useDeepResearch = deepResearch();
     try {
-      await submitQueryChatMessage(store, queryItem(), value, useDeepResearch);
+      const recorded = await submitQueryChatMessage(store, queryItem(), value, useDeepResearch);
+      if (!recorded && chatText() == "") {
+        setChatText(value);
+        resizeChatTextareaSoon();
+      }
     } finally {
       setDeepResearch(false);
       setIsSendingChat(false);
@@ -781,6 +798,13 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   createEffect(() => {
+    // A chat's transcript is on the server; show it when the query item is shown, including after a reload.
+    if (isListPageMainRoot() && getQueryRuntime(store, queryItem()).chat.loadState == "unloaded") {
+      void ensureQueryChatLoaded(store, queryItem());
+    }
+  });
+
+  createEffect(() => {
     queryText();
     boundsPx().w;
     const raf = requestAnimationFrame(() => resizeQueryTextarea());
@@ -788,6 +812,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   createEffect(() => {
+    if (isListPageMainRoot() && isChatMode() && pendingInputFocus() != null) {
+      // A loaded transcript switched the query item to its chat, which has no query input.
+      setPendingInputFocus(null);
+      return;
+    }
     if (!isListPageMainRoot() || pendingInputFocus() == null || !isEditing()) {
       return;
     }
@@ -818,7 +847,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   createEffect(() => {
-    if (!isListPageMainRoot()) {
+    // A chat has no query input. Leaves the request for the query item that has one, such as the new current chat
+    // after New chat.
+    if (!isListPageMainRoot() || isChatMode()) {
       return;
     }
     if (!store.overlay.autoFocusSearchInput.get()) {
@@ -1127,11 +1158,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              title="Discard chat"
-              aria-label="Discard chat"
+              title="New chat"
+              aria-label="New chat"
               disabled={chatRequestActive() || isMaterializingChat()}
-              onClick={discardCurrentChat}>
-              <i class="bi-x-lg" />
+              onClick={() => void startNewChat()}>
+              <i class="bi-plus-lg" />
             </button>
           </div>
         </div>
@@ -1150,7 +1181,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         Math.max(360, boundsPx().w - QUERY_WORKSPACE_SIDE_INSET_PX * 2),
       );
     };
-    const showModeSelector = () => !isSearchMode();
+    const showModeSelector = () => !isSearchMode() && !isChatHistoryEntry();
     const inputShellWidthPx = () => Math.max(
       160,
       controlsWidthPx()
@@ -1487,7 +1518,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           `${desktopTextStyle().isBold ? "font-weight: bold; " : ""}` +
           `outline: 0px solid transparent; ` +
           `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; text-overflow: ellipsis;`}>
-        Query
+        {QueryFns.displayTitle(queryItem())}
       </span>
       <Show when={canResize()}>
         <InfuResizeTriangle />

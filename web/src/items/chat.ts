@@ -32,7 +32,17 @@ import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, set
 import { queryScopeIdForRequest } from "./query-scope";
 import { TextFns } from "./text-item";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
-import { server, type ChatMessage, type ChatModelSelection, type ChatStreamEvent, type ChatStreamPhase, type ChatToolServerInfo } from "../server";
+import {
+  ChatTranscriptConflictError,
+  server,
+  type ChatMessage,
+  type ChatModelSelection,
+  type ChatStreamEvent,
+  type ChatStreamPhase,
+  type ChatToolServerInfo,
+  type LoadChatResponse,
+  type LoadChatTurn,
+} from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
@@ -218,6 +228,8 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
       }
       return event.summary;
     case "context_tokens":
+    case "turn_accepted":
+    case "transcript_conflict":
       return "";
     case "materializing":
       return "Adding response";
@@ -251,7 +263,7 @@ function completeStreamingModelRounds(rounds: Array<ChatStreamingModelRound>): A
 }
 
 function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStreamEvent): ChatStreamingState {
-  if (event.type == "context_tokens") {
+  if (event.type == "context_tokens" || event.type == "turn_accepted" || event.type == "transcript_conflict") {
     return current;
   }
   const statusText = chatStatusTextFromEvent(event);
@@ -464,7 +476,7 @@ function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
   if (current == null || current.requestId != event.requestId) {
     throw new Error("Received a chat stream event without a matching active request.");
   }
-  if (event.type == "context_tokens") {
+  if (event.type == "context_tokens" || event.type == "turn_accepted" || event.type == "transcript_conflict") {
     return;
   }
 
@@ -529,10 +541,11 @@ async function generateMaterializedQueryChatTitle(
   queryItem: QueryItem,
   titlePrompt: string = MATERIALIZED_QUERY_CHAT_TITLE_PROMPT,
 ): Promise<string | null> {
-  const messages = queryChatMessages(store, queryItem);
+  const messages = queryChatVisibleMessages(store, queryItem);
   if (messages.length == 0) {
     return null;
   }
+  // Sent without the query item id, so the server uses these messages and records nothing.
   const response = await server.chatStream({
     requestId: newUid(),
     messages: [...messages, { role: "user", content: titlePrompt }],
@@ -563,28 +576,21 @@ function queryChatRootIds(store: StoreContextModel, queryItem: QueryItem): Array
   return getQueryRuntime(store, queryItem).chat.rootItemIds ?? [];
 }
 
-function queryChatMessages(store: StoreContextModel, queryItem: QueryItem): Array<ChatMessage> {
-  return getQueryRuntime(store, queryItem).chat.messages ?? [];
+/**
+ * The visible conversation, as user and assistant messages: the user's text and each completed turn's answer, without
+ * tool exchanges or reasoning. The client keeps no model history; the server's transcript holds it.
+ */
+function queryChatVisibleMessages(store: StoreContextModel, queryItem: QueryItem): Array<ChatMessage> {
+  return queryChatVisibleTurns(store, queryItem)
+    .map(turn => ({ role: turn.role, content: turn.text }));
 }
 
 function textCharCount(text: string): number {
   return [...text].length;
 }
 
-function estimateChatContextTokens(messages: Array<ChatMessage>, extraText: string): number {
-  let chars = 0;
-  for (const message of messages) {
-    if (message.content != null) {
-      chars += textCharCount(message.content);
-    }
-    if (message.reasoningContent != null) {
-      chars += textCharCount(message.reasoningContent);
-    }
-  }
-  if (extraText != "") {
-    chars += textCharCount(extraText);
-  }
-  return Math.floor((chars + 3) / 4);
+function estimateTextTokens(text: string): number {
+  return text == "" ? 0 : Math.floor((textCharCount(text) + 3) / 4);
 }
 
 function setQueryChatContextTokens(
@@ -609,12 +615,12 @@ export function queryChatContextTokenDisplay(
   draftText: string,
 ): { label: string, exact: boolean } | null {
   const draft = draftText.trim();
-  const messages = queryChatMessages(store, queryItem);
   const stored = getQueryRuntime(store, queryItem).chat;
   const useStored = stored.contextTokens != null && draft == "";
+  // The client keeps no model history, so a draft is estimated on top of the last count the server reported.
   const tokens = useStored
     ? stored.contextTokens!
-    : estimateChatContextTokens(messages, draft);
+    : (stored.contextTokens ?? 0) + estimateTextTokens(draft);
   const exact = useStored && stored.contextTokensExact;
   if (tokens <= 0 && !exact) {
     return null;
@@ -624,16 +630,6 @@ export function queryChatContextTokenDisplay(
     label: exact ? `${formatted} tokens` : `~${formatted} tokens`,
     exact,
   };
-}
-
-function appendQueryChatMessage(store: StoreContextModel, queryItem: QueryItem, message: ChatMessage): void {
-  updateQueryRuntime(store, queryItem, current => ({
-    ...current,
-    chat: {
-      ...current.chat,
-      messages: [...(current.chat.messages ?? []), message],
-    },
-  }));
 }
 
 function setQueryChatRootIds(store: StoreContextModel, queryItem: QueryItem, rootItemIds: Array<Uid>): void {
@@ -1020,40 +1016,20 @@ function cloneCompletedRounds(rounds: Array<ChatStreamingModelRound>): Array<Cha
   }));
 }
 
-function lastRoundReasoningContent(rounds: Array<ChatStreamingModelRound>): string | undefined {
-  const reasoning = rounds[rounds.length - 1]?.reasoning;
-  if (reasoning == null || reasoning == "") {
-    return undefined;
-  }
-  return reasoning;
-}
-
-function nextQueryChatMessages(
-  currentMessages: Array<ChatMessage>,
+interface QueryChatAssistantTurn {
+  requestId: string,
   assistantText: string,
-  reasoningContent: string | undefined,
-  transcriptMessages: Array<ChatMessage> | undefined,
-): Array<ChatMessage> {
-  if (transcriptMessages != null && transcriptMessages.length > 0) {
-    return [...transcriptMessages];
-  }
-  return [
-    ...currentMessages,
-    {
-      role: "assistant",
-      content: assistantText,
-      ...(reasoningContent == null ? {} : { reasoningContent }),
-    },
-  ];
+  rounds: Array<ChatStreamingModelRound>,
+  startedAt: number,
+  completedAt: number,
 }
 
-function finalizeServerReturnedQueryItems(
+/** Adds an assistant turn's items to the chat view, with its activity for the turn dropdown. */
+function insertQueryChatAssistantTurn(
   store: StoreContextModel,
   queryItem: QueryItem,
   itemObjects: Array<object>,
-  assistantText: string,
-  streamingState: ChatStreamingState,
-  transcriptMessages: Array<ChatMessage> | undefined,
+  turn: QueryChatAssistantTurn,
 ): Array<Item> {
   const staged = stageServerReturnedQueryItems(store, queryItem, itemObjects);
   const previousRuntime = getQueryRuntime(store, queryItem);
@@ -1061,7 +1037,6 @@ function finalizeServerReturnedQueryItems(
   const nextRootIds = [...previousRootIds, ...staged.rootIds];
   const chatPage = ensureTemporaryQueryChatPage(store, queryItem);
   const insertedItems: Array<Item> = [];
-  const reasoningContent = lastRoundReasoningContent(streamingState.rounds);
 
   try {
     batch(() => {
@@ -1073,24 +1048,18 @@ function finalizeServerReturnedQueryItems(
 
       chatPage.computed_children = [...nextRootIds];
       const completedActivity: QueryChatCompletedActivity = {
-        requestId: streamingState.requestId,
+        requestId: turn.requestId,
         assistantRootIds: [...staged.rootIds],
-        assistantText,
-        rounds: cloneCompletedRounds(streamingState.rounds),
-        startedAt: streamingState.startedAt,
-        completedAt: Date.now(),
+        assistantText: turn.assistantText,
+        rounds: cloneCompletedRounds(turn.rounds),
+        startedAt: turn.startedAt,
+        completedAt: turn.completedAt,
       };
       updateQueryRuntime(store, queryItem, current => ({
         ...current,
         chat: {
           ...current.chat,
           rootItemIds: nextRootIds,
-          messages: nextQueryChatMessages(
-            current.chat.messages ?? [],
-            assistantText,
-            reasoningContent,
-            transcriptMessages,
-          ),
           completedActivities: [...(current.chat.completedActivities ?? []), completedActivity],
         },
       }));
@@ -1113,25 +1082,84 @@ function finalizeServerReturnedQueryItems(
   return insertedItems;
 }
 
+/** A one-line note after a turn that did not complete, saying what happened to it. */
+function addQueryChatOutcomeNote(store: StoreContextModel, queryItem: QueryItem, text: string): void {
+  const chatPage = ensureTemporaryQueryChatPage(store, queryItem);
+  const note = createTurnNote(
+    queryItem.ownerId,
+    chatPage.id,
+    text,
+    newOrderingAtEnd(queryChatRootOrderings(store, queryItem)),
+    true,
+  );
+  setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), note.id]);
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    chat: { ...current.chat, outcomeRootIds: [...current.chat.outcomeRootIds, note.id] },
+  }));
+}
+
+function queryChatOutcomeText(status: LoadChatTurn["status"], error: string | null): string | null {
+  switch (status) {
+    case "cancelled":
+      return "Response stopped.";
+    case "error":
+      return error == null || error.trim() == "" ? "Response failed." : `Response failed: ${error}`;
+    case "interrupted":
+      return "Response interrupted: the server stopped while it was running.";
+    case "running":
+      return "A response is still running, in another window or tab. Reopen this chat to see it.";
+    case "completed":
+      return null;
+  }
+}
+
+/** Removes a root the client added, such as a user turn the server did not record. */
+function removeQueryChatRoot(store: StoreContextModel, queryItem: QueryItem, rootId: Uid): void {
+  const pageId = getQueryRuntime(store, queryItem).chat.pageId;
+  itemState.pruneRelationshipSubtreeIfCurrent(rootId, pageId ?? queryItem.id, RelationshipToParent.Child);
+  setQueryChatRootIds(store, queryItem, queryChatRootIds(store, queryItem).filter(id => id != rootId));
+}
+
+function setQueryChatRevision(store: StoreContextModel, queryItem: QueryItem, revision: number): void {
+  updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, revision } }));
+}
+
+/** On a chat's first turn, titles its query item from the prompt, unless it already has a title. */
+function setDerivedQueryChatTitle(store: StoreContextModel, queryItem: QueryItem, prompt: string): void {
+  if (queryItem.title != "") {
+    return;
+  }
+  queryItem.title = titleFromPrompt(prompt);
+  void server.updateItem(queryItem, store.general.networkStatus);
+  requestArrange(store, "query-chat-derived-title");
+}
+
+/**
+ * Submits a turn of a live chat. Returns false if the message was not recorded, so the caller should give the text
+ * back to the user as a draft: the transcript changed elsewhere (it has been reloaded), or the server refused the turn.
+ */
 export async function submitQueryChatMessage(
   store: StoreContextModel,
   queryItem: QueryItem,
   rawText: string,
   deepResearch: boolean = false,
-): Promise<void> {
+): Promise<boolean> {
   const text = rawText.trim();
   if (text == "") {
-    return;
+    return true;
   }
 
-  addLocalQueryUserTurn(store, queryItem, text);
-  appendQueryChatMessage(store, queryItem, { role: "user", content: text });
-  const messages = [...queryChatMessages(store, queryItem)];
-  setQueryChatContextTokens(store, queryItem, estimateChatContextTokens(messages, ""), false);
+  await ensureQueryChatLoaded(store, queryItem);
+  const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
+  const [userTurnRoot] = addLocalQueryUserTurn(store, queryItem, text);
+  const stored = getQueryRuntime(store, queryItem).chat.contextTokens ?? 0;
+  setQueryChatContextTokens(store, queryItem, stored + estimateTextTokens(text), false);
   requestArrange(store, "query-chat-user-turn");
 
   const requestId = newUid();
   const controller = new AbortController();
+  let accepted = false;
   let clearStreamingStateOnExit = true;
   discardBufferedChatTextDeltas(queryItem.id);
   activeQueryChatRequestByQueryId.set(queryItem.id, { requestId, controller });
@@ -1147,12 +1175,22 @@ export async function submitQueryChatMessage(
   try {
     const response = await server.chatStream({
       requestId,
-      messages,
+      queryItemId: queryItem.id,
+      expectedRevision,
+      text,
       capabilities: queryChatCapabilities(store, queryItem),
       mode: deepResearch ? "deep_research" : "chat",
       model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
       scopeId: queryScopeIdForRequest(store, queryItem),
     }, store.general.networkStatus, (event) => {
+      if (event.type == "turn_accepted") {
+        accepted = true;
+        setQueryChatRevision(store, queryItem, event.revision);
+        if (event.revision == 1) {
+          setDerivedQueryChatTitle(store, queryItem, text);
+        }
+        return;
+      }
       if (event.type == "context_tokens") {
         setQueryChatContextTokens(store, queryItem, event.tokens, event.exact);
       }
@@ -1161,7 +1199,8 @@ export async function submitQueryChatMessage(
 
     if (controller.signal.aborted || chatStreamingStateByQueryId.get(queryItem.id)?.phase == "cancelled") {
       clearStreamingStateOnExit = false;
-      return;
+      addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("cancelled", null)!);
+      return true;
     }
 
     flushBufferedChatTextDeltas(queryItem.id, requestId);
@@ -1169,17 +1208,24 @@ export async function submitQueryChatMessage(
     if (finalStreamingState == null || finalStreamingState.requestId != requestId) {
       throw new Error("Chat streaming state was lost before the response could be finalized.");
     }
-    finalizeServerReturnedQueryItems(
-      store,
-      queryItem,
-      response.items,
-      response.assistantText,
-      finalStreamingState,
-      response.messages,
-    );
+    insertQueryChatAssistantTurn(store, queryItem, response.items, {
+      requestId,
+      assistantText: response.assistantText,
+      rounds: finalStreamingState.rounds,
+      startedAt: finalStreamingState.startedAt,
+      completedAt: Date.now(),
+    });
     requestArrange(store, "query-chat-assistant-turn");
+    return true;
   } catch (e) {
     flushBufferedChatTextDeltas(queryItem.id, requestId);
+    if (e instanceof ChatTranscriptConflictError) {
+      // Nothing was recorded. Show the chat as it now is, and give the message back as a draft.
+      clearStreamingStateOnExit = true;
+      await reloadQueryChat(store, queryItem);
+      showChatMessage(store, "This chat changed in another window, so it was reloaded", TransientMessageType.Info);
+      return false;
+    }
     const current = chatStreamingStateByQueryId.get(queryItem.id);
     if (controller.signal.aborted || (current?.requestId == requestId && current.phase == "cancelled")) {
       if (current?.requestId == requestId && current.phase != "cancelled") {
@@ -1189,21 +1235,37 @@ export async function submitQueryChatMessage(
         }));
       }
       clearStreamingStateOnExit = false;
-    } else {
-      if (current?.requestId == requestId) {
-        if (current.phase != "error") {
-          setQueryChatStreamingState(queryItem.id, {
-            ...current,
-            phase: "error",
-            statusText: "Chat failed",
-            rounds: completeStreamingModelRounds(current.rounds),
-            errorMessage: e instanceof Error ? e.message : String(e),
-          });
-        }
-        clearStreamingStateOnExit = false;
+      if (accepted) {
+        addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("cancelled", null)!);
+      } else {
+        removeQueryChatRoot(store, queryItem, userTurnRoot.id);
+        return false;
       }
-      console.error("Failed to submit query chat message:", e);
+      return true;
     }
+    const message = e instanceof Error ? e.message : String(e);
+    if (!accepted) {
+      // The server refused the turn before recording it, for example because another response is running.
+      console.warn("Chat message was not recorded:", message);
+      removeQueryChatRoot(store, queryItem, userTurnRoot.id);
+      showChatMessage(store, message, TransientMessageType.Error);
+      return false;
+    }
+    console.error("Failed to submit query chat message:", e);
+    if (current?.requestId == requestId) {
+      if (current.phase != "error") {
+        setQueryChatStreamingState(queryItem.id, {
+          ...current,
+          phase: "error",
+          statusText: "Chat failed",
+          rounds: completeStreamingModelRounds(current.rounds),
+          errorMessage: message,
+        });
+      }
+      clearStreamingStateOnExit = false;
+    }
+    addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("error", message)!);
+    return true;
   } finally {
     const activeRequest = activeQueryChatRequestByQueryId.get(queryItem.id);
     if (activeRequest?.requestId == requestId) {
@@ -1212,7 +1274,112 @@ export async function submitQueryChatMessage(
     if (clearStreamingStateOnExit) {
       clearQueryChatStreamingState(queryItem.id, requestId);
     }
+    requestArrange(store, "query-chat-request-ended");
   }
+}
+
+const queryChatLoads = new Map<Uid, Promise<void>>();
+/** Bumped when a chat is cleared, so a load that started before is not applied after. */
+const queryChatGenerations = new Map<Uid, number>();
+
+/** Loads a live chat's transcript into the chat view, once until the chat is next cleared. */
+export async function ensureQueryChatLoaded(store: StoreContextModel, queryItem: QueryItem): Promise<void> {
+  if (!isLiveQueryChat(store, queryItem)) {
+    return;
+  }
+  const loadState = getQueryRuntime(store, queryItem).chat.loadState;
+  if (loadState == "loaded" || loadState == "failed") {
+    return;
+  }
+  const pending = queryChatLoads.get(queryItem.id);
+  if (pending != null) {
+    return pending;
+  }
+  const generation = queryChatGenerations.get(queryItem.id) ?? 0;
+  const load: Promise<void> = loadQueryChat(store, queryItem, generation).finally(() => {
+    if (queryChatLoads.get(queryItem.id) == load) {
+      queryChatLoads.delete(queryItem.id);
+    }
+  });
+  queryChatLoads.set(queryItem.id, load);
+  return load;
+}
+
+async function loadQueryChat(store: StoreContextModel, queryItem: QueryItem, generation: number): Promise<void> {
+  const isCurrent = () => (queryChatGenerations.get(queryItem.id) ?? 0) == generation;
+  updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, loadState: "loading" } }));
+  try {
+    const response = await server.loadChat(queryItem.id, store.general.networkStatus);
+    if (isCurrent()) {
+      applyLoadedQueryChat(store, queryItem, response);
+    }
+  } catch (e) {
+    console.error("Failed to load chat transcript:", e);
+    if (isCurrent()) {
+      updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, loadState: "failed" } }));
+      showChatMessage(store, "Could not load this chat", TransientMessageType.Error);
+    }
+  }
+}
+
+async function reloadQueryChat(store: StoreContextModel, queryItem: QueryItem): Promise<void> {
+  clearQueryChat(store, queryItem);
+  await ensureQueryChatLoaded(store, queryItem);
+  requestArrange(store, "query-chat-reloaded");
+}
+
+/** Only query items in the Queries page have transcripts. */
+export function isLiveQueryChat(store: StoreContextModel, queryItem: QueryItem): boolean {
+  const user = store.user.getUserMaybe();
+  return user != null && queryItem.parentId == user.queriesPageId && queryItem.origin == null;
+}
+
+function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, response: LoadChatResponse): void {
+  batch(() => {
+    const settings = response.lastSettings;
+    // The scope only applies with Infumap data; without it, the last turn says nothing about the scope.
+    const restoresScope = settings != null && settings.capabilities.includes("infumap_data");
+    updateQueryRuntime(store, queryItem, current => ({
+      ...current,
+      scope: restoresScope ? { id: settings!.scopeId ?? null } : current.scope,
+      chat: {
+        ...current.chat,
+        revision: response.revision,
+        loadState: "loaded",
+        capabilities: settings == null ? current.chat.capabilities : [...settings.capabilities],
+        model: settings == null ? current.chat.model : (settings.model ?? null),
+        contextTokens: response.contextTokens?.tokens ?? null,
+        contextTokensExact: response.contextTokens?.exact ?? false,
+      },
+    }));
+    if (response.turns.length == 0) {
+      return;
+    }
+    for (const turn of response.turns) {
+      addLocalQueryUserTurn(store, queryItem, turn.text);
+      if (turn.status == "completed" && turn.items != null && turn.assistantText != null) {
+        insertQueryChatAssistantTurn(store, queryItem, turn.items, {
+          requestId: turn.requestId,
+          assistantText: turn.assistantText,
+          rounds: turn.rounds,
+          startedAt: turn.startedAt,
+          completedAt: turn.endedAt ?? turn.startedAt,
+        });
+      } else {
+        const outcome = queryChatOutcomeText(turn.status, turn.error);
+        if (outcome != null) {
+          addQueryChatOutcomeNote(store, queryItem, outcome);
+        }
+      }
+    }
+    setQueryMode(store, queryItem, "chat");
+    if (store.overlay.autoFocusSearchInput.get()) {
+      // The query input that was to be focused is replaced by the chat's composer.
+      store.overlay.autoFocusSearchInput.set(false);
+      store.overlay.autoFocusChatInput.set(true);
+    }
+  });
+  requestArrange(store, "query-chat-loaded");
 }
 
 function firstPromptInQueryChat(store: StoreContextModel, queryItem: QueryItem): string {
@@ -1237,7 +1404,13 @@ export function queryChatHasContent(store: StoreContextModel, queryItem: QueryIt
   return queryChatRootIds(store, queryItem).length > 0;
 }
 
-function queryChatMarkdown(store: StoreContextModel, queryItem: QueryItem): string {
+interface QueryChatVisibleTurn {
+  role: "user" | "assistant",
+  text: string,
+}
+
+/** The visible turns, in order. Follows the visible items, not a model transcript with its tool exchanges. */
+function queryChatVisibleTurns(store: StoreContextModel, queryItem: QueryItem): Array<QueryChatVisibleTurn> {
   const chat = getQueryRuntime(store, queryItem).chat;
   const activityByRootId = new Map<Uid, QueryChatCompletedActivity>();
   for (const activity of chat.completedActivities) {
@@ -1245,16 +1418,17 @@ function queryChatMarkdown(store: StoreContextModel, queryItem: QueryItem): stri
       activityByRootId.set(rootId, activity);
     }
   }
+  const outcomeRootIds = new Set(chat.outcomeRootIds);
 
-  const sections: Array<string> = [];
-  const exportedActivities = new Set<string>();
-  // Follow the visible turns, not the model transcript, which also contains tool exchanges.
+  const turns: Array<QueryChatVisibleTurn> = [];
+  const addedActivities = new Set<string>();
   for (const rootId of chat.rootItemIds) {
+    if (outcomeRootIds.has(rootId)) { continue; }
     const activity = activityByRootId.get(rootId);
     if (activity != null) {
-      if (!exportedActivities.has(activity.requestId)) {
-        sections.push(`**Assistant**\n\n${activity.assistantText}`);
-        exportedActivities.add(activity.requestId);
+      if (!addedActivities.has(activity.requestId)) {
+        turns.push({ role: "assistant", text: activity.assistantText });
+        addedActivities.add(activity.requestId);
       }
       continue;
     }
@@ -1267,10 +1441,16 @@ function queryChatMarkdown(store: StoreContextModel, queryItem: QueryItem): stri
     const text = notes.filter(item => item != null && isNote(item))
       .map(item => asNoteItem(item!).title).join("\n\n");
     if (text != "") {
-      sections.push(`**You**\n\n${text}`);
+      turns.push({ role: "user", text });
     }
   }
-  return sections.join("\n\n---\n\n");
+  return turns;
+}
+
+function queryChatMarkdown(store: StoreContextModel, queryItem: QueryItem): string {
+  return queryChatVisibleTurns(store, queryItem)
+    .map(turn => `**${turn.role == "user" ? "You" : "Assistant"}**\n\n${turn.text}`)
+    .join("\n\n---\n\n");
 }
 
 async function createQueryChatMarkdownItem(
@@ -1296,16 +1476,16 @@ async function createQueryChatMarkdownItem(
     const returnedItem = await server.addItem(textItem, base64ArrayBuffer(bytes.buffer), store.general.networkStatus);
     itemState.add(ItemFns.fromObject(returnedItem, null));
     requestArrange(store, "query-chat-markdown-created");
-    showChatMarkdownMessage(store, "Markdown item created", TransientMessageType.Info);
+    showChatMessage(store, "Markdown item created", TransientMessageType.Info);
     return true;
   } catch (e) {
     console.error("Failed to create Markdown from chat:", e);
-    showChatMarkdownMessage(store, "Could not create Markdown item", TransientMessageType.Error);
+    showChatMessage(store, "Could not create Markdown item", TransientMessageType.Error);
     return false;
   }
 }
 
-function showChatMarkdownMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
+function showChatMessage(store: StoreContextModel, text: string, type: TransientMessageType): void {
   const message = { text, type };
   store.overlay.toolbarTransientMessage.set(message);
   setTimeout(() => {
@@ -1326,6 +1506,8 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
   for (const rootId of runtime.chat.rootItemIds) {
     itemState.pruneRelationshipSubtreeIfCurrent(rootId, rootParentId, RelationshipToParent.Child);
   }
+  queryChatGenerations.set(queryItem.id, (queryChatGenerations.get(queryItem.id) ?? 0) + 1);
+  queryChatLoads.delete(queryItem.id);
   updateQueryRuntime(store, queryItem, current => ({
     ...current,
     chat: {
@@ -1334,7 +1516,9 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       composerHeightPx: null,
       activityHeightPx: null,
       rootItemIds: [],
-      messages: [],
+      outcomeRootIds: [],
+      revision: 0,
+      loadState: "unloaded",
       completedActivities: [],
       contextTokens: null,
       contextTokensExact: false,

@@ -20,6 +20,7 @@ import { logout } from "./components/Main";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
+import type { QueryChatActivityModelRound } from "./store/StoreProvider_PerItem";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "./util/uid";
 import { StoreContextModel } from "./store/StoreProvider";
@@ -133,7 +134,14 @@ export type ChatRunMode = "chat" | "deep_research";
 
 export interface ChatRequest {
   requestId: string,
-  messages: Array<ChatMessage>,
+  /** The model history, for a chat without a transcript. Omitted for a live chat. */
+  messages?: Array<ChatMessage>,
+  /** A query item in the Queries page whose transcript holds the chat. See docs/persistent-chats.md. */
+  queryItemId?: Uid,
+  /** For a live chat: the transcript revision last seen. A different revision rejects the request. */
+  expectedRevision?: number,
+  /** For a live chat: the new user message. */
+  text?: string,
   capabilities: Array<string>,
   mode: ChatRunMode,
   model?: ChatModelSelection,
@@ -254,10 +262,46 @@ export type ChatStreamEvent = ChatStreamEventBase & (
   { type: "tool_call_finished", round: number, callId: string, name: string, summary: string, durationMs?: number, resultPreview?: unknown } |
   { type: "materializing" } |
   { type: "context_tokens", tokens: number, exact: boolean } |
+  { type: "turn_accepted", revision: number } |
+  { type: "transcript_conflict", revision: number } |
   { type: "final_items", text: string, items: Array<object>, messages?: Array<ChatMessage> } |
   { type: "cancelled" } |
   { type: "error", message: string }
 );
+
+/** A live chat's transcript was not at the expected revision, so the request was not recorded. */
+export class ChatTranscriptConflictError extends Error {
+  constructor(public revision: number) {
+    super("The chat changed since it was loaded.");
+  }
+}
+
+export type ChatTurnStatus = "running" | "completed" | "cancelled" | "error" | "interrupted";
+
+export interface LoadChatTurn {
+  requestId: string,
+  text: string,
+  status: ChatTurnStatus,
+  startedAt: number,
+  endedAt: number | null,
+  error: string | null,
+  assistantText: string | null,
+  items: Array<object> | null,
+  rounds: Array<QueryChatActivityModelRound>,
+}
+
+export interface LoadChatResponse {
+  revision: number,
+  running: boolean,
+  lastSettings: {
+    model?: ChatModelSelection,
+    capabilities: Array<string>,
+    scopeId?: Uid,
+    mode: ChatRunMode,
+  } | null,
+  contextTokens: { tokens: number, exact: boolean } | null,
+  turns: Array<LoadChatTurn>,
+}
 
 const SEARCH_RESULTS_PER_PAGE = 60;
 
@@ -369,6 +413,7 @@ const COMMAND_CONVERT_PAGE_TABLE = "convert-page-table";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_SCOPES = "list-scopes";
+const COMMAND_LOAD_CHAT = "load-chat";
 const COMMAND_GET_BACKLINKS = "get-backlinks";
 const COMMAND_CHAT = "chat";
 const COMMAND_EMPTY_TRASH = "empty-trash";
@@ -647,6 +692,7 @@ async function streamChatCommand(
   let finalAssistantText: string | null = null;
   let finalMessages: Array<ChatMessage> | undefined;
   let errorMessage: string | null = null;
+  let conflictRevision: number | null = null;
   try {
     await sendChatStream(payload, (event) => {
       if (event.requestId != payload.requestId) {
@@ -661,8 +707,13 @@ async function streamChatCommand(
         }
       } else if (event.type == "error") {
         errorMessage = event.message;
+      } else if (event.type == "transcript_conflict") {
+        conflictRevision = event.revision;
       }
     }, signal);
+    if (conflictRevision != null) {
+      throw new ChatTranscriptConflictError(conflictRevision);
+    }
     if (errorMessage != null) {
       throw new Error(errorMessage);
     }
@@ -674,7 +725,7 @@ async function streamChatCommand(
     }
     return { items: finalItems, assistantText: finalAssistantText, messages: finalMessages };
   } catch (error) {
-    if (signal?.aborted !== true) {
+    if (signal?.aborted !== true && !(error instanceof ChatTranscriptConflictError)) {
       trackNetworkCommandError(commandObj, error);
     }
     throw error;
@@ -954,6 +1005,11 @@ export const server = {
 
   listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {
     return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null, networkStatus);
+  },
+
+  /** A live chat's transcript, for the chat view. A query item without one loads as an empty chat. */
+  loadChat: async (queryItemId: Uid, networkStatus: NumberSignal): Promise<LoadChatResponse> => {
+    return constructCommandPromise(null, COMMAND_LOAD_CHAT, { queryItemId }, null, networkStatus);
   },
 
   /** The user's links and notes that refer to an item they own. Local items only: backlinks are not tracked across servers. */
