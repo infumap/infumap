@@ -383,7 +383,7 @@ function enqueueTextDocumentMaterializationIfPending(
         await server.addItem(pageSnapshot, null, store.general.networkStatus);
         serverAddedIds.push(pageSnapshot.id);
 
-        const generatedItems = await createMaterializedTextDocumentItems(pending.sourceTextItem, pageSnapshot);
+        const generatedItems = await createMaterializedTextDocumentItems(store, pending.sourceTextItem, pageSnapshot);
         for (const item of generatedItems) {
           itemState.add(item);
           localItemIds.push(item.id);

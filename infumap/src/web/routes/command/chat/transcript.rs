@@ -276,7 +276,7 @@ fn complete_len(bytes: &[u8]) -> usize {
 
 /// Parses the complete records. None if there is not even a complete header line. A malformed record
 /// before the last line is an error, never skipped.
-fn parse_transcript(bytes: &[u8]) -> InfuResult<Option<Transcript>> {
+pub(super) fn parse_transcript(bytes: &[u8]) -> InfuResult<Option<Transcript>> {
   let complete = &bytes[..complete_len(bytes)];
   if complete.is_empty() {
     return Ok(None);

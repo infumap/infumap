@@ -27,7 +27,13 @@ import {
   PageFlags,
   NoteFlags,
   TableFlags,
+  CompositeFlags,
 } from "./base/flags-item";
+import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
+import { asContainerItem, isContainer } from "./base/container-item";
+import { CompositeFns, isComposite, asCompositeItem } from "./composite-item";
+import { queryChatOutcomeText } from "./chat";
+import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
 import { titleWithCopySuffix } from "./base/titled-item";
@@ -40,9 +46,9 @@ import type { TextItem } from "./text-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
-import { server, serverOrRemote } from "../server";
+import { server, serverOrRemote, type LoadChatResponse } from "../server";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
-import { EMPTY_UID, Uid } from "../util/uid";
+import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { fetchRemoteFileText, openRemoteFileInNewTab } from "../util/remoteFile";
 
 type TextDocumentInlineText = {
@@ -1241,6 +1247,14 @@ function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): Markdo
   };
 }
 
+/** The MIME type of a persisted chat, set by the server when a chat is moved out of the Queries page. */
+const CHAT_TRANSCRIPT_MIME_TYPE = "application/x-infumap-chat";
+
+/** A persisted chat: its content is a chat transcript, shown as the chat it was, not as text. */
+export function isChatTextItem(textItem: TextItem): boolean {
+  return textItem.mimeType == CHAT_TRANSCRIPT_MIME_TYPE;
+}
+
 function isMarkdownTextItem(textItem: TextItem): boolean {
   const mimeType = (textItem.mimeType ?? "").toLowerCase();
   const title = textItem.title.toLowerCase();
@@ -1514,7 +1528,7 @@ function createTextDocumentPage(
   if (virtual) {
     markClientOnly(page);
     page.capabilities = readonlyCapabilities;
-    if (isMarkdownTextItem(textItem)) { page.backgroundColorIndex = MARKDOWN_DOCUMENT_PAGE_COLOR_INDEX; }
+    if (isMarkdownTextItem(textItem) || isChatTextItem(textItem)) { page.backgroundColorIndex = MARKDOWN_DOCUMENT_PAGE_COLOR_INDEX; }
   } else {
     page.capabilities = null;
   }
@@ -1813,7 +1827,7 @@ function toVirtualServerObjectMap(itemsByParentId: { [id: string]: Array<Item> }
   return result;
 }
 
-function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentBlock>): PageItem {
+function upsertVirtualPageShell(textItem: TextItem): PageItem {
   const page = createTextDocumentPage(textItem, true);
   const storedPage = asPageItem(itemState.upsertItemFromServerObject(toVirtualServerObject(page), null));
   storedPage.childrenLoaded = true;
@@ -1821,6 +1835,11 @@ function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentB
   storedPage.computed_attachments = [];
   storedPage.capabilities = readonlyCapabilities;
   virtualSourceTextIdByPageId.set(storedPage.id, textItem.id);
+  return storedPage;
+}
+
+function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentBlock>): PageItem {
+  const storedPage = upsertVirtualPageShell(textItem);
 
   const generated = createTextDocumentItems(textItem, textItem.ownerId, storedPage, blocks, true);
   const attachmentServerObjectsByParentId = toVirtualServerObjectMap(generated.attachmentsByParentId);
@@ -1839,6 +1858,150 @@ function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentB
   }
   storedPage.childrenLoaded = true;
   return storedPage;
+}
+
+interface ChatDocumentGeneratedItems {
+  rootChildren: Array<Item>,
+  childrenByParentId: { [id: string]: Array<Item> },
+  attachmentsByParentId: { [id: string]: Array<Item> },
+  /** Parents before their children and attachments. */
+  allItems: Array<Item>,
+}
+
+/**
+ * The items of a persisted chat's document page, laid out as the chat window shows a chat: per turn, a "You" composite
+ * with the user's text, then the assistant's items, or a note saying how an unsuccessful turn ended. Text only: the
+ * turn dropdowns are not shown. A virtual page's items have ids that are stable across loads, so a reload replaces
+ * them rather than adding more.
+ */
+function createChatDocumentItems(
+  textItem: TextItem,
+  ownerId: Uid,
+  page: PageItem,
+  chat: LoadChatResponse,
+  virtual: boolean,
+): ChatDocumentGeneratedItems {
+  const result: ChatDocumentGeneratedItems = { rootChildren: [], childrenByParentId: {}, attachmentsByParentId: {}, allItems: [] };
+  const rootOrderings: Array<Uint8Array> = [];
+  const idFor = (key: string): Uid => virtual ? stableUid(`text-document-chat:${textItem.id}:${key}`) : newUid();
+  const addRoot = (item: Item): void => {
+    item.parentId = page.id;
+    item.relationshipToParent = RelationshipToParent.Child;
+    item.ordering = newOrderingAtEnd(rootOrderings);
+    rootOrderings.push(item.ordering);
+    result.rootChildren.push(item);
+  };
+  const add = (item: Item): void => {
+    if (virtual) {
+      markClientOnly(item);
+      item.capabilities = readonlyCapabilities;
+    } else {
+      item.capabilities = null;
+    }
+    if (isContainer(item)) {
+      asContainerItem(item).computed_children = [];
+      asContainerItem(item).childrenLoaded = true;
+    }
+    if (isAttachmentsItem(item)) {
+      asAttachmentsItem(item).computed_attachments = [];
+    }
+    if (item.parentId != page.id) {
+      const byParent = item.relationshipToParent == RelationshipToParent.Attachment
+        ? result.attachmentsByParentId
+        : result.childrenByParentId;
+      byParent[item.parentId] = [...(byParent[item.parentId] ?? []), item];
+    }
+    result.allItems.push(item);
+  };
+
+  chat.turns.forEach((turn, turnIndex) => {
+    const composite = CompositeFns.create(ownerId, page.id, RelationshipToParent.Child, newOrdering());
+    composite.id = idFor(`${turnIndex}:you`);
+    composite.title = "You";
+    composite.flags |= CompositeFlags.ShowTitle;
+    addRoot(composite);
+    add(composite);
+    const note = NoteFns.create(ownerId, composite.id, RelationshipToParent.Child, turn.text, newOrdering());
+    note.id = idFor(`${turnIndex}:you-text`);
+    add(note);
+
+    if (turn.status == "completed" && turn.items != null && turn.items.length > 0) {
+      const returned = turn.items.map(itemObject => ItemFns.fromObject(itemObject, null));
+      const idMap = new Map(returned.map((item, index) => [item.id, idFor(`${turnIndex}:assistant:${index}`)]));
+      const childrenOf = new Map<Uid, Array<Item>>();
+      const roots: Array<Item> = [];
+      for (const item of returned) {
+        const parentId = item.parentId == null ? null : idMap.get(item.parentId) ?? null;
+        item.id = idMap.get(item.id)!;
+        if (parentId == null) {
+          roots.push(item);
+        } else {
+          item.parentId = parentId;
+          childrenOf.set(parentId, [...(childrenOf.get(parentId) ?? []), item]);
+        }
+      }
+      const visit = (item: Item): void => {
+        add(item);
+        for (const child of childrenOf.get(item.id) ?? []) {
+          visit(child);
+        }
+      };
+      for (const root of roots) {
+        addRoot(root);
+        if (isComposite(root)) {
+          asCompositeItem(root).flags |= CompositeFlags.ShowTitle;
+        }
+        visit(root);
+      }
+    } else {
+      const outcome = queryChatOutcomeText(turn.status, turn.error);
+      if (outcome != null) {
+        const outcomeNote = NoteFns.create(ownerId, page.id, RelationshipToParent.Child, outcome, newOrdering());
+        outcomeNote.id = idFor(`${turnIndex}:outcome`);
+        addRoot(outcomeNote);
+        add(outcomeNote);
+      }
+    }
+  });
+  return result;
+}
+
+function upsertVirtualChatProjection(textItem: TextItem, chat: LoadChatResponse): PageItem {
+  const storedPage = upsertVirtualPageShell(textItem);
+  const generated = createChatDocumentItems(textItem, textItem.ownerId, storedPage, chat, true);
+  const attachmentServerObjectsByParentId = toVirtualServerObjectMap(generated.attachmentsByParentId);
+  itemState.applyContainerSnapshotFromServerObjects(
+    storedPage.id,
+    toVirtualServerObjects(generated.rootChildren),
+    attachmentServerObjectsByParentId,
+    null,
+  );
+  for (const item of generated.allItems) {
+    if (!isContainer(item)) { continue; }
+    itemState.applyContainerSnapshotFromServerObjects(
+      item.id,
+      toVirtualServerObjects(generated.childrenByParentId[item.id] ?? []),
+      attachmentServerObjectsByParentId,
+      null,
+    );
+    const container = itemState.getAsContainerItem(item.id);
+    if (container != null) {
+      container.childrenLoaded = true;
+      markChildrenLoadAsInitiatedOrComplete(container.id);
+    }
+  }
+  storedPage.childrenLoaded = true;
+  return storedPage;
+}
+
+/** Builds the virtual document page for a text item from its content: a chat for a persisted chat, else its text. */
+async function projectVirtualTextDocument(store: StoreContextModel, textItem: TextItem): Promise<() => PageItem> {
+  if (isChatTextItem(textItem)) {
+    const chat = await server.loadPersistedChat(textItem.id, store.general.networkStatus);
+    return () => upsertVirtualChatProjection(textItem, chat);
+  }
+  const text = await fetchTextItemContent(textItem);
+  return () => upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
 }
 
 export function createPendingTextDocumentPage(
@@ -1862,7 +2025,15 @@ export function createPendingTextDocumentPage(
   return page;
 }
 
-export async function createMaterializedTextDocumentItems(textItem: TextItem, page: PageItem): Promise<Array<Item>> {
+export async function createMaterializedTextDocumentItems(
+  store: StoreContextModel,
+  textItem: TextItem,
+  page: PageItem,
+): Promise<Array<Item>> {
+  if (isChatTextItem(textItem)) {
+    const chat = await server.loadPersistedChat(textItem.id, store.general.networkStatus);
+    return createChatDocumentItems(textItem, page.ownerId, page, chat, false).allItems;
+  }
   const text = await fetchTextItemContent(textItem);
   const blocks = parseTextDocumentBlocks(text, isMarkdownTextItem(textItem));
   return createTextDocumentItems(textItem, page.ownerId, page, blocks, false).allItems;
@@ -1910,9 +2081,9 @@ export function persistVirtualTextDocumentPageOptions(store: StoreContextModel, 
 }
 
 export async function prepareTextDocumentProjection(store: StoreContextModel, textItem: TextItem, navigationRequestId: number): Promise<PageItem | null> {
-  const text = await fetchTextItemContent(textItem);
+  const project = await projectVirtualTextDocument(store, textItem);
   if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return null; }
-  return upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
+  return project();
 }
 
 const pendingVirtualPageTextIds = new Set<Uid>();
@@ -1953,9 +2124,9 @@ export function virtualTextDocumentPage(store: StoreContextModel, textItem: Text
 function loadVirtualTextDocumentPageContentMaybe(store: StoreContextModel, textItem: TextItem): void {
   if (pendingVirtualPageTextIds.has(textItem.id) || failedVirtualPageTextIds.has(textItem.id)) { return; }
   pendingVirtualPageTextIds.add(textItem.id);
-  fetchTextItemContent(textItem)
-    .then(text => {
-      upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
+  projectVirtualTextDocument(store, textItem)
+    .then(project => {
+      project();
       requestArrange(store, "text-document-virtual-page-ready");
     })
     .catch(e => {
@@ -2007,7 +2178,7 @@ export async function materializeTextDocumentPage(store: StoreContextModel, text
   page.capabilities = null;
 
   itemState.add(page);
-  const generatedItems = await createMaterializedTextDocumentItems(textItem, page);
+  const generatedItems = await createMaterializedTextDocumentItems(store, textItem, page);
   for (const item of generatedItems) {
     itemState.add(item);
   }
