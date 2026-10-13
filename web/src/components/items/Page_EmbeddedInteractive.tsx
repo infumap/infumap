@@ -41,6 +41,7 @@ import { appendNewlineIfEmpty } from "../../util/string";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { Page_TableContent } from "./Page_TableContent";
+import { PageAttachments } from "./PageAttachments";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -526,6 +527,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
             style={autoMovedIntoViewWarningStyle(pageFns().boundsPx().w, pageFns().boundsPx().h)} />
         </Show>
       </div>
+      <PageAttachments visualElement={props.visualElement} pageFns={pageFns()}
+        positionStyle={`left: 0px; top: 0px; ${VeFns.zIndexStyle(props.visualElement)}`} />
     </div>
   );
 }

@@ -59,6 +59,7 @@ import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
+import { PageAttachments } from "./PageAttachments";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -776,6 +777,11 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       {renderPopupTitle()}
       {renderPopupActionStripMaybe()}
       {renderBorder()}
+      <PageAttachments visualElement={props.visualElement} pageFns={pageFns()}
+        positionStyle={`position: ${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}; ` +
+          `left: ${pageFns().boundsPx().x}px; ` +
+          `top: ${pageFns().boundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
+          `${VeFns.zIndexStyle(props.visualElement)}`} />
     </>
   );
 }

@@ -22,7 +22,7 @@ import { Veid, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layo
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
-import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
+import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, Z_INDEX_GLOBAL_POPUP, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -56,6 +56,7 @@ import { Page_TableContent } from "./Page_TableContent";
 import { printScrollWritesSuppressed } from "../../print";
 import { printLayout } from "../../layout/print-bands";
 import { Page_PrintBands } from "./Page_PrintBands";
+import { PageAttachments } from "./PageAttachments";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -864,6 +865,9 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             {renderPage()}
           </Match>
         </Switch>
+        {/* Above the popup (rendered in the viewport) and, for pages whose titles are in the toolbar, the toolbar. */}
+        <PageAttachments visualElement={props.visualElement} pageFns={pageFns()}
+          positionStyle={`left: 0px; top: 0px; z-index: ${Z_INDEX_GLOBAL_POPUP + 1};`} />
       </div>
     </>
   );
