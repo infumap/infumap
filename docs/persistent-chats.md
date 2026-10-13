@@ -25,8 +25,9 @@ continue them.
   new uid (see below). A persisted chat is never continued in place.
 
 Only query items under the Queries page have transcripts. Query items are only created there
-(`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), and dropping one outside the
-page persists it, so a query item elsewhere can only come from older data. It gets no transcript.
+(`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), but no input code stops one
+being dragged out today, so existing data may have query items elsewhere. They get no transcript. Once the server
+guards chat moves (see "Persisting"), a query item can only leave the page by being persisted or trashed.
 
 ### Why transcripts are outside the object store
 
@@ -188,10 +189,12 @@ loads its transcript into the chat view the same way.
 
 ## Listing live chats
 
-The Queries page is a list page. Today it holds one query item, pinned to the top
-(`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), plus `.md` items that
-Materialize creates there (Materialize goes, see "Other details"). With each chat a query item, the page's list
-is the chat history and no second list is needed.
+The Queries page is a list page with manual ordering. Today it holds one query item pinned to the top
+(`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), the Scopes page pinned to the
+bottom (`default_scopes_page` in [routes/mod.rs](../infumap/src/web/routes/mod.rs)), and `.md` items that
+Materialize creates in between (Materialize goes, see "Other details"). With each chat a query item, the middle band
+is the chat history and no second list is needed. Pinning to the top and bottom bands is generic list page
+behavior.
 
 - **The pinned query item is the current chat.** It is where new searches and chats start. Its transcript file is
   created on its first chat turn.
@@ -209,8 +212,17 @@ is the chat history and no second list is needed.
   exists; while drafting, add the estimate for the draft text to the last count.
 - **Titles.** Query items have no title today (`SearchMeasurable` in
   [search-item.ts](../web/src/items/search-item.ts) has no `TitledMixin`), so add one on the client and server. On
-  the first turn, the client sets the title from the first prompt (`titleFromPrompt` in
+  the server, `is_titled_item_type` in [infusdk item/mod.rs](../infusdk/src/item/mod.rs) excludes query items, and
+  deserializing a titled type without a title is an error. Existing query items in the DB logs have no title, so a
+  missing title must default to empty, as it already does for composites. The client's item parsing needs the same
+  default. The list line item shows a hard-coded "Query" label
+  ([Query_LineItem.tsx](../web/src/components/items/Query_LineItem.tsx)); show the title instead, falling back to
+  "Query" when it is empty. On the first turn, the client sets the title from the first prompt (`titleFromPrompt` in
   [chat.ts](../web/src/items/chat.ts)) with an ordinary item update. Renaming is an ordinary title edit.
+- **Entering the Queries page** (`navigateToQueries` in [navigation.ts](../web/src/layout/navigation.ts), and the
+  initial load in [Main.tsx](../web/src/components/Main.tsx)) selects the item returned by
+  `ensureQueryItemUnderQueries`, so a reload or navigation returns to the current chat, not to a history entry that
+  was being viewed. That is acceptable to start with.
 - **Generated titles.** When New chat or Continue unpins a chat, the client calls a server title endpoint for the
   unpinned query item, in the background. The history list is where titles matter, and three words of the first
   prompt are a poor label there. The server builds the title prompt from the visible user and final assistant text
@@ -286,16 +298,29 @@ fragments would be regenerated repeatedly, and the Queries page list already cov
 Each step can be committed on its own. After step 6, chats survive a reload. Steps 1 to 5 change nothing visible:
 the chat route ignores requests without a query item id.
 
-0. **Check the single-query-item assumption.** The design depends on several query items under the Queries page.
-   Known so far: the query runtime and the temporary chat page are keyed by query item id, and
-   [key.ts](../web/src/input/key.ts) and [page_list.ts](../web/src/layout/arrange/page_list.ts) test "is a query
-   item", not "is the query item". `ensureQueryItemUnderQueries` is the only assumption found. Still to check:
-   [Query.tsx](../web/src/components/items/Query.tsx), and selection and focus with several query items in the list.
-   If this fails, revisit the design before building on it.
+0. **Check the single-query-item assumption.** Done 2026-10-13, by reading code, not by running it. No blocker
+   found:
+   - Client state is keyed by query item id: the query runtime (`queryRuntimes` in
+     [StoreProvider_PerItem.tsx](../web/src/store/StoreProvider_PerItem.tsx)), the streaming, request and delta
+     maps in [chat.ts](../web/src/items/chat.ts), the activity UI maps in
+     [query-chat-activity-ui.ts](../web/src/items/query-chat-activity-ui.ts), and the temporary chat page.
+   - Selection, focus and keyboard code ([key.ts](../web/src/input/key.ts),
+     [helper.ts](../web/src/components/items/helper.ts), [hit/index.ts](../web/src/input/hit/index.ts)) and
+     arrangement ([page_list.ts](../web/src/layout/arrange/page_list.ts),
+     [item.ts](../web/src/layout/arrange/item.ts)) test "is the selected item a query item", not "is it the query
+     item". The query input's DOM id is derived from the visual element path, so it is unique per item.
+   - The server has no single-query-item assumption; it only creates the default query item for new users.
+   - The only assumption is `ensureQueryItemUnderQueries`, which pins the first query item it finds. It must find
+     the pinned one instead (step 6). It is also what selects the current chat on entering the Queries page.
+   - Found along the way, now in the design: the Scopes page is pinned to the bottom of the Queries page; the list
+     line item has a hard-coded "Query" label; a server-side title on query items needs a default for existing
+     records; query items can be dragged out of the Queries page today.
+   Still unverified until step 6 runs: selection and focus behavior with several query items in the list.
 1. **Server chat store.** Read, append and delete for `user_{id}/chats/{query_item_id}.chat`, with per-chat
    locking, synced appends, revisions as `user` record counts, incomplete-tail repair, and interrupted turns
    derived on read. Tests: round-trip, an incomplete last line, rebuilding the message list after a cancelled turn.
-2. **Query item titles.** Add a title to query items on the client and server, and show it in the list page.
+2. **Query item titles.** Add query items to `is_titled_item_type` with a missing title defaulting to empty on the
+   server and client, and show the title in `Query_LineItem`, falling back to "Query".
 3. **Chat route writes transcripts.** The request takes a query item id, request id, expected revision and user
    text. Validate the query item, reject stale submissions before appending, create the file on the first turn,
    sync the `user` record, rebuild history from completed turns, and record the outcome on completion, error or
