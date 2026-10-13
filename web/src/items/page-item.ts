@@ -1890,7 +1890,20 @@ export const PageFns = {
       return { parentContainer, insertIndex: siblingIds.indexOf(treeItem.id) + offset };
     };
     if (moveOverIndex < rowVes.length) {
-      return targetAtRow(rowVes[Math.max(0, moveOverIndex)], 0);
+      const target = targetAtRow(rowVes[Math.max(0, moveOverIndex)], 0);
+      // The position directly below the last row of an expanded container is also the position after that row in its
+      // container. Where the row below is in an ordered container, a position there has no meaning, so prefer the end
+      // of the expanded container.
+      const prevRowVe = moveOverIndex > 0 ? rowVes[moveOverIndex - 1] : null;
+      if (prevRowVe != null && target.parentContainer.orderChildrenBy &&
+        VeFns.treeItem(prevRowVe).parentId != target.parentContainer.id &&
+        VeFns.treeItem(prevRowVe).id != target.parentContainer.id) {
+        const prevTarget = targetAtRow(prevRowVe, 1);
+        if (!prevTarget.parentContainer.orderChildrenBy) {
+          return prevTarget;
+        }
+      }
+      return target;
     }
     const lastRowVe = rowVes[rowVes.length - 1];
     if (lastRowVe != null && VeFns.treeItem(lastRowVe).parentId != page.id) {
