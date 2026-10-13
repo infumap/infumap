@@ -1093,7 +1093,7 @@ function addQueryChatOutcomeNote(store: StoreContextModel, queryItem: QueryItem,
   }));
 }
 
-function queryChatOutcomeText(status: LoadChatTurn["status"], error: string | null): string | null {
+export function queryChatOutcomeText(status: LoadChatTurn["status"], error: string | null): string | null {
   switch (status) {
     case "cancelled":
       return "Response stopped.";

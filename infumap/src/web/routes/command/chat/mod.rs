@@ -1197,10 +1197,13 @@ async fn live_chat_data_dir(
   Ok(db.item.data_dir().to_owned())
 }
 
+/// Names exactly one of a live chat (its query item) or a persisted chat (its `.chat` text item).
 #[derive(Deserialize)]
 struct LoadChatRequest {
-  #[serde(rename = "queryItemId")]
-  query_item_id: Uid,
+  #[serde(rename = "queryItemId", default)]
+  query_item_id: Option<Uid>,
+  #[serde(rename = "chatItemId", default)]
+  chat_item_id: Option<Uid>,
 }
 
 #[derive(Serialize)]
@@ -1277,21 +1280,53 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
   }
 }
 
-/// Loads a live chat for the chat view: its turns, revision and running state. A query item without a transcript
-/// loads as an empty chat at revision 0.
+/// Loads a chat for display: a live chat for the chat view, with its turns, revision and running state, or a persisted
+/// chat for its document page. A query item without a transcript loads as an empty chat at revision 0.
 pub(super) async fn handle_load_chat(
   db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
   json_data: &str,
   session_maybe: &Option<Session>,
 ) -> InfuResult<Option<String>> {
   let session = session_maybe.as_ref().ok_or("Session is required to load a chat.")?;
   let request: LoadChatRequest = serde_json::from_str(json_data)?;
-  let data_dir = live_chat_data_dir(db, session, &request.query_item_id).await?;
-  let running = chat_is_locked(&session.user_id, &request.query_item_id);
-  let transcript = read_transcript(&data_dir, &session.user_id, &request.query_item_id).await?;
-  let response = load_chat_response(&session.user_id, transcript.as_ref(), running);
+  let response = match (&request.query_item_id, &request.chat_item_id) {
+    (Some(query_item_id), None) => {
+      let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
+      let running = chat_is_locked(&session.user_id, query_item_id);
+      let transcript = read_transcript(&data_dir, &session.user_id, query_item_id).await?;
+      load_chat_response(&session.user_id, transcript.as_ref(), running)
+    }
+    (None, Some(chat_item_id)) => {
+      let transcript = read_persisted_chat(db, object_store, session, chat_item_id).await?;
+      load_chat_response(&session.user_id, Some(&transcript), false)
+    }
+    _ => return Err("A chat load names either a query item or a chat item.".into()),
+  };
   debug!("Executed 'load-chat' command for user '{}'.", session.user_id);
   Ok(Some(serde_json::to_string(&response)?))
+}
+
+/// The transcript of a persisted chat: the content of a `.chat` text item of the session user.
+async fn read_persisted_chat(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  session: &Session,
+  chat_item_id: &Uid,
+) -> InfuResult<Transcript> {
+  let encryption_key = {
+    let db = db.lock().await;
+    let item = db.item.get(chat_item_id)?;
+    if item.owner_id != session.user_id
+      || item.item_type != ItemType::Text
+      || item.mime_type.as_deref() != Some(CHAT_TRANSCRIPT_MIME_TYPE)
+    {
+      return Err(format!("Item '{}' is not a chat of user '{}'.", chat_item_id, session.user_id).into());
+    }
+    db.user.get(&session.user_id).ok_or("The user was not found.")?.object_encryption_key.clone()
+  };
+  let bytes = object::get(object_store, session.user_id.clone(), chat_item_id.clone(), &encryption_key).await?;
+  transcript::parse_transcript(&bytes)?.ok_or_else(|| format!("Chat item '{}' has no transcript.", chat_item_id).into())
 }
 
 /// Starts a turn of a live chat: checks the query item and the expected revision, records the user message, and
@@ -3456,6 +3491,7 @@ mod live_chat_tests {
 
   struct Fixture {
     db: Arc<tokio::sync::Mutex<Db>>,
+    object_store: Arc<object::ObjectStore>,
     session: Session,
     data_dir: String,
     query_item_id: Uid,
@@ -3484,8 +3520,11 @@ mod live_chat_tests {
       predecessor_id: None,
     };
     let data_dir = t.db.item.data_dir().to_owned();
+    let object_store =
+      object::new(&data_dir, true, false, None, None, None, None, None, false, None, None, None, None, None).unwrap();
     Fixture {
       db: Arc::new(tokio::sync::Mutex::new(t.db)),
+      object_store,
       session,
       data_dir,
       query_item_id,
@@ -3676,7 +3715,7 @@ mod live_chat_tests {
   impl Fixture {
     async fn load(&self, query_item_id: &Uid) -> InfuResult<Value> {
       let json = serde_json::json!({ "queryItemId": query_item_id }).to_string();
-      let response = handle_load_chat(&self.db, &json, &Some(self.session.clone())).await?;
+      let response = handle_load_chat(&self.db, self.object_store.clone(), &json, &Some(self.session.clone())).await?;
       Ok(serde_json::from_str(&response.unwrap()).unwrap())
     }
   }
@@ -3748,8 +3787,12 @@ mod live_chat_tests {
     assert!(f.load(&f.note_id).await.is_err());
     let other_user = Session { user_id: new_uid(), ..f.session.clone() };
     let json = serde_json::json!({ "queryItemId": f.query_item_id }).to_string();
-    assert!(handle_load_chat(&f.db, &json, &Some(other_user)).await.is_err());
-    assert!(handle_load_chat(&f.db, &json, &None).await.is_err());
+    assert!(handle_load_chat(&f.db, f.object_store.clone(), &json, &Some(other_user)).await.is_err());
+    assert!(handle_load_chat(&f.db, f.object_store.clone(), &json, &None).await.is_err());
+    let both = serde_json::json!({ "queryItemId": f.query_item_id, "chatItemId": f.note_id }).to_string();
+    assert!(handle_load_chat(&f.db, f.object_store.clone(), &both, &Some(f.session.clone())).await.is_err());
+    let not_a_chat = serde_json::json!({ "chatItemId": f.note_id }).to_string();
+    assert!(handle_load_chat(&f.db, f.object_store.clone(), &not_a_chat, &Some(f.session.clone())).await.is_err());
   }
 
   #[test]

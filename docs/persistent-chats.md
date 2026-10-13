@@ -428,6 +428,15 @@ the chat route ignores requests without a query item id.
    does; before, it stayed undraggable until the page reloaded.
 10. **`.chat` document page.** Read-only, text only. Extend the load endpoint to `.chat` items, reading the content
     from the object store.
+    Done 2026-10-13: `load-chat` also takes `{ chatItemId }` (`read_persisted_chat` in
+    [chat/mod.rs](../infumap/src/web/routes/command/chat/mod.rs)), for a `.chat` text item of the session user only.
+    On the client, a text item with the chat MIME type (`isChatTextItem` in
+    [text-document.ts](../web/src/items/text-document.ts)) is projected from the loaded turns rather than its text:
+    a "You" composite per turn, the assistant's items, and an outcome note for an unsuccessful turn, with ids stable
+    across loads. Shift-dragging it to make a real page uses the same generator, so the copy is the chat as editable
+    composites. Not done: a `.chat` item of another user (a public page) or on another server does not render, since
+    the content is only read for its owner. Checked end to end: a persisted chat with a failed turn opened as a page
+    matching the chat window, twice, and shift-dragged into a page of composites.
 11. **Continue and move back.** A server endpoint copies a `.chat` item into a new pinned query item with a fresh
     header, optionally trashing the original. Add the Continue button to `Toolbar_Text` for `.chat` items (copy),
     and handle dropping a `.chat` item onto the Queries page (move). Generate a title for the chat this unpins.
