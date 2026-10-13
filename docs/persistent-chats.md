@@ -201,7 +201,7 @@ loads its transcript into the chat view the same way.
 
 ## Listing live chats
 
-The Queries page is a list page with manual ordering. Today it holds one query item pinned to the top
+The Queries page is a list page with manual ordering. It holds one empty "New Query" item pinned to the top
 (`ensureQueryItemUnderQueries` in [navigation.ts](../web/src/layout/navigation.ts)), the Scopes page pinned to the
 bottom (`default_scopes_page` in [routes/mod.rs](../infumap/src/web/routes/mod.rs)), and `.md` items that
 Materialize creates in between (Materialize goes, see "Other details"). The server also adds two virtual,
@@ -210,46 +210,40 @@ bottom with the Scopes page. With each
 chat a query item, the middle band is the chat history and no second list is needed. Pinning to the top and bottom
 bands is generic list page behavior.
 
-- **The pinned query item is the current chat.** It is where new searches and chats start. Its transcript file is
-  created on its first chat turn.
-- **New chat** (replacing Clear) is available when the current chat has a transcript. It unpins the current query
-  item, which stays in the list as the newest history entry, and creates a new pinned query item. It is disabled
-  while a turn is running. `ensureQueryItemUnderQueries` changes to find the pinned query item rather than the
-  first one, and creates one if none is pinned.
+- **New Query is the entry point.** It is where new searches and chats start. When its first chat turn is accepted,
+  the server unpins it as the newest history entry and creates another empty pinned query at the top. The chat remains
+  selected while its response runs. Selecting New Query starts another query; there is no New chat button in a chat.
+  The server's `ensure-query-entry` command also performs this transition for an older pinned chat with a transcript
+  when the Queries page opens, and recreates a missing entry point after an interrupted transition.
 - **History entries** are the unpinned query items, newest first. No reordering is needed, which matters because
   the server rejects ordering changes for these items: each new pinned query item is created at the beginning of the
-  page's children, so once unpinned it already sorts before every older chat. Unpinning only changes flags.
+  page's children, so once unpinned it already sorts before every older chat. Continued chats are also added at the
+  beginning as unpinned items.
   Selecting one shows its chat, which can be continued. Unpinned items are chat only; their search mode is hidden.
 - **Restoring a chat** loads its transcript and puts the settings of its last turn (model selection,
   capabilities, scope, mode) into the query runtime, so continuing it does not silently switch to whatever was
   last used elsewhere. The context token display starts from the last reported count. Today it is estimated from the
   client-held message list ([chat.ts](../web/src/items/chat.ts), `estimateChatContextTokens`), which no longer
   exists; while drafting, add the estimate for the draft text to the last count.
-- **Titles.** Query items have no title today (`SearchMeasurable` in
-  [search-item.ts](../web/src/items/search-item.ts) has no `TitledMixin`), so add one on the client and server. On
-  the server, `is_titled_item_type` in [infusdk item/mod.rs](../infusdk/src/item/mod.rs) excludes query items, and
-  deserializing a titled type without a title is an error. Existing query items in the DB logs have no title, so a
-  missing title must default to empty, as it already does for composites. The client's item parsing needs the same
-  default. The list line item shows a hard-coded "Query" label
-  ([Query_LineItem.tsx](../web/src/components/items/Query_LineItem.tsx)); show the title instead, falling back to
-  "Query" when it is empty. On the first turn, the client sets the title from the first prompt (`titleFromPrompt` in
-  [chat.ts](../web/src/items/chat.ts)) with an ordinary item update. Renaming is an ordinary title edit.
+- **Titles.** Query items have titles. An empty pinned title displays as "New Query"; an empty unpinned title displays
+  as "Query". On the first accepted chat turn, the server derives a title from the prompt. Renaming remains an
+  ordinary title edit. The pinned New Query uses the search icon; unpinned chat entries use a talk bubble. A
+  materialized search is a page item and keeps its page icon.
 - **Entering the Queries page** (`navigateToQueries` in [navigation.ts](../web/src/layout/navigation.ts), and the
   initial load in [Main.tsx](../web/src/components/Main.tsx)) selects the item returned by
-  `ensureQueryItemUnderQueries`, so a reload or navigation returns to the current chat, not to a history entry that
-  was being viewed. That is acceptable to start with.
-- **Generated titles.** When New chat or Continue unpins a chat, the client calls a server title endpoint for the
+  `ensureQueryItemUnderQueries`, so a reload or navigation selects New Query rather than a history entry that
+  was being viewed.
+- **Generated titles.** After a chat's first response, the client calls a server title endpoint for the
   unpinned query item, in the background. The history list is where titles matter, and three words of the first
   prompt are a poor label there. The server builds the title prompt from the visible user and final assistant text
   only, capped at a few thousand characters, so that the call is short even for long chats with large tool results.
   It updates the item title only if the title still equals the derived one (a server-side port of
-  `titleFromPrompt`), so a manual rename always wins. It returns the new title for the client to apply. A failed
-  call leaves the derived title. On a single local llama-server the call can still overlap with the next chat's
-  first response; the capped input keeps that short.
+  prompt-derived title), so a manual rename always wins. It returns the new title for the client to apply. A failed
+  call leaves the derived title.
 - **Continuing a persisted chat.** Both the move (dragging a `.chat` item into the Queries page) and the copy (the
-  Continue button) unpin the current chat, as New chat does, and create a new pinned query item whose transcript is
-  a copy of the `.chat` item's content, with the item's title. The drop position is ignored: the continued chat
-  always becomes the current chat. The move then sends the `.chat` item to the trash. A crash between creating the
+  Continue button) add an unpinned query item whose transcript is a copy of the `.chat` item's content, with the
+  item's title. New Query remains pinned at the top, and the continued chat is selected. The drop position is ignored.
+  The move then sends the `.chat` item to the trash. A crash between creating the
   query item and trashing the `.chat` item leaves both, which is harmless.
 - **Continue button.** Text items have their own toolbar
   ([Toolbar_Text.tsx](../web/src/components/toolbar/item/Toolbar_Text.tsx): item icon, open text file). Add

@@ -38,6 +38,7 @@ import { XSizableMixin } from "./base/x-sizeable-item";
 
 const DEFAULT_WIDTH_GR = GRID_SIZE * 4;
 const UNTITLED_QUERY_DISPLAY_TITLE = "Query";
+const NEW_QUERY_DISPLAY_TITLE = "New Query";
 export const SEARCH_WORKSPACE_TOP_INSET_PX = 25;
 export const SEARCH_WORKSPACE_SIDE_INSET_PX = 26;
 export const SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX = 44;
@@ -349,7 +350,12 @@ export const SearchFns = {
 
   /** The title shown for the item, which is a placeholder until it has one. */
   displayTitle: (searchItem: SearchItem): string => {
-    return searchItem.title == "" ? UNTITLED_QUERY_DISPLAY_TITLE : searchItem.title;
+    if (searchItem.title != "") {
+      return searchItem.title;
+    }
+    return (searchItem.flags & SearchFlags.ListPagePinTop) != 0
+      ? NEW_QUERY_DISPLAY_TITLE
+      : UNTITLED_QUERY_DISPLAY_TITLE;
   },
 };
 

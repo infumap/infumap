@@ -23,7 +23,7 @@ import { VisualElementProps } from "../VisualElement";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, lineItemTextClippedWidthCssPx } from "./helper";
 import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
 import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
-import { QueryFns, asQueryItem } from "../../items/query-item";
+import { QueryFns, asQueryItem, queryIconClass } from "../../items/query-item";
 
 
 export const Query_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -64,7 +64,7 @@ export const Query_LineItem: Component<VisualElementProps> = (props: VisualEleme
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
-        <i class="fas fa-search" />
+        <i class={queryIconClass(asQueryItem(props.visualElement.displayItem))} />
       </div>
       <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis pointer-events-none"
         style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +

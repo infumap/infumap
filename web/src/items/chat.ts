@@ -28,7 +28,8 @@ import { ItemFns } from "./base/item-polymorphism";
 import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
-import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, setQueryText, updateQueryRuntime } from "./query-item";
+import { ensureQueryEntryUnderQueries } from "./query-entry";
+import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, updateQueryRuntime } from "./query-item";
 import { queryScopeIdForRequest } from "./query-scope";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import {
@@ -53,8 +54,6 @@ import {
 } from "../store/StoreProvider_PerItem";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
-
-const QUERY_CHAT_FALLBACK_TITLE = "Chat";
 
 function markAsQueryChatPage(item: Item): void {
   item.clientOnly = true;
@@ -494,15 +493,6 @@ function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
     throw new Error("Chat streaming state changed while flushing text deltas.");
   }
   setQueryChatStreamingState(queryId, reduceQueryChatStreamEvent(current, event));
-}
-
-/** Must match `title_from_prompt` on the server, which uses it to tell a derived title from one set otherwise. */
-function titleFromPrompt(prompt: string): string {
-  const titleWords = prompt.trim().replace(/\s+/g, " ").split(" ").filter(word => word != "").slice(0, 3);
-  if (titleWords.length == 0) {
-    return QUERY_CHAT_FALLBACK_TITLE;
-  }
-  return titleWords.join(" ");
 }
 
 function queryChatRootIds(store: StoreContextModel, queryItem: QueryItem): Array<Uid> {
@@ -1070,20 +1060,18 @@ export async function generateQueryChatTitle(store: StoreContextModel, queryItem
   }
 }
 
-/** On a chat's first turn, titles its query item from the prompt, unless it already has a title. */
-function setDerivedQueryChatTitle(store: StoreContextModel, queryItemMaybeStale: QueryItem, prompt: string): void {
-  // Syncing replaces item objects, so change the current one.
-  const current = itemState.get(queryItemMaybeStale.id);
-  if (current == null || !isQueryItem(current)) {
-    return;
+/** On the first accepted turn, moves the current query into chat history and leaves a new query at the top. */
+async function archiveQueryChatAfterFirstTurn(
+  store: StoreContextModel,
+  queryItemMaybeStale: QueryItem,
+): Promise<boolean> {
+  const user = store.user.getUserMaybe();
+  if (user == null || !isLiveQueryChat(store, queryItemMaybeStale)) {
+    return false;
   }
-  const queryItem = asQueryItem(current);
-  if (queryItem.title != "") {
-    return;
-  }
-  queryItem.title = titleFromPrompt(prompt);
-  void server.updateItem(queryItem, store.general.networkStatus);
-  requestArrange(store, "query-chat-derived-title");
+  const result = await ensureQueryEntryUnderQueries(store, user.queriesPageId, queryItemMaybeStale.id);
+  requestArrange(store, "query-chat-new-query");
+  return result?.archivedQueryItemIds.includes(queryItemMaybeStale.id) ?? false;
 }
 
 /**
@@ -1111,6 +1099,7 @@ export async function submitQueryChatMessage(
   const requestId = newUid();
   const controller = new AbortController();
   let accepted = false;
+  const firstTurnArchive: { promise: Promise<boolean> | null } = { promise: null };
   let clearStreamingStateOnExit = true;
   discardBufferedChatTextDeltas(queryItem.id);
   activeQueryChatRequestByQueryId.set(queryItem.id, { requestId, controller });
@@ -1138,7 +1127,7 @@ export async function submitQueryChatMessage(
         accepted = true;
         setQueryChatRevision(store, queryItem, event.revision);
         if (event.revision == 1) {
-          setDerivedQueryChatTitle(store, queryItem, text);
+          firstTurnArchive.promise = archiveQueryChatAfterFirstTurn(store, queryItem);
         }
         return;
       }
@@ -1218,6 +1207,16 @@ export async function submitQueryChatMessage(
     addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("error", message)!);
     return true;
   } finally {
+    if (firstTurnArchive.promise != null) {
+      void firstTurnArchive.promise.then(
+        archived => {
+          if (archived) {
+            void generateQueryChatTitle(store, queryItem.id);
+          }
+        },
+        e => console.error("Failed to archive the first query chat turn:", e),
+      );
+    }
     const activeRequest = activeQueryChatRequestByQueryId.get(queryItem.id);
     if (activeRequest?.requestId == requestId) {
       activeQueryChatRequestByQueryId.delete(queryItem.id);
@@ -1378,13 +1377,4 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
   }));
   clearQueryChatStreamingState(queryItem.id);
   clearQueryChatCompletedActivityUi(queryItem.id);
-}
-
-export function resetQueryChatSession(store: StoreContextModel, queryItem: QueryItem, arrangeReason?: string): void {
-  clearQueryChat(store, queryItem);
-  setQueryMode(store, queryItem, null);
-  setQueryText(store, queryItem, "");
-  if (arrangeReason != null) {
-    requestArrange(store, arrangeReason);
-  }
 }

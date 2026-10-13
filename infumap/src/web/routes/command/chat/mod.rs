@@ -30,6 +30,187 @@ use uuid::Uuid;
 use super::scope::{ResolvedScope, resolve_scope};
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
+// Item operations take the DB lock separately, so each user's guard covers the whole inspect, archive, and create
+// sequence across their tabs without holding up another user's Queries page.
+static QUERY_ENTRY_LOCKS: Lazy<tokio::sync::Mutex<HashMap<Uid, Arc<tokio::sync::Mutex<()>>>>> =
+  Lazy::new(|| tokio::sync::Mutex::new(HashMap::new()));
+
+async fn query_entry_lock(user_id: &Uid) -> Arc<tokio::sync::Mutex<()>> {
+  let mut locks = QUERY_ENTRY_LOCKS.lock().await;
+  locks.entry(user_id.clone()).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
+}
+
+#[derive(Deserialize)]
+struct EnsureQueryEntryRequest {
+  #[serde(rename = "firstTurnQueryItemId")]
+  first_turn_query_item_id: Option<Uid>,
+}
+
+pub(super) async fn handle_ensure_query_entry(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to ensure the Queries entry point.")?;
+  let request: EnsureQueryEntryRequest = serde_json::from_str(json_data)?;
+  let entry_lock = query_entry_lock(&session.user_id).await;
+  let _guard = entry_lock.lock().await;
+  let (pinned_id, archived_ids) = ensure_query_entry_locked(db, object_store, session, request.first_turn_query_item_id).await?;
+  let response = {
+    let db = db.lock().await;
+    let query_item = super::item_to_api_json_map_with_capabilities(&db, db.item.get(&pinned_id)?)?;
+    let archived_items = archived_ids
+      .iter()
+      .map(|id| super::item_to_api_json_map_with_capabilities(&db, db.item.get(id)?))
+      .collect::<InfuResult<Vec<_>>>()?;
+    let queries_page_id = db.user.get(&session.user_id).ok_or("The user was not found.")?.queries_page_id.clone();
+    let touched = HashSet::from([queries_page_id]);
+    let sync_ack = super::build_sync_ack(&db, &session.user_id, &touched);
+    serde_json::json!({ "queryItem": query_item, "archivedQueryItems": archived_items, "syncAck": sync_ack })
+  };
+  Ok(Some(response.to_string()))
+}
+
+/** Caller holds this user's query-entry lock. */
+async fn ensure_query_entry_locked(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  session: &Session,
+  first_turn_query_item_id: Option<Uid>,
+) -> InfuResult<(Uid, Vec<Uid>)> {
+  let (queries_page_id, data_dir, pinned_ids) = {
+    let db = db.lock().await;
+    let user = db.user.get(&session.user_id).ok_or("The user was not found.")?;
+    let children = db.item.get_children(&user.queries_page_id)?;
+    let pinned_ids = children
+      .iter()
+      .filter(|item| item.item_type == ItemType::Search && !super::is_unpinned(item))
+      .map(|item| item.id.clone())
+      .collect::<Vec<_>>();
+    (user.queries_page_id.clone(), db.item.data_dir().to_owned(), pinned_ids)
+  };
+
+  let mut archived_ids = Vec::<Uid>::new();
+  for id in pinned_ids {
+    if archive_used_query_entry(db, session, &data_dir, &queries_page_id, &id).await? {
+      archived_ids.push(id);
+    }
+  }
+  if let Some(id) = first_turn_query_item_id {
+    if !archived_ids.contains(&id) && archive_used_query_entry(db, session, &data_dir, &queries_page_id, &id).await? {
+      archived_ids.push(id);
+    }
+  }
+
+  let (pinned_id, reusable_id, ordering) = {
+    let db = db.lock().await;
+    let children = db.item.get_children(&queries_page_id)?;
+    let queries = children.iter().filter(|item| item.item_type == ItemType::Search).collect::<Vec<_>>();
+    let pinned_id = queries.iter().find(|item| !super::is_unpinned(item)).map(|item| item.id.clone());
+    let reusable_id =
+      if pinned_id.is_none() && queries.len() == 1 && queries[0].title.as_deref().unwrap_or("").is_empty() {
+        Some(queries[0].id.clone())
+      } else {
+        None
+      };
+    let ordering =
+      crate::util::ordering::new_ordering_at_beginning(children.iter().map(|item| item.ordering.clone()).collect());
+    (pinned_id, reusable_id, ordering)
+  };
+
+  let pinned_id = if let Some(id) = pinned_id {
+    id
+  } else if let Some(id) = reusable_id {
+    let unused = read_transcript(&data_dir, &session.user_id, &id).await?.is_none_or(|t| t.turns.is_empty());
+    if unused {
+      let mut item = {
+        let db = db.lock().await;
+        db.item.get(&id)?.clone()
+      };
+      item.flags = Some((item.flags.unwrap_or(0) & !LIST_PAGE_PIN_BOTTOM_FLAG) | LIST_PAGE_PIN_TOP_FLAG);
+      let json = serde_json::to_string(&item.to_api_json()?)?;
+      super::item_ops::handle_update_item(db, &json, &Some(session.clone())).await?;
+      id
+    } else {
+      add_empty_query_entry(db, object_store.clone(), session, &queries_page_id, ordering).await?
+    }
+  } else {
+    add_empty_query_entry(db, object_store.clone(), session, &queries_page_id, ordering).await?
+  };
+
+  Ok((pinned_id, archived_ids))
+}
+
+async fn archive_used_query_entry(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  data_dir: &str,
+  queries_page_id: &Uid,
+  id: &Uid,
+) -> InfuResult<bool> {
+  {
+    let db = db.lock().await;
+    let item = db.item.get(id)?;
+    if item.owner_id != session.user_id
+      || item.parent_id.as_ref() != Some(queries_page_id)
+      || item.item_type != ItemType::Search
+    {
+      return Err("The query item is not in the user's Queries page.".into());
+    }
+  }
+  let transcript = read_transcript(data_dir, &session.user_id, id).await?;
+  let Some(first_turn) = transcript.as_ref().and_then(|t| t.turns.first()) else {
+    return Ok(false);
+  };
+  let mut item = {
+    let db = db.lock().await;
+    db.item.get(id)?.clone()
+  };
+  if item.owner_id != session.user_id
+    || item.parent_id.as_ref() != Some(queries_page_id)
+    || item.item_type != ItemType::Search
+  {
+    return Err("The query item is not in the user's Queries page.".into());
+  }
+  let was_pinned = !super::is_unpinned(&item);
+  let was_untitled = item.title.as_deref().unwrap_or("").is_empty();
+  if was_pinned {
+    item.flags = Some(item.flags.unwrap_or(0) & !LIST_PAGE_PIN_TOP_FLAG);
+  }
+  if was_untitled {
+    item.title = Some(title_from_prompt(&first_turn.user.text));
+  }
+  if was_pinned || was_untitled {
+    let json = serde_json::to_string(&item.to_api_json()?)?;
+    super::item_ops::handle_update_item(db, &json, &Some(session.clone())).await?;
+  }
+  Ok(true)
+}
+
+async fn add_empty_query_entry(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  session: &Session,
+  queries_page_id: &Uid,
+  ordering: Vec<u8>,
+) -> InfuResult<Uid> {
+  let mut item = Item::new_query(
+    queries_page_id,
+    ordering,
+    super::queries_page_query_item_position_gr(),
+    super::queries_page_query_item_width_gr(),
+    RelationshipToParent::Child,
+  );
+  item.owner_id = session.user_id.clone();
+  item.flags = Some(LIST_PAGE_PIN_TOP_FLAG);
+  item.title = Some(String::new());
+  let id = item.id.clone();
+  let json = serde_json::to_string(&item.to_api_json()?)?;
+  super::item_ops::add_item_for_user(db, object_store, &json, &None, &session.user_id).await?;
+  Ok(id)
+}
+
 mod activity;
 mod backend;
 mod container_fragments;
@@ -978,8 +1159,8 @@ struct ChatTitleResponse {
   title: String,
 }
 
-/// Generates a title for an earlier chat; see `generate_live_chat_title`. Called when New chat leaves a chat behind,
-/// so it runs after the chat, not alongside a response.
+/// Generates a title for an earlier chat; see `generate_live_chat_title`. Called after a chat's first response,
+/// so it does not run alongside that response.
 pub async fn serve_chat_title_route(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -1047,7 +1228,7 @@ async fn persist_live_chat(
     let db = db.lock().await;
     let item = db.item.get(query_item_id)?;
     if !super::is_unpinned(item) {
-      return Err("The current chat can't be moved out of the Queries page; start a new chat first.".into());
+      return Err("Only an earlier chat can be moved out of the Queries page.".into());
     }
     item.title.clone().unwrap_or_default()
   };
@@ -1155,26 +1336,23 @@ struct ChatContinueRequest {
 
 #[derive(Serialize)]
 struct ChatContinueResponse {
-  /// The new current chat.
+  /// The new chat history entry, selected by the client after Continue.
   #[serde(rename = "queryItem")]
   query_item: Value,
-  /// The previous current chat, now an earlier chat, if it had a transcript.
+  /// A previously pinned chat moved into history while preparing New Query, if any.
   #[serde(rename = "unpinnedQueryItemId")]
   unpinned_query_item_id: Option<Uid>,
-  /// The previous current chat, deleted because it had never been used.
+  /// Retained for existing clients; Continue no longer deletes the blank query.
   #[serde(rename = "deletedQueryItemId")]
   deleted_query_item_id: Option<Uid>,
 }
 
-/// Continues a persisted chat: copies its transcript, under a new header, into a new pinned query item in the Queries
-/// page, which becomes the current chat. A previous current chat with a transcript becomes an earlier chat; one never
-/// used is deleted. The `.chat` item stays where it is, or with `trash_original` goes to the trash. The transcript is
-/// written before its query item is added, so a crash leaves at worst an orphan transcript, which startup cleanup
-/// removes. See docs/persistent-chats.md.
+/// Continues a persisted chat as the newest history entry while leaving New Query pinned at the top. The `.chat` item
+/// stays where it is, or with `trash_original` goes to the trash. The transcript is written before its query item is
+/// added, so a crash leaves at worst an orphan transcript, which startup cleanup removes. See docs/persistent-chats.md.
 async fn continue_persisted_chat(
   db: &Arc<tokio::sync::Mutex<Db>>,
   object_store: Arc<object::ObjectStore>,
-  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
   session: &Session,
   request: &ChatContinueRequest,
 ) -> InfuResult<ChatContinueResponse> {
@@ -1183,20 +1361,21 @@ async fn continue_persisted_chat(
   if source.turns.is_empty() {
     return Err("The chat has no turns to continue.".into());
   }
-  let (data_dir, queries_page_id, title, current, ordering) = {
+  let entry_lock = query_entry_lock(user_id).await;
+  let _entry_guard = entry_lock.lock().await;
+  let (data_dir, queries_page_id, title) = {
     let db = db.lock().await;
     let user = db.user.get(user_id).ok_or("The user was not found.")?;
     let chat_item = db.item.get(&request.chat_item_id)?;
     let file_title = chat_item.title.clone().unwrap_or_default();
     let title = file_title.strip_suffix(".chat").unwrap_or(&file_title).to_owned();
-    let children = db.item.get_children(&user.queries_page_id)?;
-    let current = children
-      .iter()
-      .find(|item| item.item_type == ItemType::Search && !super::is_unpinned(item))
-      .map(|item| (*item).clone());
-    let ordering =
-      crate::util::ordering::new_ordering_at_beginning(children.iter().map(|item| item.ordering.clone()).collect());
-    (db.item.data_dir().to_owned(), user.queries_page_id.clone(), title, current, ordering)
+    (db.item.data_dir().to_owned(), user.queries_page_id.clone(), title)
+  };
+  let (_, archived_ids) = ensure_query_entry_locked(db, object_store.clone(), session, None).await?;
+  let ordering = {
+    let db = db.lock().await;
+    let children = db.item.get_children(&queries_page_id)?;
+    crate::util::ordering::new_ordering_at_beginning(children.iter().map(|item| item.ordering.clone()).collect())
   };
 
   let query_item_id = new_uid();
@@ -1218,9 +1397,9 @@ async fn continue_persisted_chat(
   );
   query_item.id = query_item_id.clone();
   query_item.owner_id = user_id.clone();
-  query_item.flags = Some(LIST_PAGE_PIN_TOP_FLAG);
+  query_item.flags = Some(0);
   query_item.title = Some(title);
-  let added = super::item_ops::add_item_for_user(
+  super::item_ops::add_item_for_user(
     db,
     object_store.clone(),
     &serde_json::to_string(&query_item.to_api_json()?)?,
@@ -1230,26 +1409,12 @@ async fn continue_persisted_chat(
   .await?
   .ok_or("Adding the chat's query item returned nothing.")?;
   drop(transcript);
-  let added: Value = serde_json::from_str(&added)?;
-  let query_item_json = added.get("item").cloned().ok_or("Adding the chat's query item returned no item.")?;
+  let query_item_json = {
+    let db = db.lock().await;
+    Value::Object(super::item_to_api_json_map_with_capabilities(&db, db.item.get(&query_item_id)?)?)
+  };
 
   let session_maybe = Some(session.clone());
-  let mut unpinned_query_item_id = None;
-  let mut deleted_query_item_id = None;
-  if let Some(mut current) = current {
-    let used = read_transcript(&data_dir, user_id, &current.id).await?.is_some_and(|t| !t.turns.is_empty());
-    if used {
-      current.flags = Some(current.flags.unwrap_or(0) & !LIST_PAGE_PIN_TOP_FLAG);
-      let json = serde_json::to_string(&current.to_api_json()?)?;
-      super::item_ops::handle_update_item(db, &json, &session_maybe).await?;
-      unpinned_query_item_id = Some(current.id);
-    } else {
-      let json = serde_json::json!({ "id": current.id }).to_string();
-      super::item_ops::handle_delete_item(db, object_store.clone(), image_cache, &json, &session_maybe).await?;
-      deleted_query_item_id = Some(current.id);
-    }
-  }
-
   if request.trash_original {
     let chat_item = {
       let db = db.lock().await;
@@ -1265,14 +1430,18 @@ async fn continue_persisted_chat(
     super::item_ops::handle_update_item(db, &json, &session_maybe).await?;
   }
 
-  Ok(ChatContinueResponse { query_item: query_item_json, unpinned_query_item_id, deleted_query_item_id })
+  Ok(ChatContinueResponse {
+    query_item: query_item_json,
+    unpinned_query_item_id: archived_ids.first().cloned(),
+    deleted_query_item_id: None,
+  })
 }
 
-/// Continues a persisted chat as the current chat; see `continue_persisted_chat`.
+/// Continues a persisted chat as the newest history entry; see `continue_persisted_chat`.
 pub async fn serve_chat_continue_route(
   db: &Arc<tokio::sync::Mutex<Db>>,
   object_store: Arc<object::ObjectStore>,
-  image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
+  _image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
   request: Request<hyper::body::Incoming>,
 ) -> Response<BoxBody<Bytes, hyper::Error>> {
   if request.method() == "OPTIONS" {
@@ -1292,7 +1461,7 @@ pub async fn serve_chat_continue_route(
       return Response::builder().status(400).body(empty_body()).unwrap();
     }
   };
-  match continue_persisted_chat(db, object_store, image_cache, &session, &request).await {
+  match continue_persisted_chat(db, object_store, &session, &request).await {
     Ok(response) => json_response(&response),
     Err(e) => {
       warn!("Could not continue chat '{}' of user '{}': {}", request.chat_item_id, session.user_id, e);

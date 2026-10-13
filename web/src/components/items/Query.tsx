@@ -65,6 +65,7 @@ import {
   getQuerySearchResults,
   getQueryRuntime,
   getQueryText,
+  queryIconClass,
   querySearchResultsFooterHostId,
   setQuerySearchArrangeAlgorithm,
   setQueryChatActivityHeightPx,
@@ -80,7 +81,6 @@ import {
   clearQuerySearch,
   isQueryChatHistoryEntry,
   runQuerySearch,
-  startNewQueryChat,
   startQueryChat,
 } from "../../items/query";
 import {
@@ -132,7 +132,6 @@ const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
 const QUERY_CHAT_ACTIVITY_FOLLOW_THRESHOLD_PX = 24;
 const QUERY_CHAT_ACTIVITY_EXPANDED_TOP_INSET_PX = 12;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
-const QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 
 
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -538,19 +537,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     focusNewQueryInput();
   };
 
-  const startNewChat = async () => {
-    if (isStartingChat() || isSendingChat()) {
-      return;
-    }
-    const wasHistoryEntry = isChatHistoryEntry();
-    resetLocalQuerySessionUi();
-    await startNewQueryChat(store, queryItem());
-    if (!wasHistoryEntry && getQueryRuntime(store, queryItem()).chat.revision == 0) {
-      // The chat had no transcript, so it was reset in place rather than moved to the earlier chats.
-      focusNewQueryInput();
-    }
-  };
-
   const materializeCurrentResults = async (editingElMaybe?: HTMLElement | null) => {
     const title = commitEditingQuery(editingElMaybe);
     const results = getQuerySearchResults(store, queryItem());
@@ -828,8 +814,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   createEffect(() => {
-    // A chat has no query input. Leaves the request for the query item that has one, such as the new current chat
-    // after New chat.
+    // A chat has no query input. Leaves the request for the New Query item that has one.
     if (!isListPageMainRoot() || isChatMode()) {
       return;
     }
@@ -1070,7 +1055,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   class="flex shrink-0 items-center text-[#999]"
                   style="font-size: 13px; line-height: 20px;"
                   title={"Not backed up. Chats in the Queries page are kept on the server but not in backups. " +
-                    "To keep this chat with your items, drag it out of the Queries page (start a new chat first)."}
+                    "To keep this chat with your items, drag it out of the Queries page."}
                   aria-label="Not backed up">
                   <i class="bi-cloud-slash" />
                 </span>
@@ -1132,16 +1117,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 void sendChatMessage();
               }}>
               <i class={chatRequestCanCancel() ? "fa fa-stop" : "fa fa-arrow-up"} />
-            </button>
-            <button
-              class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
-              style={`width: ${QUERY_CHAT_DISCARD_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-              type="button"
-              title="New chat"
-              aria-label="New chat"
-              disabled={chatRequestActive()}
-              onClick={() => void startNewChat()}>
-              <i class="bi-plus-lg" />
             </button>
           </div>
         </div>
@@ -1484,7 +1459,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         style={`left: 0px; top: ${desktopIconTopPx()}px; ` +
           `width: ${desktopBlockSizePx().w / desktopIconScale()}px; height: ${desktopBlockSizePx().h / desktopIconScale()}px; ` +
           `transform: scale(${desktopIconScale()}); transform-origin: top left;`}>
-        <i class="fas fa-search" />
+        <i class={queryIconClass(queryItem())} />
       </div>
       <span
         class={`absolute block pointer-events-none ${desktopTextStyle().alignClass}`}

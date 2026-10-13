@@ -34,7 +34,6 @@ import {
   ensureTemporaryQueryChatPage,
   generateQueryChatTitle,
   isLiveQueryChat,
-  resetQueryChatSession,
   submitQueryChatMessage,
 } from "./chat";
 import {
@@ -213,9 +212,9 @@ export async function startQueryChat(
 }
 
 /**
- * Continues a persisted chat as the current chat in the Queries page, and opens it there. With `trashOriginal` it is a
- * move back, and the `.chat` item goes to the trash; otherwise a copy, and it stays. The previous current chat becomes
- * an earlier chat (and gets a generated title), or is deleted if it was never used. Throws with the server's reason.
+ * Continues a persisted chat as the newest history entry in the Queries page and opens it there. With `trashOriginal`
+ * it is a move back, and the `.chat` item goes to the trash; otherwise a copy, and it stays. New Query remains pinned
+ * at the top. Throws with the server's reason.
  */
 export async function continuePersistedChat(store: StoreContextModel, chatItemId: Uid, trashOriginal: boolean): Promise<void> {
   const response = await server.continueChat(chatItemId, trashOriginal);
@@ -236,7 +235,7 @@ async function applyContinuedChat(
 ): Promise<void> {
   const user = store.user.getUserMaybe();
   if (user == null) { return; }
-  // A popup may show the moved `.chat` item, and focus may be on it or on the previous current chat.
+  // A popup may show the moved `.chat` item, and focus may still be on it.
   store.history.popAllPopups();
   const pagePath = store.history.currentPagePath();
   if (pagePath != null) {
@@ -252,24 +251,22 @@ async function applyContinuedChat(
     void generateQueryChatTitle(store, response.unpinnedQueryItemId);
   }
   const queryItem = ItemFns.fromObject(response.queryItem, null);
-  queryItem.capabilities = { move: false, resize: false };
   const queriesPage = itemState.get(queryItem.parentId);
   if (itemState.get(queryItem.id) == null && queriesPage != null && isContainer(queriesPage) &&
     asContainerItem(queriesPage).childrenLoaded) {
     itemState.add(queryItem);
   }
 
-  // Show the continued chat before removing anything locally: until the selection moves to it, the previous current
-  // chat may still be shown, and may take focus.
-  if (store.history.currentPageVeid()?.itemId == user.queriesPageId) {
-    store.perItem.setSelectedListPageItem(
-      { itemId: user.queriesPageId, linkIdMaybe: null },
-      { itemId: queryItem.id, linkIdMaybe: null },
-    );
-    arrangeNow(store, "query-chat-continued");
-  } else {
+  if (store.history.currentPageVeid()?.itemId != user.queriesPageId) {
     await navigateToQueries(store);
+  } else {
+    await ensureQueryItemUnderQueries(store, user.queriesPageId);
   }
+  store.perItem.setSelectedListPageItem(
+    { itemId: user.queriesPageId, linkIdMaybe: null },
+    { itemId: queryItem.id, linkIdMaybe: null },
+  );
+  arrangeNow(store, "query-chat-continued");
 
   if (response.deletedQueryItemId != null && itemState.get(response.deletedQueryItemId) != null) {
     itemState.delete(response.deletedQueryItemId);
@@ -280,45 +277,7 @@ async function applyContinuedChat(
   requestArrange(store, "query-chat-continued-cleanup");
 }
 
-/** Whether a query item is an earlier chat in the Queries page, rather than the current one. */
+/** Whether a query item is a chat in the Queries history rather than New Query. */
 export function isQueryChatHistoryEntry(store: StoreContextModel, queryItem: QueryItem): boolean {
   return isLiveQueryChat(store, queryItem) && (queryItem.flags & SearchFlags.ListPagePinTop) == 0;
-}
-
-/**
- * Starts a new chat. The current chat keeps its transcript and becomes the newest earlier chat in the Queries page,
- * and a new pinned query item becomes the current chat. A chat without a transcript is just reset.
- */
-export async function startNewQueryChat(store: StoreContextModel, queryItemMaybeStale: QueryItem): Promise<void> {
-  // Syncing replaces item objects, so change the current one, not a reference that may be from before a sync.
-  const queryItemMaybe = itemState.get(queryItemMaybeStale.id);
-  if (queryItemMaybe == null || !isQueryItem(queryItemMaybe)) {
-    return;
-  }
-  const queryItem = asQueryItem(queryItemMaybe);
-  const user = store.user.getUserMaybe();
-  const hasTranscript = getQueryRuntime(store, queryItem).chat.revision > 0;
-  if (user == null || !isLiveQueryChat(store, queryItem) || (!hasTranscript && !isQueryChatHistoryEntry(store, queryItem))) {
-    resetQueryChatSession(store, queryItem, "query-chat-discard");
-    return;
-  }
-
-  if ((queryItem.flags & SearchFlags.ListPagePinTop) != 0) {
-    // Unpinning is a flag change, which the server allows. It is already ordered before every earlier chat, since
-    // each pinned query item is created at the start of the page's children.
-    queryItem.flags &= ~SearchFlags.ListPagePinTop;
-    // The server sends an earlier chat as movable (to the trash or out of the Queries page), and the current one as not.
-    // Match it now, rather than when the item is next synced.
-    queryItem.capabilities = { resize: false };
-    await server.updateItem(queryItem, store.general.networkStatus);
-    // After the chat, not alongside a response, so it does not compete with one for a local model.
-    void generateQueryChatTitle(store, queryItem.id);
-  }
-  const queriesPageVeid = { itemId: user.queriesPageId, linkIdMaybe: null };
-  const currentId = await ensureQueryItemUnderQueries(store, user.queriesPageId);
-  if (currentId != null) {
-    store.perItem.setSelectedListPageItem(queriesPageVeid, { itemId: currentId, linkIdMaybe: null });
-    store.overlay.autoFocusSearchInput.set(true);
-  }
-  arrangeNow(store, "query-new-chat");
 }
