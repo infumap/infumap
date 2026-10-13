@@ -27,7 +27,9 @@ import { TextFns, asTextItem } from "../../../items/text-item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { getToolbarFocusItem } from "../toolbarFocus";
-import { openTextItemFileInNewTab } from "../../../items/text-document";
+import { isChatTextItem, openTextItemFileInNewTab } from "../../../items/text-document";
+import { continuePersistedChat } from "../../../items/query";
+import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 
 
 export const Toolbar_Text: Component = () => {
@@ -35,6 +37,7 @@ export const Toolbar_Text: Component = () => {
 
   let openFileDiv: HTMLDivElement | undefined;
   let iconDiv: HTMLDivElement | undefined;
+  let continueDiv: HTMLDivElement | undefined;
 
   const textItem = () => asTextItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(textItem());
@@ -62,6 +65,17 @@ export const Toolbar_Text: Component = () => {
     ClickState.setButtonClickBoundsPx(openFileDiv!.getBoundingClientRect());
   };
 
+  const handleContinueChat = () => {
+    void continuePersistedChat(store, textItem().id, false).catch(e => {
+      const text = e instanceof Error ? e.message : "could not continue the chat";
+      store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
+      setTimeout(() => { store.overlay.toolbarTransientMessage.set(null); }, 5000);
+    });
+  };
+  const handleContinueChatDown = () => {
+    ClickState.setButtonClickBoundsPx(continueDiv!.getBoundingClientRect());
+  };
+
   return (
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
@@ -69,6 +83,12 @@ export const Toolbar_Text: Component = () => {
         <Show when={canEdit()}>
           <div ref={iconDiv} class="inline-block pl-[2px]" onMouseDown={handleIconDown}>
             <InfuIconButton icon="fa fa-icons" highlighted={iconVisible()} clickHandler={iconButtonHandler} title="Item icon" />
+          </div>
+        </Show>
+
+        <Show when={isChatTextItem(textItem()) && textItem().origin == null}>
+          <div ref={continueDiv} class="inline-block pl-[2px]" onMouseDown={handleContinueChatDown}>
+            <InfuIconButton icon="fa fa-comments" highlighted={false} clickHandler={handleContinueChat} title="Continue chat" />
           </div>
         </Show>
 

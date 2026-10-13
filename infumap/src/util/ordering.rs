@@ -42,6 +42,45 @@ pub fn new_ordering_after(end: &Ordering) -> Ordering {
   r
 }
 
+/// An ordering before `start`. Matches `newOrderingBefore` in the client's ordering.ts.
+pub fn new_ordering_before(start: &Ordering) -> Ordering {
+  let mut r = vec![];
+  for &value in start {
+    if value == 0 {
+      r.push(0);
+      continue;
+    }
+    if value > N {
+      r.push(value - N);
+      return r;
+    }
+    let to_add = value - 1;
+    if to_add > 0 {
+      r.push(to_add);
+      return r;
+    }
+    r.push(0);
+    r.push(255 - N);
+    return r;
+  }
+  // Should never happen, but a longer string of 0s is defined to be before a shorter one.
+  r.push(0);
+  r
+}
+
+/// An ordering before all of `orderings`.
+pub fn new_ordering_at_beginning(orderings: Vec<Vec<u8>>) -> Vec<u8> {
+  let Some(mut lowest) = orderings.first() else {
+    return new_ordering();
+  };
+  for ordering in &orderings[1..] {
+    if compare_orderings(lowest, ordering) >= 0 {
+      lowest = ordering;
+    }
+  }
+  new_ordering_before(lowest)
+}
+
 // 0: if (x==y), -1: if (x < y), 1: if (x > y)
 pub fn compare_orderings(p1: &Vec<u8>, p2: &Vec<u8>) -> i8 {
   let len = std::cmp::min(p1.len(), p2.len());
@@ -73,4 +112,23 @@ pub fn new_ordering_at_end(orderings: Vec<Vec<u8>>) -> Vec<u8> {
     }
   }
   return new_ordering_after(highest);
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn ordering_at_beginning_sorts_first() {
+    for orderings in [vec![vec![128]], vec![vec![1]], vec![vec![0, 3], vec![200]], vec![vec![0, 0, 1], vec![5]]] {
+      let first = new_ordering_at_beginning(orderings.clone());
+      assert!(
+        orderings.iter().all(|ordering| compare_orderings(&first, ordering) < 0),
+        "{:?} vs {:?}",
+        first,
+        orderings
+      );
+    }
+    assert_eq!(new_ordering_at_beginning(vec![]), new_ordering());
+  }
 }

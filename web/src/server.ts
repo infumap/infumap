@@ -303,6 +303,15 @@ export interface LoadChatResponse {
   turns: Array<LoadChatTurn>,
 }
 
+export interface ContinueChatResponse {
+  /** The new current chat. */
+  queryItem: object,
+  /** The previous current chat, now an earlier chat. */
+  unpinnedQueryItemId: Uid | null,
+  /** The previous current chat, deleted because it had never been used. */
+  deletedQueryItemId: Uid | null,
+}
+
 const SEARCH_RESULTS_PER_PAGE = 60;
 
 function normalizeSearchResponse(response: any): SearchResponse {
@@ -1060,6 +1069,23 @@ export const server = {
     if (!fetchResult.ok) {
       const body = await fetchResult.json().catch(() => null);
       throw new Error(typeof body?.error == "string" ? body.error : `Keeping the chat failed: ${fetchResult.status}`);
+    }
+    return await fetchResult.json();
+  },
+
+  /**
+   * Continues a persisted chat as the current chat in the Queries page, copying its transcript into a new pinned query
+   * item. With `trashOriginal`, the `.chat` item goes to the trash (a move back); otherwise it stays (a copy).
+   */
+  continueChat: async (chatItemId: Uid, trashOriginal: boolean): Promise<ContinueChatResponse> => {
+    const fetchResult = await fetch("/chat/continue", {
+      method: "POST",
+      headers: { "Accept": "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ chatItemId, trashOriginal }),
+    });
+    if (!fetchResult.ok) {
+      const body = await fetchResult.json().catch(() => null);
+      throw new Error(typeof body?.error == "string" ? body.error : `Continuing the chat failed: ${fetchResult.status}`);
     }
     return await fetchResult.json();
   },
