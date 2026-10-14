@@ -28,6 +28,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { QueryModelPicker } from "./QueryModelPicker";
 import { QueryToolsPicker } from "./QueryToolsPicker";
 import { QueryScopePicker } from "./QueryScopePicker";
+import { QueryProfileBar } from "./QueryProfileBar";
 import { initializeQueryConfiguration } from "../../items/query-configuration-state";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
@@ -46,6 +47,8 @@ import {
   asQueryItem,
   QUERY_WORKSPACE_CONTROLS_GAP_PX,
   QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
+  QUERY_PROFILE_ROW_HEIGHT_PX,
+  QUERY_PROFILE_ROW_GAP_PX,
   QUERY_WORKSPACE_SETTINGS_ROW_GAP_PX,
   QUERY_WORKSPACE_SETTINGS_ROW_HEIGHT_PX,
   QUERY_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX,
@@ -179,6 +182,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryScopeButton: HTMLButtonElement | undefined;
   let queryModelButton: HTMLButtonElement | undefined;
   let queryToolsButton: HTMLButtonElement | undefined;
+  let queryProfileBar: HTMLDivElement | undefined;
   let queryAttachButton: HTMLButtonElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let attachFileInput: HTMLInputElement | undefined;
@@ -219,6 +223,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const headersPx = QUERY_CHAT_ACTIVITY_HEADER_HEIGHT_PX;
     if (chatActivityExpanded()) {
       const activityBottomPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
+        QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
         QUERY_CHAT_SETTINGS_HEIGHT_PX +
         chatTextareaHeightPx() +
         draftAttachmentsRowPx() +
@@ -229,6 +234,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       );
     }
     const reservedWithoutActivityPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
+      QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
       QUERY_CHAT_SETTINGS_HEIGHT_PX +
       chatTextareaHeightPx() +
       draftAttachmentsRowPx() +
@@ -267,6 +273,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const hasSearchResults = () => (getQuerySearchResults(store, queryItem())?.length ?? 0) > 0;
   /** An earlier chat in the Queries page can only be continued, not used to search. */
   const isChatHistoryEntry = () => isQueryChatHistoryEntry(store, queryItem());
+  const queryProfileBlockedReason = () => !isChatHistoryEntry() || getQueryRuntime(store, queryItem()).chat.loadState == "loaded"
+    ? null : getQueryRuntime(store, queryItem()).chat.loadState == "failed"
+      ? "This chat could not be loaded. Reload it before changing profiles."
+      : "Wait for this chat to load before changing profiles.";
   /** Search mode hides the mode selector, so a submit from there always refines the search. */
   const selectedInputMode = (): QueryInputMode =>
     isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
@@ -464,12 +474,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "scope" | "model" | "tools";
+  type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "scope" | "model" | "tools" | `profile:${number}`;
+
+  const queryProfileButtons = () => Array.from(queryProfileBar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []);
 
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = isSearchMode()
       ? ["input", "send"]
       : selectedInputMode() == "chat" ? ["mode", "attach", "input", "send"] : ["mode", "input", "send"];
+    controls.unshift(...queryProfileButtons().map((_, index): QueryControlName => `profile:${index}`));
     if (hasSubmittedQuery()) { controls.push("discard"); }
     if (queryScopeButton?.isConnected && !queryScopeButton.disabled) { controls.push("scope"); }
     if (selectedInputMode() == "chat") {
@@ -480,7 +493,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const focusQueryControl = (control: QueryControlName) => {
-    if (control == "mode") {
+    if (control.startsWith("profile:")) {
+      queryProfileButtons()[Number(control.slice("profile:".length))]?.focus();
+    } else if (control == "mode") {
       focusModeSelector();
     } else if (control == "attach") {
       if (queryAttachButton == null || queryAttachButton.disabled) {
@@ -512,6 +527,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     ev.preventDefault();
     ev.stopPropagation();
     focusAdjacentQueryControl(currentControl, ev.shiftKey ? -1 : 1);
+  };
+
+  const handleQueryProfileTab = (ev: KeyboardEvent) => {
+    const index = queryProfileButtons().indexOf(ev.currentTarget as HTMLButtonElement);
+    if (index >= 0) { handleQueryControlTab(ev, `profile:${index}`); }
   };
 
   /** Deep research is chat plus a flag, so the three selector entries map onto two pieces of state. */
@@ -1097,7 +1117,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       960,
     );
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
-    const wrapperHeightPx = () => chatTextareaHeightPx() + draftAttachmentsRowPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
+    const wrapperHeightPx = () => QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
+      chatTextareaHeightPx() + draftAttachmentsRowPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
     const activityBottomPx = () =>
       QUERY_CHAT_COMPOSER_BOTTOM_PX + wrapperHeightPx() + QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
     const activityIsRunning = () => {
@@ -1222,52 +1243,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onClick={stop}
           onKeyDown={stop}
           onKeyUp={stop}>
-          <div
-            class="flex items-center gap-3 pl-1 text-[#555]"
-            style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px;`}>
-            <Show when={!chatActivityHeaderVisible() && chatContextTokens()}>
-              {(display) =>
-                <span
-                  class="shrink-0 tabular-nums"
-                  style="font-size: 12px; line-height: 20px;"
-                  title={display().exact
-                    ? "Tokens in the last model request"
-                    : "Estimated tokens in context"}>
-                  {display().label}
-                </span>
-              }
-            </Show>
-            <Show when={liveChatActivity() != null && chatActivityPanelHeightPx() == 0}>
-              <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;">
-                {liveChatActivity()!.statusText}
-              </div>
-            </Show>
-            <div class="ml-auto flex min-w-0 items-center gap-2 pl-2">
-              <Show when={isLiveQueryChat(store, queryItem()) && queryChatHasContent(store, queryItem())}>
-                {/* Chats in the Queries page are kept in the server's data directory, outside backups. */}
-                <span
-                  class="flex shrink-0 items-center text-[#999]"
-                  style="font-size: 13px; line-height: 20px;"
-                  title={"Not backed up. Chats in the Queries page are kept on the server but not in backups. " +
-                    "To keep this chat with your items, drag it out of the Queries page."}
-                  aria-label="Not backed up">
-                  <i class="bi-cloud-slash" />
-                </span>
-              </Show>
-              <select aria-label="Chat mode" value={deepResearch() ? "deep_research" : "chat"}
-                class="h-[22px] min-w-0 max-w-[120px] rounded-md border border-[#d6d6d6] bg-white text-[12px] text-[#555]"
-                disabled={chatRequestActive()} onChange={ev => setDeepResearch(ev.currentTarget.value == "deep_research")}
-                onMouseDown={ev => ev.stopPropagation()} onKeyDown={ev => ev.stopPropagation()}>
-                <option value="chat">Chat</option><option value="deep_research">Deep research</option>
-              </select>
-              <QueryScopePicker
-                queryItem={queryItem} disabled={chatRequestActive} inUse={() => queryChatUsesInfumapData(store, queryItem())}
-                note={() => queryChatHasContent(store, queryItem())
-                  ? "Applies from your next message. Earlier answers keep what they found." : null} />
-              <QueryModelPicker queryItem={queryItem} disabled={chatRequestActive} />
-              <QueryToolsPicker queryItem={queryItem} locked={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
-                lockedReason={chatRequestActive() ? "Wait for the current response to finish." : "Tool choices are fixed for this chat."} />
-            </div>
+          <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
+            <QueryProfileBar queryItem={queryItem} searchMode={() => false} disabled={chatRequestActive}
+              blockedReason={queryProfileBlockedReason}
+              toolsLocked={() => queryChatHasContent(store, queryItem())} />
           </div>
           <Show when={draftAttachments().length > 0}>
             <div style={`margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px;`}>
@@ -1333,6 +1312,53 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <i class={chatRequestCanCancel() ? "fa fa-stop" : "fa fa-arrow-up"} />
             </button>
           </div>
+          <div
+            class="flex items-center gap-3 pl-1 text-[#555]"
+            style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px;`}>
+            <Show when={!chatActivityHeaderVisible() && chatContextTokens()}>
+              {(display) =>
+                <span
+                  class="shrink-0 tabular-nums"
+                  style="font-size: 12px; line-height: 20px;"
+                  title={display().exact
+                    ? "Tokens in the last model request"
+                    : "Estimated tokens in context"}>
+                  {display().label}
+                </span>
+              }
+            </Show>
+            <Show when={liveChatActivity() != null && chatActivityPanelHeightPx() == 0}>
+              <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;">
+                {liveChatActivity()!.statusText}
+              </div>
+            </Show>
+            <div class="ml-auto flex min-w-0 items-center gap-2 pl-2">
+              <Show when={isLiveQueryChat(store, queryItem()) && queryChatHasContent(store, queryItem())}>
+                {/* Chats in the Queries page are kept in the server's data directory, outside backups. */}
+                <span
+                  class="flex shrink-0 items-center text-[#999]"
+                  style="font-size: 13px; line-height: 20px;"
+                  title={"Not backed up. Chats in the Queries page are kept on the server but not in backups. " +
+                    "To keep this chat with your items, drag it out of the Queries page."}
+                  aria-label="Not backed up">
+                  <i class="bi-cloud-slash" />
+                </span>
+              </Show>
+              <select aria-label="Chat mode" value={deepResearch() ? "deep_research" : "chat"}
+                class="h-[22px] min-w-0 max-w-[120px] rounded-md border border-[#d6d6d6] bg-white text-[12px] text-[#555]"
+                disabled={chatRequestActive()} onChange={ev => setDeepResearch(ev.currentTarget.value == "deep_research")}
+                onMouseDown={ev => ev.stopPropagation()} onKeyDown={ev => ev.stopPropagation()}>
+                <option value="chat">Chat</option><option value="deep_research">Deep research</option>
+              </select>
+              <QueryScopePicker
+                queryItem={queryItem} disabled={chatRequestActive} inUse={() => queryChatUsesInfumapData(store, queryItem())}
+                note={() => queryChatHasContent(store, queryItem())
+                  ? "Applies from your next message. Earlier answers keep what they found." : null} />
+              <QueryModelPicker queryItem={queryItem} disabled={chatRequestActive} />
+              <QueryToolsPicker queryItem={queryItem} locked={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
+                lockedReason={chatRequestActive() ? "Wait for the current response to finish." : "Tool choices are fixed for this chat."} />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1360,13 +1386,24 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const arrangeSelectorTopPx = lowerTopPx - Math.round(QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
     const showMoreButton = () => searchHasMoreResults();
     const initialControlsTopPx = () => {
-      const preferredTopPx = Math.round(boundsPx().h * 0.45 - QUERY_WORKSPACE_CONTROLS_HEIGHT_PX / 2);
-      const maxTopPx = Math.max(0, boundsPx().h - QUERY_WORKSPACE_CONTROLS_HEIGHT_PX - 24);
+      const aboveInputPx = QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
+        (showDraftAttachments() ? draftAttachmentsRowPx() : 0);
+      const groupHeightPx = aboveInputPx + queryTextareaHeightPx() +
+        QUERY_WORKSPACE_SETTINGS_ROW_GAP_PX + QUERY_WORKSPACE_SETTINGS_ROW_HEIGHT_PX;
+      const preferredTopPx = Math.round(boundsPx().h * 0.45 - aboveInputPx - queryTextareaHeightPx() / 2);
+      const maxTopPx = Math.max(0, boundsPx().h - groupHeightPx - 24);
       return Math.max(0, Math.min(maxTopPx, preferredTopPx));
     };
     /** Attachments are for a chat; a search ignores them, but they stay for a chat started later. */
     const showDraftAttachments = () => selectedInputMode() == "chat" && draftAttachments().length > 0;
     const renderQueryControls = () => <>
+      <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
+        <QueryProfileBar queryItem={queryItem} searchMode={() => selectedInputMode() == "search"} disabled={isStartingChat}
+          blockedReason={queryProfileBlockedReason}
+          beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+          onChange={scopeChanged => { if (scopeChanged && isSearchMode()) { void runSearch(false); } }}
+          barRef={el => { queryProfileBar = el; }} onTabKey={handleQueryProfileTab} />
+      </div>
       <Show when={showDraftAttachments()}>
         <div
           style={`width: ${inputShellWidthPx()}px; margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px; ` +
@@ -1603,7 +1640,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx()) / 2))}px; ` +
                 `top: ${isSearchMode()
                   ? QUERY_WORKSPACE_TOP_INSET_PX
-                  : Math.max(0, initialControlsTopPx() - (showDraftAttachments() ? draftAttachmentsRowPx() : 0))}px; ` +
+                  : initialControlsTopPx()}px; ` +
                 `width: ${controlsWidthPx()}px;`}
               {...{ [CHAT_ITEM_DROP_ATTRIBUTE]: selectedInputMode() == "chat" ? vePath() : undefined }}
               onDrop={(ev) => {

@@ -38,7 +38,8 @@ profile as applied, or `null` for a query without a profile; execution uses `con
 ## Profiles and snapshots
 
 A `QueryProfile` has `id`, `name`, and `configuration`. Pinning, ordering, model favorites and the
-default profile are account preferences stored with the profiles. Profile selection and management UI is subsequent work.
+default profile are account preferences stored with the profiles. Profile selection is available in the
+composer; profile management UI is subsequent work.
 
 The query runtime has an editable `configuration` and a nullable `appliedProfile`. The latter holds
 the profile snapshot as applied, including its name and configuration, for reset and modified
@@ -149,6 +150,35 @@ Chat / Deep research is a separate mode control in an existing conversation; New
 Search / Chat / Deep research mode selector. Model changes are disabled while a response runs. Tool
 choices remain fixed after a chat has content until the later work to enable changes between turns.
 
-All three popup controls share viewport sizing, outside-click dismissal, Escape dismissal, focus return,
+All popup controls share viewport sizing, outside-click dismissal, Escape dismissal, focus return,
 Tab containment and arrow navigation between radio choices. New Query's control cycle includes Scope,
 Model and Tools and skips disabled controls. Popup changes preserve a draft being edited in the query input.
+
+## One-click profile selection
+
+New Query, Search and existing chat composers show **Profile** shortcuts above the input. Pinned
+profiles follow the account's `pinnedProfileIds` order and apply in one click. Long names truncate with
+the full name and configuration in a tooltip. The shortcuts scroll horizontally rather than increasing
+the composer's height; **More** stays visible. It lists unpinned profiles in account order with Scope,
+Model/provider/reasoning effort and Tools summaries. Pinned profiles also appear in a separate section
+so they remain accessible on narrow screens. Selecting a menu profile applies it and closes the menu.
+
+Selection copies the entire configuration and applied snapshot together. It preserves the draft,
+attachments, mode and account default. Search uses only the selected scope; selecting a profile with
+a different scope reruns an existing search. Model and tools remain available if the user later switches
+to Chat. Scope, Model and Tools controls sit below the input for inspection and temporary overrides.
+
+A shortcut is marked selected only when its ID and saved configuration match the current query.
+**Modified** reports changes against the applied snapshot. An unpinned applied profile's name appears
+in **More**. Refreshing saved profiles does not overwrite the query; the menu explains when an applied
+profile was edited or deleted, and keeps the original snapshot name visible.
+
+Profile application is blocked during a response and while a historical chat's settings are loading
+or failed to load. Until changes to tools between turns are implemented, profiles with different tool
+sets are disabled in a chat that already has content. Their disabled reason is visible in the menu
+and shortcut tooltip; a profile is never partially applied. The menu remains available for inspection
+and includes loading, error and retry states. Keyboard users can Tab through shortcuts and the menu
+in the query's control cycle, use Left/Right between shortcuts, and use Up/Down in the profile menu.
+
+Search results, transcripts and the activity panel reserve the profile row's height and spacing.
+Creating, editing, pinning and ordering profiles in the UI remains the next implementation step.

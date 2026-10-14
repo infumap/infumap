@@ -42,7 +42,9 @@ const NEW_QUERY_DISPLAY_TITLE = "New Query";
 export const SEARCH_WORKSPACE_TOP_INSET_PX = 25;
 export const SEARCH_WORKSPACE_SIDE_INSET_PX = 26;
 export const SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX = 44;
-/** The row under the input holding the scope picker (and, before a chat starts, its setup button). */
+export const SEARCH_WORKSPACE_PROFILE_ROW_HEIGHT_PX = 26;
+export const SEARCH_WORKSPACE_PROFILE_ROW_GAP_PX = 8;
+/** The row under the input holding the independent configuration controls. */
 export const SEARCH_WORKSPACE_SETTINGS_ROW_GAP_PX = 10;
 export const SEARCH_WORKSPACE_SETTINGS_ROW_HEIGHT_PX = 22;
 export const SEARCH_WORKSPACE_RESULTS_TOP_GAP_PX = 18;
@@ -104,6 +106,8 @@ export function calcSearchWorkspaceInputWidthPx(boundsWidthPx: number): number {
 
 export function calcSearchWorkspaceResultsTopPx(): number {
   return SEARCH_WORKSPACE_TOP_INSET_PX
+    + SEARCH_WORKSPACE_PROFILE_ROW_HEIGHT_PX
+    + SEARCH_WORKSPACE_PROFILE_ROW_GAP_PX
     + SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX
     + SEARCH_WORKSPACE_SETTINGS_ROW_GAP_PX
     + SEARCH_WORKSPACE_SETTINGS_ROW_HEIGHT_PX
