@@ -251,10 +251,10 @@ where
     return response(StatusCode::FORBIDDEN, None, protocol_version, empty_body(), |b| b);
   }
 
-  if let Some(version) = request_protocol_version {
-    if !protocol_version_supported(version) {
-      return response(StatusCode::BAD_REQUEST, origin_ref, protocol_version, empty_body(), |b| b);
-    }
+  if let Some(version) = request_protocol_version
+    && !protocol_version_supported(version)
+  {
+    return response(StatusCode::BAD_REQUEST, origin_ref, protocol_version, empty_body(), |b| b);
   }
 
   if !mcp_path(req.uri().path()) {

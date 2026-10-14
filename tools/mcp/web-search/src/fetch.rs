@@ -113,7 +113,7 @@ pub async fn fetch_url(url: &str, max_chars: usize) -> InfuResult<FetchedPage> {
         .headers()
         .get(LOCATION)
         .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| "Failed to fetch URL: redirect missing Location header.")?;
+        .ok_or("Failed to fetch URL: redirect missing Location header.")?;
       current = current.join(location).map_err(|e| format!("Failed to fetch URL: invalid redirect: {}", e))?;
       continue;
     }
@@ -177,7 +177,7 @@ async fn assert_public_destination(url: &Url) -> InfuResult<()> {
   if !url.username().is_empty() || url.password().is_some() {
     return Err("Blocked: URL must not include credentials.".into());
   }
-  let host = url.host_str().ok_or_else(|| "Blocked: URL has no host.")?;
+  let host = url.host_str().ok_or("Blocked: URL has no host.")?;
   if is_blocked_host(host) {
     return Err(format!("Blocked: refusing to fetch host '{host}'.").into());
   }
@@ -300,7 +300,7 @@ fn html_to_markdown(html: &str) -> String {
     .skip_tags(vec!["script", "style", "nav", "footer", "aside", "noscript", "iframe", "svg", "form"])
     .build();
   let source = extract_main_html(html);
-  converter.convert(&source).unwrap_or_else(|_| source).trim().to_string()
+  converter.convert(&source).unwrap_or(source).trim().to_string()
 }
 
 fn extract_main_html(html: &str) -> String {

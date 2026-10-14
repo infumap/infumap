@@ -20,6 +20,12 @@ Or, after `cargo build --release` in this directory:
 ./target/release/infumap-web-search
 ```
 
+`run.sh` reuses an existing release binary. After changing the source, rebuild it
+with `cargo build --release --locked --manifest-path tools/mcp/web-search/Cargo.toml`
+from the repo root. The wrapper restarts an exited server after the configured
+delay; startup configuration errors will repeat until corrected. Run the binary
+directly when diagnosing a single startup attempt.
+
 Environment:
 
 - `WEB_SEARCH_HOST` (default `127.0.0.1`)
@@ -60,18 +66,37 @@ The router selects eligible providers automatically and falls back after
 failures. Startup logs report configured preferences and the local budget
 balance. These are local estimates, not provider-side billing controls.
 
-To use DuckDuckGo:
+### No API keys
+
+To run without a search provider, even if the shell already has an Exa key:
 
 ```bash
-export WEB_SEARCH_DUCKDUCKGO_ENABLED=true
-./tools/mcp/web-search/run.sh
+env -u EXA_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
 ```
 
-To use Exa, export `EXA_API_KEY` through your environment or
-secret manager and set the monthly allowance. For example, **if your account
-provides $10 in recurring monthly credits**:
+The server starts and `fetch_page` remains available. `web_search` returns an
+MCP tool error explaining that no providers are enabled. `/status` shows
+`search_available: false`, both providers disabled, and a configuration error.
+No metered budget directory is created. Other malformed environment settings
+still prevent startup, even when their provider is disabled.
+
+To use only DuckDuckGo without an API key, explicitly opt in:
 
 ```bash
+env -u EXA_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=true ./tools/mcp/web-search/run.sh
+```
+
+DuckDuckGo uses its undocumented HTML endpoint and can be throttled or blocked.
+It has unknown capacity; unmetered accounting does not guarantee availability.
+
+### Exa configured
+
+Export `EXA_API_KEY` through your environment or secret manager and set the
+monthly allowance. For example, **if your account provides $10 in recurring
+monthly credits**, for Exa alone:
+
+```bash
+export WEB_SEARCH_DUCKDUCKGO_ENABLED=false
 export WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS=1000
 export WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS=0
 export WEB_SEARCH_EXA_MONTHLY_RESET_DAY=1
@@ -80,11 +105,46 @@ export WEB_SEARCH_EXA_INITIAL_USED_CENTS=0
 ./tools/mcp/web-search/run.sh
 ```
 
-With no providers configured, `web_search` returns a configuration error and
-`fetch_page` remains available. With only Exa configured, searches run when the
-estimated cost fits the available budget. A key without a configured free or
-paid allowance cannot spend credits. DuckDuckGo requires explicit opt-in with
-`WEB_SEARCH_DUCKDUCKGO_ENABLED=true`, including when it is used as a fallback.
+Set the actual reset day and prior usage for your account before launching.
+Keep `WEB_SEARCH_EXA_ACCOUNT_ID` stable across key rotation and preserve the
+state directory. In a container, set `WEB_SEARCH_STATE_DIR` to an absolute path
+on persistent storage. Startup prepares the client and ledger without verifying
+the key with Exa. `/status` reports local eligibility, not confirmation that a
+provider will accept a request; the actual Exa balance remains unknown.
+
+A key without a configured free or paid allowance cannot spend credits. To add
+DuckDuckGo fallback, set `WEB_SEARCH_DUCKDUCKGO_ENABLED=true` before launch.
+Free Exa capacity is preferred, then enabled DuckDuckGo, then any explicitly
+configured paid Exa capacity. Configuration changes require a server restart.
+
+### Exhausted credits and invalid credentials
+
+Inspect `/status` and server diagnostics to distinguish local budget limits from
+provider failures. Availability there refers to the five-result reference request;
+a request for more results may need a larger budget.
+
+| Condition | Behavior and recovery |
+| --- | --- |
+| Exa key set, allowances left at zero | Exa is enabled but has insufficient local budget. Configure the account's actual allowance and reset schedule, then restart. |
+| Local remaining capacity is below the estimated request cost | Exa is skipped without sending a request. An explicitly enabled DuckDuckGo can serve the call. Smaller requests may still fit; otherwise the configured monthly reset restores the local allowance. |
+| Exa returns HTTP 402 | The router records remote quota exhaustion. A zero-capacity cap is persisted until the configured monthly reset, and enabled DuckDuckGo can serve as fallback. Restarting or increasing the local allowance does not clear this cap. |
+| Exa returns HTTP 401 | The provider is disabled until restart. Correct `EXA_API_KEY` in the launch environment and restart using the same account label and ledger. Enabled DuckDuckGo can serve as fallback. |
+| Exa returns HTTP 403 or 429 | These are classified as blocking or rate limiting, respectively. Status shows a cooldown; routing can use enabled DuckDuckGo while Exa is unavailable. |
+| API key contains invalid HTTP header characters | Initialization fails before binding the server, including when DuckDuckGo is enabled. Correct the key; inspect stderr because `/status` cannot be served. |
+| Ledger is unreadable, invalid or already locked by another process | Initialization fails. Repair the storage or stop the other ledger owner, then restart while preserving accounting history. |
+| A ledger write fails during operation | Further metered dispatch is blocked. Status shows the persistence error; repair storage and restart. An enabled DuckDuckGo remains eligible. |
+
+There is no command to refresh an Exa balance or clear a remote exhaustion cap
+after topping up credits mid-period. This implementation continues honoring the
+cap until its configured reset. Use an explicitly enabled DuckDuckGo fallback
+in the meantime. Changing the reset day of an existing account is rejected.
+
+Attempts with uncertain billing, including HTTP 401 and 402, conservatively commit
+their reserved cost. Correcting a key and restarting preserves that consumption.
+When fallback succeeds, the MCP result contains that provider's normal results;
+logs and `/status` expose failures of the earlier provider. If no provider can
+serve the call, `web_search` returns `isError: true` with provider failure or skip
+reasons in its text error. A successful empty result does not trigger fallback.
 
 ### Provider selection and fallback
 
@@ -299,6 +359,28 @@ account balance or invoice, and is not used as quota reporting.
 References: [Search API](https://exa.ai/docs/reference/search),
 [OpenAPI schema](https://exa.ai/docs/exa-spec.json), and
 [error codes](https://exa.ai/docs/admin/error-codes).
+
+## Compilation and static validation
+
+From the repo root:
+
+```bash
+cargo build --manifest-path tools/mcp/web-search/Cargo.toml --locked
+cargo fmt --manifest-path tools/mcp/web-search/Cargo.toml --check
+cargo clippy --manifest-path tools/mcp/web-search/Cargo.toml --locked -- -D warnings
+bash -n tools/mcp/web-search/run.sh
+git diff --check
+```
+
+Append `--offline` before any `--` separator in the Cargo build and Clippy
+commands when dependencies are cached and network access is unavailable.
+These commands compile the server, check formatting, lint production code and
+check launcher syntax and diff whitespace. They do not run tests or start the
+server. Tests require separate authorization under the repository instructions.
+Live provider validation also requires explicit authorization for the API requests
+and credits they may consume; compilation and static checks do not verify live
+credentials, billing, fallback behavior or the continued availability of the
+undocumented DuckDuckGo endpoint.
 
 ## Infumap configuration
 
