@@ -30,7 +30,7 @@ import { NoteFns } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { ensureQueryEntryUnderQueries } from "./query-entry";
 import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, updateQueryRuntime } from "./query-item";
-import { queryScopeIdForRequest } from "./query-scope";
+import { cloneQueryConfiguration, snapshotQueryProfile } from "./query-configuration";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import {
   ChatTranscriptConflictError,
@@ -624,7 +624,7 @@ const CHAT_BUILTIN_CAPABILITIES: Array<ChatCapability> = ["infumap_data"];
 const appliedDefaultPluginQueryIds = new Set<string>();
 
 export function queryChatCapabilities(store: StoreContextModel, queryItem: QueryItem): Array<ChatCapability> {
-  return getQueryRuntime(store, queryItem).chat.capabilities;
+  return getQueryRuntime(store, queryItem).configuration.capabilities;
 }
 
 export function queryChatUsesInfumapData(store: StoreContextModel, queryItem: QueryItem): boolean {
@@ -666,9 +666,9 @@ function setQueryChatCapability(
   }
   updateQueryRuntime(store, queryItem, current => ({
     ...current,
-    chat: {
-      ...current.chat,
-      capabilities: withQueryChatCapability(current.chat.capabilities ?? [], capability, enabled),
+    configuration: {
+      ...current.configuration,
+      capabilities: withQueryChatCapability(current.configuration.capabilities, capability, enabled),
     },
   }));
 }
@@ -712,13 +712,11 @@ export function applyQueryChatDefaultPluginCapabilities(
 }
 
 /**
- * The backend and model picked for this chat, else the last one picked anywhere, else null for the
- * server's default. A chat that has never had a model picked for it follows the remembered default,
- * including if that changes. This is the raw choice - it may name something the server no longer
- * offers, so send effectiveQueryChatModelSelection rather than this.
+ * The model selection in this query's configuration. Null means no model selected yet.
+ * This is the raw choice; availability resolution is handled by effectiveQueryChatModelSelection.
  */
 export function queryChatModelSelection(store: StoreContextModel, queryItem: QueryItem): ChatModelSelection | null {
-  return getQueryRuntime(store, queryItem).chat.model ?? store.general.chatModelSelection();
+  return getQueryRuntime(store, queryItem).configuration.model;
 }
 
 /**
@@ -741,15 +739,15 @@ export function effectiveQueryChatModelSelection(
 
   const backend = backends.backends.find(candidate => candidate.id == selection.backend);
   if (backend == null || !backend.available) { return null; }
-  if (!backend.supportsModelSelection) { return { backend: backend.id }; }
+  if (!backend.supportsModelSelection) { return { backend: backend.id, model: null, reasoningEffort: null }; }
 
   const model = backend.models.find(candidate => candidate.id == selection.model);
-  if (model == null) { return { backend: backend.id }; }
+  if (model == null) { return { backend: backend.id, model: null, reasoningEffort: null }; }
   const effort = selection.reasoningEffort;
   return {
     backend: backend.id,
     model: model.id,
-    reasoningEffort: effort != null && model.reasoningEfforts.includes(effort) ? effort : undefined,
+    reasoningEffort: effort != null && model.reasoningEfforts.includes(effort) ? effort : null,
   };
 }
 
@@ -762,7 +760,7 @@ export function setQueryChatModelSelection(
   store.general.setChatModelSelection(selection);
   updateQueryRuntime(store, queryItem, current => ({
     ...current,
-    chat: { ...current.chat, model: selection },
+    configuration: { ...current.configuration, model: selection == null ? null : { ...selection } },
   }));
 }
 
@@ -1123,6 +1121,21 @@ export async function submitQueryChatMessage(
   }
 
   await ensureQueryChatLoaded(store, queryItem);
+  await store.general.retrieveChatBackends();
+  const serverDefault = store.general.chatBackends()?.default;
+  const appliedProfile = getQueryRuntime(store, queryItem).appliedProfile;
+  const configuration = cloneQueryConfiguration({
+    ...getQueryRuntime(store, queryItem).configuration,
+    model: effectiveQueryChatModelSelection(store, queryItem) ?? (serverDefault == null ? null : {
+      backend: serverDefault.backend,
+      model: serverDefault.model ?? null,
+      reasoningEffort: null,
+    }),
+  });
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    configuration: cloneQueryConfiguration(configuration),
+  }));
   const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
   // The server has the attachments only once the turn is accepted; until then, and after, they open from here.
   for (const attachment of attachments) {
@@ -1165,10 +1178,9 @@ export async function submitQueryChatMessage(
       attachments: attachments.length > 0
         ? attachments.map(({ id, title, mimeType, text }) => ({ id, title, mimeType, text }))
         : undefined,
-      capabilities: queryChatCapabilities(store, queryItem),
+      configuration,
+      appliedProfile: appliedProfile == null ? null : snapshotQueryProfile(appliedProfile),
       mode: deepResearch ? "deep_research" : "chat",
-      model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
-      scopeId: queryScopeIdForRequest(store, queryItem),
     }, store.general.networkStatus, (event) => {
       if (event.type == "turn_accepted") {
         accepted = true;
@@ -1334,17 +1346,15 @@ export function isLiveQueryChat(store: StoreContextModel, queryItem: QueryItem):
 function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, response: LoadChatResponse): void {
   batch(() => {
     const settings = response.lastSettings;
-    // The scope only applies with Infumap data; without it, the last turn says nothing about the scope.
-    const restoresScope = settings != null && settings.capabilities.includes("infumap_data");
     updateQueryRuntime(store, queryItem, current => ({
       ...current,
-      scope: restoresScope ? { id: settings!.scopeId ?? null } : current.scope,
+      configuration: settings == null ? current.configuration : cloneQueryConfiguration(settings.configuration),
+      appliedProfile: settings == null ? current.appliedProfile : (settings.appliedProfile == null
+        ? null : snapshotQueryProfile(settings.appliedProfile)),
       chat: {
         ...current.chat,
         revision: response.revision,
         loadState: "loaded",
-        capabilities: settings == null ? current.chat.capabilities : [...settings.capabilities],
-        model: settings == null ? current.chat.model : (settings.model ?? null),
         contextTokens: response.contextTokens?.tokens ?? null,
         contextTokensExact: response.contextTokens?.exact ?? false,
       },

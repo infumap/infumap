@@ -18,7 +18,8 @@
 
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
-import type { ChatModelSelection, SearchResult } from "../server";
+import type { SearchResult } from "../server";
+import { cloneQueryConfiguration, type QueryConfiguration, type QueryProfile } from "../items/query-configuration";
 import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
@@ -65,11 +66,9 @@ export type QueryChatLoadState = "unloaded" | "loading" | "loaded" | "failed";
 export interface QueryRuntime {
   mode: QueryMode,
   text: string,
-  /**
-   * The scope search and chat use, where id null means no scope. Null until chosen or first used: until
-   * then it follows the scope last chosen anywhere.
-   */
-  scope: { id: Uid | null } | null,
+  configuration: QueryConfiguration,
+  /** The profile as applied, kept separately from editable conversation settings. */
+  appliedProfile: QueryProfile | null,
   search: {
     resultsPageId: Uid | null,
     resultLinkIds: Array<Uid>,
@@ -88,9 +87,6 @@ export interface QueryRuntime {
     revision: number,
     /** Whether the transcript has been loaded into the chat view since the chat was last cleared. */
     loadState: QueryChatLoadState,
-    capabilities: Array<ChatCapability>,
-    /** The backend, model and reasoning effort to use. Null means the server's default. */
-    model: ChatModelSelection | null,
     completedActivities: Array<QueryChatCompletedActivity>,
     contextTokens: number | null,
     contextTokensExact: boolean,
@@ -147,7 +143,9 @@ export interface PerItemStoreContextModel {
   clear: () => void,
 }
 
-export function makePerItemStore(): PerItemStoreContextModel {
+export function makePerItemStore(
+  initialConfiguration: () => QueryConfiguration = () => ({ scopeId: null, model: null, capabilities: [] }),
+): PerItemStoreContextModel {
   // TODO (LOW): Unsure if lots of these signals, after lots of navigation, will create a perf issue. possibly
   // want to keep the number under control on page changes (delete those with value 0).
   const tableScrollPositions = new Map<string, NumberSignal>();
@@ -170,7 +168,11 @@ export function makePerItemStore(): PerItemStoreContextModel {
   const newQueryRuntime = (): QueryRuntime => ({
     mode: null,
     text: "",
-    scope: null,
+    configuration: cloneQueryConfiguration({
+      ...initialConfiguration(),
+      capabilities: ["infumap_data", ...extraDefaultCapabilities],
+    }),
+    appliedProfile: null,
     search: {
       resultsPageId: null,
       resultLinkIds: [],
@@ -183,8 +185,6 @@ export function makePerItemStore(): PerItemStoreContextModel {
       outcomeRootIds: [],
       revision: 0,
       loadState: "unloaded",
-      capabilities: ["infumap_data", ...extraDefaultCapabilities],
-      model: null,
       completedActivities: [],
       contextTokens: null,
       contextTokensExact: false,

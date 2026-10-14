@@ -49,8 +49,8 @@ The scope button sits next to the query input, on the search results border, and
 setup button. Its list shows each scope's coverage and any problems with its definition, such as a
 link to a deleted item or a container that is not named Exclude. **Edit scopes** opens the Scopes page.
 
-Your choice is remembered in this browser and used for new queries. Once a search or chat has used a scope, that
-query keeps it until you change it there.
+Your choice is remembered in this browser. A new query copies that choice into its configuration and
+keeps it until you change it there.
 
 In a chat, changing the scope applies from the next message. Earlier answers keep what they found.
 Items you add to a chat's context yourself are always sent, whatever the scope.

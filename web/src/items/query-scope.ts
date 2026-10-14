@@ -53,27 +53,17 @@ export function refreshQueryScopes(store: StoreContextModel): Promise<void> {
   return scopeListRequest;
 }
 
-/** The scope this query uses: its own choice, else the scope last chosen anywhere. Null means no scope. */
+/** The explicit Infumap scope in this query's resource configuration. Null means everything. */
 export function queryScopeId(store: StoreContextModel, queryItem: QueryItem): Uid | null {
-  const scope = getQueryRuntime(store, queryItem).scope;
-  return scope != null ? scope.id : store.general.queryScopeId();
+  return getQueryRuntime(store, queryItem).configuration.scopeId;
 }
 
 export function setQueryScopeId(store: StoreContextModel, queryItem: QueryItem, scopeId: Uid | null): void {
-  updateQueryRuntime(store, queryItem, current => ({ ...current, scope: { id: scopeId } }));
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    configuration: { ...current.configuration, scopeId },
+  }));
   store.general.setQueryScopeId(scopeId);
-}
-
-/**
- * The scope to send with a search or chat request. It is pinned to the query on first use, so choosing a
- * scope in another query later cannot change the scope of a search or chat that is already under way.
- */
-export function queryScopeIdForRequest(store: StoreContextModel, queryItem: QueryItem): Uid | null {
-  const scopeId = queryScopeId(store, queryItem);
-  if (getQueryRuntime(store, queryItem).scope == null) {
-    updateQueryRuntime(store, queryItem, current => ({ ...current, scope: { id: scopeId } }));
-  }
-  return scopeId;
 }
 
 /** The summary for a scope id: null for no scope or a scope that no longer exists, undefined while loading. */

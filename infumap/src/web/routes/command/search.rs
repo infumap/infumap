@@ -37,22 +37,26 @@ const SEARCH_SNIPPET_STOP_WORDS: [&str; 32] = [
   "of", "on", "or", "she", "that", "the", "their", "this", "to", "was", "were", "with", "you", "your",
 ];
 
+/// Query command envelope. Search uses only the Infumap scope from the shared configuration.
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SearchCommandRequest {
+  page_id: Option<Uid>,
+  text: String,
+  num_results: i64,
+  page_num: Option<i64>,
+  configuration: super::chat::configuration::QueryConfiguration,
+}
+
+/// Internal retrieval request, used by the search command and chat tools.
 pub struct SearchRequest {
-  #[serde(rename = "pageId")]
   pub page_id: Option<Uid>,
   pub text: String,
-  #[serde(rename = "numResults")]
   pub num_results: i64,
-  #[serde(rename = "pageNum")]
   pub page_num: Option<i64>,
-  /// A scope page from the user's scopes page. When given with `page_id`, both apply. Read by the search
-  /// command only: chat resolves its scope once per run and passes it to `run_lexical_search`.
-  #[serde(rename = "scopeId", default)]
+  /// Command scope; chat tools resolve their scope once per run and pass it to run_lexical_search.
   pub scope_id: Option<Uid>,
-  /// Leaves out persisted chats. Set by the chat's `search` tool, so a model does not find its own earlier answers,
-  /// including made-up ones, and cite them as sources. Not settable by a client.
-  #[serde(skip)]
+  /// Leaves out persisted chats so models cannot cite their own earlier answers as sources.
   pub exclude_chats: bool,
 }
 
@@ -149,8 +153,16 @@ pub(super) async fn handle_search(
     Some(s) => s,
   };
 
-  let request: SearchRequest =
+  let command: SearchCommandRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  let request = SearchRequest {
+    page_id: command.page_id,
+    text: command.text,
+    num_results: command.num_results,
+    page_num: command.page_num,
+    scope_id: command.configuration.scope_id,
+    exclude_chats: false,
+  };
 
   let response = run_search(db, request, session).await?;
   let serialized_results = serde_json::to_string(&response)?;

@@ -256,7 +256,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     const asString = (value: unknown) => typeof value == "string" && value != "" ? value : undefined;
     const backend = asString(stored.backend);
     if (backend == null) { return null; }
-    return { backend, model: asString(stored.model), reasoningEffort: asString(stored.reasoningEffort) };
+    return { backend, model: asString(stored.model) ?? null, reasoningEffort: asString(stored.reasoningEffort) ?? null };
   };
   const setChatModelSelection = (selection: ChatModelSelection | null) => {
     const data = readLocalStorageData();

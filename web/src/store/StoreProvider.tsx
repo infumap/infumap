@@ -166,7 +166,12 @@ export function StoreProvider(props: StoreContextProps) {
   }
 
   const perVe = makePerVeStore();
-  const perItem = makePerItemStore();
+  const general = makeGeneralStore();
+  const perItem = makePerItemStore(() => ({
+    scopeId: general.queryScopeId(),
+    model: general.chatModelSelection(),
+    capabilities: [],
+  }));
   const textEdit = makeTextEditStore(() => value);
   const editorHistory = makeEditorHistory(() => value);
   setUnsavedTextFieldsRestorer(textEdit.preserveUnsavedFields);
@@ -234,7 +239,7 @@ export function StoreProvider(props: StoreContextProps) {
     perItem,
     overlay,
     history,
-    general: makeGeneralStore(),
+    general,
     user: userStore,
     find,
     textEdit,
