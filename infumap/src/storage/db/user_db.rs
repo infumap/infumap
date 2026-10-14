@@ -170,9 +170,9 @@ impl UserDb {
       return Ok(());
     }
 
-    if update_json_map.len() != 3 || !update_json_map.contains_key("totpSecret") {
-      warn!("Currently, only updating user totp secret is supported.");
-      return Err("Currently, only updating user totp secret is supported.".into());
+    if update_json_map.keys().any(|key| !matches!(key.as_str(), "__recordType" | "id" | "totpSecret" | "queryProfiles")) {
+      warn!("Only updating user TOTP secret and query profiles is supported by this method.");
+      return Err("Only updating user TOTP secret and query profiles is supported by this method.".into());
     }
 
     let store = self.store_by_id.get_mut(&user.id).ok_or("unknown user")?;
