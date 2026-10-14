@@ -178,7 +178,7 @@ pub(crate) fn parse_results(html: &str, max_results: usize) -> ProviderResult<Ve
       .next()
       .map(|snippet| collapse_ws(&snippet.text().collect::<String>()))
       .unwrap_or_default();
-    results.push(SearchResult { title, url, snippet });
+    results.push(SearchResult { title, url, snippet, metadata: None });
     if results.len() >= max_results {
       break;
     }

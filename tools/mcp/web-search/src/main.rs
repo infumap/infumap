@@ -44,6 +44,10 @@ async fn main() {
       std::process::exit(1);
     }
   };
+  if let Err(error) = search::initialize_providers() {
+    eprintln!("Could not initialize search providers: {error}");
+    std::process::exit(1);
+  }
   let providers = config.provider_preference();
   if providers.is_empty() {
     warn!("No search providers configured; web_search is unavailable. fetch_page is still available.");
@@ -55,7 +59,9 @@ async fn main() {
       "Exa monthly configuration: {} US cents free, {} US cents paid limit, reset day {} at 00:00 UTC",
       exa.monthly_free_credits_cents, exa.monthly_paid_limit_cents, exa.monthly_reset_day
     );
-    warn!("Exa search and budget enforcement are not implemented yet; searches require DuckDuckGo opt-in.");
+    warn!(
+      "Exa adapter is ready, but requests are disabled until persistent budget accounting is implemented; searches require DuckDuckGo opt-in."
+    );
   }
 
   let host = std::env::var("WEB_SEARCH_HOST").unwrap_or_else(|_| "127.0.0.1".to_owned());

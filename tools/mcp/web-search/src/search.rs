@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use once_cell::sync::Lazy;
 use serde::Serialize;
 
 use crate::config;
 use crate::error::InfuResult;
 pub use crate::providers::SearchResult;
 use crate::providers::duckduckgo::DuckDuckGo;
+use crate::providers::exa::Exa;
 use crate::providers::{SearchProvider, SearchRequest};
 
 #[cfg(test)]
@@ -27,6 +29,32 @@ use crate::providers::duckduckgo::{parse_results, unwrap_ddg_href};
 
 pub const DEFAULT_MAX_RESULTS: usize = 5;
 pub const MAX_RESULTS_CAP: usize = 30;
+
+struct ConfiguredProviders {
+  duckduckgo: Option<DuckDuckGo>,
+  exa: Option<Exa>,
+}
+
+static PROVIDERS: Lazy<InfuResult<ConfiguredProviders>> = Lazy::new(|| {
+  let config = config::search_config().map_err(|message| format!("Invalid web-search configuration: {message}"))?;
+  let exa = config
+    .exa
+    .as_ref()
+    .map(|config| Exa::new(&config.api_key))
+    .transpose()
+    .map_err(|error| format!("Could not initialize Exa: {error}"))?;
+  Ok(ConfiguredProviders { duckduckgo: config.duckduckgo_enabled.then_some(DuckDuckGo), exa })
+});
+
+/// Prepare configured clients and validate credentials locally, without issuing
+/// any provider requests. Exa execution remains gated on budget accounting.
+pub fn initialize_providers() -> InfuResult<()> {
+  configured_providers().map(|_| ())
+}
+
+fn configured_providers() -> InfuResult<&'static ConfiguredProviders> {
+  PROVIDERS.as_ref().map_err(|error| error.to_string().into())
+}
 
 #[derive(Serialize)]
 struct CompactWebSearchResponse<'a> {
@@ -60,12 +88,12 @@ pub async fn search(query: &str, max_results: usize) -> InfuResult<Vec<SearchRes
 }
 
 fn configured_provider() -> InfuResult<&'static dyn SearchProvider> {
-  let config = config::search_config().map_err(|message| format!("Invalid web-search configuration: {message}"))?;
-  if config.duckduckgo_enabled {
-    return Ok(&DuckDuckGo);
+  let providers = configured_providers()?;
+  if let Some(duckduckgo) = &providers.duckduckgo {
+    return Ok(duckduckgo);
   }
-  Err(if config.exa.is_some() {
-    "Exa is configured but its search adapter is not implemented yet. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
+  Err(if providers.exa.is_some() {
+    "Exa is configured, but searches remain disabled until persistent budget accounting is implemented. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
   } else {
     "No search providers enabled. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
   }

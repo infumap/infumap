@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod duckduckgo;
+pub mod exa;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -30,6 +31,18 @@ pub struct SearchResult {
   pub title: String,
   pub url: String,
   pub snippet: String,
+  // Retain provider metadata internally without changing the MCP result shape.
+  #[serde(skip)]
+  #[expect(dead_code, reason = "Optional metadata is retained for subsequent response formatting work.")]
+  pub metadata: Option<SearchResultMetadata>,
+}
+
+#[expect(dead_code, reason = "Optional metadata is retained for subsequent response formatting work.")]
+#[derive(Clone, Debug)]
+pub struct SearchResultMetadata {
+  pub published_date: Option<String>,
+  pub author: Option<String>,
+  pub excerpts: Vec<String>,
 }
 
 /// Input is trimmed and result limits are normalized by the search layer.
@@ -43,7 +56,6 @@ pub struct SearchRequest<'a> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RequestCost {
   Unmetered,
-  #[expect(dead_code, reason = "Metered adapters are implemented in subsequent steps.")]
   UsdMicros(u64),
 }
 
@@ -78,9 +90,7 @@ pub trait SearchProvider: Send + Sync {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProviderErrorKind {
   RateLimited,
-  #[expect(dead_code, reason = "DuckDuckGo has no billed quota.")]
   QuotaExhausted,
-  #[expect(dead_code, reason = "DuckDuckGo does not use credentials.")]
   InvalidCredentials,
   Transient,
   InvalidRequest,
