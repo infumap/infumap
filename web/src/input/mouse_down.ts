@@ -819,7 +819,15 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   longHoldTimeoutId = setTimeout(() => {
     if (MouseActionState.empty()) { return; }
     if (!MouseActionState.isAction(MouseAction.Ambiguous)) { return; }
-    if (isPage(overDisplayItem) && !veFlagIsRoot(hitVe.flags)) {
+    if (isPage(overDisplayItem) &&
+      (hitVe.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(overDisplayItem).arrangeAlgorithm) == ArrangeAlgorithm.Calendar &&
+      hitVe.calendarMiniDayLayouts.length > 0 &&
+      !!(hitVe.flags & VisualElementFlags.ShowChildren)) {
+      // The embedded calendar shows a date range instead of an editable page title.
+      store.history.setFocus(activeElementPath);
+      arrangeNow(store, "mouse-long-hold-focus-embedded-calendar");
+      MouseActionState.set(null);
+    } else if (isPage(overDisplayItem) && !veFlagIsRoot(hitVe.flags)) {
       PageFns.handleEditTitleClick(hitVe, store);
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
