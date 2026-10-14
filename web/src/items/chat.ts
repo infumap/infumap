@@ -54,6 +54,7 @@ import {
 } from "../store/StoreProvider_PerItem";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
+import { ChatDraftAttachment, estimateChatAttachmentTokens } from "./chat-attachment";
 
 function markAsQueryChatPage(item: Item): void {
   item.clientOnly = true;
@@ -527,14 +528,15 @@ export function queryChatContextTokenDisplay(
   store: StoreContextModel,
   queryItem: QueryItem,
   draftText: string,
+  draftAttachments: Array<ChatDraftAttachment> = [],
 ): { label: string, exact: boolean } | null {
   const draft = draftText.trim();
   const stored = getQueryRuntime(store, queryItem).chat;
-  const useStored = stored.contextTokens != null && draft == "";
+  const useStored = stored.contextTokens != null && draft == "" && draftAttachments.length == 0;
   // The client keeps no model history, so a draft is estimated on top of the last count the server reported.
   const tokens = useStored
     ? stored.contextTokens!
-    : (stored.contextTokens ?? 0) + estimateTextTokens(draft);
+    : (stored.contextTokens ?? 0) + estimateTextTokens(draft) + estimateChatAttachmentTokens(draftAttachments);
   const exact = useStored && stored.contextTokensExact;
   if (tokens <= 0 && !exact) {
     return null;
@@ -1083,9 +1085,10 @@ export async function submitQueryChatMessage(
   queryItem: QueryItem,
   rawText: string,
   deepResearch: boolean = false,
+  attachments: Array<ChatDraftAttachment> = [],
 ): Promise<boolean> {
   const text = rawText.trim();
-  if (text == "") {
+  if (text == "" && attachments.length == 0) {
     return true;
   }
 
@@ -1093,7 +1096,9 @@ export async function submitQueryChatMessage(
   const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
   const [userTurnRoot] = addLocalQueryUserTurn(store, queryItem, text);
   const stored = getQueryRuntime(store, queryItem).chat.contextTokens ?? 0;
-  setQueryChatContextTokens(store, queryItem, stored + estimateTextTokens(text), false);
+  setQueryChatContextTokens(
+    store, queryItem, stored + estimateTextTokens(text) + estimateChatAttachmentTokens(attachments), false,
+  );
   requestArrange(store, "query-chat-user-turn");
 
   const requestId = newUid();
@@ -1118,6 +1123,9 @@ export async function submitQueryChatMessage(
       queryItemId: queryItem.id,
       expectedRevision,
       text,
+      attachments: attachments.length > 0
+        ? attachments.map(({ id, title, mimeType, text }) => ({ id, title, mimeType, text }))
+        : undefined,
       capabilities: queryChatCapabilities(store, queryItem),
       mode: deepResearch ? "deep_research" : "chat",
       model: effectiveQueryChatModelSelection(store, queryItem) ?? undefined,
