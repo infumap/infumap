@@ -1,6 +1,6 @@
-# Chat attachments (proposal)
+# Chat attachments
 
-Status: in progress. Discussed 2026-10-14; steps 1–7 done 2026-10-14.
+Status: done 2026-10-14 (steps 1–8). Discussed 2026-10-14.
 
 A common use of chat is pasting something long, such as a video transcript, and asking for a summary. Today the
 pasted text goes into the message itself: the composer fills with it, and the "You" turn shows it as a wall of text.
@@ -321,6 +321,13 @@ Each step can be committed on its own. Steps 1–4 cover pasting a transcript an
 
 8. **Docs.** [chats.md](chats.md): attaching, limits, attachments not being searched, copying an attachment out.
    [chat-tools.md](chat-tools.md): how attachments reach the model.
+
+   Done 2026-10-14: an "Attaching text" section in [chats.md](chats.md), and a line under its search notes;
+   in [chat-tools.md](chat-tools.md), how attachments reach the model, and that a `.chat` item's fragments leave
+   them out. Also fixed in chats.md, because the + button now attaches: it described a "New chat" + button and a
+   "current chat", from before New Query became the entry point (docs/persistent-chats.md, "Listing live chats").
+   It now describes New Query, a chat becoming the newest earlier chat on its first message, and Continue adding
+   the newest earlier chat.
 
 ## Not planned
 
