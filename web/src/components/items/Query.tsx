@@ -1119,13 +1119,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       }
       ev.stopPropagation();
     };
-    const chatSurfaceMouseDown = (ev: MouseEvent) => {
-      if (ev.button == MOUSE_RIGHT && document.activeElement == chatTextarea) {
-        chatTextarea?.blur();
-        ev.stopPropagation();
-        ev.preventDefault();
-      }
-    };
     const chatKeyDown = (ev: KeyboardEvent) => {
       ev.stopPropagation();
       if (ev.key == "Escape") {
@@ -1143,8 +1136,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
     return (
       <div class="absolute bg-white"
-        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}
-        onMouseDown={chatSurfaceMouseDown}>
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
         <Show when={liveChatActivity() != null && chatActivityPanelHeightPx() > 0}>
           <div
             class="absolute flex flex-col overflow-hidden rounded-xs border bg-white pointer-events-auto"

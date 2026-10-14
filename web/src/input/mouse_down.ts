@@ -331,13 +331,6 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   let defaultResult = MouseEventActionFlags.PreventDefault;
   // Text edit is committed before the desktop handlers run. Move-out handles were hidden, so must not start a drag.
   const wasTextEditing = store.overlay.textEditInfo() != null;
-  const activeElement = document.activeElement;
-  if (buttonNumber == MOUSE_RIGHT &&
-    activeElement instanceof HTMLTextAreaElement &&
-    activeElement.hasAttribute("data-query-chat-composer")) {
-    activeElement.blur();
-    return defaultResult;
-  }
 
   if (buttonNumber != MOUSE_LEFT && clearNativeTextSelectionMaybe()) {
     NativeTextSelectionState.clear();
