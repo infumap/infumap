@@ -313,11 +313,16 @@ Each step can be committed on its own. Steps 1–4 cover pasting a transcript an
    - Checked end to end with Playwright, dragging from the dock. `plan.md` and a note were dropped on the New Query
      input, a note on the chat composer, and a page was refused with the message. The dragged items stayed in the
      dock. The transcript had `plan.md` as `text/markdown` with its text, and the note's full text.
-   - Found, not fixed: dragging an item across a dock page whose children are not loaded yet loses the item locally,
-     and abandons the move with "Active visual element path still missing". Entering the page starts its load, and
-     applying the loaded children (`applyContainerSnapshotFromServerObjects`, from load.ts) removes the moved item,
-     which the server doesn't have there. Nothing is persisted, and a reload brings it back. This is an existing
-     race, unrelated to attaching; the test avoids it by not crossing the page.
+   - Found and fixed afterwards: dragging an item across a page whose children were not loaded yet, such as a page
+     in the dock, lost the item locally and abandoned the move with "Active visual element path still missing".
+     Entering the page started its load, and applying the loaded children (`applyContainerSnapshotFromServerObjects`)
+     removed the moved item, which the server didn't have there. Container sync already waits while a mouse action
+     is in progress, but child loads didn't. `shouldDeferAuthoritativeChildLoad` in
+     [load.ts](../web/src/layout/load.ts) now also defers while an item is moving (`store.anItemIsMoving`), and
+     `initiateLoadChildItemsMaybe` doesn't fetch then, since arrange calls it on every step of a drag. After the
+     drop, the existing pending-mutation check holds the load until the move is saved. Checked with Playwright: a
+     diagonal drag across an unloaded dock page onto the composer attached the item, and items dropped into an
+     unloaded page, empty or with two notes, were saved there and listed with its other children once it loaded.
 
 8. **Docs.** [chats.md](chats.md): attaching, limits, attachments not being searched, copying an attachment out.
    [chat-tools.md](chat-tools.md): how attachments reach the model.

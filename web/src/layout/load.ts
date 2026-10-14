@@ -84,8 +84,13 @@ const childLoadInFlight: { [id: Uid]: Promise<void> } = {};
 const childLoadDeferredRetryTimeout: { [id: Uid]: number } = {};
 const CHILD_LOAD_DEFERRED_RETRY_MS = 250;
 
+/**
+ * A container's loaded children replace what is held locally. While an item is moved, it is placed in whatever
+ * container it is over and nothing is sent until the drop, so the loaded children would leave it out, and lose it.
+ * After the drop, the move is a pending mutation until it is saved.
+ */
 function shouldDeferAuthoritativeChildLoad(store: StoreContextModel): boolean {
-  return store.overlay.textEditInfo() != null || hasPendingLocalMutations();
+  return store.overlay.textEditInfo() != null || hasPendingLocalMutations() || store.anItemIsMoving.get();
 }
 
 function scheduleDeferredChildLoadRetry(store: StoreContextModel, containerVeid: Veid): void {
@@ -120,6 +125,12 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
     childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
     asContainerItem(container).childrenLoaded = true;
     PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
+    return Promise.resolve();
+  }
+
+  // Not fetched while an item is moved, as it would be on every arrange of the drag, only to be deferred.
+  if (store.anItemIsMoving.get()) {
+    scheduleDeferredChildLoadRetry(store, containerVeid);
     return Promise.resolve();
   }
 
