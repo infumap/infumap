@@ -336,6 +336,7 @@ pub(super) mod test_db {
         default_page_width_bl: 60,
         default_page_natural_aspect: 2.0,
         object_encryption_key: String::new(),
+        query_profiles: None,
       };
       db.user.add(user.clone()).await.unwrap();
       db.item.load_user_items(&user.id, true).await.unwrap();

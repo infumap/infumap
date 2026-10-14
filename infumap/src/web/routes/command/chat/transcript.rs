@@ -39,6 +39,12 @@ use super::configuration::TurnSettings;
 use crate::ai::artifact_io::atomic_write;
 use crate::util::fs::expand_tilde;
 
+/// Version 2 replaced version 1 without a reader for it; version 1 chats were deleted rather than
+/// converted. From version 2 on, a format change must stay backwards compatible for reading: saved
+/// `.chat` items live in the object store and in backups and are never rewritten, so there is no
+/// migration pass. Bump the version and have `parse_transcript` read every earlier version, mapping
+/// old records to something sensible. The turn settings embed `QueryConfiguration` and `QueryProfile`
+/// from `query_configuration.rs`, so changing those types is a transcript format change too.
 pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 2;
 const CHATS_DIR_NAME: &str = "chats";
 
@@ -556,7 +562,9 @@ fn record_line(record: &TranscriptRecord) -> InfuResult<String> {
 
 #[cfg(test)]
 mod tests {
+  use super::super::ChatRunMode;
   use super::*;
+  use crate::query_configuration::QueryConfiguration;
   use infusdk::util::uid::new_uid;
   use std::path::Path;
 
@@ -614,7 +622,11 @@ mod tests {
       started_at: 10,
       text: text.to_owned(),
       attachments: vec![],
-      settings: TurnSettings { model: None, capabilities: vec![], scope_id: None, mode: ChatRunMode::Chat },
+      settings: TurnSettings {
+        configuration: QueryConfiguration { scope_id: None, model: None, capabilities: vec![] },
+        applied_profile: None,
+        mode: ChatRunMode::Chat,
+      },
     }
   }
 
@@ -783,7 +795,7 @@ mod tests {
 
   #[test]
   fn user_record_without_attachments_parses_and_omits_them() {
-    let line = r#"{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{"mode":"chat"}}"#;
+    let line = r#"{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{"configuration":{"scopeId":null,"model":null,"capabilities":[]},"appliedProfile":null,"mode":"chat"}}"#;
     let TranscriptRecord::User(user) = serde_json::from_str::<TranscriptRecord>(line).unwrap() else {
       panic!("expected a user record");
     };

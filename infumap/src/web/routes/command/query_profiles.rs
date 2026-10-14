@@ -3,14 +3,13 @@
 
 use super::*;
 use crate::query_configuration::{
-  QueryConfiguration, QueryModelFavorite, QueryProfile, QueryProfileCollection, QueryProfilePreferences,
+  MAX_PROFILE_NAME_BYTES, QueryConfiguration, QueryModelFavorite, QueryProfile, QueryProfileCollection,
+  QueryProfilePreferences, validate_text,
 };
 
 /// Each mutation appends the whole collection to the user log, so its size is bounded.
 const MAX_PROFILES: usize = 100;
 const MAX_MODEL_FAVORITES: usize = 200;
-const MAX_CAPABILITIES: usize = 64;
-const MAX_PROFILE_NAME_BYTES: usize = 120;
 const DUPLICATE_SUFFIX: &str = " copy";
 
 #[derive(Deserialize)]
@@ -46,38 +45,6 @@ struct ProfileResponse {
   error: Option<String>,
 }
 
-fn validate_text(text: &str, field: &str, max_len: usize) -> InfuResult<()> {
-  if text.trim().is_empty() || text.len() > max_len || text.chars().any(char::is_control) {
-    return Err(format!("Invalid {field}.").into());
-  }
-  Ok(())
-}
-
-fn normalize_configuration(configuration: &mut QueryConfiguration) -> InfuResult<()> {
-  if configuration.scope_id.as_ref().is_some_and(|id| !is_uid(id)) {
-    return Err("Invalid scope ID.".into());
-  }
-  if let Some(model) = &configuration.model {
-    validate_text(&model.backend, "model provider", 256)?;
-    if let Some(id) = &model.model {
-      validate_text(id, "model ID", 512)?;
-    }
-    if let Some(effort) = &model.reasoning_effort {
-      validate_text(effort, "reasoning effort", 64)?;
-    }
-  }
-  for capability in &configuration.capabilities {
-    validate_text(capability, "capability ID", 128)?;
-  }
-  configuration.capabilities.sort();
-  configuration.capabilities.dedup();
-  if configuration.capabilities.len() > MAX_CAPABILITIES {
-    return Err("Too many capabilities.".into());
-  }
-  // Availability is deliberately not checked: a removed scope, model or tool remains repairable.
-  Ok(())
-}
-
 fn name_key(name: &str) -> String {
   name.to_lowercase()
 }
@@ -93,15 +60,13 @@ fn validate_collection(collection: &mut QueryProfileCollection) -> InfuResult<()
   let mut ids = HashSet::new();
   let mut names = HashSet::new();
   for profile in &mut collection.profiles {
-    if !is_uid(&profile.id) || !ids.insert(profile.id.clone()) {
-      return Err("Invalid or duplicate profile ID.".into());
+    profile.normalize()?;
+    if !ids.insert(profile.id.clone()) {
+      return Err("Duplicate profile ID.".into());
     }
-    profile.name = profile.name.trim().to_owned();
-    validate_text(&profile.name, "profile name", MAX_PROFILE_NAME_BYTES)?;
     if !names.insert(name_key(&profile.name)) {
       return Err(format!("A profile named “{}” already exists.", profile.name).into());
     }
-    normalize_configuration(&mut profile.configuration)?;
   }
   let preferences = &mut collection.preferences;
   if !ids.contains(&preferences.default_profile_id) {
@@ -111,8 +76,12 @@ fn validate_collection(collection: &mut QueryProfileCollection) -> InfuResult<()
   if pinned.iter().any(|id| !ids.contains(id)) {
     return Err("Pinned profiles must be saved profiles.".into());
   }
-  preferences.pinned_profile_ids =
-    collection.profiles.iter().filter(|profile| pinned.contains(&profile.id)).map(|profile| profile.id.clone()).collect();
+  preferences.pinned_profile_ids = collection
+    .profiles
+    .iter()
+    .filter(|profile| pinned.contains(&profile.id))
+    .map(|profile| profile.id.clone())
+    .collect();
   if preferences.model_favorites.len() > MAX_MODEL_FAVORITES {
     return Err(format!("At most {MAX_MODEL_FAVORITES} model favorites are supported.").into());
   }
@@ -280,4 +249,156 @@ pub(super) async fn handle_query_profiles(
     }
   };
   Ok(Some(serde_json::to_string(&ProfileResponse { user_id: session.user_id.clone(), collection, profile_id, error })?))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::query_configuration::{ChatModelSelection, MAX_CAPABILITIES};
+
+  fn configuration() -> QueryConfiguration {
+    QueryConfiguration {
+      scope_id: None,
+      model: Some(ChatModelSelection { backend: "llama:a".to_owned(), model: None, reasoning_effort: None }),
+      capabilities: vec!["infumap_data".to_owned()],
+    }
+  }
+
+  /// Profiles "A", "B", "C" in that order; A is the default, A and C are pinned.
+  fn collection() -> QueryProfileCollection {
+    let profiles: Vec<QueryProfile> = ["A", "B", "C"]
+      .iter()
+      .map(|name| QueryProfile { id: new_uid(), name: (*name).to_owned(), configuration: configuration() })
+      .collect();
+    QueryProfileCollection {
+      revision: 0,
+      preferences: QueryProfilePreferences {
+        default_profile_id: profiles[0].id.clone(),
+        pinned_profile_ids: vec![profiles[2].id.clone(), profiles[0].id.clone()],
+        model_favorites: vec![],
+      },
+      profiles,
+    }
+  }
+
+  fn run(collection: &QueryProfileCollection, operation: ProfileOperation) -> InfuResult<QueryProfileCollection> {
+    let mut candidate = collection.clone();
+    apply(&mut candidate, operation)?;
+    validate_collection(&mut candidate)?;
+    Ok(candidate)
+  }
+
+  fn names(collection: &QueryProfileCollection, ids: &[Uid]) -> Vec<String> {
+    ids.iter().map(|id| collection.profiles.iter().find(|p| &p.id == id).unwrap().name.clone()).collect()
+  }
+
+  fn order(collection: &QueryProfileCollection) -> Vec<String> {
+    collection.profiles.iter().map(|profile| profile.name.clone()).collect()
+  }
+
+  #[test]
+  fn pins_are_kept_in_profile_order() {
+    let c = collection();
+    let normalized = run(&c, ProfileOperation::List).unwrap();
+    assert_eq!(names(&normalized, &normalized.preferences.pinned_profile_ids), ["A", "C"]);
+    let moved = run(&c, ProfileOperation::Move { id: c.profiles[2].id.clone(), to_index: 0 }).unwrap();
+    assert_eq!(order(&moved), ["C", "A", "B"]);
+    assert_eq!(names(&moved, &moved.preferences.pinned_profile_ids), ["C", "A"]);
+    let pinned = run(&c, ProfileOperation::SetPinned { id: c.profiles[1].id.clone(), pinned: true }).unwrap();
+    assert_eq!(names(&pinned, &pinned.preferences.pinned_profile_ids), ["A", "B", "C"]);
+    assert!(run(&c, ProfileOperation::Move { id: c.profiles[0].id.clone(), to_index: 3 }).is_err());
+  }
+
+  #[test]
+  fn deleting_the_default_promotes_the_first_remaining_profile() {
+    let c = collection();
+    let deleted = run(&c, ProfileOperation::Delete { id: c.profiles[0].id.clone() }).unwrap();
+    assert_eq!(order(&deleted), ["B", "C"]);
+    assert_eq!(names(&deleted, &[deleted.preferences.default_profile_id.clone()]), ["B"]);
+    assert_eq!(names(&deleted, &deleted.preferences.pinned_profile_ids), ["C"]);
+
+    let mut last = collection();
+    last.profiles.truncate(1);
+    last.preferences.pinned_profile_ids.clear();
+    assert!(run(&last, ProfileOperation::Delete { id: last.profiles[0].id.clone() }).is_err());
+  }
+
+  #[test]
+  fn names_are_trimmed_and_unique_ignoring_case() {
+    let c = collection();
+    let renamed =
+      run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "  Bee  ".to_owned() }).unwrap();
+    assert_eq!(order(&renamed), ["A", "Bee", "C"]);
+    assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "c".to_owned() }).is_err());
+    assert!(run(&c, ProfileOperation::Create { name: "a".to_owned(), configuration: configuration() }).is_err());
+    assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: " ".to_owned() }).is_err());
+    assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "a\nb".to_owned() }).is_err());
+  }
+
+  #[test]
+  fn duplicates_get_unused_names_within_the_length_limit() {
+    let c = collection();
+    let once = run(&c, ProfileOperation::Duplicate { id: c.profiles[0].id.clone() }).unwrap();
+    let twice = run(&once, ProfileOperation::Duplicate { id: c.profiles[0].id.clone() }).unwrap();
+    assert_eq!(order(&twice), ["A", "A copy 2", "A copy", "B", "C"]);
+
+    let mut long = collection();
+    long.profiles[0].name = "é".repeat(60);
+    let copy = run(&long, ProfileOperation::Duplicate { id: long.profiles[0].id.clone() }).unwrap();
+    let name = &copy.profiles[1].name;
+    assert!(name.len() <= MAX_PROFILE_NAME_BYTES && name.ends_with(" copy"));
+  }
+
+  #[test]
+  fn configuration_is_normalized_and_capped() {
+    let c = collection();
+    let mut duplicated = configuration();
+    duplicated.capabilities = vec!["web".to_owned(), "infumap_data".to_owned(), "web".to_owned()];
+    let saved =
+      run(&c, ProfileOperation::SetConfiguration { id: c.profiles[0].id.clone(), configuration: duplicated }).unwrap();
+    assert_eq!(saved.profiles[0].configuration.capabilities, ["infumap_data", "web"]);
+
+    let mut too_many = configuration();
+    too_many.capabilities = (0..=MAX_CAPABILITIES).map(|n| format!("tool{n}")).collect();
+    assert!(
+      run(&c, ProfileOperation::SetConfiguration { id: c.profiles[0].id.clone(), configuration: too_many }).is_err()
+    );
+
+    let mut full = collection();
+    full.profiles = (0..MAX_PROFILES)
+      .map(|n| QueryProfile { id: new_uid(), name: format!("P{n}"), configuration: configuration() })
+      .collect();
+    full.preferences = QueryProfilePreferences {
+      default_profile_id: full.profiles[0].id.clone(),
+      pinned_profile_ids: vec![],
+      model_favorites: vec![],
+    };
+    assert!(
+      run(&full, ProfileOperation::Create { name: "One more".to_owned(), configuration: configuration() }).is_err()
+    );
+  }
+
+  #[test]
+  fn model_favorites_are_set_and_cleared_idempotently() {
+    let c = collection();
+    let favorite = |favorite| ProfileOperation::SetModelFavorite {
+      backend: "openrouter".to_owned(),
+      model: Some("x/y".to_owned()),
+      favorite,
+    };
+    let added = run(&run(&c, favorite(true)).unwrap(), favorite(true)).unwrap();
+    assert_eq!(added.preferences.model_favorites.len(), 1);
+    assert!(run(&added, favorite(false)).unwrap().preferences.model_favorites.is_empty());
+  }
+
+  #[test]
+  fn requests_reject_unknown_operation_fields() {
+    let user = new_uid();
+    let parse = |json: serde_json::Value| serde_json::from_value::<ProfileRequest>(json);
+    assert!(parse(serde_json::json!({ "expectedUserId": user, "operation": "delete", "id": new_uid() })).is_ok());
+    assert!(
+      parse(serde_json::json!({ "expectedUserId": user, "operation": "delete", "id": new_uid(), "replacementDefaultProfileId": new_uid() }))
+        .is_err()
+    );
+  }
 }
