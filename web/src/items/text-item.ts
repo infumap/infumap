@@ -72,6 +72,11 @@ export function clipboardTextCreateShowsPlaceholder(item: TextItem): boolean {
   return item.clipboardTextCreateState == "awaiting-paste";
 }
 
+/** A chat attachment shown as a text item: its text is in a chat's transcript, not in the object store. */
+export function isChatAttachmentItem(item: ItemTypeMixin | null): item is TextItem {
+  return isText(item) && (item as TextItem).chatAttachmentSource != null;
+}
+
 export function textDisplayTitle(textItem: TextItem): string {
   return clipboardTextCreateShowsPlaceholder(textItem) ? TEXT_CLIPBOARD_PLACEHOLDER_TITLE : textItem.title;
 }

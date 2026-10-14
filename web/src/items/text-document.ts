@@ -1976,6 +1976,7 @@ function createChatDocumentItems(
         ownerId, composite.id, nextChildOrdering(), attachment, { chatItemId: textItem.id });
       attachmentItem.id = idFor(`${turnIndex}:attachment:${attachmentIndex}`);
       add(attachmentItem);
+      makeCopyable(attachmentItem);
     });
     if (turn.text != "") {
       const note = NoteFns.create(ownerId, composite.id, RelationshipToParent.Child, turn.text, nextChildOrdering());

@@ -835,6 +835,7 @@ function addLocalQueryUserTurn(
     );
     attachmentItem.clientOnly = true;
     makeQueryChatItemReadOnly(attachmentItem);
+    makeQueryChatTurnCopyable(attachmentItem);
     itemState.add(attachmentItem);
     items.push(attachmentItem);
   }

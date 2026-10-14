@@ -1,6 +1,6 @@
 # Chat attachments (proposal)
 
-Status: in progress. Discussed 2026-10-14; steps 1–4 done 2026-10-14.
+Status: in progress. Discussed 2026-10-14; steps 1–5 done 2026-10-14.
 
 A common use of chat is pasting something long, such as a video transcript, and asking for a summary. Today the
 pasted text goes into the message itself: the composer fills with it, and the "You" turn shows it as a wall of text.
@@ -240,11 +240,29 @@ Each step can be committed on its own. Steps 1–4 cover pasting a transcript an
      had their text.
    - Seen in the test, not changed: a `text/plain` document page shows single line breaks as spaces, so a
      transcript of short lines reads as one paragraph. That is how text documents render today.
-   - Not handled yet: shift-dragging an attachment item alone. That is step 5.
 
 5. **Copying a single attachment out.** Shift-dragging an attachment item out of a turn makes a real text item where
    it is dropped. This uses step 4's copy path; make the attachment item itself `readonlyCopyableCapabilities`. Check
    from both the chat window and a `.chat` page.
+
+   Done 2026-10-14, in [mouse_move_move.ts](../web/src/input/mouse_move_move.ts). Details:
+   - Attachment items are now copyable, in the chat window (`makeQueryChatTurnCopyable`) and on a `.chat` page
+     (`makeCopyable`).
+   - Shift-dragging a text item normally makes a page from its document (`textDocumentMaterializeMoveRequested`). A
+     chat attachment (`isChatAttachmentItem`) is excluded and copied instead.
+   - Shift-drag doesn't clone data items, whose content would need copying. A chat attachment is the exception: its
+     content comes from the chat.
+   - Moving an item out of a composite (`moving_activeItemToPage`) used to add a shift-drag clone to the server at
+     once, and to require a page that can take a live move. With `copyOnly` (the item can be copied but not moved),
+     the clone is added on drop with its descendants, as a turn copy is (`setItemCopyMove`), and the page only has
+     to hold the clone during the drag (`pageCanHostPendingCopy`). The chat window's page is client only and a
+     `.chat` page is read only, so neither could start a live move.
+   - On drop, the copy is added with its text (`chatAttachmentCopyData`), in the same branch of `enqueueUpdateItem`
+     as a turn copy.
+   - The copy is titled "Pasted text (copy)", as other shift-drag copies are.
+   - Checked end to end with Playwright: a plain drag did nothing. A shift-drag onto a dock page, from the chat
+     window and from a `.chat` page, made a text item there with the attachment's 3,289 bytes, and the chat was
+     unchanged. Shift-dragging the copy, now an ordinary text item, still made a page from it.
 
 6. **+ button and dropped files.**
    - Add a hidden file input with `accept` for `.txt`, `.md`, `.srt`, `.vtt`, `.csv`, `.json`, `.log` and common
