@@ -49,6 +49,7 @@ import { mouseUpHandler } from "../input/mouse_up";
 import { mouseMoveHandler, clearMouseOverState, mouseMove_handleNoButtonDown } from "../input/mouse_move";
 import { CursorEventState, MouseAction, MouseActionState } from "../input/state";
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
+import { shouldOpenNativeTextContextMenu } from "../input/native_text_context_menu";
 import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
@@ -472,6 +473,7 @@ export const Main: Component = () => {
   const afterPrintListener = () => { exitPrintMode(store); };
 
   const contextMenuListener = (ev: Event) => {
+    if (shouldOpenNativeTextContextMenu(store, ev.target)) { return; }
     ev.stopPropagation();
     ev.preventDefault();
   };
@@ -567,6 +569,7 @@ export const Main: Component = () => {
       return;
     }
     CursorEventState.setFromMouseEvent(ev);
+    if (ev.button == MOUSE_RIGHT && shouldOpenNativeTextContextMenu(store, ev.target)) { return; }
     let flags = await mouseDownHandler(store, ev.button);
     if (flags & MouseEventActionFlags.PreventDefault) {
       ev.preventDefault();
