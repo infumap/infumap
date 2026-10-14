@@ -26,6 +26,12 @@ use serde::Serialize;
 
 pub type ProviderResult<T> = Result<T, ProviderError>;
 
+pub struct SearchResponse {
+  pub results: Vec<SearchResult>,
+  /// Provider-reported request estimate, not an account balance or final bill.
+  pub reported_cost_usd_micros: Option<u64>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct SearchResult {
   pub title: String,
@@ -77,7 +83,7 @@ pub trait SearchProvider: Send + Sync {
 
   /// Keep execution cooperative: move blocking I/O and lock waits off runtime
   /// threads so request deadlines can cancel this future promptly.
-  fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<Vec<SearchResult>>>;
+  fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<SearchResponse>>;
 
   /// None means usage reporting is unsupported. Never invent a full allowance.
   fn usage(&self) -> BoxFuture<'_, ProviderResult<Option<UsageSnapshot>>> {

@@ -24,8 +24,8 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::{
-  ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResult,
-  SearchResultMetadata,
+  ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResponse,
+  SearchResult, SearchResultMetadata,
 };
 
 const SEARCH_URL: &str = "https://api.exa.ai/search";
@@ -82,7 +82,7 @@ impl SearchProvider for Exa {
     Ok(RequestCost::UsdMicros(BASE_COST_USD_MICROS + extra_results * EXTRA_RESULT_COST_USD_MICROS))
   }
 
-  fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<Vec<SearchResult>>> {
+  fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<SearchResponse>> {
     Box::pin(async move {
       let num_results = result_limit(&request)?;
       let mut response = self
@@ -152,7 +152,10 @@ impl SearchProvider for Exa {
       let response: ExaSearchResponse = serde_json::from_slice(&body).map_err(|_| {
         ProviderError::new(ProviderErrorKind::UnexpectedResponse, "Exa search returned an invalid response.")
       })?;
-      Ok(normalize_results(response.results, num_results))
+      Ok(SearchResponse {
+        reported_cost_usd_micros: reported_cost(&response.cost_dollars),
+        results: normalize_results(response.results, num_results),
+      })
     })
   }
 }
@@ -170,6 +173,20 @@ fn result_limit(request: &SearchRequest<'_>) -> ProviderResult<usize> {
 #[derive(Deserialize)]
 struct ExaSearchResponse {
   results: Vec<ExaSearchResult>,
+  // Invalid optional cost metadata must not discard otherwise usable results.
+  #[serde(default, rename = "costDollars")]
+  cost_dollars: serde_json::Value,
+}
+
+fn reported_cost(cost_dollars: &serde_json::Value) -> Option<u64> {
+  let dollars = cost_dollars.get("total")?.as_f64()?;
+  let micros = (dollars * 1_000_000.0).round();
+  // Reject negative, non-finite and out-of-range values before the integer cast.
+  // u64::MAX rounds up to 2^64 as f64, so the upper bound is exclusive.
+  if dollars < 0.0 || !micros.is_finite() || micros >= u64::MAX as f64 {
+    return None;
+  }
+  Some(micros as u64)
 }
 
 #[derive(Deserialize)]

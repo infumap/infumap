@@ -27,7 +27,8 @@ use reqwest::header::{
 use scraper::{Html, Selector};
 
 use super::{
-  ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResult,
+  ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResponse,
+  SearchResult,
 };
 
 const SEARCH_URL: &str = "https://html.duckduckgo.com/html/";
@@ -63,7 +64,7 @@ impl SearchProvider for DuckDuckGo {
     Ok(RequestCost::Unmetered)
   }
 
-  fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<Vec<SearchResult>>> {
+  fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<SearchResponse>> {
     Box::pin(async move {
       let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
@@ -116,7 +117,7 @@ impl SearchProvider for DuckDuckGo {
         return Err(blocked_error().with_retry_after(retry_after));
       }
 
-      parse_results(&html, request.max_results)
+      Ok(SearchResponse { results: parse_results(&html, request.max_results)?, reported_cost_usd_micros: None })
     })
   }
 }

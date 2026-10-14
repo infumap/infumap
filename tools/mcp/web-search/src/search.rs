@@ -111,7 +111,16 @@ fn configured_router() -> InfuResult<&'static SearchRouter> {
 #[derive(Serialize)]
 struct CompactWebSearchResponse<'a> {
   query: &'a str,
-  results: &'a [SearchResult],
+  results: Vec<CompactSearchResult<'a>>,
+}
+
+/// Explicit model-facing fields: adding internal provider metadata must not
+/// implicitly expand the tool response.
+#[derive(Serialize)]
+struct CompactSearchResult<'a> {
+  title: &'a str,
+  url: &'a str,
+  snippet: &'a str,
 }
 
 /// Search with the configured provider and return compact JSON for the model.
@@ -125,6 +134,10 @@ pub async fn search_web_json(query: &str, max_results: usize) -> InfuResult<Stri
 }
 
 pub fn compact_web_search_json(query: &str, results: &[SearchResult]) -> InfuResult<String> {
+  let results = results
+    .iter()
+    .map(|result| CompactSearchResult { title: &result.title, url: &result.url, snippet: &result.snippet })
+    .collect();
   serde_json::to_string(&CompactWebSearchResponse { query, results })
     .map_err(|e| format!("Could not serialize web search response: {}", e).into())
 }

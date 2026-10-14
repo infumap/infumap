@@ -28,7 +28,7 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
 use crate::providers::{
-  ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResult,
+  ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResponse,
   UsageSnapshot,
 };
 
@@ -370,7 +370,7 @@ impl BudgetAccount {
     Ok(Reservation { account: self.clone(), id, dispatched: false, finished: false })
   }
 
-  fn settle(&self, id: u64, charged: bool, exhausted: bool) -> ProviderResult<()> {
+  fn settle(&self, id: u64, charged: bool, exhausted: bool, reported_cost: Option<u64>) -> ProviderResult<()> {
     let cost = self.store.transaction(|ledger| {
       let account = self.state(ledger)?;
       account.advance(Timestamp::now())?;
@@ -379,7 +379,7 @@ impl BudgetAccount {
         .remove(&id)
         .ok_or_else(|| internal("Budget reservation was already settled or is missing."))?;
       if charged {
-        account.charge(cost)?;
+        account.charge(reported_cost.unwrap_or(cost))?;
       }
       if exhausted {
         account.reported_remaining_cap_usd_micros = Some(0);
@@ -387,7 +387,7 @@ impl BudgetAccount {
       Ok(cost)
     })?;
     debug!(
-      "{} settled reservation {id}, estimated cost {cost} USD micros: charged={charged}, quota_exhausted={exhausted}",
+      "{} settled reservation {id}, reserved {cost} USD micros, reported cost {reported_cost:?}: charged={charged}, quota_exhausted={exhausted}",
       self.provider
     );
     Ok(())
@@ -431,20 +431,25 @@ impl BudgetAccount {
 }
 
 impl Reservation {
-  async fn finish(mut self, charged: bool, exhausted: bool) -> ProviderResult<()> {
+  async fn finish(mut self, charged: bool, exhausted: bool, reported_cost: Option<u64>) -> ProviderResult<()> {
     // Queue before marking finished: cancellation while awaiting the worker must
     // not lose a known refund/quota cap or queue a second settlement from Drop.
-    let task = self.schedule_settlement(charged, exhausted)?;
+    let task = self.schedule_settlement(charged, exhausted, reported_cost)?;
     self.finished = true;
     task.await.map_err(|_| internal("Budget settlement worker failed."))?
   }
 
-  fn schedule_settlement(&self, charged: bool, exhausted: bool) -> ProviderResult<JoinHandle<ProviderResult<()>>> {
+  fn schedule_settlement(
+    &self,
+    charged: bool,
+    exhausted: bool,
+    reported_cost: Option<u64>,
+  ) -> ProviderResult<JoinHandle<ProviderResult<()>>> {
     let runtime = tokio::runtime::Handle::try_current().map_err(|_| internal("Budget runtime is unavailable."))?;
     let account = self.account.clone();
     let id = self.id;
     Ok(runtime.spawn_blocking(move || {
-      let result = account.settle(id, charged, exhausted);
+      let result = account.settle(id, charged, exhausted, reported_cost);
       if let Err(error) = &result {
         error!("Could not settle search reservation: {error}");
       }
@@ -456,7 +461,7 @@ impl Reservation {
 impl Drop for Reservation {
   fn drop(&mut self) {
     if !self.finished
-      && let Err(error) = self.schedule_settlement(self.dispatched, false)
+      && let Err(error) = self.schedule_settlement(self.dispatched, false, None)
     {
       // The durable reservation still constrains capacity and is recovered on
       // restart, even when shutdown prevents scheduling its settlement.
@@ -502,7 +507,7 @@ impl BudgetedProvider {
     request: SearchRequest<'_>,
     allow_paid: bool,
     deadline: Option<Instant>,
-  ) -> ProviderResult<Vec<SearchResult>> {
+  ) -> ProviderResult<SearchResponse> {
     check_deadline(deadline)?;
     let cost = self.inner.estimate_cost(&request)?;
     let RequestCost::UsdMicros(cost) = cost else {
@@ -522,9 +527,10 @@ impl BudgetedProvider {
     let result = self.inner.search(request).await;
     let charged = !matches!(&result, Err(error) if error.not_charged);
     let exhausted = matches!(&result, Err(error) if error.kind == ProviderErrorKind::QuotaExhausted);
+    let reported_cost = result.as_ref().ok().and_then(|response| response.reported_cost_usd_micros);
     // Settle consumption and a remote quota cap in one durable transaction.
     // Monthly rollover clears the cap; restarting the server does not.
-    reservation.finish(charged, exhausted).await?;
+    reservation.finish(charged, exhausted, reported_cost).await?;
     result
   }
 }
@@ -538,7 +544,7 @@ impl SearchProvider for BudgetedProvider {
     self.inner.estimate_cost(request)
   }
 
-  fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<Vec<SearchResult>>> {
+  fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<SearchResponse>> {
     Box::pin(self.search_with_budget(request, false, None))
   }
 

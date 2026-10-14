@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use log::warn;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -135,7 +136,12 @@ async fn call_web_search(arguments: Value) -> Value {
     arguments.num_results.unwrap_or(DEFAULT_MAX_RESULTS as i64).clamp(1, MAX_RESULTS_CAP as i64) as usize;
   match search::search_web_json(&query, num_results).await {
     Ok(response) => tool_result(response, false),
-    Err(e) => tool_result(tool_error_json(&e.to_string()), true),
+    Err(e) => {
+      // Provider routing, credentials and budget diagnostics belong in server
+      // logs, not in the model's context. Argument errors are handled above.
+      warn!("Web search failed: {e}");
+      tool_result(tool_error_json("Web search is currently unavailable."), true)
+    }
   }
 }
 

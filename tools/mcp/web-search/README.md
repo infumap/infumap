@@ -86,8 +86,8 @@ already has an Exa key:
 env -u EXA_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
 ```
 
-The server starts and `fetch_page` remains available. `web_search` returns an
-MCP tool error explaining that no providers are enabled. `/status` shows
+The server starts and `fetch_page` remains available. `web_search` returns a
+short MCP tool error saying search is unavailable. `/status` shows
 `search_available: false`, both providers disabled, and a configuration error.
 No metered budget directory is created. Other malformed environment settings
 still prevent startup, even when their provider is disabled.
@@ -147,8 +147,9 @@ Attempts with uncertain billing, including HTTP 401 and 402, conservatively comm
 their reserved cost. Correcting a key and restarting preserves that consumption.
 When fallback succeeds, the MCP result contains that provider's normal results;
 logs and `/status` expose failures of the earlier provider. If no provider can
-serve the call, `web_search` returns `isError: true` with provider failure or skip
-reasons in its text error. A successful empty result does not trigger fallback.
+serve the call, `web_search` returns `isError: true` with a short unavailability
+message. Provider failure and skip reasons remain in server logs and local status.
+A successful empty result does not trigger fallback.
 
 ### Provider selection and fallback
 
@@ -202,8 +203,8 @@ whose dispatch began and records a transient health failure. Reservations known
 not to have dispatched are released asynchronously.
 
 Cooldowns and credential/internal-error suspensions are kept in memory. Monthly
-metered quota caps and consumption are persistent. Failed calls report provider
-failure or skip reasons in the existing MCP text-error format. Routing choices
+metered quota caps and consumption are persistent. Failed calls report a short
+unavailability message in the existing MCP text-error format. Routing choices
 are available in debug logs (`RUST_LOG=debug`); queries and API keys are not
 included in routing log messages.
 
@@ -263,7 +264,8 @@ include provider names and numeric accounting details without API keys or querie
 ### Provider adapters
 
 `src/providers/mod.rs` defines the `SearchProvider` interface. Adapters provide
-normalized title, URL and snippet results, a local request-cost estimate, and
+normalized title, URL and snippet results, a local request-cost estimate,
+an optional response-reported request-cost estimate, and
 optional asynchronous usage reporting. The interface supports different
 adapters behind a shared trait object. Configuration remains in the search
 layer; provider selection and health tracking are in `src/router.rs`.
@@ -310,7 +312,10 @@ accounting wrapper defaults to free capacity only; the router explicitly permits
 paid capacity only after free and unmetered candidates are unavailable.
 Concurrent reservations share a mutex and
 cannot independently consume the same remaining allowance. Successful requests,
-including empty results, commit their full estimates. Timeouts, cancellation and
+including empty results, commit the provider's response-reported cost estimate
+when available, otherwise the reserved estimate. A reported cost can be lower
+or higher than the reservation; it is not capped to the reserved amount.
+Timeouts, cancellation and
 uncertain failures after dispatch also commit the estimates. A reservation whose
 request never dispatched is released. Errors explicitly guaranteed not
 to be billed release their reservation; currently Exa HTTP 503 is the documented
@@ -361,8 +366,17 @@ requested result. Highlights are bundled in this search price. Estimates use
 the same capped result count as requests. Rates are adapter constants and must
 be updated when provider pricing changes.
 
+After a successful response, accounting uses `costDollars.total` instead of the
+reserved estimate. Dollar values are rounded to the nearest integer millionth
+of a dollar; zero is a valid reported cost. Missing, null, nonnumeric, negative
+or out-of-range values fall back to the local estimate without discarding search
+results. This is still estimated spending, not authoritative billed usage.
+
 Highlights populate the common snippet. Optional original excerpts, author and
 publication date are retained internally; the MCP JSON shape remains unchanged.
+An explicit output field list restricts search responses to the query and each
+result's title, URL and snippet. Costs, balances, provider metadata and routing
+diagnostics are not included in those responses.
 Result URLs are restricted to HTTP(S), duplicates are removed, and missing titles
 fall back to the URL. Malformed or oversized responses produce typed errors.
 API keys are marked sensitive, redirects are disabled, and errors never include

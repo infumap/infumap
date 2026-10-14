@@ -58,6 +58,7 @@ impl Backend {
       Self::Unmetered(provider) => provider.search(request).await,
       Self::Metered(provider) => provider.search_with_budget(request, funding == Funding::Paid, Some(deadline)).await,
     }
+    .map(|response| response.results)
   }
 }
 
