@@ -31,8 +31,8 @@ Selecting a profile leaves your draft, attachments and Search / Chat / Deep rese
 
 To create a profile, choose the scope, model and tools you want, then open **More → Save as profile…**
 and give it a name. Open **More → Manage profiles** to pin it above the input, rename or duplicate it,
-choose it as your default, or delete it. Up/Down orders the profile list; Left/Right orders the pinned
-shortcuts. Deleting the default requires choosing its replacement, and at least one profile must remain.
+choose it as your default, or delete it. Up/Down orders the profiles, including the pinned shortcuts.
+Deleting the default makes the first remaining profile the default, and at least one profile must remain.
 
 New queries copy your default profile once. Choosing a profile or changing Scope, Model or Tools
 affects only the current query. **Modified** marks changes to its applied profile: open **More** for

@@ -29,7 +29,7 @@ use tokio::io::{AsyncReadExt, BufReader};
 use super::user::User;
 use crate::util::fs::expand_tilde;
 
-pub const CURRENT_USER_LOG_VERSION: i64 = 6;
+pub const CURRENT_USER_LOG_VERSION: i64 = 7;
 
 /// Db for managing User instances, assuming the mandated data folder hierarchy.
 /// Not thread safe.
@@ -270,6 +270,15 @@ pub fn migrate_record_v5_to_v6(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
 
     "delete" => Ok(kvs.clone()),
 
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
+/// Version 7 adds the optional queryProfiles field to user records. Existing records are unchanged.
+pub fn migrate_record_v6_to_v7(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "entry" | "update" | "delete" => Ok(kvs.clone()),
     unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
   }
 }
