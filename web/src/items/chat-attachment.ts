@@ -86,6 +86,49 @@ export function pastedTextAttachment(
   return { id: newUid(), title, mimeType: "text/plain", text };
 }
 
+/** The file picker's suggestions. A dropped file of any name is attached if it is UTF-8 text. */
+export const CHAT_ATTACHMENT_FILE_ACCEPT = [
+  "text/*", ".txt", ".md", ".markdown", ".srt", ".vtt", ".csv", ".tsv", ".json", ".jsonl", ".log", ".xml", ".yaml",
+  ".yml", ".toml", ".ini", ".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".py", ".rs", ".go", ".java", ".kt", ".c",
+  ".h", ".cpp", ".hpp", ".cs", ".rb", ".php", ".swift", ".sh", ".sql",
+].join(",");
+
+/** The server's `CHAT_ATTACHMENT_TITLE_MAX_CHARS`. */
+const ATTACHMENT_TITLE_MAX_CHARS = 200;
+
+/**
+ * A text file as a new attachment after `existing`, titled with the file's name. A string is the reason it can't be
+ * attached: it is not UTF-8 text, or is empty or too large, or there are already as many attachments as allowed.
+ */
+export async function fileAttachment(
+  existing: Array<ChatDraftAttachment>,
+  file: File,
+): Promise<ChatDraftAttachment | string> {
+  if (existing.length >= CHAT_ATTACHMENTS_MAX_COUNT) {
+    return `A message can have at most ${CHAT_ATTACHMENTS_MAX_COUNT} attachments`;
+  }
+  if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
+    return `${file.name} is larger than 1 MB`;
+  }
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
+  } catch (_e) {
+    return `${file.name} is not a text file`;
+  }
+  // Valid UTF-8 can still be binary.
+  if (text.includes("\u0000")) {
+    return `${file.name} is not a text file`;
+  }
+  if (text.trim() == "") {
+    return `${file.name} is empty`;
+  }
+  const title = [...file.name.trim()].slice(0, ATTACHMENT_TITLE_MAX_CHARS).join("") || "File";
+  const lowerName = file.name.toLowerCase();
+  const isMarkdown = lowerName.endsWith(".md") || lowerName.endsWith(".markdown");
+  return { id: newUid(), title, mimeType: isMarkdown ? "text/markdown" : "text/plain", text };
+}
+
 /** An estimate, as for draft text: about four characters a token, plus the tags around the text. */
 export function estimateChatAttachmentTokens(attachments: Array<ChatDraftAttachment>): number {
   return attachments.reduce(
