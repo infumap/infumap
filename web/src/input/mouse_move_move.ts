@@ -29,6 +29,7 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
 import { asTextItem, isChatAttachmentItem, isText, type TextItem } from "../items/text-item";
+import { updateChatItemDropHover } from "../items/chat-attachment";
 import { createPendingTextDocumentPage, isMarkdownTextDocumentPage } from "../items/text-document";
 import { LinkFns, isLink } from "../items/link-item";
 import { asNoteItem, isNote } from "../items/note-item";
@@ -579,6 +580,8 @@ function pageCanHostLiveMovingItem(pageVe: VisualElement): boolean {
 
 export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store: StoreContextModel) {
   MouseActionState.setMoveBlockedCursor(false);
+  // A drop on a chat's composer attaches the item's content (`attachDroppedItemToChatMaybe` in mouse_up.ts).
+  updateChatItemDropHover(CursorEventState.getLatestClientPx());
   const activeVisualElementSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeVisualElementSignal) {
     store.anItemIsMoving.set(false);

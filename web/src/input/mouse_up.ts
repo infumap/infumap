@@ -33,6 +33,7 @@ import { TextFns, asTextItem, isText } from "../items/text-item";
 import { continuePersistedChat } from "../items/query";
 import { clearQueryChat } from "../items/chat";
 import { chatAttachmentCopyData, isChatTextItem } from "../items/text-document";
+import { chatItemDropTargetAt, updateChatItemDropHover } from "../items/chat-attachment";
 import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
@@ -1630,7 +1631,34 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 }
 
 
+/**
+ * An item dropped on a chat's composer goes back where it was, and a copy of its content is attached to the message
+ * being written there. See docs/chat-attachments.md.
+ */
+function attachDroppedItemToChatMaybe(store: StoreContextModel): boolean {
+  updateChatItemDropHover(null);
+  const accept = chatItemDropTargetAt(CursorEventState.getLatestClientPx());
+  const activeVisualElement = MouseActionState.getActiveVisualElement();
+  if (accept == null || activeVisualElement == null) {
+    return false;
+  }
+  // A shift-drag clone is not in the rollback snapshot, and its title may have a copy suffix: attach its source.
+  const snapshot = MouseActionState.getMoveRollback() ?? [];
+  const treeItemId = VeFns.treeItem(activeVisualElement).id;
+  const source = snapshot.some(entry => entry.id == treeItemId) || snapshot.length == 0
+    ? activeVisualElement.displayItem
+    : itemState.get(snapshot[0].id) ?? activeVisualElement.displayItem;
+  rollbackInvalidMove(store);
+  MouseActionState.set(null);
+  arrangeNow(store, "mouse-up-attach-to-chat");
+  accept(source);
+  return true;
+}
+
 function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: PositionalItem) {
+  if (attachDroppedItemToChatMaybe(store)) {
+    return;
+  }
   const dropRejectionMessage = currentDropTargetRejectionMessage(store);
   if (dropRejectionMessage != null) {
     rollbackInvalidMove(store);
