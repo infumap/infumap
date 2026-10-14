@@ -28,6 +28,22 @@ The transcript is kept on the server, one file per chat (see [Chats](chats.md) a
 the transcript. A turn that is stopped or fails is recorded but contributes nothing to later history, not even its
 question, so the history never has two user messages in a row.
 
+Text attached to a message (see [Chats](chats.md#attaching-text) and `docs/chat-attachments.md`) is not read
+with a tool. It is part of the user message, before its text, each attachment wrapped in tags, and stays in the
+history like the rest of the message:
+
+```
+<attachment name="Pasted text">
+…the attached text…
+</attachment>
+
+summarize this
+```
+
+A weak model given a reference to read skips parts of it, and for a request such as a summary a part left unread is
+the worst failure; attachments also work in a chat with no tools. A `"` in a name is given as `'`. Nothing is cut to
+fit the model's context.
+
 Tool results stay whole in the transcript for the rest of the chat. Earlier turns' results used to
 be replaced by short stubs from the next question on, to keep context small and the model focused.
 That was dropped: a weak model answered follow-ups from the stubs instead of calling the tool again,
@@ -192,7 +208,7 @@ first. The fragments depend on the item:
 | Page, table, composite, group | Its items as lines of text, built on demand (below). |
 | Note | Its text, built on demand (below). |
 | File, text, image | Stored when the document was processed; each is cut at 2,500 characters, ending `… (cut at 2500 characters)`. |
-| `.chat` item | Stored like a text item's: its visible conversation, each message and completed answer, without tool results or reasoning. |
+| `.chat` item | Stored like a text item's: its visible conversation, each message and completed answer, without attachments, tool results or reasoning. |
 
 Other items, such as ratings and dividers, have no readable text.
 
