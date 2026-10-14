@@ -76,6 +76,7 @@ pub struct BudgetAccount {
 }
 
 pub struct BudgetBalance {
+  pub free_allowance_usd_micros: u64,
   pub free_remaining_usd_micros: u64,
   pub total_remaining_usd_micros: u64,
   pub reserved_usd_micros: u64,
@@ -272,6 +273,7 @@ impl AccountState {
     let total = checked_total(free_limit, self.paid_limit_usd_micros)?.saturating_sub(committed);
     let reported = self.reported_remaining_cap_usd_micros.map(|remaining| remaining.saturating_sub(reserved));
     Ok(BudgetBalance {
+      free_allowance_usd_micros: free_limit,
       free_remaining_usd_micros: reported.map_or(free, |cap| free.min(cap)),
       total_remaining_usd_micros: reported.map_or(total, |cap| total.min(cap)),
       consumed_usd_micros: self.consumed_usd_micros,
@@ -310,8 +312,11 @@ impl BudgetAccount {
       let remaining = if allow_paid { balance.total_remaining_usd_micros } else { balance.free_remaining_usd_micros };
       if cost > remaining {
         return Err(
-          ProviderError::new(ProviderErrorKind::QuotaExhausted, "Insufficient local search budget for this request.")
-            .without_charge(),
+          ProviderError::new(
+            ProviderErrorKind::InsufficientBudget,
+            "Insufficient local search budget for this request.",
+          )
+          .without_charge(),
         );
       }
       account.reservations.insert(id, cost);
@@ -320,7 +325,7 @@ impl BudgetAccount {
     Ok(Reservation { account: self.clone(), id, finished: false })
   }
 
-  fn settle(&self, id: u64, charged: bool) -> ProviderResult<()> {
+  fn settle(&self, id: u64, charged: bool, exhausted: bool) -> ProviderResult<()> {
     self.store.transaction(|ledger| {
       let account = self.state(ledger)?;
       account.advance(Timestamp::now())?;
@@ -330,6 +335,9 @@ impl BudgetAccount {
         .ok_or_else(|| internal("Budget reservation was already settled or is missing."))?;
       if charged {
         account.charge(cost)?;
+      }
+      if exhausted {
+        account.reported_remaining_cap_usd_micros = Some(0);
       }
       Ok(())
     })
@@ -368,8 +376,8 @@ impl BudgetAccount {
 }
 
 impl Reservation {
-  fn finish(mut self, charged: bool) -> ProviderResult<()> {
-    let result = self.account.settle(self.id, charged);
+  fn finish(mut self, charged: bool, exhausted: bool) -> ProviderResult<()> {
+    let result = self.account.settle(self.id, charged, exhausted);
     self.finished = true;
     result
   }
@@ -378,7 +386,7 @@ impl Reservation {
 impl Drop for Reservation {
   fn drop(&mut self) {
     if !self.finished
-      && let Err(error) = self.account.settle(self.id, true)
+      && let Err(error) = self.account.settle(self.id, true, false)
     {
       error!("Could not settle cancelled search reservation: {error}");
     }
@@ -386,13 +394,13 @@ impl Drop for Reservation {
 }
 
 /// The adapter cannot issue a metered request without a durable reservation.
-pub struct BudgetedProvider<P> {
-  inner: P,
+pub struct BudgetedProvider {
+  inner: Box<dyn SearchProvider>,
   account: BudgetAccount,
 }
 
-impl<P: SearchProvider> BudgetedProvider<P> {
-  pub fn new(inner: P, account: BudgetAccount) -> ProviderResult<Self> {
+impl BudgetedProvider {
+  pub fn new(inner: impl SearchProvider + 'static, account: BudgetAccount) -> ProviderResult<Self> {
     let balance = account.balance()?;
     info!(
       "{} local budget (USD micros): consumed {}, reserved {}, free remaining {}, total remaining {}, resets at Unix second {}",
@@ -403,7 +411,11 @@ impl<P: SearchProvider> BudgetedProvider<P> {
       balance.total_remaining_usd_micros,
       balance.period_end
     );
-    Ok(Self { inner, account })
+    Ok(Self { inner: Box::new(inner), account })
+  }
+
+  pub fn balance(&self) -> ProviderResult<BudgetBalance> {
+    self.account.balance()
   }
 
   /// Paid capacity requires the router to explicitly permit it for this attempt.
@@ -419,12 +431,15 @@ impl<P: SearchProvider> BudgetedProvider<P> {
     let reservation = self.account.reserve(cost, allow_paid)?;
     let result = self.inner.search(request).await;
     let charged = !matches!(&result, Err(error) if error.not_charged);
-    reservation.finish(charged)?;
+    let exhausted = matches!(&result, Err(error) if error.kind == ProviderErrorKind::QuotaExhausted);
+    // Settle consumption and a remote quota cap in one durable transaction.
+    // Monthly rollover clears the cap; restarting the server does not.
+    reservation.finish(charged, exhausted)?;
     result
   }
 }
 
-impl<P: SearchProvider> SearchProvider for BudgetedProvider<P> {
+impl SearchProvider for BudgetedProvider {
   fn name(&self) -> &'static str {
     self.inner.name()
   }

@@ -20,6 +20,7 @@ mod error;
 mod fetch;
 mod protocol;
 mod providers;
+mod router;
 mod search;
 mod tools;
 
@@ -59,9 +60,6 @@ async fn main() {
     info!(
       "Exa monthly configuration: {} US cents free, {} US cents paid limit, reset day {} at 00:00 UTC",
       exa.monthly_free_credits_cents, exa.monthly_paid_limit_cents, exa.monthly_reset_day
-    );
-    warn!(
-      "Exa adapter and persistent budget accounting are ready, but automatic routing is not implemented yet; searches require DuckDuckGo opt-in."
     );
   }
 

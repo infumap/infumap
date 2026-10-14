@@ -16,7 +16,6 @@
 
 use std::time::Duration;
 
-use log::warn;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 
@@ -27,6 +26,7 @@ pub use crate::providers::SearchResult;
 use crate::providers::duckduckgo::DuckDuckGo;
 use crate::providers::exa::Exa;
 use crate::providers::{SearchProvider, SearchRequest};
+use crate::router::{Backend, SearchRouter};
 
 #[cfg(test)]
 use crate::providers::duckduckgo::{parse_results, unwrap_ddg_href};
@@ -34,12 +34,7 @@ use crate::providers::duckduckgo::{parse_results, unwrap_ddg_href};
 pub const DEFAULT_MAX_RESULTS: usize = 5;
 pub const MAX_RESULTS_CAP: usize = 30;
 
-struct ConfiguredProviders {
-  duckduckgo: Option<DuckDuckGo>,
-  exa: Option<BudgetedProvider<Exa>>,
-}
-
-static PROVIDERS: Lazy<InfuResult<ConfiguredProviders>> = Lazy::new(|| {
+static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
   let config = config::search_config().map_err(|message| format!("Invalid web-search configuration: {message}"))?;
   let exa = config
     .exa
@@ -65,34 +60,36 @@ static PROVIDERS: Lazy<InfuResult<ConfiguredProviders>> = Lazy::new(|| {
     })
     .transpose()
     .map_err(|error| format!("Could not initialize Exa: {error}"))?;
-  Ok(ConfiguredProviders { duckduckgo: config.duckduckgo_enabled.then_some(DuckDuckGo), exa })
+  let mut providers = Vec::new();
+  if let Some(exa) = exa {
+    providers.push(Backend::Metered(exa));
+  }
+  if config.duckduckgo_enabled {
+    providers.push(Backend::Unmetered(Box::new(DuckDuckGo)));
+  }
+  Ok(SearchRouter::new(providers))
 });
 
 /// Prepare configured clients and validate credentials locally, without issuing
-/// any provider requests. Exa execution awaits automatic routing.
+/// any provider requests.
 pub fn initialize_providers() -> InfuResult<()> {
-  configured_providers().map(|_| ())
+  configured_router().map(|_| ())
 }
 
 /// Poll optional usage reporting without adding another request to every search.
 /// Exa currently reports None, so this makes no provider HTTP requests for Exa.
 pub async fn refresh_provider_usage() {
-  let Ok(providers) = configured_providers() else { return };
-  let Some(exa) = &providers.exa else { return };
+  let Ok(router) = configured_router() else { return };
   let mut interval = tokio::time::interval(Duration::from_secs(300));
   interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
   loop {
     interval.tick().await;
-    match tokio::time::timeout(Duration::from_secs(20), exa.usage()).await {
-      Ok(Ok(_)) => (),
-      Ok(Err(error)) => warn!("Could not reconcile Exa usage: {error}"),
-      Err(_) => warn!("Exa usage refresh timed out."),
-    }
+    router.refresh_usage().await;
   }
 }
 
-fn configured_providers() -> InfuResult<&'static ConfiguredProviders> {
-  PROVIDERS.as_ref().map_err(|error| error.to_string().into())
+fn configured_router() -> InfuResult<&'static SearchRouter> {
+  ROUTER.as_ref().map_err(|error| error.to_string().into())
 }
 
 #[derive(Serialize)]
@@ -116,27 +113,14 @@ pub fn compact_web_search_json(query: &str, results: &[SearchResult]) -> InfuRes
     .map_err(|e| format!("Could not serialize web search response: {}", e).into())
 }
 
-/// Dispatch to an available adapter. Budget-aware routing is added separately.
+/// Search using budget-aware provider selection and bounded fallback.
 pub async fn search(query: &str, max_results: usize) -> InfuResult<Vec<SearchResult>> {
   let query = query.trim();
   if query.is_empty() {
     return Err("search query cannot be empty".into());
   }
   let request = SearchRequest { query, max_results: max_results.clamp(1, MAX_RESULTS_CAP) };
-  configured_provider()?.search(request).await.map_err(|error| error.to_string().into())
-}
-
-fn configured_provider() -> InfuResult<&'static dyn SearchProvider> {
-  let providers = configured_providers()?;
-  if let Some(duckduckgo) = &providers.duckduckgo {
-    return Ok(duckduckgo);
-  }
-  Err(if providers.exa.is_some() {
-    "Exa and persistent budget accounting are configured, but automatic routing is not implemented yet. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
-  } else {
-    "No search providers enabled. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
-  }
-  .into())
+  configured_router()?.search(request).await.map_err(|error| error.to_string().into())
 }
 
 #[cfg(test)]

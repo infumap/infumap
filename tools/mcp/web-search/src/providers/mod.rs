@@ -87,6 +87,7 @@ pub trait SearchProvider: Send + Sync {
 pub enum ProviderErrorKind {
   RateLimited,
   QuotaExhausted,
+  InsufficientBudget,
   InvalidCredentials,
   Transient,
   InvalidRequest,
@@ -97,7 +98,6 @@ pub enum ProviderErrorKind {
 
 #[derive(Debug)]
 pub struct ProviderError {
-  #[expect(dead_code, reason = "Typed failure handling is consumed by the upcoming router.")]
   pub kind: ProviderErrorKind,
   pub retry_after: Option<Duration>,
   /// Only set when the provider explicitly guarantees this attempt was not billed.

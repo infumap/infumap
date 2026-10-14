@@ -1,9 +1,8 @@
 # Web search MCP server
 
 Streamable HTTP MCP server exposing Infumap's web-search and page-fetch tools.
-Bind is `127.0.0.1` by default. Search providers require configuration;
-DuckDuckGo currently serves searches. The Exa adapter is implemented, with
-execution gated until automatic provider routing is available.
+Bind is `127.0.0.1` by default. Configured Exa and DuckDuckGo providers serve
+searches through budget-aware routing and bounded fallback.
 
 ## Run
 
@@ -52,23 +51,23 @@ Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
 trial or onboarding credits are not recurring monthly allowances.
 
-**Implementation status:** provider configuration, preference and the common
-provider interface with DuckDuckGo and Exa adapters are implemented. Startup
+Provider configuration, persistent accounting, routing and the common provider
+interface with DuckDuckGo and Exa adapters are implemented. Startup
 prepares configured clients and validates credential header syntax locally,
 without contacting providers. The Exa adapter is wrapped in persistent budget
 accounting that reserves capacity before any metered request can be dispatched.
-Automatic selection and fallback remain for step 5, so Exa searches are still
-disabled at the MCP entry point. Startup logs explain this and report the local
-budget balance. These are local estimates, not provider-side billing controls.
+The router selects eligible providers automatically and falls back after
+failures. Startup logs report configured preferences and the local budget
+balance. These are local estimates, not provider-side billing controls.
 
-To use the currently available search provider:
+To use DuckDuckGo:
 
 ```bash
 export WEB_SEARCH_DUCKDUCKGO_ENABLED=true
 ./tools/mcp/web-search/run.sh
 ```
 
-To prepare Exa configuration, export `EXA_API_KEY` through your environment or
+To use Exa, export `EXA_API_KEY` through your environment or
 secret manager and set the monthly allowance. For example, **if your account
 provides $10 in recurring monthly credits**:
 
@@ -78,38 +77,72 @@ export WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS=0
 export WEB_SEARCH_EXA_MONTHLY_RESET_DAY=1
 # Set this to the current period's usage before this tool starts tracking it:
 export WEB_SEARCH_EXA_INITIAL_USED_CENTS=0
+./tools/mcp/web-search/run.sh
 ```
 
 With no providers configured, `web_search` returns a configuration error and
-`fetch_page` remains available. With only Exa configured, `web_search` explains
-that execution is gated on automatic routing. Existing installations must
-explicitly set `WEB_SEARCH_DUCKDUCKGO_ENABLED=true` to continue using DuckDuckGo.
+`fetch_page` remains available. With only Exa configured, searches run when the
+estimated cost fits the available budget. A key without a configured free or
+paid allowance cannot spend credits. DuckDuckGo requires explicit opt-in with
+`WEB_SEARCH_DUCKDUCKGO_ENABLED=true`, including when it is used as a fallback.
 
-### Selection policy for the upcoming router
+### Provider selection and fallback
 
 Only configured providers participate. Exa is the preferred metered provider;
 DuckDuckGo, when explicitly enabled, is the fallback. DuckDuckGo has unknown
 capacity and is excluded from monthly allowance comparisons.
 
-As more metered providers are added, the router will first exclude providers
-that cannot satisfy the request, are unhealthy, are cooling down or lack budget
-for the estimated request cost. It will then prefer the highest remaining free
-allowance percentage. Unknown allowance is not treated as full capacity. Paid
-capacity is used only when no eligible free capacity or enabled DuckDuckGo
-fallback remains, and only within an explicitly configured paid limit.
+The router excludes providers that have already been attempted for this call,
+cannot satisfy the request, are disabled or cooling down, or lack enough budget
+for the estimated cost. It prefers eligible metered providers with the highest
+remaining free allowance percentage, then enabled unmetered providers, then
+explicitly configured paid capacity. Unknown allowance is not treated as full
+capacity. Equal percentages and paid/unmetered providers use registration order.
+The same rule applies as more adapters are registered; the router does not
+contain provider-specific selection branches.
 
 Provider usage reporting can conservatively reconcile local estimates. Durable
 reservations and consumption tracking are implemented. A successful empty search
-is a result, not an automatic trigger to spend credits on every provider. Fallback
-attempts and total request time will be bounded.
+is a result, not a trigger to spend credits on another provider. Each provider
+is attempted at most once per call, with at most three attempts in total
+(currently at most two because only two providers are supported). Provider
+attempts have a 20-second timeout within a shared 30-second request deadline.
+Fallback happens immediately without sleeping through cooldowns, and an already
+attempted Exa provider is not tried again with paid capacity after a free attempt
+fails. Budget reservations are checked again at dispatch to handle concurrent
+requests consuming capacity after selection.
+
+Invalid credentials disable a provider until restart after correcting its
+configuration. Internal adapter/accounting failures also disable it until repair
+and restart. Provider-reported quota exhaustion suspends a metered account until
+its configured monthly reset; the zero-capacity cap is persisted with settlement
+and survives restarts. A local request whose cost does not fit is distinguished
+from remote exhaustion, so a smaller later request can still use the remainder.
+Providers without a known quota reset are disabled until restart after replenishment.
+
+Rate limits use the provider's delta-seconds `Retry-After`, or 60 seconds when it
+is absent. Bot blocking defaults to 15 minutes. Transient failures back off from
+2 seconds up to 5 minutes; unexpected responses use at least 15 seconds. A
+supplied `Retry-After` overrides these defaults, with a minimum of one second.
+Overlapping cooldowns retain the later deadline. Only one recovery probe can run
+after a cooldown or quota suspension, and a late success from an older request
+cannot clear a newer failure. Invalid requests do not disable a provider for
+other queries. Client cancellation conservatively charges any metered reservation
+and records a transient health failure.
+
+Cooldowns and credential/internal-error suspensions are kept in memory. Monthly
+metered quota caps and consumption are persistent. Failed calls report provider
+failure or skip reasons in the existing MCP text-error format. Routing choices
+are available in debug logs (`RUST_LOG=debug`); queries and API keys are not
+included in routing log messages.
 
 ### Provider adapters
 
 `src/providers/mod.rs` defines the `SearchProvider` interface. Adapters provide
 normalized title, URL and snippet results, a local request-cost estimate, and
 optional asynchronous usage reporting. The interface supports different
-adapters behind a shared trait object. Configuration and provider selection
-remain outside the adapters, in the search layer.
+adapters behind a shared trait object. Configuration remains in the search
+layer; provider selection and health tracking are in `src/router.rs`.
 
 Monetary estimates and usage snapshots use integer millionths of a US dollar
 so individual requests do not round to whole cents. Configuration allowances
@@ -121,7 +154,7 @@ transient failures, invalid requests, bot blocking, unexpected responses and
 internal errors. DuckDuckGo classifies HTTP failures and bot challenges, and
 retains delta-seconds `Retry-After` values when supplied. Error classification
 and usage metadata are internal; the MCP tool continues to return the existing
-compact results and text errors. Retries and cooldowns will be coordinated by
+compact results and text errors. Cooldowns and fallback are coordinated by
 the router; durable budget enforcement is provided by the accounting wrapper.
 
 ### Persistent budget accounting
@@ -149,8 +182,9 @@ months. Consumption resets at the configured boundary. Requests still in flight
 also reserve capacity in the new period because their billing time is uncertain.
 
 Each estimated request cost is reserved and durably saved before dispatch. The
-accounting wrapper defaults to free capacity only; a later router must explicitly
-permit paid capacity for an attempt. Concurrent reservations share a mutex and
+accounting wrapper defaults to free capacity only; the router explicitly permits
+paid capacity only after free and unmetered candidates are unavailable.
+Concurrent reservations share a mutex and
 cannot independently consume the same remaining allowance. Successful requests,
 including empty results, commit their full estimates. Timeouts, cancellation and
 uncertain failures also commit the estimates. Errors explicitly guaranteed not

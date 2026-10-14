@@ -80,8 +80,8 @@ impl SearchConfig {
     if state_dir.as_ref().is_some_and(|path| !path.is_absolute()) {
       return Err("The web-search state directory must be an absolute path.".to_owned());
     }
-    // Unknown allowance means zero usable budget until configured or reported
-    // by a future provider usage API. Do not assume today's advertised tier.
+    // Zero allowance means no usable free budget. Reports can tighten configured
+    // limits; they cannot grant free capacity. Do not assume an advertised tier.
     let monthly_free_credits_cents = unsigned_env("WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS", 0)?;
     let monthly_paid_limit_cents = unsigned_env("WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS", 0)?;
     let initial_used_cents = unsigned_env("WEB_SEARCH_EXA_INITIAL_USED_CENTS", 0)?;
