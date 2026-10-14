@@ -1033,9 +1033,8 @@ export const server = {
     operation: QueryProfileOperation,
     networkStatus: NumberSignal,
     expectedUserId: Uid,
-    expectedRevision?: number,
   ): Promise<QueryProfilesResponse> => {
-    return constructCommandPromise(null, COMMAND_QUERY_PROFILES, { ...operation, expectedUserId, expectedRevision }, null, networkStatus);
+    return constructCommandPromise(null, COMMAND_QUERY_PROFILES, { ...operation, expectedUserId }, null, networkStatus);
   },
 
   listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {

@@ -31,7 +31,8 @@ pub struct QueryConfiguration {
   pub capabilities: Vec<String>,
 }
 
-/// A named setup. Pinning, ordering and the default profile are separate user preferences.
+/// A named setup, also recorded in transcripts as the applied snapshot. Pinning, ordering and the
+/// default profile are account preferences, so they are not part of the profile.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct QueryProfile {
@@ -53,15 +54,16 @@ pub struct QueryModelFavorite {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QueryProfilePreferences {
   pub default_profile_id: Uid,
-  /// Ordered subset of profiles shown as one-click shortcuts.
+  /// Profiles shown as one-click shortcuts, kept in profile order.
   pub pinned_profile_ids: Vec<Uid>,
   pub model_favorites: Vec<QueryModelFavorite>,
 }
 
-/// One account's ordered profiles and preferences, updated atomically with optimistic concurrency.
+/// One account's ordered profiles and preferences, updated atomically.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct QueryProfileCollection {
+  /// Incremented by every change, so clients can ignore responses older than what they hold.
   pub revision: u64,
   pub profiles: Vec<QueryProfile>,
   pub preferences: QueryProfilePreferences,

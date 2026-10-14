@@ -25,7 +25,7 @@ export interface QueryConfiguration {
   capabilities: Array<string>,
 }
 
-/** A named setup. Pinning, ordering and the default profile are separate user preferences. */
+/** A named setup, also recorded in transcripts as the applied snapshot. Pinning, ordering and the default are account preferences. */
 export interface QueryProfile {
   id: Uid,
   name: string,
@@ -38,35 +38,37 @@ export interface QueryModelFavorite {
 }
 
 export interface QueryProfileCollection {
+  /** Incremented by every change, so a response older than the held collection can be ignored. */
   revision: number,
   /** All profiles in their user-selected order. */
   profiles: Array<QueryProfile>,
   preferences: {
     defaultProfileId: Uid,
-    /** Ordered subset for one-click shortcuts. */
+    /** One-click shortcuts, in profile order. */
     pinnedProfileIds: Array<Uid>,
     modelFavorites: Array<QueryModelFavorite>,
   },
 }
 
+/** Each mutation states one intent and applies to the saved collection as it is when it arrives. */
 export type QueryProfileOperation =
   | { operation: "list" }
   | { operation: "create", name: string, configuration: QueryConfiguration }
-  | { operation: "update", id: Uid, name: string, configuration: QueryConfiguration }
-  | { operation: "duplicate", id: Uid, name: string }
-  | { operation: "delete", id: Uid, replacementDefaultProfileId?: Uid }
-  | { operation: "reorder", profileIds: Array<Uid> }
-  | { operation: "setPinned", profileIds: Array<Uid> }
+  | { operation: "rename", id: Uid, name: string }
+  | { operation: "setConfiguration", id: Uid, configuration: QueryConfiguration }
+  | { operation: "duplicate", id: Uid }
+  | { operation: "delete", id: Uid }
+  | { operation: "move", id: Uid, toIndex: number }
+  | { operation: "setPinned", id: Uid, pinned: boolean }
   | { operation: "setDefault", id: Uid }
-  | { operation: "setModelFavorites", favorites: Array<QueryModelFavorite> };
+  | { operation: "setModelFavorite", backend: ChatBackendId, model: string | null, favorite: boolean };
 
 export interface QueryProfilesResponse {
   userId: Uid,
   collection: QueryProfileCollection,
-  conflict: boolean,
   /** A rejected mutation leaves the collection unchanged. */
   error: string | null,
-  /** Created, updated or duplicated profile, when applicable. */
+  /** The created, changed or duplicated profile, when applicable. */
   profileId: Uid | null,
 }
 

@@ -13,10 +13,6 @@ import {
 import type { NumberSignal } from "../util/signals";
 import type { Uid } from "../util/uid";
 
-export class QueryProfileConflictError extends Error {
-  constructor() { super("Query profiles changed while editing. Review the updated profiles and try again."); }
-}
-
 export interface QueryProfilesStore {
   collection: Accessor<QueryProfileCollection | null>,
   defaultProfile: Accessor<QueryProfile | null>,
@@ -25,13 +21,14 @@ export interface QueryProfilesStore {
   retrieve: () => Promise<void>,
   refresh: () => Promise<void>,
   create: (name: string, configuration: QueryConfiguration) => Promise<QueryProfile>,
-  update: (profile: QueryProfile, expectedRevision?: number) => Promise<QueryProfile>,
-  duplicate: (id: Uid, name: string, expectedRevision?: number) => Promise<QueryProfile>,
-  delete: (id: Uid, replacementDefaultProfileId?: Uid, expectedRevision?: number) => Promise<void>,
-  reorder: (profileIds: Array<Uid>, expectedRevision?: number) => Promise<void>,
-  setPinned: (profileIds: Array<Uid>, expectedRevision?: number) => Promise<void>,
-  setDefault: (id: Uid, expectedRevision?: number) => Promise<void>,
-  setModelFavorites: (favorites: Array<QueryModelFavorite>, expectedRevision?: number) => Promise<void>,
+  rename: (id: Uid, name: string) => Promise<QueryProfile>,
+  setConfiguration: (id: Uid, configuration: QueryConfiguration) => Promise<QueryProfile>,
+  duplicate: (id: Uid) => Promise<QueryProfile>,
+  delete: (id: Uid) => Promise<void>,
+  move: (id: Uid, toIndex: number) => Promise<void>,
+  setPinned: (id: Uid, pinned: boolean) => Promise<void>,
+  setDefault: (id: Uid) => Promise<void>,
+  setModelFavorite: (model: QueryModelFavorite, favorite: boolean) => Promise<void>,
   clear: () => void,
 }
 
@@ -95,21 +92,15 @@ export function makeQueryProfilesStore(accountId: () => Uid | null, networkStatu
     return storedCollection() == null ? refresh() : Promise.resolve();
   };
 
-  const mutate = (operation: Exclude<QueryProfileOperation, { operation: "list" }>, expectedRevision?: number): Promise<QueryProfilesResponse> => {
+  // Local mutations are sent one at a time, so they reach the server in the order they were made.
+  const mutate = (operation: Exclude<QueryProfileOperation, { operation: "list" }>): Promise<QueryProfilesResponse> => {
     synchronizeAccount();
     const owner = ownerId;
     const epoch = generation;
     const run = async () => {
       if (owner == null || !isCurrent(epoch, owner)) { throw new Error("Sign in to manage query profiles."); }
-      await retrieve();
-      if (!isCurrent(epoch, owner)) { throw new Error("The account changed while updating query profiles."); }
-      const collection = storedCollection();
-      if (collection == null) { throw new Error(error() ?? "Could not load query profiles."); }
-      // Editors can bind a mutation to the collection they reviewed, even while other writes queue.
-      if (expectedRevision != null && collection.revision != expectedRevision) { throw new QueryProfileConflictError(); }
-      const response = await server.queryProfiles(operation, networkStatus, owner, collection.revision);
+      const response = await server.queryProfiles(operation, networkStatus, owner);
       acceptResponse(response, epoch, owner);
-      if (response.conflict) { throw new QueryProfileConflictError(); }
       if (response.error != null) { throw new Error(response.error); }
       return response;
     };
@@ -153,14 +144,16 @@ export function makeQueryProfilesStore(accountId: () => Uid | null, networkStatu
     retrieve, refresh, clear,
     create: (name, configuration) => mutate({ operation: "create", name, configuration: cloneQueryConfiguration(configuration) })
       .then(profileFromResponse),
-    update: (profile, expectedRevision) => mutate({ operation: "update", ...snapshotQueryProfile(profile) }, expectedRevision).then(profileFromResponse),
-    duplicate: (id, name, expectedRevision) => mutate({ operation: "duplicate", id, name }, expectedRevision).then(profileFromResponse),
-    delete: async (id, replacementDefaultProfileId, expectedRevision) => { await mutate({ operation: "delete", id, replacementDefaultProfileId }, expectedRevision); },
-    reorder: async (profileIds, expectedRevision) => { await mutate({ operation: "reorder", profileIds: [...profileIds] }, expectedRevision); },
-    setPinned: async (profileIds, expectedRevision) => { await mutate({ operation: "setPinned", profileIds: [...profileIds] }, expectedRevision); },
-    setDefault: async (id, expectedRevision) => { await mutate({ operation: "setDefault", id }, expectedRevision); },
-    setModelFavorites: async (favorites, expectedRevision) => {
-      await mutate({ operation: "setModelFavorites", favorites: favorites.map(favorite => ({ ...favorite })) }, expectedRevision);
+    rename: (id, name) => mutate({ operation: "rename", id, name }).then(profileFromResponse),
+    setConfiguration: (id, configuration) => mutate({ operation: "setConfiguration", id, configuration: cloneQueryConfiguration(configuration) })
+      .then(profileFromResponse),
+    duplicate: id => mutate({ operation: "duplicate", id }).then(profileFromResponse),
+    delete: async id => { await mutate({ operation: "delete", id }); },
+    move: async (id, toIndex) => { await mutate({ operation: "move", id, toIndex }); },
+    setPinned: async (id, pinned) => { await mutate({ operation: "setPinned", id, pinned }); },
+    setDefault: async id => { await mutate({ operation: "setDefault", id }); },
+    setModelFavorite: async (model, favorite) => {
+      await mutate({ operation: "setModelFavorite", backend: model.backend, model: model.model, favorite });
     },
   };
 }

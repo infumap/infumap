@@ -112,14 +112,9 @@ export function QueryModelPicker(props: QueryPickerProps) {
     close();
   };
   const toggleFavorite = async (choice: ModelChoice) => {
-    const collection = store.general.queryProfiles.collection();
-    if (favoriteBusy() || collection == null) { return; }
+    if (favoriteBusy() || store.general.queryProfiles.collection() == null) { return; }
     setFavoriteBusy(true); setFavoriteError(null);
-    const key = keyFor(choice);
-    const current = collection.preferences.modelFavorites;
-    const next = current.some(model => keyFor(model) == key) ? current.filter(model => keyFor(model) != key)
-      : [...current, { backend: choice.backend, model: choice.model }];
-    try { await store.general.queryProfiles.setModelFavorites(next, collection.revision); }
+    try { await store.general.queryProfiles.setModelFavorite(choice, !favoriteKeys().has(keyFor(choice))); }
     catch (error) { setFavoriteError(error instanceof Error ? error.message : String(error)); }
     finally { setFavoriteBusy(false); }
   };

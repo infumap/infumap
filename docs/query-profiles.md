@@ -88,10 +88,19 @@ Transcript format version 2 uses this configuration shape. There is no migration
 ## Account storage and API
 
 The user record's optional `queryProfiles` field holds one `QueryProfileCollection`: a revision,
-the ordered profile array, and preferences (`defaultProfileId`, ordered `pinnedProfileIds`, and
-`modelFavorites`). A model favorite identifies a provider/model pair, independent of reasoning effort.
+the ordered profile array, and preferences (`defaultProfileId`, `pinnedProfileIds`, and
+`modelFavorites`). There is one ordering: pinned profiles are a set, always stored in profile order.
+A model favorite identifies a provider/model pair, independent of reasoning effort.
 This data is written through the user database log and is included in existing account backups.
 Profile changes mark the account dirty so they trigger the next scheduled backup even without item edits.
+
+The field was added in user log version 7. Existing version 6 logs (`user.json` in each user directory
+and `pending_users.json`) are migrated with `infumap migrate --log-path <log>`, which only changes the
+descriptor. The collection's shape is part of the user log schema: changing it requires a new log
+version and migration. Records are read strictly, with unknown fields rejected.
+
+Every change appends the whole collection to the user log, so the server caps an account at 100
+profiles, 200 model favorites and 64 capabilities per profile. Profile names are unique, ignoring case.
 
 An account with no profile collection gets one persisted, pinned **Default** profile on its first
 profile request. Its configuration comes from the server's configured default model, unrestricted
@@ -105,28 +114,33 @@ The authenticated `query-profiles` command supports:
 | --- | --- |
 | `list` | No operation-specific fields |
 | `create` | `name`, `configuration` |
-| `update` | `id`, `name`, `configuration` |
-| `duplicate` | `id`, `name` |
-| `delete` | `id`, optional `replacementDefaultProfileId` |
-| `reorder` | `profileIds`, an exact permutation of all profiles |
-| `setPinned` | `profileIds`, an ordered, distinct subset |
+| `rename` | `id`, `name` |
+| `setConfiguration` | `id`, `configuration` |
+| `duplicate` | `id`; the server names the copy "Name copy", "Name copy 2", … |
+| `delete` | `id` |
+| `move` | `id`, `toIndex` |
+| `setPinned` | `id`, `pinned` |
 | `setDefault` | `id` |
-| `setModelFavorites` | `favorites`, distinct provider/model pairs in the desired order |
+| `setModelFavorite` | `backend`, `model`, `favorite` |
 
 Every request includes `expectedUserId`, which must match the authenticated session. It is an
-account-switch guard, not an ownership selector. Mutations also require `expectedRevision`.
-Profiles are resolved only within that session's account; no operation accepts an owner to act on.
+account-switch guard, not an ownership selector. Profiles are resolved only within that session's
+account; no operation accepts an owner to act on.
 
-The response contains `userId`, `collection`, `conflict`, nullable `error`, and nullable `profileId`.
-A revision conflict returns the current collection without applying the mutation. Validation failures
-also return an unchanged collection and a specific error. Database failures use the ordinary command
-failure response. Successful mutations increment the revision and persist profiles and preferences
-together. Deleting the default requires a different saved replacement; deleting the last profile is
-rejected. Deletion removes its pin but leaves conversation snapshots intact.
+Each mutation states one intent and applies to the collection as it is when the request arrives, under
+the database lock. No mutation carries a whole list or a whole profile, so concurrent changes from other
+tabs or devices cannot overwrite each other: a rename and a configuration save to the same profile both
+take effect. There is no expected revision and no conflict response.
 
-`StoreProvider_QueryProfiles.ts` exposes loading/refresh and all mutation operations. It serializes
-local mutations, refreshes the saved state on conflicts, and reports the conflict without retrying
-the rejected action. Returning to the app refreshes account preferences across tabs/devices while
+The response contains `userId`, `collection`, nullable `error`, and nullable `profileId`. Validation
+failures return the unchanged collection and a specific error. Database failures use the ordinary
+command failure response. Every successful mutation increments the revision and persists profiles and
+preferences together. Deleting the default makes the first remaining profile the default; deleting the
+last profile is rejected. Deletion removes its pin but leaves conversation snapshots intact.
+
+`StoreProvider_QueryProfiles.ts` exposes loading/refresh and all mutation operations. It sends local
+mutations one at a time and ignores a response whose revision is older than the collection it holds.
+Returning to the app refreshes account preferences across tabs/devices while
 existing queries retain their copied configuration. Clearing the store or switching accounts
 invalidates pending responses and queued mutations.
 
@@ -158,7 +172,7 @@ Model and Tools and skips disabled controls. Popup changes preserve a draft bein
 ## One-click profile selection
 
 New Query, Search and existing chat composers show **Profile** shortcuts above the input. Pinned
-profiles follow the account's `pinnedProfileIds` order and apply in one click. Long names truncate with
+profiles follow the account's profile order and apply in one click. Long names truncate with
 the full name and configuration in a tooltip. The shortcuts scroll horizontally rather than increasing
 the composer's height; **More** stays visible. It lists unpinned profiles in account order with Scope,
 Model/provider/reasoning effort and Tools summaries. Pinned profiles also appear in a separate section
@@ -195,13 +209,12 @@ unchanged. This applies to saving changes to an existing profile as well.
 
 **Manage profiles** provides rename, duplicate, delete, pin/unpin, and **Make default** actions. Duplicate
 copies the saved profile, including its configuration, and starts unpinned. Up/Down buttons order the
-saved profile list; separate Left/Right buttons order pinned shortcuts. These are independent account
-preferences. Making a default affects future queries; management never rewrites existing query or
+saved profile list, which is also the order of the pinned shortcuts. Making a default affects future queries; management never rewrites existing query or
 transcript snapshots. Renaming therefore preserves the original applied snapshot's name until a user
 explicitly reapplies or saves the profile.
 
-Delete opens an inline confirmation. The last profile cannot be deleted. Deleting the default requires
-an explicitly selected replacement from the other profiles; no replacement is preselected. A deleted
+Delete opens an inline confirmation. The last profile cannot be deleted. When deleting the default, the
+confirmation names the profile that will become the default. A deleted
 profile's applied snapshot remains available for Reset and Save as profile.
 
 When a query is **Modified**, its profile menu offers **Reset** and **Save changes…**. Reset restores
@@ -213,17 +226,13 @@ Save changes is disabled and Save as profile remains available. Reset respects t
 and loading locks; saving the current setup waits for query initialization and loading/response locks.
 
 Forms retain entered text on errors and expose busy, success and error states. A profile changed or
-deleted while its form is open must be reviewed again before rename, duplicate, save or deletion.
-Management mutations carry an optional expected collection revision through the account store's local
-queue, so queued writes cannot silently overwrite a newer collection. Server revision conflicts refresh
-the saved collection without retrying the rejected action. Account switches disable an open manager.
+deleted while its form is open must be reviewed again before rename, save or deletion.
+Account switches disable an open manager.
 Keyboard focus moves into forms, returns to the management list after actions, and remains contained
 within the shared profile dialog.
 
 Profile names share the server's trim, control-character and 120-byte UTF-8 validation. Forms explain
-an invalid name before submission. Duplicate names are truncated by whole Unicode characters within
-the same limit before adding ` copy`. Model-favorite mutations also bind to the reviewed collection
-revision so two open model pickers cannot overwrite each other's favorite list through the local queue.
+an invalid name before submission; a name already in use is reported by the server.
 
 ## Changes between turns
 
@@ -301,9 +310,9 @@ in [Configuration](configuration.md). The final integration review follows these
 | Contract | Implementation |
 | --- | --- |
 | Copy a complete profile; keep overrides and saved defaults separate | `query-configuration.ts`, `query-configuration-state.ts`, per-item store |
-| Account ownership, revision checks, atomic persistence and backups | `query_profiles.rs`, `StoreProvider_QueryProfiles.ts`, user database |
+| Account ownership, intent-based mutations, atomic persistence and backups | `query_profiles.rs`, `StoreProvider_QueryProfiles.ts`, user database |
 | Select, inspect, save, reset, rename, duplicate, delete, pin and order | `QueryProfileBar.tsx`, `QueryProfileManager.tsx` |
-| Favorite provider/model pairs without rewriting query settings | `QueryModelPicker.tsx`, profile store revision guard |
+| Favorite provider/model pairs without rewriting query settings | `QueryModelPicker.tsx`, profile store |
 | Keep disabled controls out of the composer Tab cycle and contain dialog focus | `Query.tsx`, `QueryPickerPopover.tsx` |
 | Reserve profile rows in results, transcript and activity geometry | `search-item.ts`, `query-item.ts`, `Query.tsx` |
 | Lock preparation and streaming; preserve snapshots across turns and reload | `chat.ts`, query runtime, chat route and transcript |
