@@ -153,8 +153,9 @@ pub(super) async fn handle_search(
     Some(s) => s,
   };
 
-  let command: SearchCommandRequest =
+  let mut command: SearchCommandRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  command.configuration.normalize()?;
   let request = SearchRequest {
     page_id: command.page_id,
     text: command.text,

@@ -170,7 +170,8 @@ impl UserDb {
       return Ok(());
     }
 
-    if update_json_map.keys().any(|key| !matches!(key.as_str(), "__recordType" | "id" | "totpSecret" | "queryProfiles")) {
+    if update_json_map.keys().any(|key| !matches!(key.as_str(), "__recordType" | "id" | "totpSecret" | "queryProfiles"))
+    {
       warn!("Only updating user TOTP secret and query profiles is supported by this method.");
       return Err("Only updating user TOTP secret and query profiles is supported by this method.".into());
     }
@@ -280,5 +281,80 @@ pub fn migrate_record_v6_to_v7(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
   {
     "entry" | "update" | "delete" => Ok(kvs.clone()),
     unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::query_configuration::{QueryConfiguration, QueryProfile, QueryProfileCollection, QueryProfilePreferences};
+  use crate::storage::db::user::User;
+  use infusdk::db::kv_store::JsonLogSerializable;
+  use infusdk::util::uid::new_uid;
+
+  fn user() -> User {
+    User {
+      id: new_uid(),
+      username: "test".to_owned(),
+      password_hash: String::new(),
+      password_salt: String::new(),
+      totp_secret: None,
+      home_page_id: new_uid(),
+      trash_page_id: new_uid(),
+      dock_page_id: new_uid(),
+      queries_page_id: new_uid(),
+      default_page_width_bl: 60,
+      default_page_natural_aspect: 2.0,
+      object_encryption_key: String::new(),
+      query_profiles: None,
+    }
+  }
+
+  fn profiles() -> QueryProfileCollection {
+    let id = new_uid();
+    QueryProfileCollection {
+      revision: 3,
+      profiles: vec![QueryProfile {
+        id: id.clone(),
+        name: "Default".to_owned(),
+        configuration: QueryConfiguration {
+          scope_id: None,
+          model: None,
+          capabilities: vec!["infumap_data".to_owned()],
+        },
+      }],
+      preferences: QueryProfilePreferences {
+        default_profile_id: id.clone(),
+        pinned_profile_ids: vec![id],
+        model_favorites: vec![],
+      },
+    }
+  }
+
+  /// The user log is replayed from the start on every startup, so profile records must round trip exactly.
+  #[test]
+  fn query_profiles_round_trip_through_entry_and_update_records() {
+    let without = user();
+    let entry = without.to_json().unwrap();
+    assert!(!entry.contains_key("queryProfiles"));
+    assert!(User::from_json(&entry).unwrap().query_profiles.is_none());
+
+    let mut with = without.clone();
+    with.query_profiles = Some(profiles());
+    let update = User::create_json_update(&without, &with).unwrap();
+    assert_eq!(update.len(), 3);
+    let mut replayed = User::from_json(&entry).unwrap();
+    replayed.apply_json_update(&update).unwrap();
+    assert_eq!(replayed.query_profiles, with.query_profiles);
+    assert_eq!(User::from_json(&with.to_json().unwrap()).unwrap().query_profiles, with.query_profiles);
+  }
+
+  #[test]
+  fn v6_records_migrate_unchanged() {
+    let entry = user().to_json().unwrap();
+    assert_eq!(migrate_record_v6_to_v7(&entry).unwrap(), entry);
+    let mut descriptor = Map::new();
+    descriptor.insert("__recordType".to_owned(), Value::String("descriptor".to_owned()));
+    assert!(migrate_record_v6_to_v7(&descriptor).is_err());
   }
 }

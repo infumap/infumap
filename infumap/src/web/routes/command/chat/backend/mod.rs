@@ -131,11 +131,10 @@ impl ChatModelSelection {
     let Some(effort) = self.reasoning_effort.as_deref().map(str::trim).filter(|effort| !effort.is_empty()) else {
       return Ok(ChatReasoning::ModelDefault);
     };
-    let effort = REASONING_EFFORTS
-      .iter()
-      .copied()
-      .find(|known| known.eq_ignore_ascii_case(effort))
-      .ok_or_else(|| format!("Chat request named unknown reasoning effort '{}'.", effort))?;
+    let effort =
+      REASONING_EFFORTS.iter().copied().find(|known| known.eq_ignore_ascii_case(effort)).ok_or_else(|| {
+        format!("Reasoning effort '{}' is not recognized. Choose Default or a supported effort.", effort)
+      })?;
     Ok(if effort == REASONING_EFFORT_NONE { ChatReasoning::Disabled } else { ChatReasoning::Effort(effort) })
   }
 }
@@ -184,7 +183,7 @@ fn llama_endpoint(server: LlamaServer) -> ChatEndpoint {
 
 fn openrouter_endpoint(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
   let api_key = configured_string(config, CONFIG_OPENROUTER_API_KEY)
-    .ok_or_else(|| format!("{} must be configured to use Chat.", CONFIG_OPENROUTER_API_KEY))?;
+    .ok_or("OpenRouter is not configured on this server. Choose another provider.")?;
   let model = selection
     .requested_model()
     .map(str::to_owned)
@@ -228,7 +227,7 @@ fn default_target(config: &Config, llama_servers: &[LlamaServer]) -> Option<Chat
 /// A backend the client named explicitly is never silently swapped for another - that is an error
 /// the user should see.
 fn requested_target(llama_servers: &[LlamaServer], id: &str) -> InfuResult<ChatTarget> {
-  let unknown = || format!("Chat request named unknown backend '{}'.", id);
+  let unknown = || format!("Provider '{}' is not configured on this server. Choose another provider.", id);
   match BackendId::parse(id).ok_or_else(unknown)? {
     BackendId::OpenRouter => Ok(ChatTarget::OpenRouter),
     BackendId::FirstLlama => Err(unknown().into()),
@@ -238,7 +237,7 @@ fn requested_target(llama_servers: &[LlamaServer], id: &str) -> InfuResult<ChatT
   }
 }
 
-/// Resolve the endpoint for one chat request.
+/// Resolve the endpoint for one chat request. Errors about the selection are worded for the user.
 pub fn resolve_chat_endpoint(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
   let llama_servers = llama_servers_from_config(config)?;
   let target = requested_target(&llama_servers, selection.requested_backend_id())?;
@@ -256,20 +255,37 @@ pub fn resolve_chat_endpoint(config: &Config, selection: &ChatModelSelection) ->
   }
 }
 
-/// Validate known model capabilities. A failed or stale catalog leaves the explicit request intact.
-pub async fn validate_chat_model_selection(config: &Config, selection: &ChatModelSelection) -> InfuResult<()> {
+/// Resolve the endpoint and check the model and effort against a fresh catalog. A failed or stale
+/// catalog leaves the explicit request intact. Errors about the selection are worded for the user.
+pub async fn resolve_validated_chat_endpoint(
+  config: &Config,
+  selection: &ChatModelSelection,
+) -> InfuResult<ChatEndpoint> {
   let endpoint = resolve_chat_endpoint(config, selection)?;
-  if endpoint.backend != ChatBackend::OpenRouter { return Ok(()); }
-  let Ok(models) = openrouter::model_catalog().await else { return Ok(()); };
-  if !openrouter::model_catalog_is_fresh() { return Ok(()); }
-  let model = models.iter().find(|model| model.id == endpoint.model)
-    .ok_or_else(|| format!("Selected model '{}' is not in the OpenRouter catalog. Choose another model.", endpoint.model))?;
+  if endpoint.backend != ChatBackend::OpenRouter {
+    return Ok(endpoint);
+  }
+  let Ok(models) = openrouter::model_catalog().await else {
+    return Ok(endpoint);
+  };
+  if !openrouter::model_catalog_is_fresh() {
+    return Ok(endpoint);
+  }
+  let model = models.iter().find(|model| model.id == endpoint.model).ok_or_else(|| {
+    format!("Selected model '{}' is not in the OpenRouter catalog. Choose another model.", endpoint.model)
+  })?;
   if let Some(effort) = selection.reasoning_effort.as_deref()
     && !model.reasoning_efforts.iter().any(|supported| supported.eq_ignore_ascii_case(effort))
   {
-    return Err(format!("Selected reasoning effort '{effort}' is not supported by '{}'. Choose Default or a supported effort.", model.name).into());
+    return Err(
+      format!(
+        "Selected reasoning effort '{effort}' is not supported by '{}'. Choose Default or a supported effort.",
+        model.name
+      )
+      .into(),
+    );
   }
-  Ok(())
+  Ok(endpoint)
 }
 
 /// Checked at startup, so that a bad llama server entry or a default naming a server that does not
@@ -343,7 +359,14 @@ pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
   let openrouter_available = openrouter_is_configured(config);
   let (openrouter_models, models_error) = if openrouter_available {
     match openrouter::model_catalog().await {
-      Ok(models) => ((*models).clone(), if openrouter::model_catalog_is_fresh() { None } else { Some("Could not refresh the model list; showing a saved catalog.".to_owned()) }),
+      Ok(models) => (
+        (*models).clone(),
+        if openrouter::model_catalog_is_fresh() {
+          None
+        } else {
+          Some("Could not refresh the model list; showing a saved catalog.".to_owned())
+        },
+      ),
       Err(e) => {
         warn!("Could not load the OpenRouter model list: {}", e);
         (Vec::new(), Some("Could not load the OpenRouter model list.".to_owned()))
@@ -469,7 +492,8 @@ url = "http://127.0.0.1:8081"
     let config = config(TWO_SERVERS);
     let servers = llama_servers_from_config(&config).unwrap();
     assert_eq!(requested_target(&servers, "llama:b").unwrap().id(), "llama:b");
-    assert_eq!(requested_target(&servers, "llama").unwrap().id(), "llama:a");
+    // The first-server alias would change meaning if the configured servers were reordered.
+    assert!(requested_target(&servers, "llama").is_err());
     assert!(requested_target(&servers, "llama:c").is_err());
     assert!(requested_target(&servers, "other").is_err());
   }

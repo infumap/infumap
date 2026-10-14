@@ -176,7 +176,9 @@ pub async fn mapped_tools_for_capabilities(
   plugin_ids: &[String],
   reserved_openai_names: &[&str],
 ) -> InfuResult<(Vec<MappedMcpTool>, HashMap<String, MappedMcpToolTarget>)> {
-  if plugin_ids.is_empty() { return Ok((Vec::new(), HashMap::new())); }
+  if plugin_ids.is_empty() {
+    return Ok((Vec::new(), HashMap::new()));
+  }
   let by_id = servers_by_id(config).map_err(|error| {
     warn!("Could not prepare selected chat tool sources: {error}");
     infusdk::util::infu::InfuError::from("Selected tool sources are unavailable. Disable them or retry later.")
@@ -186,14 +188,22 @@ pub async fn mapped_tools_for_capabilities(
   let mut name_map = HashMap::new();
   for plugin_id in plugin_ids {
     let Some(server) = by_id.get(plugin_id) else {
-      return Err(format!("Selected tool source '{plugin_id}' is not configured. Disable it or choose another profile.").into());
+      return Err(
+        format!("Selected tool source '{plugin_id}' is not configured. Disable it or choose another profile.").into(),
+      );
     };
     let snapshot = server_snapshot(server, "preparing tools for a chat request").await;
     if !snapshot.available {
-      return Err(format!("Selected tool source '{}' is unavailable. Disable it or retry when it is available.", server.label).into());
+      return Err(
+        format!("Selected tool source '{}' is unavailable. Disable it or retry when it is available.", server.label)
+          .into(),
+      );
     }
     let Some(session) = snapshot.session else {
-      return Err(format!("Selected tool source '{}' is unavailable. Disable it or retry when it is available.", server.label).into());
+      return Err(
+        format!("Selected tool source '{}' is unavailable. Disable it or retry when it is available.", server.label)
+          .into(),
+      );
     };
     for tool in session.tools {
       let mcp_name = tool.name.trim();

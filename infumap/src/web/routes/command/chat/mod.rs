@@ -325,6 +325,14 @@ struct ChatAttachmentRequest {
   text: String,
 }
 
+/// The model route, Infumap scope and tool sources of one chat run, resolved before its turn is recorded.
+struct ChatResources {
+  endpoint: ChatEndpoint,
+  infumap_data: Option<InfumapData>,
+  mcp_tools: Vec<mcp::MappedMcpTool>,
+  name_map: HashMap<String, mcp::MappedMcpToolTarget>,
+}
+
 /// Infumap data access for one chat run.
 struct InfumapData {
   /// Resolved once when the run starts, so every tool call in the run applies the same scope roots.
@@ -923,6 +931,9 @@ pub async fn serve_chat_stream_route(
   };
 
   let stream_request_id = request.stream_request_id();
+  if let Err(error) = request.settings.normalize() {
+    return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(error.message()));
+  }
   if request.query_item_id.is_none() && !request.attachments.is_empty() {
     return single_chat_stream_event_response(
       stream_request_id,
@@ -930,9 +941,10 @@ pub async fn serve_chat_stream_route(
     );
   }
   // Reject unavailable resources before recording a user turn, so the client can keep its draft.
-  if let Err(error) = validate_chat_resources(config.as_ref(), db, &session, &request).await {
-    return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(&chat_failure_message(error.message())));
-  }
+  let resources = match prepare_chat_resources(config.as_ref(), db, &session, &request).await {
+    Ok(resources) => resources,
+    Err(message) => return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(&message)),
+  };
   let mut live_turn = match request.query_item_id.is_some() {
     true => match start_live_chat_turn(db, &session, &mut request, &stream_request_id).await {
       Ok(turn) => Some(turn),
@@ -964,7 +976,7 @@ pub async fn serve_chat_stream_route(
         }
         return;
       }
-      result = run_chat_with_tools(config, &db, &session, &request, &progress) => result,
+      result = run_chat_with_tools(config, &db, &session, &request, resources, &progress) => result,
     };
     cancel_pending_tool_approvals(&progress.request_id);
     let result = match (result, live_turn.as_mut()) {
@@ -2186,13 +2198,6 @@ fn chat_system_prompt(infumap_data: Option<&InfumapData>, has_plugin_tools: bool
 }
 
 fn chat_failure_message(message: &str) -> String {
-  if message.starts_with("Selected tool source") || message.starts_with("Selected model") || message.starts_with("Selected reasoning effort") {
-    return message.to_owned();
-  }
-  if message.contains("Chat requires a model selection") { return "Choose a model and provider for Chat.".to_owned(); }
-  if message.contains("Scope was not found") {
-    return "The selected scope no longer exists.".to_owned();
-  }
   if message.contains("exceeded maximum tool rounds") {
     return "The request exceeded its maximum tool rounds.".to_owned();
   }
@@ -2201,18 +2206,6 @@ fn chat_failure_message(message: &str) -> String {
   }
   if message.contains("empty chat response") {
     return "The model returned an empty response.".to_owned();
-  }
-  if message.contains("must be configured to use Chat") {
-    return "The language model server is not configured.".to_owned();
-  }
-  if message.contains("named unknown backend") {
-    return "The requested chat backend is not available.".to_owned();
-  }
-  if message.contains("named unknown reasoning effort") {
-    return "The requested reasoning effort is not supported.".to_owned();
-  }
-  if message.contains("did not name an OpenRouter model") {
-    return "No OpenRouter model was selected.".to_owned();
   }
   if message.contains("Could not send chat request") || message.contains("[kind=connect]") {
     return "Could not reach the language model server.".to_owned();
@@ -2672,22 +2665,41 @@ fn completed_chat_result(messages: &[OpenAiChatMessage], backend_label: &str) ->
   Ok(ChatRunResult { assistant_text, messages: chat_history_from_wire_messages(messages) })
 }
 
-async fn validate_chat_resources(
+/// Resolves the model route, scope and tool sources once, before the turn is recorded, so a rejected request
+/// leaves no turn and the client keeps its draft. Every error is a message for the user.
+async fn prepare_chat_resources(
   config: &Config,
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   request: &ChatRequest,
-) -> InfuResult<()> {
-  let selection = request.settings.configuration.model.as_ref().ok_or("Chat requires a model selection.")?;
-  backend::validate_chat_model_selection(config, selection).await?;
-  if request.uses_infumap_data()
-    && let Some(scope_id) = &request.settings.configuration.scope_id
-  {
-    resolve_scope(&*db.lock().await, &session.user_id, scope_id)?;
+) -> Result<ChatResources, String> {
+  let selection = request.settings.configuration.model.as_ref().ok_or("Choose a model and provider for Chat.")?;
+  let endpoint =
+    backend::resolve_validated_chat_endpoint(config, selection).await.map_err(|error| error.message().to_owned())?;
+  let infumap_data = if request.uses_infumap_data() {
+    let scope = match &request.settings.configuration.scope_id {
+      // A missing scope page is the only failure for a signed-in user.
+      Some(scope_id) => Some(
+        resolve_scope(&*db.lock().await, &session.user_id, scope_id)
+          .map_err(|_| "The selected scope no longer exists. Choose another scope.")?,
+      ),
+      None => None,
+    };
+    Some(InfumapData { scope })
+  } else {
+    None
+  };
+  let reserved = mcp::reserved_openai_names(infumap_data.is_some());
+  let (mut mcp_tools, mut name_map) =
+    mcp::mapped_tools_for_capabilities(config, &request.plugin_capabilities(), &reserved)
+      .await
+      .map_err(|error| error.message().to_owned())?;
+  if request.settings.mode == ChatRunMode::DeepResearch {
+    mcp_tools.retain(|tool| tool.read_only);
+    let read_only_names: HashSet<&str> = mcp_tools.iter().map(|tool| tool.openai_name.as_str()).collect();
+    name_map.retain(|name, _| read_only_names.contains(name.as_str()));
   }
-  let reserved = mcp::reserved_openai_names(request.uses_infumap_data());
-  mcp::mapped_tools_for_capabilities(config, &request.plugin_capabilities(), &reserved).await?;
-  Ok(())
+  Ok(ChatResources { endpoint, infumap_data, mcp_tools, name_map })
 }
 
 async fn run_chat_with_tools(
@@ -2695,34 +2707,17 @@ async fn run_chat_with_tools(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   request: &ChatRequest,
+  resources: ChatResources,
   progress: &ChatProgressReporter,
 ) -> InfuResult<ChatRunResult> {
   reset_llm_log();
 
-  let selection = request.settings.configuration.model.as_ref().ok_or("Chat requires a model selection.")?;
-  let endpoint = resolve_chat_endpoint(config.as_ref(), selection)?;
+  let ChatResources { endpoint, infumap_data, mcp_tools, name_map } = resources;
   let mut messages = explicit_wire_messages(&request.messages)?;
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
-  let infumap_data = if request.uses_infumap_data() {
-    let scope = match &request.settings.configuration.scope_id {
-      Some(scope_id) => Some(resolve_scope(&*db.lock().await, &session.user_id, scope_id)?),
-      None => None,
-    };
-    Some(InfumapData { scope })
-  } else {
-    None
-  };
   let uses_infumap_data = infumap_data.is_some();
-  let reserved = mcp::reserved_openai_names(uses_infumap_data);
-  let (mut mcp_tools, mut name_map) =
-    mcp::mapped_tools_for_capabilities(config.as_ref(), &request.plugin_capabilities(), &reserved).await?;
-  if request.settings.mode == ChatRunMode::DeepResearch {
-    mcp_tools.retain(|tool| tool.read_only);
-    let read_only_names: HashSet<&str> = mcp_tools.iter().map(|tool| tool.openai_name.as_str()).collect();
-    name_map.retain(|name, _| read_only_names.contains(name.as_str()));
-  }
   messages.insert(
     0,
     OpenAiChatMessage::text(
@@ -3951,7 +3946,67 @@ mod tests {
     assert!(scoped.contains("only see the scope \"Work\""));
     let unscoped = chat_system_prompt(Some(&f.infumap_data(false).await), false, ChatRunMode::DeepResearch);
     assert!(!unscoped.contains("only see the scope"));
-    assert_eq!(chat_failure_message("Scope was not found."), "The selected scope no longer exists.");
+  }
+
+  #[tokio::test]
+  async fn rejected_resources_report_user_facing_messages() {
+    let f = fixture().await;
+    let config = config::Config::builder()
+      .add_source(config::File::from_str(
+        "[[llama_server]]\nname = \"a\"\nurl = \"http://127.0.0.1:9\"",
+        config::FileFormat::Toml,
+      ))
+      .build()
+      .unwrap();
+    let request = |model: Value, scope_id: &Uid, capabilities: Value| -> ChatRequest {
+      serde_json::from_value(serde_json::json!({
+        "configuration": { "scopeId": scope_id, "model": model, "capabilities": capabilities },
+        "appliedProfile": null,
+        "mode": "chat",
+      }))
+      .unwrap()
+    };
+    let llama = serde_json::json!({ "backend": "llama:a", "model": null, "reasoningEffort": null });
+    let prepare = |request: ChatRequest| {
+      let (config, db, session) = (&config, &f.db, &f.session);
+      async move { prepare_chat_resources(config, db, session, &request).await.err() }
+    };
+
+    let ready = prepare_chat_resources(
+      &config,
+      &f.db,
+      &f.session,
+      &request(llama.clone(), &f.scope_id, serde_json::json!(["infumap_data"])),
+    )
+    .await
+    .ok()
+    .unwrap();
+    assert!(ready.infumap_data.unwrap().scope.is_some());
+
+    assert_eq!(
+      prepare(request(Value::Null, &f.scope_id, serde_json::json!([]))).await.as_deref(),
+      Some("Choose a model and provider for Chat.")
+    );
+    let unknown = serde_json::json!({ "backend": "llama:b", "model": null, "reasoningEffort": null });
+    assert_eq!(
+      prepare(request(unknown, &f.scope_id, serde_json::json!([]))).await.as_deref(),
+      Some("Provider 'llama:b' is not configured on this server. Choose another provider.")
+    );
+    let openrouter = serde_json::json!({ "backend": "openrouter", "model": "x/y", "reasoningEffort": null });
+    assert_eq!(
+      prepare(request(openrouter, &f.scope_id, serde_json::json!([]))).await.as_deref(),
+      Some("OpenRouter is not configured on this server. Choose another provider.")
+    );
+    assert_eq!(
+      prepare(request(llama.clone(), &new_uid(), serde_json::json!(["infumap_data"]))).await.as_deref(),
+      Some("The selected scope no longer exists. Choose another scope.")
+    );
+    // An unused scope is not checked: Infumap tools are off.
+    assert!(prepare(request(llama.clone(), &new_uid(), serde_json::json!([]))).await.is_none());
+    assert_eq!(
+      prepare(request(llama, &f.scope_id, serde_json::json!(["web"]))).await.as_deref(),
+      Some("Selected tool source 'web' is not configured. Disable it or choose another profile.")
+    );
   }
 
   #[test]
@@ -3978,6 +4033,7 @@ mod tests {
 #[cfg(test)]
 mod live_chat_tests {
   use super::*;
+  use crate::query_configuration::QueryConfiguration;
   use crate::web::routes::command::scope::test_db::{TempDir, TestDb};
 
   struct Fixture {
@@ -4030,9 +4086,13 @@ mod live_chat_tests {
       "queryItemId": query_item_id,
       "expectedRevision": expected_revision,
       "text": text,
+      "configuration": {
+        "scopeId": new_uid(),
+        "model": { "backend": "llama:test", "model": null, "reasoningEffort": null },
+        "capabilities": ["infumap_data"],
+      },
+      "appliedProfile": null,
       "mode": "chat",
-      "capabilities": ["infumap_data"],
-      "scopeId": new_uid(),
     }))
     .unwrap()
   }
@@ -4092,8 +4152,7 @@ mod live_chat_tests {
     let transcript = f.transcript().await;
     assert_eq!(transcript.header.query_item_id, f.query_item_id);
     assert_eq!(transcript.turns[0].user.text, "first question");
-    assert_eq!(transcript.turns[0].user.settings.scope_id, request.scope_id);
-    assert_eq!(transcript.turns[0].user.settings.capabilities, vec!["infumap_data".to_owned()]);
+    assert_eq!(transcript.turns[0].user.settings.configuration, request.settings.configuration);
     assert!(transcript.turns[0].end.is_none());
 
     let mut messages = request.messages.clone();
@@ -4238,14 +4297,14 @@ mod live_chat_tests {
     drop(turn);
 
     let mut request3 = request(&f.query_item_id, 2, "q3");
-    request3.mode = ChatRunMode::DeepResearch;
+    request3.settings.mode = ChatRunMode::DeepResearch;
     let running_turn = f.start(&mut request3, "r3").await.ok().unwrap();
 
     let loaded = f.load(&f.query_item_id).await.unwrap();
     assert_eq!(loaded["revision"], 3);
     assert_eq!(loaded["running"], true);
     assert_eq!(loaded["lastSettings"]["mode"], "deep_research");
-    assert_eq!(loaded["lastSettings"]["capabilities"], serde_json::json!(["infumap_data"]));
+    assert_eq!(loaded["lastSettings"]["configuration"]["capabilities"], serde_json::json!(["infumap_data"]));
     assert_eq!(loaded["contextTokens"], serde_json::json!({ "tokens": 1234, "exact": true }));
     let turns = loaded["turns"].as_array().unwrap();
     assert_eq!(turns.len(), 3);
@@ -4447,7 +4506,11 @@ mod live_chat_tests {
       started_at: 0,
       text: text.to_owned(),
       attachments: vec![],
-      settings: TurnSettings { model: None, capabilities: vec![], scope_id: None, mode: ChatRunMode::Chat },
+      settings: TurnSettings {
+        configuration: QueryConfiguration { scope_id: None, model: None, capabilities: vec![] },
+        applied_profile: None,
+        mode: ChatRunMode::Chat,
+      },
     };
     assert_eq!(title_from_prompt(&user("  how do   rust lifetimes work? ")), "how do rust");
     assert_eq!(title_from_prompt(&user("   ")), "Chat");
