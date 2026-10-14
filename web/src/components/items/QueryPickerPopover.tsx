@@ -29,7 +29,7 @@ interface PopoverProps {
 
 export const stopQueryPickerEvent = (ev: Event) => ev.stopPropagation();
 
-/** Shared placement, keyboard containment and focus return for model and tools dialogs. */
+/** Shared placement, keyboard containment and focus return for query configuration dialogs. */
 export function QueryPickerPopover(props: PopoverProps) {
   const [open, setOpen] = createSignal(false);
   const [anchor, setAnchor] = createSignal<DOMRect | null>(null);
@@ -98,6 +98,10 @@ export function QueryPickerPopover(props: PopoverProps) {
     if (elements.length == 0) { ev.preventDefault(); panel.focus(); return; }
     const first = elements[0];
     const last = elements[elements.length - 1];
+    // A focused control may disappear or become disabled while a request or save starts.
+    if (!elements.includes(document.activeElement as HTMLElement)) {
+      ev.preventDefault(); (ev.shiftKey ? last : first)?.focus(); return;
+    }
     if (ev.shiftKey && document.activeElement == first) { ev.preventDefault(); last?.focus(); }
     else if (!ev.shiftKey && document.activeElement == last) { ev.preventDefault(); first?.focus(); }
   };

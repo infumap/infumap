@@ -45,11 +45,11 @@ above it too.
 
 ## Choosing a scope
 
-The **Scope** control sits next to the query input, on the search results border, and beside the
+The **Scope** control sits below the query input, on the search results border, and beside the
 independent **Model** and **Tools** controls in chat. Its list shows each scope's coverage and problems
 with its definition, such as a link to a deleted item or a container that is not named Exclude. **Edit scopes** opens the Scopes page.
 
-New queries copy the scope from the default query profile. Changing the scope affects only that query;
+New queries copy the scope from the default [query profile](chats.md#query-profiles). Changing the scope affects only that query;
 it does not change the default profile or other queries.
 
 In a chat, changing the scope applies from the next message. Earlier answers keep what they found.
@@ -59,8 +59,11 @@ When Infumap tools are off, the control displays **Scope: Not used** and retains
 Turn Infumap on again to use that scope. Search always uses scope, regardless of chat tool choices.
 The scope popup is labelled **Search within Infumap**: it does not constrain web tools or existing chat context.
 
-If the chosen scope is deleted, the button shows **Missing scope** and searches and chats fail until
-you choose another. They never fall back to searching everything.
+If the chosen scope is deleted, the button shows **Missing scope**. Search and chats using Infumap
+tools cannot send until you choose another scope; chats with Infumap tools off retain the missing
+selection without using it. They never fall back to searching everything. **Refresh scopes** checks
+availability again. A failed discovery request is labelled **Unverified**, rather than treated as
+evidence that the scope was deleted.
 
 ## What a scope does not do
 

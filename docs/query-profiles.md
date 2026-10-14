@@ -24,8 +24,9 @@ All configuration fields are explicit, including nullable fields:
   information already in the conversation. The scope is retained even when Infumap tools are off.
 - `model`: an explicit provider route, model and reasoning effort. The backend is `openrouter`
   or `llama:<configured server name>`. A null model ID is for a provider that serves its own model;
-  OpenRouter requires an explicit model ID. A null reasoning effort uses the model's default. A null selection object means no model has
-  been chosen, such as before the default profile loads or in Search. Chat execution requires a selection;
+  OpenRouter requires an explicit model ID. A null reasoning effort uses the model's default.
+  A null selection object means no model has been chosen, such as before the default profile loads
+  or in Search. Chat execution requires a selection;
   the composer copies the default profile before the first command and sends the selected resources exactly.
 - `capabilities`: enabled capability IDs: `infumap_data` and configured MCP server IDs.
   Array order has no meaning. Search ignores model and capability settings.
@@ -176,8 +177,8 @@ profile was edited or deleted, and keeps the original snapshot name visible.
 Profile application is blocked during a response and while a historical chat's settings are loading
 or failed to load. Between turns, a profile can replace the entire tool set along with scope and model;
 a profile is never partially applied. The disabled reason is visible in the menu and shortcut tooltip.
-The menu remains available for inspection
-and includes loading, error and retry states. Keyboard users can Tab through shortcuts and the menu
+The menu remains available for inspection and includes loading, error and retry states.
+Keyboard users can Tab through shortcuts and the menu
 in the query's control cycle, use Left/Right between shortcuts, and use Up/Down in the profile menu.
 
 Search results, transcripts and the activity panel reserve the profile row's height and spacing.
@@ -219,6 +220,11 @@ the saved collection without retrying the rejected action. Account switches disa
 Keyboard focus moves into forms, returns to the management list after actions, and remains contained
 within the shared profile dialog.
 
+Profile names share the server's trim, control-character and 120-byte UTF-8 validation. Forms explain
+an invalid name before submission. Duplicate names are truncated by whole Unicode characters within
+the same limit before adding ` copy`. Model-favorite mutations also bind to the reviewed collection
+revision so two open model pickers cannot overwrite each other's favorite list through the local queue.
+
 ## Changes between turns
 
 Scope, Model/provider/reasoning effort, Tools, profile selection and Reset can all change an existing
@@ -253,7 +259,8 @@ cannot prove that a resource was removed. Scope discovery is cleared on account 
 responses from a prior account are ignored.
 
 Profiles remain selectable when they contain unavailable resources, so their complete setup can be
-applied and repaired. Pinned shortcuts warn about active unavailable resources, profile summaries explain each problem,
+applied and repaired. Pinned shortcuts warn about active unavailable resources; profile summaries
+explain each problem,
 and the current profile row reports active problems. **More** and each independent picker offer
 availability refresh actions. Long problem lists scroll inside the dialog header so configuration
 and management actions stay reachable. Saved references, profile snapshots and model favorites are
@@ -285,3 +292,35 @@ the cached catalog is labelled stale and used for browsing, while the exact sele
 may be tried at the provider. The server does not infer that a missing entry in a stale catalog was
 removed. A rejected turn returns its draft to the client and triggers discovery refresh; no profile,
 scope, model, tool set or default is automatically changed to make the request succeed.
+
+## Review and build verification
+
+The user-facing guide is [Query profiles](chats.md#query-profiles); server initialization is described
+in [Configuration](configuration.md). The final integration review follows these code boundaries:
+
+| Contract | Implementation |
+| --- | --- |
+| Copy a complete profile; keep overrides and saved defaults separate | `query-configuration.ts`, `query-configuration-state.ts`, per-item store |
+| Account ownership, revision checks, atomic persistence and backups | `query_profiles.rs`, `StoreProvider_QueryProfiles.ts`, user database |
+| Select, inspect, save, reset, rename, duplicate, delete, pin and order | `QueryProfileBar.tsx`, `QueryProfileManager.tsx` |
+| Favorite provider/model pairs without rewriting query settings | `QueryModelPicker.tsx`, profile store revision guard |
+| Keep disabled controls out of the composer Tab cycle and contain dialog focus | `Query.tsx`, `QueryPickerPopover.tsx` |
+| Reserve profile rows in results, transcript and activity geometry | `search-item.ts`, `query-item.ts`, `Query.tsx` |
+| Lock preparation and streaming; preserve snapshots across turns and reload | `chat.ts`, query runtime, chat route and transcript |
+| Preserve the draft's Deep research choice when a turn is rejected before recording | `Query.tsx` submission handlers |
+| Retain unavailable references; validate only resources used by the operation | `query-configuration-availability.ts`, independent pickers, Search/chat commands |
+| Refuse unavailable resources instead of substituting defaults or skipping tools | chat resource preflight, backend resolution, MCP tool mapping |
+
+Non-test checks, run from the repository root:
+
+```sh
+npm --prefix web run typecheck
+npm --prefix web run build
+cargo check --manifest-path infumap/Cargo.toml --locked --offline
+git diff --check
+```
+
+These checks establish compilation, production bundling and patch formatting. The integration review
+is source inspection, not executed browser or provider verification. Tests were not added, updated or
+run under the repository instructions; interactive behavior and live provider/MCP calls have not been
+validated by this review. The production build currently reports its existing large-chunk warning.

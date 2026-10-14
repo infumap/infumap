@@ -31,6 +31,19 @@ type ProfileDraft =
 const sameProfile = (left: QueryProfile, right: QueryProfile) => left.id == right.id && left.name == right.name &&
   queryConfigurationsEqual(left.configuration, right.configuration);
 const actionClass = "rounded border border-slate-300 px-2 py-1 text-[11px] hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-40";
+const nameEncoder = new TextEncoder();
+const nameProblem = (name: string): string | null => name.trim() == "" ? "Enter a profile name."
+  : /[\u0000-\u001f\u007f-\u009f]/.test(name.trim()) ? "Remove control characters from the profile name."
+  : nameEncoder.encode(name.trim()).length > 120 ? "The profile name is too long. Shorten it." : null;
+
+function duplicateName(name: string): string {
+  let prefix = "";
+  for (const character of name) {
+    if (nameEncoder.encode(prefix + character).length > 115) { break; }
+    prefix += character;
+  }
+  return `${prefix.trimEnd()} copy`;
+}
 
 /** Edits saved account profiles; only saving the current setup can rebase this query's snapshot. */
 export function QueryProfileManager(props: QueryProfileManagerProps) {
@@ -68,7 +81,7 @@ export function QueryProfileManager(props: QueryProfileManagerProps) {
   const begin = (kind: "rename" | "duplicate" | "delete", profile: QueryProfile) => {
     if (unavailable()) { return; }
     setError(null); setNotice(null); setReplacement("");
-    setName(kind == "duplicate" ? `${profile.name.slice(0, 115)} copy` : profile.name);
+    setName(kind == "duplicate" ? duplicateName(profile.name) : profile.name);
     setDraft({ kind, profile: snapshotQueryProfile(profile) });
   };
   const beginSave = (kind: "saveAs" | "saveChanges") => {
@@ -131,8 +144,8 @@ export function QueryProfileManager(props: QueryProfileManagerProps) {
     const saved = collection();
     if (current == null || saved == null || unavailable() || targetStale()) { return; }
     const trimmed = name().trim();
-    if ((current.kind == "saveAs" || current.kind == "rename" || current.kind == "duplicate") && trimmed == "") {
-      setError("Enter a profile name."); return;
+    if ((current.kind == "saveAs" || current.kind == "rename" || current.kind == "duplicate") && nameProblem(trimmed) != null) {
+      setError(nameProblem(trimmed)); return;
     }
     if ((current.kind == "saveAs" || current.kind == "saveChanges") && props.currentBlockedReason() != null) { return; }
     if (current.kind == "delete" && (saved.profiles.length <= 1 ||
@@ -171,7 +184,7 @@ export function QueryProfileManager(props: QueryProfileManagerProps) {
     if (current.kind == "saveAs" || current.kind == "saveChanges") { if (props.currentBlockedReason() != null) { return true; } }
     if (current.kind == "delete") { return profiles().length <= 1 || (isDefault(current.profile.id) &&
       !profiles().some(profile => profile.id == replacement() && profile.id != current.profile.id)); }
-    return current.kind != "saveChanges" && name().trim() == "";
+    return current.kind != "saveChanges" && nameProblem(name()) != null;
   };
 
   return <div ref={body} tabindex={-1} class="min-h-0 overflow-y-auto px-3 py-2 outline-hidden">
@@ -235,7 +248,9 @@ export function QueryProfileManager(props: QueryProfileManagerProps) {
         <Show when={current.kind == "saveAs" || current.kind == "rename" || current.kind == "duplicate"}>
           <label class="mb-2 block text-[12px]">Profile name
             <input data-profile-editor-focus class="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-[13px] outline-blue-500" maxLength={120}
-              required value={name()} disabled={busy()} onInput={ev => setName(ev.currentTarget.value)} />
+              required value={name()} disabled={busy()} aria-invalid={name().length > 0 && nameProblem(name()) != null}
+              onInput={ev => setName(ev.currentTarget.value)} />
+            <Show when={name().length > 0 && nameProblem(name()) != null}><span role="status" class="mt-1 block text-[11px] text-red-700">{nameProblem(name())}</span></Show>
           </label>
         </Show>
         <div class="mb-2 rounded bg-slate-50 p-2">{props.summary(preview(current))}</div>

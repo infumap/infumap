@@ -222,11 +222,12 @@ bands is generic list page behavior.
   page's children, so once unpinned it already sorts before every older chat. Continued chats are also added at the
   beginning as unpinned items.
   Selecting one shows its chat, which can be continued. Unpinned items are chat only; their search mode is hidden.
-- **Restoring a chat** loads its transcript and puts the settings of its last turn (model selection,
-  capabilities, scope, mode) into the query runtime, so continuing it does not silently switch to whatever was
-  last used elsewhere. The context token display starts from the last reported count. Today it is estimated from the
-  client-held message list ([chat.ts](../web/src/items/chat.ts), `estimateChatContextTokens`), which no longer
-  exists; while drafting, add the estimate for the draft text to the last count.
+- **Restoring a chat** loads its transcript and restores the last turn's resource configuration
+  (model selection, capabilities and scope) and applied profile snapshot into the query runtime.
+  Continuing it does not inherit another query's resources or a changed account default. The run
+  mode remains recorded on each turn; Deep research is a one-response composer choice rather than
+  a restored resource default. The context token display starts from the last reported count and
+  adds estimates for draft text and attachments. See [Query configuration and profiles](query-profiles.md).
 - **Titles.** Query items have titles. An empty pinned title displays as "New Query"; an empty unpinned title displays
   as "Query". On the first accepted chat turn, the server derives a title from the prompt. Renaming remains an
   ordinary title edit. The pinned New Query uses the search icon; unpinned chat entries use a talk bubble. A

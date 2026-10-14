@@ -6,6 +6,14 @@ Chats with the Infumap data source enabled have two built-in read-only tools:
 - `get_fragment`: read any item a fragment at a time: documents, images, notes, and pages, tables and
   composites.
 
+Choose capability sources in the independent **Tools** control, or apply a named
+[query profile](chats.md#query-profiles). Tool choices can change between messages. Each turn uses
+its submitted tool set; disabling a source keeps earlier tool results in the conversation. Enabled
+missing or unavailable sources remain visible and must be explicitly disabled or restored before
+sending. The server rejects an unavailable selected source instead of silently omitting its tools.
+**Functions** and **Raw schema** in the picker show what each source exposes. Additional MCP sources
+are configured on the server; see [MCP tools](../tools/mcp/README.md).
+
 The same tools can be called without an LLM using `infumap tool search "query"` or
 `infumap tool get_fragment infumap://<id>`. See [CLI commands](cli.md#tool) for options.
 
