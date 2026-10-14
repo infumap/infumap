@@ -14,4 +14,24 @@ Search is local and lexical. Full-user searches use BM25-backed title and search
 
 Chat requires at least one language model backend: one or more llama.cpp `llama-server` instances, `openrouter_api_key`, or both. Configure each `llama-server` as a `[[llama_server]]` table with a `name`, which is what users see and pick, and a `url`, either its base URL or its full chat completions endpoint URL (`llama_servers` takes the same list as JSON, for configuration by environment variable; `llama_server_url` is shorthand for a single server named `llama-server`). Each server decides which model is loaded, so Infumap offers no model choice for it, and no reasoning effort either (llama.cpp only honours one if the loaded model's chat template happens to use it). Configure `openrouter_api_key` to offer OpenRouter's models as well. That key is instance wide - every user of the instance shares the one OpenRouter account and spends from it - and it is never sent to the browser, since Infumap calls OpenRouter server side.
 
-The OpenRouter model list is fetched anonymously, as it is public, and cached, and only models that support tool calling are offered, because Chat cannot search your workspace or the web without them. Each model's reasoning effort levels come from that same list, so the effort a user can pick depends on the model they picked. `chat_default_backend` and `chat_default_openrouter_model` set what a new chat starts with; `chat_default_backend` is `llama` (the first llama server), `llama:<name>` (a specific one) or `openrouter`. Users can choose a different backend, model and effort per chat, and their last choice becomes their own default. If the chosen default backend is not configured another configured one is used instead.
+The OpenRouter model list is public, fetched anonymously, and cached. Only models that support tool
+calling are offered. Each model's reasoning effort choices come from that same list. If refreshing
+fails, a saved catalog remains available for browsing and is labelled unverified.
+
+`chat_default_backend` and `chat_default_openrouter_model` seed an account's first saved **Default**
+query profile. `chat_default_backend` accepts `llama` (the first configured llama server),
+`llama:<name>` (a specific one), or `openrouter`. Initial seeding can use another configured backend
+if the configured default is unavailable; it records a specific named llama route. After the account
+has profiles, changing server defaults does not rewrite them.
+
+Users select a default saved profile in **More → Manage profiles → Make default**. New queries copy
+it once. Picking a different profile or changing the model, reasoning effort, scope or tools affects
+only that query; the last choice never automatically becomes the account default. Profiles and
+model favorites are saved with the account and included in account backups. See
+[Query profiles](chats.md#query-profiles) for the controls and
+[Query configuration and profiles](query-profiles.md) for the API.
+
+Chat requests use the explicit saved provider route, model and effort. OpenRouter requires a model
+ID; a null model is only for a provider serving its own model. An unavailable selected provider,
+model, scope or tool source is reported rather than replaced with a server default or silently
+disabled. Search needs no model and uses only its selected scope.

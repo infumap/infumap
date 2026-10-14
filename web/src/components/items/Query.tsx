@@ -426,8 +426,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setSearchingSerial(null);
     setDraftAttachments([]);
     const useDeepResearch = deepResearch();
+    let recorded = false;
     try {
-      const recorded = await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch, attachments);
+      recorded = await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch, attachments);
       if (!recorded && chatText() == "") {
         setChatText(text);
         resizeChatTextareaSoon();
@@ -436,13 +437,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         setDraftAttachments(attachments);
       }
     } finally {
-      setDeepResearch(false);
+      if (recorded) { setDeepResearch(false); }
       setIsStartingChat(false);
     }
   };
 
   const focusQueryInputControl = () => {
     if (!canEdit()) {
+      queryInput?.focus();
       return;
     }
     if (!isEditing()) {
@@ -486,7 +488,21 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "scope" | "model" | "tools" | `profile:${number}`;
 
-  const queryProfileButtons = () => Array.from(queryProfileBar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []);
+  const queryProfileButtons = () => Array.from(queryProfileBar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []).filter(button => button.isConnected);
+
+  const queryControlButton = (control: QueryControlName): HTMLButtonElement | undefined => {
+    if (control.startsWith("profile:")) { return queryProfileButtons()[Number(control.slice("profile:".length))]; }
+    switch (control) {
+      case "mode": return queryModeButtons[selectedInputModeOption()];
+      case "attach": return queryAttachButton;
+      case "send": return querySendButton;
+      case "discard": return queryDiscardButton;
+      case "scope": return queryScopeButton;
+      case "model": return queryModelButton;
+      case "tools": return queryToolsButton;
+      default: return undefined;
+    }
+  };
 
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = isSearchMode()
@@ -499,7 +515,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       if (queryModelButton?.isConnected && !queryModelButton.disabled) { controls.push("model"); }
       if (queryToolsButton?.isConnected && !queryToolsButton.disabled) { controls.push("tools"); }
     }
-    return controls;
+    return controls.filter(control => {
+      if (control == "input") { return queryInput?.isConnected && !queryInput.disabled; }
+      const button = queryControlButton(control);
+      return button?.isConnected && !button.disabled;
+    });
   };
 
   const focusQueryControl = (control: QueryControlName) => {
@@ -528,6 +548,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const focusAdjacentQueryControl = (currentControl: QueryControlName, direction: -1 | 1) => {
     const order = queryControlOrder();
+    if (order.length == 0) { return; }
     const currentIndex = Math.max(0, order.indexOf(currentControl));
     const nextIndex = (currentIndex + direction + order.length) % order.length;
     focusQueryControl(order[nextIndex]);
@@ -770,8 +791,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     resizeChatTextareaSoon();
     setIsSendingChat(true);
     const useDeepResearch = deepResearch();
+    let recorded = false;
     try {
-      const recorded = await submitQueryChatMessage(store, queryItem(), value, useDeepResearch, attachments);
+      recorded = await submitQueryChatMessage(store, queryItem(), value, useDeepResearch, attachments);
       if (!recorded && chatText() == "") {
         setChatText(value);
         resizeChatTextareaSoon();
@@ -780,7 +802,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         setDraftAttachments(attachments);
       }
     } finally {
-      setDeepResearch(false);
+      if (recorded) { setDeepResearch(false); }
       setIsSendingChat(false);
     }
   };

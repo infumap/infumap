@@ -31,7 +31,7 @@ export interface QueryProfilesStore {
   reorder: (profileIds: Array<Uid>, expectedRevision?: number) => Promise<void>,
   setPinned: (profileIds: Array<Uid>, expectedRevision?: number) => Promise<void>,
   setDefault: (id: Uid, expectedRevision?: number) => Promise<void>,
-  setModelFavorites: (favorites: Array<QueryModelFavorite>) => Promise<void>,
+  setModelFavorites: (favorites: Array<QueryModelFavorite>, expectedRevision?: number) => Promise<void>,
   clear: () => void,
 }
 
@@ -159,8 +159,8 @@ export function makeQueryProfilesStore(accountId: () => Uid | null, networkStatu
     reorder: async (profileIds, expectedRevision) => { await mutate({ operation: "reorder", profileIds: [...profileIds] }, expectedRevision); },
     setPinned: async (profileIds, expectedRevision) => { await mutate({ operation: "setPinned", profileIds: [...profileIds] }, expectedRevision); },
     setDefault: async (id, expectedRevision) => { await mutate({ operation: "setDefault", id }, expectedRevision); },
-    setModelFavorites: async favorites => {
-      await mutate({ operation: "setModelFavorites", favorites: favorites.map(favorite => ({ ...favorite })) });
+    setModelFavorites: async (favorites, expectedRevision) => {
+      await mutate({ operation: "setModelFavorites", favorites: favorites.map(favorite => ({ ...favorite })) }, expectedRevision);
     },
   };
 }
