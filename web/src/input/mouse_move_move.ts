@@ -28,7 +28,7 @@ import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
-import { asTextItem, isText, type TextItem } from "../items/text-item";
+import { asTextItem, isChatAttachmentItem, isText, type TextItem } from "../items/text-item";
 import { createPendingTextDocumentPage, isMarkdownTextDocumentPage } from "../items/text-document";
 import { LinkFns, isLink } from "../items/link-item";
 import { asNoteItem, isNote } from "../items/note-item";
@@ -161,10 +161,7 @@ function cloneDescendantsForCopy(source: Item, cloned: Item): Array<string> {
       if (sourceItem == null) { continue; }
       const copy = ItemFns.fromObject(ItemFns.toObject(sourceItem), null);
       copy.id = newUid();
-      // A chat attachment's text is in its chat, not the object store; it is added with the copy (`chatAttachmentCopyData`).
-      if (isText(sourceItem) && asTextItem(sourceItem).chatAttachmentSource != null) {
-        asTextItem(copy).chatAttachmentSource = asTextItem(sourceItem).chatAttachmentSource;
-      }
+      keepChatAttachmentSource(sourceItem, copy);
       copy.parentId = clonedParent.id;
       copy.groupId = null;
       itemState.add(copy);
@@ -174,6 +171,27 @@ function cloneDescendantsForCopy(source: Item, cloned: Item): Array<string> {
   };
   visit(source, cloned);
   return ids;
+}
+
+/**
+ * A copy of a chat attachment refers to the same attachment until it is added, when it is given the attachment's text
+ * (`chatAttachmentCopyData`). The reference is client only, so `toObject` leaves it out.
+ */
+function keepChatAttachmentSource(source: Item, copy: Item): void {
+  if (isChatAttachmentItem(source)) {
+    asTextItem(copy).chatAttachmentSource = source.chatAttachmentSource;
+  }
+}
+
+/**
+ * Whether a page can hold a copy for the length of a drag. Unlike a live move, nothing is changed in the page: the copy
+ * is added where it is dropped. So a page that can't be changed, like a chat's, can be the start of a copy out of it.
+ */
+function pageCanHostPendingCopy(pageVe: VisualElement): boolean {
+  return isPage(pageVe.displayItem) &&
+    !!(pageVe.flags & VisualElementFlags.ShowChildren) &&
+    pageVe.childAreaBoundsPx != null &&
+    pageVe.viewportBoundsPx != null;
 }
 
 function moveRollbackOrderingForChild(childId: string): Uint8Array | null {
@@ -237,8 +255,11 @@ function preserveListSelectionWhenMovingSelectedChild(
   );
 }
 
+/** A chat attachment is copied as a text item instead, since the chat it is in can't hold a page. */
 function textDocumentMaterializeMoveRequested(activeVisualElement: VisualElement): boolean {
-  return CursorEventState.get().shiftDown && isText(activeVisualElement.displayItem);
+  return CursorEventState.get().shiftDown &&
+    isText(activeVisualElement.displayItem) &&
+    !isChatAttachmentItem(activeVisualElement.displayItem);
 }
 
 function orderingForPendingTextDocumentPage(startPageId: string, activeItem: PositionalItem): Uint8Array {
@@ -324,7 +345,9 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     return;
   }
   const isActiveLinkItem = isLink(activeItem);
-  const shiftWantsClone = CursorEventState.get().shiftDown && !isDataItem(activeVisualElement.displayItem);
+  // A data item's copy would need its content; a chat attachment's is in its chat (`chatAttachmentCopyData`).
+  const shiftWantsClone = CursorEventState.get().shiftDown &&
+    (!isDataItem(activeVisualElement.displayItem) || isChatAttachmentItem(activeVisualElement.displayItem));
   const shouldCreateLink = CursorEventState.get().ctrlDown || (shiftWantsClone && isActiveLinkItem);
   const shouldClone = shiftWantsClone && !isActiveLinkItem; // For link items, shift behaves like ctrl (create link)
   const parentItem = itemState.get(activeItem.parentId)!;
@@ -350,7 +373,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   }
   else if (isComposite(itemState.get(activeItem.parentId)!)) {
     const hitInfo = HitInfoFns.hitForDrop(store, desktopPosPx, [activeItem.id], false, false);
-    if (!moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone)) { return; }
+    if (!moving_activeItemToPage(store, hitInfo.overPositionableVe!, desktopPosPx, RelationshipToParent.Child, shouldCreateLink, shouldClone, copyOnlyMove)) { return; }
     MouseActionState.setAction(MouseAction.Moving); // arrange must treat the re-parented item as moving.
     arrangeNow(store, "moving-init-out-of-composite");
   }
@@ -860,7 +883,11 @@ function moving_handleOverComposite(store: StoreContextModel, overContainerVe: V
 }
 
 
-function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean, shouldClone: boolean): boolean {
+/**
+ * With `copyOnly`, the item can be copied but not moved, like a chat attachment: its copy is added where it is dropped,
+ * with its descendants, rather than now.
+ */
+function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualElement, desktopPx: Vector, relationshipToParent: string, shouldCreateLink: boolean, shouldClone: boolean, copyOnly: boolean = false): boolean {
   const activeSignal = MouseActionState.getActiveVisualElementSignal();
   if (!activeSignal) {
     store.anItemIsMoving.set(false);
@@ -869,7 +896,8 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
   const activeElement = activeSignal.get();
   const treeActiveItem = asPositionalItem(VeFns.treeItem(activeElement));
   moveToVe = resolveMoveTargetPageVe(moveToVe);
-  if (!pageCanHostLiveMovingItem(moveToVe)) {
+  const pendingCopy = copyOnly && shouldClone;
+  if (pendingCopy ? !pageCanHostPendingCopy(moveToVe) : !pageCanHostLiveMovingItem(moveToVe)) {
     return false;
   }
 
@@ -899,8 +927,14 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     cloned.spatialPositionGr = newItemPosGr;
     cloned.parentId = moveToPage.id;
     prepareShiftDragClone(cloned, toClone);
+    keepChatAttachmentSource(toClone, cloned);
     itemState.add(cloned);
-    server.addItem(cloned, null, store.general.networkStatus);
+    if (pendingCopy) {
+      const pendingDescendantIds = cloneDescendantsForCopy(toClone, cloned);
+      MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds });
+    } else {
+      server.addItem(cloned, null, store.general.networkStatus);
+    }
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(clonedVeid, moveToPath));

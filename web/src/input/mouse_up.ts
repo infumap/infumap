@@ -432,7 +432,7 @@ function enqueueUpdateItem(
       apply: async () => {
         const added: Array<string> = [];
         try {
-          await server.addItem(snapshot, null, store.general.networkStatus);
+          await server.addItem(snapshot, await chatAttachmentCopyData(item, store.general.networkStatus), store.general.networkStatus);
           added.push(snapshot.id);
           for (const id of descendantIds) {
             const descendant = itemState.get(id);
