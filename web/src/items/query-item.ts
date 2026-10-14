@@ -108,7 +108,7 @@ export const QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX = SEARCH_WORKSPACE_
 export const QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX = SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX;
 export const QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX = SEARCH_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX;
 export const QUERY_CHAT_COMPOSER_BOTTOM_PX = 18;
-/** Tall enough to keep the setup pill clear of the composer buttons directly below it. */
+/** Tall enough to keep scope, model and tools controls clear of the composer buttons below them. */
 export const QUERY_CHAT_SETTINGS_HEIGHT_PX = 38;
 export const QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX = 24;
 

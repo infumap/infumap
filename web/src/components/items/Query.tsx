@@ -25,7 +25,8 @@ import { FIND_HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, SELECTED_DARK } from "../../s
 import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, highlightStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { QueryChatSetup } from "./QueryChatSetup";
+import { QueryModelPicker } from "./QueryModelPicker";
+import { QueryToolsPicker } from "./QueryToolsPicker";
 import { QueryScopePicker } from "./QueryScopePicker";
 import { initializeQueryConfiguration } from "../../items/query-configuration-state";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -175,7 +176,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const queryModeButtons: Partial<Record<QueryInputModeOption, HTMLButtonElement>> = {};
   let querySendButton: HTMLButtonElement | undefined;
   let queryDiscardButton: HTMLButtonElement | undefined;
-  let querySetupButton: HTMLButtonElement | undefined;
+  let queryScopeButton: HTMLButtonElement | undefined;
+  let queryModelButton: HTMLButtonElement | undefined;
+  let queryToolsButton: HTMLButtonElement | undefined;
   let queryAttachButton: HTMLButtonElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let attachFileInput: HTMLInputElement | undefined;
@@ -461,25 +464,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  const focusSetupButton = () => {
-    if (!querySetupButton || querySetupButton.disabled) {
-      focusQueryInputControl();
-      return;
-    }
-    querySetupButton.focus();
-  };
-
-  type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "setup";
+  type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "scope" | "model" | "tools";
 
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = isSearchMode()
       ? ["input", "send"]
       : selectedInputMode() == "chat" ? ["mode", "attach", "input", "send"] : ["mode", "input", "send"];
-    if (hasSubmittedQuery()) {
-      controls.push("discard");
-    }
+    if (hasSubmittedQuery()) { controls.push("discard"); }
+    if (queryScopeButton?.isConnected && !queryScopeButton.disabled) { controls.push("scope"); }
     if (selectedInputMode() == "chat") {
-      controls.push("setup");
+      if (queryModelButton?.isConnected && !queryModelButton.disabled) { controls.push("model"); }
+      if (queryToolsButton?.isConnected && !queryToolsButton.disabled) { controls.push("tools"); }
     }
     return controls;
   };
@@ -500,7 +495,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     } else if (control == "discard") {
       focusDiscardButton();
     } else {
-      focusSetupButton();
+      const button = control == "scope" ? queryScopeButton : control == "model" ? queryModelButton : queryToolsButton;
+      if (button?.isConnected && !button.disabled) { button.focus(); }
+      else { focusQueryInputControl(); }
     }
   };
 
@@ -1245,7 +1242,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 {liveChatActivity()!.statusText}
               </div>
             </Show>
-            <div class="ml-auto flex shrink-0 items-center gap-2 pl-3">
+            <div class="ml-auto flex min-w-0 items-center gap-2 pl-2">
               <Show when={isLiveQueryChat(store, queryItem()) && queryChatHasContent(store, queryItem())}>
                 {/* Chats in the Queries page are kept in the server's data directory, outside backups. */}
                 <span
@@ -1257,21 +1254,19 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   <i class="bi-cloud-slash" />
                 </span>
               </Show>
-              <Show when={queryChatUsesInfumapData(store, queryItem())}>
-                <QueryScopePicker
-                  queryItem={queryItem}
-                  disabled={chatRequestActive}
-                  note={() => queryChatHasContent(store, queryItem())
-                    ? "Applies from your next message. Earlier answers keep what they found."
-                    : null} />
-              </Show>
-              <QueryChatSetup
-                queryItem={queryItem}
-                toolsLocked={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
-                lockedReason="fixed for this chat"
-                deepResearch={deepResearch}
-                setDeepResearch={setDeepResearch}
-                modeLocked={chatRequestActive} />
+              <select aria-label="Chat mode" value={deepResearch() ? "deep_research" : "chat"}
+                class="h-[22px] min-w-0 max-w-[120px] rounded-md border border-[#d6d6d6] bg-white text-[12px] text-[#555]"
+                disabled={chatRequestActive()} onChange={ev => setDeepResearch(ev.currentTarget.value == "deep_research")}
+                onMouseDown={ev => ev.stopPropagation()} onKeyDown={ev => ev.stopPropagation()}>
+                <option value="chat">Chat</option><option value="deep_research">Deep research</option>
+              </select>
+              <QueryScopePicker
+                queryItem={queryItem} disabled={chatRequestActive} inUse={() => queryChatUsesInfumapData(store, queryItem())}
+                note={() => queryChatHasContent(store, queryItem())
+                  ? "Applies from your next message. Earlier answers keep what they found." : null} />
+              <QueryModelPicker queryItem={queryItem} disabled={chatRequestActive} />
+              <QueryToolsPicker queryItem={queryItem} locked={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
+                lockedReason={chatRequestActive() ? "Wait for the current response to finish." : "Tool choices are fixed for this chat."} />
             </div>
           </div>
           <Show when={draftAttachments().length > 0}>
@@ -1575,21 +1570,19 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         onMouseDown={(ev) => ev.stopPropagation()}
         onMouseUp={(ev) => ev.stopPropagation()}
         onClick={(ev) => ev.stopPropagation()}>
-        <Show when={selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}>
-          <QueryScopePicker
-            queryItem={queryItem}
-            disabled={isStartingChat}
-            beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
-            onChange={() => { if (isSearchMode()) { void runSearch(false); } }} />
-        </Show>
+        <QueryScopePicker
+          queryItem={queryItem} disabled={isStartingChat}
+          inUse={() => selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}
+          beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+          onChange={() => { if (isSearchMode()) { void runSearch(false); } }}
+          buttonRef={el => { queryScopeButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "scope")} />
         <Show when={selectedInputMode() == "chat"}>
-          <QueryChatSetup
-            queryItem={queryItem}
-            toolsLocked={isStartingChat}
-            lockedReason="wait for the chat to start"
+          <QueryModelPicker queryItem={queryItem} disabled={isStartingChat}
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
-            buttonRef={(el) => { querySetupButton = el; }}
-            onTabKey={(ev) => handleQueryControlTab(ev, "setup")} />
+            buttonRef={el => { queryModelButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "model")} />
+          <QueryToolsPicker queryItem={queryItem} locked={isStartingChat} lockedReason="Wait for the chat to start."
+            beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+            buttonRef={el => { queryToolsButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "tools")} />
         </Show>
       </div>
     </>;
