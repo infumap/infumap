@@ -167,6 +167,12 @@ is a result, not a trigger to spend credits on another provider. Each provider
 is attempted at most once per call, with at most three attempts in total
 (currently at most two because only two providers are supported). Provider
 attempts have a 20-second timeout within a shared 30-second request deadline.
+The shared deadline covers selection, health-lock waits, budget-worker waits,
+reservations, provider HTTP and settlement. Runtime ledger operations run in
+blocking workers, and health locks are asynchronous, so slow storage cannot hold
+the search response past its deadline. A timed-out request stops waiting;
+an already-started storage operation can finish in the background. No provider
+request is dispatched for a reservation that completes after its deadline.
 Fallback happens immediately without sleeping through cooldowns, and an already
 attempted Exa provider is not tried again with paid capacity after a free attempt
 fails. Budget reservations are checked again at dispatch to handle concurrent
@@ -187,8 +193,9 @@ supplied `Retry-After` overrides these defaults, with a minimum of one second.
 Overlapping cooldowns retain the later deadline. Only one recovery probe can run
 after a cooldown or quota suspension, and a late success from an older request
 cannot clear a newer failure. Invalid requests do not disable a provider for
-other queries. Client cancellation conservatively charges any metered reservation
-and records a transient health failure.
+other queries. Client cancellation conservatively charges metered reservations
+whose dispatch began and records a transient health failure. Reservations known
+not to have dispatched are released asynchronously.
 
 Cooldowns and credential/internal-error suspensions are kept in memory. Monthly
 metered quota caps and consumption are persistent. Failed calls report provider
@@ -300,10 +307,19 @@ paid capacity only after free and unmetered candidates are unavailable.
 Concurrent reservations share a mutex and
 cannot independently consume the same remaining allowance. Successful requests,
 including empty results, commit their full estimates. Timeouts, cancellation and
-uncertain failures also commit the estimates. Errors explicitly guaranteed not
+uncertain failures after dispatch also commit the estimates. A reservation whose
+request never dispatched is released. Errors explicitly guaranteed not
 to be billed release their reservation; currently Exa HTTP 503 is the documented
 case. Reservations left by a crash are charged on reopening the ledger, including
 against the current period if a reset occurred while the server was down.
+
+Settlement is queued before awaiting its durable write. Cancellation during
+settlement retains the known charge/refund decision and any remote exhaustion
+cap; it does not queue a second settlement. While background cleanup is pending,
+the durable reservation continues to constrain capacity. If cleanup cannot
+complete before a crash or shutdown, restart recovery charges the outstanding
+reservation conservatively. Status snapshots and usage polling also run ledger
+operations in blocking workers so they cannot block search timeout processing.
 
 Ledger writes use a synced temporary file followed by atomic rename, with a
 directory sync on Unix. A process lock on `budget.lock` prevents another server

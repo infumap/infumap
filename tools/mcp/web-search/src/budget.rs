@@ -24,6 +24,8 @@ use futures_util::future::BoxFuture;
 use jiff::{Span, Timestamp, civil::Date, tz::TimeZone};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinHandle;
+use tokio::time::Instant;
 
 use crate::providers::{
   ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResult,
@@ -98,10 +100,12 @@ pub struct BudgetSnapshot {
   pub persistence_error: Option<&'static str>,
 }
 
-/// Reservations are charged on cancellation and never silently refunded by Drop.
+/// Dispatched reservations are conservatively charged on cancellation. Cleanup
+/// runs in a blocking worker so dropping a timed-out request never waits on I/O.
 struct Reservation {
   account: BudgetAccount,
   id: u64,
+  dispatched: bool,
   finished: bool,
 }
 
@@ -339,8 +343,10 @@ impl BudgetAccount {
     })
   }
 
-  fn reserve(&self, cost: u64, allow_paid: bool) -> ProviderResult<Reservation> {
+  fn reserve(&self, cost: u64, allow_paid: bool, deadline: Option<Instant>) -> ProviderResult<Reservation> {
     let id = self.store.transaction(|ledger| {
+      // The worker may have waited for the ledger lock beyond the deadline.
+      check_deadline(deadline)?;
       let id = ledger.next_reservation_id;
       ledger.next_reservation_id =
         id.checked_add(1).ok_or_else(|| internal("Budget reservation IDs are exhausted."))?;
@@ -361,7 +367,7 @@ impl BudgetAccount {
       Ok(id)
     })?;
     debug!("{} reserved {cost} USD micros (reservation {id}, paid capacity permitted={allow_paid})", self.provider);
-    Ok(Reservation { account: self.clone(), id, finished: false })
+    Ok(Reservation { account: self.clone(), id, dispatched: false, finished: false })
   }
 
   fn settle(&self, id: u64, charged: bool, exhausted: bool) -> ProviderResult<()> {
@@ -425,19 +431,36 @@ impl BudgetAccount {
 }
 
 impl Reservation {
-  fn finish(mut self, charged: bool, exhausted: bool) -> ProviderResult<()> {
-    let result = self.account.settle(self.id, charged, exhausted);
+  async fn finish(mut self, charged: bool, exhausted: bool) -> ProviderResult<()> {
+    // Queue before marking finished: cancellation while awaiting the worker must
+    // not lose a known refund/quota cap or queue a second settlement from Drop.
+    let task = self.schedule_settlement(charged, exhausted)?;
     self.finished = true;
-    result
+    task.await.map_err(|_| internal("Budget settlement worker failed."))?
+  }
+
+  fn schedule_settlement(&self, charged: bool, exhausted: bool) -> ProviderResult<JoinHandle<ProviderResult<()>>> {
+    let runtime = tokio::runtime::Handle::try_current().map_err(|_| internal("Budget runtime is unavailable."))?;
+    let account = self.account.clone();
+    let id = self.id;
+    Ok(runtime.spawn_blocking(move || {
+      let result = account.settle(id, charged, exhausted);
+      if let Err(error) = &result {
+        error!("Could not settle search reservation: {error}");
+      }
+      result
+    }))
   }
 }
 
 impl Drop for Reservation {
   fn drop(&mut self) {
     if !self.finished
-      && let Err(error) = self.account.settle(self.id, true, false)
+      && let Err(error) = self.schedule_settlement(self.dispatched, false)
     {
-      error!("Could not settle cancelled search reservation: {error}");
+      // The durable reservation still constrains capacity and is recovered on
+      // restart, even when shutdown prevents scheduling its settlement.
+      error!("Could not queue cancelled search settlement; durable reservation retained: {error}");
     }
   }
 }
@@ -463,12 +486,14 @@ impl BudgetedProvider {
     Ok(Self { inner: Box::new(inner), account })
   }
 
-  pub fn balance(&self) -> ProviderResult<BudgetBalance> {
-    self.account.balance()
+  pub async fn balance(&self) -> ProviderResult<BudgetBalance> {
+    let account = self.account.clone();
+    budget_worker(move || account.balance()).await
   }
 
-  pub fn snapshot(&self) -> ProviderResult<BudgetSnapshot> {
-    self.account.snapshot()
+  pub async fn snapshot(&self) -> ProviderResult<BudgetSnapshot> {
+    let account = self.account.clone();
+    budget_worker(move || account.snapshot()).await
   }
 
   /// Paid capacity requires the router to explicitly permit it for this attempt.
@@ -476,18 +501,30 @@ impl BudgetedProvider {
     &self,
     request: SearchRequest<'_>,
     allow_paid: bool,
+    deadline: Option<Instant>,
   ) -> ProviderResult<Vec<SearchResult>> {
+    check_deadline(deadline)?;
     let cost = self.inner.estimate_cost(&request)?;
     let RequestCost::UsdMicros(cost) = cost else {
       return self.inner.search(request).await;
     };
-    let reservation = self.account.reserve(cost, allow_paid)?;
+    let account = self.account.clone();
+    let mut reservation = budget_worker(move || {
+      // Do not start a queued reservation after its request has expired.
+      check_deadline(deadline)?;
+      account.reserve(cost, allow_paid, deadline)
+    })
+    .await?;
+    // A write may finish after timeout. A late reservation must never cause a
+    // provider dispatch, even if the result wins a race with the timeout future.
+    check_deadline(deadline)?;
+    reservation.dispatched = true;
     let result = self.inner.search(request).await;
     let charged = !matches!(&result, Err(error) if error.not_charged);
     let exhausted = matches!(&result, Err(error) if error.kind == ProviderErrorKind::QuotaExhausted);
     // Settle consumption and a remote quota cap in one durable transaction.
     // Monthly rollover clears the cap; restarting the server does not.
-    reservation.finish(charged, exhausted)?;
+    reservation.finish(charged, exhausted).await?;
     result
   }
 }
@@ -502,19 +539,34 @@ impl SearchProvider for BudgetedProvider {
   }
 
   fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<Vec<SearchResult>>> {
-    Box::pin(self.search_with_budget(request, false))
+    Box::pin(self.search_with_budget(request, false, None))
   }
 
   fn usage(&self) -> BoxFuture<'_, ProviderResult<Option<UsageSnapshot>>> {
     Box::pin(async {
-      let period_start = self.account.balance()?.period_start;
+      let period_start = self.balance().await?.period_start;
       let usage = self.inner.usage().await?;
       if let Some(snapshot) = &usage {
-        self.account.reconcile(snapshot, period_start)?;
+        let snapshot = snapshot.clone();
+        let account = self.account.clone();
+        budget_worker(move || account.reconcile(&snapshot, period_start)).await?;
       }
       Ok(usage)
     })
   }
+}
+
+async fn budget_worker<T: Send + 'static>(
+  operation: impl FnOnce() -> ProviderResult<T> + Send + 'static,
+) -> ProviderResult<T> {
+  tokio::task::spawn_blocking(operation).await.map_err(|_| internal("Budget worker failed."))?
+}
+
+fn check_deadline(deadline: Option<Instant>) -> ProviderResult<()> {
+  if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+    return Err(ProviderError::new(ProviderErrorKind::Transient, "Search provider exceeded the request deadline."));
+  }
+  Ok(())
 }
 
 fn persist(directory: &Path, ledger: &Ledger) -> ProviderResult<()> {

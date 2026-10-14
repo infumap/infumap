@@ -76,10 +76,10 @@ pub fn initialize_providers() -> InfuResult<()> {
   configured_router().map(|_| ())
 }
 
-pub fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
+pub async fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
   let config = config::search_config().map_err(str::to_owned)?;
   let request = SearchRequest { query: "status", max_results: DEFAULT_MAX_RESULTS };
-  let mut providers = configured_router()?.status(&request);
+  let mut providers = configured_router()?.status(&request).await;
   if config.exa.is_none() {
     providers.push(ProviderStatus::unconfigured("exa", "EXA_API_KEY is not configured."));
   }

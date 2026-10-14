@@ -26,7 +26,7 @@ use serde_json::json;
 use crate::{protocol, search};
 
 /// Operator endpoint: no provider calls, reservations, ledger writes or keys.
-pub fn handle_http<B>(req: &Request<B>, peer: IpAddr) -> Response<Full<Bytes>> {
+pub async fn handle_http<B>(req: &Request<B>, peer: IpAddr) -> Response<Full<Bytes>> {
   let origin_allowed = match req.headers().get(ORIGIN) {
     Some(origin) => origin.to_str().is_ok_and(|origin| protocol::origin_is_allowed(Some(origin))),
     None => true,
@@ -39,7 +39,7 @@ pub fn handle_http<B>(req: &Request<B>, peer: IpAddr) -> Response<Full<Bytes>> {
     response.headers_mut().insert(ALLOW, hyper::header::HeaderValue::from_static("GET"));
     return response;
   }
-  match search::provider_status() {
+  match search::provider_status().await {
     Ok(providers) => {
       let configured = providers.iter().any(|provider| provider.enabled);
       let errors: Vec<&str> = if configured { vec![] } else { vec!["No search providers enabled."] };

@@ -100,7 +100,7 @@ async fn main() {
           io,
           service_fn(move |req| async move {
             let response = if req.uri().path().trim_end_matches('/') == "/status" {
-              status::handle_http(&req, peer.ip())
+              status::handle_http(&req, peer.ip()).await
             } else {
               handle_http(req).await
             };

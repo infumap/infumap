@@ -14,12 +14,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Mutex;
+use std::sync::Arc;
 use std::time::Duration;
 
 use jiff::Timestamp;
 use log::{debug, warn};
 use serde::Serialize;
+use tokio::sync::Mutex;
 use tokio::time::Instant;
 
 use crate::budget::{BudgetSnapshot, BudgetedProvider};
@@ -44,10 +45,18 @@ impl Backend {
     }
   }
 
-  async fn search(&self, request: SearchRequest<'_>, funding: Funding) -> ProviderResult<Vec<SearchResult>> {
+  async fn search(
+    &self,
+    request: SearchRequest<'_>,
+    funding: Funding,
+    deadline: Instant,
+  ) -> ProviderResult<Vec<SearchResult>> {
+    if Instant::now() >= deadline {
+      return Err(ProviderError::new(ProviderErrorKind::Transient, "Search provider exceeded the request deadline."));
+    }
     match self {
       Self::Unmetered(provider) => provider.search(request).await,
-      Self::Metered(provider) => provider.search_with_budget(request, funding == Funding::Paid).await,
+      Self::Metered(provider) => provider.search_with_budget(request, funding == Funding::Paid, Some(deadline)).await,
     }
   }
 }
@@ -58,7 +67,7 @@ pub struct SearchRouter {
 
 struct ProviderSlot {
   backend: Backend,
-  health: Mutex<Health>,
+  health: Arc<Mutex<Health>>,
   usage_status: Mutex<UsageStatus>,
 }
 
@@ -167,44 +176,52 @@ impl SearchRouter {
     Self {
       providers: backends
         .into_iter()
-        .map(|backend| ProviderSlot { backend, health: Mutex::default(), usage_status: Mutex::default() })
+        .map(|backend| ProviderSlot { backend, health: Arc::default(), usage_status: Mutex::default() })
         .collect(),
     }
   }
 
   /// Inspect eligibility for a reference request without selecting a provider,
   /// updating health, persisting a rollover or contacting an external service.
-  pub fn status(&self, request: &SearchRequest<'_>) -> Vec<ProviderStatus> {
-    self.providers.iter().map(|slot| slot.status(request)).collect()
+  pub async fn status(&self, request: &SearchRequest<'_>) -> Vec<ProviderStatus> {
+    let mut providers = Vec::with_capacity(self.providers.len());
+    for slot in &self.providers {
+      providers.push(slot.status(request).await);
+    }
+    providers
   }
 
   pub async fn search(&self, request: SearchRequest<'_>) -> ProviderResult<Vec<SearchResult>> {
+    let deadline = Instant::now() + SEARCH_DEADLINE;
+    // Cover selection, lock/worker waits, reservations and settlement, as well
+    // as provider HTTP. Dropping this future never waits on synchronous cleanup.
+    match tokio::time::timeout_at(deadline, self.search_until(request, deadline)).await {
+      Ok(result) if Instant::now() < deadline => result,
+      _ => Err(ProviderError::new(ProviderErrorKind::Transient, "Web search reached its 30-second deadline.")),
+    }
+  }
+
+  async fn search_until(&self, request: SearchRequest<'_>, deadline: Instant) -> ProviderResult<Vec<SearchResult>> {
     if self.providers.is_empty() {
       return Err(internal(
         "No search providers enabled. Configure Exa with a budget or set WEB_SEARCH_DUCKDUCKGO_ENABLED=true.",
       ));
     }
-    let deadline = Instant::now() + SEARCH_DEADLINE;
     let mut attempted = vec![false; self.providers.len()];
     let mut reasons = vec![None; self.providers.len()];
     let mut attempts = 0;
     while attempts < MAX_ATTEMPTS && Instant::now() < deadline {
-      let Some(candidate) = self.select(&request, &mut attempted, &mut reasons) else { break };
+      let Some(candidate) = self.select(&request, &mut attempted, &mut reasons).await else { break };
       if Instant::now() >= deadline {
         break;
       }
       let slot = &self.providers[candidate.index];
       // Eligibility can change while other requests are selecting a provider.
-      let flight = match slot.acquire() {
-        Ok(Some(flight)) => flight,
-        Ok(None) => {
+      let flight = match slot.acquire().await {
+        Some(flight) => flight,
+        None => {
           attempted[candidate.index] = true;
           reasons[candidate.index] = Some("provider became unavailable".to_owned());
-          continue;
-        }
-        Err(error) => {
-          attempted[candidate.index] = true;
-          reasons[candidate.index] = Some(error.to_string());
           continue;
         }
       };
@@ -212,16 +229,16 @@ impl SearchRouter {
       attempts += 1;
       debug!("Searching with {} using {:?} capacity", slot.backend.provider().name(), candidate.funding);
       let attempt_deadline = deadline.min(Instant::now() + ATTEMPT_DEADLINE);
-      let result =
-        match tokio::time::timeout_at(attempt_deadline, slot.backend.search(request, candidate.funding)).await {
-          Ok(result) => result,
-          Err(_) => {
-            Err(ProviderError::new(ProviderErrorKind::Transient, "Search provider exceeded the request deadline."))
-          }
-        };
-      if let Err(error) = flight.finish(&result, candidate.quota_reset) {
-        warn!("Could not update {} health: {error}", slot.backend.provider().name());
-      }
+      let result = match tokio::time::timeout_at(
+        attempt_deadline,
+        slot.backend.search(request, candidate.funding, attempt_deadline),
+      )
+      .await
+      {
+        Ok(result) if Instant::now() < attempt_deadline => result,
+        _ => Err(ProviderError::new(ProviderErrorKind::Transient, "Search provider exceeded the request deadline.")),
+      };
+      flight.finish(&result, candidate.quota_reset).await;
       match result {
         // An empty result is still success: do not spend another provider's quota.
         Ok(results) => return Ok(results),
@@ -248,7 +265,7 @@ impl SearchRouter {
     Err(ProviderError::new(ProviderErrorKind::Transient, format!("{message}. {details}")))
   }
 
-  fn select(
+  async fn select(
     &self,
     request: &SearchRequest<'_>,
     attempted: &mut [bool],
@@ -259,18 +276,11 @@ impl SearchRouter {
       if attempted[index] {
         continue;
       }
-      match slot.availability() {
-        Ok(None) => (),
-        Ok(Some(reason)) => {
-          reasons[index] = Some(reason.to_owned());
-          continue;
-        }
-        Err(error) => {
-          reasons[index] = Some(error.to_string());
-          continue;
-        }
+      if let Some(reason) = slot.availability().await {
+        reasons[index] = Some(reason.to_owned());
+        continue;
       }
-      match slot.candidate(index, request) {
+      match slot.candidate(index, request).await {
         Ok(Some(candidate)) => {
           if best.as_ref().is_none_or(|other| candidate.preferred_to(other)) {
             best = Some(candidate);
@@ -282,9 +292,7 @@ impl SearchRouter {
         Err(error) => {
           attempted[index] = true;
           reasons[index] = Some(error.to_string());
-          if let Err(health_error) = slot.record_failure(&error, None) {
-            warn!("Could not update {} health: {health_error}", slot.backend.provider().name());
-          }
+          slot.record_failure(&error, None).await;
         }
       }
     }
@@ -329,57 +337,40 @@ impl SearchRouter {
           }
         }
       };
-      match slot.usage_status.lock() {
-        Ok(mut status) => {
-          // A failed refresh must not erase the last successful observation.
-          let last_report = update.last_report.clone().or_else(|| status.last_report.clone());
-          *status = UsageStatus { last_report, ..update };
-        }
-        Err(_) => warn!("{} usage status lock is poisoned", slot.backend.provider().name()),
-      }
+      let mut status = slot.usage_status.lock().await;
+      // A failed refresh must not erase the last successful observation.
+      let last_report = update.last_report.clone().or_else(|| status.last_report.clone());
+      *status = UsageStatus { last_report, ..update };
     }
   }
 }
 
 impl ProviderSlot {
-  fn status(&self, request: &SearchRequest<'_>) -> ProviderStatus {
+  async fn status(&self, request: &SearchRequest<'_>) -> ProviderStatus {
     let mut status = ProviderStatus {
       enabled: true,
       unavailable_reasons: Vec::new(),
       ..ProviderStatus::unconfigured(self.backend.provider().name(), "")
     };
-    match self.health.lock() {
-      Ok(health) => {
-        // Expiry cleanup must only change this copy during inspection.
-        let mut health = health.clone();
-        if let Some(reason) = health.unavailable() {
-          status.unavailable_reasons.push(reason.to_owned());
-        }
-        status.health = Some(HealthStatus {
-          disabled_reason: health.disabled,
-          cooldown_remaining_ms: health.cooldown_until.map_or(0, |until| {
-            u64::try_from(until.saturating_duration_since(Instant::now()).as_millis()).unwrap_or(u64::MAX)
-          }),
-          quota_resets_at: health.quota_reset.filter(|reset| *reset > Timestamp::now().as_second()),
-          consecutive_failures: health.failures,
-          in_flight: health.in_flight,
-          recovery_probe_required: health.recovering,
-        });
-      }
-      Err(_) => status.unavailable_reasons.push("Provider health lock is poisoned.".to_owned()),
+    // Expiry cleanup must only change this copy during inspection. Release the
+    // health lock before waiting for any budget operation.
+    let mut health = self.health.lock().await.clone();
+    if let Some(reason) = health.unavailable() {
+      status.unavailable_reasons.push(reason.to_owned());
     }
-    match self.usage_status.lock() {
-      Ok(usage) => status.usage = Some(usage.clone()),
-      Err(_) => {
-        status.usage = Some(UsageStatus {
-          state: "error",
-          error: Some("Usage status lock is poisoned.".to_owned()),
-          ..UsageStatus::default()
-        })
-      }
-    }
+    status.health = Some(HealthStatus {
+      disabled_reason: health.disabled,
+      cooldown_remaining_ms: health.cooldown_until.map_or(0, |until| {
+        u64::try_from(until.saturating_duration_since(Instant::now()).as_millis()).unwrap_or(u64::MAX)
+      }),
+      quota_resets_at: health.quota_reset.filter(|reset| *reset > Timestamp::now().as_second()),
+      consecutive_failures: health.failures,
+      in_flight: health.in_flight,
+      recovery_probe_required: health.recovering,
+    });
+    status.usage = Some(self.usage_status.lock().await.clone());
     if let Backend::Metered(provider) = &self.backend {
-      match provider.snapshot() {
+      match provider.snapshot().await {
         Ok(snapshot) => {
           if let Some(error) = snapshot.persistence_error {
             status.unavailable_reasons.push(error.to_owned());
@@ -414,12 +405,11 @@ impl ProviderSlot {
     status
   }
 
-  fn availability(&self) -> ProviderResult<Option<&'static str>> {
-    let mut health = self.health.lock().map_err(|_| internal("Provider health lock is poisoned."))?;
-    Ok(health.unavailable())
+  async fn availability(&self) -> Option<&'static str> {
+    self.health.lock().await.unavailable()
   }
 
-  fn candidate(&self, index: usize, request: &SearchRequest<'_>) -> ProviderResult<Option<Candidate>> {
+  async fn candidate(&self, index: usize, request: &SearchRequest<'_>) -> ProviderResult<Option<Candidate>> {
     let cost = match self.backend.provider().estimate_cost(request)? {
       RequestCost::Unmetered => {
         return Ok(Some(Candidate {
@@ -435,7 +425,7 @@ impl ProviderSlot {
     let Backend::Metered(provider) = &self.backend else {
       return Err(internal("Metered search provider has no budget accounting."));
     };
-    let balance = provider.balance()?;
+    let balance = provider.balance().await?;
     let funding = if balance.free_allowance_usd_micros > 0 && cost <= balance.free_remaining_usd_micros {
       Funding::Free
     } else if cost <= balance.total_remaining_usd_micros
@@ -454,18 +444,17 @@ impl ProviderSlot {
     }))
   }
 
-  fn acquire(&self) -> ProviderResult<Option<Flight<'_>>> {
-    let mut health = self.health.lock().map_err(|_| internal("Provider health lock is poisoned."))?;
+  async fn acquire(&self) -> Option<Flight> {
+    let mut health = self.health.lock().await;
     if health.unavailable().is_some() {
-      return Ok(None);
+      return None;
     }
-    health.in_flight = health.in_flight.checked_add(1).ok_or_else(|| internal("Too many concurrent searches."))?;
-    Ok(Some(Flight { slot: self, generation: health.generation, finished: false }))
+    health.in_flight = health.in_flight.checked_add(1)?;
+    Some(Flight { health: Arc::clone(&self.health), generation: health.generation, finished: false })
   }
 
-  fn record_failure(&self, error: &ProviderError, quota_reset: Option<i64>) -> ProviderResult<()> {
-    self.health.lock().map_err(|_| internal("Provider health lock is poisoned."))?.fail(error, quota_reset);
-    Ok(())
+  async fn record_failure(&self, error: &ProviderError, quota_reset: Option<i64>) {
+    self.health.lock().await.fail(error, quota_reset);
   }
 }
 
@@ -533,41 +522,47 @@ impl Health {
   }
 }
 
-struct Flight<'a> {
-  slot: &'a ProviderSlot,
+struct Flight {
+  health: Arc<Mutex<Health>>,
   generation: u64,
   finished: bool,
 }
 
-impl Flight<'_> {
-  fn finish(mut self, result: &ProviderResult<Vec<SearchResult>>, quota_reset: Option<i64>) -> ProviderResult<()> {
-    let result = self.complete(result.as_ref().err(), quota_reset);
+impl Flight {
+  async fn finish(mut self, result: &ProviderResult<Vec<SearchResult>>, quota_reset: Option<i64>) {
+    let mut health = self.health.lock().await;
+    Self::complete(&mut health, self.generation, result.as_ref().err(), quota_reset);
     self.finished = true;
-    result
   }
 
-  fn complete(&self, error: Option<&ProviderError>, quota_reset: Option<i64>) -> ProviderResult<()> {
-    let mut health = self.slot.health.lock().map_err(|_| internal("Provider health lock is poisoned."))?;
+  fn complete(health: &mut Health, generation: u64, error: Option<&ProviderError>, quota_reset: Option<i64>) {
     health.in_flight = health.in_flight.saturating_sub(1);
     if let Some(error) = error {
       health.fail(error, quota_reset);
-    } else if health.generation == self.generation {
+    } else if health.generation == generation {
       // A late success must not clear a newer request's cooldown or suspension.
       health.failures = 0;
       health.recovering = false;
       health.cooldown_until = None;
       health.quota_reset = None;
     }
-    Ok(())
   }
 }
 
-impl Drop for Flight<'_> {
+impl Drop for Flight {
   fn drop(&mut self) {
     if !self.finished {
       let error = ProviderError::new(ProviderErrorKind::Transient, "Search request was cancelled.");
-      if let Err(error) = self.complete(Some(&error), None) {
-        warn!("Could not update cancelled search health: {error}");
+      if let Ok(mut health) = self.health.try_lock() {
+        Self::complete(&mut health, self.generation, Some(&error), None);
+      } else {
+        // Timeout cleanup must not wait for another request's health update.
+        let health = Arc::clone(&self.health);
+        let generation = self.generation;
+        tokio::spawn(async move {
+          let mut health = health.lock().await;
+          Self::complete(&mut health, generation, Some(&error), None);
+        });
       }
     }
   }

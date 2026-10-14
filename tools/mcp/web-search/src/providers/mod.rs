@@ -75,6 +75,8 @@ pub trait SearchProvider: Send + Sync {
   /// Local estimate only; this must not issue a request to the provider.
   fn estimate_cost(&self, request: &SearchRequest<'_>) -> ProviderResult<RequestCost>;
 
+  /// Keep execution cooperative: move blocking I/O and lock waits off runtime
+  /// threads so request deadlines can cancel this future promptly.
   fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<Vec<SearchResult>>>;
 
   /// None means usage reporting is unsupported. Never invent a full allowance.
