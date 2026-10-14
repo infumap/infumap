@@ -374,8 +374,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
               `text-indent: ${popupTextIndentPx()}px; ` +
               `outline: 0px solid transparent;`}
-            contentEditable={canEdit() && !isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && !isInComposite() && store.overlay.textEditInfo()?.itemPath == vePath() ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath()}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(fileItem().title)}

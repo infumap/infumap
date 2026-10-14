@@ -125,8 +125,8 @@ export const Table_LineItem: Component<VisualElementProps> = (props: VisualEleme
       <span id={VeFns.veToPath(props.visualElement) + ":title"}
         style={`display: inline-block; white-space: pre; outline: 0px solid transparent;`}
         class=""
-        contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
-        spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+        contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null ? true : undefined}
+        spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>
         {appendNewlineIfEmpty(tableItem().title)}<span></span>

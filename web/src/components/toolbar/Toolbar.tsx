@@ -420,6 +420,9 @@ export const Toolbar: Component = () => {
             <div id={`toolbarTitleDiv-${tSpec().idx}`}
               class={`p-[3px] inline-block border-b grow-0 overflow-hidden whitespace-nowrap ${tSpec().canEdit ? "cursor-text" : "cursor-pointer"}`}
               contentEditable={tSpec().canEdit}
+              spellcheck={false}
+              onFocus={(ev) => { ev.currentTarget.spellcheck = tSpec().canEdit; }}
+              onBlur={(ev) => { ev.currentTarget.spellcheck = false; }}
               onInput={() => { commitActiveToolbarTitleEdit(store, false); }}
               style={`font-size: 22px; color: ${tSpec().col}; font-weight: 700; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                 `${tSpec().bg} ` +

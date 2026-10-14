@@ -345,8 +345,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
               `overflow-wrap: break-word; white-space: pre-wrap; ` +
               `text-indent: ${popupTextIndentPx()}px; ` +
               `outline: 0px solid transparent;`}
-            contentEditable={canEdit() && !isInComposite() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && !isInComposite() && store.overlay.textEditInfo()?.itemPath == vePath() ? true : undefined}
+            spellcheck={false}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(passwordItem().text)}<span></span>
