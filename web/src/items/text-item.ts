@@ -50,6 +50,14 @@ export interface TextItem extends TextMeasurable, XSizableItem, AttachmentsItem,
   documentShowTitle: boolean | null,
   clipboardTextCreateState?: "awaiting-paste" | "editing-title" | "persisting",
   clipboardTextContent?: string | null,
+  /** Client only. Set on a chat attachment shown as a text item, whose text is in a chat's transcript. */
+  chatAttachmentSource?: ChatAttachmentSource,
+}
+
+/** Where a chat attachment's text is: a live chat (its query item) or a persisted `.chat` item. */
+export interface ChatAttachmentSource {
+  chat: { queryItemId: Uid } | { chatItemId: Uid },
+  attachmentId: Uid,
 }
 
 export interface TextMeasurable extends ItemTypeMixin, PositionalMixin, XSizableMixin, TitledMixin, FlagsMixin, AttachmentsMixin, IconMixin { }
@@ -137,6 +145,8 @@ export const TextFns = {
         ? Math.max(1, Math.round(o.documentWidthBl))
         : null,
       documentShowTitle: typeof o.documentShowTitle == "boolean" ? o.documentShowTitle : null,
+      // Never from the server: only from a virtual page's own objects (`toVirtualServerObject`).
+      ...(o.chatAttachmentSource != null ? { chatAttachmentSource: o.chatAttachmentSource } : {}),
 
       computed_attachments: [],
     });
@@ -345,6 +355,12 @@ export const TextFns = {
   handleLinkClick: (visualElement: VisualElement, store: StoreContextModel): void => {
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     const textItem = asTextItem(visualElement.displayItem);
+    if (textItem.chatAttachmentSource != null) {
+      // A chat attachment has no URL of its own: opening it as a page would put an id the server can't load in the
+      // address bar. A popup keeps the address of the chat.
+      void TextFns.openDocumentPopup(visualElement, store);
+      return;
+    }
     void openTextDocumentProjection(store, textItem);
   },
 
