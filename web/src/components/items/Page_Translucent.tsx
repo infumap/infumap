@@ -563,7 +563,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     </Show>;
 
   const renderFocusRingMaybe = () =>
-    <Show when={isFocused() && !pageFns().isInComposite() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
+    <Show when={isFocused() && (!pageFns().isInComposite() || isCalendarTranslucentPage()) &&
+      shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
       <div class="absolute pointer-events-none rounded-item"
         style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px; ` +
           `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
