@@ -4,10 +4,11 @@ import { For, Show, createMemo, createSignal, onMount } from "solid-js";
 import { getQueryRuntime, QUERY_PROFILE_ROW_HEIGHT_PX, type QueryItem } from "../../items/query-item";
 import { cloneQueryConfiguration, queryConfigurationsEqual, snapshotQueryProfile, type QueryProfile } from "../../items/query-configuration";
 import { applyQueryProfile, isQueryConfigurationModified, queryConfigurationChangeBlockedReason, resetQueryConfiguration } from "../../items/query-configuration-state";
-import { queryScopeName, queryScopeSummary, queryScopes, refreshQueryScopes } from "../../items/query-scope";
+import { queryScopeName, queryScopeSummary, queryScopes, queryScopesLoading, refreshQueryScopes } from "../../items/query-scope";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, stopQueryPickerEvent } from "./QueryPickerPopover";
 import { QueryProfileManager, type QueryProfileManagementAction, type QueryProfileSaveContext } from "./QueryProfileManager";
+import { queryConfigurationIssues, refreshQueryConfigurationAvailability } from "../../items/query-configuration-availability";
 
 interface QueryProfileBarProps {
   queryItem: () => QueryItem,
@@ -27,6 +28,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   const [management, setManagement] = createSignal<QueryProfileManagementAction | null>(null);
   onMount(() => {
     void store.general.queryProfiles.retrieve();
+    void store.general.retrieveChatBackends();
     if (queryScopes() == null) { void refreshQueryScopes(store); }
   });
   const collection = createMemo(() => store.general.queryProfiles.collection());
@@ -36,6 +38,11 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     .filter((profile): profile is QueryProfile => profile != null));
   const others = createMemo(() => profiles().filter(profile => !pinned().some(pin => pin.id == profile.id)));
   const runtime = () => getQueryRuntime(store, props.queryItem());
+  const issues = (profile: QueryProfile) => queryConfigurationIssues(store, profile.configuration, props.searchMode() ? "search" : "chat");
+  const currentIssues = () => runtime().configurationInitialized
+    ? queryConfigurationIssues(store, runtime().configuration, props.searchMode() ? "search" : "chat") : [];
+  const activeIssues = () => currentIssues().filter(issue => issue.active);
+  const unavailable = () => activeIssues().some(issue => issue.status == "unavailable");
   const applied = () => runtime().appliedProfile;
   const savedApplied = () => profiles().find(profile => profile.id == applied()?.id);
   const savedProfileChanged = () => applied() != null && savedApplied() != null &&
@@ -96,9 +103,13 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     <div class="break-words text-[11px] text-slate-500">Scope: {scopeLabel(profile)}</div>
     <div class="break-words text-[11px] text-slate-500">Model: {modelLabel(profile)}</div>
     <div class="break-words text-[11px] text-slate-500">Tools: {toolsLabel(profile)}</div>
+    <For each={issues(profile)}>{issue => <div class="break-words text-[11px]" classList={{ "text-amber-700": issue.active, "text-slate-400": !issue.active }}>
+      {issue.message}{issue.active ? "" : ` (${props.searchMode() && issue.resource != "scope" ? "Not used for Search" : "Scope is not used while Infumap tools are off"})`}
+    </div>}</For>
   </>;
   const profileTitle = (profile: QueryProfile) => [profile.name, `Scope: ${scopeLabel(profile)}`,
     `Model: ${modelLabel(profile)}`, `Tools: ${toolsLabel(profile)}`,
+    ...issues(profile).map(issue => `${issue.message}${issue.active ? "" : " (not used)"}`),
     props.searchMode() ? "Search uses only scope." : "Changes apply from the next message. Earlier answers and context stay in this chat.", reason()].filter(Boolean).join("\n");
   const select = (profile: QueryProfile, close?: () => void) => {
     if (reason() != null) { return; }
@@ -136,12 +147,16 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent} onClick={stopQueryPickerEvent}>
     <span class="shrink-0" title={applied() == null ? "Choose a saved setup" : `Applied profile: ${applied()!.name}`}>Profile:</span>
     <Show when={modified()}><span class="shrink-0 text-[11px] text-amber-700" title="This query has changes to its applied profile.">Modified</span></Show>
+    <Show when={activeIssues().length > 0}><span role="status" class="shrink-0 text-[11px]" classList={{ "text-red-700": unavailable(), "text-amber-700": !unavailable() }}
+      title={activeIssues().map(issue => issue.message).join("\n")}>{unavailable() ? "Unavailable" : activeIssues().some(issue => issue.status == "unverified") ? "Unverified" : activeIssues().some(issue => issue.status == "warning") ? "Scope warning" : "Checking…"}</span></Show>
     <div class="flex min-w-0 items-center gap-1 overflow-x-auto" style="scrollbar-width: none;">
       <For each={pinned()}>{profile => <button type="button" aria-pressed={selected(profile)}
         disabled={reason() != null} title={profileTitle(profile)}
         class="h-[24px] max-w-[180px] shrink-0 cursor-pointer truncate rounded-md border px-2 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-50"
         classList={{ "border-slate-500 bg-slate-100 text-slate-900": selected(profile), "border-[#d6d6d6] bg-white hover:bg-slate-50": !selected(profile) }}
-        onClick={() => select(profile)} onKeyDown={barKeyDown}>{profile.name}</button>}</For>
+        onClick={() => select(profile)} onKeyDown={barKeyDown}>{profile.name}
+        <Show when={issues(profile).some(issue => issue.active && issue.status == "unavailable")}><i class="bi-exclamation-triangle ml-1 text-[10px] text-amber-600" /></Show>
+      </button>}</For>
     </div>
     <QueryPickerPopover buttonClass="max-w-[35%] shrink-0 cursor-pointer" width={440}
       ariaLabel="Choose a query profile" title={unpinnedApplied() ? `Applied profile: ${applied()!.name}. Choose from saved profiles.` : "More query profiles"}
@@ -149,7 +164,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
         <Show when={store.general.queryProfiles.error()}><i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" /></Show></>} onTabKey={props.onTabKey}
       onOpen={() => { setManagement(null); void store.general.queryProfiles.refresh(); void refreshQueryScopes(store); void store.general.retrieveChatBackends(); }}>
       {close => <>
-        <div class="shrink-0 border-b border-slate-200 px-3 py-2">
+        <div class="max-h-[220px] overflow-y-auto border-b border-slate-200 px-3 py-2">
           <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Query profiles
             <button ref={closeButton} type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close profile picker" onClick={close}><i class="bi-x-lg" /></button>
           </div>
@@ -158,6 +173,11 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
             : "Apply scope, model and tools from the next message. Chat mode stays unchanged."}</div>
           <Show when={!props.searchMode()}><div class="text-[11px] text-slate-500">Earlier answers and retrieved context stay in this chat.</div></Show>
           <Show when={reason()}><div class="mt-1 text-[11px] text-slate-500">{reason()}</div></Show>
+          <For each={currentIssues()}>{issue => <div class="mt-1 break-words text-[11px]" classList={{ "text-amber-700": issue.active, "text-slate-400": !issue.active }}>
+            {issue.message}{issue.active ? "" : " (not used for this operation)"}
+          </div>}</For>
+          <Show when={currentIssues().length > 0}><button type="button" class="mt-1 text-[11px] text-blue-700 hover:underline" disabled={store.general.chatBackendsRefreshing() || queryScopesLoading()}
+            onClick={() => { void refreshQueryConfigurationAvailability(store); }}>Refresh availability</button></Show>
           <Show when={applied() != null}>
             <div class="mt-1 break-words text-[11px] text-slate-500">Current setup: {applied()!.name}{modified() ? " · Modified" : ""}</div>
           </Show>

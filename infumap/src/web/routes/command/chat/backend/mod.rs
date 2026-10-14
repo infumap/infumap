@@ -188,10 +188,7 @@ fn openrouter_endpoint(config: &Config, selection: &ChatModelSelection) -> InfuR
   let model = selection
     .requested_model()
     .map(str::to_owned)
-    .or_else(|| configured_string(config, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL))
-    .ok_or_else(|| {
-      format!("Chat request did not name an OpenRouter model, and {} is not set.", CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL)
-    })?;
+    .ok_or("Selected model is missing. Choose an explicit OpenRouter model.")?;
   Ok(ChatEndpoint {
     backend: ChatBackend::OpenRouter,
     label: OPENROUTER_LABEL.to_owned(),
@@ -234,7 +231,7 @@ fn requested_target(llama_servers: &[LlamaServer], id: &str) -> InfuResult<ChatT
   let unknown = || format!("Chat request named unknown backend '{}'.", id);
   match BackendId::parse(id).ok_or_else(unknown)? {
     BackendId::OpenRouter => Ok(ChatTarget::OpenRouter),
-    BackendId::FirstLlama => llama_servers.first().cloned().map(ChatTarget::Llama).ok_or_else(|| unknown().into()),
+    BackendId::FirstLlama => Err(unknown().into()),
     BackendId::Llama(name) => {
       find_llama(llama_servers, name).cloned().map(ChatTarget::Llama).ok_or_else(|| unknown().into())
     }
@@ -246,9 +243,33 @@ pub fn resolve_chat_endpoint(config: &Config, selection: &ChatModelSelection) ->
   let llama_servers = llama_servers_from_config(config)?;
   let target = requested_target(&llama_servers, selection.requested_backend_id())?;
   match target {
-    ChatTarget::Llama(server) => Ok(llama_endpoint(server)),
+    ChatTarget::Llama(server) => {
+      if selection.model.is_some() {
+        return Err("Selected model is unsupported by this provider. Choose Server-selected.".into());
+      }
+      if selection.reasoning_effort.is_some() {
+        return Err("Selected reasoning effort is unsupported by this provider. Choose Default.".into());
+      }
+      Ok(llama_endpoint(server))
+    }
     ChatTarget::OpenRouter => openrouter_endpoint(config, selection),
   }
+}
+
+/// Validate known model capabilities. A failed or stale catalog leaves the explicit request intact.
+pub async fn validate_chat_model_selection(config: &Config, selection: &ChatModelSelection) -> InfuResult<()> {
+  let endpoint = resolve_chat_endpoint(config, selection)?;
+  if endpoint.backend != ChatBackend::OpenRouter { return Ok(()); }
+  let Ok(models) = openrouter::model_catalog().await else { return Ok(()); };
+  if !openrouter::model_catalog_is_fresh() { return Ok(()); }
+  let model = models.iter().find(|model| model.id == endpoint.model)
+    .ok_or_else(|| format!("Selected model '{}' is not in the OpenRouter catalog. Choose another model.", endpoint.model))?;
+  if let Some(effort) = selection.reasoning_effort.as_deref()
+    && !model.reasoning_efforts.iter().any(|supported| supported.eq_ignore_ascii_case(effort))
+  {
+    return Err(format!("Selected reasoning effort '{effort}' is not supported by '{}'. Choose Default or a supported effort.", model.name).into());
+  }
+  Ok(())
 }
 
 /// Checked at startup, so that a bad llama server entry or a default naming a server that does not
@@ -322,7 +343,7 @@ pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
   let openrouter_available = openrouter_is_configured(config);
   let (openrouter_models, models_error) = if openrouter_available {
     match openrouter::model_catalog().await {
-      Ok(models) => ((*models).clone(), None),
+      Ok(models) => ((*models).clone(), if openrouter::model_catalog_is_fresh() { None } else { Some("Could not refresh the model list; showing a saved catalog.".to_owned()) }),
       Err(e) => {
         warn!("Could not load the OpenRouter model list: {}", e);
         (Vec::new(), Some("Could not load the OpenRouter model list.".to_owned()))

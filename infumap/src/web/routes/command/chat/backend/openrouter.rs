@@ -204,3 +204,8 @@ pub async fn model_catalog() -> InfuResult<Arc<Vec<ChatModelInfo>>> {
     },
   }
 }
+
+/// A stale fallback is useful for browsing, but cannot prove that a saved model disappeared.
+pub fn model_catalog_is_fresh() -> bool {
+  cached(true).is_some()
+}

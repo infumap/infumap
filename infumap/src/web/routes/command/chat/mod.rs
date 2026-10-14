@@ -929,6 +929,10 @@ pub async fn serve_chat_stream_route(
       ChatStreamEventKind::error("Attachments are only supported in a chat in the Queries page."),
     );
   }
+  // Reject unavailable resources before recording a user turn, so the client can keep its draft.
+  if let Err(error) = validate_chat_resources(config.as_ref(), db, &session, &request).await {
+    return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(&chat_failure_message(error.message())));
+  }
   let mut live_turn = match request.query_item_id.is_some() {
     true => match start_live_chat_turn(db, &session, &mut request, &stream_request_id).await {
       Ok(turn) => Some(turn),
@@ -2182,6 +2186,10 @@ fn chat_system_prompt(infumap_data: Option<&InfumapData>, has_plugin_tools: bool
 }
 
 fn chat_failure_message(message: &str) -> String {
+  if message.starts_with("Selected tool source") || message.starts_with("Selected model") || message.starts_with("Selected reasoning effort") {
+    return message.to_owned();
+  }
+  if message.contains("Chat requires a model selection") { return "Choose a model and provider for Chat.".to_owned(); }
   if message.contains("Scope was not found") {
     return "The selected scope no longer exists.".to_owned();
   }
@@ -2664,6 +2672,24 @@ fn completed_chat_result(messages: &[OpenAiChatMessage], backend_label: &str) ->
   Ok(ChatRunResult { assistant_text, messages: chat_history_from_wire_messages(messages) })
 }
 
+async fn validate_chat_resources(
+  config: &Config,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  request: &ChatRequest,
+) -> InfuResult<()> {
+  let selection = request.settings.configuration.model.as_ref().ok_or("Chat requires a model selection.")?;
+  backend::validate_chat_model_selection(config, selection).await?;
+  if request.uses_infumap_data()
+    && let Some(scope_id) = &request.settings.configuration.scope_id
+  {
+    resolve_scope(&*db.lock().await, &session.user_id, scope_id)?;
+  }
+  let reserved = mcp::reserved_openai_names(request.uses_infumap_data());
+  mcp::mapped_tools_for_capabilities(config, &request.plugin_capabilities(), &reserved).await?;
+  Ok(())
+}
+
 async fn run_chat_with_tools(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -2691,7 +2717,7 @@ async fn run_chat_with_tools(
   let uses_infumap_data = infumap_data.is_some();
   let reserved = mcp::reserved_openai_names(uses_infumap_data);
   let (mut mcp_tools, mut name_map) =
-    mcp::mapped_tools_for_capabilities(config.as_ref(), &request.plugin_capabilities(), &reserved).await;
+    mcp::mapped_tools_for_capabilities(config.as_ref(), &request.plugin_capabilities(), &reserved).await?;
   if request.settings.mode == ChatRunMode::DeepResearch {
     mcp_tools.retain(|tool| tool.read_only);
     let read_only_names: HashSet<&str> = mcp_tools.iter().map(|tool| tool.openai_name.as_str()).collect();

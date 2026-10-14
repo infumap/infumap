@@ -25,6 +25,7 @@ import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { cloneQueryConfiguration } from "./query-configuration";
 import { ensureQueryConfigurationReady } from "./query-configuration-state";
+import { queryConfigurationUnavailableReason } from "./query-configuration-availability";
 import type { ChatDraftAttachment } from "./chat-attachment";
 import { asContainerItem, isContainer } from "./base/container-item";
 import type { Uid } from "../util/uid";
@@ -147,6 +148,8 @@ export async function runQuerySearch(
   }
 
   await ensureQueryConfigurationReady(store, queryItem);
+  const unavailable = queryConfigurationUnavailableReason(store, getQueryRuntime(store, queryItem).configuration, "search");
+  if (unavailable != null) { throw new Error(unavailable); }
   setQueryMode(store, queryItem, "search");
   setQuerySearchArrangeAlgorithm(store, queryItem, store.general.searchResultsArrangeAlgorithm());
   requestArrange(store, "query-search-start");
@@ -184,6 +187,8 @@ export async function loadMoreQuerySearchResults(
   }
 
   await ensureQueryConfigurationReady(store, queryItem);
+  const unavailable = queryConfigurationUnavailableReason(store, getQueryRuntime(store, queryItem).configuration, "search");
+  if (unavailable != null) { throw new Error(unavailable); }
   const loadedPageCount = getQuerySearchLoadedPageCount(store, queryItem);
   const nextPage = Math.max(1, loadedPageCount + 1);
   const response = await server.search(

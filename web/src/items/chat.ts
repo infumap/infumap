@@ -38,6 +38,7 @@ import {
   updateQueryConfiguration,
 } from "./query-configuration-state";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
+import { queryConfigurationUnavailableReason, refreshQueryConfigurationAvailability } from "./query-configuration-availability";
 import {
   ChatTranscriptConflictError,
   server,
@@ -1078,6 +1079,11 @@ async function submitQueryChatTurn(
   }
   if (!isCurrent()) { return false; }
   const settings = snapshotQueryChatSettings(store, queryItem, deepResearch ? "deep_research" : "chat");
+  const unavailable = queryConfigurationUnavailableReason(store, settings.configuration, "chat");
+  if (unavailable != null) {
+    showChatMessage(store, unavailable, TransientMessageType.Error);
+    return false;
+  }
   const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
   // The server has the attachments only once the turn is accepted; until then, and after, they open from here.
   for (const attachment of attachments) {
@@ -1187,6 +1193,7 @@ async function submitQueryChatTurn(
       console.warn("Chat message was not recorded:", message);
       removeQueryChatRoot(store, queryItem, userTurnRoot.id);
       showChatMessage(store, message, TransientMessageType.Error);
+      void refreshQueryConfigurationAvailability(store);
       return false;
     }
     console.error("Failed to submit query chat message:", e);

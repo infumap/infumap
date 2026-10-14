@@ -29,6 +29,7 @@ import { makeUserStore, UserStoreContextModel } from "./StoreProvider_User";
 import { makeHistoryStore, HistoryStoreContextModel } from "./StoreProvider_History";
 import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Overlay";
 import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
+import { clearQueryScopes } from "../items/query-scope";
 import { PerVeStoreContextModel, makePerVeStore } from "./StoreProvider_PerVe";
 import { FindStoreContextModel, makeFindStore } from "./StoreProvider_Find";
 import { setGlobalRequestTracker } from "../server";
@@ -188,6 +189,7 @@ export function StoreProvider(props: StoreContextProps) {
     overlay.clear();
     perItem.clear();
     general.queryProfiles.clear();
+    clearQueryScopes();
     perVe.clear();
     find.clear();
     dockWidthPx.set(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);

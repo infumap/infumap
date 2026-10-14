@@ -4,6 +4,7 @@ import { For, Show, createMemo, onMount } from "solid-js";
 import { queryChatCapabilities, setQueryChatUsesCapability } from "../../items/chat";
 import { getQueryRuntime } from "../../items/query-item";
 import { queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
+import { queryConfigurationIssues } from "../../items/query-configuration-availability";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
 
@@ -41,6 +42,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
   const store = useStore();
   onMount(() => { void store.general.queryProfiles.retrieve(); void store.general.retrieveChatBackends(); });
   const enabled = createMemo(() => new Set(queryChatCapabilities(store, props.queryItem())));
+  const issues = () => queryConfigurationIssues(store, getQueryRuntime(store, props.queryItem()).configuration, "chat").filter(issue => issue.resource == "tools");
   const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
   const lockedReason = () => queryConfigurationChangeBlockedReason(store, props.queryItem()) ??
     (props.locked() || props.disabled?.() == true ? props.lockedReason : !ready() ? "Wait for this query's setup to load." : null);
@@ -60,30 +62,33 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
     for (const id of enabled()) {
       if (!result.some(source => source.id == id)) {
         result.push({ id, label: id, description: "This saved tool source is not in the current configuration.",
-          available: false, reason: catalog == null ? "Loading tool sources…" : "Not configured", tools: [] });
+          available: false, reason: catalog == null || store.general.chatBackendsError() != null ? "Could not verify this tool source" : "Not configured", tools: [] });
       }
     }
     return result;
   });
   const selected = () => sources().filter(source => enabled().has(source.id));
   const summary = () => !ready() ? store.general.queryProfiles.error() == null ? "Loading…" : "Unavailable" : selected().length == 0 ? "None" : selected().map(source => source.label).join(" + ");
-  const title = () => [`Tools: ${summary()}`, lockedReason(), props.note?.()].filter(Boolean).join("\n");
+  const title = () => [`Tools: ${summary()}`, ...issues().map(issue => issue.message), lockedReason(), props.note?.()].filter(Boolean).join("\n");
 
   return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey}
     buttonClass="max-w-[240px] flex-[1_1_auto] cursor-pointer" ariaLabel="Choose tools" title={title()}
     label={<><span class="shrink-0">Tools:</span><span class="min-w-0 truncate">{summary()}</span>
-      <Show when={selected().some(source => !source.available) && store.general.chatBackends() != null}>
+      <Show when={ready() && issues().length > 0}>
         <i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" />
       </Show></>}
     onOpen={() => { void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
     {close => <>
-      <div class="shrink-0 border-b border-slate-200 px-3 py-2">
+      <div class="max-h-[220px] overflow-y-auto border-b border-slate-200 px-3 py-2">
         <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Available capabilities
           <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close tools picker" onClick={close}><i class="bi-x-lg" /></button>
         </div>
         <div class="text-[11px] text-slate-500">Choose the capabilities for the next message.</div>
         <Show when={props.note?.()}><div class="mt-1 text-[11px] text-slate-500">{props.note?.()}</div></Show>
         <Show when={lockedReason()}><div class="mt-1 text-[11px] text-slate-500">{lockedReason()}</div></Show>
+        <For each={issues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
+        <button type="button" class="mt-1 text-[11px] text-blue-700 hover:underline" disabled={store.general.chatBackendsRefreshing()}
+          onClick={() => { void store.general.refreshChatBackends(); }}>{store.general.chatBackendsRefreshing() ? "Checking availability…" : "Refresh tool availability"}</button>
       </div>
       <div class="min-h-0 grow overflow-y-auto py-1">
         <Show when={store.general.queryProfiles.error()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.queryProfiles.error()}</div></Show>
