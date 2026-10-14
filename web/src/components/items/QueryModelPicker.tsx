@@ -7,6 +7,7 @@ import type { QueryModelFavorite } from "../../items/query-configuration";
 import type { ChatModelInfo } from "../../server";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
+import { queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
 
 const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 const effortLabel = (effort: string) => effort == "none" ? "Off" : effort == "xhigh" ? "X-High" : effort[0]?.toUpperCase() + effort.slice(1);
@@ -43,7 +44,8 @@ export function QueryModelPicker(props: QueryPickerProps) {
   onMount(() => { void store.general.queryProfiles.retrieve(); void store.general.retrieveChatBackends(); });
   const selection = createMemo(() => queryChatModelSelection(store, props.queryItem()));
   const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
-  const canChange = () => ready() && props.disabled?.() != true;
+  const blockedReason = () => queryConfigurationChangeBlockedReason(store, props.queryItem());
+  const canChange = () => ready() && props.disabled?.() != true && blockedReason() == null;
   const favorites = createMemo(() => store.general.queryProfiles.collection()?.preferences.modelFavorites ?? []);
   const favoriteKeys = createMemo(() => new Set(favorites().map(keyFor)));
   const catalogChoices = createMemo(() => {
@@ -134,9 +136,9 @@ export function QueryModelPicker(props: QueryPickerProps) {
     </div>
   }</For>;
 
-  return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey} disabled={props.disabled?.()}
+  return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey} disabled={props.disabled?.() || blockedReason() != null}
     buttonClass="max-w-[340px] flex-[2_1_auto] cursor-pointer" ariaLabel="Choose model and provider"
-    title={`Model: ${label()}${provider() == null ? "" : ` / ${provider()}`}${selection()?.reasoningEffort == null ? "" : ` · ${effortLabel(selection()!.reasoningEffort!)}`}`}
+    title={[`Model: ${label()}${provider() == null ? "" : ` / ${provider()}`}${selection()?.reasoningEffort == null ? "" : ` · ${effortLabel(selection()!.reasoningEffort!)}`}`, blockedReason(), props.note?.()].filter(Boolean).join("\n")}
     label={<><span class="shrink-0">Model:</span><span class="min-w-0 truncate">{label()}</span>
       <Show when={provider() != null}><span class="max-w-[90px] shrink-0 truncate text-slate-500">/ {provider()}</span></Show>
       <Show when={selection()?.reasoningEffort != null}><span class="shrink-0 text-slate-500">· {effortLabel(selection()!.reasoningEffort!)}</span></Show></>}
@@ -146,6 +148,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
         <div class="mb-1.5 flex items-center gap-2 text-[12px] font-medium text-slate-600">Model and provider
           <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close model picker" onClick={close}><i class="bi-x-lg" /></button>
         </div>
+        <Show when={props.note?.()}><div class="mb-1.5 text-[11px] text-slate-500">{props.note?.()}</div></Show>
         <input data-picker-autofocus type="search" aria-label="Search models and providers" placeholder="Search models or providers…"
           class="w-full rounded border border-slate-300 px-2 py-1 text-[12px] outline-hidden focus:border-slate-500"
           value={filter()} onInput={ev => setFilter(ev.currentTarget.value)}

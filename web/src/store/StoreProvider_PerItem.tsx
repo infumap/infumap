@@ -83,6 +83,10 @@ export interface QueryRuntime {
     revision: number,
     /** Whether the transcript has been loaded into the chat view since the chat was last cleared. */
     loadState: QueryChatLoadState,
+    /** Covers preparation and streaming, independent of whether the composer is mounted. */
+    requestId: Uid | null,
+    /** A transcript load observed a response owned by another view or client. */
+    runningElsewhere: boolean,
     completedActivities: Array<QueryChatCompletedActivity>,
     contextTokens: number | null,
     contextTokensExact: boolean,
@@ -183,6 +187,8 @@ export function makePerItemStore(
         outcomeRootIds: [],
         revision: 0,
         loadState: "unloaded",
+        requestId: null,
+        runningElsewhere: false,
         completedActivities: [],
         contextTokens: null,
         contextTokensExact: false,

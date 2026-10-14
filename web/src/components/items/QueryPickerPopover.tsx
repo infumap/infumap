@@ -9,6 +9,7 @@ export interface QueryPickerProps {
   queryItem: () => QueryItem,
   disabled?: () => boolean,
   beforeChange?: () => void,
+  note?: () => string | null,
   buttonRef?: (el: HTMLButtonElement) => void,
   onTabKey?: (ev: KeyboardEvent) => void,
 }

@@ -15,8 +15,22 @@ import {
   type QueryProfile,
 } from "./query-configuration";
 
-/** Applies every resource and the reset baseline in one update. Does not change mode or user defaults. */
-export function applyQueryProfile(store: StoreContextModel, queryItem: QueryItem, profile: QueryProfile): void {
+/** Editing affects the next turn. Loading and active requests own the current turn's settings. */
+export function queryConfigurationChangeBlockedReason(store: StoreContextModel, queryItem: QueryItem): string | null {
+  const chat = getQueryRuntime(store, queryItem).chat;
+  if (chat.requestId != null) { return "Wait for the current response to finish."; }
+  if (chat.runningElsewhere) { return "A response is running in another window. This chat will refresh when it finishes."; }
+  if (chat.loadState == "loading") { return "Wait for this chat to load before changing settings."; }
+  if (chat.loadState == "failed") { return "This chat could not be loaded. Reload it before changing settings."; }
+  return null;
+}
+
+function assertQueryConfigurationEditable(store: StoreContextModel, queryItem: QueryItem): void {
+  const reason = queryConfigurationChangeBlockedReason(store, queryItem);
+  if (reason != null) { throw new Error(reason); }
+}
+
+function replaceQueryProfile(store: StoreContextModel, queryItem: QueryItem, profile: QueryProfile): void {
   const appliedProfile = snapshotQueryProfile(profile);
   updateQueryRuntime(store, queryItem, current => ({
     ...current,
@@ -26,12 +40,19 @@ export function applyQueryProfile(store: StoreContextModel, queryItem: QueryItem
   }));
 }
 
+/** Applies every resource and the reset baseline in one update. Does not change mode or user defaults. */
+export function applyQueryProfile(store: StoreContextModel, queryItem: QueryItem, profile: QueryProfile): void {
+  assertQueryConfigurationEditable(store, queryItem);
+  replaceQueryProfile(store, queryItem, profile);
+}
+
 /** A late default can initialize a pending query, but cannot change an applied, edited or restored setup. */
 export function initializeQueryConfiguration(store: StoreContextModel, queryItem: QueryItem): boolean {
   if (getQueryRuntime(store, queryItem).configurationInitialized) { return true; }
   const profile = store.general.defaultQueryProfile();
   if (profile == null) { return false; }
-  applyQueryProfile(store, queryItem, profile);
+  // Initialization is also needed while a first request waits for its complete default setup.
+  replaceQueryProfile(store, queryItem, profile);
   return true;
 }
 
@@ -50,6 +71,7 @@ export function updateQueryConfiguration(
   queryItem: QueryItem,
   patch: Partial<QueryConfiguration>,
 ): void {
+  assertQueryConfigurationEditable(store, queryItem);
   if (!initializeQueryConfiguration(store, queryItem)) {
     throw new Error("The default query profile has not loaded yet.");
   }

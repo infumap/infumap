@@ -18,6 +18,7 @@
 
 import { For, Show, onMount } from "solid-js";
 import { getQueryRuntime } from "../../items/query-item";
+import { queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
 import {
   queryScopeDescription, queryScopeId, queryScopeName, queryScopeProblemText,
   queryScopeSummary, queryScopes, queryScopesError, refreshQueryScopes, setQueryScopeId,
@@ -45,7 +46,7 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
   const missing = () => selectedId() != null && selectedSummary() === null;
   const inUse = () => props.inUse?.() != false;
   const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
-  const disabled = () => props.disabled?.() == true || !ready() || !inUse();
+  const disabled = () => props.disabled?.() == true || queryConfigurationChangeBlockedReason(store, props.queryItem()) != null || !ready() || !inUse();
   const label = () => !inUse() ? "Not used" : selectedSummary() === undefined
     ? queryScopesError() == null ? "Loading…" : "Unavailable" : queryScopeName(selectedId());
   const warning = () => {
@@ -53,6 +54,8 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
     return inUse() && (missing() || (summary != null && queryScopeProblemText(summary.problems) != null));
   };
   const title = () => {
+    const blockedReason = queryConfigurationChangeBlockedReason(store, props.queryItem());
+    if (blockedReason != null) { return blockedReason; }
     if (!inUse()) { return `Scope is not used because Infumap tools are off. Saved scope: ${queryScopeName(selectedId())}.`; }
     if (!ready()) { return store.general.queryProfiles.error() ?? "Loading the default query profile…"; }
     if (missing()) { return "The selected scope no longer exists. Choose another."; }
