@@ -278,6 +278,14 @@ export class ChatTranscriptConflictError extends Error {
 
 export type ChatTurnStatus = "running" | "completed" | "cancelled" | "error" | "interrupted";
 
+/** An attachment of a chat message, without its text: see `server.loadChatAttachment`. */
+export interface LoadChatAttachment {
+  id: Uid,
+  title: string,
+  mimeType: string,
+  sizeBytes: number,
+}
+
 export interface LoadChatTurn {
   requestId: string,
   text: string,
@@ -285,6 +293,7 @@ export interface LoadChatTurn {
   startedAt: number,
   endedAt: number | null,
   error: string | null,
+  attachments: Array<LoadChatAttachment>,
   assistantText: string | null,
   items: Array<object> | null,
   rounds: Array<QueryChatActivityModelRound>,
@@ -428,6 +437,7 @@ const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_SCOPES = "list-scopes";
 const COMMAND_LOAD_CHAT = "load-chat";
+const COMMAND_LOAD_CHAT_ATTACHMENT = "load-chat-attachment";
 const COMMAND_ENSURE_QUERY_ENTRY = "ensure-query-entry";
 const COMMAND_GET_BACKLINKS = "get-backlinks";
 const COMMAND_CHAT = "chat";
@@ -1054,6 +1064,16 @@ export const server = {
   /** A persisted chat's transcript, the content of a `.chat` text item, for its document page. */
   loadPersistedChat: async (chatItemId: Uid, networkStatus: NumberSignal): Promise<LoadChatResponse> => {
     return constructCommandPromise(null, COMMAND_LOAD_CHAT, { chatItemId }, null, networkStatus);
+  },
+
+  /** The text of an attachment of a live chat (`{ queryItemId }`) or a persisted chat (`{ chatItemId }`). */
+  loadChatAttachment: async (
+    chat: { queryItemId: Uid } | { chatItemId: Uid },
+    attachmentId: Uid,
+    networkStatus: NumberSignal,
+  ): Promise<string> => {
+    return constructCommandPromise(null, COMMAND_LOAD_CHAT_ATTACHMENT, { ...chat, attachmentId }, null, networkStatus)
+      .then((response: { text: string }) => response.text);
   },
 
   /** The user's links and notes that refer to an item they own. Local items only: backlinks are not tracked across servers. */

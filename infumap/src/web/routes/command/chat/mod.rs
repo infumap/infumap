@@ -1582,11 +1582,23 @@ struct LoadChatTurn {
   #[serde(rename = "endedAt")]
   ended_at: Option<i64>,
   error: Option<String>,
+  /// The attachments of the user message, without their text, which `load-chat-attachment` returns.
+  attachments: Vec<LoadChatAttachment>,
   /// The answer of a completed turn, and the chat window's items built from it as for `final_items`.
   #[serde(rename = "assistantText")]
   assistant_text: Option<String>,
   items: Option<Value>,
   rounds: Vec<ActivityRound>,
+}
+
+#[derive(Serialize)]
+struct LoadChatAttachment {
+  id: Uid,
+  title: String,
+  #[serde(rename = "mimeType")]
+  mime_type: String,
+  #[serde(rename = "sizeBytes")]
+  size_bytes: usize,
 }
 
 fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: bool) -> LoadChatResponse {
@@ -1615,6 +1627,17 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
         started_at: turn.user.started_at,
         ended_at: end.map(|end| end.ended_at),
         error: end.and_then(|end| end.error.clone()),
+        attachments: turn
+          .user
+          .attachments
+          .iter()
+          .map(|attachment| LoadChatAttachment {
+            id: attachment.id.clone(),
+            title: attachment.title.clone(),
+            mime_type: attachment.mime_type.clone(),
+            size_bytes: attachment.size_bytes,
+          })
+          .collect(),
         assistant_text,
         items,
         rounds: end.map(|end| end.rounds.clone()).unwrap_or_default(),
@@ -1640,21 +1663,64 @@ pub(super) async fn handle_load_chat(
 ) -> InfuResult<Option<String>> {
   let session = session_maybe.as_ref().ok_or("Session is required to load a chat.")?;
   let request: LoadChatRequest = serde_json::from_str(json_data)?;
-  let response = match (&request.query_item_id, &request.chat_item_id) {
+  let (transcript, running) = read_chat_for_load(db, object_store, session, &request).await?;
+  let response = load_chat_response(&session.user_id, transcript.as_ref(), running);
+  debug!("Executed 'load-chat' command for user '{}'.", session.user_id);
+  Ok(Some(serde_json::to_string(&response)?))
+}
+
+/// The transcript of the chat a load names, live or persisted, and whether a turn is running in it.
+async fn read_chat_for_load(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  session: &Session,
+  request: &LoadChatRequest,
+) -> InfuResult<(Option<Transcript>, bool)> {
+  match (&request.query_item_id, &request.chat_item_id) {
     (Some(query_item_id), None) => {
       let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
       let running = chat_is_locked(&session.user_id, query_item_id);
-      let transcript = read_transcript(&data_dir, &session.user_id, query_item_id).await?;
-      load_chat_response(&session.user_id, transcript.as_ref(), running)
+      Ok((read_transcript(&data_dir, &session.user_id, query_item_id).await?, running))
     }
     (None, Some(chat_item_id)) => {
-      let transcript = read_persisted_chat(db, object_store, session, chat_item_id).await?;
-      load_chat_response(&session.user_id, Some(&transcript), false)
+      Ok((Some(read_persisted_chat(db, object_store, session, chat_item_id).await?), false))
     }
-    _ => return Err("A chat load names either a query item or a chat item.".into()),
-  };
-  debug!("Executed 'load-chat' command for user '{}'.", session.user_id);
-  Ok(Some(serde_json::to_string(&response)?))
+    _ => Err("A chat load names either a query item or a chat item.".into()),
+  }
+}
+
+#[derive(Deserialize)]
+struct LoadChatAttachmentRequest {
+  #[serde(flatten)]
+  chat: LoadChatRequest,
+  #[serde(rename = "attachmentId")]
+  attachment_id: Uid,
+}
+
+#[derive(Serialize)]
+struct LoadChatAttachmentResponse {
+  text: String,
+}
+
+/// The text of one attachment of a live or persisted chat, which `load-chat` leaves out. See docs/chat-attachments.md.
+pub(super) async fn handle_load_chat_attachment(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to load a chat attachment.")?;
+  let request: LoadChatAttachmentRequest = serde_json::from_str(json_data)?;
+  let (transcript, _) = read_chat_for_load(db, object_store, session, &request.chat).await?;
+  let text = transcript
+    .iter()
+    .flat_map(|transcript| &transcript.turns)
+    .flat_map(|turn| &turn.user.attachments)
+    .find(|attachment| attachment.id == request.attachment_id)
+    .map(|attachment| attachment.text.clone())
+    .ok_or_else(|| format!("Attachment '{}' was not found in the chat.", request.attachment_id))?;
+  debug!("Executed 'load-chat-attachment' command for user '{}'.", session.user_id);
+  Ok(Some(serde_json::to_string(&LoadChatAttachmentResponse { text })?))
 }
 
 /// The transcript of a persisted chat: the content of a `.chat` text item of the session user.
@@ -4194,6 +4260,47 @@ mod live_chat_tests {
     assert!(handle_load_chat(&f.db, f.object_store.clone(), &both, &Some(f.session.clone())).await.is_err());
     let not_a_chat = serde_json::json!({ "chatItemId": f.note_id }).to_string();
     assert!(handle_load_chat(&f.db, f.object_store.clone(), &not_a_chat, &Some(f.session.clone())).await.is_err());
+  }
+
+  #[tokio::test]
+  async fn load_gives_attachment_metadata_and_their_text_separately() {
+    let f = fixture().await;
+    let mut request = request(&f.query_item_id, 0, "summarize");
+    request.attachments =
+      vec![attachment_request("Pasted text", "the transcript text"), attachment_request("Notes.md", "# notes")];
+    let ids = request.attachments.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
+    let mut turn = f.start(&mut request, "r1").await.ok().unwrap();
+    let mut messages = request.messages.clone();
+    messages.push(message("assistant", "a summary"));
+    turn.end_completed(ChatRunResult { assistant_text: "a summary".to_owned(), messages }).await.ok().unwrap();
+    drop(turn);
+
+    let json = serde_json::json!({ "queryItemId": f.query_item_id }).to_string();
+    let raw = handle_load_chat(&f.db, f.object_store.clone(), &json, &Some(f.session.clone())).await.unwrap().unwrap();
+    assert!(!raw.contains("the transcript text") && !raw.contains("# notes"), "{raw}");
+    let loaded: Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(loaded["turns"][0]["text"], "summarize");
+    assert_eq!(
+      loaded["turns"][0]["attachments"],
+      serde_json::json!([
+        { "id": ids[0], "title": "Pasted text", "mimeType": "text/plain", "sizeBytes": 19 },
+        { "id": ids[1], "title": "Notes.md", "mimeType": "text/plain", "sizeBytes": 7 },
+      ])
+    );
+
+    let load_attachment = |session: Option<Session>, attachment_id: &Uid| {
+      let json = serde_json::json!({ "queryItemId": f.query_item_id, "attachmentId": attachment_id }).to_string();
+      let db = f.db.clone();
+      let object_store = f.object_store.clone();
+      async move { handle_load_chat_attachment(&db, object_store, &json, &session).await }
+    };
+    let response = load_attachment(Some(f.session.clone()), &ids[1]).await.unwrap().unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&response).unwrap(), serde_json::json!({ "text": "# notes" }));
+    let message = load_attachment(Some(f.session.clone()), &new_uid()).await.err().unwrap().message().to_owned();
+    assert!(message.contains("not found"), "{message}");
+    let other_user = Session { user_id: new_uid(), ..f.session.clone() };
+    assert!(load_attachment(Some(other_user), &ids[0]).await.is_err());
+    assert!(load_attachment(None, &ids[0]).await.is_err());
   }
 
   fn attachment_request(title: &str, text: &str) -> ChatAttachmentRequest {

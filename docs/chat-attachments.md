@@ -1,6 +1,6 @@
 # Chat attachments (proposal)
 
-Status: in progress. Discussed 2026-10-14; step 1 done 2026-10-14.
+Status: in progress. Discussed 2026-10-14; steps 1–2 done 2026-10-14.
 
 A common use of chat is pasting something long, such as a video transcript, and asking for a summary. Today the
 pasted text goes into the message itself: the composer fills with it, and the "You" turn shows it as a wall of text.
@@ -149,6 +149,13 @@ Each step can be committed on its own. Steps 1–4 cover pasting a transcript an
    - Add `loadChat`/`loadPersistedChat` response types and `server.loadChatAttachment` in
      [server.ts](../web/src/server.ts).
    - Test: the load response holds no attachment text.
+
+   Done 2026-10-14: `LoadChatAttachment` and `handle_load_chat_attachment` in
+   [chat/mod.rs](../infumap/src/web/routes/command/chat/mod.rs), sharing `read_chat_for_load` with `load-chat`;
+   `LoadChatAttachment` and `server.loadChatAttachment(chat, attachmentId)` in [server.ts](../web/src/server.ts),
+   where `chat` is `{ queryItemId }` or `{ chatItemId }`. An attachment id not in the chat is an error. Tested on a
+   live chat only: no test covers a persisted chat, which goes through the same `read_persisted_chat` as
+   `load-chat`. Not checked end to end; the command is one line of dispatch.
 
 3. **Composer (client).**
    - Hold the draft's attachments next to `chatText` in [Query.tsx](../web/src/components/items/Query.tsx):
