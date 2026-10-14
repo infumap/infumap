@@ -33,6 +33,7 @@ import { HitInfoFns } from "./hit";
 import { asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { isText } from "../items/text-item";
+import { isVirtualTextDocumentPage } from "../items/text-document";
 import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
 import { arrangeNow } from "../layout/arrange";
@@ -725,10 +726,18 @@ function changeMouseActionStateMaybe(
       moving_initiate(store, activeItem, activeVisualElement, desktopPosPx);
     }
   } else if (veFlagIsRoot(activeVisualElement.flags)) {
-    if (isPage(activeVisualElement.displayItem) &&
-      asPageItem(activeVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Calendar) {
-      store.overlay.selectionMarqueePx.set(null);
-      return;
+    if (isPage(activeVisualElement.displayItem)) {
+      const arrangeAlgorithm = activeVisualElement.linkItemMaybe?.overrideArrangeAlgorithm ??
+        asPageItem(activeVisualElement.displayItem).arrangeAlgorithm;
+      const isListTextPreview = !!(activeVisualElement.flags & VisualElementFlags.ListPageRoot) &&
+        isVirtualTextDocumentPage(activeVisualElement.displayItem.id);
+      // List rows cannot be marquee-selected. The list root also owns the background around a
+      // non-page selected item; selected pages have their own root and retain their selection behavior.
+      // Text previews have a virtual page root, but still represent a single non-page item.
+      if (arrangeAlgorithm == ArrangeAlgorithm.Calendar || arrangeAlgorithm == ArrangeAlgorithm.List || isListTextPreview) {
+        store.overlay.selectionMarqueePx.set(null);
+        return;
+      }
     }
     MouseActionState.setAction(MouseAction.Selecting);
     const startPx = MouseActionState.getStartPx()!;
