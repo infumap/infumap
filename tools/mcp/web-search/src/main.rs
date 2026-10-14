@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+mod config;
 mod error;
 mod fetch;
 mod protocol;
@@ -26,7 +27,7 @@ use std::net::SocketAddr;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
-use log::{error, info};
+use log::{error, info, warn};
 use tokio::net::TcpListener;
 
 use protocol::handle_http;
@@ -34,6 +35,27 @@ use protocol::handle_http;
 #[tokio::main]
 async fn main() {
   env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+  let config = match config::search_config() {
+    Ok(config) => config,
+    Err(message) => {
+      eprintln!("Invalid web-search configuration: {message}");
+      std::process::exit(1);
+    }
+  };
+  let providers = config.provider_preference();
+  if providers.is_empty() {
+    warn!("No search providers configured; web_search is unavailable. fetch_page is still available.");
+  } else {
+    info!("Configured search provider preference: {}", providers.join(", "));
+  }
+  if let Some(exa) = &config.exa {
+    info!(
+      "Exa monthly configuration: {} US cents free, {} US cents paid limit, reset day {} at 00:00 UTC",
+      exa.monthly_free_credits_cents, exa.monthly_paid_limit_cents, exa.monthly_reset_day
+    );
+    warn!("Exa search and budget enforcement are not implemented yet; searches require DuckDuckGo opt-in.");
+  }
 
   let host = std::env::var("WEB_SEARCH_HOST").unwrap_or_else(|_| "127.0.0.1".to_owned());
   let port = std::env::var("WEB_SEARCH_PORT").unwrap_or_else(|_| "8791".to_owned());

@@ -24,6 +24,7 @@ use reqwest::header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, HeaderMap, Heade
 use scraper::{Html, Selector};
 use serde::Serialize;
 
+use crate::config;
 use crate::error::InfuResult;
 
 pub const DEFAULT_MAX_RESULTS: usize = 5;
@@ -84,6 +85,16 @@ pub async fn search(query: &str, max_results: usize) -> InfuResult<Vec<SearchRes
     return Err("search query cannot be empty".into());
   }
   let max_results = max_results.clamp(1, MAX_RESULTS_CAP);
+
+  let config = config::search_config().map_err(|message| format!("Invalid web-search configuration: {message}"))?;
+  if !config.duckduckgo_enabled {
+    return Err(if config.exa.is_some() {
+      "Exa is configured but its search adapter is not implemented yet. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
+    } else {
+      "No search providers enabled. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
+    }
+    .into());
+  }
 
   let client = reqwest::Client::builder()
     .redirect(reqwest::redirect::Policy::none())
