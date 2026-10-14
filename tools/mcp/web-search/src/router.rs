@@ -204,7 +204,7 @@ impl SearchRouter {
   async fn search_until(&self, request: SearchRequest<'_>, deadline: Instant) -> ProviderResult<Vec<SearchResult>> {
     if self.providers.is_empty() {
       return Err(internal(
-        "No search providers enabled. Configure Exa with a budget or set WEB_SEARCH_DUCKDUCKGO_ENABLED=true.",
+        "No search providers enabled. Configure Exa with a budget or unset WEB_SEARCH_DUCKDUCKGO_ENABLED to restore DuckDuckGo.",
       ));
     }
     let mut attempted = vec![false; self.providers.len()];

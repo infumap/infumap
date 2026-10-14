@@ -86,7 +86,7 @@ pub async fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
   if !config.duckduckgo_enabled {
     providers.push(ProviderStatus::unconfigured(
       "duckduckgo",
-      "DuckDuckGo requires explicit opt-in with WEB_SEARCH_DUCKDUCKGO_ENABLED=true.",
+      "DuckDuckGo is disabled by WEB_SEARCH_DUCKDUCKGO_ENABLED=false; unset it or set true to enable.",
     ));
   }
   Ok(providers)

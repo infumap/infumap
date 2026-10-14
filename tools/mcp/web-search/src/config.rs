@@ -64,7 +64,7 @@ impl SearchConfig {
         _ => Err("WEB_SEARCH_DUCKDUCKGO_ENABLED must be true or false.".to_owned()),
       })
       .transpose()?
-      .unwrap_or(false);
+      .unwrap_or(true);
     let api_key = optional_env("EXA_API_KEY")?;
     let account_id = optional_env("WEB_SEARCH_EXA_ACCOUNT_ID")?.unwrap_or_else(|| "default".to_owned());
     if account_id.len() > 128 || account_id.chars().any(char::is_control) {
