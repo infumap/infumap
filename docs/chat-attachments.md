@@ -1,6 +1,6 @@
 # Chat attachments (proposal)
 
-Status: in progress. Discussed 2026-10-14; steps 1–3 done 2026-10-14.
+Status: in progress. Discussed 2026-10-14; steps 1–4 done 2026-10-14.
 
 A common use of chat is pasting something long, such as a video transcript, and asking for a summary. Today the
 pasted text goes into the message itself: the composer fills with it, and the "You" turn shows it as a wall of text.
@@ -100,15 +100,17 @@ makes it a searchable text item.
 
 ### Rendering
 
-A "You" composite holds the turn's attachments, as text items, before the message note. Each attachment item has a
-client-only field naming its source, `chatAttachmentSource: { queryItemId | chatItemId, attachmentId }`, like
-`clipboardTextContent`. `fetchTextItemContent` ([text-document.ts](../web/src/items/text-document.ts)) loads such
-an item's text with `load-chat-attachment` instead of from `/files/{id}`. Item ids are
-`stableUid("chat-attachment:{chatId}:{attachmentId}")`, stable across loads, as for the `.chat` page's items.
+A "You" composite holds the turn's attachments, as text items, before the message note, which is left out when the
+message has no text. Each attachment item has a client-only field naming its source,
+`chatAttachmentSource: { chat: { queryItemId } | { chatItemId }, attachmentId }`, like `clipboardTextContent`.
+`fetchTextItemContent` ([text-document.ts](../web/src/items/text-document.ts)) loads such an item's text with
+`load-chat-attachment` instead of from `/files/{id}`, cached by attachment rather than by item. Item ids follow the
+other items of the view they are in: new uids in the chat window, as for its notes, and stable ids from the turn and
+attachment index on a `.chat` page.
 
-Opening an attachment shows the usual text document page. The page must not put the attachment's id in the URL: a
-reload would look the id up on the server and not find it (`Main.tsx`, `openTextDocumentProjection`). Show it
-without changing the URL, or in a popup; which works best is decided in step 4.
+Opening an attachment shows the usual text document page, as a popup. The page must not put the attachment's id in
+the URL: a reload would look the id up on the server and not find it (`Main.tsx`, `openTextDocumentProjection`). A
+popup keeps the address of the page it opens over.
 
 ## Implementation steps
 
@@ -214,6 +216,31 @@ Each step can be committed on its own. Steps 1–4 cover pasting a transcript an
      send, check the model request in `/tmp/llm.txt`, reload, open the attachment, persist the chat, open the
      `.chat` page and its attachment, Continue, shift-drag a "You" turn into a page, and a revision conflict giving
      back text and attachments.
+
+   Done 2026-10-14: `createChatAttachmentItem` in [chat-attachment.ts](../web/src/items/chat-attachment.ts), used by
+   `addLocalQueryUserTurn` ([chat.ts](../web/src/items/chat.ts)) and `createChatDocumentItems`;
+   `ChatAttachmentSource` in [text-item.ts](../web/src/items/text-item.ts); `seedChatAttachmentContent` and
+   `chatAttachmentCopyData` in [text-document.ts](../web/src/items/text-document.ts). Details:
+   - `TextFns.handleLinkClick` opens an attachment with `TextFns.openDocumentPopup`.
+   - `chatAttachmentSource` is not in `TextFns.toObject`, so it never reaches the server. `toVirtualServerObject`
+     writes it and `TextFns.fromObject` reads it, because the virtual `.chat` page round-trips its items through
+     objects. `cloneDescendantsForCopy` copies it across explicitly.
+   - `chatAttachmentCopyData` gives an attachment copy its text as base64 for `add-item`, and removes
+     `chatAttachmentSource` from it, so the copy is an ordinary text item. It is called by the three add loops that
+     can meet a copy: copied descendants of a shift-dragged turn (`enqueueUpdateItem` in
+     [mouse_up.ts](../web/src/input/mouse_up.ts)), text document materialization on drop
+     (`enqueueTextDocumentMaterializationIfPending`), and `materializeTextDocumentPage`.
+   - The "Open text file" toolbar button opens an attachment's text as a blob URL in a new tab. Not tested.
+   - `fetchTextItemContent` now takes the network status signal, for `load-chat-attachment`.
+   - Checked end to end with Playwright against a fake llama-server: a turn shows its attachment then its text, and
+     a turn of an attachment alone shows no empty note. Opening an attachment shows a popup with its text, without a
+     URL change, in the chat window, after a reload (text from the server), and on a persisted `.chat` page.
+     Shift-dragging a "You" turn into a page made a composite with a text item holding the attachment's 3,289 bytes
+     in the object store, then the note. Shift-dragging the `.chat` item made an editable page whose attachment items
+     had their text.
+   - Seen in the test, not changed: a `text/plain` document page shows single line breaks as spaces, so a
+     transcript of short lines reads as one paragraph. That is how text documents render today.
+   - Not handled yet: shift-dragging an attachment item alone. That is step 5.
 
 5. **Copying a single attachment out.** Shift-dragging an attachment item out of a turn makes a real text item where
    it is dropped. This uses step 4's copy path; make the attachment item itself `readonlyCopyableCapabilities`. Check

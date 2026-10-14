@@ -39,6 +39,7 @@ import {
   type ChatStreamEvent,
   type ChatStreamPhase,
   type ChatToolServerInfo,
+  type LoadChatAttachment,
   type LoadChatResponse,
   type LoadChatTurn,
 } from "../server";
@@ -54,7 +55,13 @@ import {
 } from "../store/StoreProvider_PerItem";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
-import { ChatDraftAttachment, estimateChatAttachmentTokens } from "./chat-attachment";
+import {
+  ChatDraftAttachment,
+  chatAttachmentSizeBytes,
+  createChatAttachmentItem,
+  estimateChatAttachmentTokens,
+} from "./chat-attachment";
+import { seedChatAttachmentContent } from "./text-document";
 
 function markAsQueryChatPage(item: Item): void {
   item.clientOnly = true;
@@ -801,7 +808,13 @@ function createTurnNote(
   return note;
 }
 
-function addLocalQueryUserTurn(store: StoreContextModel, queryItem: QueryItem, text: string): Array<Item> {
+/** A "You" composite: the message's attachments, as text items, then its text. */
+function addLocalQueryUserTurn(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  text: string,
+  attachments: Array<LoadChatAttachment>,
+): Array<Item> {
   const chatPage = ensureTemporaryQueryChatPage(store, queryItem);
   const composite = createTurnComposite(
     queryItem.ownerId,
@@ -811,15 +824,31 @@ function addLocalQueryUserTurn(store: StoreContextModel, queryItem: QueryItem, t
     true,
   );
   makeQueryChatTurnCopyable(composite);
-  const note = createTurnNote(
-    queryItem.ownerId,
-    composite.id,
-    text,
-    itemState.newOrderingAtEndOfChildren(composite.id),
-    true,
-  );
+  const items: Array<Item> = [composite];
+  for (const attachment of attachments) {
+    const attachmentItem = createChatAttachmentItem(
+      queryItem.ownerId,
+      composite.id,
+      itemState.newOrderingAtEndOfChildren(composite.id),
+      attachment,
+      { queryItemId: queryItem.id },
+    );
+    attachmentItem.clientOnly = true;
+    makeQueryChatItemReadOnly(attachmentItem);
+    itemState.add(attachmentItem);
+    items.push(attachmentItem);
+  }
+  if (text != "") {
+    items.push(createTurnNote(
+      queryItem.ownerId,
+      composite.id,
+      text,
+      itemState.newOrderingAtEndOfChildren(composite.id),
+      true,
+    ));
+  }
   setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), composite.id]);
-  return [composite, note];
+  return items;
 }
 
 function prepareReturnedItem(item: Item, clientOnly: boolean): void {
@@ -1094,7 +1123,16 @@ export async function submitQueryChatMessage(
 
   await ensureQueryChatLoaded(store, queryItem);
   const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
-  const [userTurnRoot] = addLocalQueryUserTurn(store, queryItem, text);
+  // The server has the attachments only once the turn is accepted; until then, and after, they open from here.
+  for (const attachment of attachments) {
+    seedChatAttachmentContent({ chat: { queryItemId: queryItem.id }, attachmentId: attachment.id }, attachment.text);
+  }
+  const [userTurnRoot] = addLocalQueryUserTurn(store, queryItem, text, attachments.map(attachment => ({
+    id: attachment.id,
+    title: attachment.title,
+    mimeType: attachment.mimeType,
+    sizeBytes: chatAttachmentSizeBytes(attachment.text),
+  })));
   const stored = getQueryRuntime(store, queryItem).chat.contextTokens ?? 0;
   setQueryChatContextTokens(
     store, queryItem, stored + estimateTextTokens(text) + estimateChatAttachmentTokens(attachments), false,
@@ -1314,7 +1352,7 @@ function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, re
       return;
     }
     for (const turn of response.turns) {
-      addLocalQueryUserTurn(store, queryItem, turn.text);
+      addLocalQueryUserTurn(store, queryItem, turn.text, turn.attachments);
       if (turn.status == "completed" && turn.items != null && turn.assistantText != null) {
         insertQueryChatAssistantTurn(store, queryItem, turn.items, {
           requestId: turn.requestId,

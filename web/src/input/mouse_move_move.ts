@@ -161,6 +161,10 @@ function cloneDescendantsForCopy(source: Item, cloned: Item): Array<string> {
       if (sourceItem == null) { continue; }
       const copy = ItemFns.fromObject(ItemFns.toObject(sourceItem), null);
       copy.id = newUid();
+      // A chat attachment's text is in its chat, not the object store; it is added with the copy (`chatAttachmentCopyData`).
+      if (isText(sourceItem) && asTextItem(sourceItem).chatAttachmentSource != null) {
+        asTextItem(copy).chatAttachmentSource = asTextItem(sourceItem).chatAttachmentSource;
+      }
       copy.parentId = clonedParent.id;
       copy.groupId = null;
       itemState.add(copy);

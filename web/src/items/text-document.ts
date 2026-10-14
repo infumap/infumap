@@ -42,7 +42,10 @@ import { ItemIconMode, NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, N
 import { DividerFns } from "./divider-item";
 import { ArrangeAlgorithm, DEFAULT_DOCUMENT_WIDTH_BL, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { TableFns } from "./table-item";
-import type { TextItem } from "./text-item";
+import { asTextItem, isText, type ChatAttachmentSource, type TextItem } from "./text-item";
+import { createChatAttachmentItem } from "./chat-attachment";
+import { NumberSignal } from "../util/signals";
+import { base64ArrayBuffer } from "../util/base64ArrayBuffer";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
@@ -239,7 +242,16 @@ function stableUid(input: string): Uid {
 }
 
 function sourceKey(textItem: TextItem): string {
+  if (textItem.chatAttachmentSource != null) {
+    return chatAttachmentSourceKey(textItem.chatAttachmentSource);
+  }
   return `${textItem.origin ?? ""}|${textItem.id}`;
+}
+
+/** Keyed by the attachment, not the item, so items showing the same attachment share its text. */
+function chatAttachmentSourceKey(source: ChatAttachmentSource): string {
+  const chatId = "queryItemId" in source.chat ? source.chat.queryItemId : source.chat.chatItemId;
+  return `chat-attachment|${chatId}|${source.attachmentId}`;
 }
 
 export function textDocumentUrl(textItem: TextItem): string {
@@ -257,20 +269,42 @@ async function fetchLocalFileText(itemId: string): Promise<string> {
   return response.text();
 }
 
-export async function fetchTextItemContent(textItem: TextItem): Promise<string> {
+export async function fetchTextItemContent(textItem: TextItem, networkStatus: NumberSignal): Promise<string> {
   const key = sourceKey(textItem);
   const existing = textContentPromises.get(key);
   if (existing) { return existing; }
 
-  const promise = (textItem.origin == null
-    ? fetchLocalFileText(textItem.id)
-    : fetchRemoteFileText(textItem.origin, textItem.id))
+  const attachment = textItem.chatAttachmentSource;
+  const promise = (attachment != null
+    ? server.loadChatAttachment(attachment.chat, attachment.attachmentId, networkStatus)
+    : textItem.origin == null
+      ? fetchLocalFileText(textItem.id)
+      : fetchRemoteFileText(textItem.origin, textItem.id))
     .catch((e) => {
       textContentPromises.delete(key);
       throw e;
     });
   textContentPromises.set(key, promise);
   return promise;
+}
+
+/** Makes a chat attachment's text available before the server has it, as for a message just sent. */
+export function seedChatAttachmentContent(source: ChatAttachmentSource, text: string): void {
+  textContentPromises.set(chatAttachmentSourceKey(source), Promise.resolve(text));
+}
+
+/**
+ * The base64 content to add an item with, if it is a copy of a chat attachment, which becomes an ordinary text item
+ * with its own content; otherwise null. The copy no longer refers to the chat afterwards.
+ */
+export async function chatAttachmentCopyData(item: Item, networkStatus: NumberSignal): Promise<string | null> {
+  if (!isText(item)) { return null; }
+  const textItem = asTextItem(item);
+  if (textItem.chatAttachmentSource == null) { return null; }
+  const text = await fetchTextItemContent(textItem, networkStatus);
+  delete textItem.chatAttachmentSource;
+  // Copied, because base64ArrayBuffer encodes the whole buffer.
+  return base64ArrayBuffer(new TextEncoder().encode(text).slice().buffer);
 }
 
 function linesWithOffsets(text: string): Array<TextLine> {
@@ -1809,6 +1843,9 @@ function toVirtualServerObject(item: Item): object {
   if (item.clientOnly === true) {
     result.clientOnly = true;
   }
+  if (isText(item) && asTextItem(item).chatAttachmentSource != null) {
+    result.chatAttachmentSource = asTextItem(item).chatAttachmentSource;
+  }
   if (item.capabilities != null) {
     result.capabilities = item.capabilities;
   }
@@ -1927,9 +1964,24 @@ function createChatDocumentItems(
     addRoot(composite);
     add(composite);
     makeCopyable(composite);
-    const note = NoteFns.create(ownerId, composite.id, RelationshipToParent.Child, turn.text, newOrdering());
-    note.id = idFor(`${turnIndex}:you-text`);
-    add(note);
+    // The attachments, then the text, as the message was sent.
+    const childOrderings: Array<Uint8Array> = [];
+    const nextChildOrdering = (): Uint8Array => {
+      const ordering = newOrderingAtEnd(childOrderings);
+      childOrderings.push(ordering);
+      return ordering;
+    };
+    turn.attachments.forEach((attachment, attachmentIndex) => {
+      const attachmentItem = createChatAttachmentItem(
+        ownerId, composite.id, nextChildOrdering(), attachment, { chatItemId: textItem.id });
+      attachmentItem.id = idFor(`${turnIndex}:attachment:${attachmentIndex}`);
+      add(attachmentItem);
+    });
+    if (turn.text != "") {
+      const note = NoteFns.create(ownerId, composite.id, RelationshipToParent.Child, turn.text, nextChildOrdering());
+      note.id = idFor(`${turnIndex}:you-text`);
+      add(note);
+    }
 
     if (turn.status == "completed" && turn.items != null && turn.items.length > 0) {
       const returned = turn.items.map(itemObject => ItemFns.fromObject(itemObject, null));
@@ -2007,7 +2059,7 @@ async function projectVirtualTextDocument(store: StoreContextModel, textItem: Te
     const chat = await server.loadPersistedChat(textItem.id, store.general.networkStatus);
     return () => upsertVirtualChatProjection(textItem, chat);
   }
-  const text = await fetchTextItemContent(textItem);
+  const text = await fetchTextItemContent(textItem, store.general.networkStatus);
   return () => upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
 }
 
@@ -2041,7 +2093,7 @@ export async function createMaterializedTextDocumentItems(
     const chat = await server.loadPersistedChat(textItem.id, store.general.networkStatus);
     return createChatDocumentItems(textItem, page.ownerId, page, chat, false).allItems;
   }
-  const text = await fetchTextItemContent(textItem);
+  const text = await fetchTextItemContent(textItem, store.general.networkStatus);
   const blocks = parseTextDocumentBlocks(text, isMarkdownTextItem(textItem));
   return createTextDocumentItems(textItem, page.ownerId, page, blocks, false).allItems;
 }
@@ -2064,6 +2116,20 @@ export function isMarkdownTextDocumentPage(pageId: Uid): boolean {
 }
 
 export function openTextItemFileInNewTab(store: StoreContextModel, textItem: TextItem): void {
+  if (textItem.chatAttachmentSource != null) {
+    // A chat attachment is not a file on the server: open its text from here.
+    void fetchTextItemContent(textItem, store.general.networkStatus)
+      .then(text => {
+        const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+        window.open(url, "_blank", "noopener");
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      })
+      .catch(e => {
+        console.error(`Could not open chat attachment '${textItem.chatAttachmentSource?.attachmentId}':`, e);
+        setTransientMessage(store, "could not open the attachment", TransientMessageType.Error);
+      });
+    return;
+  }
   if (textItem.origin == null) {
     // Use a different URL for chats so an earlier cached attachment response is not reused.
     const url = '/files/' + textItem.id + (isChatTextItem(textItem) ? '?view=chat' : '');
@@ -2196,7 +2262,7 @@ export async function materializeTextDocumentPage(store: StoreContextModel, text
   try {
     await server.addItem(page, null, store.general.networkStatus);
     for (const item of generatedItems) {
-      await server.addItem(item, null, store.general.networkStatus);
+      await server.addItem(item, await chatAttachmentCopyData(item, store.general.networkStatus), store.general.networkStatus);
     }
     requestArrange(store, "text-document-materialize-complete");
     return page.id;

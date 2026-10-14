@@ -32,7 +32,7 @@ import { asFileItem, isFile } from "../items/file-item";
 import { TextFns, asTextItem, isText } from "../items/text-item";
 import { continuePersistedChat } from "../items/query";
 import { clearQueryChat } from "../items/chat";
-import { isChatTextItem } from "../items/text-document";
+import { chatAttachmentCopyData, isChatTextItem } from "../items/text-document";
 import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
@@ -399,7 +399,7 @@ function enqueueTextDocumentMaterializationIfPending(
         for (const item of generatedItems) {
           itemState.add(item);
           localItemIds.push(item.id);
-          await server.addItem(item, null, store.general.networkStatus);
+          await server.addItem(item, await chatAttachmentCopyData(item, store.general.networkStatus), store.general.networkStatus);
           serverAddedIds.push(item.id);
         }
       } catch (error) {
@@ -437,7 +437,8 @@ function enqueueUpdateItem(
           for (const id of descendantIds) {
             const descendant = itemState.get(id);
             if (descendant == null) { continue; }
-            await server.addItem(cloneItemSnapshot(descendant), null, store.general.networkStatus);
+            const data = await chatAttachmentCopyData(descendant, store.general.networkStatus);
+            await server.addItem(cloneItemSnapshot(descendant), data, store.general.networkStatus);
             added.push(id);
           }
         } catch (e) {

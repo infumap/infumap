@@ -17,7 +17,10 @@
 */
 
 import { MAX_CLIPBOARD_TEXT_BYTES } from "../input/text_clipboard_create";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
+import type { LoadChatAttachment } from "../server";
 import { newUid, Uid } from "../util/uid";
+import { ChatAttachmentSource, TextFns, TextItem } from "./text-item";
 
 /**
  * Text attached to a chat message that has not been sent yet. Sent with the message and kept in the chat's transcript.
@@ -89,4 +92,22 @@ export function estimateChatAttachmentTokens(attachments: Array<ChatDraftAttachm
     (sum, attachment) => sum + Math.floor(([...attachment.text].length + [...attachment.title].length + 3) / 4) + 8,
     0,
   );
+}
+
+/**
+ * A chat attachment shown as a text item in its message's "You" composite. The item has no content in the object store:
+ * its text is loaded from the chat (`chatAttachmentSource`). The caller sets its id and capabilities.
+ */
+export function createChatAttachmentItem(
+  ownerId: Uid,
+  parentId: Uid,
+  ordering: Uint8Array,
+  attachment: LoadChatAttachment,
+  chat: ChatAttachmentSource["chat"],
+): TextItem {
+  const item = TextFns.create(ownerId, parentId, RelationshipToParent.Child, attachment.title, ordering);
+  item.mimeType = attachment.mimeType;
+  item.fileSizeBytes = attachment.sizeBytes;
+  item.chatAttachmentSource = { chat, attachmentId: attachment.id };
+  return item;
 }
