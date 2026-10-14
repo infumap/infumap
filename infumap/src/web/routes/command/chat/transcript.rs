@@ -34,12 +34,12 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::OwnedMutexGuard;
 
-use super::backend::ChatModelSelection;
-use super::{ChatHistoryMessage, ChatRunMode};
+use super::ChatHistoryMessage;
+use super::configuration::TurnSettings;
 use crate::ai::artifact_io::atomic_write;
 use crate::util::fs::expand_tilde;
 
-pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 1;
+pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 2;
 const CHATS_DIR_NAME: &str = "chats";
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -61,18 +61,6 @@ pub(super) struct TranscriptHeader {
   /// Unix time in milliseconds.
   #[serde(rename = "createdAt")]
   pub(super) created_at: i64,
-}
-
-/// The settings a turn ran with. They are per turn because they can change between turns.
-#[derive(Clone, Deserialize, Serialize)]
-pub(super) struct TurnSettings {
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub(super) model: Option<ChatModelSelection>,
-  #[serde(default)]
-  pub(super) capabilities: Vec<String>,
-  #[serde(rename = "scopeId", default, skip_serializing_if = "Option::is_none")]
-  pub(super) scope_id: Option<Uid>,
-  pub(super) mode: ChatRunMode,
 }
 
 /// Written, and synced, before inference starts.

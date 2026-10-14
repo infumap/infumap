@@ -158,8 +158,10 @@ Records, each with a `type` field:
 - `header`: format version, the query item id it was created for, creation time. First line only. A persisted
   `.chat` item keeps the header unchanged; the id is informational and is not the item's id. Continuing a `.chat`
   item writes a fresh header with the new query item id, followed by the copied records.
-- `user`: request id, start time, the user's text, and the settings the turn ran with (model selection,
-  capabilities, scope id, mode). Settings are per turn, not in the header, because they can change between turns.
+- `user`: request id, start time, the user's text, and the settings the turn ran with:
+  `configuration` (model selection, capabilities, scope id), the applied profile snapshot, and a separate `mode`.
+  Settings are per turn, not in the header, because they can change between turns.
+  Transcript format version 2 uses the shared [query configuration](query-profiles.md) schema.
 - `turn`: request id, the messages the turn added to the transcript (assistant and tool messages, as
   `ChatMessage`), the model rounds in the shape of `QueryChatActivityModelRound`
   ([StoreProvider_PerItem.tsx](../web/src/store/StoreProvider_PerItem.tsx)), start and end times, and the

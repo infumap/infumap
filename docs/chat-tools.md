@@ -63,7 +63,7 @@ the run show messages already logged as `<messages 0–N unchanged since request
 
 ## Scopes
 
-A chat request may name a [scope](scopes.md) with `scopeId`. The scope is resolved once when the run
+A chat request may name a [scope](scopes.md) with `configuration.scopeId`. The scope is resolved once when the run
 starts; an unknown or deleted scope fails the request rather than widening it. Every tool then
 applies it:
 

@@ -202,7 +202,7 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
     if (explicit != null) { return explicit; }
     const serverDefault = backends()?.default;
     if (serverDefault == null) { return null; }
-    return { backend: serverDefault.backend, model: serverDefault.model };
+    return { backend: serverDefault.backend, model: serverDefault.model ?? null, reasoningEffort: null };
   });
 
   const selectedBackendId = (): ChatBackendId | null => selection()?.backend ?? null;
@@ -323,18 +323,18 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
   const selectBackend = (backendId: ChatBackendId) => {
     if (backendId == "openrouter") {
       const modelId = selectedModelId() ?? backends()?.default.model ?? backend("openrouter")?.models[0]?.id;
-      applySelection({ backend: backendId, model: modelId });
+      applySelection({ backend: backendId, model: modelId ?? null, reasoningEffort: null });
       // Stay in the model view: choosing OpenRouter is the first half of choosing a model.
       return;
     }
-    applySelection({ backend: backendId });
+    applySelection({ backend: backendId, model: null, reasoningEffort: null });
     setView("main");
   };
 
   const selectModel = (model: ChatModelInfo) => {
     // An effort carried over from another model may not be one this model offers.
     const effort = selection()?.reasoningEffort;
-    const keptEffort = effort != null && model.reasoningEfforts.includes(effort) ? effort : undefined;
+    const keptEffort = effort != null && model.reasoningEfforts.includes(effort) ? effort : null;
     applySelection({ backend: "openrouter", model: model.id, reasoningEffort: keptEffort });
   };
 

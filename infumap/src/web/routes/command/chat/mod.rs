@@ -56,7 +56,8 @@ pub(super) async fn handle_ensure_query_entry(
   let request: EnsureQueryEntryRequest = serde_json::from_str(json_data)?;
   let entry_lock = query_entry_lock(&session.user_id).await;
   let _guard = entry_lock.lock().await;
-  let (pinned_id, archived_ids) = ensure_query_entry_locked(db, object_store, session, request.first_turn_query_item_id).await?;
+  let (pinned_id, archived_ids) =
+    ensure_query_entry_locked(db, object_store, session, request.first_turn_query_item_id).await?;
   let response = {
     let db = db.lock().await;
     let query_item = super::item_to_api_json_map_with_capabilities(&db, db.item.get(&pinned_id)?)?;
@@ -213,22 +214,21 @@ async fn add_empty_query_entry(
 
 mod activity;
 mod backend;
+pub(crate) mod configuration;
 mod container_fragments;
 mod markdown;
 mod mcp;
 mod search_results;
 mod transcript;
 use activity::ChatActivity;
-use backend::{
-  ChatBackend, ChatEndpoint, ChatModelSelection, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends,
-  resolve_chat_endpoint,
-};
+use backend::{ChatBackend, ChatEndpoint, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends, resolve_chat_endpoint};
 pub(crate) use backend::{llama_servers_from_config, validate_chat_backend_config};
+use configuration::TurnSettings;
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
 use transcript::{
   ActivityRound, ChatAttachment, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript,
-  TranscriptHeader, TurnOutcome, TurnRecord, TurnSettings, TurnStatus, UserRecord, chat_is_locked, read_transcript,
+  TranscriptHeader, TurnOutcome, TurnRecord, TurnStatus, UserRecord, chat_is_locked, read_transcript,
   try_lock_transcript,
 };
 
@@ -312,14 +312,8 @@ struct ChatRequest {
   /// For a live chat: text attached to the new user message.
   #[serde(default)]
   attachments: Vec<ChatAttachmentRequest>,
-  #[serde(default)]
-  capabilities: Vec<String>,
-  mode: ChatRunMode,
-  #[serde(default)]
-  model: Option<ChatModelSelection>,
-  /// A scope page from the user's scopes page, limiting what the Infumap tools can read.
-  #[serde(rename = "scopeId", default)]
-  scope_id: Option<Uid>,
+  #[serde(flatten)]
+  settings: TurnSettings,
 }
 
 #[derive(Deserialize)]
@@ -402,11 +396,18 @@ impl ChatRequest {
   }
 
   fn uses_infumap_data(&self) -> bool {
-    self.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_INFUMAP_DATA)
+    self.settings.configuration.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_INFUMAP_DATA)
   }
 
   fn plugin_capabilities(&self) -> Vec<String> {
-    self.capabilities.iter().filter(|capability| *capability != CHAT_CAPABILITY_INFUMAP_DATA).cloned().collect()
+    self
+      .settings
+      .configuration
+      .capabilities
+      .iter()
+      .filter(|capability| *capability != CHAT_CAPABILITY_INFUMAP_DATA)
+      .cloned()
+      .collect()
   }
 }
 
@@ -1152,8 +1153,12 @@ async fn generate_live_chat_title(
     return Ok(current);
   }
 
-  let selection = transcript.turns.last().and_then(|turn| turn.user.settings.model.clone()).unwrap_or_default();
-  let endpoint = resolve_chat_endpoint(config, &selection)?;
+  let selection = transcript
+    .turns
+    .last()
+    .and_then(|turn| turn.user.settings.configuration.model.as_ref())
+    .ok_or("The chat has no model selection.")?;
+  let endpoint = resolve_chat_endpoint(config, selection)?;
   let mut messages = chat_title_input_messages(&transcript);
   messages.push(OpenAiChatMessage::text("user", CHAT_TITLE_PROMPT.to_owned()));
   // Nobody reads this call's progress. A closed channel makes every send return at once.
@@ -1841,18 +1846,8 @@ async fn start_live_chat_turn(
   }
 
   let started_at = unix_now_millis();
-  let user = UserRecord {
-    request_id: request_id.to_owned(),
-    started_at,
-    text,
-    attachments,
-    settings: TurnSettings {
-      model: request.model.clone(),
-      capabilities: request.capabilities.clone(),
-      scope_id: request.scope_id.clone(),
-      mode: request.mode,
-    },
-  };
+  let user =
+    UserRecord { request_id: request_id.to_owned(), started_at, text, attachments, settings: request.settings.clone() };
   let content = user.model_content();
   transcript.append_user(user).await.map_err(transcript_error)?;
 
@@ -2678,14 +2673,14 @@ async fn run_chat_with_tools(
 ) -> InfuResult<ChatRunResult> {
   reset_llm_log();
 
-  let endpoint =
-    resolve_chat_endpoint(config.as_ref(), request.model.as_ref().unwrap_or(&ChatModelSelection::default()))?;
+  let selection = request.settings.configuration.model.as_ref().ok_or("Chat requires a model selection.")?;
+  let endpoint = resolve_chat_endpoint(config.as_ref(), selection)?;
   let mut messages = explicit_wire_messages(&request.messages)?;
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
   let infumap_data = if request.uses_infumap_data() {
-    let scope = match &request.scope_id {
+    let scope = match &request.settings.configuration.scope_id {
       Some(scope_id) => Some(resolve_scope(&*db.lock().await, &session.user_id, scope_id)?),
       None => None,
     };
@@ -2697,20 +2692,23 @@ async fn run_chat_with_tools(
   let reserved = mcp::reserved_openai_names(uses_infumap_data);
   let (mut mcp_tools, mut name_map) =
     mcp::mapped_tools_for_capabilities(config.as_ref(), &request.plugin_capabilities(), &reserved).await;
-  if request.mode == ChatRunMode::DeepResearch {
+  if request.settings.mode == ChatRunMode::DeepResearch {
     mcp_tools.retain(|tool| tool.read_only);
     let read_only_names: HashSet<&str> = mcp_tools.iter().map(|tool| tool.openai_name.as_str()).collect();
     name_map.retain(|name, _| read_only_names.contains(name.as_str()));
   }
   messages.insert(
     0,
-    OpenAiChatMessage::text("system", chat_system_prompt(infumap_data.as_ref(), !mcp_tools.is_empty(), request.mode)),
+    OpenAiChatMessage::text(
+      "system",
+      chat_system_prompt(infumap_data.as_ref(), !mcp_tools.is_empty(), request.settings.mode),
+    ),
   );
   let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
 
-  if request.mode == ChatRunMode::Chat {
+  if request.settings.mode == ChatRunMode::Chat {
     run_chat_stage_with_tools(
       &endpoint,
       db,

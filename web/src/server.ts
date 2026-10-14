@@ -17,6 +17,7 @@
 */
 
 import { logout } from "./components/Main";
+import type { ChatBackendId, QueryChatSettings, QueryConfiguration } from "./items/query-configuration";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
@@ -116,23 +117,11 @@ export interface ChatMessage {
   toolCalls?: Array<ChatToolCall>,
 }
 
-/** "openrouter", or "llama:<name>" for one of the configured llama servers. */
-export type ChatBackendId = string;
+export type {
+  ChatBackendId, ChatModelSelection, ChatRunMode, QueryChatSettings, QueryConfiguration, QueryProfile,
+} from "./items/query-configuration";
 
-/**
- * The backend, model and reasoning effort a chat request should use. Omitted fields fall back to
- * the server's defaults. Reasoning effort applies to OpenRouter only, and must be one of the
- * efforts the chosen model reports; "none" turns reasoning off.
- */
-export interface ChatModelSelection {
-  backend?: ChatBackendId,
-  model?: string,
-  reasoningEffort?: string,
-}
-
-export type ChatRunMode = "chat" | "deep_research";
-
-export interface ChatRequest {
+export interface ChatRequest extends QueryChatSettings {
   requestId: string,
   /** The model history, for a chat without a transcript. Omitted for a live chat. */
   messages?: Array<ChatMessage>,
@@ -144,11 +133,6 @@ export interface ChatRequest {
   text?: string,
   /** For a live chat: text attached to the new user message. See docs/chat-attachments.md. */
   attachments?: Array<{ id: Uid, title: string, mimeType: string, text: string }>,
-  capabilities: Array<string>,
-  mode: ChatRunMode,
-  model?: ChatModelSelection,
-  /** A scope from the Scopes page, limiting what the Infumap tools can read. */
-  scopeId?: Uid | null,
 }
 
 /** Something about a scope's definition the user may want to fix. None of these widen the scope. */
@@ -304,12 +288,7 @@ export interface LoadChatTurn {
 export interface LoadChatResponse {
   revision: number,
   running: boolean,
-  lastSettings: {
-    model?: ChatModelSelection,
-    capabilities: Array<string>,
-    scopeId?: Uid,
-    mode: ChatRunMode,
-  } | null,
+  lastSettings: QueryChatSettings | null,
   contextTokens: { tokens: number, exact: boolean } | null,
   turns: Array<LoadChatTurn>,
 }
@@ -1038,11 +1017,12 @@ export const server = {
     pageIdMaybe: Uid | null,
     text: String,
     networkStatus: NumberSignal,
-    pageNumMaybe?: number,
-    scopeIdMaybe?: Uid | null,
+    pageNum: number,
+    configuration: QueryConfiguration,
   ): Promise<SearchResponse> => {
-    return constructCommandPromise(null, COMMAND_SEARCH, { pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum: pageNumMaybe, scopeId: scopeIdMaybe ?? null }, null, networkStatus)
-      .then((response: any) => normalizeSearchResponse(response));
+    return constructCommandPromise(null, COMMAND_SEARCH, {
+      pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum, configuration,
+    }, null, networkStatus).then((response: any) => normalizeSearchResponse(response));
   },
 
   listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {

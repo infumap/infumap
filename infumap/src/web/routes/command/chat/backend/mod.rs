@@ -116,21 +116,20 @@ pub enum ChatReasoning {
   Effort(&'static str),
 }
 
-/// The backend, model and reasoning effort the client asked for. Every field is optional - an
-/// absent field falls back to what the instance is configured to use.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+/// An explicit provider route. A null model uses the provider's model; null effort uses its default.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChatModelSelection {
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub backend: Option<String>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub backend: String,
+  #[serde(deserialize_with = "Option::deserialize")]
   pub model: Option<String>,
-  #[serde(rename = "reasoningEffort", default, skip_serializing_if = "Option::is_none")]
+  #[serde(deserialize_with = "Option::deserialize")]
   pub reasoning_effort: Option<String>,
 }
 
 impl ChatModelSelection {
-  fn requested_backend_id(&self) -> Option<&str> {
-    self.backend.as_deref().map(str::trim).filter(|backend| !backend.is_empty())
+  fn requested_backend_id(&self) -> &str {
+    self.backend.trim()
   }
 
   fn requested_model(&self) -> Option<&str> {
@@ -254,10 +253,7 @@ fn requested_target(llama_servers: &[LlamaServer], id: &str) -> InfuResult<ChatT
 /// Resolve the endpoint for one chat request.
 pub fn resolve_chat_endpoint(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
   let llama_servers = llama_servers_from_config(config)?;
-  let target = match selection.requested_backend_id() {
-    Some(id) => requested_target(&llama_servers, id)?,
-    None => default_target(config, &llama_servers).ok_or("No language model is configured for Chat.")?,
-  };
+  let target = requested_target(&llama_servers, selection.requested_backend_id())?;
   match target {
     ChatTarget::Llama(server) => Ok(llama_endpoint(server)),
     ChatTarget::OpenRouter => openrouter_endpoint(config, selection),
@@ -312,7 +308,7 @@ struct ChatBackendInfo {
   models_error: Option<String>,
 }
 
-/// What a chat request with no explicit selection will use.
+/// Initial provider/model offered to the composer before an explicit selection.
 #[derive(Serialize)]
 struct ChatDefaultSelection {
   backend: String,

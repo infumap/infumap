@@ -23,7 +23,7 @@ import { VisualElementPath, VeFns } from "../layout/visual-element";
 import { server, type ContinueChatResponse } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { queryScopeIdForRequest } from "./query-scope";
+import { cloneQueryConfiguration } from "./query-configuration";
 import type { ChatDraftAttachment } from "./chat-attachment";
 import { asContainerItem, isContainer } from "./base/container-item";
 import type { Uid } from "../util/uid";
@@ -149,7 +149,10 @@ export async function runQuerySearch(
   setQuerySearchArrangeAlgorithm(store, queryItem, store.general.searchResultsArrangeAlgorithm());
   requestArrange(store, "query-search-start");
 
-  const response = await server.search(null, text, store.general.networkStatus, 1, queryScopeIdForRequest(store, queryItem));
+  const response = await server.search(
+    null, text, store.general.networkStatus, 1,
+    cloneQueryConfiguration(getQueryRuntime(store, queryItem).configuration),
+  );
   if (options.shouldApply && !options.shouldApply()) {
     return false;
   }
@@ -181,7 +184,9 @@ export async function loadMoreQuerySearchResults(
   const loadedPageCount = getQuerySearchLoadedPageCount(store, queryItem);
   const nextPage = Math.max(1, loadedPageCount + 1);
   const response = await server.search(
-    null, requestedQuery, store.general.networkStatus, nextPage, queryScopeIdForRequest(store, queryItem));
+    null, requestedQuery, store.general.networkStatus, nextPage,
+    cloneQueryConfiguration(getQueryRuntime(store, queryItem).configuration),
+  );
   if (options.shouldApply && !options.shouldApply()) {
     return false;
   }
