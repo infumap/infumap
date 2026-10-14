@@ -1,6 +1,6 @@
 # Chat attachments (proposal)
 
-Status: in progress. Discussed 2026-10-14; steps 1–6 done 2026-10-14.
+Status: in progress. Discussed 2026-10-14; steps 1–7 done 2026-10-14.
 
 A common use of chat is pasting something long, such as a video transcript, and asking for a summary. Today the
 pasted text goes into the message itself: the composer fills with it, and the "You" turn shows it as a wall of text.
@@ -290,10 +290,34 @@ Each step can be committed on its own. Steps 1–4 cover pasting a transcript an
      as Markdown, and shows the Markdown icon. A `DragEvent` drop of `dropped.txt` on the composer made a chip and
      uploaded nothing: the home and Queries pages gained no item.
 
-7. **Attaching an item from the tree** (later). Dropping a text item or note onto the composer attaches a copy of
-   its content at that moment, and the item snaps back. Infumap drags are hit-tested by the layout, not by DOM drag
-   events, so the composer needs to be a drop target in [mouse_up.ts](../web/src/input/mouse_up.ts)
-   terms. Investigate that first.
+7. **Attaching an item from the tree.** Dropping a text item or note onto the composer attaches a copy of its content
+   at that moment, and the item snaps back. Infumap drags are hit-tested by the layout, not by DOM drag events, so the
+   composer needs to be a drop target in [mouse_up.ts](../web/src/input/mouse_up.ts) terms.
+
+   Done 2026-10-14: `itemAttachment` and the drop target registry (`registerChatItemDropTarget`,
+   `chatItemDropTargetAt`, `updateChatItemDropHover`) in [chat-attachment.ts](../web/src/items/chat-attachment.ts);
+   `attachDroppedItemToChatMaybe` in [mouse_up.ts](../web/src/input/mouse_up.ts). Details:
+   - The composer marks its DOM with `data-infumap-chat-item-drop`: the chat composer, and the New Query controls in
+     chat mode. The value is the query item's visual element path, the key the component registers its accept
+     function under, because one query item can be shown more than once, each with its own draft.
+   - `mouseAction_moving` updates the hover from `document.elementsFromPoint`. The composer's input gets a blue
+     border while an item is over it.
+   - On mouse up, before anything else in `mouseUpHandler_moving_groupAware`, a drop over a composer rolls the move
+     back (`rollbackInvalidMove`) and passes the dragged item to the composer. For a shift-drag clone, which is not in
+     the rollback snapshot and may carry a copy suffix, that is the item it was cloned from.
+   - A text item contributes its text (`fetchTextItemContent`, so a remote item or a chat attachment works), its
+     title and its MIME type. A note contributes its text, titled by its first line cut to 60 characters. Any other
+     item is refused: "Only text items and notes can be attached". The 1 MB and 10-attachment limits apply.
+   - Fixed along the way: the chat composer stopped `mouseup` from propagating, so a drop on it never reached
+     mouse_up.ts. It now lets `mouseup` through while an item is moving.
+   - Checked end to end with Playwright, dragging from the dock. `plan.md` and a note were dropped on the New Query
+     input, a note on the chat composer, and a page was refused with the message. The dragged items stayed in the
+     dock. The transcript had `plan.md` as `text/markdown` with its text, and the note's full text.
+   - Found, not fixed: dragging an item across a dock page whose children are not loaded yet loses the item locally,
+     and abandons the move with "Active visual element path still missing". Entering the page starts its load, and
+     applying the loaded children (`applyContainerSnapshotFromServerObjects`, from load.ts) removes the moved item,
+     which the server doesn't have there. Nothing is persisted, and a reload brings it back. This is an existing
+     race, unrelated to attaching; the test avoids it by not crossing the page.
 
 8. **Docs.** [chats.md](chats.md): attaching, limits, attachments not being searched, copying an attachment out.
    [chat-tools.md](chat-tools.md): how attachments reach the model.

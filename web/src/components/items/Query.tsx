@@ -107,12 +107,16 @@ import {
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import {
   CHAT_ATTACHMENT_FILE_ACCEPT,
+  CHAT_ITEM_DROP_ATTRIBUTE,
   ChatDraftAttachment,
   chatAttachmentSizeBytes,
+  chatItemDropHover,
   estimateChatAttachmentTokens,
   fileAttachment,
+  itemAttachment,
   pastedTextAttachment,
   pastedTextIsAttachment,
+  registerChatItemDropTarget,
 } from "../../items/chat-attachment";
 import { clearExternalUploadHover, dataTransferContainsFiles } from "../../upload";
 import { formatBytes } from "../../util/item-metadata";
@@ -656,6 +660,22 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
   };
 
+  createEffect(() => {
+    // Items dragged onto the composer are attached (`attachDroppedItemToChatMaybe` in mouse_up.ts).
+    const unregister = registerChatItemDropTarget(vePath(), (item) => {
+      void itemAttachment(draftAttachments(), item, store.general.networkStatus).then(attachment => {
+        if (typeof attachment == "string") {
+          showTransientMessage(attachment, TransientMessageType.Error);
+          return;
+        }
+        setDraftAttachments([...draftAttachments(), attachment]);
+      });
+    });
+    onCleanup(unregister);
+  });
+  /** An item is being moved over this composer, and dropping it would attach its content. */
+  const itemDropHover = () => store.anItemIsMoving.get() && chatItemDropHover() == vePath();
+
   const openAttachFilePicker = () => {
     attachFileInput?.click();
   };
@@ -1093,6 +1113,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       if (ev instanceof MouseEvent && ev.button == MOUSE_RIGHT) {
         return;
       }
+      // An item moved here ends its move in mouse_up.ts, which attaches it (`attachDroppedItemToChatMaybe`).
+      if (ev.type == "mouseup" && store.anItemIsMoving.get()) {
+        return;
+      }
       ev.stopPropagation();
     };
     const chatSurfaceMouseDown = (ev: MouseEvent) => {
@@ -1202,6 +1226,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           class="absolute pointer-events-auto"
           style={`left: ${contentLeftPx()}px; bottom: ${QUERY_CHAT_COMPOSER_BOTTOM_PX}px; ` +
             `width: ${contentWidthPx()}px; height: ${wrapperHeightPx()}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}
+          {...{ [CHAT_ITEM_DROP_ATTRIBUTE]: vePath() }}
           onDrop={dropFilesToAttach}
           onMouseDown={stop}
           onMouseUp={stop}
@@ -1276,8 +1301,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <i class="bi-plus-lg" />
             </button>
             <div
-              class="min-w-0 grow overflow-hidden rounded-xs border border-[#999] bg-white"
-              style={`height: ${chatTextareaHeightPx()}px;`}>
+              class="min-w-0 grow overflow-hidden rounded-xs border bg-white"
+              classList={{ "border-[#999]": !itemDropHover(), "border-blue-500": itemDropHover() }}
+              style={`height: ${chatTextareaHeightPx()}px;` + (itemDropHover() ? " box-shadow: 0 0 0 2px rgb(59 130 246 / 0.35);" : "")}>
               <textarea
                 ref={chatTextarea}
                 data-query-chat-composer
@@ -1422,8 +1448,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </div>
         </Show>
         <div
-          class="border border-[#999] rounded-xs bg-white overflow-hidden"
-          style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;`}
+          class="border rounded-xs bg-white overflow-hidden"
+          classList={{ "border-[#999]": !itemDropHover(), "border-blue-500": itemDropHover() }}
+          style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;` +
+            (itemDropHover() ? " box-shadow: 0 0 0 2px rgb(59 130 246 / 0.35);" : "")}
           onMouseDown={queryInputMouseDown}>
           <div class="relative flex items-end h-full overflow-hidden pr-[4px]"
             classList={{ "pl-2.5": selectedInputMode() != "chat", "pl-[4px]": selectedInputMode() == "chat" }}
@@ -1590,6 +1618,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   ? QUERY_WORKSPACE_TOP_INSET_PX
                   : Math.max(0, initialControlsTopPx() - (showDraftAttachments() ? draftAttachmentsRowPx() : 0))}px; ` +
                 `width: ${controlsWidthPx()}px;`}
+              {...{ [CHAT_ITEM_DROP_ATTRIBUTE]: selectedInputMode() == "chat" ? vePath() : undefined }}
               onDrop={(ev) => {
                 if (selectedInputMode() == "chat") {
                   dropFilesToAttach(ev);
