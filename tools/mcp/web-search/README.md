@@ -47,7 +47,8 @@ Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
 trial or onboarding credits are not recurring monthly allowances.
 
-**Implementation status:** provider configuration and preference are implemented.
+**Implementation status:** provider configuration, preference and the common
+provider interface with a DuckDuckGo adapter are implemented.
 The Exa adapter, usage reporting, persistent accounting, budget enforcement and
 automatic fallback are subsequent steps. An Exa key does not currently cause
 Exa requests. Startup logs warn about this when Exa is configured. The budget
@@ -94,6 +95,27 @@ concurrent requests and persistent consumption tracking are required before
 automatic metered requests are enabled. A successful empty search is a result,
 not an automatic trigger to spend credits on every provider. Fallback attempts
 and total request time will be bounded.
+
+### Provider adapters
+
+`src/providers/mod.rs` defines the `SearchProvider` interface. Adapters provide
+normalized title, URL and snippet results, a local request-cost estimate, and
+optional asynchronous usage reporting. The interface supports different
+adapters behind a shared trait object. Configuration and provider selection
+remain outside the adapters, in the search layer.
+
+Monetary estimates and usage snapshots use integer millionths of a US dollar
+so individual requests do not round to whole cents. Configuration allowances
+remain expressed in cents. DuckDuckGo reports an unmetered cost and unsupported
+usage reporting (`None`); neither implies unlimited request capacity.
+
+Provider errors distinguish rate limits, exhausted quota, invalid credentials,
+transient failures, invalid requests, bot blocking, unexpected responses and
+internal errors. DuckDuckGo classifies HTTP failures and bot challenges, and
+retains delta-seconds `Retry-After` values when supplied. Error classification
+and usage metadata are internal; the MCP tool continues to return the existing
+compact results and text errors. Retries, cooldowns and budget enforcement will
+be implemented by the router.
 
 ## Infumap configuration
 

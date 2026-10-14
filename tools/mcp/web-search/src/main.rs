@@ -18,6 +18,7 @@ mod config;
 mod error;
 mod fetch;
 mod protocol;
+mod providers;
 mod search;
 mod tools;
 
