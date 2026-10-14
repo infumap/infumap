@@ -179,7 +179,7 @@ async fn archive_used_query_entry(
     item.flags = Some(item.flags.unwrap_or(0) & !LIST_PAGE_PIN_TOP_FLAG);
   }
   if was_untitled {
-    item.title = Some(title_from_prompt(&first_turn.user.text));
+    item.title = Some(title_from_prompt(&first_turn.user));
   }
   if was_pinned || was_untitled {
     let json = serde_json::to_string(&item.to_api_json()?)?;
@@ -227,8 +227,9 @@ pub(crate) use backend::{llama_servers_from_config, validate_chat_backend_config
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
 use transcript::{
-  ActivityRound, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript, TranscriptHeader,
-  TurnOutcome, TurnRecord, TurnSettings, TurnStatus, UserRecord, chat_is_locked, read_transcript, try_lock_transcript,
+  ActivityRound, ChatAttachment, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript,
+  TranscriptHeader, TurnOutcome, TurnRecord, TurnSettings, TurnStatus, UserRecord, chat_is_locked, read_transcript,
+  try_lock_transcript,
 };
 
 // Both ceilings are backstops against a model that loops forever, not budgets:
@@ -308,6 +309,9 @@ struct ChatRequest {
   /// For a live chat: the new user message.
   #[serde(default)]
   text: Option<String>,
+  /// For a live chat: text attached to the new user message.
+  #[serde(default)]
+  attachments: Vec<ChatAttachmentRequest>,
   #[serde(default)]
   capabilities: Vec<String>,
   mode: ChatRunMode,
@@ -316,6 +320,15 @@ struct ChatRequest {
   /// A scope page from the user's scopes page, limiting what the Infumap tools can read.
   #[serde(rename = "scopeId", default)]
   scope_id: Option<Uid>,
+}
+
+#[derive(Deserialize)]
+struct ChatAttachmentRequest {
+  id: Uid,
+  title: String,
+  #[serde(rename = "mimeType")]
+  mime_type: String,
+  text: String,
 }
 
 /// Infumap data access for one chat run.
@@ -909,6 +922,12 @@ pub async fn serve_chat_stream_route(
   };
 
   let stream_request_id = request.stream_request_id();
+  if request.query_item_id.is_none() && !request.attachments.is_empty() {
+    return single_chat_stream_event_response(
+      stream_request_id,
+      ChatStreamEventKind::error("Attachments are only supported in a chat in the Queries page."),
+    );
+  }
   let mut live_turn = match request.query_item_id.is_some() {
     true => match start_live_chat_turn(db, &session, &mut request, &stream_request_id).await {
       Ok(turn) => Some(turn),
@@ -1048,11 +1067,14 @@ const CHAT_TITLE_MAX_CHARS: usize = 100;
 const CHAT_TITLE_INPUT_MAX_CHARS: usize = 4_000;
 const CHAT_TITLE_REQUEST_MAX_BYTES: usize = 16 * 1024;
 
-/// The title a chat gets on its first turn: the first three words of its first prompt. Must match `titleFromPrompt`
-/// in the client's chat.ts, which sets it.
-fn title_from_prompt(prompt: &str) -> String {
-  let words = prompt.split_whitespace().take(3).collect::<Vec<_>>();
-  if words.is_empty() { CHAT_TITLE_FALLBACK.to_owned() } else { words.join(" ") }
+/// The title a chat gets on its first turn: the first three words of its first prompt, or the title of its first
+/// attachment if the prompt has no text.
+fn title_from_prompt(user: &UserRecord) -> String {
+  let words = user.text.split_whitespace().take(3).collect::<Vec<_>>();
+  if !words.is_empty() {
+    return words.join(" ");
+  }
+  user.attachments.first().map_or_else(|| CHAT_TITLE_FALLBACK.to_owned(), |attachment| attachment.title.clone())
 }
 
 /// A title from a model's reply: its first line, without Markdown, quotes, a "Title:" label or ending punctuation.
@@ -1124,7 +1146,7 @@ async fn generate_live_chat_title(
   let transcript =
     read_transcript(&data_dir, &session.user_id, query_item_id).await?.ok_or("The chat has no turns.")?;
   let first_turn = transcript.turns.first().ok_or("The chat has no turns.")?;
-  let derived = title_from_prompt(&first_turn.user.text);
+  let derived = title_from_prompt(&first_turn.user);
   let current = db.lock().await.item.get(query_item_id)?.title.clone().unwrap_or_default();
   if !current.is_empty() && current != derived {
     return Ok(current);
@@ -1657,6 +1679,51 @@ async fn read_persisted_chat(
   transcript::parse_transcript(&bytes)?.ok_or_else(|| format!("Chat item '{}' has no transcript.", chat_item_id).into())
 }
 
+const CHAT_ATTACHMENTS_MAX_COUNT: usize = 10;
+/// The same as the client's limit for a text item made by pasting, `MAX_CLIPBOARD_TEXT_BYTES`.
+const CHAT_ATTACHMENT_MAX_BYTES: usize = 1024 * 1024;
+const CHAT_ATTACHMENT_TITLE_MAX_CHARS: usize = 200;
+
+/// Checks the attachments of a chat request, and makes their transcript records. Ids are checked against each other
+/// here, and against the transcript once it is locked. See docs/chat-attachments.md.
+fn chat_attachments_from_request(attachments: Vec<ChatAttachmentRequest>) -> Result<Vec<ChatAttachment>, String> {
+  if attachments.len() > CHAT_ATTACHMENTS_MAX_COUNT {
+    return Err(format!("A chat message can have at most {} attachments.", CHAT_ATTACHMENTS_MAX_COUNT));
+  }
+  let mut ids = HashSet::new();
+  attachments
+    .into_iter()
+    .map(|attachment| {
+      let title = attachment.title.trim().to_owned();
+      if title.is_empty()
+        || title.chars().count() > CHAT_ATTACHMENT_TITLE_MAX_CHARS
+        || title.chars().any(char::is_control)
+      {
+        return Err("An attachment has a missing or invalid title.".to_owned());
+      }
+      if !is_uid(&attachment.id) || !ids.insert(attachment.id.clone()) {
+        return Err(format!("Attachment '{}' has a missing or repeated id.", title));
+      }
+      if !attachment.mime_type.starts_with("text/") {
+        return Err(format!("Attachment '{}' is not text.", title));
+      }
+      if attachment.text.trim().is_empty() {
+        return Err(format!("Attachment '{}' is empty.", title));
+      }
+      if attachment.text.len() > CHAT_ATTACHMENT_MAX_BYTES {
+        return Err(format!("Attachment '{}' is larger than 1 MB.", title));
+      }
+      Ok(ChatAttachment {
+        id: attachment.id,
+        title,
+        mime_type: attachment.mime_type,
+        size_bytes: attachment.text.len(),
+        text: attachment.text,
+      })
+    })
+    .collect()
+}
+
 /// Starts a turn of a live chat: checks the query item and the expected revision, records the user message, and
 /// replaces the request's messages with the history from the transcript. On failure, returns the event to send.
 async fn start_live_chat_turn(
@@ -1670,13 +1737,11 @@ async fn start_live_chat_turn(
   if !request.messages.is_empty() {
     return Err(error("A chat request with a query item id must not include messages."));
   }
-  let text = request
-    .text
-    .as_deref()
-    .map(str::trim)
-    .filter(|text| !text.is_empty())
-    .ok_or_else(|| error("Chat request did not contain any message text."))?
-    .to_owned();
+  let text = request.text.as_deref().map(str::trim).unwrap_or("").to_owned();
+  let attachments = chat_attachments_from_request(std::mem::take(&mut request.attachments)).map_err(|e| error(&e))?;
+  if text.is_empty() && attachments.is_empty() {
+    return Err(error("Chat request did not contain any message text."));
+  }
   let expected_revision = request
     .expected_revision
     .ok_or_else(|| error("A chat request with a query item id needs an expected revision."))?;
@@ -1695,6 +1760,11 @@ async fn start_live_chat_turn(
   if revision != expected_revision {
     return Err(ChatStreamEventKind::TranscriptConflict { revision });
   }
+  if let Some(existing) = transcript.transcript()
+    && attachments.iter().any(|attachment| existing.has_attachment(&attachment.id))
+  {
+    return Err(error("An attachment of this message is already in the chat."));
+  }
   if transcript.transcript().is_none() {
     let header = TranscriptHeader {
       version: TRANSCRIPT_FORMAT_VERSION,
@@ -1708,7 +1778,8 @@ async fn start_live_chat_turn(
   let user = UserRecord {
     request_id: request_id.to_owned(),
     started_at,
-    text: text.clone(),
+    text,
+    attachments,
     settings: TurnSettings {
       model: request.model.clone(),
       capabilities: request.capabilities.clone(),
@@ -1716,13 +1787,14 @@ async fn start_live_chat_turn(
       mode: request.mode,
     },
   };
+  let content = user.model_content();
   transcript.append_user(user).await.map_err(transcript_error)?;
 
   let mut messages = transcript.transcript().map(Transcript::history).unwrap_or_default();
   let history_len = messages.len();
   messages.push(ChatHistoryMessage {
     role: "user".to_owned(),
-    content: Some(text),
+    content: Some(content),
     reasoning_content: None,
     tool_call_id: None,
     tool_calls: None,
@@ -4124,10 +4196,130 @@ mod live_chat_tests {
     assert!(handle_load_chat(&f.db, f.object_store.clone(), &not_a_chat, &Some(f.session.clone())).await.is_err());
   }
 
+  fn attachment_request(title: &str, text: &str) -> ChatAttachmentRequest {
+    ChatAttachmentRequest {
+      id: new_uid(),
+      title: title.to_owned(),
+      mime_type: "text/plain".to_owned(),
+      text: text.to_owned(),
+    }
+  }
+
+  #[tokio::test]
+  async fn attachments_reach_the_model_before_the_text_and_stay_in_the_history() {
+    let f = fixture().await;
+    let mut request1 = request(&f.query_item_id, 0, " summarize this ");
+    request1.attachments = vec![attachment_request(" Pasted text ", "the transcript")];
+    let mut turn = f.start(&mut request1, "r1").await.ok().unwrap();
+    let first_content = "<attachment name=\"Pasted text\">\nthe transcript\n</attachment>\n\nsummarize this";
+    assert_eq!(contents(&request1.messages), pairs(&[("user", first_content)]));
+    let mut messages = request1.messages.clone();
+    messages.push(message("assistant", "a summary"));
+    turn.end_completed(ChatRunResult { assistant_text: "a summary".to_owned(), messages }).await.ok().unwrap();
+    drop(turn);
+
+    let transcript = f.transcript().await;
+    let user = &transcript.turns[0].user;
+    assert_eq!(user.text, "summarize this");
+    assert_eq!(user.attachments[0].title, "Pasted text");
+    assert_eq!(user.attachments[0].size_bytes, "the transcript".len());
+
+    // A message can be attachments alone.
+    let mut request2 = request(&f.query_item_id, 1, "");
+    request2.text = None;
+    request2.attachments = vec![attachment_request("Pasted text 2", "more")];
+    let turn = f.start(&mut request2, "r2").await.ok().unwrap();
+    assert_eq!(
+      contents(&request2.messages),
+      pairs(&[
+        ("user", first_content),
+        ("assistant", "a summary"),
+        ("user", "<attachment name=\"Pasted text 2\">\nmore\n</attachment>"),
+      ])
+    );
+    drop(turn);
+  }
+
+  #[tokio::test]
+  async fn invalid_attachments_are_rejected_without_recording() {
+    let f = fixture().await;
+    let reused = attachment_request("Pasted text", "once");
+    let reused_id = reused.id.clone();
+    let mut first = request(&f.query_item_id, 0, "q1");
+    first.attachments = vec![reused];
+    let mut turn = f.start(&mut first, "r1").await.ok().unwrap();
+    let mut messages = first.messages.clone();
+    messages.push(message("assistant", "a1"));
+    turn.end_completed(ChatRunResult { assistant_text: "a1".to_owned(), messages }).await.ok().unwrap();
+    drop(turn);
+
+    let with = |change: &dyn Fn(&mut ChatAttachmentRequest)| {
+      let mut attachment = attachment_request("Pasted text", "text");
+      change(&mut attachment);
+      vec![attachment]
+    };
+    let repeated = attachment_request("Pasted text", "text");
+    let cases: Vec<(&str, Vec<ChatAttachmentRequest>)> = vec![
+      ("at most", (0..=CHAT_ATTACHMENTS_MAX_COUNT).map(|_| attachment_request("Pasted text", "text")).collect()),
+      ("title", with(&|a| a.title = "  ".to_owned())),
+      ("title", with(&|a| a.title = "two\nlines".to_owned())),
+      ("title", with(&|a| a.title = "x".repeat(CHAT_ATTACHMENT_TITLE_MAX_CHARS + 1))),
+      ("id", with(&|a| a.id = "not-a-uid".to_owned())),
+      (
+        "id",
+        vec![
+          ChatAttachmentRequest { id: repeated.id.clone(), ..attachment_request("A", "a") },
+          ChatAttachmentRequest { id: repeated.id.clone(), ..attachment_request("B", "b") },
+        ],
+      ),
+      ("not text", with(&|a| a.mime_type = "application/pdf".to_owned())),
+      ("empty", with(&|a| a.text = " \n ".to_owned())),
+      ("larger", with(&|a| a.text = "x".repeat(CHAT_ATTACHMENT_MAX_BYTES + 1))),
+      ("already in the chat", with(&|a| a.id = reused_id.clone())),
+    ];
+    for (expected, attachments) in cases {
+      let mut request = request(&f.query_item_id, 1, "q2");
+      request.attachments = attachments;
+      let message = error_message(f.start(&mut request, "r2").await.err().unwrap());
+      assert!(message.contains(expected), "expected '{expected}' in '{message}'");
+    }
+    assert_eq!(f.transcript().await.revision(), 1);
+
+    let mut at_limit = request(&f.query_item_id, 1, "q2");
+    at_limit.attachments = vec![attachment_request("Pasted text", &"x".repeat(CHAT_ATTACHMENT_MAX_BYTES))];
+    assert!(f.start(&mut at_limit, "r2").await.is_ok());
+  }
+
+  #[tokio::test]
+  async fn title_input_leaves_out_attachments() {
+    let f = fixture().await;
+    let mut request = request(&f.query_item_id, 0, "");
+    request.text = None;
+    request.attachments = vec![attachment_request("Pasted text", "the transcript")];
+    let mut turn = f.start(&mut request, "r1").await.ok().unwrap();
+    let mut messages = request.messages.clone();
+    messages.push(message("assistant", "a summary"));
+    turn.end_completed(ChatRunResult { assistant_text: "a summary".to_owned(), messages }).await.ok().unwrap();
+    drop(turn);
+
+    let transcript = f.transcript().await;
+    let messages = chat_title_input_messages(&transcript);
+    let pairs = messages.iter().map(|m| (m.role.as_str(), m.content.clone().unwrap())).collect::<Vec<_>>();
+    assert_eq!(pairs, vec![("assistant", "a summary".to_owned())]);
+    assert_eq!(title_from_prompt(&transcript.turns[0].user), "Pasted text");
+  }
+
   #[test]
   fn titles_from_prompts_and_model_replies() {
-    assert_eq!(title_from_prompt("  how do   rust lifetimes work? "), "how do rust");
-    assert_eq!(title_from_prompt("   "), "Chat");
+    let user = |text: &str| UserRecord {
+      request_id: "r".to_owned(),
+      started_at: 0,
+      text: text.to_owned(),
+      attachments: vec![],
+      settings: TurnSettings { model: None, capabilities: vec![], scope_id: None, mode: ChatRunMode::Chat },
+    };
+    assert_eq!(title_from_prompt(&user("  how do   rust lifetimes work? ")), "how do rust");
+    assert_eq!(title_from_prompt(&user("   ")), "Chat");
     assert_eq!(title_from_model_response("\n## Rust Lifetimes.\nmore"), Some("Rust Lifetimes".to_owned()));
     assert_eq!(title_from_model_response("Title: \"Borrow   Checker\""), Some("Borrow Checker".to_owned()));
     assert_eq!(title_from_model_response("Borrow Checker!?"), Some("Borrow Checker".to_owned()));

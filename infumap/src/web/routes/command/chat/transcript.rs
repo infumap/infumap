@@ -84,7 +84,46 @@ pub(super) struct UserRecord {
   #[serde(rename = "startedAt")]
   pub(super) started_at: i64,
   pub(super) text: String,
+  /// Text attached to the message, sent to the model before it. See docs/chat-attachments.md.
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  pub(super) attachments: Vec<ChatAttachment>,
   pub(super) settings: TurnSettings,
+}
+
+impl UserRecord {
+  /// The user message the model gets: each attachment wrapped in `<attachment>` tags, then the text.
+  pub(super) fn model_content(&self) -> String {
+    let mut parts = self
+      .attachments
+      .iter()
+      .map(|attachment| {
+        let newline = if attachment.text.ends_with('\n') { "" } else { "\n" };
+        format!(
+          "<attachment name=\"{}\">\n{}{}</attachment>",
+          attachment.title.replace('"', "'"),
+          attachment.text,
+          newline
+        )
+      })
+      .collect::<Vec<_>>();
+    if !self.text.is_empty() {
+      parts.push(self.text.clone());
+    }
+    parts.join("\n\n")
+  }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub(super) struct ChatAttachment {
+  /// A uid made by the client, unique within the transcript.
+  pub(super) id: Uid,
+  pub(super) title: String,
+  #[serde(rename = "mimeType")]
+  pub(super) mime_type: String,
+  /// The UTF-8 length of `text`.
+  #[serde(rename = "sizeBytes")]
+  pub(super) size_bytes: usize,
+  pub(super) text: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -226,7 +265,7 @@ impl Transcript {
       }
       messages.push(ChatHistoryMessage {
         role: "user".to_owned(),
-        content: Some(turn.user.text.clone()),
+        content: Some(turn.user.model_content()),
         reasoning_content: None,
         tool_call_id: None,
         tool_calls: None,
@@ -234,6 +273,11 @@ impl Transcript {
       messages.extend(end.messages.iter().cloned());
     }
     messages
+  }
+
+  /// Whether an attachment with this id is in any turn.
+  pub(super) fn has_attachment(&self, id: &str) -> bool {
+    self.turns.iter().any(|turn| turn.user.attachments.iter().any(|attachment| attachment.id == id))
   }
 
   fn check(&self, record: &TranscriptRecord) -> InfuResult<()> {
@@ -581,7 +625,18 @@ mod tests {
       request_id: request_id.to_owned(),
       started_at: 10,
       text: text.to_owned(),
+      attachments: vec![],
       settings: TurnSettings { model: None, capabilities: vec![], scope_id: None, mode: ChatRunMode::Chat },
+    }
+  }
+
+  fn attachment(title: &str, text: &str) -> ChatAttachment {
+    ChatAttachment {
+      id: new_uid(),
+      title: title.to_owned(),
+      mime_type: "text/plain".to_owned(),
+      size_bytes: text.len(),
+      text: text.to_owned(),
     }
   }
 
@@ -695,6 +750,58 @@ mod tests {
         { "role": "assistant", "content": "answer three" },
       ])
     );
+  }
+
+  #[tokio::test]
+  async fn attachments_are_kept_and_sent_before_the_text() {
+    let f = Fixture::new();
+    let mut locked = f.create().await;
+    let mut first = user("r1", "summarize these");
+    first.attachments = vec![attachment("Pasted \"text\"", "line one\nline two\n"), attachment("Notes.md", "# Notes")];
+    let first_ids = first.attachments.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
+    locked.append_user(first).await.unwrap();
+    locked.append_turn(turn("r1", TurnOutcome::Completed, vec![message("assistant", "summary")])).await.unwrap();
+    let mut failed = user("r2", "");
+    failed.attachments = vec![attachment("Pasted text", "never sent")];
+    locked.append_user(failed).await.unwrap();
+    locked.append_turn(turn("r2", TurnOutcome::Error, vec![])).await.unwrap();
+    let mut only_attachment = user("r3", "");
+    only_attachment.attachments = vec![attachment("Pasted text", "just this")];
+    locked.append_user(only_attachment).await.unwrap();
+    locked.append_turn(turn("r3", TurnOutcome::Completed, vec![message("assistant", "ok")])).await.unwrap();
+    drop(locked);
+
+    let transcript = f.read().await.unwrap();
+    assert_eq!(transcript.revision(), 3);
+    let attachments = &transcript.turns[0].user.attachments;
+    assert_eq!(attachments.iter().map(|a| a.id.clone()).collect::<Vec<_>>(), first_ids);
+    assert_eq!(attachments[1].size_bytes, 7);
+    assert!(transcript.has_attachment(&first_ids[1]));
+    assert!(!transcript.has_attachment(&new_uid()));
+    assert_eq!(
+      history_json(&transcript),
+      serde_json::json!([
+        {
+          "role": "user",
+          "content": "<attachment name=\"Pasted 'text'\">\nline one\nline two\n</attachment>\n\n\
+            <attachment name=\"Notes.md\">\n# Notes\n</attachment>\n\nsummarize these",
+        },
+        { "role": "assistant", "content": "summary" },
+        { "role": "user", "content": "<attachment name=\"Pasted text\">\njust this\n</attachment>" },
+        { "role": "assistant", "content": "ok" },
+      ])
+    );
+  }
+
+  #[test]
+  fn user_record_without_attachments_parses_and_omits_them() {
+    let line = r#"{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{"mode":"chat"}}"#;
+    let TranscriptRecord::User(user) = serde_json::from_str::<TranscriptRecord>(line).unwrap() else {
+      panic!("expected a user record");
+    };
+    assert!(user.attachments.is_empty());
+    assert_eq!(user.model_content(), "q");
+    assert!(!record_line(&TranscriptRecord::User(user)).unwrap().contains("attachments"));
   }
 
   #[tokio::test]
