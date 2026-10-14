@@ -19,7 +19,9 @@
 import { GRID_SIZE, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, MIN_DETAILED_CHILD_SCALE, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { PageFlags, itemCanExpandInLineItem, itemIsListPagePinnedBottom, itemIsListPagePinnedTop } from "../../items/base/flags-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
 import { Item } from "../../items/base/item";
+import { isAttachmentsItem } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isContainer } from "../../items/base/container-item";
 import { asXSizableItem, isXSizableItem } from "../../items/base/x-sizeable-item";
@@ -667,6 +669,17 @@ export function arrangeSelectedListItem(
       : ItemFns.calcGeometry_InCell(li, cellBoundsPx, canShiftLeft, false, false, false, false, false, false, false, store.smallScreenMode());
     if (previewScale != null) {
       cellGeometry = scaleGeometry(cellGeometry, boundsPx, previewScale);
+    }
+    if (previewScale == null && isAttachmentsItem(item) && !isContainer(item) && itemCanEdit(item)) {
+      // In the selected-item panel, the whole item body accepts attachments. Keep the
+      // bottom strip for attaching to a new composite, where the item has one.
+      const compositeStrip = cellGeometry.hitboxes.find(hitbox => hitbox.type & HitboxFlags.AttachComposite);
+      const attachHeightPx = compositeStrip?.boundsPx.y ?? cellGeometry.boundsPx.h;
+      if (attachHeightPx > 0) {
+        cellGeometry.hitboxes.unshift(HitboxFns.create(HitboxFlags.Attach, {
+          x: 0, y: 0, w: cellGeometry.boundsPx.w, h: attachHeightPx,
+        }));
+      }
     }
   }
 
