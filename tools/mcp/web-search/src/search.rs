@@ -14,9 +14,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::time::Duration;
+
+use log::warn;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 
+use crate::budget::{BudgetStore, BudgetedProvider};
 use crate::config;
 use crate::error::InfuResult;
 pub use crate::providers::SearchResult;
@@ -32,7 +36,7 @@ pub const MAX_RESULTS_CAP: usize = 30;
 
 struct ConfiguredProviders {
   duckduckgo: Option<DuckDuckGo>,
-  exa: Option<Exa>,
+  exa: Option<BudgetedProvider<Exa>>,
 }
 
 static PROVIDERS: Lazy<InfuResult<ConfiguredProviders>> = Lazy::new(|| {
@@ -40,16 +44,51 @@ static PROVIDERS: Lazy<InfuResult<ConfiguredProviders>> = Lazy::new(|| {
   let exa = config
     .exa
     .as_ref()
-    .map(|config| Exa::new(&config.api_key))
+    .map(|exa_config| {
+      let adapter = Exa::new(&exa_config.api_key)?;
+      let directory = config.state_dir.as_ref().ok_or_else(|| {
+        crate::providers::ProviderError::new(
+          crate::providers::ProviderErrorKind::Internal,
+          "Budget state directory is not configured.",
+        )
+      })?;
+      let store = BudgetStore::open(directory)?;
+      let account = store.account(
+        adapter.name(),
+        &exa_config.account_id,
+        exa_config.monthly_free_credits_cents,
+        exa_config.monthly_paid_limit_cents,
+        exa_config.monthly_reset_day,
+        exa_config.initial_used_cents,
+      )?;
+      BudgetedProvider::new(adapter, account)
+    })
     .transpose()
     .map_err(|error| format!("Could not initialize Exa: {error}"))?;
   Ok(ConfiguredProviders { duckduckgo: config.duckduckgo_enabled.then_some(DuckDuckGo), exa })
 });
 
 /// Prepare configured clients and validate credentials locally, without issuing
-/// any provider requests. Exa execution remains gated on budget accounting.
+/// any provider requests. Exa execution awaits automatic routing.
 pub fn initialize_providers() -> InfuResult<()> {
   configured_providers().map(|_| ())
+}
+
+/// Poll optional usage reporting without adding another request to every search.
+/// Exa currently reports None, so this makes no provider HTTP requests for Exa.
+pub async fn refresh_provider_usage() {
+  let Ok(providers) = configured_providers() else { return };
+  let Some(exa) = &providers.exa else { return };
+  let mut interval = tokio::time::interval(Duration::from_secs(300));
+  interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+  loop {
+    interval.tick().await;
+    match tokio::time::timeout(Duration::from_secs(20), exa.usage()).await {
+      Ok(Ok(_)) => (),
+      Ok(Err(error)) => warn!("Could not reconcile Exa usage: {error}"),
+      Err(_) => warn!("Exa usage refresh timed out."),
+    }
+  }
 }
 
 fn configured_providers() -> InfuResult<&'static ConfiguredProviders> {
@@ -93,7 +132,7 @@ fn configured_provider() -> InfuResult<&'static dyn SearchProvider> {
     return Ok(duckduckgo);
   }
   Err(if providers.exa.is_some() {
-    "Exa is configured, but searches remain disabled until persistent budget accounting is implemented. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
+    "Exa and persistent budget accounting are configured, but automatic routing is not implemented yet. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
   } else {
     "No search providers enabled. Set WEB_SEARCH_DUCKDUCKGO_ENABLED=true to enable DuckDuckGo search."
   }

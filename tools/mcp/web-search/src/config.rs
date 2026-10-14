@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::env;
+use std::path::PathBuf;
 
 use once_cell::sync::Lazy;
 
@@ -23,14 +24,17 @@ static CONFIG: Lazy<Result<SearchConfig, String>> = Lazy::new(SearchConfig::from
 pub struct SearchConfig {
   pub duckduckgo_enabled: bool,
   pub exa: Option<ExaConfig>,
+  pub state_dir: Option<PathBuf>,
 }
 
 // Deliberately does not implement Debug: configuration contains credentials.
 pub struct ExaConfig {
   pub api_key: String,
+  pub account_id: String,
   pub monthly_free_credits_cents: u64,
   pub monthly_paid_limit_cents: u64,
   pub monthly_reset_day: u8,
+  pub initial_used_cents: u64,
 }
 
 /// Load once at startup so configuration remains consistent for every request.
@@ -62,12 +66,29 @@ impl SearchConfig {
       .transpose()?
       .unwrap_or(false);
     let api_key = optional_env("EXA_API_KEY")?;
+    let account_id = optional_env("WEB_SEARCH_EXA_ACCOUNT_ID")?.unwrap_or_else(|| "default".to_owned());
+    if account_id.len() > 128 || account_id.chars().any(char::is_control) {
+      return Err("WEB_SEARCH_EXA_ACCOUNT_ID must be at most 128 bytes and contain no control characters.".to_owned());
+    }
+    let state_dir = if let Some(path) = optional_env("WEB_SEARCH_STATE_DIR")? {
+      Some(PathBuf::from(path))
+    } else if let Some(path) = optional_env("XDG_STATE_HOME")? {
+      Some(PathBuf::from(path).join("infumap-web-search"))
+    } else {
+      optional_env("HOME")?.map(|path| PathBuf::from(path).join(".local/state/infumap-web-search"))
+    };
+    if state_dir.as_ref().is_some_and(|path| !path.is_absolute()) {
+      return Err("The web-search state directory must be an absolute path.".to_owned());
+    }
     // Unknown allowance means zero usable budget until configured or reported
     // by a future provider usage API. Do not assume today's advertised tier.
     let monthly_free_credits_cents = unsigned_env("WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS", 0)?;
     let monthly_paid_limit_cents = unsigned_env("WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS", 0)?;
+    let initial_used_cents = unsigned_env("WEB_SEARCH_EXA_INITIAL_USED_CENTS", 0)?;
+    initial_used_cents.checked_mul(10_000).ok_or("Initial Exa usage exceeds the supported range.")?;
     monthly_free_credits_cents
       .checked_add(monthly_paid_limit_cents)
+      .and_then(|cents| cents.checked_mul(10_000))
       .ok_or("Combined Exa monthly credit and paid limits exceed the supported range.")?;
     let monthly_reset_day = unsigned_env("WEB_SEARCH_EXA_MONTHLY_RESET_DAY", 1)?;
     if !(1..=31).contains(&monthly_reset_day) {
@@ -75,11 +96,16 @@ impl SearchConfig {
     }
     let exa = api_key.map(|api_key| ExaConfig {
       api_key,
+      account_id,
       monthly_free_credits_cents,
       monthly_paid_limit_cents,
       monthly_reset_day: monthly_reset_day as u8,
+      initial_used_cents,
     });
-    Ok(Self { duckduckgo_enabled, exa })
+    if exa.is_some() && state_dir.is_none() {
+      return Err("Exa budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
+    }
+    Ok(Self { duckduckgo_enabled, exa, state_dir })
   }
 }
 

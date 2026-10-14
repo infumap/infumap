@@ -61,7 +61,6 @@ pub enum RequestCost {
 
 /// Provider-reported allowance for a billing period, normalized to millionths
 /// of a US dollar. Unknown values remain None, rather than implying capacity.
-#[expect(dead_code, reason = "Usage reconciliation is implemented in subsequent steps.")]
 #[derive(Clone, Debug)]
 pub struct UsageSnapshot {
   pub remaining_usd_micros: Option<u64>,
@@ -71,17 +70,14 @@ pub struct UsageSnapshot {
 
 /// Object-safe interface so the router can hold different provider adapters.
 pub trait SearchProvider: Send + Sync {
-  #[expect(dead_code, reason = "Provider diagnostics are consumed by the upcoming router.")]
   fn name(&self) -> &'static str;
 
   /// Local estimate only; this must not issue a request to the provider.
-  #[expect(dead_code, reason = "Budget reservations are implemented in subsequent steps.")]
   fn estimate_cost(&self, request: &SearchRequest<'_>) -> ProviderResult<RequestCost>;
 
   fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<Vec<SearchResult>>>;
 
   /// None means usage reporting is unsupported. Never invent a full allowance.
-  #[expect(dead_code, reason = "Usage reconciliation is implemented in subsequent steps.")]
   fn usage(&self) -> BoxFuture<'_, ProviderResult<Option<UsageSnapshot>>> {
     Box::pin(async { Ok(None) })
   }
@@ -104,16 +100,23 @@ pub struct ProviderError {
   #[expect(dead_code, reason = "Typed failure handling is consumed by the upcoming router.")]
   pub kind: ProviderErrorKind,
   pub retry_after: Option<Duration>,
+  /// Only set when the provider explicitly guarantees this attempt was not billed.
+  pub not_charged: bool,
   message: String,
 }
 
 impl ProviderError {
   pub fn new(kind: ProviderErrorKind, message: impl Into<String>) -> Self {
-    Self { kind, retry_after: None, message: message.into() }
+    Self { kind, retry_after: None, not_charged: false, message: message.into() }
   }
 
   pub fn with_retry_after(mut self, retry_after: Option<Duration>) -> Self {
     self.retry_after = retry_after;
+    self
+  }
+
+  pub fn without_charge(mut self) -> Self {
+    self.not_charged = true;
     self
   }
 }

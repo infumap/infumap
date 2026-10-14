@@ -128,9 +128,11 @@ impl SearchProvider for Exa {
           408 | 500..=599 => ProviderErrorKind::Transient,
           _ => ProviderErrorKind::UnexpectedResponse,
         };
-        return Err(
-          ProviderError::new(kind, format!("Exa search returned HTTP {status}.")).with_retry_after(retry_after),
-        );
+        let error =
+          ProviderError::new(kind, format!("Exa search returned HTTP {status}.")).with_retry_after(retry_after);
+        // Exa explicitly documents HTTP 503 as not processed and not billed:
+        // https://exa.ai/docs/admin/error-codes
+        return Err(if status.as_u16() == 503 { error.without_charge() } else { error });
       }
 
       let mut body = Vec::new();

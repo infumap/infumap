@@ -3,9 +3,11 @@
 Streamable HTTP MCP server exposing Infumap's web-search and page-fetch tools.
 Bind is `127.0.0.1` by default. Search providers require configuration;
 DuckDuckGo currently serves searches. The Exa adapter is implemented, with
-execution gated until persistent budget accounting is available.
+execution gated until automatic provider routing is available.
 
 ## Run
+
+Requires Rust 1.89 or newer (standard-library file locking).
 
 From the repo root:
 
@@ -39,9 +41,12 @@ Unset or whitespace-only values use the defaults below.
 | --- | --- | --- |
 | `WEB_SEARCH_DUCKDUCKGO_ENABLED` | `false` | Explicitly enable the undocumented DuckDuckGo HTML endpoint. Accepts `true` or `false`. |
 | `EXA_API_KEY` | Unset | A nonempty API key configures Exa. No separate enable flag is needed. |
+| `WEB_SEARCH_STATE_DIR` | See below | Absolute directory for persistent budget state. |
+| `WEB_SEARCH_EXA_ACCOUNT_ID` | `default` | Stable local account label, shared across API keys belonging to the same Exa account. |
 | `WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS` | `0` | Monthly free allowance in integer US cents, not request counts. Zero means no assumed free capacity. |
 | `WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS` | `0` | Maximum additional paid usage per monthly period, in integer US cents. Zero specifies free-only usage. |
 | `WEB_SEARCH_EXA_MONTHLY_RESET_DAY` | `1` | Day of month, from 1 through 31, when the configured budget resets at 00:00 UTC. Days beyond the end of a month mean that month's last day. |
+| `WEB_SEARCH_EXA_INITIAL_USED_CENTS` | `0` | Usage already incurred in the current period, in integer US cents. Applied only when this account is first added to the ledger. |
 
 Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
@@ -50,11 +55,11 @@ trial or onboarding credits are not recurring monthly allowances.
 **Implementation status:** provider configuration, preference and the common
 provider interface with DuckDuckGo and Exa adapters are implemented. Startup
 prepares configured clients and validates credential header syntax locally,
-without contacting providers. Persistent accounting, budget enforcement and
-automatic fallback are subsequent steps. Exa requests remain disabled until
-accounting is implemented, even when an API key and budget are configured.
-Startup logs explain this. The budget settings define the policy for that
-implementation; they do not yet enforce provider-side billing limits.
+without contacting providers. The Exa adapter is wrapped in persistent budget
+accounting that reserves capacity before any metered request can be dispatched.
+Automatic selection and fallback remain for step 5, so Exa searches are still
+disabled at the MCP entry point. Startup logs explain this and report the local
+budget balance. These are local estimates, not provider-side billing controls.
 
 To use the currently available search provider:
 
@@ -71,11 +76,13 @@ provides $10 in recurring monthly credits**:
 export WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS=1000
 export WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS=0
 export WEB_SEARCH_EXA_MONTHLY_RESET_DAY=1
+# Set this to the current period's usage before this tool starts tracking it:
+export WEB_SEARCH_EXA_INITIAL_USED_CENTS=0
 ```
 
 With no providers configured, `web_search` returns a configuration error and
 `fetch_page` remains available. With only Exa configured, `web_search` explains
-that execution is gated on budget accounting. Existing installations must
+that execution is gated on automatic routing. Existing installations must
 explicitly set `WEB_SEARCH_DUCKDUCKGO_ENABLED=true` to continue using DuckDuckGo.
 
 ### Selection policy for the upcoming router
@@ -91,11 +98,10 @@ allowance percentage. Unknown allowance is not treated as full capacity. Paid
 capacity is used only when no eligible free capacity or enabled DuckDuckGo
 fallback remains, and only within an explicitly configured paid limit.
 
-Provider usage reporting will reconcile local estimates. Reservations for
-concurrent requests and persistent consumption tracking are required before
-automatic metered requests are enabled. A successful empty search is a result,
-not an automatic trigger to spend credits on every provider. Fallback attempts
-and total request time will be bounded.
+Provider usage reporting can conservatively reconcile local estimates. Durable
+reservations and consumption tracking are implemented. A successful empty search
+is a result, not an automatic trigger to spend credits on every provider. Fallback
+attempts and total request time will be bounded.
 
 ### Provider adapters
 
@@ -115,8 +121,59 @@ transient failures, invalid requests, bot blocking, unexpected responses and
 internal errors. DuckDuckGo classifies HTTP failures and bot challenges, and
 retains delta-seconds `Retry-After` values when supplied. Error classification
 and usage metadata are internal; the MCP tool continues to return the existing
-compact results and text errors. Retries, cooldowns and budget enforcement will
-be implemented by the router.
+compact results and text errors. Retries and cooldowns will be coordinated by
+the router; durable budget enforcement is provided by the accounting wrapper.
+
+### Persistent budget accounting
+
+State is stored in `WEB_SEARCH_STATE_DIR`, or by default in
+`$XDG_STATE_HOME/infumap-web-search` when `XDG_STATE_HOME` is set, otherwise
+`$HOME/.local/state/infumap-web-search`. The directory must be absolute. It is
+created only when a metered provider is configured. Preserve it across restarts
+and container deployments; changing or deleting it discards accounting history.
+
+`budget.json` records provider/account labels, configured allowances, monthly
+UTC boundaries, consumption estimates and outstanding reservations. API keys
+and search queries are never written to it. Use the same account label when
+rotating keys, and different labels for different accounts. Do not use a key
+as the account label. Usage from other applications is not automatically known:
+seed existing usage with `WEB_SEARCH_EXA_INITIAL_USED_CENTS` when first adding an
+account, rounding up to whole cents, and use provider-side spending limits where
+available. The initial-use setting is ignored for existing ledger accounts and
+is not reapplied next month.
+
+Allowances can change on restart without clearing consumption. The reset day
+must match the stored schedule; changing it is rejected instead of silently
+starting a new allowance period. Days 29–31 clamp to the final day of shorter
+months. Consumption resets at the configured boundary. Requests still in flight
+also reserve capacity in the new period because their billing time is uncertain.
+
+Each estimated request cost is reserved and durably saved before dispatch. The
+accounting wrapper defaults to free capacity only; a later router must explicitly
+permit paid capacity for an attempt. Concurrent reservations share a mutex and
+cannot independently consume the same remaining allowance. Successful requests,
+including empty results, commit their full estimates. Timeouts, cancellation and
+uncertain failures also commit the estimates. Errors explicitly guaranteed not
+to be billed release their reservation; currently Exa HTTP 503 is the documented
+case. Reservations left by a crash are charged on reopening the ledger, including
+against the current period if a reset occurred while the server was down.
+
+Ledger writes use a synced temporary file followed by atomic rename, with a
+directory sync on Unix. A process lock on `budget.lock` prevents another server
+from opening the same ledger concurrently, and releases automatically when the
+owner exits. New directories/files use owner-only permissions on Unix. Invalid,
+unsupported or unreadable ledgers stop initialization; they are never silently
+replaced with zero consumption. Write failures block further metered requests
+until the persistence problem is repaired and the server restarts.
+
+Optional provider usage reporting is polled every five minutes with a 20-second
+timeout. Supported reports can lower available capacity within the matching
+period; they never replenish uncertain charges or enlarge configured allowances.
+Pending requests remain reserved independently. Missing reporting leaves local
+estimates in place. Exa currently returns `None`, so its poll performs no HTTP
+request and cannot discover its actual account balance. Price changes, provider
+billing timing and usage outside this ledger can make local estimates differ
+from actual provider usage.
 
 ### Exa adapter
 

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+mod budget;
 mod config;
 mod error;
 mod fetch;
@@ -60,7 +61,7 @@ async fn main() {
       exa.monthly_free_credits_cents, exa.monthly_paid_limit_cents, exa.monthly_reset_day
     );
     warn!(
-      "Exa adapter is ready, but requests are disabled until persistent budget accounting is implemented; searches require DuckDuckGo opt-in."
+      "Exa adapter and persistent budget accounting are ready, but automatic routing is not implemented yet; searches require DuckDuckGo opt-in."
     );
   }
 
@@ -82,6 +83,7 @@ async fn main() {
     }
   };
   info!("infumap-web-search listening on http://{addr}/mcp");
+  tokio::spawn(search::refresh_provider_usage());
 
   loop {
     let (stream, _) = match listener.accept().await {

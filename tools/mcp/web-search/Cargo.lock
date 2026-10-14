@@ -778,6 +778,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "jiff",
  "log",
  "once_cell",
  "rand 0.8.8",
