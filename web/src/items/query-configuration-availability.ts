@@ -1,0 +1,95 @@
+/* Copyright (C) The Infumap Authors. SPDX-License-Identifier: AGPL-3.0-or-later */
+
+import type { StoreContextModel } from "../store/StoreProvider";
+import type { ChatModelSelection, QueryConfiguration } from "./query-configuration";
+import { queryScopeName, queryScopeProblemText, queryScopeSummary, queryScopesError, queryScopesLoading, refreshQueryScopes } from "./query-scope";
+
+export interface QueryConfigurationIssue {
+  resource: "scope" | "model" | "tools",
+  status: "unavailable" | "unverified" | "checking" | "warning",
+  message: string,
+  /** Inactive resources are retained, but never prevent the current operation. */
+  active: boolean,
+}
+
+type ResourceIssue = Omit<QueryConfigurationIssue, "active">;
+
+export function queryModelIssues(store: StoreContextModel, selection: ChatModelSelection | null): ResourceIssue[] {
+  const issue = (status: ResourceIssue["status"], message: string): ResourceIssue[] => [{ resource: "model", status, message }];
+  if (selection == null) { return issue("unavailable", "Choose a model and provider for Chat."); }
+  const catalog = store.general.chatBackends();
+  if (catalog == null || store.general.chatBackendsError() != null) {
+    if (catalog == null && store.general.chatBackendsRefreshing() && store.general.chatBackendsError() == null) {
+      return issue("checking", `Checking availability of ${selection.model ?? "Server-selected"} / ${selection.backend}…`);
+    }
+    return issue("unverified", `Could not verify ${selection.model ?? "Server-selected"} / ${selection.backend}. Refresh to check availability.`);
+  }
+  const provider = catalog.backends.find(backend => backend.id == selection.backend);
+  if (provider == null || !provider.available) {
+    return issue("unavailable", `Provider ${provider?.label ?? selection.backend} is unavailable. ${provider?.unavailableReason ?? "It is not configured on this server."} Choose another provider.`);
+  }
+  if (!provider.supportsModelSelection && selection.model != null) {
+    return issue("unavailable", `${provider.label} serves its own model. Choose Server-selected instead of ${selection.model}.`);
+  }
+  if (!provider.supportsReasoningEffort && selection.reasoningEffort != null) {
+    return issue("unavailable", `${provider.label} does not support reasoning effort ${selection.reasoningEffort}. Choose Default.`);
+  }
+  if (!provider.supportsModelSelection) { return []; }
+  if (selection.model == null) { return issue("unavailable", `Choose an explicit model for ${provider.label}.`); }
+  if (provider.modelsError != null) {
+    return issue("unverified", `${provider.label}: ${provider.modelsError} The saved model and reasoning effort will be sent unchanged.`);
+  }
+  const model = provider.models.find(model => model.id == selection.model);
+  if (model == null) { return issue("unavailable", `Model ${selection.model} is not in the ${provider.label} catalog. Choose another model.`); }
+  if (selection.reasoningEffort != null && !model.reasoningEfforts.includes(selection.reasoningEffort)) {
+    return issue("unavailable", `${model.name} does not support reasoning effort ${selection.reasoningEffort}. Choose Default or a supported effort.`);
+  }
+  return [];
+}
+
+/** Reports facts from discovery without substituting or deleting any saved resource. */
+export function queryConfigurationIssues(
+  store: StoreContextModel,
+  configuration: QueryConfiguration,
+  mode: "search" | "chat",
+): QueryConfigurationIssue[] {
+  const issues: QueryConfigurationIssue[] = [];
+  const scopeActive = mode == "search" || configuration.capabilities.includes("infumap_data");
+  if (configuration.scopeId != null) {
+    const summary = queryScopeSummary(configuration.scopeId);
+    if (summary === undefined || queryScopesError() != null) {
+      const checking = queryScopesLoading() && queryScopesError() == null;
+      issues.push({ resource: "scope", status: checking ? "checking" : "unverified", active: scopeActive,
+        message: checking ? "Checking the saved scope's availability…" : "Could not verify the saved scope. Refresh scopes to check availability." });
+    } else if (summary == null) {
+      issues.push({ resource: "scope", status: "unavailable", active: scopeActive,
+        message: `Scope ${configuration.scopeId} no longer exists or is not accessible. Choose another scope.` });
+    } else {
+      const problem = queryScopeProblemText(summary.problems);
+      if (problem != null) { issues.push({ resource: "scope", status: "warning", active: scopeActive, message: `${queryScopeName(configuration.scopeId)}: ${problem}.` }); }
+    }
+  }
+  issues.push(...queryModelIssues(store, configuration.model).map(issue => ({ ...issue, active: mode == "chat" })));
+  for (const id of new Set(configuration.capabilities)) {
+    if (id == "infumap_data") { continue; }
+    const catalog = store.general.chatBackends();
+    const source = catalog?.toolServers?.find(server => server.id == id);
+    const unverified = catalog == null || store.general.chatBackendsError() != null;
+    if (unverified || source == null || !source.available) {
+      const checking = catalog == null && store.general.chatBackendsRefreshing() && store.general.chatBackendsError() == null;
+      issues.push({ resource: "tools", active: mode == "chat", status: checking ? "checking" : unverified ? "unverified" : "unavailable",
+        message: checking ? `Checking availability of tool source ${id}…` : unverified ? `Could not verify tool source ${source?.label ?? id}. Refresh tools to check availability.`
+          : `Tool source ${source?.label ?? id} is unavailable. ${source?.unavailableReason ?? "It is not configured on this server."} Disable it or choose another profile.` });
+    }
+  }
+  return issues;
+}
+
+export function queryConfigurationUnavailableReason(store: StoreContextModel, configuration: QueryConfiguration, mode: "search" | "chat"): string | null {
+  const messages = queryConfigurationIssues(store, configuration, mode).filter(issue => issue.active && issue.status == "unavailable").map(issue => issue.message);
+  return messages.length == 0 ? null : messages.join("\n");
+}
+
+export async function refreshQueryConfigurationAvailability(store: StoreContextModel): Promise<void> {
+  await Promise.all([refreshQueryScopes(store), store.general.refreshChatBackends()]);
+}

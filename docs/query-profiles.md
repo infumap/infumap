@@ -23,8 +23,8 @@ All configuration fields are explicit, including nullable fields:
   Chat uses it when `infumap_data` is enabled. It does not constrain web tools, attachments or
   information already in the conversation. The scope is retained even when Infumap tools are off.
 - `model`: an explicit provider route, model and reasoning effort. The backend is `openrouter`
-  or `llama:<configured server name>`. A null model ID leaves model selection to that provider;
-  a null reasoning effort uses the model's default. A null selection object means no model has
+  or `llama:<configured server name>`. A null model ID is for a provider that serves its own model;
+  OpenRouter requires an explicit model ID. A null reasoning effort uses the model's default. A null selection object means no model has
   been chosen, such as before the default profile loads or in Search. Chat execution requires a selection;
   the composer copies the default profile before the first command and sends the selected resources exactly.
 - `capabilities`: enabled capability IDs: `infumap_data` and configured MCP server IDs.
@@ -243,3 +243,45 @@ If loading reports that a response is running elsewhere, `chat.runningElsewhere`
 and submission controls locked. The visible query checks every two seconds and refreshes its transcript
 when that response ends, then unlocks the controls. Checks ignore stale responses after a query is
 cleared or the account changes. Tool and profile popups remain available for inspection while locked.
+
+## Unavailable resources
+
+`query-configuration-availability.ts` reports availability without changing configuration or saved
+profiles. It distinguishes confirmed **Unavailable**, failed discovery (**Unverified**), initial
+**Checking** and scope-definition warnings. Failed catalog requests retain the last good list and
+cannot prove that a resource was removed. Scope discovery is cleared on account changes, and stale
+responses from a prior account are ignored.
+
+Profiles remain selectable when they contain unavailable resources, so their complete setup can be
+applied and repaired. Pinned shortcuts warn about active unavailable resources, profile summaries explain each problem,
+and the current profile row reports active problems. **More** and each independent picker offer
+availability refresh actions. Long problem lists scroll inside the dialog header so configuration
+and management actions stay reachable. Saved references, profile snapshots and model favorites are
+retained even after a provider, model, scope or tool source disappears.
+
+Confirmed unavailable active resources disable Send and block keyboard and command submission with
+an explanation. The draft, attachments and selected setup stay intact. Search validates only Scope;
+it ignores missing models and tools. Chat validates model/provider/reasoning effort and enabled tool
+sources, and validates Scope only when Infumap tools are enabled. An unused missing scope remains
+saved and becomes blocking if Infumap tools are explicitly re-enabled. Scope-definition problems
+retain their existing warning semantics rather than substituting unrestricted scope.
+
+The model picker retains missing provider/model pairs and displays unsupported reasoning effort
+alongside **Default** and the supported efforts. Re-selecting the same model preserves its saved
+effort; only an explicit change repairs it. Selecting a different model retains a compatible effort
+or uses its default. Missing scope rows are retained with their saved ID but cannot be selected as
+a replacement. An enabled unavailable tool source can be explicitly disabled between turns.
+
+Unverified selections may still be submitted exactly as configured. The server validates resources
+before recording a chat turn: missing scopes, missing provider routes, known missing models,
+unsupported reasoning and selected missing/down tool sources reject the request. Selected tool
+sources are never silently skipped; a later failure preparing tools also stops the turn. OpenRouter
+cannot replace a null model with the server default, and llama requests cannot silently ignore an
+explicit model or reasoning effort. Requests name a specific configured llama server rather than
+the first-server alias; server default initialization still resolves configuration into a named route.
+
+A fresh OpenRouter catalog can establish model/effort availability. If refreshing that catalog fails,
+the cached catalog is labelled stale and used for browsing, while the exact selected model and effort
+may be tried at the provider. The server does not infer that a missing entry in a stale catalog was
+removed. A rejected turn returns its draft to the client and triggers discovery refresh; no profile,
+scope, model, tool set or default is automatically changed to make the request succeed.

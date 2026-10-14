@@ -30,6 +30,7 @@ import { QueryToolsPicker } from "./QueryToolsPicker";
 import { QueryScopePicker } from "./QueryScopePicker";
 import { QueryProfileBar } from "./QueryProfileBar";
 import { initializeQueryConfiguration, queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
+import { queryConfigurationUnavailableReason } from "../../items/query-configuration-availability";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -283,6 +284,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   /** Search mode hides the mode selector, so a submit from there always refines the search. */
   const selectedInputMode = (): QueryInputMode =>
     isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
+  const configurationUnavailableReason = () => getQueryRuntime(store, queryItem()).configurationInitialized
+    ? queryConfigurationUnavailableReason(store, getQueryRuntime(store, queryItem()).configuration, selectedInputMode()) : null;
   const sendButtonTitle = () => selectedInputMode() == "chat"
     ? (deepResearch() ? "Start deep research" : "Send chat")
     : "Run search";
@@ -381,6 +384,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     editingElMaybe?: HTMLElement | null,
     keepSearchWorkspaceFocus: boolean = false,
   ) => {
+    const unavailable = configurationUnavailableReason();
+    if (unavailable != null) { showTransientMessage(unavailable, TransientMessageType.Error); return; }
     const text = commitEditingQuery(editingElMaybe);
     const requestSerial = ++activeSearchRequestSerial;
     setIsLoadingMore(false);
@@ -406,6 +411,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (queryRequestActive()) {
       return;
     }
+    const unavailable = configurationUnavailableReason();
+    if (unavailable != null) { showTransientMessage(unavailable, TransientMessageType.Error); return; }
 
     const text = commitEditingQuery(editingElMaybe);
     const attachments = draftAttachments();
@@ -756,6 +763,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       focusChatTextareaSoon();
       return;
     }
+    const unavailable = configurationUnavailableReason();
+    if (unavailable != null) { showTransientMessage(unavailable, TransientMessageType.Error); return; }
     setChatText("");
     setDraftAttachments([]);
     resizeChatTextareaSoon();
@@ -1313,11 +1322,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              title={chatRequestCanCancel() ? "Stop generating" : (deepResearch() ? "Start deep research" : "Send")}
+              title={chatRequestCanCancel() ? "Stop generating" : configurationUnavailableReason() ?? (deepResearch() ? "Start deep research" : "Send")}
               aria-label={chatRequestCanCancel() ? "Stop generating" : (deepResearch() ? "Start deep research" : "Send")}
               disabled={chatRequestActive()
                 ? !chatRequestCanCancel()
-                : chatText().trim() == "" && draftAttachments().length == 0}
+                : configurationUnavailableReason() != null || (chatText().trim() == "" && draftAttachments().length == 0)}
               onClick={() => {
                 if (chatRequestCanCancel()) {
                   cancelQueryChatRequest(queryItem().id);
@@ -1558,9 +1567,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="mb-[4px] ml-[6px] flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px;`}
               type="button"
-              title={sendButtonTitle()}
+              title={configurationUnavailableReason() ?? sendButtonTitle()}
               aria-label={sendButtonTitle()}
-              disabled={queryRequestActive() || (selectedInputMode() == "chat" && !canEdit())}
+              disabled={queryRequestActive() || configurationUnavailableReason() != null || (selectedInputMode() == "chat" && !canEdit())}
               onMouseDown={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();

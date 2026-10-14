@@ -26,7 +26,21 @@ import { updateQueryConfiguration } from "./query-configuration-state";
 
 const [scopeList, setScopeList] = createSignal<ListScopesResponse | null>(null);
 const [scopeListError, setScopeListError] = createSignal<string | null>(null);
+const [scopeListLoading, setScopeListLoading] = createSignal(false);
 let scopeListRequest: Promise<void> | null = null;
+let scopeListGeneration = 0;
+let scopeListAccountId: Uid | null = null;
+
+export function clearQueryScopes(): void {
+  scopeListGeneration++;
+  scopeListRequest = null;
+  scopeListAccountId = null;
+  setScopeList(null);
+  setScopeListError(null);
+  setScopeListLoading(false);
+}
+
+export function queryScopesLoading(): boolean { return scopeListLoading(); }
 
 /** The user's scopes as last fetched, or null before the first fetch completes. */
 export function queryScopes(): ListScopesResponse | null {
@@ -39,17 +53,25 @@ export function queryScopesError(): string | null {
 
 /** Scopes are edited as ordinary items, so the list is fetched again whenever a picker opens. */
 export function refreshQueryScopes(store: StoreContextModel): Promise<void> {
+  const accountId = store.user.getUserMaybe()?.userId ?? null;
+  if (scopeListAccountId != accountId) { clearQueryScopes(); scopeListAccountId = accountId; }
+  if (accountId == null) { return Promise.resolve(); }
   if (scopeListRequest == null) {
+    setScopeListLoading(true);
+    const generation = scopeListGeneration;
+    const isCurrent = () => generation == scopeListGeneration && accountId == (store.user.getUserMaybe()?.userId ?? null);
     scopeListRequest = server.listScopes(store.general.networkStatus)
       .then(response => {
+        if (!isCurrent()) { return; }
         setScopeList(response);
         setScopeListError(null);
       })
       .catch(e => {
+        if (!isCurrent()) { return; }
         console.error("Could not load scopes:", e);
         setScopeListError("Could not load scopes.");
       })
-      .finally(() => { scopeListRequest = null; });
+      .finally(() => { if (isCurrent()) { scopeListRequest = null; setScopeListLoading(false); } });
   }
   return scopeListRequest;
 }
