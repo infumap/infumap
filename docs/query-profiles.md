@@ -38,8 +38,8 @@ profile as applied, or `null` for a query without a profile; execution uses `con
 ## Profiles and snapshots
 
 A `QueryProfile` has `id`, `name`, and `configuration`. Pinning, ordering, model favorites and the
-default profile are account preferences stored with the profiles. Profile selection is available in the
-composer; profile management UI is subsequent work.
+default profile are account preferences stored with the profiles. Profile selection and management
+are available in the composer's **More** menu.
 
 The query runtime has an editable `configuration` and a nullable `appliedProfile`. The latter holds
 the profile snapshot as applied, including its name and configuration, for reset and modified
@@ -181,4 +181,40 @@ and includes loading, error and retry states. Keyboard users can Tab through sho
 in the query's control cycle, use Left/Right between shortcuts, and use Up/Down in the profile menu.
 
 Search results, transcripts and the activity panel reserve the profile row's height and spacing.
-Creating, editing, pinning and ordering profiles in the UI remains the next implementation step.
+
+## Profile management and saving changes
+
+The profile menu offers **Save as profile…** and **Manage profiles**. Saving captures the current
+Scope, Model/provider/reasoning effort and Tools as a value copy when the editor opens. The editor
+shows that setup and asks for a name. New profiles start unpinned and leave the account default alone.
+After saving, this query adopts the saved profile as its applied baseline if the editor is still open
+and the account, query, configuration and prior applied snapshot are unchanged. Otherwise the saved
+profile remains available without overwriting the current setup. Draft text, attachments and mode stay
+unchanged. This applies to saving changes to an existing profile as well.
+
+**Manage profiles** provides rename, duplicate, delete, pin/unpin, and **Make default** actions. Duplicate
+copies the saved profile, including its configuration, and starts unpinned. Up/Down buttons order the
+saved profile list; separate Left/Right buttons order pinned shortcuts. These are independent account
+preferences. Making a default affects future queries; management never rewrites existing query or
+transcript snapshots. Renaming therefore preserves the original applied snapshot's name until a user
+explicitly reapplies or saves the profile.
+
+Delete opens an inline confirmation. The last profile cannot be deleted. Deleting the default requires
+an explicitly selected replacement from the other profiles; no replacement is preselected. A deleted
+profile's applied snapshot remains available for Reset and Save as profile.
+
+When a query is **Modified**, its profile menu offers **Reset** and **Save changes…**. Reset restores
+the snapshot as originally applied, even if the saved profile was renamed, edited or deleted. A changed
+scope reruns an existing search. Save changes previews the current setup and replaces the saved
+profile's configuration while preserving its current saved name. If the saved profile changed since
+application, the editor explains that its current settings will be replaced. If the profile was deleted,
+Save changes is disabled and Save as profile remains available. Reset respects the current response
+and tool-change locks; saving the current setup waits for query initialization and loading/response locks.
+
+Forms retain entered text on errors and expose busy, success and error states. A profile changed or
+deleted while its form is open must be reviewed again before rename, duplicate, save or deletion.
+Management mutations carry an optional expected collection revision through the account store's local
+queue, so queued writes cannot silently overwrite a newer collection. Server revision conflicts refresh
+the saved collection without retrying the rejected action. Account switches disable an open manager.
+Keyboard focus moves into forms, returns to the management list after actions, and remains contained
+within the shared profile dialog.

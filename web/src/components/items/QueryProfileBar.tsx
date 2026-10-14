@@ -1,12 +1,13 @@
 /* Copyright (C) The Infumap Authors. SPDX-License-Identifier: AGPL-3.0-or-later */
 
-import { For, Show, createMemo, onMount } from "solid-js";
+import { For, Show, createMemo, createSignal, onMount } from "solid-js";
 import { getQueryRuntime, QUERY_PROFILE_ROW_HEIGHT_PX, type QueryItem } from "../../items/query-item";
-import { queryConfigurationsEqual, type QueryProfile } from "../../items/query-configuration";
-import { applyQueryProfile, isQueryConfigurationModified } from "../../items/query-configuration-state";
+import { cloneQueryConfiguration, queryConfigurationsEqual, snapshotQueryProfile, type QueryProfile } from "../../items/query-configuration";
+import { applyQueryProfile, isQueryConfigurationModified, resetQueryConfiguration } from "../../items/query-configuration-state";
 import { queryScopeName, queryScopeSummary, queryScopes, refreshQueryScopes } from "../../items/query-scope";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, stopQueryPickerEvent } from "./QueryPickerPopover";
+import { QueryProfileManager, type QueryProfileManagementAction, type QueryProfileSaveContext } from "./QueryProfileManager";
 
 interface QueryProfileBarProps {
   queryItem: () => QueryItem,
@@ -24,6 +25,8 @@ interface QueryProfileBarProps {
 export function QueryProfileBar(props: QueryProfileBarProps) {
   const store = useStore();
   let bar: HTMLDivElement | undefined;
+  let closeButton: HTMLButtonElement | undefined;
+  const [management, setManagement] = createSignal<QueryProfileManagementAction | null>(null);
   onMount(() => {
     void store.general.queryProfiles.retrieve();
     if (queryScopes() == null) { void refreshQueryScopes(store); }
@@ -70,6 +73,40 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     }
     return null;
   };
+  const currentBlockedReason = () => props.blockedReason?.() ?? (props.disabled?.() ? "Wait for the current response to finish."
+    : !runtime().configurationInitialized ? "Wait for this query's setup to load." : null);
+  const captureCurrent = (): QueryProfileSaveContext => {
+    props.beforeChange?.();
+    const current = runtime();
+    return { queryId: props.queryItem().id, accountId: store.user.getUserMaybe()?.userId ?? null,
+      configuration: cloneQueryConfiguration(current.configuration),
+      appliedProfile: current.appliedProfile == null ? null : snapshotQueryProfile(current.appliedProfile) };
+  };
+  const acceptSavedProfile = (profile: QueryProfile, context: QueryProfileSaveContext): boolean => {
+    const current = runtime();
+    if (props.queryItem().id != context.queryId || (store.user.getUserMaybe()?.userId ?? null) != context.accountId ||
+      reason(profile) != null || !queryConfigurationsEqual(current.configuration, context.configuration)) { return false; }
+    const baseline = current.appliedProfile;
+    if (baseline == null || context.appliedProfile == null) {
+      if (baseline !== context.appliedProfile) { return false; }
+    } else if (baseline.id != context.appliedProfile.id || baseline.name != context.appliedProfile.name ||
+      !queryConfigurationsEqual(baseline.configuration, context.appliedProfile.configuration)) { return false; }
+    applyQueryProfile(store, props.queryItem(), profile);
+    return true;
+  };
+  const reset = () => {
+    const baseline = applied();
+    if (baseline == null || reason(baseline) != null) { return; }
+    const previousScope = runtime().configuration.scopeId;
+    props.beforeChange?.();
+    if (resetQueryConfiguration(store, props.queryItem())) { props.onChange?.(previousScope != runtime().configuration.scopeId); }
+    queueMicrotask(() => closeButton?.focus());
+  };
+  const summary = (profile: QueryProfile) => <>
+    <div class="break-words text-[11px] text-slate-500">Scope: {scopeLabel(profile)}</div>
+    <div class="break-words text-[11px] text-slate-500">Model: {modelLabel(profile)}</div>
+    <div class="break-words text-[11px] text-slate-500">Tools: {toolsLabel(profile)}</div>
+  </>;
   const profileTitle = (profile: QueryProfile) => [profile.name, `Scope: ${scopeLabel(profile)}`,
     `Model: ${modelLabel(profile)}`, `Tools: ${toolsLabel(profile)}`,
     props.searchMode() ? "Search uses only scope." : null, reason(profile)].filter(Boolean).join("\n");
@@ -98,9 +135,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
       onClick={() => select(profile, close)}>
       <div class="min-w-0 grow">
         <div class="break-words text-[13px] font-medium">{profile.name}</div>
-        <div class="break-words text-[11px] text-slate-500">Scope: {scopeLabel(profile)}</div>
-        <div class="break-words text-[11px] text-slate-500">Model: {modelLabel(profile)}</div>
-        <div class="break-words text-[11px] text-slate-500">Tools: {toolsLabel(profile)}</div>
+        {summary(profile)}
         <Show when={reason(profile)}><div class="mt-1 text-[11px] text-amber-700">{reason(profile)}</div></Show>
       </div>
       <Show when={selected(profile)}><i class="bi-check-lg shrink-0 text-slate-700" /></Show>
@@ -123,11 +158,11 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
       ariaLabel="Choose a query profile" title={unpinnedApplied() ? `Applied profile: ${applied()!.name}. Choose from saved profiles.` : "More query profiles"}
       label={<><span class="min-w-0 truncate">{moreLabel()}</span>
         <Show when={store.general.queryProfiles.error()}><i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" /></Show></>} onTabKey={props.onTabKey}
-      onOpen={() => { void store.general.queryProfiles.refresh(); void refreshQueryScopes(store); void store.general.retrieveChatBackends(); }}>
+      onOpen={() => { setManagement(null); void store.general.queryProfiles.refresh(); void refreshQueryScopes(store); void store.general.retrieveChatBackends(); }}>
       {close => <>
         <div class="shrink-0 border-b border-slate-200 px-3 py-2">
           <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Query profiles
-            <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close profile picker" onClick={close}><i class="bi-x-lg" /></button>
+            <button ref={closeButton} type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close profile picker" onClick={close}><i class="bi-x-lg" /></button>
           </div>
           <div class="text-[11px] text-slate-500">{props.searchMode()
             ? "Search uses only scope. Model and tools are saved for Chat."
@@ -144,23 +179,50 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
             <div class="mt-1 text-[11px] text-amber-700">The saved profile has changed. Select it to apply the latest settings.</div>
           </Show>
         </div>
-        <div class="min-h-0 grow overflow-y-auto py-1">
-          <Show when={store.general.queryProfiles.error()}>
-            <div class="px-3 py-2 text-[12px] text-red-700">{store.general.queryProfiles.error()}
-              <button type="button" class="ml-2 underline" disabled={store.general.queryProfiles.loading()} onClick={() => { void store.general.queryProfiles.refresh(); }}>Retry</button>
+        <Show when={management()} keyed fallback={<>
+          <Show when={modified()}>
+            <div class="shrink-0 border-b border-slate-200 px-3 py-2">
+              <div class="mb-1 text-[11px] text-slate-500">Changes apply only to this query until you save them.</div>
+              <div class="flex items-center gap-2 text-[12px]">
+                <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+                  disabled={applied() == null || reason(applied()!) != null} title={applied() == null ? "No applied profile" : reason(applied()!) ?? "Restore the profile as originally applied"}
+                  onClick={reset}>Reset</button>
+                <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+                  disabled={savedApplied() == null || currentBlockedReason() != null}
+                  title={savedApplied() == null ? "The saved profile was deleted. Save as a new profile instead." : currentBlockedReason() ?? "Update the saved profile with this query's settings"}
+                  onClick={() => setManagement("saveChanges")}>Save changes…</button>
+              </div>
             </div>
           </Show>
-          <Show when={collection() == null && store.general.queryProfiles.error() == null}>
-            <div class="px-3 py-2 text-[12px] text-slate-500">{store.general.queryProfiles.loading() ? "Loading profiles…" : "Sign in to use saved profiles."}</div>
-          </Show>
-          <div role="radiogroup" aria-label="Saved profiles">
-            {rows(others, close, false)}
-            <Show when={pinned().length > 0}>
-              <div class="border-t border-slate-200 px-3 pt-2 text-[11px] text-slate-500">Pinned profiles</div>
-              {rows(pinned, close, true)}
+          <div class="min-h-0 grow overflow-y-auto py-1">
+            <Show when={store.general.queryProfiles.error()}>
+              <div class="px-3 py-2 text-[12px] text-red-700">{store.general.queryProfiles.error()}
+                <button type="button" class="ml-2 underline" disabled={store.general.queryProfiles.loading()} onClick={() => { void store.general.queryProfiles.refresh(); }}>Retry</button>
+              </div>
             </Show>
+            <Show when={collection() == null && store.general.queryProfiles.error() == null}>
+              <div class="px-3 py-2 text-[12px] text-slate-500">{store.general.queryProfiles.loading() ? "Loading profiles…" : "Sign in to use saved profiles."}</div>
+            </Show>
+            <div role="radiogroup" aria-label="Saved profiles">
+              {rows(others, close, false)}
+              <Show when={pinned().length > 0}>
+                <div class="border-t border-slate-200 px-3 pt-2 text-[11px] text-slate-500">Pinned profiles</div>
+                {rows(pinned, close, true)}
+              </Show>
+            </div>
           </div>
-        </div>
+          <div class="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-200 px-3 py-2 text-[12px]">
+            <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+              disabled={collection() == null || currentBlockedReason() != null} title={currentBlockedReason() ?? "Save this query's scope, model and tools"}
+              onClick={() => setManagement("saveAs")}>Save as profile…</button>
+            <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+              disabled={collection() == null} onClick={() => setManagement("manage")}>Manage profiles</button>
+          </div>
+        </>}>
+          {action => <QueryProfileManager initialAction={action} captureCurrent={captureCurrent} currentBlockedReason={currentBlockedReason}
+            onSaved={acceptSavedProfile} summary={summary}
+            onBack={() => { setManagement(null); queueMicrotask(() => closeButton?.focus()); }} />}
+        </Show>
       </>}
     </QueryPickerPopover>
   </div>;
