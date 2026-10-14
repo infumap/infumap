@@ -42,6 +42,7 @@ import { getToolbarFocusItem } from "../components/toolbar/toolbarFocus";
 import { serverOrRemote } from "../server";
 import { commitActiveTextEdit } from "./edit";
 import { isRating } from "../items/rating-item";
+import { DividerFns, isDivider } from "../items/divider-item";
 import { isLink } from "../items/link-item";
 import { MouseEventActionFlags } from "./enums";
 import { isNote, NoteFns } from "../items/note-item";
@@ -830,6 +831,9 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       MouseActionState.set(null);
     } else if (isRating(overDisplayItem)) {
       store.history.setFocus(activeElementPath);
+      MouseActionState.set(null);
+    } else if (isDivider(overDisplayItem)) {
+      DividerFns.handleClick(hitVe, store, true);
       MouseActionState.set(null);
     } else if (isTable(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);

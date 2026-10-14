@@ -19,15 +19,14 @@
 import { Component, Show } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { asDividerItem, DividerDirection } from "../../../items/divider-item";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
 import { requestArrange } from "../../../layout/arrange";
-import { VeFns } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
 import { serverOrRemote } from "../../../server";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
-import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { itemOrderingIsShown, Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
+import { dividerIsAlwaysHorizontal } from "../../items/helper";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 
 
@@ -37,16 +36,17 @@ export const Toolbar_Divider: Component = () => {
 
   const dividerItem = () => asDividerItem(getToolbarFocusItem(store));
   const canEdit = () => itemCanEdit(dividerItem());
-  const isInDocumentPage = () => {
+  const focusVe = () => {
     const focusPath = getToolbarFocusPathMaybe(store);
-    if (focusPath == null) { return false; }
-    const parentPath = VeFns.parentPath(focusPath);
-    if (parentPath == null || parentPath == "") { return false; }
-    const parentVe = VesCache.current.readNode(parentPath);
-    return parentVe != null &&
-      isPage(parentVe.displayItem) &&
-      asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
+    return focusPath == null ? null : VesCache.render.getNode(focusPath)?.get() ?? null;
   };
+  const showDirection = () => {
+    const ve = focusVe();
+    return canEdit() && (ve == null || !dividerIsAlwaysHorizontal(ve));
+  };
+
+  // With no options, only the info and id buttons are shown, as for a search item.
+  const hasOptions = () => showDirection() || itemOrderingIsShown(store);
 
   const setDirection = (direction: DividerDirection) => {
     const item = dividerItem();
@@ -63,7 +63,7 @@ export const Toolbar_Divider: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
-        <Show when={canEdit() && !isInDocumentPage()}>
+        <Show when={showDirection()}>
           <div class="inline-block ml-[10px] mr-[4px] align-middle">
             <InfuIconButton
               icon="fa fa-arrows-h"
@@ -80,9 +80,11 @@ export const Toolbar_Divider: Component = () => {
 
         <Toolbar_ItemOrdering />
 
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+        <Show when={hasOptions()}>
+          <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+        </Show>
 
-        <Toolbar_InfoAndId />
+        <Toolbar_InfoAndId infoClass={hasOptions() ? undefined : "inline-block pl-[2px]"} />
       </div>
     </div>
   );

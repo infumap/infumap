@@ -47,6 +47,7 @@ import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSour
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem, previewChildIsDetailed, scaleGeometry } from "./util";
 import { isImage } from "../../items/image-item";
 import { isRating, RatingFns } from "../../items/rating-item";
+import { DividerFns, isDivider } from "../../items/divider-item";
 import { calcBoundsInCellFromSizeBl } from "../../items/base/item-common-fns";
 import { isLinkInTrash } from "../../items/trash-link";
 
@@ -661,7 +662,9 @@ export function arrangeSelectedListItem(
     const cellBoundsPx = isRating(item)
       ? calcBoundsInCellFromSizeBl(RatingFns.calcSpatialDimensionsBl(RatingFns.asRatingMeasurable(item)), paddedBoundsPx)
       : paddedBoundsPx;
-    cellGeometry = ItemFns.calcGeometry_InCell(li, cellBoundsPx, canShiftLeft, false, false, false, false, false, false, false, store.smallScreenMode());
+    cellGeometry = isDivider(item)
+      ? DividerFns.calcGeometry_AcrossArea(paddedBoundsPx)
+      : ItemFns.calcGeometry_InCell(li, cellBoundsPx, canShiftLeft, false, false, false, false, false, false, false, store.smallScreenMode());
     if (previewScale != null) {
       cellGeometry = scaleGeometry(cellGeometry, boundsPx, previewScale);
     }

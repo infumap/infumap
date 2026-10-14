@@ -20,33 +20,45 @@ import { Component, Match, Show, Switch } from "solid-js";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
-import { createLineHighlightBoundsPxFn } from "./helper";
-import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
-import { Z_INDEX_LOCAL_OVERLAY } from "../../constants";
-import { asDividerItem } from "../../items/divider-item";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, shouldShowFocusRingForVisualElement } from "./helper";
+import { SELECTED_DARK, SELECTED_LIGHT, FIND_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
+import { LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
+import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { linkHasTriangle } from "../../layout/link-triangle";
 
 
 const DIVIDER_COLOR = "#64748b";
 const DIVIDER_LINE_WIDTH_PX = 1;
+const DIVIDER_INSET_BL = 0.18;
 
+/**
+ * A divider separates rows, so is drawn as a horizontal rule across the row whatever its direction.
+ */
 export const Divider_LineItem: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
 
-  const dividerItem = () => asDividerItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
-  const boundsPx = () => ({
-    ...props.visualElement.boundsPx,
-    w: oneBlockWidthPx(),
-  });
+  const boundsPx = () => props.visualElement.boundsPx;
+  const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
+  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  const showTriangleDetail = () => scale() > 0.5;
+  const insetPx = () => Math.min(oneBlockWidthPx() * DIVIDER_INSET_BL, boundsPx().w / 4);
 
   const renderHighlightsMaybe = () =>
     <Switch>
+      <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
+        <div class="absolute pointer-events-none"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+            `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `background-color: ${FIND_HIGHLIGHT_COLOR}; ` +
+            `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+      </Match>
       <Match when={store.perVe.getMouseIsOver(vePath())}>
         <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
-          style={`left: ${boundsPx().x + 2}px; top: ${boundsPx().y + 2}px; ` +
-            `width: ${boundsPx().w - 4}px; height: ${boundsPx().h - 4}px; ` +
+          style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
+            `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px; ` +
             `z-index: ${Z_INDEX_LOCAL_OVERLAY}; background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
           <div class="absolute border border-slate-300 rounded-xs"
@@ -61,23 +73,28 @@ export const Divider_LineItem: Component<VisualElementProps> = (props: VisualEle
       </Match>
     </Switch>;
 
+  const renderLinkMarkingMaybe = () =>
+    <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && showTriangleDetail()}>
+      <div class="absolute text-center text-slate-600"
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `transform: scale(${scale()}); transform-origin: top left;`}>
+        <InfuLinkTriangle />
+      </div>
+    </Show>;
+
   return (
     <>
       {renderHighlightsMaybe()}
+      <Show when={store.history.getFocusPathMaybe() === vePath() && shouldShowFocusRingForVisualElement(store, () => props.visualElement)}>
+        <div class="absolute pointer-events-none"
+          style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
+            `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
+      </Show>
       <div class="absolute pointer-events-none"
-        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${boundsPx().w}px; height: ${boundsPx().h}px;`}>
-        <Show
-          when={dividerItem().dividerDirection == "horizontal"}
-          fallback={
-            <div class="absolute"
-              style={`left: ${oneBlockWidthPx() / 2 - DIVIDER_LINE_WIDTH_PX / 2}px; top: ${boundsPx().h * 0.22}px; ` +
-                `width: ${DIVIDER_LINE_WIDTH_PX}px; height: ${boundsPx().h * 0.56}px; background-color: ${DIVIDER_COLOR};`} />
-          }>
-          <div class="absolute"
-            style={`left: ${oneBlockWidthPx() * 0.18}px; top: ${boundsPx().h / 2 - DIVIDER_LINE_WIDTH_PX / 2}px; ` +
-              `width: ${oneBlockWidthPx() * 0.64}px; height: ${DIVIDER_LINE_WIDTH_PX}px; background-color: ${DIVIDER_COLOR};`} />
-        </Show>
-      </div>
+        style={`left: ${boundsPx().x + insetPx()}px; top: ${boundsPx().y + boundsPx().h / 2 - DIVIDER_LINE_WIDTH_PX / 2}px; ` +
+          `width: ${Math.max(0, boundsPx().w - 2 * insetPx())}px; height: ${DIVIDER_LINE_WIDTH_PX}px; background-color: ${DIVIDER_COLOR};`} />
+      {renderLinkMarkingMaybe()}
     </>
   );
 }

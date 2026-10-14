@@ -32,6 +32,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { arrangeNow } from "../../layout/arrange";
 import { GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
 import { documentPageMoveOutBoxPx } from "../../layout/composite-move-out";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 
 const LOCAL_AUTO_MOVED_WARNING_Z_INDEX = 100;
@@ -206,6 +207,15 @@ export const parentDocumentPageMaybe = (visualElement: VisualElement) => {
   }
   return asPageItem(parentItem);
 }
+
+/**
+ * Whether a divider is drawn horizontally whatever its direction: in a document page, list page or table it separates
+ * rows, so a vertical divider has no meaning there. The stored direction is kept for when it is shown elsewhere.
+ */
+export const dividerIsAlwaysHorizontal = (visualElement: VisualElement): boolean =>
+  (visualElement.flags & (VisualElementFlags.LineItem | VisualElementFlags.InsideTable)) != 0 ||
+  visualElement.linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM ||
+  parentDocumentPageMaybe(visualElement) != null;
 
 export const effectiveFlowItemWidthGrMaybe = (visualElement: VisualElement): number | null => {
   if (!(visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) ||
