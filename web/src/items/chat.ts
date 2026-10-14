@@ -30,7 +30,13 @@ import { NoteFns } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { ensureQueryEntryUnderQueries } from "./query-entry";
 import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, updateQueryRuntime } from "./query-item";
-import { cloneQueryConfiguration, snapshotQueryProfile } from "./query-configuration";
+import {
+  ensureQueryConfigurationReady,
+  restoreQueryConfiguration,
+  setQueryConfigurationCapability,
+  snapshotQueryChatSettings,
+  updateQueryConfiguration,
+} from "./query-configuration-state";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import {
   ChatTranscriptConflictError,
@@ -38,7 +44,6 @@ import {
   type ChatModelSelection,
   type ChatStreamEvent,
   type ChatStreamPhase,
-  type ChatToolServerInfo,
   type LoadChatAttachment,
   type LoadChatResponse,
   type LoadChatTurn,
@@ -47,7 +52,6 @@ import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import {
-  setExtraDefaultChatCapabilities,
   type ChatCapability,
   type QueryChatActivityModelRound,
   type QueryChatActivityToolCall,
@@ -620,11 +624,8 @@ export function ensureTemporaryQueryChatPage(store: StoreContextModel, queryItem
   return page;
 }
 
-const CHAT_BUILTIN_CAPABILITIES: Array<ChatCapability> = ["infumap_data"];
-const appliedDefaultPluginQueryIds = new Set<string>();
-
 export function queryChatCapabilities(store: StoreContextModel, queryItem: QueryItem): Array<ChatCapability> {
-  return getQueryRuntime(store, queryItem).configuration.capabilities;
+  return [...getQueryRuntime(store, queryItem).configuration.capabilities];
 }
 
 export function queryChatUsesInfumapData(store: StoreContextModel, queryItem: QueryItem): boolean {
@@ -639,38 +640,14 @@ export function queryChatUsesCapability(
   return queryChatCapabilities(store, queryItem).includes(capability);
 }
 
-function withQueryChatCapability(
-  capabilities: Array<ChatCapability>,
-  capability: ChatCapability,
-  enabled: boolean,
-): Array<ChatCapability> {
-  const next = new Set(capabilities);
-  if (enabled) {
-    next.add(capability);
-  } else {
-    next.delete(capability);
-  }
-  const builtins = CHAT_BUILTIN_CAPABILITIES.filter(item => next.has(item));
-  const plugins = [...next].filter(item => !CHAT_BUILTIN_CAPABILITIES.includes(item));
-  return [...builtins, ...plugins];
-}
-
 function setQueryChatCapability(
   store: StoreContextModel,
   queryItem: QueryItem,
   capability: ChatCapability,
   enabled: boolean,
 ): void {
-  if (queryChatHasContent(store, queryItem)) {
-    return;
-  }
-  updateQueryRuntime(store, queryItem, current => ({
-    ...current,
-    configuration: {
-      ...current.configuration,
-      capabilities: withQueryChatCapability(current.configuration.capabilities, capability, enabled),
-    },
-  }));
+  if (queryChatHasContent(store, queryItem)) { return; }
+  setQueryConfigurationCapability(store, queryItem, capability, enabled);
 }
 
 export function setQueryChatUsesInfumapData(
@@ -690,78 +667,19 @@ export function setQueryChatUsesCapability(
   setQueryChatCapability(store, queryItem, capability, enabled);
 }
 
-export function applyQueryChatDefaultPluginCapabilities(
-  store: StoreContextModel,
-  queryItem: QueryItem,
-  toolServers: Array<ChatToolServerInfo>,
-): void {
-  const defaultIds = toolServers
-    .filter(server => server.enabledByDefault && server.available)
-    .map(server => server.id);
-  setExtraDefaultChatCapabilities(defaultIds);
-  if (appliedDefaultPluginQueryIds.has(queryItem.id)) {
-    return;
-  }
-  appliedDefaultPluginQueryIds.add(queryItem.id);
-  if (queryChatHasContent(store, queryItem)) {
-    return;
-  }
-  for (const id of defaultIds) {
-    setQueryChatCapability(store, queryItem, id, true);
-  }
-}
-
-/**
- * The model selection in this query's configuration. Null means no model selected yet.
- * This is the raw choice; availability resolution is handled by effectiveQueryChatModelSelection.
- */
+/** The exact selection in this query, including unresolved provider/model references. */
 export function queryChatModelSelection(store: StoreContextModel, queryItem: QueryItem): ChatModelSelection | null {
-  return getQueryRuntime(store, queryItem).configuration.model;
+  const selection = getQueryRuntime(store, queryItem).configuration.model;
+  return selection == null ? null : { ...selection };
 }
 
-/**
- * The selection to actually send, with anything the server no longer offers dropped so that the
- * server's own default takes over. A remembered choice outlives the configuration it was made
- * under: a key can be removed, and OpenRouter retires models. The server deliberately refuses to
- * substitute a backend that was named explicitly, so a stale choice has to be dropped here or chat
- * stops working until the user happens to open the picker.
- */
-export function effectiveQueryChatModelSelection(
-  store: StoreContextModel,
-  queryItem: QueryItem,
-): ChatModelSelection | null {
-  const selection = queryChatModelSelection(store, queryItem);
-  const backends = store.general.chatBackends();
-  if (selection == null || backends == null) {
-    // Without the catalog there is nothing to validate against; let the server judge.
-    return selection;
-  }
-
-  const backend = backends.backends.find(candidate => candidate.id == selection.backend);
-  if (backend == null || !backend.available) { return null; }
-  if (!backend.supportsModelSelection) { return { backend: backend.id, model: null, reasoningEffort: null }; }
-
-  const model = backend.models.find(candidate => candidate.id == selection.model);
-  if (model == null) { return { backend: backend.id, model: null, reasoningEffort: null }; }
-  const effort = selection.reasoningEffort;
-  return {
-    backend: backend.id,
-    model: model.id,
-    reasoningEffort: effort != null && model.reasoningEfforts.includes(effort) ? effort : null,
-  };
-}
-
-/** Sets the model for this chat, and remembers it as the default for new ones. */
+/** Sets this query's model without changing its profile snapshot or the default profile. */
 export function setQueryChatModelSelection(
   store: StoreContextModel,
   queryItem: QueryItem,
   selection: ChatModelSelection | null,
 ): void {
-  store.general.setChatModelSelection(selection);
-  updateQueryRuntime(store, queryItem, current => ({
-    ...current,
-    configuration: { ...current.configuration, model: selection == null ? null : { ...selection } },
-  }));
+  updateQueryConfiguration(store, queryItem, { model: selection });
 }
 
 function queryChatRootOrderings(store: StoreContextModel, queryItem: QueryItem): Array<Uint8Array> {
@@ -1121,21 +1039,13 @@ export async function submitQueryChatMessage(
   }
 
   await ensureQueryChatLoaded(store, queryItem);
-  await store.general.retrieveChatBackends();
-  const serverDefault = store.general.chatBackends()?.default;
-  const appliedProfile = getQueryRuntime(store, queryItem).appliedProfile;
-  const configuration = cloneQueryConfiguration({
-    ...getQueryRuntime(store, queryItem).configuration,
-    model: effectiveQueryChatModelSelection(store, queryItem) ?? (serverDefault == null ? null : {
-      backend: serverDefault.backend,
-      model: serverDefault.model ?? null,
-      reasoningEffort: null,
-    }),
-  });
-  updateQueryRuntime(store, queryItem, current => ({
-    ...current,
-    configuration: cloneQueryConfiguration(configuration),
-  }));
+  try {
+    await ensureQueryConfigurationReady(store, queryItem);
+  } catch (error) {
+    showChatMessage(store, error instanceof Error ? error.message : String(error), TransientMessageType.Error);
+    return false;
+  }
+  const settings = snapshotQueryChatSettings(store, queryItem, deepResearch ? "deep_research" : "chat");
   const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
   // The server has the attachments only once the turn is accepted; until then, and after, they open from here.
   for (const attachment of attachments) {
@@ -1178,9 +1088,7 @@ export async function submitQueryChatMessage(
       attachments: attachments.length > 0
         ? attachments.map(({ id, title, mimeType, text }) => ({ id, title, mimeType, text }))
         : undefined,
-      configuration,
-      appliedProfile: appliedProfile == null ? null : snapshotQueryProfile(appliedProfile),
-      mode: deepResearch ? "deep_research" : "chat",
+      ...settings,
     }, store.general.networkStatus, (event) => {
       if (event.type == "turn_accepted") {
         accepted = true;
@@ -1346,11 +1254,9 @@ export function isLiveQueryChat(store: StoreContextModel, queryItem: QueryItem):
 function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, response: LoadChatResponse): void {
   batch(() => {
     const settings = response.lastSettings;
+    if (settings != null) { restoreQueryConfiguration(store, queryItem, settings); }
     updateQueryRuntime(store, queryItem, current => ({
       ...current,
-      configuration: settings == null ? current.configuration : cloneQueryConfiguration(settings.configuration),
-      appliedProfile: settings == null ? current.appliedProfile : (settings.appliedProfile == null
-        ? null : snapshotQueryProfile(settings.appliedProfile)),
       chat: {
         ...current.chat,
         revision: response.revision,

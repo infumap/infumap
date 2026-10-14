@@ -19,18 +19,12 @@
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import type { SearchResult } from "../server";
-import { cloneQueryConfiguration, type QueryConfiguration, type QueryProfile } from "../items/query-configuration";
+import { cloneQueryConfiguration, snapshotQueryProfile, type QueryConfiguration, type QueryProfile } from "../items/query-configuration";
 import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
 export type QueryMode = "search" | "chat" | null;
 export type ChatCapability = string;
-
-let extraDefaultCapabilities: Array<ChatCapability> = [];
-
-export function setExtraDefaultChatCapabilities(capabilities: Array<ChatCapability>): void {
-  extraDefaultCapabilities = capabilities.filter(capability => capability != "infumap_data");
-}
 
 export interface QueryChatActivityToolCall {
   callId: string,
@@ -67,6 +61,8 @@ export interface QueryRuntime {
   mode: QueryMode,
   text: string,
   configuration: QueryConfiguration,
+  /** False until a complete profile or recorded configuration is applied. */
+  configurationInitialized: boolean,
   /** The profile as applied, kept separately from editable conversation settings. */
   appliedProfile: QueryProfile | null,
   search: {
@@ -144,7 +140,7 @@ export interface PerItemStoreContextModel {
 }
 
 export function makePerItemStore(
-  initialConfiguration: () => QueryConfiguration = () => ({ scopeId: null, model: null, capabilities: [] }),
+  initialProfile: () => QueryProfile | null = () => null,
 ): PerItemStoreContextModel {
   // TODO (LOW): Unsure if lots of these signals, after lots of navigation, will create a perf issue. possibly
   // want to keep the number under control on page changes (delete those with value 0).
@@ -165,31 +161,34 @@ export function makePerItemStore(
   const veidKey = (veid: Veid): string =>
     veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
 
-  const newQueryRuntime = (): QueryRuntime => ({
-    mode: null,
-    text: "",
-    configuration: cloneQueryConfiguration({
-      ...initialConfiguration(),
-      capabilities: ["infumap_data", ...extraDefaultCapabilities],
-    }),
-    appliedProfile: null,
-    search: {
-      resultsPageId: null,
-      resultLinkIds: [],
-    },
-    chat: {
-      pageId: null,
-      composerHeightPx: null,
-      activityHeightPx: null,
-      rootItemIds: [],
-      outcomeRootIds: [],
-      revision: 0,
-      loadState: "unloaded",
-      completedActivities: [],
-      contextTokens: null,
-      contextTokensExact: false,
-    },
-  });
+  const newQueryRuntime = (): QueryRuntime => {
+    const profile = initialProfile();
+    return {
+      mode: null,
+      text: "",
+      configuration: profile == null
+        ? { scopeId: null, model: null, capabilities: [] }
+        : cloneQueryConfiguration(profile.configuration),
+      configurationInitialized: profile != null,
+      appliedProfile: profile == null ? null : snapshotQueryProfile(profile),
+      search: {
+        resultsPageId: null,
+        resultLinkIds: [],
+      },
+      chat: {
+        pageId: null,
+        composerHeightPx: null,
+        activityHeightPx: null,
+        rootItemIds: [],
+        outcomeRootIds: [],
+        revision: 0,
+        loadState: "unloaded",
+        completedActivities: [],
+        contextTokens: null,
+        contextTokensExact: false,
+      },
+    };
+  };
 
   const getQueryRuntimeSignal = (itemId: string): InfuSignal<QueryRuntime> => {
     if (!queryRuntimes.get(itemId)) {
