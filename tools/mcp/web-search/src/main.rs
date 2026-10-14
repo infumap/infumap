@@ -22,6 +22,7 @@ mod protocol;
 mod providers;
 mod router;
 mod search;
+mod status;
 mod tools;
 
 use std::convert::Infallible;
@@ -81,10 +82,11 @@ async fn main() {
     }
   };
   info!("infumap-web-search listening on http://{addr}/mcp");
+  info!("Local provider status available at /status (loopback clients only)");
   tokio::spawn(search::refresh_provider_usage());
 
   loop {
-    let (stream, _) = match listener.accept().await {
+    let (stream, peer) = match listener.accept().await {
       Ok(conn) => conn,
       Err(e) => {
         error!("accept failed: {e}");
@@ -94,7 +96,17 @@ async fn main() {
     let io = TokioIo::new(stream);
     tokio::task::spawn(async move {
       if let Err(err) = http1::Builder::new()
-        .serve_connection(io, service_fn(|req| async move { Ok::<_, Infallible>(handle_http(req).await) }))
+        .serve_connection(
+          io,
+          service_fn(move |req| async move {
+            let response = if req.uri().path().trim_end_matches('/') == "/status" {
+              status::handle_http(&req, peer.ip())
+            } else {
+              handle_http(req).await
+            };
+            Ok::<_, Infallible>(response)
+          }),
+        )
         .await
       {
         error!("Error serving connection: {err}");

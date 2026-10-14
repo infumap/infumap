@@ -26,7 +26,7 @@ pub use crate::providers::SearchResult;
 use crate::providers::duckduckgo::DuckDuckGo;
 use crate::providers::exa::Exa;
 use crate::providers::{SearchProvider, SearchRequest};
-use crate::router::{Backend, SearchRouter};
+use crate::router::{Backend, ProviderStatus, SearchRouter};
 
 #[cfg(test)]
 use crate::providers::duckduckgo::{parse_results, unwrap_ddg_href};
@@ -74,6 +74,22 @@ static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
 /// any provider requests.
 pub fn initialize_providers() -> InfuResult<()> {
   configured_router().map(|_| ())
+}
+
+pub fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
+  let config = config::search_config().map_err(str::to_owned)?;
+  let request = SearchRequest { query: "status", max_results: DEFAULT_MAX_RESULTS };
+  let mut providers = configured_router()?.status(&request);
+  if config.exa.is_none() {
+    providers.push(ProviderStatus::unconfigured("exa", "EXA_API_KEY is not configured."));
+  }
+  if !config.duckduckgo_enabled {
+    providers.push(ProviderStatus::unconfigured(
+      "duckduckgo",
+      "DuckDuckGo requires explicit opt-in with WEB_SEARCH_DUCKDUCKGO_ENABLED=true.",
+    ));
+  }
+  Ok(providers)
 }
 
 /// Poll optional usage reporting without adding another request to every search.

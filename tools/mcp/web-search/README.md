@@ -136,6 +136,59 @@ failure or skip reasons in the existing MCP text-error format. Routing choices
 are available in debug logs (`RUST_LOG=debug`); queries and API keys are not
 included in routing log messages.
 
+### Local provider status
+
+Inspect the running server without spending search credits:
+
+```bash
+curl http://127.0.0.1:8791/status
+```
+
+`GET /status` returns JSON showing both supported providers, whether each is
+enabled, reasons it is unavailable, local budget balances, monthly boundaries,
+cooldowns, suspensions, requests in flight and usage-reporting state. Availability
+and `funding` are evaluated for a reference search requesting five results;
+`funding` identifies the budget class that fits even if health currently prevents
+dispatch. Actual eligibility can change with result count and concurrent requests.
+`search_available` reports whether at least one provider can currently serve that
+reference request. An unavailable search service still returns HTTP 200 so its
+diagnostics can be inspected; failure to obtain status returns HTTP 503.
+
+All monetary values are integer USD micros (1,000,000 = $1). `budget` contains
+configured allowances, effective free/total remaining capacity, consumed estimates
+and outstanding reservations. `period_start`, `period_end`, `quota_resets_at`,
+`generated_at` and usage observation/reset times are Unix seconds in UTC.
+`cooldown_remaining_ms` is the remaining delay in milliseconds.
+
+`usage.state` is `not_checked`, `unsupported`, `reported` or `error`.
+`usage.last_report`, when present, is the last provider observation, timestamped
+separately from the latest refresh attempt; it can be stale after a failure or
+monthly reset. Exa and DuckDuckGo currently report `unsupported`, so their actual
+remaining account capacity is unknown. Local estimates are not reported balances.
+`budget.adjusted_remaining_cap_usd_micros` is a conservative cap reduced by local
+charges (or set to zero on remote exhaustion), before outstanding reservations
+are subtracted; it is not a raw provider balance. Null caps mean no known cap.
+Provider reports can only constrain the locally configured budget.
+
+Status inspection makes no provider requests and does not write the ledger or
+change routing health. Monthly rollover is projected on a copy. After a budget
+write failure, the last in-memory balance remains inspectable with a persistence
+error and the provider marked unavailable; that balance may differ from disk.
+The response omits API keys, account labels, state paths and search queries and
+uses `Cache-Control: no-store`. Access requires a loopback TCP peer even when
+`WEB_SEARCH_HOST` binds to a broader interface; nonlocal browser origins are
+rejected. This operator endpoint is separate from the MCP tools.
+
+Unconfigured providers include the setting needed to enable them. No enabled
+providers is also reported under `configuration_errors`. Malformed environment
+settings, invalid credential header syntax and unreadable ledgers still stop
+startup, so their diagnostics appear on stderr before an endpoint can be served.
+Usage refresh errors and disabled providers appear in their individual status.
+
+Use `RUST_LOG=infumap_web_search=debug` to log routing choices, budget reservations,
+settlements (including cancellation) and provider usage adjustments. These messages
+include provider names and numeric accounting details without API keys or queries.
+
 ### Provider adapters
 
 `src/providers/mod.rs` defines the `SearchProvider` interface. Adapters provide

@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex};
 
 use futures_util::future::BoxFuture;
 use jiff::{Span, Timestamp, civil::Date, tz::TimeZone};
-use log::{error, info};
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 
 use crate::providers::{
@@ -75,6 +75,7 @@ pub struct BudgetAccount {
   account_id: String,
 }
 
+#[derive(Serialize)]
 pub struct BudgetBalance {
   pub free_allowance_usd_micros: u64,
   pub free_remaining_usd_micros: u64,
@@ -83,6 +84,18 @@ pub struct BudgetBalance {
   pub consumed_usd_micros: u64,
   pub period_start: i64,
   pub period_end: i64,
+}
+
+#[derive(Serialize)]
+pub struct BudgetSnapshot {
+  #[serde(flatten)]
+  pub balance: BudgetBalance,
+  pub configured_free_allowance_usd_micros: u64,
+  pub configured_paid_limit_usd_micros: u64,
+  pub adjusted_remaining_cap_usd_micros: Option<u64>,
+  pub reported_allowance_cap_usd_micros: Option<u64>,
+  pub reset_day: u8,
+  pub persistence_error: Option<&'static str>,
 }
 
 /// Reservations are charged on cancellation and never silently refunded by Drop.
@@ -285,6 +298,31 @@ impl AccountState {
 }
 
 impl BudgetAccount {
+  /// Project a rollover on a copy, without writing or changing accounting state.
+  /// Even after a write failure, operators can inspect the last in-memory ledger.
+  fn snapshot(&self) -> ProviderResult<BudgetSnapshot> {
+    let state = self.store.state.lock().map_err(|_| internal("Budget ledger lock is poisoned."))?;
+    let mut account = state
+      .ledger
+      .accounts
+      .get(&self.provider)
+      .and_then(|accounts| accounts.get(&self.account_id))
+      .cloned()
+      .ok_or_else(|| internal("Budget account is not registered."))?;
+    let failed = state.failed;
+    drop(state);
+    account.advance(Timestamp::now())?;
+    Ok(BudgetSnapshot {
+      balance: account.balance()?,
+      configured_free_allowance_usd_micros: account.free_limit_usd_micros,
+      configured_paid_limit_usd_micros: account.paid_limit_usd_micros,
+      adjusted_remaining_cap_usd_micros: account.reported_remaining_cap_usd_micros,
+      reported_allowance_cap_usd_micros: account.reported_allowance_cap_usd_micros,
+      reset_day: account.reset_day,
+      persistence_error: failed.then_some("Budget persistence failed; repair the state directory and restart."),
+    })
+  }
+
   fn state<'a>(&self, ledger: &'a mut Ledger) -> ProviderResult<&'a mut AccountState> {
     ledger
       .accounts
@@ -322,11 +360,12 @@ impl BudgetAccount {
       account.reservations.insert(id, cost);
       Ok(id)
     })?;
+    debug!("{} reserved {cost} USD micros (reservation {id}, paid capacity permitted={allow_paid})", self.provider);
     Ok(Reservation { account: self.clone(), id, finished: false })
   }
 
   fn settle(&self, id: u64, charged: bool, exhausted: bool) -> ProviderResult<()> {
-    self.store.transaction(|ledger| {
+    let cost = self.store.transaction(|ledger| {
       let account = self.state(ledger)?;
       account.advance(Timestamp::now())?;
       let cost = account
@@ -339,17 +378,22 @@ impl BudgetAccount {
       if exhausted {
         account.reported_remaining_cap_usd_micros = Some(0);
       }
-      Ok(())
-    })
+      Ok(cost)
+    })?;
+    debug!(
+      "{} settled reservation {id}, estimated cost {cost} USD micros: charged={charged}, quota_exhausted={exhausted}",
+      self.provider
+    );
+    Ok(())
   }
 
   fn reconcile(&self, snapshot: &UsageSnapshot, period_start: i64) -> ProviderResult<()> {
-    self.store.transaction(|ledger| {
+    let applied = self.store.transaction(|ledger| {
       let account = self.state(ledger)?;
       account.advance(Timestamp::now())?;
       if account.period_start != period_start {
         // The query crossed a reset: its snapshot cannot safely describe this period.
-        return Ok(());
+        return Ok(false);
       }
       if let Some(reset) = snapshot.resets_at {
         let reset = Timestamp::try_from(reset).map_err(|_| internal("Reported usage reset time is invalid."))?;
@@ -370,8 +414,13 @@ impl BudgetAccount {
         account.reported_allowance_cap_usd_micros =
           Some(account.reported_allowance_cap_usd_micros.map_or(allowance, |old| old.min(allowance)));
       }
-      Ok(())
-    })
+      Ok(true)
+    })?;
+    debug!(
+      "{} provider usage for period {period_start}: remaining {:?}, allowance {:?} USD micros; applied={applied}",
+      self.provider, snapshot.remaining_usd_micros, snapshot.allowance_usd_micros
+    );
+    Ok(())
   }
 }
 
@@ -416,6 +465,10 @@ impl BudgetedProvider {
 
   pub fn balance(&self) -> ProviderResult<BudgetBalance> {
     self.account.balance()
+  }
+
+  pub fn snapshot(&self) -> ProviderResult<BudgetSnapshot> {
+    self.account.snapshot()
   }
 
   /// Paid capacity requires the router to explicitly permit it for this attempt.

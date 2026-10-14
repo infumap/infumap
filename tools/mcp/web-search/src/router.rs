@@ -19,9 +19,10 @@ use std::time::Duration;
 
 use jiff::Timestamp;
 use log::{debug, warn};
+use serde::Serialize;
 use tokio::time::Instant;
 
-use crate::budget::BudgetedProvider;
+use crate::budget::{BudgetSnapshot, BudgetedProvider};
 use crate::providers::{
   ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResult,
 };
@@ -58,9 +59,10 @@ pub struct SearchRouter {
 struct ProviderSlot {
   backend: Backend,
   health: Mutex<Health>,
+  usage_status: Mutex<UsageStatus>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Health {
   disabled: Option<&'static str>,
   cooldown_until: Option<Instant>,
@@ -69,6 +71,67 @@ struct Health {
   generation: u64,
   in_flight: usize,
   recovering: bool,
+}
+
+#[derive(Serialize)]
+pub struct ProviderStatus {
+  pub name: &'static str,
+  pub enabled: bool,
+  pub available: bool,
+  pub unavailable_reasons: Vec<String>,
+  pub reference_cost_usd_micros: Option<u64>,
+  pub funding: Option<&'static str>,
+  pub health: Option<HealthStatus>,
+  pub budget: Option<BudgetSnapshot>,
+  pub usage: Option<UsageStatus>,
+}
+
+impl ProviderStatus {
+  pub fn unconfigured(name: &'static str, reason: &str) -> Self {
+    Self {
+      name,
+      enabled: false,
+      available: false,
+      unavailable_reasons: vec![reason.to_owned()],
+      reference_cost_usd_micros: None,
+      funding: None,
+      health: None,
+      budget: None,
+      usage: None,
+    }
+  }
+}
+
+#[derive(Serialize)]
+pub struct HealthStatus {
+  disabled_reason: Option<&'static str>,
+  cooldown_remaining_ms: u64,
+  quota_resets_at: Option<i64>,
+  consecutive_failures: u32,
+  in_flight: usize,
+  recovery_probe_required: bool,
+}
+
+#[derive(Clone, Serialize)]
+pub struct UsageStatus {
+  state: &'static str,
+  last_checked_at: Option<i64>,
+  last_report: Option<ReportedUsage>,
+  error: Option<String>,
+}
+
+impl Default for UsageStatus {
+  fn default() -> Self {
+    Self { state: "not_checked", last_checked_at: None, last_report: None, error: None }
+  }
+}
+
+#[derive(Clone, Serialize)]
+struct ReportedUsage {
+  observed_at: i64,
+  remaining_usd_micros: Option<u64>,
+  allowance_usd_micros: Option<u64>,
+  resets_at: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -101,7 +164,18 @@ impl Candidate {
 
 impl SearchRouter {
   pub fn new(backends: Vec<Backend>) -> Self {
-    Self { providers: backends.into_iter().map(|backend| ProviderSlot { backend, health: Mutex::default() }).collect() }
+    Self {
+      providers: backends
+        .into_iter()
+        .map(|backend| ProviderSlot { backend, health: Mutex::default(), usage_status: Mutex::default() })
+        .collect(),
+    }
+  }
+
+  /// Inspect eligibility for a reference request without selecting a provider,
+  /// updating health, persisting a rollover or contacting an external service.
+  pub fn status(&self, request: &SearchRequest<'_>) -> Vec<ProviderStatus> {
+    self.providers.iter().map(|slot| slot.status(request)).collect()
   }
 
   pub async fn search(&self, request: SearchRequest<'_>) -> ProviderResult<Vec<SearchResult>> {
@@ -219,16 +293,127 @@ impl SearchRouter {
 
   pub async fn refresh_usage(&self) {
     for slot in &self.providers {
-      match tokio::time::timeout(Duration::from_secs(20), slot.backend.provider().usage()).await {
-        Ok(Ok(_)) => (),
-        Ok(Err(error)) => warn!("Could not reconcile {} usage: {error}", slot.backend.provider().name()),
-        Err(_) => warn!("{} usage refresh timed out", slot.backend.provider().name()),
+      let result = tokio::time::timeout(Duration::from_secs(20), slot.backend.provider().usage()).await;
+      let checked_at = Timestamp::now().as_second();
+      let update = match result {
+        Ok(Ok(Some(snapshot))) => UsageStatus {
+          state: "reported",
+          last_checked_at: Some(checked_at),
+          last_report: Some(ReportedUsage {
+            observed_at: checked_at,
+            remaining_usd_micros: snapshot.remaining_usd_micros,
+            allowance_usd_micros: snapshot.allowance_usd_micros,
+            resets_at: snapshot.resets_at.and_then(|time| Timestamp::try_from(time).ok()).map(|time| time.as_second()),
+          }),
+          error: None,
+        },
+        Ok(Ok(None)) => {
+          UsageStatus { state: "unsupported", last_checked_at: Some(checked_at), last_report: None, error: None }
+        }
+        Ok(Err(error)) => {
+          warn!("Could not reconcile {} usage: {error}", slot.backend.provider().name());
+          UsageStatus {
+            state: "error",
+            last_checked_at: Some(checked_at),
+            last_report: None,
+            error: Some(format!("Usage refresh failed ({:?}).", error.kind)),
+          }
+        }
+        Err(_) => {
+          warn!("{} usage refresh timed out", slot.backend.provider().name());
+          UsageStatus {
+            state: "error",
+            last_checked_at: Some(checked_at),
+            last_report: None,
+            error: Some("Usage refresh timed out.".to_owned()),
+          }
+        }
+      };
+      match slot.usage_status.lock() {
+        Ok(mut status) => {
+          // A failed refresh must not erase the last successful observation.
+          let last_report = update.last_report.clone().or_else(|| status.last_report.clone());
+          *status = UsageStatus { last_report, ..update };
+        }
+        Err(_) => warn!("{} usage status lock is poisoned", slot.backend.provider().name()),
       }
     }
   }
 }
 
 impl ProviderSlot {
+  fn status(&self, request: &SearchRequest<'_>) -> ProviderStatus {
+    let mut status = ProviderStatus {
+      enabled: true,
+      unavailable_reasons: Vec::new(),
+      ..ProviderStatus::unconfigured(self.backend.provider().name(), "")
+    };
+    match self.health.lock() {
+      Ok(health) => {
+        // Expiry cleanup must only change this copy during inspection.
+        let mut health = health.clone();
+        if let Some(reason) = health.unavailable() {
+          status.unavailable_reasons.push(reason.to_owned());
+        }
+        status.health = Some(HealthStatus {
+          disabled_reason: health.disabled,
+          cooldown_remaining_ms: health.cooldown_until.map_or(0, |until| {
+            u64::try_from(until.saturating_duration_since(Instant::now()).as_millis()).unwrap_or(u64::MAX)
+          }),
+          quota_resets_at: health.quota_reset.filter(|reset| *reset > Timestamp::now().as_second()),
+          consecutive_failures: health.failures,
+          in_flight: health.in_flight,
+          recovery_probe_required: health.recovering,
+        });
+      }
+      Err(_) => status.unavailable_reasons.push("Provider health lock is poisoned.".to_owned()),
+    }
+    match self.usage_status.lock() {
+      Ok(usage) => status.usage = Some(usage.clone()),
+      Err(_) => {
+        status.usage = Some(UsageStatus {
+          state: "error",
+          error: Some("Usage status lock is poisoned.".to_owned()),
+          ..UsageStatus::default()
+        })
+      }
+    }
+    if let Backend::Metered(provider) = &self.backend {
+      match provider.snapshot() {
+        Ok(snapshot) => {
+          if let Some(error) = snapshot.persistence_error {
+            status.unavailable_reasons.push(error.to_owned());
+          }
+          status.budget = Some(snapshot);
+        }
+        Err(error) => status.unavailable_reasons.push(error.to_string()),
+      }
+    }
+    match self.backend.provider().estimate_cost(request) {
+      Ok(RequestCost::Unmetered) => status.funding = Some("unmetered"),
+      Ok(RequestCost::UsdMicros(cost)) => {
+        status.reference_cost_usd_micros = Some(cost);
+        if let Some(snapshot) = &status.budget {
+          let balance = &snapshot.balance;
+          if balance.free_allowance_usd_micros > 0 && cost <= balance.free_remaining_usd_micros {
+            status.funding = Some("free");
+          } else if cost <= balance.total_remaining_usd_micros
+            && balance.total_remaining_usd_micros > balance.free_remaining_usd_micros
+          {
+            status.funding = Some("paid");
+          } else {
+            status.unavailable_reasons.push("Insufficient local budget for the reference request.".to_owned());
+          }
+        } else if status.unavailable_reasons.is_empty() {
+          status.unavailable_reasons.push("Metered search provider has no budget accounting.".to_owned());
+        }
+      }
+      Err(error) => status.unavailable_reasons.push(error.to_string()),
+    }
+    status.available = status.unavailable_reasons.is_empty();
+    status
+  }
+
   fn availability(&self) -> ProviderResult<Option<&'static str>> {
     let mut health = self.health.lock().map_err(|_| internal("Provider health lock is poisoned."))?;
     Ok(health.unavailable())
