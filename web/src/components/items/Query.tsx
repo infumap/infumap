@@ -29,7 +29,7 @@ import { QueryModelPicker } from "./QueryModelPicker";
 import { QueryToolsPicker } from "./QueryToolsPicker";
 import { QueryScopePicker } from "./QueryScopePicker";
 import { QueryProfileBar } from "./QueryProfileBar";
-import { initializeQueryConfiguration } from "../../items/query-configuration-state";
+import { initializeQueryConfiguration, queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -96,6 +96,7 @@ import {
   queryChatContextTokenDisplay,
   queryChatHasContent,
   queryChatUsesInfumapData,
+  refreshQueryChatRunningElsewhere,
   submitQueryChatMessage,
 } from "../../items/chat";
 import {
@@ -273,10 +274,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const hasSearchResults = () => (getQuerySearchResults(store, queryItem())?.length ?? 0) > 0;
   /** An earlier chat in the Queries page can only be continued, not used to search. */
   const isChatHistoryEntry = () => isQueryChatHistoryEntry(store, queryItem());
-  const queryProfileBlockedReason = () => !isChatHistoryEntry() || getQueryRuntime(store, queryItem()).chat.loadState == "loaded"
-    ? null : getQueryRuntime(store, queryItem()).chat.loadState == "failed"
-      ? "This chat could not be loaded. Reload it before changing profiles."
-      : "Wait for this chat to load before changing profiles.";
+  const queryProfileBlockedReason = () => queryConfigurationChangeBlockedReason(store, queryItem()) ??
+    (isChatHistoryEntry() && getQueryRuntime(store, queryItem()).chat.loadState == "unloaded" ? "Wait for this chat to load before changing settings." : null);
+  const queryRequestActive = () => isStartingChat() || isSendingChat() || getQueryRuntime(store, queryItem()).chat.requestId != null ||
+    getQueryRuntime(store, queryItem()).chat.runningElsewhere;
+  const chatSettingsNote = () => queryChatHasContent(store, queryItem())
+    ? "Applies from your next message. Earlier answers and retrieved context stay in this chat." : null;
   /** Search mode hides the mode selector, so a submit from there always refines the search. */
   const selectedInputMode = (): QueryInputMode =>
     isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
@@ -400,7 +403,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const startChat = async (editingElMaybe?: HTMLElement | null) => {
-    if (isStartingChat()) {
+    if (queryRequestActive()) {
       return;
     }
 
@@ -749,7 +752,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const sendChatMessage = async () => {
     const value = chatText();
     const attachments = draftAttachments();
-    if (isStartingChat() || isSendingChat() || (value.trim() == "" && attachments.length == 0)) {
+    if (queryRequestActive() || (value.trim() == "" && attachments.length == 0)) {
       focusChatTextareaSoon();
       return;
     }
@@ -931,6 +934,19 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (isListPageMainRoot() && getQueryRuntime(store, queryItem()).chat.loadState == "unloaded") {
       void ensureQueryChatLoaded(store, queryItem());
     }
+  });
+
+  createEffect(() => {
+    const item = queryItem();
+    const chat = getQueryRuntime(store, item).chat;
+    if (!isListPageMainRoot() || !chat.runningElsewhere || chat.requestId != null) { return; }
+    let refreshing = false;
+    const interval = window.setInterval(() => {
+      if (refreshing) { return; }
+      refreshing = true;
+      void refreshQueryChatRunningElsewhere(store, item).finally(() => { refreshing = false; });
+    }, 2000);
+    onCleanup(() => window.clearInterval(interval));
   });
 
   createEffect(() => {
@@ -1125,7 +1141,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       const phase = liveChatActivity()?.phase;
       return phase != null && queryChatActivityIsRunning(phase);
     };
-    const chatRequestActive = () => isStartingChat() || isSendingChat();
+    const chatRequestActive = queryRequestActive;
+    const chatSettingsDisabled = () => chatRequestActive() || queryProfileBlockedReason() != null;
     const chatRequestCanCancel = () => chatRequestActive() && activityIsRunning();
     const stop = (ev: Event) => {
       if (ev instanceof MouseEvent && ev.button == MOUSE_RIGHT) {
@@ -1245,8 +1262,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onKeyUp={stop}>
           <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
             <QueryProfileBar queryItem={queryItem} searchMode={() => false} disabled={chatRequestActive}
-              blockedReason={queryProfileBlockedReason}
-              toolsLocked={() => queryChatHasContent(store, queryItem())} />
+              blockedReason={queryProfileBlockedReason} />
           </div>
           <Show when={draftAttachments().length > 0}>
             <div style={`margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px;`}>
@@ -1332,6 +1348,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 {liveChatActivity()!.statusText}
               </div>
             </Show>
+            <Show when={getQueryRuntime(store, queryItem()).chat.runningElsewhere}>
+              <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;"
+                title="A response is running in another window. This chat will refresh when it finishes.">
+                Response running in another window…
+              </div>
+            </Show>
             <div class="ml-auto flex min-w-0 items-center gap-2 pl-2">
               <Show when={isLiveQueryChat(store, queryItem()) && queryChatHasContent(store, queryItem())}>
                 {/* Chats in the Queries page are kept in the server's data directory, outside backups. */}
@@ -1346,17 +1368,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </Show>
               <select aria-label="Chat mode" value={deepResearch() ? "deep_research" : "chat"}
                 class="h-[22px] min-w-0 max-w-[120px] rounded-md border border-[#d6d6d6] bg-white text-[12px] text-[#555]"
-                disabled={chatRequestActive()} onChange={ev => setDeepResearch(ev.currentTarget.value == "deep_research")}
+                disabled={chatSettingsDisabled()} onChange={ev => setDeepResearch(ev.currentTarget.value == "deep_research")}
                 onMouseDown={ev => ev.stopPropagation()} onKeyDown={ev => ev.stopPropagation()}>
                 <option value="chat">Chat</option><option value="deep_research">Deep research</option>
               </select>
               <QueryScopePicker
-                queryItem={queryItem} disabled={chatRequestActive} inUse={() => queryChatUsesInfumapData(store, queryItem())}
-                note={() => queryChatHasContent(store, queryItem())
-                  ? "Applies from your next message. Earlier answers keep what they found." : null} />
-              <QueryModelPicker queryItem={queryItem} disabled={chatRequestActive} />
-              <QueryToolsPicker queryItem={queryItem} locked={() => chatRequestActive() || queryChatHasContent(store, queryItem())}
-                lockedReason={chatRequestActive() ? "Wait for the current response to finish." : "Tool choices are fixed for this chat."} />
+                queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote} />
+              <QueryModelPicker queryItem={queryItem} disabled={chatSettingsDisabled} note={chatSettingsNote} />
+              <QueryToolsPicker queryItem={queryItem} locked={chatSettingsDisabled} note={chatSettingsNote}
+                lockedReason={queryProfileBlockedReason() ?? "Wait for the current response to finish."} />
             </div>
           </div>
         </div>
@@ -1398,7 +1418,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const showDraftAttachments = () => selectedInputMode() == "chat" && draftAttachments().length > 0;
     const renderQueryControls = () => <>
       <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
-        <QueryProfileBar queryItem={queryItem} searchMode={() => selectedInputMode() == "search"} disabled={isStartingChat}
+        <QueryProfileBar queryItem={queryItem} searchMode={() => selectedInputMode() == "search"} disabled={queryRequestActive}
           blockedReason={queryProfileBlockedReason}
           beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
           onChange={scopeChanged => { if (scopeChanged && isSearchMode()) { void runSearch(false); } }}
@@ -1437,7 +1457,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   aria-label={option.label}
                   title={option.label}
                   tabIndex={selected() ? 0 : -1}
-                  disabled={isStartingChat()}
+                  disabled={queryRequestActive()}
                   onMouseDown={(ev) => {
                     ev.preventDefault();
                     ev.stopPropagation();
@@ -1491,7 +1511,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 type="button"
                 title="Attach text files"
                 aria-label="Attach text files"
-                disabled={isStartingChat() || !canEdit()}
+                disabled={queryRequestActive() || !canEdit()}
                 onMouseDown={(ev) => {
                   ev.preventDefault();
                   ev.stopPropagation();
@@ -1540,7 +1560,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               type="button"
               title={sendButtonTitle()}
               aria-label={sendButtonTitle()}
-              disabled={isStartingChat() || (selectedInputMode() == "chat" && !canEdit())}
+              disabled={queryRequestActive() || (selectedInputMode() == "chat" && !canEdit())}
               onMouseDown={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
@@ -1573,7 +1593,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             type="button"
             title="Discard search"
             aria-label="Discard search"
-            disabled={isStartingChat()}
+            disabled={queryRequestActive()}
             onMouseDown={(ev) => {
               ev.preventDefault();
               ev.stopPropagation();
@@ -1608,16 +1628,16 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         onMouseUp={(ev) => ev.stopPropagation()}
         onClick={(ev) => ev.stopPropagation()}>
         <QueryScopePicker
-          queryItem={queryItem} disabled={isStartingChat}
+          queryItem={queryItem} disabled={queryRequestActive}
           inUse={() => selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}
           beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
           onChange={() => { if (isSearchMode()) { void runSearch(false); } }}
           buttonRef={el => { queryScopeButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "scope")} />
         <Show when={selectedInputMode() == "chat"}>
-          <QueryModelPicker queryItem={queryItem} disabled={isStartingChat}
+          <QueryModelPicker queryItem={queryItem} disabled={queryRequestActive}
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
             buttonRef={el => { queryModelButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "model")} />
-          <QueryToolsPicker queryItem={queryItem} locked={isStartingChat} lockedReason="Wait for the chat to start."
+          <QueryToolsPicker queryItem={queryItem} locked={queryRequestActive} lockedReason="Wait for the chat to start."
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
             buttonRef={el => { queryToolsButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "tools")} />
         </Show>

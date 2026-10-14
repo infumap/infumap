@@ -646,7 +646,6 @@ function setQueryChatCapability(
   capability: ChatCapability,
   enabled: boolean,
 ): void {
-  if (queryChatHasContent(store, queryItem)) { return; }
   setQueryConfigurationCapability(store, queryItem, capability, enabled);
 }
 
@@ -930,7 +929,7 @@ function insertQueryChatAssistantTurn(
         },
       }));
     });
-  } catch (error) {
+    } catch (error) {
     for (let i = insertedItems.length - 1; i >= 0; i--) {
       const item = insertedItems[i];
       if (itemState.get(item.id) == item) {
@@ -1033,18 +1032,51 @@ export async function submitQueryChatMessage(
   deepResearch: boolean = false,
   attachments: Array<ChatDraftAttachment> = [],
 ): Promise<boolean> {
-  const text = rawText.trim();
-  if (text == "" && attachments.length == 0) {
-    return true;
+  if (rawText.trim() == "" && attachments.length == 0) { return true; }
+  const chat = getQueryRuntime(store, queryItem).chat;
+  if (chat.requestId != null || chat.runningElsewhere || activeQueryChatRequestByQueryId.has(queryItem.id)) {
+    showChatMessage(store, "A response is already running in this chat.", TransientMessageType.Info);
+    return false;
   }
+  const requestId = newUid();
+  const accountId = store.user.getUserMaybe()?.userId ?? null;
+  updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, requestId } }));
+  try {
+    return await submitQueryChatTurn(store, queryItem, requestId, rawText, deepResearch, attachments);
+  } finally {
+    if ((store.user.getUserMaybe()?.userId ?? null) == accountId && getQueryRuntime(store, queryItem).chat.requestId == requestId) {
+      updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, requestId: null } }));
+    }
+  }
+}
+
+async function submitQueryChatTurn(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  requestId: Uid,
+  rawText: string,
+  deepResearch: boolean,
+  attachments: Array<ChatDraftAttachment>,
+): Promise<boolean> {
+  const text = rawText.trim();
+  const accountId = store.user.getUserMaybe()?.userId ?? null;
+  const isCurrent = () => (store.user.getUserMaybe()?.userId ?? null) == accountId &&
+    getQueryRuntime(store, queryItem).chat.requestId == requestId;
 
   await ensureQueryChatLoaded(store, queryItem);
+  if (!isCurrent()) { return false; }
+  const loaded = getQueryRuntime(store, queryItem).chat;
+  if (loaded.loadState == "failed" || loaded.runningElsewhere) {
+    showChatMessage(store, loaded.runningElsewhere ? "A response is already running in this chat." : "Could not load this chat. Reload before sending.", TransientMessageType.Error);
+    return false;
+  }
   try {
     await ensureQueryConfigurationReady(store, queryItem);
   } catch (error) {
     showChatMessage(store, error instanceof Error ? error.message : String(error), TransientMessageType.Error);
     return false;
   }
+  if (!isCurrent()) { return false; }
   const settings = snapshotQueryChatSettings(store, queryItem, deepResearch ? "deep_research" : "chat");
   const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
   // The server has the attachments only once the turn is accepted; until then, and after, they open from here.
@@ -1063,7 +1095,6 @@ export async function submitQueryChatMessage(
   );
   requestArrange(store, "query-chat-user-turn");
 
-  const requestId = newUid();
   const controller = new AbortController();
   let accepted = false;
   const firstTurnArchive: { promise: Promise<boolean> | null } = { promise: null };
@@ -1223,7 +1254,9 @@ export async function ensureQueryChatLoaded(store: StoreContextModel, queryItem:
 }
 
 async function loadQueryChat(store: StoreContextModel, queryItem: QueryItem, generation: number): Promise<void> {
-  const isCurrent = () => (queryChatGenerations.get(queryItem.id) ?? 0) == generation;
+  const accountId = store.user.getUserMaybe()?.userId ?? null;
+  const isCurrent = () => (store.user.getUserMaybe()?.userId ?? null) == accountId &&
+    (queryChatGenerations.get(queryItem.id) ?? 0) == generation;
   updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, loadState: "loading" } }));
   try {
     const response = await server.loadChat(queryItem.id, store.general.networkStatus);
@@ -1245,6 +1278,24 @@ async function reloadQueryChat(store: StoreContextModel, queryItem: QueryItem): 
   requestArrange(store, "query-chat-reloaded");
 }
 
+/** A loaded chat may be running in another client. Refresh its transcript once that response ends. */
+export async function refreshQueryChatRunningElsewhere(store: StoreContextModel, queryItem: QueryItem): Promise<void> {
+  const chat = getQueryRuntime(store, queryItem).chat;
+  if (!chat.runningElsewhere || chat.requestId != null || activeQueryChatRequestByQueryId.has(queryItem.id) || !isLiveQueryChat(store, queryItem)) { return; }
+  const generation = queryChatGenerations.get(queryItem.id) ?? 0;
+  const accountId = store.user.getUserMaybe()?.userId;
+  try {
+    const response = await server.loadChat(queryItem.id, store.general.networkStatus);
+    if (response.running || accountId != store.user.getUserMaybe()?.userId || generation != (queryChatGenerations.get(queryItem.id) ?? 0)) { return; }
+    const current = getQueryRuntime(store, queryItem).chat;
+    if (!current.runningElsewhere || current.requestId != null || activeQueryChatRequestByQueryId.has(queryItem.id)) { return; }
+    clearQueryChat(store, queryItem);
+    applyLoadedQueryChat(store, queryItem, response);
+  } catch {
+    // Keep the running lock; the visible chat retries while the response is outstanding.
+  }
+}
+
 /** Only query items in the Queries page have transcripts. */
 export function isLiveQueryChat(store: StoreContextModel, queryItem: QueryItem): boolean {
   const user = store.user.getUserMaybe();
@@ -1261,6 +1312,7 @@ function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, re
         ...current.chat,
         revision: response.revision,
         loadState: "loaded",
+        runningElsewhere: response.running,
         contextTokens: response.contextTokens?.tokens ?? null,
         contextTokensExact: response.contextTokens?.exact ?? false,
       },
@@ -1333,6 +1385,8 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       outcomeRootIds: [],
       revision: 0,
       loadState: "unloaded",
+      requestId: null,
+      runningElsewhere: false,
       completedActivities: [],
       contextTokens: null,
       contextTokensExact: false,

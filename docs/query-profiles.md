@@ -147,8 +147,8 @@ New Query and existing chat composers share three independent controls. Search s
   or unavailable sources remain visible and can be explicitly disabled when tool choices are unlocked.
 
 Chat / Deep research is a separate mode control in an existing conversation; New Query keeps its
-Search / Chat / Deep research mode selector. Model changes are disabled while a response runs. Tool
-choices remain fixed after a chat has content until the later work to enable changes between turns.
+Search / Chat / Deep research mode selector. Scope, model, reasoning effort and tools can change
+between turns. Configuration changes are disabled while a response runs or the transcript is loading.
 
 All popup controls share viewport sizing, outside-click dismissal, Escape dismissal, focus return,
 Tab containment and arrow navigation between radio choices. New Query's control cycle includes Scope,
@@ -174,9 +174,9 @@ in **More**. Refreshing saved profiles does not overwrite the query; the menu ex
 profile was edited or deleted, and keeps the original snapshot name visible.
 
 Profile application is blocked during a response and while a historical chat's settings are loading
-or failed to load. Until changes to tools between turns are implemented, profiles with different tool
-sets are disabled in a chat that already has content. Their disabled reason is visible in the menu
-and shortcut tooltip; a profile is never partially applied. The menu remains available for inspection
+or failed to load. Between turns, a profile can replace the entire tool set along with scope and model;
+a profile is never partially applied. The disabled reason is visible in the menu and shortcut tooltip.
+The menu remains available for inspection
 and includes loading, error and retry states. Keyboard users can Tab through shortcuts and the menu
 in the query's control cycle, use Left/Right between shortcuts, and use Up/Down in the profile menu.
 
@@ -209,7 +209,7 @@ scope reruns an existing search. Save changes previews the current setup and rep
 profile's configuration while preserving its current saved name. If the saved profile changed since
 application, the editor explains that its current settings will be replaced. If the profile was deleted,
 Save changes is disabled and Save as profile remains available. Reset respects the current response
-and tool-change locks; saving the current setup waits for query initialization and loading/response locks.
+and loading locks; saving the current setup waits for query initialization and loading/response locks.
 
 Forms retain entered text on errors and expose busy, success and error states. A profile changed or
 deleted while its form is open must be reviewed again before rename, duplicate, save or deletion.
@@ -218,3 +218,28 @@ queue, so queued writes cannot silently overwrite a newer collection. Server rev
 the saved collection without retrying the rejected action. Account switches disable an open manager.
 Keyboard focus moves into forms, returns to the management list after actions, and remains contained
 within the shared profile dialog.
+
+## Changes between turns
+
+Scope, Model/provider/reasoning effort, Tools, profile selection and Reset can all change an existing
+chat's setup between turns. Infumap scope is retained when Infumap tools are switched off and becomes
+active again if those tools are re-enabled. The picker descriptions explain that changes apply from
+the next message: earlier answers, retrieved context and attachments remain part of the conversation.
+Changing scope or disabling tools does not remove information the model has already received.
+
+Submission reserves `chat.requestId` before waiting for transcript/profile loading. This shared runtime
+state prevents overlapping local submissions and keeps every view of the query locked during preparation
+and streaming, even after the composer is remounted. User configuration mutations share a loading/request
+guard in `query-configuration-state.ts`. Initialization and transcript restoration are separate internal
+updates, so a pending first request can still receive its complete default setup. The request lock is
+released after success, cancellation or failure; a cleared or superseded preparation cannot submit later.
+
+Each submission copies configuration, applied profile and mode into its request. The server persists
+that copy in the user turn and builds the turn's model route, scope and tool definitions from that
+request. Prior turn settings and history stay unchanged. Reload restores the last recorded turn's
+configuration and applied snapshot; temporary changes that have not been submitted remain local.
+
+If loading reports that a response is running elsewhere, `chat.runningElsewhere` keeps configuration
+and submission controls locked. The visible query checks every two seconds and refreshes its transcript
+when that response ends, then unlocks the controls. Checks ignore stale responses after a query is
+cleared or the account changes. Tool and profile popups remain available for inspection while locked.

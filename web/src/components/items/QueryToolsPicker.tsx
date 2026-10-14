@@ -3,6 +3,7 @@
 import { For, Show, createMemo, onMount } from "solid-js";
 import { queryChatCapabilities, setQueryChatUsesCapability } from "../../items/chat";
 import { getQueryRuntime } from "../../items/query-item";
+import { queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
 
@@ -41,7 +42,9 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
   onMount(() => { void store.general.queryProfiles.retrieve(); void store.general.retrieveChatBackends(); });
   const enabled = createMemo(() => new Set(queryChatCapabilities(store, props.queryItem())));
   const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
-  const locked = () => props.locked() || props.disabled?.() == true || !ready();
+  const lockedReason = () => queryConfigurationChangeBlockedReason(store, props.queryItem()) ??
+    (props.locked() || props.disabled?.() == true ? props.lockedReason : !ready() ? "Wait for this query's setup to load." : null);
+  const locked = () => lockedReason() != null;
   const sources = createMemo(() => {
     const catalog = store.general.chatBackends();
     const result: ToolSource[] = [{ id: "infumap_data", label: "Infumap",
@@ -64,7 +67,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
   });
   const selected = () => sources().filter(source => enabled().has(source.id));
   const summary = () => !ready() ? store.general.queryProfiles.error() == null ? "Loading…" : "Unavailable" : selected().length == 0 ? "None" : selected().map(source => source.label).join(" + ");
-  const title = () => `Tools: ${summary()}${props.locked() ? `\n${props.lockedReason}` : ""}`;
+  const title = () => [`Tools: ${summary()}`, lockedReason(), props.note?.()].filter(Boolean).join("\n");
 
   return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey}
     buttonClass="max-w-[240px] flex-[1_1_auto] cursor-pointer" ariaLabel="Choose tools" title={title()}
@@ -78,8 +81,9 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
         <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Available capabilities
           <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close tools picker" onClick={close}><i class="bi-x-lg" /></button>
         </div>
-        <div class="text-[11px] text-slate-500">Choose the capabilities this chat can use.</div>
-        <Show when={props.locked()}><div class="mt-1 text-[11px] text-slate-500">{props.lockedReason}</div></Show>
+        <div class="text-[11px] text-slate-500">Choose the capabilities for the next message.</div>
+        <Show when={props.note?.()}><div class="mt-1 text-[11px] text-slate-500">{props.note?.()}</div></Show>
+        <Show when={lockedReason()}><div class="mt-1 text-[11px] text-slate-500">{lockedReason()}</div></Show>
       </div>
       <div class="min-h-0 grow overflow-y-auto py-1">
         <Show when={store.general.queryProfiles.error()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.queryProfiles.error()}</div></Show>
