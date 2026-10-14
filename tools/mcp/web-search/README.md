@@ -328,4 +328,15 @@ this is a localhost sidecar.
 - `web_search` — `{ query, numResults? }`
 - `fetch_page` — `{ url, maxChars? }`
 
+The model-facing descriptions explain that searches may consume limited provider
+credits. They encourage focused queries, reuse of existing results and fetching
+known URLs or result links when snippets lack detail. Further searches remain
+appropriate when existing results do not answer the question. `fetch_page` reads
+pages directly without consuming search-provider credits.
+
+`numResults` defaults to five. Its description advises requesting only as many
+results as needed, explains that larger requests may use more credits, and notes
+that providers may return fewer results. This guidance is advisory; the server
+enforces budgets and fallback independently.
+
 `fetch_page` refuses loopback, link-local, and metadata addresses.

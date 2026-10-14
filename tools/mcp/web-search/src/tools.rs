@@ -41,19 +41,28 @@ pub fn tools_list() -> Value {
       {
         "name": "web_search",
         "title": "Search the web",
-        "description": "Search the public web.",
+        "description": concat!(
+          "Search the public web for URLs and snippets. ",
+          "Each call may consume limited provider credits; use focused queries and avoid repeating searches ",
+          "already answered by existing results. Use fetch_page to read known URLs or follow result links ",
+          "when snippets lack needed detail."
+        ),
         "inputSchema": {
           "type": "object",
           "properties": {
             "query": {
               "type": "string",
-              "description": "Web search query."
+              "description": "Focused web search query."
             },
             "numResults": {
               "type": "integer",
               "minimum": 1,
               "maximum": MAX_RESULTS_CAP,
-              "description": "Maximum number of search results to return."
+              "description": format!(
+                "Maximum number of search results to return (default: {DEFAULT_MAX_RESULTS}). \
+                 Request only as many as needed; larger requests may use more credits. \
+                 Providers may return fewer results."
+              )
             }
           },
           "required": ["query"],
@@ -64,7 +73,10 @@ pub fn tools_list() -> Value {
       {
         "name": "fetch_page",
         "title": "Fetch page",
-        "description": "Read an HTTP or HTTPS URL.",
+        "description": concat!(
+          "Read page text from an HTTP or HTTPS URL. Prefer this when you already have a relevant URL ",
+          "or need more detail from a search result. Does not consume search-provider credits."
+        ),
         "inputSchema": {
           "type": "object",
           "properties": {
