@@ -38,7 +38,7 @@ profile as applied, or `null` for a query without a profile; execution uses `con
 ## Profiles and snapshots
 
 A `QueryProfile` has `id`, `name`, and `configuration`. Pinning, ordering, model favorites and the
-default profile are account preferences stored with the profiles. Profile UI is subsequent work.
+default profile are account preferences stored with the profiles. Profile selection and management UI is subsequent work.
 
 The query runtime has an editable `configuration` and a nullable `appliedProfile`. The latter holds
 the profile snapshot as applied, including its name and configuration, for reset and modified
@@ -127,3 +127,28 @@ local mutations, refreshes the saved state on conflicts, and reports the conflic
 the rejected action. Returning to the app refreshes account preferences across tabs/devices while
 existing queries retain their copied configuration. Clearing the store or switching accounts
 invalidates pending responses and queued mutations.
+
+## Scope, model and tools controls
+
+New Query and existing chat composers share three independent controls. Search shows only Scope.
+
+- **Scope** lists named Infumap scopes with coverage, exclusions and definition problems. It keeps
+  the selected scope while showing **Not used** when chat's Infumap tools are disabled. Search always
+  applies scope. Its description makes clear that web tools, attachments and existing context are unaffected.
+- **Model** opens a single searchable list of model/provider combinations, with account favorites
+  first. Star buttons add or remove favorites without changing conversation settings. Provider routes
+  appear in the button and in every model row. Providers that do not expose model identity are labelled
+  **Server-selected**. The selected model's supported reasoning efforts and a **Default** option live here.
+  Saved selections and favorites that disappear from the catalog remain visible with availability information.
+- **Tools** displays enabled capability names, such as **Infumap + Web**, rather than a function count.
+  The popup has capability toggles with readable descriptions and availability. Expand **Functions**
+  to inspect function descriptions, then **Raw schema** for their complete definitions. Selected missing
+  or unavailable sources remain visible and can be explicitly disabled when tool choices are unlocked.
+
+Chat / Deep research is a separate mode control in an existing conversation; New Query keeps its
+Search / Chat / Deep research mode selector. Model changes are disabled while a response runs. Tool
+choices remain fixed after a chat has content until the later work to enable changes between turns.
+
+All three popup controls share viewport sizing, outside-click dismissal, Escape dismissal, focus return,
+Tab containment and arrow navigation between radio choices. New Query's control cycle includes Scope,
+Model and Tools and skips disabled controls. Popup changes preserve a draft being edited in the query input.

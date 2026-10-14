@@ -16,261 +16,104 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show, createSignal, onCleanup, onMount } from "solid-js";
-import { Portal } from "solid-js/web";
-import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
-import { getQueryRuntime, type QueryItem } from "../../items/query-item";
+import { For, Show, onMount } from "solid-js";
+import { getQueryRuntime } from "../../items/query-item";
 import {
-  queryScopeDescription,
-  queryScopeId,
-  queryScopeName,
-  queryScopeProblemText,
-  queryScopeSummary,
-  queryScopes,
-  queryScopesError,
-  refreshQueryScopes,
-  setQueryScopeId,
+  queryScopeDescription, queryScopeId, queryScopeName, queryScopeProblemText,
+  queryScopeSummary, queryScopes, queryScopesError, refreshQueryScopes, setQueryScopeId,
 } from "../../items/query-scope";
 import { switchToPage } from "../../layout/navigation";
 import { useStore } from "../../store/StoreProvider";
-import { Uid } from "../../util/uid";
+import type { Uid } from "../../util/uid";
+import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
 
-
-const PANEL_WIDTH_PX = 320;
-const PANEL_MAX_HEIGHT_PX = 420;
-const PANEL_GAP_PX = 6;
-const PANEL_VIEWPORT_MARGIN_PX = 8;
-const PANEL_MIN_BELOW_PX = 240;
-
-interface QueryScopePickerProps {
-  queryItem: () => QueryItem,
-  /** Shown at the top of the panel, for example when a change only affects what happens next. */
+interface QueryScopePickerProps extends QueryPickerProps {
+  /** Search always uses scope; chat uses it when Infumap tools are enabled. */
+  inUse?: () => boolean,
   note?: () => string | null,
-  disabled?: () => boolean,
-  /** Runs before any change, so an in-progress query edit is not lost to the rerender. */
-  beforeChange?: () => void,
-  /** Runs after the scope changes, for example to search again. */
   onChange?: () => void,
 }
 
-export const QueryScopePicker: Component<QueryScopePickerProps> = (props: QueryScopePickerProps) => {
+export function QueryScopePicker(props: QueryScopePickerProps) {
   const store = useStore();
-
-  const [isOpen, setIsOpen] = createSignal(false);
-  const [anchorRect, setAnchorRect] = createSignal<DOMRect | null>(null);
-  let buttonEl: HTMLButtonElement | undefined;
-
   onMount(() => {
     void store.general.queryProfiles.retrieve();
     if (queryScopes() == null) { void refreshQueryScopes(store); }
   });
-
-  const selectedId = (): Uid | null => queryScopeId(store, props.queryItem());
+  const selectedId = () => queryScopeId(store, props.queryItem());
   const selectedSummary = () => queryScopeSummary(selectedId());
-  const selectedIsMissing = (): boolean => selectedId() != null && selectedSummary() === null;
-  const selectedHasProblems = (): boolean => {
+  const missing = () => selectedId() != null && selectedSummary() === null;
+  const inUse = () => props.inUse?.() != false;
+  const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
+  const disabled = () => props.disabled?.() == true || !ready() || !inUse();
+  const label = () => !inUse() ? "Not used" : selectedSummary() === undefined
+    ? queryScopesError() == null ? "Loading…" : "Unavailable" : queryScopeName(selectedId());
+  const warning = () => {
     const summary = selectedSummary();
-    return summary != null && queryScopeProblemText(summary.problems) != null;
+    return inUse() && (missing() || (summary != null && queryScopeProblemText(summary.problems) != null));
   };
-  const configurationReady = (): boolean => getQueryRuntime(store, props.queryItem()).configurationInitialized
-    || store.general.defaultQueryProfile() != null;
-  const disabled = (): boolean => props.disabled?.() == true || !configurationReady();
-
-  const buttonTitle = (): string => {
-    if (!configurationReady()) {
-      return store.general.queryProfiles.error() ?? "Loading the default query profile…";
-    }
-    if (selectedIsMissing()) { return "The selected scope no longer exists. Choose another."; }
+  const title = () => {
+    if (!inUse()) { return `Scope is not used because Infumap tools are off. Saved scope: ${queryScopeName(selectedId())}.`; }
+    if (!ready()) { return store.general.queryProfiles.error() ?? "Loading the default query profile…"; }
+    if (missing()) { return "The selected scope no longer exists. Choose another."; }
+    if (selectedSummary() === undefined && queryScopesError() != null) { return `${queryScopesError()} Saved scope: ${selectedId()}.`; }
     const summary = selectedSummary();
-    const lines = [`Scope: ${queryScopeName(selectedId())}`];
-    if (summary != null) {
-      lines.push(queryScopeDescription(summary));
-      const problems = queryScopeProblemText(summary.problems);
-      if (problems != null) { lines.push(problems); }
-    }
-    return lines.join("\n");
+    return [`Search within Infumap: ${queryScopeName(selectedId())}`,
+      summary == null ? null : queryScopeDescription(summary),
+      summary == null ? null : queryScopeProblemText(summary.problems)].filter(Boolean).join("\n");
   };
-
-  const open = () => {
+  const select = (id: Uid | null, close: () => void) => {
     if (disabled()) { return; }
-    setAnchorRect(buttonEl?.getBoundingClientRect() ?? null);
-    setIsOpen(true);
-    void refreshQueryScopes(store);
-  };
-
-  const close = () => { setIsOpen(false); };
-
-  const select = (scopeId: Uid | null) => {
     close();
-    if (scopeId == selectedId()) { return; }
+    if (id == selectedId()) { return; }
     props.beforeChange?.();
-    setQueryScopeId(store, props.queryItem(), scopeId);
+    setQueryScopeId(store, props.queryItem(), id);
     props.onChange?.();
   };
-
-  const editScopes = () => {
-    const scopesPageId = queryScopes()?.scopesPageId;
-    close();
-    if (scopesPageId != null) {
-      switchToPage(store, { itemId: scopesPageId, linkIdMaybe: null }, true, false, false);
-    }
-  };
-
-  const onWindowKeyDown = (ev: KeyboardEvent) => {
-    if (ev.key == "Escape" && isOpen()) {
-      ev.stopPropagation();
-      close();
-    }
-  };
-  window.addEventListener("keydown", onWindowKeyDown, true);
-  onCleanup(() => window.removeEventListener("keydown", onWindowKeyDown, true));
-
-  /** Positioned below the button where there is room, else above, and clamped to the viewport. */
-  const panelStyle = (): string => {
-    const rect = anchorRect();
-    const left = rect == null
-      ? PANEL_VIEWPORT_MARGIN_PX
-      : Math.max(
-          PANEL_VIEWPORT_MARGIN_PX,
-          Math.min(rect.left, window.innerWidth - PANEL_WIDTH_PX - PANEL_VIEWPORT_MARGIN_PX));
-    const spaceAbove = rect == null ? 0 : rect.top - PANEL_GAP_PX - PANEL_VIEWPORT_MARGIN_PX;
-    const spaceBelow = rect == null ? 0 : window.innerHeight - rect.bottom - PANEL_GAP_PX - PANEL_VIEWPORT_MARGIN_PX;
-    // Opening below keeps the query input above the button visible.
-    const placeBelow = spaceBelow >= PANEL_MIN_BELOW_PX || spaceBelow >= spaceAbove;
-    const maxHeight = Math.max(160, Math.min(PANEL_MAX_HEIGHT_PX, placeBelow ? spaceBelow : spaceAbove));
-    const vertical = rect == null
-      ? `top: ${PANEL_VIEWPORT_MARGIN_PX}px;`
-      : placeBelow
-        ? `top: ${rect.bottom + PANEL_GAP_PX}px;`
-        : `bottom: ${Math.max(PANEL_VIEWPORT_MARGIN_PX, window.innerHeight - rect.top + PANEL_GAP_PX)}px;`;
-    return `left: ${left}px; ${vertical} width: ${PANEL_WIDTH_PX}px; max-height: ${maxHeight}px; ` +
-      `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 1};`;
-  };
-
-  const stop = (ev: Event) => { ev.stopPropagation(); };
-
-  const activateOnKey = (action: () => void) => (ev: KeyboardEvent) => {
-    if (ev.key != "Enter" && ev.key != " ") { return; }
-    ev.preventDefault();
-    ev.stopPropagation();
-    action();
-  };
-
-  const renderRow = (scopeId: Uid | null, label: string, description: string, warning: string | null) => {
-    const selected = () => selectedId() == scopeId;
-    return (
-      <div
-        class="flex cursor-pointer items-start gap-2 rounded-xs px-3 py-1.5 hover:bg-slate-100"
-        role="radio"
-        tabindex={0}
-        aria-checked={selected()}
-        onClick={() => select(scopeId)}
-        onKeyDown={activateOnKey(() => select(scopeId))}>
-        <i
-          class="mt-[2px] shrink-0 text-[12px]"
-          classList={{
-            "bi-record-circle text-slate-700": selected(),
-            "bi-circle text-slate-400": !selected(),
-          }} />
-        <div class="min-w-0 grow">
-          <div class="truncate text-black" style="font-size: 13px; line-height: 18px;">{label}</div>
-          <div class="truncate text-[11px] text-slate-500">{description}</div>
-          <Show when={warning != null}>
-            <div class="text-[11px] text-amber-700">{warning}</div>
-          </Show>
-        </div>
+  const row = (id: Uid | null, name: string, description: string, problem: string | null, close: () => void) => (
+    <button type="button" role="radio" aria-checked={selectedId() == id} disabled={disabled()}
+      data-picker-autofocus={selectedId() == id ? true : undefined}
+      class="flex w-full items-start gap-2 cursor-pointer rounded px-3 py-1.5 text-left hover:bg-slate-100 disabled:cursor-default disabled:opacity-50"
+      onClick={() => select(id, close)}>
+      <i class={`mt-1 shrink-0 text-[12px] ${selectedId() == id ? "bi-record-circle text-slate-700" : "bi-circle text-slate-400"}`} />
+      <div class="min-w-0 grow">
+        <div class="truncate text-[13px]">{name}</div>
+        <div class="text-[11px] text-slate-500">{description}</div>
+        <Show when={problem != null}><div class="text-[11px] text-amber-700">{problem}</div></Show>
       </div>
-    );
-  };
-
-  const showWarning = (): boolean => selectedIsMissing() || selectedHasProblems();
-
-  const renderButton = () => (
-    <button
-      ref={buttonEl}
-      type="button"
-      class={"flex h-[22px] max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-[#d6d6d6] " +
-        "bg-white pl-2 pr-2 text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"}
-      style="font-size: 12px; line-height: 18px;"
-      title={buttonTitle()}
-      disabled={disabled()}
-      aria-haspopup="dialog"
-      aria-expanded={isOpen()}
-      aria-label={`Scope: ${queryScopeName(selectedId())}`}
-      onClick={(ev) => { stop(ev); isOpen() ? close() : open(); }}
-      onMouseDown={stop}
-      onMouseUp={stop}
-      onKeyDown={stop}>
-      <Show when={showWarning()} fallback={<i class="bi-funnel shrink-0 text-[11px]" />}>
-        <i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" />
-      </Show>
-      <span class="min-w-0 truncate">{queryScopeName(selectedId())}</span>
-      <i class="bi-chevron-expand ml-auto shrink-0 text-[10px]" />
     </button>
   );
 
-  return (
-    <>
-      {renderButton()}
-      <Show when={isOpen()}>
-        <Portal mount={document.body}>
-          <div
-            class="fixed inset-0"
-            style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
-            onMouseDown={(ev) => { stop(ev); close(); }}
-            onClick={stop} />
-          <div
-            class="fixed flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white shadow-lg"
-            style={panelStyle()}
-            role="dialog"
-            aria-label="Scope"
-            onMouseDown={stop}
-            onMouseUp={stop}
-            onClick={stop}
-            onKeyDown={stop}
-            onKeyUp={stop}>
-            <div class="min-h-0 grow overflow-y-auto py-1.5" role="radiogroup" aria-label="Scope">
-              <div class="px-3 pb-0.5 text-[11px] font-medium tracking-wide text-slate-500 uppercase">Scope</div>
-              <Show when={props.note?.() != null}>
-                <div class="px-3 pb-1 text-[11px] text-slate-500">{props.note!()}</div>
-              </Show>
-              {renderRow(null, "Everything", "Everything under your home page", null)}
-              <Show when={selectedIsMissing()}>
-                {renderRow(selectedId(), "Missing scope", "This scope was deleted or moved.", "Choose another scope.")}
-              </Show>
-              <Show when={queryScopes() == null && queryScopesError() == null}>
-                <div class="flex animate-pulse items-center gap-2 px-3 py-2">
-                  <div class="h-3 w-3 shrink-0 rounded-full bg-slate-200" />
-                  <div class="h-3 grow rounded-xs bg-slate-200" />
-                </div>
-              </Show>
-              <Show when={queryScopesError() != null}>
-                <div class="px-3 py-1.5 text-[12px] text-red-700">{queryScopesError()}</div>
-              </Show>
-              <For each={queryScopes()?.scopes ?? []}>{summary =>
-                renderRow(
-                  summary.id,
-                  queryScopeName(summary.id),
-                  queryScopeDescription(summary),
-                  queryScopeProblemText(summary.problems))
-              }</For>
-            </div>
-            <div class="shrink-0 border-t border-slate-200 px-3 py-2">
-              <div class="text-[11px] text-slate-500">
-                Each page in Scopes is a scope. Links in it are included, and links in its Exclude page are excluded.
-              </div>
-              <Show when={queryScopes() != null}>
-                <button
-                  type="button"
-                  class="mt-1 cursor-pointer text-[12px] text-blue-700 hover:underline"
-                  onClick={editScopes}>
-                  Edit scopes
-                </button>
-              </Show>
-            </div>
-          </div>
-        </Portal>
-      </Show>
-    </>
-  );
-};
+  return <QueryPickerPopover width={320} disabled={disabled()} buttonRef={props.buttonRef} onTabKey={props.onTabKey}
+    buttonClass="max-w-[180px] flex-[1_1_auto] cursor-pointer" ariaLabel={`Scope: ${label()}`} title={title()}
+    label={<><i class={warning() ? "bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" : "bi-funnel shrink-0 text-[11px]"} />
+      <span class="shrink-0">Scope:</span><span class="min-w-0 truncate">{label()}</span></>}
+    onOpen={() => { void store.general.queryProfiles.refresh(); void refreshQueryScopes(store); }}>
+    {close => <>
+      <div class="shrink-0 border-b border-slate-200 px-3 py-2">
+        <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Search within Infumap
+          <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close scope picker" onClick={close}><i class="bi-x-lg" /></button>
+        </div>
+        <div class="mt-1 text-[11px] text-slate-500">Limits what Infumap tools can find. Web tools, attachments and existing chat context are unaffected.</div>
+        <Show when={props.note?.()}><div class="mt-1 text-[11px] text-slate-500">{props.note!()}</div></Show>
+      </div>
+      <div class="min-h-0 grow overflow-y-auto py-1" role="radiogroup" aria-label="Infumap search scope">
+        {row(null, "Everything", "Everything under your home page", null, close)}
+        <Show when={missing()}>{row(selectedId(), "Missing scope", "This scope was deleted or moved.", "Choose another scope.", close)}</Show>
+        <Show when={queryScopes() == null && queryScopesError() == null}><div class="px-3 py-2 text-[12px] text-slate-500">Loading scopes…</div></Show>
+        <Show when={queryScopesError()}><div class="px-3 py-2 text-[12px] text-red-700">{queryScopesError()}</div></Show>
+        <For each={queryScopes()?.scopes ?? []}>{scope => row(scope.id, queryScopeName(scope.id), queryScopeDescription(scope), queryScopeProblemText(scope.problems), close)}</For>
+      </div>
+      <div class="shrink-0 border-t border-slate-200 px-3 py-2 text-[11px] text-slate-500">
+        Links in each scope page include items; links in its Exclude page exclude them.
+        <Show when={queryScopes() != null}>
+          <button type="button" class="mt-1 block text-[12px] text-blue-700 hover:underline" onClick={() => {
+            const pageId = queryScopes()?.scopesPageId;
+            close();
+            if (pageId != null) { switchToPage(store, { itemId: pageId, linkIdMaybe: null }, true, false, false); }
+          }}>Edit scopes</button>
+        </Show>
+      </div>
+    </>}
+  </QueryPickerPopover>;
+}
