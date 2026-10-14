@@ -19,7 +19,7 @@
 import { Component, For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
-import { QueryItem } from "../../items/query-item";
+import { getQueryRuntime, type QueryItem } from "../../items/query-item";
 import {
   queryScopeDescription,
   queryScopeId,
@@ -61,6 +61,7 @@ export const QueryScopePicker: Component<QueryScopePickerProps> = (props: QueryS
   let buttonEl: HTMLButtonElement | undefined;
 
   onMount(() => {
+    void store.general.retrieveChatBackends();
     if (queryScopes() == null) { void refreshQueryScopes(store); }
   });
 
@@ -71,9 +72,14 @@ export const QueryScopePicker: Component<QueryScopePickerProps> = (props: QueryS
     const summary = selectedSummary();
     return summary != null && queryScopeProblemText(summary.problems) != null;
   };
-  const disabled = (): boolean => props.disabled?.() == true;
+  const configurationReady = (): boolean => getQueryRuntime(store, props.queryItem()).configurationInitialized
+    || store.general.defaultQueryProfile() != null;
+  const disabled = (): boolean => props.disabled?.() == true || !configurationReady();
 
   const buttonTitle = (): string => {
+    if (!configurationReady()) {
+      return store.general.chatBackendsError() ?? "Loading the default query profile…";
+    }
     if (selectedIsMissing()) { return "The selected scope no longer exists. Choose another."; }
     const summary = selectedSummary();
     const lines = [`Scope: ${queryScopeName(selectedId())}`];

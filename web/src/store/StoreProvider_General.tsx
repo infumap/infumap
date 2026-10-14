@@ -17,9 +17,10 @@
 */
 
 import { Accessor, createSignal } from "solid-js";
-import { ChatBackends, ChatModelSelection, post, server } from "../server";
+import { ChatBackends, post, server } from "../server";
+import { snapshotQueryProfile, type QueryProfile } from "../items/query-configuration";
 import { NumberSignal, createNumberSignal } from "../util/signals";
-import { Uid, isUid } from "../util/uid";
+import { newUid } from "../util/uid";
 
 
 const LOCALSTORAGE_KEY_NAME = "infudata";
@@ -37,8 +38,6 @@ interface InstallationState {
 interface LocalStorageData {
   prefer2fa?: boolean,
   searchResultsArrangeAlgorithm?: string,
-  chatModelSelection?: ChatModelSelection,
-  queryScopeId?: string | null,
 }
 
 export type QueryInputMode = "search" | "chat";
@@ -63,11 +62,8 @@ export interface GeneralStoreContextModel {
   retrieveChatBackends: () => Promise<void>,
   refreshChatBackends: () => Promise<void>,
 
-  chatModelSelection: () => ChatModelSelection | null,
-  setChatModelSelection: (selection: ChatModelSelection | null) => void,
-
-  queryScopeId: () => Uid | null,
-  setQueryScopeId: (scopeId: Uid | null) => void,
+  defaultQueryProfile: Accessor<QueryProfile | null>,
+  setDefaultQueryProfile: (profile: QueryProfile) => void,
 
   prefer2fa: () => boolean,
   setPrefer2fa: (prefer2fa: boolean) => void,
@@ -98,6 +94,15 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, { equals: false });
 
   const [chatBackends, setChatBackends] = createSignal<ChatBackends | null>(null, { equals: false });
+  const [defaultQueryProfileValue, setDefaultQueryProfileValue] = createSignal<QueryProfile | null>(null);
+  // Return copies so a composer cannot mutate the default or another query through a shared object.
+  const defaultQueryProfile = (): QueryProfile | null => {
+    const profile = defaultQueryProfileValue();
+    return profile == null ? null : snapshotQueryProfile(profile);
+  };
+  const setDefaultQueryProfile = (profile: QueryProfile): void => {
+    setDefaultQueryProfileValue(snapshotQueryProfile(profile));
+  };
   const [chatBackendsError, setChatBackendsError] = createSignal<string | null>(null);
   const [chatBackendsRefreshing, setChatBackendsRefreshing] = createSignal<boolean>(false);
   let inProgressChatBackendsRequest: Promise<void> | null = null;
@@ -218,7 +223,24 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     setChatBackendsRefreshing(true);
     inProgressChatBackendsRequest = (async () => {
       try {
-        setChatBackends(await server.chatBackends());
+        const backends = await server.chatBackends();
+        if (defaultQueryProfileValue() == null) {
+          setDefaultQueryProfile({
+            id: newUid(),
+            name: "Default",
+            configuration: {
+              scopeId: null,
+              model: {
+                backend: backends.default.backend,
+                model: backends.default.model ?? null,
+                reasoningEffort: null,
+              },
+              capabilities: ["infumap_data", ...(backends.toolServers ?? [])
+                .filter(server => server.enabledByDefault).map(server => server.id)],
+            },
+          });
+        }
+        setChatBackends(backends);
         setChatBackendsError(null);
       } catch (e) {
         console.error("An error occurred retrieving chat backends. " + e);
@@ -246,37 +268,6 @@ export function makeGeneralStore(): GeneralStoreContextModel {
    */
   const refreshChatBackends = async () => fetchChatBackends();
 
-  /**
-   * The model last chosen in the chat composer, used as the default for new chats. Read defensively:
-   * local storage is editable by hand, and a stale model id is possible.
-   */
-  const chatModelSelection = (): ChatModelSelection | null => {
-    const stored = readLocalStorageData().chatModelSelection;
-    if (stored == null || typeof stored != "object") { return null; }
-    const asString = (value: unknown) => typeof value == "string" && value != "" ? value : undefined;
-    const backend = asString(stored.backend);
-    if (backend == null) { return null; }
-    return { backend, model: asString(stored.model) ?? null, reasoningEffort: asString(stored.reasoningEffort) ?? null };
-  };
-  const setChatModelSelection = (selection: ChatModelSelection | null) => {
-    const data = readLocalStorageData();
-    if (selection == null) {
-      delete data.chatModelSelection;
-      writeLocalStorageData(data);
-      return;
-    }
-    writeLocalStorageData({ ...data, chatModelSelection: selection });
-  };
-
-  /** The scope last chosen for search or chat, used as the default for new queries. Null means no scope. */
-  const queryScopeId = (): Uid | null => {
-    const stored = readLocalStorageData().queryScopeId;
-    return typeof stored == "string" && isUid(stored) ? stored : null;
-  };
-  const setQueryScopeId = (scopeId: Uid | null) => {
-    writeLocalStorageData({ ...readLocalStorageData(), queryScopeId: scopeId });
-  };
-
   const prefer2fa = () => {
     return readLocalStorageData().prefer2fa ?? false;
   }
@@ -303,8 +294,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   return {
     installationState, retrieveInstallationState, clearInstallationState,
     chatBackends, chatBackendsError, chatBackendsRefreshing, retrieveChatBackends, refreshChatBackends,
-    chatModelSelection, setChatModelSelection,
-    queryScopeId, setQueryScopeId,
+    defaultQueryProfile, setDefaultQueryProfile,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
     queryInputMode, setQueryInputMode,

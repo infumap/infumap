@@ -21,7 +21,7 @@ import { Portal } from "solid-js/web";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { QueryItem } from "../../items/query-item";
 import {
-  effectiveQueryChatModelSelection,
+  queryChatModelSelection,
   queryChatUsesCapability,
   queryChatUsesInfumapData,
   setQueryChatModelSelection,
@@ -193,17 +193,8 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
   const listedBackends = (): Array<ChatBackendInfo> => backends()?.backends ?? [];
   const anyBackendAvailable = (): boolean => listedBackends().some(candidate => candidate.available);
 
-  /**
-   * The selection in force, matching what a send would use: this chat's pick once the server still
-   * offers it, else what the server would fall back to.
-   */
-  const selection = createMemo((): ChatModelSelection | null => {
-    const explicit = effectiveQueryChatModelSelection(store, props.queryItem());
-    if (explicit != null) { return explicit; }
-    const serverDefault = backends()?.default;
-    if (serverDefault == null) { return null; }
-    return { backend: serverDefault.backend, model: serverDefault.model ?? null, reasoningEffort: null };
-  });
+  // Display the exact query selection; catalog refreshes never replace profile settings.
+  const selection = createMemo(() => queryChatModelSelection(store, props.queryItem()));
 
   const selectedBackendId = (): ChatBackendId | null => selection()?.backend ?? null;
   const selectedModelId = (): string | null => selection()?.model ?? null;
@@ -322,7 +313,9 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
 
   const selectBackend = (backendId: ChatBackendId) => {
     if (backendId == "openrouter") {
-      const modelId = selectedModelId() ?? backends()?.default.model ?? backend("openrouter")?.models[0]?.id;
+      const defaultModel = store.general.defaultQueryProfile()?.configuration.model;
+      const modelId = selectedModelId() ?? (defaultModel?.backend == "openrouter" ? defaultModel.model : null)
+        ?? backend("openrouter")?.models[0]?.id;
       applySelection({ backend: backendId, model: modelId ?? null, reasoningEffort: null });
       // Stay in the model view: choosing OpenRouter is the first half of choosing a model.
       return;

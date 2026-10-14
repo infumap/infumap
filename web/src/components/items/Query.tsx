@@ -27,6 +27,7 @@ import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, highlightStyle } 
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { QueryChatSetup } from "./QueryChatSetup";
 import { QueryScopePicker } from "./QueryScopePicker";
+import { initializeQueryConfiguration } from "../../items/query-configuration-state";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -91,7 +92,6 @@ import {
   queryChatContextTokenDisplay,
   queryChatHasContent,
   queryChatUsesInfumapData,
-  applyQueryChatDefaultPluginCapabilities,
   submitQueryChatMessage,
 } from "../../items/chat";
 import {
@@ -375,6 +375,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         keepQueryFocusPath: keepSearchWorkspaceFocus ? vePath() : undefined,
         shouldApply: () => requestSerial == activeSearchRequestSerial,
       });
+    } catch (error) {
+      if (requestSerial == activeSearchRequestSerial) {
+        showTransientMessage(error instanceof Error ? error.message : String(error), TransientMessageType.Error);
+      }
     } finally {
       if (searchingSerial() == requestSerial) {
         setSearchingSerial(null);
@@ -847,11 +851,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   createEffect(() => {
-    const backends = store.general.chatBackends();
-    if (backends == null) {
-      return;
-    }
-    applyQueryChatDefaultPluginCapabilities(store, queryItem(), backends.toolServers ?? []);
+    initializeQueryConfiguration(store, queryItem());
   });
 
   createEffect(() => {

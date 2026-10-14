@@ -20,7 +20,8 @@ import { createSignal } from "solid-js";
 import { ListScopesResponse, ScopeProblem, ScopeSummary, server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Uid } from "../util/uid";
-import { QueryItem, getQueryRuntime, updateQueryRuntime } from "./query-item";
+import { QueryItem, getQueryRuntime } from "./query-item";
+import { updateQueryConfiguration } from "./query-configuration-state";
 
 
 const [scopeList, setScopeList] = createSignal<ListScopesResponse | null>(null);
@@ -59,11 +60,7 @@ export function queryScopeId(store: StoreContextModel, queryItem: QueryItem): Ui
 }
 
 export function setQueryScopeId(store: StoreContextModel, queryItem: QueryItem, scopeId: Uid | null): void {
-  updateQueryRuntime(store, queryItem, current => ({
-    ...current,
-    configuration: { ...current.configuration, scopeId },
-  }));
-  store.general.setQueryScopeId(scopeId);
+  updateQueryConfiguration(store, queryItem, { scopeId });
 }
 
 /** The summary for a scope id: null for no scope or a scope that no longer exists, undefined while loading. */

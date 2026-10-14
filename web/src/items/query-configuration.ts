@@ -46,11 +46,26 @@ export function cloneQueryConfiguration(configuration: QueryConfiguration): Quer
   return {
     scopeId: configuration.scopeId,
     model: configuration.model == null ? null : { ...configuration.model },
-    capabilities: [...configuration.capabilities],
+    capabilities: [...new Set(configuration.capabilities)],
   };
 }
 
 /** Captures the profile as applied; later renames and configuration edits cannot change this snapshot. */
 export function snapshotQueryProfile(profile: QueryProfile): QueryProfile {
   return { id: profile.id, name: profile.name, configuration: cloneQueryConfiguration(profile.configuration) };
+}
+
+/** Capability order and duplicate entries cannot make an otherwise identical setup appear modified. */
+export function queryConfigurationsEqual(left: QueryConfiguration, right: QueryConfiguration): boolean {
+  if (left.scopeId != right.scopeId) { return false; }
+  if (left.model == null || right.model == null) {
+    if (left.model !== right.model) { return false; }
+  } else if (left.model.backend != right.model.backend || left.model.model != right.model.model ||
+    left.model.reasoningEffort != right.model.reasoningEffort) {
+    return false;
+  }
+  const leftCapabilities = new Set(left.capabilities);
+  const rightCapabilities = new Set(right.capabilities);
+  return leftCapabilities.size == rightCapabilities.size &&
+    [...leftCapabilities].every(capability => rightCapabilities.has(capability));
 }
