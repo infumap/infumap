@@ -24,6 +24,7 @@ import { server, type ContinueChatResponse } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { queryScopeIdForRequest } from "./query-scope";
+import type { ChatDraftAttachment } from "./chat-attachment";
 import { asContainerItem, isContainer } from "./base/container-item";
 import type { Uid } from "../util/uid";
 import { ensureQueryItemUnderQueries, navigateToQueries } from "../layout/navigation";
@@ -200,6 +201,7 @@ export async function startQueryChat(
   initialText: string,
   queryItemPath: VisualElementPath,
   deepResearch: boolean = false,
+  attachments: Array<ChatDraftAttachment> = [],
 ): Promise<boolean> {
   clearQueryChat(store, queryItem);
   ensureTemporaryQueryChatPage(store, queryItem);
@@ -208,7 +210,7 @@ export async function startQueryChat(
   store.history.setFocus(queryItemPath);
   store.overlay.autoFocusChatInput.set(true);
   arrangeNow(store, "query-start-chat");
-  return await submitQueryChatMessage(store, queryItem, initialText, deepResearch);
+  return await submitQueryChatMessage(store, queryItem, initialText, deepResearch, attachments);
 }
 
 /**

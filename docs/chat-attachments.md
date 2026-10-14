@@ -1,6 +1,6 @@
 # Chat attachments (proposal)
 
-Status: in progress. Discussed 2026-10-14; steps 1–2 done 2026-10-14.
+Status: in progress. Discussed 2026-10-14; steps 1–3 done 2026-10-14.
 
 A common use of chat is pasting something long, such as a video transcript, and asking for a summary. Today the
 pasted text goes into the message itself: the composer fills with it, and the "You" turn shows it as a wall of text.
@@ -172,6 +172,24 @@ Each step can be committed on its own. Steps 1–4 cover pasting a transcript an
      paste: the same paste handling and chips there, and `startQueryChat` passes the attachments on. In search mode
      a paste stays plain text.
    - At this point attachments are sent and recorded, but a turn shows only its text.
+
+   Done 2026-10-14: [chat-attachment.ts](../web/src/items/chat-attachment.ts) (the draft attachment type, the paste
+   threshold, titles and limits) and [Query.tsx](../web/src/components/items/Query.tsx). Details:
+   - One draft signal serves both inputs, since they belong to the same query item: attachments pasted into the New
+     Query input are the ones the chat composer shows once the chat starts.
+   - In the New Query input the chips sit above the input, which stays where it was. They are shown only in chat and
+     deep research modes. A search ignores them, and they come back on switching to chat.
+   - The chat composer's height for the transcript layout is now set by an effect from the input height plus the
+     chip row, not in `resizeChatTextarea`.
+   - "Insert as text" puts the text at the caret, as the paste would have. Chip buttons prevent the default on mouse
+     down, so the input keeps the focus and the caret.
+   - Over the limits (10 attachments, 1 MiB), a paste is refused with a message rather than inserted as text.
+   - Checked end to end with Playwright against a fake llama-server: a paste in the New Query input in chat mode,
+     sent with text; the model got `<attachment name="Pasted text">…</attachment>\n\nsummarize this`. In the
+     composer: a short paste stayed text, insert as text, two chips numbered "Pasted text" and "Pasted text 2", ×,
+     sending an attachment alone, and a revision conflict giving back both the text and the attachment. The
+     transcript and `load-chat-attachment` had the expected content. As expected until step 4, a turn of only
+     attachments shows an empty "You".
 
 4. **Attachments in turns (client).**
    - Add `chatAttachmentSource` to `TextItem` ([text-item.ts](../web/src/items/text-item.ts)), client-only like

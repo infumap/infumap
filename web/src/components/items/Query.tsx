@@ -105,6 +105,14 @@ import {
   queryChatActivityIsRunning,
 } from "./QueryChatActivity";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
+import {
+  ChatDraftAttachment,
+  chatAttachmentSizeBytes,
+  estimateChatAttachmentTokens,
+  pastedTextAttachment,
+  pastedTextIsAttachment,
+} from "../../items/chat-attachment";
+import { formatBytes } from "../../util/item-metadata";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
 
 const normalizeSearchText = (text: string): string =>
@@ -132,6 +140,8 @@ const QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX = 164;
 const QUERY_CHAT_ACTIVITY_FOLLOW_THRESHOLD_PX = 24;
 const QUERY_CHAT_ACTIVITY_EXPANDED_TOP_INSET_PX = 12;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
+const QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX = 30;
+const QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX = 6;
 
 
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -144,6 +154,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const isSearching = () => searchingSerial() != null;
   const [isStartingChat, setIsStartingChat] = createSignal(false);
   const [chatText, setChatText] = createSignal("");
+  /** Attachments of the message being written, in the chat composer or in the query input in chat mode. */
+  const [draftAttachments, setDraftAttachments] = createSignal<Array<ChatDraftAttachment>>([]);
   const [deepResearch, setDeepResearch] = createSignal(false);
   const [isSendingChat, setIsSendingChat] = createSignal(false);
   const [queryTextareaHeightPx, setQueryTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
@@ -170,7 +182,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const queryItem = () => asQueryItem(props.visualElement.displayItem);
   const liveChatActivity = () => chatStreamingStateForQuery(queryItem().id);
   const chatStreamingRequestId = createMemo(() => liveChatActivity()?.requestId ?? null);
-  const chatContextTokens = () => queryChatContextTokenDisplay(store, queryItem(), chatText());
+  const chatContextTokens = () => queryChatContextTokenDisplay(store, queryItem(), chatText(), draftAttachments());
+  const draftAttachmentsRowPx = () => draftAttachments().length > 0
+    ? QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX + QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX
+    : 0;
   const chatActivityHeaderVisible = () => liveChatActivity() != null && chatActivityPanelHeightPx() > 0;
   const chatActivityContentRevision = createMemo(() => {
     const live = liveChatActivity();
@@ -194,6 +209,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       const activityBottomPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
         QUERY_CHAT_SETTINGS_HEIGHT_PX +
         chatTextareaHeightPx() +
+        draftAttachmentsRowPx() +
         QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
       return Math.max(
         headersPx,
@@ -203,6 +219,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const reservedWithoutActivityPx = QUERY_CHAT_COMPOSER_BOTTOM_PX +
       QUERY_CHAT_SETTINGS_HEIGHT_PX +
       chatTextareaHeightPx() +
+      draftAttachmentsRowPx() +
       QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX;
     const availablePx = Math.max(0, boundsPx().h - reservedWithoutActivityPx - 80);
     const preferredPx = Math.max(QUERY_CHAT_ACTIVITY_MIN_HEIGHT_PX, Math.round(boundsPx().h * 0.34));
@@ -362,7 +379,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
 
     const text = commitEditingQuery(editingElMaybe);
-    if (text.trim() == "") {
+    const attachments = draftAttachments();
+    if (text.trim() == "" && attachments.length == 0) {
       requestEditMode(queryText().length, false);
       return;
     }
@@ -370,12 +388,16 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setIsStartingChat(true);
     activeSearchRequestSerial++;
     setSearchingSerial(null);
+    setDraftAttachments([]);
     const useDeepResearch = deepResearch();
     try {
-      const recorded = await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch);
+      const recorded = await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch, attachments);
       if (!recorded && chatText() == "") {
         setChatText(text);
         resizeChatTextareaSoon();
+      }
+      if (!recorded && draftAttachments().length == 0) {
+        setDraftAttachments(attachments);
       }
     } finally {
       setDeepResearch(false);
@@ -514,6 +536,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setSearchingSerial(null);
     setMoreButtonHost(null);
     setChatText("");
+    setDraftAttachments([]);
     setDeepResearch(false);
     setChatTextareaHeightPx(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
     store.overlay.autoFocusSearchInput.set(false);
@@ -567,12 +590,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     );
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > QUERY_CHAT_MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
-    const heightChanged = chatTextareaHeightPx() != nextHeight;
     setChatTextareaHeightPx(nextHeight);
-    if (heightChanged && isChatMode()) {
-      setQueryChatComposerHeightPx(store, queryItem(), nextHeight);
-      requestArrange(store, "query-chat-composer-resize");
-    }
   };
 
   const resizeQueryTextarea = (elMaybe?: HTMLTextAreaElement) => {
@@ -598,21 +616,67 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     window.setTimeout(() => chatTextarea?.focus(), 0);
   };
 
+  /** A long paste becomes an attachment of the message, not part of its text. See docs/chat-attachments.md. */
+  const attachPastedText = (ev: ClipboardEvent) => {
+    const text = ev.clipboardData?.getData("text/plain") ?? "";
+    if (!pastedTextIsAttachment(text)) {
+      return;
+    }
+    ev.preventDefault();
+    const attachment = pastedTextAttachment(draftAttachments(), text);
+    if (typeof attachment == "string") {
+      showTransientMessage(attachment, TransientMessageType.Error);
+      return;
+    }
+    setDraftAttachments([...draftAttachments(), attachment]);
+  };
+
+  const removeDraftAttachment = (attachment: ChatDraftAttachment) => {
+    setDraftAttachments(draftAttachments().filter(a => a.id != attachment.id));
+  };
+
+  /** Puts an attachment's text into the message at the caret, as a plain paste would have, in place of the attachment. */
+  const insertDraftAttachmentAsText = (attachment: ChatDraftAttachment) => {
+    removeDraftAttachment(attachment);
+    if (isChatMode()) {
+      if (chatTextarea == null) { return; }
+      chatTextarea.focus();
+      chatTextarea.setRangeText(attachment.text, chatTextarea.selectionStart, chatTextarea.selectionEnd, "end");
+      setChatText(chatTextarea.value);
+      resizeChatTextarea(chatTextarea);
+      return;
+    }
+    // The query input's text is read from the DOM while it is edited, and committed when editing ends.
+    if (isEditing() && queryInput != null) {
+      queryInput.focus();
+      queryInput.setRangeText(attachment.text, queryInput.selectionStart, queryInput.selectionEnd, "end");
+      resizeQueryTextarea(queryInput);
+      return;
+    }
+    const current = queryText();
+    setQueryText(store, queryItem(), current == "" ? attachment.text : current + "\n" + attachment.text);
+  };
+
   const sendChatMessage = async () => {
     const value = chatText();
-    if (isStartingChat() || isSendingChat() || value.trim() == "") {
+    const attachments = draftAttachments();
+    if (isStartingChat() || isSendingChat() || (value.trim() == "" && attachments.length == 0)) {
       focusChatTextareaSoon();
       return;
     }
     setChatText("");
+    setDraftAttachments([]);
     resizeChatTextareaSoon();
     setIsSendingChat(true);
     const useDeepResearch = deepResearch();
     try {
-      const recorded = await submitQueryChatMessage(store, queryItem(), value, useDeepResearch);
+      const recorded = await submitQueryChatMessage(store, queryItem(), value, useDeepResearch, attachments);
       if (!recorded && chatText() == "") {
         setChatText(value);
         resizeChatTextareaSoon();
+      }
+      if (!recorded && draftAttachments().length == 0) {
+        setDraftAttachments(attachments);
       }
     } finally {
       setDeepResearch(false);
@@ -752,6 +816,19 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       }
     });
     onCleanup(() => window.cancelAnimationFrame(raf));
+  });
+
+  createEffect(() => {
+    // The transcript ends above the composer: the input and any attachments of the message being written.
+    if (!isChatMode()) {
+      return;
+    }
+    const nextHeightPx = chatTextareaHeightPx() + draftAttachmentsRowPx();
+    if (getQueryRuntime(store, queryItem()).chat.composerHeightPx == nextHeightPx) {
+      return;
+    }
+    setQueryChatComposerHeightPx(store, queryItem(), nextHeightPx);
+    requestArrange(store, "query-chat-composer-resize");
   });
 
   createEffect(() => {
@@ -895,13 +972,67 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const desktopIconTopPx = () => -Math.max(desktopBlockSizePx().h * 0.03, 0.5);
   const desktopTextIndentPx = () => desktopPopupIconTextIndentPx(desktopSizeBl().w);
 
+  /** The attachments of the message being written, as chips, each of which can be removed or inserted as text. */
+  const renderDraftAttachments = () => {
+    const stopMouse = (ev: MouseEvent) => {
+      // Keeps the focus, and the caret, in the input.
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
+    return (
+      <div class="flex items-center overflow-x-auto overflow-y-hidden"
+        style={`height: ${QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX}px; gap: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px;`}
+        onMouseDown={stopMouse}
+        onMouseUp={stopMouse}
+        onClick={(ev) => ev.stopPropagation()}>
+        <For each={draftAttachments()}>{attachment => {
+          const tokens = estimateChatAttachmentTokens([attachment]).toLocaleString("en-US");
+          return (
+            <div
+              class="flex min-w-0 shrink-0 items-center gap-1.5 rounded-xs border border-[#999] bg-white pl-2 text-black"
+              style={`height: ${QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX}px; max-width: 320px; font-size: 13px; line-height: 20px;`}
+              title={attachment.text.slice(0, 400)}>
+              <i class="bi-file-earmark-text shrink-0 text-[#555]" />
+              <span class="min-w-0 truncate">{attachment.title}</span>
+              <span class="shrink-0 tabular-nums text-[#777]" style="font-size: 11px;">
+                {formatBytes(chatAttachmentSizeBytes(attachment.text))} · ~{tokens} tokens
+              </span>
+              <button
+                type="button"
+                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-[#555] hover:bg-slate-100 hover:text-black"
+                title="Insert as text"
+                aria-label={`Insert ${attachment.title} as text`}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  insertDraftAttachmentAsText(attachment);
+                }}>
+                <i class="bi-text-left" />
+              </button>
+              <button
+                type="button"
+                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-[#555] hover:bg-slate-100 hover:text-black"
+                title="Remove"
+                aria-label={`Remove ${attachment.title}`}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  removeDraftAttachment(attachment);
+                }}>
+                <i class="bi-x-lg" />
+              </button>
+            </div>
+          );
+        }}</For>
+      </div>
+    );
+  };
+
   const renderQueryChatSurface = () => {
     const contentWidthPx = () => Math.min(
       Math.max(240, boundsPx().w - QUERY_WORKSPACE_SIDE_INSET_PX * 2),
       960,
     );
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
-    const wrapperHeightPx = () => chatTextareaHeightPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
+    const wrapperHeightPx = () => chatTextareaHeightPx() + draftAttachmentsRowPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
     const activityBottomPx = () =>
       QUERY_CHAT_COMPOSER_BOTTOM_PX + wrapperHeightPx() + QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
     const activityIsRunning = () => {
@@ -1077,6 +1208,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 modeLocked={chatRequestActive} />
             </div>
           </div>
+          <Show when={draftAttachments().length > 0}>
+            <div style={`margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px;`}>
+              {renderDraftAttachments()}
+            </div>
+          </Show>
           <div class="flex items-end"
             style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
             <div
@@ -1098,6 +1234,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   resizeChatTextarea(el);
                 }}
                 onKeyDown={chatKeyDown}
+                onPaste={attachPastedText}
                 onMouseDown={stop}
                 onMouseUp={stop}
                 onClick={stop} />
@@ -1108,7 +1245,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               type="button"
               title={chatRequestCanCancel() ? "Stop generating" : (deepResearch() ? "Start deep research" : "Send")}
               aria-label={chatRequestCanCancel() ? "Stop generating" : (deepResearch() ? "Start deep research" : "Send")}
-              disabled={chatRequestActive() ? !chatRequestCanCancel() : chatText().trim() == ""}
+              disabled={chatRequestActive()
+                ? !chatRequestCanCancel()
+                : chatText().trim() == "" && draftAttachments().length == 0}
               onClick={() => {
                 if (chatRequestCanCancel()) {
                   cancelQueryChatRequest(queryItem().id);
@@ -1150,7 +1289,16 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       const maxTopPx = Math.max(0, boundsPx().h - QUERY_WORKSPACE_CONTROLS_HEIGHT_PX - 24);
       return Math.max(0, Math.min(maxTopPx, preferredTopPx));
     };
+    /** Attachments are for a chat; a search ignores them, but they stay for a chat started later. */
+    const showDraftAttachments = () => selectedInputMode() == "chat" && draftAttachments().length > 0;
     const renderQueryControls = () => <>
+      <Show when={showDraftAttachments()}>
+        <div
+          style={`width: ${inputShellWidthPx()}px; margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px; ` +
+            `margin-left: ${showModeSelector() ? QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0}px;`}>
+          {renderDraftAttachments()}
+        </div>
+      </Show>
       <div class="flex items-start" style={`gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
         <Show when={showModeSelector()}>
           <div
@@ -1230,6 +1378,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               spellcheck={canEdit() && isEditing()}
               onMouseDown={queryInputMouseDown}
               onKeyDown={keyDownHandler}
+              onPaste={(ev) => {
+                if (selectedInputMode() == "chat" && isEditing()) {
+                  attachPastedText(ev);
+                }
+              }}
               onInput={(ev) => {
                 inputListener(ev);
                 resizeQueryTextarea(ev.currentTarget);
@@ -1341,7 +1494,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${isSearchMode() ? lowerTopPx : boundsPx().h}px;`}>
             <div class="absolute"
               style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx()) / 2))}px; ` +
-                `top: ${isSearchMode() ? QUERY_WORKSPACE_TOP_INSET_PX : initialControlsTopPx()}px; width: ${controlsWidthPx()}px;`}>
+                `top: ${isSearchMode()
+                  ? QUERY_WORKSPACE_TOP_INSET_PX
+                  : Math.max(0, initialControlsTopPx() - (showDraftAttachments() ? draftAttachmentsRowPx() : 0))}px; ` +
+                `width: ${controlsWidthPx()}px;`}>
               {renderQueryControls()}
             </div>
           </div>

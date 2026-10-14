@@ -142,6 +142,8 @@ export interface ChatRequest {
   expectedRevision?: number,
   /** For a live chat: the new user message. */
   text?: string,
+  /** For a live chat: text attached to the new user message. See docs/chat-attachments.md. */
+  attachments?: Array<{ id: Uid, title: string, mimeType: string, text: string }>,
   capabilities: Array<string>,
   mode: ChatRunMode,
   model?: ChatModelSelection,
