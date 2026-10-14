@@ -14,3 +14,4 @@ tools/gpu/text_embedding/models/
 .last-audit-server
 .last-audit-gpu
 .audit-cache/
+run_with_env.sh
