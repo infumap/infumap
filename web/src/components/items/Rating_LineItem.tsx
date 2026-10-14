@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { asRatingItem } from "../../items/rating-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
-import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, lineItemTextClippedWidthCssPx } from "./helper";
+import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn } from "./helper";
 import { FONT_SIZE_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { linkHasTriangle } from "../../layout/link-triangle";
@@ -37,7 +37,6 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
   const vePath = () => VeFns.veToPath(props.visualElement);
   const starSizeProp = () => ratingItem().rating / MAX_RATING * 1.2;
   const ratingType = () => ratingItem().ratingType;
-  const clampedRating = () => Math.max(0, Math.min(MAX_RATING, Math.round(ratingItem().rating)));
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
   const boundsPx = () => props.visualElement.boundsPx;
   const glyphBoundsPx = () => ({
@@ -48,8 +47,6 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
   const scale = () => boundsPx().h / LINE_HEIGHT_PX;
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
-  const valueWidthPx = () => Math.max(0, boundsPx().w - oneBlockWidthPx());
-
   const renderHighlightsMaybe = () =>
     <Switch>
       <Match when={props.visualElement.flags & VisualElementFlags.FindHighlighted}>
@@ -119,18 +116,6 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
       </Show>
     </div>;
 
-  // The value is repeated in the title column, in a form that can be read and compared at a glance down a list.
-  const renderValueMaybe = () =>
-    <Show when={valueWidthPx() > 0}>
-      <div class="absolute overflow-hidden whitespace-nowrap pointer-events-none"
-           style={`left: ${boundsPx().x + oneBlockWidthPx()}px; top: ${boundsPx().y}px; ` +
-                  `width: ${lineItemTextClippedWidthCssPx(props.visualElement, valueWidthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
-                  `line-height: ${LINE_HEIGHT_PX}px; ` +
-                  `transform: scale(${scale()}); transform-origin: top left;`}>
-        <span class="text-slate-600">{clampedRating()} / {MAX_RATING}</span>
-      </div>
-    </Show>;
-
   const renderLinkMarkingMaybe = () =>
     <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && showTriangleDetail()}>
       <div class="absolute text-center text-slate-600"
@@ -150,7 +135,6 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
             `box-shadow: ${FOCUS_RING_BOX_SHADOW}; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
       {renderGlyph()}
-      {renderValueMaybe()}
       {renderLinkMarkingMaybe()}
     </>
   );
