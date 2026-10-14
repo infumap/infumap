@@ -192,8 +192,8 @@ export const TextLineItem: Component<VisualElementProps> = (props: VisualElement
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
             class={titleIsPlaceholder() ? "italic text-slate-500" : ""}
             style={`display: inline-block; white-space: pre; outline: 0px solid transparent;`}
-            contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath()}
             onKeyDown={keyDownHandler}
             onBeforeInput={beforeInputListener}
             onInput={inputListener}>

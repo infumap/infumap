@@ -1303,9 +1303,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 style={`height: ${chatTextareaHeightPx()}px; font-size: 16px; line-height: 24px; user-select: text;`}
                 value={chatText()}
                 rows={1}
-                spellcheck={true}
+                spellcheck={false}
                 placeholder="Ask"
                 disabled={chatRequestActive()}
+                onFocus={(ev) => { ev.currentTarget.spellcheck = true; }}
+                onBlur={(ev) => { ev.currentTarget.spellcheck = false; }}
                 onInput={(ev) => {
                   const el = ev.currentTarget as HTMLTextAreaElement;
                   setChatText(el.value);

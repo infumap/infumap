@@ -182,8 +182,8 @@ export const FileLineItem: Component<VisualElementProps> = (props: VisualElement
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
             style={`display: inline-block; white-space: pre; outline: 0px solid transparent;`}
-            contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath()}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(fileItem().title)}<span></span>

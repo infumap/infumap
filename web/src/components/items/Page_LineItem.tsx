@@ -240,8 +240,8 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
             class={store.overlay.textEditInfo()?.itemPath == vePath() ? "select-text cursor-text" : ""}
             style={"display: inline-block; white-space: pre; outline: 0px solid transparent;"}
-            contentEditable={canEdit() && store.overlay.textEditInfo() != null ? true : undefined}
-            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null ? true : undefined}
+            spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null}
             onKeyDown={keyDownHandler}
             onInput={inputListener}>
             {appendNewlineIfEmpty(pageItem().title)}<span></span>

@@ -154,7 +154,8 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
                 `transform: scale(${scale()}); transform-origin: top left; outline: 0px solid transparent;`}
               contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == pagePath() &&
                 store.overlay.textEditInfo()?.itemType == ItemType.Page && store.overlay.textEditInfo()?.colNum == column.index}
-              spellcheck={canEdit() && store.overlay.textEditInfo()?.colNum == column.index}
+              spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == pagePath() &&
+                store.overlay.textEditInfo()?.itemType == ItemType.Page && store.overlay.textEditInfo()?.colNum == column.index}
               onInput={ev => edit_inputListener(store, ev)}
               onKeyDown={ev => edit_keyDownHandler(store, props.visualElement, ev)}
               onKeyUp={ev => edit_keyUpHandler(store, ev)}>

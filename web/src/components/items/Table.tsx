@@ -270,8 +270,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               `transform: scale(${scale()}); transform-origin: top left; ` +
               `overflow-wrap: break-word; ` +
               `outline: 0px solid transparent;`}
-            contentEditable={canEdit() && store.overlay.textEditInfo() != null}
-            spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+            contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null}
+            spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null}
             onKeyDown={keyDownHandler}
             onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev, false); }}>
             {tableItem().title}
@@ -312,8 +312,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 `line-height: ${LINE_HEIGHT_PX * TABLE_COL_HEADER_HEIGHT_BL}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;` +
                 `outline: 0px solid transparent;`}
-              contentEditable={canEdit() && store.overlay.textEditInfo() != null}
-              spellcheck={canEdit() && store.overlay.textEditInfo() != null}
+              contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == spec.idx}
+              spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == spec.idx}
               onKeyDown={keyDownHandler}
               onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev, false); }}>
               {spec.name}
