@@ -330,10 +330,11 @@ mod tests {
   use super::*;
 
   #[test]
+  /// Attachment text is not indexed: see docs/chat-attachments.md.
   fn chat_visible_text_is_the_questions_and_completed_answers() {
     let transcript = [
       r#"{"type":"header","version":1,"queryItemId":"q","createdAt":1}"#,
-      r#"{"type":"user","requestId":"r1","startedAt":1,"text":"How do lifetimes work?","settings":{"mode":"chat"}}"#,
+      r#"{"type":"user","requestId":"r1","startedAt":1,"text":"How do lifetimes work?","attachments":[{"id":"a","title":"Notes","mimeType":"text/plain","sizeBytes":13,"text":"attached text"}],"settings":{"mode":"chat"}}"#,
       r#"{"type":"turn","requestId":"r1","messages":[{"role":"assistant","content":"calling","toolCalls":[]},{"role":"tool","content":"fetched page text"},{"role":"assistant","content":"They bound borrows.","reasoningContent":"hidden"}],"rounds":[{"number":1,"reasoning":"thinking","answer":"","toolCalls":[],"complete":true}],"startedAt":1,"endedAt":2,"outcome":"completed"}"#,
       r#"{"type":"user","requestId":"r2","startedAt":3,"text":"And traits?","settings":{"mode":"chat"}}"#,
       r#"{"type":"turn","requestId":"r2","messages":[],"rounds":[{"number":1,"reasoning":"","answer":"partial","toolCalls":[],"complete":true}],"startedAt":3,"endedAt":4,"outcome":"cancelled"}"#,
