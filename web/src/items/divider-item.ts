@@ -218,6 +218,7 @@ export const DividerFns = {
     padTop: boolean,
     _expandable: boolean,
   ): ItemGeometry => {
+    const scale = blockSizePx.h / LINE_HEIGHT_PX;
     const innerBoundsPx = {
       x: 0.0,
       y: 0.0,
@@ -226,7 +227,7 @@ export const DividerFns = {
     };
     const boundsPx = {
       x: blockSizePx.w * col,
-      y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX : 0),
+      y: blockSizePx.h * row + (padTop ? LIST_PAGE_TOP_PADDING_PX * scale : 0),
       w: blockSizePx.w * widthBl,
       h: blockSizePx.h,
     };
@@ -268,8 +269,36 @@ export const DividerFns = {
     };
   },
 
-  handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+  /**
+   * A divider drawn horizontally across an area at line height, vertically centered (the selected item of a list page).
+   * It has nothing more to show when larger, so is not resizable.
+   */
+  calcGeometry_AcrossArea: (areaBoundsPx: BoundingBox): ItemGeometry => {
+    const heightPx = Math.min(LINE_HEIGHT_PX, areaBoundsPx.h);
+    const boundsPx = {
+      x: areaBoundsPx.x,
+      y: areaBoundsPx.y + (areaBoundsPx.h - heightPx) / 2,
+      w: areaBoundsPx.w,
+      h: heightPx,
+    };
+    const innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
+    return {
+      boundsPx,
+      blockSizePx: { w: LINE_HEIGHT_PX, h: LINE_HEIGHT_PX },
+      viewportBoundsPx: null,
+      hitboxes: [
+        HitboxFns.create(HitboxFlags.Click, innerBoundsPx),
+        HitboxFns.create(HitboxFlags.Move, innerBoundsPx),
+      ],
+    };
+  },
+
+  /**
+   * In a list page, a click selects the divider and a long hold (forceFocus) also focuses it. Elsewhere, both focus it.
+   */
+  handleClick: (visualElement: VisualElement, store: StoreContextModel, forceFocus: boolean = false): void => {
+    const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
+    if (!forceFocus && handledByList) { return; }
     store.history.setFocus(VeFns.veToPath(visualElement));
   },
 

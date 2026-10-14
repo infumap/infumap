@@ -25,45 +25,48 @@ import { RelationshipToParent } from "../../../layout/relationship-to-parent";
 import { requestArrange } from "../../../layout/arrange";
 import { serverOrRemote } from "../../../server";
 import { itemState } from "../../../store/ItemState";
-import { useStore } from "../../../store/StoreProvider";
+import { StoreContextModel, useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 
+/**
+ * Whether the item ordering buttons are shown for the toolbar focus item.
+ */
+export function itemOrderingIsShown(store: StoreContextModel): boolean {
+  store.touchToolbarDependency();
+
+  const focusPath = getToolbarFocusPathMaybe(store);
+  if (focusPath == null) {
+    return false;
+  }
+
+  const focusVe = VesCache.render.getNode(focusPath)?.get();
+  if (focusVe == null) {
+    return false;
+  }
+  if (focusVe.flags & VisualElementFlags.Popup || focusVe.flags & VisualElementFlags.LineItem) {
+    return false;
+  }
+
+  const focusItem = getToolbarFocusItem(store);
+  if (!itemCanMove(focusItem)) {
+    return false;
+  }
+  if (focusItem.parentId == null || focusItem.relationshipToParent != RelationshipToParent.Child) {
+    return false;
+  }
+
+  const parentItem = itemState.get(focusItem.parentId);
+  if (parentItem == null || !isPage(parentItem)) {
+    return false;
+  }
+
+  return asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch &&
+    asPageItem(parentItem).computed_children.length > 1;
+}
+
 export const Toolbar_ItemOrdering: Component = () => {
   const store = useStore();
-
-  const shouldShow = () => {
-    store.touchToolbarDependency();
-
-    const focusPath = getToolbarFocusPathMaybe(store);
-    if (focusPath == null) {
-      return false;
-    }
-
-    const focusVe = VesCache.render.getNode(focusPath)?.get();
-    if (focusVe == null) {
-      return false;
-    }
-    if (focusVe.flags & VisualElementFlags.Popup || focusVe.flags & VisualElementFlags.LineItem) {
-      return false;
-    }
-
-    const focusItem = getToolbarFocusItem(store);
-    if (!itemCanMove(focusItem)) {
-      return false;
-    }
-    if (focusItem.parentId == null || focusItem.relationshipToParent != RelationshipToParent.Child) {
-      return false;
-    }
-
-    const parentItem = itemState.get(focusItem.parentId);
-    if (parentItem == null || !isPage(parentItem)) {
-      return false;
-    }
-
-    return asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch &&
-      asPageItem(parentItem).computed_children.length > 1;
-  };
 
   const moveFocusedItemToTop = () => {
     const focusItem = getToolbarFocusItem(store);
@@ -94,7 +97,7 @@ export const Toolbar_ItemOrdering: Component = () => {
   };
 
   return (
-    <Show when={shouldShow()}>
+    <Show when={itemOrderingIsShown(store)}>
       <div class="inline-block ml-[4px] mr-[4px]">
         <div class="inline-block align-middle border-r border-slate-300 mr-[7px]"
           style="height: 25px;" />
