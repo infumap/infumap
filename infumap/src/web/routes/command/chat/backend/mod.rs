@@ -22,7 +22,7 @@
 use config::Config;
 use infusdk::util::infu::InfuResult;
 use log::warn;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::Duration;
 
 mod llama;
@@ -116,16 +116,7 @@ pub enum ChatReasoning {
   Effort(&'static str),
 }
 
-/// An explicit provider route. A null model uses the provider's model; null effort uses its default.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ChatModelSelection {
-  pub backend: String,
-  #[serde(deserialize_with = "Option::deserialize")]
-  pub model: Option<String>,
-  #[serde(deserialize_with = "Option::deserialize")]
-  pub reasoning_effort: Option<String>,
-}
+pub use crate::query_configuration::ChatModelSelection;
 
 impl ChatModelSelection {
   fn requested_backend_id(&self) -> &str {
@@ -387,6 +378,32 @@ pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
     infumap_tools: super::infumap_tool_specs(),
     tool_servers: mcp::tool_server_catalog(config).await,
   }
+}
+
+/// Initial profile resources from server configuration; no provider or MCP network probing is needed.
+pub(crate) fn default_query_configuration(
+  config: &Config,
+) -> InfuResult<crate::query_configuration::QueryConfiguration> {
+  let servers = llama_servers_from_config(config)?;
+  let target = default_target(config, &servers);
+  let model = target.as_ref().map(|target| ChatModelSelection {
+    backend: target.id(),
+    model: match target {
+      ChatTarget::OpenRouter => configured_string(config, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL),
+      _ => None,
+    },
+    reasoning_effort: None,
+  });
+  let mut capabilities = vec!["infumap_data".to_owned()];
+  capabilities.extend(
+    super::mcp::chat_tool_servers_from_config(config)?
+      .into_iter()
+      .filter(|server| server.enabled_by_default)
+      .map(|server| server.id),
+  );
+  capabilities.sort();
+  capabilities.dedup();
+  Ok(crate::query_configuration::QueryConfiguration { scope_id: None, model, capabilities })
 }
 
 #[cfg(test)]

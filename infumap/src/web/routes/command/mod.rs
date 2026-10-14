@@ -86,9 +86,10 @@ use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
 use std::collections::{HashMap, HashSet};
 
-mod chat;
 mod backlinks;
+mod chat;
 mod item_ops;
+mod query_profiles;
 mod scope;
 mod search;
 
@@ -176,6 +177,7 @@ fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKin
 }
 
 pub async fn serve_command_route(
+  config: &Config,
   db: &Arc<tokio::sync::Mutex<Db>>,
   object_store: &Arc<object::ObjectStore>,
   image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
@@ -238,6 +240,7 @@ pub async fn serve_command_route(
     "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
     "search" => search::handle_search(db, &request.json_data, &session_maybe).await,
     "list-scopes" => scope::handle_list_scopes(db, &session_maybe).await,
+    "query-profiles" => query_profiles::handle_query_profiles(config, db, &request.json_data, &session_maybe).await,
     "load-chat" => chat::handle_load_chat(db, object_store.clone(), &request.json_data, &session_maybe).await,
     "load-chat-attachment" => {
       chat::handle_load_chat_attachment(db, object_store.clone(), &request.json_data, &session_maybe).await
@@ -1078,12 +1081,13 @@ async fn handle_sync_containers(
     // version. Send the authoritative item as well as a snapshot in that case.
     if subscription.known_item_type.is_some() || subscription.known_last_modified_date.is_some() {
       let item_json = item_to_api_json_map_with_capabilities(db, &item)?;
-      let type_changed = subscription.known_item_type.as_deref().is_some_and(|known| {
-        item_json.get("itemType").and_then(Value::as_str) != Some(known)
-      });
-      let modified_date_changed = subscription.known_last_modified_date.is_some_and(|known| {
-        item_json.get("lastModifiedDate").and_then(Value::as_i64) != Some(known)
-      });
+      let type_changed = subscription
+        .known_item_type
+        .as_deref()
+        .is_some_and(|known| item_json.get("itemType").and_then(Value::as_str) != Some(known));
+      let modified_date_changed = subscription
+        .known_last_modified_date
+        .is_some_and(|known| item_json.get("lastModifiedDate").and_then(Value::as_i64) != Some(known));
       if type_changed || modified_date_changed {
         let epoch = db.container_sync.epoch_for_user(&item.owner_id);
         let version = db.container_sync.version_for_container(&item.owner_id, &subscription.id);

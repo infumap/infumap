@@ -17,6 +17,7 @@
 mod ai;
 mod cli;
 mod config;
+mod query_configuration;
 mod setup;
 mod storage;
 mod tokiort;

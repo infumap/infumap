@@ -38,9 +38,9 @@ export function initializeQueryConfiguration(store: StoreContextModel, queryItem
 /** Commands wait for the complete default setup rather than sending a partially initialized query. */
 export async function ensureQueryConfigurationReady(store: StoreContextModel, queryItem: QueryItem): Promise<void> {
   if (initializeQueryConfiguration(store, queryItem)) { return; }
-  await store.general.retrieveChatBackends();
+  await store.general.queryProfiles.retrieve();
   if (!initializeQueryConfiguration(store, queryItem)) {
-    throw new Error(store.general.chatBackendsError() ?? "Could not load the default query profile.");
+    throw new Error(store.general.queryProfiles.error() ?? "Could not load the default query profile.");
   }
 }
 

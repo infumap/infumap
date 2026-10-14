@@ -166,7 +166,7 @@ export function StoreProvider(props: StoreContextProps) {
   }
 
   const perVe = makePerVeStore();
-  const general = makeGeneralStore();
+  const general = makeGeneralStore(() => userStore.getUserMaybe()?.userId ?? null);
   const perItem = makePerItemStore(general.defaultQueryProfile);
   const textEdit = makeTextEditStore(() => value);
   const editorHistory = makeEditorHistory(() => value);
@@ -187,6 +187,7 @@ export function StoreProvider(props: StoreContextProps) {
     history.clear();
     overlay.clear();
     perItem.clear();
+    general.queryProfiles.clear();
     perVe.clear();
     find.clear();
     dockWidthPx.set(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);

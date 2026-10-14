@@ -32,6 +32,56 @@ export interface QueryProfile {
   configuration: QueryConfiguration,
 }
 
+export interface QueryModelFavorite {
+  backend: ChatBackendId,
+  model: string | null,
+}
+
+export interface QueryProfileCollection {
+  revision: number,
+  /** All profiles in their user-selected order. */
+  profiles: Array<QueryProfile>,
+  preferences: {
+    defaultProfileId: Uid,
+    /** Ordered subset for one-click shortcuts. */
+    pinnedProfileIds: Array<Uid>,
+    modelFavorites: Array<QueryModelFavorite>,
+  },
+}
+
+export type QueryProfileOperation =
+  | { operation: "list" }
+  | { operation: "create", name: string, configuration: QueryConfiguration }
+  | { operation: "update", id: Uid, name: string, configuration: QueryConfiguration }
+  | { operation: "duplicate", id: Uid, name: string }
+  | { operation: "delete", id: Uid, replacementDefaultProfileId?: Uid }
+  | { operation: "reorder", profileIds: Array<Uid> }
+  | { operation: "setPinned", profileIds: Array<Uid> }
+  | { operation: "setDefault", id: Uid }
+  | { operation: "setModelFavorites", favorites: Array<QueryModelFavorite> };
+
+export interface QueryProfilesResponse {
+  userId: Uid,
+  collection: QueryProfileCollection,
+  conflict: boolean,
+  /** A rejected mutation leaves the collection unchanged. */
+  error: string | null,
+  /** Created, updated or duplicated profile, when applicable. */
+  profileId: Uid | null,
+}
+
+export function cloneQueryProfileCollection(collection: QueryProfileCollection): QueryProfileCollection {
+  return {
+    revision: collection.revision,
+    profiles: collection.profiles.map(snapshotQueryProfile),
+    preferences: {
+      defaultProfileId: collection.preferences.defaultProfileId,
+      pinnedProfileIds: [...collection.preferences.pinnedProfileIds],
+      modelFavorites: collection.preferences.modelFavorites.map(favorite => ({ ...favorite })),
+    },
+  };
+}
+
 export type ChatRunMode = "chat" | "deep_research";
 
 /** Per-turn settings. Resource configuration and profile provenance are independent of execution mode. */

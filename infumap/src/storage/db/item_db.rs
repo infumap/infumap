@@ -975,6 +975,11 @@ impl ItemDb {
     result
   }
 
+  /// Include account preference updates in the next user backup, even without an item edit.
+  pub fn mark_user_dirty(&mut self, user_id: &Uid) {
+    self.dirty_user_ids.insert(user_id.clone());
+  }
+
   pub fn all_dirty_user_ids(&mut self) -> Vec<String> {
     let result = self
       .store_by_user_id

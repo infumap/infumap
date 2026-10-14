@@ -2,8 +2,8 @@
 
 Search, chat and deep research share a resource configuration. It lives in the query runtime,
 in each query command's `configuration`, and in each transcript turn's `settings.configuration`.
-The TypeScript definition is in `web/src/items/query-configuration.ts`; the Rust definition is in
-`infumap/src/web/routes/command/chat/configuration.rs`.
+The TypeScript definition is in `web/src/items/query-configuration.ts`; the shared Rust definition
+is in `infumap/src/query_configuration.rs`. Chat turn settings use these shared types.
 
 ```json
 {
@@ -38,7 +38,7 @@ profile as applied, or `null` for a query without a profile; execution uses `con
 ## Profiles and snapshots
 
 A `QueryProfile` has `id`, `name`, and `configuration`. Pinning, ordering, model favorites and the
-default profile are separate user preferences. Profile persistence and UI are subsequent work.
+default profile are account preferences stored with the profiles. Profile UI is subsequent work.
 
 The query runtime has an editable `configuration` and a nullable `appliedProfile`. The latter holds
 the profile snapshot as applied, including its name and configuration, for reset and modified
@@ -71,11 +71,10 @@ modified-state detection, request snapshots and restoring recorded configuration
 - `restoreQueryConfiguration` restores resources and profile provenance together. A subsequent
   catalog refresh cannot overwrite the restored settings.
 
-The general store exposes one `defaultQueryProfile` source and an explicit setter. It copies profiles
-on both reads and writes. Until account persistence is implemented, the source lives in memory and is
-initialized once per browser session from the server's default model, unrestricted Infumap scope,
-and Infumap plus configured tools enabled by default. Unavailable configured tools are retained in
-the profile. Refreshing the catalog updates availability, not the default configuration.
+The general store exposes one `defaultQueryProfile` source backed by the account's saved profiles.
+Its explicit setter selects a saved profile ID and persists the preference. The profile store copies
+inputs and returned values. Model/tool catalogs are fetched separately from account preferences;
+search does not need to wait for availability checks.
 
 A new query copies this complete profile once. `configurationInitialized` distinguishes a pending
 query from an explicitly applied, edited or restored setup. Commands wait for initialization, and
@@ -83,3 +82,48 @@ scope selection is disabled while it is pending. Late catalog responses never ad
 a selected profile. Changing the default affects future queries; existing queries keep their copies.
 
 Transcript format version 2 uses this configuration shape. There is no migration or legacy reader.
+
+## Account storage and API
+
+The user record's optional `queryProfiles` field holds one `QueryProfileCollection`: a revision,
+the ordered profile array, and preferences (`defaultProfileId`, ordered `pinnedProfileIds`, and
+`modelFavorites`). A model favorite identifies a provider/model pair, independent of reasoning effort.
+This data is written through the user database log and is included in existing account backups.
+Profile changes mark the account dirty so they trigger the next scheduled backup even without item edits.
+
+An account with no profile collection gets one persisted, pinned **Default** profile on its first
+profile request. Its configuration comes from the server's configured default model, unrestricted
+Infumap scope, and Infumap plus configured tools enabled by default. Initialization does not probe
+models or tool servers. Unavailable references remain saved. A server with no model configured can
+still initialize a profile for Search.
+
+The authenticated `query-profiles` command supports:
+
+| Operation | Fields |
+| --- | --- |
+| `list` | No operation-specific fields |
+| `create` | `name`, `configuration` |
+| `update` | `id`, `name`, `configuration` |
+| `duplicate` | `id`, `name` |
+| `delete` | `id`, optional `replacementDefaultProfileId` |
+| `reorder` | `profileIds`, an exact permutation of all profiles |
+| `setPinned` | `profileIds`, an ordered, distinct subset |
+| `setDefault` | `id` |
+| `setModelFavorites` | `favorites`, distinct provider/model pairs in the desired order |
+
+Every request includes `expectedUserId`, which must match the authenticated session. It is an
+account-switch guard, not an ownership selector. Mutations also require `expectedRevision`.
+Profiles are resolved only within that session's account; no operation accepts an owner to act on.
+
+The response contains `userId`, `collection`, `conflict`, nullable `error`, and nullable `profileId`.
+A revision conflict returns the current collection without applying the mutation. Validation failures
+also return an unchanged collection and a specific error. Database failures use the ordinary command
+failure response. Successful mutations increment the revision and persist profiles and preferences
+together. Deleting the default requires a different saved replacement; deleting the last profile is
+rejected. Deletion removes its pin but leaves conversation snapshots intact.
+
+`StoreProvider_QueryProfiles.ts` exposes loading/refresh and all mutation operations. It serializes
+local mutations, refreshes the saved state on conflicts, and reports the conflict without retrying
+the rejected action. Returning to the app refreshes account preferences across tabs/devices while
+existing queries retain their copied configuration. Clearing the store or switching accounts
+invalidates pending responses and queued mutations.

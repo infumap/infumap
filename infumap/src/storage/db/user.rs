@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use crate::query_configuration::QueryProfileCollection;
+
 use argon2::{
   Argon2,
   password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
@@ -25,7 +27,7 @@ use serde_json::{Map, Number, Value};
 
 pub const ROOT_USER_NAME: &'static str = "root";
 
-const ALL_JSON_FIELDS: [&'static str; 13] = [
+const ALL_JSON_FIELDS: [&'static str; 14] = [
   "__recordType",
   "id",
   "username",
@@ -39,6 +41,7 @@ const ALL_JSON_FIELDS: [&'static str; 13] = [
   "trashPageId",
   "dockPageId",
   "queriesPageId",
+  "queryProfiles",
 ];
 
 pub struct User {
@@ -54,6 +57,7 @@ pub struct User {
   pub default_page_width_bl: i64,
   pub default_page_natural_aspect: f64,
   pub object_encryption_key: String,
+  pub query_profiles: Option<QueryProfileCollection>,
 }
 
 impl User {
@@ -90,6 +94,7 @@ impl Clone for User {
       default_page_width_bl: self.default_page_width_bl,
       default_page_natural_aspect: self.default_page_natural_aspect,
       object_encryption_key: self.object_encryption_key.clone(),
+      query_profiles: self.query_profiles.clone(),
     }
   }
 }
@@ -126,6 +131,9 @@ impl JsonLogSerializable<User> for User {
       ),
     );
     result.insert(String::from("objectEncryptionKey"), Value::String(self.object_encryption_key.clone()));
+    if let Some(profiles) = &self.query_profiles {
+      result.insert("queryProfiles".to_owned(), serde_json::to_value(profiles)?);
+    }
     Ok(result)
   }
 
@@ -134,6 +142,7 @@ impl JsonLogSerializable<User> for User {
     let id = json::get_string_field(map, "id")?.ok_or("'id' field was missing in a user entry record.")?;
 
     Ok(User {
+      query_profiles: map.get("queryProfiles").map(|value| serde_json::from_value(value.clone())).transpose()?,
       id: id.clone(),
       username: json::get_string_field(map, "username")?
         .ok_or(format!("'username' field was missing in an entry for user '{}'.", id))?,
@@ -203,6 +212,9 @@ impl JsonLogSerializable<User> for User {
     if old.default_page_natural_aspect != new.default_page_natural_aspect {
       result.insert(String::from("defaultPageNaturalAspect"), Value::Number(new.default_page_width_bl.into()));
     }
+    if old.query_profiles != new.query_profiles {
+      result.insert("queryProfiles".to_owned(), serde_json::to_value(&new.query_profiles)?);
+    }
     if old.object_encryption_key != new.object_encryption_key {
       return Err(
         format!("Attempt was made to update object encryption key for item '{}', but this is not allowed.", old.id)
@@ -243,6 +255,9 @@ impl JsonLogSerializable<User> for User {
     }
     if let Some(u) = json::get_float_field(map, "defaultPageNaturalAspect")? {
       self.default_page_natural_aspect = u;
+    }
+    if let Some(value) = map.get("queryProfiles") {
+      self.query_profiles = serde_json::from_value(value.clone())?;
     }
     if let Some(_) = json::get_string_field(map, "objectEncryptionKey")? {
       return Err(format!("Encountered an update record for user '{}' with an object encryption key specified, but this is not allowed.", self.id).into());

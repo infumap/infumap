@@ -61,7 +61,7 @@ export const QueryScopePicker: Component<QueryScopePickerProps> = (props: QueryS
   let buttonEl: HTMLButtonElement | undefined;
 
   onMount(() => {
-    void store.general.retrieveChatBackends();
+    void store.general.queryProfiles.retrieve();
     if (queryScopes() == null) { void refreshQueryScopes(store); }
   });
 
@@ -78,7 +78,7 @@ export const QueryScopePicker: Component<QueryScopePickerProps> = (props: QueryS
 
   const buttonTitle = (): string => {
     if (!configurationReady()) {
-      return store.general.chatBackendsError() ?? "Loading the default query profile…";
+      return store.general.queryProfiles.error() ?? "Loading the default query profile…";
     }
     if (selectedIsMissing()) { return "The selected scope no longer exists. Choose another."; }
     const summary = selectedSummary();
