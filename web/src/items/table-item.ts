@@ -21,7 +21,7 @@ import { HitboxFlags, HitboxFns, HitboxMeta } from "../layout/hitbox";
 import { compositeMoveOutHitboxBoundsPx } from "../layout/composite-move-out";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector, isInside } from "../util/geometry";
 import { currentUnixTimeSeconds, panic } from "../util/lang";
-import { EMPTY_UID, newUid, Uid } from "../util/uid";
+import { EMPTY_UID, isUid, newUid, Uid } from "../util/uid";
 import {
   AttachmentsItem,
   AttachmentsMixin,
@@ -56,10 +56,11 @@ import { CursorEventState } from "../input/state";
 import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
-import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
+import { initiateLoadItemMaybe, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularVisibleRows } from "../layout/tabular";
 import { asPageItem, isPage } from "./page-item";
 import { SavedPageSettings } from "./base/conversion-settings";
+import { asLinkItem, isLink, LinkFns } from "./link-item";
 
 
 export interface TableItem extends TableMeasurable, TabularItem, XSizableItem, YSizableItem, ContainerItem, AttachmentsItem, TitledItem {
@@ -93,6 +94,48 @@ function tabularViewItem(ve: VisualElement): TabularContainerItem {
   if (isTable(ve.displayItem)) { return asTableItem(ve.displayItem); }
   if (isTableView(ve) && isPage(ve.displayItem)) { return asPageItem(ve.displayItem); }
   panic("expected a table item or Table-arranged page");
+}
+
+/** Resolve and validate all affected rows before changing any cells. Shared targets are changed only once. */
+async function columnAttachmentParents(
+  table: TabularContainerItem,
+  colPos: number,
+  store: StoreContextModel,
+): Promise<Array<AttachmentsItem> | null> {
+  const parents = new Map<Uid, AttachmentsItem>();
+  for (const childId of [...table.computed_children]) {
+    const child = itemState.get(childId);
+    if (child == null) { return null; }
+    let displayedChild = child;
+    if (isLink(child)) {
+      const targetId = LinkFns.getLinkToId(asLinkItem(child));
+      if (itemState.get(targetId) == null && isUid(targetId) && targetId != EMPTY_UID) {
+        await initiateLoadItemMaybe(store, targetId);
+      }
+      const target = itemState.get(targetId);
+      if (target == null || isLink(target)) { return null; }
+      displayedChild = target;
+    }
+    if (!isAttachmentsItem(displayedChild)) { continue; }
+    const parent = asAttachmentsItem(displayedChild);
+    if (colPos >= parent.computed_attachments.length) { continue; }
+    // Column cell mutations use the local server, and must not modify read-only projections.
+    if (parent.origin != null || parent.clientOnly === true || !itemCanEdit(parent) || !itemCanEdit(child)) {
+      return null;
+    }
+    let ancestor: Item | null = parent;
+    while (ancestor != null) {
+      if (isPage(ancestor)) {
+        if (ancestor.clientOnly === true || !itemCanEdit(ancestor) || !itemCanAcceptManualChildren(ancestor)) {
+          return null;
+        }
+        break;
+      }
+      ancestor = ancestor.parentId != null ? itemState.get(ancestor.parentId) : null;
+    }
+    parents.set(parent.id, parent);
+  }
+  return [...parents.values()];
 }
 
 
@@ -543,24 +586,22 @@ export const TableFns = {
     return asAttachmentsItem(row.displayItem);
   },
 
-  insertEmptyColAt(tableId: Uid, colPos: number, store: StoreContextModel) {
+  async insertEmptyColAt(tableId: Uid, colPos: number, store: StoreContextModel): Promise<boolean> {
     const tableItem = itemState.get(tableId)! as TabularContainerItem;
     let ancestor: Item | null = tableItem;
     while (ancestor != null) {
       if (ancestor.itemType == ItemType.Page) {
         if (ancestor.clientOnly === true || !itemCanEdit(ancestor) || !itemCanAcceptManualChildren(ancestor)) {
-          return;
+          return false;
         }
         break;
       }
       ancestor = ancestor.parentId != null ? itemState.get(ancestor.parentId) : null;
     }
 
-    for (let i = 0; i < tableItem.computed_children.length; ++i) {
-      const child = itemState.get(tableItem.computed_children[i])!;
-      if (!isAttachmentsItem(child)) { continue; }
-      const attachments = asAttachmentsItem(child).computed_attachments;
-      if (colPos >= attachments.length) { continue; }
+    const parents = await columnAttachmentParents(tableItem, colPos, store);
+    if (parents == null) { return false; }
+    for (const child of parents) {
       if (colPos == -1) {
         const ordering = newOrdering();
         const placeholderItem = PlaceholderFns.create(child.ownerId, child.id, RelationshipToParent.Attachment, ordering);
@@ -573,19 +614,20 @@ export const TableFns = {
       itemState.add(placeholderItem);
       server.addItem(placeholderItem, null, store.general.networkStatus);
     }
+    return true;
   },
 
-  removeColItemsAt(tableId: Uid, colPos: number, store: StoreContextModel) {
+  async removeColItemsAt(tableId: Uid, colPos: number, store: StoreContextModel): Promise<boolean> {
     const tableItem = itemState.get(tableId)! as TabularContainerItem;
-    for (let i = 0; i < tableItem.computed_children.length; ++i) {
-      const child = itemState.get(tableItem.computed_children[i])!;
-      if (!isAttachmentsItem(child)) { continue; }
-      const attachments = asAttachmentsItem(child).computed_attachments;
-      if (colPos >= attachments.length) { continue; }
+    const parents = await columnAttachmentParents(tableItem, colPos, store);
+    if (parents == null) { return false; }
+    for (const child of parents) {
+      const attachments = child.computed_attachments;
       const attachmentId = attachments[colPos];
       itemState.delete(attachmentId);
       server.deleteItem(attachmentId, store.general.networkStatus);
     }
+    return true;
   },
 
 };
