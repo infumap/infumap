@@ -1,6 +1,6 @@
 # Chat attachments (proposal)
 
-Status: in progress. Discussed 2026-10-14; steps 1–5 done 2026-10-14.
+Status: in progress. Discussed 2026-10-14; steps 1–6 done 2026-10-14.
 
 A common use of chat is pasting something long, such as a video transcript, and asking for a summary. Today the
 pasted text goes into the message itself: the composer fills with it, and the "You" turn shows it as a wall of text.
@@ -270,6 +270,25 @@ Each step can be committed on its own. Steps 1–4 cover pasting a transcript an
    - The title is the file name. The MIME type is `text/markdown` for `.md`, so it opens as Markdown, and
      `text/plain` otherwise.
    - Handle OS file drops on the composer the same way, and stop them from reaching the page's own upload-on-drop.
+
+   Done 2026-10-14: `fileAttachment` and `CHAT_ATTACHMENT_FILE_ACCEPT` in
+   [chat-attachment.ts](../web/src/items/chat-attachment.ts), and [Query.tsx](../web/src/components/items/Query.tsx).
+   Details:
+   - The + button is left of the chat composer's input. It is also inside the New Query input, on the left, in chat
+     and deep research modes only, and is in that input's Tab order (mode, +, input, send).
+   - The `accept` list only filters the picker. A file is attached if it decodes as UTF-8 and holds no NUL, whatever
+     its name: a dropped file has no filter. Files are read one at a time, so the count limit applies across a
+     multiple selection. Each refusal shows a message naming the file: not text, empty, or over 1 MB.
+   - A file's title is its name. Its MIME type is `text/markdown` for `.md` and `.markdown`, and `text/plain`
+     otherwise, so `.csv` and `.json` open as plain text.
+   - Drops are taken on the chat composer, including its settings row and chips, and on the New Query controls in
+     chat mode. The window's capture-phase guard in `Main.tsx` still allows the drop. The composer's `onDrop` stops
+     propagation, so the window's bubble-phase upload listener (`externalFileDropFallbackListener`) never sees it, and
+     it clears the upload hover.
+   - Checked end to end with Playwright. The picker took `notes.md` and `talk.srt` and refused `image.png` with "image.png
+     is not a text file". The model got both wrapped before the text. `notes.md` was stored as `text/markdown`, opened
+     as Markdown, and shows the Markdown icon. A `DragEvent` drop of `dropped.txt` on the composer made a chip and
+     uploaded nothing: the home and Queries pages gained no item.
 
 7. **Attaching an item from the tree** (later). Dropping a text item or note onto the composer attaches a copy of
    its content at that moment, and the item snaps back. Infumap drags are hit-tested by the layout, not by DOM drag

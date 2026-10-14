@@ -106,12 +106,15 @@ import {
 } from "./QueryChatActivity";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import {
+  CHAT_ATTACHMENT_FILE_ACCEPT,
   ChatDraftAttachment,
   chatAttachmentSizeBytes,
   estimateChatAttachmentTokens,
+  fileAttachment,
   pastedTextAttachment,
   pastedTextIsAttachment,
 } from "../../items/chat-attachment";
+import { clearExternalUploadHover, dataTransferContainsFiles } from "../../upload";
 import { formatBytes } from "../../util/item-metadata";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
 
@@ -169,7 +172,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let querySendButton: HTMLButtonElement | undefined;
   let queryDiscardButton: HTMLButtonElement | undefined;
   let querySetupButton: HTMLButtonElement | undefined;
+  let queryAttachButton: HTMLButtonElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
+  let attachFileInput: HTMLInputElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
   let activeSearchRequestSerial = 0;
   let chatRequestWasActive = false;
@@ -456,10 +461,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     querySetupButton.focus();
   };
 
-  type QueryControlName = "mode" | "input" | "send" | "discard" | "setup";
+  type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "setup";
 
   const queryControlOrder = (): Array<QueryControlName> => {
-    const controls: Array<QueryControlName> = isSearchMode() ? ["input", "send"] : ["mode", "input", "send"];
+    const controls: Array<QueryControlName> = isSearchMode()
+      ? ["input", "send"]
+      : selectedInputMode() == "chat" ? ["mode", "attach", "input", "send"] : ["mode", "input", "send"];
     if (hasSubmittedQuery()) {
       controls.push("discard");
     }
@@ -472,6 +479,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const focusQueryControl = (control: QueryControlName) => {
     if (control == "mode") {
       focusModeSelector();
+    } else if (control == "attach") {
+      if (queryAttachButton == null || queryAttachButton.disabled) {
+        focusQueryInputControl();
+      } else {
+        queryAttachButton.focus();
+      }
     } else if (control == "input") {
       focusQueryInputControl();
     } else if (control == "send") {
@@ -630,6 +643,41 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
     setDraftAttachments([...draftAttachments(), attachment]);
   };
+
+  /** Adds text files to the message being written, one at a time, so each is checked against those before it. */
+  const attachFiles = async (files: Array<File>) => {
+    for (const file of files) {
+      const attachment = await fileAttachment(draftAttachments(), file);
+      if (typeof attachment == "string") {
+        showTransientMessage(attachment, TransientMessageType.Error);
+        continue;
+      }
+      setDraftAttachments([...draftAttachments(), attachment]);
+    }
+  };
+
+  const openAttachFilePicker = () => {
+    attachFileInput?.click();
+  };
+
+  /** Files dropped on the message being written are attached to it, not uploaded to the page under it. */
+  const dropFilesToAttach = (ev: DragEvent) => {
+    if (!dataTransferContainsFiles(ev.dataTransfer)) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    clearExternalUploadHover(store);
+    void attachFiles(Array.from(ev.dataTransfer.files));
+  };
+
+  const renderAttachFileInput = () =>
+    <input ref={attachFileInput} type="file" multiple accept={CHAT_ATTACHMENT_FILE_ACCEPT} class="hidden"
+      onChange={(ev) => {
+        const files = Array.from(ev.currentTarget.files ?? []);
+        ev.currentTarget.value = "";
+        void attachFiles(files);
+      }} />;
 
   const removeDraftAttachment = (attachment: ChatDraftAttachment) => {
     setDraftAttachments(draftAttachments().filter(a => a.id != attachment.id));
@@ -1154,6 +1202,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           class="absolute pointer-events-auto"
           style={`left: ${contentLeftPx()}px; bottom: ${QUERY_CHAT_COMPOSER_BOTTOM_PX}px; ` +
             `width: ${contentWidthPx()}px; height: ${wrapperHeightPx()}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}
+          onDrop={dropFilesToAttach}
           onMouseDown={stop}
           onMouseUp={stop}
           onClick={stop}
@@ -1215,6 +1264,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </Show>
           <div class="flex items-end"
             style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+            {renderAttachFileInput()}
+            <button
+              class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+              style={`width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+              type="button"
+              title="Attach text files"
+              aria-label="Attach text files"
+              disabled={chatRequestActive()}
+              onClick={openAttachFilePicker}>
+              <i class="bi-plus-lg" />
+            </button>
             <div
               class="min-w-0 grow overflow-hidden rounded-xs border border-[#999] bg-white"
               style={`height: ${chatTextareaHeightPx()}px;`}>
@@ -1365,8 +1425,40 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           class="border border-[#999] rounded-xs bg-white overflow-hidden"
           style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;`}
           onMouseDown={queryInputMouseDown}>
-          <div class="relative flex items-end h-full overflow-hidden pl-2.5 pr-[4px]"
+          <div class="relative flex items-end h-full overflow-hidden pr-[4px]"
+            classList={{ "pl-2.5": selectedInputMode() != "chat", "pl-[4px]": selectedInputMode() == "chat" }}
             style="font-size: 16px;">
+            <Show when={selectedInputMode() == "chat"}>
+              {renderAttachFileInput()}
+              <button
+                ref={queryAttachButton}
+                class="mb-[4px] mr-[6px] flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+                style={`width: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px;`}
+                type="button"
+                title="Attach text files"
+                aria-label="Attach text files"
+                disabled={isStartingChat() || !canEdit()}
+                onMouseDown={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                }}
+                onMouseUp={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                }}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  openAttachFilePicker();
+                }}
+                onKeyDown={(ev) => {
+                  ev.stopPropagation();
+                  if (ev.key == "Tab") {
+                    handleQueryControlTab(ev, "attach");
+                  }
+                }}>
+                <i class="bi-plus-lg" />
+              </button>
+            </Show>
             <textarea id={editingDomId()}
               ref={queryInput}
               class="block min-w-0 grow resize-none border-0 bg-transparent py-[9px] pl-0 pr-0 text-black outline-hidden"
@@ -1497,7 +1589,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 `top: ${isSearchMode()
                   ? QUERY_WORKSPACE_TOP_INSET_PX
                   : Math.max(0, initialControlsTopPx() - (showDraftAttachments() ? draftAttachmentsRowPx() : 0))}px; ` +
-                `width: ${controlsWidthPx()}px;`}>
+                `width: ${controlsWidthPx()}px;`}
+              onDrop={(ev) => {
+                if (selectedInputMode() == "chat") {
+                  dropFilesToAttach(ev);
+                }
+              }}>
               {renderQueryControls()}
             </div>
           </div>
