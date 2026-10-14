@@ -412,6 +412,7 @@ pub async fn register(
   };
 
   let user = User {
+    query_profiles: None,
     id: user_id.clone(),
     username: payload.username.clone(),
     password_hash,

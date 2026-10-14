@@ -222,7 +222,7 @@ mod search_results;
 mod transcript;
 use activity::ChatActivity;
 use backend::{ChatBackend, ChatEndpoint, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends, resolve_chat_endpoint};
-pub(crate) use backend::{llama_servers_from_config, validate_chat_backend_config};
+pub(crate) use backend::{default_query_configuration, llama_servers_from_config, validate_chat_backend_config};
 use configuration::TurnSettings;
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;

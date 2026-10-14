@@ -18,9 +18,10 @@
 
 import { Accessor, createSignal } from "solid-js";
 import { ChatBackends, post, server } from "../server";
-import { snapshotQueryProfile, type QueryProfile } from "../items/query-configuration";
+import type { QueryProfile } from "../items/query-configuration";
+import { makeQueryProfilesStore, type QueryProfilesStore } from "./StoreProvider_QueryProfiles";
 import { NumberSignal, createNumberSignal } from "../util/signals";
-import { newUid } from "../util/uid";
+import type { Uid } from "../util/uid";
 
 
 const LOCALSTORAGE_KEY_NAME = "infudata";
@@ -63,7 +64,8 @@ export interface GeneralStoreContextModel {
   refreshChatBackends: () => Promise<void>,
 
   defaultQueryProfile: Accessor<QueryProfile | null>,
-  setDefaultQueryProfile: (profile: QueryProfile) => void,
+  setDefaultQueryProfile: (id: Uid) => Promise<void>,
+  queryProfiles: QueryProfilesStore,
 
   prefer2fa: () => boolean,
   setPrefer2fa: (prefer2fa: boolean) => void,
@@ -88,26 +90,20 @@ export interface GeneralStoreContextModel {
 }
 
 
-export function makeGeneralStore(): GeneralStoreContextModel {
+export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreContextModel {
   const [localStorageDataString, setLocalStorageDataString] = createSignal<string | null>(window.localStorage.getItem(LOCALSTORAGE_KEY_NAME), { equals: false });
 
   const [installationState, setInstallationState] = createSignal<InstallationState | null>(null, { equals: false });
 
   const [chatBackends, setChatBackends] = createSignal<ChatBackends | null>(null, { equals: false });
-  const [defaultQueryProfileValue, setDefaultQueryProfileValue] = createSignal<QueryProfile | null>(null);
-  // Return copies so a composer cannot mutate the default or another query through a shared object.
-  const defaultQueryProfile = (): QueryProfile | null => {
-    const profile = defaultQueryProfileValue();
-    return profile == null ? null : snapshotQueryProfile(profile);
-  };
-  const setDefaultQueryProfile = (profile: QueryProfile): void => {
-    setDefaultQueryProfileValue(snapshotQueryProfile(profile));
-  };
   const [chatBackendsError, setChatBackendsError] = createSignal<string | null>(null);
   const [chatBackendsRefreshing, setChatBackendsRefreshing] = createSignal<boolean>(false);
   let inProgressChatBackendsRequest: Promise<void> | null = null;
 
   const networkStatus = createNumberSignal(NETWORK_STATUS_OK);
+  const queryProfiles = makeQueryProfilesStore(accountId, networkStatus);
+  const defaultQueryProfile = queryProfiles.defaultProfile;
+  const setDefaultQueryProfile = queryProfiles.setDefault;
 
   const [inProgressNetworkRequests, setInProgressNetworkRequestsSignal] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [recentNetworkRequests, setRecentNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
@@ -224,22 +220,6 @@ export function makeGeneralStore(): GeneralStoreContextModel {
     inProgressChatBackendsRequest = (async () => {
       try {
         const backends = await server.chatBackends();
-        if (defaultQueryProfileValue() == null) {
-          setDefaultQueryProfile({
-            id: newUid(),
-            name: "Default",
-            configuration: {
-              scopeId: null,
-              model: {
-                backend: backends.default.backend,
-                model: backends.default.model ?? null,
-                reasoningEffort: null,
-              },
-              capabilities: ["infumap_data", ...(backends.toolServers ?? [])
-                .filter(server => server.enabledByDefault).map(server => server.id)],
-            },
-          });
-        }
         setChatBackends(backends);
         setChatBackendsError(null);
       } catch (e) {
@@ -294,7 +274,7 @@ export function makeGeneralStore(): GeneralStoreContextModel {
   return {
     installationState, retrieveInstallationState, clearInstallationState,
     chatBackends, chatBackendsError, chatBackendsRefreshing, retrieveChatBackends, refreshChatBackends,
-    defaultQueryProfile, setDefaultQueryProfile,
+    defaultQueryProfile, setDefaultQueryProfile, queryProfiles,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
     queryInputMode, setQueryInputMode,

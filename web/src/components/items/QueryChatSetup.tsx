@@ -19,7 +19,7 @@
 import { Component, For, JSX, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
-import { QueryItem } from "../../items/query-item";
+import { getQueryRuntime, type QueryItem } from "../../items/query-item";
 import {
   queryChatModelSelection,
   queryChatUsesCapability,
@@ -185,7 +185,10 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
   let buttonEl: HTMLButtonElement | undefined;
   let filterInputEl: HTMLInputElement | undefined;
 
-  onMount(() => { void store.general.retrieveChatBackends(); });
+  onMount(() => {
+    void store.general.queryProfiles.retrieve();
+    void store.general.retrieveChatBackends();
+  });
 
   const backends = () => store.general.chatBackends();
   const backend = (id: ChatBackendId | null): ChatBackendInfo | undefined =>
@@ -222,6 +225,7 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
   };
 
   const modelLabel = (): string => {
+    if (!configurationReady()) { return store.general.queryProfiles.error() != null ? "Profile unavailable" : "Loading profile…"; }
     if (backends() == null) { return store.general.chatBackendsError() != null ? "Model unavailable" : "Model"; }
     const backendId = selectedBackendId();
     if (backendId == null) { return "No model"; }
@@ -306,7 +310,10 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
       model.name.toLowerCase().includes(filter) || model.id.toLowerCase().includes(filter));
   });
 
+  const configurationReady = () => getQueryRuntime(store, props.queryItem()).configurationInitialized
+    || store.general.defaultQueryProfile() != null;
   const applySelection = (next: ChatModelSelection | null) => {
+    if (!configurationReady()) { return; }
     props.beforeChange?.();
     setQueryChatModelSelection(store, props.queryItem(), next);
   };
@@ -338,7 +345,7 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
   };
 
   const toggleSource = (source: ToolSource) => {
-    if (props.toolsLocked() || !source.available) { return; }
+    if (!configurationReady() || props.toolsLocked() || !source.available) { return; }
     props.beforeChange?.();
     source.toggle();
   };
@@ -514,7 +521,7 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
       </Show>
       <For each={toolSources()}>{source => {
         const state = () => sourceState(source);
-        const selectable = () => state() == "ok" && !props.toolsLocked();
+        const selectable = () => state() == "ok" && !props.toolsLocked() && configurationReady();
         return (
           <div
             class="flex items-center gap-2 rounded-xs px-3 py-1.5"
@@ -522,7 +529,7 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
               "cursor-pointer hover:bg-slate-100": selectable(),
               "cursor-default": !selectable(),
               "opacity-50": state() == "down",
-              "opacity-60": state() == "ok" && props.toolsLocked(),
+              "opacity-60": state() == "ok" && (props.toolsLocked() || !configurationReady()),
             }}
             role="checkbox"
             tabindex={selectable() ? 0 : -1}
@@ -572,7 +579,9 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
 
   const renderBackendRow = (info: ChatBackendInfo) => {
     const isSelected = () => selectedBackendId() == info.id && info.id != "openrouter";
+    const selectable = () => info.available && configurationReady();
     const subtitle = () => {
+      if (!configurationReady()) { return store.general.queryProfiles.error() ?? "Loading the default query profile…"; }
       if (!info.available) { return info.unavailableReason ?? "Not available"; }
       return info.supportsModelSelection ? "Pick a model below" : "Model chosen by the server";
     };
@@ -580,13 +589,13 @@ export const QueryChatSetup: Component<QueryChatSetupProps> = (props: QueryChatS
       <div
         class="flex items-start gap-2 rounded-xs px-3 py-2"
         classList={{
-          "cursor-pointer hover:bg-slate-100": info.available,
-          "cursor-default opacity-50": !info.available,
+          "cursor-pointer hover:bg-slate-100": selectable(),
+          "cursor-default opacity-50": !selectable(),
         }}
         role="button"
-        tabindex={info.available ? 0 : -1}
-        onClick={() => { if (info.available) { selectBackend(info.id); } }}
-        onKeyDown={activateOnKey(() => { if (info.available) { selectBackend(info.id); } })}>
+        tabindex={selectable() ? 0 : -1}
+        onClick={() => { if (selectable()) { selectBackend(info.id); } }}
+        onKeyDown={activateOnKey(() => { if (selectable()) { selectBackend(info.id); } })}>
         <div class="min-w-0 grow">
           <div class="truncate font-medium text-black">{info.label}</div>
           <div class="truncate text-[11px] text-slate-500">{subtitle()}</div>

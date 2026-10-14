@@ -17,7 +17,7 @@
 */
 
 import { logout } from "./components/Main";
-import type { ChatBackendId, QueryChatSettings, QueryConfiguration } from "./items/query-configuration";
+import type { ChatBackendId, QueryChatSettings, QueryConfiguration, QueryProfileOperation, QueryProfilesResponse } from "./items/query-configuration";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
@@ -417,6 +417,7 @@ const COMMAND_CONVERT_PAGE_TABLE = "convert-page-table";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_SCOPES = "list-scopes";
+const COMMAND_QUERY_PROFILES = "query-profiles";
 const COMMAND_LOAD_CHAT = "load-chat";
 const COMMAND_LOAD_CHAT_ATTACHMENT = "load-chat-attachment";
 const COMMAND_ENSURE_QUERY_ENTRY = "ensure-query-entry";
@@ -459,6 +460,9 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_LIST_SCOPES:
       description = "Loading scopes";
+      break;
+    case COMMAND_QUERY_PROFILES:
+      description = payload.operation == "list" ? "Loading query profiles" : "Saving query profiles";
       break;
     case COMMAND_GET_BACKLINKS:
       description = "Loading links";
@@ -1023,6 +1027,15 @@ export const server = {
     return constructCommandPromise(null, COMMAND_SEARCH, {
       pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum, configuration,
     }, null, networkStatus).then((response: any) => normalizeSearchResponse(response));
+  },
+
+  queryProfiles: async (
+    operation: QueryProfileOperation,
+    networkStatus: NumberSignal,
+    expectedUserId: Uid,
+    expectedRevision?: number,
+  ): Promise<QueryProfilesResponse> => {
+    return constructCommandPromise(null, COMMAND_QUERY_PROFILES, { ...operation, expectedUserId, expectedRevision }, null, networkStatus);
   },
 
   listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {
