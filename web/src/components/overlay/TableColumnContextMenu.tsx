@@ -21,13 +21,14 @@ import { useStore } from "../../store/StoreProvider";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { TableFns } from "../../items/table-item";
-import { asTabularItem, isTabularItem } from "../../items/base/tabular-item";
+import { asTabularItem, isTabularItem, TabularItem } from "../../items/base/tabular-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { requestArrange } from "../../layout/arrange";
 import { VeFns, isTableView } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { itemState } from "../../store/ItemState";
 import { serverOrRemote } from "../../server";
+import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 
 
 export const TableColumnContextMenu: Component = () => {
@@ -53,24 +54,36 @@ export const TableColumnContextMenu: Component = () => {
       colNum() >= 0 && colNum() < asTabularItem(item).numberOfVisibleColumns &&
       colNum() < asTabularItem(item).tableColumns.length;
   };
-  const finishChange = (reason: string) => {
+  const finishChange = (reason: string, item: TabularItem = tableItem()) => {
     requestArrange(store, reason);
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(item, store.general.networkStatus);
     store.overlay.tableColumnContextMenuInfo.set(null);
     store.touchToolbar();
+  };
+  const rejectCellChange = () => {
+    const message = { text: "Could not change column: a row is unavailable or cannot be edited.", type: TransientMessageType.Error };
+    store.overlay.toolbarTransientMessage.set(message);
+    setTimeout(() => {
+      if (store.overlay.toolbarTransientMessage.get() === message) {
+        store.overlay.toolbarTransientMessage.set(null);
+      }
+    }, 5000);
   };
   const menuPosPx = () => ({
     x: Math.max(0, Math.min(posPx().x + 10, store.desktopBoundsPx().w - 170)),
     y: Math.max(0, Math.min(posPx().y - 12, store.desktopBoundsPx().h - (colNum() == 0 ? 65 : 125))),
   });
 
-  const newColToRight = () => {
+  const newColToRight = async () => {
     if (!canChangeColumns()) { store.overlay.tableColumnContextMenuInfo.set(null); return; }
-    const insertHeaderIdx = Math.min(colNum() + 1, tableItem().tableColumns.length);
-    tableItem().tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
-    TableFns.insertEmptyColAt(tableId(), colNum(), store);
-    tableItem().numberOfVisibleColumns += 1;
-    finishChange("table-column-insert-right");
+    const item = tableItem();
+    const column = colNum();
+    store.overlay.tableColumnContextMenuInfo.set(null);
+    if (!await TableFns.insertEmptyColAt(item.id, column, store)) { rejectCellChange(); return; }
+    const insertHeaderIdx = Math.min(column + 1, item.tableColumns.length);
+    item.tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
+    item.numberOfVisibleColumns += 1;
+    finishChange("table-column-insert-right", item);
   };
 
   const newHeaderOnlyToRight = () => {
@@ -81,12 +94,15 @@ export const TableColumnContextMenu: Component = () => {
     finishChange("table-column-insert-header-right");
   };
 
-  const deleteColumn = () => {
+  const deleteColumn = async () => {
     if (!canChangeColumns() || colNum() == 0) { store.overlay.tableColumnContextMenuInfo.set(null); return; }
-    TableFns.removeColItemsAt(tableId(), colNum()-1, store);
-    tableItem().tableColumns.splice(colNum(), 1);
-    tableItem().numberOfVisibleColumns -= 1;
-    finishChange("table-column-delete");
+    const item = tableItem();
+    const column = colNum();
+    store.overlay.tableColumnContextMenuInfo.set(null);
+    if (!await TableFns.removeColItemsAt(item.id, column - 1, store)) { rejectCellChange(); return; }
+    item.tableColumns.splice(column, 1);
+    item.numberOfVisibleColumns -= 1;
+    finishChange("table-column-delete", item);
   }
 
   const deleteColumnHeaderOnly = () => {
