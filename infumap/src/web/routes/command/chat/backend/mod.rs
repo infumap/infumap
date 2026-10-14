@@ -336,18 +336,9 @@ struct ChatBackendInfo {
   models_error: Option<String>,
 }
 
-/// Initial provider/model offered to the composer before an explicit selection.
-#[derive(Serialize)]
-struct ChatDefaultSelection {
-  backend: String,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  model: Option<String>,
-}
-
 #[derive(Serialize)]
 pub struct ChatBackendsResponse {
   backends: Vec<ChatBackendInfo>,
-  default: ChatDefaultSelection,
   #[serde(rename = "infumapTools")]
   infumap_tools: Vec<super::OpenAiToolSpec>,
   #[serde(rename = "toolServers")]
@@ -409,16 +400,8 @@ pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
     models: openrouter_models,
     models_error,
   });
-  let default_target = default_target(config, &llama_servers);
   ChatBackendsResponse {
     backends,
-    default: ChatDefaultSelection {
-      backend: default_target.as_ref().map(ChatTarget::id).unwrap_or_else(|| CHAT_BACKEND_LLAMA.to_owned()),
-      model: match default_target {
-        Some(ChatTarget::OpenRouter) => configured_string(config, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL),
-        _ => None,
-      },
-    },
     infumap_tools: super::infumap_tool_specs(),
     tool_servers: mcp::tool_server_catalog(config).await,
   }

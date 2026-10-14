@@ -17,7 +17,7 @@
 */
 
 import { logout } from "./components/Main";
-import type { ChatBackendId, QueryChatSettings, QueryConfiguration, QueryProfileOperation, QueryProfilesResponse } from "./items/query-configuration";
+import type { ChatBackendId, QueryChatSettings, QueryProfileOperation, QueryProfilesResponse } from "./items/query-configuration";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
@@ -212,7 +212,6 @@ export interface ChatToolServerInfo {
 
 export interface ChatBackends {
   backends: Array<ChatBackendInfo>,
-  default: { backend: ChatBackendId, model?: string },
   infumapTools?: Array<Record<string, unknown>>,
   toolServers?: Array<ChatToolServerInfo>,
 }
@@ -1022,10 +1021,10 @@ export const server = {
     text: String,
     networkStatus: NumberSignal,
     pageNum: number,
-    configuration: QueryConfiguration,
+    scopeId: Uid | null,
   ): Promise<SearchResponse> => {
     return constructCommandPromise(null, COMMAND_SEARCH, {
-      pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum, configuration,
+      pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum, scopeId,
     }, null, networkStatus).then((response: any) => normalizeSearchResponse(response));
   },
 

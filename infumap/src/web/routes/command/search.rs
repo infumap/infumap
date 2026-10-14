@@ -37,7 +37,7 @@ const SEARCH_SNIPPET_STOP_WORDS: [&str; 32] = [
   "of", "on", "or", "she", "that", "the", "their", "this", "to", "was", "were", "with", "you", "your",
 ];
 
-/// Query command envelope. Search uses only the Infumap scope from the shared configuration.
+/// Search command request. Of a query's configuration, search uses only the scope.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SearchCommandRequest {
@@ -45,7 +45,9 @@ struct SearchCommandRequest {
   text: String,
   num_results: i64,
   page_num: Option<i64>,
-  configuration: super::chat::configuration::QueryConfiguration,
+  /// A scope page from the user's scopes page, or null for everything. When given with `page_id`, both apply.
+  #[serde(deserialize_with = "Option::deserialize")]
+  scope_id: Option<Uid>,
 }
 
 /// Internal retrieval request, used by the search command and chat tools.
@@ -153,15 +155,17 @@ pub(super) async fn handle_search(
     Some(s) => s,
   };
 
-  let mut command: SearchCommandRequest =
+  let command: SearchCommandRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
-  command.configuration.normalize()?;
+  if command.scope_id.as_ref().is_some_and(|id| !is_uid(id)) {
+    return Err("Invalid scope ID.".into());
+  }
   let request = SearchRequest {
     page_id: command.page_id,
     text: command.text,
     num_results: command.num_results,
     page_num: command.page_num,
-    scope_id: command.configuration.scope_id,
+    scope_id: command.scope_id,
     exclude_chats: false,
   };
 
@@ -1256,6 +1260,25 @@ mod tests {
   use crate::ai::lexical_index::LexicalFragment;
   use crate::ai::title_indexing::lexical_fragment_from_item_title_fragment;
   use crate::web::routes::command::scope::test_db::TestDb;
+
+  #[test]
+  fn search_requests_name_only_a_scope() {
+    let parse = |json: Value| serde_json::from_value::<SearchCommandRequest>(json);
+    let base = || serde_json::json!({ "pageId": null, "text": "q", "numResults": 10, "pageNum": 1 });
+    let with = |key: &str, value: Value| {
+      let mut json = base();
+      json[key] = value;
+      json
+    };
+    assert_eq!(parse(with("scopeId", Value::Null)).unwrap().scope_id, None);
+    let scope_id = infusdk::util::uid::new_uid();
+    assert_eq!(parse(with("scopeId", serde_json::json!(scope_id))).unwrap().scope_id, Some(scope_id));
+    // The scope is explicit, and the rest of a query's configuration is not part of a search.
+    assert!(parse(base()).is_err());
+    let mut configuration = with("scopeId", Value::Null);
+    configuration["configuration"] = serde_json::json!({ "scopeId": null, "model": null, "capabilities": [] });
+    assert!(parse(configuration).is_err());
+  }
 
   fn bounds_item_ids(t: &TestDb, page_id: Option<&Uid>, scope_id: Option<&Uid>) -> Vec<Uid> {
     let scope = scope_id.map(|scope_id| resolve_scope(&t.db, &t.user_id, scope_id).unwrap());

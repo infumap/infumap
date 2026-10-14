@@ -1,7 +1,8 @@
 # Query configuration and profiles
 
 Search, chat and deep research share a resource configuration. It lives in the query runtime,
-in each query command's `configuration`, and in each transcript turn's `settings.configuration`.
+in each chat request's `configuration`, and in each transcript turn's `settings.configuration`.
+The search command takes only `scopeId`, the one part of the configuration search uses.
 The TypeScript definition is in `web/src/items/query-configuration.ts`; the shared Rust definition
 is in `infumap/src/query_configuration.rs`. Chat turn settings use these shared types.
 
