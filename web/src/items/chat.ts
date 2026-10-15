@@ -267,6 +267,16 @@ function completeStreamingModelRounds(rounds: Array<ChatStreamingModelRound>): A
   return rounds.map(round => round.complete ? round : { ...round, complete: true });
 }
 
+function updateStreamingToolCall(
+  toolCalls: Array<ChatStreamingToolCall>,
+  updated: ChatStreamingToolCall,
+): Array<ChatStreamingToolCall> {
+  const existingIndex = toolCalls.findIndex(toolCall => toolCall.callId == updated.callId);
+  return existingIndex == -1
+    ? [...toolCalls, updated]
+    : toolCalls.map((toolCall, index) => index == existingIndex ? updated : toolCall);
+}
+
 function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStreamEvent): ChatStreamingState {
   if (event.type == "context_tokens" || event.type == "turn_accepted" || event.type == "transcript_conflict") {
     return current;
@@ -321,18 +331,15 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
         rounds: updateStreamingModelRound(current.rounds, event.round, round => ({
           ...round,
           complete: true,
-          toolCalls: [
-            ...round.toolCalls.filter(toolCall => toolCall.callId != event.callId),
-            {
-              callId: event.callId,
-              name: event.name,
-              status: "awaiting_approval" as const,
-              summary: null,
-              arguments: event.arguments,
-              query: event.query,
-              url: event.url,
-            },
-          ],
+          toolCalls: updateStreamingToolCall(round.toolCalls, {
+            callId: event.callId,
+            name: event.name,
+            status: "awaiting_approval",
+            summary: null,
+            arguments: event.arguments,
+            query: event.query,
+            url: event.url,
+          }),
         })),
       };
       break;
@@ -346,18 +353,15 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
           return {
             ...round,
             complete: true,
-            toolCalls: [
-              ...round.toolCalls.filter(toolCall => toolCall.callId != event.callId),
-              {
-                callId: event.callId,
-                name: event.name,
-                status: "running" as const,
-                summary: null,
-                arguments: event.arguments ?? existing?.arguments,
-                query: existing?.query,
-                url: existing?.url,
-              },
-            ],
+            toolCalls: updateStreamingToolCall(round.toolCalls, {
+              callId: event.callId,
+              name: event.name,
+              status: "running",
+              summary: null,
+              arguments: event.arguments ?? existing?.arguments,
+              query: existing?.query,
+              url: existing?.url,
+            }),
           };
         }),
       };
@@ -384,9 +388,7 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
           return {
             ...round,
             complete: true,
-            toolCalls: existingIndex == -1
-              ? [...round.toolCalls, completed]
-              : round.toolCalls.map((toolCall, index) => index == existingIndex ? completed : toolCall),
+            toolCalls: updateStreamingToolCall(round.toolCalls, completed),
           };
         }),
       };

@@ -217,18 +217,25 @@ const QueryChatToolApproval: Component<{
   requestId: string | null,
   toolCall: QueryChatActivityToolCall,
 }> = (props) => {
-  const [submitting, setSubmitting] = createSignal(false);
+  const [submittingApproval, setSubmittingApproval] = createSignal<{ requestId: string, callId: string } | null>(null);
+  const submitting = () => {
+    const approval = submittingApproval();
+    return approval != null && approval.requestId == props.requestId && approval.callId == props.toolCall.callId;
+  };
   const prompt = () => queryChatToolApprovalPrompt(props.toolCall);
   const decide = async (approved: boolean) => {
     const requestId = props.requestId;
     if (requestId == null || submitting()) {
       return;
     }
-    setSubmitting(true);
+    const approval = { requestId, callId: props.toolCall.callId };
+    setSubmittingApproval(approval);
     try {
-      await submitQueryChatToolApproval(requestId, props.toolCall.callId, approved);
+      await submitQueryChatToolApproval(approval.requestId, approval.callId, approved);
     } catch (e) {
-      setSubmitting(false);
+      if (submittingApproval() == approval) {
+        setSubmittingApproval(null);
+      }
       console.error("Failed to submit chat tool approval:", e);
     }
   };
