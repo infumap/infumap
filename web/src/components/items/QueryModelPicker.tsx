@@ -54,14 +54,9 @@ export function QueryModelPicker(props: QueryPickerProps) {
     const result: ModelChoice[] = [];
     const backends = store.general.chatBackends()?.backends ?? [];
     for (const backend of backends) {
-      if (!backend.supportsModelSelection) {
-        result.push({ backend: backend.id, model: null, name: backend.label, provider: backend.label,
-          available: backend.available, reason: backend.unavailableReason ?? null });
-      } else {
-        for (const model of backend.models) {
-          result.push({ backend: backend.id, model: model.id, name: model.name, provider: backend.label,
-            info: model, available: backend.available, reason: backend.unavailableReason ?? null });
-        }
+      for (const model of backend.models) {
+        result.push({ backend: backend.id, model: model.id, name: model.name, provider: backend.label,
+          info: model, available: backend.available, reason: backend.unavailableReason ?? null });
       }
     }
     const retained = [...favorites(), ...(selection() == null ? [] : [selection()!])];
@@ -96,7 +91,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
     return selection() == null ? "Choose a model" : queryModelLabel(store, selection(), true);
   };
   const rank = (effort: string) => REASONING_EFFORTS.indexOf(effort) < 0 ? 99 : REASONING_EFFORTS.indexOf(effort);
-  const efforts = () => [...(backend()?.supportsReasoningEffort ? model()?.reasoningEfforts ?? [] : [])]
+  const efforts = () => [...(model()?.reasoningEfforts ?? [])]
     .sort((a, b) => rank(a) - rank(b));
   const select = (choice: ModelChoice, close: () => void) => {
     if (!canChange() || !choice.available) { return; }
@@ -125,7 +120,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
         onClick={() => select(choice, close)}>
         <div class="min-w-0 grow">
           <div class="truncate text-[13px]">{choice.name}</div>
-          <div class="text-[11px] text-slate-500">{choice.model == null ? "Model chosen by the server" : `via ${choice.provider}`}</div>
+          <div class="text-[11px] text-slate-500">via {choice.provider}</div>
           <Show when={choice.info}><div class="text-[11px] text-slate-500">{modelDetails(choice.info!)}</div></Show>
           <Show when={choice.reason != null}><div class="text-[11px] text-amber-700">{choice.reason}</div></Show>
         </div>

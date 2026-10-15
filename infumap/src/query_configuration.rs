@@ -24,7 +24,7 @@ pub fn validate_text(text: &str, field: &str, max_len: usize) -> InfuResult<()> 
   Ok(())
 }
 
-/// An explicit provider route. A null model uses the provider's model; null effort uses its default.
+/// An explicit provider ID and model. Chat requires a model ID; null effort uses its default.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChatModelSelection {

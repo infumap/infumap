@@ -178,7 +178,7 @@ export interface ChatModelInfo {
   reasoningEfforts: Array<string>,
   defaultEffort?: string,
   reasoningMandatory: boolean,
-  /** US dollars per token, as OpenRouter reports it. */
+  /** US dollars per token, when reported by the provider. */
   promptPrice?: string,
   completionPrice?: string,
 }
@@ -189,8 +189,6 @@ export interface ChatBackendInfo {
   available: boolean,
   /** Why this backend cannot be used, when it cannot. */
   unavailableReason?: string,
-  supportsModelSelection: boolean,
-  supportsReasoningEffort: boolean,
   models: Array<ChatModelInfo>,
   modelsError?: string,
 }

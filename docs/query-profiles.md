@@ -10,8 +10,8 @@ is in `infumap/src/query_configuration.rs`. Chat turn settings use these shared 
 {
   "scopeId": null,
   "model": {
-    "backend": "llama:mbp",
-    "model": null,
+    "backend": "local",
+    "model": "my-model",
     "reasoningEffort": null
   },
   "capabilities": ["infumap_data", "web_search"]
@@ -23,9 +23,9 @@ All configuration fields are explicit, including nullable fields:
 - `scopeId`: the ID of an Infumap scope, or `null` for everything. Search always uses this scope.
   Chat uses it when `infumap_data` is enabled. It does not constrain web tools, attachments or
   information already in the conversation. The scope is retained even when Infumap tools are off.
-- `model`: an explicit provider route, model and reasoning effort. The backend is `openrouter`
-  or `llama:<configured server name>`. A null model ID is for a provider that serves its own model;
-  OpenRouter requires an explicit model ID. A null reasoning effort uses the model's default.
+- `model`: an explicit provider route, model and reasoning effort. `backend` is the stable `id` of a
+  configured `chat_provider` entry. Every provider requires an explicit model ID for Chat, including
+  a provider hosting just one model. A null reasoning effort uses the model's default.
   A null selection object means no model has been chosen, such as before the default profile loads
   or in Search. Chat execution requires a selection;
   the composer copies the default profile before the first command and sends the selected resources exactly.
@@ -104,12 +104,11 @@ Every change appends the whole collection to the user log, so the server caps an
 profiles, 200 model favorites and 64 capabilities per profile. Profile names are unique, ignoring case.
 
 An account with no profile collection gets one persisted, pinned **Default** profile on its first
-profile request. Its configuration uses the first configured llama server, falling back to OpenRouter
-when configured, unrestricted Infumap scope, and Infumap plus configured tools enabled by default.
-For OpenRouter, `chat_default_openrouter_model` supplies the initial model if set; otherwise users
-choose one before chatting. Initialization does not probe models or tool servers. Unavailable
-references remain saved. A server with no model configured can
-still initialize a profile for Search.
+profile request. Its configuration uses the first provider with an available model and that provider's
+first model, unrestricted Infumap scope, and Infumap plus configured tools enabled by default.
+Explicit model lists preserve their configured order; otherwise initialization uses model discovery
+outside the database lock. It does not probe tool servers. If no model can be found, users choose one
+before Chat; the profile can still be used for Search. Unavailable references remain saved.
 
 The authenticated `query-profiles` command supports:
 
@@ -155,9 +154,8 @@ only Scope. Each control is a pill with an icon, sized to its content; the full 
 - **Scope** lists named Infumap scopes with coverage, exclusions and definition problems. It keeps
   the selected scope while showing **Not used** when chat's Infumap tools are disabled. **Edit scopes**
   opens the scopes page.
-- **Model** opens a searchable list of model routes, with account favorites first. A provider that
-  serves its own model, a llama server, is listed and labelled by its name; other routes by model, with
-  the provider in the list and tooltip. Star buttons add or remove favorites without changing the query.
+- **Model** opens a searchable list of model routes, with account favorites first. Every route shows
+  its model, with the provider in the list and tooltip. Star buttons add or remove favorites without changing the query.
   The selected model's supported reasoning efforts and a **Default** option are at the bottom. Saved
   selections and favorites that disappear from the catalog remain visible with availability information.
 - **Tools** shows the enabled source names, such as **Infumap + Web search**. The popup has a toggle per
@@ -271,12 +269,12 @@ a replacement. An enabled unavailable tool source can be explicitly disabled bet
 Unverified selections may still be submitted exactly as configured. The server validates resources
 before recording a chat turn: missing scopes, missing provider routes, known missing models,
 unsupported reasoning and selected missing/down tool sources reject the request. Selected tool
-sources are never silently skipped; a later failure preparing tools also stops the turn. OpenRouter
-cannot replace a null model with the server default, and llama requests cannot silently ignore an
-explicit model or reasoning effort. Requests name a specific configured llama server rather than
-the first-server alias; initial profile creation resolves the first configured server into a named route.
+sources are never silently skipped; a later failure preparing tools also stops the turn. Every request
+names an explicit configured provider ID and model ID. A missing model is rejected, and a selected
+model or reasoning effort is never replaced with a default. Initial profile creation selects the
+first available configured provider/model combination.
 
-A fresh OpenRouter catalog can establish model/effort availability. If refreshing that catalog fails,
+A fresh provider catalog can establish model/effort availability. If refreshing that catalog fails,
 the cached catalog is labelled stale and used for browsing, while the exact selected model and effort
 may be tried at the provider. The server does not infer that a missing entry in a stale catalog was
 removed. A rejected turn returns its draft to the client and triggers discovery refresh; no profile,
