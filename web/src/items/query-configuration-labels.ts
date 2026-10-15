@@ -23,7 +23,7 @@ export function queryProviderLabel(store: StoreContextModel, backend: string): s
 }
 
 /**
- * A model's display name, followed by its reasoning effort when one is set.
+ * Backend ID and model display name, followed by its reasoning effort when one is set.
  */
 export function queryModelLabel(store: StoreContextModel, selection: ChatModelSelection | null, short: boolean = false): string {
   if (selection == null) { return "No model"; }
@@ -31,13 +31,12 @@ export function queryModelLabel(store: StoreContextModel, selection: ChatModelSe
   if (selection.model == null) { return queryProviderLabel(store, selection.backend) + effort; }
   const provider = store.general.chatBackends()?.backends.find(provider => provider.id == selection.backend);
   const name = provider?.models.find(model => model.id == selection.model)?.name ?? selection.model;
-  return (short ? shortModelName(name) : name) + effort;
+  return `${selection.backend}: ${short ? shortModelName(name) : name}${effort}`;
 }
 
-/** The model label with its provider, for tooltips and summaries where the route matters. */
+/** The full backend and model label for tooltips and summaries. */
 export function queryModelRouteLabel(store: StoreContextModel, selection: ChatModelSelection | null): string {
-  if (selection == null || selection.model == null) { return queryModelLabel(store, selection); }
-  return `${queryModelLabel(store, selection)} via ${queryProviderLabel(store, selection.backend)}`;
+  return queryModelLabel(store, selection);
 }
 
 export function queryToolLabel(store: StoreContextModel, capability: string): string {
@@ -51,7 +50,7 @@ export function queryToolsLabel(store: StoreContextModel, capabilities: Array<st
   return ordered.length == 0 ? "No tools" : ordered.map(capability => queryToolLabel(store, capability)).join(" + ");
 }
 
-/** "Everything · mbp · Infumap + Web search". Search uses only the scope. */
+/** "Everything · local: default · Infumap + Web search". Search uses only the scope. */
 export function queryConfigurationSummary(store: StoreContextModel, configuration: QueryConfiguration): string {
   return [queryScopeName(configuration.scopeId), queryModelLabel(store, configuration.model, true),
     queryToolsLabel(store, configuration.capabilities)].join(" · ");

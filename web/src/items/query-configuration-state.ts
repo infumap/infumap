@@ -103,14 +103,6 @@ export function appliedSavedProfile(store: StoreContextModel, queryItem: QueryIt
   return store.general.queryProfiles.collection()?.profiles.find(profile => profile.id == applied.id) ?? null;
 }
 
-/** Re-applies the applied profile as it is saved now. */
-export function resetQueryConfiguration(store: StoreContextModel, queryItem: QueryItem): boolean {
-  const profile = appliedSavedProfile(store, queryItem);
-  if (profile == null) { return false; }
-  applyQueryProfile(store, queryItem, profile);
-  return true;
-}
-
 /** Whether this query's setup differs from its applied profile as saved now. */
 export function isQueryConfigurationModified(store: StoreContextModel, queryItem: QueryItem): boolean {
   const profile = appliedSavedProfile(store, queryItem);

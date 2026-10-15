@@ -31,8 +31,9 @@ your draft, attachments and Chat / Deep research mode unchanged. Search uses onl
 shortcuts are hidden there.
 
 New queries start with your default profile. Changing Scope, Model or Tools affects only the current
-query: the applied profile's shortcut then shows a dot, with **Reset** to go back to the profile as saved
-and **Save** to save the change to it. To keep a setup under a new name, use **Profiles → Save as new…**;
+query: the applied profile's shortcut then shows a dot. Click that profile again, in the row or the
+**Profiles** menu, to restore its saved settings. To update the saved profile, open **Profiles → Save
+changes to “Profile name”**. To keep a setup under a new name, use **Profiles → Save as new…**;
 the new profile is pinned. **Profiles → Manage…** orders, renames, pins, duplicates and deletes profiles
 and chooses the default. Deleting the default makes the first remaining profile the default, and at
 least one profile must remain. Saving or managing profiles leaves other chats and their recorded turns
