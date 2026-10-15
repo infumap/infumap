@@ -29,6 +29,7 @@ export type ChatCapability = string;
 export interface QueryChatActivityToolCall {
   callId: string,
   name: string,
+  source?: string,
   status: "running" | "complete" | "awaiting_approval",
   summary: string | null,
   arguments?: unknown,
@@ -171,7 +172,7 @@ export function makePerItemStore(
       mode: null,
       text: "",
       configuration: profile == null
-        ? { scopeId: null, model: null, capabilities: [] }
+        ? { scopeId: null, model: null, capabilities: [], toolApproval: "automatic" }
         : cloneQueryConfiguration(profile.configuration),
       configurationInitialized: profile != null,
       appliedProfile: profile == null ? null : snapshotQueryProfile(profile),

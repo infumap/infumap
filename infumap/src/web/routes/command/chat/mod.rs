@@ -332,6 +332,7 @@ struct ChatResources {
   infumap_data: Option<InfumapData>,
   mcp_tools: Vec<mcp::MappedMcpTool>,
   name_map: HashMap<String, mcp::MappedMcpToolTarget>,
+  approval_required: HashSet<String>,
 }
 
 /// Infumap data access for one chat run.
@@ -451,6 +452,8 @@ enum ChatStreamEventKind {
     call_id: String,
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     query: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     url: Option<String>,
@@ -512,7 +515,15 @@ impl ChatStreamEventKind {
     url: Option<String>,
     arguments: Value,
   ) -> Self {
-    Self::ToolApprovalRequired { round, call_id: call_id.to_owned(), name: name.to_owned(), query, url, arguments }
+    Self::ToolApprovalRequired {
+      round,
+      call_id: call_id.to_owned(),
+      name: name.to_owned(),
+      source: None,
+      query,
+      url,
+      arguments,
+    }
   }
 
   fn tool_call_started(round: usize, call_id: &str, name: &str, arguments: Value) -> Self {
@@ -603,11 +614,16 @@ impl ChatProgressReporter {
     round: usize,
     call_id: &str,
     name: &str,
+    source: &str,
     query: Option<String>,
     url: Option<String>,
     arguments: Value,
   ) {
-    self.send(ChatStreamEventKind::tool_approval_required(round, call_id, name, query, url, arguments)).await;
+    let mut event = ChatStreamEventKind::tool_approval_required(round, call_id, name, query, url, arguments);
+    if let ChatStreamEventKind::ToolApprovalRequired { source: event_source, .. } = &mut event {
+      *event_source = Some(source.to_owned());
+    }
+    self.send(event).await;
   }
 
   async fn tool_call_started(&self, round: usize, call_id: &str, name: &str, arguments: Value) {
@@ -942,7 +958,7 @@ pub async fn serve_chat_stream_route(
     );
   }
   // Reject unavailable resources before recording a user turn, so the client can keep its draft.
-  let resources = match prepare_chat_resources(config.as_ref(), db, &session, &request).await {
+  let mut resources = match prepare_chat_resources(config.as_ref(), db, &session, &request).await {
     Ok(resources) => resources,
     Err(message) => return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(&message)),
   };
@@ -953,6 +969,20 @@ pub async fn serve_chat_stream_route(
     },
     false => None,
   };
+  // Attachments remain in model context on subsequent turns, without a user changing any setting.
+  // Derive their presence from the locked transcript; do not infer it from model-authored text.
+  if let Some(turn) = &live_turn
+    && turn
+      .transcript
+      .transcript()
+      .is_some_and(|transcript| transcript.turns.iter().any(|turn| !turn.user.attachments.is_empty()))
+  {
+    for (name, target) in &resources.name_map {
+      if mcp::server_requires_approval(config.as_ref(), &target.server_id, true) {
+        resources.approval_required.insert(name.clone());
+      }
+    }
+  }
 
   let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(16);
   let activity = live_turn.as_ref().map(|turn| turn.activity.clone());
@@ -1933,7 +1963,7 @@ fn cancel_pending_tool_approvals(request_id: &str) {
   }
 }
 
-async fn wait_for_tool_approval(request_id: &str, call_id: &str, user_id: &Uid) -> ToolApprovalDecision {
+fn register_tool_approval(request_id: &str, call_id: &str, user_id: &Uid) -> oneshot::Receiver<bool> {
   let (tx, rx) = oneshot::channel();
   {
     let mut pending = lock_pending_tool_approvals();
@@ -1943,6 +1973,10 @@ async fn wait_for_tool_approval(request_id: &str, call_id: &str, user_id: &Uid) 
       let _ = previous.tx.send(false);
     }
   }
+  rx
+}
+
+async fn wait_for_tool_approval(request_id: &str, call_id: &str, rx: oneshot::Receiver<bool>) -> ToolApprovalDecision {
   let decision = match tokio::time::timeout(Duration::from_secs(CHAT_TOOL_APPROVAL_TIMEOUT_SECS), rx).await {
     Ok(Ok(true)) => ToolApprovalDecision::Approved,
     Ok(Ok(false)) | Ok(Err(_)) => ToolApprovalDecision::Denied,
@@ -2512,17 +2546,6 @@ async fn run_chat_model_round(
   Ok(CompletedChatModelRound { number: round, assistant_message, tool_calls })
 }
 
-fn chat_tool_requires_approval(
-  name: &str,
-  name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
-  config: &Config,
-) -> bool {
-  if let Some(target) = name_map.get(name) {
-    return mcp::server_requires_approval(config, &target.server_id);
-  }
-  false
-}
-
 fn chat_tool_can_run_concurrently(name: &str, name_map: &HashMap<String, mcp::MappedMcpToolTarget>) -> bool {
   match name {
     "infumap_search" | "infumap_get_fragment" => true,
@@ -2546,17 +2569,20 @@ async fn execute_chat_tool_call_with_progress(
   config: &Config,
   infumap_data: Option<&InfumapData>,
   name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
+  approval_required: &HashSet<String>,
   round: usize,
   tool_call: OpenAiToolCall,
   progress: &ChatProgressReporter,
 ) -> InfuResult<OpenAiChatMessage> {
   let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
-  if chat_tool_requires_approval(&tool_call.function.name, name_map, config) {
+  if approval_required.contains(&tool_call.function.name) {
     let (query, url) = web_tool_approval_prompt(&tool_call.function.name, &arguments);
+    let source = name_map.get(&tool_call.function.name).map_or("Infumap", |target| target.server_id.as_str());
+    let decision = register_tool_approval(&progress.request_id, &tool_call.id, &session.user_id);
     progress
-      .tool_approval_required(round, &tool_call.id, &tool_call.function.name, query, url, arguments.clone())
+      .tool_approval_required(round, &tool_call.id, &tool_call.function.name, source, query, url, arguments.clone())
       .await;
-    match wait_for_tool_approval(&progress.request_id, &tool_call.id, &session.user_id).await {
+    match wait_for_tool_approval(&progress.request_id, &tool_call.id, decision).await {
       ToolApprovalDecision::Approved => {}
       decision => {
         let tool_result = tool_error_json(match decision {
@@ -2593,6 +2619,7 @@ async fn execute_chat_tool_round(
   config: &Config,
   infumap_data: Option<&InfumapData>,
   name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
+  approval_required: &HashSet<String>,
   round: usize,
   tool_calls: Vec<OpenAiToolCall>,
   progress: &ChatProgressReporter,
@@ -2602,8 +2629,18 @@ async fn execute_chat_tool_round(
   while let Some(tool_call) = tool_calls.next() {
     if !chat_tool_can_run_concurrently(&tool_call.function.name, name_map) {
       tool_messages.push(
-        execute_chat_tool_call_with_progress(db, session, config, infumap_data, name_map, round, tool_call, progress)
-          .await?,
+        execute_chat_tool_call_with_progress(
+          db,
+          session,
+          config,
+          infumap_data,
+          name_map,
+          approval_required,
+          round,
+          tool_call,
+          progress,
+        )
+        .await?,
       );
       continue;
     }
@@ -2614,7 +2651,17 @@ async fn execute_chat_tool_round(
       concurrent_batch.push(tool_calls.next().expect("peeked tool call must exist"));
     }
     let results = join_all(concurrent_batch.into_iter().map(|tool_call| {
-      execute_chat_tool_call_with_progress(db, session, config, infumap_data, name_map, round, tool_call, progress)
+      execute_chat_tool_call_with_progress(
+        db,
+        session,
+        config,
+        infumap_data,
+        name_map,
+        approval_required,
+        round,
+        tool_call,
+        progress,
+      )
     }))
     .await;
     tool_messages.extend(results.into_iter().collect::<InfuResult<Vec<_>>>()?);
@@ -2629,6 +2676,7 @@ async fn run_chat_stage_with_tools(
   config: &Config,
   infumap_data: Option<&InfumapData>,
   name_map: &HashMap<String, mcp::MappedMcpToolTarget>,
+  approval_required: &HashSet<String>,
   messages: &mut Vec<OpenAiChatMessage>,
   tools: &[OpenAiToolSpec],
   llm_turn: &mut usize,
@@ -2656,6 +2704,7 @@ async fn run_chat_stage_with_tools(
       config,
       infumap_data,
       name_map,
+      approval_required,
       completed_round.number,
       completed_round.tool_calls,
       progress,
@@ -2707,7 +2756,21 @@ async fn prepare_chat_resources(
     let read_only_names: HashSet<&str> = mcp_tools.iter().map(|tool| tool.openai_name.as_str()).collect();
     name_map.retain(|name, _| read_only_names.contains(name.as_str()));
   }
-  Ok(ChatResources { endpoint, infumap_data, mcp_tools, name_map })
+  // Resolve before current attachments are moved into the transcript. The live-chat path also
+  // protects retained attachments. Earlier Infumap retrieval deliberately does not affect this rule.
+  let always_ask = request.settings.configuration.tool_approval == crate::query_configuration::ToolApproval::AlwaysAsk;
+  let private_sources_enabled = infumap_data.is_some() || !request.attachments.is_empty();
+  let mut approval_required: HashSet<String> = name_map
+    .iter()
+    .filter(|(_, target)| {
+      always_ask || mcp::server_requires_approval(config, &target.server_id, private_sources_enabled)
+    })
+    .map(|(name, _)| name.clone())
+    .collect();
+  if always_ask && infumap_data.is_some() {
+    approval_required.extend(["infumap_search".to_owned(), "infumap_get_fragment".to_owned()]);
+  }
+  Ok(ChatResources { endpoint, infumap_data, mcp_tools, name_map, approval_required })
 }
 
 async fn run_chat_with_tools(
@@ -2720,7 +2783,7 @@ async fn run_chat_with_tools(
 ) -> InfuResult<ChatRunResult> {
   reset_llm_log();
 
-  let ChatResources { endpoint, infumap_data, mcp_tools, name_map } = resources;
+  let ChatResources { endpoint, infumap_data, mcp_tools, name_map, approval_required } = resources;
   let mut messages = explicit_wire_messages(&request.messages)?;
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
@@ -2745,6 +2808,7 @@ async fn run_chat_with_tools(
       config.as_ref(),
       infumap_data.as_ref(),
       &name_map,
+      &approval_required,
       &mut messages,
       &tools,
       &mut llm_turn,
@@ -2764,6 +2828,7 @@ async fn run_chat_with_tools(
     config.as_ref(),
     infumap_data.as_ref(),
     &name_map,
+    &approval_required,
     &mut messages,
     &tools,
     &mut llm_turn,
@@ -2782,6 +2847,7 @@ async fn run_chat_with_tools(
     config.as_ref(),
     infumap_data.as_ref(),
     &name_map,
+    &approval_required,
     &mut messages,
     &tools,
     &mut llm_turn,
@@ -3992,7 +4058,7 @@ mod tests {
       .unwrap();
     let request = |model: Value, scope_id: &Uid, capabilities: Value| -> ChatRequest {
       serde_json::from_value(serde_json::json!({
-        "configuration": { "scopeId": scope_id, "model": model, "capabilities": capabilities },
+        "configuration": { "toolApproval": "automatic", "scopeId": scope_id, "model": model, "capabilities": capabilities },
         "appliedProfile": null,
         "mode": "chat",
       }))
@@ -4119,7 +4185,7 @@ mod live_chat_tests {
       "expectedRevision": expected_revision,
       "text": text,
       "configuration": {
-        "scopeId": new_uid(),
+        "toolApproval": "automatic", "scopeId": new_uid(),
         "model": { "backend": "llama:test", "model": null, "reasoningEffort": null },
         "capabilities": ["infumap_data"],
       },
@@ -4539,7 +4605,12 @@ mod live_chat_tests {
       text: text.to_owned(),
       attachments: vec![],
       settings: TurnSettings {
-        configuration: QueryConfiguration { scope_id: None, model: None, capabilities: vec![] },
+        configuration: QueryConfiguration {
+          scope_id: None,
+          model: None,
+          capabilities: vec![],
+          tool_approval: crate::query_configuration::ToolApproval::Automatic,
+        },
         applied_profile: None,
         mode: ChatRunMode::Chat,
       },

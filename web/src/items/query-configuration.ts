@@ -8,6 +8,8 @@ import type { Uid } from "../util/uid";
 /** Stable ID of a configured chat_providers entry. */
 export type ChatBackendId = string;
 
+export type ToolApproval = "automatic" | "always_ask";
+
 /** An explicit provider and model. Chat requires a model ID; null effort uses its default. */
 export interface ChatModelSelection {
   backend: ChatBackendId,
@@ -23,6 +25,7 @@ export interface QueryConfiguration {
   model: ChatModelSelection | null,
   /** Capability IDs: "infumap_data" and configured MCP server IDs. Order has no meaning. */
   capabilities: Array<string>,
+  toolApproval: ToolApproval,
 }
 
 /** A named setup, also recorded in transcripts as the applied snapshot. Pinning, ordering and the default are account preferences. */
@@ -99,6 +102,7 @@ export function cloneQueryConfiguration(configuration: QueryConfiguration): Quer
     scopeId: configuration.scopeId,
     model: configuration.model == null ? null : { ...configuration.model },
     capabilities: [...new Set(configuration.capabilities)],
+    toolApproval: configuration.toolApproval,
   };
 }
 
@@ -110,6 +114,7 @@ export function snapshotQueryProfile(profile: QueryProfile): QueryProfile {
 /** Capability order and duplicate entries cannot make an otherwise identical setup appear modified. */
 export function queryConfigurationsEqual(left: QueryConfiguration, right: QueryConfiguration): boolean {
   if (left.scopeId != right.scopeId) { return false; }
+  if (left.toolApproval != right.toolApproval) { return false; }
   if (left.model == null || right.model == null) {
     if (left.model !== right.model) { return false; }
   } else if (left.model.backend != right.model.backend || left.model.model != right.model.model ||

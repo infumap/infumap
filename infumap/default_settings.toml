@@ -83,6 +83,10 @@
 #]
 # For optional fields or environment variable configuration, see
 # docs/configuration.md.
+# Sources follow the query profile's tool approval policy by default. Set
+# require_approval = true on a source to always ask. external_requests defaults
+# to true; set false only for a trusted source that never forwards arguments
+# outside Infumap's trusted environment. Read-only tool annotations do not affect it.
 
 # Maximum aggregate size (in megabytes) of files in each server cache. Files
 # are removed using an LRU policy if this size is exceeded.

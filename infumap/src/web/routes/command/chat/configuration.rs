@@ -38,11 +38,11 @@ mod tests {
   #[test]
   fn client_settings_are_normalized_before_use() {
     let mut normalized = settings(serde_json::json!({
-      "configuration": { "scopeId": null, "model": null, "capabilities": ["web", "infumap_data", "web"] },
+      "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": ["web", "infumap_data", "web"] },
       "appliedProfile": {
         "id": "0123456789abcdef0123456789abcdef",
         "name": "  Research  ",
-        "configuration": { "scopeId": null, "model": null, "capabilities": ["web", "web"] },
+        "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": ["web", "web"] },
       },
       "mode": "chat",
     }));
@@ -53,9 +53,9 @@ mod tests {
     assert_eq!(profile.configuration.capabilities, ["web"]);
 
     let invalid = [
-      serde_json::json!({ "scopeId": "not-a-uid", "model": null, "capabilities": [] }),
-      serde_json::json!({ "scopeId": null, "model": { "backend": " ", "model": null, "reasoningEffort": null }, "capabilities": [] }),
-      serde_json::json!({ "scopeId": null, "model": null, "capabilities": ["a\u{0}b"] }),
+      serde_json::json!({ "toolApproval": "automatic", "scopeId": "not-a-uid", "model": null, "capabilities": [] }),
+      serde_json::json!({ "toolApproval": "automatic", "scopeId": null, "model": { "backend": " ", "model": null, "reasoningEffort": null }, "capabilities": [] }),
+      serde_json::json!({ "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": ["a\u{0}b"] }),
     ];
     for configuration in invalid {
       let mut rejected =
@@ -63,8 +63,8 @@ mod tests {
       assert!(rejected.normalize().is_err());
     }
     let mut bad_profile = settings(serde_json::json!({
-      "configuration": { "scopeId": null, "model": null, "capabilities": [] },
-      "appliedProfile": { "id": "x", "name": "P", "configuration": { "scopeId": null, "model": null, "capabilities": [] } },
+      "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": [] },
+      "appliedProfile": { "id": "x", "name": "P", "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": [] } },
       "mode": "chat",
     }));
     assert!(bad_profile.normalize().is_err());

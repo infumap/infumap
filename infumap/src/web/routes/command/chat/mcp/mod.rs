@@ -45,6 +45,10 @@ pub struct ChatToolServerInfo {
   pub unavailable_reason: Option<String>,
   #[serde(rename = "enabledByDefault")]
   pub enabled_by_default: bool,
+  #[serde(rename = "requireApproval")]
+  pub require_approval: bool,
+  #[serde(rename = "externalRequests")]
+  pub external_requests: bool,
   pub tools: Vec<client::McpTool>,
 }
 
@@ -154,6 +158,8 @@ pub async fn tool_server_catalog(config: &Config) -> Vec<ChatToolServerInfo> {
       available: snapshot.available,
       unavailable_reason: snapshot.unavailable_reason,
       enabled_by_default: server.enabled_by_default,
+      require_approval: server.require_approval,
+      external_requests: server.external_requests,
       tools,
     }
   }))
@@ -231,9 +237,12 @@ pub fn reserved_openai_names(uses_infumap_data: bool) -> Vec<&'static str> {
   if uses_infumap_data { vec!["infumap_search", "infumap_get_fragment"] } else { Vec::new() }
 }
 
-pub fn server_requires_approval(config: &Config, server_id: &str) -> bool {
+pub fn server_requires_approval(config: &Config, server_id: &str, private_sources_enabled: bool) -> bool {
   match servers_by_id(config) {
-    Ok(by_id) => by_id.get(server_id).map(|server| server.require_approval).unwrap_or(true),
+    Ok(by_id) => by_id
+      .get(server_id)
+      .map(|server| server.require_approval || (private_sources_enabled && server.external_requests))
+      .unwrap_or(true),
     Err(_) => true,
   }
 }

@@ -1276,7 +1276,8 @@ mod tests {
     // The scope is explicit, and the rest of a query's configuration is not part of a search.
     assert!(parse(base()).is_err());
     let mut configuration = with("scopeId", Value::Null);
-    configuration["configuration"] = serde_json::json!({ "scopeId": null, "model": null, "capabilities": [] });
+    configuration["configuration"] =
+      serde_json::json!({ "scopeId": null, "model": null, "capabilities": [], "toolApproval": "automatic" });
     assert!(parse(configuration).is_err());
   }
 

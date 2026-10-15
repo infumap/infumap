@@ -12,6 +12,7 @@
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{Uid, is_uid};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub const MAX_CAPABILITIES: usize = 64;
 pub const MAX_PROFILE_NAME_BYTES: usize = 120;
@@ -46,6 +47,25 @@ pub struct QueryConfiguration {
   pub model: Option<ChatModelSelection>,
   /// Capability IDs: infumap_data and configured MCP server IDs. Order has no meaning.
   pub capabilities: Vec<String>,
+  pub tool_approval: ToolApproval,
+}
+
+/// Automatic execution still asks before external disclosure when private sources are enabled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolApproval {
+  Automatic,
+  AlwaysAsk,
+}
+
+/// Used only by versioned readers/migrations. Current requests and stored records require the field.
+pub(crate) fn upgrade_legacy_configuration(configuration: &mut Value) -> InfuResult<()> {
+  configuration
+    .as_object_mut()
+    .ok_or("Legacy query configuration must be an object.")?
+    .entry("toolApproval")
+    .or_insert_with(|| Value::String("always_ask".to_owned()));
+  Ok(())
 }
 
 impl QueryConfiguration {

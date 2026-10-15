@@ -165,12 +165,6 @@ function queryChatToolCallStatusIconClass(status: QueryChatActivityToolCall["sta
 }
 
 function queryChatToolApprovalPrompt(toolCall: QueryChatActivityToolCall): { label: string, value: string } {
-  if (toolCall.name == "web_fetch") {
-    return { label: "URL", value: toolCall.url ?? "" };
-  }
-  if (toolCall.name == "web_search") {
-    return { label: "Query", value: toolCall.query ?? "" };
-  }
   return { label: "Arguments", value: queryChatPrettyJson(toolCall.arguments ?? {}) };
 }
 
@@ -241,6 +235,7 @@ const QueryChatToolApproval: Component<{
   };
   return (
     <>
+      <div class="mt-1 text-[12px] text-slate-600">Tool source: {props.toolCall.source ?? props.toolCall.name}</div>
       <div class="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
         {prompt().label}
       </div>
@@ -259,7 +254,7 @@ const QueryChatToolApproval: Component<{
               ev.stopPropagation();
               void decide(true);
             }}>
-            OK
+            Allow request
           </button>
           <button
             type="button"
@@ -269,7 +264,7 @@ const QueryChatToolApproval: Component<{
               ev.stopPropagation();
               void decide(false);
             }}>
-            Deny
+            Deny request
           </button>
         </div>
       </Show>

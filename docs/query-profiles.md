@@ -14,7 +14,8 @@ is in `infumap/src/query_configuration.rs`. Chat turn settings use these shared 
     "model": "my-model",
     "reasoningEffort": null
   },
-  "capabilities": ["infumap_data", "web_search", "web_fetch"]
+  "capabilities": ["infumap_data", "web_search", "web_fetch"],
+  "toolApproval": "automatic"
 }
 ```
 
@@ -33,6 +34,10 @@ All configuration fields are explicit, including nullable fields:
   the composer copies the default profile before the first command and sends the selected resources exactly.
 - `capabilities`: enabled capability IDs: `infumap_data` and configured MCP server IDs.
   Array order has no meaning. Search ignores model and capability settings.
+- `toolApproval`: `automatic` or `always_ask`. Automatic runs tools without prompting except for
+  external requests when Infumap tools are enabled or the chat contains attachments. Always ask
+  requires approval for every tool call, including Infumap retrieval. Explicit server approval
+  requirements apply in either mode. Search ignores this setting.
 
 Search / Chat / Deep research is an operation, stored separately from the resource configuration.
 `QueryChatSettings` (Rust `TurnSettings`) is shared by chat requests and transcript settings.
@@ -66,8 +71,9 @@ modified-state detection, request snapshots and restoring recorded configuration
 - `updateQueryConfiguration` and `setQueryConfigurationCapability` edit only the current query.
   Scope, model and tool selectors use this layer and never change the default profile.
 - `appliedSavedProfile` finds the applied profile as it is saved now, or null once it is deleted.
-- `isQueryConfigurationModified` compares the query's setup with that saved profile: scope and model
-  exactly, and capability IDs as sets. Capability ordering and duplicate entries do not count as modifications. Value copies
+- `isQueryConfigurationModified` compares the query's setup with that saved profile: scope, model and
+  approval policy exactly, and capability IDs as sets. Capability ordering and duplicate entries do
+  not count as modifications. Value copies
   deduplicate capability IDs so a source is offered only once.
 - `snapshotQueryChatSettings` captures the selected configuration, applied profile and run mode.
   Sending does not substitute model selections, add tools or change the applied profile.
@@ -84,7 +90,10 @@ query from an explicitly applied, edited or restored setup. Commands wait for in
 scope selection is disabled while it is pending. Late catalog responses never add default tools to
 a selected profile. Changing the default affects future queries; existing queries keep their copies.
 
-Transcript format version 2 uses this configuration shape. There is no migration or legacy reader.
+Transcript format version 3 includes `toolApproval`. Version 2 chats remain readable: missing policies
+in both turn settings and applied profile snapshots become `always_ask`. Reading never rewrites saved
+chats. Existing live version 2 files may contain newly appended turns with explicit approval policies;
+those policies are preserved. Version 1 remains unsupported.
 
 ## Account storage and API
 
@@ -95,9 +104,11 @@ A model favorite identifies a provider/model pair, independent of reasoning effo
 This data is written through the user database log and is included in existing account backups.
 Profile changes mark the account dirty so they trigger the next scheduled backup even without item edits.
 
-The field was added in user log version 7. Existing version 6 logs (`user.json` in each user directory
-and `pending_users.json`) are migrated with `infumap migrate --log-path <log>`, which only changes the
-descriptor. The collection's shape is part of the user log schema: changing it requires a new log
+The field was added in user log version 7. Version 8 adds `toolApproval` to each saved profile.
+Migrate version 7 logs (`user.json` in each user directory and `pending_users.json`) with
+`infumap migrate --log-path <log>`; existing profiles receive `always_ask`. The command migrates one
+version at a time, so version 6 logs need two invocations (the first only changes the descriptor).
+The collection's shape is part of the user log schema: changing it requires a new log
 version and migration. Records are read strictly, with unknown fields rejected.
 
 Every change appends the whole collection to the user log, so the server caps an account at 100
@@ -105,7 +116,8 @@ profiles, 200 model favorites and 64 capabilities per profile. Profile names are
 
 An account with no profile collection gets one persisted, pinned **Default** profile on its first
 profile request. Its configuration uses the first provider with an available model and that provider's
-first model, unrestricted Infumap scope, and Infumap plus configured tools enabled by default.
+first model, unrestricted Infumap scope, Infumap plus configured tools enabled by default, and
+`automatic` tool approvals.
 Explicit model lists preserve their configured order; otherwise initialization uses model discovery
 outside the database lock. It does not probe tool servers. If no model can be found, users choose one
 before Chat; the profile can still be used for Search. Unavailable references remain saved.
@@ -161,7 +173,9 @@ only Scope. Each control is a pill with an icon, sized to its content; the full 
   selections and favorites that disappear from the catalog remain visible with availability information.
 - **Tools** shows the enabled source names, such as **Infumap + Web search**. The popup has a toggle per
   source with its description and availability. **Functions** lists function descriptions, and **Raw
-  schema** their definitions. Selected missing or unavailable sources stay visible and can be disabled.
+  schema** their definitions. **Tool approvals** selects Automatic or Always ask for the current query;
+  saving the query setup to a profile saves this policy too. Source rows identify external disclosure
+  and mandatory approval. Selected missing or unavailable sources stay visible and can be disabled.
 
 `query-configuration-labels.ts` names scopes, models and tools the same way in pills, profile summaries
 and availability messages. Popups refresh their catalogs when opened; there are no refresh buttons.
@@ -224,6 +238,17 @@ chat's setup between turns. Infumap scope is retained when Infumap tools are swi
 active again if those tools are re-enabled. The picker descriptions explain that changes apply from
 the next message: earlier answers, retrieved context and attachments remain part of the conversation.
 Changing scope or disabling tools does not remove information the model has already received.
+Approval decisions use the current turn's Infumap configuration, without tracking earlier Infumap
+retrieval after tools are disabled. Attachments retained in the chat still require external approval,
+because they remain available without a settings change. Users changing settings take responsibility
+for existing context; pasted sensitive text can be protected by selecting Always ask.
+
+Chat and Deep research enforce the same approval rules on the server before tool execution. MCP
+sources are treated as external by default; the trusted `external_requests` server setting can mark
+an internal source. A tool's `readOnlyHint` affects research eligibility and concurrency, never its
+disclosure classification. Approval prompts show the tool source and complete tool arguments, with
+Allow request and Deny request actions. Denial returns a tool error so the model can continue without
+the request.
 
 Submission reserves `chat.requestId` before waiting for transcript/profile loading. This shared runtime
 state prevents overlapping local submissions and keeps every view of the query locked during preparation

@@ -45,7 +45,7 @@ use crate::util::fs::expand_tilde;
 /// migration pass. Bump the version and have `parse_transcript` read every earlier version, mapping
 /// old records to something sensible. The turn settings embed `QueryConfiguration` and `QueryProfile`
 /// from `query_configuration.rs`, so changing those types is a transcript format change too.
-pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 2;
+pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 3;
 const CHATS_DIR_NAME: &str = "chats";
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -180,6 +180,8 @@ pub(super) struct ActivityToolCall {
   #[serde(rename = "callId")]
   pub(super) call_id: String,
   pub(super) name: String,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(super) source: Option<String>,
   pub(super) status: ActivityToolCallStatus,
   #[serde(default)]
   pub(super) summary: Option<String>,
@@ -322,7 +324,7 @@ pub(super) fn parse_transcript(bytes: &[u8]) -> InfuResult<Option<Transcript>> {
   let mut lines = complete[..complete.len() - 1].split(|byte| *byte == b'\n').enumerate();
   let mut transcript = match lines.next().map(|(_, line)| serde_json::from_slice::<TranscriptRecord>(line)) {
     Some(Ok(TranscriptRecord::Header(header))) => {
-      if header.version != TRANSCRIPT_FORMAT_VERSION {
+      if !matches!(header.version, 2 | TRANSCRIPT_FORMAT_VERSION) {
         return Err(format!("Unsupported transcript format version {}.", header.version).into());
       }
       Transcript { header, turns: vec![] }
@@ -332,11 +334,32 @@ pub(super) fn parse_transcript(bytes: &[u8]) -> InfuResult<Option<Transcript>> {
     None => return Ok(None),
   };
   for (index, line) in lines {
-    let record = serde_json::from_slice::<TranscriptRecord>(line)
+    let record = parse_transcript_record(line, transcript.header.version)
       .map_err(|e| format!("Malformed transcript record on line {}: {}", index + 1, e))?;
     transcript.apply(record).map_err(|e| format!("Transcript line {}: {}", index + 1, e))?;
   }
   Ok(Some(transcript))
+}
+
+/// Version 2 has no approval setting. Preserve its conservative behavior without rewriting saved
+/// chats. A live version 2 file can contain new turns too; explicitly recorded policies are retained.
+fn parse_transcript_record(line: &[u8], version: u32) -> InfuResult<TranscriptRecord> {
+  if version != 2 {
+    return Ok(serde_json::from_slice(line)?);
+  }
+  let mut record: Value = serde_json::from_slice(line)?;
+  if record.get("type").and_then(Value::as_str) == Some("user") {
+    let settings = record.get_mut("settings").ok_or("Transcript settings are missing.")?;
+    crate::query_configuration::upgrade_legacy_configuration(
+      settings.get_mut("configuration").ok_or("Transcript configuration is missing.")?,
+    )?;
+    if let Some(profile) = settings.get_mut("appliedProfile").filter(|profile| !profile.is_null()) {
+      crate::query_configuration::upgrade_legacy_configuration(
+        profile.get_mut("configuration").ok_or("Profile configuration is missing.")?,
+      )?;
+    }
+  }
+  Ok(serde_json::from_value(record)?)
 }
 
 /// Reads a transcript without the chat lock. A record being appended concurrently is an incomplete
@@ -623,7 +646,12 @@ mod tests {
       text: text.to_owned(),
       attachments: vec![],
       settings: TurnSettings {
-        configuration: QueryConfiguration { scope_id: None, model: None, capabilities: vec![] },
+        configuration: QueryConfiguration {
+          scope_id: None,
+          model: None,
+          capabilities: vec![],
+          tool_approval: crate::query_configuration::ToolApproval::Automatic,
+        },
         applied_profile: None,
         mode: ChatRunMode::Chat,
       },
@@ -661,6 +689,7 @@ mod tests {
         tool_calls: vec![ActivityToolCall {
           call_id: "c1".to_owned(),
           name: "search".to_owned(),
+          source: None,
           status: ActivityToolCallStatus::Complete,
           summary: Some("3 results".to_owned()),
           arguments: Some(serde_json::json!({ "query": "x" })),
@@ -795,7 +824,7 @@ mod tests {
 
   #[test]
   fn user_record_without_attachments_parses_and_omits_them() {
-    let line = r#"{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{"configuration":{"scopeId":null,"model":null,"capabilities":[]},"appliedProfile":null,"mode":"chat"}}"#;
+    let line = r#"{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{"configuration":{"toolApproval": "automatic", "scopeId":null,"model":null,"capabilities":[]},"appliedProfile":null,"mode":"chat"}}"#;
     let TranscriptRecord::User(user) = serde_json::from_str::<TranscriptRecord>(line).unwrap() else {
       panic!("expected a user record");
     };

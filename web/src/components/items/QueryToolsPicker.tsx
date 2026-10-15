@@ -3,7 +3,9 @@
 import { For, Show, createMemo, onMount } from "solid-js";
 import { queryChatCapabilities, setQueryChatUsesCapability } from "../../items/chat";
 import { getQueryRuntime } from "../../items/query-item";
-import { queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
+import { queryConfigurationChangeBlockedReason, updateQueryConfiguration } from "../../items/query-configuration-state";
+import { queryToolApprovalLabel } from "../../items/query-configuration-labels";
+import type { ToolApproval } from "../../items/query-configuration";
 import { queryConfigurationIssues } from "../../items/query-configuration-availability";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
@@ -20,6 +22,8 @@ interface ToolSource {
   available: boolean,
   reason: string | null,
   tools: Array<Record<string, unknown>>,
+  requireApproval: boolean,
+  externalRequests: boolean,
 }
 
 function toolFunction(tool: Record<string, unknown>): Record<string, unknown> {
@@ -42,6 +46,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
   const store = useStore();
   onMount(() => { void store.general.queryProfiles.retrieve(); void store.general.retrieveChatBackends(); });
   const enabled = createMemo(() => new Set(queryChatCapabilities(store, props.queryItem())));
+  const approval = () => getQueryRuntime(store, props.queryItem()).configuration.toolApproval;
   const issues = () => queryConfigurationIssues(store, getQueryRuntime(store, props.queryItem()).configuration, "chat").filter(issue => issue.resource == "tools");
   const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
   const lockedReason = () => queryConfigurationChangeBlockedReason(store, props.queryItem()) ??
@@ -51,7 +56,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
     const catalog = store.general.chatBackends();
     const result: ToolSource[] = [{ id: "infumap_data", label: "Infumap",
       description: "Find and read your Infumap items within the selected scope.",
-      available: true, reason: null, tools: catalog?.infumapTools ?? [] }];
+      available: true, reason: null, tools: catalog?.infumapTools ?? [], requireApproval: false, externalRequests: false }];
     for (const server of catalog?.toolServers ?? []) {
       const names = server.tools.map(functionName);
       const webSearch = names.includes("web_search");
@@ -61,19 +66,22 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
       result.push({ id: server.id, label: server.id,
         description: webDescription != null ? webDescription
           : server.tools.length > 0 ? server.tools.slice(0, 2).map(functionTitle).join(" · ") : "",
-        available: server.available, reason: server.unavailableReason ?? null, tools: server.tools });
+        available: server.available, reason: server.unavailableReason ?? null, tools: server.tools,
+        requireApproval: server.requireApproval, externalRequests: server.externalRequests });
     }
     for (const id of enabled()) {
       if (!result.some(source => source.id == id)) {
         result.push({ id, label: id, description: "This saved tool source is not in the current configuration.",
-          available: false, reason: catalog == null || store.general.chatBackendsError() != null ? "Could not verify this tool source" : "Not configured", tools: [] });
+          available: false, reason: catalog == null || store.general.chatBackendsError() != null ? "Could not verify this tool source" : "Not configured",
+          tools: [], requireApproval: false, externalRequests: true });
       }
     }
     return result;
   });
   const selected = () => sources().filter(source => enabled().has(source.id));
   const summary = () => !ready() ? store.general.queryProfiles.error() == null ? "Loading…" : "Unavailable" : selected().length == 0 ? "No tools" : selected().map(source => source.label).join(" + ");
-  const title = () => [`Tools: ${summary()}`, ...issues().map(issue => issue.message), lockedReason(), props.note?.()].filter(Boolean).join("\n");
+  const title = () => [`Tools: ${summary()}`, `Tool approvals: ${queryToolApprovalLabel(approval())}`,
+    ...issues().map(issue => issue.message), lockedReason(), props.note?.()].filter(Boolean).join("\n");
 
   return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey}
     buttonClass="max-w-[240px] shrink-[2] cursor-pointer" ariaLabel="Choose tools" title={title()}
@@ -92,6 +100,21 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
         <For each={issues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
       </div>
       <div class="min-h-0 grow overflow-y-auto py-1">
+        <fieldset class="border-b border-slate-200 px-3 py-2" disabled={locked()}>
+          <legend class="px-0 pt-2 text-[12px] font-medium text-slate-600">Tool approvals</legend>
+          <For each={[
+            { value: "automatic" as ToolApproval, label: "Automatic", description: "Run tools automatically. Ask before external requests when Infumap tools are enabled or the chat contains attachments." },
+            { value: "always_ask" as ToolApproval, label: "Always ask", description: "Ask before every tool call, including Infumap retrieval." },
+          ]}>{option => <label class="flex cursor-pointer items-start gap-2 py-1 text-[13px]">
+            <input type="radio" name={`tool-approval-${props.queryItem().id}`} class="mt-1 accent-slate-700"
+              checked={approval() == option.value} disabled={locked()} onChange={() => {
+                if (locked()) { return; }
+                props.beforeChange?.();
+                updateQueryConfiguration(store, props.queryItem(), { toolApproval: option.value });
+              }} />
+            <div><div>{option.label}</div><div class="text-[11px] text-slate-500">{option.description}</div></div>
+          </label>}</For>
+        </fieldset>
         <Show when={store.general.queryProfiles.error()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.queryProfiles.error()}</div></Show>
         <Show when={store.general.chatBackendsError()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.chatBackendsError()}</div></Show>
         <Show when={store.general.chatBackends() == null && store.general.chatBackendsError() == null}>
@@ -111,6 +134,8 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
             <div class="min-w-0 grow">
               <div class="flex items-center gap-1.5"><i class={source.id == "infumap_data" ? "bi-database shrink-0 text-[12px]" : "bi-tools shrink-0 text-[12px]"} /><span class="min-w-0 break-words">{source.label}</span></div>
               <Show when={source.description != ""}><div class="text-[11px] text-slate-500">{source.description}</div></Show>
+              <Show when={source.requireApproval}><div class="text-[11px] text-slate-500">Always requires approval.</div></Show>
+              <Show when={source.externalRequests && !source.requireApproval}><div class="text-[11px] text-slate-500">May send arguments to external services.</div></Show>
               <Show when={!source.available}><div class="text-[11px] text-amber-700">{store.general.chatBackendsRefreshing() ? "Checking availability…" : source.reason ?? "Unavailable"}</div></Show>
             </div>
           </label>
