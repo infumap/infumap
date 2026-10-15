@@ -111,7 +111,10 @@ impl BrowserRenderer {
       if response.is_closed() || Instant::now() >= deadline {
         result = Err("Browser fetch was cancelled or exceeded its overall deadline.".into());
       }
-      if result.is_err() {
+      if let Err(error) = &result {
+        // Log the operation error before cleanup adds unrelated Chrome exit
+        // diagnostics. Operators may only have the server log, not MCP output.
+        log::warn!("Browser fetch failed: {error}");
         state.readiness.store(2, Ordering::Relaxed);
         // This also disposes contexts whose creation was interrupted before a
         // context ID arrived. Do not reuse an uncertain/unresponsive browser.
@@ -216,7 +219,9 @@ impl OwnedBrowser {
       // Chromiumoxide adds "--" to keys and "=" before tuple values.
       .arg(("proxy-server", format!("http://{}", self.proxy.address).as_str()))
       .arg(("proxy-bypass-list", "<-loopback>"))
-      .arg(("host-resolver-rules", "MAP * ~NOTFOUND"))
+      // Chromium applies these rules to IP literals too. The owned proxy's
+      // loopback address must remain reachable while destination DNS is blocked.
+      .arg(("host-resolver-rules", "MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"))
       .arg("disable-quic")
       .arg("disable-background-networking")
       .arg("disable-component-update")
@@ -539,14 +544,17 @@ async fn intercept(
       .map_err(|error| format!("Could not continue browser request: {error}"))?;
     return Ok(None);
   }
-  let status = event.response_status_code.unwrap_or(0);
-  if !top || (300..400).contains(&status) {
+  if top && let Some(reason) = &event.response_error_reason {
+    return Err(format!("Browser document request failed: {} (no HTTP response).", reason.as_ref()).into());
+  }
+  if !top || event.response_status_code.is_some_and(|status| (300..400).contains(&status)) {
     page
       .execute(fetch::ContinueRequestParams::new(event.request_id.clone()))
       .await
       .map_err(|error| format!("Could not continue browser response: {error}"))?;
     return Ok(None);
   }
+  let status = event.response_status_code.ok_or("Browser document response has no HTTP status code.")?;
   assert_public_destination(&url).await?;
   if !(200..300).contains(&status) {
     return Err(format!("Failed to fetch URL: HTTP {status}").into());

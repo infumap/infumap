@@ -68,8 +68,11 @@ additional boundary; Chrome's own sandbox remains required on both platforms.
    `data:`, `blob:` and `about:` child content may render, but any network
    requests it initiates encounter the same platform-specific proxy/OS policy. WebSocket URLs
    receive the corresponding HTTP/HTTPS address checks. Proxy flags supply no
-   DIRECT fallback and remove implicit loopback bypass; local name resolution
-   and QUIC are disabled. Explicit launch options preserve popup and IPC
+   DIRECT fallback and remove implicit loopback bypass. Browser-side destination
+   name resolution is blocked, with only the owned proxy's `127.0.0.1` address
+   excluded from the resolver block; QUIC is disabled. The resolver exclusion
+   allows Chrome to reach the proxy itself and grants no private document
+   destination access. Explicit launch options preserve popup and IPC
    flooding protections that the library's default automation flags disabled.
    On Linux, these flags and request interception are defense in depth; OS
    confinement covers workers and browser-created targets outside the page's

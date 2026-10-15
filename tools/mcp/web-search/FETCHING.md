@@ -179,6 +179,11 @@ DevTools connects. Failed fetches include the last 8 KiB of stderr in the
 returned error and server logs, along with the underlying control-connection
 error when available. This captures Chrome and sandbox diagnostics that would
 otherwise be lost after startup.
+The server logs `Browser fetch failed: ...` before cleanup, separately from
+`Fetch browser stderr after failure: ...`; the first identifies the operation
+that failed, while the stderr tail may also contain messages from shutdown.
+Failed document requests report Chrome's network failure reason, such as
+`NameNotResolved` or `ConnectionRefused`, rather than a synthetic `HTTP 0`.
 
 Validation performed during implementation is production Linux compilation and
 linting, formatting, shell/Python syntax and TOML parsing. No tests or browser,
