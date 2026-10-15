@@ -34,7 +34,13 @@ Environment:
 - `WEB_SEARCH_BIN` — path to a prebuilt binary; skips `cargo build`
 - `WEB_SEARCH_RESTART_DELAY_SECS` (default `5`) — used by `run.sh` only
 
-The MCP endpoint is `http://$WEB_SEARCH_HOST:$WEB_SEARCH_PORT/mcp`.
+The MCP endpoints share one process and port:
+
+- `http://$WEB_SEARCH_HOST:$WEB_SEARCH_PORT/mcp/search` exposes only `infumap_web_search`.
+- `http://$WEB_SEARCH_HOST:$WEB_SEARCH_PORT/mcp/fetch` exposes only `infumap_web_fetch`.
+
+Each endpoint advertises and accepts only its own tool. There is no combined
+`/mcp` endpoint or alias for the previous tool names.
 
 ## Search provider configuration
 
@@ -86,7 +92,7 @@ already has an Exa key:
 env -u EXA_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
 ```
 
-The server starts and `fetch_page` remains available. `web_search` returns a
+The server starts and `infumap_web_fetch` remains available. `infumap_web_search` returns a
 short MCP tool error saying search is unavailable. `/status` shows
 `search_available: false`, both providers disabled, and a configuration error.
 No metered budget directory is created. Other malformed environment settings
@@ -147,7 +153,7 @@ Attempts with uncertain billing, including HTTP 401 and 402, conservatively comm
 their reserved cost. Correcting a key and restarting preserves that consumption.
 When fallback succeeds, the MCP result contains that provider's normal results;
 logs and `/status` expose failures of the earlier provider. If no provider can
-serve the call, `web_search` returns `isError: true` with a short unavailability
+serve the call, `infumap_web_search` returns `isError: true` with a short unavailability
 message. Provider failure and skip reasons remain in server logs and local status.
 A successful empty result does not trigger fallback.
 
@@ -418,20 +424,27 @@ undocumented DuckDuckGo endpoint.
 
 ## Infumap configuration
 
-Point Infumap at it:
+Configure the endpoints as separate tool sources:
 
 ```toml
 chat_tool_servers = [
-  { id = "web_search", url = "http://127.0.0.1:8791/mcp", label = "Web search" },
+  { id = "web_search", url = "http://127.0.0.1:8791/mcp/search", label = "Web search" },
+  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch", label = "Web fetch" },
 ]
 ```
+
+Enable either source independently in Infumap. Omit either entry to use only
+search or fetch, or point either entry at another MCP server to use a different
+provider for that operation.
 
 ## Inspector
 
 With the server running:
 
 ```bash
-npx @modelcontextprotocol/inspector http://127.0.0.1:8791/mcp
+npx @modelcontextprotocol/inspector http://127.0.0.1:8791/mcp/search
+# To inspect fetch instead:
+npx @modelcontextprotocol/inspector http://127.0.0.1:8791/mcp/fetch
 ```
 
 Methods implemented: `initialize`, `notifications/initialized`, `tools/list`,
@@ -440,13 +453,13 @@ this is a localhost sidecar.
 
 ## Tools
 
-- `web_search` — `{ query, numResults? }`
-- `fetch_page` — `{ url, maxChars? }`
+- `infumap_web_search` at `/mcp/search` — `{ query, numResults? }`
+- `infumap_web_fetch` at `/mcp/fetch` — `{ url, maxChars? }`
 
 The model-facing descriptions explain that searches may consume limited provider
 credits. They encourage focused queries, reuse of existing results and fetching
 known URLs or result links when snippets lack detail. Further searches remain
-appropriate when existing results do not answer the question. `fetch_page` reads
+appropriate when existing results do not answer the question. `infumap_web_fetch` reads
 pages directly without consuming search-provider credits.
 
 `numResults` defaults to five. Its description advises requesting only as many
@@ -454,4 +467,4 @@ results as needed, explains that larger requests may use more credits, and notes
 that providers may return fewer results. This guidance is advisory; the server
 enforces budgets and fallback independently.
 
-`fetch_page` refuses loopback, link-local, and metadata addresses.
+`infumap_web_fetch` refuses loopback, link-local, and metadata addresses.

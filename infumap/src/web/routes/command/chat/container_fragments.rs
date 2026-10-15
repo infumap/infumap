@@ -39,7 +39,7 @@ use crate::web::routes::command::search::{normalized_search_terms, sentence_matc
 use futures_util::{StreamExt, stream};
 use infusdk::item::{NoteFlags, NoteUrl};
 
-/// Body text per fragment, excluding its header. The same budget get_fragment applies to documents.
+/// Body text per fragment, excluding its header. The same budget infumap_get_fragment applies to documents.
 const FRAGMENT_MAX_CHARS: usize = CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS;
 /// Notes outside document pages are cut here; their full text is read as fragments of the note.
 const NOTE_INLINE_MAX_CHARS: usize = 600;
@@ -248,7 +248,7 @@ pub(super) async fn hit_listings(
       rendered.insert(container_id.clone(), container_fragments(db, access, container_id).await.ok());
     }
   }
-  // Rendered as get_fragment renders them, so the counts agree with what reading them gives.
+  // Rendered as infumap_get_fragment renders them, so the counts agree with what reading them gives.
   for container_id in &container_item_ids {
     if let Some(fragments) = rendered.get(container_id).and_then(Option::as_ref) {
       counts.insert(container_id.clone(), fragments.fragments.len());

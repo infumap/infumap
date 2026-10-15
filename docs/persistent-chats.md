@@ -268,7 +268,7 @@ Chats should be searchable. Do it for persisted chats first and defer live chat 
   ordinary plain-text indexer.
 - **Index only the visible user and final assistant text.** Don't index reasoning, tool results, fetched web
   pages or activity records. This keeps search focused on the conversation.
-- **Keep chats out of the model's `search` tool by default.** Otherwise a model finds its own earlier answers,
+- **Keep chats out of the model's `infumap_search` tool by default.** Otherwise a model finds its own earlier answers,
   including made-up ones, and cites them as sources. This matters most for weak models.
 
 Scopes constrain retrieval, not information already copied into a conversation. Continuing a chat under a
@@ -279,7 +279,7 @@ Live chats are not found by search, neither the user's nor the model's. Their ti
 covers any item with a non-empty title, and query items have titles since step 2), but a search without a scope covers
 the home page tree, and the Queries page is a separate root page outside it (`search_bounds` in
 [search.rs](../infumap/src/web/routes/command/search.rs)). (An earlier version of this section said live chat titles
-reached the model's `search` tool; they do not.) Indexing live chat content is deferred too: the content changes on
+reached the model's `infumap_search` tool; they do not.) Indexing live chat content is deferred too: the content changes on
 every turn, so its fragments would be regenerated repeatedly, and the Queries page list already covers finding a recent
 chat.
 
@@ -467,13 +467,13 @@ the chat route ignores requests without a query item id.
     were copied into a page; a plain drag changed nothing. In the test, with the chat view scrolled, hovering a turn
     did not show its handle; not investigated, and possibly a test artifact.
 13. **Search for persisted chats.** Chat content-kind recognition, visible-text fragments, reconciliation and
-    source-kind support, excluded from the model's `search` tool by default.
+    source-kind support, excluded from the model's `infumap_search` tool by default.
     Done 2026-10-13: the chat MIME type is a content kind and a document fragment kind, with the `chat` fragment
     source kind, allowed in the lexical index. Its source is the local text copy (the transcript's bytes, which also
     fingerprint it), as for Markdown and text, and its fragments come from `chat_visible_text` in
     [markdown.rs](../infumap/src/ai/fragment/sources/markdown.rs): each turn's user text and completed answer,
     without labels, through the Markdown fragmenter. Reconciliation expects `chat` fragments for a chat, never
-    `text`. The chat's `search` tool sets `exclude_chats` on its search, so no persisted chat is returned to the model;
+    `text`. The chat's `infumap_search` tool sets `exclude_chats` on its search, so no persisted chat is returned to the model;
     the user's search is unchanged and finds them. The exclusion is not optional for the model yet. Checked end to
     end: a persisted chat's fragments held only the visible conversation, startup reconciliation accepted them, and
     the user's search found the chat by words only in its content.
@@ -483,7 +483,7 @@ the chat route ignores requests without a query item id.
     [data.md](data.md) describes `chats/` as primary data that is not backed up, regenerated or encrypted;
     [security.md](security.md) and [scopes.md](scopes.md) note the plaintext storage and the scope limit; and
     [chat-tools.md](chat-tools.md) describes the server-kept transcript, the exclusion of persisted chats from
-    `search`, and `get_fragment` on a `.chat` item. The backup caveat is also in the UI: a muted crossed-out cloud
+    `infumap_search`, and `infumap_get_fragment` on a `.chat` item. The backup caveat is also in the UI: a muted crossed-out cloud
     with an explanatory tooltip in the settings row of a chat in the Queries page that has content.
     Also done afterwards: turns on a `.chat` item's page can be shift-dragged out, as in the chat window (turn roots
     there get `readonlyCopyableCapabilities` in `createChatDocumentItems`).

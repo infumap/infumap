@@ -41,16 +41,16 @@ function queryChatRoundHasContent(round: QueryChatActivityModelRound): boolean {
 function queryChatToolDisplayName(name: string): string {
   switch (name) {
     case "find":
-    case "search":
+    case "infumap_search":
     case "lexical_search":
       return "Search Infumap";
     case "search_text":
       return "Search source text";
-    case "get_fragment":
+    case "infumap_get_fragment":
       return "Read Infumap item";
-    case "web_search":
+    case "infumap_web_search":
       return "Search the web";
-    case "fetch_page":
+    case "infumap_web_fetch":
       return "Fetch page";
     default:
       return name.replaceAll("_", " ");
@@ -107,14 +107,14 @@ function queryChatToolDurationLabel(durationMs: number): string {
 
 function queryChatToolCallSignature(name: string, args: unknown): string | null {
   const record = queryChatJsonRecord(args);
-  if (name == "search" || name == "lexical_search" || name == "find") {
+  if (name == "infumap_search" || name == "lexical_search" || name == "find") {
     const query = queryChatJsonString(record?.text) ?? queryChatJsonString(record?.query);
     if (query == null) {
       return record == null ? null : `${name}()`;
     }
     return `${name}(${JSON.stringify(query)})`;
   }
-  if (name == "get_fragment") {
+  if (name == "infumap_get_fragment") {
     const link = queryChatJsonString(record?.link);
     const ordinal = queryChatJsonNumber(record?.fragmentOrdinal) ?? queryChatJsonNumber(record?.ordinal);
     const count = queryChatJsonNumber(record?.count);
@@ -130,14 +130,14 @@ function queryChatToolCallSignature(name: string, args: unknown): string | null 
     }
     return parts.length == 0 ? `${name}()` : `${name}(${parts.join(", ")})`;
   }
-  if (name == "web_search") {
+  if (name == "infumap_web_search") {
     const query = queryChatJsonString(record?.query) ?? queryChatJsonString(record?.text);
     if (query == null) {
       return record == null ? null : `${name}()`;
     }
     return `${name}(${JSON.stringify(query)})`;
   }
-  if (name == "fetch_page") {
+  if (name == "infumap_web_fetch") {
     const url = queryChatJsonString(record?.url);
     if (url == null) {
       return record == null ? null : `${name}()`;
@@ -165,10 +165,10 @@ function queryChatToolCallStatusIconClass(status: QueryChatActivityToolCall["sta
 }
 
 function queryChatToolApprovalPrompt(toolCall: QueryChatActivityToolCall): { label: string, value: string } {
-  if (toolCall.name == "fetch_page") {
+  if (toolCall.name == "infumap_web_fetch") {
     return { label: "URL", value: toolCall.url ?? "" };
   }
-  if (toolCall.name == "web_search") {
+  if (toolCall.name == "infumap_web_search") {
     return { label: "Query", value: toolCall.query ?? "" };
   }
   return { label: "Arguments", value: queryChatPrettyJson(toolCall.arguments ?? {}) };

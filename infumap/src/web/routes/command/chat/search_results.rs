@@ -17,7 +17,7 @@
 //! search tool results as one line each.
 //!
 //! A line is the hit's location, outermost first, then the hit. Titles above the page or table listing the hit are
-//! plain text. From that container down every item is a link, so get_fragment can read any of them, and the
+//! plain text. From that container down every item is a link, so infumap_get_fragment can read any of them, and the
 //! container says which of its fragments lists the hit when that is past the first. A group the hit is in follows
 //! its page, and a page linked from elsewhere is followed by where. The hit is a linked label
 //! saying what it is, or a table row with its cells. A document hit ends with its best matching sentence and that
@@ -104,7 +104,7 @@ fn result_line(result: &SearchResult, listings: &HashMap<Uid, HitListing>) -> Op
 }
 
 /// The best match in the hit's document text. A title match repeats the title, and its ordinal is the title
-/// index's, which get_fragment cannot read.
+/// index's, which infumap_get_fragment cannot read.
 fn document_match(result: &SearchResult) -> Option<&SearchFragmentMatch> {
   std::iter::once(&result.fragment_match)
     .flatten()

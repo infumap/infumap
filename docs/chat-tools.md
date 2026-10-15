@@ -2,8 +2,8 @@
 
 Chats with the Infumap data source enabled have two built-in read-only tools:
 
-- `search`: find items using their titles and indexed document text.
-- `get_fragment`: read any item a fragment at a time: documents, images, notes, and pages, tables and
+- `infumap_search`: find items using their titles and indexed document text.
+- `infumap_get_fragment`: read any item a fragment at a time: documents, images, notes, and pages, tables and
   composites.
 
 Choose capability sources in the independent **Tools** control, or apply a named
@@ -14,15 +14,15 @@ sending. The server rejects an unavailable selected source instead of silently o
 **Functions** and **Raw schema** in the picker show what each source exposes. Additional MCP sources
 are configured on the server; see [MCP tools](../tools/mcp/README.md).
 
-The same tools can be called without an LLM using `infumap tool search "query"` or
-`infumap tool get_fragment infumap://<id>`. See [CLI commands](cli.md#tool) for options.
+The same tools can be called without an LLM using `infumap tool infumap_search "query"` or
+`infumap tool infumap_get_fragment infumap://<id>`. See [CLI commands](cli.md#tool) for options.
 
 Both are designed to keep tool results small, because results stay in the chat transcript and weaker
 models have little context to spare. Results are plain text, not JSON: Markdown escaped inside JSON
 strings is harder for small models to read, and they sometimes copy the escapes into answers. Errors
 are JSON, `{"error": "…"}`, as for every other tool. A result with more to read ends with a line
 saying which call to make next, naming the tool, such as
-`For more results, call search again with the same arguments and pageNum 2.` Items are
+`For more results, call infumap_search again with the same arguments and pageNum 2.` Items are
 identified everywhere by a `link`, `infumap://<id>`: tool results give it, tool arguments take it, and
 the model copies it into its answer as a citation.
 
@@ -75,10 +75,10 @@ A chat request may name a [scope](scopes.md) with `configuration.scopeId`. The s
 starts; an unknown or deleted scope fails the request rather than widening it. Every tool then
 applies it:
 
-- `search` returns only items in the scope. A `within` argument narrows it further. A result
+- `infumap_search` returns only items in the scope. A `within` argument narrows it further. A result
   whose listing container is outside the scope, such as an include root itself, has no links in its
   location.
-- `get_fragment` reports an item outside the scope as not found. A container's fragments omit
+- `infumap_get_fragment` reports an item outside the scope as not found. A container's fragments omit
   children and attachments outside the scope, and a link whose target is outside it is shown as
   `(unavailable link)`.
 
@@ -99,7 +99,7 @@ Infumap data source is disabled.
 
 `text` is required. Results come 10 to a page; `pageNum` defaults to 1.
 
-Persisted chats (`.chat` items) are never returned, by the tool, `POST /chat/tool` or `infumap tool search`.
+Persisted chats (`.chat` items) are never returned, by the tool, `POST /chat/tool` or `infumap tool infumap_search`.
 Otherwise a model finds its own earlier answers, including made-up ones, and cites them as sources; weak models do
 this most. The search box in the UI does return them. Chats in the Queries page are outside the home page tree, so
 no search returns them. There is no argument for the
@@ -123,19 +123,19 @@ search box in the UI ranks results the same way.
 
 Each result is one line of text, and `No results.` stands for none. When there are more pages, a
 blank line and this follow:
-`For more results, call search again with the same arguments and pageNum N.`
+`For more results, call infumap_search again with the same arguments and pageNum N.`
 
 ```
 root › travel › [malaysia](infumap://<page id>) › [composite](infumap://<id>) › [Cocktails at Four Seasons](infumap://<id>)
 Home › Projects › [Tasks](infumap://<table id>) (fragment 4) › [Acme onboarding](infumap://<id>) | Active | 2026-01-03
 Home › [Reports](infumap://<page id>) › [annual.pdf](infumap://<id>) (file, application/pdf, 312 fragments) — fragment 200: …a drink stall opened in FY2025…
 
-For more results, call search again with the same arguments and pageNum 2.
+For more results, call infumap_search again with the same arguments and pageNum 2.
 ```
 
 - The line starts with the result's location, outermost first. Titles above the page or table whose
   fragments list the result are plain text. From that container down, every item is a link that
-  `get_fragment` can read: the container, any composite or item the result belongs to, and the
+  `infumap_get_fragment` can read: the container, any composite or item the result belongs to, and the
   result itself. Attachments and composite members belong to the item or composite they are part of,
   so a table cell's container is its row's table. A page or table result is listed by its parent.
   A group comes after its page when the result, or the item holding it, is one of its members.
@@ -162,7 +162,7 @@ For more results, call search again with the same arguments and pageNum 2.
   `(table, 11 fragments; columns: Name | Status)`, not its items or rows as container fragments do.
   A search result is for deciding what to read, and the fragment count says how much reading that
   is. Items and rows are given where the model reads the container, so no line carries two counts a
-  weak model could mix up. The count is exact: the container is rendered as `get_fragment` renders
+  weak model could mix up. The count is exact: the container is rendered as `infumap_get_fragment` renders
   it, once per page or table result, and an empty one is `1 fragment`.
 - A table row, or a cell of one, is shown as the whole row with its cells, cut at 300 characters. A
   row and its cell give the same line, which is listed once.
@@ -192,9 +192,9 @@ For more results, call search again with the same arguments and pageNum 2.
   the page directly above the linked page adds nothing and is left out, and a place is given once on
   a line, never when the location names it already.
 - `— fragment N: …` ends a result whose document text matched: its best matching sentence, cut to
-  about 220 characters around the first query word, and the fragment holding it, for `get_fragment`.
+  about 220 characters around the first query word, and the fragment holding it, for `infumap_get_fragment`.
   Only files, text items and images have document text; notes, pages and tables match by their titles.
-  Page numbers are left out; `get_fragment` gives them when the passage is read.
+  Page numbers are left out; `infumap_get_fragment` gives them when the passage is read.
 
 Containers are rendered from the live database when the search runs, while the search index can lag
 edits by several minutes. A moved item links its new container, and a deleted item links none.
@@ -232,7 +232,7 @@ the item's link and kind, ` in ` and its breadcrumb, then ` · fragment N of 0�
 more than one fragment. An item with attachments has an `attached: …` line after the header, as its
 listing shows them, since its own text never mentions them: a note holding a page would otherwise
 show no sign of it. While fragments remain, a blank line and
-`The item continues. For the next fragment, call get_fragment again with fragmentOrdinal N.` end the
+`The item continues. For the next fragment, call infumap_get_fragment again with fragmentOrdinal N.` end the
 result, and following it until it is absent reads the whole item.
 
 ```
@@ -241,7 +241,7 @@ result, and following it until it is absent reads the whole item.
 …text…
 </fragment>
 
-The item continues. For the next fragment, call get_fragment again with fragmentOrdinal 201.
+The item continues. For the next fragment, call infumap_get_fragment again with fragmentOrdinal 201.
 ```
 
 - The tags are there because a fragment's text is whatever the user wrote, full of blank lines and
@@ -281,7 +281,7 @@ How items appear:
 - Note labels are plain: Markdown that notes pasted from documents carry is dropped from them. Heading,
   list and quote markers, `**`, `__`, backticks and table separator lines go; links and images become
   their text; table cells and lines are joined with ` · `. Plain text keeps its words: only a
-  line-leading `# ` is a heading, and a single `*` or `_` stays. Note text itself, as `get_fragment`
+  line-leading `# ` is a heading, and a single `*` or `_` stays. Note text itself, as `infumap_get_fragment`
   reads it or a document page shows it, is unchanged.
 - Notes whose label is up to 80 characters are links: `- [Buy milk](infumap://<id>) (note)`, followed
   by `<url>` for each URL in the note, including those of Markdown links the label dropped. Longer
@@ -345,13 +345,13 @@ session. It does not invoke an LLM or an external MCP tool. The request is a JSO
 
 ```json
 {
-  "name": "get_fragment",
+  "name": "infumap_get_fragment",
   "arguments": { "link": "infumap://<id>", "fragmentOrdinal": 4 },
   "scopeId": "<optional-scope-id>"
 }
 ```
 
-Omit `scopeId` for an unrestricted call. `name` must be `search` or `get_fragment`;
+Omit `scopeId` for an unrestricted call. `name` must be `infumap_search` or `infumap_get_fragment`;
 `arguments` contains the tool arguments documented above. The response body is the tool result
 itself, without a wrapper: `text/plain` for a result, or JSON for a tool error. Authentication failures return HTTP 403; invalid requests, scopes,
 unknown tool names, and tool error results return HTTP 400; unexpected execution failures return

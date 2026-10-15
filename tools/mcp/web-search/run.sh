@@ -91,7 +91,8 @@ BIN="$(resolve_bin)"
 
 echo "Starting Infumap web-search MCP server"
 echo "Binary: $BIN"
-echo "Listen: http://${HOST}:${PORT}/mcp"
+echo "Search: http://${HOST}:${PORT}/mcp/search"
+echo "Fetch: http://${HOST}:${PORT}/mcp/fetch"
 echo "WEB_SEARCH_RESTART_DELAY_SECS=${RESTART_DELAY_SECS}"
 
 export WEB_SEARCH_HOST="$HOST"

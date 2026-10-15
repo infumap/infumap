@@ -27,7 +27,7 @@ use hyper::{Method, Request, Response, StatusCode};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::tools::{call_tool, tools_list};
+use crate::tools::{WebTool, call_tool, tools_list};
 
 pub const PROTOCOL_VERSION_2025_06_18: &str = "2025-06-18";
 pub const PROTOCOL_VERSION_2025_11_25: &str = "2025-11-25";
@@ -86,8 +86,12 @@ fn negotiate_protocol_version(requested: Option<&str>) -> &'static str {
   }
 }
 
-fn mcp_path(path: &str) -> bool {
-  path.trim_end_matches('/') == "/mcp"
+fn mcp_path(path: &str) -> Option<WebTool> {
+  match path.trim_end_matches('/') {
+    "/mcp/search" => Some(WebTool::Search),
+    "/mcp/fetch" => Some(WebTool::Fetch),
+    _ => None,
+  }
 }
 
 fn empty_body() -> Full<Bytes> {
@@ -176,16 +180,19 @@ fn initialize_result(params: &Value) -> Value {
   })
 }
 
-async fn dispatch_method(method: &str, params: Value) -> Result<Value, (i64, String)> {
+async fn dispatch_method(tool: WebTool, method: &str, params: Value) -> Result<Value, (i64, String)> {
   match method {
     "initialize" => Ok(initialize_result(&params)),
     "notifications/initialized" => Ok(json!({})),
     "ping" => Ok(json!({})),
-    "tools/list" => Ok(tools_list()),
+    "tools/list" => Ok(tools_list(tool)),
     "tools/call" => {
       let name = params.get("name").and_then(Value::as_str).unwrap_or("").trim();
       if name.is_empty() {
         return Err((-32602, "Invalid params: missing tool name.".to_owned()));
+      }
+      if name != tool.name() {
+        return Err((-32602, format!("Unknown tool '{name}' for this endpoint.")));
       }
       let arguments = match params.get("arguments") {
         None | Some(Value::Null) => json!({}),
@@ -197,7 +204,7 @@ async fn dispatch_method(method: &str, params: Value) -> Result<Value, (i64, Str
   }
 }
 
-async fn handle_rpc(message: IncomingMessage) -> Option<Value> {
+async fn handle_rpc(tool: WebTool, message: IncomingMessage) -> Option<Value> {
   if message.method.is_none() && (message.result.is_some() || message.error.is_some()) {
     return None;
   }
@@ -218,7 +225,7 @@ async fn handle_rpc(message: IncomingMessage) -> Option<Value> {
   if method == "notifications/initialized" && is_notification {
     return None;
   }
-  match dispatch_method(method, message.params).await {
+  match dispatch_method(tool, method, message.params).await {
     Ok(result) => {
       if is_notification {
         None
@@ -257,9 +264,9 @@ where
     return response(StatusCode::BAD_REQUEST, origin_ref, protocol_version, empty_body(), |b| b);
   }
 
-  if !mcp_path(req.uri().path()) {
+  let Some(tool) = mcp_path(req.uri().path()) else {
     return response(StatusCode::NOT_FOUND, origin_ref, protocol_version, empty_body(), |b| b);
-  }
+  };
 
   match *req.method() {
     Method::OPTIONS => response(StatusCode::NO_CONTENT, origin_ref, protocol_version, empty_body(), |b| b),
@@ -294,7 +301,7 @@ where
           });
         }
       };
-      match handle_rpc(message).await {
+      match handle_rpc(tool, message).await {
         None => response(StatusCode::ACCEPTED, origin_ref, protocol_version, empty_body(), |b| b),
         Some(payload) => response(StatusCode::OK, origin_ref, protocol_version, json_body(&payload), |b| {
           b.header(CONTENT_TYPE, "application/json")

@@ -53,7 +53,7 @@ async fn main() {
   }
   let providers = config.provider_preference();
   if providers.is_empty() {
-    warn!("No search providers configured; web_search is unavailable. fetch_page is still available.");
+    warn!("No search providers configured; infumap_web_search is unavailable. infumap_web_fetch is still available.");
   } else {
     info!("Configured search provider preference: {}", providers.join(", "));
   }
@@ -81,7 +81,8 @@ async fn main() {
       std::process::exit(1);
     }
   };
-  info!("infumap-web-search listening on http://{addr}/mcp");
+  info!("Web search MCP endpoint: http://{addr}/mcp/search");
+  info!("Web fetch MCP endpoint: http://{addr}/mcp/fetch");
   info!("Local provider status available at /status (loopback clients only)");
   tokio::spawn(search::refresh_provider_usage());
 
