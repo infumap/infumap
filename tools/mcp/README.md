@@ -12,6 +12,12 @@ Start web search:
 ./tools/mcp/web-search/run.sh
 ```
 
+HTML fetching currently requires an installed Chrome/Chromium. Set
+`WEB_FETCH_BROWSER_PATH` to its absolute executable path if automatic discovery
+cannot find it. Missing Chrome affects browser fetches without stopping search.
+Automatic browser installation and the connection to native-only PDF extraction
+are later steps in the [implementation plan](web-search/IMPLEMENTATION_PLAN.md).
+
 It listens on `127.0.0.1:8791` by default. Point Infumap at its two endpoints with:
 
 ```toml

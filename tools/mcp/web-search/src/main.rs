@@ -40,6 +40,11 @@ use protocol::handle_http;
 async fn main() {
   env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
+  if let Err(error) = fetch::initialize() {
+    eprintln!("Could not initialize web fetch: {error}");
+    std::process::exit(1);
+  }
+
   let config = match config::search_config() {
     Ok(config) => config,
     Err(message) => {

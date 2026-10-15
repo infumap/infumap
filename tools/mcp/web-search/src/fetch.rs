@@ -14,57 +14,92 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::net::IpAddr;
-use std::time::Duration;
+mod browser;
+mod config;
+mod http;
+mod markdown;
+mod pdf;
+mod policy;
+mod proxy;
 
-use futures_util::StreamExt;
-use htmd::HtmlToMarkdown;
-use rand::seq::SliceRandom;
+use std::sync::OnceLock;
+
 use reqwest::Url;
-use reqwest::header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, HeaderMap, HeaderValue, LOCATION, USER_AGENT};
 use serde::Serialize;
-use tokio::net::lookup_host;
+use tokio::time::{Instant, timeout_at};
 
 use crate::error::InfuResult;
+use browser::BrowserRenderer;
+use config::FetchConfig;
+use http::{DocumentKind, DownloadedDocument, HttpDownloader};
+use policy::{assert_public_destination, hosts_differ, normalize_url_scheme};
 
 pub const DEFAULT_MAX_CHARS: usize = 8_000;
 pub const MAX_CHARS_CAP: usize = 100_000;
-const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const MAX_FETCH_BYTES: usize = 512 * 1024;
-const MAX_REDIRECTS: usize = 5;
 
-const USER_AGENTS: &[&str] = &[
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
-];
+static FETCH_STATE: OnceLock<Result<FetchState, String>> = OnceLock::new();
 
-const METADATA_HOSTS: &[&str] =
-  &["localhost", "ip6-localhost", "metadata", "metadata.google.internal", "metadata.tencentyun.com"];
+struct FetchState {
+  config: FetchConfig,
+  http: HttpDownloader,
+  browser: BrowserRenderer,
+}
 
-const SEARCH_ENGINE_HOSTS: &[&str] = &[
-  "google.com",
-  "bing.com",
-  "cn.bing.com",
-  "duckduckgo.com",
-  "html.duckduckgo.com",
-  "lite.duckduckgo.com",
-  "yahoo.com",
-  "search.yahoo.com",
-  "search.brave.com",
-  "startpage.com",
-  "ecosia.org",
-  "baidu.com",
-  "yandex.com",
-  "yandex.ru",
-  "search.aol.com",
-  "ask.com",
-  "search.ask.com",
-];
+impl FetchState {
+  fn from_env() -> Result<Self, String> {
+    let config = FetchConfig::from_env()?;
+    Ok(Self { http: HttpDownloader::new(config.clone()), browser: BrowserRenderer::new(config.clone()), config })
+  }
+
+  async fn fetch(&self, requested: Url, max_chars: usize) -> InfuResult<FetchedPage> {
+    let deadline = Instant::now() + self.config.timeout;
+    timeout_at(deadline, async {
+      assert_public_destination(&requested).await?;
+      // A suffix is only a routing hint: classify the actual response again.
+      let document = if http::is_direct_text_url(&requested) {
+        let document = self.http.download(&requested).await?;
+        if document.kind() == DocumentKind::Html { self.browser.render(&requested, deadline).await? } else { document }
+      } else {
+        self.browser.render(&requested, deadline).await?
+      };
+      // Parsing a bounded but large DOM must not block the async search server
+      // or prevent its overall fetch deadline from being observed.
+      tokio::task::spawn_blocking(move || Self::finish(&requested, document, max_chars))
+        .await
+        .map_err(|error| format!("Document extraction worker failed: {error}"))?
+    })
+    .await
+    .map_err(|_| "Web fetch exceeded its overall deadline.")?
+  }
+
+  fn finish(requested: &Url, document: DownloadedDocument, max_chars: usize) -> InfuResult<FetchedPage> {
+    let text = match document.kind() {
+      DocumentKind::Pdf => pdf::extract_native(&document)?,
+      DocumentKind::Html => markdown::html_to_markdown(&String::from_utf8_lossy(&document.body)),
+      DocumentKind::Text => String::from_utf8_lossy(&document.body).trim().to_string(),
+      DocumentKind::Unsupported => {
+        return Err("Unsupported web document type; expected HTML, text, JSON or PDF.".into());
+      }
+    };
+    let decoded = markdown::truncate_text(&text, max_chars.clamp(1, MAX_CHARS_CAP));
+    Ok(FetchedPage {
+      url: requested.to_string(),
+      final_url: document.final_url.to_string(),
+      content_type: document.content_type,
+      truncated: decoded.truncated,
+      text: decoded.text,
+    })
+  }
+}
+
+/// Prepare fetch configuration once, independently of search providers. No browser is launched here.
+pub fn initialize() -> InfuResult<()> {
+  state().map(|_| ())
+}
+
+fn state() -> InfuResult<&'static FetchState> {
+  FETCH_STATE.get_or_init(FetchState::from_env).as_ref().map_err(|error| error.clone().into())
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct FetchedPage {
@@ -86,10 +121,8 @@ struct CompactFetchedPage<'a> {
   host_changed: bool,
 }
 
-/// Fetch a URL, convert HTML to markdown, and return compact JSON for the model.
 pub async fn fetch_page_json(url: &str, max_chars: usize) -> InfuResult<String> {
-  let page = fetch_url(url, max_chars).await?;
-  compact_fetch_page_json(&page)
+  compact_fetch_page_json(&fetch_url(url, max_chars).await?)
 }
 
 pub fn compact_fetch_page_json(page: &FetchedPage) -> InfuResult<String> {
@@ -100,274 +133,15 @@ pub fn compact_fetch_page_json(page: &FetchedPage) -> InfuResult<String> {
     text: &page.text,
     host_changed: hosts_differ(&page.url, &page.final_url),
   })
-  .map_err(|e| format!("Could not serialize fetched page: {}", e).into())
+  .map_err(|error| format!("Could not serialize fetched page: {error}").into())
 }
 
-/// Fetch a URL, convert HTML to markdown, and truncate the result.
 pub async fn fetch_url(url: &str, max_chars: usize) -> InfuResult<FetchedPage> {
-  let max_chars = max_chars.clamp(1, MAX_CHARS_CAP);
-  let requested = normalize_url_scheme(url.trim())?;
-  let client = reqwest::Client::builder()
-    .no_proxy()
-    .redirect(reqwest::redirect::Policy::none())
-    .connect_timeout(CONNECT_TIMEOUT)
-    .timeout(FETCH_TIMEOUT)
-    .build()
-    .map_err(|e| format!("Could not build fetch HTTP client: {}", e))?;
-
-  let mut current = requested.clone();
-  let ua = USER_AGENTS.choose(&mut rand::thread_rng()).copied().unwrap_or(USER_AGENTS[0]);
-
-  for _ in 0..=MAX_REDIRECTS {
-    assert_public_destination(&current).await?;
-    let response = client
-      .get(current.clone())
-      .headers(fetch_headers(ua))
-      .send()
-      .await
-      .map_err(|e| format!("Failed to fetch URL: {}", e))?;
-
-    let status = response.status();
-    if status.is_redirection() {
-      let location = response
-        .headers()
-        .get(LOCATION)
-        .and_then(|value| value.to_str().ok())
-        .ok_or("Failed to fetch URL: redirect missing Location header.")?;
-      current = current.join(location).map_err(|e| format!("Failed to fetch URL: invalid redirect: {}", e))?;
-      continue;
-    }
-    if !status.is_success() {
-      return Err(format!("Failed to fetch URL: HTTP {}", status).into());
-    }
-
-    let content_type = response
-      .headers()
-      .get(reqwest::header::CONTENT_TYPE)
-      .and_then(|value| value.to_str().ok())
-      .unwrap_or("")
-      .to_ascii_lowercase();
-    let body = read_limited_body(response).await?;
-    let text = decode_body(&body, &content_type, max_chars);
-    return Ok(FetchedPage {
-      url: requested.as_str().to_string(),
-      final_url: current.as_str().to_string(),
-      content_type,
-      truncated: text.truncated,
-      text: text.text,
-    });
-  }
-
-  Err("Failed to fetch URL: too many redirects.".into())
-}
-
-struct DecodedText {
-  text: String,
-  truncated: bool,
-}
-
-fn fetch_headers(user_agent: &'static str) -> HeaderMap {
-  let mut headers = HeaderMap::new();
-  headers.insert(USER_AGENT, HeaderValue::from_static(user_agent));
-  headers.insert(ACCEPT, HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"));
-  headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
-  headers.insert(ACCEPT_ENCODING, HeaderValue::from_static("gzip, deflate, br"));
-  headers
-}
-
-fn normalize_url_scheme(url: &str) -> InfuResult<Url> {
-  if url.is_empty() {
-    return Err("fetch URL cannot be empty".into());
-  }
-  let with_scheme = if url.starts_with("http://") || url.starts_with("https://") {
-    url.to_string()
-  } else if url.starts_with("//") {
-    format!("https:{url}")
-  } else {
-    format!("https://{url}")
-  };
-  Url::parse(&with_scheme).map_err(|e| format!("invalid URL: {}", e).into())
-}
-
-async fn assert_public_destination(url: &Url) -> InfuResult<()> {
-  match url.scheme() {
-    "http" | "https" => {}
-    other => return Err(format!("Blocked: unsupported URL scheme '{other}'.").into()),
-  }
-  if !url.username().is_empty() || url.password().is_some() {
-    return Err("Blocked: URL must not include credentials.".into());
-  }
-  let host = url.host_str().ok_or("Blocked: URL has no host.")?;
-  if is_search_engine_host(host) {
-    return Err(
-      format!("Blocked: web_fetch does not fetch search engine URLs ('{host}'). Use web_search for searches.").into(),
-    );
-  }
-  if is_blocked_host(host) {
-    return Err(format!("Blocked: refusing to fetch host '{host}'.").into());
-  }
-  let port = url.port_or_known_default().unwrap_or(80);
-  let addrs = lookup_host((host, port)).await.map_err(|e| format!("Failed to resolve host: {}", e))?;
-  let mut saw_address = false;
-  for addr in addrs {
-    saw_address = true;
-    if !is_global_ip(addr.ip()) {
-      return Err(format!("Blocked: refusing to fetch non-public address {}.", addr.ip()).into());
-    }
-  }
-  if !saw_address {
-    return Err(format!("Failed to resolve host: no addresses for '{host}'.").into());
-  }
-  Ok(())
-}
-
-fn is_search_engine_host(host: &str) -> bool {
-  let host = normalize_host(host);
-  let host = host.strip_prefix("www.").unwrap_or(&host);
-  if SEARCH_ENGINE_HOSTS.contains(&host) || host.ends_with(".search.yahoo.com") {
-    return true;
-  }
-  // Include Google's country search domains without blocking product hosts
-  // such as docs.google.com or unrelated domains containing "google".
-  host.strip_prefix("google.").is_some_and(|suffix| {
-    let country = suffix.strip_prefix("co.").or_else(|| suffix.strip_prefix("com.")).unwrap_or(suffix);
-    country.len() == 2 && country.bytes().all(|byte| byte.is_ascii_lowercase())
-  })
-}
-
-fn is_blocked_host(host: &str) -> bool {
-  let host = host.trim_end_matches('.').to_ascii_lowercase();
-  METADATA_HOSTS.iter().any(|blocked| *blocked == host)
-    || host.ends_with(".localhost")
-    || host.ends_with(".local")
-    || host.starts_with("169.254.")
-    || host == "::ffff:169.254.169.254"
-}
-
-fn is_global_ip(ip: IpAddr) -> bool {
-  match ip {
-    IpAddr::V4(v4) => {
-      let o = v4.octets();
-      !(v4.is_unspecified()
-        || v4.is_loopback()
-        || v4.is_private()
-        || v4.is_link_local()
-        || v4.is_multicast()
-        || v4.is_broadcast()
-        || o[0] == 0
-        || (o[0] == 100 && o[1] & 0b1100_0000 == 64)
-        || (o[0] == 192 && o[1] == 0 && o[2] == 0)
-        || (o[0] == 192 && o[1] == 0 && o[2] == 2)
-        || (o[0] == 198 && o[1] == 51 && o[2] == 100)
-        || (o[0] == 203 && o[1] == 0 && o[2] == 113)
-        || (o[0] == 198 && (o[1] == 18 || o[1] == 19))
-        || o[0] >= 240)
-    }
-    IpAddr::V6(v6) => {
-      if let Some(v4) = v6.to_ipv4_mapped() {
-        return is_global_ip(IpAddr::V4(v4));
-      }
-      let s = v6.segments();
-      !(v6.is_unspecified()
-        || v6.is_loopback()
-        || v6.is_multicast()
-        || (s[0] & 0xfe00) == 0xfc00
-        || (s[0] & 0xffc0) == 0xfe80
-        || (s[0] == 0x2001 && s[1] == 0xdb8))
-    }
-  }
+  state()?.fetch(normalize_url_scheme(url.trim())?, max_chars).await
 }
 
 fn is_false(value: &bool) -> bool {
   !*value
-}
-
-fn hosts_differ(requested: &str, final_url: &str) -> bool {
-  let requested_host = Url::parse(requested).ok().and_then(|url| url.host_str().map(normalize_host));
-  let final_host = Url::parse(final_url).ok().and_then(|url| url.host_str().map(normalize_host));
-  match (requested_host, final_host) {
-    (Some(requested_host), Some(final_host)) => requested_host != final_host,
-    _ => requested != final_url,
-  }
-}
-
-fn normalize_host(host: &str) -> String {
-  host.trim_end_matches('.').to_ascii_lowercase()
-}
-
-async fn read_limited_body(response: reqwest::Response) -> InfuResult<Vec<u8>> {
-  let mut stream = response.bytes_stream();
-  let mut body = Vec::new();
-  while let Some(chunk) = stream.next().await {
-    let chunk = chunk.map_err(|e| format!("Failed to fetch URL: {}", e))?;
-    let remaining = MAX_FETCH_BYTES.saturating_sub(body.len());
-    if remaining == 0 {
-      break;
-    }
-    if chunk.len() > remaining {
-      body.extend_from_slice(&chunk[..remaining]);
-      break;
-    }
-    body.extend_from_slice(&chunk);
-  }
-  Ok(body)
-}
-
-fn decode_body(body: &[u8], content_type: &str, max_chars: usize) -> DecodedText {
-  let raw = String::from_utf8_lossy(body);
-  let converted = if looks_like_html(body, content_type) { html_to_markdown(&raw) } else { raw.trim().to_string() };
-  truncate_text(&converted, max_chars)
-}
-
-fn looks_like_html(body: &[u8], content_type: &str) -> bool {
-  if content_type.contains("html") {
-    return true;
-  }
-  if content_type.contains("json")
-    || content_type.starts_with("text/plain")
-    || content_type.starts_with("text/markdown")
-    || content_type.starts_with("text/csv")
-  {
-    return false;
-  }
-  let prefix = std::str::from_utf8(body.get(..512).unwrap_or(body)).unwrap_or("").trim_start().to_ascii_lowercase();
-  prefix.starts_with("<!doctype html") || prefix.starts_with("<html")
-}
-
-fn html_to_markdown(html: &str) -> String {
-  let converter = HtmlToMarkdown::builder()
-    .skip_tags(vec!["script", "style", "nav", "footer", "aside", "noscript", "iframe", "svg", "form"])
-    .build();
-  let source = extract_main_html(html);
-  converter.convert(&source).unwrap_or(source).trim().to_string()
-}
-
-fn extract_main_html(html: &str) -> String {
-  let document = scraper::Html::parse_document(html);
-  for selector_text in ["article", "main", "[role=main]"] {
-    let Ok(selector) = scraper::Selector::parse(selector_text) else {
-      continue;
-    };
-    if let Some(node) = document.select(&selector).next() {
-      let inner = node.html();
-      if inner.len() > 200 {
-        return inner;
-      }
-    }
-  }
-  html.to_string()
-}
-
-fn truncate_text(text: &str, max_chars: usize) -> DecodedText {
-  if text.is_empty() {
-    return DecodedText { text: "(page returned no readable text)".to_string(), truncated: false };
-  }
-  let total = text.chars().count();
-  if total <= max_chars {
-    return DecodedText { text: text.to_string(), truncated: false };
-  }
-  let truncated: String = text.chars().take(max_chars).collect();
-  DecodedText { text: format!("{truncated}\n\n... (truncated, {total} chars total)"), truncated: true }
 }
 
 #[cfg(test)]

@@ -8,6 +8,10 @@ budget-aware routing and bounded fallback.
 The proposed browser-backed fetch and native-only PDF extraction work is
 described in the [implementation plan](IMPLEMENTATION_PLAN.md).
 
+Browser dispatch (step 2) is implemented. HTML requires an installed Chrome or
+Chromium; automatic browser installation is planned for step 9. PDFs are
+detected, but native PDF extraction is not yet connected to `web_fetch` (step 7).
+
 ## Run
 
 Requires Rust 1.89 or newer (standard-library file locking).
@@ -35,6 +39,52 @@ Environment:
 - `WEB_SEARCH_HOST` (default `127.0.0.1`)
 - `WEB_SEARCH_PORT` (default `8791`)
 - `WEB_SEARCH_RESTART_DELAY_SECS` (default `5`) — used by `run.sh` only
+
+## Fetch configuration and behavior
+
+Fetch configuration is read once at startup, independently of search-provider
+configuration. Browser discovery and launch happen on demand; a missing browser
+does not prevent the server or search providers from starting. Malformed fetch
+settings stop startup.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `WEB_FETCH_BROWSER_PATH` | Automatic discovery | Absolute path to Chrome/Chromium. If set, this exact executable is used; launch failure is reported without HTTP fallback. |
+| `WEB_FETCH_TIMEOUT_SECS` | `30` | Overall request deadline, including destination checks, queueing, browser startup, downloads and extraction. Integer from 1 to 3600. |
+| `WEB_FETCH_MAX_DOCUMENT_BYTES` | `2097152` (2 MiB) | Maximum downloaded HTML/text and rendered DOM size. Integer from 1 to 16777216 (16 MiB). |
+| `WEB_FETCH_MAX_PDF_BYTES` | `134217728` (128 MiB) | Maximum downloaded PDF size. Integer from 1 to 134217728. |
+
+Ordinary URLs are loaded by Chrome through `chromiumoxide`. The main response
+is intercepted and read in bounded chunks before dispatch. HTML is supplied
+back to the same navigation for rendering, preserving its URL and response
+headers; the page is not fetched a second time. The rendered DOM then goes
+through the existing main-content and Markdown extraction. Browser sandboxing
+and certificate validation remain enabled.
+
+URLs ending in `.txt`, `.json`, `.md`, `.markdown`, `.csv` or `.xml` use a bounded
+direct HTTP download first. The suffix is only a routing hint: actual MIME and
+bytes determine the document type, and HTML responses are sent to the browser.
+Extensionless text/JSON responses are also handled by browser response dispatch.
+Binary formats other than PDFs return an unsupported-document error. Byte-limit
+failures are explicit errors; `maxChars` still truncates successfully extracted
+text using the existing compact MCP result shape.
+
+PDF detection checks a `%PDF-` signature in the first kilobyte as well as the
+response MIME type. It covers extensionless resources and redirects and stops
+the browser before rendering its PDF viewer. Browser-fetched PDF bytes come
+from that same Chrome response, using its existing cookies and request context:
+there is no second download or cookie transfer to another HTTP client. The PDF
+handler currently returns an explicit native-extraction-not-connected error;
+it never decodes PDF bytes as text or falls back to OCR.
+
+The current renderer launches one temporary-profile browser per request and
+serializes browser fetches. It routes browser connections through an owned
+loopback proxy that resolves and validates public destinations before connecting
+to those exact addresses. Direct downloads likewise pin validated addresses.
+Request interception checks document destinations and redirects. The complete
+browser-network policy audit is step 3; browser reuse and shutdown supervision
+are step 4, and additional content-settling/cleanup heuristics are step 5.
+No browser launch or live fetch validation has been performed for step 2.
 
 The MCP endpoints share one process and port:
 

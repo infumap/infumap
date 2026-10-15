@@ -5,8 +5,21 @@ Implementation plan, October 15, 2026. Tests require separate authorization.
 Step 1 is implemented: the PDF service and gateway expose `pdf_extract_native`
 at `/pdf-extract-native`, with strict native quality checks and no OCR fallback.
 Existing upload extraction retains its OCR policy. This establishes the service
-boundary described in step 6; browser rendering and web-fetch PDF integration
-remain unimplemented.
+boundary described in step 6.
+
+Step 2 is implemented: fetch state/configuration, URL policy, direct downloads,
+Chromiumoxide rendering, response-type dispatch, Markdown and PDF handling are
+separate components under `src/fetch/`. Ordinary URLs use Chrome, while known
+text-resource suffixes use direct HTTP with response classification. PDFs are
+captured from the original browser response and reach a dedicated handler that
+returns an explicit unavailable error until step 7 connects native extraction.
+MCP names, arguments and compact response fields are unchanged.
+
+The renderer includes a public-address connection proxy and basic per-request
+ownership/deadlines as prerequisites. Step 3's full browser-network audit,
+step 4's browser reuse/shutdown supervision, and step 5's content heuristics are
+still outstanding. Browser installation remains step 9. Validation so far is
+static compilation/linting only; behavioral checks require authorization.
 
 The target is browser-rendered HTML and optional PDF-to-Markdown extraction
 through configured GPU tools. PDF extraction must never perform OCR. If usable
