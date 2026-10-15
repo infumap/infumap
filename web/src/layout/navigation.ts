@@ -337,7 +337,8 @@ export async function navigateToQueries(store: StoreContextModel): Promise<void>
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) { return; }
   store.history.beginNavigationRequest();
-  store.overlay.autoFocusSearchInput.set(true);
+  store.overlay.autoFocusSearchInput.set(false);
+  store.overlay.autoFocusChatInput.set(false);
 
   const queriesPageId = userMaybe.queriesPageId;
   await preloadQueries(store);
@@ -359,12 +360,17 @@ export async function navigateToQueries(store: StoreContextModel): Promise<void>
   }
 
   const currentPageVeid = store.history.currentPageVeid();
-  if (currentPageVeid?.itemId == queriesPageId && currentPageVeid.linkIdMaybe == null) {
+  if (currentPageVeid?.itemId == queriesPageId && currentPageVeid.linkIdMaybe == null &&
+    store.history.currentPopupSpec() == null) {
+    // Drop focus on the previous selection before arranging New Query.
+    store.history.setFocus(VeFns.addVeidToPath(currentPageVeid, UMBRELLA_PAGE_UID));
     arrangeNow(store, "navigate-to-queries");
-    return;
+  } else {
+    switchToPage(store, { itemId: queriesPageId, linkIdMaybe: null }, true, false, false);
   }
 
-  switchToPage(store, { itemId: queriesPageId, linkIdMaybe: null }, true, false, false);
+  // Request focus after the new selection is rendered so the old input cannot consume it.
+  store.overlay.autoFocusSearchInput.set(true);
 }
 
 
