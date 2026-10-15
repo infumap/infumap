@@ -22,6 +22,7 @@ mod markdown;
 mod pdf;
 mod policy;
 mod proxy;
+mod supervision;
 
 use std::sync::OnceLock;
 
@@ -100,6 +101,12 @@ impl FetchState {
 /// Prepare fetch configuration once, independently of search providers. No browser is launched here.
 pub fn initialize() -> InfuResult<()> {
   state().map(|_| ())
+}
+
+pub async fn shutdown() {
+  if let Some(Ok(state)) = FETCH_STATE.get() {
+    state.browser.shutdown().await;
+  }
 }
 
 fn state() -> InfuResult<&'static FetchState> {

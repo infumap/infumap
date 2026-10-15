@@ -15,6 +15,8 @@ Start web search:
 HTML fetching currently requires an installed Chrome/Chromium. Set
 `WEB_FETCH_BROWSER_PATH` to its absolute executable path if automatic discovery
 cannot find it. Missing Chrome affects browser fetches without stopping search.
+Browser fetches reuse one owned browser with a fresh isolated context per request;
+shutdown and cancellation retain ownership through process cleanup.
 Automatic browser installation and the connection to native-only PDF extraction
 are later steps in the [implementation plan](web-search/IMPLEMENTATION_PLAN.md).
 

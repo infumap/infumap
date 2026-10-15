@@ -27,7 +27,6 @@ use std::path::{Path, PathBuf};
 
 use chromiumoxide::BrowserConfig;
 use serde::{Deserialize, Serialize};
-use tokio::time::Instant;
 
 use crate::error::InfuResult;
 
@@ -35,11 +34,12 @@ use crate::error::InfuResult;
 use super::proxy::AbortTask;
 
 const HELPER_FLAG: &str = "--infumap-isolated-browser";
-const HELPER_ENV: &str = "INFUMAP_BROWSER_CONFINEMENT";
+pub(super) const HELPER_ENV: &str = "INFUMAP_BROWSER_CONFINEMENT";
 
 #[derive(Serialize, Deserialize)]
 struct HelperConfig {
   browser: PathBuf,
+  owner_socket: PathBuf,
   proxy_address: SocketAddr,
   proxy_socket: PathBuf,
   devtools_socket: PathBuf,
@@ -48,44 +48,59 @@ struct HelperConfig {
 
 pub(super) struct Isolation {
   config: HelperConfig,
+  #[cfg(unix)]
+  ownership: super::supervision::Ownership,
   #[cfg(target_os = "linux")]
   _relays: Vec<AbortTask>,
 }
 
 impl Isolation {
-  pub async fn prepare(
-    profile: &Path,
-    proxy_address: SocketAddr,
-    browser: PathBuf,
-    deadline: Instant,
-  ) -> InfuResult<Self> {
+  pub async fn prepare(profile: &Path, proxy_address: SocketAddr, browser: PathBuf) -> InfuResult<Self> {
     let config = HelperConfig {
       browser,
+      owner_socket: profile.join("owner.sock"),
       proxy_address,
       proxy_socket: profile.join("proxy.sock"),
       devtools_socket: profile.join("devtools.sock"),
       devtools_address: proxy_address,
     };
+    #[cfg(unix)]
+    let ownership = super::supervision::Ownership::bind(&config.owner_socket)?;
     #[cfg(target_os = "linux")]
     {
       let mut config = config;
-      let (address, relays) = prepare_relays(&config, deadline).await?;
+      let (address, relays) = prepare_relays(&config).await?;
       config.devtools_address = address;
-      Ok(Self { config, _relays: relays })
+      Ok(Self { config, ownership, _relays: relays })
     }
     #[cfg(target_os = "macos")]
     {
-      let _ = deadline;
       if !Path::new("/usr/bin/sandbox-exec").is_file() {
         return Err("Browser network confinement requires macOS sandbox-exec.".into());
       }
-      Ok(Self { config })
+      Ok(Self { config, ownership })
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
-      let _ = (config, deadline);
+      let _ = config;
       Err("Browser network confinement is not implemented on this platform.".into())
     }
+  }
+
+  pub fn is_finished(&self) -> bool {
+    #[cfg(unix)]
+    {
+      self.ownership.is_finished()
+    }
+    #[cfg(not(unix))]
+    {
+      true
+    }
+  }
+
+  pub async fn shutdown(&mut self) {
+    #[cfg(unix)]
+    self.ownership.shutdown().await;
   }
 
   pub fn launch_config(&self, builder: chromiumoxide::browser::BrowserConfigBuilder) -> InfuResult<BrowserConfig> {
@@ -102,7 +117,11 @@ impl Isolation {
 
 /// Internal subprocess entry point, called before the server runtime exists.
 pub(super) fn run_browser_helper() -> Option<i32> {
-  if !std::env::args_os().any(|arg| arg == HELPER_FLAG) {
+  #[cfg(unix)]
+  let guardian = std::env::args_os().any(|arg| arg == super::supervision::GUARDIAN_FLAG);
+  #[cfg(not(unix))]
+  let guardian = false;
+  if !guardian && !std::env::args_os().any(|arg| arg == HELPER_FLAG) {
     return None;
   }
   let result = (|| {
@@ -110,6 +129,28 @@ pub(super) fn run_browser_helper() -> Option<i32> {
     let config: HelperConfig =
       serde_json::from_str(&raw).map_err(|_| "Browser confinement settings are invalid.".to_owned())?;
     let args: Vec<OsString> = std::env::args_os().skip(1).filter(|arg| arg != HELPER_FLAG).collect();
+    // Chromiumoxide 0.9 defaults to enabling Chrome's sandbox. Enforce that
+    // invariant here too: no launch path can silently weaken sandbox/TLS checks.
+    if args.iter().any(|arg| {
+      let value = arg.to_string_lossy();
+      [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--ignore-certificate-errors",
+        "--ignore-ssl-errors",
+        "--disable-web-security",
+      ]
+      .iter()
+      .any(|flag| value == *flag || value.starts_with(&format!("{flag}=")))
+    }) {
+      return Err("Unsafe Chrome launch settings rejected.".to_owned());
+    }
+    #[cfg(unix)]
+    if guardian {
+      let mut chrome = std::process::Command::new(&config.browser);
+      chrome.args(args.into_iter().filter(|arg| arg != super::supervision::GUARDIAN_FLAG)).env_remove(HELPER_ENV);
+      return super::supervision::run_guardian(&config.owner_socket, chrome).map_err(|error| error.to_string());
+    }
     run_confined(config, args).map_err(|error| error.to_string())
   })();
   Some(match result {
@@ -122,11 +163,10 @@ pub(super) fn run_browser_helper() -> Option<i32> {
 }
 
 #[cfg(target_os = "linux")]
-async fn prepare_relays(config: &HelperConfig, deadline: Instant) -> InfuResult<(SocketAddr, Vec<AbortTask>)> {
+async fn prepare_relays(config: &HelperConfig) -> InfuResult<(SocketAddr, Vec<AbortTask>)> {
   use tokio::io::copy_bidirectional;
   use tokio::net::{TcpListener, TcpStream, UnixListener, UnixStream};
   use tokio::task::JoinSet;
-  use tokio::time::timeout_at;
 
   let proxy = UnixListener::bind(&config.proxy_socket)
     .map_err(|error| format!("Could not bind isolated proxy bridge: {error}"))?;
@@ -135,16 +175,15 @@ async fn prepare_relays(config: &HelperConfig, deadline: Instant) -> InfuResult<
     let mut connections = JoinSet::new();
     loop {
       tokio::select! {
-        _ = tokio::time::sleep_until(deadline) => break,
         _ = connections.join_next(), if !connections.is_empty() => {},
         accepted = proxy.accept() => {
           let Ok((mut stream, _)) = accepted else { break };
           if connections.len() >= 64 { continue; }
           connections.spawn(async move {
-            let _ = timeout_at(deadline, async {
+            let _ = async {
               let mut upstream = TcpStream::connect(proxy_address).await?;
               copy_bidirectional(&mut stream, &mut upstream).await
-            }).await;
+            }.await;
           });
         }
       }
@@ -159,17 +198,16 @@ async fn prepare_relays(config: &HelperConfig, deadline: Instant) -> InfuResult<
     let mut connections = JoinSet::new();
     loop {
       tokio::select! {
-        _ = tokio::time::sleep_until(deadline) => break,
         _ = connections.join_next(), if !connections.is_empty() => {},
         accepted = debug.accept() => {
           let Ok((mut stream, _)) = accepted else { break };
           if connections.len() >= 8 { continue; }
           let path = path.clone();
           connections.spawn(async move {
-            let _ = timeout_at(deadline, async {
+            let _ = async {
               let mut upstream = UnixStream::connect(path).await?;
               copy_bidirectional(&mut stream, &mut upstream).await
-            }).await;
+            }.await;
           });
         }
       }
@@ -181,7 +219,6 @@ async fn prepare_relays(config: &HelperConfig, deadline: Instant) -> InfuResult<
 #[cfg(target_os = "linux")]
 fn run_confined(config: HelperConfig, mut args: Vec<OsString>) -> std::io::Result<i32> {
   use std::io::{BufRead, BufReader, Write};
-  use std::os::unix::process::CommandExt;
   use std::process::{Command, Stdio};
 
   // Do not carry host-network sockets supplied by a supervisor into the new
@@ -213,8 +250,9 @@ fn run_confined(config: HelperConfig, mut args: Vec<OsString>) -> std::io::Resul
   let debug = std::os::unix::net::UnixListener::bind(&config.devtools_socket)?;
   // This namespace has no external interfaces/routes. Its only outbound path
   // is this filesystem Unix socket to the parent-owned filtering proxy.
+  let proxy_socket = config.proxy_socket.clone();
   std::thread::spawn(move || {
-    relay_connections(proxy.incoming(), move || std::os::unix::net::UnixStream::connect(&config.proxy_socket));
+    relay_connections(proxy.incoming(), move || std::os::unix::net::UnixStream::connect(&proxy_socket));
   });
   std::thread::spawn(move || {
     relay_connections(debug.incoming(), || std::net::TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, 9222)));
@@ -231,21 +269,13 @@ fn run_confined(config: HelperConfig, mut args: Vec<OsString>) -> std::io::Resul
     "--remote-debugging-address=127.0.0.1".into(),
     "--remote-debugging-port=9222".into(),
   ]);
-  let parent_pid = std::process::id();
-  let mut command = Command::new(&config.browser);
-  command.args(args).env_remove(HELPER_ENV).stdin(Stdio::null()).stderr(Stdio::piped());
-  // SAFETY: the post-fork closure only uses async-signal-safe Linux syscalls.
-  unsafe {
-    command.pre_exec(move || {
-      if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
-        return Err(std::io::Error::last_os_error());
-      }
-      if libc::getppid() != parent_pid as libc::pid_t {
-        libc::_exit(125);
-      }
-      Ok(())
-    });
-  }
+  let mut command = Command::new(std::env::current_exe()?);
+  command
+    .arg(super::supervision::GUARDIAN_FLAG)
+    .args(args)
+    .env(HELPER_ENV, serde_json::to_string(&config)?)
+    .stdin(Stdio::piped())
+    .stderr(Stdio::piped());
   let mut child = command.spawn()?;
   let stderr = child.stderr.take().ok_or_else(|| std::io::Error::other("Chrome stderr is unavailable."))?;
   // Chromiumoxide connects to the parent's loopback relay, never to this
@@ -258,7 +288,7 @@ fn run_confined(config: HelperConfig, mut args: Vec<OsString>) -> std::io::Resul
       let _ = writeln!(std::io::stderr(), "{line}");
     }
   });
-  Ok(child.wait()?.code().unwrap_or(125))
+  super::supervision::wait_guardian(child)
 }
 
 #[cfg(target_os = "linux")]
@@ -365,7 +395,6 @@ impl RelayStream for std::os::unix::net::UnixStream {
 
 #[cfg(target_os = "macos")]
 fn run_confined(config: HelperConfig, args: Vec<OsString>) -> std::io::Result<i32> {
-  use std::os::unix::process::CommandExt;
   // This helper is single-threaded and carries no inherited socket protocol.
   // Drop any supervisor FDs before applying the process network sandbox.
   // SAFETY: sysconf has no pointer arguments.
@@ -380,22 +409,26 @@ fn run_confined(config: HelperConfig, args: Vec<OsString>) -> std::io::Result<i3
     }
   }
   // Permit filesystem Unix IPC and listening sockets used by Chrome itself,
-  // but outbound IP traffic can only reach this request's loopback TCP proxy.
+  // but outbound IP traffic can only reach this browser's filtering TCP proxy.
+  // Crashpad deliberately daemonizes into another session. macOS lacks Linux
+  // subreapers, so deny that optional daemon instead of leaking it or scanning
+  // unrelated processes. Chrome's normal renderer/GPU helpers remain allowed.
   let profile = format!(
     r#"(version 1) (allow default) (deny network-outbound (remote ip))
-    (allow network-outbound (remote tcp4 "localhost:{}"))"#,
+    (allow network-outbound (remote tcp4 "localhost:{}"))
+    (deny process-exec (regex #"/chrome_crashpad_handler$"))"#,
     config.proxy_address.port()
   );
-  Err(
-    std::process::Command::new("/usr/bin/sandbox-exec")
-      .arg("-p")
-      .arg(profile)
-      .arg(config.browser)
-      .args(args)
-      .env_remove(HELPER_ENV)
-      .stdin(std::process::Stdio::null())
-      .exec(),
-  )
+  let child = std::process::Command::new("/usr/bin/sandbox-exec")
+    .arg("-p")
+    .arg(profile)
+    .arg(std::env::current_exe()?)
+    .arg(super::supervision::GUARDIAN_FLAG)
+    .args(args)
+    .env(HELPER_ENV, serde_json::to_string(&config)?)
+    .stdin(std::process::Stdio::piped())
+    .spawn()?;
+  super::supervision::wait_guardian(child)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]

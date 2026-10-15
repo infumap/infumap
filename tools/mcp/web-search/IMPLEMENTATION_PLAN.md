@@ -23,10 +23,18 @@ starts before the server runtime; confinement failure has no unconfined fallback
 See `NETWORK_POLICY.md`. No GPU service requests are enabled yet; their separate
 operator-configured origin/path constraints remain mandatory when wired in step 7.
 
-Step 4's browser reuse/shutdown supervision and step 5's content heuristics are
-still outstanding. Browser installation remains step 9. Validation so far is
-Linux production compilation/linting only; behavioral checks require
-authorization. The macOS implementation has not been cross-compiled or run.
+Step 4 is implemented: one lazily launched browser, a unique owned profile,
+fresh disposable contexts, deadline-aware queueing and cancellation, and proxy
+sessions drained before releasing the browser slot. Failed/interrupted browser
+work recycles the browser. An independent guardian handles process ownership,
+including server SIGKILL; SIGINT/SIGTERM stop accepting HTTP work and await
+browser cleanup. Linux subreaping covers daemonized descendants; macOS denies
+the optional daemonized Crashpad executable and uses the owned process group.
+
+Step 5's content heuristics are next. Browser installation remains step 9.
+Validation so far is Linux production compilation/linting and shell syntax only;
+behavioral checks require authorization. The macOS implementation, including
+its Crashpad execution restriction, has not been cross-compiled or run.
 
 The target is browser-rendered HTML and optional PDF-to-Markdown extraction
 through configured GPU tools. PDF extraction must never perform OCR. If usable

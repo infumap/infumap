@@ -73,7 +73,11 @@ cleanup() {
     wait_for_child_shutdown "$child_pid"
 }
 
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+# Exit through one cleanup path even when a signal interrupts wait or the
+# restart delay. SIGTERM gives the server time to reap its owned Chrome tree;
+# if SIGKILL is needed, the independent browser guardian finishes that cleanup.
+trap 'exit 0' INT TERM
 
 BIN="$(resolve_bin)"
 

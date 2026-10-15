@@ -19,7 +19,7 @@
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full, combinators::UnsyncBoxBody};
@@ -49,36 +49,74 @@ impl Drop for AbortTask {
   }
 }
 
+// A session owns every downstream, upstream and upgraded connection. Revoking
+// it closes all network activity before the next context can acquire the slot.
+#[derive(Clone)]
+struct Session {
+  deadline: Instant,
+  stopped: watch::Receiver<bool>,
+  slots: Arc<Semaphore>,
+}
+
+pub(super) struct NetworkSession {
+  active: Arc<Mutex<Option<Session>>>,
+  shutdown: watch::Sender<bool>,
+  slots: Arc<Semaphore>,
+}
+
+impl NetworkSession {
+  pub async fn close(self) {
+    self.revoke();
+    // Each connection/tunnel retains its permit until its socket work stops.
+    let _ = self.slots.acquire_many(64).await;
+  }
+
+  fn revoke(&self) {
+    self.active.lock().expect("Browser proxy session lock poisoned").take();
+    let _ = self.shutdown.send(true);
+  }
+}
+
+impl Drop for NetworkSession {
+  fn drop(&mut self) {
+    self.revoke();
+  }
+}
+
 pub(super) struct PublicProxy {
   pub address: SocketAddr,
-  shutdown: watch::Sender<bool>,
+  active: Arc<Mutex<Option<Session>>>,
   _task: AbortTask,
 }
 
 impl PublicProxy {
-  pub async fn start(deadline: Instant) -> InfuResult<Self> {
+  pub async fn start() -> InfuResult<Self> {
     let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
       .await
       .map_err(|error| format!("Could not bind browser proxy: {error}"))?;
     let address = listener.local_addr().map_err(|error| format!("Could not inspect browser proxy: {error}"))?;
-    let (shutdown, mut stopped) = watch::channel(false);
+    let active: Arc<Mutex<Option<Session>>> = Arc::default();
+    let sessions = active.clone();
     let task = tokio::spawn(async move {
-      let slots = Arc::new(Semaphore::new(64));
       let mut connections = JoinSet::new();
       loop {
         tokio::select! {
-          _ = stopped.changed() => break,
-          _ = tokio::time::sleep_until(deadline) => break,
           _ = connections.join_next(), if !connections.is_empty() => {},
           accepted = listener.accept() => {
             let Ok((stream, _)) = accepted else { break };
-            let Ok(permit) = slots.clone().try_acquire_owned() else { continue };
-            let permit = Arc::new(permit);
-            let mut connection_stopped = stopped.clone();
-            let requests_stopped = stopped.clone();
+            let lease = {
+              let active = sessions.lock().expect("Browser proxy session lock poisoned");
+              active.as_ref().and_then(|session| {
+                session.slots.clone().try_acquire_owned().ok().map(|permit| (session.clone(), Arc::new(permit)))
+              })
+            };
+            // Idle browsers cannot open outbound connections.
+            let Some((session, permit)) = lease else { continue };
+            let Session { deadline, stopped, .. } = session;
+            let connection_stopped = stopped.clone();
             connections.spawn(async move {
               let service = service_fn(move |request| {
-                let stopped = requests_stopped.clone();
+                let stopped = stopped.clone();
                 let permit = permit.clone();
                 async move {
                   let response = match forward(request, stopped, deadline, permit).await {
@@ -92,7 +130,8 @@ impl PublicProxy {
                 }
               });
               tokio::select! {
-                _ = connection_stopped.changed() => {},
+                biased;
+                _ = cancelled(connection_stopped) => {},
                 _ = timeout_at(deadline, hyper::server::conn::http1::Builder::new()
                   .serve_connection(TokioIo::new(stream), service).with_upgrades()) => {},
               }
@@ -101,13 +140,22 @@ impl PublicProxy {
         }
       }
     });
-    Ok(Self { address, shutdown, _task: AbortTask(task) })
+    Ok(Self { address, active, _task: AbortTask(task) })
+  }
+
+  pub fn activate(&self, deadline: Instant) -> NetworkSession {
+    let (shutdown, stopped) = watch::channel(false);
+    let slots = Arc::new(Semaphore::new(64));
+    let mut active = self.active.lock().expect("Browser proxy session lock poisoned");
+    assert!(active.is_none(), "Only one browser network session may be active");
+    *active = Some(Session { deadline, stopped, slots: slots.clone() });
+    NetworkSession { active: self.active.clone(), shutdown, slots }
   }
 }
 
-impl Drop for PublicProxy {
-  fn drop(&mut self) {
-    let _ = self.shutdown.send(true);
+pub(super) async fn cancelled(mut stopped: watch::Receiver<bool>) {
+  if !*stopped.borrow_and_update() {
+    let _ = stopped.changed().await;
   }
 }
 
@@ -130,7 +178,7 @@ async fn connect(url: &Url) -> InfuResult<TcpStream> {
 
 async fn forward(
   mut request: Request<Incoming>,
-  mut stopped: watch::Receiver<bool>,
+  stopped: watch::Receiver<bool>,
   deadline: Instant,
   permit: Arc<OwnedSemaphorePermit>,
 ) -> InfuResult<Response<ProxyBody>> {
@@ -145,7 +193,7 @@ async fn forward(
     tokio::spawn(async move {
       let _permit = permit;
       tokio::select! {
-        _ = stopped.changed() => {},
+        _ = cancelled(stopped) => {},
         _ = timeout_at(deadline, async {
           if let Ok(stream) = upgrade.await {
             let _ = copy_bidirectional(&mut TokioIo::new(stream), &mut upstream).await;
@@ -169,12 +217,12 @@ async fn forward(
   let (mut sender, connection) = hyper::client::conn::http1::handshake(TokioIo::new(upstream))
     .await
     .map_err(|error| format!("Could not open proxy upstream: {error}"))?;
-  let mut upstream_stopped = stopped.clone();
+  let upstream_stopped = stopped.clone();
   let upstream_permit = permit.clone();
   tokio::spawn(async move {
     let _permit = upstream_permit;
     tokio::select! {
-      _ = upstream_stopped.changed() => {},
+      _ = cancelled(upstream_stopped) => {},
       _ = timeout_at(deadline, connection.with_upgrades()) => {},
     }
   });
@@ -195,7 +243,7 @@ async fn forward(
     tokio::spawn(async move {
       let _permit = permit;
       tokio::select! {
-        _ = stopped.changed() => {},
+        _ = cancelled(stopped) => {},
         _ = timeout_at(deadline, async {
           if let Ok((downstream, upstream)) = tokio::try_join!(downstream, upstream) {
             let _ = copy_bidirectional(&mut TokioIo::new(downstream), &mut TokioIo::new(upstream)).await;

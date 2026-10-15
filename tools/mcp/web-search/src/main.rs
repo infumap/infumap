@@ -33,6 +33,7 @@ use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
 use log::{error, info, warn};
 use tokio::net::TcpListener;
+use tokio::task::JoinSet;
 
 use protocol::handle_http;
 
@@ -100,10 +101,19 @@ async fn run_server() {
   info!("Web search MCP endpoint: http://{addr}/mcp/search");
   info!("Web fetch MCP endpoint: http://{addr}/mcp/fetch");
   info!("Local provider status available at /status (loopback clients only)");
-  tokio::spawn(search::refresh_provider_usage());
+  let usage_refresh = tokio::spawn(search::refresh_provider_usage());
+  let mut connections = JoinSet::new();
+  let shutdown = shutdown_signal();
+  tokio::pin!(shutdown);
 
   loop {
-    let (stream, peer) = match listener.accept().await {
+    let accepted = tokio::select! {
+      biased;
+      _ = &mut shutdown => break,
+      _ = connections.join_next(), if !connections.is_empty() => continue,
+      accepted = listener.accept() => accepted,
+    };
+    let (stream, peer) = match accepted {
       Ok(conn) => conn,
       Err(e) => {
         error!("accept failed: {e}");
@@ -111,7 +121,7 @@ async fn run_server() {
       }
     };
     let io = TokioIo::new(stream);
-    tokio::task::spawn(async move {
+    connections.spawn(async move {
       if let Err(err) = http1::Builder::new()
         .serve_connection(
           io,
@@ -130,4 +140,27 @@ async fn run_server() {
       }
     });
   }
+  drop(listener);
+  usage_refresh.abort();
+  // Dropping HTTP handlers cancels pending fetch receivers. Browser workers
+  // retain ownership/permits until their network and process cleanup finishes.
+  connections.abort_all();
+  while connections.join_next().await.is_some() {}
+  fetch::shutdown().await;
+  info!("Web-search server stopped; owned browser cleanup completed.");
+}
+
+async fn shutdown_signal() {
+  #[cfg(unix)]
+  {
+    use tokio::signal::unix::{SignalKind, signal};
+    let mut terminate = signal(SignalKind::terminate()).expect("Could not register SIGTERM handler");
+    let mut interrupt = signal(SignalKind::interrupt()).expect("Could not register SIGINT handler");
+    tokio::select! {
+      _ = terminate.recv() => {},
+      _ = interrupt.recv() => {},
+    }
+  }
+  #[cfg(not(unix))]
+  let _ = tokio::signal::ctrl_c().await;
 }

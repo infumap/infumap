@@ -77,15 +77,40 @@ there is no second download or cookie transfer to another HTTP client. The PDF
 handler currently returns an explicit native-extraction-not-connected error;
 it never decodes PDF bytes as text or falls back to OCR.
 
-The current renderer launches one temporary-profile browser per request and
-serializes browser fetches. It routes browser connections through an owned
-loopback proxy that resolves and validates public destinations before connecting
-to those exact addresses. Direct downloads likewise pin validated addresses.
-Request interception checks document destinations and redirects. The complete
-network policy now also requires OS confinement (step 3), described below.
-Browser reuse and shutdown supervision are step 4, and additional
-content-settling/cleanup heuristics are step 5. No browser launch or live fetch
-validation has been performed for these steps.
+The renderer starts one owned browser lazily and serializes browser fetches.
+It reuses a unique temporary profile for that browser, creating and disposing
+a fresh incognito context for each fetch. Cookies, storage and page targets
+belong to that request; the user's normal browser profile is never opened.
+Modern headless mode, Chrome's sandbox and certificate checks are required.
+Unsafe sandbox/TLS launch flags are rejected by the internal helper.
+
+The overall request deadline includes queueing, startup, navigation, rendering
+and extraction. Caller cancellation or a timeout stops the worker and recycles
+the browser, including any context whose creation was interrupted. Other browser
+errors also recycle it. Cleanup can continue after the caller's deadline, while
+the worker retains its concurrency slot. A subsequent fetch cannot start until
+network forwarding and required browser cleanup have finished.
+
+Browser connections use an owned loopback proxy that resolves and validates
+public destinations before connecting to those exact addresses. Direct downloads
+likewise pin validated addresses. A fresh proxy session bounds each fetch's
+connections and tunnels; revocation closes and drains them before releasing the
+slot. The proxy rejects new traffic while idle. OS confinement prevents browser
+traffic from bypassing the proxy, as described below.
+
+SIGINT/SIGTERM stop HTTP acceptance, cancel pending handlers and await owned
+browser cleanup. The wrapper allows five seconds before forcing server shutdown.
+An independent process guardian watches a private ownership socket and a helper
+lifeline, so it also cleans up if the server/helper is killed. It signals only
+its own Chrome process group and reaps Chrome; on Linux, a subreaper additionally
+adopts, terminates and reaps daemonized descendants. On macOS, the confinement
+policy denies the optional `chrome_crashpad_handler` daemon, which would escape
+process-group ownership. The guardian also removes its exact temporary profile
+after cleanup. There is no scan for unrelated Chrome processes.
+
+Additional content-settling/cleanup heuristics remain step 5. No browser launch,
+live fetch or shutdown exercise has been performed; macOS has not been compiled
+or exercised in this Linux development environment.
 
 Browser network confinement is mandatory and cannot be disabled in fetch
 configuration. On Linux, the server's internal browser helper creates user and
@@ -94,7 +119,9 @@ the filtering proxy and DevTools to the parent process. The host must permit
 unprivileged user/network namespaces for this executable, and the server must
 run as a non-root user. Kernel, container or AppArmor restrictions that prevent
 setup cause browser fetches to fail; the launcher does not change those policies.
-No external namespace/relay packages or global network changes are required.
+The guardian also requires `/proc/self/task/<pid>/children` for cleanup of adopted
+children and checks availability before starting Chrome. No external namespace/
+relay packages or global network changes are required.
 
 On macOS, `/usr/bin/sandbox-exec` applies a process-tree network policy allowing
 outbound IPv4 TCP only to the proxy's loopback port. Unsupported platforms and

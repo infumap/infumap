@@ -19,13 +19,13 @@ use std::time::Duration;
 
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
-use chromiumoxide::cdp::browser_protocol::{browser as cdp_browser, fetch, io, network};
+use chromiumoxide::cdp::browser_protocol::{browser as cdp_browser, fetch, io, network, target};
 use chromiumoxide::{Browser, BrowserConfig, Page};
 use futures_util::StreamExt;
 use reqwest::Url;
 use serde::Deserialize;
-use tokio::sync::{Semaphore, mpsc};
-use tokio::time::{Instant, timeout_at};
+use tokio::sync::{Mutex, Semaphore, mpsc, oneshot, watch};
+use tokio::time::{Instant, timeout, timeout_at};
 
 use crate::error::InfuResult;
 
@@ -33,96 +33,236 @@ use super::config::FetchConfig;
 use super::http::{DocumentKind, DownloadedDocument, classify};
 use super::isolation::Isolation;
 use super::policy::{assert_public_destination, public_addresses};
-use super::proxy::{AbortTask, PublicProxy};
+use super::proxy::{AbortTask, NetworkSession, PublicProxy, cancelled};
 
 pub(super) struct BrowserRenderer {
+  state: Arc<RendererState>,
+}
+
+struct RendererState {
   config: FetchConfig,
   slots: Arc<Semaphore>,
+  owned: Mutex<Option<OwnedBrowser>>,
+  shutdown: watch::Sender<bool>,
 }
 
 impl BrowserRenderer {
   pub fn new(config: FetchConfig) -> Self {
-    Self { config, slots: Arc::new(Semaphore::new(1)) }
+    let (shutdown, _) = watch::channel(false);
+    Self {
+      state: Arc::new(RendererState { config, slots: Arc::new(Semaphore::new(1)), owned: Mutex::new(None), shutdown }),
+    }
   }
 
   pub async fn render(&self, requested: &Url, deadline: Instant) -> InfuResult<DownloadedDocument> {
-    let permit = self.slots.clone().acquire_owned().await.map_err(|_| "Browser queue closed.")?;
-    let config = self.config.clone();
+    let state = self.state.clone();
+    let permit = timeout_at(deadline, state.slots.clone().acquire_owned())
+      .await
+      .map_err(|_| "Browser fetch deadline expired while queued.")?
+      .map_err(|_| "Browser fetch is shutting down.")?;
     let requested = requested.clone();
-    // The worker owns its permit and browser until cleanup, even if the caller
-    // stops waiting. The overall deadline bounds all browser and proxy work.
-    let task = tokio::spawn(async move {
+    let (mut response, receiver) = oneshot::channel();
+    // Dropping the receiver cancels the worker. The worker retains its slot
+    // through context/network/process cleanup, including after caller timeout.
+    tokio::spawn(async move {
       let _permit = permit;
-      timeout_at(deadline, render_owned(config, requested, deadline))
-        .await
-        .map_err(|_| "Browser fetch exceeded its overall deadline.")?
+      let stopped = state.shutdown.subscribe();
+      let mut owned = state.owned.lock().await;
+      // Cleanup is deliberately outside the cancellable request future.
+      if owned.as_ref().is_some_and(|browser| !browser.healthy())
+        && let Some(mut old) = owned.take()
+      {
+        old.stop().await;
+      }
+      let operation = async {
+        if owned.is_none() {
+          *owned = Some(OwnedBrowser::prepare(&state.config).await?);
+        }
+        let browser = owned.as_mut().expect("Browser ownership initialized");
+        if browser.browser.is_none() {
+          browser.launch().await?;
+        }
+        browser.request(&state.config, requested, deadline).await
+      };
+      let mut result = tokio::select! {
+        biased;
+        _ = cancelled(stopped) => Err("Browser fetch is shutting down.".into()),
+        _ = response.closed() => Err("Browser fetch was cancelled.".into()),
+        result = timeout_at(deadline, operation) => result
+          .map_err(|_| crate::error::InfuError::from("Browser fetch exceeded its overall deadline."))
+          .and_then(|result| result),
+      };
+      if let Some(browser) = owned.as_mut()
+        && let Some(network) = browser.network.take()
+      {
+        network.close().await;
+      }
+      if response.is_closed() || Instant::now() >= deadline {
+        result = Err("Browser fetch was cancelled or exceeded its overall deadline.".into());
+      }
+      if result.is_err() {
+        // This also disposes contexts whose creation was interrupted before a
+        // context ID arrived. Do not reuse an uncertain/unresponsive browser.
+        if let Some(mut browser) = owned.take() {
+          browser.stop().await;
+        }
+      }
+      let _ = response.send(result);
     });
-    task.await.map_err(|error| format!("Browser fetch worker failed: {error}"))?
+    timeout_at(deadline, receiver)
+      .await
+      .map_err(|_| "Browser fetch exceeded its overall deadline.")?
+      .map_err(|_| "Browser fetch worker stopped unexpectedly.")?
+  }
+
+  pub async fn shutdown(&self) {
+    let _ = self.state.shutdown.send_replace(true);
+    self.state.slots.close();
+    let mut owned = self.state.owned.lock().await;
+    if let Some(mut browser) = owned.take() {
+      browser.stop().await;
+    }
   }
 }
 
-async fn render_owned(config: FetchConfig, requested: Url, deadline: Instant) -> InfuResult<DownloadedDocument> {
-  let profile = tempfile::Builder::new()
-    .prefix("infumap-web-fetch-")
-    .tempdir()
-    .map_err(|error| format!("Could not create browser profile: {error}"))?;
-  let proxy = PublicProxy::start(deadline).await?;
-  let executable = config
-    .browser_path
-    .clone()
-    .map(Ok)
-    .unwrap_or_else(|| chromiumoxide::detection::default_executable(Default::default()))
-    .map_err(|_| "No suitable browser found. Set WEB_FETCH_BROWSER_PATH to Chrome/Chromium.")?;
-  let isolation = Isolation::prepare(profile.path(), proxy.address, executable, deadline).await?;
-  let builder = BrowserConfig::builder()
-    // The library's defaults disable popup and IPC flooding protections.
-    // Use an explicit list instead of inheriting those automation shortcuts.
-    .disable_default_args()
-    .new_headless_mode()
-    .respect_https_errors()
-    .user_data_dir(profile.path())
-    .enable_request_intercept()
-    .disable_cache()
-    .launch_timeout(Duration::from_secs(10))
-    .request_timeout(Duration::from_secs(10))
-    .arg(format!("--proxy-server=http://{}", proxy.address))
-    .arg("--proxy-bypass-list=<-loopback>")
-    .arg("--host-resolver-rules=MAP * ~NOTFOUND")
-    .arg("--disable-quic")
-    .arg("--disable-background-networking")
-    .arg("--disable-component-update")
-    .arg("--disable-sync")
-    .arg("--disable-default-apps")
-    .arg("--no-first-run")
-    .arg("--no-default-browser-check")
-    .arg("--block-new-web-contents")
-    .arg("--webrtc-ip-handling-policy=disable_non_proxied_udp")
-    .arg("--force-webrtc-ip-handling-policy=disable_non_proxied_udp");
-  let launch = isolation.launch_config(builder)?;
-  let (mut browser, mut handler) = Browser::launch(launch)
-    .await
-    .map_err(|error| format!("Could not launch browser (sandbox and certificate checks required): {error}"))?;
-  let _handler = AbortTask(tokio::spawn(async move {
-    while let Some(result) = handler.next().await {
-      if result.is_err() {
-        break;
-      }
-    }
-  }));
-  let result = render_page(&browser, &config, requested).await;
-  // A fresh browser/profile is used for now. Reuse and shutdown supervision
-  // belong to step 4; never reuse a normal user profile in the meantime.
-  let _ = browser.kill().await;
-  result
+struct OwnedBrowser {
+  browser: Option<Browser>,
+  handler: Option<AbortTask>,
+  dead: watch::Receiver<bool>,
+  isolation: Isolation,
+  proxy: PublicProxy,
+  network: Option<NetworkSession>,
+  profile: tempfile::TempDir,
 }
 
-async fn render_page(browser: &Browser, config: &FetchConfig, requested: Url) -> InfuResult<DownloadedDocument> {
-  browser
-    .execute(cdp_browser::SetDownloadBehaviorParams::new(cdp_browser::SetDownloadBehaviorBehavior::Deny))
-    .await
-    .map_err(|error| format!("Could not disable browser file downloads: {error}"))?;
-  let page =
-    browser.new_page("about:blank").await.map_err(|error| format!("Could not create browser page: {error}"))?;
+impl OwnedBrowser {
+  async fn prepare(config: &FetchConfig) -> InfuResult<Self> {
+    let profile = tempfile::Builder::new()
+      .prefix("infumap-web-fetch-")
+      .tempdir()
+      .map_err(|error| format!("Could not create browser profile: {error}"))?;
+    let proxy = PublicProxy::start().await?;
+    let executable = config
+      .browser_path
+      .clone()
+      .map(Ok)
+      .unwrap_or_else(|| chromiumoxide::detection::default_executable(Default::default()))
+      .map_err(|_| "No suitable browser found. Set WEB_FETCH_BROWSER_PATH to Chrome/Chromium.")?;
+    let isolation = Isolation::prepare(profile.path(), proxy.address, executable).await?;
+    let (_, dead) = watch::channel(false);
+    Ok(Self { browser: None, handler: None, dead, isolation, proxy, network: None, profile })
+  }
+
+  fn healthy(&self) -> bool {
+    !self.isolation.is_finished() && self.handler.as_ref().is_none_or(|handler| !handler.0.is_finished())
+  }
+
+  async fn launch(&mut self) -> InfuResult<()> {
+    let builder = BrowserConfig::builder()
+      // The library's defaults disable popup and IPC flooding protections.
+      // Use an explicit list instead of inheriting those automation shortcuts.
+      .disable_default_args()
+      .new_headless_mode()
+      .respect_https_errors()
+      .user_data_dir(self.profile.path())
+      .enable_request_intercept()
+      .disable_cache()
+      .launch_timeout(Duration::from_secs(10))
+      .request_timeout(Duration::from_secs(10))
+      .arg(format!("--proxy-server=http://{}", self.proxy.address))
+      .arg("--proxy-bypass-list=<-loopback>")
+      .arg("--host-resolver-rules=MAP * ~NOTFOUND")
+      .arg("--disable-quic")
+      .arg("--disable-background-networking")
+      .arg("--disable-component-update")
+      .arg("--disable-sync")
+      .arg("--disable-default-apps")
+      .arg("--no-first-run")
+      .arg("--no-default-browser-check")
+      .arg("--block-new-web-contents")
+      .arg("--webrtc-ip-handling-policy=disable_non_proxied_udp")
+      .arg("--force-webrtc-ip-handling-policy=disable_non_proxied_udp");
+    let launch = self.isolation.launch_config(builder)?;
+    let (browser, mut handler) = Browser::launch(launch)
+      .await
+      .map_err(|error| format!("Could not launch browser (sandbox and certificate checks required): {error}"))?;
+    let (died, dead) = watch::channel(false);
+    self.dead = dead;
+    self.handler = Some(AbortTask(tokio::spawn(async move {
+      while let Some(result) = handler.next().await {
+        if result.is_err() {
+          break;
+        }
+      }
+      let _ = died.send(true);
+    })));
+    self.browser = Some(browser);
+    Ok(())
+  }
+
+  async fn request(
+    &mut self,
+    config: &FetchConfig,
+    requested: Url,
+    deadline: Instant,
+  ) -> InfuResult<DownloadedDocument> {
+    let browser = self.browser.as_ref().ok_or("Browser did not start.")?;
+    self.network = Some(self.proxy.activate(deadline));
+    tokio::select! {
+      biased;
+      _ = cancelled(self.dead.clone()) => Err("Browser control connection stopped.".into()),
+      result = async {
+        let context = browser.create_browser_context(target::CreateBrowserContextParams::builder()
+          .dispose_on_detach(true).build()).await
+          .map_err(|error| format!("Could not create isolated browser context: {error}"))?;
+        let result = render_page(browser, config, requested, context.clone()).await;
+        browser.dispose_browser_context(context).await
+          .map_err(|error| format!("Could not dispose browser context: {error}"))?;
+        result
+      } => result,
+    }
+  }
+
+  async fn stop(&mut self) {
+    if let Some(network) = self.network.take() {
+      network.close().await;
+    }
+    if let Some(browser) = self.browser.as_mut() {
+      let _ = timeout(Duration::from_secs(1), browser.close()).await;
+    }
+    // Revoking ownership kills/reaps Chrome even if CDP stopped responding.
+    // Keep the profile/bridges alive until the guardian acknowledges cleanup.
+    self.isolation.shutdown().await;
+    if let Some(browser) = self.browser.as_mut() {
+      // Let the helper reap its guardian and exit before using force. The
+      // ownership acknowledgement already established Chrome has stopped.
+      if timeout(Duration::from_secs(1), browser.wait()).await.is_err() {
+        let _ = browser.kill().await;
+        let _ = browser.wait().await;
+      }
+    }
+    if let Some(handler) = self.handler.as_mut() {
+      handler.0.abort();
+      let _ = (&mut handler.0).await;
+    }
+  }
+}
+
+async fn render_page(
+  browser: &Browser,
+  config: &FetchConfig,
+  requested: Url,
+  context: chromiumoxide::cdp::browser_protocol::browser::BrowserContextId,
+) -> InfuResult<DownloadedDocument> {
+  let mut downloads = cdp_browser::SetDownloadBehaviorParams::new(cdp_browser::SetDownloadBehaviorBehavior::Deny);
+  downloads.browser_context_id = Some(context.clone());
+  browser.execute(downloads).await.map_err(|error| format!("Could not disable browser file downloads: {error}"))?;
+  let target = target::CreateTargetParams::builder()
+    .url("about:blank")
+    .browser_context_id(context)
+    .build()
+    .map_err(|error| format!("Could not configure browser page: {error}"))?;
+  let page = browser.new_page(target).await.map_err(|error| format!("Could not create browser page: {error}"))?;
   let frame = page
     .mainframe()
     .await

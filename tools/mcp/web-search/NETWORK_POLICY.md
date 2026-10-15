@@ -1,6 +1,6 @@
 # Web-fetch network policy
 
-Step 3 implementation, October 15, 2026. This is a source-level policy review;
+Steps 3–4 implementation, October 15, 2026. This is a source-level policy review;
 no browser launch, network exercise or test has been performed.
 
 The fetched URL is untrusted. A browser executable and the host's network and
@@ -25,8 +25,10 @@ protection, not a substitute for the browser sandbox.
    different upstream through their Host header. Only HTTP/HTTPS and their
    WebSocket forms are accepted; credentials and invalid ports are rejected.
    At most 64 client connections/tunnels are
-   active, with permits held across upgrades. Shutdown and the request deadline
-   stop connection forwarding.
+   active, with permits held across upgrades. Each fetch activates a separate
+   network session; idle traffic is rejected. Cancellation, completion and the
+   request deadline stop forwarding. Session revocation drains all connection
+   permits before another fetch can own the browser.
 
 3. **Linux browser boundary.** The server invokes itself in an internal helper
    mode before starting Tokio. The helper closes non-stdio inherited FDs,
@@ -37,14 +39,22 @@ protection, not a substitute for the browser sandbox.
    network. A filesystem Unix socket in the private temporary profile bridges
    its local HTTP proxy to the parent's filtering proxy. A separate bridge
    exposes its DevTools connection to the parent, with no arbitrary destination
-   chosen by page data. Parent-death signals terminate the helper/Chrome chain.
-   Namespace or interface setup errors stop launch before Chrome is started.
+   chosen by page data. Relays last for the owned browser, while the filtering
+   proxy limits outbound connections to the active request's session/deadline.
+   A parent-death signal terminates the namespace helper; the independent
+   guardian closes the Chrome tree (see ownership below). Namespace or interface
+   setup errors stop launch before Chrome is started.
 
-4. **macOS browser boundary.** The internal helper execs Chrome through the
-   system `sandbox-exec` with outbound IP traffic denied except IPv4 TCP to the
-   per-request proxy loopback port. The restriction is inherited by descendants;
-   filesystem Unix IPC remains available for Chrome's normal sandbox. Missing
-   or rejected sandbox support causes a launch error. This path needs separate
+4. **macOS browser boundary.** The internal helper starts the guardian/Chrome
+   through system `sandbox-exec`, with outbound IP traffic denied except IPv4
+   TCP to the owned browser's filtering proxy port. Restrictions are inherited
+   by descendants; filesystem Unix IPC remains available for Chrome's normal
+   sandbox and the ownership protocol. The policy also denies execution of
+   `chrome_crashpad_handler`: Crashpad deliberately detaches into another
+   session, and macOS lacks Linux subreaping. This keeps the optional crash
+   daemon outside the launch contract instead of attempting global process
+   matching. Missing/rejected sandbox support causes a launch error. This path,
+   including Chrome's behavior when that daemon is denied, needs separate
    compilation and behavioral validation on macOS.
 
 5. **Interception and browser settings.** Document URLs retain the search-engine
@@ -72,7 +82,28 @@ Host configuration can prevent a confined browser from starting, particularly
 when user namespaces are restricted. The server does not install privileged
 helpers, change firewall/AppArmor settings, disable Chrome's sandbox or retry
 without confinement. Search and direct text downloads do not need the browser
-helper. Browser reuse and broader shutdown supervision remain step 4.
+helper.
+
+The browser is launched lazily into a unique temporary profile. Each fetch
+creates an isolated context with `disposeOnDetach` and denies downloads in that
+context. Successful/error paths dispose the context; cancellation, timeout,
+control-channel failure or uncertain context creation cause browser recycling.
+One request deadline bounds queueing, startup and document work. Cleanup is
+outside the cancellable request future, so the browser slot remains held until
+its network/process work has stopped even if the caller has already timed out.
+
+An independent guardian receives launch permission over a private Unix socket
+before spawning Chrome in a new process group. It watches both that ownership
+socket and its helper's stdin lifeline. Owner/helper death or a shutdown command
+ends the Chrome group; Chrome's group leader remains unreaped until after the
+signal, preventing PID reuse from targeting unrelated processes. Linux also
+uses `PR_SET_CHILD_SUBREAPER` and reads only its own direct-child list to kill
+and reap adopted descendants that changed sessions. No process-name/profile
+scan is used. A cleanup acknowledgement follows reaping and removal of that
+exact private profile. A cancelled startup cannot launch Chrome after permission
+has been revoked. SIGINT/SIGTERM abort HTTP handlers and await this cleanup;
+`run.sh` forces a stuck server after five seconds, leaving the independent
+guardian able to finish cleanup after server SIGKILL.
 
 Compilation and linting establish that the Linux implementation builds; they
 do not establish end-to-end isolation on deployed hosts. Browser/redirect,
@@ -89,3 +120,8 @@ Design references:
 - [IANA IPv4](https://www.iana.org/assignments/iana-ipv4-special-registry/)
   and [IPv6 special-purpose registries](https://www.iana.org/assignments/iana-ipv6-special-registry/).
 - [Azure platform virtual IP](https://learn.microsoft.com/en-us/azure/virtual-network/what-is-ip-address-168-63-129-16).
+
+- [Linux wait semantics, including WNOWAIT](https://man7.org/linux/man-pages/man2/waitpid.2.html)
+  and [child subreapers](https://man7.org/linux/man-pages/man2/PR_SET_CHILD_SUBREAPER.2const.html).
+- [Crashpad subprocess detachment](https://github.com/chromium/crashpad/blob/main/util/posix/spawn_subprocess.cc)
+  and [Chrome's macOS Crashpad startup](https://github.com/chromium/chromium/blob/main/components/crash/core/app/crashpad_mac.mm).
