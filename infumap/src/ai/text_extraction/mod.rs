@@ -38,7 +38,7 @@ use crate::ai::gpu_tools::{
 };
 use crate::ai::metrics::{METRIC_AI_PDF_TEXT_EXTRACTION_PROCESSED_TOTAL, METRIC_AI_PDF_TEXT_EXTRACTION_QUEUE_DEPTH};
 use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, manifest_retry_reason, record_manifest_retry};
-use crate::ai::search_activity::{self as activity, Stage};
+use crate::ai::search_processing_activity::{self as activity, Stage};
 use crate::ai::search_reconciliation::StartupWork;
 use crate::ai::user_id_for_log;
 use crate::config::{CONFIG_DATA_DIR, CONFIG_GPU_TOOLS_URL};
@@ -1082,6 +1082,13 @@ async fn populate_initial_pdf_queue(
       }
       Ok(ManifestCheckResult::AlreadyBlocked { attention_reason }) => {
         already_blocked += 1;
+        log::log!(
+          if attention_reason.is_some() { log::Level::Warn } else { log::Level::Info },
+          "Skipping PDF text extraction for '{}' (user {}) at startup: {}",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          attention_reason.as_deref().unwrap_or("PDF requires a password. Not retried automatically.")
+        );
         if let Some(detail) = attention_reason {
           activity::stopped(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &detail);
         }
@@ -1109,7 +1116,7 @@ async fn populate_initial_pdf_queue(
   activity::end_startup_scan();
 
   info!(
-    "Initialized PDF text extraction queue with {} pending item(s) from {} PDF(s) the startup check found unfinished (already succeeded: {}, already failed: {}, already blocked: {}, queued despite artifact errors: {}).",
+    "Initialized PDF text extraction queue with {} pending item(s) from {} PDF(s) the startup check found unfinished (already succeeded: {}, already failed: {}, blocked and not retried automatically: {}, queued despite artifact errors: {}).",
     scheduled, total_candidates, already_succeeded, already_failed, already_blocked, artifact_errors
   );
 }

@@ -22,7 +22,7 @@ use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::gpu_tools::{GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY, gpu_tools_url_from_config, resolve_gpu_tool_url};
 use crate::ai::metrics::{METRIC_AI_DOCUMENT_FRAGMENT_PROCESSED_TOTAL, METRIC_AI_DOCUMENT_FRAGMENT_QUEUE_DEPTH};
 use crate::ai::processing_retry::RetrySchedule;
-use crate::ai::search_activity::{self as activity, Stage};
+use crate::ai::search_processing_activity::{self as activity, Stage};
 use crate::ai::search_reconciliation::StartupWork;
 use crate::ai::text_extraction::{PdfTextArtifactState, pdf_text_artifact_state};
 use crate::ai::user_id_for_log;
@@ -284,7 +284,6 @@ async fn run_document_fragment_loop(
         // the item's outstanding work meanwhile.
         state.lock().await.retries.clear(&candidate.key());
         activity::forget_stage(&candidate.user_id, &candidate.item_id, candidate.activity_stage());
-        debug!("PDF '{}' fragments wait for successful text extraction.", candidate.item_id);
       }
       Err(e) => {
         let (delay, attempt) = {
@@ -336,7 +335,15 @@ async fn reconcile_document_fragment_item(
   if candidate.kind == DocumentFragmentKind::Pdf {
     match pdf_text_artifact_state(&config.data_dir, &candidate.user_id, &candidate.item_id).await? {
       PdfTextArtifactState::Succeeded => {}
-      PdfTextArtifactState::Blocked | PdfTextArtifactState::Failed | PdfTextArtifactState::Pending => {
+      PdfTextArtifactState::Blocked => {
+        debug!(
+          "Skipping content preparation for PDF '{}': text extraction is blocked and will not retry automatically. See the PDF text extraction startup log for the reason.",
+          candidate.item_id
+        );
+        return Ok(DocumentFragmentReconcileOutcome::WaitingForExtraction);
+      }
+      PdfTextArtifactState::Failed | PdfTextArtifactState::Pending => {
+        debug!("PDF '{}' fragments wait for successful text extraction.", candidate.item_id);
         return Ok(DocumentFragmentReconcileOutcome::WaitingForExtraction);
       }
     }
@@ -490,7 +497,10 @@ async fn populate_initial_document_fragment_queue(
     enqueue_candidate(&mut state, candidate);
   }
   activity::end_startup_scan();
-  info!("Queued {} document item(s) that the startup check found unfinished.", count);
+  info!(
+    "Queued {} document item(s) for content preparation after the startup check. PDFs require successful text extraction; blocked PDFs will be skipped.",
+    count
+  );
 }
 
 fn enqueue_candidate_if_active(candidate: DocumentFragmentCandidate) {
