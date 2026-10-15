@@ -305,12 +305,12 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
   }
   let chat_providers = crate::web::routes::command::chat_providers_from_config(&config)?;
   if chat_providers.is_empty() {
-    info!(" {} = {}", CONFIG_CHAT_PROVIDER, "<not set>");
+    info!(" {} = {}", CONFIG_CHAT_PROVIDERS, "<not set>");
   } else {
     for provider in &chat_providers {
       info!(
         " {} id='{}' url='{}' adapter={} api_key={}",
-        CONFIG_CHAT_PROVIDER,
+        CONFIG_CHAT_PROVIDERS,
         provider.id,
         provider.base_url,
         provider.adapter.name(),
@@ -320,12 +320,12 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
   }
   let chat_tool_servers = crate::web::routes::command::chat_tool_servers_from_config(&config)?;
   if chat_tool_servers.is_empty() {
-    info!(" {} = {}", CONFIG_CHAT_TOOL_SERVER, "<not set>");
+    info!(" {} = {}", CONFIG_CHAT_TOOL_SERVERS, "<not set>");
   } else {
     for server in &chat_tool_servers {
       info!(
         " {} id='{}' url='{}' label='{}' enabled_by_default={} require_approval={} bearer={}",
-        CONFIG_CHAT_TOOL_SERVER,
+        CONFIG_CHAT_TOOL_SERVERS,
         server.id,
         server.url,
         server.label,

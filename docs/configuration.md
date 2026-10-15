@@ -17,7 +17,7 @@ as an array of inline tables. Each has a stable `id`, which is also its display 
 an API base `url` including its version path, and an optional `api_key`:
 
 ```toml
-chat_provider = [
+chat_providers = [
   { id = "local", url = "http://127.0.0.1:8080/v1", models = ["my-model"] },
   { id = "openrouter", url = "https://openrouter.ai/api/v1", adapter = "openrouter", api_key = "YOUR_KEY" },
 ]
@@ -46,11 +46,13 @@ the choices; a model without such metadata offers only Default. Explicit `models
 discovered metadata, so declare efforts if needed. Supported levels are `none`, `minimal`, `low`,
 `medium`, `high`, `xhigh` and `max`; only declare values the endpoint accepts.
 
-`chat_providers` takes the same provider list as JSON through `INFUMAP_CHAT_PROVIDERS`. Its entries
-replace TOML entries with the same ID, preserving their position; new IDs are appended. For example:
+`chat_providers` can also be supplied as a JSON string through `INFUMAP_CHAT_PROVIDERS`. Likewise,
+`chat_tool_servers` accepts a TOML array or a JSON string through `INFUMAP_CHAT_TOOL_SERVERS`.
+For example:
 
 ```sh
 export INFUMAP_CHAT_PROVIDERS='[{"id":"local","url":"http://127.0.0.1:8080/v1","api_key":"YOUR_KEY","models":["my-model"]}]'
+export INFUMAP_CHAT_TOOL_SERVERS='[{"id":"web_search","url":"http://127.0.0.1:8791/mcp","label":"Web search"}]'
 ```
 
 API keys are instance wide: every user shares the configured credentials and any associated spending.

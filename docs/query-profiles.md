@@ -24,7 +24,7 @@ All configuration fields are explicit, including nullable fields:
   Chat uses it when `infumap_data` is enabled. It does not constrain web tools, attachments or
   information already in the conversation. The scope is retained even when Infumap tools are off.
 - `model`: an explicit provider route, model and reasoning effort. `backend` is the stable `id` of a
-  configured `chat_provider` entry. Every provider requires an explicit model ID for Chat, including
+  configured `chat_providers` entry. Every provider requires an explicit model ID for Chat, including
   a provider hosting just one model. A null reasoning effort uses the model's default.
   A null selection object means no model has been chosen, such as before the default profile loads
   or in Search. Chat execution requires a selection;

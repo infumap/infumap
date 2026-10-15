@@ -47,9 +47,7 @@ pub const CONFIG_CACHE_DIR: &'static str = "cache_dir";
 pub const CONFIG_CACHE_DIR_DEFAULT: &'static str = "~/.infumap/cache";
 
 pub const CONFIG_GPU_TOOLS_URL: &'static str = "gpu_tools_url";
-pub const CONFIG_CHAT_PROVIDER: &'static str = "chat_provider";
 pub const CONFIG_CHAT_PROVIDERS: &'static str = "chat_providers";
-pub const CONFIG_CHAT_TOOL_SERVER: &'static str = "chat_tool_server";
 pub const CONFIG_CHAT_TOOL_SERVERS: &'static str = "chat_tool_servers";
 
 pub const CONFIG_GEOAPIFY_URL: &'static str = "geoapify_url";
