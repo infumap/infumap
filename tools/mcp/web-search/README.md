@@ -466,4 +466,10 @@ results as needed, explains that larger requests may use more credits, and notes
 that providers may return fewer results. This guidance is advisory; the server
 enforces budgets and fallback independently.
 
-`web_fetch` refuses loopback, link-local, and metadata addresses.
+`web_fetch` refuses loopback, link-local, and metadata addresses. It also refuses
+common search engine hosts, including Google (and country domains), Bing,
+DuckDuckGo (including HTML/lite endpoints), Yahoo Search, Brave Search, Startpage,
+Ecosia, Baidu, Yandex, AOL Search and Ask. These checks run before DNS resolution
+for each destination, including redirects. Rejections direct callers to
+`web_search`; search-provider configuration determines which provider is used.
+Product hosts such as `docs.google.com` remain fetchable.

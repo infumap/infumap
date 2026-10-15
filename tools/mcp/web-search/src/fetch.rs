@@ -46,6 +46,26 @@ const USER_AGENTS: &[&str] = &[
 const METADATA_HOSTS: &[&str] =
   &["localhost", "ip6-localhost", "metadata", "metadata.google.internal", "metadata.tencentyun.com"];
 
+const SEARCH_ENGINE_HOSTS: &[&str] = &[
+  "google.com",
+  "bing.com",
+  "cn.bing.com",
+  "duckduckgo.com",
+  "html.duckduckgo.com",
+  "lite.duckduckgo.com",
+  "yahoo.com",
+  "search.yahoo.com",
+  "search.brave.com",
+  "startpage.com",
+  "ecosia.org",
+  "baidu.com",
+  "yandex.com",
+  "yandex.ru",
+  "search.aol.com",
+  "ask.com",
+  "search.ask.com",
+];
+
 #[derive(Clone, Debug, Serialize)]
 pub struct FetchedPage {
   pub url: String,
@@ -178,6 +198,11 @@ async fn assert_public_destination(url: &Url) -> InfuResult<()> {
     return Err("Blocked: URL must not include credentials.".into());
   }
   let host = url.host_str().ok_or("Blocked: URL has no host.")?;
+  if is_search_engine_host(host) {
+    return Err(
+      format!("Blocked: web_fetch does not fetch search engine URLs ('{host}'). Use web_search for searches.").into(),
+    );
+  }
   if is_blocked_host(host) {
     return Err(format!("Blocked: refusing to fetch host '{host}'.").into());
   }
@@ -194,6 +219,20 @@ async fn assert_public_destination(url: &Url) -> InfuResult<()> {
     return Err(format!("Failed to resolve host: no addresses for '{host}'.").into());
   }
   Ok(())
+}
+
+fn is_search_engine_host(host: &str) -> bool {
+  let host = normalize_host(host);
+  let host = host.strip_prefix("www.").unwrap_or(&host);
+  if SEARCH_ENGINE_HOSTS.contains(&host) || host.ends_with(".search.yahoo.com") {
+    return true;
+  }
+  // Include Google's country search domains without blocking product hosts
+  // such as docs.google.com or unrelated domains containing "google".
+  host.strip_prefix("google.").is_some_and(|suffix| {
+    let country = suffix.strip_prefix("co.").or_else(|| suffix.strip_prefix("com.")).unwrap_or(suffix);
+    country.len() == 2 && country.bytes().all(|byte| byte.is_ascii_lowercase())
+  })
 }
 
 fn is_blocked_host(host: &str) -> bool {
