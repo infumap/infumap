@@ -45,8 +45,8 @@ pub enum WebTool {
 impl WebTool {
   pub fn name(self) -> &'static str {
     match self {
-      Self::Search => "infumap_web_search",
-      Self::Fetch => "infumap_web_fetch",
+      Self::Search => "web_search",
+      Self::Fetch => "web_fetch",
     }
   }
 }
@@ -59,8 +59,7 @@ pub fn tools_list(tool: WebTool) -> Value {
       "description": concat!(
         "Search the public web for URLs and snippets. ",
         "Each call may consume limited provider credits; use focused queries and avoid repeating searches ",
-        "already answered by existing results. Use an available web fetch tool to read known URLs or follow ",
-        "result links when snippets lack needed detail."
+        "already answered by existing results."
       ),
       "inputSchema": {
         "type": "object",
@@ -89,8 +88,8 @@ pub fn tools_list(tool: WebTool) -> Value {
       "name": tool.name(),
       "title": "Fetch page",
       "description": concat!(
-        "Read page text from an HTTP or HTTPS URL. Prefer this when you already have a relevant URL ",
-        "or need more detail from a search result. Does not consume search-provider credits."
+        "Read page text from an HTTP or HTTPS URL. ",
+        "Does not consume search-provider credits."
       ),
       "inputSchema": {
         "type": "object",
@@ -129,8 +128,8 @@ fn tool_result(text: String, is_error: bool) -> Value {
 /// Execute a named tool. Failures are returned as MCP `isError` results, not JSON-RPC errors.
 pub async fn call_tool(name: &str, arguments: Value) -> Value {
   match name {
-    "infumap_web_search" => call_web_search(arguments).await,
-    "infumap_web_fetch" => call_fetch_page(arguments).await,
+    "web_search" => call_web_search(arguments).await,
+    "web_fetch" => call_fetch_page(arguments).await,
     other => tool_result(tool_error_json(&format!("Unknown tool '{other}'.")), true),
   }
 }
@@ -139,12 +138,12 @@ async fn call_web_search(arguments: Value) -> Value {
   let arguments: WebSearchArguments = match serde_json::from_value(arguments) {
     Ok(arguments) => arguments,
     Err(e) => {
-      return tool_result(tool_error_json(&format!("Could not parse infumap_web_search tool arguments: {}", e)), true);
+      return tool_result(tool_error_json(&format!("Could not parse web_search tool arguments: {}", e)), true);
     }
   };
   let query = arguments.query.or(arguments.text).unwrap_or_default();
   if query.trim().is_empty() {
-    return tool_result(tool_error_json("infumap_web_search tool argument 'query' is required."), true);
+    return tool_result(tool_error_json("web_search tool argument 'query' is required."), true);
   }
   let num_results =
     arguments.num_results.unwrap_or(DEFAULT_MAX_RESULTS as i64).clamp(1, MAX_RESULTS_CAP as i64) as usize;
@@ -163,12 +162,12 @@ async fn call_fetch_page(arguments: Value) -> Value {
   let arguments: FetchPageArguments = match serde_json::from_value(arguments) {
     Ok(arguments) => arguments,
     Err(e) => {
-      return tool_result(tool_error_json(&format!("Could not parse infumap_web_fetch tool arguments: {}", e)), true);
+      return tool_result(tool_error_json(&format!("Could not parse web_fetch tool arguments: {}", e)), true);
     }
   };
   let url = arguments.url.unwrap_or_default();
   if url.trim().is_empty() {
-    return tool_result(tool_error_json("infumap_web_fetch tool argument 'url' is required."), true);
+    return tool_result(tool_error_json("web_fetch tool argument 'url' is required."), true);
   }
   let max_chars = arguments.max_chars.unwrap_or(DEFAULT_MAX_CHARS as i64).clamp(1, MAX_CHARS_CAP as i64) as usize;
   match fetch::fetch_page_json(&url, max_chars).await {

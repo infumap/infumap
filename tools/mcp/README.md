@@ -21,8 +21,8 @@ chat_tool_servers = [
 ]
 ```
 
-`/mcp/search` exposes only `infumap_web_search`; `/mcp/fetch` exposes only
-`infumap_web_fetch`. Each endpoint rejects calls to the other tool. Enable either
+`/mcp/search` exposes only `web_search`; `/mcp/fetch` exposes only
+`web_fetch`. Each endpoint rejects calls to the other tool. Enable either
 source independently in Infumap, omit an entry to use only the other, or replace
 either entry with another MCP server. There is no combined `/mcp` endpoint.
 

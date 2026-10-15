@@ -36,8 +36,8 @@ Environment:
 
 The MCP endpoints share one process and port:
 
-- `http://$WEB_SEARCH_HOST:$WEB_SEARCH_PORT/mcp/search` exposes only `infumap_web_search`.
-- `http://$WEB_SEARCH_HOST:$WEB_SEARCH_PORT/mcp/fetch` exposes only `infumap_web_fetch`.
+- `http://$WEB_SEARCH_HOST:$WEB_SEARCH_PORT/mcp/search` exposes only `web_search`.
+- `http://$WEB_SEARCH_HOST:$WEB_SEARCH_PORT/mcp/fetch` exposes only `web_fetch`.
 
 Each endpoint advertises and accepts only its own tool. There is no combined
 `/mcp` endpoint or alias for the previous tool names.
@@ -92,7 +92,7 @@ already has an Exa key:
 env -u EXA_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
 ```
 
-The server starts and `infumap_web_fetch` remains available. `infumap_web_search` returns a
+The server starts and `web_fetch` remains available. `web_search` returns a
 short MCP tool error saying search is unavailable. `/status` shows
 `search_available: false`, both providers disabled, and a configuration error.
 No metered budget directory is created. Other malformed environment settings
@@ -153,7 +153,7 @@ Attempts with uncertain billing, including HTTP 401 and 402, conservatively comm
 their reserved cost. Correcting a key and restarting preserves that consumption.
 When fallback succeeds, the MCP result contains that provider's normal results;
 logs and `/status` expose failures of the earlier provider. If no provider can
-serve the call, `infumap_web_search` returns `isError: true` with a short unavailability
+serve the call, `web_search` returns `isError: true` with a short unavailability
 message. Provider failure and skip reasons remain in server logs and local status.
 A successful empty result does not trigger fallback.
 
@@ -453,13 +453,12 @@ this is a localhost sidecar.
 
 ## Tools
 
-- `infumap_web_search` at `/mcp/search` — `{ query, numResults? }`
-- `infumap_web_fetch` at `/mcp/fetch` — `{ url, maxChars? }`
+- `web_search` at `/mcp/search` — `{ query, numResults? }`
+- `web_fetch` at `/mcp/fetch` — `{ url, maxChars? }`
 
 The model-facing descriptions explain that searches may consume limited provider
-credits. They encourage focused queries, reuse of existing results and fetching
-known URLs or result links when snippets lack detail. Further searches remain
-appropriate when existing results do not answer the question. `infumap_web_fetch` reads
+credits. They encourage focused queries and reuse of existing results. Further searches remain
+appropriate when existing results do not answer the question. `web_fetch` reads
 pages directly without consuming search-provider credits.
 
 `numResults` defaults to five. Its description advises requesting only as many
@@ -467,4 +466,4 @@ results as needed, explains that larger requests may use more credits, and notes
 that providers may return fewer results. This guidance is advisory; the server
 enforces budgets and fallback independently.
 
-`infumap_web_fetch` refuses loopback, link-local, and metadata addresses.
+`web_fetch` refuses loopback, link-local, and metadata addresses.

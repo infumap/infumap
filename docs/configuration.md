@@ -73,8 +73,8 @@ export INFUMAP_CHAT_PROVIDERS='[{"id":"local","url":"http://127.0.0.1:8080/v1","
 export INFUMAP_CHAT_TOOL_SERVERS='[{"id":"web_search","url":"http://127.0.0.1:8791/mcp/search"},{"id":"web_fetch","url":"http://127.0.0.1:8791/mcp/fetch"}]'
 ```
 
-The bundled web MCP server exposes `infumap_web_search` at `/mcp/search` and
-`infumap_web_fetch` at `/mcp/fetch`. Configure them as separate entries so search
+The bundled web MCP server exposes `web_search` at `/mcp/search` and
+`web_fetch` at `/mcp/fetch`. Configure them as separate entries so search
 and fetch can each be selected or replaced independently. Each entry's stable `id` also serves as its
 display label; omit either entry if it is not needed. See [MCP tools](../tools/mcp/README.md).
 

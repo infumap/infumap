@@ -48,9 +48,9 @@ function queryChatToolDisplayName(name: string): string {
       return "Search source text";
     case "infumap_get_fragment":
       return "Read Infumap item";
-    case "infumap_web_search":
+    case "web_search":
       return "Search the web";
-    case "infumap_web_fetch":
+    case "web_fetch":
       return "Fetch page";
     default:
       return name.replaceAll("_", " ");
@@ -130,14 +130,14 @@ function queryChatToolCallSignature(name: string, args: unknown): string | null 
     }
     return parts.length == 0 ? `${name}()` : `${name}(${parts.join(", ")})`;
   }
-  if (name == "infumap_web_search") {
+  if (name == "web_search") {
     const query = queryChatJsonString(record?.query) ?? queryChatJsonString(record?.text);
     if (query == null) {
       return record == null ? null : `${name}()`;
     }
     return `${name}(${JSON.stringify(query)})`;
   }
-  if (name == "infumap_web_fetch") {
+  if (name == "web_fetch") {
     const url = queryChatJsonString(record?.url);
     if (url == null) {
       return record == null ? null : `${name}()`;
@@ -165,10 +165,10 @@ function queryChatToolCallStatusIconClass(status: QueryChatActivityToolCall["sta
 }
 
 function queryChatToolApprovalPrompt(toolCall: QueryChatActivityToolCall): { label: string, value: string } {
-  if (toolCall.name == "infumap_web_fetch") {
+  if (toolCall.name == "web_fetch") {
     return { label: "URL", value: toolCall.url ?? "" };
   }
-  if (toolCall.name == "infumap_web_search") {
+  if (toolCall.name == "web_search") {
     return { label: "Query", value: toolCall.query ?? "" };
   }
   return { label: "Arguments", value: queryChatPrettyJson(toolCall.arguments ?? {}) };

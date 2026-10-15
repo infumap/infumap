@@ -53,7 +53,7 @@ async fn main() {
   }
   let providers = config.provider_preference();
   if providers.is_empty() {
-    warn!("No search providers configured; infumap_web_search is unavailable. infumap_web_fetch is still available.");
+    warn!("No search providers configured; web_search is unavailable. web_fetch is still available.");
   } else {
     info!("Configured search provider preference: {}", providers.join(", "));
   }
