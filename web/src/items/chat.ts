@@ -197,38 +197,38 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
     case "answer_delta":
       return "Answering";
     case "tool_approval_required":
-      if (event.name == "web_search") {
+      if (event.name == "infumap_web_search") {
         return "Waiting to search the web";
       }
-      if (event.name == "fetch_page") {
+      if (event.name == "infumap_web_fetch") {
         return "Waiting to fetch page";
       }
       return "Waiting for approval";
     case "tool_call_started":
-      if (event.name == "search" || event.name == "find" || event.name == "lexical_search") {
+      if (event.name == "infumap_search" || event.name == "find" || event.name == "lexical_search") {
         return "Finding items";
       }
       if (event.name == "search_text") {
         return "Searching source text";
       }
-      if (event.name == "get_fragment") {
+      if (event.name == "infumap_get_fragment") {
         return "Reading Infumap item";
       }
-      if (event.name == "web_search") {
+      if (event.name == "infumap_web_search") {
         return "Searching the web";
       }
-      if (event.name == "fetch_page") {
+      if (event.name == "infumap_web_fetch") {
         return "Fetching page";
       }
       return `Running ${event.name}`;
     case "tool_call_finished":
-      if (event.name == "search" || event.name == "find" || event.name == "lexical_search") {
+      if (event.name == "infumap_search" || event.name == "find" || event.name == "lexical_search") {
         return "Find complete";
       }
       if (event.name == "search_text") {
         return "Search complete";
       }
-      if (event.name == "get_fragment") {
+      if (event.name == "infumap_get_fragment") {
         return "Item read";
       }
       return event.summary;

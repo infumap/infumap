@@ -276,24 +276,24 @@ nonzero status. Session or
 transport failures report a diagnostic on stderr and also exit with a nonzero status.
 
 ```bash
-infumap tool search "acme onboarding"
-infumap tool search "budget" --within infumap://<page-id>
-infumap tool search "budget" --page-num 2
-infumap tool get_fragment infumap://<item-id>
-infumap tool get_fragment <item-id> --fragment-ordinal 4
-infumap tool search "budget" --session work --scope <scope-id>
+infumap tool infumap_search "acme onboarding"
+infumap tool infumap_search "budget" --within infumap://<page-id>
+infumap tool infumap_search "budget" --page-num 2
+infumap tool infumap_get_fragment infumap://<item-id>
+infumap tool infumap_get_fragment <item-id> --fragment-ordinal 4
+infumap tool infumap_search "budget" --session work --scope <scope-id>
 ```
 
 Both subcommands accept `-s --session <name>` (default: `default`) and `--scope <scope-id>`.
 These options may appear before or after the tool name. An invalid or deleted scope fails the
 request; it never falls back to an unrestricted call.
 
-`tool search <text>` accepts:
+`tool infumap_search <text>` accepts:
 
 - **--within:** Page or table link, or bare id, to search within.
 - **--page-num:** One-based page of 10 results (default: 1).
 
-`tool get_fragment <link-or-id>` accepts:
+`tool infumap_get_fragment <link-or-id>` accepts:
 
 - **--fragment-ordinal:** Zero-based starting fragment (default: 0).
 
@@ -301,7 +301,7 @@ The tools use the same argument handling, access checks, and result formatting a
 ending with a `The item continues.` or `For more results,` line has more: run the command again with
 `--fragment-ordinal` or `--page-num` set to the value it gives. See [chat-tools.md](chat-tools.md)
 for the tool behavior and result formats. The local `fragment` command builds artifacts and is
-separate from `tool get_fragment`, which reads them and renders live container contents.
+separate from `tool infumap_get_fragment`, which reads them and renders live container contents.
 
 ### login
 

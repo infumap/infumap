@@ -77,9 +77,11 @@
 # docs/configuration.md.
 
 # Optional MCP tool servers for Chat. Run each server separately; see
-# tools/mcp/ for the bundled web search server.
+# tools/mcp/ for the bundled web search and fetch server. Its two endpoints can
+# be enabled or replaced independently.
 #chat_tool_servers = [
-#  { id = "web_search", url = "http://127.0.0.1:8791/mcp", label = "Web search" },
+#  { id = "web_search", url = "http://127.0.0.1:8791/mcp/search", label = "Web search" },
+#  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch", label = "Web fetch" },
 #]
 # For optional fields or environment variable configuration, see
 # docs/configuration.md.

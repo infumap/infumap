@@ -53,13 +53,13 @@ summarize this
 
 Two alternatives were rejected:
 
-- **A reference the model reads with `get_fragment`.** Weak models skip reads, as seen with a page's second
+- **A reference the model reads with `infumap_get_fragment`.** Weak models skip reads, as seen with a page's second
   fragment, and for "summarize this" a skipped part is the worst failure. Attachments also have to work with
   Infumap data off, when the model has no tools.
 - **Truncating to fit the context.** A summary of part of a transcript, presented as a summary of all of it, is
   worse than an error.
 
-The `<attachment>` tags follow the `<fragment>` wrapping used for `get_fragment` results. A `"` in a title is
+The `<attachment>` tags follow the `<fragment>` wrapping used for `infumap_get_fragment` results. A `"` in a title is
 replaced with `'`. No system prompt change is planned; the tags are self-explanatory.
 
 ### What reads attachments and what doesn't

@@ -14,7 +14,7 @@ is in `infumap/src/query_configuration.rs`. Chat turn settings use these shared 
     "model": "my-model",
     "reasoningEffort": null
   },
-  "capabilities": ["infumap_data", "web_search"]
+  "capabilities": ["infumap_data", "web_search", "web_fetch"]
 }
 ```
 

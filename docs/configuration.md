@@ -52,8 +52,13 @@ For example:
 
 ```sh
 export INFUMAP_CHAT_PROVIDERS='[{"id":"local","url":"http://127.0.0.1:8080/v1","api_key":"YOUR_KEY","models":["my-model"]}]'
-export INFUMAP_CHAT_TOOL_SERVERS='[{"id":"web_search","url":"http://127.0.0.1:8791/mcp","label":"Web search"}]'
+export INFUMAP_CHAT_TOOL_SERVERS='[{"id":"web_search","url":"http://127.0.0.1:8791/mcp/search","label":"Web search"},{"id":"web_fetch","url":"http://127.0.0.1:8791/mcp/fetch","label":"Web fetch"}]'
 ```
+
+The bundled web MCP server exposes `infumap_web_search` at `/mcp/search` and
+`infumap_web_fetch` at `/mcp/fetch`. Configure them as separate entries so search
+and fetch can each be selected or replaced independently; omit either entry if
+it is not needed. See [MCP tools](../tools/mcp/README.md).
 
 API keys are instance wide: every user shares the configured credentials and any associated spending.
 They are sent as Bearer tokens by the server and are never included in the browser's provider catalog.
