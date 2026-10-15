@@ -80,7 +80,10 @@ fn provider_endpoint(provider: &ChatProvider, selection: &ChatModelSelection) ->
     .map(str::trim)
     .filter(|model| !model.is_empty())
     .ok_or("Selected model is missing. Choose an explicit model.")?;
-  if !provider.models.is_empty() && !provider.models.iter().any(|id| id == model) {
+  if provider.adapter == ChatAdapter::Openrouter && model == "default" {
+    return Err("OpenRouter requires an explicit catalog model ID; 'default' is not supported.".into());
+  }
+  if provider.model_name.as_deref().is_some_and(|name| name != model) {
     return Err(
       format!("Selected model '{}' is not configured for '{}'. Choose another model.", model, provider.id).into(),
     );

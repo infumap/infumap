@@ -111,6 +111,9 @@ fn model_info(provider: &ChatProvider, model: Model) -> Option<ChatModelInfo> {
     return None;
   }
   let id = model.id.trim().to_owned();
+  if provider.adapter == ChatAdapter::Openrouter && id == "default" {
+    return None;
+  }
   if crate::query_configuration::validate_text(&id, "model ID", 512).is_err() {
     return None;
   }
@@ -170,23 +173,19 @@ async fn fetch_models(provider: &ChatProvider) -> InfuResult<Vec<ChatModelInfo>>
   )
 }
 
-/// Configured model IDs are authoritative and preserve their order. Otherwise discover /models.
+/// Without discovery, expose only the configured request model ID. Otherwise discover /models.
 pub async fn model_catalog(provider: &ChatProvider) -> InfuResult<ModelCatalog> {
-  if !provider.models.is_empty() {
-    let models = provider
-      .models
-      .iter()
-      .map(|id| ChatModelInfo {
-        id: id.clone(),
-        name: id.clone(),
-        context_length: None,
-        reasoning_efforts: provider.reasoning_efforts.clone(),
-        default_effort: None,
-        reasoning_mandatory: false,
-        prompt_price: None,
-        completion_price: None,
-      })
-      .collect();
+  if let Some(id) = &provider.model_name {
+    let models = vec![ChatModelInfo {
+      id: id.clone(),
+      name: if id == "default" { "Server default".to_owned() } else { id.clone() },
+      context_length: None,
+      reasoning_efforts: provider.reasoning_efforts.clone(),
+      default_effort: None,
+      reasoning_mandatory: false,
+      prompt_price: None,
+      completion_price: None,
+    }];
     return Ok(ModelCatalog { models: Arc::new(models), fresh: true });
   }
   let key = cache_key(provider);
