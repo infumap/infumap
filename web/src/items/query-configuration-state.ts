@@ -40,7 +40,7 @@ function replaceQueryProfile(store: StoreContextModel, queryItem: QueryItem, pro
   }));
 }
 
-/** Applies every resource and the reset baseline in one update. Does not change mode or user defaults. */
+/** Applies every resource in one update and records the profile as applied. Does not change mode or user defaults. */
 export function applyQueryProfile(store: StoreContextModel, queryItem: QueryItem, profile: QueryProfile): void {
   assertQueryConfigurationEditable(store, queryItem);
   replaceQueryProfile(store, queryItem, profile);
@@ -96,18 +96,25 @@ export function setQueryConfigurationCapability(
   updateQueryConfiguration(store, queryItem, { capabilities: [...capabilities] });
 }
 
-/** Restores the snapshot as applied, even if the saved profile was changed or deleted afterwards. */
+/** The saved profile this query's setup came from, as it is saved now. Null once that profile is deleted. */
+export function appliedSavedProfile(store: StoreContextModel, queryItem: QueryItem): QueryProfile | null {
+  const applied = getQueryRuntime(store, queryItem).appliedProfile;
+  if (applied == null) { return null; }
+  return store.general.queryProfiles.collection()?.profiles.find(profile => profile.id == applied.id) ?? null;
+}
+
+/** Re-applies the applied profile as it is saved now. */
 export function resetQueryConfiguration(store: StoreContextModel, queryItem: QueryItem): boolean {
-  const appliedProfile = getQueryRuntime(store, queryItem).appliedProfile;
-  if (appliedProfile == null) { return false; }
-  applyQueryProfile(store, queryItem, appliedProfile);
+  const profile = appliedSavedProfile(store, queryItem);
+  if (profile == null) { return false; }
+  applyQueryProfile(store, queryItem, profile);
   return true;
 }
 
+/** Whether this query's setup differs from its applied profile as saved now. */
 export function isQueryConfigurationModified(store: StoreContextModel, queryItem: QueryItem): boolean {
-  const runtime = getQueryRuntime(store, queryItem);
-  return runtime.appliedProfile != null &&
-    !queryConfigurationsEqual(runtime.configuration, runtime.appliedProfile.configuration);
+  const profile = appliedSavedProfile(store, queryItem);
+  return profile != null && !queryConfigurationsEqual(getQueryRuntime(store, queryItem).configuration, profile.configuration);
 }
 
 /** Restore recorded resources and provenance together; default initialization cannot overwrite them. */
@@ -124,7 +131,7 @@ export function restoreQueryConfiguration(
   }));
 }
 
-/** Capture exactly what was selected. Sending never replaces selections or changes the reset baseline. */
+/** Capture exactly what was selected. Sending never replaces selections or the applied profile. */
 export function snapshotQueryChatSettings(
   store: StoreContextModel,
   queryItem: QueryItem,

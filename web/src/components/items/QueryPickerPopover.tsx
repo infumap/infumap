@@ -73,7 +73,10 @@ export function QueryPickerPopover(props: PopoverProps) {
     const below = rect == null ? window.innerHeight - margin * 2 : window.innerHeight - rect.bottom - margin - gap;
     const placeAbove = above > below;
     const height = Math.max(0, Math.min(520, placeAbove ? above : below, window.innerHeight - margin * 2));
-    const left = Math.max(margin, Math.min((rect?.right ?? width + margin) - width, window.innerWidth - width - margin));
+    // Open towards the middle of the window: from the button's left edge when it is in the left half.
+    const preferredLeft = rect == null ? margin
+      : rect.left + rect.width / 2 < window.innerWidth / 2 ? rect.left : rect.right - width;
+    const left = Math.max(margin, Math.min(preferredLeft, window.innerWidth - width - margin));
     const vertical = rect == null ? `top: ${margin}px;` : placeAbove
       ? `bottom: ${Math.max(margin, window.innerHeight - rect.top + gap)}px;`
       : `top: ${rect.bottom + gap}px;`;

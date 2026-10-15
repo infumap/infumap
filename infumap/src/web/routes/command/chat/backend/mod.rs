@@ -33,8 +33,8 @@ pub use openrouter::ChatModelInfo;
 
 use super::mcp::{self, ChatToolServerInfo};
 use crate::config::{
-  CHAT_BACKEND_LLAMA, CHAT_BACKEND_LLAMA_PREFIX, CHAT_BACKEND_OPENROUTER, CONFIG_CHAT_DEFAULT_BACKEND,
-  CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, CONFIG_OPENROUTER_API_KEY,
+  CHAT_BACKEND_LLAMA, CHAT_BACKEND_LLAMA_PREFIX, CHAT_BACKEND_OPENROUTER, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL,
+  CONFIG_OPENROUTER_API_KEY,
 };
 
 /// The OpenRouter API. Trailing slash so that paths resolve relative to the version segment.
@@ -69,10 +69,10 @@ pub enum ChatBackend {
 
 const OPENROUTER_LABEL: &str = "OpenRouter";
 
-/// A backend as named by a chat request or by chat_default_backend.
+/// A backend as named by a chat request.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BackendId<'a> {
-  /// Plain "llama": whichever llama server is configured first.
+  /// Plain "llama": the unavailable placeholder, rejected for explicit chat requests.
   FirstLlama,
   Llama(&'a str),
   OpenRouter,
@@ -208,20 +208,14 @@ fn find_llama<'a>(llama_servers: &'a [LlamaServer], name: &str) -> Option<&'a Ll
   llama_servers.iter().find(|server| server.name == name)
 }
 
-/// The backend to use when the client did not ask for one: the configured default, falling back
-/// to another configured backend when the default is not configured. None when nothing is.
+/// The backend used to seed an account's first profile: the first configured llama server,
+/// then OpenRouter. None when nothing is configured.
 fn default_target(config: &Config, llama_servers: &[LlamaServer]) -> Option<ChatTarget> {
-  let configured_default = configured_string(config, CONFIG_CHAT_DEFAULT_BACKEND);
-  let configured_default = configured_default.as_deref().and_then(BackendId::parse).unwrap_or(BackendId::FirstLlama);
-  let first_llama = || llama_servers.first().cloned().map(ChatTarget::Llama);
-  let openrouter = || openrouter_is_configured(config).then_some(ChatTarget::OpenRouter);
-  match configured_default {
-    BackendId::OpenRouter => openrouter().or_else(first_llama),
-    BackendId::FirstLlama => first_llama().or_else(openrouter),
-    BackendId::Llama(name) => {
-      find_llama(llama_servers, name).cloned().map(ChatTarget::Llama).or_else(first_llama).or_else(openrouter)
-    }
-  }
+  llama_servers
+    .first()
+    .cloned()
+    .map(ChatTarget::Llama)
+    .or_else(|| openrouter_is_configured(config).then_some(ChatTarget::OpenRouter))
 }
 
 /// A backend the client named explicitly is never silently swapped for another - that is an error
@@ -244,7 +238,7 @@ pub fn resolve_chat_endpoint(config: &Config, selection: &ChatModelSelection) ->
   match target {
     ChatTarget::Llama(server) => {
       if selection.model.is_some() {
-        return Err("Selected model is unsupported by this provider. Choose Server-selected.".into());
+        return Err("This provider serves its own model and cannot use a selected one. Choose the provider itself.".into());
       }
       if selection.reasoning_effort.is_some() {
         return Err("Selected reasoning effort is unsupported by this provider. Choose Default.".into());
@@ -288,31 +282,10 @@ pub async fn resolve_validated_chat_endpoint(
   Ok(endpoint)
 }
 
-/// Checked at startup, so that a bad llama server entry or a default naming a server that does not
-/// exist is reported then rather than on the first chat.
+/// Checked at startup, so that a bad llama server entry is reported before the first chat.
 pub fn validate_chat_backend_config(config: &Config) -> InfuResult<()> {
-  let llama_servers = llama_servers_from_config(config)?;
-  let Some(configured_default) = configured_string(config, CONFIG_CHAT_DEFAULT_BACKEND) else {
-    return Ok(());
-  };
-  match BackendId::parse(&configured_default) {
-    Some(BackendId::Llama(name)) if find_llama(&llama_servers, name).is_none() => Err(
-      format!("{} '{}' names a llama server that is not configured.", CONFIG_CHAT_DEFAULT_BACKEND, configured_default)
-        .into(),
-    ),
-    Some(_) => Ok(()),
-    None => Err(
-      format!(
-        "{} '{}' is not one of: {}, {}, {}<name>.",
-        CONFIG_CHAT_DEFAULT_BACKEND,
-        configured_default,
-        CHAT_BACKEND_LLAMA,
-        CHAT_BACKEND_OPENROUTER,
-        CHAT_BACKEND_LLAMA_PREFIX
-      )
-      .into(),
-    ),
-  }
+  llama_servers_from_config(config)?;
+  Ok(())
 }
 
 /// What one backend offers, as reported to the web client.

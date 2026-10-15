@@ -319,11 +319,6 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_OPENROUTER_API_KEY, "<not set>");
     }
   }
-  info!(
-    " {} = '{}'",
-    CONFIG_CHAT_DEFAULT_BACKEND,
-    config.get_string(CONFIG_CHAT_DEFAULT_BACKEND).map_err(|e| e.to_string())?
-  );
   match config.get_string(CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL) {
     Ok(v) if !v.trim().is_empty() => {
       info!(" {} = '{}'", CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, v);
@@ -593,8 +588,6 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_LLAMA_SERVER_URL, CONFIG_LLAMA_SERVER_URL_DEFAULT)
-      .map_err(|e| e.to_string())?
-      .set_default(CONFIG_CHAT_DEFAULT_BACKEND, CONFIG_CHAT_DEFAULT_BACKEND_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL_DEFAULT)
       .map_err(|e| e.to_string())?

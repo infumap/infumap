@@ -114,7 +114,7 @@ fn json_entries_from_config(config: &Config) -> InfuResult<Vec<LlamaServerFile>>
 }
 
 /// Configured llama servers, in order: `llama_server_url` (named "llama-server"), then TOML
-/// `[[llama_server]]`, then optional JSON in `llama_servers` (`INFUMAP_LLAMA_SERVERS`). A later entry
+/// `llama_server` array, then optional JSON in `llama_servers` (`INFUMAP_LLAMA_SERVERS`). A later entry
 /// replaces an earlier one with the same name.
 pub fn llama_servers_from_config(config: &Config) -> InfuResult<Vec<LlamaServer>> {
   let entries = legacy_entry_from_config(config)

@@ -280,7 +280,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const queryRequestActive = () => isStartingChat() || isSendingChat() || getQueryRuntime(store, queryItem()).chat.requestId != null ||
     getQueryRuntime(store, queryItem()).chat.runningElsewhere;
   const chatSettingsNote = () => queryChatHasContent(store, queryItem())
-    ? "Applies from your next message. Earlier answers and retrieved context stay in this chat." : null;
+    ? "Changes apply from your next message." : null;
   /** Search mode hides the mode selector, so a submit from there always refines the search. */
   const selectedInputMode = (): QueryInputMode =>
     isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
@@ -1397,12 +1397,20 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   <i class="bi-cloud-slash" />
                 </span>
               </Show>
-              <select aria-label="Chat mode" value={deepResearch() ? "deep_research" : "chat"}
-                class="h-[22px] min-w-0 max-w-[120px] rounded-md border border-[#d6d6d6] bg-white text-[12px] text-[#555]"
-                disabled={chatSettingsDisabled()} onChange={ev => setDeepResearch(ev.currentTarget.value == "deep_research")}
+              {/* The same icons as New Query's mode selector, styled like the configuration pills beside it. */}
+              <div role="radiogroup" aria-label="Chat mode"
+                class="flex h-[22px] shrink-0 overflow-hidden rounded-md border border-[#d6d6d6] bg-white text-[12px]"
                 onMouseDown={ev => ev.stopPropagation()} onKeyDown={ev => ev.stopPropagation()}>
-                <option value="chat">Chat</option><option value="deep_research">Deep research</option>
-              </select>
+                <For each={QUERY_INPUT_MODE_OPTIONS.filter(option => option.value != "search")}>{option => {
+                  const selected = () => (option.value == "deep-research") == deepResearch();
+                  return <button type="button" role="radio" aria-checked={selected()} aria-label={option.label} title={option.label}
+                    class="flex w-[26px] cursor-pointer items-center justify-center text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"
+                    classList={{ "bg-slate-200 text-slate-900 hover:bg-slate-200": selected() }}
+                    disabled={chatSettingsDisabled()} onClick={() => setDeepResearch(option.value == "deep-research")}>
+                    <i class={option.icon} />
+                  </button>;
+                }}</For>
+              </div>
               <QueryScopePicker
                 queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote} />
               <QueryModelPicker queryItem={queryItem} disabled={chatSettingsDisabled} note={chatSettingsNote} />
@@ -1448,13 +1456,16 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     /** Attachments are for a chat; a search ignores them, but they stay for a chat started later. */
     const showDraftAttachments = () => selectedInputMode() == "chat" && draftAttachments().length > 0;
     const renderQueryControls = () => <>
-      <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
-        <QueryProfileBar queryItem={queryItem} searchMode={() => selectedInputMode() == "search"} disabled={queryRequestActive}
-          blockedReason={queryProfileBlockedReason}
-          beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
-          onChange={scopeChanged => { if (scopeChanged && isSearchMode()) { void runSearch(false); } }}
-          barRef={el => { queryProfileBar = el; }} onTabKey={handleQueryProfileTab} />
-      </div>
+      {/* Search uses only the scope, so search results have no profile row. New Query keeps the row's height while
+          Search is selected, so switching modes does not move the input. */}
+      <Show when={!isSearchMode()}>
+        <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
+          <QueryProfileBar queryItem={queryItem} searchMode={() => selectedInputMode() == "search"} disabled={queryRequestActive}
+            blockedReason={queryProfileBlockedReason}
+            beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+            barRef={el => { queryProfileBar = el; }} onTabKey={handleQueryProfileTab} />
+        </div>
+      </Show>
       <Show when={showDraftAttachments()}>
         <div
           style={`width: ${inputShellWidthPx()}px; margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px; ` +
@@ -1649,10 +1660,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </button>
         </Show>
       </div>
-      {/* Right aligned with the input, not the discard button, so the scope stays put once a search runs. */}
+      {/* Spans the input, not the mode selector (whose caption sits below it) or the discard button, so the
+          controls stay put once a search runs. */}
       <div
         class="flex w-full items-center justify-end gap-2 text-[#555]"
         style={`height: ${QUERY_WORKSPACE_SETTINGS_ROW_HEIGHT_PX}px; margin-top: ${QUERY_WORKSPACE_SETTINGS_ROW_GAP_PX}px; ` +
+          `padding-left: ${showModeSelector() ? QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0}px; ` +
           `padding-right: ${showDiscardButton() ? QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0}px; ` +
           `font-size: 13px; line-height: 20px;`}
         onMouseDown={(ev) => ev.stopPropagation()}

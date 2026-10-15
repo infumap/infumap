@@ -15,10 +15,9 @@ Start web search:
 It listens on `http://127.0.0.1:8791/mcp` by default. Point Infumap at it with:
 
 ```toml
-[[chat_tool_server]]
-id = "web_search"
-url = "http://127.0.0.1:8791/mcp"
-label = "Web search"
+chat_tool_server = [
+  { id = "web_search", url = "http://127.0.0.1:8791/mcp", label = "Web search" },
+]
 ```
 
 Deep research only receives MCP tools whose tool definition declares

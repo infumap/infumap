@@ -421,10 +421,9 @@ undocumented DuckDuckGo endpoint.
 Point Infumap at it:
 
 ```toml
-[[chat_tool_server]]
-id = "web_search"
-url = "http://127.0.0.1:8791/mcp"
-label = "Web search"
+chat_tool_server = [
+  { id = "web_search", url = "http://127.0.0.1:8791/mcp", label = "Web search" },
+]
 ```
 
 ## Inspector

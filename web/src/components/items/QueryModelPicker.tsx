@@ -9,11 +9,11 @@ import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
 import { queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
 import { queryModelIssues } from "../../items/query-configuration-availability";
+import {
+  REASONING_EFFORTS, queryModelLabel, queryModelRouteLabel, queryProviderLabel, reasoningEffortLabel,
+} from "../../items/query-configuration-labels";
 
-const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
-const effortLabel = (effort: string) => effort == "none" ? "Off" : effort == "xhigh" ? "X-High" : effort[0]?.toUpperCase() + effort.slice(1);
 const keyFor = (model: QueryModelFavorite) => JSON.stringify([model.backend, model.model]);
-const shortName = (name: string) => name.includes(": ") ? name.substring(name.indexOf(": ") + 2) : name;
 
 function modelDetails(model: ChatModelInfo): string {
   const parts: string[] = [];
@@ -55,7 +55,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
     const backends = store.general.chatBackends()?.backends ?? [];
     for (const backend of backends) {
       if (!backend.supportsModelSelection) {
-        result.push({ backend: backend.id, model: null, name: "Server-selected", provider: backend.label,
+        result.push({ backend: backend.id, model: null, name: backend.label, provider: backend.label,
           available: backend.available, reason: backend.unavailableReason ?? null });
       } else {
         for (const model of backend.models) {
@@ -68,7 +68,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
     for (const model of retained) {
       if (result.some(choice => keyFor(choice) == keyFor(model))) { continue; }
       const backend = backends.find(backend => backend.id == model.backend);
-      result.push({ ...model, name: model.model ?? "Server-selected", provider: backend?.label ?? model.backend,
+      result.push({ ...model, name: model.model ?? queryProviderLabel(store, model.backend), provider: queryProviderLabel(store, model.backend),
         available: backend?.available == true && (model.model == null || backend.modelsError != null),
         reason: store.general.chatBackends() == null ? "Loading the model catalog…"
           : backend == null ? "Provider is not configured" : !backend.available ? backend.unavailableReason ?? "Provider unavailable"
@@ -93,12 +93,11 @@ export function QueryModelPicker(props: QueryPickerProps) {
   const model = () => backend()?.models.find(model => model.id == selection()?.model);
   const label = () => {
     if (!ready()) { return store.general.queryProfiles.error() != null ? "Profile unavailable" : "Loading…"; }
-    const chosen = selection();
-    return chosen == null ? "Choose…" : chosen.model == null ? "Server-selected" : shortName(model()?.name ?? chosen.model);
+    return selection() == null ? "Choose a model" : queryModelLabel(store, selection(), true);
   };
-  const provider = () => backend()?.label ?? selection()?.backend ?? null;
+  const rank = (effort: string) => REASONING_EFFORTS.indexOf(effort) < 0 ? 99 : REASONING_EFFORTS.indexOf(effort);
   const efforts = () => [...(backend()?.supportsReasoningEffort ? model()?.reasoningEfforts ?? [] : [])]
-    .sort((a, b) => (EFFORTS.indexOf(a) < 0 ? 99 : EFFORTS.indexOf(a)) - (EFFORTS.indexOf(b) < 0 ? 99 : EFFORTS.indexOf(b)));
+    .sort((a, b) => rank(a) - rank(b));
   const select = (choice: ModelChoice, close: () => void) => {
     if (!canChange() || !choice.available) { return; }
     props.beforeChange?.();
@@ -126,7 +125,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
         onClick={() => select(choice, close)}>
         <div class="min-w-0 grow">
           <div class="truncate text-[13px]">{choice.name}</div>
-          <div class="text-[11px] text-slate-500">{choice.backend.startsWith("llama") ? "on" : "via"} {choice.provider}</div>
+          <div class="text-[11px] text-slate-500">{choice.model == null ? "Model chosen by the server" : `via ${choice.provider}`}</div>
           <Show when={choice.info}><div class="text-[11px] text-slate-500">{modelDetails(choice.info!)}</div></Show>
           <Show when={choice.reason != null}><div class="text-[11px] text-amber-700">{choice.reason}</div></Show>
         </div>
@@ -143,22 +142,20 @@ export function QueryModelPicker(props: QueryPickerProps) {
   }</For>;
 
   return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey} disabled={props.disabled?.() || blockedReason() != null}
-    buttonClass="max-w-[340px] flex-[2_1_auto] cursor-pointer" ariaLabel="Choose model and provider"
-    title={[`Model: ${label()}${provider() == null ? "" : ` / ${provider()}`}${selection()?.reasoningEffort == null ? "" : ` · ${effortLabel(selection()!.reasoningEffort!)}`}`, ...selectionIssues().map(issue => issue.message), blockedReason(), props.note?.()].filter(Boolean).join("\n")}
-    label={<><span class="shrink-0">Model:</span><span class="min-w-0 truncate">{label()}</span>
-      <Show when={provider() != null}><span class="max-w-[90px] shrink-0 truncate text-slate-500">/ {provider()}</span></Show>
-      <Show when={selection()?.reasoningEffort != null}><span class="shrink-0 text-slate-500">· {effortLabel(selection()!.reasoningEffort!)}</span></Show>
+    buttonClass="max-w-[260px] cursor-pointer" ariaLabel="Choose model and provider"
+    title={[`Model: ${ready() && selection() != null ? queryModelRouteLabel(store, selection()) : label()}`, ...selectionIssues().map(issue => issue.message), blockedReason(), props.note?.()].filter(Boolean).join("\n")}
+    label={<><i class="bi-cpu shrink-0 text-[11px]" />
+      {/* A short name such as a server's never truncates; the scope and tools pills give way first. */}
+      <span class={label().length <= 12 ? "shrink-0" : "min-w-0 truncate"}>{label()}</span>
       <Show when={ready() && selectionIssues().length > 0}><i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" /></Show></>}
     onOpen={() => { setFilter(""); setFavoriteError(null); void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
     {close => <>
-      <div class="max-h-[220px] overflow-y-auto border-b border-slate-200 px-3 py-2">
+      <div class="shrink-0 border-b border-slate-200 px-3 py-2">
         <div class="mb-1.5 flex items-center gap-2 text-[12px] font-medium text-slate-600">Model and provider
           <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close model picker" onClick={close}><i class="bi-x-lg" /></button>
         </div>
         <Show when={props.note?.()}><div class="mb-1.5 text-[11px] text-slate-500">{props.note?.()}</div></Show>
         <For each={selectionIssues()}>{issue => <div role="status" class="mb-1.5 text-[11px] text-amber-700">{issue.message}</div>}</For>
-        <button type="button" class="mb-1.5 text-[11px] text-blue-700 hover:underline" disabled={store.general.chatBackendsRefreshing()}
-          onClick={() => { void store.general.refreshChatBackends(); }}>{store.general.chatBackendsRefreshing() ? "Checking availability…" : "Refresh model availability"}</button>
         <input data-picker-autofocus type="search" aria-label="Search models and providers" placeholder="Search models or providers…"
           class="w-full rounded border border-slate-300 px-2 py-1 text-[12px] outline-hidden focus:border-slate-500"
           value={filter()} onInput={ev => setFilter(ev.currentTarget.value)}
@@ -193,11 +190,11 @@ export function QueryModelPicker(props: QueryPickerProps) {
                 props.beforeChange?.();
                 setQueryChatModelSelection(store, props.queryItem(), { ...chosen, reasoningEffort: effort });
               }}>
-              <option value="">Default{model()?.defaultEffort == null ? "" : ` (${effortLabel(model()!.defaultEffort!)})`}</option>
+              <option value="">Default{model()?.defaultEffort == null ? "" : ` (${reasoningEffortLabel(model()!.defaultEffort!)})`}</option>
               <Show when={selection()?.reasoningEffort != null && !efforts().includes(selection()!.reasoningEffort!)}>
-                <option disabled value={selection()!.reasoningEffort!}>{effortLabel(selection()!.reasoningEffort!)} ({selectionIssues().some(issue => issue.status == "unavailable") ? "unavailable" : "unverified"})</option>
+                <option disabled value={selection()!.reasoningEffort!}>{reasoningEffortLabel(selection()!.reasoningEffort!)} ({selectionIssues().some(issue => issue.status == "unavailable") ? "unavailable" : "unverified"})</option>
               </Show>
-              <For each={efforts()}>{effort => <option value={effort}>{effortLabel(effort)}</option>}</For>
+              <For each={efforts()}>{effort => <option value={effort}>{reasoningEffortLabel(effort)}</option>}</For>
             </select>
           </label>
         </div>

@@ -1,17 +1,22 @@
 /* Copyright (C) The Infumap Authors. SPDX-License-Identifier: AGPL-3.0-or-later */
 
-import { For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getQueryRuntime, QUERY_PROFILE_ROW_HEIGHT_PX, type QueryItem } from "../../items/query-item";
-import { cloneQueryConfiguration, queryConfigurationsEqual, snapshotQueryProfile, type QueryProfile } from "../../items/query-configuration";
-import { applyQueryProfile, isQueryConfigurationModified, queryConfigurationChangeBlockedReason, resetQueryConfiguration } from "../../items/query-configuration-state";
-import { queryScopeName, queryScopeSummary, queryScopes, queryScopesLoading, refreshQueryScopes } from "../../items/query-scope";
+import { cloneQueryConfiguration, queryConfigurationsEqual, type QueryConfiguration, type QueryProfile } from "../../items/query-configuration";
+import {
+  appliedSavedProfile, applyQueryProfile, isQueryConfigurationModified, queryConfigurationChangeBlockedReason, resetQueryConfiguration,
+} from "../../items/query-configuration-state";
+import { queryConfigurationIssues } from "../../items/query-configuration-availability";
+import { queryConfigurationSummary, queryModelRouteLabel, queryToolsLabel } from "../../items/query-configuration-labels";
+import { queryScopeName, queryScopes, refreshQueryScopes } from "../../items/query-scope";
 import { useStore } from "../../store/StoreProvider";
+import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { QueryPickerPopover, stopQueryPickerEvent } from "./QueryPickerPopover";
-import { QueryProfileManager, type QueryProfileManagementAction, type QueryProfileSaveContext } from "./QueryProfileManager";
-import { queryConfigurationIssues, refreshQueryConfigurationAvailability } from "../../items/query-configuration-availability";
+import { QueryProfileManager, profileNameProblem } from "./QueryProfileManager";
 
 interface QueryProfileBarProps {
   queryItem: () => QueryItem,
+  /** Search uses only the scope, so the bar is hidden. */
   searchMode: () => boolean,
   disabled?: () => boolean,
   blockedReason?: () => string | null,
@@ -21,218 +26,277 @@ interface QueryProfileBarProps {
   onTabKey?: (ev: KeyboardEvent) => void,
 }
 
+const CHIP_GAP_PX = 4;
+const chipClass = "flex h-[24px] max-w-[180px] shrink-0 cursor-pointer items-center gap-1 rounded-md border px-2 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-50";
+const linkClass = "cursor-pointer rounded px-1 text-[11px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-default disabled:opacity-40";
+
+/**
+ * One-click shortcuts for pinned profiles, the applied profile's modified state with Reset and Save, and a menu
+ * of every profile. Chips that do not fit move into the menu; the applied profile always stays visible.
+ */
 export function QueryProfileBar(props: QueryProfileBarProps) {
   const store = useStore();
-  let bar: HTMLDivElement | undefined;
-  let closeButton: HTMLButtonElement | undefined;
-  const [management, setManagement] = createSignal<QueryProfileManagementAction | null>(null);
+  let measure: HTMLDivElement | undefined;
+  // The row only exists outside Search mode, so its size is observed whenever it is created.
+  const [row, setRow] = createSignal<HTMLDivElement>();
+  const [managing, setManaging] = createSignal(false);
+  const [busy, setBusy] = createSignal(false);
+  const [naming, setNaming] = createSignal(false);
+  const [newName, setNewName] = createSignal("");
+  const [rowWidth, setRowWidth] = createSignal(0);
+  const [widths, setWidths] = createSignal<{ chips: Map<string, number>, menu: number, actions: number }>({ chips: new Map(), menu: 0, actions: 0 });
+
   onMount(() => {
     void store.general.queryProfiles.retrieve();
     void store.general.retrieveChatBackends();
     if (queryScopes() == null) { void refreshQueryScopes(store); }
   });
-  const collection = createMemo(() => store.general.queryProfiles.collection());
+  createEffect(() => {
+    const element = row();
+    if (element == null) { return; }
+    const observer = new ResizeObserver(() => setRowWidth(element.clientWidth));
+    observer.observe(element);
+    onCleanup(() => { observer.disconnect(); setRowWidth(0); });
+  });
+
+  const collection = () => store.general.queryProfiles.collection();
   const profiles = () => collection()?.profiles ?? [];
-  const pinned = createMemo(() => (collection()?.preferences.pinnedProfileIds ?? [])
-    .map(id => profiles().find(profile => profile.id == id))
-    .filter((profile): profile is QueryProfile => profile != null));
-  const others = createMemo(() => profiles().filter(profile => !pinned().some(pin => pin.id == profile.id)));
+  const pinnedIds = createMemo(() => new Set(collection()?.preferences.pinnedProfileIds ?? []));
+  const pinned = () => profiles().filter(profile => pinnedIds().has(profile.id));
   const runtime = () => getQueryRuntime(store, props.queryItem());
-  const issues = (profile: QueryProfile) => queryConfigurationIssues(store, profile.configuration, props.searchMode() ? "search" : "chat");
-  const currentIssues = () => runtime().configurationInitialized
-    ? queryConfigurationIssues(store, runtime().configuration, props.searchMode() ? "search" : "chat") : [];
-  const activeIssues = () => currentIssues().filter(issue => issue.active);
-  const unavailable = () => activeIssues().some(issue => issue.status == "unavailable");
-  const applied = () => runtime().appliedProfile;
-  const savedApplied = () => profiles().find(profile => profile.id == applied()?.id);
-  const savedProfileChanged = () => applied() != null && savedApplied() != null &&
-    (applied()!.name != savedApplied()!.name || !queryConfigurationsEqual(applied()!.configuration, savedApplied()!.configuration));
+  const active = () => appliedSavedProfile(store, props.queryItem());
+  const isActive = (profile: QueryProfile) => active()?.id == profile.id;
   const modified = () => isQueryConfigurationModified(store, props.queryItem());
-  const selected = (profile: QueryProfile) => applied()?.id == profile.id &&
-    queryConfigurationsEqual(runtime().configuration, profile.configuration);
-  const unpinnedApplied = () => applied() != null && !pinned().some(profile => profile.id == applied()!.id);
-  const moreLabel = () => collection() == null ? "Profiles" : unpinnedApplied() ? `More · ${applied()!.name}` : "More";
-  const scopeLabel = (profile: QueryProfile) => profile.configuration.scopeId != null &&
-    queryScopeSummary(profile.configuration.scopeId) === undefined
-    ? profile.configuration.scopeId : queryScopeName(profile.configuration.scopeId);
-  const modelLabel = (profile: QueryProfile) => {
-    const model = profile.configuration.model;
-    if (model == null) { return "Not selected"; }
-    const provider = store.general.chatBackends()?.backends.find(backend => backend.id == model.backend);
-    const name = provider?.models.find(info => info.id == model.model)?.name ?? model.model ?? "Server-selected";
-    return `${name} / ${provider?.label ?? model.backend}${model.reasoningEffort == null ? "" : ` · ${model.reasoningEffort}`}`;
+  const mode = () => props.searchMode() ? "search" : "chat";
+  const unavailable = (profile: QueryProfile) => queryConfigurationIssues(store, profile.configuration, mode())
+    .filter(issue => issue.active && issue.status == "unavailable");
+  const reason = (): string | null => props.blockedReason?.() ?? queryConfigurationChangeBlockedReason(store, props.queryItem())
+    ?? (props.disabled?.() ? "Wait for the current response to finish." : null);
+  const saveBlockedReason = () => reason() ?? (!runtime().configurationInitialized ? "Wait for this query's setup to load." : null);
+
+  const showError = (error: unknown) => {
+    const text = error instanceof Error ? error.message : String(error);
+    store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
+    window.setTimeout(() => { if (store.overlay.toolbarTransientMessage.get()?.text == text) { store.overlay.toolbarTransientMessage.set(null); } }, 3000);
   };
-  const toolsLabel = (profile: QueryProfile) => profile.configuration.capabilities.length == 0 ? "None"
-    : profile.configuration.capabilities.map(id => id == "infumap_data" ? "Infumap"
-      : store.general.chatBackends()?.toolServers?.find(server => server.id == id)?.label ?? id).join(" + ");
-  const reason = (): string | null => {
-    const blockedReason = props.blockedReason?.() ?? queryConfigurationChangeBlockedReason(store, props.queryItem());
-    if (blockedReason != null) { return blockedReason; }
-    if (props.disabled?.()) { return "Wait for the current response to finish."; }
-    return null;
+  const run = async (action: () => Promise<void>) => {
+    if (busy()) { return; }
+    setBusy(true);
+    try { await action(); } catch (error) { showError(error); } finally { setBusy(false); }
   };
-  const currentBlockedReason = () => reason() ?? (!runtime().configurationInitialized ? "Wait for this query's setup to load." : null);
-  const captureCurrent = (): QueryProfileSaveContext => {
-    props.beforeChange?.();
-    const current = runtime();
-    return { queryId: props.queryItem().id, accountId: store.user.getUserMaybe()?.userId ?? null,
-      configuration: cloneQueryConfiguration(current.configuration),
-      appliedProfile: current.appliedProfile == null ? null : snapshotQueryProfile(current.appliedProfile) };
-  };
-  const acceptSavedProfile = (profile: QueryProfile, context: QueryProfileSaveContext): boolean => {
-    const current = runtime();
-    if (props.queryItem().id != context.queryId || (store.user.getUserMaybe()?.userId ?? null) != context.accountId ||
-      reason() != null || !queryConfigurationsEqual(current.configuration, context.configuration)) { return false; }
-    const baseline = current.appliedProfile;
-    if (baseline == null || context.appliedProfile == null) {
-      if (baseline !== context.appliedProfile) { return false; }
-    } else if (baseline.id != context.appliedProfile.id || baseline.name != context.appliedProfile.name ||
-      !queryConfigurationsEqual(baseline.configuration, context.appliedProfile.configuration)) { return false; }
-    applyQueryProfile(store, props.queryItem(), profile);
-    return true;
-  };
-  const reset = () => {
-    const baseline = applied();
-    if (baseline == null || reason() != null) { return; }
-    const previousScope = runtime().configuration.scopeId;
-    props.beforeChange?.();
-    if (resetQueryConfiguration(store, props.queryItem())) { props.onChange?.(previousScope != runtime().configuration.scopeId); }
-    queueMicrotask(() => closeButton?.focus());
-  };
-  const summary = (profile: QueryProfile) => <>
-    <div class="break-words text-[11px] text-slate-500">Scope: {scopeLabel(profile)}</div>
-    <div class="break-words text-[11px] text-slate-500">Model: {modelLabel(profile)}</div>
-    <div class="break-words text-[11px] text-slate-500">Tools: {toolsLabel(profile)}</div>
-    <For each={issues(profile)}>{issue => <div class="break-words text-[11px]" classList={{ "text-amber-700": issue.active, "text-slate-400": !issue.active }}>
-      {issue.message}{issue.active ? "" : ` (${props.searchMode() && issue.resource != "scope" ? "Not used for Search" : "Scope is not used while Infumap tools are off"})`}
-    </div>}</For>
-  </>;
-  const profileTitle = (profile: QueryProfile) => [profile.name, `Scope: ${scopeLabel(profile)}`,
-    `Model: ${modelLabel(profile)}`, `Tools: ${toolsLabel(profile)}`,
-    ...issues(profile).map(issue => `${issue.message}${issue.active ? "" : " (not used)"}`),
-    props.searchMode() ? "Search uses only scope." : "Changes apply from the next message. Earlier answers and context stay in this chat.", reason()].filter(Boolean).join("\n");
-  const select = (profile: QueryProfile, close?: () => void) => {
+
+  const apply = (profile: QueryProfile) => {
     if (reason() != null) { return; }
     const previousScope = runtime().configuration.scopeId;
     props.beforeChange?.();
     applyQueryProfile(store, props.queryItem(), profile);
-    close?.();
     props.onChange?.(previousScope != profile.configuration.scopeId);
   };
-  const barKeyDown = (ev: KeyboardEvent) => {
+  const reset = () => {
+    if (reason() != null) { return; }
+    const previousScope = runtime().configuration.scopeId;
+    props.beforeChange?.();
+    if (resetQueryConfiguration(store, props.queryItem())) { props.onChange?.(previousScope != runtime().configuration.scopeId); }
+  };
+  /** A saved setup becomes this query's applied profile, unless the query changed while saving. */
+  const adopt = (profile: QueryProfile, configuration: QueryConfiguration) => {
+    if (reason() != null || !queryConfigurationsEqual(runtime().configuration, configuration)) { return; }
+    applyQueryProfile(store, props.queryItem(), profile);
+  };
+  const saveToActive = () => {
+    const profile = active();
+    if (profile == null || saveBlockedReason() != null) { return; }
+    const configuration = cloneQueryConfiguration(runtime().configuration);
+    void run(async () => adopt(await store.general.queryProfiles.setConfiguration(profile.id, configuration), configuration));
+  };
+  /** New profiles are pinned, so the setup just saved is one click away. */
+  const saveAsNew = (ev: SubmitEvent, close: () => void) => {
+    ev.preventDefault();
+    const problem = profileNameProblem(newName());
+    if (problem != null) { showError(problem); return; }
+    if (saveBlockedReason() != null) { return; }
+    const configuration = cloneQueryConfiguration(runtime().configuration);
+    void run(async () => {
+      const profile = await store.general.queryProfiles.create(newName().trim(), configuration);
+      await store.general.queryProfiles.setPinned(profile.id, true);
+      setNaming(false);
+      close();
+      adopt(profile, configuration);
+    });
+  };
+
+  // Chip widths come from an invisible copy of every chip, so the visible row can be computed without feedback.
+  const measureWidths = () => {
+    if (measure == null) { return; }
+    const chips = new Map<string, number>();
+    measure.querySelectorAll<HTMLElement>("[data-measure-chip]").forEach(el => chips.set(el.dataset.measureChip!, el.offsetWidth));
+    const next = {
+      chips,
+      menu: measure.querySelector<HTMLElement>("[data-measure-menu]")?.offsetWidth ?? 0,
+      actions: measure.querySelector<HTMLElement>("[data-measure-actions]")?.offsetWidth ?? 0,
+    };
+    const current = widths();
+    const same = current.menu == next.menu && current.actions == next.actions && current.chips.size == next.chips.size &&
+      [...next.chips].every(([id, width]) => current.chips.get(id) == width);
+    if (!same) { setWidths(next); }
+  };
+  // Tracks only strings, so a new measurement cannot retrigger itself.
+  createEffect(() => {
+    candidates().map(profile => `${profile.id}:${profile.name}:${unavailable(profile).length}`).join("|");
+    menuLabel();
+    queueMicrotask(measureWidths);
+  });
+  /** Pinned profiles, then the applied profile if it is not pinned. */
+  const candidates = () => {
+    const current = active();
+    return current != null && !pinnedIds().has(current.id) ? [...pinned(), current] : pinned();
+  };
+  const shown = createMemo(() => {
+    const all = candidates();
+    if (rowWidth() == 0) { return all; }
+    const { chips, menu, actions } = widths();
+    const width = (profile: QueryProfile) => (chips.get(profile.id) ?? 80) + CHIP_GAP_PX;
+    const available = rowWidth() - menu - CHIP_GAP_PX - (modified() ? actions + CHIP_GAP_PX : 0);
+    const fit: QueryProfile[] = [];
+    let used = 0;
+    for (const profile of all) {
+      if (used + width(profile) > available) { break; }
+      fit.push(profile);
+      used += width(profile);
+    }
+    const current = active();
+    if (current != null && !fit.some(profile => profile.id == current.id)) {
+      while (fit.length > 0 && used + width(current) > available) { used -= width(fit.pop()!); }
+      fit.push(current);
+    }
+    return fit;
+  });
+  const hiddenCount = () => pinned().filter(profile => !shown().some(visible => visible.id == profile.id)).length;
+
+  const profileTitle = (profile: QueryProfile) => [
+    profile.name,
+    `Scope: ${queryScopeName(profile.configuration.scopeId)}`,
+    ...(props.searchMode() ? [] : [`Model: ${queryModelRouteLabel(store, profile.configuration.model)}`, `Tools: ${queryToolsLabel(store, profile.configuration.capabilities)}`]),
+    ...unavailable(profile).map(issue => issue.message),
+    isActive(profile) && modified() ? "Modified in this query. Click to reset." : null,
+    reason(),
+  ].filter(Boolean).join("\n");
+
+  const keyDown = (ev: KeyboardEvent) => {
     ev.stopPropagation();
     if (ev.key == "Tab") { props.onTabKey?.(ev); return; }
     if (ev.key != "ArrowLeft" && ev.key != "ArrowRight") { return; }
-    const buttons = Array.from(bar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []);
+    const buttons = Array.from(row()?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []);
     const index = buttons.indexOf(ev.currentTarget as HTMLButtonElement);
     if (index < 0) { return; }
     ev.preventDefault();
     buttons[(index + (ev.key == "ArrowLeft" ? -1 : 1) + buttons.length) % buttons.length]?.focus();
   };
-  const rows = (choices: () => QueryProfile[], close: () => void, isPinned: boolean) => <For each={choices()}>{profile =>
-    <button type="button" role="radio" aria-checked={selected(profile)}
-      data-picker-autofocus={selected(profile) && !isPinned ? true : undefined} disabled={reason() != null}
-      class="flex w-full cursor-pointer items-start gap-2 px-3 py-2 text-left hover:bg-slate-100 disabled:cursor-default disabled:opacity-50"
-      onClick={() => select(profile, close)}>
-      <div class="min-w-0 grow">
-        <div class="break-words text-[13px] font-medium">{profile.name}</div>
-        {summary(profile)}
-      </div>
-      <Show when={selected(profile)}><i class="bi-check-lg shrink-0 text-slate-700" /></Show>
-    </button>
-  }</For>;
 
-  return <div ref={el => { bar = el; props.barRef?.(el); }}
-    class="flex min-w-0 items-center gap-2 text-[12px] text-[#555]" style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px;`} role="group" aria-label="Query profiles"
-    onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent} onClick={stopQueryPickerEvent}>
-    <span class="shrink-0" title={applied() == null ? "Choose a saved setup" : `Applied profile: ${applied()!.name}`}>Profile:</span>
-    <Show when={modified()}><span class="shrink-0 text-[11px] text-amber-700" title="This query has changes to its applied profile.">Modified</span></Show>
-    <Show when={activeIssues().length > 0}><span role="status" class="shrink-0 text-[11px]" classList={{ "text-red-700": unavailable(), "text-amber-700": !unavailable() }}
-      title={activeIssues().map(issue => issue.message).join("\n")}>{unavailable() ? "Unavailable" : activeIssues().some(issue => issue.status == "unverified") ? "Unverified" : activeIssues().some(issue => issue.status == "warning") ? "Scope warning" : "Checking…"}</span></Show>
-    <div class="flex min-w-0 items-center gap-1 overflow-x-auto" style="scrollbar-width: none;">
-      <For each={pinned()}>{profile => <button type="button" aria-pressed={selected(profile)}
-        disabled={reason() != null} title={profileTitle(profile)}
-        class="h-[24px] max-w-[180px] shrink-0 cursor-pointer truncate rounded-md border px-2 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-50"
-        classList={{ "border-slate-500 bg-slate-100 text-slate-900": selected(profile), "border-[#d6d6d6] bg-white hover:bg-slate-50": !selected(profile) }}
-        onClick={() => select(profile)} onKeyDown={barKeyDown}>{profile.name}
-        <Show when={issues(profile).some(issue => issue.active && issue.status == "unavailable")}><i class="bi-exclamation-triangle ml-1 text-[10px] text-amber-600" /></Show>
-      </button>}</For>
-    </div>
-    <QueryPickerPopover buttonClass="max-w-[35%] shrink-0 cursor-pointer" width={440}
-      ariaLabel="Choose a query profile" title={unpinnedApplied() ? `Applied profile: ${applied()!.name}. Choose from saved profiles.` : "More query profiles"}
-      label={<><span class="min-w-0 truncate">{moreLabel()}</span>
-        <Show when={store.general.queryProfiles.error()}><i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" /></Show></>} onTabKey={props.onTabKey}
-      onOpen={() => { setManagement(null); void store.general.queryProfiles.refresh(); void refreshQueryScopes(store); void store.general.retrieveChatBackends(); }}>
-      {close => <>
-        <div class="max-h-[220px] overflow-y-auto border-b border-slate-200 px-3 py-2">
-          <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Query profiles
-            <button ref={closeButton} type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close profile picker" onClick={close}><i class="bi-x-lg" /></button>
+  const chip = (profile: QueryProfile) => <>
+    <button type="button" aria-pressed={isActive(profile)} disabled={reason() != null} title={profileTitle(profile)}
+      class={chipClass}
+      classList={{
+        "border-slate-500 bg-slate-100 text-slate-900": isActive(profile),
+        "border-[#d6d6d6] bg-white hover:bg-slate-50": !isActive(profile),
+      }}
+      onClick={() => apply(profile)} onKeyDown={keyDown}>
+      <span class="min-w-0 truncate">{profile.name}</span>
+      <Show when={isActive(profile) && modified()}>
+        <span class="h-[6px] w-[6px] shrink-0 rounded-full bg-amber-500" aria-label="modified" />
+      </Show>
+      <Show when={unavailable(profile).length > 0}><i class="bi-exclamation-triangle shrink-0 text-[10px] text-amber-600" /></Show>
+    </button>
+    <Show when={isActive(profile) && modified()}>
+      <span class="flex shrink-0 items-center">
+        <button type="button" class={linkClass} disabled={reason() != null || busy()} onClick={reset} onKeyDown={keyDown}
+          title={`Discard this query's changes and use “${profile.name}” as saved`}>Reset</button>
+        <button type="button" class={linkClass} disabled={saveBlockedReason() != null || busy()} onClick={saveToActive} onKeyDown={keyDown}
+          title={`Save this query's scope, model and tools to “${profile.name}”`}>Save</button>
+      </span>
+    </Show>
+  </>;
+
+  const menuRow = (profile: QueryProfile, close: () => void) => <div class="flex items-center gap-1 px-2">
+    <button type="button" role="radio" aria-checked={isActive(profile)} disabled={reason() != null}
+      class="flex min-w-0 grow cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-left hover:bg-slate-100 disabled:cursor-default disabled:opacity-50"
+      data-picker-autofocus={isActive(profile) ? true : undefined}
+      onClick={() => { apply(profile); close(); }}>
+      <i class={`mt-[3px] w-3 shrink-0 text-[12px] ${isActive(profile) ? "bi-check-lg" : ""}`} />
+      <div class="min-w-0 grow">
+        <div class="truncate text-[13px]">{profile.name}<Show when={isActive(profile) && modified()}><span class="text-slate-500"> · modified</span></Show></div>
+        <div class="truncate text-[11px] text-slate-500">{queryConfigurationSummary(store, profile.configuration)}</div>
+        <Show when={unavailable(profile).length > 0}>
+          <div class="truncate text-[11px] text-amber-700" title={unavailable(profile).map(issue => issue.message).join("\n")}>
+            <i class="bi-exclamation-triangle mr-1" />Unavailable: {unavailable(profile).map(issue => issue.subject).join(", ")}
           </div>
-          <div class="text-[11px] text-slate-500">{props.searchMode()
-            ? "Search uses only scope. Model and tools are saved for Chat."
-            : "Apply scope, model and tools from the next message. Chat mode stays unchanged."}</div>
-          <Show when={!props.searchMode()}><div class="text-[11px] text-slate-500">Earlier answers and retrieved context stay in this chat.</div></Show>
-          <Show when={reason()}><div class="mt-1 text-[11px] text-slate-500">{reason()}</div></Show>
-          <For each={currentIssues()}>{issue => <div class="mt-1 break-words text-[11px]" classList={{ "text-amber-700": issue.active, "text-slate-400": !issue.active }}>
-            {issue.message}{issue.active ? "" : " (not used for this operation)"}
-          </div>}</For>
-          <Show when={currentIssues().length > 0}><button type="button" class="mt-1 text-[11px] text-blue-700 hover:underline" disabled={store.general.chatBackendsRefreshing() || queryScopesLoading()}
-            onClick={() => { void refreshQueryConfigurationAvailability(store); }}>Refresh availability</button></Show>
-          <Show when={applied() != null}>
-            <div class="mt-1 break-words text-[11px] text-slate-500">Current setup: {applied()!.name}{modified() ? " · Modified" : ""}</div>
-          </Show>
-          <Show when={collection() != null && applied() != null && savedApplied() == null}>
-            <div class="mt-1 text-[11px] text-amber-700">This profile was deleted. Its applied settings are still in use.</div>
-          </Show>
-          <Show when={savedProfileChanged()}>
-            <div class="mt-1 text-[11px] text-amber-700">The saved profile has changed. Select it to apply the latest settings.</div>
-          </Show>
-        </div>
-        <Show when={management()} keyed fallback={<>
-          <Show when={modified()}>
-            <div class="shrink-0 border-b border-slate-200 px-3 py-2">
-              <div class="mb-1 text-[11px] text-slate-500">Changes apply only to this query until you save them.</div>
-              <div class="flex items-center gap-2 text-[12px]">
-                <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
-                  disabled={applied() == null || reason() != null} title={applied() == null ? "No applied profile" : reason() ?? "Restore the profile as originally applied"}
-                  onClick={reset}>Reset</button>
-                <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
-                  disabled={savedApplied() == null || currentBlockedReason() != null}
-                  title={savedApplied() == null ? "The saved profile was deleted. Save as a new profile instead." : currentBlockedReason() ?? "Update the saved profile with this query's settings"}
-                  onClick={() => setManagement("saveChanges")}>Save changes…</button>
-              </div>
-            </div>
-          </Show>
-          <div class="min-h-0 grow overflow-y-auto py-1">
-            <Show when={store.general.queryProfiles.error()}>
-              <div class="px-3 py-2 text-[12px] text-red-700">{store.general.queryProfiles.error()}
-                <button type="button" class="ml-2 underline" disabled={store.general.queryProfiles.loading()} onClick={() => { void store.general.queryProfiles.refresh(); }}>Retry</button>
-              </div>
-            </Show>
-            <Show when={collection() == null && store.general.queryProfiles.error() == null}>
-              <div class="px-3 py-2 text-[12px] text-slate-500">{store.general.queryProfiles.loading() ? "Loading profiles…" : "Sign in to use saved profiles."}</div>
-            </Show>
-            <div role="radiogroup" aria-label="Saved profiles">
-              {rows(others, close, false)}
-              <Show when={pinned().length > 0}>
-                <div class="border-t border-slate-200 px-3 pt-2 text-[11px] text-slate-500">Pinned profiles</div>
-                {rows(pinned, close, true)}
-              </Show>
-            </div>
-          </div>
-          <div class="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-200 px-3 py-2 text-[12px]">
-            <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
-              disabled={collection() == null || currentBlockedReason() != null} title={currentBlockedReason() ?? "Save this query's scope, model and tools"}
-              onClick={() => setManagement("saveAs")}>Save as profile…</button>
-            <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
-              disabled={collection() == null} onClick={() => setManagement("manage")}>Manage profiles</button>
-          </div>
-        </>}>
-          {action => <QueryProfileManager initialAction={action} captureCurrent={captureCurrent} currentBlockedReason={currentBlockedReason}
-            onSaved={acceptSavedProfile} summary={summary}
-            onBack={() => { setManagement(null); queueMicrotask(() => closeButton?.focus()); }} />}
         </Show>
-      </>}
-    </QueryPickerPopover>
+      </div>
+    </button>
+    <button type="button" class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40"
+      aria-pressed={pinnedIds().has(profile.id)} disabled={busy()}
+      aria-label={`${pinnedIds().has(profile.id) ? "Unpin" : "Pin"} ${profile.name}`}
+      title={pinnedIds().has(profile.id) ? "Unpin" : "Pin as a shortcut"}
+      onClick={() => void run(() => store.general.queryProfiles.setPinned(profile.id, !pinnedIds().has(profile.id)))}>
+      <i class={pinnedIds().has(profile.id) ? "bi-pin-angle-fill text-slate-700" : "bi-pin-angle"} />
+    </button>
   </div>;
+
+  const menuLabel = () => hiddenCount() > 0 ? `+${hiddenCount()} more` : "Profiles";
+
+  return <Show when={!props.searchMode()}>
+    <div ref={el => { setRow(el); props.barRef?.(el); }} role="group" aria-label="Query profiles"
+      class="relative flex min-w-0 items-center overflow-hidden text-[12px] text-[#555]" style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; gap: ${CHIP_GAP_PX}px;`}
+      onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent} onClick={stopQueryPickerEvent}>
+      <div ref={measure} aria-hidden="true" class="invisible absolute left-0 top-0 flex w-max" style={`gap: ${CHIP_GAP_PX}px;`}>
+        <For each={candidates()}>{profile => <span data-measure-chip={profile.id} class={`${chipClass} border-[#d6d6d6]`}>
+          <span class="min-w-0 truncate">{profile.name}</span>
+          <span class="h-[6px] w-[6px] shrink-0" />
+          <Show when={unavailable(profile).length > 0}><i class="bi-exclamation-triangle shrink-0 text-[10px]" /></Show>
+        </span>}</For>
+        <span data-measure-actions class="flex shrink-0"><span class={linkClass}>Reset</span><span class={linkClass}>Save</span></span>
+        <span data-measure-menu class="flex h-[22px] items-center gap-1 rounded-md border px-2" style="font-size: 12px;">{menuLabel()}<i class="bi-chevron-expand text-[10px]" /></span>
+      </div>
+      <For each={shown()}>{profile => chip(profile)}</For>
+      <QueryPickerPopover buttonClass="shrink-0 cursor-pointer" width={360} ariaLabel="All query profiles"
+        title={hiddenCount() > 0 ? `${hiddenCount()} more pinned profiles, and all saved profiles` : "All saved profiles"}
+        label={<span class="whitespace-nowrap">{menuLabel()}</span>} onTabKey={props.onTabKey}
+        onOpen={() => { setNaming(false); void store.general.queryProfiles.refresh(); void refreshQueryScopes(store); void store.general.retrieveChatBackends(); }}>
+        {close => <>
+          <div class="min-h-0 grow overflow-y-auto py-1" role="radiogroup" aria-label="Saved profiles">
+            <Show when={store.general.queryProfiles.error()}>{error =>
+              <div class="px-3 py-2 text-[12px] text-red-700">{error()}
+                <button type="button" class="ml-2 underline" onClick={() => { void store.general.queryProfiles.refresh(); }}>Retry</button>
+              </div>
+            }</Show>
+            <Show when={collection() == null && store.general.queryProfiles.error() == null}>
+              <div class="px-3 py-2 text-[12px] text-slate-500">Loading profiles…</div>
+            </Show>
+            <Show when={reason()}><div class="px-3 py-1 text-[11px] text-slate-500">{reason()}</div></Show>
+            <For each={profiles()}>{profile => menuRow(profile, close)}</For>
+          </div>
+          <Show when={naming()} fallback={
+            <div class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-2 text-[12px]">
+              <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+                disabled={collection() == null || saveBlockedReason() != null} title={saveBlockedReason() ?? "Save this query's scope, model and tools as a new profile"}
+                onClick={() => { setNewName(""); setNaming(true); }}>Save as new…</button>
+              <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+                disabled={collection() == null} onClick={() => { close(); setManaging(true); }}>Manage…</button>
+            </div>
+          }>
+            <form class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-2 text-[12px]" onSubmit={ev => saveAsNew(ev, close)}>
+              <input ref={el => queueMicrotask(() => el.focus())} aria-label="New profile name" placeholder="Profile name"
+                class="min-w-0 grow rounded border border-slate-400 px-2 py-1 text-[13px] outline-hidden focus:border-slate-600"
+                value={newName()} disabled={busy()} onInput={ev => setNewName(ev.currentTarget.value)}
+                onKeyDown={ev => { if (ev.key == "Escape") { ev.preventDefault(); ev.stopPropagation(); setNaming(false); } }} />
+              <button type="submit" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+                disabled={busy() || profileNameProblem(newName()) != null}>Save</button>
+              <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100" onClick={() => setNaming(false)}>Cancel</button>
+            </form>
+          </Show>
+        </>}
+      </QueryPickerPopover>
+      <Show when={managing()}><QueryProfileManager onClose={() => setManaging(false)} /></Show>
+    </div>
+  </Show>;
 }
