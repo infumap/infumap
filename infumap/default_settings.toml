@@ -57,7 +57,7 @@
 # available endpoints from /gpu-tools and uses any reported PDF extraction,
 # image extraction, and first-page PDF caption fallback tools. Unset by default;
 # uncomment this example to enable it.
-# Chat web search is a separate MCP sidecar (see [[chat_tool_server]] / tools/mcp/),
+# Chat web search is a separate MCP sidecar (see chat_tool_server / tools/mcp/),
 # not this URL.
 #gpu_tools_url = "http://127.0.0.1:8787"
 
@@ -66,41 +66,33 @@
 # endpoint; url may be either the server base URL or the full endpoint URL.
 # The same list can be given as JSON in llama_servers (INFUMAP_LLAMA_SERVERS),
 # whose entries replace TOML entries with the same name.
-# [[llama_server]]
-# name = "Local"
-# url = "http://127.0.0.1:8080"
-#
-# Shorthand for a single server, which is named "llama-server".
-#llama_server_url = "http://127.0.0.1:8080"
+# An account's initial query profile uses the first configured llama server,
+# falling back to OpenRouter if no llama server is configured. Users choose
+# their defaults through query profiles after that.
+#llama_server = [
+#  { name = "Local", url = "http://127.0.0.1:8080" },
+#]
 
 # Optional OpenRouter API key, enabling the OpenRouter models in Chat. The key is
 # instance wide - every user of this instance shares (and spends from) the one
 # OpenRouter account.
 #openrouter_api_key = ""
 
-# Which backend Chat uses when the user has not picked one - "llama" (the first
-# llama server), "llama:<name>" (a specific one), or "openrouter". If the chosen
-# backend is not configured, another configured one is used.
-#chat_default_backend = "llama"
-
-# OpenRouter model preselected in Chat, e.g. "anthropic/claude-sonnet-4.5". Only
-# models that support tool calling are offered. If this is unset, users pick a
-# model themselves, and chat_default_backend = "openrouter" will not work until
-# they do.
+# OpenRouter model used to seed an account's initial query profile when no
+# llama server is configured, e.g. "anthropic/claude-sonnet-4.5". Only models
+# that support tool calling are offered. If unset, users pick a model themselves.
 #chat_default_openrouter_model = ""
 
 # Optional MCP tool servers for Chat, spoken over Streamable HTTP. Infumap does
 # not start these processes; run the sidecar yourself (see tools/mcp/). Plugin
 # ids must not be infumap_data. require_approval defaults to true;
 # enabled_by_default to false. Web search is this sidecar, not a built-in:
-# [[chat_tool_server]]
-# id = "web_search"
-# url = "http://127.0.0.1:8791/mcp"
-# label = "Web search"
+#chat_tool_server = [
+#  { id = "web_search", url = "http://127.0.0.1:8791/mcp", label = "Web search" },
+#]
 # The service may advertise its icon in initialize.serverInfo.icons.
-# # bearer_token = ""
-# # enabled_by_default = false
-# # require_approval = true
+# Optional fields on each entry: bearer_token = "", enabled_by_default = false,
+# require_approval = true.
 #
 # JSON equivalent via INFUMAP_CHAT_TOOL_SERVERS (overrides TOML entries with
 # the same id):

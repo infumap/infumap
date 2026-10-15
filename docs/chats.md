@@ -24,38 +24,34 @@ at a time.
 
 ## Query profiles
 
-A profile saves **Scope**, **Model/provider/reasoning effort**, and **Tools** under a name. Pinned
-profiles appear above the input; click one to apply its complete setup. **More** lists the other
-profiles with summaries. Search uses only Scope, while keeping the model and tool choices for Chat.
-Selecting a profile leaves your draft, attachments and Search / Chat / Deep research mode intact.
+A profile saves **Scope**, **Model** (with its reasoning effort) and **Tools** under a name. Pinned
+profiles are shortcuts above the input: click one to apply its complete setup. The **Profiles** menu at
+the end of the row lists every profile, including shortcuts that do not fit. Selecting a profile leaves
+your draft, attachments and Chat / Deep research mode unchanged. Search uses only the scope, so the
+shortcuts are hidden there.
 
-To create a profile, choose the scope, model and tools you want, then open **More → Save as profile…**
-and give it a name. Open **More → Manage profiles** to pin it above the input, rename or duplicate it,
-choose it as your default, or delete it. Up/Down orders the profiles, including the pinned shortcuts.
-Deleting the default makes the first remaining profile the default, and at least one profile must remain.
-
-New queries copy your default profile once. Choosing a profile or changing Scope, Model or Tools
-affects only the current query. **Modified** marks changes to its applied profile: open **More** for
-**Reset**, which restores that original setup, or **Save changes…**, which updates the saved profile.
-If that saved profile was deleted, **Save as profile…** can keep the setup under a new name. Saving
-or changing defaults leaves other chats and their recorded turns unchanged.
+New queries start with your default profile. Changing Scope, Model or Tools affects only the current
+query: the applied profile's shortcut then shows a dot, with **Reset** to go back to the profile as saved
+and **Save** to save the change to it. To keep a setup under a new name, use **Profiles → Save as new…**;
+the new profile is pinned. **Profiles → Manage…** orders, renames, pins, duplicates and deletes profiles
+and chooses the default. Deleting the default makes the first remaining profile the default, and at
+least one profile must remain. Saving or managing profiles leaves other chats and their recorded turns
+unchanged.
 
 In an existing chat, setup changes apply from the next message. Earlier answers, attachments and
 retrieved information stay in its context, even if you switch scopes or turn tools off. Controls lock
 while a response runs or the chat loads. Deep research applies to one recorded response; choose it
 again when needed. If a request is rejected before recording, its draft keeps the selected mode for
-retry. Reloading restores the last submitted resource setup, while unsent changes remain local.
+retry. Reloading restores the last submitted setup, while unsent changes remain local.
 
-An **Unavailable** setup needs an explicit repair before sending: choose another scope or model,
-change an unsupported effort to **Default**, or disable a missing tool source. A profile with missing
-resources can still be selected for inspection and repair. **Unverified** means discovery failed,
-and **Checking** means it is still loading; refresh availability in **More** or the relevant picker.
-An unverified setup can be tried as selected, and the server rejects unavailable resources without
-substituting another setup. A missing scope is harmless in Chat while Infumap tools are off, and
-missing model or tool choices do not prevent Search.
+An unavailable resource, marked with a warning, needs an explicit repair before sending: choose another
+scope or model, change an unsupported effort to **Default**, or disable a missing tool source. A profile
+with missing resources can still be applied and repaired. If availability could not be checked, the
+setup can be tried as selected; the server rejects unavailable resources rather than substituting
+others. A missing scope is harmless in Chat while Infumap tools are off.
 
-Profiles, pins, ordering, defaults and model favorites are saved with your account and included in
-account backups. Temporary query overrides and unsent drafts are local. See
+Profiles, pins, ordering, the default and model favorites are saved with your account and included in
+account backups. Changes to a query's setup and unsent drafts are local. See
 [Query configuration and profiles](query-profiles.md) for the storage and request contract.
 
 ## Attaching text

@@ -12,19 +12,37 @@ When configured and reported by `/gpu-tools`, the web server uses these services
 
 Search is local and lexical. Full-user searches use BM25-backed title and search-fragment indexes; no embedding service is required.
 
-Chat requires at least one language model backend: one or more llama.cpp `llama-server` instances, `openrouter_api_key`, or both. Configure each `llama-server` as a `[[llama_server]]` table with a `name`, which is what users see and pick, and a `url`, either its base URL or its full chat completions endpoint URL (`llama_servers` takes the same list as JSON, for configuration by environment variable; `llama_server_url` is shorthand for a single server named `llama-server`). Each server decides which model is loaded, so Infumap offers no model choice for it, and no reasoning effort either (llama.cpp only honours one if the loaded model's chat template happens to use it). Configure `openrouter_api_key` to offer OpenRouter's models as well. That key is instance wide - every user of the instance shares the one OpenRouter account and spends from it - and it is never sent to the browser, since Infumap calls OpenRouter server side.
+Chat requires at least one language model backend: one or more llama.cpp `llama-server` instances,
+`openrouter_api_key`, or both. Configure llama servers as an array of inline tables, each with a `name`,
+which is what users see and pick, and a `url`, either its base URL or its full chat completions endpoint URL:
+
+```toml
+llama_server = [
+  { name = "Local", url = "http://127.0.0.1:8080" },
+  { name = "Remote", url = "https://llama.example.com" },
+]
+```
+
+This syntax keeps subsequent settings at the root of the TOML file. `llama_servers` takes the same
+list as JSON for configuration through `INFUMAP_LLAMA_SERVERS`; its entries replace TOML entries
+with the same name. Each server decides which model is loaded, so Infumap offers no model choice
+for it, and no reasoning effort either (llama.cpp only honours one if the loaded model's chat template
+happens to use it). Configure `openrouter_api_key` to offer OpenRouter's models as well. That key is
+instance wide - every user of the instance shares the one OpenRouter account and spends from it -
+and it is never sent to the browser, since Infumap calls OpenRouter server side.
 
 The OpenRouter model list is public, fetched anonymously, and cached. Only models that support tool
 calling are offered. Each model's reasoning effort choices come from that same list. If refreshing
 fails, a saved catalog remains available for browsing and is labelled unverified.
 
-`chat_default_backend` and `chat_default_openrouter_model` seed an account's first saved **Default**
-query profile. `chat_default_backend` accepts `llama` (the first configured llama server),
-`llama:<name>` (a specific one), or `openrouter`. Initial seeding can use another configured backend
-if the configured default is unavailable; it records a specific named llama route. After the account
-has profiles, changing server defaults does not rewrite them.
+An account's first saved **Default** query profile uses the first configured llama server, recording
+its specific named route. If there are no llama servers, it uses OpenRouter when configured, with
+`chat_default_openrouter_model` as its initial model. If that model setting is empty, the user must
+choose a model before chatting. With no backend configured, the profile can still be used for Search.
+Changing server configuration does not rewrite existing profiles.
+The former `chat_default_backend` setting is ignored, like other unrecognized settings.
 
-Users select a default saved profile in **More → Manage profiles → Make default**. New queries copy
+Users choose the default profile in **Profiles → Manage…**. New queries copy
 it once. Picking a different profile or changing the model, reasoning effort, scope or tools affects
 only that query; the last choice never automatically becomes the account default. Profiles and
 model favorites are saved with the account and included in account backups. See

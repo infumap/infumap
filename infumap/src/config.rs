@@ -52,15 +52,13 @@ pub const CONFIG_LLAMA_SERVER_URL_DEFAULT: &'static str = "";
 pub const CONFIG_LLAMA_SERVER: &'static str = "llama_server";
 pub const CONFIG_LLAMA_SERVERS: &'static str = "llama_servers";
 pub const CONFIG_OPENROUTER_API_KEY: &'static str = "openrouter_api_key";
-pub const CONFIG_CHAT_DEFAULT_BACKEND: &'static str = "chat_default_backend";
-pub const CONFIG_CHAT_DEFAULT_BACKEND_DEFAULT: &'static str = CHAT_BACKEND_LLAMA;
 pub const CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL: &'static str = "chat_default_openrouter_model";
 pub const CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL_DEFAULT: &'static str = "";
 pub const CONFIG_CHAT_TOOL_SERVER: &'static str = "chat_tool_server";
 pub const CONFIG_CHAT_TOOL_SERVERS: &'static str = "chat_tool_servers";
 
-/// Chat backend identifiers, as accepted by chat_default_backend and sent by the web client. A
-/// specific llama server is "llama:<name>"; plain "llama" means the first configured one.
+/// Chat backend identifiers sent by the web client. A specific llama server is "llama:<name>";
+/// plain "llama" identifies the unavailable placeholder when no llama servers are configured.
 pub const CHAT_BACKEND_LLAMA: &'static str = "llama";
 pub const CHAT_BACKEND_LLAMA_PREFIX: &'static str = "llama:";
 pub const CHAT_BACKEND_OPENROUTER: &'static str = "openrouter";

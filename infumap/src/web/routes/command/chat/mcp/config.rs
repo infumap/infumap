@@ -138,7 +138,7 @@ fn json_entries_from_config(config: &Config) -> InfuResult<Vec<ChatToolServerFil
   serde_json::from_str(raw).map_err(|e| format!("Could not parse {CONFIG_CHAT_TOOL_SERVERS} JSON: {e}").into())
 }
 
-/// Configured MCP tool servers. TOML `[[chat_tool_server]]` plus optional JSON in `chat_tool_servers`
+/// Configured MCP tool servers. TOML `chat_tool_server` array plus optional JSON in `chat_tool_servers`
 /// (`INFUMAP_CHAT_TOOL_SERVERS`). JSON entries override TOML entries with the same id.
 pub fn chat_tool_servers_from_config(config: &Config) -> InfuResult<Vec<ChatToolServer>> {
   let mut ordered_ids = Vec::new();

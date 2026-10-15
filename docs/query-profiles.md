@@ -40,12 +40,12 @@ profile as applied, or `null` for a query without a profile; execution uses `con
 ## Profiles and snapshots
 
 A `QueryProfile` has `id`, `name`, and `configuration`. Pinning, ordering, model favorites and the
-default profile are account preferences stored with the profiles. Profile selection and management
-are available in the composer's **More** menu.
+default profile are account preferences stored with the profiles. Pinned profiles are one-click
+shortcuts above the composer; every profile is in its **Profiles** menu.
 
 The query runtime has an editable `configuration` and a nullable `appliedProfile`. The latter holds
-the profile snapshot as applied, including its name and configuration, for reset and modified
-state handling. `snapshotQueryProfile` copies both the model object and capability array; editable
+the profile snapshot as applied, which chat requests record as provenance. Modified state and Reset use
+the saved profile with the same ID, as it is saved now, not the snapshot. `snapshotQueryProfile` copies both the model object and capability array; editable
 conversation configuration must also be copied with `cloneQueryConfiguration`. Saved profiles and
 conversation settings must never share mutable objects.
 
@@ -59,18 +59,18 @@ recorded in a transcript.
 `web/src/items/query-configuration-state.ts` owns profile application, temporary changes, reset,
 modified-state detection, request snapshots and restoring recorded configuration:
 
-- `applyQueryProfile` copies the whole configuration and reset baseline in one runtime update.
+- `applyQueryProfile` copies the whole configuration and records the applied profile in one runtime update.
   Search / Chat / Deep research mode remains unchanged.
 - `updateQueryConfiguration` and `setQueryConfigurationCapability` edit only the current query.
   Scope, model and tool selectors use this layer and never change the default profile.
-- `resetQueryConfiguration` restores the snapshot as applied, including its name. Later edits or
-  deletion of the saved profile have no effect on reset. A query without an applied profile has no
-  reset baseline.
-- `isQueryConfigurationModified` compares scope and model settings exactly, and capability IDs as
-  sets. Capability ordering and duplicate entries do not count as modifications. Value copies
+- `appliedSavedProfile` finds the applied profile as it is saved now, or null once it is deleted.
+- `resetQueryConfiguration` re-applies that saved profile. A query whose profile was deleted, or that
+  has none, cannot be reset.
+- `isQueryConfigurationModified` compares the query's setup with that saved profile: scope and model
+  exactly, and capability IDs as sets. Capability ordering and duplicate entries do not count as modifications. Value copies
   deduplicate capability IDs so a source is offered only once.
 - `snapshotQueryChatSettings` captures the selected configuration, applied profile and run mode.
-  Sending does not substitute model selections, add tools or rewrite the applied baseline.
+  Sending does not substitute model selections, add tools or change the applied profile.
 - `restoreQueryConfiguration` restores resources and profile provenance together. A subsequent
   catalog refresh cannot overwrite the restored settings.
 
@@ -104,9 +104,11 @@ Every change appends the whole collection to the user log, so the server caps an
 profiles, 200 model favorites and 64 capabilities per profile. Profile names are unique, ignoring case.
 
 An account with no profile collection gets one persisted, pinned **Default** profile on its first
-profile request. Its configuration comes from the server's configured default model, unrestricted
-Infumap scope, and Infumap plus configured tools enabled by default. Initialization does not probe
-models or tool servers. Unavailable references remain saved. A server with no model configured can
+profile request. Its configuration uses the first configured llama server, falling back to OpenRouter
+when configured, unrestricted Infumap scope, and Infumap plus configured tools enabled by default.
+For OpenRouter, `chat_default_openrouter_model` supplies the initial model if set; otherwise users
+choose one before chatting. Initialization does not probe models or tool servers. Unavailable
+references remain saved. A server with no model configured can
 still initialize a profile for Search.
 
 The authenticated `query-profiles` command supports:
@@ -147,93 +149,72 @@ invalidates pending responses and queued mutations.
 
 ## Scope, model and tools controls
 
-New Query and existing chat composers share three independent controls. Search shows only Scope.
+New Query and existing chat composers share three independent controls below the input. Search shows
+only Scope. Each control is a pill with an icon, sized to its content; the full setup is in its tooltip.
 
 - **Scope** lists named Infumap scopes with coverage, exclusions and definition problems. It keeps
-  the selected scope while showing **Not used** when chat's Infumap tools are disabled. Search always
-  applies scope. Its description makes clear that web tools, attachments and existing context are unaffected.
-- **Model** opens a single searchable list of model/provider combinations, with account favorites
-  first. Star buttons add or remove favorites without changing conversation settings. Provider routes
-  appear in the button and in every model row. Providers that do not expose model identity are labelled
-  **Server-selected**. The selected model's supported reasoning efforts and a **Default** option live here.
-  Saved selections and favorites that disappear from the catalog remain visible with availability information.
-- **Tools** displays enabled capability names, such as **Infumap + Web**, rather than a function count.
-  The popup has capability toggles with readable descriptions and availability. Expand **Functions**
-  to inspect function descriptions, then **Raw schema** for their complete definitions. Selected missing
-  or unavailable sources remain visible and can be explicitly disabled when tool choices are unlocked.
+  the selected scope while showing **Not used** when chat's Infumap tools are disabled. **Edit scopes**
+  opens the scopes page.
+- **Model** opens a searchable list of model routes, with account favorites first. A provider that
+  serves its own model, a llama server, is listed and labelled by its name; other routes by model, with
+  the provider in the list and tooltip. Star buttons add or remove favorites without changing the query.
+  The selected model's supported reasoning efforts and a **Default** option are at the bottom. Saved
+  selections and favorites that disappear from the catalog remain visible with availability information.
+- **Tools** shows the enabled source names, such as **Infumap + Web search**. The popup has a toggle per
+  source with its description and availability. **Functions** lists function descriptions, and **Raw
+  schema** their definitions. Selected missing or unavailable sources stay visible and can be disabled.
 
-Chat / Deep research is a separate mode control in an existing conversation; New Query keeps its
-Search / Chat / Deep research mode selector. Scope, model, reasoning effort and tools can change
-between turns. Configuration changes are disabled while a response runs or the transcript is loading.
+`query-configuration-labels.ts` names scopes, models and tools the same way in pills, profile summaries
+and availability messages. Popups refresh their catalogs when opened; there are no refresh buttons.
 
-All popup controls share viewport sizing, outside-click dismissal, Escape dismissal, focus return,
-Tab containment and arrow navigation between radio choices. New Query's control cycle includes Scope,
-Model and Tools and skips disabled controls. Popup changes preserve a draft being edited in the query input.
+An existing chat has Chat / Deep research icon buttons beside the pills; New Query keeps its Search /
+Chat / Deep research selector, and its controls row starts at the input, clear of the selector's caption.
+Configuration changes are disabled while a response runs or the transcript is loading.
 
-## One-click profile selection
+All popups share viewport sizing, opening towards the middle of the window, outside-click and Escape
+dismissal, focus return, Tab containment and arrow navigation between radio choices. The composer's
+Tab cycle includes the profile shortcuts and the three controls, and skips disabled ones. Popup changes
+preserve a draft being edited in the query input.
 
-New Query, Search and existing chat composers show **Profile** shortcuts above the input. Pinned
-profiles follow the account's profile order and apply in one click. Long names truncate with
-the full name and configuration in a tooltip. The shortcuts scroll horizontally rather than increasing
-the composer's height; **More** stays visible. It lists unpinned profiles in account order with Scope,
-Model/provider/reasoning effort and Tools summaries. Pinned profiles also appear in a separate section
-so they remain accessible on narrow screens. Selecting a menu profile applies it and closes the menu.
+## One-click profiles
 
-Selection copies the entire configuration and applied snapshot together. It preserves the draft,
-attachments, mode and account default. Search uses only the selected scope; selecting a profile with
-a different scope reruns an existing search. Model and tools remain available if the user later switches
-to Chat. Scope, Model and Tools controls sit below the input for inspection and temporary overrides.
+New Query and existing chat composers show pinned profiles as shortcuts above the input, in profile
+order. One click applies a profile's complete setup and records it as the applied profile; the draft,
+attachments, mode and account default are unchanged. Search uses only the scope, so search results have
+no profile row, and New Query hides it while Search is selected but keeps its height so switching modes
+does not move the input.
 
-A shortcut is marked selected only when its ID and saved configuration match the current query.
-**Modified** reports changes against the applied snapshot. An unpinned applied profile's name appears
-in **More**. Refreshing saved profiles does not overwrite the query; the menu explains when an applied
-profile was edited or deleted, and keeps the original snapshot name visible.
+The applied profile's shortcut is highlighted. When the query's setup differs from that profile as saved
+now, the shortcut shows a dot and inline **Reset** and **Save** actions follow it. Reset re-applies the
+saved profile; clicking the highlighted shortcut does the same. Save replaces the saved profile's
+configuration with the query's setup and keeps its name. An applied profile that is not pinned is shown
+as an extra shortcut while it is applied. Once the applied profile is deleted, no shortcut is highlighted.
 
-Profile application is blocked during a response and while a historical chat's settings are loading
-or failed to load. Between turns, a profile can replace the entire tool set along with scope and model;
-a profile is never partially applied. The disabled reason is visible in the menu and shortcut tooltip.
-The menu remains available for inspection and includes loading, error and retry states.
-Keyboard users can Tab through shortcuts and the menu
-in the query's control cycle, use Left/Right between shortcuts, and use Up/Down in the profile menu.
+Shortcuts that do not fit move into the **Profiles** menu, whose button then reads **+N more**; widths
+come from an invisible copy of the row. The applied profile always stays visible. Long names truncate,
+with the full name and setup in a tooltip.
 
-Search results, transcripts and the activity panel reserve the profile row's height and spacing.
+The **Profiles** menu lists every profile with a one-line summary such as "Everything · mbp · Infumap",
+a check on the applied one, a short list of unavailable resources, and a pin button. Selecting a profile
+applies it and closes the menu. **Save as new…** asks for a name inline and saves the query's setup as
+a new pinned profile, which the query then uses. **Manage…** opens the management dialog.
 
-## Profile management and saving changes
+Applying, Reset and Save are blocked during a response and while a historical chat's settings are
+loading or failed to load; the reason is in the shortcut tooltip and the menu. Keyboard users can Tab
+through the shortcuts and menu button in the composer's cycle and use Left/Right between them.
 
-The profile menu offers **Save as profile…** and **Manage profiles**. Saving captures the current
-Scope, Model/provider/reasoning effort and Tools as a value copy when the editor opens. The editor
-shows that setup and asks for a name. New profiles start unpinned and leave the account default alone.
-After saving, this query adopts the saved profile as its applied baseline if the editor is still open
-and the account, query, configuration and prior applied snapshot are unchanged. Otherwise the saved
-profile remains available without overwriting the current setup. Draft text, attachments and mode stay
-unchanged. This applies to saving changes to an existing profile as well.
+## Managing profiles
 
-**Manage profiles** provides rename, duplicate, delete, pin/unpin, and **Make default** actions. Duplicate
-copies the saved profile, including its configuration, and starts unpinned. Up/Down buttons order the
-saved profile list, which is also the order of the pinned shortcuts. Making a default affects future queries; management never rewrites existing query or
-transcript snapshots. Renaming therefore preserves the original applied snapshot's name until a user
-explicitly reapplies or saves the profile.
+**Manage…** opens a modal dialog listing every profile in order with its summary. Each row has Up/Down
+buttons, which also order the shortcuts, the name, which is renamed in place by clicking it, and buttons
+to pin or unpin, make it the default, duplicate and delete. Duplicates are named by the server and start
+unpinned. Delete asks for inline confirmation, naming the profile that becomes the default when the
+default is deleted; the last profile cannot be deleted.
 
-Delete opens an inline confirmation. The last profile cannot be deleted. When deleting the default, the
-confirmation names the profile that will become the default. A deleted
-profile's applied snapshot remains available for Reset and Save as profile.
-
-When a query is **Modified**, its profile menu offers **Reset** and **Save changes…**. Reset restores
-the snapshot as originally applied, even if the saved profile was renamed, edited or deleted. A changed
-scope reruns an existing search. Save changes previews the current setup and replaces the saved
-profile's configuration while preserving its current saved name. If the saved profile changed since
-application, the editor explains that its current settings will be replaced. If the profile was deleted,
-Save changes is disabled and Save as profile remains available. Reset respects the current response
-and loading locks; saving the current setup waits for query initialization and loading/response locks.
-
-Forms retain entered text on errors and expose busy, success and error states. A profile changed or
-deleted while its form is open must be reviewed again before rename, save or deletion.
-Account switches disable an open manager.
-Keyboard focus moves into forms, returns to the management list after actions, and remains contained
-within the shared profile dialog.
-
-Profile names share the server's trim, control-character and 120-byte UTF-8 validation. Forms explain
-an invalid name before submission; a name already in use is reported by the server.
+Management never changes a query's current setup or a transcript's recorded settings. Errors are shown
+at the top of the dialog. Escape cancels a rename or confirmation, then closes the dialog; an account
+switch closes it. Profile names share the server's trim, control-character and 120-byte UTF-8 rules,
+which forms check before submitting; a name already in use is reported by the server.
 
 ## Changes between turns
 
@@ -269,12 +250,10 @@ cannot prove that a resource was removed. Scope discovery is cleared on account 
 responses from a prior account are ignored.
 
 Profiles remain selectable when they contain unavailable resources, so their complete setup can be
-applied and repaired. Pinned shortcuts warn about active unavailable resources; profile summaries
-explain each problem,
-and the current profile row reports active problems. **More** and each independent picker offer
-availability refresh actions. Long problem lists scroll inside the dialog header so configuration
-and management actions stay reachable. Saved references, profile snapshots and model favorites are
-retained even after a provider, model, scope or tool source disappears.
+applied and repaired. Shortcuts show a warning icon, the menu names the unavailable resources, and the
+pills mark the current setup's problems with the full explanation in their tooltips. Saved references,
+profile snapshots and model favorites are retained even after a provider, model, scope or tool source
+disappears.
 
 Confirmed unavailable active resources disable Send and block keyboard and command submission with
 an explanation. The draft, attachments and selected setup stay intact. Search validates only Scope;
@@ -295,7 +274,7 @@ unsupported reasoning and selected missing/down tool sources reject the request.
 sources are never silently skipped; a later failure preparing tools also stops the turn. OpenRouter
 cannot replace a null model with the server default, and llama requests cannot silently ignore an
 explicit model or reasoning effort. Requests name a specific configured llama server rather than
-the first-server alias; server default initialization still resolves configuration into a named route.
+the first-server alias; initial profile creation resolves the first configured server into a named route.
 
 A fresh OpenRouter catalog can establish model/effort availability. If refreshing that catalog fails,
 the cached catalog is labelled stale and used for browsing, while the exact selected model and effort
@@ -315,22 +294,20 @@ in [Configuration](configuration.md). The final integration review follows these
 | Select, inspect, save, reset, rename, duplicate, delete, pin and order | `QueryProfileBar.tsx`, `QueryProfileManager.tsx` |
 | Favorite provider/model pairs without rewriting query settings | `QueryModelPicker.tsx`, profile store |
 | Keep disabled controls out of the composer Tab cycle and contain dialog focus | `Query.tsx`, `QueryPickerPopover.tsx` |
-| Reserve profile rows in results, transcript and activity geometry | `search-item.ts`, `query-item.ts`, `Query.tsx` |
+| Reserve the profile row in New Query, transcript and activity geometry; none in search results | `search-item.ts`, `query-item.ts`, `Query.tsx` |
 | Lock preparation and streaming; preserve snapshots across turns and reload | `chat.ts`, query runtime, chat route and transcript |
 | Preserve the draft's Deep research choice when a turn is rejected before recording | `Query.tsx` submission handlers |
 | Retain unavailable references; validate only resources used by the operation | `query-configuration-availability.ts`, independent pickers, Search/chat commands |
 | Refuse unavailable resources instead of substituting defaults or skipping tools | chat resource preflight, backend resolution, MCP tool mapping |
 
-Non-test checks, run from the repository root:
+Checks, run from the repository root:
 
 ```sh
 npm --prefix web run typecheck
 npm --prefix web run build
-cargo check --manifest-path infumap/Cargo.toml --locked --offline
+cargo test --manifest-path infumap/Cargo.toml
 git diff --check
 ```
 
-These checks establish compilation, production bundling and patch formatting. The integration review
-is source inspection, not executed browser or provider verification. Tests were not added, updated or
-run under the repository instructions; interactive behavior and live provider/MCP calls have not been
-validated by this review. The production build currently reports its existing large-chunk warning.
+The Rust tests cover the profile operations and invariants, the user log record and migration, request
+normalization, chat resource preparation and the search request. The composer UI has no automated tests.

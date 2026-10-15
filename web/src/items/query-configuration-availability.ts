@@ -2,11 +2,14 @@
 
 import type { StoreContextModel } from "../store/StoreProvider";
 import type { ChatModelSelection, QueryConfiguration } from "./query-configuration";
+import { queryModelRouteLabel, queryProviderLabel } from "./query-configuration-labels";
 import { queryScopeName, queryScopeProblemText, queryScopeSummary, queryScopesError, queryScopesLoading, refreshQueryScopes } from "./query-scope";
 
 export interface QueryConfigurationIssue {
   resource: "scope" | "model" | "tools",
   status: "unavailable" | "unverified" | "checking" | "warning",
+  /** The resource in a few words, such as "Web search", for compact lists. */
+  subject: string,
   message: string,
   /** Inactive resources are retained, but never prevent the current operation. */
   active: boolean,
@@ -14,22 +17,26 @@ export interface QueryConfigurationIssue {
 
 type ResourceIssue = Omit<QueryConfigurationIssue, "active">;
 
+/** Server reasons are fragments such as "Not configured on this server"; end them as a sentence. */
+const sentence = (text: string) => /[.!?…]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`;
+
 export function queryModelIssues(store: StoreContextModel, selection: ChatModelSelection | null): ResourceIssue[] {
-  const issue = (status: ResourceIssue["status"], message: string): ResourceIssue[] => [{ resource: "model", status, message }];
+  const issue = (status: ResourceIssue["status"], message: string): ResourceIssue[] =>
+    [{ resource: "model", status, subject: selection == null ? "Model" : queryModelRouteLabel(store, selection), message }];
   if (selection == null) { return issue("unavailable", "Choose a model and provider for Chat."); }
   const catalog = store.general.chatBackends();
   if (catalog == null || store.general.chatBackendsError() != null) {
     if (catalog == null && store.general.chatBackendsRefreshing() && store.general.chatBackendsError() == null) {
-      return issue("checking", `Checking availability of ${selection.model ?? "Server-selected"} / ${selection.backend}…`);
+      return issue("checking", `Checking availability of ${queryModelRouteLabel(store, selection)}…`);
     }
-    return issue("unverified", `Could not verify ${selection.model ?? "Server-selected"} / ${selection.backend}. Refresh to check availability.`);
+    return issue("unverified", `Could not verify ${queryModelRouteLabel(store, selection)}.`);
   }
   const provider = catalog.backends.find(backend => backend.id == selection.backend);
   if (provider == null || !provider.available) {
-    return issue("unavailable", `Provider ${provider?.label ?? selection.backend} is unavailable. ${provider?.unavailableReason ?? "It is not configured on this server."} Choose another provider.`);
+    return issue("unavailable", `Provider ${queryProviderLabel(store, selection.backend)} is unavailable. ${sentence(provider?.unavailableReason ?? "It is not configured on this server")} Choose another provider.`);
   }
   if (!provider.supportsModelSelection && selection.model != null) {
-    return issue("unavailable", `${provider.label} serves its own model. Choose Server-selected instead of ${selection.model}.`);
+    return issue("unavailable", `${provider.label} serves its own model, so it cannot use ${selection.model}. Choose ${provider.label} itself.`);
   }
   if (!provider.supportsReasoningEffort && selection.reasoningEffort != null) {
     return issue("unavailable", `${provider.label} does not support reasoning effort ${selection.reasoningEffort}. Choose Default.`);
@@ -59,14 +66,14 @@ export function queryConfigurationIssues(
     const summary = queryScopeSummary(configuration.scopeId);
     if (summary === undefined || queryScopesError() != null) {
       const checking = queryScopesLoading() && queryScopesError() == null;
-      issues.push({ resource: "scope", status: checking ? "checking" : "unverified", active: scopeActive,
-        message: checking ? "Checking the saved scope's availability…" : "Could not verify the saved scope. Refresh scopes to check availability." });
+      issues.push({ resource: "scope", status: checking ? "checking" : "unverified", active: scopeActive, subject: "Scope",
+        message: checking ? "Checking the saved scope's availability…" : "Could not verify the saved scope." });
     } else if (summary == null) {
-      issues.push({ resource: "scope", status: "unavailable", active: scopeActive,
+      issues.push({ resource: "scope", status: "unavailable", active: scopeActive, subject: "Scope",
         message: `Scope ${configuration.scopeId} no longer exists or is not accessible. Choose another scope.` });
     } else {
       const problem = queryScopeProblemText(summary.problems);
-      if (problem != null) { issues.push({ resource: "scope", status: "warning", active: scopeActive, message: `${queryScopeName(configuration.scopeId)}: ${problem}.` }); }
+      if (problem != null) { issues.push({ resource: "scope", status: "warning", active: scopeActive, subject: queryScopeName(configuration.scopeId), message: `${queryScopeName(configuration.scopeId)}: ${problem}.` }); }
     }
   }
   issues.push(...queryModelIssues(store, configuration.model).map(issue => ({ ...issue, active: mode == "chat" })));
@@ -78,8 +85,9 @@ export function queryConfigurationIssues(
     if (unverified || source == null || !source.available) {
       const checking = catalog == null && store.general.chatBackendsRefreshing() && store.general.chatBackendsError() == null;
       issues.push({ resource: "tools", active: mode == "chat", status: checking ? "checking" : unverified ? "unverified" : "unavailable",
-        message: checking ? `Checking availability of tool source ${id}…` : unverified ? `Could not verify tool source ${source?.label ?? id}. Refresh tools to check availability.`
-          : `Tool source ${source?.label ?? id} is unavailable. ${source?.unavailableReason ?? "It is not configured on this server."} Disable it or choose another profile.` });
+        subject: source?.label ?? id,
+        message: checking ? `Checking availability of tool source ${id}…` : unverified ? `Could not verify tool source ${source?.label ?? id}.`
+          : `Tool source ${source?.label ?? id} is unavailable. ${sentence(source?.unavailableReason ?? "It is not configured on this server")} Disable it or choose another profile.` });
     }
   }
   return issues;

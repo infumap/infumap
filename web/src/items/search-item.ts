@@ -106,8 +106,6 @@ export function calcSearchWorkspaceInputWidthPx(boundsWidthPx: number): number {
 
 export function calcSearchWorkspaceResultsTopPx(): number {
   return SEARCH_WORKSPACE_TOP_INSET_PX
-    + SEARCH_WORKSPACE_PROFILE_ROW_HEIGHT_PX
-    + SEARCH_WORKSPACE_PROFILE_ROW_GAP_PX
     + SEARCH_WORKSPACE_CONTROLS_HEIGHT_PX
     + SEARCH_WORKSPACE_SETTINGS_ROW_GAP_PX
     + SEARCH_WORKSPACE_SETTINGS_ROW_HEIGHT_PX

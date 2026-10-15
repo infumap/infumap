@@ -54,9 +54,9 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
       available: true, reason: null, tools: catalog?.infumapTools ?? [] }];
     for (const server of catalog?.toolServers ?? []) {
       const names = server.tools.map(functionName);
-      result.push({ id: server.id, label: server.label == "Web search" ? "Web" : server.label,
+      result.push({ id: server.id, label: server.label,
         description: names.includes("web_search") ? `${names.includes("fetch_page") ? "Search the public web and read pages." : "Search the public web."} Infumap scope does not limit web access.`
-          : server.tools.length > 0 ? server.tools.slice(0, 2).map(functionTitle).join(" · ") : "Capabilities provided by this connection.",
+          : server.tools.length > 0 ? server.tools.slice(0, 2).map(functionTitle).join(" · ") : "",
         available: server.available, reason: server.unavailableReason ?? null, tools: server.tools });
     }
     for (const id of enabled()) {
@@ -68,27 +68,24 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
     return result;
   });
   const selected = () => sources().filter(source => enabled().has(source.id));
-  const summary = () => !ready() ? store.general.queryProfiles.error() == null ? "Loading…" : "Unavailable" : selected().length == 0 ? "None" : selected().map(source => source.label).join(" + ");
+  const summary = () => !ready() ? store.general.queryProfiles.error() == null ? "Loading…" : "Unavailable" : selected().length == 0 ? "No tools" : selected().map(source => source.label).join(" + ");
   const title = () => [`Tools: ${summary()}`, ...issues().map(issue => issue.message), lockedReason(), props.note?.()].filter(Boolean).join("\n");
 
   return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey}
-    buttonClass="max-w-[240px] flex-[1_1_auto] cursor-pointer" ariaLabel="Choose tools" title={title()}
-    label={<><span class="shrink-0">Tools:</span><span class="min-w-0 truncate">{summary()}</span>
+    buttonClass="max-w-[240px] shrink-[2] cursor-pointer" ariaLabel="Choose tools" title={title()}
+    label={<><i class="bi-tools shrink-0 text-[11px]" /><span class="min-w-0 truncate">{summary()}</span>
       <Show when={ready() && issues().length > 0}>
         <i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" />
       </Show></>}
     onOpen={() => { void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
     {close => <>
-      <div class="max-h-[220px] overflow-y-auto border-b border-slate-200 px-3 py-2">
-        <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Available capabilities
+      <div class="shrink-0 border-b border-slate-200 px-3 py-2">
+        <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Tools
           <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close tools picker" onClick={close}><i class="bi-x-lg" /></button>
         </div>
-        <div class="text-[11px] text-slate-500">Choose the capabilities for the next message.</div>
         <Show when={props.note?.()}><div class="mt-1 text-[11px] text-slate-500">{props.note?.()}</div></Show>
         <Show when={lockedReason()}><div class="mt-1 text-[11px] text-slate-500">{lockedReason()}</div></Show>
         <For each={issues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
-        <button type="button" class="mt-1 text-[11px] text-blue-700 hover:underline" disabled={store.general.chatBackendsRefreshing()}
-          onClick={() => { void store.general.refreshChatBackends(); }}>{store.general.chatBackendsRefreshing() ? "Checking availability…" : "Refresh tool availability"}</button>
       </div>
       <div class="min-h-0 grow overflow-y-auto py-1">
         <Show when={store.general.queryProfiles.error()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.queryProfiles.error()}</div></Show>
@@ -109,7 +106,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
               }} />
             <div class="min-w-0 grow">
               <div class="flex items-center gap-1.5"><i class={source.id == "infumap_data" ? "bi-database shrink-0 text-[12px]" : "bi-tools shrink-0 text-[12px]"} /><span class="min-w-0 break-words">{source.label}</span></div>
-              <div class="text-[11px] text-slate-500">{source.description}</div>
+              <Show when={source.description != ""}><div class="text-[11px] text-slate-500">{source.description}</div></Show>
               <Show when={!source.available}><div class="text-[11px] text-amber-700">{store.general.chatBackendsRefreshing() ? "Checking availability…" : source.reason ?? "Unavailable"}</div></Show>
             </div>
           </label>
