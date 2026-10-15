@@ -24,8 +24,10 @@ All configuration fields are explicit, including nullable fields:
   Chat uses it when `infumap_data` is enabled. It does not constrain web tools, attachments or
   information already in the conversation. The scope is retained even when Infumap tools are off.
 - `model`: an explicit provider route, model and reasoning effort. `backend` is the stable `id` of a
-  configured `chat_providers` entry. Every provider requires an explicit model ID for Chat, including
-  a provider hosting just one model. A null reasoning effort uses the model's default.
+  configured `chat_providers` entry. Every provider requires an explicit request model ID for Chat.
+  With `discover_models = false`, this is the configured `model_name` (default `"default"`), so a
+  stable server alias can follow changes to the underlying model. OpenRouter always uses an explicit
+  catalog model ID. A null reasoning effort uses the model's default.
   A null selection object means no model has been chosen, such as before the default profile loads
   or in Search. Chat execution requires a selection;
   the composer copies the default profile before the first command and sends the selected resources exactly.

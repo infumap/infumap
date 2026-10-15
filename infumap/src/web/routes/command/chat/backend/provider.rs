@@ -36,7 +36,8 @@ pub struct ChatProvider {
   pub base_url: reqwest::Url,
   pub api_key: Option<String>,
   pub adapter: ChatAdapter,
-  pub models: Vec<String>,
+  /// None discovers the catalog; Some exposes only this request model ID without discovery.
+  pub model_name: Option<String>,
   pub reasoning_efforts: Vec<String>,
 }
 
@@ -56,7 +57,9 @@ struct ChatProviderFile {
   #[serde(default)]
   adapter: ChatAdapter,
   #[serde(default)]
-  models: Option<Vec<String>>,
+  discover_models: Option<bool>,
+  #[serde(default)]
+  model_name: Option<String>,
   #[serde(default)]
   reasoning_efforts: Vec<String>,
 }
@@ -92,20 +95,20 @@ fn parse_provider(entry: ChatProviderFile) -> InfuResult<ChatProvider> {
     reqwest::header::HeaderValue::from_str(&format!("Bearer {key}"))
       .map_err(|_| format!("Invalid API key header for chat provider '{id}'."))?;
   }
-  let mut models = Vec::new();
-  if entry.models.as_ref().is_some_and(Vec::is_empty) {
-    return Err(
-      format!("Chat provider '{id}' models must contain at least one ID, or be omitted for discovery.").into(),
-    );
+  let discover_models = entry.discover_models.unwrap_or(true);
+  if entry.adapter == ChatAdapter::Openrouter && (!discover_models || entry.model_name.is_some()) {
+    return Err(format!("OpenRouter provider '{id}' requires model discovery and does not accept model_name.").into());
   }
-  for model in entry.models.unwrap_or_default() {
-    let model = model.trim().to_owned();
-    crate::query_configuration::validate_text(&model, "chat provider model ID", 512)?;
-    if models.contains(&model) {
-      return Err(format!("Duplicate model ID for chat provider '{id}'.").into());
+  let model_name = if discover_models {
+    if entry.model_name.is_some() {
+      return Err(format!("Chat provider '{id}' model_name requires discover_models = false.").into());
     }
-    models.push(model);
-  }
+    None
+  } else {
+    let name = entry.model_name.unwrap_or_else(|| "default".to_owned()).trim().to_owned();
+    crate::query_configuration::validate_text(&name, "chat provider model_name", 512)?;
+    Some(name)
+  };
   let mut reasoning_efforts = Vec::new();
   for effort in entry.reasoning_efforts {
     let effort = effort.trim().to_lowercase();
@@ -116,7 +119,7 @@ fn parse_provider(entry: ChatProviderFile) -> InfuResult<ChatProvider> {
       reasoning_efforts.push(effort);
     }
   }
-  Ok(ChatProvider { id, base_url, api_key, adapter: entry.adapter, models, reasoning_efforts })
+  Ok(ChatProvider { id, base_url, api_key, adapter: entry.adapter, model_name, reasoning_efforts })
 }
 
 /// Configured Chat providers, read from a TOML array or a JSON string.
@@ -126,7 +129,7 @@ pub fn chat_providers_from_config(config: &Config) -> InfuResult<Vec<ChatProvide
     Err(_) => match config.get_string(CONFIG_CHAT_PROVIDERS) {
       Ok(raw) if raw.trim().is_empty() => Ok(Vec::new()),
       Ok(raw) => serde_json::from_str::<Vec<ChatProviderFile>>(&raw)
-        .map_err(|error| format!("Invalid {CONFIG_CHAT_PROVIDERS} JSON: {error}").into())?
+        .map_err(|error| format!("Invalid {CONFIG_CHAT_PROVIDERS} JSON: {error}"))?
         .into_iter()
         .map(parse_provider)
         .collect(),

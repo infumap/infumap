@@ -68,9 +68,11 @@
 
 # Optional Chat providers using the OpenAI Chat Completions API. Set each
 # provider's id, API url (including its version path), and optional api_key.
-# List model IDs in models, or omit models to discover them from the provider.
+# Models are discovered from the provider by default. Set discover_models = false
+# to skip discovery and send model_name (optional, defaults to "default").
+# OpenRouter requires discovery and does not accept model_name.
 #chat_providers = [
-#  { id = "local", url = "http://127.0.0.1:8080/v1", models = ["my-model"] },
+#  { id = "local", url = "http://127.0.0.1:8080/v1", discover_models = false },
 #  { id = "openrouter", url = "https://openrouter.ai/api/v1", adapter = "openrouter", api_key = "YOUR_KEY" },
 #]
 # For adapters, reasoning_efforts, or environment variable configuration, see

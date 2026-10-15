@@ -18,7 +18,7 @@ an API base `url` including its version path, and an optional `api_key`:
 
 ```toml
 chat_providers = [
-  { id = "local", url = "http://127.0.0.1:8080/v1", models = ["my-model"] },
+  { id = "local", url = "http://127.0.0.1:8080/v1", discover_models = false },
   { id = "openrouter", url = "https://openrouter.ai/api/v1", adapter = "openrouter", api_key = "YOUR_KEY" },
 ]
 ```
@@ -28,11 +28,29 @@ letters, digits, dots, underscores or hyphens. Profiles, favorites and chats sto
 them stable. `url` can also be the full chat completions URL. Infumap appends
 `chat/completions` to the API base; it does not insert `/v1` automatically.
 
-`models` is an optional, nonempty ordered list of model IDs. When supplied, it is authoritative and Infumap
-does not fetch a catalog. Otherwise Infumap discovers models through `GET <url>/models`, using the
-API key when needed. A host serving just one model still uses that model's actual ID. Generic
-discovery preserves the returned order. Configure only models that support tool calling: generic
-catalogs may not report this capability.
+`discover_models` defaults to `true`: Infumap discovers models through `GET <url>/models`, using the
+API key when needed, and users select an explicit model from the catalog. Generic discovery preserves
+the returned order.
+
+For a local server whose active model changes frequently, set `discover_models = false`. Infumap
+never fetches its catalog and offers one **Server default** choice, sending `"model": "default"`.
+The optional `model_name` changes that request ID and the displayed choice, for example:
+
+```toml
+chat_providers = [
+  { id = "local", url = "http://127.0.0.1:8080/v1", discover_models = false, model_name = "my-alias" },
+]
+```
+
+`model_name` must be nonblank and is only accepted when discovery is disabled. Configure the server
+to accept the chosen ID or alias; Infumap sends it literally. With a stable alias, profiles continue
+to work when you change the underlying model. Existing profiles with a different saved model ID
+must select the new choice once. Configure only models that support tool calling: generic catalogs
+may not report this capability.
+
+The `openrouter` adapter requires discovery, rejects `discover_models = false` and `model_name`, and
+never accepts `"default"` as a request model. The former `models` configuration field is rejected;
+replace it with discovery or `discover_models = false` plus an optional `model_name` for a single ID.
 
 `adapter` defaults to `openai`, using standard messages and the `reasoning_effort` parameter.
 `openrouter` enables OpenRouter's catalog metadata, tool capability filtering and `reasoning`
@@ -42,8 +60,8 @@ provider list; they do not determine a provider's ID.
 
 Optional `reasoning_efforts` declares the supported effort levels for every model on a provider,
 for example `["none", "low", "medium", "high"]`. Otherwise discovered reasoning metadata supplies
-the choices; a model without such metadata offers only Default. Explicit `models` entries have no
-discovered metadata, so declare efforts if needed. Supported levels are `none`, `minimal`, `low`,
+the choices; a model without such metadata offers only Default. Disabling discovery also skips
+capability metadata, so declare efforts if needed. Supported levels are `none`, `minimal`, `low`,
 `medium`, `high`, `xhigh` and `max`; only declare values the endpoint accepts.
 
 `chat_providers` can also be supplied as a JSON string through `INFUMAP_CHAT_PROVIDERS`. Likewise,
@@ -51,7 +69,7 @@ discovered metadata, so declare efforts if needed. Supported levels are `none`, 
 For example:
 
 ```sh
-export INFUMAP_CHAT_PROVIDERS='[{"id":"local","url":"http://127.0.0.1:8080/v1","api_key":"YOUR_KEY","models":["my-model"]}]'
+export INFUMAP_CHAT_PROVIDERS='[{"id":"local","url":"http://127.0.0.1:8080/v1","api_key":"YOUR_KEY","discover_models":false}]'
 export INFUMAP_CHAT_TOOL_SERVERS='[{"id":"web_search","url":"http://127.0.0.1:8791/mcp/search"},{"id":"web_fetch","url":"http://127.0.0.1:8791/mcp/fetch"}]'
 ```
 
@@ -83,7 +101,7 @@ model favorites are saved with the account and included in account backups. See
 [Query profiles](chats.md#query-profiles) for the controls and
 [Query configuration and profiles](query-profiles.md) for the API.
 
-Chat requests use the explicit saved provider ID, model ID and effort. Every provider requires an
-explicit model ID, including services hosting only one model. An unavailable selected provider,
-model, scope or tool source is reported rather than replaced with a server default or silently
+Chat requests use the explicit saved provider ID, model ID and effort. With discovery disabled, the
+saved model ID is `model_name` (default `"default"`), and the provider resolves it to the actual model.
+An unavailable selected provider, model, scope or tool source is reported rather than replaced with a server default or silently
 disabled. Search needs no model and uses only its selected scope.
