@@ -37,7 +37,7 @@ import {
   markChildrenLoadAsInitiatedOrComplete,
 } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { ensureQueryItemUnderQueries, highlightGroup, preloadQueries, replaceUrlWithCurrentPage, switchToItem, switchToNonPage, switchToPage } from "../layout/navigation";
+import { ensureQueryItemUnderQueries, highlightGroup, navigateToQueries, preloadQueries, replaceUrlWithCurrentPage, switchToItem, switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -266,7 +266,7 @@ export const Main: Component = () => {
     mainDiv!.addEventListener('touchend', touchEndListener, touchListenerOptions);
     mainDiv!.addEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.addEventListener('keydown', keyDownListener);
-    window.addEventListener('keydown', structuralKeyDownListener, true);
+    window.addEventListener('keydown', captureKeyDownListener, true);
     for (const event of ['pointerdown', 'mousedown', 'click', 'touchstart', 'dragstart', 'drop']) {
       window.addEventListener(event, historyInteractionGuard, { capture: true, passive: false });
     }
@@ -306,7 +306,7 @@ export const Main: Component = () => {
     mainDiv!.removeEventListener('touchend', touchEndListener, touchListenerOptions);
     mainDiv!.removeEventListener('touchcancel', touchCancelListener, touchListenerOptions);
     document.removeEventListener('keydown', keyDownListener);
-    window.removeEventListener('keydown', structuralKeyDownListener, true);
+    window.removeEventListener('keydown', captureKeyDownListener, true);
     for (const event of ['pointerdown', 'mousedown', 'click', 'touchstart', 'dragstart', 'drop']) {
       window.removeEventListener(event, historyInteractionGuard, true);
     }
@@ -348,7 +348,15 @@ export const Main: Component = () => {
     ev.stopImmediatePropagation();
   };
 
-  const structuralKeyDownListener = (ev: KeyboardEvent) => { edit_structuralKeyDownGuard(store, ev); };
+  const captureKeyDownListener = (ev: KeyboardEvent) => {
+    if (edit_structuralKeyDownGuard(store, ev) || ev.defaultPrevented) { return; }
+    // Capture the Queries shortcut even while a search or chat input has focus.
+    if (ev.code == "KeyF" && (ev.ctrlKey || ev.metaKey) && ev.shiftKey && !ev.altKey && store.user.getUserMaybe()) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      void navigateToQueries(store);
+    }
+  };
   const compositionKeyUpListener = (ev: KeyboardEvent) => { edit_compositionKeyGuard(store, ev); };
   const compositionStartListener = (ev: CompositionEvent) => { edit_compositionStartHandler(store, ev); };
   const compositionEndListener = (ev: CompositionEvent) => { edit_compositionEndHandler(store, ev); };
