@@ -23,7 +23,6 @@ readonly HOST="${WEB_SEARCH_HOST:-127.0.0.1}"
 readonly PORT="${WEB_SEARCH_PORT:-8791}"
 readonly RESTART_DELAY_SECS="${WEB_SEARCH_RESTART_DELAY_SECS:-5}"
 
-BIN="${WEB_SEARCH_BIN:-}"
 child_pid=""
 shutdown_requested=0
 
@@ -37,21 +36,10 @@ command_exists() {
 }
 
 resolve_bin() {
-    if [ -n "$BIN" ]; then
-        [ -x "$BIN" ] || fail "WEB_SEARCH_BIN is not executable: $BIN"
-        printf '%s\n' "$BIN"
-        return 0
-    fi
-
     local release_bin="$ROOT_DIR/target/release/infumap-web-search"
-    if [ -x "$release_bin" ]; then
-        printf '%s\n' "$release_bin"
-        return 0
-    fi
-
-    command_exists cargo || fail "cargo was not found on PATH. Build infumap-web-search or set WEB_SEARCH_BIN."
+    command_exists cargo || fail "cargo was not found on PATH. Install Rust to use run.sh."
     echo "Building infumap-web-search (release)" >&2
-    cargo build --release --manifest-path "$ROOT_DIR/Cargo.toml"
+    cargo build --release --manifest-path "$ROOT_DIR/Cargo.toml" || fail "Could not build infumap-web-search."
     [ -x "$release_bin" ] || fail "Expected binary at $release_bin after cargo build"
     printf '%s\n' "$release_bin"
 }

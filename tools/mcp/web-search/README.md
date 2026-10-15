@@ -21,17 +21,16 @@ Or, after `cargo build --release` in this directory:
 ./target/release/infumap-web-search
 ```
 
-`run.sh` reuses an existing release binary. After changing the source, rebuild it
-with `cargo build --release --locked --manifest-path tools/mcp/web-search/Cargo.toml`
-from the repo root. The wrapper restarts an exited server after the configured
-delay; startup configuration errors will repeat until corrected. Run the binary
-directly when diagnosing a single startup attempt.
+`run.sh` runs `cargo build --release` on each launch and stops if the build fails.
+Cargo reuses unchanged build artifacts. The wrapper restarts an exited server
+after the configured delay without rebuilding; startup configuration errors will
+repeat until corrected. Run the binary directly when diagnosing a single startup
+attempt.
 
 Environment:
 
 - `WEB_SEARCH_HOST` (default `127.0.0.1`)
 - `WEB_SEARCH_PORT` (default `8791`)
-- `WEB_SEARCH_BIN` — path to a prebuilt binary; skips `cargo build`
 - `WEB_SEARCH_RESTART_DELAY_SECS` (default `5`) — used by `run.sh` only
 
 The MCP endpoints share one process and port:
