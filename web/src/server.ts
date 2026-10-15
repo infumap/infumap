@@ -195,7 +195,6 @@ export interface ChatBackendInfo {
 
 export interface ChatToolServerInfo {
   id: string,
-  label: string,
   icons?: Array<{
     src: string,
     mimeType?: string,

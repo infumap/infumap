@@ -172,7 +172,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   const profileTitle = (profile: QueryProfile) => [
     profile.name,
     `Scope: ${queryScopeName(profile.configuration.scopeId)}`,
-    ...(props.searchMode() ? [] : [`Model: ${queryModelRouteLabel(store, profile.configuration.model)}`, `Tools: ${queryToolsLabel(store, profile.configuration.capabilities)}`]),
+    ...(props.searchMode() ? [] : [`Model: ${queryModelRouteLabel(store, profile.configuration.model)}`, `Tools: ${queryToolsLabel(profile.configuration.capabilities)}`]),
     ...unavailable(profile).map(issue => issue.message),
     isActive(profile) && modified() ? "Modified in this query. Click to restore the saved settings." : null,
     reason(),

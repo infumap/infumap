@@ -78,9 +78,9 @@ export function queryConfigurationIssues(
     if (unverified || source == null || !source.available) {
       const checking = catalog == null && store.general.chatBackendsRefreshing() && store.general.chatBackendsError() == null;
       issues.push({ resource: "tools", active: mode == "chat", status: checking ? "checking" : unverified ? "unverified" : "unavailable",
-        subject: source?.label ?? id,
-        message: checking ? `Checking availability of tool source ${id}…` : unverified ? `Could not verify tool source ${source?.label ?? id}.`
-          : `Tool source ${source?.label ?? id} is unavailable. ${sentence(source?.unavailableReason ?? "It is not configured on this server")} Disable it or choose another profile.` });
+        subject: id,
+        message: checking ? `Checking availability of tool source ${id}…` : unverified ? `Could not verify tool source ${id}.`
+          : `Tool source ${id} is unavailable. ${sentence(source?.unavailableReason ?? "It is not configured on this server")} Disable it or choose another profile.` });
     }
   }
   return issues;

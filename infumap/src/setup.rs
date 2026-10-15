@@ -324,11 +324,10 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
   } else {
     for server in &chat_tool_servers {
       info!(
-        " {} id='{}' url='{}' label='{}' enabled_by_default={} require_approval={} bearer={}",
+        " {} id='{}' url='{}' enabled_by_default={} require_approval={} bearer={}",
         CONFIG_CHAT_TOOL_SERVERS,
         server.id,
         server.url,
-        server.label,
         server.enabled_by_default,
         server.require_approval,
         if server.bearer_token.is_some() { "<redacted>" } else { "<not set>" }

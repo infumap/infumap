@@ -38,7 +38,6 @@ const CATALOG_TTL_ERR: Duration = Duration::from_secs(15);
 #[derive(Clone, Serialize)]
 pub struct ChatToolServerInfo {
   pub id: String,
-  pub label: String,
   #[serde(skip_serializing_if = "Vec::is_empty")]
   pub icons: Vec<client::McpIcon>,
   pub available: bool,
@@ -151,7 +150,6 @@ pub async fn tool_server_catalog(config: &Config) -> Vec<ChatToolServerInfo> {
       snapshot.session.as_ref().map(|session| (session.icons.clone(), session.tools.clone())).unwrap_or_default();
     ChatToolServerInfo {
       id: server.id,
-      label: server.label,
       icons,
       available: snapshot.available,
       unavailable_reason: snapshot.unavailable_reason,
@@ -195,13 +193,13 @@ pub async fn mapped_tools_for_capabilities(
     let snapshot = server_snapshot(server, "preparing tools for a chat request").await;
     if !snapshot.available {
       return Err(
-        format!("Selected tool source '{}' is unavailable. Disable it or retry when it is available.", server.label)
+        format!("Selected tool source '{}' is unavailable. Disable it or retry when it is available.", server.id)
           .into(),
       );
     }
     let Some(session) = snapshot.session else {
       return Err(
-        format!("Selected tool source '{}' is unavailable. Disable it or retry when it is available.", server.label)
+        format!("Selected tool source '{}' is unavailable. Disable it or retry when it is available.", server.id)
           .into(),
       );
     };

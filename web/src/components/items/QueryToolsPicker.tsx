@@ -58,7 +58,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
       const webFetch = names.includes("infumap_web_fetch");
       const webDescription = webSearch && webFetch ? "Search the public web and read pages."
         : webSearch ? "Search the public web." : webFetch ? "Read web pages from known URLs." : null;
-      result.push({ id: server.id, label: server.label,
+      result.push({ id: server.id, label: server.id,
         description: webDescription != null ? `${webDescription} Infumap scope does not limit web access.`
           : server.tools.length > 0 ? server.tools.slice(0, 2).map(functionTitle).join(" · ") : "",
         available: server.available, reason: server.unavailableReason ?? null, tools: server.tools });

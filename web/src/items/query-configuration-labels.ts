@@ -39,19 +39,18 @@ export function queryModelRouteLabel(store: StoreContextModel, selection: ChatMo
   return queryModelLabel(store, selection);
 }
 
-export function queryToolLabel(store: StoreContextModel, capability: string): string {
-  return capability == "infumap_data" ? "Infumap"
-    : store.general.chatBackends()?.toolServers?.find(server => server.id == capability)?.label ?? capability;
+export function queryToolLabel(capability: string): string {
+  return capability == "infumap_data" ? "Infumap" : capability;
 }
 
-export function queryToolsLabel(store: StoreContextModel, capabilities: Array<string>): string {
+export function queryToolsLabel(capabilities: Array<string>): string {
   // Infumap first; configured sources in their stored order.
   const ordered = [...capabilities].sort((a, b) => Number(b == "infumap_data") - Number(a == "infumap_data"));
-  return ordered.length == 0 ? "No tools" : ordered.map(capability => queryToolLabel(store, capability)).join(" + ");
+  return ordered.length == 0 ? "No tools" : ordered.map(queryToolLabel).join(" + ");
 }
 
-/** "Everything · local: default · Infumap + Web search". Search uses only the scope. */
+/** "Everything · local: default · Infumap + web_search". Search uses only the scope. */
 export function queryConfigurationSummary(store: StoreContextModel, configuration: QueryConfiguration): string {
   return [queryScopeName(configuration.scopeId), queryModelLabel(store, configuration.model, true),
-    queryToolsLabel(store, configuration.capabilities)].join(" · ");
+    queryToolsLabel(configuration.capabilities)].join(" · ");
 }
