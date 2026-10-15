@@ -22,7 +22,6 @@ Searches from the user's home page combine lexical title matches with lexical se
 
 Options:
 - **-s --settings (optional):** Path to a toml settings configuration file, or a directory containing `settings.toml`. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
-Experimental features are controlled via the `enable_experimental` configuration setting or `INFUMAP_ENABLE_EXPERIMENTAL`.
 
 ### keygen
 

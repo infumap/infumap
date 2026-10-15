@@ -33,7 +33,6 @@ const RECENT_NETWORK_REQUEST_TTL_MS = 9000;
 
 interface InstallationState {
   hasRootUser: boolean,
-  enableExperimental: boolean,
 }
 
 interface LocalStorageData {
