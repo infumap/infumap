@@ -333,7 +333,7 @@ def service_registry() -> dict[str, ServiceProxy]:
         ),
         ServiceProxy(
             service_name="pdf_extract",
-            public_paths=("/pdf-extract",),
+            public_paths=("/pdf-extract", "/pdf-extract-native"),
             upstream_base_url=upstream_base_url(
                 "GPU_PDF_EXTRACT_UPSTREAM_URL",
                 "127.0.0.1",
@@ -377,6 +377,13 @@ def gpu_tools_endpoints() -> list[dict[str, Any]]:
             "path": "/pdf-extract",
             "service": "pdf_extract",
             "description": "Extract Markdown text from an uploaded PDF.",
+        },
+        {
+            "id": "pdf_extract_native",
+            "method": "POST",
+            "path": "/pdf-extract-native",
+            "service": "pdf_extract",
+            "description": "Extract complete native PDF text as Markdown without OCR; reject unreadable text.",
         },
         {
             "id": "pdf_extract_jobs",
@@ -904,7 +911,7 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
     headers = forwarded_headers(request)
     lease_secs: float | None = None
     read_write_timeout_secs = service.upstream_read_write_timeout_secs
-    if service.service_name == "pdf_extract" and request_path == "/pdf-extract":
+    if service.service_name == "pdf_extract" and request_path in {"/pdf-extract", "/pdf-extract-native"}:
         conversion_timeout_secs = pdf_conversion_timeout_secs_for_request(request)
         headers = with_pdf_conversion_timeout_header(headers, conversion_timeout_secs)
         lease_secs = pdf_conversion_lease_secs(conversion_timeout_secs)

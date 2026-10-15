@@ -35,7 +35,7 @@ import {
 } from "../../items/query-chat-activity-ui";
 
 function queryChatRoundHasContent(round: QueryChatActivityModelRound): boolean {
-  return round.reasoning != "" || round.answer != "" || round.toolCalls.length > 0;
+  return round.reasoning.trim() != "" || round.answer.trim() != "" || round.toolCalls.length > 0;
 }
 
 function queryChatToolDisplayName(name: string): string {
@@ -290,7 +290,7 @@ export const QueryChatActivityRounds: Component<{
                 Round {round().number}
               </div>
             </Show>
-            <Show when={round().reasoning != ""}>
+            <Show when={round().reasoning.trim() != ""}>
               <div class="mb-2">
                 <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
                   Thinking
@@ -298,11 +298,11 @@ export const QueryChatActivityRounds: Component<{
                 <div
                   class="select-text whitespace-pre-wrap text-[12px] leading-[18px] text-slate-500"
                   style="overflow-wrap: anywhere;">
-                  {round().reasoning}
+                  {round().reasoning.trim()}
                 </div>
               </div>
             </Show>
-            <Show when={round().answer != ""}>
+            <Show when={round().answer.trim() != ""}>
               <div class="mb-2">
                 <div class="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                   {round().toolCalls.length > 0 || round().complete ? "Answer" : "Answering"}
@@ -310,13 +310,13 @@ export const QueryChatActivityRounds: Component<{
                 <div
                   class="select-text whitespace-pre-wrap text-[13px] leading-5 text-slate-700"
                   style="overflow-wrap: anywhere;">
-                  {round().answer}
+                  {round().answer.trim()}
                 </div>
               </div>
             </Show>
             <Index each={round().toolCalls}>{(toolCall, toolIndex) =>
               <div class={`flex items-start gap-2 py-1.5 ${
-                toolIndex > 0 || round().reasoning != "" || round().answer != ""
+                toolIndex > 0 || round().reasoning.trim() != "" || round().answer.trim() != ""
                   ? "border-t border-slate-100"
                   : ""
               }`}>

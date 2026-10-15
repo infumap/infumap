@@ -27,7 +27,15 @@ By default the gateway listens on `127.0.0.1:8787` and forwards:
 - `/image-extract-caption-only` to the image extract service
 - `/pdf-extract-caption-only` to the image extract service
 - `/pdf-extract` to the PDF extract service
+- `/pdf-extract-native` to the PDF extract service for strict native-only text
+  extraction, advertised as `pdf_extract_native`; it never performs OCR and
+  rejects documents whose native text is unusable or incomplete
 - `/pdf-extract/jobs` as the gateway-owned async PDF extraction job API
+
+Ordinary PDF uploads and the existing async job API retain OCR fallback. The
+native-only endpoint shares their GPU serialization and conversion watchdog,
+but has no async job API. See [PDF extraction](pdf_extract/README.md#native-only-extraction)
+for its policy metadata and errors.
 
 The child services keep their own defaults:
 
@@ -65,7 +73,7 @@ The combined launcher keeps each service independent:
   extraction requests instead hold a lease of their conversion limit plus 5
   minutes, so a long conversion is never shared with other GPU work
 - gateway upstream read/write timeouts are 30 minutes by default, with a 4 hour
-  read/write timeout for `/pdf-extract`
+  read/write timeout for `/pdf-extract` and `/pdf-extract-native`
 - the gateway also exposes async PDF extraction jobs for web-background use:
   `POST /pdf-extract/jobs`, `GET /pdf-extract/jobs/{job_id}`, and
   `GET /pdf-extract/jobs/{job_id}/result`; the gateway holds the global GPU lock
