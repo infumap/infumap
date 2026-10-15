@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Duration;
 
@@ -25,6 +26,7 @@ use chromiumoxide::{Browser, BrowserConfig, Page};
 use futures_util::StreamExt;
 use reqwest::Url;
 use serde::Deserialize;
+use tokio::io::AsyncReadExt;
 use tokio::sync::{Mutex, Semaphore, mpsc, oneshot, watch};
 use tokio::time::{Instant, timeout, timeout_at};
 
@@ -115,6 +117,11 @@ impl BrowserRenderer {
         // context ID arrived. Do not reuse an uncertain/unresponsive browser.
         if let Some(mut browser) = owned.take() {
           browser.stop().await;
+          let stderr = browser.stderr_tail();
+          if !stderr.is_empty() {
+            log::warn!("Fetch browser stderr after failure: {stderr}");
+            result = result.map_err(|error| format!("{error}\nBrowser stderr: {stderr}").into());
+          }
         }
       }
       let _ = response.send(result);
@@ -149,8 +156,11 @@ impl BrowserRenderer {
 
 struct OwnedBrowser {
   browser: Option<Browser>,
+  child: Option<chromiumoxide::async_process::Child>,
+  stderr_task: Option<AbortTask>,
+  stderr: Arc<StdMutex<Vec<u8>>>,
   handler: Option<AbortTask>,
-  dead: watch::Receiver<bool>,
+  dead: watch::Receiver<Option<String>>,
   isolation: Isolation,
   proxy: PublicProxy,
   network: Option<NetworkSession>,
@@ -167,8 +177,19 @@ impl OwnedBrowser {
     let executable = super::bootstrap::resolve(config.browser_path.as_deref())?;
     log::info!("Selected owned fetch browser: {}", executable.display());
     let isolation = Isolation::prepare(profile.path(), proxy.address, executable).await?;
-    let (_, dead) = watch::channel(false);
-    Ok(Self { browser: None, handler: None, dead, isolation, proxy, network: None, profile })
+    let (_, dead) = watch::channel(None);
+    Ok(Self {
+      browser: None,
+      child: None,
+      stderr_task: None,
+      stderr: Arc::default(),
+      handler: None,
+      dead,
+      isolation,
+      proxy,
+      network: None,
+      profile,
+    })
   }
 
   fn healthy(&self) -> bool {
@@ -202,18 +223,49 @@ impl OwnedBrowser {
       .arg(("webrtc-ip-handling-policy", "disable_non_proxied_udp"))
       .arg(("force-webrtc-ip-handling-policy", "disable_non_proxied_udp"));
     let launch = self.isolation.launch_config(builder)?;
-    let (browser, mut handler) = Browser::launch(launch)
-      .await
+    // Browser::launch consumes and drops stderr as soon as it sees the
+    // DevTools URL. Retain our own reader through helper shutdown so later
+    // diagnostics cannot fill a pipe or write into a closed reader.
+    self.child = Some(launch.launch().map_err(|error| format!("Could not start isolated browser helper: {error}"))?);
+    let stderr = self
+      .child
+      .as_mut()
+      .expect("Browser helper assigned")
+      .stderr
+      .take()
+      .ok_or("Browser helper stderr is unavailable.")?
+      .into_inner();
+    let (ready, endpoint) = oneshot::channel();
+    self.stderr_task = Some(AbortTask(tokio::spawn(read_browser_stderr(stderr, self.stderr.clone(), ready))));
+    let handler_config = chromiumoxide::handler::HandlerConfig {
+      // Connecting separately must retain the launch builder's strict TLS,
+      // request interception, cache and command deadline settings.
+      ignore_https_errors: false,
+      request_timeout: Duration::from_secs(10),
+      request_intercept: true,
+      cache_enabled: false,
+      ..Default::default()
+    };
+    let connected = timeout(Duration::from_secs(10), async {
+      let endpoint = endpoint.await.map_err(|_| "Browser helper stopped before reporting its DevTools endpoint.")?;
+      Browser::connect_with_config(endpoint, handler_config).await.map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|_| "Browser helper did not establish its DevTools connection before the launch deadline.")?;
+    let (browser, mut handler) = connected
       .map_err(|error| format!("Could not launch browser (sandbox and certificate checks required): {error}. Check browser host libraries and unprivileged namespace/sandbox support; configure WEB_FETCH_BROWSER_PATH if needed. No sandbox or TLS bypass is available."))?;
-    let (died, dead) = watch::channel(false);
+    let (died, dead) = watch::channel(None);
     self.dead = dead;
     self.handler = Some(AbortTask(tokio::spawn(async move {
       while let Some(result) = handler.next().await {
-        if result.is_err() {
-          break;
+        if let Err(error) = result {
+          let detail: String = error.to_string().chars().take(1024).collect();
+          log::warn!("Browser control connection stopped: {detail}");
+          let _ = died.send(Some(format!("Browser control connection stopped: {detail}")));
+          return;
         }
       }
-      let _ = died.send(true);
+      let _ = died.send(Some("Browser control stream ended.".to_owned()));
     })));
     self.browser = Some(browser);
     let version = self
@@ -245,7 +297,7 @@ impl OwnedBrowser {
     self.network = Some(self.proxy.activate(deadline));
     tokio::select! {
       biased;
-      _ = cancelled(self.dead.clone()) => Err("Browser control connection stopped.".into()),
+      error = control_stopped(self.dead.clone()) => Err(error.into()),
       result = async {
         let context = browser.create_browser_context(target::CreateBrowserContextParams::builder()
           .dispose_on_detach(true).build()).await
@@ -268,17 +320,89 @@ impl OwnedBrowser {
     // Revoking ownership kills/reaps Chrome even if CDP stopped responding.
     // Keep the profile/bridges alive until the guardian acknowledges cleanup.
     self.isolation.shutdown().await;
-    if let Some(browser) = self.browser.as_mut() {
+    if let Some(child) = self.child.as_mut() {
       // Let the helper reap its guardian and exit before using force. The
       // ownership acknowledgement already established Chrome has stopped.
-      if timeout(Duration::from_secs(1), browser.wait()).await.is_err() {
-        let _ = browser.kill().await;
-        let _ = browser.wait().await;
+      if timeout(Duration::from_secs(1), child.wait()).await.is_err() {
+        let _ = child.kill().await;
+        let _ = child.wait().await;
       }
     }
     if let Some(handler) = self.handler.as_mut() {
       handler.0.abort();
       let _ = (&mut handler.0).await;
+    }
+    if let Some(task) = self.stderr_task.as_mut()
+      && timeout(Duration::from_secs(1), &mut task.0).await.is_err()
+    {
+      task.0.abort();
+      let _ = (&mut task.0).await;
+    }
+  }
+
+  fn stderr_tail(&self) -> String {
+    String::from_utf8_lossy(&self.stderr.lock().expect("Browser stderr lock poisoned")).trim().to_owned()
+  }
+}
+
+async fn control_stopped(mut dead: watch::Receiver<Option<String>>) -> String {
+  loop {
+    if let Some(error) = dead.borrow_and_update().clone() {
+      return error;
+    }
+    if dead.changed().await.is_err() {
+      return "Browser control handler stopped unexpectedly.".to_owned();
+    }
+  }
+}
+
+async fn read_browser_stderr(
+  mut stderr: tokio::process::ChildStderr,
+  tail: Arc<StdMutex<Vec<u8>>>,
+  ready: oneshot::Sender<String>,
+) {
+  const LIMIT: usize = 8192;
+  let mut ready = Some(ready);
+  let mut pending = Vec::new();
+  let mut buffer = [0; 4096];
+  loop {
+    let count = match stderr.read(&mut buffer).await {
+      Ok(0) => break,
+      Ok(count) => count,
+      Err(error) => {
+        log::warn!("Could not read browser helper stderr: {error}");
+        break;
+      }
+    };
+    {
+      let mut tail = tail.lock().expect("Browser stderr lock poisoned");
+      tail.extend_from_slice(&buffer[..count]);
+      let discard = tail.len().saturating_sub(LIMIT);
+      tail.drain(..discard);
+    }
+    if ready.is_some() {
+      for byte in &buffer[..count] {
+        if *byte == b'\n' {
+          if let Ok(line) = std::str::from_utf8(&pending)
+            && let Some(endpoint) = line.strip_prefix("DevTools listening on ")
+            && let Ok(url) = Url::parse(endpoint.trim())
+            && url.scheme() == "ws"
+            && url.host_str() == Some("127.0.0.1")
+            && url.port().is_some()
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.query().is_none()
+            && url.fragment().is_none()
+            && url.path().starts_with("/devtools/browser/")
+            && let Some(ready) = ready.take()
+          {
+            let _ = ready.send(url.to_string());
+          }
+          pending.clear();
+        } else if pending.len() < LIMIT {
+          pending.push(*byte);
+        }
+      }
     }
   }
 }

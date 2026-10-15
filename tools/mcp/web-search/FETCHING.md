@@ -167,6 +167,12 @@ Reading it launches no browser, calls no GPU/provider service and exposes no
 fetched URL, document content, service URL or keys. `executable_available` is a
 static check, and `not_launched`/`not_checked` explicitly mean unverified.
 
+Browser stderr is drained for the helper's entire lifetime, including after
+DevTools connects. Failed fetches include the last 8 KiB of stderr in the
+returned error and server logs, along with the underlying control-connection
+error when available. This captures Chrome and sandbox diagnostics that would
+otherwise be lost after startup.
+
 Validation performed during implementation is production Linux compilation and
 linting, formatting, shell/Python syntax and TOML parsing. No tests or browser,
 installer, network-isolation, cache-race or PDF extraction exercises were run.
