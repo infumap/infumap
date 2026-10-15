@@ -160,7 +160,7 @@ pub fn init_document_fragment_pipeline_loop(
     .map_err(|_| "Document fragment background pipeline loop is already running in this process.".to_owned())?;
 
   info!(
-    "Starting separate local document and PDF caption workers (gpu_tools={}).",
+    "Starting separate local document worker and PDF first-page caption fallback worker (gpu_tools={}).",
     on_off(pipeline_config.gpu_tools_url.is_some())
   );
 
