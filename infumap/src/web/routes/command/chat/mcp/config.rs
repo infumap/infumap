@@ -19,7 +19,7 @@ use infusdk::util::infu::InfuResult;
 use serde::Deserialize;
 use std::time::Duration;
 
-use crate::config::{CONFIG_CHAT_TOOL_SERVER, CONFIG_CHAT_TOOL_SERVERS};
+use crate::config::CONFIG_CHAT_TOOL_SERVERS;
 
 const SERVER_ID_MAX_LEN: usize = 32;
 /// How long a tool call may take before the client gives up. Most MCP tools
@@ -73,21 +73,21 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
   let id = entry.id.trim().to_owned();
   if !is_valid_server_id(&id) {
     return Err(
-      format!("chat_tool_server id '{}' is invalid; expected [A-Za-z0-9_]{{1,{}}}.", entry.id, SERVER_ID_MAX_LEN)
+      format!("{CONFIG_CHAT_TOOL_SERVERS} id '{}' is invalid; expected [A-Za-z0-9_]{{1,{}}}.", entry.id, SERVER_ID_MAX_LEN)
         .into(),
     );
   }
   if RESERVED_CAPABILITY_IDS.contains(&id.as_str()) {
-    return Err(format!("chat_tool_server id '{id}' is reserved.").into());
+    return Err(format!("{CONFIG_CHAT_TOOL_SERVERS} id '{id}' is reserved.").into());
   }
   let url = reqwest::Url::parse(entry.url.trim())
-    .map_err(|e| format!("chat_tool_server '{id}' has an invalid url '{}': {e}", entry.url))?;
+    .map_err(|e| format!("{CONFIG_CHAT_TOOL_SERVERS} '{id}' has an invalid url '{}': {e}", entry.url))?;
   match url.scheme() {
     "http" | "https" => {}
-    other => return Err(format!("chat_tool_server '{id}' url must be http or https, got '{other}'.").into()),
+    other => return Err(format!("{CONFIG_CHAT_TOOL_SERVERS} '{id}' url must be http or https, got '{other}'.").into()),
   }
   if url.host_str().is_none() {
-    return Err(format!("chat_tool_server '{id}' url has no host.").into());
+    return Err(format!("{CONFIG_CHAT_TOOL_SERVERS} '{id}' url has no host.").into());
   }
   let label =
     entry.label.map(|label| label.trim().to_owned()).filter(|label| !label.is_empty()).unwrap_or_else(|| id.clone());
@@ -95,7 +95,7 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
   let timeout_secs = entry.timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS);
   if timeout_secs == 0 || timeout_secs > MAX_TIMEOUT_SECS {
     return Err(
-      format!("chat_tool_server '{id}' timeout_secs must be between 1 and {MAX_TIMEOUT_SECS}, got {timeout_secs}.")
+      format!("{CONFIG_CHAT_TOOL_SERVERS} '{id}' timeout_secs must be between 1 and {MAX_TIMEOUT_SECS}, got {timeout_secs}.")
         .into(),
     );
   }
@@ -110,54 +110,18 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
   })
 }
 
-fn file_entries_from_config(config: &Config) -> InfuResult<Vec<ChatToolServerFile>> {
-  match config.get::<Vec<ChatToolServerFile>>(CONFIG_CHAT_TOOL_SERVER) {
-    Ok(entries) => Ok(entries),
-    Err(_) => match config.get_array(CONFIG_CHAT_TOOL_SERVER) {
-      Ok(values) => {
-        let mut entries = Vec::new();
-        for value in values {
-          entries
-            .push(value.try_deserialize().map_err(|e| format!("Could not parse [[{CONFIG_CHAT_TOOL_SERVER}]]: {e}"))?);
-        }
-        Ok(entries)
-      }
-      Err(_) => Ok(Vec::new()),
-    },
-  }
-}
-
-fn json_entries_from_config(config: &Config) -> InfuResult<Vec<ChatToolServerFile>> {
-  let Ok(raw) = config.get_string(CONFIG_CHAT_TOOL_SERVERS) else {
-    return Ok(Vec::new());
-  };
-  let raw = raw.trim();
-  if raw.is_empty() {
-    return Ok(Vec::new());
-  }
-  serde_json::from_str(raw).map_err(|e| format!("Could not parse {CONFIG_CHAT_TOOL_SERVERS} JSON: {e}").into())
-}
-
-/// Configured MCP tool servers. TOML `chat_tool_server` array plus optional JSON in `chat_tool_servers`
-/// (`INFUMAP_CHAT_TOOL_SERVERS`). JSON entries override TOML entries with the same id.
+/// Configured MCP tool servers, read from a TOML array or a JSON string.
 pub fn chat_tool_servers_from_config(config: &Config) -> InfuResult<Vec<ChatToolServer>> {
-  let mut ordered_ids = Vec::new();
-  let mut by_id = std::collections::HashMap::new();
-  for entry in file_entries_from_config(config)? {
-    let server = parse_server(entry)?;
-    if !by_id.contains_key(&server.id) {
-      ordered_ids.push(server.id.clone());
-    }
-    by_id.insert(server.id.clone(), server);
-  }
-  for entry in json_entries_from_config(config)? {
-    let server = parse_server(entry)?;
-    if !by_id.contains_key(&server.id) {
-      ordered_ids.push(server.id.clone());
-    }
-    by_id.insert(server.id.clone(), server);
-  }
-  Ok(ordered_ids.into_iter().filter_map(|id| by_id.remove(&id)).collect())
+  let entries = match config.get::<Vec<ChatToolServerFile>>(CONFIG_CHAT_TOOL_SERVERS) {
+    Ok(entries) => entries,
+    Err(_) => match config.get_string(CONFIG_CHAT_TOOL_SERVERS) {
+      Ok(raw) if raw.trim().is_empty() => Vec::new(),
+      Ok(raw) => serde_json::from_str(&raw)
+        .map_err(|e| format!("Could not parse {CONFIG_CHAT_TOOL_SERVERS} JSON: {e}"))?,
+      Err(_) => Vec::new(),
+    },
+  };
+  entries.into_iter().map(parse_server).collect()
 }
 
 #[cfg(test)]
@@ -174,7 +138,7 @@ mod tests {
   fn parses_toml_array_of_tables() {
     let servers = from_toml(
       r#"
-[[chat_tool_server]]
+[[chat_tool_servers]]
 id = "web_search"
 url = "http://127.0.0.1:8791/mcp"
 label = "Web search"
@@ -195,12 +159,12 @@ label = "Web search"
     // default would cut it off and report it as a transport failure.
     let servers = from_toml(
       r#"
-[[chat_tool_server]]
+[[chat_tool_servers]]
 id = "reader"
 url = "http://127.0.0.1:8792/mcp"
 timeout_secs = 300
 
-[[chat_tool_server]]
+[[chat_tool_servers]]
 id = "quick"
 url = "http://127.0.0.1:8793/mcp"
 "#,
@@ -217,7 +181,7 @@ url = "http://127.0.0.1:8793/mcp"
         .add_source(File::from_str(
           &format!(
             r#"
-[[chat_tool_server]]
+[[chat_tool_servers]]
 id = "reader"
 url = "http://127.0.0.1:8792/mcp"
 timeout_secs = {secs}
@@ -233,17 +197,8 @@ timeout_secs = {secs}
   }
 
   #[test]
-  fn json_overrides_toml_by_id() {
+  fn parses_json_string_setting() {
     let config = Config::builder()
-      .add_source(File::from_str(
-        r#"
-[[chat_tool_server]]
-id = "web_search"
-url = "http://127.0.0.1:8791/mcp"
-label = "From TOML"
-"#,
-        FileFormat::Toml,
-      ))
       .set_override(
         CONFIG_CHAT_TOOL_SERVERS,
         r#"[{"id":"web_search","url":"http://127.0.0.1:8792/mcp","label":"From JSON","require_approval":false}]"#,
@@ -263,7 +218,7 @@ label = "From TOML"
     let config = Config::builder()
       .add_source(File::from_str(
         r#"
-[[chat_tool_server]]
+[[chat_tool_servers]]
 id = "infumap_data"
 url = "http://127.0.0.1:8791/mcp"
 "#,
@@ -278,7 +233,7 @@ url = "http://127.0.0.1:8791/mcp"
   fn accepts_web_search_id() {
     let servers = from_toml(
       r#"
-[[chat_tool_server]]
+[[chat_tool_servers]]
 id = "web_search"
 url = "http://127.0.0.1:8791/mcp"
 "#,
@@ -292,7 +247,7 @@ url = "http://127.0.0.1:8791/mcp"
     let config = Config::builder()
       .add_source(File::from_str(
         r#"
-[[chat_tool_server]]
+[[chat_tool_servers]]
 id = "has-hyphen"
 url = "http://127.0.0.1:8791/mcp"
 "#,

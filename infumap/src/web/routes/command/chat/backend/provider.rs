@@ -3,11 +3,11 @@
 
 //! Configured providers speaking the OpenAI Chat Completions protocol.
 
-use config::{Config, ConfigError};
+use config::Config;
 use infusdk::util::infu::InfuResult;
 use serde::Deserialize;
 
-use crate::config::{CONFIG_CHAT_PROVIDER, CONFIG_CHAT_PROVIDERS};
+use crate::config::CONFIG_CHAT_PROVIDERS;
 
 /// Protocol extensions and message formatting, independent of a provider's identity.
 #[derive(Clone, Copy, Default, Deserialize, Eq, PartialEq)]
@@ -119,53 +119,19 @@ fn parse_provider(entry: ChatProviderFile) -> InfuResult<ChatProvider> {
   Ok(ChatProvider { id, base_url, api_key, adapter: entry.adapter, models, reasoning_efforts })
 }
 
-fn file_entries(config: &Config) -> InfuResult<Vec<ChatProviderFile>> {
-  let values = match config.get_array(CONFIG_CHAT_PROVIDER) {
-    Ok(values) => values,
-    Err(ConfigError::NotFound(_)) => return Ok(Vec::new()),
-    Err(_) => return Err(format!("{CONFIG_CHAT_PROVIDER} must be an array of provider entries.").into()),
-  };
-  values
-    .into_iter()
-    .enumerate()
-    .map(|(index, value)| {
-      value.try_deserialize().map_err(|_| {
-        format!("Invalid {CONFIG_CHAT_PROVIDER} entry at index {index}; check its fields and value types.").into()
-      })
-    })
-    .collect()
-}
-
-fn json_entries(config: &Config) -> InfuResult<Vec<ChatProviderFile>> {
-  let raw = match config.get_string(CONFIG_CHAT_PROVIDERS) {
-    Ok(raw) => raw,
-    Err(ConfigError::NotFound(_)) => return Ok(Vec::new()),
-    Err(_) => return Err(format!("{CONFIG_CHAT_PROVIDERS} must be a JSON string containing provider entries.").into()),
-  };
-  if raw.trim().is_empty() {
-    return Ok(Vec::new());
-  }
-  serde_json::from_str(&raw).map_err(|error| {
-    format!(
-      "Invalid {CONFIG_CHAT_PROVIDERS} JSON at line {}, column {}; check its fields and value types.",
-      error.line(),
-      error.column()
-    )
-    .into()
-  })
-}
-
-/// TOML entries followed by JSON entries. A later matching ID replaces the entry in its original position.
+/// Configured Chat providers, read from a TOML array or a JSON string.
 pub fn chat_providers_from_config(config: &Config) -> InfuResult<Vec<ChatProvider>> {
-  let entries = file_entries(config)?.into_iter().chain(json_entries(config)?);
-  let mut providers: Vec<ChatProvider> = Vec::new();
-  for entry in entries {
-    let provider = parse_provider(entry)?;
-    if let Some(existing) = providers.iter_mut().find(|existing| existing.id == provider.id) {
-      *existing = provider;
-    } else {
-      providers.push(provider);
-    }
+  match config.get::<Vec<ChatProviderFile>>(CONFIG_CHAT_PROVIDERS) {
+    Ok(entries) => entries.into_iter().map(parse_provider).collect(),
+    Err(_) => match config.get_string(CONFIG_CHAT_PROVIDERS) {
+      Ok(raw) if raw.trim().is_empty() => Ok(Vec::new()),
+      Ok(raw) => serde_json::from_str::<Vec<ChatProviderFile>>(&raw)
+        .map_err(|error| format!("Invalid {CONFIG_CHAT_PROVIDERS} JSON: {error}").into())?
+        .into_iter()
+        .map(parse_provider)
+        .collect(),
+      Err(config::ConfigError::NotFound(_)) => Ok(Vec::new()),
+      Err(_) => Err(format!("{CONFIG_CHAT_PROVIDERS} must be a provider array or JSON string.").into()),
+    },
   }
-  Ok(providers)
 }

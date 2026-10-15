@@ -5,7 +5,7 @@
 
 import type { Uid } from "../util/uid";
 
-/** Stable ID of a configured chat_provider entry. */
+/** Stable ID of a configured chat_providers entry. */
 export type ChatBackendId = string;
 
 /** An explicit provider and model. Chat requires a model ID; null effort uses its default. */

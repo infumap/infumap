@@ -53,52 +53,10 @@
 # The cache directory. Contains images and favicons subdirectories.
 #cache_dir = "~/.infumap/cache"
 
-# Optional URL for the Infumap GPU tools service or gateway. Infumap discovers
-# available endpoints from /gpu-tools and uses any reported PDF extraction,
-# image extraction, and first-page PDF caption fallback tools. Unset by default;
-# uncomment this example to enable it.
-# Chat web search is a separate MCP sidecar (see chat_tool_server / tools/mcp/),
-# not this URL.
+# Optional URL for the Infumap GPU tools service.
 #gpu_tools_url = "http://127.0.0.1:8787"
 
-# Optional Chat providers using the OpenAI Chat Completions API. id is a stable
-# identifier stored in query profiles and used as the display label.
-# url is the API base INCLUDING its version path, e.g. /v1 or /api/v1. A full
-# chat/completions URL is also accepted. api_key is optional and sent as a Bearer
-# token. Keys are instance wide, shared by all users, and never sent to browsers.
-# List model IDs in models to offer them in that order, or omit models to discover
-# them through GET <url>/models. Only offer models that support tool calling.
-# An account's initial profile uses the first provider with an available model,
-# then its first model. Users choose their defaults through query profiles.
-#chat_provider = [
-#  { id = "local", url = "http://127.0.0.1:8080/v1", models = ["my-model"] },
-#  { id = "openrouter", url = "https://openrouter.ai/api/v1", adapter = "openrouter", api_key = "YOUR_KEY" },
-#]
-# adapter defaults to "openai". "openrouter" uses OpenRouter catalog metadata
-# and reasoning parameters; "llama_cpp" opts into llama.cpp message formatting.
-# Optional reasoning_efforts = ["none", "low", "medium", "high"] declares the
-# supported efforts for every offered model. Otherwise discovery supplies them,
-# or none are offered. Configured model IDs have no discovered metadata.
-# The same list can be given as JSON in chat_providers (INFUMAP_CHAT_PROVIDERS),
-# whose entries replace TOML entries with the same id, preserving their position.
-
-# Optional MCP tool servers for Chat, spoken over Streamable HTTP. Infumap does
-# not start these processes; run the sidecar yourself (see tools/mcp/). Plugin
-# ids must not be infumap_data. require_approval defaults to true;
-# enabled_by_default to false. Web search is this sidecar, not a built-in:
-#chat_tool_server = [
-#  { id = "web_search", url = "http://127.0.0.1:8791/mcp", label = "Web search" },
-#]
-# The service may advertise its icon in initialize.serverInfo.icons.
-# Optional fields on each entry: bearer_token = "", enabled_by_default = false,
-# require_approval = true.
-#
-# JSON equivalent via INFUMAP_CHAT_TOOL_SERVERS (overrides TOML entries with
-# the same id):
-# chat_tool_servers = '[{"id":"web_search","url":"http://127.0.0.1:8791/mcp","label":"Web search"}]'
-
-# Reverse geocoding service URL for GPS-tagged images. Used when geoapify_api_key
-# is set; this stage runs from successful image tag artifacts.
+# Reverse geocoding service URL for GPS-tagged images.
 #geoapify_url = "https://api.geoapify.com/v1/geocode/reverse"
 
 # Maximum reverse-geocoding API requests per minute. The default stays below
@@ -107,6 +65,24 @@
 
 # Geoapify API key for reverse geocoding GPS-tagged images.
 #geoapify_api_key = ""
+
+# Optional Chat providers using the OpenAI Chat Completions API. Set each
+# provider's id, API url (including its version path), and optional api_key.
+# List model IDs in models, or omit models to discover them from the provider.
+#chat_providers = [
+#  { id = "local", url = "http://127.0.0.1:8080/v1", models = ["my-model"] },
+#  { id = "openrouter", url = "https://openrouter.ai/api/v1", adapter = "openrouter", api_key = "YOUR_KEY" },
+#]
+# For adapters, reasoning_efforts, or environment variable configuration, see
+# docs/configuration.md.
+
+# Optional MCP tool servers for Chat. Run each server separately; see
+# tools/mcp/ for the bundled web search server.
+#chat_tool_servers = [
+#  { id = "web_search", url = "http://127.0.0.1:8791/mcp", label = "Web search" },
+#]
+# For optional fields or environment variable configuration, see
+# docs/configuration.md.
 
 # Maximum aggregate size (in megabytes) of files in each server cache. Files
 # are removed using an LRU policy if this size is exceeded.
