@@ -2532,10 +2532,10 @@ fn chat_tool_can_run_concurrently(name: &str, name_map: &HashMap<String, mcp::Ma
 
 fn web_tool_approval_prompt(name: &str, arguments: &Value) -> (Option<String>, Option<String>) {
   match name {
-    "infumap_web_search" => {
+    "web_search" => {
       (json_object_string_raw(arguments, "query").or_else(|| json_object_string_raw(arguments, "text")), None)
     }
-    "infumap_web_fetch" => (None, json_object_string_raw(arguments, "url")),
+    "web_fetch" => (None, json_object_string_raw(arguments, "url")),
     _ => (None, None),
   }
 }
@@ -3149,8 +3149,8 @@ fn chat_tool_finished_activity(name: &str, arguments: &Value, result_json: &str)
   match name {
     "infumap_search" => search_tool_activity(arguments, result_json),
     "infumap_get_fragment" => get_fragment_tool_activity(result_json),
-    "infumap_web_search" => web_search_tool_activity(arguments, parsed.as_ref()),
-    "infumap_web_fetch" => fetch_page_tool_activity(parsed.as_ref()),
+    "web_search" => web_search_tool_activity(arguments, parsed.as_ref()),
+    "web_fetch" => fetch_page_tool_activity(parsed.as_ref()),
     _ => (
       "Completed".to_owned(),
       parsed.unwrap_or_else(|| serde_json::json!({ "text": clipped_preview_text(result_json).0 })),

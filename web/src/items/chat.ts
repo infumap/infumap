@@ -197,10 +197,10 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
     case "answer_delta":
       return "Answering";
     case "tool_approval_required":
-      if (event.name == "infumap_web_search") {
+      if (event.name == "web_search") {
         return "Waiting to search the web";
       }
-      if (event.name == "infumap_web_fetch") {
+      if (event.name == "web_fetch") {
         return "Waiting to fetch page";
       }
       return "Waiting for approval";
@@ -214,10 +214,10 @@ function chatStatusTextFromEvent(event: ChatStreamEvent): string {
       if (event.name == "infumap_get_fragment") {
         return "Reading Infumap item";
       }
-      if (event.name == "infumap_web_search") {
+      if (event.name == "web_search") {
         return "Searching the web";
       }
-      if (event.name == "infumap_web_fetch") {
+      if (event.name == "web_fetch") {
         return "Fetching page";
       }
       return `Running ${event.name}`;
