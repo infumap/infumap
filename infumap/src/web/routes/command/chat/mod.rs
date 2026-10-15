@@ -28,6 +28,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
 use super::scope::{ResolvedScope, resolve_scope};
+use crate::web::LLM_LOG_ENABLED;
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
 // Item operations take the DB lock separately, so each user's guard covers the whole inspect, archive, and create
@@ -2281,6 +2282,9 @@ fn reqwest_error_for_log(error: &reqwest::Error) -> String {
 /// Starts the LLM log over for a run. Earlier turns are not lost: history is sent as it was, so the run's first request,
 /// logged in full, holds the whole conversation.
 fn reset_llm_log() {
+  if !*LLM_LOG_ENABLED {
+    return;
+  }
   if let Err(e) = std::fs::write(LLM_LOG_PATH, "") {
     warn!("Could not reset LLM log '{}': {}", LLM_LOG_PATH, e);
   }
@@ -2561,7 +2565,9 @@ async fn execute_chat_tool_call_with_progress(
         });
         let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
         progress.tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, 0, result_preview).await;
-        append_llm_log_section(&tool_result_log_title(&tool_call, &arguments), &tool_result);
+        if *LLM_LOG_ENABLED {
+          append_llm_log_section(&tool_result_log_title(&tool_call, &arguments), &tool_result);
+        }
         return Ok(OpenAiChatMessage::tool(tool_call.id, tool_result));
       }
     }
@@ -2575,7 +2581,9 @@ async fn execute_chat_tool_call_with_progress(
   progress
     .tool_call_finished(round, &tool_call.id, &tool_call.function.name, &summary, duration_ms, result_preview)
     .await;
-  append_llm_log_section(&tool_result_log_title(&tool_call, &arguments), &tool_result);
+  if *LLM_LOG_ENABLED {
+    append_llm_log_section(&tool_result_log_title(&tool_call, &arguments), &tool_result);
+  }
   Ok(OpenAiChatMessage::tool(tool_call.id, tool_result))
 }
 
@@ -3576,9 +3584,11 @@ async fn chat_completion(
       }
     },
   };
-  append_llm_request_metrics_log(llm_turn, messages, tools);
-  let logged_request = llm_request_log_value(&payload, &progress.request_id, llm_turn);
-  append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &logged_request);
+  if *LLM_LOG_ENABLED {
+    append_llm_request_metrics_log(llm_turn, messages, tools);
+    let logged_request = llm_request_log_value(&payload, &progress.request_id, llm_turn);
+    append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &logged_request);
+  }
   progress.context_tokens(approx_request_tokens(messages, tools), false).await;
   let mut request = client.post(url.clone()).header(reqwest::header::ACCEPT, "text/event-stream").json(&payload);
   if let Some(api_key) = endpoint.api_key.as_deref() {
@@ -3597,7 +3607,9 @@ async fn chat_completion(
       .text()
       .await
       .map_err(|e| format!("Could not read {} error response body: {}", backend_label, reqwest_error_for_log(&e)))?;
-    append_llm_log_section(&format!("LLM RESPONSE {}", llm_turn), &body);
+    if *LLM_LOG_ENABLED {
+      append_llm_log_section(&format!("LLM RESPONSE {}", llm_turn), &body);
+    }
     return Err(
       format!("{} chat endpoint '{}' returned {}: {}", backend_label, url, status, truncate_for_error(&body, 1000))
         .into(),
@@ -3623,9 +3635,13 @@ async fn chat_completion(
     return Err(format!("{} SSE response ended before the [DONE] event.", backend_label).into());
   }
 
-  append_llm_json_log_section(&format!("LLM RESPONSE {}", llm_turn), &completion.response_log_value());
+  if *LLM_LOG_ENABLED {
+    append_llm_json_log_section(&format!("LLM RESPONSE {}", llm_turn), &completion.response_log_value());
+  }
   if let Some(usage) = completion.usage.as_ref() {
-    append_llm_json_log_section(&format!("LLM RESPONSE USAGE {}", llm_turn), usage);
+    if *LLM_LOG_ENABLED {
+      append_llm_json_log_section(&format!("LLM RESPONSE USAGE {}", llm_turn), usage);
+    }
     if let Some(prompt_tokens) = usage.prompt_tokens {
       progress.context_tokens(prompt_tokens, true).await;
     }

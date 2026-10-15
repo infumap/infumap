@@ -63,6 +63,8 @@ use crate::web::routes::ensure_scopes_page;
 use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
 
+static LLM_LOG_ENABLED: Lazy<bool> = Lazy::new(|| std::env::var("INFUMAP_LLM_LOG").is_ok_and(|value| value == "1"));
+
 pub static METRIC_BACKUPS_INITIATED_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
   IntCounter::new("backups_total", "Total number of times a user database backup has been initiated.")
     .expect("Could not create METRIC_BACKUPS_TOTAL")
@@ -112,6 +114,7 @@ pub async fn start_server(config: Config) -> InfuResult<()> {
 }
 
 pub async fn start_server_with_options(config: Config, skip_backup_validation: bool) -> InfuResult<()> {
+  Lazy::force(&LLM_LOG_ENABLED);
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let db = Arc::new(tokio::sync::Mutex::new(match Db::new(&data_dir).await {
     Ok(db) => db,
