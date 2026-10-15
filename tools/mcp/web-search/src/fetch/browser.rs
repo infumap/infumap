@@ -140,7 +140,10 @@ impl BrowserRenderer {
         1 => "launched", 2 => "recycled_after_error", _ => "not_launched",
       } },
       "busy_or_cleaning_up": self.state.slots.available_permits() == 0,
-      "network_confinement_required": true,
+      "browser_sandbox_required": true,
+      "network_confinement_required": !cfg!(target_os = "macos"),
+      "network_policy": if cfg!(target_os = "linux") { "linux_network_namespace" }
+        else if cfg!(target_os = "macos") { "proxy_only" } else { "unsupported" },
     })
   }
 
@@ -176,6 +179,8 @@ impl OwnedBrowser {
     let proxy = PublicProxy::start().await?;
     let executable = super::bootstrap::resolve(config.browser_path.as_deref())?;
     log::info!("Selected owned fetch browser: {}", executable.display());
+    #[cfg(target_os = "macos")]
+    log::info!("macOS fetch browser uses Chrome's native sandbox and filtering proxy; no outer OS network sandbox.");
     let isolation = Isolation::prepare(profile.path(), proxy.address, executable).await?;
     let (_, dead) = watch::channel(None);
     Ok(Self {
@@ -226,7 +231,7 @@ impl OwnedBrowser {
     // Browser::launch consumes and drops stderr as soon as it sees the
     // DevTools URL. Retain our own reader through helper shutdown so later
     // diagnostics cannot fill a pipe or write into a closed reader.
-    self.child = Some(launch.launch().map_err(|error| format!("Could not start isolated browser helper: {error}"))?);
+    self.child = Some(launch.launch().map_err(|error| format!("Could not start owned browser helper: {error}"))?);
     let stderr = self
       .child
       .as_mut()
@@ -253,7 +258,7 @@ impl OwnedBrowser {
     .await
     .map_err(|_| "Browser helper did not establish its DevTools connection before the launch deadline.")?;
     let (browser, mut handler) = connected
-      .map_err(|error| format!("Could not launch browser (sandbox and certificate checks required): {error}. Check browser host libraries and unprivileged namespace/sandbox support; configure WEB_FETCH_BROWSER_PATH if needed. No sandbox or TLS bypass is available."))?;
+      .map_err(|error| format!("Could not launch browser (sandbox and certificate checks required): {error}. Check browser host libraries and platform sandbox support (including unprivileged namespaces on Linux); configure WEB_FETCH_BROWSER_PATH if needed. No Chrome sandbox or TLS bypass is available."))?;
     let (died, dead) = watch::channel(None);
     self.dead = dead;
     self.handler = Some(AbortTask(tokio::spawn(async move {
@@ -507,7 +512,7 @@ async fn intercept(
   if event.response_status_code.is_none() && event.response_error_reason.is_none() {
     if !top && matches!(url.scheme(), "data" | "blob" | "about") {
       // These do not create network connections. Any requests they initiate
-      // still run inside the confined browser and through the public proxy.
+      // still receive the platform's browser/proxy network policy.
     } else if event.resource_type == network::ResourceType::Document {
       assert_public_destination(&url).await?;
     } else if matches!(url.scheme(), "http" | "https" | "ws" | "wss") {

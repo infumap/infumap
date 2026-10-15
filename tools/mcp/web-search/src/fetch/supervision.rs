@@ -169,6 +169,11 @@ pub(super) fn run_guardian(owner: &Path, mut chrome: Command) -> std::io::Result
   let exit = child.wait();
   #[cfg(target_os = "linux")]
   reap_descendants()?;
+  // macOS has no subreaper here. Detached Crashpad handlers are not part of
+  // this process group: their Mach exception servers exit when the last
+  // Chrome client send right disappears. Do not scan for or signal them by
+  // executable name. The acknowledgement covers the owned group, not a wait
+  // for those detached handlers to finish their own shutdown.
   result?;
   let code = exit?.code().unwrap_or(125);
   // This is the exact private profile supplied by the owner, not a directory

@@ -1,12 +1,15 @@
 # Web-fetch network policy
 
-Steps 3–4 implementation, October 15, 2026. This is a source-level policy review;
-no browser launch, network exercise or test has been performed.
+Steps 3–4 implementation, October 15, 2026, with the approved native macOS
+revision. This is a source-level policy review; no browser launch, network
+exercise or test has been performed in this development environment. Operator
+macOS logs identified the previous outer sandbox's startup failures.
 
 The fetched URL is untrusted. A browser executable and the host's network and
 sandbox configuration are operator-controlled. Chrome's own sandbox and TLS
-certificate validation remain enabled. OS network confinement is additional
-protection, not a substitute for the browser sandbox.
+certificate validation remain enabled. Linux has an additional OS network
+boundary. Native macOS uses the filtering proxy and request checks without that
+additional boundary; Chrome's own sandbox remains required on both platforms.
 
 1. **Direct documents.** `policy::document_addresses` validates the document
    URL and resolves all addresses before a connection is attempted. Any local,
@@ -45,28 +48,32 @@ protection, not a substitute for the browser sandbox.
    guardian closes the Chrome tree (see ownership below). Namespace or interface
    setup errors stop launch before Chrome is started.
 
-4. **macOS browser boundary.** The internal helper starts the guardian/Chrome
-   through system `sandbox-exec`, with outbound IP traffic denied except IPv4
-   TCP to the owned browser's filtering proxy port. Restrictions are inherited
-   by descendants; filesystem Unix IPC remains available for Chrome's normal
-   sandbox and the ownership protocol. The policy also denies execution of
-   `chrome_crashpad_handler`: Crashpad deliberately detaches into another
-   session, and macOS lacks Linux subreaping. This keeps the optional crash
-   daemon outside the launch contract instead of attempting global process
-   matching. Missing/rejected sandbox support causes a launch error. This path,
-   including Chrome's behavior when that daemon is denied, needs separate
-   compilation and behavioral validation on macOS.
+4. **Native macOS policy.** The internal helper starts the guardian directly,
+   which launches native Chrome with its own sandbox enabled. An outer
+   `sandbox-exec` wrapper prevents Chrome's child processes from initializing
+   their own Seatbelt sandboxes; operator logs confirmed these failures. The
+   previous wrapper and its Crashpad execution denial have been removed.
+   Filtering proxy configuration, public-address validation, request
+   interception, and proxy-bypass controls remain enabled. They provide no
+   OS-enforced guarantee that browser channels outside interception cannot
+   bypass the proxy. This platform-specific policy was explicitly approved;
+   run the Linux server, optionally in a VM, when the OS boundary is required.
+   Status reports `network_policy: "proxy_only"` and
+   `network_confinement_required: false` on macOS, while
+   `browser_sandbox_required` remains true. The revised native macOS path needs
+   separate compilation and behavioral validation on macOS.
 
 5. **Interception and browser settings.** Document URLs retain the search-engine
    restriction, and frames/requests receive URL checks as well. Non-network
    `data:`, `blob:` and `about:` child content may render, but any network
-   requests it initiates encounter the same OS/proxy boundary. WebSocket URLs
+   requests it initiates encounter the same platform-specific proxy/OS policy. WebSocket URLs
    receive the corresponding HTTP/HTTPS address checks. Proxy flags supply no
    DIRECT fallback and remove implicit loopback bypass; local name resolution
    and QUIC are disabled. Explicit launch options preserve popup and IPC
    flooding protections that the library's default automation flags disabled.
-   These flags and request interception are defense in depth; OS confinement
-   covers workers and browser-created targets outside the page's event stream.
+   On Linux, these flags and request interception are defense in depth; OS
+   confinement covers workers and browser-created targets outside the page's
+   event stream. On macOS, the proxy/flags do not provide that OS guarantee.
 
 6. **GPU services.** A separate, operator-configured HTTP(S) origin can
    deliberately be private. Page URLs never choose this configuration. Discovery
@@ -93,7 +100,8 @@ protection, not a substitute for the browser sandbox.
 Host configuration can prevent a confined browser from starting, particularly
 when user namespaces are restricted. The server does not install privileged
 helpers, change firewall/AppArmor settings, disable Chrome's sandbox or retry
-without confinement. Search and direct text downloads do not need the browser
+without confinement on Linux. Native macOS intentionally uses the policy in
+point 4. Search and direct text downloads do not need the browser
 helper.
 
 The browser is launched lazily into a unique temporary profile. Each fetch
@@ -110,9 +118,13 @@ socket and its helper's stdin lifeline. Owner/helper death or a shutdown command
 ends the Chrome group; Chrome's group leader remains unreaped until after the
 signal, preventing PID reuse from targeting unrelated processes. Linux also
 uses `PR_SET_CHILD_SUBREAPER` and reads only its own direct-child list to kill
-and reap adopted descendants that changed sessions. No process-name/profile
-scan is used. A cleanup acknowledgement follows reaping and removal of that
-exact private profile. A cancelled startup cannot launch Chrome after permission
+and reap adopted descendants that changed sessions. macOS permits Crashpad's
+normal detached handlers: their Mach exception servers stop on a no-senders
+notification when their last client disappears. Their shutdown is managed by
+Crashpad; the guardian does not reap or await these detached handlers. No
+process-name/profile scan is used. A cleanup acknowledgement follows owned-group
+reaping (plus adopted descendants on Linux) and removal of that exact private
+profile. A cancelled startup cannot launch Chrome after permission
 has been revoked. SIGINT/SIGTERM abort HTTP handlers and await this cleanup;
 `run.sh` forces a stuck server after five seconds, leaving the independent
 guardian able to finish cleanup after server SIGKILL.
@@ -137,3 +149,6 @@ Design references:
   and [child subreapers](https://man7.org/linux/man-pages/man2/PR_SET_CHILD_SUBREAPER.2const.html).
 - [Crashpad subprocess detachment](https://github.com/chromium/crashpad/blob/main/util/posix/spawn_subprocess.cc)
   and [Chrome's macOS Crashpad startup](https://github.com/chromium/chromium/blob/main/components/crash/core/app/crashpad_mac.mm).
+- [Crashpad's macOS no-senders shutdown](https://github.com/chromium/crashpad/blob/main/handler/mac/exception_handler_server.cc).
+- [Chromium's Seatbelt initialization](https://github.com/chromium/chromium/blob/main/sandbox/mac/seatbelt.cc)
+  and [nested sandbox limitations](https://bazel.build/versions/7.5.0/docs/sandboxing).

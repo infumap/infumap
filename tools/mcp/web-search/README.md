@@ -108,17 +108,19 @@ Browser connections use an owned loopback proxy that resolves and validates
 public destinations before connecting to those exact addresses. Direct downloads
 likewise pin validated addresses. A fresh proxy session bounds each fetch's
 connections and tunnels; revocation closes and drains them before releasing the
-slot. The proxy rejects new traffic while idle. OS confinement prevents browser
-traffic from bypassing the proxy, as described below.
+slot. The proxy rejects new traffic while idle. Linux OS confinement also
+prevents browser traffic from bypassing the proxy. Native macOS uses the proxy
+and request checks without an additional OS outbound boundary, as described below.
 
 SIGINT/SIGTERM stop HTTP acceptance, cancel pending handlers and await owned
 browser cleanup. The wrapper allows five seconds before forcing server shutdown.
 An independent process guardian watches a private ownership socket and a helper
 lifeline, so it also cleans up if the server/helper is killed. It signals only
 its own Chrome process group and reaps Chrome; on Linux, a subreaper additionally
-adopts, terminates and reaps daemonized descendants. On macOS, the confinement
-policy denies the optional `chrome_crashpad_handler` daemon, which would escape
-process-group ownership. The guardian also removes its exact temporary profile
+adopts, terminates and reaps daemonized descendants. On macOS, Crashpad is allowed
+to start and its detached handlers use their own Mach client-port lifetime;
+the guardian does not wait for or reap those detached handlers. The guardian
+also removes its exact temporary profile
 after cleanup. There is no scan for unrelated Chrome processes.
 
 Readiness waits at least 750 ms and up to a three-second opportunity for content
@@ -130,10 +132,12 @@ that every application has finished rendering.
 
 Validation is production compilation/linting, formatting and shell syntax only.
 No browser launch, live fetch, installation/shutdown or PDF extraction exercise
-has been performed. macOS has not been compiled or exercised here.
+has been performed in this development environment. Operator-provided macOS logs
+revealed the former outer Seatbelt wrapper prevented Chrome sandbox initialization;
+the revised native macOS path has not been compiled or exercised here.
 
-Browser network confinement is mandatory and cannot be disabled in fetch
-configuration. On Linux, the server's internal browser helper creates user and
+On Linux, browser network confinement is mandatory and cannot be disabled in
+fetch configuration. The server's internal browser helper creates user and
 network namespaces with only loopback enabled. Filesystem Unix sockets bridge
 the filtering proxy and DevTools to the parent process. The host must permit
 unprivileged user/network namespaces for this executable, and the server must
@@ -143,14 +147,19 @@ The guardian also requires `/proc/self/task/<pid>/children` for cleanup of adopt
 children and checks availability before starting Chrome. No external namespace/
 relay packages or global network changes are required.
 
-On macOS, `/usr/bin/sandbox-exec` applies a process-tree network policy allowing
-outbound IPv4 TCP only to the proxy's loopback port. Unsupported platforms and
-confinement failures return fetch errors without an unconfined retry. Search
-and direct text downloads can still operate. The macOS path has not been
-compiled or exercised in this Linux development environment.
+On macOS, the helper launches native Chrome with its own sandbox enabled.
+There is no outer `sandbox-exec` wrapper: it conflicts with Chrome's sandbox
+initialization. The filtering proxy, connection-time public-address validation,
+request interception and proxy-bypass controls remain enabled. These do not
+guarantee that every browser network channel uses the proxy. Use the Linux
+server, optionally in a VM, when an OS-enforced outbound boundary is required.
+Loopback `/status` reports `network_policy: "proxy_only"` and
+`network_confinement_required: false` on macOS; `browser_sandbox_required`
+remains true. Unsupported platforms and Linux confinement failures return fetch
+errors. Search and direct text downloads can still operate.
 
-This covers network channels outside page request interception, including
-workers, additional targets and WebRTC. The proxy supports HTTP, HTTPS CONNECT
+Linux OS confinement covers network channels outside page request interception,
+including workers, additional targets and WebRTC. The proxy supports HTTP, HTTPS CONNECT
 and WebSocket upgrades, bounds active connections and closes forwarding on
 request completion/deadline. It has no direct fallback or implicit loopback
 bypass. Direct HTTP downloads use an exclusive pinned resolver, with automatic

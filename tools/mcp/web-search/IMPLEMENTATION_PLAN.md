@@ -16,10 +16,14 @@ handler connected in step 7.
 MCP names, arguments and compact response fields are unchanged.
 
 Step 3 is implemented for existing fetch traffic: mandatory OS browser network
-confinement (Linux user/network namespaces and macOS Seatbelt), a bounded
+confinement on Linux (user/network namespaces), a bounded
 public-address proxy including WebSockets, an exclusive direct-download DNS
 resolver, and stricter special-address checks. An internal subprocess helper
-starts before the server runtime; confinement failure has no unconfined fallback.
+starts before the server runtime; Linux confinement failure has no unconfined fallback.
+Following operator-reported macOS failures, the approved macOS policy is native
+Chrome with its own sandbox, filtering proxy and URL checks, without an outer
+OS network boundary. The former `sandbox-exec` wrapper prevented Chrome's own
+sandbox initialization. Status reports the platform-specific network policy.
 See `NETWORK_POLICY.md`. Step 7 implements the separate operator-configured
 GPU origin/path boundary without granting page URLs private-network access.
 
@@ -28,8 +32,9 @@ fresh disposable contexts, deadline-aware queueing and cancellation, and proxy
 sessions drained before releasing the browser slot. Failed/interrupted browser
 work recycles the browser. An independent guardian handles process ownership,
 including server SIGKILL; SIGINT/SIGTERM stop accepting HTTP work and await
-browser cleanup. Linux subreaping covers daemonized descendants; macOS denies
-the optional daemonized Crashpad executable and uses the owned process group.
+browser cleanup. Linux subreaping covers daemonized descendants. macOS uses the
+owned process group and permits Crashpad; its detached handlers use their own
+Mach client-port lifetime and are not covered by the guardian's reaping acknowledgement.
 
 Steps 5–10 are implemented. Rendered-content settling, guarded consent cleanup,
 base-URL link resolution, conservative refusal detection, bounded compact tables
@@ -46,9 +51,9 @@ See `FETCHING.md` for configuration, operational details and limits.
 
 Validation is Linux production compilation/linting, formatting, shell syntax,
 Python syntax and TOML parsing only. Tests and live browser/install/extraction
-exercises remain unrun under the repository instructions. The macOS path,
-including its Crashpad restriction and framework symlinks, remains uncompiled
-and unverified on this Linux host.
+exercises remain unrun under the repository instructions. Operator macOS logs
+identified failures in the former outer sandbox. The revised native macOS path
+and framework symlinks remain uncompiled and unverified on this Linux host.
 
 The target is browser-rendered HTML and optional PDF-to-Markdown extraction
 through configured GPU tools. PDF extraction must never perform OCR. If usable
@@ -109,6 +114,11 @@ should be local to the user and handled by this sidecar's `run.sh`.
    closed when enforcement cannot be established. Browser interception alone
    or checking the landing URL afterwards is insufficient.
 
+   Approved macOS exception: native Chrome retains its sandbox, proxy and URL
+   checks without an outer OS network sandbox, which conflicts with Chrome's
+   own sandbox initialization. Proxy enforcement is not an OS guarantee for
+   channels outside interception. Use Linux when that stronger boundary is needed.
+
    Keep configured GPU-service traffic separate: an operator may deliberately
    configure a private service address, but a fetched document cannot choose
    that destination. Constrain discovery paths to the configured service and
@@ -130,6 +140,10 @@ should be local to the user and handled by this sidecar's `run.sh`.
    stops or forcibly restarts the server. Avoid scanning for and killing all
    processes with generic Chrome/profile markers. Keep concurrency permits
    until the underlying browser work has actually stopped.
+
+   On macOS, allow native Crashpad startup. Its detached handlers exit using
+   Mach no-senders notifications after their Chrome clients disappear; they
+   are not reaped or awaited by the guardian's process-group cleanup.
 
 5. **Extract useful Markdown from the rendered page.**
 

@@ -50,9 +50,12 @@ Linux requires a non-root user, unprivileged user/network namespaces and the
 guardian's `/proc/self/task/<pid>/children` interface. Missing Chrome libraries
 must be supplied by the operator, or select another suitable browser; the
 wrapper never uses `sudo` or disables sandbox/certificate checks. A musl server
-does not make Google's Chrome independent of host libraries. macOS requires
-`sandbox-exec`, and its optional detached Crashpad daemon is denied for process
-ownership. See [network policy](NETWORK_POLICY.md).
+does not make Google's Chrome independent of host libraries. macOS launches
+native Chrome with its own sandbox enabled, without an outer `sandbox-exec`
+wrapper. Its network policy is proxy and URL enforcement, without an additional
+OS outbound boundary. Crashpad can start normally; detached handlers shut down
+through their Mach client-port lifetime and are not reaped by the guardian.
+See [network policy](NETWORK_POLICY.md).
 
 A setup failure still starts search. Browser requests fail clearly and there
 is no raw-HTML fallback. The wrapper does not retry downloads in its restart loop.
@@ -166,6 +169,10 @@ availability, browser runtime state and last-observed PDF capability status.
 Reading it launches no browser, calls no GPU/provider service and exposes no
 fetched URL, document content, service URL or keys. `executable_available` is a
 static check, and `not_launched`/`not_checked` explicitly mean unverified.
+`browser_sandbox_required` is true on both platforms. Linux reports
+`network_policy: "linux_network_namespace"` and
+`network_confinement_required: true`; macOS reports `network_policy: "proxy_only"`
+and `network_confinement_required: false`.
 
 Browser stderr is drained for the helper's entire lifetime, including after
 DevTools connects. Failed fetches include the last 8 KiB of stderr in the
@@ -176,6 +183,8 @@ otherwise be lost after startup.
 Validation performed during implementation is production Linux compilation and
 linting, formatting, shell/Python syntax and TOML parsing. No tests or browser,
 installer, network-isolation, cache-race or PDF extraction exercises were run.
-The macOS implementation has not been compiled or exercised. Authorized
+Operator macOS logs established that the former outer Seatbelt wrapper was
+incompatible with Chrome's sandbox initialization. The revised native macOS
+implementation has not been compiled or exercised in this environment. Authorized
 behavioral validation remains necessary before treating these paths as proven
 on a deployment host; the [plan](IMPLEMENTATION_PLAN.md) lists the scenarios.

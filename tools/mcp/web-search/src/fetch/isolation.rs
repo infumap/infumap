@@ -14,12 +14,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! OS-enforced network confinement for Chrome and all its descendants.
+//! Platform browser launch and process ownership.
 //!
 //! Linux gives Chrome a network namespace with loopback only. Filesystem Unix
 //! sockets bridge the filtering proxy and DevTools across that boundary. macOS
-//! uses Seatbelt to allow outbound TCP only to the filtering proxy's local port.
-//! There is deliberately no unconfined fallback.
+//! launches native Chrome so it can initialize its own Seatbelt sandbox. The
+//! macOS network policy relies on proxy configuration and request validation;
+//! it does not provide an additional OS-enforced outbound boundary.
 
 use std::ffi::OsString;
 use std::net::SocketAddr;
@@ -75,9 +76,6 @@ impl Isolation {
     }
     #[cfg(target_os = "macos")]
     {
-      if !Path::new("/usr/bin/sandbox-exec").is_file() {
-        return Err("Browser network confinement requires macOS sandbox-exec.".into());
-      }
       Ok(Self { config, ownership })
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -105,14 +103,14 @@ impl Isolation {
 
   pub fn launch_config(&self, builder: chromiumoxide::browser::BrowserConfigBuilder) -> InfuResult<BrowserConfig> {
     let executable = std::env::current_exe().map_err(|error| format!("Could not locate browser helper: {error}"))?;
-    let config = serde_json::to_string(&self.config).map_err(|_| "Could not encode browser confinement settings.")?;
+    let config = serde_json::to_string(&self.config).map_err(|_| "Could not encode browser helper settings.")?;
     builder
       .chrome_executable(executable)
       // Chromiumoxide prefixes argument keys with "--" itself.
       .arg(HELPER_FLAG.trim_start_matches("--"))
       .env(HELPER_ENV, config)
       .build()
-      .map_err(|error| format!("Could not configure isolated browser: {error}").into())
+      .map_err(|error| format!("Could not configure owned browser: {error}").into())
   }
 }
 
@@ -130,9 +128,9 @@ pub(super) fn run_browser_helper() -> Option<i32> {
     return None;
   }
   let result = (|| {
-    let raw = std::env::var(HELPER_ENV).map_err(|_| "Browser confinement settings are missing.".to_owned())?;
+    let raw = std::env::var(HELPER_ENV).map_err(|_| "Browser helper settings are missing.".to_owned())?;
     let config: HelperConfig =
-      serde_json::from_str(&raw).map_err(|_| "Browser confinement settings are invalid.".to_owned())?;
+      serde_json::from_str(&raw).map_err(|_| "Browser helper settings are invalid.".to_owned())?;
     let args: Vec<OsString> = std::env::args_os().skip(1).filter(|arg| arg != HELPER_FLAG).collect();
     // Chromiumoxide 0.9 defaults to enabling Chrome's sandbox. Enforce that
     // invariant here too: no launch path can silently weaken sandbox/TLS checks.
@@ -156,12 +154,12 @@ pub(super) fn run_browser_helper() -> Option<i32> {
       chrome.args(args.into_iter().filter(|arg| arg != super::supervision::GUARDIAN_FLAG)).env_remove(HELPER_ENV);
       return super::supervision::run_guardian(&config.owner_socket, chrome).map_err(|error| error.to_string());
     }
-    run_confined(config, args).map_err(|error| error.to_string())
+    run_platform_helper(config, args).map_err(|error| error.to_string())
   })();
   Some(match result {
     Ok(code) => code,
     Err(error) => {
-      eprintln!("Browser network confinement failed; refusing unconfined launch: {error}");
+      eprintln!("Browser helper setup failed; refusing to launch: {error}");
       125
     }
   })
@@ -222,7 +220,7 @@ async fn prepare_relays(config: &HelperConfig) -> InfuResult<(SocketAddr, Vec<Ab
 }
 
 #[cfg(target_os = "linux")]
-fn run_confined(config: HelperConfig, mut args: Vec<OsString>) -> std::io::Result<i32> {
+fn run_platform_helper(config: HelperConfig, mut args: Vec<OsString>) -> std::io::Result<i32> {
   use std::io::{BufRead, BufReader, Write};
   use std::process::{Command, Stdio};
 
@@ -399,9 +397,9 @@ impl RelayStream for std::os::unix::net::UnixStream {
 }
 
 #[cfg(target_os = "macos")]
-fn run_confined(config: HelperConfig, args: Vec<OsString>) -> std::io::Result<i32> {
+fn run_platform_helper(config: HelperConfig, args: Vec<OsString>) -> std::io::Result<i32> {
   // This helper is single-threaded and carries no inherited socket protocol.
-  // Drop any supervisor FDs before applying the process network sandbox.
+  // Drop any supervisor FDs before starting the guardian and native Chrome.
   // SAFETY: sysconf has no pointer arguments.
   let limit = unsafe { libc::sysconf(libc::_SC_OPEN_MAX) };
   if !(3..=libc::c_int::MAX as libc::c_long).contains(&limit) {
@@ -413,21 +411,11 @@ fn run_confined(config: HelperConfig, args: Vec<OsString>) -> std::io::Result<i3
       libc::close(descriptor);
     }
   }
-  // Permit filesystem Unix IPC and listening sockets used by Chrome itself,
-  // but outbound IP traffic can only reach this browser's filtering TCP proxy.
-  // Crashpad deliberately daemonizes into another session. macOS lacks Linux
-  // subreapers, so deny that optional daemon instead of leaking it or scanning
-  // unrelated processes. Chrome's normal renderer/GPU helpers remain allowed.
-  let profile = format!(
-    r#"(version 1) (allow default) (deny network-outbound (remote ip))
-    (allow network-outbound (remote tcp4 "localhost:{}"))
-    (deny process-exec (regex #"/chrome_crashpad_handler$"))"#,
-    config.proxy_address.port()
-  );
-  let child = std::process::Command::new("/usr/bin/sandbox-exec")
-    .arg("-p")
-    .arg(profile)
-    .arg(std::env::current_exe()?)
+  // An outer sandbox-exec profile prevents Chrome's child processes from
+  // initializing their own Seatbelt sandboxes. Launch the guardian directly;
+  // Chrome retains its native sandbox, the filtering proxy and URL checks.
+  // Crashpad is allowed to start and uses its own client-port lifetime.
+  let child = std::process::Command::new(std::env::current_exe()?)
     .arg(super::supervision::GUARDIAN_FLAG)
     .args(args)
     .env(HELPER_ENV, serde_json::to_string(&config)?)
@@ -437,6 +425,6 @@ fn run_confined(config: HelperConfig, args: Vec<OsString>) -> std::io::Result<i3
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-fn run_confined(_: HelperConfig, _: Vec<OsString>) -> std::io::Result<i32> {
+fn run_platform_helper(_: HelperConfig, _: Vec<OsString>) -> std::io::Result<i32> {
   Err(std::io::Error::other("Browser network confinement is unsupported on this platform."))
 }

@@ -16,7 +16,9 @@ Start web search:
 user cache, once per wrapper invocation. Set `WEB_FETCH_BROWSER_PATH` for an
 explicit executable; use `./tools/mcp/web-search/run.sh --update-browser` for a
 deliberate managed-browser update. It never installs global packages or weakens
-the sandbox. Setup failures leave search usable.
+Chrome's sandbox. Linux additionally requires OS network confinement; native
+macOS uses proxy and URL checks without an outer OS network sandbox.
+Setup failures leave search usable.
 
 Browser fetches reuse one owned browser with a fresh isolated context per request.
 PDFs require `WEB_FETCH_GPU_TOOLS_URL` pointing to an updated GPU service/gateway

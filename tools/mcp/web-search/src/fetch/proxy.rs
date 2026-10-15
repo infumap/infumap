@@ -15,7 +15,8 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! An owned browser proxy that connects only to validated public addresses.
-//! OS confinement in `isolation` prevents browser channels bypassing this proxy.
+//! Linux OS confinement in `isolation` prevents browser channels bypassing this
+//! proxy. Native macOS relies on Chrome's proxy configuration and request checks.
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
