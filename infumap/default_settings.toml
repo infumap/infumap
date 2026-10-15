@@ -16,9 +16,7 @@
 
 
 # NOTE: Commented out configuration values indicate either defaults or examples.
-# You do not need to uncomment a defaulted setting unless you want to override
-# it. Optional service URLs remain unconfigured unless you uncomment them or
-# provide them via environment variables.
+# You do not need to uncomment a default setting unless you want to override it.
 
 
 # The level at which to log messages to stderr.
@@ -44,10 +42,9 @@
 #prometheus_address = "127.0.0.1"
 #prometheus_port = 9090
 
-# The data directory. User and item database logs for each user as well as
-# the pending user list are kept in this directory. If you have local
-# object storage enabled (the default), file and image data will also be
-# stored here.
+# The data directory. User and item database logs for each user are kept in
+# this directory. If you have local object storage enabled (the default), file
+# and image data will also be stored here.
 #data_dir = "~/.infumap/data"
 
 # The cache directory. Contains images and favicons subdirectories.
