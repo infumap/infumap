@@ -28,7 +28,7 @@ use crate::ai::image_tagging::{
 };
 use crate::ai::metrics::{METRIC_AI_IMAGE_PIPELINE_PROCESSED_TOTAL, METRIC_AI_IMAGE_PIPELINE_QUEUE_DEPTH};
 use crate::ai::processing_retry::{RetrySchedule, manifest_retry_delay, manifest_retry_reason, record_manifest_retry};
-use crate::ai::search_activity::{self as activity, Stage};
+use crate::ai::search_processing_activity::{self as activity, Stage};
 use crate::ai::search_reconciliation::StartupWork;
 use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;

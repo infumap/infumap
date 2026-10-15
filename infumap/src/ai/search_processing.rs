@@ -2,7 +2,7 @@
 //!
 //! These types describe facts supplied by workers and reconciliation. They do not
 //! schedule work, inspect artifacts, or define a persistence/API format. The live
-//! status pages use `search_activity`, which reports outstanding work only: it
+//! status pages use `search_processing_activity`, which reports outstanding work only: it
 //! does not record index acknowledgements or successful empty results.
 
 // Not yet populated by workers; kept as the reference lifecycle contract.

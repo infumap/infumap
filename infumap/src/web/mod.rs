@@ -253,7 +253,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
   init_document_fragment_pipeline_loop(config.as_ref(), db.clone(), object_store.clone(), startup_work.clone())?;
   init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone(), startup_work.clone())?;
   init_image_background_pipeline_loop(config.clone(), db.clone(), object_store.clone(), startup_work)?;
-  crate::ai::search_activity::spawn_progress_logger(db.clone());
+  crate::ai::search_processing_activity::spawn_progress_logger(db.clone());
 
   if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {
     let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();

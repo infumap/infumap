@@ -1,4 +1,4 @@
-//! Live, in-memory observations of search processing for the status pages.
+//! Live, in-memory observations of background search processing for the status pages.
 //!
 //! Workers report what their own queues are doing. This is not a queue or a
 //! recovery store: it is lost on restart, and the startup scans rebuild it by
@@ -375,7 +375,7 @@ impl StageReport {
         parts.push(format!("{} {}", count, label));
       }
     }
-    let mut line = format!("Search progress: {}: {}", self.stage.label(), parts.join(", "));
+    let mut line = format!("Background search processing: {}: {}", self.stage.label(), parts.join(", "));
     if self.done + self.failed > 0 {
       if parts.is_empty() {
         line.push_str("idle");
@@ -451,7 +451,7 @@ pub fn spawn_progress_logger(db: Arc<tokio::sync::Mutex<Db>>) {
       let reports = take_progress_report();
       if reports.is_empty() {
         if was_active {
-          info!("Search progress: all search processing is idle.");
+          info!("Background search processing: idle.");
         }
         was_active = false;
         continue;

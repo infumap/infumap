@@ -14,7 +14,7 @@ use crate::ai::lexical_index::{
   INDEX_MAINTENANCE_FIRST_DELAY, INDEX_MAINTENANCE_INTERVAL, LexicalFragment, open_user_item_title_lexical_index,
 };
 use crate::ai::processing_retry::RetrySchedule;
-use crate::ai::search_activity::{self as activity, Stage};
+use crate::ai::search_processing_activity::{self as activity, Stage};
 use crate::ai::search_index_paths::ensure_user_index_dir;
 use crate::ai::user_id_for_log;
 use crate::storage::db::Db;

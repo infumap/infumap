@@ -44,7 +44,7 @@ use crate::ai::artifact_paths::{
   item_text_manifest_path,
 };
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
-use crate::ai::search_activity::{Phase, item_activity, user_summary};
+use crate::ai::search_processing_activity::{Phase, item_activity, user_summary};
 use crate::ai::search_processing::SearchContentKind;
 use crate::config::{
   CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT,

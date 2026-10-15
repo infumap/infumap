@@ -1,10 +1,10 @@
 //! Virtual search status pages, built from live worker activity.
-//! See `search_activity` for what is observed and how pages are populated.
+//! See `search_processing_activity` for what is observed and how pages are populated.
 
 use infusdk::util::uid::Uid;
 use sha2::{Digest, Sha256};
 
-use crate::ai::search_activity::user_summary;
+use crate::ai::search_processing_activity::user_summary;
 
 pub const SEARCH_ATTENTION_PAGE_TITLE: &str = "Search needs attention";
 pub const SEARCH_PROCESSING_PAGE_TITLE: &str = "Search processing";
