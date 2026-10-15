@@ -44,7 +44,7 @@ default profile are account preferences stored with the profiles. Pinned profile
 shortcuts above the composer; every profile is in its **Profiles** menu.
 
 The query runtime has an editable `configuration` and a nullable `appliedProfile`. The latter holds
-the profile snapshot as applied, which chat requests record as provenance. Modified state and Reset use
+the profile snapshot as applied, which chat requests record as provenance. Modified state and reapplication use
 the saved profile with the same ID, as it is saved now, not the snapshot. `snapshotQueryProfile` copies both the model object and capability array; editable
 conversation configuration must also be copied with `cloneQueryConfiguration`. Saved profiles and
 conversation settings must never share mutable objects.
@@ -56,16 +56,14 @@ recorded in a transcript.
 
 ## Configuration state
 
-`web/src/items/query-configuration-state.ts` owns profile application, temporary changes, reset,
+`web/src/items/query-configuration-state.ts` owns profile application, temporary changes,
 modified-state detection, request snapshots and restoring recorded configuration:
 
 - `applyQueryProfile` copies the whole configuration and records the applied profile in one runtime update.
-  Search / Chat / Deep research mode remains unchanged.
+  Selecting the already applied profile restores it as saved now. Search / Chat / Deep research mode remains unchanged.
 - `updateQueryConfiguration` and `setQueryConfigurationCapability` edit only the current query.
   Scope, model and tool selectors use this layer and never change the default profile.
 - `appliedSavedProfile` finds the applied profile as it is saved now, or null once it is deleted.
-- `resetQueryConfiguration` re-applies that saved profile. A query whose profile was deleted, or that
-  has none, cannot be reset.
 - `isQueryConfigurationModified` compares the query's setup with that saved profile: scope and model
   exactly, and capability IDs as sets. Capability ordering and duplicate entries do not count as modifications. Value copies
   deduplicate capability IDs so a source is offered only once.
@@ -154,8 +152,9 @@ only Scope. Each control is a pill with an icon, sized to its content; the full 
 - **Scope** lists named Infumap scopes with coverage, exclusions and definition problems. It keeps
   the selected scope while showing **Not used** when chat's Infumap tools are disabled. **Edit scopes**
   opens the scopes page.
-- **Model** opens a searchable list of model routes, with account favorites first. Every route shows
-  its model, with the provider in the list and tooltip. Star buttons add or remove favorites without changing the query.
+- **Model** opens a searchable list of model routes, with account favorites first. The pill, list and
+  profile summaries show `backend-id: model`, so `gpu1: default` and `gpu2: default` are distinct.
+  Tooltips include the full model name. Star buttons add or remove favorites without changing the query.
   The selected model's supported reasoning efforts and a **Default** option are at the bottom. Saved
   selections and favorites that disappear from the catalog remain visible with availability information.
 - **Tools** shows the enabled source names, such as **Infumap + Web search**. The popup has a toggle per
@@ -183,8 +182,8 @@ no profile row, and New Query hides it while Search is selected but keeps its he
 does not move the input.
 
 The applied profile's shortcut is highlighted. When the query's setup differs from that profile as saved
-now, the shortcut shows a dot and inline **Reset** and **Save** actions follow it. Reset re-applies the
-saved profile; clicking the highlighted shortcut does the same. Save replaces the saved profile's
+now, the shortcut shows a dot. Clicking the highlighted shortcut reapplies the saved profile, restoring
+its saved settings. **Profiles → Save changes to “Profile name”** replaces the saved profile's
 configuration with the query's setup and keeps its name. An applied profile that is not pinned is shown
 as an extra shortcut while it is applied. Once the applied profile is deleted, no shortcut is highlighted.
 
@@ -192,12 +191,14 @@ Shortcuts that do not fit move into the **Profiles** menu, whose button then rea
 come from an invisible copy of the row. The applied profile always stays visible. Long names truncate,
 with the full name and setup in a tooltip.
 
-The **Profiles** menu lists every profile with a one-line summary such as "Everything · mbp · Infumap",
+The **Profiles** menu lists every profile with a one-line summary such as "Everything · local: default · Infumap",
 a check on the applied one, a short list of unavailable resources, and a pin button. Selecting a profile
-applies it and closes the menu. **Save as new…** asks for a name inline and saves the query's setup as
+applies it and closes the menu, including when it is already selected. **Save changes to “Profile name”**
+appears only when the current setup differs from its saved profile; it names the target and closes the
+menu after a successful save. **Save as new…** asks for a name inline and saves the query's setup as
 a new pinned profile, which the query then uses. **Manage…** opens the management dialog.
 
-Applying, Reset and Save are blocked during a response and while a historical chat's settings are
+Applying and saving are blocked during a response and while a historical chat's settings are
 loading or failed to load; the reason is in the shortcut tooltip and the menu. Keyboard users can Tab
 through the shortcuts and menu button in the composer's cycle and use Left/Right between them.
 
@@ -216,7 +217,7 @@ which forms check before submitting; a name already in use is reported by the se
 
 ## Changes between turns
 
-Scope, Model/provider/reasoning effort, Tools, profile selection and Reset can all change an existing
+Scope, Model/provider/reasoning effort, Tools and profile selection can all change an existing
 chat's setup between turns. Infumap scope is retained when Infumap tools are switched off and becomes
 active again if those tools are re-enabled. The picker descriptions explain that changes apply from
 the next message: earlier answers, retrieved context and attachments remain part of the conversation.
@@ -289,7 +290,7 @@ in [Configuration](configuration.md). The final integration review follows these
 | --- | --- |
 | Copy a complete profile; keep overrides and saved defaults separate | `query-configuration.ts`, `query-configuration-state.ts`, per-item store |
 | Account ownership, intent-based mutations, atomic persistence and backups | `query_profiles.rs`, `StoreProvider_QueryProfiles.ts`, user database |
-| Select, inspect, save, reset, rename, duplicate, delete, pin and order | `QueryProfileBar.tsx`, `QueryProfileManager.tsx` |
+| Select, reapply, inspect, save, rename, duplicate, delete, pin and order | `QueryProfileBar.tsx`, `QueryProfileManager.tsx` |
 | Favorite provider/model pairs without rewriting query settings | `QueryModelPicker.tsx`, profile store |
 | Keep disabled controls out of the composer Tab cycle and contain dialog focus | `Query.tsx`, `QueryPickerPopover.tsx` |
 | Reserve the profile row in New Query, transcript and activity geometry; none in search results | `search-item.ts`, `query-item.ts`, `Query.tsx` |

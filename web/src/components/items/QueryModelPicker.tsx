@@ -119,8 +119,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
         class="flex min-w-0 grow items-start gap-2 cursor-pointer rounded px-2 py-1.5 text-left hover:bg-slate-100 disabled:cursor-default disabled:opacity-50"
         onClick={() => select(choice, close)}>
         <div class="min-w-0 grow">
-          <div class="truncate text-[13px]">{choice.name}</div>
-          <div class="text-[11px] text-slate-500">via {choice.provider}</div>
+          <div class="truncate text-[13px]">{choice.backend}: {choice.name}</div>
           <Show when={choice.info}><div class="text-[11px] text-slate-500">{modelDetails(choice.info!)}</div></Show>
           <Show when={choice.reason != null}><div class="text-[11px] text-amber-700">{choice.reason}</div></Show>
         </div>
@@ -129,7 +128,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
       <button type="button" class="h-7 w-7 shrink-0 rounded text-slate-400 hover:bg-slate-100 disabled:opacity-40"
         disabled={favoriteBusy() || store.general.queryProfiles.collection() == null}
         aria-pressed={favoriteKeys().has(keyFor(choice))}
-        aria-label={`${favoriteKeys().has(keyFor(choice)) ? "Remove" : "Add"} favorite: ${choice.name} via ${choice.provider}`}
+        aria-label={`${favoriteKeys().has(keyFor(choice)) ? "Remove" : "Add"} favorite: ${choice.backend}: ${choice.name}`}
         onClick={() => { void toggleFavorite(choice); }}>
         <i class={favoriteKeys().has(keyFor(choice)) ? "bi-star-fill text-amber-600" : "bi-star"} />
       </button>
@@ -140,7 +139,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
     buttonClass="max-w-[260px] cursor-pointer" ariaLabel="Choose model and provider"
     title={[`Model: ${ready() && selection() != null ? queryModelRouteLabel(store, selection()) : label()}`, ...selectionIssues().map(issue => issue.message), blockedReason(), props.note?.()].filter(Boolean).join("\n")}
     label={<><i class="bi-cpu shrink-0 text-[11px]" />
-      {/* A short name such as a server's never truncates; the scope and tools pills give way first. */}
+      {/* Short backend/model labels stay visible; the scope and tools pills give way first. */}
       <span class={label().length <= 12 ? "shrink-0" : "min-w-0 truncate"}>{label()}</span>
       <Show when={ready() && selectionIssues().length > 0}><i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" /></Show></>}
     onOpen={() => { setFilter(""); setFavoriteError(null); void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>

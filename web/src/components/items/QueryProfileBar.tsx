@@ -4,7 +4,7 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount }
 import { getQueryRuntime, QUERY_PROFILE_ROW_HEIGHT_PX, type QueryItem } from "../../items/query-item";
 import { cloneQueryConfiguration, queryConfigurationsEqual, type QueryConfiguration, type QueryProfile } from "../../items/query-configuration";
 import {
-  appliedSavedProfile, applyQueryProfile, isQueryConfigurationModified, queryConfigurationChangeBlockedReason, resetQueryConfiguration,
+  appliedSavedProfile, applyQueryProfile, isQueryConfigurationModified, queryConfigurationChangeBlockedReason,
 } from "../../items/query-configuration-state";
 import { queryConfigurationIssues } from "../../items/query-configuration-availability";
 import { queryConfigurationSummary, queryModelRouteLabel, queryToolsLabel } from "../../items/query-configuration-labels";
@@ -28,11 +28,11 @@ interface QueryProfileBarProps {
 
 const CHIP_GAP_PX = 4;
 const chipClass = "flex h-[24px] max-w-[180px] shrink-0 cursor-pointer items-center gap-1 rounded-md border px-2 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-50";
-const linkClass = "cursor-pointer rounded px-1 text-[11px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-default disabled:opacity-40";
+const actionClass = "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-40";
 
 /**
- * One-click shortcuts for pinned profiles, the applied profile's modified state with Reset and Save, and a menu
- * of every profile. Chips that do not fit move into the menu; the applied profile always stays visible.
+ * One-click shortcuts with a modified indicator, and a menu of every profile and save actions.
+ * Chips that do not fit move into the menu; the applied profile always stays visible.
  */
 export function QueryProfileBar(props: QueryProfileBarProps) {
   const store = useStore();
@@ -44,7 +44,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   const [naming, setNaming] = createSignal(false);
   const [newName, setNewName] = createSignal("");
   const [rowWidth, setRowWidth] = createSignal(0);
-  const [widths, setWidths] = createSignal<{ chips: Map<string, number>, menu: number, actions: number }>({ chips: new Map(), menu: 0, actions: 0 });
+  const [widths, setWidths] = createSignal<{ chips: Map<string, number>, menu: number }>({ chips: new Map(), menu: 0 });
 
   onMount(() => {
     void store.general.queryProfiles.retrieve();
@@ -92,22 +92,19 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     applyQueryProfile(store, props.queryItem(), profile);
     props.onChange?.(previousScope != profile.configuration.scopeId);
   };
-  const reset = () => {
-    if (reason() != null) { return; }
-    const previousScope = runtime().configuration.scopeId;
-    props.beforeChange?.();
-    if (resetQueryConfiguration(store, props.queryItem())) { props.onChange?.(previousScope != runtime().configuration.scopeId); }
-  };
   /** A saved setup becomes this query's applied profile, unless the query changed while saving. */
   const adopt = (profile: QueryProfile, configuration: QueryConfiguration) => {
     if (reason() != null || !queryConfigurationsEqual(runtime().configuration, configuration)) { return; }
     applyQueryProfile(store, props.queryItem(), profile);
   };
-  const saveToActive = () => {
+  const saveToActive = (close: () => void) => {
     const profile = active();
-    if (profile == null || saveBlockedReason() != null) { return; }
+    if (profile == null || !modified() || saveBlockedReason() != null) { return; }
     const configuration = cloneQueryConfiguration(runtime().configuration);
-    void run(async () => adopt(await store.general.queryProfiles.setConfiguration(profile.id, configuration), configuration));
+    void run(async () => {
+      adopt(await store.general.queryProfiles.setConfiguration(profile.id, configuration), configuration);
+      close();
+    });
   };
   /** New profiles are pinned, so the setup just saved is one click away. */
   const saveAsNew = (ev: SubmitEvent, close: () => void) => {
@@ -133,10 +130,9 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     const next = {
       chips,
       menu: measure.querySelector<HTMLElement>("[data-measure-menu]")?.offsetWidth ?? 0,
-      actions: measure.querySelector<HTMLElement>("[data-measure-actions]")?.offsetWidth ?? 0,
     };
     const current = widths();
-    const same = current.menu == next.menu && current.actions == next.actions && current.chips.size == next.chips.size &&
+    const same = current.menu == next.menu && current.chips.size == next.chips.size &&
       [...next.chips].every(([id, width]) => current.chips.get(id) == width);
     if (!same) { setWidths(next); }
   };
@@ -154,9 +150,9 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   const shown = createMemo(() => {
     const all = candidates();
     if (rowWidth() == 0) { return all; }
-    const { chips, menu, actions } = widths();
+    const { chips, menu } = widths();
     const width = (profile: QueryProfile) => (chips.get(profile.id) ?? 80) + CHIP_GAP_PX;
-    const available = rowWidth() - menu - CHIP_GAP_PX - (modified() ? actions + CHIP_GAP_PX : 0);
+    const available = rowWidth() - menu - CHIP_GAP_PX;
     const fit: QueryProfile[] = [];
     let used = 0;
     for (const profile of all) {
@@ -178,7 +174,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     `Scope: ${queryScopeName(profile.configuration.scopeId)}`,
     ...(props.searchMode() ? [] : [`Model: ${queryModelRouteLabel(store, profile.configuration.model)}`, `Tools: ${queryToolsLabel(store, profile.configuration.capabilities)}`]),
     ...unavailable(profile).map(issue => issue.message),
-    isActive(profile) && modified() ? "Modified in this query. Click to reset." : null,
+    isActive(profile) && modified() ? "Modified in this query. Click to restore the saved settings." : null,
     reason(),
   ].filter(Boolean).join("\n");
 
@@ -193,7 +189,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     buttons[(index + (ev.key == "ArrowLeft" ? -1 : 1) + buttons.length) % buttons.length]?.focus();
   };
 
-  const chip = (profile: QueryProfile) => <>
+  const chip = (profile: QueryProfile) =>
     <button type="button" aria-pressed={isActive(profile)} disabled={reason() != null} title={profileTitle(profile)}
       class={chipClass}
       classList={{
@@ -206,16 +202,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
         <span class="h-[6px] w-[6px] shrink-0 rounded-full bg-amber-500" aria-label="modified" />
       </Show>
       <Show when={unavailable(profile).length > 0}><i class="bi-exclamation-triangle shrink-0 text-[10px] text-amber-600" /></Show>
-    </button>
-    <Show when={isActive(profile) && modified()}>
-      <span class="flex shrink-0 items-center">
-        <button type="button" class={linkClass} disabled={reason() != null || busy()} onClick={reset} onKeyDown={keyDown}
-          title={`Discard this query's changes and use “${profile.name}” as saved`}>Reset</button>
-        <button type="button" class={linkClass} disabled={saveBlockedReason() != null || busy()} onClick={saveToActive} onKeyDown={keyDown}
-          title={`Save this query's scope, model and tools to “${profile.name}”`}>Save</button>
-      </span>
-    </Show>
-  </>;
+    </button>;
 
   const menuRow = (profile: QueryProfile, close: () => void) => <div class="flex items-center gap-1 px-2">
     <button type="button" role="radio" aria-checked={isActive(profile)} disabled={reason() != null}
@@ -254,7 +241,6 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
           <span class="h-[6px] w-[6px] shrink-0" />
           <Show when={unavailable(profile).length > 0}><i class="bi-exclamation-triangle shrink-0 text-[10px]" /></Show>
         </span>}</For>
-        <span data-measure-actions class="flex shrink-0"><span class={linkClass}>Reset</span><span class={linkClass}>Save</span></span>
         <span data-measure-menu class="flex h-[22px] items-center gap-1 rounded-md border px-2" style="font-size: 12px;">{menuLabel()}<i class="bi-chevron-expand text-[10px]" /></span>
       </div>
       <For each={shown()}>{profile => chip(profile)}</For>
@@ -276,12 +262,27 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
             <For each={profiles()}>{profile => menuRow(profile, close)}</For>
           </div>
           <Show when={naming()} fallback={
-            <div class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-2 text-[12px]">
-              <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
-                disabled={collection() == null || saveBlockedReason() != null} title={saveBlockedReason() ?? "Save this query's scope, model and tools as a new profile"}
-                onClick={() => { setNewName(""); setNaming(true); }}>Save as new…</button>
-              <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
-                disabled={collection() == null} onClick={() => { close(); setManaging(true); }}>Manage…</button>
+            <div class="shrink-0 border-t border-slate-200 px-2 py-1">
+              <Show when={modified() ? active() : null}>{profile =>
+                <button type="button" class={actionClass}
+                  disabled={saveBlockedReason() != null || busy()}
+                  title={saveBlockedReason() ?? `Save this query's scope, model and tools to “${profile().name}”`}
+                  onClick={() => saveToActive(close)}>
+                  <i class="bi-save w-3 shrink-0 text-slate-500" aria-hidden="true" />
+                  <span class="min-w-0 truncate">Save changes to “{profile().name}”</span>
+                </button>
+              }</Show>
+              <button type="button" class={actionClass}
+                disabled={collection() == null || saveBlockedReason() != null || busy()} title={saveBlockedReason() ?? "Save this query's scope, model and tools as a new profile"}
+                onClick={() => { setNewName(""); setNaming(true); }}>
+                <i class="bi-plus-lg w-3 shrink-0 text-slate-500" aria-hidden="true" />
+                <span>Save as new…</span>
+              </button>
+              <button type="button" class={actionClass}
+                disabled={collection() == null || busy()} onClick={() => { close(); setManaging(true); }}>
+                <i class="bi-sliders w-3 shrink-0 text-slate-500" aria-hidden="true" />
+                <span>Manage…</span>
+              </button>
             </div>
           }>
             <form class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-2 text-[12px]" onSubmit={ev => saveAsNew(ev, close)}>
