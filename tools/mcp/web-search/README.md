@@ -82,9 +82,35 @@ serializes browser fetches. It routes browser connections through an owned
 loopback proxy that resolves and validates public destinations before connecting
 to those exact addresses. Direct downloads likewise pin validated addresses.
 Request interception checks document destinations and redirects. The complete
-browser-network policy audit is step 3; browser reuse and shutdown supervision
-are step 4, and additional content-settling/cleanup heuristics are step 5.
-No browser launch or live fetch validation has been performed for step 2.
+network policy now also requires OS confinement (step 3), described below.
+Browser reuse and shutdown supervision are step 4, and additional
+content-settling/cleanup heuristics are step 5. No browser launch or live fetch
+validation has been performed for these steps.
+
+Browser network confinement is mandatory and cannot be disabled in fetch
+configuration. On Linux, the server's internal browser helper creates user and
+network namespaces with only loopback enabled. Filesystem Unix sockets bridge
+the filtering proxy and DevTools to the parent process. The host must permit
+unprivileged user/network namespaces for this executable, and the server must
+run as a non-root user. Kernel, container or AppArmor restrictions that prevent
+setup cause browser fetches to fail; the launcher does not change those policies.
+No external namespace/relay packages or global network changes are required.
+
+On macOS, `/usr/bin/sandbox-exec` applies a process-tree network policy allowing
+outbound IPv4 TCP only to the proxy's loopback port. Unsupported platforms and
+confinement failures return fetch errors without an unconfined retry. Search
+and direct text downloads can still operate. The macOS path has not been
+compiled or exercised in this Linux development environment.
+
+This covers network channels outside page request interception, including
+workers, additional targets and WebRTC. The proxy supports HTTP, HTTPS CONNECT
+and WebSocket upgrades, bounds active connections and closes forwarding on
+request completion/deadline. It has no direct fallback or implicit loopback
+bypass. Direct HTTP downloads use an exclusive pinned resolver, with automatic
+redirects and environment proxies disabled. DNS answers containing any rejected
+address fail before connection; special IPv4/IPv6 translation and reserved
+ranges are excluded too. See [network policy](NETWORK_POLICY.md) for the trust
+boundaries and remaining validation limits.
 
 The MCP endpoints share one process and port:
 

@@ -31,6 +31,7 @@ use crate::error::InfuResult;
 
 use super::config::FetchConfig;
 use super::http::{DocumentKind, DownloadedDocument, classify};
+use super::isolation::Isolation;
 use super::policy::{assert_public_destination, public_addresses};
 use super::proxy::{AbortTask, PublicProxy};
 
@@ -66,7 +67,17 @@ async fn render_owned(config: FetchConfig, requested: Url, deadline: Instant) ->
     .tempdir()
     .map_err(|error| format!("Could not create browser profile: {error}"))?;
   let proxy = PublicProxy::start(deadline).await?;
-  let mut builder = BrowserConfig::builder()
+  let executable = config
+    .browser_path
+    .clone()
+    .map(Ok)
+    .unwrap_or_else(|| chromiumoxide::detection::default_executable(Default::default()))
+    .map_err(|_| "No suitable browser found. Set WEB_FETCH_BROWSER_PATH to Chrome/Chromium.")?;
+  let isolation = Isolation::prepare(profile.path(), proxy.address, executable, deadline).await?;
+  let builder = BrowserConfig::builder()
+    // The library's defaults disable popup and IPC flooding protections.
+    // Use an explicit list instead of inheriting those automation shortcuts.
+    .disable_default_args()
     .new_headless_mode()
     .respect_https_errors()
     .user_data_dir(profile.path())
@@ -78,13 +89,16 @@ async fn render_owned(config: FetchConfig, requested: Url, deadline: Instant) ->
     .arg("--proxy-bypass-list=<-loopback>")
     .arg("--host-resolver-rules=MAP * ~NOTFOUND")
     .arg("--disable-quic")
+    .arg("--disable-background-networking")
+    .arg("--disable-component-update")
+    .arg("--disable-sync")
+    .arg("--disable-default-apps")
+    .arg("--no-first-run")
+    .arg("--no-default-browser-check")
+    .arg("--block-new-web-contents")
     .arg("--webrtc-ip-handling-policy=disable_non_proxied_udp")
     .arg("--force-webrtc-ip-handling-policy=disable_non_proxied_udp");
-  if let Some(path) = config.browser_path.as_ref() {
-    builder = builder.chrome_executable(path);
-  }
-  let launch =
-    builder.build().map_err(|_| "No suitable browser found. Set WEB_FETCH_BROWSER_PATH to Chrome/Chromium.")?;
+  let launch = isolation.launch_config(builder)?;
   let (mut browser, mut handler) = Browser::launch(launch)
     .await
     .map_err(|error| format!("Could not launch browser (sandbox and certificate checks required): {error}"))?;
@@ -192,11 +206,21 @@ async fn intercept(
 ) -> InfuResult<Option<DownloadedDocument>> {
   let url = Url::parse(&event.request.url).map_err(|_| "Browser requested an invalid URL.")?;
   if event.response_status_code.is_none() && event.response_error_reason.is_none() {
-    if event.resource_type == network::ResourceType::Document {
+    if !top && matches!(url.scheme(), "data" | "blob" | "about") {
+      // These do not create network connections. Any requests they initiate
+      // still run inside the confined browser and through the public proxy.
+    } else if event.resource_type == network::ResourceType::Document {
       assert_public_destination(&url).await?;
-    } else if matches!(url.scheme(), "http" | "https") {
-      public_addresses(&url).await?;
-    } else if !matches!(url.scheme(), "data" | "blob" | "about") {
+    } else if matches!(url.scheme(), "http" | "https" | "ws" | "wss") {
+      let mut destination = url.clone();
+      if url.scheme() == "ws" {
+        destination.set_scheme("http").map_err(|_| "Invalid WebSocket URL.")?;
+      }
+      if url.scheme() == "wss" {
+        destination.set_scheme("https").map_err(|_| "Invalid WebSocket URL.")?;
+      }
+      public_addresses(&destination).await?;
+    } else {
       return Err("Blocked unsupported browser request scheme.".into());
     }
     if top {

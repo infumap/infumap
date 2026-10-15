@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -23,7 +25,25 @@ use reqwest::header::{ACCEPT, CONTENT_TYPE, LOCATION};
 use crate::error::InfuResult;
 
 use super::config::FetchConfig;
-use super::policy::{assert_public_destination, public_addresses};
+use super::policy::document_addresses;
+
+struct PinnedResolver {
+  host: String,
+  addresses: Vec<SocketAddr>,
+}
+
+impl reqwest::dns::Resolve for PinnedResolver {
+  fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+    let matches = name.as_str().trim_end_matches('.').eq_ignore_ascii_case(self.host.trim_end_matches('.'));
+    let addresses = self.addresses.clone();
+    Box::pin(async move {
+      if !matches {
+        return Err(std::io::Error::other("Unvalidated DNS destination.").into());
+      }
+      Ok(Box::new(addresses.into_iter()) as reqwest::dns::Addrs)
+    })
+  }
+}
 
 #[derive(PartialEq, Eq)]
 pub(super) enum DocumentKind {
@@ -87,13 +107,14 @@ impl HttpDownloader {
   pub async fn download(&self, requested: &Url) -> InfuResult<DownloadedDocument> {
     let mut current = requested.clone();
     for _ in 0..=5 {
-      assert_public_destination(&current).await?;
-      let addresses = public_addresses(&current).await?;
+      let addresses = document_addresses(&current).await?;
       let host = current.host_str().ok_or("URL has no host.")?;
       let client = reqwest::Client::builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
-        .resolve_to_addrs(host, &addresses)
+        // This resolver never falls through to DNS, including spelling or
+        // trailing-dot differences. TLS still validates the original hostname.
+        .dns_resolver(Arc::new(PinnedResolver { host: host.to_owned(), addresses }))
         .connect_timeout(Duration::from_secs(10))
         .timeout(self.config.timeout)
         .user_agent("Infumap web fetch")

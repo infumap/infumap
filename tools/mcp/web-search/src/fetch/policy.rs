@@ -48,10 +48,10 @@ pub(super) fn normalize_url_scheme(url: &str) -> InfuResult<Url> {
   if url.is_empty() {
     return Err("fetch URL cannot be empty".into());
   }
-  let with_scheme = if url.starts_with("http://") || url.starts_with("https://") {
-    url.to_string()
-  } else if url.starts_with("//") {
+  let with_scheme = if url.starts_with("//") {
     format!("https:{url}")
+  } else if url.contains("://") {
+    url.to_string()
   } else {
     format!("https://{url}")
   };
@@ -59,6 +59,10 @@ pub(super) fn normalize_url_scheme(url: &str) -> InfuResult<Url> {
 }
 
 pub(super) async fn assert_public_destination(url: &Url) -> InfuResult<()> {
+  document_addresses(url).await.map(|_| ())
+}
+
+pub(super) async fn document_addresses(url: &Url) -> InfuResult<Vec<SocketAddr>> {
   if let Some(host) = url.host_str()
     && is_search_engine_host(host)
   {
@@ -66,7 +70,7 @@ pub(super) async fn assert_public_destination(url: &Url) -> InfuResult<()> {
       format!("Blocked: web_fetch does not fetch search engine URLs ('{host}'). Use web_search for searches.").into(),
     );
   }
-  public_addresses(url).await.map(|_| ())
+  public_addresses(url).await
 }
 
 /// Resolve once, validate every address, and connect only to these addresses.
@@ -82,15 +86,23 @@ pub(super) async fn public_addresses(url: &Url) -> InfuResult<Vec<SocketAddr>> {
   if is_blocked_host(host) {
     return Err(format!("Blocked: refusing to fetch host '{host}'.").into());
   }
-  let port = url.port_or_known_default().unwrap_or(80);
+  let port = url.port_or_known_default().filter(|port| *port != 0).ok_or("Blocked: invalid destination port.")?;
   let host = host.trim_start_matches('[').trim_end_matches(']');
+  if let Ok(ip) = host.parse::<IpAddr>() {
+    if !is_global_ip(ip) {
+      return Err("Blocked: refusing to fetch a non-public address.".into());
+    }
+    return Ok(vec![SocketAddr::new(ip, port)]);
+  }
   let addrs = lookup_host((host, port)).await.map_err(|e| format!("Failed to resolve host: {}", e))?;
   let mut addresses = Vec::new();
   for addr in addrs {
     if !is_global_ip(addr.ip()) {
       return Err(format!("Blocked: refusing to fetch non-public address {}.", addr.ip()).into());
     }
-    addresses.push(addr);
+    if !addresses.contains(&addr) {
+      addresses.push(addr);
+    }
   }
   if addresses.is_empty() {
     return Err(format!("Failed to resolve host: no addresses for '{host}'.").into());
@@ -117,6 +129,10 @@ fn is_blocked_host(host: &str) -> bool {
   METADATA_HOSTS.iter().any(|blocked| *blocked == host)
     || host.ends_with(".localhost")
     || host.ends_with(".local")
+    || host.ends_with(".internal")
+    || host.ends_with(".home.arpa")
+    || host.ends_with(".invalid")
+    || host.ends_with(".test")
     || host.starts_with("169.254.")
     || host == "::ffff:169.254.169.254"
 }
@@ -133,8 +149,11 @@ fn is_global_ip(ip: IpAddr) -> bool {
         || v4.is_broadcast()
         || o[0] == 0
         || (o[0] == 100 && o[1] & 0b1100_0000 == 64)
+        // Azure WireServer uses a public-looking platform virtual IP.
+        || o == [168, 63, 129, 16]
         || (o[0] == 192 && o[1] == 0 && o[2] == 0)
         || (o[0] == 192 && o[1] == 0 && o[2] == 2)
+        || (o[0] == 192 && o[1] == 88 && o[2] == 99)
         || (o[0] == 198 && o[1] == 51 && o[2] == 100)
         || (o[0] == 203 && o[1] == 0 && o[2] == 113)
         || (o[0] == 198 && (o[1] == 18 || o[1] == 19))
@@ -145,12 +164,14 @@ fn is_global_ip(ip: IpAddr) -> bool {
         return is_global_ip(IpAddr::V4(v4));
       }
       let s = v6.segments();
-      !(v6.is_unspecified()
-        || v6.is_loopback()
-        || v6.is_multicast()
-        || (s[0] & 0xfe00) == 0xfc00
-        || (s[0] & 0xffc0) == 0xfe80
-        || (s[0] == 0x2001 && s[1] == 0xdb8))
+      // Only ordinary global unicast. Reject protocol/translation/tunnel
+      // prefixes that could encode a non-public IPv4 destination, in addition
+      // to local, documentation and reserved space. IPv4-mapped IPs above are
+      // checked using the IPv4 policy before connecting to that exact address.
+      (s[0] & 0xe000) == 0x2000
+        && !(s[0] == 0x2001 && (s[1] < 0x200 || s[1] == 0xdb8))
+        && s[0] != 0x2002
+        && !(s[0] == 0x3fff && s[1] < 0x1000)
     }
   }
 }

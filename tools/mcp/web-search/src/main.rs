@@ -36,8 +36,19 @@ use tokio::net::TcpListener;
 
 use protocol::handle_http;
 
-#[tokio::main]
-async fn main() {
+fn main() {
+  // Namespace setup must run before creating any Tokio threads.
+  if let Some(code) = fetch::run_browser_helper() {
+    std::process::exit(code);
+  }
+  tokio::runtime::Builder::new_multi_thread()
+    .enable_all()
+    .build()
+    .expect("Could not start server runtime")
+    .block_on(run_server());
+}
+
+async fn run_server() {
   env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
   if let Err(error) = fetch::initialize() {

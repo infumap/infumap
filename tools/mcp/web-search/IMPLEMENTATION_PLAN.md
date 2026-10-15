@@ -15,11 +15,18 @@ captured from the original browser response and reach a dedicated handler that
 returns an explicit unavailable error until step 7 connects native extraction.
 MCP names, arguments and compact response fields are unchanged.
 
-The renderer includes a public-address connection proxy and basic per-request
-ownership/deadlines as prerequisites. Step 3's full browser-network audit,
-step 4's browser reuse/shutdown supervision, and step 5's content heuristics are
+Step 3 is implemented for existing fetch traffic: mandatory OS browser network
+confinement (Linux user/network namespaces and macOS Seatbelt), a bounded
+public-address proxy including WebSockets, an exclusive direct-download DNS
+resolver, and stricter special-address checks. An internal subprocess helper
+starts before the server runtime; confinement failure has no unconfined fallback.
+See `NETWORK_POLICY.md`. No GPU service requests are enabled yet; their separate
+operator-configured origin/path constraints remain mandatory when wired in step 7.
+
+Step 4's browser reuse/shutdown supervision and step 5's content heuristics are
 still outstanding. Browser installation remains step 9. Validation so far is
-static compilation/linting only; behavioral checks require authorization.
+Linux production compilation/linting only; behavioral checks require
+authorization. The macOS implementation has not been cross-compiled or run.
 
 The target is browser-rendered HTML and optional PDF-to-Markdown extraction
 through configured GPU tools. PDF extraction must never perform OCR. If usable

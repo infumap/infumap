@@ -17,6 +17,7 @@
 mod browser;
 mod config;
 mod http;
+mod isolation;
 mod markdown;
 mod pdf;
 mod policy;
@@ -36,6 +37,10 @@ use policy::{assert_public_destination, hosts_differ, normalize_url_scheme};
 
 pub const DEFAULT_MAX_CHARS: usize = 8_000;
 pub const MAX_CHARS_CAP: usize = 100_000;
+
+pub fn run_browser_helper() -> Option<i32> {
+  isolation::run_browser_helper()
+}
 
 static FETCH_STATE: OnceLock<Result<FetchState, String>> = OnceLock::new();
 

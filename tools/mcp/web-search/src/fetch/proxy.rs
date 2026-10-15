@@ -15,23 +15,24 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! An owned browser proxy that connects only to validated public addresses.
-//! Browser-specific bypass prevention and policy auditing continue in step 3.
+//! OS confinement in `isolation` prevents browser channels bypassing this proxy.
 
 use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full, combinators::UnsyncBoxBody};
 use hyper::body::Incoming;
-use hyper::header::{CONNECTION, PROXY_AUTHORIZATION};
+use hyper::header::{CONNECTION, HOST, PROXY_AUTHORIZATION, UPGRADE};
 use hyper::service::service_fn;
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
 use reqwest::Url;
 use tokio::io::copy_bidirectional;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::watch;
-use tokio::task::JoinHandle;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, watch};
+use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Instant, timeout_at};
 
 use crate::error::InfuResult;
@@ -62,19 +63,25 @@ impl PublicProxy {
     let address = listener.local_addr().map_err(|error| format!("Could not inspect browser proxy: {error}"))?;
     let (shutdown, mut stopped) = watch::channel(false);
     let task = tokio::spawn(async move {
+      let slots = Arc::new(Semaphore::new(64));
+      let mut connections = JoinSet::new();
       loop {
         tokio::select! {
           _ = stopped.changed() => break,
           _ = tokio::time::sleep_until(deadline) => break,
+          _ = connections.join_next(), if !connections.is_empty() => {},
           accepted = listener.accept() => {
             let Ok((stream, _)) = accepted else { break };
+            let Ok(permit) = slots.clone().try_acquire_owned() else { continue };
+            let permit = Arc::new(permit);
             let mut connection_stopped = stopped.clone();
             let requests_stopped = stopped.clone();
-            tokio::spawn(async move {
+            connections.spawn(async move {
               let service = service_fn(move |request| {
                 let stopped = requests_stopped.clone();
+                let permit = permit.clone();
                 async move {
-                  let response = match forward(request, stopped, deadline).await {
+                  let response = match forward(request, stopped, deadline, permit).await {
                     Ok(response) => response,
                     Err(error) => {
                       log::debug!("Browser proxy rejected a request: {error}");
@@ -125,13 +132,18 @@ async fn forward(
   mut request: Request<Incoming>,
   mut stopped: watch::Receiver<bool>,
   deadline: Instant,
+  permit: Arc<OwnedSemaphorePermit>,
 ) -> InfuResult<Response<ProxyBody>> {
   if request.method() == Method::CONNECT {
     let authority = request.uri().authority().ok_or("CONNECT has no authority.")?;
+    if authority.port_u16().is_none_or(|port| port == 0) {
+      return Err("CONNECT requires an explicit nonzero port.".into());
+    }
     let url = Url::parse(&format!("https://{authority}/")).map_err(|_| "Invalid CONNECT destination.")?;
     let mut upstream = connect(&url).await?;
     let upgrade = hyper::upgrade::on(&mut request);
     tokio::spawn(async move {
+      let _permit = permit;
       tokio::select! {
         _ = stopped.changed() => {},
         _ = timeout_at(deadline, async {
@@ -143,26 +155,55 @@ async fn forward(
     });
     return Ok(empty_response(StatusCode::OK));
   }
-  let url = Url::parse(&request.uri().to_string()).map_err(|_| "Invalid proxy URL.")?;
+  let mut url = Url::parse(&request.uri().to_string()).map_err(|_| "Invalid proxy URL.")?;
+  if url.scheme() == "ws" {
+    url.set_scheme("http").map_err(|_| "Invalid WebSocket destination.")?;
+  }
   if url.scheme() != "http" {
     return Err("Proxy requires HTTP or an HTTPS CONNECT tunnel.".into());
   }
   let upstream = connect(&url).await?;
+  let websocket = request.method() == Method::GET
+    && request.headers().get(UPGRADE).is_some_and(|value| value.as_bytes().eq_ignore_ascii_case(b"websocket"));
+  let downstream_upgrade = websocket.then(|| hyper::upgrade::on(&mut request));
   let (mut sender, connection) = hyper::client::conn::http1::handshake(TokioIo::new(upstream))
     .await
     .map_err(|error| format!("Could not open proxy upstream: {error}"))?;
+  let mut upstream_stopped = stopped.clone();
+  let upstream_permit = permit.clone();
   tokio::spawn(async move {
+    let _permit = upstream_permit;
     tokio::select! {
-      _ = stopped.changed() => {},
-      _ = timeout_at(deadline, connection) => {},
+      _ = upstream_stopped.changed() => {},
+      _ = timeout_at(deadline, connection.with_upgrades()) => {},
     }
   });
   let path = request.uri().path_and_query().map(|path| path.as_str()).unwrap_or("/").to_owned();
   *request.uri_mut() = path.parse().map_err(|_| "Invalid proxy request path.")?;
   request.headers_mut().remove(PROXY_AUTHORIZATION);
   request.headers_mut().remove("proxy-connection");
-  request.headers_mut().insert(CONNECTION, hyper::header::HeaderValue::from_static("close"));
-  let response = sender.send_request(request).await.map_err(|error| format!("Proxy upstream failed: {error}"))?;
+  let host =
+    format!("{}:{}", url.host_str().ok_or("Proxy URL has no host.")?, url.port_or_known_default().unwrap_or(80));
+  request.headers_mut().insert(HOST, host.parse().map_err(|_| "Invalid proxy Host header.")?);
+  request
+    .headers_mut()
+    .insert(CONNECTION, hyper::header::HeaderValue::from_static(if websocket { "Upgrade" } else { "close" }));
+  let mut response = sender.send_request(request).await.map_err(|error| format!("Proxy upstream failed: {error}"))?;
+  if response.status() == StatusCode::SWITCHING_PROTOCOLS {
+    let downstream = downstream_upgrade.ok_or("Unrequested upstream protocol upgrade.")?;
+    let upstream = hyper::upgrade::on(&mut response);
+    tokio::spawn(async move {
+      let _permit = permit;
+      tokio::select! {
+        _ = stopped.changed() => {},
+        _ = timeout_at(deadline, async {
+          if let Ok((downstream, upstream)) = tokio::try_join!(downstream, upstream) {
+            let _ = copy_bidirectional(&mut TokioIo::new(downstream), &mut TokioIo::new(upstream)).await;
+          }
+        }) => {},
+      }
+    });
+  }
   Ok(response.map(|body| body.boxed_unsync()))
 }
 

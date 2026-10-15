@@ -20,6 +20,9 @@ use super::http::{DownloadedDocument, is_pdf};
 
 /// PDFs are never decoded as text or sent to an OCR-capable fallback.
 /// GPU discovery and native-only uploads are implemented in plan step 7.
+/// They must use an operator-configured service client with constrained,
+/// same-origin discovery paths and redirects disabled. Public page URLs must
+/// never choose a private service address or be passed as URLs for it to fetch.
 pub(super) fn extract_native(document: &DownloadedDocument) -> InfuResult<String> {
   if !is_pdf(&document.body) {
     return Err("The response claims to be a PDF but has no PDF signature.".into());
