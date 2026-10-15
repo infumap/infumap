@@ -148,7 +148,12 @@ publicly served directory: PDF contents and source URLs can be private.
 
 HTML readiness allows 750 ms minimum and up to three seconds for content to
 settle, within the request deadline. It tracks main text changes rather than
-requiring network silence. Main content/policy pages are protected during
+requiring network silence. DOM probes and capture evaluate in Chrome's current
+page context rather than a cached context ID. If navigation replaces that
+context, only the corresponding CDP context-loss errors are retried, with a
+100 ms pause and the original overall deadline. A final-capture context loss
+restarts settling; other protocol, script and decoding errors still fail.
+Main content/policy pages are protected during
 consent cleanup; no consent choices are clicked. Links use the document's base
 URL. Specific short challenge/refusal pages fail explicitly. These heuristics
 can miss late content or unusual interstitials.

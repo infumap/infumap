@@ -124,7 +124,9 @@ also removes its exact temporary profile
 after cleanup. There is no scan for unrelated Chrome processes.
 
 Readiness waits at least 750 ms and up to a three-second opportunity for content
-to settle, within the overall deadline. Consent UI removal preserves main
+to settle, within the overall deadline. DOM evaluation uses the current page
+context and tolerates navigation replacing it during readiness or capture,
+without extending the request deadline. Consent UI removal preserves main
 content and policy pages. Specific short challenge/refusal pages return errors;
 links resolve against `document.baseURI`. Table conversion avoids column padding
 that could multiply extraction memory. These remain heuristics, not a guarantee

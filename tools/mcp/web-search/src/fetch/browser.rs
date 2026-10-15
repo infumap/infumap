@@ -22,6 +22,9 @@ use std::time::Duration;
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use chromiumoxide::cdp::browser_protocol::{browser as cdp_browser, fetch, io, network, target};
+use chromiumoxide::cdp::js_protocol::runtime;
+use chromiumoxide::error::CdpError;
+use chromiumoxide::js::EvaluationResult;
 use chromiumoxide::{Browser, BrowserConfig, Page};
 use futures_util::StreamExt;
 use reqwest::Url;
@@ -667,25 +670,50 @@ struct Snapshot {
   oversized: bool,
 }
 
+async fn evaluate_document(page: &Page, expression: impl Into<String>) -> chromiumoxide::Result<EvaluationResult> {
+  let mut params = runtime::EvaluateParams::new(expression);
+  params.return_by_value = Some(true);
+  params.await_promise = Some(true);
+  // Page::evaluate fills context_id from Chromiumoxide's frame cache. The
+  // intercepted response can arrive before navigation/context events update
+  // that cache. Omitting context_id lets Chrome select the current page world.
+  let result = page.execute(params).await?.result;
+  if let Some(exception) = result.exception_details {
+    return Err(CdpError::JavascriptException(Box::new(exception)));
+  }
+  Ok(EvaluationResult::new(result.result))
+}
+
+fn context_replaced(error: &CdpError) -> bool {
+  matches!(error, CdpError::Chrome(response) if response.code == -32000 && (
+    matches!(response.message.as_str(), "Cannot find context with specified id" | "Cannot find default execution context")
+      || response.message.starts_with("Execution context was destroyed")
+  ))
+}
+
 async fn snapshot(
   page: &Page,
   mut document: DownloadedDocument,
   config: &FetchConfig,
   documents: &mut mpsc::Receiver<InfuResult<DownloadedDocument>>,
 ) -> InfuResult<DownloadedDocument> {
-  let started = Instant::now();
-  let mut changed = started;
-  let mut signature = String::new();
-  loop {
-    while let Ok(next) = documents.try_recv() {
-      document = next?;
-      if document.kind() != DocumentKind::Html {
-        return Ok(document);
+  // Navigation can replace the default world during either readiness or final
+  // capture. Retry only those protocol errors, within the worker's existing
+  // overall deadline; script, decoding and transport errors still fail.
+  'capture: loop {
+    let started = Instant::now();
+    let mut changed = started;
+    let mut signature = String::new();
+    loop {
+      while let Ok(next) = documents.try_recv() {
+        document = next?;
+        if document.kind() != DocumentKind::Html {
+          return Ok(document);
+        }
+        changed = Instant::now();
       }
-      changed = Instant::now();
-    }
-    let probe = page
-      .evaluate(
+      let evaluation = evaluate_document(
+        page,
         r#"(() => {
       const text = (document.querySelector('main,article,[role="main"]') || document.body)?.innerText || '';
       return {ready: location.href !== 'about:blank' && document.readyState !== 'loading',
@@ -693,56 +721,69 @@ async fn snapshot(
         signature: location.href + ':' + text.length + ':' + text.slice(0, 2048) + text.slice(-1024)};
     })()"#,
       )
-      .await
-      .map_err(|error| format!("Could not inspect document readiness: {error}"))?
-      .into_value::<Probe>()
-      .map_err(|error| format!("Invalid document readiness: {error}"))?;
-    if signature != probe.signature {
-      signature = probe.signature;
-      changed = Instant::now();
+      .await;
+      let evaluation = match evaluation {
+        Ok(value) => value,
+        Err(error) if context_replaced(&error) => {
+          signature.clear();
+          changed = Instant::now();
+          tokio::time::sleep(Duration::from_millis(100)).await;
+          continue;
+        }
+        Err(error) => return Err(format!("Could not inspect document readiness: {error}").into()),
+      };
+      let probe = evaluation.into_value::<Probe>().map_err(|error| format!("Invalid document readiness: {error}"))?;
+      if signature != probe.signature {
+        signature = probe.signature;
+        changed = Instant::now();
+      }
+      let settled = started.elapsed() >= Duration::from_millis(750) && changed.elapsed() >= Duration::from_millis(400);
+      if probe.ready && (settled && probe.meaningful || started.elapsed() >= Duration::from_secs(3)) {
+        break;
+      }
+      tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    let settled = started.elapsed() >= Duration::from_millis(750) && changed.elapsed() >= Duration::from_millis(400);
-    if probe.ready && (settled && probe.meaningful || started.elapsed() >= Duration::from_secs(3)) {
-      break;
+    let expression = format!(
+      "({})({})",
+      include_str!("rendered.js"),
+      serde_json::json!({
+        "limit": config.max_rendered_bytes, "dump": config.html_dump_dir.is_some(),
+      })
+    );
+    let evaluation = match evaluate_document(page, expression).await {
+      Ok(value) => value,
+      Err(error) if context_replaced(&error) => {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        continue 'capture;
+      }
+      Err(error) => return Err(format!("Could not capture rendered document: {error}").into()),
+    };
+    let result =
+      evaluation.into_value::<Snapshot>().map_err(|error| format!("Invalid rendered document snapshot: {error}"))?;
+    if result.oversized {
+      return Err("Rendered document exceeds its byte or complexity limit.".into());
     }
-    tokio::time::sleep(Duration::from_millis(100)).await;
-  }
-  let expression = format!(
-    "({})({})",
-    include_str!("rendered.js"),
-    serde_json::json!({
-      "limit": config.max_rendered_bytes, "dump": config.html_dump_dir.is_some(),
-    })
-  );
-  let result = page
-    .evaluate(expression)
-    .await
-    .map_err(|error| format!("Could not capture rendered document: {error}"))?
-    .into_value::<Snapshot>()
-    .map_err(|error| format!("Invalid rendered document snapshot: {error}"))?;
-  if result.oversized {
-    return Err("Rendered document exceeds its byte or complexity limit.".into());
-  }
-  if let (Some(directory), Some(raw)) = (config.html_dump_dir.clone(), result.raw) {
-    dump_html(directory, raw);
-  }
-  if let Some(blocked) = result.blocked {
-    return Err(blocked.into());
-  }
-  let final_url = Url::parse(result.url.as_deref().ok_or("Browser returned no final URL.")?)
-    .map_err(|_| "Browser returned an invalid final URL.")?;
-  assert_public_destination(&final_url).await?;
-  // A redirect racing the final snapshot must still be dispatched by type.
-  if let Ok(next) = documents.try_recv() {
-    let next = next?;
-    if next.kind() != DocumentKind::Html {
-      return Ok(next);
+    if let (Some(directory), Some(raw)) = (config.html_dump_dir.clone(), result.raw) {
+      dump_html(directory, raw);
     }
-    return Err("Page navigated while its rendered content was being captured; retry the fetch.".into());
+    if let Some(blocked) = result.blocked {
+      return Err(blocked.into());
+    }
+    let final_url = Url::parse(result.url.as_deref().ok_or("Browser returned no final URL.")?)
+      .map_err(|_| "Browser returned an invalid final URL.")?;
+    assert_public_destination(&final_url).await?;
+    // A redirect racing the final snapshot must still be dispatched by type.
+    if let Ok(next) = documents.try_recv() {
+      let next = next?;
+      if next.kind() != DocumentKind::Html {
+        return Ok(next);
+      }
+      return Err("Page navigated while its rendered content was being captured; retry the fetch.".into());
+    }
+    document.final_url = final_url;
+    document.body = result.html.ok_or("Browser returned no rendered HTML.")?.into_bytes();
+    return Ok(document);
   }
-  document.final_url = final_url;
-  document.body = result.html.ok_or("Browser returned no rendered HTML.")?.into_bytes();
-  Ok(document)
 }
 
 fn dump_html(directory: std::path::PathBuf, raw: String) {
