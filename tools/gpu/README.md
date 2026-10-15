@@ -34,7 +34,10 @@ By default the gateway listens on `127.0.0.1:8787` and forwards:
 
 Ordinary PDF uploads and the existing async job API retain OCR fallback. The
 native-only endpoint shares their GPU serialization and conversion watchdog,
-but has no async job API. See [PDF extraction](pdf_extract/README.md#native-only-extraction)
+but has no async job API. It additionally advertises an optional absolute
+`X-Pdf-Request-Deadline-Unix-Ms` protocol that bounds native upload/queue/conversion
+work across gateway and worker; web fetch requires this capability. Gateway and
+worker clocks must be synchronized. Legacy uploads keep their existing timing. See [PDF extraction](pdf_extract/README.md#native-only-extraction)
 for its policy metadata and errors.
 
 The child services keep their own defaults:

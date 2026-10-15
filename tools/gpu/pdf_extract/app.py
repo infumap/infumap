@@ -33,7 +33,7 @@ from pydantic import BaseModel
 from python_multipart import MultipartParser
 from python_multipart.multipart import parse_options_header
 
-from extractor import SERVICE_VERSION, PdfExtractor
+from extractor import NATIVE_ONLY_POLICY_VERSION, SERVICE_VERSION, PdfExtractor
 from extraction_errors import (
     BackendUnavailableError,
     DocumentRejectedError,
@@ -54,6 +54,7 @@ DEFAULT_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
 # Set by the GPU gateway on every request it forwards, so the gateway's lock
 # lease and this watchdog use the same limit.
 CONVERSION_TIMEOUT_HEADER = "x-pdf-conversion-timeout-secs"
+REQUEST_DEADLINE_HEADER = "x-pdf-request-deadline-unix-ms"
 # The extractor stops Docling workers at the conversion deadline, so timeouts
 # normally end there. This backstop only fires when a conversion thread is
 # stuck past the deadline outside Docling; a thread cannot be stopped, so the
@@ -203,6 +204,7 @@ async def lifespan(_: FastAPI):
         extractor.load()
         APP_STATE["extractor"] = extractor
         CONVERT_SEMAPHORE = asyncio.Semaphore(GPU_REQUEST_CONCURRENCY)
+        APP_STATE["native_request_slots"] = asyncio.Semaphore(2)
         yield
     finally:
         CONVERT_SEMAPHORE = None
@@ -487,6 +489,9 @@ async def gpu_tools() -> dict[str, Any]:
             },
             {
                 "id": "pdf_extract_native",
+                "policy": "native_only",
+                "policy_version": NATIVE_ONLY_POLICY_VERSION,
+                "request_deadline_header": REQUEST_DEADLINE_HEADER,
                 "method": "POST",
                 "path": "/pdf-extract-native",
                 "description": "Extract complete native PDF text as Markdown without OCR; reject unreadable text.",
@@ -515,6 +520,8 @@ async def handle_convert_upload(request: Request, *, native_only: bool) -> Conve
     request_started_at = time.perf_counter()
     try:
         conversion_timeout = conversion_timeout_secs_for_request(request)
+        if native_only and request.headers.get(REQUEST_DEADLINE_HEADER) is not None:
+            return await handle_native_with_deadline(request, conversion_timeout)
         upload_started_at = time.perf_counter()
         file_name, content_type, upload_bytes = await read_multipart_upload(request)
         upload_size_bytes = len(upload_bytes)
@@ -590,3 +597,78 @@ async def handle_convert_upload(request: Request, *, native_only: bool) -> Conve
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def native_request_deadline(request: Request) -> float:
+    """Optional native-only protocol; legacy upload timing remains unchanged."""
+    try:
+        remaining = float(request.headers[REQUEST_DEADLINE_HEADER]) / 1000.0 - time.time()
+    except (ValueError, KeyError):
+        remaining = math.nan
+    if not math.isfinite(remaining) or remaining > 86400:
+        raise HTTPException(status_code=400, detail="Invalid native PDF request deadline.")
+    if remaining <= 0:
+        raise HTTPException(status_code=408, detail="Native PDF request deadline expired before dispatch.")
+    return time.monotonic() + remaining
+
+
+def native_remaining(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise HTTPException(status_code=408, detail="Native PDF request deadline expired before dispatch.")
+    return remaining
+
+
+async def handle_native_with_deadline(request: Request, conversion_timeout: float) -> ConvertResponse:
+    deadline = native_request_deadline(request)
+    slots = APP_STATE.get("native_request_slots")
+    if slots is None:
+        raise HTTPException(status_code=503, detail="Native PDF service is not ready.")
+    try:
+        await asyncio.wait_for(slots.acquire(), timeout=min(0.1, native_remaining(deadline)))
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(status_code=503, detail="Native PDF upload capacity is busy; retry later.") from exc
+    try:
+        return await native_conversion_owned(request, conversion_timeout, deadline)
+    finally:
+        slots.release()
+
+
+async def native_conversion_owned(request: Request, conversion_timeout: float, deadline: float) -> ConvertResponse:
+    try:
+        file_name, _, upload_bytes = await asyncio.wait_for(read_multipart_upload(request), native_remaining(deadline))
+        semaphore = CONVERT_SEMAPHORE
+        if semaphore is None or APP_STATE.get("restart_scheduled"):
+            raise HTTPException(status_code=503, detail="Text extraction service is not ready.")
+        await asyncio.wait_for(semaphore.acquire(), min(worker_slot_wait_timeout_secs(), native_remaining(deadline)))
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(status_code=408, detail="Native PDF upload/queue deadline exceeded.") from exc
+    try:
+        native_remaining(deadline)
+        if APP_STATE.get("restart_scheduled") or await request.is_disconnected():
+            raise HTTPException(status_code=503, detail="Native PDF request is no longer dispatchable.")
+        budget = min(conversion_timeout, native_remaining(deadline))
+        work = asyncio.create_task(asyncio.to_thread(
+            convert_file_bytes, upload_bytes, file_name, time.monotonic() + budget, native_only=True,
+        ))
+        try:
+            return await asyncio.wait_for(asyncio.shield(work), timeout=budget + 1.0)
+        except asyncio.CancelledError:
+            # A conversion thread cannot be cancelled by dropping its awaiter.
+            # Retain the worker slot until its own deadline stops the subprocess.
+            try:
+                await asyncio.wait_for(asyncio.shield(work), timeout=max(0.001, deadline - time.monotonic()) + 1.0)
+            except ExtractionTimeoutError:
+                pass  # Normal worker deadline; its subprocess has been reaped.
+            except asyncio.TimeoutError:
+                schedule_stuck_conversion_exit(file_name, budget)
+            except Exception:
+                pass
+            raise
+        except ExtractionTimeoutError as exc:
+            raise conversion_timeout_rejection(budget) from exc
+        except asyncio.TimeoutError as exc:
+            schedule_stuck_conversion_exit(file_name, budget)
+            raise conversion_timeout_rejection(budget) from exc
+    finally:
+        semaphore.release()
