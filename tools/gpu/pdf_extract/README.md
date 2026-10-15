@@ -11,6 +11,7 @@ Intended for burst or long running use.
 ## What It Does
 
 - accepts a multipart `file` upload at `POST /pdf-extract`; other fields are ignored
+- offers `POST /pdf-extract-native` for strict native text extraction without OCR
 - returns Markdown and extraction metadata as JSON, including the backend
   (`docling` or `docling_ocr`) and the reason for any OCR fallback
 - runs each conversion in a fresh Docling worker process
@@ -139,7 +140,54 @@ curl -sS \
 - `GET /healthz`
 - `GET /gpu-tools`
 - `POST /pdf-extract`
+- `POST /pdf-extract-native` (discovery capability `pdf_extract_native`)
 - `POST /convert` legacy alias
+
+## Native-only extraction
+
+`POST /pdf-extract-native` accepts the same multipart `file` upload and returns
+the same response shape as `/pdf-extract`. It runs a single native Docling pass
+with OCR disabled and the full conversion deadline. It never calls the upload
+endpoint's OCR fallback. Native layout and table reconstruction remain enabled;
+image descriptions and other generative enrichments remain disabled.
+
+This endpoint rejects native conversion failures, scans without usable text,
+blank documents, unusable pages and native coverage warnings. A mixed document
+is rejected when any page is identified as unusable, even if the ordinary upload
+policy would accept its other pages. Unexpected OCR-derived parsed text is also
+rejected by the native worker. Quality checks are heuristic and cannot establish
+perfect extraction or identify every piece of text embedded in an illustration.
+
+Document failures return HTTP 422 with
+`error_code="pdf_native_text_unavailable"`. Password, corruption, conversion
+timeout and unavailable-service errors retain their separate classifications.
+Missing extraction diagnostics fail with HTTP 503 rather than accepting text
+whose quality cannot be checked.
+
+Successful responses include the following in `metadata.extraction`, alongside
+the existing backend, version and page diagnostics:
+
+```json
+{
+  "policy": "native_only",
+  "policy_version": 1,
+  "ocr_performed": false
+}
+```
+
+Consumers requiring no OCR must discover `pdf_extract_native` and use its
+dedicated endpoint. An older service without it cannot satisfy that requirement;
+do not fall back to `/pdf-extract`, `/convert`, caption extraction or the existing
+async job API. `/pdf-extract/jobs` continues to use the ordinary upload policy
+and can perform OCR. A pre-existing PDF text layer may originally have been
+produced by OCR; this endpoint guarantees that its own conversion performs none.
+
+The gateway forwards `/pdf-extract-native` with the same global GPU lock and
+conversion-timeout handling as `/pdf-extract`. It has no native-only async job
+endpoint. Existing `/pdf-extract` and `/convert` uploads retain their OCR fallback
+and existing quality thresholds.
+
+## Document errors
 
 Password-protected PDFs return HTTP 422 with a structured terminal response:
 

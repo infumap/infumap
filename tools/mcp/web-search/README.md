@@ -5,6 +5,9 @@ Bind is `127.0.0.1` by default. DuckDuckGo is enabled by default with no API key
 required. Configured Exa and DuckDuckGo providers serve searches through
 budget-aware routing and bounded fallback.
 
+The proposed browser-backed fetch and native-only PDF extraction work is
+described in the [implementation plan](IMPLEMENTATION_PLAN.md).
+
 ## Run
 
 Requires Rust 1.89 or newer (standard-library file locking).

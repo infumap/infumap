@@ -27,6 +27,7 @@ from extraction_errors import (
     DocumentRejectedError,
     ExtractionTimeoutError,
     PDF_EXTRACTION_FAILED_ERROR_CODE,
+    PDF_NATIVE_TEXT_UNAVAILABLE_ERROR_CODE,
     is_resource_failure,
 )
 
@@ -35,6 +36,8 @@ LOGGER = logging.getLogger("uvicorn.error")
 # pinned extraction package changes, so extracted text can be traced to the
 # code that produced it.
 SERVICE_VERSION = "0.4.0"
+# Version the stricter policy separately: existing upload extraction is unchanged.
+NATIVE_ONLY_POLICY_VERSION = 1
 # Share of the conversion deadline native extraction may use, leaving OCR time
 # to run.
 NATIVE_TIME_BUDGET_FRACTION = 0.5
@@ -87,6 +90,78 @@ class PdfExtractor:
 
     def load(self) -> None:
         self.docling.load()
+
+    def convert_native(
+        self, file_bytes: bytes, file_name: str, *, deadline: float
+    ) -> tuple[str, dict[str, Any]]:
+        """Extract native text only, rejecting incomplete results without OCR.
+
+        This path intentionally does not call convert(), whose upload policy
+        includes OCR fallback. The worker's native pass disables OCR and
+        generative enrichments and rejects OCR-derived parsed text cells.
+        """
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ExtractionTimeoutError("PDF conversion deadline expired.")
+        try:
+            result = self.docling.convert(file_bytes, file_name, timeout_secs=remaining, ocr=False)
+        except DoclingConversionError as exc:
+            if time.monotonic() >= deadline:
+                raise ExtractionTimeoutError("Native PDF conversion deadline expired.") from exc
+            if is_resource_failure(str(exc)):
+                raise BackendUnavailableError(f"Docling native extraction: {exc}") from exc
+            raise DocumentRejectedError(
+                PDF_NATIVE_TEXT_UNAVAILABLE_ERROR_CODE,
+                f"Native PDF text extraction failed; OCR is disabled: {exc}",
+            ) from exc
+
+        assessment = result.get("assessment")
+        markdown = result.get("markdown")
+        # Missing quality/provenance information is a worker failure, never
+        # permission to accept an unverified result or attempt OCR.
+        if (
+            not isinstance(assessment, dict)
+            or "fallback_reason" not in assessment
+            or not isinstance(assessment.get("unusable_pages"), list)
+            or not isinstance(assessment.get("warning_pages"), list)
+            or not isinstance(assessment.get("pages"), list)
+            or not isinstance(markdown, str)
+            or type(result.get("page_count")) is not int
+        ):
+            raise BackendUnavailableError("Docling native worker returned incomplete extraction diagnostics.")
+
+        reason = assessment["fallback_reason"]
+        if reason is None and (result.get("status") != "success" or result.get("errors")):
+            reason = "native conversion did not complete successfully"
+        if reason is None and assessment["unusable_pages"]:
+            reason = f"unusable native-text pages: {assessment['unusable_pages']}"
+        if reason is None and assessment["warning_pages"]:
+            reason = f"native text coverage warnings on pages: {assessment['warning_pages']}"
+        if reason is None and len(assessment["pages"]) != result["page_count"]:
+            reason = "native text coverage assessment is incomplete"
+        if reason is None and not markdown.strip():
+            reason = "document contains no readable native text"
+        if reason is not None:
+            raise DocumentRejectedError(
+                PDF_NATIVE_TEXT_UNAVAILABLE_ERROR_CODE,
+                f"Native PDF text is unavailable or incomplete; OCR is disabled: {reason}",
+            )
+
+        LOGGER.info("Selected PDF extraction: file=%s method=native_only pages=%s", file_name, result["page_count"])
+        info = extraction_info("docling", assessment=assessment)
+        info.update(
+            {
+                "policy": "native_only",
+                "policy_version": NATIVE_ONLY_POLICY_VERSION,
+                "ocr_performed": False,
+            }
+        )
+        return markdown, {
+            "backend": "docling",
+            "page_count": result["page_count"],
+            "docling": {**conversion_diagnostics(result), "assessment": assessment},
+            "extraction": info,
+        }
 
     def convert(
         self, file_bytes: bytes, file_name: str, *, deadline: float

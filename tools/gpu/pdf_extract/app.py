@@ -276,14 +276,17 @@ def reject_unprocessable_pdf(file_bytes: bytes) -> None:
         close_pdfium_object(pdf)
 
 
-def convert_file_bytes(file_bytes: bytes, file_name: str, deadline: float) -> ConvertResponse:
+def convert_file_bytes(
+    file_bytes: bytes, file_name: str, deadline: float, *, native_only: bool = False
+) -> ConvertResponse:
     started_at = time.perf_counter()
     file_size_bytes = len(file_bytes)
     LOGGER.info("Starting conversion: file=%s size_bytes=%d", file_name, file_size_bytes)
     reject_unprocessable_pdf(file_bytes)
     try:
         extractor: PdfExtractor = APP_STATE["extractor"]
-        markdown, metadata = extractor.convert(file_bytes, file_name, deadline=deadline)
+        convert = extractor.convert_native if native_only else extractor.convert
+        markdown, metadata = convert(file_bytes, file_name, deadline=deadline)
         duration_ms = int((time.perf_counter() - started_at) * 1000)
         page_count = metadata.get("page_count")
         page_stats = metadata.get("page_stats")
@@ -465,6 +468,7 @@ async def root(request: Request) -> dict[str, str]:
         "health": rooted_path(request, "/healthz"),
         "gpu_tools": rooted_path(request, "/gpu-tools"),
         "pdf_extract": rooted_path(request, "/pdf-extract"),
+        "pdf_extract_native": rooted_path(request, "/pdf-extract-native"),
         "convert": rooted_path(request, "/convert"),
     }
 
@@ -481,6 +485,12 @@ async def gpu_tools() -> dict[str, Any]:
                 "path": "/pdf-extract",
                 "description": "Extract Markdown text from an uploaded PDF.",
             },
+            {
+                "id": "pdf_extract_native",
+                "method": "POST",
+                "path": "/pdf-extract-native",
+                "description": "Extract complete native PDF text as Markdown without OCR; reject unreadable text.",
+            },
         ],
     }
 
@@ -493,6 +503,15 @@ async def healthz() -> dict[str, bool]:
 @app.post("/pdf-extract", response_model=ConvertResponse)
 @app.post("/convert", response_model=ConvertResponse)
 async def convert_upload(request: Request) -> ConvertResponse:
+    return await handle_convert_upload(request, native_only=False)
+
+
+@app.post("/pdf-extract-native", response_model=ConvertResponse)
+async def convert_native_upload(request: Request) -> ConvertResponse:
+    return await handle_convert_upload(request, native_only=True)
+
+
+async def handle_convert_upload(request: Request, *, native_only: bool) -> ConvertResponse:
     request_started_at = time.perf_counter()
     try:
         conversion_timeout = conversion_timeout_secs_for_request(request)
@@ -544,7 +563,11 @@ async def convert_upload(request: Request) -> ConvertResponse:
             try:
                 return await asyncio.wait_for(
                     asyncio.to_thread(
-                        convert_file_bytes, upload_bytes, file_name, time.monotonic() + conversion_timeout
+                        convert_file_bytes,
+                        upload_bytes,
+                        file_name,
+                        time.monotonic() + conversion_timeout,
+                        native_only=native_only,
                     ),
                     timeout=conversion_timeout + CONVERSION_BACKSTOP_GRACE_SECS,
                 )
