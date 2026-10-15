@@ -187,19 +187,20 @@ impl OwnedBrowser {
       .disable_cache()
       .launch_timeout(Duration::from_secs(10))
       .request_timeout(Duration::from_secs(10))
-      .arg(format!("--proxy-server=http://{}", self.proxy.address))
-      .arg("--proxy-bypass-list=<-loopback>")
-      .arg("--host-resolver-rules=MAP * ~NOTFOUND")
-      .arg("--disable-quic")
-      .arg("--disable-background-networking")
-      .arg("--disable-component-update")
-      .arg("--disable-sync")
-      .arg("--disable-default-apps")
-      .arg("--no-first-run")
-      .arg("--no-default-browser-check")
-      .arg("--block-new-web-contents")
-      .arg("--webrtc-ip-handling-policy=disable_non_proxied_udp")
-      .arg("--force-webrtc-ip-handling-policy=disable_non_proxied_udp");
+      // Chromiumoxide adds "--" to keys and "=" before tuple values.
+      .arg(("proxy-server", format!("http://{}", self.proxy.address).as_str()))
+      .arg(("proxy-bypass-list", "<-loopback>"))
+      .arg(("host-resolver-rules", "MAP * ~NOTFOUND"))
+      .arg("disable-quic")
+      .arg("disable-background-networking")
+      .arg("disable-component-update")
+      .arg("disable-sync")
+      .arg("disable-default-apps")
+      .arg("no-first-run")
+      .arg("no-default-browser-check")
+      .arg("block-new-web-contents")
+      .arg(("webrtc-ip-handling-policy", "disable_non_proxied_udp"))
+      .arg(("force-webrtc-ip-handling-policy", "disable_non_proxied_udp"));
     let launch = self.isolation.launch_config(builder)?;
     let (browser, mut handler) = Browser::launch(launch)
       .await

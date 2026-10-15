@@ -108,7 +108,8 @@ impl Isolation {
     let config = serde_json::to_string(&self.config).map_err(|_| "Could not encode browser confinement settings.")?;
     builder
       .chrome_executable(executable)
-      .arg(HELPER_FLAG)
+      // Chromiumoxide prefixes argument keys with "--" itself.
+      .arg(HELPER_FLAG.trim_start_matches("--"))
       .env(HELPER_ENV, config)
       .build()
       .map_err(|error| format!("Could not configure isolated browser: {error}").into())
@@ -122,6 +123,10 @@ pub(super) fn run_browser_helper() -> Option<i32> {
   #[cfg(not(unix))]
   let guardian = false;
   if !guardian && !std::env::args_os().any(|arg| arg == HELPER_FLAG) {
+    if std::env::var_os(HELPER_ENV).is_some() {
+      eprintln!("Browser helper mode flag is missing; refusing to start another web-search server.");
+      return Some(125);
+    }
     return None;
   }
   let result = (|| {
