@@ -436,6 +436,14 @@ Enable either source independently in Infumap. Omit either entry to use only
 search or fetch, or point either entry at another MCP server to use a different
 provider for that operation.
 
+Both sources use the profile's **Tool approvals** policy. Automatic runs web requests without
+prompting when Infumap tools are off and the chat has no attachments; otherwise it asks
+before each request. Always ask requires approval for every call. The current Infumap setting
+controls retrieval-related approvals; retained attachments still require approval.
+These endpoints remain external sources despite running on localhost: the sidecar forwards queries
+and URLs to outside services. Leave `external_requests` at its default `true` for both entries.
+Set `require_approval = true` on either entry to always require approval regardless of the profile.
+
 ## Inspector
 
 With the server running:

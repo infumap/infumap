@@ -1,7 +1,7 @@
 /* Copyright (C) The Infumap Authors. SPDX-License-Identifier: AGPL-3.0-or-later */
 
 import type { StoreContextModel } from "../store/StoreProvider";
-import type { ChatModelSelection, QueryConfiguration } from "./query-configuration";
+import type { ChatModelSelection, QueryConfiguration, ToolApproval } from "./query-configuration";
 import { queryScopeName } from "./query-scope";
 
 /** Display order of reasoning efforts; unknown values sort last. */
@@ -49,8 +49,12 @@ export function queryToolsLabel(capabilities: Array<string>): string {
   return ordered.length == 0 ? "No tools" : ordered.map(queryToolLabel).join(" + ");
 }
 
-/** "Everything · local: default · Infumap + web_search". Search uses only the scope. */
+export function queryToolApprovalLabel(approval: ToolApproval): string {
+  return approval == "always_ask" ? "Always ask" : "Automatic";
+}
+
+/** Includes the approval policy so profiles with otherwise identical resources are distinct. */
 export function queryConfigurationSummary(store: StoreContextModel, configuration: QueryConfiguration): string {
   return [queryScopeName(configuration.scopeId), queryModelLabel(store, configuration.model, true),
-    queryToolsLabel(configuration.capabilities)].join(" · ");
+    queryToolsLabel(configuration.capabilities), `Approvals: ${queryToolApprovalLabel(configuration.toolApproval)}`].join(" · ");
 }

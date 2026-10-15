@@ -41,13 +41,14 @@ impl ChatActivity {
       }
       ChatStreamEventKind::ReasoningDelta { round, text } => self.round(*round).reasoning.push_str(text),
       ChatStreamEventKind::AnswerDelta { round, text } => self.round(*round).answer.push_str(text),
-      ChatStreamEventKind::ToolApprovalRequired { round, call_id, name, query, url, arguments } => {
+      ChatStreamEventKind::ToolApprovalRequired { round, call_id, name, source, query, url, arguments } => {
         let round = self.round(*round);
         round.complete = true;
         round.tool_calls.retain(|tool_call| tool_call.call_id != *call_id);
         round.tool_calls.push(ActivityToolCall {
           call_id: call_id.clone(),
           name: name.clone(),
+          source: source.clone(),
           status: ActivityToolCallStatus::AwaitingApproval,
           summary: None,
           arguments: non_null(arguments),
@@ -66,6 +67,7 @@ impl ChatActivity {
           call_id: call_id.clone(),
           name: name.clone(),
           status: ActivityToolCallStatus::Running,
+          source: existing.as_ref().and_then(|e| e.source.clone()),
           summary: None,
           arguments: non_null(arguments).or_else(|| existing.as_ref().and_then(|e| e.arguments.clone())),
           query: existing.as_ref().and_then(|e| e.query.clone()),
@@ -83,6 +85,7 @@ impl ChatActivity {
           call_id: call_id.clone(),
           name: name.clone(),
           status: ActivityToolCallStatus::Complete,
+          source: existing.and_then(|e| e.source.clone()),
           summary: Some(summary.clone()),
           arguments: existing.and_then(|e| e.arguments.clone()),
           query: existing.and_then(|e| e.query.clone()),

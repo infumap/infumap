@@ -147,7 +147,7 @@ The file must hold everything needed to continue the chat and to render it as th
 - the model's full message list (`ChatMessage` in [server.ts](../web/src/server.ts)): user and assistant
   content, reasoning, tool calls and tool results
 - per-turn activity for the turn dropdown: model rounds, tool calls, timing
-- chat settings: model selection, capabilities, scope
+- chat settings: model selection, capabilities, scope, tool approval policy
 
 Use JSONL, one record per message or event. It is text, easy to append to and easy to grep. A readable Markdown
 transcript is not enough. It can't hold the above, and it can't be parsed back reliably, because separators like
@@ -159,9 +159,12 @@ Records, each with a `type` field:
   `.chat` item keeps the header unchanged; the id is informational and is not the item's id. Continuing a `.chat`
   item writes a fresh header with the new query item id, followed by the copied records.
 - `user`: request id, start time, the user's text, and the settings the turn ran with:
-  `configuration` (model selection, capabilities, scope id), the applied profile snapshot, and a separate `mode`.
+  `configuration` (model selection, capabilities, scope id, tool approval policy), the applied profile
+  snapshot, and a separate `mode`.
   Settings are per turn, not in the header, because they can change between turns.
-  Transcript format version 2 uses the shared [query configuration](query-profiles.md) schema.
+  Transcript format version 3 uses the shared [query configuration](query-profiles.md) schema.
+  Version 2 remains readable, with missing approval policies mapped to Always ask in turn settings
+  and applied profile snapshots; explicit policies in newly appended turns are preserved.
 - `turn`: request id, the messages the turn added to the transcript (assistant and tool messages, as
   `ChatMessage`), the model rounds in the shape of `QueryChatActivityModelRound`
   ([StoreProvider_PerItem.tsx](../web/src/store/StoreProvider_PerItem.tsx)), start and end times, and the
@@ -223,7 +226,7 @@ bands is generic list page behavior.
   beginning as unpinned items.
   Selecting one shows its chat, which can be continued. Unpinned items are chat only; their search mode is hidden.
 - **Restoring a chat** loads its transcript and restores the last turn's resource configuration
-  (model selection, capabilities and scope) and applied profile snapshot into the query runtime.
+  (model selection, capabilities, scope and tool approval policy) and applied profile snapshot into the query runtime.
   Continuing it does not inherit another query's resources or a changed account default. The run
   mode remains recorded on each turn; Deep research is a one-response composer choice rather than
   a restored resource default. The context token display starts from the last reported count and

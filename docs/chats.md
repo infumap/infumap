@@ -24,8 +24,8 @@ at a time.
 
 ## Query profiles
 
-A profile saves **Scope**, **Model** (with its reasoning effort) and **Tools** under a name. Pinned
-profiles are shortcuts above the input: click one to apply its complete setup. The **Profiles** menu at
+A profile saves **Scope**, **Model** (with its reasoning effort), **Tools** and **Tool approvals** under
+a name. Pinned profiles are shortcuts above the input: click one to apply its complete setup. The **Profiles** menu at
 the end of the row lists every profile, including shortcuts that do not fit. Selecting a profile leaves
 your draft, attachments and Chat / Deep research mode unchanged. Search uses only the scope, so the
 shortcuts are hidden there.
@@ -50,6 +50,15 @@ scope or model, change an unsupported effort to **Default**, or disable a missin
 with missing resources can still be applied and repaired. If availability could not be checked, the
 setup can be tried as selected; the server rejects unavailable resources rather than substituting
 others. A missing scope is harmless in Chat while Infumap tools are off.
+
+In **Tools → Tool approvals**, choose **Automatic** to run tools automatically while asking before
+external requests when Infumap tools are enabled or the chat contains attachments. Choose
+**Always ask** to approve every tool call. Some tool sources always require approval. Prompts show
+the tool source and full arguments; **Deny request** lets the model continue without that call.
+These rules apply to both Chat and Deep research, using the current Infumap setting without tracking
+earlier retrieval after tools are disabled. Retained attachments still require external approval.
+For sensitive text pasted directly into a message, select Always ask. Existing profiles and older
+chats retain Always ask after upgrading.
 
 Profiles, pins, ordering, the default and model favorites are saved with your account and included in
 account backups. Changes to a query's setup and unsent drafts are local. See

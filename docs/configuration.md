@@ -78,6 +78,25 @@ The bundled web MCP server exposes `web_search` at `/mcp/search` and
 and fetch can each be selected or replaced independently. Each entry's stable `id` also serves as its
 display label; omit either entry if it is not needed. See [MCP tools](../tools/mcp/README.md).
 
+Tool execution follows the query profile's **Tool approvals** policy. `automatic` asks before
+external requests when Infumap tools are enabled or the chat contains attachments;
+`always_ask` asks before every tool call. This uses the current Infumap setting, without tracking
+earlier Infumap retrieval after tools are disabled. Retained chat attachments still require approval.
+Existing profiles migrate to Always ask; newly initialized profiles use Automatic.
+
+Each `chat_tool_servers` entry also accepts:
+
+- `require_approval` (default `false`): set `true` to require approval regardless of the profile.
+  Previously omitted values required approval; they now follow the profile. Explicit `true` values
+  remain mandatory. Explicit `false` does not bypass the profile's privacy rule or Always ask.
+- `external_requests` (default `true`): the source may forward tool arguments to external services.
+  Set `false` only for a trusted source that keeps arguments inside the trusted environment.
+  The classification comes from server configuration, never from tool descriptions or read-only hints.
+
+The web-search sidecar remains external even when its MCP endpoints listen on localhost, because it
+sends queries and URLs to web services. Discovery includes both settings so the Tools picker can show
+external disclosure and mandatory approval requirements.
+
 API keys are instance wide: every user shares the configured credentials and any associated spending.
 They are sent as Bearer tokens by the server and are never included in the browser's provider catalog.
 

@@ -29,7 +29,7 @@ use tokio::io::{AsyncReadExt, BufReader};
 use super::user::User;
 use crate::util::fs::expand_tilde;
 
-pub const CURRENT_USER_LOG_VERSION: i64 = 7;
+pub const CURRENT_USER_LOG_VERSION: i64 = 8;
 
 /// Db for managing User instances, assuming the mandated data folder hierarchy.
 /// Not thread safe.
@@ -284,6 +284,27 @@ pub fn migrate_record_v6_to_v7(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
   }
 }
 
+/// Version 8 adds the approval policy to every saved profile without relaxing existing approvals.
+pub fn migrate_record_v7_to_v8(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "entry" | "update" => {
+      let mut result = kvs.clone();
+      if let Some(collection) = result.get_mut("queryProfiles").filter(|collection| !collection.is_null()) {
+        let profiles = collection.get_mut("profiles").and_then(Value::as_array_mut).ok_or("Invalid query profiles.")?;
+        for profile in profiles {
+          crate::query_configuration::upgrade_legacy_configuration(
+            profile.get_mut("configuration").ok_or("Profile configuration is missing.")?,
+          )?;
+        }
+      }
+      Ok(result)
+    }
+    "delete" => Ok(kvs.clone()),
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -321,6 +342,7 @@ mod tests {
           scope_id: None,
           model: None,
           capabilities: vec!["infumap_data".to_owned()],
+          tool_approval: crate::query_configuration::ToolApproval::Automatic,
         },
       }],
       preferences: QueryProfilePreferences {

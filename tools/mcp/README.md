@@ -31,6 +31,15 @@ Deep research only receives MCP tools whose tool definition declares
 that annotation so they are available to research; mutation tools remain
 available to ordinary chat under the configured approval policy.
 
+Profiles select **Automatic** or **Always ask** tool approvals for both Chat and Deep research.
+Automatic asks before external calls when Infumap tools are enabled or the chat contains
+attachments; otherwise calls run automatically. Approval uses the current Infumap setting without
+tracking earlier retrieval after tools are disabled; retained attachments still require approval.
+All MCP sources default to `external_requests = true`, including the localhost web sidecar.
+Only trusted internal sources should set it to `false`. Tool annotations
+cannot change this classification. Set `require_approval = true` on a source to always require
+approval, regardless of the profile; omitted or false values follow the profile's rules.
+
 Infumap does not start this process. If the sidecar is down, the `web_search` and
 `web_fetch` sources are unavailable. There is no in-process fallback.
 

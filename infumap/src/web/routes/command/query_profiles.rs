@@ -198,11 +198,7 @@ fn initial_collection(configuration: QueryConfiguration) -> QueryProfileCollecti
   let id = new_uid();
   QueryProfileCollection {
     revision: 0,
-    profiles: vec![QueryProfile {
-      id: id.clone(),
-      name: "Default".to_owned(),
-      configuration,
-    }],
+    profiles: vec![QueryProfile { id: id.clone(), name: "Default".to_owned(), configuration }],
     preferences: QueryProfilePreferences {
       default_profile_id: id.clone(),
       pinned_profile_ids: vec![id],
@@ -272,6 +268,7 @@ mod tests {
       scope_id: None,
       model: Some(ChatModelSelection { backend: "llama:a".to_owned(), model: None, reasoning_effort: None }),
       capabilities: vec!["infumap_data".to_owned()],
+      tool_approval: crate::query_configuration::ToolApproval::Automatic,
     }
   }
 

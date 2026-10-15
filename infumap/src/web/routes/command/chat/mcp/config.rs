@@ -39,6 +39,8 @@ pub struct ChatToolServer {
   pub bearer_token: Option<String>,
   pub enabled_by_default: bool,
   pub require_approval: bool,
+  /// Trusted operator classification, independent of model-supplied tool annotations.
+  pub external_requests: bool,
   /// How long to wait for one call to this server to complete.
   pub timeout: Duration,
 }
@@ -54,11 +56,9 @@ struct ChatToolServerFile {
   #[serde(default)]
   require_approval: Option<bool>,
   #[serde(default)]
+  external_requests: Option<bool>,
+  #[serde(default)]
   timeout_secs: Option<u64>,
-}
-
-fn default_require_approval() -> bool {
-  true
 }
 
 fn is_valid_server_id(id: &str) -> bool {
@@ -70,8 +70,11 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
   let id = entry.id.trim().to_owned();
   if !is_valid_server_id(&id) {
     return Err(
-      format!("{CONFIG_CHAT_TOOL_SERVERS} id '{}' is invalid; expected [A-Za-z0-9_]{{1,{}}}.", entry.id, SERVER_ID_MAX_LEN)
-        .into(),
+      format!(
+        "{CONFIG_CHAT_TOOL_SERVERS} id '{}' is invalid; expected [A-Za-z0-9_]{{1,{}}}.",
+        entry.id, SERVER_ID_MAX_LEN
+      )
+      .into(),
     );
   }
   if RESERVED_CAPABILITY_IDS.contains(&id.as_str()) {
@@ -90,8 +93,10 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
   let timeout_secs = entry.timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS);
   if timeout_secs == 0 || timeout_secs > MAX_TIMEOUT_SECS {
     return Err(
-      format!("{CONFIG_CHAT_TOOL_SERVERS} '{id}' timeout_secs must be between 1 and {MAX_TIMEOUT_SECS}, got {timeout_secs}.")
-        .into(),
+      format!(
+        "{CONFIG_CHAT_TOOL_SERVERS} '{id}' timeout_secs must be between 1 and {MAX_TIMEOUT_SECS}, got {timeout_secs}."
+      )
+      .into(),
     );
   }
   Ok(ChatToolServer {
@@ -99,7 +104,8 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
     url,
     bearer_token,
     enabled_by_default: entry.enabled_by_default.unwrap_or(false),
-    require_approval: entry.require_approval.unwrap_or_else(default_require_approval),
+    require_approval: entry.require_approval.unwrap_or(false),
+    external_requests: entry.external_requests.unwrap_or(true),
     timeout: Duration::from_secs(timeout_secs),
   })
 }
@@ -110,8 +116,9 @@ pub fn chat_tool_servers_from_config(config: &Config) -> InfuResult<Vec<ChatTool
     Ok(entries) => entries,
     Err(_) => match config.get_string(CONFIG_CHAT_TOOL_SERVERS) {
       Ok(raw) if raw.trim().is_empty() => Vec::new(),
-      Ok(raw) => serde_json::from_str(&raw)
-        .map_err(|e| format!("Could not parse {CONFIG_CHAT_TOOL_SERVERS} JSON: {e}"))?,
+      Ok(raw) => {
+        serde_json::from_str(&raw).map_err(|e| format!("Could not parse {CONFIG_CHAT_TOOL_SERVERS} JSON: {e}"))?
+      }
       Err(_) => Vec::new(),
     },
   };
@@ -135,6 +142,7 @@ mod tests {
 [[chat_tool_servers]]
 id = "web_search"
 url = "http://127.0.0.1:8791/mcp"
+require_approval = true
 "#,
     );
     assert_eq!(servers.len(), 1);
