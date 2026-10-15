@@ -36,7 +36,6 @@ const RESERVED_CAPABILITY_IDS: &[&str] = &["infumap_data"];
 pub struct ChatToolServer {
   pub id: String,
   pub url: reqwest::Url,
-  pub label: String,
   pub bearer_token: Option<String>,
   pub enabled_by_default: bool,
   pub require_approval: bool,
@@ -48,8 +47,6 @@ pub struct ChatToolServer {
 struct ChatToolServerFile {
   id: String,
   url: String,
-  #[serde(default)]
-  label: Option<String>,
   #[serde(default)]
   bearer_token: Option<String>,
   #[serde(default)]
@@ -89,8 +86,6 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
   if url.host_str().is_none() {
     return Err(format!("{CONFIG_CHAT_TOOL_SERVERS} '{id}' url has no host.").into());
   }
-  let label =
-    entry.label.map(|label| label.trim().to_owned()).filter(|label| !label.is_empty()).unwrap_or_else(|| id.clone());
   let bearer_token = entry.bearer_token.map(|token| token.trim().to_owned()).filter(|token| !token.is_empty());
   let timeout_secs = entry.timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS);
   if timeout_secs == 0 || timeout_secs > MAX_TIMEOUT_SECS {
@@ -102,7 +97,6 @@ fn parse_server(entry: ChatToolServerFile) -> InfuResult<ChatToolServer> {
   Ok(ChatToolServer {
     id,
     url,
-    label,
     bearer_token,
     enabled_by_default: entry.enabled_by_default.unwrap_or(false),
     require_approval: entry.require_approval.unwrap_or_else(default_require_approval),
@@ -141,12 +135,10 @@ mod tests {
 [[chat_tool_servers]]
 id = "web_search"
 url = "http://127.0.0.1:8791/mcp"
-label = "Web search"
 "#,
     );
     assert_eq!(servers.len(), 1);
     assert_eq!(servers[0].id, "web_search");
-    assert_eq!(servers[0].label, "Web search");
     assert!(!servers[0].enabled_by_default);
     assert!(servers[0].require_approval);
     assert!(servers[0].bearer_token.is_none());
@@ -201,14 +193,13 @@ timeout_secs = {secs}
     let config = Config::builder()
       .set_override(
         CONFIG_CHAT_TOOL_SERVERS,
-        r#"[{"id":"web_search","url":"http://127.0.0.1:8792/mcp","label":"From JSON","require_approval":false}]"#,
+        r#"[{"id":"web_search","url":"http://127.0.0.1:8792/mcp","require_approval":false}]"#,
       )
       .unwrap()
       .build()
       .unwrap();
     let servers = chat_tool_servers_from_config(&config).unwrap();
     assert_eq!(servers.len(), 1);
-    assert_eq!(servers[0].label, "From JSON");
     assert!(!servers[0].require_approval);
     assert_eq!(servers[0].url.as_str(), "http://127.0.0.1:8792/mcp");
   }
@@ -239,7 +230,6 @@ url = "http://127.0.0.1:8791/mcp"
 "#,
     );
     assert_eq!(servers[0].id, "web_search");
-    assert_eq!(servers[0].label, "web_search");
   }
 
   #[test]

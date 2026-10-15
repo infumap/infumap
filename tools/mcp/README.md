@@ -16,8 +16,8 @@ It listens on `127.0.0.1:8791` by default. Point Infumap at its two endpoints wi
 
 ```toml
 chat_tool_servers = [
-  { id = "web_search", url = "http://127.0.0.1:8791/mcp/search", label = "Web search" },
-  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch", label = "Web fetch" },
+  { id = "web_search", url = "http://127.0.0.1:8791/mcp/search" },
+  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch" },
 ]
 ```
 
@@ -31,8 +31,8 @@ Deep research only receives MCP tools whose tool definition declares
 that annotation so they are available to research; mutation tools remain
 available to ordinary chat under the configured approval policy.
 
-Infumap does not start this process. If the sidecar is down, the Web search and
-Web fetch sources are unavailable. There is no in-process fallback.
+Infumap does not start this process. If the sidecar is down, the `web_search` and
+`web_fetch` sources are unavailable. There is no in-process fallback.
 
 A musl release binary can be built with `./tools/mcp/web-search/build-musl.sh`,
 which `./build-musl.sh` also runs.

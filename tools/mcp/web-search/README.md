@@ -428,8 +428,8 @@ Configure the endpoints as separate tool sources:
 
 ```toml
 chat_tool_servers = [
-  { id = "web_search", url = "http://127.0.0.1:8791/mcp/search", label = "Web search" },
-  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch", label = "Web fetch" },
+  { id = "web_search", url = "http://127.0.0.1:8791/mcp/search" },
+  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch" },
 ]
 ```
 
