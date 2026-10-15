@@ -25,6 +25,7 @@ use reqwest::Url;
 use reqwest::multipart::{Form, Part};
 use serde::Deserialize;
 use std::collections::HashSet;
+use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
@@ -67,7 +68,7 @@ pub const MAX_PDF_CONVERSION_TIMEOUT_SECS: u64 = 24 * 60 * 60;
 /// the GPU service reports a timeout itself well within this.
 const PDF_CONVERSION_TIMEOUT_MARGIN_SECS: u64 = 15 * 60;
 const ASYNC_POLL_SECS: u64 = 2;
-const ASYNC_PROGRESS_LOG_SECS: u64 = 60;
+const EXTRACTION_PROGRESS_LOG_SECS: u64 = 60;
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
 pub(super) const PDF_PASSWORD_REQUIRED_ERROR_CODE: &str = "pdf_password_required";
@@ -577,6 +578,13 @@ async fn run_text_extraction_loop(
         let reason = manifest_retry_reason(&path)
           .await?
           .unwrap_or_else(|| "A previous attempt failed; another attempt is scheduled.".to_owned());
+        info!(
+          "PDF extraction for '{}' (user {}) is waiting to retry in {} after a previous failure: {}",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          format_duration_for_log(delay),
+          reason
+        );
         activity::retry(&candidate.user_id, &candidate.item_id, Stage::PdfExtraction, &reason, delay);
         let mut state = state.lock().await;
         state.retries.defer(candidate.item_id.clone(), delay);
@@ -586,16 +594,33 @@ async fn run_text_extraction_loop(
       if gpu_tools_url.trim().is_empty() {
         return Err(format!("PDF processing service is not configured ({}).", CONFIG_GPU_TOOLS_URL).into());
       }
-      let endpoint = discover_pdf_text_extraction_endpoint(&gpu_tools_url)
-        .await?
-        .ok_or("Configured GPU service does not advertise PDF extraction.")?;
-      let loaded = load_pdf_for_extraction(&data_dir, db.clone(), object_store.clone(), &candidate.item_id).await?;
-      match process_loaded_pdf_extraction_web_background(
-        &data_dir,
-        &endpoint.extract_url,
-        endpoint.async_jobs_available,
-        db.clone(),
-        loaded,
+      let endpoint = with_pdf_stage_progress(
+        &candidate,
+        "GPU tools endpoint discovery",
+        discover_pdf_text_extraction_endpoint(&gpu_tools_url),
+      )
+      .await?
+      .ok_or("Configured GPU service does not advertise PDF extraction.")?;
+      let loaded = with_pdf_stage_progress(
+        &candidate,
+        "source object read/decrypt",
+        load_pdf_for_extraction(&data_dir, db.clone(), object_store.clone(), &candidate.item_id),
+      )
+      .await?;
+      match with_pdf_stage_progress(
+        &candidate,
+        if endpoint.async_jobs_available {
+          "async extraction service request"
+        } else {
+          "synchronous extraction service request"
+        },
+        process_loaded_pdf_extraction_web_background(
+          &data_dir,
+          &endpoint.extract_url,
+          endpoint.async_jobs_available,
+          db.clone(),
+          loaded,
+        ),
       )
       .await?
       {
@@ -642,8 +667,9 @@ async fn run_text_extraction_loop(
           }
         }
         record_pdf_text_extraction_processed("failed");
+        let level = activity::failure_log_level(&reason, attempt);
         log::log!(
-          activity::failure_log_level(&reason, attempt),
+          if attempt == 1 && level == log::Level::Debug { log::Level::Info } else { level },
           "PDF extraction failed for '{}' (user {}): {} Retrying in {}.",
           candidate.item_id,
           user_id_for_log(&candidate.user_id),
@@ -654,6 +680,33 @@ async fn run_text_extraction_loop(
     }
     if !request_delay.is_zero() {
       time::sleep(request_delay).await;
+    }
+  }
+}
+
+/// Make waits before a job is accepted (and synchronous conversions) visible
+/// without changing their timeouts or interrupting the work.
+async fn with_pdf_stage_progress<T>(candidate: &PdfCandidate, stage: &str, work: impl Future<Output = T>) -> T {
+  info!(
+    "PDF extraction for '{}' (user {}): starting {}.",
+    candidate.item_id,
+    user_id_for_log(&candidate.user_id),
+    stage
+  );
+  let started = Instant::now();
+  tokio::pin!(work);
+  loop {
+    tokio::select! {
+      result = &mut work => return result,
+      _ = time::sleep(Duration::from_secs(EXTRACTION_PROGRESS_LOG_SECS)) => {
+        info!(
+          "PDF extraction for '{}' (user {}): still waiting for {} after {}.",
+          candidate.item_id,
+          user_id_for_log(&candidate.user_id),
+          stage,
+          format_duration_for_log(started.elapsed())
+        );
+      }
     }
   }
 }
@@ -846,7 +899,7 @@ async fn request_text_extraction_async_polling(
         if async_job_exceeded_time_limit(&job, candidate, poll_started_at, running_started_at) {
           return ExtractOutcome::EndpointUnavailable("Async PDF job exceeded the processing time limit.".to_owned());
         }
-        if last_progress_log_at.elapsed() >= Duration::from_secs(ASYNC_PROGRESS_LOG_SECS) {
+        if last_progress_log_at.elapsed() >= Duration::from_secs(EXTRACTION_PROGRESS_LOG_SECS) {
           info!(
             "Async text extraction job '{}' for PDF '{}' (user {}) is still {} after {}.",
             job.job_id,

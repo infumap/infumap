@@ -105,7 +105,7 @@ pub async fn reconcile_search_at_startup(
 
   let started = Instant::now();
   let total_items = items_by_user.values().map(Vec::len).sum::<usize>();
-  info!("Search startup check: {} user(s), {} item(s).", items_by_user.len(), total_items);
+  info!("Starting search startup check: {} user(s), {} item(s).", items_by_user.len(), total_items);
   for (user_id, item_ids) in &mut items_by_user {
     let user_started = Instant::now();
     item_ids.sort();
