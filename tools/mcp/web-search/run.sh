@@ -81,6 +81,24 @@ trap 'exit 0' INT TERM
 
 BIN="$(resolve_bin)"
 
+case "${1:-}" in
+    --update-browser)
+        "$BIN" --update-browser
+        exit $?
+        ;;
+    "") ;;
+    *) ;;
+esac
+
+# Setup runs once per wrapper invocation, outside the server restart loop.
+# An unavailable download/browser must leave search usable.
+if selected_browser="$("$BIN" --setup-browser)"; then
+    export WEB_FETCH_BROWSER_PATH="$selected_browser"
+    echo "Browser selected: $selected_browser" >&2
+else
+    echo "Browser setup unavailable; search will start and affected fetches will report an error." >&2
+fi
+
 echo "Starting Infumap web-search MCP server"
 echo "Binary: $BIN"
 echo "Search: http://${HOST}:${PORT}/mcp/search"

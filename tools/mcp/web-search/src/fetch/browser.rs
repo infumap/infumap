@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Duration;
 
 use base64::Engine;
@@ -30,7 +31,7 @@ use tokio::time::{Instant, timeout, timeout_at};
 use crate::error::InfuResult;
 
 use super::config::FetchConfig;
-use super::http::{DocumentKind, DownloadedDocument, classify};
+use super::http::{DocumentKind, DownloadedDocument, Validators, classify};
 use super::isolation::Isolation;
 use super::policy::{assert_public_destination, public_addresses};
 use super::proxy::{AbortTask, NetworkSession, PublicProxy, cancelled};
@@ -44,13 +45,20 @@ struct RendererState {
   slots: Arc<Semaphore>,
   owned: Mutex<Option<OwnedBrowser>>,
   shutdown: watch::Sender<bool>,
+  readiness: AtomicU8,
 }
 
 impl BrowserRenderer {
   pub fn new(config: FetchConfig) -> Self {
     let (shutdown, _) = watch::channel(false);
     Self {
-      state: Arc::new(RendererState { config, slots: Arc::new(Semaphore::new(1)), owned: Mutex::new(None), shutdown }),
+      state: Arc::new(RendererState {
+        config,
+        slots: Arc::new(Semaphore::new(1)),
+        owned: Mutex::new(None),
+        shutdown,
+        readiness: AtomicU8::new(0),
+      }),
     }
   }
 
@@ -81,6 +89,7 @@ impl BrowserRenderer {
         let browser = owned.as_mut().expect("Browser ownership initialized");
         if browser.browser.is_none() {
           browser.launch().await?;
+          state.readiness.store(1, Ordering::Relaxed);
         }
         browser.request(&state.config, requested, deadline).await
       };
@@ -101,6 +110,7 @@ impl BrowserRenderer {
         result = Err("Browser fetch was cancelled or exceeded its overall deadline.".into());
       }
       if result.is_err() {
+        state.readiness.store(2, Ordering::Relaxed);
         // This also disposes contexts whose creation was interrupted before a
         // context ID arrived. Do not reuse an uncertain/unresponsive browser.
         if let Some(mut browser) = owned.take() {
@@ -113,6 +123,18 @@ impl BrowserRenderer {
       .await
       .map_err(|_| "Browser fetch exceeded its overall deadline.")?
       .map_err(|_| "Browser fetch worker stopped unexpectedly.")?
+  }
+
+  pub fn status(&self) -> serde_json::Value {
+    serde_json::json!({
+      "executable_available": super::bootstrap::resolve(self.state.config.browser_path.as_deref()).is_ok(),
+      "selection": if self.state.config.browser_path.is_some() { "configured" } else { "managed_or_system" },
+      "runtime_state": if *self.state.shutdown.borrow() { "shutting_down" } else { match self.state.readiness.load(Ordering::Relaxed) {
+        1 => "launched", 2 => "recycled_after_error", _ => "not_launched",
+      } },
+      "busy_or_cleaning_up": self.state.slots.available_permits() == 0,
+      "network_confinement_required": true,
+    })
   }
 
   pub async fn shutdown(&self) {
@@ -142,12 +164,8 @@ impl OwnedBrowser {
       .tempdir()
       .map_err(|error| format!("Could not create browser profile: {error}"))?;
     let proxy = PublicProxy::start().await?;
-    let executable = config
-      .browser_path
-      .clone()
-      .map(Ok)
-      .unwrap_or_else(|| chromiumoxide::detection::default_executable(Default::default()))
-      .map_err(|_| "No suitable browser found. Set WEB_FETCH_BROWSER_PATH to Chrome/Chromium.")?;
+    let executable = super::bootstrap::resolve(config.browser_path.as_deref())?;
+    log::info!("Selected owned fetch browser: {}", executable.display());
     let isolation = Isolation::prepare(profile.path(), proxy.address, executable).await?;
     let (_, dead) = watch::channel(false);
     Ok(Self { browser: None, handler: None, dead, isolation, proxy, network: None, profile })
@@ -185,7 +203,7 @@ impl OwnedBrowser {
     let launch = self.isolation.launch_config(builder)?;
     let (browser, mut handler) = Browser::launch(launch)
       .await
-      .map_err(|error| format!("Could not launch browser (sandbox and certificate checks required): {error}"))?;
+      .map_err(|error| format!("Could not launch browser (sandbox and certificate checks required): {error}. Check browser host libraries and unprivileged namespace/sandbox support; configure WEB_FETCH_BROWSER_PATH if needed. No sandbox or TLS bypass is available."))?;
     let (died, dead) = watch::channel(false);
     self.dead = dead;
     self.handler = Some(AbortTask(tokio::spawn(async move {
@@ -197,6 +215,22 @@ impl OwnedBrowser {
       let _ = died.send(true);
     })));
     self.browser = Some(browser);
+    let version = self
+      .browser
+      .as_ref()
+      .expect("Owned browser assigned")
+      .version()
+      .await
+      .map_err(|error| format!("Could not inspect browser version: {error}"))?;
+    let major = version
+      .product
+      .rsplit('/')
+      .next()
+      .and_then(|product| product.split('.').next())
+      .and_then(|major| major.parse::<u32>().ok());
+    if major.is_none_or(|major| major < 112) {
+      return Err("Chrome/Chromium 112 or newer is required for modern headless mode. Update the browser or configure WEB_FETCH_BROWSER_PATH.".into());
+    }
     Ok(())
   }
 
@@ -293,7 +327,7 @@ async fn render_page(
   let (sender, mut documents) = mpsc::channel(8);
   let intercept_page = page.clone();
   let config = config.clone();
-  let document_limit = config.max_document_bytes;
+  let render_config = config.clone();
   let _interceptor = AbortTask(tokio::spawn(async move {
     let mut navigations = 0;
     while let Some(event) = events.next().await {
@@ -334,7 +368,7 @@ async fn render_page(
   if first.kind() != DocumentKind::Html {
     return Ok(first);
   }
-  snapshot(&page, first, document_limit, &mut documents).await
+  snapshot(&page, first, &render_config, &mut documents).await
 }
 
 async fn intercept(
@@ -394,7 +428,23 @@ async fn intercept(
     .map(|header| header.value.to_ascii_lowercase())
     .unwrap_or_default();
   let body = read_body(page, event, &content_type, config).await?;
-  let document = DownloadedDocument { final_url: url, content_type, body };
+  let document = DownloadedDocument {
+    final_url: url,
+    content_type,
+    body,
+    validators: Validators {
+      etag: headers
+        .iter()
+        .find(|header| header.name.eq_ignore_ascii_case("etag"))
+        .filter(|header| header.value.len() <= 1024)
+        .map(|header| header.value.clone()),
+      last_modified: headers
+        .iter()
+        .find(|header| header.name.eq_ignore_ascii_case("last-modified"))
+        .filter(|header| header.value.len() <= 1024)
+        .map(|header| header.value.clone()),
+    },
+  };
   if document.kind() == DocumentKind::Html {
     // Continue rendering the exact response already downloaded by Chrome.
     // The stream contains decoded bytes, so drop transfer/compression lengths.
@@ -464,50 +514,114 @@ async fn read_body(
 }
 
 #[derive(Deserialize)]
-struct Snapshot {
+struct Probe {
   ready: bool,
-  url: String,
+  signature: String,
+  meaningful: bool,
+}
+
+#[derive(Deserialize)]
+struct Snapshot {
+  url: Option<String>,
   html: Option<String>,
+  raw: Option<String>,
+  blocked: Option<String>,
   oversized: bool,
 }
 
 async fn snapshot(
   page: &Page,
   mut document: DownloadedDocument,
-  limit: usize,
+  config: &FetchConfig,
   documents: &mut mpsc::Receiver<InfuResult<DownloadedDocument>>,
 ) -> InfuResult<DownloadedDocument> {
+  let started = Instant::now();
+  let mut changed = started;
+  let mut signature = String::new();
   loop {
     while let Ok(next) = documents.try_recv() {
       document = next?;
       if document.kind() != DocumentKind::Html {
         return Ok(document);
       }
+      changed = Instant::now();
     }
-    let expression = format!(
-      r#"(() => {{
-      const ready = location.href !== 'about:blank' && document.readyState !== 'loading';
-      const html = ready ? document.documentElement.outerHTML : '';
-      const oversized = new TextEncoder().encode(html).length > {limit};
-      return {{ready, url: location.href, html: oversized ? null : html, oversized}};
-    }})()"#
-    );
-    let result = page
-      .evaluate(expression)
+    let probe = page
+      .evaluate(
+        r#"(() => {
+      const text = (document.querySelector('main,article,[role="main"]') || document.body)?.innerText || '';
+      return {ready: location.href !== 'about:blank' && document.readyState !== 'loading',
+        meaningful: text.trim().length > 0,
+        signature: location.href + ':' + text.length + ':' + text.slice(0, 2048) + text.slice(-1024)};
+    })()"#,
+      )
       .await
-      .map_err(|error| format!("Could not inspect rendered document: {error}"))?
-      .into_value::<Snapshot>()
-      .map_err(|error| format!("Invalid rendered document snapshot: {error}"))?;
-    if result.oversized {
-      return Err("Rendered document exceeds its byte limit.".into());
+      .map_err(|error| format!("Could not inspect document readiness: {error}"))?
+      .into_value::<Probe>()
+      .map_err(|error| format!("Invalid document readiness: {error}"))?;
+    if signature != probe.signature {
+      signature = probe.signature;
+      changed = Instant::now();
     }
-    if result.ready {
-      let final_url = Url::parse(&result.url).map_err(|_| "Browser returned an invalid final URL.")?;
-      assert_public_destination(&final_url).await?;
-      document.final_url = final_url;
-      document.body = result.html.ok_or("Browser returned no rendered HTML.")?.into_bytes();
-      return Ok(document);
+    let settled = started.elapsed() >= Duration::from_millis(750) && changed.elapsed() >= Duration::from_millis(400);
+    if probe.ready && (settled && probe.meaningful || started.elapsed() >= Duration::from_secs(3)) {
+      break;
     }
     tokio::time::sleep(Duration::from_millis(100)).await;
   }
+  let expression = format!(
+    "({})({})",
+    include_str!("rendered.js"),
+    serde_json::json!({
+      "limit": config.max_rendered_bytes, "dump": config.html_dump_dir.is_some(),
+    })
+  );
+  let result = page
+    .evaluate(expression)
+    .await
+    .map_err(|error| format!("Could not capture rendered document: {error}"))?
+    .into_value::<Snapshot>()
+    .map_err(|error| format!("Invalid rendered document snapshot: {error}"))?;
+  if result.oversized {
+    return Err("Rendered document exceeds its byte or complexity limit.".into());
+  }
+  if let (Some(directory), Some(raw)) = (config.html_dump_dir.clone(), result.raw) {
+    dump_html(directory, raw);
+  }
+  if let Some(blocked) = result.blocked {
+    return Err(blocked.into());
+  }
+  let final_url = Url::parse(result.url.as_deref().ok_or("Browser returned no final URL.")?)
+    .map_err(|_| "Browser returned an invalid final URL.")?;
+  assert_public_destination(&final_url).await?;
+  // A redirect racing the final snapshot must still be dispatched by type.
+  if let Ok(next) = documents.try_recv() {
+    let next = next?;
+    if next.kind() != DocumentKind::Html {
+      return Ok(next);
+    }
+    return Err("Page navigated while its rendered content was being captured; retry the fetch.".into());
+  }
+  document.final_url = final_url;
+  document.body = result.html.ok_or("Browser returned no rendered HTML.")?.into_bytes();
+  Ok(document)
+}
+
+fn dump_html(directory: std::path::PathBuf, raw: String) {
+  use std::io::Write;
+  static DUMPS: std::sync::OnceLock<Arc<Semaphore>> = std::sync::OnceLock::new();
+  let Ok(permit) = DUMPS.get_or_init(|| Arc::new(Semaphore::new(2))).clone().try_acquire_owned() else { return };
+  tokio::task::spawn_blocking(move || {
+    let _permit = permit;
+    let save = || -> std::io::Result<()> {
+      std::fs::create_dir_all(&directory)?;
+      let mut file = tempfile::Builder::new().prefix("rendered-").suffix(".html").tempfile_in(directory)?;
+      file.write_all(raw.as_bytes())?;
+      file.keep().map_err(|error| error.error)?;
+      Ok(())
+    };
+    if save().is_err() {
+      log::warn!("Could not save optional rendered HTML diagnostic.");
+    }
+  });
 }

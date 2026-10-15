@@ -5,12 +5,10 @@ Bind is `127.0.0.1` by default. DuckDuckGo is enabled by default with no API key
 required. Configured Exa and DuckDuckGo providers serve searches through
 budget-aware routing and bounded fallback.
 
-The proposed browser-backed fetch and native-only PDF extraction work is
-described in the [implementation plan](IMPLEMENTATION_PLAN.md).
-
-Browser dispatch (step 2) is implemented. HTML requires an installed Chrome or
-Chromium; automatic browser installation is planned for step 9. PDFs are
-detected, but native PDF extraction is not yet connected to `web_fetch` (step 7).
+Browser-backed HTML, native-only PDF extraction and local browser setup are
+implemented. See [fetch operations](FETCHING.md) for browser installation and
+updates, GPU service configuration, cache controls and validation limits, and
+[implementation status](IMPLEMENTATION_PLAN.md) for the original plan.
 
 ## Run
 
@@ -29,7 +27,8 @@ Or, after `cargo build --release` in this directory:
 ```
 
 `run.sh` runs `cargo build --release` on each launch and stops if the build fails.
-Cargo reuses unchanged build artifacts. The wrapper restarts an exited server
+Cargo reuses unchanged build artifacts. The wrapper resolves or installs a
+browser once per invocation, then restarts an exited server
 after the configured delay without rebuilding; startup configuration errors will
 repeat until corrected. Run the binary directly when diagnosing a single startup
 attempt.
@@ -43,7 +42,8 @@ Environment:
 ## Fetch configuration and behavior
 
 Fetch configuration is read once at startup, independently of search-provider
-configuration. Browser discovery and launch happen on demand; a missing browser
+configuration. The wrapper prepares the browser once; the binary resolves it locally and launches
+it on demand. A missing browser
 does not prevent the server or search providers from starting. Malformed fetch
 settings stop startup.
 
@@ -51,8 +51,18 @@ settings stop startup.
 | --- | --- | --- |
 | `WEB_FETCH_BROWSER_PATH` | Automatic discovery | Absolute path to Chrome/Chromium. If set, this exact executable is used; launch failure is reported without HTTP fallback. |
 | `WEB_FETCH_TIMEOUT_SECS` | `30` | Overall request deadline, including destination checks, queueing, browser startup, downloads and extraction. Integer from 1 to 3600. |
-| `WEB_FETCH_MAX_DOCUMENT_BYTES` | `2097152` (2 MiB) | Maximum downloaded HTML/text and rendered DOM size. Integer from 1 to 16777216 (16 MiB). |
+| `WEB_FETCH_MAX_DOCUMENT_BYTES` | `2097152` (2 MiB) | Maximum downloaded HTML/text size. Integer from 1 to 16777216 (16 MiB). |
 | `WEB_FETCH_MAX_PDF_BYTES` | `134217728` (128 MiB) | Maximum downloaded PDF size. Integer from 1 to 134217728. |
+| `WEB_FETCH_MAX_RENDERED_BYTES` | `4194304` (4 MiB) | Rendered HTML byte limit; at most 16 MiB. Separate DOM/node/depth and Markdown expansion limits also apply. |
+| `WEB_FETCH_GPU_TOOLS_URL` | Unset | Operator-configured GPU service/gateway base or `/gpu-tools` URL. PDF extraction requires the native-only capability and deadline protocol. |
+| `WEB_FETCH_MAX_PDF_RESPONSE_BYTES` | `16777216` (16 MiB) | Full PDF service JSON response limit; at most 32 MiB. |
+| `WEB_FETCH_PDF_CACHE_ENABLED` | `true` | Enable private PDF artifact caching. |
+| `WEB_FETCH_PDF_CACHE_DIR` | User cache `infumap-web-search/pdf-native-v1` | Absolute directory for PDFs, full Markdown and provenance. |
+| `WEB_FETCH_PDF_CACHE_MAX_BYTES` | `2147483648` (2 GiB) | PDF artifact budget; at most 16 GiB. Small indexes and fixed lock files have separate count limits. |
+| `WEB_FETCH_PDF_CACHE_TTL_SECS` | `86400` | Source freshness/unused artifact expiration; at most 30 days. |
+| `WEB_FETCH_PDF_REFRESH` | `false` | Bypass source and extraction hits and publish freshly converted results. |
+| `WEB_FETCH_HTML_DUMP_DIR` | Unset | Opt-in raw rendered HTML dumps before cleanup; unique private files, bounded concurrent writes. |
+
 
 Ordinary URLs are loaded by Chrome through `chromiumoxide`. The main response
 is intercepted and read in bounded chunks before dispatch. HTML is supplied
@@ -74,8 +84,11 @@ response MIME type. It covers extensionless resources and redirects and stops
 the browser before rendering its PDF viewer. Browser-fetched PDF bytes come
 from that same Chrome response, using its existing cookies and request context:
 there is no second download or cookie transfer to another HTTP client. The PDF
-handler currently returns an explicit native-extraction-not-connected error;
-it never decodes PDF bytes as text or falls back to OCR.
+handler discovers and calls only the native-only PDF capability. It validates
+policy/provenance before returning or caching Markdown and never falls back to
+OCR, caption extraction or the ordinary PDF upload endpoint. Cached PDFs can be
+served without a browser/service call while fresh; expired sources use validators
+when available and otherwise download again before content-hash reuse.
 
 The renderer starts one owned browser lazily and serializes browser fetches.
 It reuses a unique temporary profile for that browser, creating and disposing
@@ -108,9 +121,16 @@ policy denies the optional `chrome_crashpad_handler` daemon, which would escape
 process-group ownership. The guardian also removes its exact temporary profile
 after cleanup. There is no scan for unrelated Chrome processes.
 
-Additional content-settling/cleanup heuristics remain step 5. No browser launch,
-live fetch or shutdown exercise has been performed; macOS has not been compiled
-or exercised in this Linux development environment.
+Readiness waits at least 750 ms and up to a three-second opportunity for content
+to settle, within the overall deadline. Consent UI removal preserves main
+content and policy pages. Specific short challenge/refusal pages return errors;
+links resolve against `document.baseURI`. Table conversion avoids column padding
+that could multiply extraction memory. These remain heuristics, not a guarantee
+that every application has finished rendering.
+
+Validation is production compilation/linting, formatting and shell syntax only.
+No browser launch, live fetch, installation/shutdown or PDF extraction exercise
+has been performed. macOS has not been compiled or exercised here.
 
 Browser network confinement is mandatory and cannot be disabled in fetch
 configuration. On Linux, the server's internal browser helper creates user and
@@ -319,7 +339,7 @@ unavailability message in the existing MCP text-error format. Routing choices
 are available in debug logs (`RUST_LOG=debug`); queries and API keys are not
 included in routing log messages.
 
-### Local provider status
+### Local provider/fetch status
 
 Inspect the running server without spending search credits:
 

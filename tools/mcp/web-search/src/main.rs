@@ -42,11 +42,22 @@ fn main() {
   if let Some(code) = fetch::run_browser_helper() {
     std::process::exit(code);
   }
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .expect("Could not start server runtime")
-    .block_on(run_server());
+  let runtime =
+    tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("Could not start server runtime");
+  let command = std::env::args().nth(1);
+  if matches!(command.as_deref(), Some("--setup-browser" | "--update-browser")) {
+    let result = runtime.block_on(fetch::setup_browser(command.as_deref() == Some("--update-browser")));
+    drop(runtime);
+    match result {
+      Ok(path) => println!("{}", path.display()),
+      Err(error) => {
+        eprintln!("Browser setup failed: {error}");
+        std::process::exit(1);
+      }
+    }
+  } else {
+    runtime.block_on(run_server());
+  }
 }
 
 async fn run_server() {

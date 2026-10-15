@@ -11,8 +11,8 @@ Step 2 is implemented: fetch state/configuration, URL policy, direct downloads,
 Chromiumoxide rendering, response-type dispatch, Markdown and PDF handling are
 separate components under `src/fetch/`. Ordinary URLs use Chrome, while known
 text-resource suffixes use direct HTTP with response classification. PDFs are
-captured from the original browser response and reach a dedicated handler that
-returns an explicit unavailable error until step 7 connects native extraction.
+captured from the original browser response and reach the dedicated native-only
+handler connected in step 7.
 MCP names, arguments and compact response fields are unchanged.
 
 Step 3 is implemented for existing fetch traffic: mandatory OS browser network
@@ -20,8 +20,8 @@ confinement (Linux user/network namespaces and macOS Seatbelt), a bounded
 public-address proxy including WebSockets, an exclusive direct-download DNS
 resolver, and stricter special-address checks. An internal subprocess helper
 starts before the server runtime; confinement failure has no unconfined fallback.
-See `NETWORK_POLICY.md`. No GPU service requests are enabled yet; their separate
-operator-configured origin/path constraints remain mandatory when wired in step 7.
+See `NETWORK_POLICY.md`. Step 7 implements the separate operator-configured
+GPU origin/path boundary without granting page URLs private-network access.
 
 Step 4 is implemented: one lazily launched browser, a unique owned profile,
 fresh disposable contexts, deadline-aware queueing and cancellation, and proxy
@@ -31,10 +31,24 @@ including server SIGKILL; SIGINT/SIGTERM stop accepting HTTP work and await
 browser cleanup. Linux subreaping covers daemonized descendants; macOS denies
 the optional daemonized Crashpad executable and uses the owned process group.
 
-Step 5's content heuristics are next. Browser installation remains step 9.
-Validation so far is Linux production compilation/linting and shell syntax only;
-behavioral checks require authorization. The macOS implementation, including
-its Crashpad execution restriction, has not been cross-compiled or run.
+Steps 5–10 are implemented. Rendered-content settling, guarded consent cleanup,
+base-URL link resolution, conservative refusal detection, bounded compact tables
+and optional pre-cleanup HTML dumps complete the HTML path. Step 6's existing
+native-only service was reviewed; discovery now also advertises its policy and
+optional absolute-deadline protocol. The fetch client requires both, and gateway
+and worker enforce upload, queue and conversion expiry without changing legacy
+upload behavior. Full PDF artifacts and provenance are cached by content hash,
+with process-shared locks, atomic publication, source revalidation and bounded
+storage. `run.sh` prepares a local browser once; setup supports official Linux
+x86_64/ARM64 and macOS x86_64/ARM64 artifacts and explicit managed updates.
+Loopback status includes locally observed browser/PDF readiness without probes.
+See `FETCHING.md` for configuration, operational details and limits.
+
+Validation is Linux production compilation/linting, formatting, shell syntax,
+Python syntax and TOML parsing only. Tests and live browser/install/extraction
+exercises remain unrun under the repository instructions. The macOS path,
+including its Crashpad restriction and framework symlinks, remains uncompiled
+and unverified on this Linux host.
 
 The target is browser-rendered HTML and optional PDF-to-Markdown extraction
 through configured GPU tools. PDF extraction must never perform OCR. If usable
@@ -273,7 +287,8 @@ Reference implementations and design sources:
   detection and rendered-HTML diagnostics. Adapt ideas rather than importing
   its site-specific rules or ingestion/catalog pipeline.
 - `tools/gpu/pdf_extract/` and `tools/gpu/gateway/`: existing extraction,
-  discovery, deadlines and GPU serialization; currently OCR-capable.
+  discovery, deadlines and GPU serialization; native-only fetch extraction is
+  separate from the existing OCR-capable upload policy.
 - [Chromiumoxide](https://github.com/mattsse/chromiumoxide),
   [Chrome headless](https://developer.chrome.com/docs/automation-and-testing/headless),
   [Chrome for Testing downloads](https://github.com/GoogleChromeLabs/chrome-for-testing).

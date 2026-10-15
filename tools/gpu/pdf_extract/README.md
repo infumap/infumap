@@ -182,9 +182,24 @@ async job API. `/pdf-extract/jobs` continues to use the ordinary upload policy
 and can perform OCR. A pre-existing PDF text layer may originally have been
 produced by OCR; this endpoint guarantees that its own conversion performs none.
 
-The gateway forwards `/pdf-extract-native` with the same global GPU lock and
-conversion-timeout handling as `/pdf-extract`. It has no native-only async job
-endpoint. Existing `/pdf-extract` and `/convert` uploads retain their OCR fallback
+Discovery additionally advertises `policy="native_only"`, `policy_version=1`
+and `request_deadline_header="x-pdf-request-deadline-unix-ms"`. Web fetch requires
+these fields and sends an absolute Unix timestamp in milliseconds alongside
+`X-Pdf-Conversion-Timeout-Secs`. Keep service/gateway clocks synchronized.
+The optional absolute deadline covers upload, gateway lock waits, worker slot
+waits and conversion: expired requests do not start a fresh conversion budget.
+Missing deadline headers retain the existing endpoint timing behavior.
+
+The gateway confirms the upstream worker advertises the same native policy and
+deadline protocol before forwarding a bounded upload (129 MiB multipart limit).
+Gateway and worker each admit at most two deadline-bearing native requests,
+bounding upload buffers and returning HTTP 503 when busy. The gateway tracks
+synchronous native operations through disconnect and holds the global
+GPU lease while collecting their bounded response (32 MiB). The worker retains
+its slot while a cancelled conversion thread reaches its own deadline and reaps
+Docling. A native deadline overrun has a one-second backstop before the existing
+stuck-worker cancellation/restart path. No native-only async job endpoint is
+introduced. Existing `/pdf-extract` and `/convert` uploads retain their OCR fallback
 and existing quality thresholds.
 
 ## Document errors

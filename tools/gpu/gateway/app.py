@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import math
 import os
@@ -55,6 +56,7 @@ PDF_EXTRACT_JOB_RESULT_RETENTION_SECS = 6.0 * 60.0 * 60.0
 # forwards it to pdf_extract in this header, so the pdf_extract watchdog and the
 # gateway's lock lease for that request always use the same number.
 PDF_CONVERSION_TIMEOUT_HEADER = "x-pdf-conversion-timeout-secs"
+PDF_REQUEST_DEADLINE_HEADER = "x-pdf-request-deadline-unix-ms"
 DEFAULT_PDF_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
 MAX_PDF_CONVERSION_TIMEOUT_SECS = PDF_EXTRACT_JOB_UPSTREAM_READ_WRITE_TIMEOUT_SECS
 # Covers the upload to pdf_extract and its response after the watchdog fires.
@@ -380,6 +382,9 @@ def gpu_tools_endpoints() -> list[dict[str, Any]]:
         },
         {
             "id": "pdf_extract_native",
+            "policy": "native_only",
+            "policy_version": 1,
+            "request_deadline_header": PDF_REQUEST_DEADLINE_HEADER,
             "method": "POST",
             "path": "/pdf-extract-native",
             "service": "pdf_extract",
@@ -475,12 +480,18 @@ async def lifespan(app: FastAPI):
     app.state.http_client = client
     app.state.long_http_client = long_client
     app.state.gpu_lock = GlobalGpuLock()
+    app.state.native_pdf_tasks = set()
+    app.state.native_pdf_slots = asyncio.Semaphore(2)
     app.state.pdf_extract_jobs = {}
     app.state.pdf_extract_job_keys = {}
     app.state.pdf_extract_jobs_lock = asyncio.Lock()
     try:
         yield
     finally:
+        native_tasks = list(app.state.native_pdf_tasks)
+        for task in native_tasks:
+            task.cancel()
+        await asyncio.gather(*native_tasks, return_exceptions=True)
         app.state.http_client = None
         app.state.long_http_client = None
         app.state.gpu_lock = None
@@ -903,7 +914,9 @@ def match_service_for_path(request_path: str) -> ServiceProxy:
     raise HTTPException(status_code=404, detail=f"No GPU service is mapped for path '{request_path}'.")
 
 
-async def proxy_to_service(request: Request, service: ServiceProxy, request_path: str) -> StreamingResponse:
+async def proxy_to_service(request: Request, service: ServiceProxy, request_path: str) -> Response:
+    if request_path == "/pdf-extract-native" and request.headers.get(PDF_REQUEST_DEADLINE_HEADER) is not None:
+        return await proxy_native_with_deadline(request, service)
     client = proxy_client_for_service(request, service)
     lock = gpu_lock(request) if service.uses_global_gpu_lock else None
     upstream_url = build_upstream_url(service, request_path, request.url.query)
@@ -995,6 +1008,144 @@ async def proxy_to_service(request: Request, service: ServiceProxy, request_path
                         "GPU gateway request finished after its global lock lease was no longer current: %s",
                         describe_gpu_lock_holder(lock_lease),
                     )
+
+
+def native_deadline(request: Request) -> float:
+    try:
+        remaining = float(request.headers[PDF_REQUEST_DEADLINE_HEADER]) / 1000.0 - time.time()
+    except (KeyError, ValueError):
+        remaining = math.nan
+    if not math.isfinite(remaining) or remaining > 86400:
+        raise HTTPException(status_code=400, detail="Invalid native PDF request deadline.")
+    if remaining <= 0:
+        raise HTTPException(status_code=408, detail="Native PDF request deadline expired.")
+    return time.monotonic() + remaining
+
+
+def native_remaining(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise HTTPException(status_code=408, detail="Native PDF request deadline expired before dispatch.")
+    return remaining
+
+
+async def proxy_native_with_deadline(request: Request, service: ServiceProxy) -> Response:
+    if request.method != "POST":
+        raise HTTPException(status_code=405, detail="Native PDF extraction requires POST.")
+    deadline = native_deadline(request)
+    conversion_limit = pdf_conversion_timeout_secs_for_request(request)
+    slots = request.app.state.native_pdf_slots
+    try:
+        await asyncio.wait_for(slots.acquire(), timeout=min(0.1, native_remaining(deadline)))
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(status_code=503, detail="Native PDF gateway capacity is busy; retry later.") from exc
+    body = bytearray()
+
+    async def read_native_upload() -> None:
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > 129 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="Native PDF multipart upload exceeds 129 MiB.")
+            body.extend(chunk)
+
+    try:
+        await asyncio.wait_for(read_native_upload(), timeout=native_remaining(deadline))
+    except asyncio.TimeoutError as exc:
+        slots.release()
+        raise HTTPException(status_code=408, detail="Native PDF upload deadline exceeded.") from exc
+    except ClientDisconnect as exc:
+        slots.release()
+        raise HTTPException(status_code=499, detail="Native PDF client disconnected during upload.") from exc
+    except BaseException:
+        slots.release()
+        raise
+
+    async def forward_native() -> Response:
+        lock = gpu_lock(request) if service.uses_global_gpu_lock else None
+        lease = None
+
+        async def locked_forward() -> Response:
+            nonlocal lease
+            # A gateway advertising deadline support must not silently
+            # forward to an older native-only worker that ignores it.
+            client = proxy_client_for_service(request, service)
+            async with client.stream(
+                "GET", service.upstream_base_url + "/gpu-tools",
+                timeout=upstream_timeout(min(10, native_remaining(deadline))),
+            ) as discovery_response:
+                discovery_body = bytearray()
+                async for chunk in discovery_response.aiter_bytes():
+                    if len(discovery_body) + len(chunk) > 128 * 1024:
+                        raise HTTPException(status_code=503, detail="Native PDF discovery response too large.")
+                    discovery_body.extend(chunk)
+                if discovery_response.status_code != 200:
+                    raise HTTPException(status_code=503, detail="Native PDF upstream discovery unavailable.")
+            try:
+                discovery = json.loads(discovery_body)
+                capability = next(
+                    endpoint for endpoint in discovery["endpoints"] if endpoint["id"] == "pdf_extract_native"
+                )
+                supported = (
+                    discovery["schema_version"] == 1
+                    and capability.get("policy") == "native_only"
+                    and capability.get("policy_version") == 1
+                    and capability.get("request_deadline_header") == PDF_REQUEST_DEADLINE_HEADER
+                    and capability.get("path") == "/pdf-extract-native"
+                    and capability.get("method") == "POST"
+                )
+            except (ValueError, KeyError, TypeError, StopIteration):
+                supported = False
+            if not supported:
+                raise HTTPException(status_code=503, detail="Update native PDF worker: required policy/deadline capability is missing.")
+            if lock is not None:
+                lease = await lock.acquire(
+                    service_name=service.service_name, path="/pdf-extract-native", method="POST", job_id=None,
+                    timeout_secs=min(global_gpu_lock_wait_timeout_secs(), native_remaining(deadline)),
+                    lease_secs=native_remaining(deadline) + PDF_CONVERSION_LEASE_MARGIN_SECS,
+                )
+            if await request.is_disconnected():
+                raise HTTPException(status_code=499, detail="Native PDF client disconnected before dispatch.")
+            remaining = native_remaining(deadline)
+            if remaining < 1:
+                raise HTTPException(status_code=408, detail="Insufficient native PDF conversion time remaining.")
+            headers = with_pdf_conversion_timeout_header(forwarded_headers(request), min(conversion_limit, remaining))
+            client = proxy_client_for_service(request, service)
+            url = build_upstream_url(service, "/pdf-extract-native", "")
+            async with client.stream(
+                "POST", url, headers=headers, content=bytes(body), timeout=upstream_timeout(remaining + 1),
+            ) as upstream:
+                result = bytearray()
+                async for chunk in upstream.aiter_bytes():
+                    if len(result) + len(chunk) > 32 * 1024 * 1024:
+                        raise HTTPException(status_code=502, detail="Native PDF response exceeds 32 MiB.")
+                    result.extend(chunk)
+                response_headers = strip_hop_by_hop_headers(upstream.headers)
+                response_headers.pop("content-encoding", None)
+                response_headers.pop("content-length", None)
+                return Response(bytes(result), status_code=upstream.status_code, headers=response_headers)
+        try:
+            return await asyncio.wait_for(locked_forward(), timeout=native_remaining(deadline) + 1.0)
+        except (asyncio.TimeoutError, GpuLockWaitTimeoutError) as exc:
+            raise HTTPException(status_code=408, detail="Native PDF queue/conversion deadline exceeded.") from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Native PDF service unavailable.") from exc
+        finally:
+            if lock is not None and lease is not None:
+                await lock.release(lease)
+
+    # Track the bounded synchronous operation independently of HTTP disconnect.
+    # It keeps the global GPU lease while the worker finishes within its expiry.
+    task = asyncio.create_task(forward_native())
+    tasks = request.app.state.native_pdf_tasks
+    tasks.add(task)
+
+    def finished(completed):
+        slots.release()
+        tasks.discard(completed)
+        if not completed.cancelled():
+            completed.exception()
+
+    task.add_done_callback(finished)
+    return await asyncio.shield(task)
 
 
 async def stream_upstream_response_and_release_lock(

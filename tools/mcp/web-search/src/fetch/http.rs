@@ -21,6 +21,7 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use reqwest::Url;
 use reqwest::header::{ACCEPT, CONTENT_TYPE, LOCATION};
+use serde::{Deserialize, Serialize};
 
 use crate::error::InfuResult;
 
@@ -53,10 +54,22 @@ pub(super) enum DocumentKind {
   Unsupported,
 }
 
+#[derive(Clone, Default, Serialize, Deserialize)]
+pub(super) struct Validators {
+  pub etag: Option<String>,
+  pub last_modified: Option<String>,
+}
+
+pub(super) enum DownloadOutcome {
+  Unmodified,
+  Document(DownloadedDocument),
+}
+
 pub(super) struct DownloadedDocument {
   pub final_url: Url,
   pub content_type: String,
   pub body: Vec<u8>,
+  pub validators: Validators,
 }
 
 impl DownloadedDocument {
@@ -105,6 +118,13 @@ impl HttpDownloader {
   }
 
   pub async fn download(&self, requested: &Url) -> InfuResult<DownloadedDocument> {
+    match self.download_conditional(requested, &Validators::default()).await? {
+      DownloadOutcome::Document(document) => Ok(document),
+      DownloadOutcome::Unmodified => Err("Unexpected unmodified response without validators.".into()),
+    }
+  }
+
+  pub async fn download_conditional(&self, requested: &Url, validators: &Validators) -> InfuResult<DownloadOutcome> {
     let mut current = requested.clone();
     for _ in 0..=5 {
       let addresses = document_addresses(&current).await?;
@@ -120,12 +140,21 @@ impl HttpDownloader {
         .user_agent("Infumap web fetch")
         .build()
         .map_err(|error| format!("Could not prepare document download: {error}"))?;
-      let response = client
-        .get(current.clone())
-        .header(ACCEPT, "*/*")
-        .send()
-        .await
-        .map_err(|error| format!("Failed to download document: {error}"))?;
+      let mut request = client.get(current.clone()).header(ACCEPT, "*/*");
+      if &current == requested {
+        if let Some(etag) = &validators.etag {
+          request = request.header("if-none-match", etag);
+        } else if let Some(modified) = &validators.last_modified {
+          request = request.header("if-modified-since", modified);
+        }
+      }
+      let response = request.send().await.map_err(|error| format!("Failed to download document: {error}"))?;
+      if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+        if &current == requested && (validators.etag.is_some() || validators.last_modified.is_some()) {
+          return Ok(DownloadOutcome::Unmodified);
+        }
+        return Err("Unexpected unmodified response without matching cache validators.".into());
+      }
       if response.status().is_redirection() {
         let location = response
           .headers()
@@ -140,6 +169,20 @@ impl HttpDownloader {
       }
       let content_type =
         response.headers().get(CONTENT_TYPE).and_then(|value| value.to_str().ok()).unwrap_or("").to_ascii_lowercase();
+      let validators = Validators {
+        etag: response
+          .headers()
+          .get("etag")
+          .and_then(|value| value.to_str().ok())
+          .filter(|value| value.len() <= 1024)
+          .map(str::to_owned),
+        last_modified: response
+          .headers()
+          .get("last-modified")
+          .and_then(|value| value.to_str().ok())
+          .filter(|value| value.len() <= 1024)
+          .map(str::to_owned),
+      };
       let mut body = Vec::new();
       let mut stream = response.bytes_stream();
       while let Some(chunk) = stream.next().await {
@@ -156,7 +199,7 @@ impl HttpDownloader {
         }
         body.extend_from_slice(&chunk);
       }
-      return Ok(DownloadedDocument { final_url: current, content_type, body });
+      return Ok(DownloadOutcome::Document(DownloadedDocument { final_url: current, content_type, body, validators }));
     }
     Err("Failed to fetch URL: too many redirects.".into())
   }

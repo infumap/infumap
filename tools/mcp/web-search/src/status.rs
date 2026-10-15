@@ -23,7 +23,7 @@ use hyper::{Method, Request, Response, StatusCode};
 use jiff::Timestamp;
 use serde_json::json;
 
-use crate::{protocol, search};
+use crate::{fetch, protocol, search};
 
 /// Operator endpoint: no provider calls, reservations, ledger writes or keys.
 pub async fn handle_http<B>(req: &Request<B>, peer: IpAddr) -> Response<Full<Bytes>> {
@@ -51,13 +51,15 @@ pub async fn handle_http<B>(req: &Request<B>, peer: IpAddr) -> Response<Full<Byt
           "search_available": providers.iter().any(|provider| provider.available),
           "configuration_errors": errors,
           "providers": providers,
+          "fetch": fetch::readiness(),
         }),
       )
     }
     Err(_) => response(
       StatusCode::SERVICE_UNAVAILABLE,
       json!({
-        "error": "Provider status unavailable; inspect server startup diagnostics."
+        "error": "Provider status unavailable; inspect server startup diagnostics.",
+        "fetch": fetch::readiness()
       }),
     ),
   }

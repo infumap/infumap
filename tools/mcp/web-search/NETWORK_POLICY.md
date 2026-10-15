@@ -68,15 +68,27 @@ protection, not a substitute for the browser sandbox.
    These flags and request interception are defense in depth; OS confinement
    covers workers and browser-created targets outside the page's event stream.
 
-6. **GPU services.** No GPU requests are enabled in `web_fetch` yet. PDF bytes
-   reach a handler that returns an unavailable error without contacting a
-   service. Step 7 must create a separate client from operator configuration,
-   permit private addresses only for that configured origin, disable redirects,
-   and validate advertised endpoint paths without accepting authorities,
-   schemes, credentials or path escapes supplied by discovery. Upload the
-   already-downloaded bytes; never ask that service to fetch a page-selected
-   URL. A public URL must never become a service configuration or bypass the
-   public downloader's policy.
+6. **GPU services.** A separate, operator-configured HTTP(S) origin can
+   deliberately be private. Page URLs never choose this configuration. Discovery
+   accepts only schema 1, the fixed `/pdf-extract-native` POST path, native-only
+   policy/version and the absolute-deadline protocol. The client constructs the
+   path beneath the configured prefix itself and rejects all redirects; it never
+   uses a discovery-supplied authority, scheme, query or alternate endpoint.
+   Uploaded bytes come from the bounded public downloader/browser response;
+   the service never receives a page-selected URL to fetch. Native metadata and
+   diagnostics are validated before returning or caching text. No OCR-capable
+   fallback or async job is used. The gateway verifies its upstream worker's
+   capability and both enforce absolute upload/queue/conversion expiry.
+
+7. **Native PDF cache.** A private policy-versioned cache holds full PDF bytes,
+   Markdown and provenance. Content hashes and native policy diagnostics are
+   checked on reads. Fresh sources can reuse text; expired sources revalidate
+   their effective URL with the same public URL/address/redirect policy and
+   validators when available. Failed direct revalidation can use a fresh browser
+   context for the original URL. Striped process-shared locks coalesce work;
+   staged artifacts and atomic indexes prevent partial publication. The cache
+   does not grant a document any new network/service authority. Loopback status
+   exposes no source URL, content, GPU origin or keys and performs no probes.
 
 Host configuration can prevent a confined browser from starting, particularly
 when user namespaces are restricted. The server does not install privileged

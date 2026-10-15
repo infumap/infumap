@@ -12,22 +12,30 @@ Start web search:
 ./tools/mcp/web-search/run.sh
 ```
 
-HTML fetching currently requires an installed Chrome/Chromium. Set
-`WEB_FETCH_BROWSER_PATH` to its absolute executable path if automatic discovery
-cannot find it. Missing Chrome affects browser fetches without stopping search.
-Browser fetches reuse one owned browser with a fresh isolated context per request;
-shutdown and cancellation retain ownership through process cleanup.
-Automatic browser installation and the connection to native-only PDF extraction
-are later steps in the [implementation plan](web-search/IMPLEMENTATION_PLAN.md).
+`run.sh` resolves Chrome/Chromium or installs official Chrome for Testing in the
+user cache, once per wrapper invocation. Set `WEB_FETCH_BROWSER_PATH` for an
+explicit executable; use `./tools/mcp/web-search/run.sh --update-browser` for a
+deliberate managed-browser update. It never installs global packages or weakens
+the sandbox. Setup failures leave search usable.
+
+Browser fetches reuse one owned browser with a fresh isolated context per request.
+PDFs require `WEB_FETCH_GPU_TOOLS_URL` pointing to an updated GPU service/gateway
+advertising native-only extraction and absolute request deadlines. No PDF fetch
+performs OCR. Full results are cached privately outside the checkout before
+`maxChars` is applied. See [fetch operations](web-search/FETCHING.md).
 
 It listens on `127.0.0.1:8791` by default. Point Infumap at its two endpoints with:
 
 ```toml
 chat_tool_servers = [
   { id = "web_search", url = "http://127.0.0.1:8791/mcp/search" },
-  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch" },
+  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch", timeout_secs = 330 },
 ]
 ```
+
+The example gives fetch 330 seconds at the MCP layer; configure
+`WEB_FETCH_TIMEOUT_SECS=300` when allowing native PDF conversion that budget.
+The fetch default remains 30 seconds.
 
 `/mcp/search` exposes only `web_search`; `/mcp/fetch` exposes only
 `web_fetch`. Each endpoint rejects calls to the other tool. Enable either
