@@ -194,21 +194,21 @@ fn apply(candidate: &mut QueryProfileCollection, operation: ProfileOperation) ->
   }
 }
 
-fn initial_collection(config: &Config) -> InfuResult<QueryProfileCollection> {
+fn initial_collection(configuration: QueryConfiguration) -> QueryProfileCollection {
   let id = new_uid();
-  Ok(QueryProfileCollection {
+  QueryProfileCollection {
     revision: 0,
     profiles: vec![QueryProfile {
       id: id.clone(),
       name: "Default".to_owned(),
-      configuration: chat::default_query_configuration(config)?,
+      configuration,
     }],
     preferences: QueryProfilePreferences {
       default_profile_id: id.clone(),
       pinned_profile_ids: vec![id],
       model_favorites: vec![],
     },
-  })
+  }
 }
 
 /// Ownership comes exclusively from the validated session. Profiles and preferences are one user-log update.
@@ -224,12 +224,23 @@ pub(super) async fn handle_query_profiles(
   if request.expected_user_id != session.user_id {
     return Err("Not authorized: the account changed while managing query profiles.".into());
   }
+  // Provider discovery can take time. Do it before taking the lock used to update user data,
+  // then re-read the collection so concurrent first requests cannot overwrite one another.
+  let needs_initial_profile = {
+    let db = db.lock().await;
+    db.user.get(&session.user_id).ok_or("User not found.")?.query_profiles.is_none()
+  };
+  let initial = if needs_initial_profile {
+    Some(initial_collection(chat::default_query_configuration(config).await?))
+  } else {
+    None
+  };
   let mut db = db.lock().await;
   let mut user = db.user.get(&session.user_id).ok_or("User not found.")?.clone();
   let is_list = matches!(request.operation, ProfileOperation::List);
   let mut collection = match &user.query_profiles {
     Some(collection) => collection.clone(),
-    None => initial_collection(config)?,
+    None => initial.ok_or("Could not initialize query profiles.")?,
   };
   let mut candidate = collection.clone();
   let result = apply(&mut candidate, request.operation).and_then(|id| validate_collection(&mut candidate).map(|_| id));

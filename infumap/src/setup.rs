@@ -303,28 +303,19 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
       info!(" {} = {}", CONFIG_GPU_TOOLS_URL, "<not set>");
     }
   }
-  let llama_servers = crate::web::routes::command::llama_servers_from_config(&config)?;
-  if llama_servers.is_empty() {
-    info!(" {} = {}", CONFIG_LLAMA_SERVER, "<not set>");
+  let chat_providers = crate::web::routes::command::chat_providers_from_config(&config)?;
+  if chat_providers.is_empty() {
+    info!(" {} = {}", CONFIG_CHAT_PROVIDER, "<not set>");
   } else {
-    for server in &llama_servers {
-      info!(" {} name='{}' url='{}'", CONFIG_LLAMA_SERVER, server.name, server.url);
-    }
-  }
-  match config.get_string(CONFIG_OPENROUTER_API_KEY) {
-    Ok(v) if !v.trim().is_empty() => {
-      info!(" {} = {}", CONFIG_OPENROUTER_API_KEY, "<redacted>");
-    }
-    _ => {
-      info!(" {} = {}", CONFIG_OPENROUTER_API_KEY, "<not set>");
-    }
-  }
-  match config.get_string(CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL) {
-    Ok(v) if !v.trim().is_empty() => {
-      info!(" {} = '{}'", CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, v);
-    }
-    _ => {
-      info!(" {} = {}", CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, "<not set>");
+    for provider in &chat_providers {
+      info!(
+        " {} id='{}' url='{}' adapter={} api_key={}",
+        CONFIG_CHAT_PROVIDER,
+        provider.id,
+        provider.base_url,
+        provider.adapter.name(),
+        if provider.api_key.is_some() { "<redacted>" } else { "<not set>" }
+      );
     }
   }
   let chat_tool_servers = crate::web::routes::command::chat_tool_servers_from_config(&config)?;
@@ -586,10 +577,6 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)
-      .map_err(|e| e.to_string())?
-      .set_default(CONFIG_LLAMA_SERVER_URL, CONFIG_LLAMA_SERVER_URL_DEFAULT)
-      .map_err(|e| e.to_string())?
-      .set_default(CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_GEOAPIFY_URL, CONFIG_GEOAPIFY_URL_DEFAULT)
       .map_err(|e| e.to_string())?

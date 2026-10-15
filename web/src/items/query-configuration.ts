@@ -5,10 +5,10 @@
 
 import type { Uid } from "../util/uid";
 
-/** "openrouter", or "llama:<name>" for a configured llama server. */
+/** Stable ID of a configured chat_provider entry. */
 export type ChatBackendId = string;
 
-/** An explicit provider route. Null model means the provider selects the model; null effort uses its default. */
+/** An explicit provider and model. Chat requires a model ID; null effort uses its default. */
 export interface ChatModelSelection {
   backend: ChatBackendId,
   model: string | null,

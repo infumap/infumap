@@ -14,10 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Resolution of the upstream service a chat request is sent to.
-//!
-//! Both supported backends speak the OpenAI chat completions wire format, so they differ only in
-//! the values collected here - endpoint URL, credentials, model name and timeouts.
+//! Provider resolution for the shared OpenAI Chat Completions transport.
 
 use config::Config;
 use infusdk::util::infu::InfuResult;
@@ -25,92 +22,18 @@ use log::warn;
 use serde::Serialize;
 use std::time::Duration;
 
-mod llama;
-mod openrouter;
-use llama::LlamaServer;
-pub use llama::llama_servers_from_config;
-pub use openrouter::ChatModelInfo;
-
+mod catalog;
+mod provider;
 use super::mcp::{self, ChatToolServerInfo};
-use crate::config::{
-  CHAT_BACKEND_LLAMA, CHAT_BACKEND_LLAMA_PREFIX, CHAT_BACKEND_OPENROUTER, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL,
-  CONFIG_OPENROUTER_API_KEY,
-};
+use catalog::model_catalog;
+pub use provider::{ChatAdapter, ChatProvider, chat_providers_from_config};
 
-/// The OpenRouter API. Trailing slash so that paths resolve relative to the version segment.
-const OPENROUTER_API_BASE: &str = "https://openrouter.ai/api/v1/";
-
-const LLAMA_CONNECT_TIMEOUT_SECS: u64 = 30;
-const LLAMA_READ_TIMEOUT_SECS: u64 = 120;
-
-/// llama-server ignores the model name, but the field is required by the wire format.
-const LLAMA_MODEL_NAME: &str = "default";
-
-/// Reasoning effort levels OpenRouter accepts. Which of them a given model actually supports is
-/// reported per model in the catalog, and the client offers only those.
 const REASONING_EFFORT_NONE: &str = "none";
 const REASONING_EFFORTS: &[&str] = &[REASONING_EFFORT_NONE, "minimal", "low", "medium", "high", "xhigh", "max"];
-
-/// Identifies Infumap to OpenRouter. Deliberately not accompanied by an HTTP-Referer, which would
-/// disclose the instance's address.
 pub const OPENROUTER_APP_TITLE: &str = "Infumap";
 
-const OPENROUTER_CONNECT_TIMEOUT_SECS: u64 = 30;
-/// Reasoning models can pause for a long time between tokens. OpenRouter sends SSE keepalive
-/// comments while a request is queued, so this only has to cover gaps in a live stream.
-const OPENROUTER_READ_TIMEOUT_SECS: u64 = 300;
-
-/// Which kind of upstream service a chat request is sent to.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ChatBackend {
-  LlamaServer,
-  OpenRouter,
-}
-
-const OPENROUTER_LABEL: &str = "OpenRouter";
-
-/// A backend as named by a chat request.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum BackendId<'a> {
-  /// Plain "llama": the unavailable placeholder, rejected for explicit chat requests.
-  FirstLlama,
-  Llama(&'a str),
-  OpenRouter,
-}
-
-impl<'a> BackendId<'a> {
-  fn parse(id: &'a str) -> Option<Self> {
-    match id.trim() {
-      CHAT_BACKEND_LLAMA => Some(Self::FirstLlama),
-      CHAT_BACKEND_OPENROUTER => Some(Self::OpenRouter),
-      id => id.strip_prefix(CHAT_BACKEND_LLAMA_PREFIX).map(|name| Self::Llama(name.trim())),
-    }
-  }
-}
-
-fn llama_backend_id(server: &LlamaServer) -> String {
-  format!("{}{}", CHAT_BACKEND_LLAMA_PREFIX, server.name)
-}
-
-/// The concrete upstream a chat request resolves to.
-enum ChatTarget {
-  Llama(LlamaServer),
-  OpenRouter,
-}
-
-impl ChatTarget {
-  fn id(&self) -> String {
-    match self {
-      Self::Llama(server) => llama_backend_id(server),
-      Self::OpenRouter => CHAT_BACKEND_OPENROUTER.to_owned(),
-    }
-  }
-}
-
-/// How much the model should reason before answering.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ChatReasoning {
-  /// Send nothing, and let the model do whatever it does by default.
   ModelDefault,
   Disabled,
   Effort(&'static str),
@@ -119,30 +42,22 @@ pub enum ChatReasoning {
 pub use crate::query_configuration::ChatModelSelection;
 
 impl ChatModelSelection {
-  fn requested_backend_id(&self) -> &str {
-    self.backend.trim()
-  }
-
-  fn requested_model(&self) -> Option<&str> {
-    self.model.as_deref().map(str::trim).filter(|model| !model.is_empty())
-  }
-
   fn requested_reasoning(&self) -> InfuResult<ChatReasoning> {
-    let Some(effort) = self.reasoning_effort.as_deref().map(str::trim).filter(|effort| !effort.is_empty()) else {
+    let Some(effort) = self.reasoning_effort.as_deref() else {
       return Ok(ChatReasoning::ModelDefault);
     };
-    let effort =
-      REASONING_EFFORTS.iter().copied().find(|known| known.eq_ignore_ascii_case(effort)).ok_or_else(|| {
-        format!("Reasoning effort '{}' is not recognized. Choose Default or a supported effort.", effort)
-      })?;
+    let effort = REASONING_EFFORTS
+      .iter()
+      .copied()
+      .find(|known| known.eq_ignore_ascii_case(effort.trim()))
+      .ok_or("Reasoning effort is not recognized. Choose Default or a supported effort.")?;
     Ok(if effort == REASONING_EFFORT_NONE { ChatReasoning::Disabled } else { ChatReasoning::Effort(effort) })
   }
 }
 
-/// Everything needed to issue one chat completion request.
+/// Credentials and adapter details never leave the server.
 pub struct ChatEndpoint {
-  pub backend: ChatBackend,
-  /// Name for this backend in messages logged or shown to the user.
+  pub adapter: ChatAdapter,
   pub label: String,
   pub url: reqwest::Url,
   pub api_key: Option<String>,
@@ -152,159 +67,79 @@ pub struct ChatEndpoint {
   pub read_timeout: Duration,
 }
 
-fn configured_string(config: &Config, key: &str) -> Option<String> {
-  match config.get_string(key) {
-    Ok(value) if !value.trim().is_empty() => Some(value.trim().to_owned()),
-    _ => None,
-  }
-}
-
-/// An OpenRouter endpoint, resolved relative to its API base.
-fn openrouter_api_url(path: &str) -> InfuResult<reqwest::Url> {
-  reqwest::Url::parse(OPENROUTER_API_BASE)
-    .and_then(|base| base.join(path))
-    .map_err(|e| format!("Could not build the OpenRouter '{}' endpoint: {}", path, e).into())
-}
-
-fn llama_endpoint(server: LlamaServer) -> ChatEndpoint {
-  ChatEndpoint {
-    backend: ChatBackend::LlamaServer,
-    label: format!("llama-server '{}'", server.name),
-    url: server.url,
-    api_key: None,
-    model: LLAMA_MODEL_NAME.to_owned(),
-    // llama.cpp only honours a reasoning effort if the loaded model's chat template happens to use
-    // it, so Infumap does not offer the choice and never sends one.
-    reasoning: ChatReasoning::ModelDefault,
-    connect_timeout: Duration::from_secs(LLAMA_CONNECT_TIMEOUT_SECS),
-    read_timeout: Duration::from_secs(LLAMA_READ_TIMEOUT_SECS),
-  }
-}
-
-fn openrouter_endpoint(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
-  let api_key = configured_string(config, CONFIG_OPENROUTER_API_KEY)
-    .ok_or("OpenRouter is not configured on this server. Choose another provider.")?;
-  let model = selection
-    .requested_model()
-    .map(str::to_owned)
-    .ok_or("Selected model is missing. Choose an explicit OpenRouter model.")?;
-  Ok(ChatEndpoint {
-    backend: ChatBackend::OpenRouter,
-    label: OPENROUTER_LABEL.to_owned(),
-    url: openrouter_api_url("chat/completions")?,
-    api_key: Some(api_key),
-    model,
-    reasoning: selection.requested_reasoning()?,
-    connect_timeout: Duration::from_secs(OPENROUTER_CONNECT_TIMEOUT_SECS),
-    read_timeout: Duration::from_secs(OPENROUTER_READ_TIMEOUT_SECS),
+fn selected_provider(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatProvider> {
+  chat_providers_from_config(config)?.into_iter().find(|provider| provider.id == selection.backend).ok_or_else(|| {
+    format!("Provider '{}' is not configured on this server. Choose another provider.", selection.backend).into()
   })
 }
 
-fn openrouter_is_configured(config: &Config) -> bool {
-  configured_string(config, CONFIG_OPENROUTER_API_KEY).is_some()
-}
-
-fn find_llama<'a>(llama_servers: &'a [LlamaServer], name: &str) -> Option<&'a LlamaServer> {
-  llama_servers.iter().find(|server| server.name == name)
-}
-
-/// The backend used to seed an account's first profile: the first configured llama server,
-/// then OpenRouter. None when nothing is configured.
-fn default_target(config: &Config, llama_servers: &[LlamaServer]) -> Option<ChatTarget> {
-  llama_servers
-    .first()
-    .cloned()
-    .map(ChatTarget::Llama)
-    .or_else(|| openrouter_is_configured(config).then_some(ChatTarget::OpenRouter))
-}
-
-/// A backend the client named explicitly is never silently swapped for another - that is an error
-/// the user should see.
-fn requested_target(llama_servers: &[LlamaServer], id: &str) -> InfuResult<ChatTarget> {
-  let unknown = || format!("Provider '{}' is not configured on this server. Choose another provider.", id);
-  match BackendId::parse(id).ok_or_else(unknown)? {
-    BackendId::OpenRouter => Ok(ChatTarget::OpenRouter),
-    BackendId::FirstLlama => Err(unknown().into()),
-    BackendId::Llama(name) => {
-      find_llama(llama_servers, name).cloned().map(ChatTarget::Llama).ok_or_else(|| unknown().into())
-    }
+fn provider_endpoint(provider: &ChatProvider, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
+  let model = selection
+    .model
+    .as_deref()
+    .map(str::trim)
+    .filter(|model| !model.is_empty())
+    .ok_or("Selected model is missing. Choose an explicit model.")?;
+  if !provider.models.is_empty() && !provider.models.iter().any(|id| id == model) {
+    return Err(
+      format!("Selected model '{}' is not configured for '{}'. Choose another model.", model, provider.id).into(),
+    );
   }
+  Ok(ChatEndpoint {
+    adapter: provider.adapter,
+    label: provider.id.clone(),
+    url: provider.api_url("chat/completions")?,
+    api_key: provider.api_key.clone(),
+    model: model.to_owned(),
+    reasoning: selection.requested_reasoning()?,
+    connect_timeout: Duration::from_secs(30),
+    read_timeout: Duration::from_secs(if provider.adapter == ChatAdapter::Openrouter { 300 } else { 120 }),
+  })
 }
 
-/// Resolve the endpoint for one chat request. Errors about the selection are worded for the user.
 pub fn resolve_chat_endpoint(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
-  let llama_servers = llama_servers_from_config(config)?;
-  let target = requested_target(&llama_servers, selection.requested_backend_id())?;
-  match target {
-    ChatTarget::Llama(server) => {
-      if selection.model.is_some() {
-        return Err("This provider serves its own model and cannot use a selected one. Choose the provider itself.".into());
-      }
-      if selection.reasoning_effort.is_some() {
-        return Err("Selected reasoning effort is unsupported by this provider. Choose Default.".into());
-      }
-      Ok(llama_endpoint(server))
-    }
-    ChatTarget::OpenRouter => openrouter_endpoint(config, selection),
-  }
+  provider_endpoint(&selected_provider(config, selection)?, selection)
 }
 
-/// Resolve the endpoint and check the model and effort against a fresh catalog. A failed or stale
-/// catalog leaves the explicit request intact. Errors about the selection are worded for the user.
+/// Fresh metadata validates the exact selection. Failed discovery or a stale catalog cannot
+/// establish that a model disappeared, and leaves the explicitly selected request intact.
 pub async fn resolve_validated_chat_endpoint(
   config: &Config,
   selection: &ChatModelSelection,
 ) -> InfuResult<ChatEndpoint> {
-  let endpoint = resolve_chat_endpoint(config, selection)?;
-  if endpoint.backend != ChatBackend::OpenRouter {
-    return Ok(endpoint);
-  }
-  let Ok(models) = openrouter::model_catalog().await else {
+  let provider = selected_provider(config, selection)?;
+  let endpoint = provider_endpoint(&provider, selection)?;
+  let Ok(catalog) = model_catalog(&provider).await else {
     return Ok(endpoint);
   };
-  if !openrouter::model_catalog_is_fresh() {
+  if !catalog.fresh {
     return Ok(endpoint);
   }
-  let model = models.iter().find(|model| model.id == endpoint.model).ok_or_else(|| {
-    format!("Selected model '{}' is not in the OpenRouter catalog. Choose another model.", endpoint.model)
+  let model = catalog.models.iter().find(|model| model.id == endpoint.model).ok_or_else(|| {
+    format!("Selected model '{}' is not in the '{}' catalog. Choose another model.", endpoint.model, provider.id)
   })?;
   if let Some(effort) = selection.reasoning_effort.as_deref()
-    && !model.reasoning_efforts.iter().any(|supported| supported.eq_ignore_ascii_case(effort))
+    && !model.reasoning_efforts.iter().any(|supported| supported.eq_ignore_ascii_case(effort.trim()))
   {
     return Err(
-      format!(
-        "Selected reasoning effort '{effort}' is not supported by '{}'. Choose Default or a supported effort.",
-        model.name
-      )
-      .into(),
+      format!("Selected reasoning effort is not supported by '{}'. Choose Default or a supported effort.", model.name)
+        .into(),
     );
   }
   Ok(endpoint)
 }
 
-/// Checked at startup, so that a bad llama server entry is reported before the first chat.
 pub fn validate_chat_backend_config(config: &Config) -> InfuResult<()> {
-  llama_servers_from_config(config)?;
+  chat_providers_from_config(config)?;
   Ok(())
 }
 
-/// What one backend offers, as reported to the web client.
 #[derive(Serialize)]
 struct ChatBackendInfo {
   id: String,
   label: String,
-  /// False when the instance has not configured this backend. The client offers it as disabled.
   available: bool,
-  /// Why it cannot be used, when it cannot. Deliberately says nothing about which setting is
-  /// missing: only whoever administers the instance can act on that.
-  #[serde(rename = "unavailableReason", skip_serializing_if = "Option::is_none")]
-  unavailable_reason: Option<&'static str>,
-  #[serde(rename = "supportsModelSelection")]
-  supports_model_selection: bool,
-  #[serde(rename = "supportsReasoningEffort")]
-  supports_reasoning_effort: bool,
-  models: Vec<ChatModelInfo>,
-  /// Why the model list is empty, when it should not have been.
+  models: Vec<catalog::ChatModelInfo>,
   #[serde(rename = "modelsError", skip_serializing_if = "Option::is_none")]
   models_error: Option<String>,
 }
@@ -318,82 +153,50 @@ pub struct ChatBackendsResponse {
   tool_servers: Vec<ChatToolServerInfo>,
 }
 
-/// The backends this instance can use, and the models each offers.
 pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
-  let openrouter_available = openrouter_is_configured(config);
-  let (openrouter_models, models_error) = if openrouter_available {
-    match openrouter::model_catalog().await {
-      Ok(models) => (
-        (*models).clone(),
-        if openrouter::model_catalog_is_fresh() {
+  let providers = chat_providers_from_config(config).unwrap_or_else(|error| {
+    warn!("Could not read chat providers: {}", error);
+    Vec::new()
+  });
+  let catalogs = futures_util::future::join_all(providers.iter().map(|provider| async move {
+    let (models, models_error) = match model_catalog(provider).await {
+      Ok(catalog) => (
+        (*catalog.models).clone(),
+        if catalog.fresh {
           None
         } else {
           Some("Could not refresh the model list; showing a saved catalog.".to_owned())
         },
       ),
-      Err(e) => {
-        warn!("Could not load the OpenRouter model list: {}", e);
-        (Vec::new(), Some("Could not load the OpenRouter model list.".to_owned()))
+      Err(error) => {
+        warn!("Could not load models for '{}': {}", provider.id, error);
+        (Vec::new(), Some("Could not load the model list.".to_owned()))
       }
-    }
-  } else {
-    (Vec::new(), None)
-  };
-
-  let llama_servers = llama_servers_from_config(config).unwrap_or_else(|e| {
-    warn!("Could not read the configured llama servers: {}", e);
-    Vec::new()
-  });
-  let unavailable_reason = |available: bool| if available { None } else { Some("Not configured on this server") };
-  // llama-server serves whatever model it was started with, and llama.cpp only honours a reasoning
-  // effort if the model's chat template happens to use it.
-  let llama_backend = |id: String, label: String, available: bool| ChatBackendInfo {
-    id,
-    label,
-    available,
-    unavailable_reason: unavailable_reason(available),
-    supports_model_selection: false,
-    supports_reasoning_effort: false,
-    models: Vec::new(),
-    models_error: None,
-  };
-  let mut backends: Vec<ChatBackendInfo> = if llama_servers.is_empty() {
-    // Listed anyway, disabled, so that its absence is never a mystery.
-    vec![llama_backend(CHAT_BACKEND_LLAMA.to_owned(), llama::LEGACY_LLAMA_SERVER_NAME.to_owned(), false)]
-  } else {
-    llama_servers.iter().map(|server| llama_backend(llama_backend_id(server), server.name.clone(), true)).collect()
-  };
-  backends.push(ChatBackendInfo {
-    id: CHAT_BACKEND_OPENROUTER.to_owned(),
-    label: OPENROUTER_LABEL.to_owned(),
-    available: openrouter_available,
-    unavailable_reason: unavailable_reason(openrouter_available),
-    supports_model_selection: true,
-    supports_reasoning_effort: true,
-    models: openrouter_models,
-    models_error,
-  });
-  ChatBackendsResponse {
-    backends,
-    infumap_tools: super::infumap_tool_specs(),
-    tool_servers: mcp::tool_server_catalog(config).await,
-  }
+    };
+    ChatBackendInfo { id: provider.id.clone(), label: provider.id.clone(), available: true, models, models_error }
+  }));
+  let (backends, tool_servers) = tokio::join!(catalogs, mcp::tool_server_catalog(config));
+  ChatBackendsResponse { backends, infumap_tools: super::infumap_tool_specs(), tool_servers }
 }
 
-/// Initial profile resources from server configuration; no provider or MCP network probing is needed.
-pub(crate) fn default_query_configuration(
+/// Initial profiles use the first provider with an available model, in configuration/catalog order.
+/// Network discovery happens before the caller acquires the database lock.
+pub(crate) async fn default_query_configuration(
   config: &Config,
 ) -> InfuResult<crate::query_configuration::QueryConfiguration> {
-  let servers = llama_servers_from_config(config)?;
-  let target = default_target(config, &servers);
-  let model = target.as_ref().map(|target| ChatModelSelection {
-    backend: target.id(),
-    model: match target {
-      ChatTarget::OpenRouter => configured_string(config, CONFIG_CHAT_DEFAULT_OPENROUTER_MODEL),
-      _ => None,
-    },
-    reasoning_effort: None,
-  });
+  let mut model = None;
+  for provider in chat_providers_from_config(config)? {
+    match model_catalog(&provider).await {
+      Ok(catalog) => {
+        if let Some(first) = catalog.models.first() {
+          model =
+            Some(ChatModelSelection { backend: provider.id, model: Some(first.id.clone()), reasoning_effort: None });
+          break;
+        }
+      }
+      Err(error) => warn!("Could not discover an initial model for '{}': {}", provider.id, error),
+    }
+  }
   let mut capabilities = vec!["infumap_data".to_owned()];
   capabilities.extend(
     super::mcp::chat_tool_servers_from_config(config)?

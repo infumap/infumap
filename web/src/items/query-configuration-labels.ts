@@ -16,15 +16,14 @@ export function shortModelName(name: string): string {
   return name.includes(": ") ? name.substring(name.indexOf(": ") + 2) : name;
 }
 
-/** The provider's display name, or its route ID without the "llama:" prefix while the catalog is unknown. */
+/** The configured provider ID, also used as its display label. */
 export function queryProviderLabel(store: StoreContextModel, backend: string): string {
   return store.general.chatBackends()?.backends.find(provider => provider.id == backend)?.label
-    ?? backend.replace(/^llama:/, "");
+    ?? backend;
 }
 
 /**
- * A route to a provider that serves its own model (a llama server) is named by the provider; any other
- * route by its model. The reasoning effort follows when one is set.
+ * A model's display name, followed by its reasoning effort when one is set.
  */
 export function queryModelLabel(store: StoreContextModel, selection: ChatModelSelection | null, short: boolean = false): string {
   if (selection == null) { return "No model"; }

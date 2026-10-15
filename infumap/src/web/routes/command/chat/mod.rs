@@ -221,8 +221,8 @@ mod mcp;
 mod search_results;
 mod transcript;
 use activity::ChatActivity;
-use backend::{ChatBackend, ChatEndpoint, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends, resolve_chat_endpoint};
-pub(crate) use backend::{default_query_configuration, llama_servers_from_config, validate_chat_backend_config};
+use backend::{ChatAdapter, ChatEndpoint, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends, resolve_chat_endpoint};
+pub(crate) use backend::{chat_providers_from_config, default_query_configuration, validate_chat_backend_config};
 use configuration::TurnSettings;
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
@@ -643,9 +643,7 @@ struct OpenAiChatMessage {
 }
 
 impl OpenAiChatMessage {
-  /// A copy without the reasoning stream. Reasoning is replayed to llama-server, which produced it
-  /// in this shape, but not to OpenRouter: providers there expect their own signed reasoning blocks
-  /// and can reject a foreign one.
+  /// A copy without reasoning text, which is not a portable signed reasoning block.
   fn without_reasoning(&self) -> Self {
     Self { reasoning_content: None, ..self.clone() }
   }
@@ -733,6 +731,8 @@ struct OpenAiChatCompletionRequest {
   tools: Vec<OpenAiToolSpec>,
   #[serde(skip_serializing_if = "Option::is_none")]
   reasoning: Option<OpenAiReasoning>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  reasoning_effort: Option<&'static str>,
 }
 
 /// OpenRouter's unified reasoning control.
@@ -3543,22 +3543,36 @@ async fn chat_completion(
   let url = &endpoint.url;
 
   let client = reqwest::ClientBuilder::new()
+    .redirect(reqwest::redirect::Policy::none())
     .connect_timeout(endpoint.connect_timeout)
     .read_timeout(endpoint.read_timeout)
     .build()
     .map_err(|e| format!("Could not build {} HTTP client: {}", backend_label, reqwest_error_for_log(&e)))?;
   let payload = OpenAiChatCompletionRequest {
     model: endpoint.model.clone(),
-    messages: match endpoint.backend {
-      ChatBackend::LlamaServer => {
+    messages: match endpoint.adapter {
+      ChatAdapter::LlamaCpp => {
         messages.iter().enumerate().map(|(index, message)| message.for_llama_server(index == 0)).collect()
       }
-      ChatBackend::OpenRouter => messages.iter().map(OpenAiChatMessage::without_reasoning).collect(),
+      _ => messages.iter().map(OpenAiChatMessage::without_reasoning).collect(),
     },
     stream: true,
     stream_options: Some(OpenAiStreamOptions { include_usage: true }),
     tools: tools.to_vec(),
-    reasoning: OpenAiReasoning::from_config(endpoint.reasoning),
+    reasoning: if endpoint.adapter == ChatAdapter::Openrouter {
+      OpenAiReasoning::from_config(endpoint.reasoning)
+    } else {
+      None
+    },
+    reasoning_effort: if endpoint.adapter == ChatAdapter::Openrouter {
+      None
+    } else {
+      match endpoint.reasoning {
+        ChatReasoning::ModelDefault => None,
+        ChatReasoning::Disabled => Some("none"),
+        ChatReasoning::Effort(effort) => Some(effort),
+      }
+    },
   };
   append_llm_request_metrics_log(llm_turn, messages, tools);
   let logged_request = llm_request_log_value(&payload, &progress.request_id, llm_turn);
@@ -3568,7 +3582,7 @@ async fn chat_completion(
   if let Some(api_key) = endpoint.api_key.as_deref() {
     request = request.bearer_auth(api_key);
   }
-  if endpoint.backend == ChatBackend::OpenRouter {
+  if endpoint.adapter == ChatAdapter::Openrouter {
     request = request.header("X-Title", OPENROUTER_APP_TITLE);
   }
   let response = request.send().await.map_err(|e| {

@@ -35,13 +35,6 @@ export function queryModelIssues(store: StoreContextModel, selection: ChatModelS
   if (provider == null || !provider.available) {
     return issue("unavailable", `Provider ${queryProviderLabel(store, selection.backend)} is unavailable. ${sentence(provider?.unavailableReason ?? "It is not configured on this server")} Choose another provider.`);
   }
-  if (!provider.supportsModelSelection && selection.model != null) {
-    return issue("unavailable", `${provider.label} serves its own model, so it cannot use ${selection.model}. Choose ${provider.label} itself.`);
-  }
-  if (!provider.supportsReasoningEffort && selection.reasoningEffort != null) {
-    return issue("unavailable", `${provider.label} does not support reasoning effort ${selection.reasoningEffort}. Choose Default.`);
-  }
-  if (!provider.supportsModelSelection) { return []; }
   if (selection.model == null) { return issue("unavailable", `Choose an explicit model for ${provider.label}.`); }
   if (provider.modelsError != null) {
     return issue("unverified", `${provider.label}: ${provider.modelsError} The saved model and reasoning effort will be sent unchanged.`);

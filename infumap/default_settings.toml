@@ -61,27 +61,26 @@
 # not this URL.
 #gpu_tools_url = "http://127.0.0.1:8787"
 
-# Optional llama.cpp llama-server instances for Chat, each offered to users
-# under its name. Infumap calls the OpenAI-compatible /v1/chat/completions
-# endpoint; url may be either the server base URL or the full endpoint URL.
-# The same list can be given as JSON in llama_servers (INFUMAP_LLAMA_SERVERS),
-# whose entries replace TOML entries with the same name.
-# An account's initial query profile uses the first configured llama server,
-# falling back to OpenRouter if no llama server is configured. Users choose
-# their defaults through query profiles after that.
-#llama_server = [
-#  { name = "Local", url = "http://127.0.0.1:8080" },
+# Optional Chat providers using the OpenAI Chat Completions API. id is a stable
+# identifier stored in query profiles and used as the display label.
+# url is the API base INCLUDING its version path, e.g. /v1 or /api/v1. A full
+# chat/completions URL is also accepted. api_key is optional and sent as a Bearer
+# token. Keys are instance wide, shared by all users, and never sent to browsers.
+# List model IDs in models to offer them in that order, or omit models to discover
+# them through GET <url>/models. Only offer models that support tool calling.
+# An account's initial profile uses the first provider with an available model,
+# then its first model. Users choose their defaults through query profiles.
+#chat_provider = [
+#  { id = "local", url = "http://127.0.0.1:8080/v1", models = ["my-model"] },
+#  { id = "openrouter", url = "https://openrouter.ai/api/v1", adapter = "openrouter", api_key = "YOUR_KEY" },
 #]
-
-# Optional OpenRouter API key, enabling the OpenRouter models in Chat. The key is
-# instance wide - every user of this instance shares (and spends from) the one
-# OpenRouter account.
-#openrouter_api_key = ""
-
-# OpenRouter model used to seed an account's initial query profile when no
-# llama server is configured, e.g. "anthropic/claude-sonnet-4.5". Only models
-# that support tool calling are offered. If unset, users pick a model themselves.
-#chat_default_openrouter_model = ""
+# adapter defaults to "openai". "openrouter" uses OpenRouter catalog metadata
+# and reasoning parameters; "llama_cpp" opts into llama.cpp message formatting.
+# Optional reasoning_efforts = ["none", "low", "medium", "high"] declares the
+# supported efforts for every offered model. Otherwise discovery supplies them,
+# or none are offered. Configured model IDs have no discovered metadata.
+# The same list can be given as JSON in chat_providers (INFUMAP_CHAT_PROVIDERS),
+# whose entries replace TOML entries with the same id, preserving their position.
 
 # Optional MCP tool servers for Chat, spoken over Streamable HTTP. Infumap does
 # not start these processes; run the sidecar yourself (see tools/mcp/). Plugin

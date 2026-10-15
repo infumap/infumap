@@ -12,35 +12,62 @@ When configured and reported by `/gpu-tools`, the web server uses these services
 
 Search is local and lexical. Full-user searches use BM25-backed title and search-fragment indexes; no embedding service is required.
 
-Chat requires at least one language model backend: one or more llama.cpp `llama-server` instances,
-`openrouter_api_key`, or both. Configure llama servers as an array of inline tables, each with a `name`,
-which is what users see and pick, and a `url`, either its base URL or its full chat completions endpoint URL:
+Chat requires at least one provider speaking the OpenAI Chat Completions protocol. Configure providers
+as an array of inline tables. Each has a stable `id`, which is also its display label,
+an API base `url` including its version path, and an optional `api_key`:
 
 ```toml
-llama_server = [
-  { name = "Local", url = "http://127.0.0.1:8080" },
-  { name = "Remote", url = "https://llama.example.com" },
+chat_provider = [
+  { id = "local", url = "http://127.0.0.1:8080/v1", models = ["my-model"] },
+  { id = "openrouter", url = "https://openrouter.ai/api/v1", adapter = "openrouter", api_key = "YOUR_KEY" },
 ]
 ```
 
-This syntax keeps subsequent settings at the root of the TOML file. `llama_servers` takes the same
-list as JSON for configuration through `INFUMAP_LLAMA_SERVERS`; its entries replace TOML entries
-with the same name. Each server decides which model is loaded, so Infumap offers no model choice
-for it, and no reasoning effort either (llama.cpp only honours one if the loaded model's chat template
-happens to use it). Configure `openrouter_api_key` to offer OpenRouter's models as well. That key is
-instance wide - every user of the instance shares the one OpenRouter account and spends from it -
-and it is never sent to the browser, since Infumap calls OpenRouter server side.
+This syntax keeps subsequent settings at the root of the TOML file. Provider IDs contain 1–64 ASCII
+letters, digits, dots, underscores or hyphens. Profiles, favorites and chats store those IDs, so keep
+them stable. `url` can also be the full chat completions URL. Infumap appends
+`chat/completions` to the API base; it does not insert `/v1` automatically.
 
-The OpenRouter model list is public, fetched anonymously, and cached. Only models that support tool
-calling are offered. Each model's reasoning effort choices come from that same list. If refreshing
-fails, a saved catalog remains available for browsing and is labelled unverified.
+`models` is an optional, nonempty ordered list of model IDs. When supplied, it is authoritative and Infumap
+does not fetch a catalog. Otherwise Infumap discovers models through `GET <url>/models`, using the
+API key when needed. A host serving just one model still uses that model's actual ID. Generic
+discovery preserves the returned order. Configure only models that support tool calling: generic
+catalogs may not report this capability.
 
-An account's first saved **Default** query profile uses the first configured llama server, recording
-its specific named route. If there are no llama servers, it uses OpenRouter when configured, with
-`chat_default_openrouter_model` as its initial model. If that model setting is empty, the user must
-choose a model before chatting. With no backend configured, the profile can still be used for Search.
+`adapter` defaults to `openai`, using standard messages and the `reasoning_effort` parameter.
+`openrouter` enables OpenRouter's catalog metadata, tool capability filtering and `reasoning`
+parameter. `llama_cpp` opts into llama.cpp conversation formatting: replayed reasoning text and
+conversion of later system messages to user messages. These adapters apply to entries in the same
+provider list; they do not determine a provider's ID.
+
+Optional `reasoning_efforts` declares the supported effort levels for every model on a provider,
+for example `["none", "low", "medium", "high"]`. Otherwise discovered reasoning metadata supplies
+the choices; a model without such metadata offers only Default. Explicit `models` entries have no
+discovered metadata, so declare efforts if needed. Supported levels are `none`, `minimal`, `low`,
+`medium`, `high`, `xhigh` and `max`; only declare values the endpoint accepts.
+
+`chat_providers` takes the same provider list as JSON through `INFUMAP_CHAT_PROVIDERS`. Its entries
+replace TOML entries with the same ID, preserving their position; new IDs are appended. For example:
+
+```sh
+export INFUMAP_CHAT_PROVIDERS='[{"id":"local","url":"http://127.0.0.1:8080/v1","api_key":"YOUR_KEY","models":["my-model"]}]'
+```
+
+API keys are instance wide: every user shares the configured credentials and any associated spending.
+They are sent as Bearer tokens by the server and are never included in the browser's provider catalog.
+
+Discovered catalogs are cached separately for each provider configuration: five minutes for generic
+providers, six hours for OpenRouter. OpenRouter's public catalog is fetched anonymously and provides
+model names, context sizes, prices and reasoning choices. If refreshing fails, the last successful
+catalog remains available for browsing and is labelled unverified. A failed or stale discovery cannot
+establish that a saved model disappeared; its explicit selection can still be tried at the provider.
+
+An account's first saved **Default** query profile uses the first provider with an available model,
+then that provider's first model, in configuration/catalog order. Discovery runs outside the database
+lock. If no model can be found, the profile can still be used for Search; users choose a model before Chat.
 Changing server configuration does not rewrite existing profiles.
-The former `chat_default_backend` setting is ignored, like other unrecognized settings.
+The old `llama_server`, `llama_servers`, `llama_server_url`, `openrouter_api_key`, `chat_default_backend`
+and `chat_default_openrouter_model` settings are ignored, like other unrecognized settings.
 
 Users choose the default profile in **Profiles → Manage…**. New queries copy
 it once. Picking a different profile or changing the model, reasoning effort, scope or tools affects
@@ -49,7 +76,7 @@ model favorites are saved with the account and included in account backups. See
 [Query profiles](chats.md#query-profiles) for the controls and
 [Query configuration and profiles](query-profiles.md) for the API.
 
-Chat requests use the explicit saved provider route, model and effort. OpenRouter requires a model
-ID; a null model is only for a provider serving its own model. An unavailable selected provider,
+Chat requests use the explicit saved provider ID, model ID and effort. Every provider requires an
+explicit model ID, including services hosting only one model. An unavailable selected provider,
 model, scope or tool source is reported rather than replaced with a server default or silently
 disabled. Search needs no model and uses only its selected scope.
