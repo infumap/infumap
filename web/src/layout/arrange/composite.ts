@@ -31,6 +31,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
+import { documentPageCompositeChildMoveOutHitboxPx } from "../composite-move-out";
 import { documentGapBetweenBl } from "../document-spacing";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { assignFlowListItemNumbers } from "../list-numbering";
@@ -54,7 +55,8 @@ export const arrangeComposite = (
   compositeGeometry: ItemGeometry,
   flags: ArrangeItemFlags,
   widthBlOverride?: number,
-  useDocumentTypography: boolean = false): VisualElementSignal => {
+  useDocumentTypography: boolean = false,
+  documentContentRightPx: number | null = null): VisualElementSignal => {
 
   const compositeVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite), parentPath);
   const compositeVeid = VeFns.veidFromItems(displayItem_Composite, linkItemMaybe_Composite);
@@ -191,6 +193,10 @@ export const arrangeComposite = (
     geometry: child.geometry,
   })));
   addContiguousStackedGapHitboxes(compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w, false);
+  if (documentContentRightPx != null) {
+    alignDocumentCompositeChildMoveOutHitboxes(
+      compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w, documentContentRightPx);
+  }
 
   for (const child of compositeChildArrangeData) {
     const compositeChildPath = arrangeCompositeChildItemPath(
@@ -207,6 +213,40 @@ export const arrangeComposite = (
   const compositeVisualElementSignal = VesCache.arrange.writeVisualElementSignal(compositeSpec, compositeRelationships, compositeVePath);
 
   return compositeVisualElementSignal;
+}
+
+/**
+ * In a document page, the move handles of a composite's children are in the inner lane of the right margin, where
+ * the handles of the other rows are (the composite's own handle is in the outer lane). Each child's move hitbox spans
+ * from the composite's right edge to the lane boundary, and half way into the gaps between children, so hover does
+ * not flicker to the composite while moving from a child to its handle, or between children.
+ */
+function alignDocumentCompositeChildMoveOutHitboxes(
+  childGeometries: Array<ItemGeometry>,
+  compositeWidthPx: number,
+  contentRightPx: number,
+): void {
+  for (let i = 0; i < childGeometries.length; ++i) {
+    const geometry = childGeometries[i];
+    const moveHitbox = geometry.hitboxes.find(hitbox => hitbox.meta?.compositeMoveOut);
+    if (moveHitbox == null) { continue; }
+    const prevBoundsPx = i > 0 ? childGeometries[i - 1].boundsPx : null;
+    const nextBoundsPx = i + 1 < childGeometries.length ? childGeometries[i + 1].boundsPx : null;
+    const boundsPx = geometry.boundsPx;
+    const bandTopPx = prevBoundsPx == null
+      ? boundsPx.y
+      : (prevBoundsPx.y + prevBoundsPx.h + boundsPx.y) / 2;
+    const bandBottomPx = nextBoundsPx == null
+      ? boundsPx.y + boundsPx.h
+      : (boundsPx.y + boundsPx.h + nextBoundsPx.y) / 2;
+    moveHitbox.boundsPx = documentPageCompositeChildMoveOutHitboxPx(
+      boundsPx, compositeWidthPx, contentRightPx, bandTopPx, bandBottomPx);
+    moveHitbox.meta = {
+      ...(moveHitbox.meta ?? {}),
+      compositeMoveOut: true,
+      allowOutsideBounds: true,
+    };
+  }
 }
 
 function arrangeCompositeChildItemPath(

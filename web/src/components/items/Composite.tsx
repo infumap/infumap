@@ -33,7 +33,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -110,6 +110,8 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     }
   };
   const moveOutOfCompositeBox = (): BoundingBox => {
+    const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
+    if (documentBox != null) { return documentBox; }
     const fallbackBounds = {
       x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,

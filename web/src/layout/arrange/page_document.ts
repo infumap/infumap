@@ -31,7 +31,7 @@ import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { compositeMoveOutHitboxBoundsPx, documentPageMoveOutBoxPx } from "../composite-move-out";
+import { compositeMoveOutHitboxBoundsPx, documentContentRightPx, documentPageCompositeMoveOutHitboxPx, documentPageMoveOutBoxPx } from "../composite-move-out";
 import { DOCUMENT_GAP_16PX_BL, DOCUMENT_PAGE_TITLE_GAP_BL, documentGapBetweenBl } from "../document-spacing";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
@@ -164,7 +164,7 @@ export function arrange_document_page(
       geometry.hitboxes = geometry.hitboxes.filter(hitbox => !(hitbox.type & HitboxFlags.Resize));
       geometry.hitboxes.push(HitboxFns.create(HitboxFlags.Move, zeroBoundingBoxTopLeft(geometry.boundsPx)));
     }
-    alignDocumentMoveOutHitbox(geometry, blockSizePx, displayItem_pageWithChildren.docWidthBl, leftMarginBl);
+    alignDocumentMoveOutHitbox(geometry, child.displayItem, blockSizePx, displayItem_pageWithChildren.docWidthBl, leftMarginBl);
     setNaturalAttachmentBlockSizePx(store, child.childItem, geometry, blockSizePx.w, false);
     const documentChildGeometry: ItemGeometry = {
       ...geometry,
@@ -223,6 +223,7 @@ export function arrange_document_page(
       child.actualLinkItemMaybe,
       child.geometry,
       child.displayWidthBl,
+      documentContentRightPx(blockSizePx, displayItem_pageWithChildren.docWidthBl, leftMarginBl),
       (renderChildrenAsFull ? ArrangeItemFlags.RenderChildrenAsFull : ArrangeItemFlags.None) |
       ArrangeItemFlags.InsideCompositeOrDoc |
       (child.childItemIsEmbeddedInteractive ? ArrangeItemFlags.IsEmbeddedInteractiveRoot : ArrangeItemFlags.None) |
@@ -426,6 +427,7 @@ function calcMovingItemReservedHeightPx(
 
 function alignDocumentMoveOutHitbox(
   geometry: ItemGeometry,
+  displayItem: Item,
   blockSizePx: { w: number, h: number },
   documentContentWidthBl: number,
   leftMarginBl: number,
@@ -435,13 +437,15 @@ function alignDocumentMoveOutHitbox(
     return;
   }
 
-  const moveAreaBoundsPx = documentPageMoveOutBoxPx(
-    geometry.boundsPx,
-    blockSizePx,
-    documentContentWidthBl,
-    leftMarginBl,
-  );
-  moveHitbox.boundsPx = compositeMoveOutHitboxBoundsPx(moveAreaBoundsPx);
+  moveHitbox.boundsPx = isComposite(displayItem)
+    ? documentPageCompositeMoveOutHitboxPx(
+      geometry.boundsPx,
+      documentContentRightPx(blockSizePx, documentContentWidthBl, leftMarginBl))
+    : compositeMoveOutHitboxBoundsPx(documentPageMoveOutBoxPx(
+      geometry.boundsPx,
+      blockSizePx,
+      documentContentWidthBl,
+      leftMarginBl));
   moveHitbox.meta = {
     ...(moveHitbox.meta ?? {}),
     compositeMoveOut: true,
@@ -456,6 +460,7 @@ function arrangeDocumentChildItemPath(
   actualLinkItemMaybe: LinkItem | null,
   geometry: ItemGeometry,
   displayWidthBl: number,
+  contentRightPx: number,
   flags: ArrangeItemFlags): VisualElementPath {
 
   const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
@@ -489,7 +494,8 @@ function arrangeDocumentChildItemPath(
       geometry,
       flags,
       displayWidthBl,
-      true).get());
+      true,
+      contentRightPx - geometry.boundsPx.x).get());
   }
 
   return arrangeItemPath(

@@ -38,7 +38,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { arrangeNow } from "../../layout/arrange";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { AttachmentsOverflowMarker, HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -147,6 +147,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     };
   };
   const moveOutOfCompositeBox = (): BoundingBox => {
+    const documentBox = documentPageMoveOutBoxPxMaybe(props.visualElement);
+    if (documentBox != null) { return documentBox; }
     const fallbackBounds = {
       x: boundsPx().w - COMPOSITE_MOVE_OUT_AREA_SIZE_PX - COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
       y: COMPOSITE_MOVE_OUT_AREA_MARGIN_PX,
