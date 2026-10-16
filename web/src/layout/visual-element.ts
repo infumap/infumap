@@ -32,6 +32,7 @@ import { GRID_SIZE, Z_INDEX_GLOBAL_ITEMS, Z_INDEX_GLOBAL_MOVING, Z_INDEX_GLOBAL_
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { ArrangeItemFlags } from "./arrange/item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
+import { TableColumnAlign } from "../items/base/tabular-item";
 
 
 /**
@@ -339,6 +340,11 @@ export interface VisualElement {
   indentBl: number | null,
 
   /**
+   * The default alignment of the table column the element is in, if it's a cell inside a table. Null means left.
+   */
+  tableColumnAlign: TableColumnAlign | null,
+
+  /**
    * Size of a 1x1 bl block in pixels. Not set in all cases.
    */
   blockSizePx: Dimensions | null,
@@ -481,6 +487,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   tableRowBlockSizePx: null,
   tableDimensionsPx: null,
   indentBl: null,
+  tableColumnAlign: null,
   viewportBoundsPx: null,
   listChildAreaBoundsPx: null,
   listViewportBoundsPx: null,
@@ -535,6 +542,7 @@ export interface VisualElementSpec {
   listPagePinnedBottomHeightPx?: number,
   tableDimensionsPx?: Dimensions,
   indentBl?: number,
+  tableColumnAlign?: TableColumnAlign | null,
   blockSizePx?: Dimensions,
   lineItemTextRightPaddingPx?: number,
   col?: number,
@@ -603,6 +611,7 @@ export const VeFns = {
       listPagePinnedTopHeightPx: 0,
       listPagePinnedBottomHeightPx: 0,
       indentBl: null,
+      tableColumnAlign: null,
       blockSizePx: null,
       lineItemTextRightPaddingPx: 0,
       col: null,
@@ -653,6 +662,7 @@ export const VeFns = {
     ve.listPagePinnedBottomHeightPx = 0;
     ve.tableDimensionsPx = null;
     ve.indentBl = null;
+    ve.tableColumnAlign = null;
     ve.blockSizePx = null;
     ve.lineItemTextRightPaddingPx = 0;
     ve.col = null;
@@ -1280,6 +1290,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.listPagePinnedBottomHeightPx) != 'undefined') { result.listPagePinnedBottomHeightPx = override.listPagePinnedBottomHeightPx; }
   if (typeof (override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
   if (typeof (override.indentBl) != 'undefined') { result.indentBl = override.indentBl; }
+  if (typeof (override.tableColumnAlign) != 'undefined') { result.tableColumnAlign = override.tableColumnAlign; }
   if (typeof (override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
   if (typeof (override.lineItemTextRightPaddingPx) != 'undefined') { result.lineItemTextRightPaddingPx = override.lineItemTextRightPaddingPx; }
   if (typeof (override.col) != 'undefined') { result.col = override.col; }

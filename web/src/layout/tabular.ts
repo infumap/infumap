@@ -20,7 +20,7 @@ import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { itemCanExpandInLineItem } from "../items/base/flags-item";
 import { Item } from "../items/base/item";
-import { TabularItem, TabularMixin } from "../items/base/tabular-item";
+import { TableColumnAlign, TabularItem, TabularMixin } from "../items/base/tabular-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Dimensions } from "../util/geometry";
@@ -191,6 +191,10 @@ export function tabularColumnWidthBl(tabular: TabularMixin, widthBl: number, ind
     return Math.max(1, widthBl - precedingWidthBl);
   }
   return tabular.tableColumns[index].widthGr / GRID_SIZE;
+}
+
+export function tabularColumnAlign(tabular: TabularMixin, index: number): TableColumnAlign | null {
+  return tabular.tableColumns[index]?.align ?? null;
 }
 
 export function tabularColumnAtBl(tabular: TabularMixin, widthBl: number, xBl: number): number {

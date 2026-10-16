@@ -36,6 +36,7 @@ import {
   noteListMarkerFontSizePx,
   noteListMarkerLeftPx,
   noteListMarkerText,
+  noteEffectiveAlignClass,
   noteListTextInsetPx,
   noteTextBlockPaddingLeftPx,
 } from "../../layout/text";
@@ -101,6 +102,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
+  const alignClass = () => noteEffectiveAlignClass(noteItem().flags, props.visualElement.tableColumnAlign);
   const hasListMarker = () => noteHasListMarker(noteItem().flags);
   const listMarkerLeftPx = () => noteListMarkerLeftPx(noteItem().flags);
   const listMarkerText = () => noteListMarkerText(noteItem().flags, props.visualElement.listItemNumber);
@@ -236,7 +238,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       <Show when={textWidthPx() > 0 || isTextEditTarget()}>
         <div class={`absolute overflow-hidden whitespace-nowrap ` +
           (isTextEditTarget() || isInCalendarPage() ? '' : `text-ellipsis `) +
-          `${infuTextStyle().alignClass} `}
+          `${alignClass()} `}
           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
             `width: ${lineItemTextClippedWidthCssPx(props.visualElement, textWidthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
             `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +

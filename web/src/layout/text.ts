@@ -24,6 +24,7 @@ import {
   noteIndentLevelFromFlags,
   NoteFlags,
 } from "../items/base/flags-item";
+import { TableColumnAlign } from "../items/base/tabular-item";
 
 
 const lineCountCache = new Map<String, number>();
@@ -294,4 +295,14 @@ export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
   }
 
   return { fontSize: bodyFontSizePx, lineHeightMultiplier: 1.0, isBold: false, isCode, alignClass };
+}
+
+const NOTE_ALIGN_FLAGS = NoteFlags.AlignCenter | NoteFlags.AlignRight | NoteFlags.AlignJustify;
+
+/**
+ * The note's own alignment wins, otherwise the default of the table column it is in (if any), otherwise left.
+ */
+export function noteEffectiveAlignClass(flags: NoteFlags, tableColumnAlign: TableColumnAlign | null): string {
+  if ((flags & NOTE_ALIGN_FLAGS) || tableColumnAlign == null) { return getTextStyleForNote(flags).alignClass; }
+  return tableColumnAlign == "right" ? "text-right" : "text-center";
 }
