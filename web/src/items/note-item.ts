@@ -30,7 +30,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { YSizableItem, YSizableMixin } from './base/y-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { FlagsItem, FlagsMixin, NoteFlags } from './base/flags-item';
+import { FlagsItem, FlagsMixin, NOTE_ALIGN_FLAGS, NoteFlags } from './base/flags-item';
 import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
@@ -1179,14 +1179,6 @@ export const NoteFns = {
     return noteItem.flags & NOTE_LIST_CONTINUATION_FLAGS;
   },
 
-  isAlignedLeft: (flagsItem: FlagsItem): boolean => {
-    return (
-      !(flagsItem.flags & NoteFlags.AlignCenter) &&
-      !(flagsItem.flags & NoteFlags.AlignJustify) &&
-      !(flagsItem.flags & NoteFlags.AlignRight)
-    );
-  },
-
   iconRenderContextFromVisualElement,
 
   showsIcon: (note: NoteMeasurable, context: ItemIconRenderContext = ItemIconRenderContext.Spatial): boolean => {
@@ -1217,9 +1209,7 @@ export const NoteFns = {
   },
 
   clearAlignmentFlags: (flagsItem: FlagsItem): void => {
-    flagsItem.flags &= ~NoteFlags.AlignCenter;
-    flagsItem.flags &= ~NoteFlags.AlignRight;
-    flagsItem.flags &= ~NoteFlags.AlignJustify;
+    flagsItem.flags &= ~NOTE_ALIGN_FLAGS;
   },
 
   hasUrls: (noteItem: NoteItem): boolean => {

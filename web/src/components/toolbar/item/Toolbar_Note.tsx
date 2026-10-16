@@ -37,6 +37,7 @@ import { applyEditorFormatCommand } from "../../../input/editor_history";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
 import { VeFns } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
+import { noteEffectiveAlignFlag, noteInheritedAlignFlag } from "../../../layout/text";
 
 
 export const Toolbar_Note: Component = () => {
@@ -80,15 +81,26 @@ export const Toolbar_Note: Component = () => {
     return false;
   };
 
-  const selectAlignment = (flag: NoteFlags | null) => {
+  // Inside a table, notes inherit the default alignment of their column.
+  const focusTableColumnAlign = () => {
+    const focusPath = getToolbarFocusPathMaybe(store);
+    if (focusPath == null) { return null; }
+    return VesCache.current.readNode(focusPath)?.tableColumnAlign ?? null;
+  };
+  const alignmentHighlighted = (flag: NoteFlags): boolean =>
+    noteEffectiveAlignFlag(noteItem().flags, focusTableColumnAlign()) == flag;
+
+  // Only store an alignment that differs from the inherited one, so the note keeps following its column.
+  const selectAlignment = (flag: NoteFlags) => {
     const note = noteItem();
+    const inheritedFlag = noteInheritedAlignFlag(focusTableColumnAlign());
     applyEditorFormatCommand(store, [note], "Align text", () => {
       NoteFns.clearAlignmentFlags(note);
-      if (flag != null) { note.flags |= flag; }
+      if (flag != inheritedFlag) { note.flags |= flag; }
     });
     requestArrange(store, "toolbar-note-alignment");
   };
-  const selectAlignLeft = () => { selectAlignment(null); };
+  const selectAlignLeft = () => { selectAlignment(NoteFlags.AlignLeft); };
   const selectAlignCenter = () => { selectAlignment(NoteFlags.AlignCenter); };
   const selectAlignRight = () => { selectAlignment(NoteFlags.AlignRight); };
   const selectAlignJustify = () => { selectAlignment(NoteFlags.AlignJustify); };
@@ -254,10 +266,10 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
         <InfuIconButton icon="fa fa-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />
         <div class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
-        <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-        <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-        <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+        <InfuIconButton icon="fa fa-align-left" highlighted={alignmentHighlighted(NoteFlags.AlignLeft)} clickHandler={selectAlignLeft} />
+        <InfuIconButton icon="fa fa-align-center" highlighted={alignmentHighlighted(NoteFlags.AlignCenter)} clickHandler={selectAlignCenter} />
+        <InfuIconButton icon="fa fa-align-right" highlighted={alignmentHighlighted(NoteFlags.AlignRight)} clickHandler={selectAlignRight} />
+        <InfuIconButton icon="fa fa-align-justify" highlighted={alignmentHighlighted(NoteFlags.AlignJustify)} clickHandler={selectAlignJustify} />
         <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
         <div ref={urlDiv} class="inline-block"
           onMouseDown={handleUrlDown}>
@@ -296,10 +308,10 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
         <InfuIconButton icon="fa fa-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />
         <div class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon="fa fa-align-left" highlighted={NoteFns.isAlignedLeft(noteItem())} clickHandler={selectAlignLeft} />
-        <InfuIconButton icon="fa fa-align-center" highlighted={(noteItem().flags & NoteFlags.AlignCenter) ? true : false} clickHandler={selectAlignCenter} />
-        <InfuIconButton icon="fa fa-align-right" highlighted={(noteItem().flags & NoteFlags.AlignRight) ? true : false} clickHandler={selectAlignRight} />
-        <InfuIconButton icon="fa fa-align-justify" highlighted={(noteItem().flags & NoteFlags.AlignJustify) ? true : false} clickHandler={selectAlignJustify} />
+        <InfuIconButton icon="fa fa-align-left" highlighted={alignmentHighlighted(NoteFlags.AlignLeft)} clickHandler={selectAlignLeft} />
+        <InfuIconButton icon="fa fa-align-center" highlighted={alignmentHighlighted(NoteFlags.AlignCenter)} clickHandler={selectAlignCenter} />
+        <InfuIconButton icon="fa fa-align-right" highlighted={alignmentHighlighted(NoteFlags.AlignRight)} clickHandler={selectAlignRight} />
+        <InfuIconButton icon="fa fa-align-justify" highlighted={alignmentHighlighted(NoteFlags.AlignJustify)} clickHandler={selectAlignJustify} />
         <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
         <div ref={urlDiv} class="inline-block"
           onMouseDown={handleUrlDown}>

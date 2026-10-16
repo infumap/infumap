@@ -29,7 +29,8 @@ export enum TableFlags {
 export enum NoteFlags {
   // Note:
   //   PlainText is implicit via lack of other text style flags.
-  //   AlignLeft is implicit via lack of other alignment flags.
+  //   Alignment is inherited via lack of alignment flags: left, or the default of the table column the note is in.
+  //   AlignLeft is only needed to override a table column default.
   // TODO (LOW): better group the flags together. Current ordering reflects implementation order.
   None = 0x000,
   Heading3 = 0x001,
@@ -48,7 +49,10 @@ export enum NoteFlags {
   Indent1 = 0x2000,
   Indent2 = 0x4000,
   Numbered = 0x8000,
+  AlignLeft = 0x10000,
 };
+
+export const NOTE_ALIGN_FLAGS = NoteFlags.AlignLeft | NoteFlags.AlignCenter | NoteFlags.AlignRight | NoteFlags.AlignJustify;
 
 export const NOTE_INDENT_MAX_LEVEL = 3;
 const NOTE_INDENT_LEVEL_MASK = NoteFlags.Indent1 | NoteFlags.Indent2;

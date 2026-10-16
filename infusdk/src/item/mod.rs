@@ -46,6 +46,7 @@ bitflags! {
     const Indent1 =        0x2000;
     const Indent2 =        0x4000;
     const Numbered =       0x8000;
+    const AlignLeft =      0x10000;
   }
 }
 
