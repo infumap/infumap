@@ -345,6 +345,11 @@ export interface VisualElement {
   tableColumnAlign: TableColumnAlign | null,
 
   /**
+   * The width in blocks that the columns and row heights of a table view (table item or table page) were arranged for.
+   */
+  tableWidthBl: number | null,
+
+  /**
    * Size of a 1x1 bl block in pixels. Not set in all cases.
    */
   blockSizePx: Dimensions | null,
@@ -488,6 +493,7 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   tableDimensionsPx: null,
   indentBl: null,
   tableColumnAlign: null,
+  tableWidthBl: null,
   viewportBoundsPx: null,
   listChildAreaBoundsPx: null,
   listViewportBoundsPx: null,
@@ -543,6 +549,7 @@ export interface VisualElementSpec {
   tableDimensionsPx?: Dimensions,
   indentBl?: number,
   tableColumnAlign?: TableColumnAlign | null,
+  tableWidthBl?: number | null,
   blockSizePx?: Dimensions,
   lineItemTextRightPaddingPx?: number,
   col?: number,
@@ -612,6 +619,7 @@ export const VeFns = {
       listPagePinnedBottomHeightPx: 0,
       indentBl: null,
       tableColumnAlign: null,
+      tableWidthBl: null,
       blockSizePx: null,
       lineItemTextRightPaddingPx: 0,
       col: null,
@@ -663,6 +671,7 @@ export const VeFns = {
     ve.tableDimensionsPx = null;
     ve.indentBl = null;
     ve.tableColumnAlign = null;
+    ve.tableWidthBl = null;
     ve.blockSizePx = null;
     ve.lineItemTextRightPaddingPx = 0;
     ve.col = null;
@@ -1291,6 +1300,7 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
   if (typeof (override.indentBl) != 'undefined') { result.indentBl = override.indentBl; }
   if (typeof (override.tableColumnAlign) != 'undefined') { result.tableColumnAlign = override.tableColumnAlign; }
+  if (typeof (override.tableWidthBl) != 'undefined') { result.tableWidthBl = override.tableWidthBl; }
   if (typeof (override.blockSizePx) != 'undefined') { result.blockSizePx = override.blockSizePx; }
   if (typeof (override.lineItemTextRightPaddingPx) != 'undefined') { result.lineItemTextRightPaddingPx = override.lineItemTextRightPaddingPx; }
   if (typeof (override.col) != 'undefined') { result.col = override.col; }

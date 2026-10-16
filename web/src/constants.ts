@@ -102,6 +102,10 @@ export const PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL = 1.0;
 
 export const TABLE_TITLE_HEADER_HEIGHT_BL = 1;
 export const TABLE_COL_HEADER_HEIGHT_BL = 1;
+/** The maximum height of a row in a table that wraps the text of its rows. */
+export const TABLE_WRAPPED_ROW_MAX_HEIGHT_BL = 12;
+/** Right padding of the text of a line item note (Note_LineItem). */
+export const NOTE_LINE_ITEM_TEXT_PADDING_RIGHT_PX = 2;
 
 
 export const DOCK_GAP_PX = LIST_PAGE_TOP_PADDING_PX;

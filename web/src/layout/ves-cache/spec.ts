@@ -174,6 +174,7 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if (compareDimensions(existingVe.tableDimensionsPx, specValueOrDefault(preparedSpec.tableDimensionsPx, NONE_VISUAL_ELEMENT.tableDimensionsPx)) !== 0) { return false; }
   if ((existingVe.indentBl ?? null) !== (specValueOrDefault(preparedSpec.indentBl, NONE_VISUAL_ELEMENT.indentBl) ?? null)) { return false; }
   if ((existingVe.tableColumnAlign ?? null) !== (specValueOrDefault(preparedSpec.tableColumnAlign, NONE_VISUAL_ELEMENT.tableColumnAlign) ?? null)) { return false; }
+  if ((existingVe.tableWidthBl ?? null) !== (specValueOrDefault(preparedSpec.tableWidthBl, NONE_VISUAL_ELEMENT.tableWidthBl) ?? null)) { return false; }
   if (compareDimensions(existingVe.blockSizePx, specValueOrDefault(preparedSpec.blockSizePx, NONE_VISUAL_ELEMENT.blockSizePx)) !== 0) { return false; }
   if (existingVe.lineItemTextRightPaddingPx !== specValueOrDefault(preparedSpec.lineItemTextRightPaddingPx, NONE_VISUAL_ELEMENT.lineItemTextRightPaddingPx)) { return false; }
   if (compareDimensions(existingVe.cellSizePx, specValueOrDefault(preparedSpec.cellSizePx, NONE_VISUAL_ELEMENT.cellSizePx)) !== 0) { return false; }

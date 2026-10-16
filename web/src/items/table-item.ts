@@ -87,7 +87,8 @@ export function tableHeaderHeightBl(table: FlagsMixin): number {
 
 
 function tableVisibleRows(store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> {
-  return tabularVisibleRows(store, tabularViewItem(tableVe), VeFns.veToPath(tableVe));
+  const widthBl = tableVe.tableWidthBl ?? tableVisualDimensionsBl(tableVe).w;
+  return tabularVisibleRows(store, tabularViewItem(tableVe), VeFns.veToPath(tableVe), widthBl);
 }
 
 /**

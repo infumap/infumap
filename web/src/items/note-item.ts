@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, RESIZE_BOX_SIZE_PX } from '../constants';
+import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX, NOTE_LINE_ITEM_TEXT_PADDING_RIGHT_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX } from '../constants';
 import { Hitbox, HitboxFlags, HitboxFns } from '../layout/hitbox';
 import { compositeMoveOutHitboxBoundsPx } from '../layout/composite-move-out';
 import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } from '../util/geometry';
@@ -806,6 +806,24 @@ export const NoteFns = {
       iconMode: n.iconMode,
       inlineMarks: packNoteInlineMarks(n.inlineMarks, n.title),
     });
+  },
+
+  /**
+   * The height in blocks of a note's text wrapped in a table cell cellWidthBl wide. Mirrors the text box of
+   * Note_LineItem: a leading block when it shows an icon or link marker (otherwise PADDING_PROP of one), most of a
+   * block for the copy icon, and the right padding.
+   */
+  calcTableCellHeightBl: (note: NoteMeasurable, cellWidthBl: number, isTableAttachment: boolean, hasLinkMarking: boolean): number => {
+    const iconContext = isTableAttachment ? ItemIconRenderContext.TableAttachment : ItemIconRenderContext.Line;
+    const reservesLeadingBlock = NoteFns.showsIcon(note, iconContext) || (hasLinkMarking && !isTableAttachment);
+    const textWidthBl = cellWidthBl
+      - (reservesLeadingBlock ? 1 : PADDING_PROP)
+      - ((note.flags & NoteFlags.ShowCopyIcon) ? 0.9 : 0)
+      - NOTE_LINE_ITEM_TEXT_PADDING_RIGHT_PX / LINE_HEIGHT_PX;
+    if (textWidthBl <= 0) { return 1; }
+    // The line item text box has no border inset.
+    const heightBl = measureLineCount(note.title, textWidthBl, note.flags | NoteFlags.HideBorder, 0, noteInlineTextMeasureSegments(note));
+    return Math.max(1, Math.ceil(heightBl));
   },
 
   calcSpatialDimensionsBl: (note: NoteMeasurable, ignoreExplicitHeight: boolean = false, iconContext: ItemIconRenderContext = ItemIconRenderContext.Spatial): Dimensions => {
