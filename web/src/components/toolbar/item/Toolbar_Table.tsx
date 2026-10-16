@@ -83,6 +83,18 @@ export const Toolbar_Table: Component = () => {
     store.touchToolbar();
   }
 
+  const wrapRows = () => {
+    store.touchToolbarDependency();
+    return !!(tableItem().flags & TableFlags.WrapRows);
+  }
+
+  const handleChangeWrapRows = () => {
+    tableItem().flags ^= TableFlags.WrapRows;
+    requestArrange(store, "toolbar-table-wrap-rows");
+    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    store.touchToolbar();
+  }
+
   const numColsText = () => {
     store.touchToolbarDependency();
     return tableItem().numberOfVisibleColumns;
@@ -118,6 +130,7 @@ export const Toolbar_Table: Component = () => {
         <Toolbar_SortOrder />
         <InfuIconButton icon="bi-table" highlighted={showHeader()} clickHandler={handleChangeShowHeader} title="Show column headers" />
         <InfuIconButton icon="bi-type" highlighted={showTitle()} clickHandler={handleChangeShowTitle} title="Show table title" />
+        <InfuIconButton icon="bi-text-wrap" highlighted={wrapRows()} clickHandler={handleChangeWrapRows} title="Wrap row text" />
       </Show>
 
       <Toolbar_MoreActions />

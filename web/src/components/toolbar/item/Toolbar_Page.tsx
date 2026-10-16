@@ -212,6 +212,18 @@ export const Toolbar_Page: Component = () => {
     store.touchToolbar();
   }
 
+  const tableWrapRows = () => {
+    store.touchToolbarDependency();
+    return !!(pageItem().flags & PageFlags.TableWrapRows);
+  }
+
+  const handleToggleTableWrapRows = () => {
+    pageItem().flags ^= PageFlags.TableWrapRows;
+    requestArrange(store, "toolbar-page-table-wrap-rows");
+    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    store.touchToolbar();
+  }
+
   const showJustifiedButtons = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
@@ -606,6 +618,7 @@ export const Toolbar_Page: Component = () => {
             </div>
           </div>
           <InfuIconButton icon="bi-table" highlighted={showTableHeader()} clickHandler={handleToggleTableHeader} title="Show column headers" />
+          <InfuIconButton icon="bi-text-wrap" highlighted={tableWrapRows()} clickHandler={handleToggleTableWrapRows} title="Wrap row text" />
         </Show>
         <Show when={showJustifiedButtons()}>
           <div ref={justifiedRowAspectDiv}

@@ -24,6 +24,7 @@ export enum TableFlags {
   None = 0x000,
   ShowColHeader = 0x001,
   HideTitle = 0x002,
+  WrapRows = 0x004,
 };
 
 export enum NoteFlags {
@@ -132,6 +133,7 @@ export enum PageFlags {
   UnusedDisableLineItemExpand = 0x100,
   UnusedDisableManualChildAdd = 0x200,
   ShowTableColHeader = 0x400,
+  TableWrapRows = 0x800,
   ListPagePinTop = ListPageFlags.PinTop,
   ListPagePinBottom = ListPageFlags.PinBottom,
 };
