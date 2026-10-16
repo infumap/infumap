@@ -21,7 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { TableFns } from "../../items/table-item";
-import { asTabularItem, isTabularItem, TabularItem } from "../../items/base/tabular-item";
+import { asTabularItem, isTabularItem, TableColumnAlign, TabularItem } from "../../items/base/tabular-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { requestArrange } from "../../layout/arrange";
 import { VeFns, isTableView } from "../../layout/visual-element";
@@ -29,6 +29,7 @@ import { VesCache } from "../../layout/ves-cache";
 import { itemState } from "../../store/ItemState";
 import { serverOrRemote } from "../../server";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
+import { InfuIconButton } from "../library/InfuIconButton";
 
 
 export const TableColumnContextMenu: Component = () => {
@@ -71,7 +72,7 @@ export const TableColumnContextMenu: Component = () => {
   };
   const menuPosPx = () => ({
     x: Math.max(0, Math.min(posPx().x + 10, store.desktopBoundsPx().w - 170)),
-    y: Math.max(0, Math.min(posPx().y - 12, store.desktopBoundsPx().h - (colNum() == 0 ? 65 : 125))),
+    y: Math.max(0, Math.min(posPx().y - 12, store.desktopBoundsPx().h - (colNum() == 0 ? 92 : 152))),
   });
 
   const newColToRight = async () => {
@@ -105,6 +106,16 @@ export const TableColumnContextMenu: Component = () => {
     finishChange("table-column-delete", item);
   }
 
+  const columnAlign = (): TableColumnAlign | null => tableItem().tableColumns[colNum()]?.align ?? null;
+
+  const setColumnAlign = (align: TableColumnAlign | null) => {
+    if (!canChangeColumns()) { store.overlay.tableColumnContextMenuInfo.set(null); return; }
+    const column = tableItem().tableColumns[colNum()];
+    // Left is implicit via absence.
+    if (align == null) { delete column.align; } else { column.align = align; }
+    finishChange("table-column-align");
+  };
+
   const deleteColumnHeaderOnly = () => {
     if (!canChangeColumns() || colNum() == 0) { store.overlay.tableColumnContextMenuInfo.set(null); return; }
     tableItem().tableColumns.splice(colNum(), 1);
@@ -118,6 +129,12 @@ export const TableColumnContextMenu: Component = () => {
                 `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onMouseDown={mouseDownListener}>
       <div class="border rounded w-[160px] bg-slate-50 mb-1 shadow-lg">
+        <div class="text-xs ml-[3px] mr-[5px] mt-[3px] p-[3px] flex items-center">
+          <span class="mr-auto">Align</span>
+          <InfuIconButton icon="fa fa-align-left" highlighted={columnAlign() == null} clickHandler={() => setColumnAlign(null)} title="Align column left" />
+          <InfuIconButton icon="fa fa-align-center" highlighted={columnAlign() == "center"} clickHandler={() => setColumnAlign("center")} title="Align column center" />
+          <InfuIconButton icon="fa fa-align-right" highlighted={columnAlign() == "right"} clickHandler={() => setColumnAlign("right")} title="Align column right" />
+        </div>
         <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newColToRight}>
           Insert 1 Column Right
         </div>
