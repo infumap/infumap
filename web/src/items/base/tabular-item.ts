@@ -24,9 +24,13 @@ import { Item, ItemTypeMixin, ItemType} from "./item";
 
 const ITEM_TYPES = [ItemType.Table, ItemType.Page];
 
+// Default alignment of cells in a table column. Left is implicit via absence.
+export type TableColumnAlign = "center" | "right";
+
 export interface TableColumn {
   name: string,
   widthGr: number,
+  align?: TableColumnAlign,
 }
 
 export interface TabularMixin {

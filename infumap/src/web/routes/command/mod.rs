@@ -1593,7 +1593,7 @@ fn virtual_search_status_page(
     36,
     7.0,
     1.0,
-    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }],
     1,
   );
   item.owner_id = user_id.to_owned();

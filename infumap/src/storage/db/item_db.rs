@@ -1064,7 +1064,7 @@ pub fn migrate_record_v1_to_v2(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
       if item_type == "table" {
         let existing = result.insert(
           String::from("tableColumns"),
-          json::table_columns_to_array(&vec![TableColumn { name: String::from("Title"), width_gr: 8 * GRID_SIZE }]),
+          json::table_columns_to_array(&vec![TableColumn { name: String::from("Title"), width_gr: 8 * GRID_SIZE, align: None }]),
         );
         if existing.is_some() {
           return Err("tableColumns field already exists.".into());
@@ -1814,7 +1814,7 @@ pub fn migrate_record_v19_to_v20(kvs: &Map<String, Value>) -> InfuResult<Map<Str
         if existing.is_some() {
           return Err("numberOfVisibleColumns field already exists.".into());
         }
-        let table_columns = vec![TableColumn { width_gr: 480, name: "Title".to_owned() }];
+        let table_columns = vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }];
         let existing = result.insert(String::from("tableColumns"), json::table_columns_to_array(&table_columns));
         if existing.is_some() {
           return Err("tableColumns field already exists.".into());
