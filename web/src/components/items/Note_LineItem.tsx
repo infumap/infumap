@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, createRenderEffect, Match, Show, Switch, untrack } from "solid-js";
+import { Component, createEffect, createRenderEffect, Match, Show, Switch, untrack } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { VisualElementProps } from "../VisualElement";
 import { asNoteItem, NoteFns } from "../../items/note-item";
@@ -241,11 +241,18 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     return element;
   };
 
+  // While editing, text beyond the lines of the row scrolls within the cell to keep the caret visible. Scroll back so
+  // the clamped text lines up again afterwards.
+  let textDiv: HTMLDivElement | undefined;
+  createEffect(() => {
+    if (!isTextEditTarget() && textDiv != null) { textDiv.scrollTop = 0; }
+  });
+
   const renderText = () =>
     <>
       {renderListMarkerMaybe()}
       <Show when={textWidthPx() > 0 || isTextEditTarget()}>
-        <div class={`absolute overflow-hidden ` +
+        <div ref={textDiv} class={`absolute overflow-hidden ` +
           (isMultiLine() ? '' : `whitespace-nowrap `) +
           (isTextEditTarget() || isInCalendarPage() || isMultiLine() ? '' : `text-ellipsis `) +
           `${alignClass()} `}
@@ -256,7 +263,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             // Wrapped text, laid out as measured by measureLineItemTextHeightBl, clamped to the lines of the row.
             (isMultiLine()
               ? ` white-space: pre-wrap; overflow-wrap: break-word; line-height: ${LINE_HEIGHT_PX}px;` +
-                (isTextEditTarget() ? '' : ` display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${numLines()};`)
+                (isTextEditTarget()
+                  // Reveal the whole line of the caret, not just the caret, when the text scrolls.
+                  ? ` scroll-padding-block: ${LINE_HEIGHT_PX / 4}px;`
+                  : ` display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${numLines()};`)
               : '')}>
           <Show when={isTextEditTarget()} fallback={renderTitle(false)}>
             {renderTitle(true)}
