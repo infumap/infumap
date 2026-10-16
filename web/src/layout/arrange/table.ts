@@ -96,6 +96,7 @@ export const arrangeTable = (
     viewportBoundsPx: tableGeometry.viewportBoundsPx!,
     hitboxes: tableGeometry.hitboxes,
     blockSizePx,
+    tableWidthBl: sizeBl.w,
     row: tableGeometry.row,
     col: tableGeometry.col,
     attachmentBlockSizePx: tableGeometry.attachmentBlockSizePx ?? null,
@@ -363,7 +364,7 @@ function buildTableWindowPlans(
   const slots: Array<TableWindowSlotPlan> = [];
   // The window is the outCount rows starting from the row containing firstVisibleBl.
   let firstItemIdx: number | null = null;
-  const extent = walkTabularRows(store, displayItem_table, tableVePath, row => {
+  const extent = walkTabularRows(store, displayItem_table, tableVePath, sizeBl.w, row => {
     const { item, rowIdx, offsetBl, heightBl, indentBl } = row;
     if (firstItemIdx == null) {
       if (offsetBl + heightBl <= firstVisibleBl) { return true; }
@@ -618,7 +619,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     return { w: tableVe.boundsPx.w / fallbackSizeBl.w, h: tableVe.boundsPx.h / fallbackSizeBl.h };
   })();
   const viewportPx = tableVe.tableBodyViewportBoundsPx ?? tableVe.boundsPx;
-  const sizeBl = { w: viewportPx.w / blockSizePx.w, h: viewportPx.h / blockSizePx.h };
+  // Use the width the table was fully arranged for, so columns and row heights match.
+  const sizeBl = { w: tableVe.tableWidthBl ?? viewportPx.w / blockSizePx.w, h: viewportPx.h / blockSizePx.h };
 
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
   const outCount = windowState.childrenVes.length;

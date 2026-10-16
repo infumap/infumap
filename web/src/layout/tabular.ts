@@ -16,11 +16,15 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, RESIZE_BOX_SIZE_PX } from "../constants";
+import { GRID_SIZE, RESIZE_BOX_SIZE_PX, TABLE_WRAPPED_ROW_MAX_HEIGHT_BL } from "../constants";
+import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
-import { itemCanExpandInLineItem } from "../items/base/flags-item";
+import { FlagsMixin, PageFlags, TableFlags, itemCanExpandInLineItem } from "../items/base/flags-item";
 import { Item } from "../items/base/item";
 import { TableColumnAlign, TabularItem, TabularMixin } from "../items/base/tabular-item";
+import { asLinkItem, isLink } from "../items/link-item";
+import { NoteFns, asNoteItem, isNote } from "../items/note-item";
+import { isPage } from "../items/page-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Dimensions } from "../util/geometry";
@@ -29,6 +33,7 @@ import { Hitbox, HitboxFlags, HitboxFns } from "./hitbox";
 import { initiateLoadChildItemsMaybe } from "./load";
 import { VeFns, VisualElementPath } from "./visual-element";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./arrange/util";
+import { linkHasTriangle } from "./link-triangle";
 
 export type TabularContainerItem = ContainerItem & TabularItem;
 
@@ -55,17 +60,60 @@ export interface TabularInsertionTarget {
   insertIndex: number;
 }
 
+export function tabularWrapsRows(container: TabularContainerItem): boolean {
+  // Both tables and pages have flags.
+  const flags = (container as unknown as FlagsMixin).flags;
+  return isPage(container)
+    ? !!(flags & PageFlags.TableWrapRows)
+    : !!(flags & TableFlags.WrapRows);
+}
+
+/**
+ * The height of a row in blocks: one, or when the table wraps the text of its rows, enough for its tallest note cell
+ * (up to TABLE_WRAPPED_ROW_MAX_HEIGHT_BL).
+ */
+function createTabularRowHeightFn(
+  store: StoreContextModel,
+  container: TabularContainerItem,
+  widthBl: number,
+): (item: Item, displayItem: Item, indentBl: number) => number {
+  if (!tabularWrapsRows(container)) { return () => 1; }
+  const firstColumn = tabularColumnLayouts(container, widthBl)[0];
+  const firstColumnWidthBl = firstColumn == null ? widthBl : firstColumn.endBl - firstColumn.startBl;
+  return (item, displayItem, indentBl) => {
+    let heightBl = 1;
+    if (isNote(displayItem)) {
+      const hasLinkMarking = isLink(item) && linkHasTriangle(asLinkItem(item));
+      heightBl = NoteFns.calcTableCellHeightBl(asNoteItem(displayItem), firstColumnWidthBl - indentBl, false, hasLinkMarking);
+    }
+    if (isAttachmentsItem(displayItem)) {
+      const attachmentIds = asAttachmentsItem(displayItem).computed_attachments;
+      for (const cell of tabularAttachmentCellLayouts(container, widthBl, attachmentIds.length)) {
+        const attachment = itemState.get(attachmentIds[cell.index - 1]);
+        if (attachment == null) { continue; }
+        const attachmentDisplayItem = getVePropertiesForItem(store, attachment).displayItem;
+        if (!isNote(attachmentDisplayItem)) { continue; }
+        heightBl = Math.max(heightBl, NoteFns.calcTableCellHeightBl(asNoteItem(attachmentDisplayItem), cell.endBl - cell.startBl, true, false));
+      }
+    }
+    return Math.min(heightBl, TABLE_WRAPPED_ROW_MAX_HEIGHT_BL);
+  };
+}
+
 /**
  * Walk the same expanded row tree for rendering, navigation, and insertion. Return false to stop early, in which case
- * the returned extent covers only the rows walked.
+ * the returned extent covers only the rows walked. widthBl is the width of the table, which the height of its rows
+ * can depend on.
  * indexInParent is an index into the unfiltered computed_children, even when a row is skipped.
  */
 export function walkTabularRows(
   store: StoreContextModel,
   container: TabularContainerItem,
   containerPath: VisualElementPath,
+  widthBl: number,
   onRow: (row: TabularVisibleRowInfo) => boolean | void,
 ): TabularRowsExtent {
+  const rowHeightBl = createTabularRowHeightFn(store, container, widthBl);
   const iterIndices = [0];
   const iterContainers: Array<ContainerItem> = [container];
   let rowIdx = 0;
@@ -96,8 +144,7 @@ export function walkTabularRows(
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, item);
     const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
     const path = VeFns.addVeidToPath(itemVeid, containerPath);
-    // Rows are currently always one block high.
-    const heightBl = 1;
+    const heightBl = rowHeightBl(item, displayItem, depth);
     const row: TabularVisibleRowInfo = {
       item,
       displayItem,
@@ -132,9 +179,10 @@ export function tabularVisibleRows(
   store: StoreContextModel,
   container: TabularContainerItem,
   containerPath: VisualElementPath,
+  widthBl: number,
 ): Array<TabularVisibleRowInfo> {
   const rows: Array<TabularVisibleRowInfo> = [];
-  walkTabularRows(store, container, containerPath, row => { rows.push(row); });
+  walkTabularRows(store, container, containerPath, widthBl, row => { rows.push(row); });
   return rows;
 }
 

@@ -24,7 +24,7 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, isInsideTranslucentPage, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
-import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
+import { LINE_HEIGHT_PX, NOTE_LINE_ITEM_TEXT_PADDING_RIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { linkHasTriangle } from "../../layout/link-triangle";
@@ -93,7 +93,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     ? boundsPx().w - oneBlockWidthPx() - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0)
     : boundsPx().w - oneBlockWidthPx() * PADDING_PROP - (showCopyIcon() ? oneBlockWidthPx() * 0.9 : 0);
   const textWidthPx = () => Math.max(0, widthPx());
-  const textPaddingRightCssPx = () => Math.min(2, textWidthPx() / scale());
+  const textPaddingRightCssPx = () => Math.min(NOTE_LINE_ITEM_TEXT_PADDING_RIGHT_PX, textWidthPx() / scale());
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
     r.w = oneBlockWidthPx();

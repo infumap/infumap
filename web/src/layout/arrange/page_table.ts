@@ -125,6 +125,7 @@ export function arrange_table_page(
     tableRowBlockSizePx: rowBlockSizePx,
     childAreaBoundsPx,
     blockSizePx: rowBlockSizePx,
+    tableWidthBl: sizeBl.w,
     // Column editing and resizing are available only when the page is interactive.
     hitboxes: isTranslucent
       ? geometry.hitboxes
