@@ -36,7 +36,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
-import { TabularContainerItem, tabularAttachmentCellLayouts, tabularColumnLayouts, walkTabularRows } from "../tabular";
+import { TabularContainerItem, tabularAttachmentCellLayouts, tabularColumnAlign, tabularColumnLayouts, walkTabularRows } from "../tabular";
 
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isTableView } from "../visual-element";
@@ -718,6 +718,7 @@ function buildTableRowRenderPlan(
     boundsPx: geometry.boundsPx,
     tableDimensionsPx,
     indentBl,
+    tableColumnAlign: tabularColumnAlign(di_Table, 0),
     hitboxes: geometry.hitboxes,
     parentPath: tableVePath,
     col: 0,
@@ -766,6 +767,7 @@ function buildTableRowRenderPlan(
         boundsPx: geometry.boundsPx,
         tableDimensionsPx,
         indentBl,
+        tableColumnAlign: tabularColumnAlign(di_Table, cell.index),
         hitboxes: geometry.hitboxes,
         col: cell.index,
         row: rowIdx,
