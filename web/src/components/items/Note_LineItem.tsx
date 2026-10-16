@@ -58,7 +58,14 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const boundsPx = () => props.visualElement.boundsPx;
   const highlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
   const lineHighlightBoundsPx = createLineHighlightBoundsPxFn(() => props.visualElement);
-  const scale = () => boundsPx().h / LINE_HEIGHT_PX;
+  // In a table that wraps the text of its rows, the note can be several lines (blocks) high.
+  const lineHeightPx = () =>
+    (props.visualElement.flags & VisualElementFlags.InsideTable) && props.visualElement.blockSizePx != null
+      ? Math.min(boundsPx().h, props.visualElement.blockSizePx.h)
+      : boundsPx().h;
+  const numLines = () => Math.max(1, Math.round(boundsPx().h / lineHeightPx()));
+  const isMultiLine = () => numLines() > 1;
+  const scale = () => lineHeightPx() / LINE_HEIGHT_PX;
   const smallScale = () => scale() * 0.7;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
   const showCopyIcon = () => (noteItem().flags & NoteFlags.ShowCopyIcon);
@@ -97,9 +104,10 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
     r.w = oneBlockWidthPx();
+    r.h = lineHeightPx();
     return r;
   };
-  const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
+  const showTriangleDetail = () => (lineHeightPx() / LINE_HEIGHT_PX) > 0.5;
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
   const alignClass = () => noteEffectiveAlignClass(noteItem().flags, props.visualElement.tableColumnAlign);
@@ -171,7 +179,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <Show when={shouldRenderIcon()}>
       <div class="absolute text-center"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${lineHeightPx() / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
         <NoteIconGlyph note={noteItem} iconContext={iconContext} />
       </div>
@@ -194,7 +202,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <Show when={hasListMarker() && (textWidthPx() > 0 || isTextEditTarget())}>
       <div class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
         style={`left: ${leftPx() + listMarkerLeftPx()}px; top: ${boundsPx().y}px; ` +
-          `width: ${listMarkerWidthPx()}px; height: ${boundsPx().h / scale()}px; ` +
+          `width: ${listMarkerWidthPx()}px; height: ${lineHeightPx() / scale()}px; ` +
           `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
           `font-size: ${listMarkerFontSizePx()}px; line-height: ${LINE_HEIGHT_PX * infuTextStyle().lineHeightMultiplier}px; ` +
           `${noteHasNumbered(noteItem().flags) ? 'text-align: right; padding-right: 6px; ' : ''}` +
@@ -208,7 +216,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <span id={VeFns.veToPath(props.visualElement) + ":title"}
       class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
       style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
-        `display: inline-block; white-space: pre; outline: 0px solid transparent;`}
+        (isMultiLine() ? `white-space: pre-wrap; ` : `display: inline-block; white-space: pre; `) +
+        `outline: 0px solid transparent;`}
       contentEditable={canEdit() && editing ? "plaintext-only" : undefined}
       data-note-editor={editing ? "" : undefined}
       spellcheck={canEdit() && editing}
@@ -236,13 +245,19 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <>
       {renderListMarkerMaybe()}
       <Show when={textWidthPx() > 0 || isTextEditTarget()}>
-        <div class={`absolute overflow-hidden whitespace-nowrap ` +
-          (isTextEditTarget() || isInCalendarPage() ? '' : `text-ellipsis `) +
+        <div class={`absolute overflow-hidden ` +
+          (isMultiLine() ? '' : `whitespace-nowrap `) +
+          (isTextEditTarget() || isInCalendarPage() || isMultiLine() ? '' : `text-ellipsis `) +
           `${alignClass()} `}
           style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
             `width: ${lineItemTextClippedWidthCssPx(props.visualElement, textWidthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
             `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
-            `padding-left: ${textPaddingLeftPx()}px; padding-right: ${textPaddingRightCssPx()}px;`}>
+            `padding-left: ${textPaddingLeftPx()}px; padding-right: ${textPaddingRightCssPx()}px;` +
+            // Wrapped text, laid out as measured by measureLineItemTextHeightBl, clamped to the lines of the row.
+            (isMultiLine()
+              ? ` white-space: pre-wrap; overflow-wrap: break-word; line-height: ${LINE_HEIGHT_PX}px;` +
+                (isTextEditTarget() ? '' : ` display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${numLines()};`)
+              : '')}>
           <Show when={isTextEditTarget()} fallback={renderTitle(false)}>
             {renderTitle(true)}
           </Show>
@@ -253,8 +268,8 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const renderCopyIconMaybe = () =>
     <Show when={showCopyIcon()}>
       <div class="absolute text-center text-slate-600"
-        style={`left: ${boundsPx().x + boundsPx().w - 1 * oneBlockWidthPx()}px; top: ${boundsPx().y + boundsPx().h * PADDING_PROP}px; ` +
-          `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h / smallScale()}px; ` +
+        style={`left: ${boundsPx().x + boundsPx().w - 1 * oneBlockWidthPx()}px; top: ${boundsPx().y + lineHeightPx() * PADDING_PROP}px; ` +
+          `width: ${oneBlockWidthPx() / smallScale()}px; height: ${lineHeightPx() / smallScale()}px; ` +
           `transform: scale(${smallScale()}); transform-origin: top left;`}
         onmousedown={eatMouseEvent}
         onmouseup={eatMouseEvent}
@@ -267,7 +282,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
     <Show when={shouldShowLinkMarking()}>
       <div class="absolute text-center text-slate-600"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
-          `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
+          `width: ${oneBlockWidthPx() / scale()}px; height: ${lineHeightPx() / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>
         <InfuLinkTriangle />
       </div>

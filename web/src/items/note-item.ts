@@ -35,7 +35,7 @@ import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
-import { desktopPopupIconTextIndentPx, getTextStyleForNote, type InlineTextMeasureSegment, measureDocumentNoteHeightBl, measureLineCount, noteTextInsetPx } from '../layout/text';
+import { desktopPopupIconTextIndentPx, getTextStyleForNote, type InlineTextMeasureSegment, measureDocumentNoteHeightBl, measureLineCount, measureLineItemTextHeightBl, noteTextInsetPx } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
 import { itemIdFromInfumapUrl, navigateToInfumapItemUrl } from '../layout/navigation';
 import { closestCaretPositionToClientPx, setCaretPosition } from '../util/caret';
@@ -821,9 +821,7 @@ export const NoteFns = {
       - ((note.flags & NoteFlags.ShowCopyIcon) ? 0.9 : 0)
       - NOTE_LINE_ITEM_TEXT_PADDING_RIGHT_PX / LINE_HEIGHT_PX;
     if (textWidthBl <= 0) { return 1; }
-    // The line item text box has no border inset.
-    const heightBl = measureLineCount(note.title, textWidthBl, note.flags | NoteFlags.HideBorder, 0, noteInlineTextMeasureSegments(note));
-    return Math.max(1, Math.ceil(heightBl));
+    return measureLineItemTextHeightBl(note.title, textWidthBl, note.flags, noteInlineTextMeasureSegments(note));
   },
 
   calcSpatialDimensionsBl: (note: NoteMeasurable, ignoreExplicitHeight: boolean = false, iconContext: ItemIconRenderContext = ItemIconRenderContext.Spatial): Dimensions => {

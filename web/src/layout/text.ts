@@ -138,6 +138,21 @@ export function measureLineCount(
   return result;
 }
 
+/**
+ * The height in blocks of a note's text wrapped as a line item (e.g. in a table cell) widthBl wide. Line items draw
+ * every text style at body size (headings are bold only), one block per line, with no border inset.
+ */
+export function measureLineItemTextHeightBl(
+  s: string,
+  widthBl: number,
+  flags: NoteFlags,
+  inlineSegments: Array<InlineTextMeasureSegment> | null = null,
+): number {
+  const bodyFontSizePx = getTextStyleForNote(NoteFlags.None).fontSize;
+  const heightPx = measureTextHeightPx(s, widthBl, flags | NoteFlags.HideBorder, 0, LINE_HEIGHT_PX, inlineSegments, bodyFontSizePx);
+  return Math.max(1, Math.ceil(heightPx / LINE_HEIGHT_PX - 0.01));
+}
+
 export function measureDocumentNoteHeightBl(
   s: string,
   widthBl: number,
@@ -160,8 +175,9 @@ function measureTextHeightPx(
   textIndentPx: number = 0,
   lineHeightPxMaybe: number | null = null,
   inlineSegments: Array<InlineTextMeasureSegment> | null = null,
+  fontSizePxMaybe: number | null = null,
 ): number {
-  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx + "~" + (lineHeightPxMaybe ?? "") + "~" + inlineTextMeasureSegmentsKey(inlineSegments); // TODO (LOW): not foolproof.
+  const key = s + "-#####-" + widthBl + "~" + flags + "~" + textIndentPx + "~" + (lineHeightPxMaybe ?? "") + "~" + (fontSizePxMaybe ?? "") + "~" + inlineTextMeasureSegmentsKey(inlineSegments); // TODO (LOW): not foolproof.
   if (textHeightCache.has(key)) {
     return textHeightCache.get(key)!;
   }
@@ -182,7 +198,7 @@ function measureTextHeightPx(
     `width: ${widthBl*LINE_HEIGHT_PX - insetPx*2}px; ` +
     `box-sizing: border-box; padding-left: ${paddingLeftPx}px; ` +
     `${style.isBold ? 'font-weight: bold; ' : ""}` +
-    `font-size: ${style.fontSize}px; ` +
+    `font-size: ${fontSizePxMaybe ?? style.fontSize}px; ` +
     `line-height: ${lineHeightPxMaybe ?? LINE_HEIGHT_PX * style.lineHeightMultiplier}px; ` +
     `overflow-wrap: break-word; white-space: pre-wrap; ` +
     `text-indent: ${actualTextIndentPx}px;`);

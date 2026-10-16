@@ -26,12 +26,14 @@ import { Item, uniqueEmptyItem } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { isComposite } from "../../items/composite-item";
 import { LinkItem } from "../../items/link-item";
+import { isNote } from "../../items/note-item";
 import { isPlaceholder } from "../../items/placeholder-item";
 import { TableItem, asTableItem, tableHeaderHeightBl } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
+import { HitboxFlags } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
@@ -374,7 +376,7 @@ function buildTableWindowPlans(
     if (rowIdx <= lastItemIdx) {
       const outIdx = rowIdx % outCount;
       const rowPlan = buildTableRowRenderPlan(
-        store, item, displayItem_table, tableVePath, flags, rowIdx, offsetBl, sizeBl, blockSizePx, indentBl, tableDimensionsPx);
+        store, item, displayItem_table, tableVePath, flags, rowIdx, offsetBl, heightBl, sizeBl, blockSizePx, indentBl, tableDimensionsPx);
       slots.push({ kind: "row", rowIdx, outIdx, rowPlan });
     }
     return computeTotalRows || rowIdx < lastItemIdx;
@@ -677,6 +679,7 @@ function buildTableRowRenderPlan(
   flags: ArrangeItemFlags,
   rowIdx: number,
   offsetBl: number,
+  heightBl: number,
   sizeBl: Dimensions,
   blockSizePx: Dimensions,
   indentBl: number,
@@ -694,7 +697,8 @@ function buildTableRowRenderPlan(
 
   const expandable = isContainer(displayItem_childItem) && itemCanExpandInLineItem(displayItem_childItem);
   // The list item geometry row is the vertical position in blocks.
-  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, offsetBl, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, expandable, true);
+  let geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, offsetBl, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, expandable, true);
+  if (isNote(displayItem_childItem)) { geometry = stretchToRowHeight(geometry, heightBl * blockSizePx.h); }
 
   const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
 
@@ -744,9 +748,10 @@ function buildTableRowRenderPlan(
         initiateLoadChildItemsMaybe(store, attachment_veid);
       }
 
-      const geometry = ItemFns.calcGeometry_ListItem(
+      let geometry = ItemFns.calcGeometry_ListItem(
         attachmentItem, blockSizePx, offsetBl, cell.startBl, cell.endBl - cell.startBl,
         !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true, true);
+      if (isNote(displayItem_attachment)) { geometry = stretchToRowHeight(geometry, heightBl * blockSizePx.h); }
 
       const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);
 
@@ -788,6 +793,23 @@ function buildTableRowRenderPlan(
   };
 }
 
+
+/**
+ * Stretch the line item geometry of a note cell, which wraps its text, to the height of its row. Hitboxes for clicking
+ * and moving cover the row; the rest (e.g. the popup icon) stay on the first line.
+ */
+function stretchToRowHeight(geometry: ItemGeometry, heightPx: number): ItemGeometry {
+  const lineHeightPx = geometry.boundsPx.h;
+  if (heightPx <= lineHeightPx) { return geometry; }
+  return {
+    ...geometry,
+    boundsPx: { ...geometry.boundsPx, h: heightPx },
+    hitboxes: geometry.hitboxes.map(hitbox =>
+      (hitbox.type & (HitboxFlags.Click | HitboxFlags.Move)) && hitbox.boundsPx.y == 0 && Math.abs(hitbox.boundsPx.h - lineHeightPx) < 0.01
+        ? { ...hitbox, boundsPx: { ...hitbox.boundsPx, h: heightPx } }
+        : hitbox),
+  };
+}
 
 function materializeTableRenderPlan(plan: TableRenderPlan): VisualElementSignal {
   return VesCache.arrange.writeVisualElementSignal(plan.spec, plan.relationships, plan.path);
