@@ -78,26 +78,54 @@ function createTabularRowHeightFn(
   widthBl: number,
 ): (item: Item, displayItem: Item, indentBl: number) => number {
   if (!tabularWrapsRows(container)) { return () => 1; }
-  const firstColumn = tabularColumnLayouts(container, widthBl)[0];
-  const firstColumnWidthBl = firstColumn == null ? widthBl : firstColumn.endBl - firstColumn.startBl;
   return (item, displayItem, indentBl) => {
-    let heightBl = 1;
-    if (isNote(displayItem)) {
-      const hasLinkMarking = isLink(item) && linkHasTriangle(asLinkItem(item));
-      heightBl = NoteFns.calcTableCellHeightBl(asNoteItem(displayItem), firstColumnWidthBl - indentBl, false, hasLinkMarking);
-    }
-    if (isAttachmentsItem(displayItem)) {
-      const attachmentIds = asAttachmentsItem(displayItem).computed_attachments;
-      for (const cell of tabularAttachmentCellLayouts(container, widthBl, attachmentIds.length)) {
-        const attachment = itemState.get(attachmentIds[cell.index - 1]);
-        if (attachment == null) { continue; }
-        const attachmentDisplayItem = getVePropertiesForItem(store, attachment).displayItem;
-        if (!isNote(attachmentDisplayItem)) { continue; }
-        heightBl = Math.max(heightBl, NoteFns.calcTableCellHeightBl(asNoteItem(attachmentDisplayItem), cell.endBl - cell.startBl, true, false));
-      }
-    }
-    return Math.min(heightBl, TABLE_WRAPPED_ROW_MAX_HEIGHT_BL);
+    const attachmentIds = isAttachmentsItem(displayItem) ? asAttachmentsItem(displayItem).computed_attachments : [];
+    return wrappedRowHeightBl(container, widthBl, item, displayItem, indentBl, attachmentIds.length, attachmentIdx => {
+      const attachment = itemState.get(attachmentIds[attachmentIdx]);
+      return attachment == null ? null : getVePropertiesForItem(store, attachment).displayItem;
+    });
   };
+}
+
+/**
+ * The height in blocks of the rows of a table that is not (yet) in itemState, e.g. one being generated. Each row is
+ * given with its attachments, in order. Links are not resolved.
+ */
+export function tabularRowsHeightBlForItems(
+  container: TabularContainerItem,
+  widthBl: number,
+  rows: Array<{ item: Item, attachments: Array<Item> }>,
+): number {
+  if (!tabularWrapsRows(container)) { return rows.length; }
+  let heightBl = 0;
+  for (const row of rows) {
+    heightBl += wrappedRowHeightBl(container, widthBl, row.item, row.item, 0, row.attachments.length, attachmentIdx => row.attachments[attachmentIdx] ?? null);
+  }
+  return heightBl;
+}
+
+function wrappedRowHeightBl(
+  container: TabularContainerItem,
+  widthBl: number,
+  item: Item,
+  displayItem: Item,
+  indentBl: number,
+  attachmentCount: number,
+  attachmentDisplayItemAt: (attachmentIdx: number) => Item | null,
+): number {
+  let heightBl = 1;
+  const columns = tabularColumnLayouts(container, widthBl);
+  if (isNote(displayItem)) {
+    const firstColumnWidthBl = columns.length == 0 ? widthBl : columns[0].endBl - columns[0].startBl;
+    const hasLinkMarking = isLink(item) && linkHasTriangle(asLinkItem(item));
+    heightBl = NoteFns.calcTableCellHeightBl(asNoteItem(displayItem), firstColumnWidthBl - indentBl, false, hasLinkMarking);
+  }
+  for (const cell of columns.slice(1, attachmentCount + 1)) {
+    const attachmentDisplayItem = attachmentDisplayItemAt(cell.index - 1);
+    if (attachmentDisplayItem == null || !isNote(attachmentDisplayItem)) { continue; }
+    heightBl = Math.max(heightBl, NoteFns.calcTableCellHeightBl(asNoteItem(attachmentDisplayItem), cell.endBl - cell.startBl, true, false));
+  }
+  return Math.min(heightBl, TABLE_WRAPPED_ROW_MAX_HEIGHT_BL);
 }
 
 /**

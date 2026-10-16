@@ -38,6 +38,7 @@ const NOTE_INLINE_MARK_BOLD: i64 = 0x001;
 const NOTE_INLINE_MARK_ITALIC: i64 = 0x002;
 const TABLE_FLAG_SHOW_COL_HEADER: i64 = 0x001;
 const TABLE_FLAG_HIDE_TITLE: i64 = 0x002;
+const TABLE_FLAG_WRAP_ROWS: i64 = 0x004;
 
 struct ChatMarkdownNote {
   title: String,
@@ -211,8 +212,9 @@ fn chat_response_table_json(
       "title": "",
       "spatialPositionGr": { "x": 0, "y": 0 },
       "spatialWidthGr": CHAT_RESPONSE_ITEM_WIDTH_GR,
+      // Provisional: the client sizes the table to its wrapped rows, since it can measure text.
       "spatialHeightGr": row_count.saturating_add(1).clamp(3, CHAT_RESPONSE_TABLE_MAX_HEIGHT_BL) * GRID_SIZE,
-      "flags": TABLE_FLAG_SHOW_COL_HEADER | TABLE_FLAG_HIDE_TITLE,
+      "flags": TABLE_FLAG_SHOW_COL_HEADER | TABLE_FLAG_HIDE_TITLE | TABLE_FLAG_WRAP_ROWS,
       "tableColumns": table.columns.iter().enumerate().map(|(index, column)| {
         let mut column_json = serde_json::json!({
           "name": column,
