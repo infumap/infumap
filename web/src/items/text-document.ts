@@ -41,7 +41,7 @@ import { PlaceholderFns } from "./placeholder-item";
 import { ItemIconMode, NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls, safeNoteLinkUrl } from "./note-item";
 import { DividerFns } from "./divider-item";
 import { ArrangeAlgorithm, DEFAULT_DOCUMENT_WIDTH_BL, PageFns, PageItem, asPageItem, isPage } from "./page-item";
-import { TableFns } from "./table-item";
+import { TableFns, TableItem } from "./table-item";
 import { TableColumn } from "./base/tabular-item";
 import { asTextItem, isText, type ChatAttachmentSource, type TextItem } from "./text-item";
 import { createChatAttachmentItem } from "./chat-attachment";
@@ -143,7 +143,6 @@ const readonlyCapabilities = { edit: false, move: false };
 const readonlyCopyableCapabilities = { edit: false, move: false, copy: true };
 const virtualSourceTextIdByPageId = new Map<Uid, Uid>();
 const textContentPromises = new Map<string, Promise<string>>();
-const MAX_GENERATED_TABLE_HEIGHT_BL = 12;
 const MARKDOWN_DOCUMENT_PAGE_COLOR_INDEX = 6;
 const MIN_GENERATED_TABLE_COLUMN_WIDTH_BL = 3;
 const GENERATED_TABLE_TEXT_SCORE_CAP = 120;
@@ -1755,7 +1754,7 @@ function createTableForBlock(
   block: TextDocumentTableBlock,
   ordering: Uint8Array,
   virtual: boolean,
-): Item {
+): TableItem {
   const table = TableFns.create(ownerId, pageId, RelationshipToParent.Child, "", ordering);
   if (virtual) {
     markClientOnly(table);
@@ -1766,9 +1765,9 @@ function createTableForBlock(
   const columnWidthsGr = generatedTableColumnWidthsGr(tableWidthGr, block);
   table.tableColumns = block.columns.map((_, i) => tableColumnForBlock(block, i, columnWidthsGr[i]));
   table.numberOfVisibleColumns = table.tableColumns.length;
-  table.flags |= TableFlags.ShowColHeader | TableFlags.HideTitle;
+  table.flags |= TableFlags.ShowColHeader | TableFlags.HideTitle | TableFlags.WrapRows;
   table.spatialWidthGr = tableWidthGr;
-  table.spatialHeightGr = Math.max(3, Math.min(block.rows.length + 1, MAX_GENERATED_TABLE_HEIGHT_BL)) * GRID_SIZE;
+  // Sized to its rows once they are created (TableFns.fitGeneratedTableHeight).
   table.childrenLoaded = true;
   return table;
 }
@@ -1811,6 +1810,7 @@ function createTextDocumentItems(
 
     const tableChildren: Array<Item> = [];
     result.tableChildrenByTableId[table.id] = tableChildren;
+    const rowsWithAttachments: Array<{ item: Item, attachments: Array<Item> }> = [];
     const rowOrderings: Array<Uint8Array> = [];
     for (const row of block.rows) {
       const rowOrdering = newOrderingAtEnd(rowOrderings);
@@ -1821,6 +1821,7 @@ function createTextDocumentItems(
 
       const attachmentItems: Array<Item> = [];
       result.attachmentsByParentId[rowNote.id] = attachmentItems;
+      rowsWithAttachments.push({ item: rowNote, attachments: attachmentItems });
       const attachmentOrderings: Array<Uint8Array> = [];
       const lastCellIndex = lastNonEmptyAttachmentCellIndex(row);
       for (let cellIndex = 1; cellIndex <= lastCellIndex; ++cellIndex) {
@@ -1834,6 +1835,7 @@ function createTextDocumentItems(
         result.allItems.push(attachment);
       }
     }
+    TableFns.fitGeneratedTableHeight(table, rowsWithAttachments);
   }
   return result;
 }

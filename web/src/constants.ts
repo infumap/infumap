@@ -102,6 +102,8 @@ export const PAGE_EMBEDDED_INTERACTIVE_TITLE_HEIGHT_BL = 1.0;
 
 export const TABLE_TITLE_HEADER_HEIGHT_BL = 1;
 export const TABLE_COL_HEADER_HEIGHT_BL = 1;
+/** The maximum height of a table generated from markdown (e.g. a chat answer), which is sized to show its rows. */
+export const GENERATED_TABLE_MAX_HEIGHT_BL = 40;
 /** The maximum height of a row in a table that wraps the text of its rows. */
 export const TABLE_WRAPPED_ROW_MAX_HEIGHT_BL = 12;
 /** Right padding of the text of a line item note (Note_LineItem). */

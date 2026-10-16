@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, LINE_HEIGHT_PX } from "../constants";
+import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LIST_PAGE_TOP_PADDING_PX, PADDING_PROP, RESIZE_BOX_SIZE_PX, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, LINE_HEIGHT_PX, GENERATED_TABLE_MAX_HEIGHT_BL } from "../constants";
 import { HitboxFlags, HitboxFns, HitboxMeta } from "../layout/hitbox";
 import { compositeMoveOutHitboxBoundsPx } from "../layout/composite-move-out";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft, Dimensions, Vector, isInside } from "../util/geometry";
@@ -57,7 +57,7 @@ import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
 import { initiateLoadItemMaybe, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
-import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularRowBoundaryNearestOffsetBl, tabularRowIndexAtOffsetBl, tabularRowSpanBl, tabularRowsHeightBl, tabularVisibleRows } from "../layout/tabular";
+import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularRowBoundaryNearestOffsetBl, tabularRowIndexAtOffsetBl, tabularRowSpanBl, tabularRowsHeightBl, tabularRowsHeightBlForItems, tabularVisibleRows } from "../layout/tabular";
 import { asPageItem, isPage } from "./page-item";
 import { SavedPageSettings } from "./base/conversion-settings";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
@@ -557,6 +557,15 @@ export const TableFns = {
     const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
     const offsetBl = Math.max(yScrollPos, mousePropY * tableDimensionsBl.h - tableHeaderHeightBl(tableItem) + yScrollPos);
     return { insertRow: tableRowAtOffsetBl(store, tableVe, offsetBl, attachmentPos), attachmentPos };
+  },
+
+  /**
+   * Size a table generated from markdown to show all its rows, up to GENERATED_TABLE_MAX_HEIGHT_BL. Each row is given
+   * with its attachments, in order.
+   */
+  fitGeneratedTableHeight: (table: TableItem, rows: Array<{ item: Item, attachments: Array<Item> }>): void => {
+    const heightBl = tableHeaderHeightBl(table) + tabularRowsHeightBlForItems(table, table.spatialWidthGr / GRID_SIZE, rows);
+    table.spatialHeightGr = Math.max(3, Math.min(heightBl, GENERATED_TABLE_MAX_HEIGHT_BL)) * GRID_SIZE;
   },
 
   /** The vertical extent of row rowIdx, in blocks. rowIdx == the row count is the position after the last row. */

@@ -25,6 +25,7 @@ import { asContainerItem, isContainer } from "./base/container-item";
 import { CompositeFlags, PageFlags } from "./base/flags-item";
 import { ClientOnlyItemKind, Item } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
+import { TableFns, asTableItem, isTable } from "./table-item";
 import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns } from "./note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
@@ -58,7 +59,7 @@ import {
   type QueryChatActivityToolCall,
   type QueryChatCompletedActivity,
 } from "../store/StoreProvider_PerItem";
-import { newOrdering, newOrderingAtEnd } from "../util/ordering";
+import { compareOrderings, newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import {
   ChatDraftAttachment,
@@ -871,6 +872,18 @@ function stageServerReturnedQueryItems(
   }
   if (itemsInInsertionOrder.length != returnedItems.length) {
     throw new Error("The assistant item graph contains a cycle or an unreachable item.");
+  }
+
+  // The server cannot measure text, so size its tables (which wrap the text of their rows) here.
+  const byOrdering = (a: Item, b: Item) => compareOrderings(a.ordering, b.ordering);
+  const childrenWithRelationship = (parentId: Uid, relationship: string) =>
+    (childrenByParentId.get(parentId) ?? []).filter(child => child.relationshipToParent == relationship).sort(byOrdering);
+  for (const item of returnedItems) {
+    if (!isTable(item)) { continue; }
+    TableFns.fitGeneratedTableHeight(asTableItem(item), childrenWithRelationship(item.id, RelationshipToParent.Child).map(row => ({
+      item: row,
+      attachments: childrenWithRelationship(row.id, RelationshipToParent.Attachment),
+    })));
   }
 
   return { itemsInInsertionOrder, rootIds: roots.map(root => root.id) };
