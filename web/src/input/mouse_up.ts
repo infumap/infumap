@@ -465,6 +465,13 @@ function enqueueUpdateItem(
     return;
   }
 
+  // The server doesn't have the item yet, e.g. a clipboard text item whose add-item is in flight: the add persists
+  // the live item when it completes. A snapshot drops `clientOnly`, so updateItem would not skip it, and would send
+  // fields the add may still change (the server detects the mime type).
+  if (item.clientOnly === true) {
+    return;
+  }
+
   const snapshot = cloneItemSnapshot(item);
   ops.push({
     apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus),
@@ -1017,7 +1024,8 @@ async function rollbackMoveServerState(
 
   for (const entry of rollbackContext.snapshot) {
     const item = itemState.get(entry.id);
-    if (item == null) {
+    // A client-only item was never sent (see enqueueUpdateItem).
+    if (item == null || item.clientOnly === true) {
       continue;
     }
     try {
