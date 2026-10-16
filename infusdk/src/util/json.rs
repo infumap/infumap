@@ -16,7 +16,7 @@
 
 use serde_json::{Map, Value};
 
-use crate::item::TableColumn;
+use crate::item::{TableColumn, TableColumnAlign};
 
 use super::{
   geometry::{Dimensions, Vector},
@@ -121,6 +121,10 @@ pub fn get_table_columns_field(map: &Map<String, Value>, field: &str) -> InfuRes
     result.push(TableColumn {
       width_gr: get_integer_field(o, "widthGr")?.ok_or("TableColumn field 'widthGr' was missing.")?,
       name: get_string_field(o, "name")?.ok_or("TableColumn field 'name' was missing.")?,
+      align: match get_string_field(o, "align")? {
+        Some(s) => Some(TableColumnAlign::from_str(&s)?),
+        None => None,
+      },
     });
   }
   Ok(Some(result))
@@ -151,6 +155,9 @@ pub fn table_column_to_object(v: &TableColumn) -> Value {
   let mut result: Map<String, Value> = Map::new();
   result.insert(String::from("widthGr"), Value::Number(v.width_gr.into()));
   result.insert(String::from("name"), Value::String(String::from(&v.name)));
+  if let Some(align) = v.align {
+    result.insert(String::from("align"), Value::String(String::from(align.as_str())));
+  }
   Value::Object(result)
 }
 
@@ -165,4 +172,44 @@ pub fn validate_map_fields(map: &serde_json::Map<String, serde_json::Value>, all
     }
   }
   Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn columns_map(columns: Value) -> Map<String, Value> {
+    let mut map = Map::new();
+    map.insert(String::from("tableColumns"), columns);
+    map
+  }
+
+  #[test]
+  fn table_column_align_round_trips() {
+    let columns = vec![
+      TableColumn { width_gr: 480, name: String::from("a"), align: None },
+      TableColumn { width_gr: 240, name: String::from("b"), align: Some(TableColumnAlign::Right) },
+      TableColumn { width_gr: 240, name: String::from("c"), align: Some(TableColumnAlign::Center) },
+    ];
+    let serialized = table_columns_to_array(&columns);
+    assert!(serialized[0].as_object().unwrap().get("align").is_none());
+    assert_eq!(serialized[1]["align"], "right");
+    let parsed = get_table_columns_field(&columns_map(serialized), "tableColumns").unwrap().unwrap();
+    assert_eq!(parsed, columns);
+  }
+
+  #[test]
+  fn table_column_null_align_is_left() {
+    let map = columns_map(serde_json::json!([{ "widthGr": 480, "name": "a", "align": null }]));
+    let parsed = get_table_columns_field(&map, "tableColumns").unwrap().unwrap();
+    assert_eq!(parsed[0].align, None);
+  }
+
+  #[test]
+  fn table_column_invalid_align_is_rejected() {
+    for align in [serde_json::json!("left"), serde_json::json!("justify"), serde_json::json!(1)] {
+      let map = columns_map(serde_json::json!([{ "widthGr": 480, "name": "a", "align": align }]));
+      assert!(get_table_columns_field(&map, "tableColumns").is_err());
+    }
+  }
 }

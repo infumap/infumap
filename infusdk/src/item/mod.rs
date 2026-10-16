@@ -213,11 +213,38 @@ fn validate_item_icon_mode(item_type: ItemType, icon_mode: ItemIconMode, item_id
   Ok(icon_mode)
 }
 
+/// Default alignment of cells in a table column. Left is implicit via absence.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum TableColumnAlign {
+  Center,
+  Right,
+}
+
+impl TableColumnAlign {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      TableColumnAlign::Center => "center",
+      TableColumnAlign::Right => "right",
+    }
+  }
+
+  pub fn from_str(s: &str) -> InfuResult<TableColumnAlign> {
+    match s {
+      "center" => Ok(TableColumnAlign::Center),
+      "right" => Ok(TableColumnAlign::Right),
+      other => Err(format!("Invalid TableColumnAlign value: '{}'.", other).into()),
+    }
+  }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct TableColumn {
   #[serde(rename = "widthGr")]
   pub width_gr: i64,
   pub name: String,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub align: Option<TableColumnAlign>,
 }
 
 /// Page-only values retained while a Table-arranged page is represented as a table item.

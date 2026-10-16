@@ -64,7 +64,7 @@ pub fn default_home_page(
     36,
     7.0,
     1.0,
-    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }],
     1,
   );
 
@@ -96,7 +96,7 @@ pub fn default_trash_page(owner_id: &str, trash_page_id: Uid, natural_aspect: f6
     36,
     7.0,
     1.0,
-    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }],
     1,
   );
 
@@ -128,7 +128,7 @@ pub fn default_dock_page(owner_id: &str, dock_page_id: Uid, natural_aspect: f64)
     36,
     7.0,
     1.0,
-    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }],
     1,
   );
 
@@ -160,7 +160,7 @@ pub fn default_queries_page(owner_id: &str, queries_page_id: Uid, natural_aspect
     36,
     7.0,
     1.0,
-    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }],
     1,
   );
 
@@ -224,7 +224,7 @@ pub fn default_scopes_page(owner_id: &str, queries_page_id: &Uid, ordering: Vec<
     36,
     7.0,
     1.0,
-    vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+    vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }],
     1,
   );
 

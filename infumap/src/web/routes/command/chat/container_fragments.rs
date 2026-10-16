@@ -1686,7 +1686,7 @@ mod tests {
         36,
         7.0,
         1.0,
-        vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+        vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }],
         1,
       );
       self.add(item).await
@@ -1695,7 +1695,7 @@ mod tests {
     async fn table(&mut self, parent_id: &Uid, title: &str, columns: &[&str]) -> Uid {
       let columns = columns
         .iter()
-        .map(|name| TableColumn { width_gr: 4 * GRID_SIZE, name: (*name).to_owned() })
+        .map(|name| TableColumn { width_gr: 4 * GRID_SIZE, name: (*name).to_owned(), align: None })
         .collect::<Vec<_>>();
       let count = columns.len() as i64;
       let item = Item::new_table(

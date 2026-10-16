@@ -392,7 +392,7 @@ pub(super) mod test_db {
         36,
         7.0,
         1.0,
-        vec![TableColumn { width_gr: 480, name: "Title".to_owned() }],
+        vec![TableColumn { width_gr: 480, name: "Title".to_owned(), align: None }],
         1,
       );
       self.add(item).await
