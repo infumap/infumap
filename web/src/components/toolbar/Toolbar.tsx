@@ -73,7 +73,8 @@ const TOOLBAR_OUTLINE_CORNER_RADIUS_PX = 6;
  * Rounds a top corner of the page outline where its vertical and top edges are borders of two different elements, so
  * cannot be rounded with border-radius. The two border segments are redrawn as a rounded corner over the top, and the
  * area outside the curve is painted with the toolbar background. Inside the curve is transparent, so the title
- * background shows through. positionStyle places the patch so its outer vertical edge is on the vertical border.
+ * background shows through. positionStyle places the patch so its outer vertical edge is on the vertical border, and its
+ * top edge on the outer edge of the top border (top: 0px unless overridden).
  */
 const ToolbarOutlineCorner = (props: {
   side: "left" | "right",
@@ -89,7 +90,7 @@ const ToolbarOutlineCorner = (props: {
   const color = (c: string) => c.trim() == "" ? "var(--color-gray-200)" : c;
   return (
     <div class="absolute pointer-events-none overflow-hidden"
-      style={`${props.positionStyle} top: 0px; width: ${sizePx()}px; height: ${sizePx()}px; z-index: 1;`}>
+      style={`top: 0px; ${props.positionStyle} width: ${sizePx()}px; height: ${sizePx()}px; z-index: 1;`}>
       <div class="absolute"
         style={`${props.side}: 0px; top: 0px; width: ${2 * sizePx()}px; height: ${2 * sizePx()}px; ` +
           `border-${props.side}: ${props.verticalBorderWidthPx}px solid ${color(props.verticalBorderColor)}; ` +
@@ -410,12 +411,22 @@ export const Toolbar: Component = () => {
         <Index each={titleSpecs()}>{tSpec =>
           <>
             {/* spacer before title text */}
-            <div class="border-b grow-0"
+            <div class="relative border-b grow-0"
               style={`width: ${tSpec().lPosPx == 0 ? '5' : (tSpec().hasFocus ? '7' : '6')}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                 `${tSpec().bg}` +
                 (tSpec().lPosPx != 0 ? `border-left-width: ${tSpec().hasFocus ? '2' : '1'}px; border-left-color: ${tSpec().hasFocus ? tSpec().borderColor : BORDER_COLOR}; ` : '') +
                 `border-top-color: ${tSpec().borderColor};` +
-                `border-top-width: ${tSpec().borderWidthPx - 1}px; `} />
+                `border-top-width: ${tSpec().borderWidthPx - 1}px; `}>
+              {/* the left edge of a focused nested (list page selected) page is the spacer's left border. */}
+              <Show when={tSpec().hasFocus && tSpec().lPosPx != 0}>
+                <ToolbarOutlineCorner side="left"
+                  positionStyle={`left: -2px; top: -${tSpec().borderWidthPx - 1}px;`}
+                  verticalBorderWidthPx={2}
+                  verticalBorderColor={tSpec().borderColor}
+                  topBorderWidthPx={tSpec().borderWidthPx - 1}
+                  topBorderColor={tSpec().borderColor} />
+              </Show>
+            </div>
 
             <div id={`toolbarTitleDiv-${tSpec().idx}`}
               class={`p-[3px] inline-block border-b grow-0 overflow-hidden whitespace-nowrap ${tSpec().canEdit ? "cursor-text" : "cursor-pointer"}`}
@@ -468,6 +479,18 @@ export const Toolbar: Component = () => {
             `height: ${focusedSearchChrome()!.borderWidthPx}px; ` +
             `background-color: ${focusedSearchChrome()!.borderColor}; ` +
             `z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY};`} />
+        {/* the left edge of the search outline is the list page's divider, which meets the bar above at this corner. */}
+        <div class="fixed pointer-events-none"
+          style={`left: ${Math.max(0, focusedSearchChrome()!.desktopBoundsPx.x - focusedSearchChrome()!.borderWidthPx)}px; ` +
+            `top: ${Math.max(0, store.topToolbarHeightPx() + focusedSearchChrome()!.desktopBoundsPx.y - focusedSearchChrome()!.borderWidthPx)}px; ` +
+            `z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY};`}>
+          <ToolbarOutlineCorner side="left"
+            positionStyle="left: 0px;"
+            verticalBorderWidthPx={focusedSearchChrome()!.borderWidthPx}
+            verticalBorderColor={focusedSearchChrome()!.borderColor}
+            topBorderWidthPx={focusedSearchChrome()!.borderWidthPx}
+            topBorderColor={focusedSearchChrome()!.borderColor} />
+        </div>
       </Show>
     </>;
 
