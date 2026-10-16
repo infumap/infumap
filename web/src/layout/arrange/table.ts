@@ -31,7 +31,6 @@ import { TableItem, asTableItem, tableHeaderHeightBl } from "../../items/table-i
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { panic } from "../../util/lang";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
@@ -140,14 +139,14 @@ export function arrangeTabularChildren(
   headerHeightBl: number): [TableRenderWindowState, TabularRowsExtent] {
 
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
-  const firstItemIdx = Math.floor(scrollYPos);
-  // A page viewport can contain a fractional row; keep the render window integral.
-  const numVisibleRows = Math.max(0, Math.ceil(sizeBl.h - headerHeightBl));
-  const lastItemIdx = firstItemIdx + numVisibleRows;
-  const outCount = lastItemIdx - firstItemIdx + 1;
+  // A page viewport can contain a fractional block; keep the render window integral.
+  const numVisibleBlocks = Math.max(0, Math.ceil(sizeBl.h - headerHeightBl));
+  const outCount = numVisibleBlocks + 1;
 
   // outIdx:          there are a fixed number of visual elements (outCount) created, generally less than the number of
   //                  rows in the table child area, arranged in a circular buffer. outIdx is the index into this buffer.
+  //                  Rows are at least one block high, so outCount consecutive rows starting from the first visible
+  //                  one always cover the viewport.
   // rowIdx:          there is a fixed total number of rows logically present in the table child area (in turn
   //                  determining the inner div height). this is the index into that.
 
@@ -155,8 +154,7 @@ export function arrangeTabularChildren(
     store,
     displayItem_table,
     tableVePath,
-    firstItemIdx,
-    lastItemIdx,
+    Math.floor(scrollYPos),
     outCount,
     true,
     flags,
@@ -185,6 +183,8 @@ type TableWindowSlotPlan =
 type TableWindowPlanResult = {
   extent: TabularRowsExtent,
   slots: Array<TableWindowSlotPlan>,
+  firstItemIdx: number,
+  lastItemIdx: number,
 };
 
 type TableRenderWindowState = {
@@ -352,8 +352,7 @@ function buildTableWindowPlans(
   store: StoreContextModel,
   displayItem_table: TabularContainerItem,
   tableVePath: VisualElementPath,
-  firstItemIdx: number,
-  lastItemIdx: number,
+  firstVisibleBl: number,
   outCount: number,
   computeTotalRows: boolean,
   flags: ArrangeItemFlags,
@@ -362,9 +361,16 @@ function buildTableWindowPlans(
   tableDimensionsPx: Dimensions): TableWindowPlanResult {
 
   const slots: Array<TableWindowSlotPlan> = [];
+  // The window is the outCount rows starting from the row containing firstVisibleBl.
+  let firstItemIdx: number | null = null;
   const extent = walkTabularRows(store, displayItem_table, tableVePath, row => {
-    const { item, rowIdx, offsetBl, indentBl } = row;
-    if (rowIdx >= firstItemIdx && rowIdx <= lastItemIdx) {
+    const { item, rowIdx, offsetBl, heightBl, indentBl } = row;
+    if (firstItemIdx == null) {
+      if (offsetBl + heightBl <= firstVisibleBl) { return true; }
+      firstItemIdx = rowIdx;
+    }
+    const lastItemIdx = firstItemIdx + outCount - 1;
+    if (rowIdx <= lastItemIdx) {
       const outIdx = rowIdx % outCount;
       const rowPlan = buildTableRowRenderPlan(
         store, item, displayItem_table, tableVePath, flags, rowIdx, offsetBl, sizeBl, blockSizePx, indentBl, tableDimensionsPx);
@@ -372,6 +378,9 @@ function buildTableWindowPlans(
     }
     return computeTotalRows || rowIdx < lastItemIdx;
   });
+  // Scrolled past the last row: the window is all fillers.
+  if (firstItemIdx == null) { firstItemIdx = extent.numRows; }
+  const lastItemIdx = firstItemIdx + outCount - 1;
   if (displayItem_table.computed_children.length > 0) {
     for (let rowIdx = extent.numRows; rowIdx <= lastItemIdx; ++rowIdx) {
       const outIdx = rowIdx % outCount;
@@ -383,6 +392,8 @@ function buildTableWindowPlans(
   return {
     extent,
     slots,
+    firstItemIdx,
+    lastItemIdx,
   };
 }
 
@@ -610,26 +621,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
   const sizeBl = { w: viewportPx.w / blockSizePx.w, h: viewportPx.h / blockSizePx.h };
 
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
-  const firstItemIdx = Math.floor(scrollYPos);
   const outCount = windowState.childrenVes.length;
-  const numVisibleRows = outCount - 1;
-  const lastItemIdx = firstItemIdx + numVisibleRows;
-  if (windowState.childrenVes.length != outCount) {
-    console.error("[TABLE_DEBUG] Unexpected child ves count:", {
-      tableVePath: tableVePath,
-      childrenVesLength: windowState.childrenVes.length,
-      expectedOutCount: outCount,
-      firstItemIdx: firstItemIdx,
-      lastItemIdx: lastItemIdx,
-      numVisibleRows: numVisibleRows,
-      sizeBl: sizeBl,
-      scrollYPos: scrollYPos,
-      prevScrollYPos: prevScrollYPos,
-      tableId: displayItem_table.id,
-      timestamp: new Date().toISOString()
-    });
-    panic("rearrangeTableAfterScroll: unexpected number of child ves rows. can occur if table has fractional height.");
-  }
 
   // Debug tracking for visual element position mapping
   const debugRowMapping = new Map<number, { rowIdx: number, itemId: string, outIdx: number }>();
@@ -637,8 +629,7 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     store,
     displayItem_table,
     tableVePath,
-    firstItemIdx,
-    lastItemIdx,
+    Math.floor(scrollYPos),
     outCount,
     false,
     tableVe._arrangeFlags_useForPartialRearrangeOnly,
@@ -657,8 +648,8 @@ export function rearrangeTableAfterScroll(store: StoreContextModel, parentPath: 
     displayItem_table.id,
     scrollYPos,
     prevScrollYPos,
-    firstItemIdx,
-    lastItemIdx,
+    windowPlans.firstItemIdx,
+    windowPlans.lastItemIdx,
     outCount,
     windowState,
     debugRowMapping,
