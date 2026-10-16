@@ -22,6 +22,7 @@ import {
   noteHasListStyle,
   noteHasNumberedStyle,
   noteIndentLevelFromFlags,
+  NOTE_ALIGN_FLAGS,
   NoteFlags,
 } from "../items/base/flags-item";
 import { TableColumnAlign } from "../items/base/tabular-item";
@@ -270,14 +271,7 @@ export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
   const heading3Scale = 1.2;
   const heading4Scale = 1.0;
 
-  let alignClass = "text-left";
-  if (flags & NoteFlags.AlignRight) {
-    alignClass = "text-right";
-  } else if (flags & NoteFlags.AlignCenter) {
-    alignClass = "text-center";
-  } else if (flags & NoteFlags.AlignJustify) {
-    alignClass = "text-justify";
-  }
+  const alignClass = noteAlignClass(flags);
 
   const isCode = (flags & NoteFlags.Code) != 0;
 
@@ -297,12 +291,30 @@ export function getTextStyleForNote(flags: NoteFlags): InfuTextStyle {
   return { fontSize: bodyFontSizePx, lineHeightMultiplier: 1.0, isBold: false, isCode, alignClass };
 }
 
-const NOTE_ALIGN_FLAGS = NoteFlags.AlignCenter | NoteFlags.AlignRight | NoteFlags.AlignJustify;
+function noteAlignClass(flags: NoteFlags): string {
+  if (flags & NoteFlags.AlignRight) { return "text-right"; }
+  if (flags & NoteFlags.AlignCenter) { return "text-center"; }
+  if (flags & NoteFlags.AlignJustify) { return "text-justify"; }
+  return "text-left";
+}
 
 /**
- * The note's own alignment wins, otherwise the default of the table column it is in (if any), otherwise left.
+ * The alignment a note without alignment flags inherits: the default of the table column it is in (if any), otherwise left.
  */
+export function noteInheritedAlignFlag(tableColumnAlign: TableColumnAlign | null): NoteFlags {
+  if (tableColumnAlign == "right") { return NoteFlags.AlignRight; }
+  if (tableColumnAlign == "center") { return NoteFlags.AlignCenter; }
+  return NoteFlags.AlignLeft;
+}
+
+/**
+ * The note's own alignment wins, otherwise the alignment it inherits.
+ */
+export function noteEffectiveAlignFlag(flags: NoteFlags, tableColumnAlign: TableColumnAlign | null): NoteFlags {
+  const own = flags & NOTE_ALIGN_FLAGS;
+  return own != 0 ? own : noteInheritedAlignFlag(tableColumnAlign);
+}
+
 export function noteEffectiveAlignClass(flags: NoteFlags, tableColumnAlign: TableColumnAlign | null): string {
-  if ((flags & NOTE_ALIGN_FLAGS) || tableColumnAlign == null) { return getTextStyleForNote(flags).alignClass; }
-  return tableColumnAlign == "right" ? "text-right" : "text-center";
+  return noteAlignClass(noteEffectiveAlignFlag(flags, tableColumnAlign));
 }
