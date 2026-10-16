@@ -841,7 +841,8 @@ function hitNonPagePopupMaybe(
     for (let j = 0; j < rootVeChildren.length; ++j) {
       const tableChildVes = rootVeChildren[j];
       const tableChildVe = tableChildVes.get();
-      const tableBlockHeightPx = tableChildVe.boundsPx.h;
+      // Table scroll positions are in blocks, which rows can be taller than.
+      const tableBlockHeightPx = (rootVe.tableRowBlockSizePx ?? rootVe.blockSizePx)?.h ?? tableChildVe.boundsPx.h;
       const posRelativeToTableChildAreaPx = vectorSubtract(posRelativeToRootVeBoundsPx, { x: 0.0, y: (rootVe.viewportBoundsPx!.y - rootVe.boundsPx.y) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(rootVe)) * tableBlockHeightPx });
       {
         const attHit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false, hitboxOptions);

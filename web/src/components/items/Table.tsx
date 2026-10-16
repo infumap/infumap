@@ -21,7 +21,7 @@ import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect,
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { FOCUS_RING_BOX_SHADOW } from "../../style";
-import { asTableItem, tableColHeaderHeightBl, tableHeaderHeightBl, tableTitleHeaderHeightBl } from "../../items/table-item";
+import { TableFns, asTableItem, tableColHeaderHeightBl, tableHeaderHeightBl, tableTitleHeaderHeightBl } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { compositeMoveOutHitboxBoundsPx } from "../../layout/composite-move-out";
@@ -103,10 +103,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const titleHeaderHeightPx = () => blockSizePx().h * tableTitleHeaderHeightBl(tableItem());
   const colHeaderHeightPx = () => blockSizePx().h * tableColHeaderHeightBl(tableItem());
   const scale = () => blockSizePx().h / LINE_HEIGHT_PX;
+  const overRowSpanBl = () =>
+    TableFns.tableRowSpanBl(store, props.visualElement, Math.max(0, store.perVe.getMoveOverRowNumber(vePath())));
   const overPosRowPx = (): number => {
-    const rowNumber = store.perVe.getMoveOverRowNumber(vePath()) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + tableHeaderHeightBl(tableItem());
-    const rowPx = rowNumber * blockSizePx().h;
-    return rowPx;
+    const rowBl = overRowSpanBl().offsetBl - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement)) + tableHeaderHeightBl(tableItem());
+    return rowBl * blockSizePx().h;
   };
   const insertBoundsPx = (): BoundingBox => {
     const colNum = store.perVe.getMoveOverColAttachmentNumber(vePath());
@@ -116,7 +117,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       x: blockSizePx().w * offsetBl,
       y: overPosRowPx(),
       w: 4,
-      h: blockSizePx().h
+      h: overRowSpanBl().heightBl * blockSizePx().h
     };
   }
   const attachBoundsPx = (): BoundingBox => {

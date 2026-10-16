@@ -18,7 +18,7 @@
 
 import { GRID_SIZE } from "../constants";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
-import { asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
+import { TableFns, asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Uid } from "../util/uid";
@@ -320,9 +320,11 @@ export function navigateToMatch(store: StoreContextModel, matchPath: VisualEleme
           ? parentVe.linkItemMaybe.spatialHeightGr / GRID_SIZE
           : asTableItem(parentVe.displayItem).spatialHeightGr / GRID_SIZE) - tableHeaderHeightBl(asTableItem(parentVe.displayItem));
 
+      // Scroll positions and row offsets are in blocks.
+      const rowOffsetBl = TableFns.tableRowSpanBl(store, parentVe, rowNumber).offsetBl;
       const currentScrollPos = store.perItem.getTableScrollYPos(tableVeid);
-      if (rowNumber < currentScrollPos || rowNumber >= currentScrollPos + numVisibleRows) {
-        const newScrollPos = Math.max(0, rowNumber - Math.floor(numVisibleRows / 2));
+      if (rowOffsetBl < currentScrollPos || rowOffsetBl >= currentScrollPos + numVisibleRows) {
+        const newScrollPos = Math.max(0, rowOffsetBl - Math.floor(numVisibleRows / 2));
         store.perItem.setTableScrollYPos(tableVeid, newScrollPos);
       }
     }

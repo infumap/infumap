@@ -57,7 +57,7 @@ import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
 import { initiateLoadItemMaybe, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
-import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularVisibleRows } from "../layout/tabular";
+import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularRowBoundaryNearestOffsetBl, tabularRowIndexAtOffsetBl, tabularRowSpanBl, tabularRowsHeightBl, tabularVisibleRows } from "../layout/tabular";
 import { asPageItem, isPage } from "./page-item";
 import { SavedPageSettings } from "./base/conversion-settings";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
@@ -88,6 +88,17 @@ export function tableHeaderHeightBl(table: FlagsMixin): number {
 
 function tableVisibleRows(store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> {
   return tabularVisibleRows(store, tabularViewItem(tableVe), VeFns.veToPath(tableVe));
+}
+
+/**
+ * The row at a vertical position in blocks from the top of the first row. Inserting a row (attachmentPos == -1) targets
+ * the nearest row boundary, inserting into an attachment cell targets the row under the position.
+ */
+function tableRowAtOffsetBl(store: StoreContextModel, tableVe: VisualElement, offsetBl: number, attachmentPos: number): number {
+  const rows = tableVisibleRows(store, tableVe);
+  return attachmentPos == -1
+    ? tabularRowBoundaryNearestOffsetBl(rows, offsetBl)
+    : tabularRowIndexAtOffsetBl(rows, offsetBl);
 }
 
 function tabularViewItem(ve: VisualElement): TabularContainerItem {
@@ -525,12 +536,8 @@ export const TableFns = {
       const colNumber = tabularColumnAtBl(tabularViewItem(tableVe), widthBl, (desktopPx.x - body.x) / block.w);
       const attachmentPos = colNumber - 1;
       const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
-      const row = (desktopPx.y - body.y) / block.h + scrollYPos;
-      const insertRow = Math.max(0, Math.min(
-        attachmentPos == -1 ? Math.round(row) : Math.floor(row),
-        TableFns.tableVisibleRowCount(store, tableVe),
-      ));
-      return { insertRow, attachmentPos };
+      const offsetBl = (desktopPx.y - body.y) / block.h + scrollYPos;
+      return { insertRow: tableRowAtOffsetBl(store, tableVe, offsetBl, attachmentPos), attachmentPos };
     }
     desktopPx = TableFns.normalizeMoveOverDesktopPx(store, tableVe, desktopPx);
     const tableItem = asTableItem(tableVe.displayItem);
@@ -546,24 +553,43 @@ export const TableFns = {
 
     // row
     const mousePropY = (desktopPx.y - tableBoundsPx.y) / tableBoundsPx.h;
-    const rawTableRowNumber = attachmentPos == -1 ? Math.round(mousePropY * tableDimensionsBl.h) : Math.floor(mousePropY * tableDimensionsBl.h);
     const yScrollPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
-    let insertRow = rawTableRowNumber + yScrollPos - tableHeaderHeightBl(tableItem);
-    if (insertRow < yScrollPos) { insertRow = yScrollPos; }
-    insertRow = Math.floor(insertRow);
-    const visibleRowCount = TableFns.tableVisibleRowCount(store, tableVe);
-    if (insertRow < 0) { insertRow = 0; }
-    if (insertRow > visibleRowCount) { insertRow = visibleRowCount; }
+    const offsetBl = Math.max(yScrollPos, mousePropY * tableDimensionsBl.h - tableHeaderHeightBl(tableItem) + yScrollPos);
+    return { insertRow: tableRowAtOffsetBl(store, tableVe, offsetBl, attachmentPos), attachmentPos };
+  },
 
-    return { insertRow, attachmentPos };
+  /** The vertical extent of row rowIdx, in blocks. rowIdx == the row count is the position after the last row. */
+  tableRowSpanBl: (store: StoreContextModel, tableVe: VisualElement, rowIdx: number): { offsetBl: number, heightBl: number } => {
+    return tabularRowSpanBl(tableVisibleRows(store, tableVe), rowIdx);
+  },
+
+  /**
+   * The scroll position (in blocks) closest to the current one at which row rowIdx is fully visible, or as much of it as
+   * fits.
+   */
+  scrollYPosToIncludeRow: (store: StoreContextModel, tableVe: VisualElement, rowIdx: number): number => {
+    const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
+    const block = tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx;
+    if (!block || block.h <= 0) { return scrollYPos; }
+    const visibleHeightBl = tableVe.tableBodyViewportBoundsPx != null
+      ? Math.max(1, Math.floor(tableVe.tableBodyViewportBoundsPx.h / block.h))
+      : Math.max(1, Math.floor(tableVe.boundsPx.h / block.h - tableHeaderHeightBl(asTableItem(tableVe.displayItem))));
+    const firstVisibleBl = Math.floor(scrollYPos);
+    const rows = tableVisibleRows(store, tableVe);
+    const target = tabularRowSpanBl(rows, rowIdx);
+
+    let nextScrollYPos = scrollYPos;
+    if (target.offsetBl < firstVisibleBl) {
+      nextScrollYPos = target.offsetBl;
+    } else if (target.offsetBl + target.heightBl > firstVisibleBl + visibleHeightBl) {
+      nextScrollYPos = target.offsetBl + target.heightBl - visibleHeightBl;
+    }
+    const maxScrollYPos = Math.max(0, tabularRowsHeightBl(rows) - visibleHeightBl);
+    return Math.max(0, Math.min(nextScrollYPos, maxScrollYPos));
   },
 
   tableVisibleRows: (store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> => {
     return tableVisibleRows(store, tableVe);
-  },
-
-  tableVisibleRowCount: (store: StoreContextModel, tableVe: VisualElement): number => {
-    return tableVisibleRows(store, tableVe).length;
   },
 
   tableVisibleRowAt: (store: StoreContextModel, tableVe: VisualElement, rowNumber: number): TableVisibleRowInfo | null => {

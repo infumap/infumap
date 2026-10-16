@@ -19,6 +19,7 @@
 import { Component, For, Show, createEffect, onCleanup, onMount } from "solid-js";
 import { LINE_HEIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { PageItem } from "../../items/page-item";
+import { TableFns } from "../../items/table-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ItemType } from "../../items/base/item";
 import { rearrangeTableAfterScroll, tableRowsAreOutlines } from "../../layout/arrange/table";
@@ -69,8 +70,10 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
           `width: ${Math.min(outlineTextWidthPx(column.name.length, blockSize().h), Math.max(0, (column.endBl - column.startBl - 2 * PADDING_PROP) * blockSize().w))}px; ` +
           `background-color: ${HEADER_OUTLINE_COLOR};`} />
     }</For>;
+  const moveOverRowSpanBl = () =>
+    TableFns.tableRowSpanBl(store, props.visualElement, Math.max(0, store.perVe.getMoveOverRowNumber(pagePath())));
   const moveOverRowY = () => headerHeightPx() +
-    (store.perVe.getMoveOverRowNumber(pagePath()) - store.perItem.getTableScrollYPos(pageVeid())) * blockSize().h;
+    (moveOverRowSpanBl().offsetBl - store.perItem.getTableScrollYPos(pageVeid())) * blockSize().h;
 
   const syncScrollTop = () => {
     if (!bodyDiv) { return; }
@@ -208,7 +211,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
         <Show when={store.perVe.getMoveOverColAttachmentNumber(pagePath()) < 0}
           fallback={<div class="absolute border border-black bg-black pointer-events-none"
             style={`left: ${(columns()[Math.min(store.perVe.getMoveOverColAttachmentNumber(pagePath()), columns().length - 1)]?.endBl ?? 0) * blockSize().w}px; ` +
-              `top: ${moveOverRowY()}px; width: 4px; height: ${blockSize().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />}>
+              `top: ${moveOverRowY()}px; width: 4px; height: ${moveOverRowSpanBl().heightBl * blockSize().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />}>
           <Show when={!isSortedByTitle()}
             fallback={<div class="absolute pointer-events-none"
               style={`background-color: #0044ff0a; left: 1px; top: ${headerHeightPx() + 1}px; ` +

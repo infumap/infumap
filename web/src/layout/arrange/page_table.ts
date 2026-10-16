@@ -88,13 +88,13 @@ export function arrange_table_page(
     w: contentViewportPx.w / rowBlockSizePx.w,
     h: contentViewportPx.h / rowBlockSizePx.h,
   };
-  const [windowState, numRows] = arrangeTabularChildren(
+  const [windowState, rowsExtent] = arrangeTabularChildren(
     store, page, linkItemMaybe, tableGeometry, pagePath, flags,
     sizeBl, rowBlockSizePx, columnHeaderHeightPx / rowBlockSizePx.h,
   );
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(bodyViewportPx);
-  childAreaBoundsPx.h = numRows * rowBlockSizePx.h;
+  childAreaBoundsPx.h = rowsExtent.heightBl * rowBlockSizePx.h;
   const highlightedPath = store.find.highlightedPath.get();
   const selectedVeids = store.overlay.selectedVeids.get();
   const actualVeid = VeFns.veidFromItems(page, actualLinkItemMaybe);
