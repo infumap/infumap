@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use infusdk::item::TableColumnAlign;
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::time::unix_now_secs_u64;
 use infusdk::util::uid::{Uid, new_uid};
@@ -30,8 +31,6 @@ const NOTE_FLAG_HEADING3: i64 = 0x001;
 const NOTE_FLAG_HEADING1: i64 = 0x004;
 const NOTE_FLAG_HEADING2: i64 = 0x008;
 const NOTE_FLAG_BULLET1: i64 = 0x010;
-const NOTE_FLAG_ALIGN_CENTER: i64 = 0x020;
-const NOTE_FLAG_ALIGN_RIGHT: i64 = 0x040;
 const NOTE_FLAG_CODE: i64 = 0x200;
 const NOTE_FLAG_HEADING4: i64 = 0x1000;
 const NOTE_FLAG_NUMBERED: i64 = 0x8000;
@@ -215,10 +214,14 @@ fn chat_response_table_json(
       "spatialHeightGr": row_count.saturating_add(1).clamp(3, CHAT_RESPONSE_TABLE_MAX_HEIGHT_BL) * GRID_SIZE,
       "flags": TABLE_FLAG_SHOW_COL_HEADER | TABLE_FLAG_HIDE_TITLE,
       "tableColumns": table.columns.iter().enumerate().map(|(index, column)| {
-        serde_json::json!({
+        let mut column_json = serde_json::json!({
           "name": column,
           "widthGr": column_widths_gr.get(index).copied().unwrap_or(GRID_SIZE),
-        })
+        });
+        if let Some(align) = chat_table_column_align(&table.alignments, index) {
+          column_json["align"] = Value::from(align.as_str());
+        }
+        column_json
       }).collect::<Vec<Value>>(),
       "numberOfVisibleColumns": table.columns.len() as i64,
       "orderChildrenBy": "",
@@ -240,7 +243,7 @@ fn chat_response_table_json(
       row_id.clone(),
       ChatMarkdownNote {
         title: first_cell.title,
-        flags: chat_table_cell_note_flags(&table.alignments, 0),
+        flags: 0,
         inline_marks: first_cell.inline_marks,
         urls: first_cell.urls,
       },
@@ -264,7 +267,7 @@ fn chat_response_table_json(
           new_uid(),
           ChatMarkdownNote {
             title: cell.title,
-            flags: chat_table_cell_note_flags(&table.alignments, cell_index),
+            flags: 0,
             inline_marks: cell.inline_marks,
             urls: cell.urls,
           },
@@ -276,11 +279,11 @@ fn chat_response_table_json(
   items
 }
 
-fn chat_table_cell_note_flags(alignments: &[ChatMarkdownTableAlignment], column_index: usize) -> i64 {
+fn chat_table_column_align(alignments: &[ChatMarkdownTableAlignment], column_index: usize) -> Option<TableColumnAlign> {
   match alignments.get(column_index) {
-    Some(ChatMarkdownTableAlignment::Center) => NOTE_FLAG_ALIGN_CENTER,
-    Some(ChatMarkdownTableAlignment::Right) => NOTE_FLAG_ALIGN_RIGHT,
-    Some(ChatMarkdownTableAlignment::Left) | Some(ChatMarkdownTableAlignment::Unspecified) | None => 0,
+    Some(ChatMarkdownTableAlignment::Center) => Some(TableColumnAlign::Center),
+    Some(ChatMarkdownTableAlignment::Right) => Some(TableColumnAlign::Right),
+    Some(ChatMarkdownTableAlignment::Left) | Some(ChatMarkdownTableAlignment::Unspecified) | None => None,
   }
 }
 
