@@ -55,6 +55,7 @@ bitflags! {
     const None =           0x000;
     const ShowColHeader =  0x001;
     const HideTitle =      0x002;
+    const WrapRows =       0x004;
   }
 }
 
@@ -71,6 +72,13 @@ pub const LIST_PAGE_PIN_BOTTOM_FLAG: i64 = 0x200000;
 pub const PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG: i64 = 0x100;
 pub const PAGE_DISABLE_MANUAL_CHILD_ADD_FLAG: i64 = 0x200;
 pub const PAGE_SHOW_TABLE_COL_HEADER_FLAG: i64 = 0x400;
+pub const PAGE_TABLE_WRAP_ROWS_FLAG: i64 = 0x800;
+
+/// Page and table flags with the same meaning, translated on page/table conversion.
+pub const PAGE_TABLE_FLAG_PAIRS: [(i64, TableFlags); 2] = [
+  (PAGE_SHOW_TABLE_COL_HEADER_FLAG, TableFlags::ShowColHeader),
+  (PAGE_TABLE_WRAP_ROWS_FLAG, TableFlags::WrapRows),
+];
 
 bitflags! {
   pub struct FileFlags: i64 {

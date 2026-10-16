@@ -209,14 +209,22 @@ export function pageTableConversionSharedState(source: PageTableConvertibleItem)
   };
 }
 
-/** Preserve unrelated flags in the destination while translating column-header visibility. */
-export function pageTableConvertedHeaderFlags(source: PageTableConvertibleItem, destinationFlags: number): number {
+/** Page and table flags with the same meaning, translated on conversion. */
+const PAGE_TABLE_FLAG_PAIRS: Array<[PageFlags, TableFlags]> = [
+  [PageFlags.ShowTableColHeader, TableFlags.ShowColHeader],
+  [PageFlags.TableWrapRows, TableFlags.WrapRows],
+];
+
+/** Preserve unrelated flags in the destination while translating column-header visibility and row wrapping. */
+export function pageTableConvertedFlags(source: PageTableConvertibleItem, destinationFlags: number): number {
   const sourceIsPage = isPage(source);
-  const sourceHeaderFlag = sourceIsPage ? PageFlags.ShowTableColHeader : TableFlags.ShowColHeader;
-  const destinationHeaderFlag = sourceIsPage ? TableFlags.ShowColHeader : PageFlags.ShowTableColHeader;
-  return source.flags & sourceHeaderFlag
-    ? destinationFlags | destinationHeaderFlag
-    : destinationFlags & ~destinationHeaderFlag;
+  let result = destinationFlags;
+  for (const [pageFlag, tableFlag] of PAGE_TABLE_FLAG_PAIRS) {
+    const sourceFlag = sourceIsPage ? pageFlag : tableFlag;
+    const destinationFlag = sourceIsPage ? tableFlag : pageFlag;
+    result = source.flags & sourceFlag ? result | destinationFlag : result & ~destinationFlag;
+  }
+  return result;
 }
 
 export function savedPageSettingsFromPage(page: PageItem): SavedPageSettings {

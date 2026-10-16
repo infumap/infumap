@@ -820,10 +820,12 @@ fn convert_page_to_table(page: &Item, parent: &Item, table: &mut Item) -> InfuRe
   let size = embedded_table_size_from_page(page, parent)?;
   let saved_page = SavedPageSettings::from_page(page)?;
   let mut flags = page.saved_table_settings.as_ref().map(|saved| saved.flags).unwrap_or(0);
-  if saved_page.flags & PAGE_SHOW_TABLE_COL_HEADER_FLAG != 0 {
-    flags |= TableFlags::ShowColHeader.bits();
-  } else {
-    flags &= !TableFlags::ShowColHeader.bits();
+  for (page_flag, table_flag) in PAGE_TABLE_FLAG_PAIRS {
+    if saved_page.flags & page_flag != 0 {
+      flags |= table_flag.bits();
+    } else {
+      flags &= !table_flag.bits();
+    }
   }
 
   table.item_type = ItemType::Table;
@@ -866,10 +868,12 @@ fn convert_table_to_page(table: &Item, page: &mut Item, default_page_aspect: Opt
     default_converted_page_settings(aspect)
   };
   let mut flags = saved_page.flags;
-  if saved_table.flags & TableFlags::ShowColHeader.bits() != 0 {
-    flags |= PAGE_SHOW_TABLE_COL_HEADER_FLAG;
-  } else {
-    flags &= !PAGE_SHOW_TABLE_COL_HEADER_FLAG;
+  for (page_flag, table_flag) in PAGE_TABLE_FLAG_PAIRS {
+    if saved_table.flags & table_flag.bits() != 0 {
+      flags |= page_flag;
+    } else {
+      flags &= !page_flag;
+    }
   }
 
   page.item_type = ItemType::Page;
