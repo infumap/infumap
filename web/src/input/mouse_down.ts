@@ -109,6 +109,17 @@ function isDirectChildOfDocumentArrangedPage(visualElement: VisualElement): bool
     asPageItem(parent.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
 }
 
+function isChildOfCompositeInDocumentArrangedPage(visualElement: VisualElement): boolean {
+  if (visualElement.parentPath == null) {
+    return false;
+  }
+
+  const parent = VesCache.current.readNode(visualElement.parentPath);
+  return parent != null &&
+    isComposite(parent.displayItem) &&
+    isDirectChildOfDocumentArrangedPage(parent);
+}
+
 function isNoteInsideDocumentArrangedPage(visualElement: VisualElement): boolean {
   if (!isNote(visualElement.displayItem)) {
     return false;
@@ -778,7 +789,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     y: (startPx.y - boundsOnTopLevelPagePx.y) / boundsOnTopLevelPagePx.h
   };
   const documentRowMoveOut =
-    isDirectChildOfDocumentArrangedPage(hitVe) &&
+    (isDirectChildOfDocumentArrangedPage(hitVe) || isChildOfCompositeInDocumentArrangedPage(hitVe)) &&
     !!(hitInfo.hitboxType & HitboxFlags.Move) &&
     (!!hitInfo.overElementMeta?.compositeMoveOut || clickOffsetProp.x > 1);
   if (hitInfo.overElementMeta?.compositeMoveOut || documentRowMoveOut) {
