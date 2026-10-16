@@ -186,7 +186,8 @@ export function toTableChildAreaPos(
   tableChildVe: VisualElement,
   parentBoundsLocalPos: Vector,
 ): Vector {
-  const tableBlockHeightPx = tableChildVe.boundsPx.h;
+  // Table scroll positions are in blocks, which rows can be taller than.
+  const tableBlockHeightPx = (tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx)?.h ?? tableChildVe.boundsPx.h;
   const viewport = tableVe.tableBodyViewportBoundsPx ?? tableVe.viewportBoundsPx!;
   return vectorSubtract(
     parentBoundsLocalPos,

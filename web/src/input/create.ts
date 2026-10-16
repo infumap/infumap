@@ -30,7 +30,7 @@ import { DividerFns } from "../items/divider-item";
 import { calculateCalendarDateTime } from "../util/calendar-layout";
 import { PlaceholderFns, isPlaceholder } from "../items/placeholder-item";
 import { RatingFns } from "../items/rating-item";
-import { TableFns, asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
+import { TableFns, isTable } from "../items/table-item";
 import { TextFns, isClipboardTextCreateItem } from "../items/text-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -319,26 +319,8 @@ function focusNewItemTitleForEditing(el: HTMLElement): void {
 }
 
 function scrollTableToIncludeRow(store: StoreContextModel, tableVe: VisualElement, rowNumber: number): void {
-  const block = tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx;
-  if (!block || block.h <= 0) { return; }
-
-  const visibleRows = tableVe.tableBodyViewportBoundsPx != null
-    ? Math.max(1, Math.floor(tableVe.tableBodyViewportBoundsPx.h / block.h))
-    : Math.max(1, Math.floor(tableVe.boundsPx.h / block.h - tableHeaderHeightBl(asTableItem(tableVe.displayItem))));
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
-  const firstVisibleRow = Math.floor(scrollYPos);
-  const lastVisibleRow = firstVisibleRow + visibleRows - 1;
-
-  let nextScrollYPos = scrollYPos;
-  if (rowNumber < firstVisibleRow) {
-    nextScrollYPos = rowNumber;
-  } else if (rowNumber > lastVisibleRow) {
-    nextScrollYPos = rowNumber - (visibleRows - 1);
-  }
-
-  const maxFirstVisibleRow = Math.max(0, TableFns.tableVisibleRowCount(store, tableVe) - visibleRows);
-  nextScrollYPos = Math.max(0, Math.min(nextScrollYPos, maxFirstVisibleRow));
-
+  const nextScrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, rowNumber);
   if (nextScrollYPos != scrollYPos) {
     store.perItem.setTableScrollYPos(VeFns.veidFromVe(tableVe), nextScrollYPos);
   }

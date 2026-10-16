@@ -36,7 +36,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
 import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
-import { TabularContainerItem, tabularAttachmentCellLayouts, tabularColumnAlign, tabularColumnLayouts, walkTabularRows } from "../tabular";
+import { TabularContainerItem, TabularRowsExtent, tabularAttachmentCellLayouts, tabularColumnAlign, tabularColumnLayouts, walkTabularRows } from "../tabular";
 
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isTableView } from "../visual-element";
@@ -104,12 +104,12 @@ export const arrangeTable = (
     parentPath,
   };
 
-  const [windowState, numRows] = arrangeTabularChildren(
+  const [windowState, rowsExtent] = arrangeTabularChildren(
     store, displayItem_Table, linkItemMaybe_Table, tableGeometry, tableVePath, flags, sizeBl, blockSizePx,
     tableHeaderHeightBl(displayItem_Table));
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(tableGeometry.viewportBoundsPx)!);
-  childAreaBoundsPx.h = numRows * blockSizePx.h;
+  childAreaBoundsPx.h = rowsExtent.heightBl * blockSizePx.h;
   tableSpec.childAreaBoundsPx = childAreaBoundsPx;
 
   const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_Table == null ? displayItem_Table : linkItemMaybe_Table);
@@ -137,7 +137,7 @@ export function arrangeTabularChildren(
   flags: ArrangeItemFlags,
   sizeBl: Dimensions,
   blockSizePx: Dimensions,
-  headerHeightBl: number): [TableRenderWindowState, number] {
+  headerHeightBl: number): [TableRenderWindowState, TabularRowsExtent] {
 
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromItems(displayItem_table, linkItemMaybe_table));
   const firstItemIdx = Math.floor(scrollYPos);
@@ -164,7 +164,7 @@ export function arrangeTabularChildren(
     blockSizePx,
     getBoundingBoxSize(tableGeometry.boundsPx),
   );
-  return [materializeTableWindowPlans(windowPlans), windowPlans.numRows];
+  return [materializeTableWindowPlans(windowPlans), windowPlans.extent];
 }
 
 
@@ -183,7 +183,7 @@ type TableWindowSlotPlan =
   | { kind: "filler", rowIdx: number, outIdx: number, fillerPlan: TableRenderPlan };
 
 type TableWindowPlanResult = {
-  numRows: number,
+  extent: TabularRowsExtent,
   slots: Array<TableWindowSlotPlan>,
 };
 
@@ -362,18 +362,18 @@ function buildTableWindowPlans(
   tableDimensionsPx: Dimensions): TableWindowPlanResult {
 
   const slots: Array<TableWindowSlotPlan> = [];
-  const numRows = walkTabularRows(store, displayItem_table, tableVePath, row => {
-    const { item, rowIdx, indentBl } = row;
+  const extent = walkTabularRows(store, displayItem_table, tableVePath, row => {
+    const { item, rowIdx, offsetBl, indentBl } = row;
     if (rowIdx >= firstItemIdx && rowIdx <= lastItemIdx) {
       const outIdx = rowIdx % outCount;
       const rowPlan = buildTableRowRenderPlan(
-        store, item, displayItem_table, tableVePath, flags, rowIdx, sizeBl, blockSizePx, indentBl, tableDimensionsPx);
+        store, item, displayItem_table, tableVePath, flags, rowIdx, offsetBl, sizeBl, blockSizePx, indentBl, tableDimensionsPx);
       slots.push({ kind: "row", rowIdx, outIdx, rowPlan });
     }
     return computeTotalRows || rowIdx < lastItemIdx;
   });
   if (displayItem_table.computed_children.length > 0) {
-    for (let rowIdx = numRows; rowIdx <= lastItemIdx; ++rowIdx) {
+    for (let rowIdx = extent.numRows; rowIdx <= lastItemIdx; ++rowIdx) {
       const outIdx = rowIdx % outCount;
       const fillerPlan = buildFillerRowPlan(displayItem_table, tableVePath, rowIdx);
       slots.push({ kind: "filler", rowIdx, outIdx, fillerPlan });
@@ -381,7 +381,7 @@ function buildTableWindowPlans(
   }
 
   return {
-    numRows,
+    extent,
     slots,
   };
 }
@@ -683,6 +683,7 @@ function buildTableRowRenderPlan(
   tableVePath: VisualElementPath,
   flags: ArrangeItemFlags,
   rowIdx: number,
+  offsetBl: number,
   sizeBl: Dimensions,
   blockSizePx: Dimensions,
   indentBl: number,
@@ -699,7 +700,8 @@ function buildTableRowRenderPlan(
   const widthBl = firstColumn == null ? sizeBl.w : firstColumn.endBl - firstColumn.startBl;
 
   const expandable = isContainer(displayItem_childItem) && itemCanExpandInLineItem(displayItem_childItem);
-  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, rowIdx, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, expandable, true);
+  // The list item geometry row is the vertical position in blocks.
+  const geometry = ItemFns.calcGeometry_ListItem(childItem, blockSizePx, offsetBl, indentBl, widthBl - indentBl, !!(flags & ArrangeItemFlags.ParentIsPopup), false, expandable, true);
 
   const tableChildVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_childItem, linkItemMaybe_childItem), tableVePath);
 
@@ -750,7 +752,7 @@ function buildTableRowRenderPlan(
       }
 
       const geometry = ItemFns.calcGeometry_ListItem(
-        attachmentItem, blockSizePx, rowIdx, cell.startBl, cell.endBl - cell.startBl,
+        attachmentItem, blockSizePx, offsetBl, cell.startBl, cell.endBl - cell.startBl,
         !!(flags & ArrangeItemFlags.ParentIsPopup), false, false, true, true);
 
       const tableChildAttachmentVePath = VeFns.addVeidToPath(VeFns.veidFromItems(displayItem_attachment, linkItemMaybe_attachment), tableChildVePath);

@@ -19,7 +19,7 @@
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
 import { ImageFns, isImage } from "../items/image-item";
-import { TableFns, asTableItem, isTable, tableHeaderHeightBl } from "../items/table-item";
+import { TableFns, isTable } from "../items/table-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
@@ -1622,22 +1622,7 @@ function handleVirtualizedTableVerticalNavigationMaybe(
   if (!targetPath) { return false; }
 
   const scrollYPos = store.perItem.getTableScrollYPos(tableVeid);
-  const blockHeightPx = (tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx)!.h;
-  const numVisibleRows = tableVe.tableBodyViewportBoundsPx != null
-    ? Math.max(1, Math.floor(tableVe.tableBodyViewportBoundsPx.h / blockHeightPx))
-    : Math.max(1, Math.floor(tableVe.boundsPx.h / blockHeightPx - tableHeaderHeightBl(asTableItem(tableVe.displayItem))));
-  const firstVisibleRow = Math.floor(scrollYPos);
-  const lastVisibleRow = firstVisibleRow + numVisibleRows - 1;
-
-  let nextScrollYPos = scrollYPos;
-  if (targetRow < firstVisibleRow) {
-    nextScrollYPos = targetRow;
-  } else if (targetRow > lastVisibleRow) {
-    nextScrollYPos = targetRow - (numVisibleRows - 1);
-  }
-
-  const maxFirstVisibleRow = Math.max(0, rows.length - numVisibleRows);
-  nextScrollYPos = Math.max(0, Math.min(nextScrollYPos, maxFirstVisibleRow));
+  const nextScrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, targetRow);
 
   if (nextScrollYPos !== scrollYPos) {
     store.perItem.setTableScrollYPos(tableVeid, nextScrollYPos);

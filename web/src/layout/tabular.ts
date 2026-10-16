@@ -38,8 +38,16 @@ export interface TabularVisibleRowInfo {
   parentContainer: ContainerItem;
   indexInParent: number;
   rowIdx: number;
+  /** The top of the row, in blocks from the top of the first row. */
+  offsetBl: number;
+  heightBl: number;
   indentBl: number;
   path: VisualElementPath;
+}
+
+export interface TabularRowsExtent {
+  numRows: number;
+  heightBl: number;
 }
 
 export interface TabularInsertionTarget {
@@ -48,7 +56,8 @@ export interface TabularInsertionTarget {
 }
 
 /**
- * Walk the same expanded row tree for rendering, navigation, and insertion. Return false to stop early.
+ * Walk the same expanded row tree for rendering, navigation, and insertion. Return false to stop early, in which case
+ * the returned extent covers only the rows walked.
  * indexInParent is an index into the unfiltered computed_children, even when a row is skipped.
  */
 export function walkTabularRows(
@@ -56,10 +65,11 @@ export function walkTabularRows(
   container: TabularContainerItem,
   containerPath: VisualElementPath,
   onRow: (row: TabularVisibleRowInfo) => boolean | void,
-): number {
+): TabularRowsExtent {
   const iterIndices = [0];
   const iterContainers: Array<ContainerItem> = [container];
   let rowIdx = 0;
+  let offsetBl = 0;
   // Like an item dragged out of a table, a moving direct child has no row until it is dropped: it is
   // drawn under the pointer instead. This includes an item dragged out of an attachment cell, which
   // is parented here during the move - showing it would add a row (or shift sorted rows).
@@ -86,16 +96,21 @@ export function walkTabularRows(
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, item);
     const itemVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
     const path = VeFns.addVeidToPath(itemVeid, containerPath);
+    // Rows are currently always one block high.
+    const heightBl = 1;
     const row: TabularVisibleRowInfo = {
       item,
       displayItem,
       parentContainer,
       indexInParent,
       rowIdx,
+      offsetBl,
+      heightBl,
       indentBl: depth,
       path,
     };
     rowIdx += 1;
+    offsetBl += heightBl;
     if (onRow(row) === false) { break; }
 
     iterIndices[depth] = indexInParent + 1;
@@ -110,7 +125,7 @@ export function walkTabularRows(
     }
   }
 
-  return rowIdx;
+  return { numRows: rowIdx, heightBl: offsetBl };
 }
 
 export function tabularVisibleRows(
@@ -141,6 +156,37 @@ export function tabularInsertionTarget(
   }
   const nextRow = rows[clampedInsertRow];
   return { parentContainer: nextRow.parentContainer, insertIndex: nextRow.indexInParent };
+}
+
+export function tabularRowsHeightBl(rows: Array<TabularVisibleRowInfo>): number {
+  const last = rows[rows.length - 1];
+  return last == null ? 0 : last.offsetBl + last.heightBl;
+}
+
+/** The vertical extent of row idx. idx == rows.length is the one block position after the last row. */
+export function tabularRowSpanBl(rows: Array<TabularVisibleRowInfo>, idx: number): { offsetBl: number, heightBl: number } {
+  const row = rows[idx];
+  if (row != null) { return { offsetBl: row.offsetBl, heightBl: row.heightBl }; }
+  return { offsetBl: tabularRowsHeightBl(rows), heightBl: 1 };
+}
+
+/** The index of the row containing offsetBl, clamped to 0..rows.length (rows.length is below the last row). */
+export function tabularRowIndexAtOffsetBl(rows: Array<TabularVisibleRowInfo>, offsetBl: number): number {
+  let lo = 0;
+  let hi = rows.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (rows[mid].offsetBl + rows[mid].heightBl <= offsetBl) { lo = mid + 1; } else { hi = mid; }
+  }
+  return lo;
+}
+
+/** The row boundary nearest offsetBl, as the index of the row below it (0..rows.length). */
+export function tabularRowBoundaryNearestOffsetBl(rows: Array<TabularVisibleRowInfo>, offsetBl: number): number {
+  const idx = tabularRowIndexAtOffsetBl(rows, offsetBl);
+  if (idx >= rows.length) { return rows.length; }
+  const row = rows[idx];
+  return offsetBl < row.offsetBl + row.heightBl / 2 ? idx : idx + 1;
 }
 
 export interface TabularColumnLayout {
