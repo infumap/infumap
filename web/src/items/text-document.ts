@@ -42,6 +42,7 @@ import { ItemIconMode, NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, N
 import { DividerFns } from "./divider-item";
 import { ArrangeAlgorithm, DEFAULT_DOCUMENT_WIDTH_BL, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { TableFns } from "./table-item";
+import { TableColumn } from "./base/tabular-item";
 import { asTextItem, isText, type ChatAttachmentSource, type TextItem } from "./text-item";
 import { createChatAttachmentItem } from "./chat-attachment";
 import { NumberSignal } from "../util/signals";
@@ -1606,10 +1607,11 @@ function createNoteForBlock(
   return note;
 }
 
-function noteFlagsForTableAlignment(alignment: TextDocumentTableAlignment | undefined): NoteFlags {
-  if (alignment == "center") { return NoteFlags.AlignCenter; }
-  if (alignment == "right") { return NoteFlags.AlignRight; }
-  return NoteFlags.None;
+function tableColumnForBlock(block: TextDocumentTableBlock, index: number, widthGr: number): TableColumn {
+  const column: TableColumn = { name: block.columns[index], widthGr };
+  const alignment = block.alignments[index];
+  if (alignment == "center" || alignment == "right") { column.align = alignment; }
+  return column;
 }
 
 function createNoteForTableRow(
@@ -1625,7 +1627,6 @@ function createNoteForTableRow(
   const note = NoteFns.create(ownerId, tableId, RelationshipToParent.Child, firstCell.title, ordering);
   note.inlineMarks = firstCell.inlineMarks;
   note.urls = firstCell.urls;
-  note.flags |= noteFlagsForTableAlignment(block.alignments[0]);
   applyMarkdownLinkIconHint(note, firstCell);
   if (virtual) {
     markClientOnly(note);
@@ -1649,7 +1650,6 @@ function createNoteForTableCell(
   const note = NoteFns.create(ownerId, rowId, RelationshipToParent.Attachment, cell.title, ordering);
   note.inlineMarks = cell.inlineMarks;
   note.urls = cell.urls;
-  note.flags |= noteFlagsForTableAlignment(block.alignments[cellIndex]);
   applyMarkdownLinkIconHint(note, cell);
   if (virtual) {
     markClientOnly(note);
@@ -1764,7 +1764,7 @@ function createTableForBlock(
   }
   const tableWidthGr = generatedTableWidthGr(pageWidthBl);
   const columnWidthsGr = generatedTableColumnWidthsGr(tableWidthGr, block);
-  table.tableColumns = block.columns.map((name, i) => ({ name, widthGr: columnWidthsGr[i] }));
+  table.tableColumns = block.columns.map((_, i) => tableColumnForBlock(block, i, columnWidthsGr[i]));
   table.numberOfVisibleColumns = table.tableColumns.length;
   table.flags |= TableFlags.ShowColHeader | TableFlags.HideTitle;
   table.spatialWidthGr = tableWidthGr;
