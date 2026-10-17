@@ -2,7 +2,7 @@
 
 Streamable HTTP MCP server exposing Infumap's web-search and page-fetch tools.
 Bind is `127.0.0.1` by default. DuckDuckGo is enabled by default with no API key
-required. Configured Exa and DuckDuckGo providers serve searches through
+required. Configured Exa, Tavily and DuckDuckGo providers serve searches through
 budget-aware routing and bounded fallback.
 
 Browser-backed HTML, native-only PDF extraction and local browser setup are
@@ -189,21 +189,27 @@ Unset or whitespace-only values use the defaults below.
 | --- | --- | --- |
 | `WEB_SEARCH_DUCKDUCKGO_ENABLED` | `true` | Enable the undocumented DuckDuckGo HTML endpoint. Set `false` to disable it. Accepts `true` or `false`. |
 | `EXA_API_KEY` | Unset | A nonempty API key configures Exa. No separate enable flag is needed. |
+| `TAVILY_API_KEY` | Unset | A nonempty API key configures Tavily. No separate enable flag is needed. |
 | `WEB_SEARCH_STATE_DIR` | See below | Absolute directory for persistent budget state. |
 | `WEB_SEARCH_EXA_ACCOUNT_ID` | `default` | Stable local account label, shared across API keys belonging to the same Exa account. |
 | `WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS` | `0` | Monthly free allowance in integer US cents, not request counts. Zero means no assumed free capacity. |
 | `WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS` | `0` | Maximum additional paid usage per monthly period, in integer US cents. Zero specifies free-only usage. |
 | `WEB_SEARCH_EXA_MONTHLY_RESET_DAY` | `1` | Day of month, from 1 through 31, when the configured budget resets at 00:00 UTC. Days beyond the end of a month mean that month's last day. |
 | `WEB_SEARCH_EXA_INITIAL_USED_CENTS` | `0` | Usage already incurred in the current period, in integer US cents. Applied only when this account is first added to the ledger. |
+| `WEB_SEARCH_TAVILY_ACCOUNT_ID` | `default` | Stable local label for the Tavily account, preserved across key rotation. Independent of the Exa account label. |
+| `WEB_SEARCH_TAVILY_MONTHLY_FREE_CREDITS_CENTS` | `0` | Free credit allowance normalized to integer US cents at $0.008 per Tavily credit: 1,000 credits = 800 cents. No free capacity is assumed. |
+| `WEB_SEARCH_TAVILY_MONTHLY_PAID_LIMIT_CENTS` | `0` | Maximum additional paid usage per period, in integer US cents at the same rate. Zero specifies free-only usage. |
+| `WEB_SEARCH_TAVILY_MONTHLY_RESET_DAY` | `1` | Monthly reset at 00:00 UTC, day 1–31; days beyond month-end use its last day. |
+| `WEB_SEARCH_TAVILY_INITIAL_USED_CENTS` | `0` | Prior current-period usage, normalized at $0.008 per credit and rounded up to whole cents; applied only when the account first enters the ledger. |
 
 Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
 trial or onboarding credits are not recurring monthly allowances.
 
 Provider configuration, persistent accounting, routing and the common provider
-interface with DuckDuckGo and Exa adapters are implemented. Startup
+interface with DuckDuckGo, Exa and Tavily adapters are implemented. Startup
 prepares configured clients and validates credential header syntax locally,
-without contacting providers. The Exa adapter is wrapped in persistent budget
+without contacting providers. The Exa and Tavily adapters use persistent budget
 accounting that reserves capacity before any metered request can be dispatched.
 The router selects eligible providers automatically and falls back after
 failures. Startup logs report configured preferences and the local budget
@@ -222,15 +228,15 @@ endpoint and can be throttled or blocked. It has unknown capacity; unmetered
 accounting does not guarantee availability.
 
 To turn DuckDuckGo off and run without a search provider, even if the shell
-already has an Exa key:
+already has search API keys:
 
 ```bash
-env -u EXA_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
+env -u EXA_API_KEY -u TAVILY_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
 ```
 
 The server starts and `web_fetch` remains available. `web_search` returns a
 short MCP tool error saying search is unavailable. `/status` shows
-`search_available: false`, both providers disabled, and a configuration error.
+`search_available: false`, all three providers disabled, and a configuration error.
 No metered budget directory is created. Other malformed environment settings
 still prevent startup, even when their provider is disabled.
 
@@ -238,7 +244,7 @@ still prevent startup, even when their provider is disabled.
 
 Export `EXA_API_KEY` through your environment or secret manager and set the
 monthly allowance. For example, **if your account provides $10 in recurring
-monthly credits**, for Exa alone:
+monthly credits**, with DuckDuckGo disabled:
 
 ```bash
 export WEB_SEARCH_DUCKDUCKGO_ENABLED=false
@@ -258,10 +264,72 @@ the key with Exa. `/status` reports local eligibility, not confirmation that a
 provider will accept a request; the actual Exa balance remains unknown.
 
 A key without a configured free or paid allowance cannot spend credits.
-DuckDuckGo fallback is enabled by default. To restore it after the Exa-only
+DuckDuckGo fallback is enabled by default. To restore it after the
 example above, unset `WEB_SEARCH_DUCKDUCKGO_ENABLED` or set it to `true` before launch.
-Free Exa capacity is preferred, then enabled DuckDuckGo, then any explicitly
-configured paid Exa capacity. Configuration changes require a server restart.
+With only Exa and DuckDuckGo configured, free Exa capacity is preferred, then
+enabled DuckDuckGo, then any explicitly configured paid Exa capacity. When Tavily
+is also configured, the selection rules below compare both metered providers.
+Configuration changes require a server restart.
+
+### Tavily configured
+
+Create a key in the [Tavily dashboard](https://app.tavily.com/) and export
+`TAVILY_API_KEY` through your environment or secret manager. As of October 17,
+2026, Tavily's [free plan](https://docs.tavily.com/documentation/api-credits)
+provides 1,000 API credits per month, and a basic search uses one credit.
+The adapter fixes `search_depth: basic` and `auto_parameters: false` so automatic
+parameter selection cannot upgrade the request to a two-credit advanced search.
+
+The shared ledger uses monetary units. Tavily credits are normalized at the
+published pay-as-you-go rate of **$0.008 per credit**: one credit is 8,000 USD
+micros, or 0.8 cents. Thus 1,000 free credits correspond to **800 cents** of local
+accounting allowance. This conversion describes capacity; it does not mean the
+free plan costs $8. Paid/subscription credits use the same conservative rate,
+which may exceed a discounted plan's actual price per credit.
+
+For an account with 1,000 recurring free credits:
+
+```bash
+# Export TAVILY_API_KEY separately through your environment/secret manager.
+export WEB_SEARCH_TAVILY_MONTHLY_FREE_CREDITS_CENTS=800
+export WEB_SEARCH_TAVILY_MONTHLY_PAID_LIMIT_CENTS=0
+export WEB_SEARCH_TAVILY_MONTHLY_RESET_DAY=1
+# Set prior usage at 0.8 cents per credit, rounded up, before first tracking:
+export WEB_SEARCH_TAVILY_INITIAL_USED_CENTS=0
+./tools/mcp/web-search/run.sh
+```
+
+Set the allowance, reset day and prior usage to match the account. A key alone,
+with both allowances at zero, cannot spend credits. Keep
+`WEB_SEARCH_TAVILY_ACCOUNT_ID` stable across key rotation and preserve the state
+directory. Exa and Tavily share one ledger directory with separate provider/account
+balances; the existing Exa ledger entries retain their usage. DuckDuckGo remains
+enabled by default, and Exa also participates when configured.
+
+The adapter uses authenticated `POST https://api.tavily.com/search` with Bearer
+authentication, `topic: general`, and at most 20 results. Larger `numResults`
+requests can return fewer results without additional pagination calls. Answers,
+raw page content and images are disabled. Titles, URLs and content snippets are
+normalized into the existing MCP result shape; duplicate and non-HTTP(S) URLs
+are discarded, and snippets are limited to 1,000 characters. Responses are
+bounded to 2 MiB. There are no internal retries.
+
+`include_usage: true` requests the search response's `usage.credits`. Valid
+integer credit usage is normalized at the same rate and settled in the ledger;
+missing or invalid usage metadata leaves the one-credit estimate in place.
+This is request usage, not an account balance. Account usage polling is not
+implemented, so Tavily reports `usage.state: unsupported` in local status and
+background refresh makes no Tavily API calls. Usage from other applications is
+not discovered automatically.
+
+Tavily's [documented HTTP errors](https://docs.tavily.com/documentation/api-reference/endpoint/search)
+include 401 for invalid credentials, 429 for rate limiting, 432 for plan usage
+limits, and 433 for pay-as-you-go limits. The router disables invalid credentials
+until restart, applies cooldowns to rate limiting (honoring delta-seconds
+`Retry-After`), and persists a zero-capacity cap after 432/433 until the configured
+monthly reset. Other eligible providers can serve fallback requests. Uncertain
+billing, including error responses and timeouts, conservatively consumes the
+reservation; error bodies and API keys are not included in diagnostics.
 
 ### Exhausted credits and invalid credentials
 
@@ -280,7 +348,7 @@ a request for more results may need a larger budget.
 | Ledger is unreadable, invalid or already locked by another process | Initialization fails. Repair the storage or stop the other ledger owner, then restart while preserving accounting history. |
 | A ledger write fails during operation | Further metered dispatch is blocked. Status shows the persistence error; repair storage and restart. An enabled DuckDuckGo remains eligible. |
 
-There is no command to refresh an Exa balance or clear a remote exhaustion cap
+There is no command to refresh an Exa or Tavily balance or clear a remote exhaustion cap
 after topping up credits mid-period. This implementation continues honoring the
 cap until its configured reset. DuckDuckGo can serve as fallback in the meantime
 unless disabled. Changing the reset day of an existing account is rejected.
@@ -295,8 +363,9 @@ A successful empty result does not trigger fallback.
 
 ### Provider selection and fallback
 
-Only configured providers participate. Exa is the preferred metered provider;
-DuckDuckGo, enabled by default, is the fallback. DuckDuckGo has unknown
+Only configured providers participate. Exa and Tavily are metered providers,
+registered in that order to break equal-budget ties; DuckDuckGo is registered
+last and enabled by default. DuckDuckGo has unknown
 capacity and is excluded from monthly allowance comparisons.
 
 The router excludes providers that have already been attempted for this call,
@@ -311,8 +380,7 @@ contain provider-specific selection branches.
 Provider usage reporting can conservatively reconcile local estimates. Durable
 reservations and consumption tracking are implemented. A successful empty search
 is a result, not a trigger to spend credits on another provider. Each provider
-is attempted at most once per call, with at most three attempts in total
-(currently at most two because only two providers are supported). Provider
+is attempted at most once per call, with at most three attempts in total. Provider
 attempts have a 20-second timeout within a shared 30-second request deadline.
 The shared deadline covers selection, health-lock waits, budget-worker waits,
 reservations, provider HTTP and settlement. Runtime ledger operations run in
@@ -321,7 +389,7 @@ the search response past its deadline. A timed-out request stops waiting;
 an already-started storage operation can finish in the background. No provider
 request is dispatched for a reservation that completes after its deadline.
 Fallback happens immediately without sleeping through cooldowns, and an already
-attempted Exa provider is not tried again with paid capacity after a free attempt
+attempted metered provider is not tried again with paid capacity after a free attempt
 fails. Budget reservations are checked again at dispatch to handle concurrent
 requests consuming capacity after selection.
 
@@ -358,7 +426,7 @@ Inspect the running server without spending search credits:
 curl http://127.0.0.1:8791/status
 ```
 
-`GET /status` returns JSON showing both supported providers, whether each is
+`GET /status` returns JSON showing all three supported providers, whether each is
 enabled, reasons it is unavailable, local budget balances, monthly boundaries,
 cooldowns, suspensions, requests in flight and usage-reporting state. Availability
 and `funding` are evaluated for a reference search requesting five results;
@@ -377,8 +445,8 @@ and outstanding reservations. `period_start`, `period_end`, `quota_resets_at`,
 `usage.state` is `not_checked`, `unsupported`, `reported` or `error`.
 `usage.last_report`, when present, is the last provider observation, timestamped
 separately from the latest refresh attempt; it can be stale after a failure or
-monthly reset. Exa and DuckDuckGo currently report `unsupported`, so their actual
-remaining account capacity is unknown. Local estimates are not reported balances.
+monthly reset. Exa, Tavily and DuckDuckGo currently report `unsupported`, so
+their actual remaining account capacity is unknown. Local estimates are not reported balances.
 `budget.adjusted_remaining_cap_usd_micros` is a conservative cap reduced by local
 charges (or set to zero on remote exhaustion), before outstanding reservations
 are subtracted; it is not a raw provider balance. Null caps mean no known cap.
@@ -438,8 +506,9 @@ UTC boundaries, consumption estimates and outstanding reservations. API keys
 and search queries are never written to it. Use the same account label when
 rotating keys, and different labels for different accounts. Do not use a key
 as the account label. Usage from other applications is not automatically known:
-seed existing usage with `WEB_SEARCH_EXA_INITIAL_USED_CENTS` when first adding an
-account, rounding up to whole cents, and use provider-side spending limits where
+seed existing usage with `WEB_SEARCH_EXA_INITIAL_USED_CENTS` or
+`WEB_SEARCH_TAVILY_INITIAL_USED_CENTS` when first adding an account, rounding up
+to whole cents, and use provider-side spending limits where
 available. The initial-use setting is ignored for existing ledger accounts and
 is not reapplied next month.
 
@@ -484,8 +553,8 @@ Optional provider usage reporting is polled every five minutes with a 20-second
 timeout. Supported reports can lower available capacity within the matching
 period; they never replenish uncertain charges or enlarge configured allowances.
 Pending requests remain reserved independently. Missing reporting leaves local
-estimates in place. Exa currently returns `None`, so its poll performs no HTTP
-request and cannot discover its actual account balance. Price changes, provider
+estimates in place. Exa and Tavily currently return `None`, so their polls perform
+no HTTP requests and cannot discover actual account balances. Price changes, provider
 billing timing and usage outside this ledger can make local estimates differ
 from actual provider usage.
 

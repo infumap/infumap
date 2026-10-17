@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use once_cell::sync::Lazy;
@@ -25,6 +26,7 @@ use crate::error::InfuResult;
 pub use crate::providers::SearchResult;
 use crate::providers::duckduckgo::DuckDuckGo;
 use crate::providers::exa::Exa;
+use crate::providers::tavily::Tavily;
 use crate::providers::{SearchProvider, SearchRequest};
 use crate::router::{Backend, ProviderStatus, SearchRouter};
 
@@ -36,39 +38,54 @@ pub const MAX_RESULTS_CAP: usize = 30;
 
 static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
   let config = config::search_config().map_err(|message| format!("Invalid web-search configuration: {message}"))?;
-  let exa = config
-    .exa
-    .as_ref()
-    .map(|exa_config| {
-      let adapter = Exa::new(&exa_config.api_key)?;
-      let directory = config.state_dir.as_ref().ok_or_else(|| {
-        crate::providers::ProviderError::new(
-          crate::providers::ProviderErrorKind::Internal,
-          "Budget state directory is not configured.",
-        )
-      })?;
-      let store = BudgetStore::open(directory)?;
-      let account = store.account(
-        adapter.name(),
-        &exa_config.account_id,
-        exa_config.monthly_free_credits_cents,
-        exa_config.monthly_paid_limit_cents,
-        exa_config.monthly_reset_day,
-        exa_config.initial_used_cents,
-      )?;
-      BudgetedProvider::new(adapter, account)
-    })
-    .transpose()
-    .map_err(|error| format!("Could not initialize Exa: {error}"))?;
+  // One store owns the directory lock; both providers share it while keeping
+  // independent provider/account entries in the existing ledger.
+  let store = if config.exa.is_some() || config.tavily.is_some() {
+    let directory = config.state_dir.as_ref().ok_or("Budget state directory is not configured.")?;
+    Some(BudgetStore::open(directory).map_err(|error| format!("Could not initialize search budgets: {error}"))?)
+  } else {
+    None
+  };
   let mut providers = Vec::new();
-  if let Some(exa) = exa {
-    providers.push(Backend::Metered(exa));
+  if let Some(exa) = &config.exa {
+    let provider = Exa::new(&exa.api_key)
+      .and_then(|adapter| budgeted_provider(adapter, exa, store.as_ref()))
+      .map_err(|error| format!("Could not initialize Exa: {error}"))?;
+    providers.push(Backend::Metered(provider));
+  }
+  if let Some(tavily) = &config.tavily {
+    let provider = Tavily::new(&tavily.api_key)
+      .and_then(|adapter| budgeted_provider(adapter, tavily, store.as_ref()))
+      .map_err(|error| format!("Could not initialize Tavily: {error}"))?;
+    providers.push(Backend::Metered(provider));
   }
   if config.duckduckgo_enabled {
     providers.push(Backend::Unmetered(Box::new(DuckDuckGo)));
   }
   Ok(SearchRouter::new(providers))
 });
+
+fn budgeted_provider(
+  adapter: impl SearchProvider + 'static,
+  settings: &config::MeteredConfig,
+  store: Option<&Arc<BudgetStore>>,
+) -> crate::providers::ProviderResult<BudgetedProvider> {
+  let store = store.ok_or_else(|| {
+    crate::providers::ProviderError::new(
+      crate::providers::ProviderErrorKind::Internal,
+      "Budget state directory is not configured.",
+    )
+  })?;
+  let account = store.account(
+    adapter.name(),
+    &settings.account_id,
+    settings.monthly_free_credits_cents,
+    settings.monthly_paid_limit_cents,
+    settings.monthly_reset_day,
+    settings.initial_used_cents,
+  )?;
+  BudgetedProvider::new(adapter, account)
+}
 
 /// Prepare configured clients and validate credentials locally, without issuing
 /// any provider requests.
@@ -83,6 +100,9 @@ pub async fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
   if config.exa.is_none() {
     providers.push(ProviderStatus::unconfigured("exa", "EXA_API_KEY is not configured."));
   }
+  if config.tavily.is_none() {
+    providers.push(ProviderStatus::unconfigured("tavily", "TAVILY_API_KEY is not configured."));
+  }
   if !config.duckduckgo_enabled {
     providers.push(ProviderStatus::unconfigured(
       "duckduckgo",
@@ -93,7 +113,7 @@ pub async fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
 }
 
 /// Poll optional usage reporting without adding another request to every search.
-/// Exa currently reports None, so this makes no provider HTTP requests for Exa.
+/// Current adapters report None, so this makes no provider HTTP requests.
 pub async fn refresh_provider_usage() {
   let Ok(router) = configured_router() else { return };
   let mut interval = tokio::time::interval(Duration::from_secs(300));

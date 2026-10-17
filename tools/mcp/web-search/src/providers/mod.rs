@@ -16,6 +16,7 @@
 
 pub mod duckduckgo;
 pub mod exa;
+pub mod tavily;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
