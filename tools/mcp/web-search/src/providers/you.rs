@@ -62,8 +62,8 @@ impl You {
   async fn search_until(&self, request: SearchRequest<'_>, deadline: Instant) -> ProviderResult<SearchResponse> {
     let max_results = result_limit(&request)?;
     let mut session = mcp::Session::new(self.client.clone());
-    session.initialize().await?;
-    // Initialization does not consume a search allowance. Durably charge just
+    session.prepare().await?;
+    // Protocol discovery does not consume a search allowance. Durably charge just
     // before tools/call; late persistence must never dispatch a search.
     self.quota.charge(deadline).await?;
     let result = session

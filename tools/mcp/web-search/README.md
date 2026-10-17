@@ -521,7 +521,7 @@ An invalid ledger, backward clock or failed durable write blocks quota use;
 the server never resets invalid history to an empty allowance. Atomic synced
 writes run in blocking workers. Status only projects expiry on a copy.
 
-The adapter initializes a disposable MCP session and sends `you-search` to
+The adapter discovers the supported MCP protocol and sends `you-search` to
 `https://api.you.com/mcp?profile=free&tools=you-search`, with `count` matching the
 normalized result limit and `extraction: "none"`. It scopes requests to this
 tool, sends no credentials or payment headers, disables redirects, and never
@@ -529,15 +529,27 @@ uses discovery, contents, research or finance tools. Queries must fit 400
 UTF-16 code units and 50 whitespace-separated words; invalid queries are rejected
 locally. No query rewriting, automatic retries or multi-query expansion occurs.
 
-MCP JSON and bounded event-stream responses are supported. Replies are matched
-by JSON-RPC ID; notifications are not mistaken for results. Initialization,
-search and response parsing share a 20-second adapter deadline within the
-router's existing deadline. Cancellation sends a best-effort MCP cancellation
-notification, and owned sessions are terminated independently with bounded
-cleanup requests. An expired session is not retried within the same search.
-MCP protocol/tool errors and malformed payloads are errors, not empty successes.
+The adapter prefers the [2026-07-28 stateless protocol](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http).
+It sends `server/discover` with matching protocol headers and per-request
+metadata, then calls `you-search` without an `initialize` handshake or protocol
+session. Legacy servers retain the earlier initialization and session-cleanup
+path. A recognized modern protocol/header error is surfaced rather than
+triggering a legacy fallback. Preflight discovery may fall back to the legacy
+handshake; search calls are never automatically replayed.
 
-Quota is durably charged immediately before `tools/call`; initialization does
+MCP JSON and bounded event-stream responses are supported. Replies are matched
+by JSON-RPC ID; notifications are not mistaken for results. Protocol discovery,
+any legacy initialization, search and response parsing share a 20-second adapter
+deadline within the router's existing deadline. Modern cancellation closes the
+response stream. Legacy cancellation sends a best-effort notification, and
+owned legacy sessions are terminated independently with bounded cleanup
+requests. An expired session is not retried within the same search. MCP
+protocol/tool errors and malformed payloads are errors, not empty successes.
+HTTP errors identify the failing method, requested protocol, numeric JSON-RPC
+error code and recognized supported versions when provided. Error envelopes
+are limited to 64 KiB; provider messages and raw bodies are never logged.
+
+Quota is durably charged immediately before `tools/call`; protocol discovery and initialization do
 not consume local search capacity. A timed-out or interrupted charge may
 complete on disk, but cannot launch a search after the caller stops waiting.
 Charged attempts remain consumed for the full window, including empty results,

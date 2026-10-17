@@ -23,11 +23,13 @@ use serde_json::{Value, json};
 use crate::providers::{ProviderError, ProviderErrorKind, ProviderResult};
 
 const ENDPOINT: &str = "https://api.you.com/mcp?profile=free&tools=you-search";
-const PROTOCOL: &str = "2025-06-18";
+const PROTOCOL: &str = "2026-07-28";
+const LEGACY_PROTOCOL: &str = "2025-06-18";
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+const MAX_ERROR_BYTES: usize = 64 * 1024;
 
-/// Disposable session for one search. An interrupted call is never replayed.
-/// Cleanup is independent of the caller's timeout and cannot launch a search.
+/// One search's MCP transport. Modern requests are stateless; legacy sessions
+/// have independent cleanup. An interrupted search is never replayed.
 pub(super) struct Session {
   client: Client,
   id: Option<HeaderValue>,
@@ -40,13 +42,49 @@ impl Session {
     Self { client, id: None, protocol: PROTOCOL, pending: None }
   }
 
-  pub async fn initialize(&mut self) -> ProviderResult<()> {
+  pub async fn prepare(&mut self) -> ProviderResult<()> {
+    // The modern protocol is stateless: initialize and initialized are not
+    // part of its lifecycle. Discover before charging or sending tools/call.
+    let response = self
+      .request("server/discover")
+      .json(&json!({
+        "jsonrpc": "2.0", "id": 1, "method": "server/discover",
+        "params": { "_meta": metadata(PROTOCOL) }
+      }))
+      .send()
+      .await
+      .map_err(request_error)?;
+    match check_response(response, "server/discover", self.protocol).await {
+      Ok(response) => match read_reply(response, 1).await {
+        Ok(result) => {
+          let versions = result
+            .get("supportedVersions")
+            .and_then(Value::as_array)
+            .ok_or_else(|| unexpected("You.com MCP discovery omitted supported protocol versions."))?;
+          if versions.iter().any(|version| version.as_str() == Some(PROTOCOL)) {
+            return Ok(());
+          }
+          self.protocol = legacy_protocol(versions)
+            .ok_or_else(|| unexpected("You.com MCP discovery advertised no supported protocol version."))?;
+        }
+        // A legacy server can return method-not-found as a JSON-RPC error
+        // inside HTTP 200. This preflight never dispatches a search.
+        Err(error) if error.kind == ProviderErrorKind::InvalidRequest => self.protocol = LEGACY_PROTOCOL,
+        Err(error) => return Err(error),
+      },
+      Err(failure) if failure.legacy_fallback => self.protocol = LEGACY_PROTOCOL,
+      Err(failure) => return Err(failure.error),
+    }
+    self.initialize_legacy().await
+  }
+
+  async fn initialize_legacy(&mut self) -> ProviderResult<()> {
     let result = self
       .rpc(
         1,
         "initialize",
         json!({
-          "protocolVersion": PROTOCOL,
+          "protocolVersion": self.protocol,
           "capabilities": {},
           "clientInfo": { "name": "infumap-web-search", "version": env!("CARGO_PKG_VERSION") }
         }),
@@ -59,6 +97,10 @@ impl Session {
       Some("2026-07-28") => "2026-07-28",
       _ => return Err(unexpected("You.com MCP negotiated an unsupported protocol version.")),
     };
+    if self.protocol == PROTOCOL {
+      self.id = None;
+      return Ok(());
+    }
     if !result.pointer("/capabilities/tools").is_some_and(Value::is_object) {
       return Err(unexpected("You.com MCP did not advertise tool support."));
     }
@@ -70,22 +112,25 @@ impl Session {
       .send()
       .await
       .map_err(request_error)?;
-    check_status(&response)?;
+    check_response(response, "notifications/initialized", self.protocol).await.map_err(|failure| failure.error)?;
     Ok(())
   }
 
   pub async fn call(&mut self, arguments: Value) -> ProviderResult<Value> {
     self.pending = Some(2);
-    let result = self.rpc(2, "tools/call", json!({
-      "name": "you-search", "arguments": arguments,
-      "_meta": {
-        "io.modelcontextprotocol/protocolVersion": self.protocol,
-        "io.modelcontextprotocol/clientInfo": { "name": "infumap-web-search", "version": env!("CARGO_PKG_VERSION") },
-        "io.modelcontextprotocol/clientCapabilities": {}
-      }
-    })).await;
-    // Errors can be uncertain about execution. Drop sends cancellation when a
-    // valid reply was not obtained; the persistent local charge still remains.
+    let result = self
+      .rpc(
+        2,
+        "tools/call",
+        json!({
+          "name": "you-search", "arguments": arguments,
+          "_meta": metadata(self.protocol)
+        }),
+      )
+      .await;
+    // Errors can be uncertain about execution. Legacy sessions need an explicit
+    // cancellation notification; modern cancellation closes the response stream.
+    // The persistent local charge remains in either case.
     if result.is_ok() {
       self.pending = None;
     }
@@ -116,7 +161,7 @@ impl Session {
       .send()
       .await
       .map_err(request_error)?;
-    check_status(&response)?;
+    let response = check_response(response, method, self.protocol).await.map_err(|failure| failure.error)?;
     if method == "initialize"
       && let Some(value) = response.headers().get("mcp-session-id")
     {
@@ -136,6 +181,11 @@ impl Session {
 
 impl Drop for Session {
   fn drop(&mut self) {
+    // Modern Streamable HTTP cancellation closes the response stream; it has
+    // neither protocol sessions nor a notifications/cancelled HTTP request.
+    if self.protocol == PROTOCOL {
+      return;
+    }
     if self.id.is_none() && self.pending.is_none() {
       return;
     }
@@ -283,10 +333,19 @@ pub(super) fn tool_error(value: &Value) -> ProviderError {
   }
 }
 
-fn check_status(response: &Response) -> ProviderResult<()> {
+struct HttpFailure {
+  error: ProviderError,
+  legacy_fallback: bool,
+}
+
+async fn check_response(
+  mut response: Response,
+  method: &'static str,
+  protocol: &'static str,
+) -> Result<Response, HttpFailure> {
   let status = response.status();
   if status.is_success() {
-    return Ok(());
+    return Ok(response);
   }
   let retry_after = response
     .headers()
@@ -294,7 +353,30 @@ fn check_status(response: &Response) -> ProviderResult<()> {
     .and_then(|value| value.to_str().ok())
     .and_then(|value| value.trim().parse::<u64>().ok())
     .map(Duration::from_secs);
+  // An unsupported modern protocol or header mismatch is also HTTP 400. Read
+  // a bounded error envelope, but expose only numeric codes and known version
+  // identifiers, never provider messages, query text, headers or session IDs.
+  let mut body = Vec::new();
+  while let Ok(Some(chunk)) = response.chunk().await {
+    if chunk.len() > MAX_ERROR_BYTES - body.len() {
+      break;
+    }
+    body.extend_from_slice(&chunk);
+  }
+  let details: Option<Value> = serde_json::from_slice(&body).ok();
+  let code = details.as_ref().and_then(|details| details.pointer("/error/code")).and_then(Value::as_i64);
+  let versions: Vec<&'static str> = details
+    .as_ref()
+    .and_then(|details| {
+      details.pointer("/error/data/supported").or_else(|| details.pointer("/error/data/supportedVersions"))
+    })
+    .and_then(Value::as_array)
+    .into_iter()
+    .flatten()
+    .filter_map(|value| known_protocol(value.as_str()?))
+    .collect();
   let kind = match status.as_u16() {
+    400 if matches!(code, Some(-32022..=-32020)) => ProviderErrorKind::UnexpectedResponse,
     400 | 413 | 414 | 422 => ProviderErrorKind::InvalidRequest,
     401 => ProviderErrorKind::InvalidCredentials,
     402 => ProviderErrorKind::QuotaExhausted,
@@ -303,7 +385,47 @@ fn check_status(response: &Response) -> ProviderResult<()> {
     429 => ProviderErrorKind::RateLimited,
     _ => ProviderErrorKind::UnexpectedResponse,
   };
-  Err(ProviderError::new(kind, format!("You.com MCP returned HTTP {status}.")).with_retry_after(retry_after))
+  let code_detail = code.map(|code| format!("; JSON-RPC code {code}")).unwrap_or_default();
+  let version_detail =
+    if versions.is_empty() { String::new() } else { format!("; supported versions {}", versions.join(", ")) };
+  let error = ProviderError::new(
+    kind,
+    format!("You.com MCP {method} returned HTTP {status} (protocol {protocol}{code_detail}{version_detail})."),
+  )
+  .with_retry_after(retry_after);
+  // Only preflight discovery uses this fallback. A recognized modern error
+  // must be surfaced, not misinterpreted as permission to change protocols.
+  let legacy_fallback = method == "server/discover"
+    && match status.as_u16() {
+      400 => !matches!(code, Some(-32022..=-32020)),
+      404 | 405 => code.is_none() || code == Some(-32601),
+      _ => false,
+    };
+  Err(HttpFailure { error, legacy_fallback })
+}
+
+fn metadata(protocol: &'static str) -> Value {
+  json!({
+    "io.modelcontextprotocol/protocolVersion": protocol,
+    "io.modelcontextprotocol/clientInfo": { "name": "infumap-web-search", "version": env!("CARGO_PKG_VERSION") },
+    "io.modelcontextprotocol/clientCapabilities": {}
+  })
+}
+
+fn known_protocol(value: &str) -> Option<&'static str> {
+  match value {
+    "2025-03-26" => Some("2025-03-26"),
+    "2025-06-18" => Some("2025-06-18"),
+    "2025-11-25" => Some("2025-11-25"),
+    "2026-07-28" => Some(PROTOCOL),
+    _ => None,
+  }
+}
+
+fn legacy_protocol(versions: &[Value]) -> Option<&'static str> {
+  ["2025-11-25", LEGACY_PROTOCOL, "2025-03-26"]
+    .into_iter()
+    .find(|protocol| versions.iter().any(|version| version.as_str() == Some(*protocol)))
 }
 
 fn request_error(error: reqwest::Error) -> ProviderError {
