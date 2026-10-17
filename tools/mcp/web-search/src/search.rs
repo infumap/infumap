@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -47,6 +48,9 @@ static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
     None
   };
   let mut providers = Vec::new();
+  if let Some(requests_per_minute) = NonZeroU32::new(config.duckduckgo_requests_per_minute) {
+    providers.push(Backend::Unmetered { provider: Box::new(DuckDuckGo), requests_per_minute });
+  }
   if let Some(exa) = &config.exa {
     let provider = Exa::new(&exa.api_key)
       .and_then(|adapter| budgeted_provider(adapter, exa, store.as_ref()))
@@ -58,9 +62,6 @@ static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
       .and_then(|adapter| budgeted_provider(adapter, tavily, store.as_ref()))
       .map_err(|error| format!("Could not initialize Tavily: {error}"))?;
     providers.push(Backend::Metered(provider));
-  }
-  if config.duckduckgo_enabled {
-    providers.push(Backend::Unmetered(Box::new(DuckDuckGo)));
   }
   Ok(SearchRouter::new(providers))
 });
@@ -96,10 +97,10 @@ pub async fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
   if config.tavily.is_none() {
     providers.push(ProviderStatus::unconfigured("tavily", "TAVILY_API_KEY is not configured."));
   }
-  if !config.duckduckgo_enabled {
+  if config.duckduckgo_requests_per_minute == 0 {
     providers.push(ProviderStatus::unconfigured(
       "duckduckgo",
-      "DuckDuckGo is disabled by WEB_SEARCH_DUCKDUCKGO_ENABLED=false; unset it or set true to enable.",
+      "DuckDuckGo is disabled; set WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE to a positive integer to enable.",
     ));
   }
   Ok(providers)

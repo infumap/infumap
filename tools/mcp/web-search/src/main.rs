@@ -85,6 +85,12 @@ async fn run_server() {
   } else {
     info!("Configured search provider preference: {}", providers.join(", "));
   }
+  if config.duckduckgo_requests_per_minute > 0 {
+    info!(
+      "DuckDuckGo pacing: {} requests per minute, at most one request in flight",
+      config.duckduckgo_requests_per_minute
+    );
+  }
   for (name, settings) in [("Exa", &config.exa), ("Tavily", &config.tavily)] {
     let Some(settings) = settings else { continue };
     info!(

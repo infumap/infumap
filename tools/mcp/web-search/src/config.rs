@@ -22,7 +22,7 @@ use once_cell::sync::Lazy;
 static CONFIG: Lazy<Result<SearchConfig, String>> = Lazy::new(SearchConfig::from_env);
 
 pub struct SearchConfig {
-  pub duckduckgo_enabled: bool,
+  pub duckduckgo_requests_per_minute: u32,
   pub exa: Option<MeteredConfig>,
   pub tavily: Option<MeteredConfig>,
   pub state_dir: Option<PathBuf>,
@@ -42,30 +42,25 @@ pub fn search_config() -> Result<&'static SearchConfig, &'static str> {
 
 impl SearchConfig {
   /// Configured preference only; runtime health and budget eligibility belong
-  /// to the router. Unmetered DuckDuckGo follows metered providers.
+  /// to the router. Ready paced capacity precedes monthly credits.
   pub fn provider_preference(&self) -> Vec<&'static str> {
     let mut providers = Vec::new();
+    if self.duckduckgo_requests_per_minute > 0 {
+      providers.push("duckduckgo");
+    }
     if self.exa.as_ref().is_some_and(|exa| !exa.api_key.is_empty()) {
       providers.push("exa");
     }
     if self.tavily.as_ref().is_some_and(|tavily| !tavily.api_key.is_empty()) {
       providers.push("tavily");
     }
-    if self.duckduckgo_enabled {
-      providers.push("duckduckgo");
-    }
     providers
   }
 
   fn from_env() -> Result<Self, String> {
-    let duckduckgo_enabled = optional_env("WEB_SEARCH_DUCKDUCKGO_ENABLED")?
-      .map(|value| match value.as_str() {
-        "true" => Ok(true),
-        "false" => Ok(false),
-        _ => Err("WEB_SEARCH_DUCKDUCKGO_ENABLED must be true or false.".to_owned()),
-      })
-      .transpose()?
-      .unwrap_or(true);
+    let duckduckgo_requests_per_minute =
+      u32::try_from(unsigned_env("WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE", 0)?)
+        .map_err(|_| "WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE exceeds the supported integer range.".to_owned())?;
     let exa = MeteredConfig::from_env("EXA", "EXA_API_KEY", "Exa")?;
     let tavily = MeteredConfig::from_env("TAVILY", "TAVILY_API_KEY", "Tavily")?;
     let state_dir = if let Some(path) = optional_env("WEB_SEARCH_STATE_DIR")? {
@@ -86,7 +81,7 @@ impl SearchConfig {
         return Err("Tavily budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
       }
     }
-    Ok(Self { duckduckgo_enabled, exa, tavily, state_dir })
+    Ok(Self { duckduckgo_requests_per_minute, exa, tavily, state_dir })
   }
 }
 

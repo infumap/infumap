@@ -1,9 +1,9 @@
 # Web search MCP server
 
 Streamable HTTP MCP server exposing Infumap's web-search and page-fetch tools.
-Bind is `127.0.0.1` by default. DuckDuckGo is enabled by default with no API key
-required. Configured Exa, Tavily and DuckDuckGo providers serve searches through
-budget-aware routing and bounded fallback.
+Bind is `127.0.0.1` by default. Exa and Tavily use configured free monthly
+allowances. DuckDuckGo needs no API key and is disabled until a positive request
+rate is configured. Search uses paced routing and bounded fallback.
 
 Browser-backed HTML, native-only PDF extraction and local browser setup are
 implemented. See [fetch operations](FETCHING.md) for browser installation and
@@ -190,7 +190,7 @@ Unset or whitespace-only values use the defaults below.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `WEB_SEARCH_DUCKDUCKGO_ENABLED` | `true` | Enable the undocumented DuckDuckGo HTML endpoint. Set `false` to disable it. Accepts `true` or `false`. |
+| `WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE` | `0` | Local DuckDuckGo attempt rate, a non-negative integer. Zero disables it. Positive values enforce at least 60/rate seconds between attempt starts, with at most one request in flight. |
 | `EXA_API_KEY` | Unset | A nonempty API key configures Exa. No separate enable flag is needed. |
 | `TAVILY_API_KEY` | Unset | A nonempty API key configures Tavily. No separate enable flag is needed. |
 | `WEB_SEARCH_STATE_DIR` | See below | Absolute directory for persistent budget state. |
@@ -203,7 +203,8 @@ Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
 trial or onboarding credits are not recurring monthly allowances.
 
-The service only uses configured free allowances, then enabled DuckDuckGo.
+The service prefers ready DuckDuckGo capacity, then configured free monthly
+allowances. DuckDuckGo must be explicitly enabled with a positive request rate.
 New accounts start tracking local usage at zero. If usage elsewhere exhausts the
 provider first, its quota error blocks further requests until the configured
 reset. Provider accounts must enforce their own free-only limit; the adapter
@@ -218,30 +219,39 @@ The router selects eligible providers automatically and falls back after
 failures. Startup logs report configured preferences and the local budget
 balance. These are local estimates, not provider-side billing controls.
 
-### No API keys
+### DuckDuckGo without API keys
 
-With no API keys or provider settings, starting the server enables DuckDuckGo:
+With no provider settings, search is disabled; the server still starts and
+`web_fetch` remains available. To enable DuckDuckGo, set an explicit request rate,
+for example:
 
 ```bash
+export WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE=6
 ./tools/mcp/web-search/run.sh
 ```
 
-From this directory, use `./run.sh`. DuckDuckGo uses its undocumented HTML
-endpoint and can be throttled or blocked. It has unknown capacity; unmetered
-accounting does not guarantee availability.
+This example allows at most one attempt every ten seconds, not six simultaneous
+requests each minute. It is an example of the local control, not a published safe
+rate. DuckDuckGo uses an undocumented HTML endpoint and can still throttle or
+block requests. Idle time does not accumulate burst capacity. Failed/empty
+attempts consume a pacing slot too. Provider failures put DuckDuckGo into a
+one-hour cooldown; a longer `Retry-After` is honored. This overrides local pacing
+readiness. Invalid queries and ordinary local rate skips do not start a cooldown.
+The setting applies across all requests to this server process; other processes
+and applications are outside its accounting. Pacing state resets on restart.
 
-To turn DuckDuckGo off and run without a search provider, even if the shell
-already has search API keys:
+The boolean enable setting has been removed. Set the request rate to zero to
+turn DuckDuckGo off. To run without any search provider even if the shell has API
+keys:
 
 ```bash
-env -u EXA_API_KEY -u TAVILY_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
+env -u EXA_API_KEY -u TAVILY_API_KEY WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE=0 ./tools/mcp/web-search/run.sh
 ```
 
-The server starts and `web_fetch` remains available. `web_search` returns a
-short MCP tool error saying search is unavailable. `/status` shows
-`search_available: false`, all three providers disabled, and a configuration error.
-No metered budget directory is created. Other malformed environment settings
-still prevent startup, even when their provider is disabled.
+`web_search` returns a short unavailability error. `/status` shows all three
+providers disabled, `search_available: false`, and a configuration error. No
+metered budget directory is created. Other malformed settings still prevent
+startup, even when their provider is disabled.
 
 ### Exa configured
 
@@ -250,7 +260,7 @@ monthly allowance. For example, **if your account provides $10 in recurring
 monthly credits**, with DuckDuckGo disabled:
 
 ```bash
-export WEB_SEARCH_DUCKDUCKGO_ENABLED=false
+export WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE=0
 export WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS=1000
 export WEB_SEARCH_EXA_MONTHLY_RESET_DAY=1
 ./tools/mcp/web-search/run.sh
@@ -258,17 +268,16 @@ export WEB_SEARCH_EXA_MONTHLY_RESET_DAY=1
 
 Set the actual reset day for your account before launching.
 Preserve the state directory across restarts and API key rotation. In a
-container, set `WEB_SEARCH_STATE_DIR` to an absolute path on persistent storage. Startup prepares the client and ledger without verifying
-the key with Exa. `/status` reports local eligibility, not confirmation that a
+container, set `WEB_SEARCH_STATE_DIR` to an absolute path on persistent storage.
+Startup prepares the client and ledger without verifying the key with Exa. `/status` reports local eligibility, not confirmation that a
 provider will accept a request; the actual Exa balance remains unknown.
 
 A key without a configured free allowance cannot spend credits.
-DuckDuckGo fallback is enabled by default. To restore it after the
-example above, unset `WEB_SEARCH_DUCKDUCKGO_ENABLED` or set it to `true` before launch.
-With only Exa and DuckDuckGo configured, free Exa capacity is preferred, then
-enabled DuckDuckGo. When Tavily is also configured, the selection rules below
-compare both metered providers.
-Configuration changes require a server restart.
+To use DuckDuckGo alongside Exa, set
+`WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE` to a positive integer before launch.
+Ready DuckDuckGo slots are preferred; Exa and Tavily absorb bursts or serve calls
+while DuckDuckGo is busy, locally paced, or cooling down. Configuration changes
+require a server restart.
 
 ### Tavily configured
 
@@ -298,8 +307,8 @@ Set the allowance and reset day to match the account. A key alone,
 with the free allowance at zero, cannot spend credits. Preserve the state
 directory across restarts and API key rotation. Exa and Tavily share one ledger
 directory with separate provider balances; existing Exa ledger entries retain
-their usage. DuckDuckGo remains enabled by default, and Exa also participates
-when configured.
+their usage. DuckDuckGo participates when a positive request rate is configured;
+Exa participates when its key and free allowance are configured.
 
 The adapter uses authenticated `POST https://api.tavily.com/search` with Bearer
 authentication, `topic: general`, and at most 20 results. Larger `numResults`
@@ -335,18 +344,18 @@ a request for more results may need a larger budget.
 | Condition | Behavior and recovery |
 | --- | --- |
 | Exa key set, allowances left at zero | Exa is enabled but has insufficient local budget. Configure the account's actual allowance and reset schedule, then restart. |
-| Local remaining capacity is below the estimated request cost | Exa is skipped without sending a request. DuckDuckGo can serve the call unless disabled. Smaller requests may still fit; otherwise the configured monthly reset restores the local allowance. |
+| Local remaining capacity is below the estimated request cost | Exa is skipped without sending a request. DuckDuckGo can serve the call when enabled and locally eligible. Smaller requests may still fit; otherwise the configured monthly reset restores the local allowance. |
 | Exa returns HTTP 402 | The router records remote quota exhaustion. A zero-capacity cap is persisted until the configured monthly reset, and enabled DuckDuckGo can serve as fallback. Restarting or increasing the local allowance does not clear this cap. |
 | Exa returns HTTP 401 | The provider is disabled until restart. Correct `EXA_API_KEY` in the launch environment and restart preserving the ledger. Enabled DuckDuckGo can serve as fallback. |
 | Exa returns HTTP 403 or 429 | These are classified as blocking or rate limiting, respectively. Status shows a cooldown; routing can use enabled DuckDuckGo while Exa is unavailable. |
 | API key contains invalid HTTP header characters | Initialization fails before binding the server, including when DuckDuckGo is enabled. Correct the key; inspect stderr because `/status` cannot be served. |
 | Ledger is unreadable, invalid or already locked by another process | Initialization fails. Repair the storage or stop the other ledger owner, then restart while preserving accounting history. |
-| A ledger write fails during operation | Further metered dispatch is blocked. Status shows the persistence error; repair storage and restart. An enabled DuckDuckGo remains eligible. |
+| A ledger write fails during operation | Further metered dispatch is blocked. Status shows the persistence error; repair storage and restart. DuckDuckGo can still serve when its pacing and health allow. |
 
 There is no command to refresh an Exa or Tavily balance or clear a remote exhaustion cap
 after topping up credits mid-period. This implementation continues honoring the
 cap until its configured reset. DuckDuckGo can serve as fallback in the meantime
-unless disabled. Changing the reset day of an existing account is rejected.
+when enabled and locally eligible. Changing the reset day of an existing account is rejected.
 
 Attempts with uncertain billing, including HTTP 401 and 402, conservatively commit
 their reserved cost. Correcting a key and restarting preserves that consumption.
@@ -360,19 +369,29 @@ internal.
 
 ### Provider selection and fallback
 
-Only configured providers participate. Exa and Tavily are metered providers,
-registered in that order to break equal-budget ties; DuckDuckGo is registered
-last and enabled by default. DuckDuckGo has unknown
-capacity and is excluded from monthly allowance comparisons.
+Only configured providers participate. DuckDuckGo has short-lived paced capacity;
+Exa and Tavily have monthly free allowances. These capacities are deliberately
+not compared as percentages of the same budget.
 
-The router excludes providers that have already been attempted for this call,
-cannot satisfy the request, are disabled or cooling down, or lack enough budget
-for the estimated cost. It prefers eligible metered providers with the highest
-remaining free allowance percentage, then enabled unmetered providers. Paid
-capacity is never eligible. Unknown allowance is not treated as full capacity.
-Equal percentages and unmetered providers use registration order.
-The same rule applies as more adapters are registered; the router does not
-contain provider-specific selection branches.
+Routing prefers a healthy, ready DuckDuckGo slot because that opportunity cannot
+be banked for a later burst. DuckDuckGo is skipped while its minimum interval is
+running or another DuckDuckGo request is in flight. Exa and Tavily absorb that
+traffic, choosing the highest remaining free allowance percentage; equal
+percentages use Exa first. Monthly providers are excluded when the entire
+estimated request cost does not fit. Paid capacity is never eligible.
+
+For example, with a DuckDuckGo rate of six per minute, an isolated search uses
+DuckDuckGo when healthy. A burst admits one DuckDuckGo attempt and routes other
+calls to eligible monthly providers. An empty result or failure tries another
+eligible provider internally. An already attempted provider is never retried in
+that call. No requests sleep waiting for a pacing slot: when no provider is
+currently eligible, search returns an error.
+
+Pacing admission and the in-flight check share the provider's health mutex, so
+concurrent searches cannot take the same slot. The interval is rounded up to
+nanosecond precision. Slots are consumed at admission even if an attempt later
+fails or is cancelled. Local rate skips do not mark the provider unhealthy or
+extend its cooldown. Bot-block and remote rate-limit cooldowns still apply.
 
 Provider usage reporting can conservatively reconcile local estimates. Durable
 reservations and consumption tracking are implemented. An empty search result
@@ -408,10 +427,13 @@ not fit is distinguished from remote exhaustion, so a smaller later request can
 still use the remainder.
 Providers without a known quota reset are disabled until restart after replenishment.
 
-Rate limits use the provider's delta-seconds `Retry-After`, or 60 seconds when it
-is absent. Bot blocking defaults to 15 minutes. Transient failures back off from
-2 seconds up to 5 minutes; unexpected responses use at least 15 seconds. A
-supplied `Retry-After` overrides these defaults, with a minimum of one second.
+DuckDuckGo provider failures (blocking, rate limiting, transient failures,
+unexpected responses and cancellation) impose at least a one-hour cooldown.
+A longer delta-seconds `Retry-After` extends it; a shorter one does not reduce it.
+Exa and Tavily rate limits use `Retry-After`, or 60 seconds when absent. Their
+blocking defaults to 15 minutes. Transient failures back off from 2 seconds to
+5 minutes; unexpected responses use at least 15 seconds. A supplied `Retry-After`
+overrides those defaults, with a minimum of one second.
 Overlapping cooldowns retain the later deadline. Only one recovery probe can run
 after a cooldown or quota suspension, and a late success from an older request
 cannot clear a newer failure. Invalid requests do not disable a provider for
@@ -448,6 +470,12 @@ configured free allowances, remaining free capacity, consumed estimates
 and outstanding reservations. `period_start`, `period_end`, `quota_resets_at`,
 `generated_at` and usage observation/reset times are Unix seconds in UTC.
 `cooldown_remaining_ms` is the remaining delay in milliseconds.
+
+DuckDuckGo's `rate_limit` reports `requests_per_minute` and
+`next_request_in_ms`, the remaining minimum-interval delay rounded up to whole
+milliseconds. A zero delay does not override a request already in flight or a
+health cooldown; inspect `available` and `unavailable_reasons` too. Monthly
+providers have `rate_limit: null`. Status reads never reserve a pacing slot.
 
 `usage.state` is `not_checked`, `unsupported`, `reported` or `error`.
 `usage.last_report`, when present, is the last provider observation, timestamped

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -31,16 +32,17 @@ use crate::providers::{
 const SEARCH_DEADLINE: Duration = Duration::from_secs(30);
 const ATTEMPT_DEADLINE: Duration = Duration::from_secs(20);
 const MAX_ATTEMPTS: usize = 3;
+const DUCKDUCKGO_FAILURE_COOLDOWN: Duration = Duration::from_secs(60 * 60);
 
 pub enum Backend {
-  Unmetered(Box<dyn SearchProvider>),
+  Unmetered { provider: Box<dyn SearchProvider>, requests_per_minute: NonZeroU32 },
   Metered(BudgetedProvider),
 }
 
 impl Backend {
   fn provider(&self) -> &dyn SearchProvider {
     match self {
-      Self::Unmetered(provider) => provider.as_ref(),
+      Self::Unmetered { provider, .. } => provider.as_ref(),
       Self::Metered(provider) => provider,
     }
   }
@@ -50,7 +52,7 @@ impl Backend {
       return Err(ProviderError::new(ProviderErrorKind::Transient, "Search provider exceeded the request deadline."));
     }
     match self {
-      Self::Unmetered(provider) => provider.search(request).await,
+      Self::Unmetered { provider, .. } => provider.search(request).await,
       Self::Metered(provider) => provider.search_with_budget(request, Some(deadline)).await,
     }
     .map(|response| response.results)
@@ -63,12 +65,14 @@ pub struct SearchRouter {
 
 struct ProviderSlot {
   backend: Backend,
+  rate_limit: Option<RateLimit>,
   health: Arc<Mutex<Health>>,
   usage_status: Mutex<UsageStatus>,
 }
 
 #[derive(Clone, Default)]
 struct Health {
+  failure_cooldown_floor: Duration,
   disabled: Option<&'static str>,
   cooldown_until: Option<Instant>,
   quota_reset: Option<i64>,
@@ -76,6 +80,7 @@ struct Health {
   generation: u64,
   in_flight: usize,
   recovering: bool,
+  next_start: Option<Instant>,
 }
 
 #[derive(Serialize)]
@@ -89,6 +94,7 @@ pub struct ProviderStatus {
   pub health: Option<HealthStatus>,
   pub budget: Option<BudgetSnapshot>,
   pub usage: Option<UsageStatus>,
+  pub rate_limit: Option<RateLimitStatus>,
 }
 
 impl ProviderStatus {
@@ -103,8 +109,20 @@ impl ProviderStatus {
       health: None,
       budget: None,
       usage: None,
+      rate_limit: None,
     }
   }
+}
+
+struct RateLimit {
+  requests_per_minute: u32,
+  interval: Duration,
+}
+
+#[derive(Serialize)]
+pub struct RateLimitStatus {
+  requests_per_minute: u32,
+  next_request_in_ms: u64,
 }
 
 #[derive(Serialize)]
@@ -141,8 +159,8 @@ struct ReportedUsage {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Funding {
-  Free,
   Unmetered,
+  Free,
 }
 
 struct Candidate {
@@ -156,6 +174,8 @@ struct Candidate {
 impl Candidate {
   fn preferred_to(&self, other: &Self) -> bool {
     if self.funding != other.funding {
+      // Paced capacity cannot be banked. Spend a ready slot before monthly
+      // credits, which can instead absorb bursts while paced capacity recovers.
       return self.funding < other.funding;
     }
     // Exact ratio comparison, including large configured allowances. Stable
@@ -171,7 +191,25 @@ impl SearchRouter {
     Self {
       providers: backends
         .into_iter()
-        .map(|backend| ProviderSlot { backend, health: Arc::default(), usage_status: Mutex::default() })
+        .map(|backend| {
+          let rate_limit = match &backend {
+            Backend::Unmetered { requests_per_minute, .. } => Some(RateLimit {
+              requests_per_minute: requests_per_minute.get(),
+              // Round up so fractional nanoseconds never exceed the set rate.
+              interval: Duration::from_nanos(60_000_000_000u64.div_ceil(u64::from(requests_per_minute.get()))),
+            }),
+            Backend::Metered(_) => None,
+          };
+          let health = Health {
+            failure_cooldown_floor: if backend.provider().name() == "duckduckgo" {
+              DUCKDUCKGO_FAILURE_COOLDOWN
+            } else {
+              Duration::ZERO
+            },
+            ..Health::default()
+          };
+          ProviderSlot { backend, rate_limit, health: Arc::new(Mutex::new(health)), usage_status: Mutex::default() }
+        })
         .collect(),
     }
   }
@@ -199,7 +237,7 @@ impl SearchRouter {
   async fn search_until(&self, request: SearchRequest<'_>, deadline: Instant) -> ProviderResult<Vec<SearchResult>> {
     if self.providers.is_empty() {
       return Err(internal(
-        "No search providers enabled. Configure Exa or Tavily with a budget or unset WEB_SEARCH_DUCKDUCKGO_ENABLED to restore DuckDuckGo.",
+        "No search providers enabled. Configure Exa or Tavily with a free allowance, or set WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE to a positive integer.",
       ));
     }
     let mut attempted = vec![false; self.providers.len()];
@@ -285,6 +323,11 @@ impl SearchRouter {
       }
       match slot.candidate(index, request).await {
         Ok(Some(candidate)) => {
+          if candidate.funding == Funding::Unmetered {
+            // A ready paced slot always wins; don't inspect or write monthly
+            // balances unnecessarily when it can serve this request.
+            return Some(candidate);
+          }
           if best.as_ref().is_none_or(|other| candidate.preferred_to(other)) {
             best = Some(candidate);
           }
@@ -358,9 +401,16 @@ impl ProviderSlot {
     // Expiry cleanup must only change this copy during inspection. Release the
     // health lock before waiting for any budget operation.
     let mut health = self.health.lock().await.clone();
-    if let Some(reason) = health.unavailable() {
+    if let Some(reason) = self.unavailable(&mut health) {
       status.unavailable_reasons.push(reason.to_owned());
     }
+    status.rate_limit = self.rate_limit.as_ref().map(|limit| RateLimitStatus {
+      requests_per_minute: limit.requests_per_minute,
+      next_request_in_ms: health.next_start.map_or(0, |until| {
+        u64::try_from(until.saturating_duration_since(Instant::now()).as_nanos().div_ceil(1_000_000))
+          .unwrap_or(u64::MAX)
+      }),
+    });
     status.health = Some(HealthStatus {
       disabled_reason: health.disabled,
       cooldown_remaining_ms: health.cooldown_until.map_or(0, |until| {
@@ -405,7 +455,21 @@ impl ProviderSlot {
   }
 
   async fn availability(&self) -> Option<&'static str> {
-    self.health.lock().await.unavailable()
+    let mut health = self.health.lock().await;
+    self.unavailable(&mut health)
+  }
+
+  fn unavailable(&self, health: &mut Health) -> Option<&'static str> {
+    health.unavailable().or_else(|| {
+      self.rate_limit.as_ref()?;
+      if health.in_flight > 0 {
+        Some("paced provider already has a request in flight")
+      } else if health.next_start.is_some_and(|until| until > Instant::now()) {
+        Some("local request rate limit reached")
+      } else {
+        None
+      }
+    })
   }
 
   async fn candidate(&self, index: usize, request: &SearchRequest<'_>) -> ProviderResult<Option<Candidate>> {
@@ -441,10 +505,16 @@ impl ProviderSlot {
 
   async fn acquire(&self) -> Option<Flight> {
     let mut health = self.health.lock().await;
-    if health.unavailable().is_some() {
+    if self.unavailable(&mut health).is_some() {
       return None;
     }
-    health.in_flight = health.in_flight.checked_add(1)?;
+    let in_flight = health.in_flight.checked_add(1)?;
+    if let Some(limit) = &self.rate_limit {
+      // Admission and pacing are atomic with health checks. A concurrent call
+      // that selected this same slot must choose another eligible provider.
+      health.next_start = Some(Instant::now().checked_add(limit.interval)?);
+    }
+    health.in_flight = in_flight;
     Some(Flight { health: Arc::clone(&self.health), generation: health.generation, finished: false })
   }
 
@@ -508,7 +578,7 @@ impl Health {
       ProviderErrorKind::UnexpectedResponse => backoff.max(Duration::from_secs(15)),
       _ => backoff,
     };
-    let delay = error.retry_after.unwrap_or(default).max(Duration::from_secs(1));
+    let delay = error.retry_after.unwrap_or(default).max(self.failure_cooldown_floor).max(Duration::from_secs(1));
     let Some(until) = Instant::now().checked_add(delay) else {
       self.disabled = Some("provider requested a cooldown beyond the supported clock range");
       return;
