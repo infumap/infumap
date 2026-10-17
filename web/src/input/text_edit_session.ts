@@ -28,9 +28,10 @@ import { isClipboardTextCreateItem } from "../items/text-item";
 import { asNoteItem, concatNoteInlineMarks, concatNoteUrls, NoteFns, splitNoteInlineMarks, splitNoteUrls, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
 import { getQueryText, setQueryText } from "../items/query-item";
 import { VeFns } from "../layout/visual-element";
-import { serverOrRemote } from "../server";
+import { networkFailureReason, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
+import type { NetworkFailureReason } from "../store/StoreProvider_General";
 import type { TextEditInfo } from "../store/StoreProvider_Overlay";
 import { getTextOffsetWithinElement } from "../util/caret";
 import { readEditableText } from "../util/editable_text";
@@ -40,6 +41,10 @@ import { finishPendingClipboardTextItem } from "./text_clipboard_create";
 import { captureEditorSelection, historyCaret, historyOwnsTextEdit, type EditorSelection } from "./editor_history";
 
 const SAVE_DELAY_MS = 500;
+const RETRY_FIRST_DELAY_MS = 2000;
+const RETRY_MAX_DELAY_MS = 30000;
+// Trying again can't help once the session has ended, the item is gone, or the server rejected the change.
+const RETRYABLE_FAIL_REASONS = new Set<NetworkFailureReason>(["unreachable", "server", "unknown"]);
 
 type TextEditField = "flags" | "title" | "text" | `column:${number}`;
 
@@ -60,7 +65,19 @@ interface PendingSave {
   revision: number,
   timer: ReturnType<typeof setTimeout> | null,
   inFlight: Promise<void> | null,
+  /** The last attempt failed. Stays set while a retry is in flight. */
   failed: boolean,
+  failReason: NetworkFailureReason | null,
+  retryAttempt: number,
+  /** When the timer will retry a failed save. */
+  retryAtMs: number | null,
+}
+
+export interface FailedTextSave {
+  itemId: string,
+  reason: NetworkFailureReason | null,
+  /** Null when the save is not retried automatically. */
+  retryAtMs: number | null,
 }
 
 export interface TextEditStore {
@@ -79,6 +96,7 @@ export interface TextEditStore {
   hasPending: (itemId: string) => boolean,
   unsavedCount: Accessor<number>,
   failedSaveCount: Accessor<number>,
+  failedSaves: Accessor<FailedTextSave[]>,
   clear: () => void,
 }
 
@@ -136,15 +154,27 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
   const pending = new Map<string, PendingSave>();
   const [unsavedCount, setUnsavedCount] = createSignal(0);
   const [failedSaveCount, setFailedSaveCount] = createSignal(0);
+  const [failedSaves, setFailedSaves] = createSignal<FailedTextSave[]>([]);
 
   const updateStatus = () => {
     setUnsavedCount(pending.size);
-    setFailedSaveCount([...pending.values()].filter(save => save.failed).length);
+    const failed = [...pending.entries()].filter(([_id, save]) => save.failed);
+    setFailedSaveCount(failed.length);
+    setFailedSaves(failed.map(([itemId, save]) => ({ itemId, reason: save.failReason, retryAtMs: save.retryAtMs })));
   };
 
   const cancelTimer = (save: PendingSave) => {
     if (save.timer != null) { clearTimeout(save.timer); }
     save.timer = null;
+    save.retryAtMs = null;
+  };
+
+  const scheduleRetry = (id: string, save: PendingSave) => {
+    if (save.failReason == null || !RETRYABLE_FAIL_REASONS.has(save.failReason)) { return; }
+    const delayMs = Math.min(RETRY_FIRST_DELAY_MS * 2 ** save.retryAttempt, RETRY_MAX_DELAY_MS);
+    ++save.retryAttempt;
+    save.retryAtMs = Date.now() + delayMs;
+    save.timer = setTimeout(() => { void savePending(id); }, delayMs);
   };
 
   const savePending = (id: string): Promise<void> => {
@@ -162,24 +192,31 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     }
     save.item = currentItem;
     const revision = save.revision;
-    save.failed = false;
     // Freeze nested fields too: queued requests must represent this revision,
     // even when subsequent input changes the live item's column names or marks.
     const snapshot = ItemFns.fromObject(JSON.parse(JSON.stringify(ItemFns.toObject(save.item))), save.item.origin);
     save.inFlight = serverOrRemote.updateItem(snapshot, getStore().general.networkStatus)
       .then(() => {
+        save.failed = false;
+        save.failReason = null;
+        save.retryAttempt = 0;
         if (pending.get(id) === save && save.revision == revision) {
           pending.delete(id);
         }
       })
       .catch(error => {
         save.failed = true;
+        save.failReason = networkFailureReason(error);
         console.warn("Text edit remains unsaved:", id, error);
       })
       .finally(() => {
         save.inFlight = null;
-        if (pending.get(id) === save && !save.failed && save.revision != revision && save.timer == null) {
-          void savePending(id);
+        if (pending.get(id) === save && save.timer == null) {
+          if (!save.failed && save.revision != revision) {
+            void savePending(id);
+          } else if (save.failed) {
+            scheduleRetry(id, save);
+          }
         }
         updateStatus();
       });
@@ -191,12 +228,16 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     if (item.clientOnly || !itemCanEdit(item) || item.itemType == ItemType.Search) { return; }
     let save = pending.get(item.id);
     if (save == null) {
-      save = { item, fields: new Set(), revision: 0, timer: null, inFlight: null, failed: false };
+      save = {
+        item, fields: new Set(), revision: 0, timer: null, inFlight: null,
+        failed: false, failReason: null, retryAttempt: 0, retryAtMs: null,
+      };
       pending.set(item.id, save);
     }
     save.item = item;
     save.fields.add(field);
     ++save.revision;
+    save.retryAttempt = 0;
     cancelTimer(save);
     save.timer = setTimeout(() => { void savePending(item.id); }, SAVE_DELAY_MS);
     updateStatus();
@@ -309,6 +350,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
 
   const flush = async (): Promise<boolean> => {
     captureActive();
+    for (const save of pending.values()) { save.retryAttempt = 0; }
     await Promise.all([...pending.keys()].map(async id => {
       await savePending(id);
       // Also drain text entered while an earlier revision was in flight.
@@ -400,6 +442,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     hasPending: (itemId: string) => pending.has(itemId),
     unsavedCount,
     failedSaveCount,
+    failedSaves,
     clear: () => {
       active = null;
       historyBefore = undefined;

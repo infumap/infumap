@@ -571,7 +571,7 @@ function syncGlobalRequestTracker(): void {
 
 const FAIL_REASONS = new Set<string>(["auth", "not-found", "server", "client"]);
 
-function networkFailureReason(error: unknown): NetworkFailureReason {
+export function networkFailureReason(error: unknown): NetworkFailureReason {
   if (error instanceof CommandFailedError) {
     return error.failReason != null && FAIL_REASONS.has(error.failReason)
       ? error.failReason as NetworkFailureReason
@@ -1471,7 +1471,12 @@ function handleFailedMutation(command: ServerCommand, error: unknown): void {
     return;
   }
 
-  showFailedMutationMessage(store, error);
+  // A failing text save is retried on a timer, and the network status shows it, so only its first failure is shown.
+  const textSaveRetry = command.command == COMMAND_UPDATE_ITEM && typeof payload.id == "string" &&
+    store.textEdit.failedSaves().some(save => save.itemId == payload.id);
+  if (!textSaveRetry) {
+    showFailedMutationMessage(store, error);
+  }
   if (error instanceof CommandFailedError) {
     void logoutIfSessionEnded(store);
   }
