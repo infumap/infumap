@@ -1,6 +1,6 @@
 # Network status
 
-Status: planned 2026-10-17. Steps 1–3 done 2026-10-17.
+Status: planned 2026-10-17. Steps 1–4 done 2026-10-17.
 
 This plan covers the toolbar network indicator and the dialog it opens
 ([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). It follows a design review
@@ -187,6 +187,34 @@ afterwards.
 - If a different user logs in in the other tab, the existing different-user check still logs out, through the
   discard path.
 - **Check:** each of the three exits on a throwaway server.
+
+What was found and done (2026-10-17):
+
+- **What actually happened.** With the session ended, every text save failed with "Session is required to update an
+  item.". The server classified that as `server`, not `auth`, so step 3 kept retrying. Each failure also ran
+  `logoutIfSessionEnded`, which called `logout`, whose `flush()` reset the backoff and saved again. The result was
+  a loop every 2s: two `update-item` requests and one `validate-session`, with the dialog forced open, saying "the
+  server had an error".
+- **Server:** `classify_command_error` treats "Session is required" / "session is required" as `auth`.
+  `cargo test` doesn't compile at present, because of unrelated stale chat-backend tests, so the new unit test
+  `missing_session_errors_are_classified_as_auth` hasn't been run. The end-to-end check covers the behaviour.
+- **Client:**
+  - `logout` now returns false when unsaved text kept the user logged in. When it does, `logoutIfSessionEnded` sets
+    `store.general.sessionExpired` and doesn't check again.
+  - A retry timer that fires while the session is expired does nothing.
+  - `recheckExpiredSession` validates the session when the tab becomes visible again, or on "Retry now". If the same
+    user is logged in again, it clears `sessionExpired` and saves the text.
+- **Not built:** `textEdit.discardPending()`. The existing `textEdit.clear()` does the job, after
+  `commitActiveTextEdit`, so the logout doesn't capture the editor's text again. Also added:
+  `textEdit.unsavedText()`.
+- **Checked:**
+  - With the session ended, typing caused 2 `update-item` and 1 `validate-session` request in 15s, and nothing
+    after that.
+  - After logging in again and returning to the tab, the text was saved.
+  - "Copy unsaved text" put the note's text on the clipboard.
+  - "Discard and log out" asked for confirmation, went to /login, and the server kept the earlier text.
+- **Not checked:** the different-user case. The session stays expired, and the dialog's text ("Your session has
+  ended") doesn't mention that another account is now logged in.
 
 ### 5. Toolbar indicator
 

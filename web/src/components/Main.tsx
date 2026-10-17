@@ -67,7 +67,8 @@ import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
 
 
-export let logout: (() => Promise<void>) | null = null;
+/** Resolves false, leaving the user logged in, when unsaved text could not be saved first. */
+export let logout: (() => Promise<boolean>) | null = null;
 
 const TWO_FINGER_TAP_MAX_DURATION_MS = 300;
 const TWO_FINGER_TAP_MAX_CENTROID_MOVEMENT_PX = 24;
@@ -491,7 +492,7 @@ export const Main: Component = () => {
     commitActiveTextEdit(store, true, "text-edit-logout");
     if (!await store.textEdit.flush()) {
       store.overlay.networkOverlayVisible.set(true);
-      return;
+      return false;
     }
     store.clear();
     itemState.clear();
@@ -500,6 +501,7 @@ export const Main: Component = () => {
     clearLocalSyncState();
     await store.user.logout();
     switchToNonPage(store, '/login');
+    return true;
   };
 
   const mouseDoubleClickListener = (ev: MouseEvent) => {
