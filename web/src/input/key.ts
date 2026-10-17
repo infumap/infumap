@@ -565,6 +565,14 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     return;
   }
 
+  // The network status dialog is drawn over everything else, so Escape closes it first. It is not counted by
+  // anOverlayIsVisible, so other keys keep working while it is open.
+  if (ev.code == "Escape" && store.overlay.networkOverlayVisible.get()) {
+    ev.preventDefault();
+    store.overlay.networkOverlayVisible.set(false);
+    return;
+  }
+
   if (isReservedTabKey(ev) && !targetShouldKeepNativeTabBehavior(ev) && handleSearchWorkspaceTabMaybe(store, ev)) {
     ev.preventDefault();
     return;

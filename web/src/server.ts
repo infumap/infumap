@@ -1484,6 +1484,10 @@ function handleFailedMutation(command: ServerCommand, error: unknown): void {
 }
 
 function showFailedMutationMessage(store: StoreContextModel, error: unknown): void {
+  // The open network status dialog shows the failure, and the message would cover its top.
+  if (store.overlay.networkOverlayVisible.get()) {
+    return;
+  }
   const text = !(error instanceof CommandFailedError)
     ? "Couldn't save change: the server could not be reached."
     : error.failReason == "not-found"
