@@ -25,6 +25,7 @@ use tokio::sync::Mutex;
 use tokio::time::Instant;
 
 use crate::budget::{BudgetSnapshot, BudgetedProvider};
+use crate::daily_quota::DailyQuotaSnapshot;
 use crate::providers::{
   ProviderError, ProviderErrorKind, ProviderResult, RequestCost, SearchProvider, SearchRequest, SearchResult,
 };
@@ -95,6 +96,8 @@ pub struct ProviderStatus {
   pub budget: Option<BudgetSnapshot>,
   pub usage: Option<UsageStatus>,
   pub rate_limit: Option<RateLimitStatus>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub daily_quota: Option<DailyQuotaSnapshot>,
 }
 
 impl ProviderStatus {
@@ -110,6 +113,7 @@ impl ProviderStatus {
       budget: None,
       usage: None,
       rate_limit: None,
+      daily_quota: None,
     }
   }
 }
@@ -238,7 +242,7 @@ impl SearchRouter {
   async fn search_until(&self, request: SearchRequest<'_>, deadline: Instant) -> ProviderResult<Vec<SearchResult>> {
     if self.providers.is_empty() {
       return Err(internal(
-        "No search providers enabled. Configure Exa, Tavily, Diffbot or Firecrawl with a free allowance, or set WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE to a positive integer.",
+        "No search providers enabled. Configure a metered provider with a free allowance, set WEB_SEARCH_YOU_DAILY_FREE_REQUESTS, or set WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE to a positive integer.",
       ));
     }
     let mut attempted = vec![false; self.providers.len()];
@@ -423,6 +427,18 @@ impl ProviderSlot {
       recovery_probe_required: health.recovering,
     });
     status.usage = Some(self.usage_status.lock().await.clone());
+    match self.backend.provider().daily_quota().await {
+      Ok(Some(quota)) => {
+        if let Some(error) = quota.persistence_error {
+          status.unavailable_reasons.push(error.to_owned());
+        } else if !quota.available() {
+          status.unavailable_reasons.push("Daily free request quota is unavailable.".to_owned());
+        }
+        status.daily_quota = Some(quota);
+      }
+      Ok(None) => (),
+      Err(error) => status.unavailable_reasons.push(error.to_string()),
+    }
     if let Backend::Metered(provider) = &self.backend {
       match provider.snapshot().await {
         Ok(snapshot) => {
@@ -474,6 +490,9 @@ impl ProviderSlot {
   }
 
   async fn candidate(&self, index: usize, request: &SearchRequest<'_>) -> ProviderResult<Option<Candidate>> {
+    if self.backend.provider().daily_quota().await?.is_some_and(|quota| !quota.available()) {
+      return Ok(None);
+    }
     let cost = match self.backend.provider().estimate_cost(request)? {
       RequestCost::Unmetered => {
         return Ok(Some(Candidate {

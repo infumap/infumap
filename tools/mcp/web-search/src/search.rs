@@ -30,6 +30,7 @@ use crate::providers::duckduckgo::DuckDuckGo;
 use crate::providers::exa::Exa;
 use crate::providers::firecrawl::Firecrawl;
 use crate::providers::tavily::Tavily;
+use crate::providers::you::You;
 use crate::providers::{SearchProvider, SearchRequest};
 use crate::router::{Backend, ProviderStatus, SearchRouter};
 
@@ -53,6 +54,13 @@ static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
   let mut providers = Vec::new();
   if let Some(requests_per_minute) = NonZeroU32::new(config.duckduckgo_requests_per_minute) {
     providers.push(Backend::Unmetered { provider: Box::new(DuckDuckGo), requests_per_minute });
+  }
+  if config.you_daily_free_requests > 0 {
+    let directory = config.state_dir.as_ref().ok_or("Quota state directory is not configured.")?;
+    let provider = You::new(directory, config.you_daily_free_requests, config.you_requests_per_minute)
+      .map_err(|error| format!("Could not initialize You.com: {error}"))?;
+    providers
+      .push(Backend::Unmetered { provider: Box::new(provider), requests_per_minute: config.you_requests_per_minute });
   }
   if let Some(exa) = &config.exa {
     let provider = Exa::new(&exa.api_key)
@@ -117,6 +125,12 @@ pub async fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
   }
   if config.firecrawl.is_none() {
     providers.push(ProviderStatus::unconfigured("firecrawl", "FIRECRAWL_API_KEY is not configured."));
+  }
+  if config.you_daily_free_requests == 0 {
+    providers.push(ProviderStatus::unconfigured(
+      "you",
+      "You.com is disabled; set WEB_SEARCH_YOU_DAILY_FREE_REQUESTS to a positive integer up to 100 to enable.",
+    ));
   }
   if config.duckduckgo_requests_per_minute == 0 {
     providers.push(ProviderStatus::unconfigured(

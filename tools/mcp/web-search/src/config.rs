@@ -30,6 +30,8 @@ pub struct SearchConfig {
   pub diffbot_requests_per_minute: NonZeroU32,
   pub firecrawl: Option<MeteredConfig>,
   pub firecrawl_requests_per_minute: NonZeroU32,
+  pub you_daily_free_requests: u32,
+  pub you_requests_per_minute: NonZeroU32,
   pub state_dir: Option<PathBuf>,
 }
 
@@ -52,6 +54,9 @@ impl SearchConfig {
     let mut providers = Vec::new();
     if self.duckduckgo_requests_per_minute > 0 {
       providers.push("duckduckgo");
+    }
+    if self.you_daily_free_requests > 0 {
+      providers.push("you");
     }
     if self.exa.as_ref().is_some_and(|exa| !exa.api_key.is_empty()) {
       providers.push("exa");
@@ -84,6 +89,15 @@ impl SearchConfig {
       .ok()
       .and_then(NonZeroU32::new)
       .ok_or("WEB_SEARCH_FIRECRAWL_REQUESTS_PER_MINUTE must be between 1 and 4294967295.")?;
+    let you_daily_free_requests = unsigned_env("WEB_SEARCH_YOU_DAILY_FREE_REQUESTS", 0)?;
+    if you_daily_free_requests > 100 {
+      return Err("WEB_SEARCH_YOU_DAILY_FREE_REQUESTS must be between 0 and 100.".to_owned());
+    }
+    let you_daily_free_requests = you_daily_free_requests as u32;
+    let you_requests_per_minute = u32::try_from(unsigned_env("WEB_SEARCH_YOU_REQUESTS_PER_MINUTE", 5)?)
+      .ok()
+      .and_then(NonZeroU32::new)
+      .ok_or("WEB_SEARCH_YOU_REQUESTS_PER_MINUTE must be between 1 and 4294967295.")?;
     let state_dir = if let Some(path) = optional_env("WEB_SEARCH_STATE_DIR")? {
       Some(PathBuf::from(path))
     } else if let Some(path) = optional_env("XDG_STATE_HOME")? {
@@ -107,6 +121,9 @@ impl SearchConfig {
       if firecrawl.is_some() {
         return Err("Firecrawl budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
       }
+      if you_daily_free_requests > 0 {
+        return Err("You.com quota accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
+      }
     }
     Ok(Self {
       duckduckgo_requests_per_minute,
@@ -116,6 +133,8 @@ impl SearchConfig {
       diffbot_requests_per_minute,
       firecrawl,
       firecrawl_requests_per_minute,
+      you_daily_free_requests,
+      you_requests_per_minute,
       state_dir,
     })
   }

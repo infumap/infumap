@@ -16,6 +16,7 @@
 
 mod budget;
 mod config;
+mod daily_quota;
 mod error;
 mod fetch;
 mod protocol;
@@ -98,6 +99,12 @@ async fn run_server() {
     info!(
       "Firecrawl pacing: {} requests per minute, at most one request in flight",
       config.firecrawl_requests_per_minute
+    );
+  }
+  if config.you_daily_free_requests > 0 {
+    info!(
+      "You.com free configuration: {} requests per rolling 24 hours, {} attempts per minute, one request in flight",
+      config.you_daily_free_requests, config.you_requests_per_minute
     );
   }
   for (name, settings) in

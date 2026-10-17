@@ -3,7 +3,8 @@
 Streamable HTTP MCP server exposing Infumap's web-search and page-fetch tools.
 Bind is `127.0.0.1` by default. Exa, Tavily, Diffbot and Firecrawl use configured free monthly
 allowances. DuckDuckGo needs no API key and is disabled until a positive request
-rate is configured. Search uses paced routing and bounded fallback.
+rate is configured. You.com uses a keyless MCP free profile and an explicit
+daily request allowance. Search uses paced routing and bounded fallback.
 
 The search tool asks the model to search sequentially and stop once the evidence
 supports a useful answer. In ordinary chat, its fourth call in a user turn adds
@@ -220,20 +221,23 @@ Unset or whitespace-only values use the defaults below.
 | `WEB_SEARCH_FIRECRAWL_MONTHLY_FREE_CREDITS_CENTS` | `0` | Free allowance normalized at $0.005 per Firecrawl credit: 1,000 credits = 500 accounting cents. Search costs two credits per ten requested results, rounded up. No free capacity is assumed. |
 | `WEB_SEARCH_FIRECRAWL_MONTHLY_RESET_DAY` | `1` | Monthly reset at 00:00 UTC, day 1–31; days beyond month-end use its last day. Match the account's renewal day. |
 | `WEB_SEARCH_FIRECRAWL_REQUESTS_PER_MINUTE` | `10` | Positive integer local attempt rate, with at most one Firecrawl request in flight. Match the account's actual limit; unset the key to disable Firecrawl. |
+| `WEB_SEARCH_YOU_DAILY_FREE_REQUESTS` | `0` | You.com free search allowance, 0–100 requests in a rolling 24-hour window. Zero disables the provider. Positive values enable keyless MCP search with persistent request accounting. |
+| `WEB_SEARCH_YOU_REQUESTS_PER_MINUTE` | `5` | Positive integer local attempt rate with at most one You.com request in flight. This is a local pacing default, not a published provider rate guarantee. |
 
 Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
 trial or onboarding credits are not recurring monthly allowances.
 
-The service prefers ready DuckDuckGo capacity, then configured free monthly
-allowances. DuckDuckGo must be explicitly enabled with a positive request rate.
+The service prefers ready DuckDuckGo capacity, then eligible You.com daily
+capacity, then configured free monthly allowances. DuckDuckGo must be explicitly
+enabled with a positive request rate; You.com needs a positive daily allowance.
 New accounts start tracking local usage at zero. If usage elsewhere exhausts the
 provider first, its quota error blocks further requests until the configured
 reset. Provider accounts must enforce their own free-only limit; the adapter
 cannot identify paid credits in an accepted request.
 
 Provider configuration, persistent accounting, routing and the common provider
-interface with DuckDuckGo, Exa, Tavily, Diffbot and Firecrawl adapters are implemented. Startup
+interface with DuckDuckGo, You.com, Exa, Tavily, Diffbot and Firecrawl adapters are implemented. Startup
 prepares configured clients and validates credential header syntax locally,
 without contacting providers. The metered adapters use persistent budget
 accounting that reserves capacity before any metered request can be dispatched.
@@ -267,10 +271,10 @@ turn DuckDuckGo off. To run without any search provider even if the shell has AP
 keys:
 
 ```bash
-env -u EXA_API_KEY -u TAVILY_API_KEY -u DIFFBOT_API_KEY -u FIRECRAWL_API_KEY WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE=0 ./tools/mcp/web-search/run.sh
+env -u EXA_API_KEY -u TAVILY_API_KEY -u DIFFBOT_API_KEY -u FIRECRAWL_API_KEY WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE=0 WEB_SEARCH_YOU_DAILY_FREE_REQUESTS=0 ./tools/mcp/web-search/run.sh
 ```
 
-`web_search` returns a short unavailability error. `/status` shows all five
+`web_search` returns a short unavailability error. `/status` shows all six
 providers disabled, `search_available: false`, and a configuration error. No
 metered budget directory is created. Other malformed settings still prevent
 startup, even when their provider is disabled.
@@ -481,6 +485,80 @@ until the configured monthly reset, and HTTP 429 uses `Retry-After` or a
 are disabled, and errors omit provider bodies and keys. Live credentials,
 billing and search behavior have not been validated here.
 
+### You.com configured
+
+The adapter uses You.com's hosted
+[MCP free profile](https://you.com/docs/agents/mcp-server), which documents 100
+search queries per day without an account or API key. Enable it explicitly:
+
+```bash
+export WEB_SEARCH_YOU_DAILY_FREE_REQUESTS=100
+export WEB_SEARCH_YOU_REQUESTS_PER_MINUTE=5
+./tools/mcp/web-search/run.sh
+```
+
+The allowance defaults to zero (disabled), accepts integers up to 100, and
+counts requests rather than cents. There is no You.com API-key setting or paid
+fallback. The local pacing default permits one attempt every 12 seconds, with
+one request in flight and no burst accumulation. It is not a claimed upstream
+rate limit. Startup and `/status` do not contact You.com.
+
+You.com does not clearly document the free MCP quota's reset boundary or quota
+identity. Its [integration repository](https://github.com/youdotcom-oss/integration-tracking)
+describes keyless REST access as IP-based; applications on one public IP may
+share capacity. The adapter conservatively retains each local search charge
+for **24 hours**, rather than assuming a remote midnight reset. Lower the
+allowance to leave room for other clients. Local accounting cannot see their
+usage or guarantee that the provider will accept a request.
+
+`WEB_SEARCH_STATE_DIR` uses the same fallback paths as monetary accounting.
+Separate private `you-quota.json` and `you-quota.lock` files preserve the rolling
+request history without changing `budget.json`. One process owns the quota
+lock. Preserve this directory across restarts, disabling/re-enabling the provider
+and configuration changes. Changing the allowance retains consumption. Reducing
+it below recorded consumption blocks dispatch until enough requests expire.
+An invalid ledger, backward clock or failed durable write blocks quota use;
+the server never resets invalid history to an empty allowance. Atomic synced
+writes run in blocking workers. Status only projects expiry on a copy.
+
+The adapter initializes a disposable MCP session and sends `you-search` to
+`https://api.you.com/mcp?profile=free&tools=you-search`, with `count` matching the
+normalized result limit and `extraction: "none"`. It scopes requests to this
+tool, sends no credentials or payment headers, disables redirects, and never
+uses discovery, contents, research or finance tools. Queries must fit 400
+UTF-16 code units and 50 whitespace-separated words; invalid queries are rejected
+locally. No query rewriting, automatic retries or multi-query expansion occurs.
+
+MCP JSON and bounded event-stream responses are supported. Replies are matched
+by JSON-RPC ID; notifications are not mistaken for results. Initialization,
+search and response parsing share a 20-second adapter deadline within the
+router's existing deadline. Cancellation sends a best-effort MCP cancellation
+notification, and owned sessions are terminated independently with bounded
+cleanup requests. An expired session is not retried within the same search.
+MCP protocol/tool errors and malformed payloads are errors, not empty successes.
+
+Quota is durably charged immediately before `tools/call`; initialization does
+not consume local search capacity. A timed-out or interrupted charge may
+complete on disk, but cannot launch a search after the caller stops waiting.
+Charged attempts remain consumed for the full window, including empty results,
+errors, cancellations and crashes. A late write that never dispatched may also
+retain its charge. This favors underuse when actual execution is uncertain.
+HTTP 402 or an explicit daily/quota-exceeded MCP error persists a conservative
+24-hour remote-exhaustion suspension (longer when `Retry-After` requires it).
+Other HTTP 429 errors use `Retry-After`
+or a 60-second cooldown. HTTP 401 disables the provider until restart; HTTP 403
+uses the normal blocking cooldown. Unknown error shapes remain unavailable
+through normal error backoff; they do not grant extra local quota.
+
+Structured results are preferred, with JSON text content as the documented
+fallback. Web results precede news results, HTTP(S) URLs are deduplicated, and
+the combined output obeys the tool's existing 30-result cap. Snippets combine
+the provider's `snippets`, falling back to `description`, normalize whitespace
+and truncate at 1,000 characters. Publication dates and excerpts stay internal.
+Responses are capped at 2 MiB and diagnostics omit remote bodies, session IDs
+and queries. Usage polling is unsupported and makes no remote requests. Live
+MCP interoperability, quota behavior and result quality remain unverified here.
+
 ### Exhausted credits and invalid credentials
 
 Inspect `/status` and server diagnostics to distinguish local budget limits from
@@ -516,13 +594,17 @@ internal.
 ### Provider selection and fallback
 
 Only configured providers participate. DuckDuckGo has short-lived paced capacity;
+You.com has paced capacity constrained by a persistent rolling daily allowance;
 Exa, Tavily, Diffbot and Firecrawl have monthly free allowances. These capacities are deliberately
 not compared as percentages of the same budget.
 
 Routing prefers a healthy, ready DuckDuckGo slot because that opportunity cannot
 be banked for a later burst. DuckDuckGo is skipped while its minimum interval is
 running or another DuckDuckGo request is in flight. Metered providers absorb that
-traffic, choosing the highest remaining free allowance percentage; equal
+traffic after eligible You.com capacity is considered. You.com is skipped when
+paced, in flight, locally exhausted or remotely suspended. Its daily requests
+are not compared as a percentage against monthly monetary budgets. Metered
+providers choose the highest remaining free allowance percentage; equal
 percentages use registration order: Exa, Tavily, Diffbot, then Firecrawl. Diffbot
 and Firecrawl are also skipped while paced or already in flight. Monthly providers are excluded when the entire
 estimated request cost does not fit. Paid capacity is never eligible.
@@ -572,12 +654,13 @@ requests cannot dispatch before an earlier quota-exhaustion cap is saved.
 Different providers can operate independently. A local request whose cost does
 not fit is distinguished from remote exhaustion, so a smaller later request can
 still use the remainder.
-Providers without a known quota reset are disabled until restart after replenishment.
+Providers without a known quota reset are disabled until restart after replenishment,
+except You.com, whose separate persistent rolling suspension expires automatically.
 
 DuckDuckGo provider failures (blocking, rate limiting, transient failures,
 unexpected responses and cancellation) impose at least a one-hour cooldown.
 A longer delta-seconds `Retry-After` extends it; a shorter one does not reduce it.
-Metered provider rate limits use `Retry-After`, or 60 seconds when absent. Their
+Other provider rate limits use `Retry-After`, or 60 seconds when absent. Their
 blocking defaults to 15 minutes. Transient failures back off from 2 seconds to
 5 minutes; unexpected responses use at least 15 seconds. A supplied `Retry-After`
 overrides those defaults, with a minimum of one second.
@@ -589,7 +672,8 @@ whose dispatch began and records a transient health failure. Reservations known
 not to have dispatched are released asynchronously.
 
 Cooldowns and credential/internal-error suspensions are kept in memory. Monthly
-metered quota caps and consumption are persistent. Failed calls report a short
+metered quota caps and consumption are persistent. You.com request charges and
+remote daily-quota suspensions are also persistent. Failed calls report a short
 unavailability message in the existing MCP text-error format. Routing choices
 are available in debug logs (`RUST_LOG=debug`); queries and API keys are not
 included in routing log messages.
@@ -602,7 +686,7 @@ Inspect the running server without spending search credits:
 curl http://127.0.0.1:8791/status
 ```
 
-`GET /status` returns JSON showing all five supported providers, whether each is
+`GET /status` returns JSON showing all six supported providers, whether each is
 enabled, reasons it is unavailable, local budget balances, monthly boundaries,
 cooldowns, suspensions, requests in flight and usage-reporting state. Availability
 and `funding` are evaluated for a reference search requesting five results;
@@ -618,11 +702,20 @@ and outstanding reservations. `period_start`, `period_end`, `quota_resets_at`,
 `generated_at` and usage observation/reset times are Unix seconds in UTC.
 `cooldown_remaining_ms` is the remaining delay in milliseconds.
 
-For DuckDuckGo, Diffbot and Firecrawl, `rate_limit` reports `requests_per_minute` and
+For DuckDuckGo, You.com, Diffbot and Firecrawl, `rate_limit` reports `requests_per_minute` and
 `next_request_in_ms`, the remaining minimum-interval delay rounded up to whole
 milliseconds. A zero delay does not override a request already in flight or a
 health cooldown; inspect `available` and `unavailable_reasons` too. Exa and
 Tavily have `rate_limit: null`. Status reads never reserve a pacing slot.
+
+You.com's `funding` is `unmetered` (no monetary charge), with `budget: null`.
+Its `daily_quota` contains `window_seconds`, `free_allowance_requests`,
+`consumed_requests`, `remaining_requests`, `next_request_at_ms`,
+`remote_exhausted_until_ms` and `persistence_error`. Timestamp fields ending in
+`_ms` are Unix milliseconds. The next request timestamp is a local earliest
+quota eligibility time, not an observed upstream reset; pacing and health may
+delay it further. Other providers omit this optional field. Status never
+consumes daily capacity or probes the upstream MCP server.
 
 `usage.state` is `not_checked`, `unsupported`, `reported` or `error`.
 `usage.last_report`, when present, is the last provider observation, timestamped
@@ -680,7 +773,7 @@ the router; durable budget enforcement is provided by the accounting wrapper.
 State is stored in `WEB_SEARCH_STATE_DIR`, or by default in
 `$XDG_STATE_HOME/infumap-web-search` when `XDG_STATE_HOME` is set, otherwise
 `$HOME/.local/state/infumap-web-search`. The directory must be absolute. It is
-created only when a metered provider is configured. Preserve it across restarts
+created only when a metered provider or You.com is configured. Preserve it across restarts
 and container deployments; changing or deleting it discards accounting history.
 
 `budget.json` records each provider's free allowance, monthly UTC boundaries,

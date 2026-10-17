@@ -19,6 +19,7 @@ pub mod duckduckgo;
 pub mod exa;
 pub mod firecrawl;
 pub mod tavily;
+pub mod you;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -86,6 +87,12 @@ pub trait SearchProvider: Send + Sync {
   /// monthly budget accounting; unavailable slots allow immediate fallback.
   fn requests_per_minute(&self) -> Option<NonZeroU32> {
     None
+  }
+
+  /// Local, persistent request allowance, separate from monetary accounting.
+  /// Snapshot inspection must not write state or contact the provider.
+  fn daily_quota(&self) -> BoxFuture<'_, ProviderResult<Option<crate::daily_quota::DailyQuotaSnapshot>>> {
+    Box::pin(async { Ok(None) })
   }
 
   /// Local estimate only; this must not issue a request to the provider.

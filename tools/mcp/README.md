@@ -12,7 +12,7 @@ Start web search:
 ./tools/mcp/web-search/run.sh
 ```
 
-Search supports DuckDuckGo, Exa, Tavily, Diffbot and Firecrawl. Metered providers require
+Search supports DuckDuckGo, You.com, Exa, Tavily, Diffbot and Firecrawl. Metered providers require
 their API key and an explicit monthly free allowance. Diffbot uses
 `DIFFBOT_API_KEY`, `WEB_SEARCH_DIFFBOT_MONTHLY_FREE_CREDITS_CENTS` (10,000 searches
 = 1,000 accounting cents), and optional reset-day and pacing settings. Its local
@@ -24,6 +24,12 @@ Firecrawl uses `FIRECRAWL_API_KEY` and
 cents; up to 500 searches requesting ten or fewer results). Pacing defaults to
 ten attempts per minute with one request in flight. See
 [Firecrawl configuration](web-search/README.md#firecrawl-configured).
+
+You.com uses its keyless MCP free profile. Set
+`WEB_SEARCH_YOU_DAILY_FREE_REQUESTS=100` to enable up to 100 searches per rolling
+24 hours; zero (the default) disables it. `WEB_SEARCH_YOU_REQUESTS_PER_MINUTE`
+defaults to five, with one request in flight. Request history persists in the
+shared state directory. See [You.com configuration](web-search/README.md#youcom-configured).
 
 `run.sh` resolves Chrome/Chromium or installs official Chrome for Testing in the
 user cache, once per wrapper invocation. Set `WEB_FETCH_BROWSER_PATH` for an
