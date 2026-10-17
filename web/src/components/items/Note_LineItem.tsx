@@ -217,6 +217,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
       class={`${infuTextStyle().isCode ? 'font-mono' : ''}`}
       style={`${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
         (isMultiLine() ? `white-space: pre-wrap; ` : `display: inline-block; white-space: pre; `) +
+        // Chrome keeps the caret inside the line, which an empty title has no width for: it would sit just left of
+        // the text area, where it is clipped.
+        (editing ? `min-width: 2px; ` : '') +
         `outline: 0px solid transparent;`}
       contentEditable={canEdit() && editing ? "plaintext-only" : undefined}
       data-note-editor={editing ? "" : undefined}
