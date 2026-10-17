@@ -2,7 +2,7 @@
 
 Streamable HTTP MCP server exposing Infumap's web-search and page-fetch tools.
 Bind is `127.0.0.1` by default. DuckDuckGo is enabled by default with no API key
-required. Configured Exa and DuckDuckGo providers serve searches through
+required. Configured Exa, Brave Search and DuckDuckGo providers serve searches through
 budget-aware routing and bounded fallback.
 
 Browser-backed HTML, native-only PDF extraction and local browser setup are
@@ -189,21 +189,27 @@ Unset or whitespace-only values use the defaults below.
 | --- | --- | --- |
 | `WEB_SEARCH_DUCKDUCKGO_ENABLED` | `true` | Enable the undocumented DuckDuckGo HTML endpoint. Set `false` to disable it. Accepts `true` or `false`. |
 | `EXA_API_KEY` | Unset | A nonempty API key configures Exa. No separate enable flag is needed. |
+| `BRAVE_API_KEY` | Unset | A nonempty Brave Search API key configures Brave. No separate enable flag is needed. |
 | `WEB_SEARCH_STATE_DIR` | See below | Absolute directory for persistent budget state. |
 | `WEB_SEARCH_EXA_ACCOUNT_ID` | `default` | Stable local account label, shared across API keys belonging to the same Exa account. |
 | `WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS` | `0` | Monthly free allowance in integer US cents, not request counts. Zero means no assumed free capacity. |
 | `WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS` | `0` | Maximum additional paid usage per monthly period, in integer US cents. Zero specifies free-only usage. |
 | `WEB_SEARCH_EXA_MONTHLY_RESET_DAY` | `1` | Day of month, from 1 through 31, when the configured budget resets at 00:00 UTC. Days beyond the end of a month mean that month's last day. |
 | `WEB_SEARCH_EXA_INITIAL_USED_CENTS` | `0` | Usage already incurred in the current period, in integer US cents. Applied only when this account is first added to the ledger. |
+| `WEB_SEARCH_BRAVE_ACCOUNT_ID` | `default` | Stable local label for the Brave account, preserved across key rotation. Separate from the Exa account label. |
+| `WEB_SEARCH_BRAVE_MONTHLY_FREE_CREDITS_CENTS` | `0` | Actual recurring Brave free allowance in integer US cents. Configure explicitly; no free credits are assumed. |
+| `WEB_SEARCH_BRAVE_MONTHLY_PAID_LIMIT_CENTS` | `0` | Maximum additional paid Brave usage per period, in integer US cents. Zero specifies free-only usage. |
+| `WEB_SEARCH_BRAVE_MONTHLY_RESET_DAY` | `1` | Monthly reset at 00:00 UTC, day 1–31; days beyond month-end use its last day. |
+| `WEB_SEARCH_BRAVE_INITIAL_USED_CENTS` | `0` | Prior current-period Brave usage in integer US cents; applied only when the account first enters the ledger. |
 
 Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
 trial or onboarding credits are not recurring monthly allowances.
 
 Provider configuration, persistent accounting, routing and the common provider
-interface with DuckDuckGo and Exa adapters are implemented. Startup
+interface with DuckDuckGo, Exa and Brave adapters are implemented. Startup
 prepares configured clients and validates credential header syntax locally,
-without contacting providers. The Exa adapter is wrapped in persistent budget
+without contacting providers. The Exa and Brave adapters use persistent budget
 accounting that reserves capacity before any metered request can be dispatched.
 The router selects eligible providers automatically and falls back after
 failures. Startup logs report configured preferences and the local budget
@@ -222,15 +228,15 @@ endpoint and can be throttled or blocked. It has unknown capacity; unmetered
 accounting does not guarantee availability.
 
 To turn DuckDuckGo off and run without a search provider, even if the shell
-already has an Exa key:
+already has search API keys:
 
 ```bash
-env -u EXA_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
+env -u EXA_API_KEY -u BRAVE_API_KEY WEB_SEARCH_DUCKDUCKGO_ENABLED=false ./tools/mcp/web-search/run.sh
 ```
 
 The server starts and `web_fetch` remains available. `web_search` returns a
 short MCP tool error saying search is unavailable. `/status` shows
-`search_available: false`, both providers disabled, and a configuration error.
+`search_available: false`, all three providers disabled, and a configuration error.
 No metered budget directory is created. Other malformed environment settings
 still prevent startup, even when their provider is disabled.
 
@@ -260,8 +266,59 @@ provider will accept a request; the actual Exa balance remains unknown.
 A key without a configured free or paid allowance cannot spend credits.
 DuckDuckGo fallback is enabled by default. To restore it after the Exa-only
 example above, unset `WEB_SEARCH_DUCKDUCKGO_ENABLED` or set it to `true` before launch.
-Free Exa capacity is preferred, then enabled DuckDuckGo, then any explicitly
-configured paid Exa capacity. Configuration changes require a server restart.
+With only Exa and DuckDuckGo configured, free Exa capacity is preferred, then
+enabled DuckDuckGo, then any explicitly configured paid Exa capacity. When Brave
+is also configured, the selection rules below compare both metered providers.
+Configuration changes require a server restart.
+
+### Brave Search configured
+
+Create a key in the [Brave Search API dashboard](https://api-dashboard.search.brave.com/)
+and export `BRAVE_API_KEY` through your environment or secret manager. As of
+October 17, 2026, the [Search plan](https://api-dashboard.search.brave.com/documentation/pricing)
+offers $5 in monthly free credits and charges $5 per 1,000 requests. If this
+matches your account, configure free-only usage with:
+
+```bash
+export WEB_SEARCH_BRAVE_MONTHLY_FREE_CREDITS_CENTS=500
+export WEB_SEARCH_BRAVE_MONTHLY_PAID_LIMIT_CENTS=0
+export WEB_SEARCH_BRAVE_MONTHLY_RESET_DAY=1
+# Include any usage already incurred this period before tracking starts:
+export WEB_SEARCH_BRAVE_INITIAL_USED_CENTS=0
+./tools/mcp/web-search/run.sh
+```
+
+Set the actual reset day and prior usage for your account. Keep
+`WEB_SEARCH_BRAVE_ACCOUNT_ID` stable across key rotation and preserve the state
+directory. The local $5 allowance covers at most 1,000 successful requests per
+period, assuming no usage elsewhere. A key alone, with no configured allowance,
+cannot spend credits. DuckDuckGo remains enabled by default; Exa also participates
+when configured. Exa and Brave share one ledger directory, with separate
+provider/account balances and reservations.
+
+The adapter calls the [Web Search endpoint](https://api-dashboard.search.brave.com/api-reference/web/search/get)
+once per search using `X-Subscription-Token`. It requests at most 20 web results,
+disables text decoration, normalizes titles/URLs/snippets and excludes duplicate
+or non-HTTP(S) URLs. Larger `numResults` values still return at most 20 Brave
+results without extra pagination charges. Queries beyond Brave's 600-character
+or 75-word limits skip Brave without spending credits; other providers can still
+serve them. Each dispatched request reserves 5,000 USD micros ($0.005), regardless
+of result count. No new MCP parameters are needed.
+
+HTTP 429 with `error.code: QUOTA_LIMITED` persists a zero-capacity cap until the
+configured monthly reset. Other HTTP 429 responses cause a temporary cooldown.
+The adapter honors delta-seconds `Retry-After`, or the longest depleted window's
+`X-RateLimit-Reset` delay when valid paired rate-limit headers are available;
+otherwise the router's default cooldown applies. HTTP 401 disables Brave until
+restart after correcting the key; HTTP 403 triggers the blocking cooldown.
+Other enabled, eligible providers can serve fallback requests.
+
+Brave [documents failed API calls as unbilled](https://api-dashboard.search.brave.com/documentation/guides/rate-limiting),
+so received HTTP error responses release the local reservation. Transport
+failures, timeouts, cancellations and unreadable/invalid successful responses
+retain the estimate because billing is uncertain. Usage reporting remains
+unsupported: request-window headers do not establish a monetary credit balance,
+and status/usage refresh never issue an extra Brave search.
 
 ### Exhausted credits and invalid credentials
 
@@ -280,13 +337,14 @@ a request for more results may need a larger budget.
 | Ledger is unreadable, invalid or already locked by another process | Initialization fails. Repair the storage or stop the other ledger owner, then restart while preserving accounting history. |
 | A ledger write fails during operation | Further metered dispatch is blocked. Status shows the persistence error; repair storage and restart. An enabled DuckDuckGo remains eligible. |
 
-There is no command to refresh an Exa balance or clear a remote exhaustion cap
+There is no command to refresh an Exa or Brave balance or clear a remote exhaustion cap
 after topping up credits mid-period. This implementation continues honoring the
 cap until its configured reset. DuckDuckGo can serve as fallback in the meantime
 unless disabled. Changing the reset day of an existing account is rejected.
 
-Attempts with uncertain billing, including HTTP 401 and 402, conservatively commit
-their reserved cost. Correcting a key and restarting preserves that consumption.
+Attempts with uncertain billing, including Exa HTTP 401 and 402, conservatively
+commit their reserved cost. Brave HTTP error responses release reservations as
+described above. Correcting a key and restarting preserves that consumption.
 When fallback succeeds, the MCP result contains that provider's normal results;
 logs and `/status` expose failures of the earlier provider. If no provider can
 serve the call, `web_search` returns `isError: true` with a short unavailability
@@ -295,9 +353,9 @@ A successful empty result does not trigger fallback.
 
 ### Provider selection and fallback
 
-Only configured providers participate. Exa is the preferred metered provider;
-DuckDuckGo, enabled by default, is the fallback. DuckDuckGo has unknown
-capacity and is excluded from monthly allowance comparisons.
+Only configured providers participate. Exa and Brave are metered providers,
+registered in that order to break equal-budget ties; DuckDuckGo is registered
+last and enabled by default. DuckDuckGo has unknown capacity and is excluded from monthly allowance comparisons.
 
 The router excludes providers that have already been attempted for this call,
 cannot satisfy the request, are disabled or cooling down, or lack enough budget
@@ -311,8 +369,7 @@ contain provider-specific selection branches.
 Provider usage reporting can conservatively reconcile local estimates. Durable
 reservations and consumption tracking are implemented. A successful empty search
 is a result, not a trigger to spend credits on another provider. Each provider
-is attempted at most once per call, with at most three attempts in total
-(currently at most two because only two providers are supported). Provider
+is attempted at most once per call, with at most three attempts in total. Provider
 attempts have a 20-second timeout within a shared 30-second request deadline.
 The shared deadline covers selection, health-lock waits, budget-worker waits,
 reservations, provider HTTP and settlement. Runtime ledger operations run in
@@ -321,7 +378,7 @@ the search response past its deadline. A timed-out request stops waiting;
 an already-started storage operation can finish in the background. No provider
 request is dispatched for a reservation that completes after its deadline.
 Fallback happens immediately without sleeping through cooldowns, and an already
-attempted Exa provider is not tried again with paid capacity after a free attempt
+attempted metered provider is not tried again with paid capacity after a free attempt
 fails. Budget reservations are checked again at dispatch to handle concurrent
 requests consuming capacity after selection.
 
@@ -333,9 +390,9 @@ and survives restarts. A local request whose cost does not fit is distinguished
 from remote exhaustion, so a smaller later request can still use the remainder.
 Providers without a known quota reset are disabled until restart after replenishment.
 
-Rate limits use the provider's delta-seconds `Retry-After`, or 60 seconds when it
-is absent. Bot blocking defaults to 15 minutes. Transient failures back off from
-2 seconds up to 5 minutes; unexpected responses use at least 15 seconds. A
+Rate limits use the provider's delta-seconds `Retry-After` (or Brave's depleted
+request-window reset delay), or 60 seconds when neither is available. Bot blocking
+defaults to 15 minutes. Transient failures back off from 2 seconds up to 5 minutes; unexpected responses use at least 15 seconds. A
 supplied `Retry-After` overrides these defaults, with a minimum of one second.
 Overlapping cooldowns retain the later deadline. Only one recovery probe can run
 after a cooldown or quota suspension, and a late success from an older request
@@ -358,7 +415,7 @@ Inspect the running server without spending search credits:
 curl http://127.0.0.1:8791/status
 ```
 
-`GET /status` returns JSON showing both supported providers, whether each is
+`GET /status` returns JSON showing all three supported providers, whether each is
 enabled, reasons it is unavailable, local budget balances, monthly boundaries,
 cooldowns, suspensions, requests in flight and usage-reporting state. Availability
 and `funding` are evaluated for a reference search requesting five results;
@@ -377,8 +434,8 @@ and outstanding reservations. `period_start`, `period_end`, `quota_resets_at`,
 `usage.state` is `not_checked`, `unsupported`, `reported` or `error`.
 `usage.last_report`, when present, is the last provider observation, timestamped
 separately from the latest refresh attempt; it can be stale after a failure or
-monthly reset. Exa and DuckDuckGo currently report `unsupported`, so their actual
-remaining account capacity is unknown. Local estimates are not reported balances.
+monthly reset. Exa, Brave and DuckDuckGo currently report `unsupported`, so
+their actual remaining account capacity is unknown. Local estimates are not reported balances.
 `budget.adjusted_remaining_cap_usd_micros` is a conservative cap reduced by local
 charges (or set to zero on remote exhaustion), before outstanding reservations
 are subtracted; it is not a raw provider balance. Null caps mean no known cap.

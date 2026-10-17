@@ -23,12 +23,13 @@ static CONFIG: Lazy<Result<SearchConfig, String>> = Lazy::new(SearchConfig::from
 
 pub struct SearchConfig {
   pub duckduckgo_enabled: bool,
-  pub exa: Option<ExaConfig>,
+  pub exa: Option<MeteredConfig>,
+  pub brave: Option<MeteredConfig>,
   pub state_dir: Option<PathBuf>,
 }
 
 // Deliberately does not implement Debug: configuration contains credentials.
-pub struct ExaConfig {
+pub struct MeteredConfig {
   pub api_key: String,
   pub account_id: String,
   pub monthly_free_credits_cents: u64,
@@ -50,6 +51,9 @@ impl SearchConfig {
     if self.exa.as_ref().is_some_and(|exa| !exa.api_key.is_empty()) {
       providers.push("exa");
     }
+    if self.brave.as_ref().is_some_and(|brave| !brave.api_key.is_empty()) {
+      providers.push("brave");
+    }
     if self.duckduckgo_enabled {
       providers.push("duckduckgo");
     }
@@ -65,11 +69,8 @@ impl SearchConfig {
       })
       .transpose()?
       .unwrap_or(true);
-    let api_key = optional_env("EXA_API_KEY")?;
-    let account_id = optional_env("WEB_SEARCH_EXA_ACCOUNT_ID")?.unwrap_or_else(|| "default".to_owned());
-    if account_id.len() > 128 || account_id.chars().any(char::is_control) {
-      return Err("WEB_SEARCH_EXA_ACCOUNT_ID must be at most 128 bytes and contain no control characters.".to_owned());
-    }
+    let exa = MeteredConfig::from_env("EXA", "EXA_API_KEY", "Exa")?;
+    let brave = MeteredConfig::from_env("BRAVE", "BRAVE_API_KEY", "Brave")?;
     let state_dir = if let Some(path) = optional_env("WEB_SEARCH_STATE_DIR")? {
       Some(PathBuf::from(path))
     } else if let Some(path) = optional_env("XDG_STATE_HOME")? {
@@ -80,32 +81,50 @@ impl SearchConfig {
     if state_dir.as_ref().is_some_and(|path| !path.is_absolute()) {
       return Err("The web-search state directory must be an absolute path.".to_owned());
     }
+    if state_dir.is_none() {
+      if exa.is_some() {
+        return Err("Exa budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
+      }
+      if brave.is_some() {
+        return Err("Brave budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
+      }
+    }
+    Ok(Self { duckduckgo_enabled, exa, brave, state_dir })
+  }
+}
+
+impl MeteredConfig {
+  fn from_env(provider: &str, key_variable: &str, label: &str) -> Result<Option<Self>, String> {
+    let prefix = format!("WEB_SEARCH_{provider}");
+    let api_key = optional_env(key_variable)?;
+    let account_id = optional_env(&format!("{prefix}_ACCOUNT_ID"))?.unwrap_or_else(|| "default".to_owned());
+    if account_id.len() > 128 || account_id.chars().any(char::is_control) {
+      return Err(format!("{prefix}_ACCOUNT_ID must be at most 128 bytes and contain no control characters."));
+    }
     // Zero allowance means no usable free budget. Reports can tighten configured
     // limits; they cannot grant free capacity. Do not assume an advertised tier.
-    let monthly_free_credits_cents = unsigned_env("WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS", 0)?;
-    let monthly_paid_limit_cents = unsigned_env("WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS", 0)?;
-    let initial_used_cents = unsigned_env("WEB_SEARCH_EXA_INITIAL_USED_CENTS", 0)?;
-    initial_used_cents.checked_mul(10_000).ok_or("Initial Exa usage exceeds the supported range.")?;
+    let monthly_free_credits_cents = unsigned_env(&format!("{prefix}_MONTHLY_FREE_CREDITS_CENTS"), 0)?;
+    let monthly_paid_limit_cents = unsigned_env(&format!("{prefix}_MONTHLY_PAID_LIMIT_CENTS"), 0)?;
+    let initial_used_cents = unsigned_env(&format!("{prefix}_INITIAL_USED_CENTS"), 0)?;
+    initial_used_cents
+      .checked_mul(10_000)
+      .ok_or_else(|| format!("Initial {label} usage exceeds the supported range."))?;
     monthly_free_credits_cents
       .checked_add(monthly_paid_limit_cents)
       .and_then(|cents| cents.checked_mul(10_000))
-      .ok_or("Combined Exa monthly credit and paid limits exceed the supported range.")?;
-    let monthly_reset_day = unsigned_env("WEB_SEARCH_EXA_MONTHLY_RESET_DAY", 1)?;
+      .ok_or_else(|| format!("Combined {label} monthly credit and paid limits exceed the supported range."))?;
+    let monthly_reset_day = unsigned_env(&format!("{prefix}_MONTHLY_RESET_DAY"), 1)?;
     if !(1..=31).contains(&monthly_reset_day) {
-      return Err("WEB_SEARCH_EXA_MONTHLY_RESET_DAY must be between 1 and 31.".to_owned());
+      return Err(format!("{prefix}_MONTHLY_RESET_DAY must be between 1 and 31."));
     }
-    let exa = api_key.map(|api_key| ExaConfig {
+    Ok(api_key.map(|api_key| Self {
       api_key,
       account_id,
       monthly_free_credits_cents,
       monthly_paid_limit_cents,
       monthly_reset_day: monthly_reset_day as u8,
       initial_used_cents,
-    });
-    if exa.is_some() && state_dir.is_none() {
-      return Err("Exa budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
-    }
-    Ok(Self { duckduckgo_enabled, exa, state_dir })
+    }))
   }
 }
 

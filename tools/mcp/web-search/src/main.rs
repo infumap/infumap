@@ -85,10 +85,11 @@ async fn run_server() {
   } else {
     info!("Configured search provider preference: {}", providers.join(", "));
   }
-  if let Some(exa) = &config.exa {
+  for (name, settings) in [("Exa", &config.exa), ("Brave", &config.brave)] {
+    let Some(settings) = settings else { continue };
     info!(
-      "Exa monthly configuration: {} US cents free, {} US cents paid limit, reset day {} at 00:00 UTC",
-      exa.monthly_free_credits_cents, exa.monthly_paid_limit_cents, exa.monthly_reset_day
+      "{name} monthly configuration: {} US cents free, {} US cents paid limit, reset day {} at 00:00 UTC",
+      settings.monthly_free_credits_cents, settings.monthly_paid_limit_cents, settings.monthly_reset_day
     );
   }
 
