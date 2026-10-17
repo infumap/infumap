@@ -75,6 +75,8 @@ export interface TextEditStore {
   saveItem: (item: Item, immediately?: boolean) => void,
   preserveUnsavedFields: (item: Item) => void,
   flush: () => Promise<boolean>,
+  /** Whether the item has text that is not saved yet, including a save that failed and will be retried. */
+  hasPending: (itemId: string) => boolean,
   unsavedCount: Accessor<number>,
   failedSaveCount: Accessor<number>,
   clear: () => void,
@@ -395,6 +397,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       save.item = item;
     },
     flush,
+    hasPending: (itemId: string) => pending.has(itemId),
     unsavedCount,
     failedSaveCount,
     clear: () => {

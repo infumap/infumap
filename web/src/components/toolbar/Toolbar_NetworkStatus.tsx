@@ -26,10 +26,9 @@ import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 
 export const Toolbar_NetworkStatus: Component = () => {
   const store = useStore();
-  const hasUnacknowledgedErrors = () => store.general.hasUnacknowledgedNetworkErrors();
 
   const col = () => {
-    if (hasUnacknowledgedErrors() || store.textEdit.failedSaveCount() > 0) { return "#bb7373"; }
+    if (store.general.networkProblems().length > 0 || store.textEdit.failedSaveCount() > 0) { return "#bb7373"; }
     const status = store.general.networkStatus.get();
     if (status == NETWORK_STATUS_IN_PROGRESS || store.textEdit.unsavedCount() > 0) { return "#babb73"; }
     return "#7bbb73";
@@ -56,8 +55,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const inProgressRequests = () => store.general.inProgressNetworkRequests();
   const recentRequests = () => store.general.recentNetworkRequests();
   const queuedRequests = () => store.general.queuedNetworkRequests();
-  const erroredRequests = () => store.general.erroredNetworkRequests();
-  const hasUnacknowledgedErrors = () => store.general.hasUnacknowledgedNetworkErrors();
+  const problems = () => store.general.networkProblems();
 
   const [nowMs, setNowMs] = createSignal(Date.now());
   const nowTimer = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -95,10 +93,6 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     return `${req.description}${suffix}`;
   };
 
-  const handleAcknowledgeErrors = () => {
-    store.general.acknowledgeNetworkErrors();
-  };
-
   const handleClose = () => {
     store.overlay.networkOverlayVisible.set(false);
   };
@@ -126,25 +120,34 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           </div>
         </Show>
 
-        <Show when={hasUnacknowledgedErrors() && erroredRequests().length > 0}>
-          <div class="mb-3 text-xs text-red-700 bg-red-50 rounded px-2 py-2">
-            Errors stay red until you acknowledge them here.
-          </div>
+        <Show when={!store.general.serverReachable()}>
+          <div class="mb-3 text-sm text-red-700 bg-red-50 rounded px-2 py-2">Can't reach the server.</div>
         </Show>
 
-        <Show when={erroredRequests().length > 0}>
+        <Show when={problems().length > 0}>
           <div class="mb-3">
             <div class="text-xs text-slate-600 mb-1 flex justify-between items-center">
-              <span>Errors ({erroredRequests().length}):</span>
-              <button onClick={handleAcknowledgeErrors} class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Acknowledge</button>
+              <span>Problems ({problems().length}):</span>
+              <button onClick={() => store.general.dismissAllNetworkProblems()}
+                class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Dismiss all</button>
             </div>
-            <For each={erroredRequests()}>
-              {(request) => (
+            <For each={problems()}>
+              {(problem) => (
                 <div class="text-sm px-2 py-1 bg-red-100 rounded mb-1">
-                  <div class="font-medium">{formatRequest(request)}</div>
-                  <Show when={request.errorMessage}>
-                    <div class="text-xs text-red-700 mt-1">{request.errorMessage}</div>
-                  </Show>
+                  <div class="flex justify-between items-start gap-2">
+                    <span class="font-medium">{formatRequest(problem)}</span>
+                    <span class="flex items-center gap-2 shrink-0">
+                      <Show when={problem.kind == "write"}>
+                        <span class="text-[10px] uppercase tracking-[0.08em] text-red-700">Not saved</span>
+                      </Show>
+                      <span class="text-xs text-slate-500">
+                        {problem.count > 1 ? `×${problem.count} · ` : ""}{formatAgo(problem.lastMs)}
+                      </span>
+                      <button onClick={() => store.general.dismissNetworkProblem(problem.key)}
+                        class="text-slate-500 hover:text-slate-700 leading-none cursor-pointer">&times;</button>
+                    </span>
+                  </div>
+                  <div class="text-xs text-red-700 mt-1">{problem.message}</div>
                 </div>
               )}
             </For>
@@ -197,7 +200,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           </div>
         </Show>
 
-        <Show when={store.textEdit.unsavedCount() === 0 && inProgressRequests().length === 0 && recentRequests().length === 0 && queuedRequests().length === 0 && erroredRequests().length === 0}>
+        <Show when={store.textEdit.unsavedCount() === 0 && inProgressRequests().length === 0 && recentRequests().length === 0 && queuedRequests().length === 0 && problems().length === 0}>
           <div class="text-sm text-slate-500 text-center py-2">All Operations Complete</div>
         </Show>
 

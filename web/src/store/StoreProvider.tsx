@@ -250,7 +250,9 @@ export function StoreProvider(props: StoreContextProps) {
     setInProgressNetworkRequests: value.general.setInProgressNetworkRequests,
     setQueuedNetworkRequests: value.general.setQueuedNetworkRequests,
     addRecentNetworkRequest: value.general.addRecentNetworkRequest,
-    addErroredNetworkRequest: value.general.addErroredNetworkRequest,
+    recordNetworkProblem: value.general.recordNetworkProblem,
+    resolveNetworkProblems: value.general.resolveNetworkProblems,
+    setServerReachable: value.general.setServerReachable,
     recordSyncResult: value.general.recordSyncResult,
   });
 
