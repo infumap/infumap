@@ -1,6 +1,6 @@
 # Network status
 
-Status: planned 2026-10-17. Steps 1–2 done 2026-10-17.
+Status: planned 2026-10-17. Steps 1–3 done 2026-10-17.
 
 This plan covers the toolbar network indicator and the dialog it opens
 ([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). It follows a design review
@@ -148,7 +148,6 @@ afterwards.
 - The old dialog reads `problems` until step 6: a "Problems" list with ×count, time, a "Not saved" tag on write
   rows, a per-row dismiss and "Dismiss all", plus a "Can't reach the server." line. The "Errors stay red" banner is
   gone. The toolbar square is red while any problem or failed text save remains, until step 5.
-- Not exercised end to end: the text-save exception, because headless typing is unreliable.
 - Seen in passing: the toolbar's transient error message ("Couldn't save change…") covers the dialog's header.
   Step 6 should handle this.
 - **Check:** abort `/command` for 5s and then restore it. The read/sync problem appears, then clears on its own after
@@ -157,13 +156,20 @@ afterwards.
 ### 3. Text-save retry and failure reasons
 
 - [text_edit_session.ts](../web/src/input/text_edit_session.ts): store `failReason` on `PendingSave`.
-- After a failure that isn't `auth`, schedule `savePending(id)` with backoff: 2s, 4s, 8s, …, capped at 30s. A
-  success, `markDirty`, or `flush()` resets the backoff.
-- Expose `nextRetryMs()` so the dialog can show "Retrying in 8s". Expose `failedItemIds()` so it can list the items.
+- After an `unreachable`, `server` or `unknown` failure, schedule `savePending(id)` with backoff: 2s, 4s, 8s, …,
+  capped at 30s. `auth`, `not-found` and `client` failures are not retried, because trying again can't help (step 4
+  handles `auth`). A success, `markDirty`, or `flush()` resets the backoff.
+- `failed` now stays set while a retry is in flight, so the indicator doesn't flicker between red and yellow on
+  each attempt.
+- Expose `failedSaves()`, a list of `{ itemId, reason, retryAtMs }`, in place of the planned `nextRetryMs()` and
+  `failedItemIds()`. The dialog shows the reason and "Retrying in Ns", and the button is now "Retry now".
+- `handleFailedMutation` shows the "Couldn't save change" toast only for a text save's first failure, not on every
+  retry.
 - Keep the guard that stops sync while text is unsaved, since it protects the unsaved text from being overwritten.
   It is already visible, as `syncPausedReason = "text-edit"` (step 1).
 - **Check:** abort `/command`, type into a note, wait 10s, then restore `/command`. The save succeeds on the next
-  backoff tick without any user action, and sync resumes.
+  backoff tick without any user action, and sync resumes. Done: one toast, "Retrying in 5s" at 10s, saved on the
+  server about 4s after restoring, and no problem row (which also confirms step 2's text-save exception).
 
 ### 4. Session expiry with unsaved text
 

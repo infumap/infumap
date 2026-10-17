@@ -20,7 +20,7 @@ import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "./toolbarPopupStyle";
 
 import { Component, For, Show, createSignal, onCleanup } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
-import { NETWORK_STATUS_IN_PROGRESS } from "../../store/StoreProvider_General";
+import { NETWORK_STATUS_IN_PROGRESS, NetworkFailureReason } from "../../store/StoreProvider_General";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 
 
@@ -78,6 +78,28 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     return "not yet run";
   };
 
+  const failReasonText = (reason: NetworkFailureReason | null) => {
+    switch (reason) {
+      case "unreachable": return "the server can't be reached";
+      case "auth": return "your session has ended";
+      case "not-found": return "the item no longer exists on the server";
+      case "client": return "the server rejected the change";
+      case "server": return "the server had an error";
+      default: return "an unknown error";
+    }
+  };
+
+  const failedSaveText = () => {
+    const failed = store.textEdit.failedSaves();
+    if (failed.length == 0) { return ""; }
+    const what = failed.length == 1 ? "1 item could not be saved" : `${failed.length} items could not be saved`;
+    const retryTimes = failed.map(save => save.retryAtMs).filter((ms): ms is number => ms != null);
+    const retry = retryTimes.length == 0
+      ? "Not retrying automatically."
+      : `Retrying in ${Math.max(0, Math.ceil((Math.min(...retryTimes) - nowMs()) / 1000))}s.`;
+    return `${what}: ${failReasonText(failed[0].reason)}. ${retry}`;
+  };
+
   const formatRequest = (req: { description: string, itemId?: string, host?: string | null }) => {
     let suffix = "";
     if (req.itemId) {
@@ -113,9 +135,9 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <div class="mb-3 text-sm px-2 py-2 bg-yellow-50 rounded">
             <div>{store.textEdit.unsavedCount()} item(s) with unsaved text changes</div>
             <Show when={store.textEdit.failedSaveCount() > 0}>
-              <div class="text-xs text-red-700 mt-1">Some changes could not be saved. Keep this tab open and retry.</div>
+              <div class="text-xs text-red-700 mt-1">{failedSaveText()}</div>
               <button onClick={() => { void store.textEdit.flush(); }}
-                class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer mt-1">Retry saving</button>
+                class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer mt-1">Retry now</button>
             </Show>
           </div>
         </Show>
