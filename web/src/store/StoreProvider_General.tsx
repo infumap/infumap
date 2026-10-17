@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, createSignal } from "solid-js";
+import { Accessor, Setter, createSignal } from "solid-js";
 import { ChatBackends, post, server } from "../server";
 import type { QueryProfile } from "../items/query-configuration";
 import { makeQueryProfilesStore, type QueryProfilesStore } from "./StoreProvider_QueryProfiles";
@@ -30,6 +30,7 @@ export const NETWORK_STATUS_OK = 0;
 export const NETWORK_STATUS_IN_PROGRESS = 1;
 export const NETWORK_STATUS_ERROR = 2;
 const RECENT_NETWORK_REQUEST_TTL_MS = 9000;
+const NETWORK_BUSY_DELAY_MS = 300;
 
 interface InstallationState {
   hasRootUser: boolean,
@@ -111,6 +112,8 @@ export interface GeneralStoreContextModel {
   setQueryInputMode: (mode: QueryInputMode) => void,
 
   networkStatus: NumberSignal,
+  /** True once a listed request has been running for NETWORK_BUSY_DELAY_MS, so short ones don't flicker. */
+  networkBusy: Accessor<boolean>,
   inProgressNetworkRequests: Accessor<NetworkRequestInfo[]>,
   setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   recentNetworkRequests: Accessor<NetworkRequestInfo[]>,
@@ -150,7 +153,34 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
   const [chatBackendsRefreshing, setChatBackendsRefreshing] = createSignal<boolean>(false);
   let inProgressChatBackendsRequest: Promise<void> | null = null;
 
-  const networkStatus = createNumberSignal(NETWORK_STATUS_OK);
+  const networkStatusSignal = createNumberSignal(NETWORK_STATUS_OK);
+  const [networkBusy, setNetworkBusy] = createSignal<boolean>(false);
+  // Kept apart from the signal, so that setting the status from a computation doesn't subscribe it to networkBusy.
+  let networkBusyValue = false;
+  let networkBusyTimeoutId: number | null = null;
+  const networkStatus: NumberSignal = {
+    get: networkStatusSignal.get,
+    set: ((value: Parameters<Setter<number>>[0]) => {
+      const next = networkStatusSignal.set(value);
+      if (next == NETWORK_STATUS_IN_PROGRESS) {
+        if (networkBusyTimeoutId == null && !networkBusyValue) {
+          networkBusyTimeoutId = window.setTimeout(() => {
+            networkBusyTimeoutId = null;
+            networkBusyValue = true;
+            setNetworkBusy(true);
+          }, NETWORK_BUSY_DELAY_MS);
+        }
+      } else {
+        if (networkBusyTimeoutId != null) {
+          window.clearTimeout(networkBusyTimeoutId);
+          networkBusyTimeoutId = null;
+        }
+        networkBusyValue = false;
+        setNetworkBusy(false);
+      }
+      return next;
+    }) as Setter<number>,
+  };
   const queryProfiles = makeQueryProfilesStore(accountId, networkStatus);
   const defaultQueryProfile = queryProfiles.defaultProfile;
   const setDefaultQueryProfile = queryProfiles.setDefault;
@@ -321,7 +351,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
     queryInputMode, setQueryInputMode,
-    networkStatus,
+    networkStatus, networkBusy,
     inProgressNetworkRequests, setInProgressNetworkRequests,
     recentNetworkRequests, addRecentNetworkRequest,
     queuedNetworkRequests, setQueuedNetworkRequests,

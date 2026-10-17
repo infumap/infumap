@@ -18,24 +18,49 @@
 
 import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "./toolbarPopupStyle";
 
-import { Component, For, Show, createSignal, onCleanup } from "solid-js"
+import { Component, For, JSX, Match, Show, Switch, createSignal, onCleanup } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
-import { NETWORK_STATUS_IN_PROGRESS, NetworkFailureReason } from "../../store/StoreProvider_General";
+import { NetworkStatusLevel, failReasonText, formatAgo, networkStatusSummary, textSaveRetryText } from "./networkStatusSummary";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { commitActiveTextEdit } from "../../input/edit";
 import { recheckExpiredSession } from "../../server";
 import { logout } from "../Main";
 
 
+// The glyph carries the level as well as the colour. ok and danger also differ clearly in luminance.
+const LEVEL_STYLE: { [level in NetworkStatusLevel]: { background: string, glyph: string } } = {
+  ok: { background: "#7bbb73", glyph: "#1e293b" },
+  busy: { background: "#babb73", glyph: "#1e293b" },
+  warn: { background: "#e0a040", glyph: "#1e293b" },
+  danger: { background: "#a12b2b", glyph: "#ffffff" },
+};
+
+const LevelGlyph = (props: { level: NetworkStatusLevel, color: string }): JSX.Element => (
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke={props.color} stroke-width="1.8"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <Switch>
+      <Match when={props.level == "ok"}><path d="M2.5 6.5 L5 9 L9.5 3.5" /></Match>
+      <Match when={props.level == "busy"}>
+        <circle cx="2.5" cy="6" r="1.1" fill={props.color} stroke="none" />
+        <circle cx="6" cy="6" r="1.1" fill={props.color} stroke="none" />
+        <circle cx="9.5" cy="6" r="1.1" fill={props.color} stroke="none" />
+      </Match>
+      <Match when={props.level == "warn"}>
+        <path d="M6 2 V7" />
+        <circle cx="6" cy="9.8" r="1" fill={props.color} stroke="none" />
+      </Match>
+      <Match when={props.level == "danger"}><path d="M3 3 L9 9 M9 3 L3 9" /></Match>
+    </Switch>
+  </svg>
+);
+
 export const Toolbar_NetworkStatus: Component = () => {
   const store = useStore();
 
-  const col = () => {
-    if (store.general.networkProblems().length > 0 || store.textEdit.failedSaveCount() > 0) { return "#bb7373"; }
-    const status = store.general.networkStatus.get();
-    if (status == NETWORK_STATUS_IN_PROGRESS || store.textEdit.unsavedCount() > 0) { return "#babb73"; }
-    return "#7bbb73";
-  };
+  // Relative times in the tooltip are refreshed when the pointer arrives, rather than by a timer.
+  const [hoverNowMs, setHoverNowMs] = createSignal(Date.now());
+  const summary = () => networkStatusSummary(store, hoverNowMs());
+  const style = () => LEVEL_STYLE[summary().level];
 
   const handleClick = () => {
     store.overlay.networkOverlayVisible.set(!store.overlay.networkOverlayVisible.get());
@@ -43,10 +68,16 @@ export const Toolbar_NetworkStatus: Component = () => {
 
   return (
     <div class="w-[21px] h-[21px] inline-block ml-[7px] mr-[-2px] relative">
-      <div class={`w-[19px] h-[19px] mt-[7px] rounded border-slate-500 border cursor-pointer`}
-        style={`background-color: ${col()};`}
-        onClick={handleClick}
-      />
+      {/* Not a <button>: a click would focus it, and a later Space would toggle the dialog. */}
+      <div role="button"
+        class="w-[19px] h-[19px] mt-[7px] rounded border-slate-500 border cursor-pointer flex items-center justify-center"
+        style={`background-color: ${style().background};`}
+        title={summary().sentence}
+        aria-label={`Network status: ${summary().sentence}`}
+        onMouseEnter={() => setHoverNowMs(Date.now())}
+        onClick={handleClick}>
+        <LevelGlyph level={summary().level} color={style().glyph} />
+      </div>
     </div>
   );
 }
@@ -64,43 +95,22 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const nowTimer = window.setInterval(() => setNowMs(Date.now()), 1000);
   onCleanup(() => window.clearInterval(nowTimer));
 
-  const formatAgo = (ms: number) => {
-    const seconds = Math.max(0, Math.round((nowMs() - ms) / 1000));
-    if (seconds < 60) { return `${seconds}s ago`; }
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) { return `${minutes} min ago`; }
-    return `${Math.round(minutes / 60)} h ago`;
-  };
+  const ago = (ms: number) => formatAgo(ms, nowMs());
 
   const syncStatus = () => {
     if (store.general.syncPausedReason() == "text-edit") { return "paused while editing text"; }
     const failures = store.general.consecutiveSyncFailures();
     if (failures > 0) { return failures == 1 ? "failed" : `failed ${failures} times in a row`; }
     const lastOkMs = store.general.lastSyncOkMs();
-    if (lastOkMs != null) { return `OK, ${formatAgo(lastOkMs)}`; }
+    if (lastOkMs != null) { return `OK, ${ago(lastOkMs)}`; }
     return "not yet run";
-  };
-
-  const failReasonText = (reason: NetworkFailureReason | null) => {
-    switch (reason) {
-      case "unreachable": return "the server can't be reached";
-      case "auth": return "your session has ended";
-      case "not-found": return "the item no longer exists on the server";
-      case "client": return "the server rejected the change";
-      case "server": return "the server had an error";
-      default: return "an unknown error";
-    }
   };
 
   const failedSaveText = () => {
     const failed = store.textEdit.failedSaves();
     if (failed.length == 0) { return ""; }
     const what = failed.length == 1 ? "1 item could not be saved" : `${failed.length} items could not be saved`;
-    const retryTimes = failed.map(save => save.retryAtMs).filter((ms): ms is number => ms != null);
-    const retry = retryTimes.length == 0
-      ? "Not retrying automatically."
-      : `Retrying in ${Math.max(0, Math.ceil((Math.min(...retryTimes) - nowMs()) / 1000))}s.`;
-    return `${what}: ${failReasonText(failed[0].reason)}. ${retry}`;
+    return `${what}: ${failReasonText(failed[0].reason)}. ${textSaveRetryText(store, nowMs())}`;
   };
 
   const formatRequest = (req: { description: string, itemId?: string, host?: string | null }) => {
@@ -203,7 +213,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
                         <span class="text-[10px] uppercase tracking-[0.08em] text-red-700">Not saved</span>
                       </Show>
                       <span class="text-xs text-slate-500">
-                        {problem.count > 1 ? `×${problem.count} · ` : ""}{formatAgo(problem.lastMs)}
+                        {problem.count > 1 ? `×${problem.count} · ` : ""}{ago(problem.lastMs)}
                       </span>
                       <button onClick={() => store.general.dismissNetworkProblem(problem.key)}
                         class="text-slate-500 hover:text-slate-700 leading-none cursor-pointer">&times;</button>
