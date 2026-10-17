@@ -88,8 +88,8 @@ async fn run_server() {
   for (name, settings) in [("Exa", &config.exa), ("Tavily", &config.tavily)] {
     let Some(settings) = settings else { continue };
     info!(
-      "{name} monthly configuration: {} US cents free, {} US cents paid limit, reset day {} at 00:00 UTC",
-      settings.monthly_free_credits_cents, settings.monthly_paid_limit_cents, settings.monthly_reset_day
+      "{name} monthly configuration: {} US cents free, reset day {} at 00:00 UTC",
+      settings.monthly_free_credits_cents, settings.monthly_reset_day
     );
   }
 

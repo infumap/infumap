@@ -33,7 +33,7 @@ use crate::providers::{
   UsageSnapshot,
 };
 
-const LEDGER_VERSION: u32 = 1;
+const LEDGER_VERSION: u32 = 2;
 const MAX_LEDGER_BYTES: usize = 4 * 1024 * 1024;
 
 /// One process owns a ledger directory. Within that process the mutex serializes
@@ -64,7 +64,6 @@ struct AccountState {
   period_start: i64,
   period_end: i64,
   free_limit_usd_micros: u64,
-  paid_limit_usd_micros: u64,
   consumed_usd_micros: u64,
   reservations: BTreeMap<u64, u64>,
   reported_remaining_cap_usd_micros: Option<u64>,
@@ -82,7 +81,6 @@ pub struct BudgetAccount {
 pub struct BudgetBalance {
   pub free_allowance_usd_micros: u64,
   pub free_remaining_usd_micros: u64,
-  pub total_remaining_usd_micros: u64,
   pub reserved_usd_micros: u64,
   pub consumed_usd_micros: u64,
   pub period_start: i64,
@@ -94,7 +92,6 @@ pub struct BudgetSnapshot {
   #[serde(flatten)]
   pub balance: BudgetBalance,
   pub configured_free_allowance_usd_micros: u64,
-  pub configured_paid_limit_usd_micros: u64,
   pub adjusted_remaining_cap_usd_micros: Option<u64>,
   pub reported_allowance_cap_usd_micros: Option<u64>,
   pub reset_day: u8,
@@ -141,8 +138,7 @@ impl BudgetStore {
         if bytes.len() > MAX_LEDGER_BYTES {
           return Err(internal("Budget ledger exceeds the size limit."));
         }
-        serde_json::from_slice::<Ledger>(&bytes)
-          .map_err(|_| internal("Budget ledger is invalid; refusing to reset usage."))?
+        parse_ledger(&bytes)?
       }
       Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
         Ledger { version: LEDGER_VERSION, next_reservation_id: 1, accounts: BTreeMap::new() }
@@ -172,55 +168,48 @@ impl BudgetStore {
     }))
   }
 
-  pub fn account(
-    self: &Arc<Self>,
-    provider: &str,
-    account_id: &str,
-    free_cents: u64,
-    paid_cents: u64,
-    reset_day: u8,
-    initial_used_cents: u64,
-  ) -> ProviderResult<BudgetAccount> {
+  pub fn account(self: &Arc<Self>, provider: &str, free_cents: u64, reset_day: u8) -> ProviderResult<BudgetAccount> {
     let free_limit =
       free_cents.checked_mul(10_000).ok_or_else(|| internal("Free budget exceeds the supported range."))?;
-    let paid_limit =
-      paid_cents.checked_mul(10_000).ok_or_else(|| internal("Paid budget exceeds the supported range."))?;
-    let initial_used =
-      initial_used_cents.checked_mul(10_000).ok_or_else(|| internal("Initial usage exceeds the supported range."))?;
-    checked_total(free_limit, paid_limit)?;
-    if provider.is_empty() || account_id.is_empty() || !(1..=31).contains(&reset_day) {
+    if provider.is_empty() || !(1..=31).contains(&reset_day) {
       return Err(internal("Budget account settings are invalid."));
     }
     let now = Timestamp::now();
-    self.transaction(|ledger| {
+    let account_id = self.transaction(|ledger| {
       let accounts = ledger.accounts.entry(provider.to_owned()).or_default();
-      if let Some(account) = accounts.get_mut(account_id) {
+      // One account per provider. Reuse the saved entry, including a former
+      // custom label, so removing configuration cannot reset usage or quota caps.
+      if accounts.len() > 1 {
+        return Err(internal(
+          "Multiple saved accounts for a provider; automatic single-account selection is ambiguous.",
+        ));
+      }
+      let account_id = accounts.keys().next().cloned().unwrap_or_else(|| "default".to_owned());
+      if let Some(account) = accounts.get_mut(&account_id) {
         if account.reset_day != reset_day {
           return Err(internal("Monthly reset day differs from the stored account schedule; refusing to reset usage."));
         }
         account.advance(now)?;
         account.free_limit_usd_micros = free_limit;
-        account.paid_limit_usd_micros = paid_limit;
       } else {
         let (period_start, period_end) = period_at(now, reset_day)?;
         accounts.insert(
-          account_id.to_owned(),
+          account_id.clone(),
           AccountState {
             reset_day,
             period_start,
             period_end,
             free_limit_usd_micros: free_limit,
-            paid_limit_usd_micros: paid_limit,
-            consumed_usd_micros: initial_used,
+            consumed_usd_micros: 0,
             reservations: BTreeMap::new(),
             reported_remaining_cap_usd_micros: None,
             reported_allowance_cap_usd_micros: None,
           },
         );
       }
-      Ok(())
+      Ok(account_id)
     })?;
-    Ok(BudgetAccount { store: Arc::clone(self), provider: provider.to_owned(), account_id: account_id.to_owned() })
+    Ok(BudgetAccount { store: Arc::clone(self), provider: provider.to_owned(), account_id })
   }
 
   fn transaction<T>(&self, update: impl FnOnce(&mut Ledger) -> ProviderResult<T>) -> ProviderResult<T> {
@@ -254,7 +243,6 @@ impl AccountState {
     if period_at(timestamp, self.reset_day)? != (self.period_start, self.period_end) {
       return Err(internal("Budget ledger contains an invalid monthly period."));
     }
-    checked_total(self.free_limit_usd_micros, self.paid_limit_usd_micros)?;
     checked_total(self.consumed_usd_micros, self.reserved()?)?;
     Ok(())
   }
@@ -289,12 +277,10 @@ impl AccountState {
       .reported_allowance_cap_usd_micros
       .map_or(self.free_limit_usd_micros, |allowance| self.free_limit_usd_micros.min(allowance));
     let free = free_limit.saturating_sub(committed);
-    let total = checked_total(free_limit, self.paid_limit_usd_micros)?.saturating_sub(committed);
     let reported = self.reported_remaining_cap_usd_micros.map(|remaining| remaining.saturating_sub(reserved));
     Ok(BudgetBalance {
       free_allowance_usd_micros: free_limit,
       free_remaining_usd_micros: reported.map_or(free, |cap| free.min(cap)),
-      total_remaining_usd_micros: reported.map_or(total, |cap| total.min(cap)),
       consumed_usd_micros: self.consumed_usd_micros,
       reserved_usd_micros: reserved,
       period_start: self.period_start,
@@ -321,7 +307,6 @@ impl BudgetAccount {
     Ok(BudgetSnapshot {
       balance: account.balance()?,
       configured_free_allowance_usd_micros: account.free_limit_usd_micros,
-      configured_paid_limit_usd_micros: account.paid_limit_usd_micros,
       adjusted_remaining_cap_usd_micros: account.reported_remaining_cap_usd_micros,
       reported_allowance_cap_usd_micros: account.reported_allowance_cap_usd_micros,
       reset_day: account.reset_day,
@@ -348,7 +333,6 @@ impl BudgetAccount {
   fn reserve(
     &self,
     cost: u64,
-    allow_paid: bool,
     deadline: Option<Instant>,
     dispatch_guard: OwnedMutexGuard<()>,
   ) -> ProviderResult<Reservation> {
@@ -361,7 +345,7 @@ impl BudgetAccount {
       let account = self.state(ledger)?;
       account.advance(Timestamp::now())?;
       let balance = account.balance()?;
-      let remaining = if allow_paid { balance.total_remaining_usd_micros } else { balance.free_remaining_usd_micros };
+      let remaining = balance.free_remaining_usd_micros;
       if cost > remaining {
         return Err(
           ProviderError::new(
@@ -374,7 +358,7 @@ impl BudgetAccount {
       account.reservations.insert(id, cost);
       Ok(id)
     })?;
-    debug!("{} reserved {cost} USD micros (reservation {id}, paid capacity permitted={allow_paid})", self.provider);
+    debug!("{} reserved {cost} free USD micros (reservation {id})", self.provider);
     Ok(Reservation {
       account: self.clone(),
       id,
@@ -424,8 +408,8 @@ impl BudgetAccount {
           ));
         }
       }
-      // Reporting may tighten capacity, never grant paid balances as free credits
-      // or refund uncertain requests. Pending requests remain reserved separately.
+      // Reports can only tighten free capacity, never refund uncertain charges.
+      // Pending requests remain reserved separately.
       if let Some(remaining) = snapshot.remaining_usd_micros {
         account.reported_remaining_cap_usd_micros =
           Some(account.reported_remaining_cap_usd_micros.map_or(remaining, |old| old.min(remaining)));
@@ -499,12 +483,11 @@ impl BudgetedProvider {
   pub fn new(inner: impl SearchProvider + 'static, account: BudgetAccount) -> ProviderResult<Self> {
     let balance = account.balance()?;
     info!(
-      "{} local budget (USD micros): consumed {}, reserved {}, free remaining {}, total remaining {}, resets at Unix second {}",
+      "{} local budget (USD micros): consumed {}, reserved {}, free remaining {}, resets at Unix second {}",
       inner.name(),
       balance.consumed_usd_micros,
       balance.reserved_usd_micros,
       balance.free_remaining_usd_micros,
-      balance.total_remaining_usd_micros,
       balance.period_end
     );
     Ok(Self { inner: Box::new(inner), account, dispatch: Arc::default() })
@@ -520,11 +503,10 @@ impl BudgetedProvider {
     budget_worker(move || account.snapshot()).await
   }
 
-  /// Paid capacity requires the router to explicitly permit it for this attempt.
+  /// Dispatch requires enough free capacity for the entire request.
   pub async fn search_with_budget(
     &self,
     request: SearchRequest<'_>,
-    allow_paid: bool,
     deadline: Option<Instant>,
   ) -> ProviderResult<SearchResponse> {
     check_deadline(deadline)?;
@@ -540,7 +522,7 @@ impl BudgetedProvider {
     let mut reservation = budget_worker(move || {
       // Do not start a queued reservation after its request has expired.
       check_deadline(deadline)?;
-      account.reserve(cost, allow_paid, deadline, dispatch_guard)
+      account.reserve(cost, deadline, dispatch_guard)
     })
     .await?;
     // A write may finish after timeout. A late reservation must never cause a
@@ -568,7 +550,7 @@ impl SearchProvider for BudgetedProvider {
   }
 
   fn search<'a>(&'a self, request: SearchRequest<'a>) -> BoxFuture<'a, ProviderResult<SearchResponse>> {
-    Box::pin(self.search_with_budget(request, false, None))
+    Box::pin(self.search_with_budget(request, None))
   }
 
   fn usage(&self) -> BoxFuture<'_, ProviderResult<Option<UsageSnapshot>>> {
@@ -596,6 +578,29 @@ fn check_deadline(deadline: Option<Instant>) -> ProviderResult<()> {
     return Err(ProviderError::new(ProviderErrorKind::Transient, "Search provider exceeded the request deadline."));
   }
   Ok(())
+}
+
+/// Migrate version 1 in memory before the normal validated, durable startup
+/// write. Drop only the obsolete paid allowance; retain consumption, quota caps,
+/// periods, reservations and their IDs, including accounts not currently enabled.
+fn parse_ledger(bytes: &[u8]) -> ProviderResult<Ledger> {
+  let invalid = || internal("Budget ledger is invalid; refusing to reset usage.");
+  let mut value: serde_json::Value = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+  if value.get("version").and_then(serde_json::Value::as_u64) == Some(1) {
+    let providers = value.get_mut("accounts").and_then(serde_json::Value::as_object_mut).ok_or_else(invalid)?;
+    for accounts in providers.values_mut() {
+      for account in accounts.as_object_mut().ok_or_else(invalid)?.values_mut() {
+        let account = account.as_object_mut().ok_or_else(invalid)?;
+        let paid = account.remove("paid_limit_usd_micros").and_then(|value| value.as_u64()).ok_or_else(invalid)?;
+        let free = account.get("free_limit_usd_micros").and_then(serde_json::Value::as_u64).ok_or_else(invalid)?;
+        // Reject malformed legacy limits rather than silently accepting a
+        // ledger the previous version would have refused to load.
+        checked_total(free, paid)?;
+      }
+    }
+    value["version"] = serde_json::json!(LEDGER_VERSION);
+  }
+  serde_json::from_value(value).map_err(|_| invalid())
 }
 
 fn persist(directory: &Path, ledger: &Ledger) -> ProviderResult<()> {

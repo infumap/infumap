@@ -31,11 +31,8 @@ pub struct SearchConfig {
 // Deliberately does not implement Debug: configuration contains credentials.
 pub struct MeteredConfig {
   pub api_key: String,
-  pub account_id: String,
   pub monthly_free_credits_cents: u64,
-  pub monthly_paid_limit_cents: u64,
   pub monthly_reset_day: u8,
-  pub initial_used_cents: u64,
 }
 
 /// Load once at startup so configuration remains consistent for every request.
@@ -97,34 +94,17 @@ impl MeteredConfig {
   fn from_env(provider: &str, key_variable: &str, label: &str) -> Result<Option<Self>, String> {
     let prefix = format!("WEB_SEARCH_{provider}");
     let api_key = optional_env(key_variable)?;
-    let account_id = optional_env(&format!("{prefix}_ACCOUNT_ID"))?.unwrap_or_else(|| "default".to_owned());
-    if account_id.len() > 128 || account_id.chars().any(char::is_control) {
-      return Err(format!("{prefix}_ACCOUNT_ID must be at most 128 bytes and contain no control characters."));
-    }
     // Zero allowance means no usable free budget. Reports can tighten configured
     // limits; they cannot grant free capacity. Do not assume an advertised tier.
     let monthly_free_credits_cents = unsigned_env(&format!("{prefix}_MONTHLY_FREE_CREDITS_CENTS"), 0)?;
-    let monthly_paid_limit_cents = unsigned_env(&format!("{prefix}_MONTHLY_PAID_LIMIT_CENTS"), 0)?;
-    let initial_used_cents = unsigned_env(&format!("{prefix}_INITIAL_USED_CENTS"), 0)?;
-    initial_used_cents
-      .checked_mul(10_000)
-      .ok_or_else(|| format!("Initial {label} usage exceeds the supported range."))?;
     monthly_free_credits_cents
-      .checked_add(monthly_paid_limit_cents)
-      .and_then(|cents| cents.checked_mul(10_000))
-      .ok_or_else(|| format!("Combined {label} monthly credit and paid limits exceed the supported range."))?;
+      .checked_mul(10_000)
+      .ok_or_else(|| format!("{label} monthly free credits exceed the supported range."))?;
     let monthly_reset_day = unsigned_env(&format!("{prefix}_MONTHLY_RESET_DAY"), 1)?;
     if !(1..=31).contains(&monthly_reset_day) {
       return Err(format!("{prefix}_MONTHLY_RESET_DAY must be between 1 and 31."));
     }
-    Ok(api_key.map(|api_key| Self {
-      api_key,
-      account_id,
-      monthly_free_credits_cents,
-      monthly_paid_limit_cents,
-      monthly_reset_day: monthly_reset_day as u8,
-      initial_used_cents,
-    }))
+    Ok(api_key.map(|api_key| Self { api_key, monthly_free_credits_cents, monthly_reset_day: monthly_reset_day as u8 }))
   }
 }
 

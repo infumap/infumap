@@ -194,20 +194,20 @@ Unset or whitespace-only values use the defaults below.
 | `EXA_API_KEY` | Unset | A nonempty API key configures Exa. No separate enable flag is needed. |
 | `TAVILY_API_KEY` | Unset | A nonempty API key configures Tavily. No separate enable flag is needed. |
 | `WEB_SEARCH_STATE_DIR` | See below | Absolute directory for persistent budget state. |
-| `WEB_SEARCH_EXA_ACCOUNT_ID` | `default` | Stable local account label, shared across API keys belonging to the same Exa account. |
 | `WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS` | `0` | Monthly free allowance in integer US cents, not request counts. Zero means no assumed free capacity. |
-| `WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS` | `0` | Maximum additional paid usage per monthly period, in integer US cents. Zero specifies free-only usage. |
 | `WEB_SEARCH_EXA_MONTHLY_RESET_DAY` | `1` | Day of month, from 1 through 31, when the configured budget resets at 00:00 UTC. Days beyond the end of a month mean that month's last day. |
-| `WEB_SEARCH_EXA_INITIAL_USED_CENTS` | `0` | Usage already incurred in the current period, in integer US cents. Applied only when this account is first added to the ledger. |
-| `WEB_SEARCH_TAVILY_ACCOUNT_ID` | `default` | Stable local label for the Tavily account, preserved across key rotation. Independent of the Exa account label. |
 | `WEB_SEARCH_TAVILY_MONTHLY_FREE_CREDITS_CENTS` | `0` | Free credit allowance normalized to integer US cents at $0.008 per Tavily credit: 1,000 credits = 800 cents. No free capacity is assumed. |
-| `WEB_SEARCH_TAVILY_MONTHLY_PAID_LIMIT_CENTS` | `0` | Maximum additional paid usage per period, in integer US cents at the same rate. Zero specifies free-only usage. |
 | `WEB_SEARCH_TAVILY_MONTHLY_RESET_DAY` | `1` | Monthly reset at 00:00 UTC, day 1–31; days beyond month-end use its last day. |
-| `WEB_SEARCH_TAVILY_INITIAL_USED_CENTS` | `0` | Prior current-period usage, normalized at $0.008 per credit and rounded up to whole cents; applied only when the account first enters the ledger. |
 
 Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
 trial or onboarding credits are not recurring monthly allowances.
+
+The service only uses configured free allowances, then enabled DuckDuckGo.
+New accounts start tracking local usage at zero. If usage elsewhere exhausts the
+provider first, its quota error blocks further requests until the configured
+reset. Provider accounts must enforce their own free-only limit; the adapter
+cannot identify paid credits in an accepted request.
 
 Provider configuration, persistent accounting, routing and the common provider
 interface with DuckDuckGo, Exa and Tavily adapters are implemented. Startup
@@ -252,26 +252,22 @@ monthly credits**, with DuckDuckGo disabled:
 ```bash
 export WEB_SEARCH_DUCKDUCKGO_ENABLED=false
 export WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS=1000
-export WEB_SEARCH_EXA_MONTHLY_PAID_LIMIT_CENTS=0
 export WEB_SEARCH_EXA_MONTHLY_RESET_DAY=1
-# Set this to the current period's usage before this tool starts tracking it:
-export WEB_SEARCH_EXA_INITIAL_USED_CENTS=0
 ./tools/mcp/web-search/run.sh
 ```
 
-Set the actual reset day and prior usage for your account before launching.
-Keep `WEB_SEARCH_EXA_ACCOUNT_ID` stable across key rotation and preserve the
-state directory. In a container, set `WEB_SEARCH_STATE_DIR` to an absolute path
-on persistent storage. Startup prepares the client and ledger without verifying
+Set the actual reset day for your account before launching.
+Preserve the state directory across restarts and API key rotation. In a
+container, set `WEB_SEARCH_STATE_DIR` to an absolute path on persistent storage. Startup prepares the client and ledger without verifying
 the key with Exa. `/status` reports local eligibility, not confirmation that a
 provider will accept a request; the actual Exa balance remains unknown.
 
-A key without a configured free or paid allowance cannot spend credits.
+A key without a configured free allowance cannot spend credits.
 DuckDuckGo fallback is enabled by default. To restore it after the
 example above, unset `WEB_SEARCH_DUCKDUCKGO_ENABLED` or set it to `true` before launch.
 With only Exa and DuckDuckGo configured, free Exa capacity is preferred, then
-enabled DuckDuckGo, then any explicitly configured paid Exa capacity. When Tavily
-is also configured, the selection rules below compare both metered providers.
+enabled DuckDuckGo. When Tavily is also configured, the selection rules below
+compare both metered providers.
 Configuration changes require a server restart.
 
 ### Tavily configured
@@ -287,27 +283,23 @@ The shared ledger uses monetary units. Tavily credits are normalized at the
 published pay-as-you-go rate of **$0.008 per credit**: one credit is 8,000 USD
 micros, or 0.8 cents. Thus 1,000 free credits correspond to **800 cents** of local
 accounting allowance. This conversion describes capacity; it does not mean the
-free plan costs $8. Paid/subscription credits use the same conservative rate,
-which may exceed a discounted plan's actual price per credit.
+free plan costs $8. Paid capacity is outside the scope of this service.
 
 For an account with 1,000 recurring free credits:
 
 ```bash
 # Export TAVILY_API_KEY separately through your environment/secret manager.
 export WEB_SEARCH_TAVILY_MONTHLY_FREE_CREDITS_CENTS=800
-export WEB_SEARCH_TAVILY_MONTHLY_PAID_LIMIT_CENTS=0
 export WEB_SEARCH_TAVILY_MONTHLY_RESET_DAY=1
-# Set prior usage at 0.8 cents per credit, rounded up, before first tracking:
-export WEB_SEARCH_TAVILY_INITIAL_USED_CENTS=0
 ./tools/mcp/web-search/run.sh
 ```
 
-Set the allowance, reset day and prior usage to match the account. A key alone,
-with both allowances at zero, cannot spend credits. Keep
-`WEB_SEARCH_TAVILY_ACCOUNT_ID` stable across key rotation and preserve the state
-directory. Exa and Tavily share one ledger directory with separate provider/account
-balances; the existing Exa ledger entries retain their usage. DuckDuckGo remains
-enabled by default, and Exa also participates when configured.
+Set the allowance and reset day to match the account. A key alone,
+with the free allowance at zero, cannot spend credits. Preserve the state
+directory across restarts and API key rotation. Exa and Tavily share one ledger
+directory with separate provider balances; existing Exa ledger entries retain
+their usage. DuckDuckGo remains enabled by default, and Exa also participates
+when configured.
 
 The adapter uses authenticated `POST https://api.tavily.com/search` with Bearer
 authentication, `topic: general`, and at most 20 results. Larger `numResults`
@@ -345,7 +337,7 @@ a request for more results may need a larger budget.
 | Exa key set, allowances left at zero | Exa is enabled but has insufficient local budget. Configure the account's actual allowance and reset schedule, then restart. |
 | Local remaining capacity is below the estimated request cost | Exa is skipped without sending a request. DuckDuckGo can serve the call unless disabled. Smaller requests may still fit; otherwise the configured monthly reset restores the local allowance. |
 | Exa returns HTTP 402 | The router records remote quota exhaustion. A zero-capacity cap is persisted until the configured monthly reset, and enabled DuckDuckGo can serve as fallback. Restarting or increasing the local allowance does not clear this cap. |
-| Exa returns HTTP 401 | The provider is disabled until restart. Correct `EXA_API_KEY` in the launch environment and restart using the same account label and ledger. Enabled DuckDuckGo can serve as fallback. |
+| Exa returns HTTP 401 | The provider is disabled until restart. Correct `EXA_API_KEY` in the launch environment and restart preserving the ledger. Enabled DuckDuckGo can serve as fallback. |
 | Exa returns HTTP 403 or 429 | These are classified as blocking or rate limiting, respectively. Status shows a cooldown; routing can use enabled DuckDuckGo while Exa is unavailable. |
 | API key contains invalid HTTP header characters | Initialization fails before binding the server, including when DuckDuckGo is enabled. Correct the key; inspect stderr because `/status` cannot be served. |
 | Ledger is unreadable, invalid or already locked by another process | Initialization fails. Repair the storage or stop the other ledger owner, then restart while preserving accounting history. |
@@ -376,9 +368,9 @@ capacity and is excluded from monthly allowance comparisons.
 The router excludes providers that have already been attempted for this call,
 cannot satisfy the request, are disabled or cooling down, or lack enough budget
 for the estimated cost. It prefers eligible metered providers with the highest
-remaining free allowance percentage, then enabled unmetered providers, then
-explicitly configured paid capacity. Unknown allowance is not treated as full
-capacity. Equal percentages and paid/unmetered providers use registration order.
+remaining free allowance percentage, then enabled unmetered providers. Paid
+capacity is never eligible. Unknown allowance is not treated as full capacity.
+Equal percentages and unmetered providers use registration order.
 The same rule applies as more adapters are registered; the router does not
 contain provider-specific selection branches.
 
@@ -398,16 +390,16 @@ blocking workers, and health locks are asynchronous, so slow storage cannot hold
 the search response past its deadline. A timed-out request stops waiting;
 an already-started storage operation can finish in the background. No provider
 request is dispatched for a reservation that completes after its deadline.
-Fallback happens immediately without sleeping through cooldowns, and an already
-attempted metered provider is not tried again with paid capacity after a free
-attempt fails or returns empty. Budget reservations are checked again at
-dispatch to handle concurrent requests consuming capacity after selection.
+Fallback happens immediately without sleeping through cooldowns; a provider
+already attempted for this call is never retried. Budget reservations are
+checked again at dispatch to handle concurrent requests consuming capacity
+after selection.
 
 Invalid credentials disable a provider until restart after correcting its
 configuration. Internal adapter/accounting failures also disable it until repair
 and restart. Provider-reported quota exhaustion suspends a metered account until
 its configured monthly reset; the zero-capacity cap is persisted with settlement
-and survives restarts. This cap blocks both free and paid dispatch, even when
+and survives restarts. This cap blocks further metered dispatch, even when
 local configured allowances still show unused capacity. Requests to each metered
 provider are serialized from reservation through durable settlement, so queued
 requests cannot dispatch before an earlier quota-exhaustion cap is saved.
@@ -452,7 +444,7 @@ reference request. An unavailable search service still returns HTTP 200 so its
 diagnostics can be inspected; failure to obtain status returns HTTP 503.
 
 All monetary values are integer USD micros (1,000,000 = $1). `budget` contains
-configured allowances, effective free/total remaining capacity, consumed estimates
+configured free allowances, remaining free capacity, consumed estimates
 and outstanding reservations. `period_start`, `period_end`, `quota_resets_at`,
 `generated_at` and usage observation/reset times are Unix seconds in UTC.
 `cooldown_remaining_ms` is the remaining delay in milliseconds.
@@ -516,16 +508,16 @@ State is stored in `WEB_SEARCH_STATE_DIR`, or by default in
 created only when a metered provider is configured. Preserve it across restarts
 and container deployments; changing or deleting it discards accounting history.
 
-`budget.json` records provider/account labels, configured allowances, monthly
-UTC boundaries, consumption estimates and outstanding reservations. API keys
-and search queries are never written to it. Use the same account label when
-rotating keys, and different labels for different accounts. Do not use a key
-as the account label. Usage from other applications is not automatically known:
-seed existing usage with `WEB_SEARCH_EXA_INITIAL_USED_CENTS` or
-`WEB_SEARCH_TAVILY_INITIAL_USED_CENTS` when first adding an account, rounding up
-to whole cents, and use provider-side spending limits where
-available. The initial-use setting is ignored for existing ledger accounts and
-is not reapplied next month.
+`budget.json` records each provider's free allowance, monthly UTC boundaries,
+consumption estimates and outstanding reservations. API keys and search queries
+are never written to it. Each provider uses one local account automatically;
+rotating an API key does not reset usage. New accounts start at zero consumption.
+Existing accounts retain their recorded usage and quota caps across restarts.
+The existing ledger format is retained. A single saved entry is reused even if
+it formerly had a custom label. Multiple saved entries for an enabled provider
+are rejected rather than silently selecting an account or resetting usage.
+Usage from other applications is not automatically known; a provider quota-exhaustion error
+blocks further dispatch until the configured reset.
 
 Allowances can change on restart without clearing consumption. The reset day
 must match the stored schedule; changing it is rejected instead of silently
@@ -533,10 +525,16 @@ starting a new allowance period. Days 29–31 clamp to the final day of shorter
 months. Consumption resets at the configured boundary. Requests still in flight
 also reserve capacity in the new period because their billing time is uncertain.
 
+Budget ledger version 1 is migrated to version 2 at startup. Only the obsolete
+paid-allowance field is removed; recorded consumption, pending reservations and
+remote quota caps are preserved, including accounts not currently configured.
+The normal durable write publishes the migration. `/status` no longer includes
+`configured_paid_limit_usd_micros` or `total_remaining_usd_micros`; use
+`free_remaining_usd_micros`. Old paid-limit environment variables have no effect.
+
 Each estimated request cost is reserved and durably saved before dispatch. The
-accounting wrapper defaults to free capacity only; the router explicitly permits
-paid capacity only after free and unmetered candidates are unavailable.
-Concurrent reservations share a mutex and
+accounting wrapper permits free capacity only. There is no paid-budget
+configuration or paid routing path. Concurrent reservations share a mutex and
 cannot independently consume the same remaining allowance. Successful requests,
 including empty results, commit the provider's response-reported cost estimate
 when available, otherwise the reserved estimate. A reported cost can be lower

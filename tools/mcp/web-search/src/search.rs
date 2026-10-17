@@ -76,14 +76,7 @@ fn budgeted_provider(
       "Budget state directory is not configured.",
     )
   })?;
-  let account = store.account(
-    adapter.name(),
-    &settings.account_id,
-    settings.monthly_free_credits_cents,
-    settings.monthly_paid_limit_cents,
-    settings.monthly_reset_day,
-    settings.initial_used_cents,
-  )?;
+  let account = store.account(adapter.name(), settings.monthly_free_credits_cents, settings.monthly_reset_day)?;
   BudgetedProvider::new(adapter, account)
 }
 

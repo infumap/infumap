@@ -45,18 +45,13 @@ impl Backend {
     }
   }
 
-  async fn search(
-    &self,
-    request: SearchRequest<'_>,
-    funding: Funding,
-    deadline: Instant,
-  ) -> ProviderResult<Vec<SearchResult>> {
+  async fn search(&self, request: SearchRequest<'_>, deadline: Instant) -> ProviderResult<Vec<SearchResult>> {
     if Instant::now() >= deadline {
       return Err(ProviderError::new(ProviderErrorKind::Transient, "Search provider exceeded the request deadline."));
     }
     match self {
       Self::Unmetered(provider) => provider.search(request).await,
-      Self::Metered(provider) => provider.search_with_budget(request, funding == Funding::Paid, Some(deadline)).await,
+      Self::Metered(provider) => provider.search_with_budget(request, Some(deadline)).await,
     }
     .map(|response| response.results)
   }
@@ -148,7 +143,6 @@ struct ReportedUsage {
 enum Funding {
   Free,
   Unmetered,
-  Paid,
 }
 
 struct Candidate {
@@ -165,7 +159,7 @@ impl Candidate {
       return self.funding < other.funding;
     }
     // Exact ratio comparison, including large configured allowances. Stable
-    // registration order breaks ties and orders unmetered/paid candidates.
+    // registration order breaks ties and orders unmetered candidates.
     self.funding == Funding::Free
       && u128::from(self.free_remaining) * u128::from(other.free_allowance)
         > u128::from(other.free_remaining) * u128::from(self.free_allowance)
@@ -231,11 +225,7 @@ impl SearchRouter {
       attempts += 1;
       debug!("Searching with {} using {:?} capacity", slot.backend.provider().name(), candidate.funding);
       let attempt_deadline = deadline.min(Instant::now() + ATTEMPT_DEADLINE);
-      let result = match tokio::time::timeout_at(
-        attempt_deadline,
-        slot.backend.search(request, candidate.funding, attempt_deadline),
-      )
-      .await
+      let result = match tokio::time::timeout_at(attempt_deadline, slot.backend.search(request, attempt_deadline)).await
       {
         Ok(result) if Instant::now() < attempt_deadline => result,
         _ => Err(ProviderError::new(ProviderErrorKind::Transient, "Search provider exceeded the request deadline.")),
@@ -401,10 +391,6 @@ impl ProviderSlot {
           let balance = &snapshot.balance;
           if balance.free_allowance_usd_micros > 0 && cost <= balance.free_remaining_usd_micros {
             status.funding = Some("free");
-          } else if cost <= balance.total_remaining_usd_micros
-            && balance.total_remaining_usd_micros > balance.free_remaining_usd_micros
-          {
-            status.funding = Some("paid");
           } else {
             status.unavailable_reasons.push("Insufficient local budget for the reference request.".to_owned());
           }
@@ -441,10 +427,6 @@ impl ProviderSlot {
     let balance = provider.balance().await?;
     let funding = if balance.free_allowance_usd_micros > 0 && cost <= balance.free_remaining_usd_micros {
       Funding::Free
-    } else if cost <= balance.total_remaining_usd_micros
-      && balance.total_remaining_usd_micros > balance.free_remaining_usd_micros
-    {
-      Funding::Paid
     } else {
       return Ok(None);
     };
