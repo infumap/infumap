@@ -24,6 +24,7 @@ use futures_util::future::BoxFuture;
 use jiff::{Span, Timestamp, civil::Date, tz::TimeZone};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
+use tokio::sync::{Mutex as AsyncMutex, OwnedMutexGuard};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
@@ -107,6 +108,7 @@ struct Reservation {
   id: u64,
   dispatched: bool,
   finished: bool,
+  dispatch_guard: Option<OwnedMutexGuard<()>>,
 }
 
 impl BudgetStore {
@@ -343,7 +345,13 @@ impl BudgetAccount {
     })
   }
 
-  fn reserve(&self, cost: u64, allow_paid: bool, deadline: Option<Instant>) -> ProviderResult<Reservation> {
+  fn reserve(
+    &self,
+    cost: u64,
+    allow_paid: bool,
+    deadline: Option<Instant>,
+    dispatch_guard: OwnedMutexGuard<()>,
+  ) -> ProviderResult<Reservation> {
     let id = self.store.transaction(|ledger| {
       // The worker may have waited for the ledger lock beyond the deadline.
       check_deadline(deadline)?;
@@ -367,7 +375,13 @@ impl BudgetAccount {
       Ok(id)
     })?;
     debug!("{} reserved {cost} USD micros (reservation {id}, paid capacity permitted={allow_paid})", self.provider);
-    Ok(Reservation { account: self.clone(), id, dispatched: false, finished: false })
+    Ok(Reservation {
+      account: self.clone(),
+      id,
+      dispatched: false,
+      finished: false,
+      dispatch_guard: Some(dispatch_guard),
+    })
   }
 
   fn settle(&self, id: u64, charged: bool, exhausted: bool, reported_cost: Option<u64>) -> ProviderResult<()> {
@@ -440,7 +454,7 @@ impl Reservation {
   }
 
   fn schedule_settlement(
-    &self,
+    &mut self,
     charged: bool,
     exhausted: bool,
     reported_cost: Option<u64>,
@@ -448,7 +462,11 @@ impl Reservation {
     let runtime = tokio::runtime::Handle::try_current().map_err(|_| internal("Budget runtime is unavailable."))?;
     let account = self.account.clone();
     let id = self.id;
+    let dispatch_guard = self.dispatch_guard.take();
     Ok(runtime.spawn_blocking(move || {
+      // Retain provider exclusivity until the quota cap/charge is durable,
+      // even if the caller times out while awaiting this worker.
+      let _dispatch_guard = dispatch_guard;
       let result = account.settle(id, charged, exhausted, reported_cost);
       if let Err(error) = &result {
         error!("Could not settle search reservation: {error}");
@@ -474,6 +492,7 @@ impl Drop for Reservation {
 pub struct BudgetedProvider {
   inner: Box<dyn SearchProvider>,
   account: BudgetAccount,
+  dispatch: Arc<AsyncMutex<()>>,
 }
 
 impl BudgetedProvider {
@@ -488,7 +507,7 @@ impl BudgetedProvider {
       balance.total_remaining_usd_micros,
       balance.period_end
     );
-    Ok(Self { inner: Box::new(inner), account })
+    Ok(Self { inner: Box::new(inner), account, dispatch: Arc::default() })
   }
 
   pub async fn balance(&self) -> ProviderResult<BudgetBalance> {
@@ -513,11 +532,15 @@ impl BudgetedProvider {
     let RequestCost::UsdMicros(cost) = cost else {
       return self.inner.search(request).await;
     };
+    // A queued request must observe the previous request's durable quota cap
+    // before reserving credits. Different providers remain independent.
+    let dispatch_guard = Arc::clone(&self.dispatch).lock_owned().await;
+    check_deadline(deadline)?;
     let account = self.account.clone();
     let mut reservation = budget_worker(move || {
       // Do not start a queued reservation after its request has expired.
       check_deadline(deadline)?;
-      account.reserve(cost, allow_paid, deadline)
+      account.reserve(cost, allow_paid, deadline, dispatch_guard)
     })
     .await?;
     // A write may finish after timeout. A late reservation must never cause a

@@ -211,6 +211,7 @@ impl SearchRouter {
     let mut attempted = vec![false; self.providers.len()];
     let mut reasons = vec![None; self.providers.len()];
     let mut attempts = 0;
+    let mut saw_empty_results = false;
     while attempts < MAX_ATTEMPTS && Instant::now() < deadline {
       let Some(candidate) = self.select(&request, &mut attempted, &mut reasons).await else { break };
       if Instant::now() >= deadline {
@@ -241,13 +242,24 @@ impl SearchRouter {
       };
       flight.finish(&result, candidate.quota_reset).await;
       match result {
-        // An empty result is still success: do not spend another provider's quota.
+        // Empty results are successful for health/accounting, but this query
+        // should try the next eligible provider before returning to the model.
+        Ok(results) if results.is_empty() => {
+          saw_empty_results = true;
+          debug!("{} returned no results; trying another eligible provider", slot.backend.provider().name());
+        }
         Ok(results) => return Ok(results),
         Err(error) => {
           warn!("{} search failed ({:?}): {error}", slot.backend.provider().name(), error.kind);
           reasons[candidate.index] = Some(error.to_string());
         }
       }
+    }
+    // Preserve a completed empty search if no fallback produced results. If
+    // every attempt failed, retain the normal unavailability error instead.
+    // The outer timeout still enforces the overall deadline for either outcome.
+    if saw_empty_results {
+      return Ok(Vec::new());
     }
     let details = self
       .providers

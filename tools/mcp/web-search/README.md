@@ -359,7 +359,9 @@ When fallback succeeds, the MCP result contains that provider's normal results;
 logs and `/status` expose failures of the earlier provider. If no provider can
 serve the call, `web_search` returns `isError: true` with a short unavailability
 message. Provider failure and skip reasons remain in server logs and local status.
-A successful empty result does not trigger fallback.
+An empty result triggers fallback to another eligible provider before the tool
+returns to the model. Intermediate empty responses and routing details remain
+internal.
 
 ### Provider selection and fallback
 
@@ -378,9 +380,14 @@ The same rule applies as more adapters are registered; the router does not
 contain provider-specific selection branches.
 
 Provider usage reporting can conservatively reconcile local estimates. Durable
-reservations and consumption tracking are implemented. A successful empty search
-is a result, not a trigger to spend credits on another provider. Each provider
-is attempted at most once per call, with at most three attempts in total. Provider
+reservations and consumption tracking are implemented. An empty search result
+tries the next eligible provider using the same funding and health rules. Empty
+results still count as successful requests for health and budget accounting;
+they do not disable the provider for other queries. If at least one search
+completed successfully but no fallback produced results, the tool returns one
+empty result set. If every attempt failed, it returns an unavailability error.
+The overall deadline still returns an error when exceeded. Each provider is
+attempted at most once per call, with at most three attempts in total. Provider
 attempts have a 20-second timeout within a shared 30-second request deadline.
 The shared deadline covers selection, health-lock waits, budget-worker waits,
 reservations, provider HTTP and settlement. Runtime ledger operations run in
@@ -389,16 +396,21 @@ the search response past its deadline. A timed-out request stops waiting;
 an already-started storage operation can finish in the background. No provider
 request is dispatched for a reservation that completes after its deadline.
 Fallback happens immediately without sleeping through cooldowns, and an already
-attempted metered provider is not tried again with paid capacity after a free attempt
-fails. Budget reservations are checked again at dispatch to handle concurrent
-requests consuming capacity after selection.
+attempted metered provider is not tried again with paid capacity after a free
+attempt fails or returns empty. Budget reservations are checked again at
+dispatch to handle concurrent requests consuming capacity after selection.
 
 Invalid credentials disable a provider until restart after correcting its
 configuration. Internal adapter/accounting failures also disable it until repair
 and restart. Provider-reported quota exhaustion suspends a metered account until
 its configured monthly reset; the zero-capacity cap is persisted with settlement
-and survives restarts. A local request whose cost does not fit is distinguished
-from remote exhaustion, so a smaller later request can still use the remainder.
+and survives restarts. This cap blocks both free and paid dispatch, even when
+local configured allowances still show unused capacity. Requests to each metered
+provider are serialized from reservation through durable settlement, so queued
+requests cannot dispatch before an earlier quota-exhaustion cap is saved.
+Different providers can operate independently. A local request whose cost does
+not fit is distinguished from remote exhaustion, so a smaller later request can
+still use the remainder.
 Providers without a known quota reset are disabled until restart after replenishment.
 
 Rate limits use the provider's delta-seconds `Retry-After`, or 60 seconds when it
@@ -535,10 +547,13 @@ against the current period if a reset occurred while the server was down.
 
 Settlement is queued before awaiting its durable write. Cancellation during
 settlement retains the known charge/refund decision and any remote exhaustion
-cap; it does not queue a second settlement. While background cleanup is pending,
-the durable reservation continues to constrain capacity. If cleanup cannot
-complete before a crash or shutdown, restart recovery charges the outstanding
-reservation conservatively. Status snapshots and usage polling also run ledger
+cap; it does not queue a second settlement. The settlement worker retains that
+provider's dispatch lock even after caller cancellation, releasing it only after
+the ledger operation finishes. A failed ledger write blocks further metered
+dispatch. Waiting for the provider lock remains within the request deadline.
+While background cleanup is pending, the durable reservation continues to
+constrain capacity. If cleanup cannot complete before a crash or shutdown,
+restart recovery charges the outstanding reservation conservatively. Status snapshots and usage polling also run ledger
 operations in blocking workers so they cannot block search timeout processing.
 
 Ledger writes use a synced temporary file followed by atomic rename, with a
