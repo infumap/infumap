@@ -128,14 +128,15 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     return title.length > MAX_TITLE_CHARS ? title.substring(0, MAX_TITLE_CHARS - 1) + "…" : title;
   };
 
-  const hostSuffix = (host: string | null | undefined): string => {
-    if (!host) { return ""; }
+  const hostName = (host: string): string => {
     try {
-      return ` @ ${new URL(host).host}`;
+      return new URL(host).host;
     } catch (_error) {
-      return ` @ ${host}`;
+      return host;
     }
   };
+
+  const hostSuffix = (host: string | null | undefined): string => host ? ` @ ${hostName(host)}` : "";
 
   const requestLabel = (req: { description: string, itemId?: string, host?: string | null }) => {
     const title = itemTitle(req.itemId);
@@ -203,7 +204,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const WriteProblemRow = (props: { problem: NetworkProblem }): JSX.Element => (
     <div class="text-sm px-2 py-1 bg-red-50 rounded mb-1">
       <div class="flex justify-between items-start gap-2">
-        <ItemTitle itemId={props.problem.itemId} fallback={props.problem.description} />
+        <ItemTitle itemId={props.problem.itemId} fallback={`${props.problem.description}${hostSuffix(props.problem.host)}`} />
         <span class="flex items-center gap-2 shrink-0">
           <span class="text-xs text-slate-500">{ago(props.problem.lastMs)}</span>
           <button onClick={() => store.general.dismissNetworkProblem(props.problem.key)} title="Dismiss"
@@ -212,7 +213,10 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
       </div>
       <div class="text-xs text-red-700" title={props.problem.message}>
         {itemTitle(props.problem.itemId) == null ? "Failed" : `${props.problem.description} failed`} because{" "}
-        {failReasonText(props.problem.reason)}. Reverted to the server version.
+        {props.problem.host == null
+          ? `${failReasonText(props.problem.reason)}. Reverted to the server version.`
+          : `${failReasonText(props.problem.reason, hostName(props.problem.host))}, so it is not saved there. ` +
+            "Reload to see what it has."}
       </div>
     </div>
   );
@@ -230,7 +234,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
         </span>
       </div>
       <div class="text-xs text-amber-800" title={props.problem.message}>
-        Failed because {failReasonText(props.problem.reason)}.
+        Failed because {failReasonText(props.problem.reason, props.problem.host ? hostName(props.problem.host) : undefined)}.
       </div>
     </div>
   );
