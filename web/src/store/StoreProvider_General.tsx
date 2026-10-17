@@ -42,12 +42,22 @@ interface LocalStorageData {
 
 export type QueryInputMode = "search" | "chat";
 
+export type NetworkRequestKind = "write" | "read" | "sync" | "chat";
+
+export type SyncPausedReason = "text-edit";
+
 export interface NetworkRequestInfo {
   requestId: number,
   command: string,
+  kind: NetworkRequestKind,
   description: string,
   itemId?: string,
   host?: string | null,
+  /** Unset while the request is queued. */
+  startedMs?: number,
+  endedMs?: number,
+  /** Set on finished requests that did not fail. */
+  outcome?: "done" | "cancelled",
   errorMessage?: string,
 }
 
@@ -79,6 +89,7 @@ export interface GeneralStoreContextModel {
   inProgressNetworkRequests: Accessor<NetworkRequestInfo[]>,
   setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   recentNetworkRequests: Accessor<NetworkRequestInfo[]>,
+  addRecentNetworkRequest: (request: NetworkRequestInfo) => void,
   queuedNetworkRequests: Accessor<NetworkRequestInfo[]>,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   erroredNetworkRequests: Accessor<NetworkRequestInfo[]>,
@@ -86,6 +97,13 @@ export interface GeneralStoreContextModel {
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
   acknowledgeNetworkErrors: () => void,
   clearNetworkHistory: () => void,
+
+  /** Background container sync is not listed as requests; these summarize it instead. */
+  lastSyncOkMs: Accessor<number | null>,
+  consecutiveSyncFailures: Accessor<number>,
+  recordSyncResult: (ok: boolean) => void,
+  syncPausedReason: Accessor<SyncPausedReason | null>,
+  setSyncPausedReason: (reason: SyncPausedReason | null) => void,
 }
 
 
@@ -104,11 +122,14 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
   const defaultQueryProfile = queryProfiles.defaultProfile;
   const setDefaultQueryProfile = queryProfiles.setDefault;
 
-  const [inProgressNetworkRequests, setInProgressNetworkRequestsSignal] = createSignal<NetworkRequestInfo[]>([], { equals: false });
+  const [inProgressNetworkRequests, setInProgressNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [recentNetworkRequests, setRecentNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [queuedNetworkRequests, setQueuedNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [erroredNetworkRequests, setErroredNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [hasUnacknowledgedNetworkErrors, setHasUnacknowledgedNetworkErrors] = createSignal<boolean>(false, { equals: false });
+  const [lastSyncOkMs, setLastSyncOkMs] = createSignal<number | null>(null);
+  const [consecutiveSyncFailures, setConsecutiveSyncFailures] = createSignal<number>(0);
+  const [syncPausedReason, setSyncPausedReason] = createSignal<SyncPausedReason | null>(null);
   const [queryInputMode, setQueryInputModeSignal] = createSignal<QueryInputMode>("search");
   const recentNetworkRequestTimeouts = new Map<number, number>();
 
@@ -130,21 +151,8 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     setLocalStorageDataString(lcDs);
   };
 
-  const clearRecentNetworkRequestTimeout = (requestId: number): void => {
-    const timeoutId = recentNetworkRequestTimeouts.get(requestId);
-    if (timeoutId !== undefined) {
-      window.clearTimeout(timeoutId);
-      recentNetworkRequestTimeouts.delete(requestId);
-    }
-  };
-
-  const removeRecentNetworkRequest = (requestId: number): void => {
-    clearRecentNetworkRequestTimeout(requestId);
-    setRecentNetworkRequests((current) => current.filter((request) => request.requestId !== requestId));
-  };
-
-  const scheduleRecentNetworkRequestExpiry = (request: NetworkRequestInfo): void => {
-    clearRecentNetworkRequestTimeout(request.requestId);
+  const addRecentNetworkRequest = (request: NetworkRequestInfo): void => {
+    setRecentNetworkRequests((current) => [request, ...current]);
     const timeoutId = window.setTimeout(() => {
       recentNetworkRequestTimeouts.delete(request.requestId);
       setRecentNetworkRequests((current) => current.filter((existing) => existing.requestId !== request.requestId));
@@ -152,29 +160,8 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     recentNetworkRequestTimeouts.set(request.requestId, timeoutId);
   };
 
-  const setInProgressNetworkRequests = (requests: NetworkRequestInfo[]) => {
-    const previousRequests = inProgressNetworkRequests();
-    const nextRequestIds = new Set(requests.map((request) => request.requestId));
-    const erroredRequestIds = new Set(erroredNetworkRequests().map((request) => request.requestId));
-    const completedRequests = previousRequests.filter((request) =>
-      !nextRequestIds.has(request.requestId) && !erroredRequestIds.has(request.requestId)
-    );
-
-    requests.forEach((request) => removeRecentNetworkRequest(request.requestId));
-    completedRequests.forEach((request) => {
-      setRecentNetworkRequests((current) => {
-        const deduped = current.filter((existing) => existing.requestId !== request.requestId);
-        return [request, ...deduped];
-      });
-      scheduleRecentNetworkRequestExpiry(request);
-    });
-
-    setInProgressNetworkRequestsSignal(requests);
-  };
-
   const addErroredNetworkRequest = (request: NetworkRequestInfo) => {
     setHasUnacknowledgedNetworkErrors(true);
-    removeRecentNetworkRequest(request.requestId);
     setErroredNetworkRequests((current) => {
       const deduped = current.filter(existing =>
         existing.host !== request.host ||
@@ -186,6 +173,16 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     });
   };
 
+  const recordSyncResult = (ok: boolean) => {
+    if (ok) {
+      setLastSyncOkMs(Date.now());
+      setConsecutiveSyncFailures(0);
+      setSyncPausedReason(null);
+    } else {
+      setConsecutiveSyncFailures(consecutiveSyncFailures() + 1);
+    }
+  };
+
   const acknowledgeNetworkErrors = () => {
     setHasUnacknowledgedNetworkErrors(false);
     setErroredNetworkRequests([]);
@@ -194,11 +191,14 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
   const clearNetworkHistory = () => {
     recentNetworkRequestTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
     recentNetworkRequestTimeouts.clear();
-    setInProgressNetworkRequestsSignal([]);
+    setInProgressNetworkRequests([]);
     setRecentNetworkRequests([]);
     setQueuedNetworkRequests([]);
     setErroredNetworkRequests([]);
     setHasUnacknowledgedNetworkErrors(false);
+    setLastSyncOkMs(null);
+    setConsecutiveSyncFailures(0);
+    setSyncPausedReason(null);
     networkStatus.set(NETWORK_STATUS_OK);
   };
 
@@ -279,8 +279,9 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     queryInputMode, setQueryInputMode,
     networkStatus,
     inProgressNetworkRequests, setInProgressNetworkRequests,
-    recentNetworkRequests,
+    recentNetworkRequests, addRecentNetworkRequest,
     queuedNetworkRequests, setQueuedNetworkRequests,
     erroredNetworkRequests, hasUnacknowledgedNetworkErrors, addErroredNetworkRequest, acknowledgeNetworkErrors, clearNetworkHistory,
+    lastSyncOkMs, consecutiveSyncFailures, recordSyncResult, syncPausedReason, setSyncPausedReason,
   };
 }
