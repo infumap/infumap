@@ -1615,6 +1615,42 @@ async fn live_chat_data_dir(
   Ok(db.item.data_dir().to_owned())
 }
 
+/// Opens a live chat's recorded transcript as plain text without persisting it into the item tree.
+pub(crate) async fn serve_live_chat_file(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session_user_id: &Option<Uid>,
+  query_item_id: &Uid,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let Some(user_id) = session_user_id else {
+    return forbidden_response();
+  };
+  let data_dir = {
+    let db = db.lock().await;
+    let is_chat = db
+      .item
+      .get(query_item_id)
+      .is_ok_and(|item| item.owner_id == *user_id && super::is_queries_page_query_item(&db, item));
+    if !is_chat {
+      return not_found_response();
+    }
+    db.item.data_dir().to_owned()
+  };
+  match transcript::read_transcript_bytes(&data_dir, user_id, query_item_id).await {
+    Ok(Some(bytes)) => Response::builder()
+      .header(hyper::header::CONTENT_TYPE, "text/plain; charset=utf-8")
+      .header(hyper::header::CONTENT_DISPOSITION, format!("inline; filename=\"{}.chat\"", query_item_id))
+      .header("X-Content-Type-Options", "nosniff")
+      .header(hyper::header::CACHE_CONTROL, "no-store")
+      .body(crate::web::serve::full_body(bytes))
+      .unwrap(),
+    Ok(None) => not_found_response(),
+    Err(e) => {
+      warn!("Could not open transcript for chat '{}' of user '{}': {}", query_item_id, user_id, e);
+      crate::web::serve::internal_server_error_response("Could not open the chat transcript.")
+    }
+  }
+}
+
 /// Names exactly one of a live chat (its query item) or a persisted chat (its `.chat` text item).
 #[derive(Deserialize)]
 struct LoadChatRequest {

@@ -267,7 +267,12 @@ pub async fn serve_files_route(
 
   let name = &req.uri().path()[7..];
 
-  if let Some(uid) = name.strip_suffix("/text") {
+  if let Some(uid) = name.strip_suffix("/chat") {
+    if !is_uid(uid) {
+      return not_found_response();
+    }
+    super::command::serve_live_chat_file(db, &session_user_id_maybe, &uid.to_owned()).await
+  } else if let Some(uid) = name.strip_suffix("/text") {
     if !is_uid(uid) {
       return not_found_response();
     }
