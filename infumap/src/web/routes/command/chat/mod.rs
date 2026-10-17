@@ -3347,10 +3347,14 @@ fn web_search_tool_activity(arguments: &Value, parsed: Option<&Value>) -> (Strin
     .iter()
     .flat_map(|arr| arr.iter())
     .map(|result| {
-      serde_json::json!({
+      let mut preview = serde_json::json!({
         "title": result.get("title").cloned().unwrap_or(Value::Null),
         "url": result.get("url").cloned().unwrap_or(Value::Null),
-      })
+      });
+      if let Some(snippet) = json_object_str(result, "snippet") {
+        preview["snippet"] = Value::String(snippet.to_owned());
+      }
+      preview
     })
     .collect::<Vec<_>>();
 
