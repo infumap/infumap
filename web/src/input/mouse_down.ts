@@ -38,6 +38,7 @@ import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, User
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
+import { NETWORK_STATUS_INDICATOR_ID } from "../components/toolbar/Toolbar_NetworkStatus";
 import { getToolbarFocusItem } from "../components/toolbar/toolbarFocus";
 import { serverOrRemote } from "../server";
 import { commitActiveTextEdit } from "./edit";
@@ -351,6 +352,17 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   NativeTextSelectionState.clear();
 
   if (store.history.currentPageVeid() == null) { return defaultResult; }
+
+  // The network status dialog stops mouse downs inside it, so one that gets here is outside it. As with the other
+  // toolbar popups, it closes, and the mouse down is then handled as usual. One on the indicator is left to the
+  // indicator's click handler, which toggles the dialog.
+  if (store.overlay.networkOverlayVisible.get()) {
+    const indicator = document.getElementById(NETWORK_STATUS_INDICATOR_ID);
+    if (indicator == null ||
+        !isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(indicator.getBoundingClientRect())!)) {
+      store.overlay.networkOverlayVisible.set(false);
+    }
+  }
 
   // Popups associated with the toolbar.
   if (store.overlay.toolbarPopupInfoMaybe.get() != null) {

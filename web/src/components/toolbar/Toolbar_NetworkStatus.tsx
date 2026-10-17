@@ -58,6 +58,9 @@ const LevelGlyph = (props: { level: NetworkStatusLevel, color: string, sizePx?: 
   </svg>
 );
 
+/** The toolbar indicator, whose own click toggles the dialog, so mouse_down leaves it alone. */
+export const NETWORK_STATUS_INDICATOR_ID = "networkStatusIndicator";
+
 export const Toolbar_NetworkStatus: Component = () => {
   const store = useStore();
 
@@ -73,7 +76,7 @@ export const Toolbar_NetworkStatus: Component = () => {
   return (
     <div class="w-[21px] h-[21px] inline-block ml-[7px] mr-[-2px] relative">
       {/* Not a <button>: a click would focus it, and a later Space would toggle the dialog. */}
-      <div role="button"
+      <div role="button" id={NETWORK_STATUS_INDICATOR_ID}
         class="w-[19px] h-[19px] mt-[7px] rounded border-slate-500 border cursor-pointer flex items-center justify-center"
         style={`background-color: ${style().background};`}
         title={summary().sentence}
@@ -90,7 +93,8 @@ export const Toolbar_NetworkStatus: Component = () => {
 const MAX_TITLE_CHARS = 48;
 const LINK_CLASS = "text-xs text-blue-600 hover:text-blue-800 cursor-pointer";
 
-// Kept for the session, so the activity list stays open while debugging.
+// Kept for the session, so the activity list stays open while debugging. The dialog closes on a mouse down outside
+// it, like the other toolbar popups (see mouse_down.ts).
 let activityExpandedInitially = false;
 
 function formatDuration(ms: number): string {
