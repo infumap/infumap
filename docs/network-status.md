@@ -123,7 +123,9 @@ the toolbar square and the dialog header use it. The first matching row wins:
 - **Closing:**
   - Escape closes the dialog ([key.ts](../web/src/input/key.ts)). If text is being edited, the first Escape leaves
     the editor.
-  - A click outside does not close it, so it can stay open as a monitor.
+  - A mouse down outside closes it, like the other toolbar popups, and is then handled as usual
+    ([mouse_down.ts](../web/src/input/mouse_down.ts)). The indicator square is the exception, because its click
+    toggles the dialog.
 - **Toast:** while the dialog is open, `showFailedMutationMessage` shows no toast, because the dialog already shows
   the failure.
 
@@ -330,7 +332,8 @@ Also:
 
 - Escape closes the dialog. Add this in [key.ts](../web/src/input/key.ts) before the other handling. The overlay
   stays out of `anOverlayIsVisible`, so other keyboard navigation keeps working while it is open.
-- Clicking outside does not close it, so it can stay open as a monitor while you work.
+- Clicking outside does not close it, so it can stay open as a monitor while you work. (Reversed afterwards: see
+  "Decisions".)
 - Remove the inner `<Show>`; the one in [Main.tsx](../web/src/components/Main.tsx) is enough.
 - **Check:** screenshots of the idle, saving, offline, lost-write and session-expired states, at the dialog's minimum
   and maximum widths.
@@ -417,5 +420,8 @@ These were open questions in the plan. The defaults were kept:
 - **Session expiry:** the user logs in again in another tab. An in-place login overlay, like the one remote hosts
   use (`remoteLoginInfo`), would be a better experience, but is a larger change.
 - **Write problems** stay until dismissed. They don't expire.
-- **Click outside** doesn't close the dialog, so it can stay open as a monitor. Every other toolbar popup does close
-  on a click outside, so this is a deliberate inconsistency.
+- **Click outside:** the plan kept the old behaviour, in which a click outside didn't close the dialog, so that it
+  could stay open as a monitor. This was reversed on 2026-10-17. In practice the dialog should behave like the other
+  toolbar popups, and the square's glyph and tooltip now cover watching the status.
+  - Checked: a click inside keeps the dialog open, and a click on the page closes it. The square still toggles it.
+    A click on a note closes the dialog and still starts editing the note.
