@@ -2,7 +2,7 @@
 
 Status: done 2026-10-17 (steps 1–8). Planned the same day, after a design review of the old dialog.
 
-The toolbar has a small square that shows the network status, and clicking it opens a dialog
+The toolbar has a small icon that shows the network status, and clicking it opens a dialog
 ([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). Both answer one question:
 **is my work safe, and am I looking at current data?** In priority order:
 
@@ -24,7 +24,7 @@ for remote hosts. Each tracked request has a kind, which `commandKind` derives f
 | `sync`  | `sync-containers` |
 | `chat`  | `chat` (streamed) |
 
-- **Background sync** runs every 2s, so it is never listed as a request and never makes the square busy. It is
+- **Background sync** runs every 2s, so it is never listed as a request and never makes the indicator busy. It is
   summarized in `store.general` instead, as `lastSyncOkMs`, `consecutiveSyncFailures` and `syncPausedReason`.
   Sync pauses (`"text-edit"`) while text is being edited or is unsaved, so that it can't overwrite that text.
 - **Other requests** are reported to `store.general` through the tracker that `setGlobalRequestTracker` installs:
@@ -81,7 +81,7 @@ merge into one problem, with a count and first and last times. The key is `host|
 
 `networkStatusSummary(store, nowMs)` in
 [networkStatusSummary.ts](../web/src/components/toolbar/networkStatusSummary.ts) returns `{ level, sentence }`. Both
-the toolbar square and the dialog header use it. The first matching row wins:
+the toolbar indicator and the dialog header use it. The first matching row wins:
 
 | level    | when | example sentence |
 |----------|------|------------------|
@@ -95,19 +95,29 @@ the toolbar square and the dialog header use it. The first matching row wins:
 | `ok`     | sync paused for editing | "All changes saved · sync paused while editing" |
 | `ok`     | otherwise | "All changes saved · synced 2s ago" |
 
-### Toolbar square
+### Toolbar indicator
 
-- **Look:** each level has its own glyph and colour: ok ✓ on `#7bbb73`, busy dots on `#babb73`, warn `!` on
-  `#e0a040`, and danger × on `#a12b2b`. Ok and danger differ clearly in luminance. Warn and ok don't, so the glyph
-  is what tells them apart.
+- **Look:** a cloud, the usual sign for "saved and synced", drawn as an SVG (`NetworkStatusIcon`). It is quiet while
+  all is well and loud only when work is at risk:
+
+  | level | icon |
+  |---|---|
+  | ok | a plain cloud, in the dark grey of the other toolbar icons |
+  | busy | the same cloud, with three dots cut out |
+  | warn | an amber cloud with a slash |
+  | danger | a filled red badge with "!", the only filled shape |
+
+  The shape alone tells the levels apart, for colour-blind users. Cut-outs use an SVG mask, so they show the toolbar
+  behind them.
+- **Sizing:** it is sized and styled like `InfuIconButton`, including the hover background.
 - **Tooltip:** the sentence is the tooltip and the `aria-label`. Relative times in it are refreshed when the pointer
-  enters the square.
-- **Not a `<button>`:** the square is a `div` with `role="button"`. A real button would keep focus after a click, so
-  a later Space would toggle the dialog.
+  enters the icon.
+- **Not a `<button>`:** the indicator is a `div` with `role="button"`. A real button would keep focus after a click,
+  so a later Space would toggle the dialog.
 
 ### Dialog
 
-- **Header:** a small copy of the square, and the sentence.
+- **Header:** the same icon, and the sentence.
 - **Not saved:**
   - One row per pending text save ("saving…", or the failure reason).
   - One row per write problem, which says the change was reverted (local) or is not saved on the host (remote).
@@ -124,10 +134,11 @@ the toolbar square and the dialog header use it. The first matching row wins:
   - Escape closes the dialog ([key.ts](../web/src/input/key.ts)). If text is being edited, the first Escape leaves
     the editor.
   - A mouse down outside closes it, like the other toolbar popups, and is then handled as usual
-    ([mouse_down.ts](../web/src/input/mouse_down.ts)). The indicator square is the exception, because its click
+    ([mouse_down.ts](../web/src/input/mouse_down.ts)). The indicator is the exception, because its click
     toggles the dialog.
 - **Toast:** while the dialog is open, `showFailedMutationMessage` shows no toast, because the dialog already shows
-  the failure.
+  the failure. Opening the dialog also clears an error toast that is already showing, because it would cover the
+  header.
 
 ### Testing
 
@@ -422,6 +433,10 @@ These were open questions in the plan. The defaults were kept:
 - **Write problems** stay until dismissed. They don't expire.
 - **Click outside:** the plan kept the old behaviour, in which a click outside didn't close the dialog, so that it
   could stay open as a monitor. This was reversed on 2026-10-17. In practice the dialog should behave like the other
-  toolbar popups, and the square's glyph and tooltip now cover watching the status.
-  - Checked: a click inside keeps the dialog open, and a click on the page closes it. The square still toggles it.
+  toolbar popups, and the indicator's icon and tooltip now cover watching the status.
+  - Checked: a click inside keeps the dialog open, and a click on the page closes it. The indicator still toggles it.
     A click on a note closes the dialog and still starts editing the note.
+- **Indicator look:** step 5 made the indicator a coloured, bordered square with a glyph. In use it felt too
+  conspicuous: it was as loud when all was well as when work was lost, and it looked like the page-colour swatch
+  next to it. On 2026-10-17 it became the cloud icon described under "Toolbar indicator".
+  - Checked: screenshots of the four levels in the toolbar, and of the dialog header in the danger state.

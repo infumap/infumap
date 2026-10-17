@@ -18,10 +18,11 @@
 
 import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "./toolbarPopupStyle";
 
-import { Component, For, JSX, Match, Show, Switch, createSignal, onCleanup } from "solid-js"
+import { Component, For, JSX, Show, createSignal, createUniqueId, onCleanup, onMount } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
 import type { NetworkProblem, NetworkRequestInfo } from "../../store/StoreProvider_General";
 import { itemState } from "../../store/ItemState";
+import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
 import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation";
 import { NetworkStatusLevel, failReasonText, formatAgo, networkStatusSummary, plural, textSaveRetryText } from "./networkStatusSummary";
@@ -31,32 +32,56 @@ import { recheckExpiredSession } from "../../server";
 import { logout } from "../Main";
 
 
-// The glyph carries the level as well as the colour. ok and danger also differ clearly in luminance.
-const LEVEL_STYLE: { [level in NetworkStatusLevel]: { background: string, glyph: string } } = {
-  ok: { background: "#7bbb73", glyph: "#1e293b" },
-  busy: { background: "#babb73", glyph: "#1e293b" },
-  warn: { background: "#e0a040", glyph: "#1e293b" },
-  danger: { background: "#a12b2b", glyph: "#ffffff" },
+// Quiet while all is well, in the colour of the other toolbar icons. Colour appears only when something is wrong,
+// and the shape alone tells the levels apart, for colour-blind users.
+const LEVEL_COLOR: { [level in NetworkStatusLevel]: string } = {
+  ok: "#1f2937",
+  busy: "#1f2937",
+  warn: "#d97706",
+  danger: "#b91c1c",
 };
 
-const LevelGlyph = (props: { level: NetworkStatusLevel, color: string, sizePx?: number }): JSX.Element => (
-  <svg width={props.sizePx ?? 11} height={props.sizePx ?? 11} viewBox="0 0 12 12" fill="none" stroke={props.color} stroke-width="1.8"
-    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <Switch>
-      <Match when={props.level == "ok"}><path d="M2.5 6.5 L5 9 L9.5 3.5" /></Match>
-      <Match when={props.level == "busy"}>
-        <circle cx="2.5" cy="6" r="1.1" fill={props.color} stroke="none" />
-        <circle cx="6" cy="6" r="1.1" fill={props.color} stroke="none" />
-        <circle cx="9.5" cy="6" r="1.1" fill={props.color} stroke="none" />
-      </Match>
-      <Match when={props.level == "warn"}>
-        <path d="M6 2 V7" />
-        <circle cx="6" cy="9.8" r="1" fill={props.color} stroke="none" />
-      </Match>
-      <Match when={props.level == "danger"}><path d="M3 3 L9 9 M9 3 L3 9" /></Match>
-    </Switch>
-  </svg>
-);
+/**
+ * A cloud, the usual sign for saved and synced: plain when ok, with dots cut out when busy, and amber with a slash
+ * when the server can't be reached or a request is failing. Danger, when work is at risk, is the one loud state: a
+ * filled badge. Cut-outs use a mask, so they show whatever is behind the icon.
+ */
+const NetworkStatusIcon = (props: { level: NetworkStatusLevel, sizePx: number }): JSX.Element => {
+  const maskId = createUniqueId();
+  const color = () => LEVEL_COLOR[props.level];
+  return (
+    <svg width={props.sizePx} height={props.sizePx} viewBox="0 0 24 24" aria-hidden="true">
+      <Show when={props.level == "danger"} fallback={
+        <>
+          <mask id={maskId}>
+            <rect width="24" height="24" fill="white" />
+            <Show when={props.level == "busy"}>
+              <circle cx="9.5" cy="14.6" r="1.35" fill="black" />
+              <circle cx="13.25" cy="14.6" r="1.35" fill="black" />
+              <circle cx="17" cy="14.6" r="1.35" fill="black" />
+            </Show>
+            <Show when={props.level == "warn"}>
+              <line x1="4" y1="3" x2="21" y2="20" stroke="black" stroke-width="4.5" stroke-linecap="round" />
+            </Show>
+          </mask>
+          <g fill={color()} mask={`url(#${maskId})`}>
+            <circle cx="8.5" cy="13.5" r="4.5" />
+            <circle cx="13" cy="10.5" r="6" />
+            <circle cx="18" cy="14.5" r="3.5" />
+            <rect x="8.5" y="12" width="9.5" height="6" />
+          </g>
+          <Show when={props.level == "warn"}>
+            <line x1="4" y1="3" x2="21" y2="20" stroke={color()} stroke-width="2" stroke-linecap="round" />
+          </Show>
+        </>
+      }>
+        <circle cx="12" cy="12" r="9" fill={color()} />
+        <path d="M12 7 V13" stroke="white" stroke-width="2.4" stroke-linecap="round" />
+        <circle cx="12" cy="16.6" r="1.4" fill="white" />
+      </Show>
+    </svg>
+  );
+};
 
 /** The toolbar indicator, whose own click toggles the dialog, so mouse_down leaves it alone. */
 export const NETWORK_STATUS_INDICATOR_ID = "networkStatusIndicator";
@@ -67,24 +92,21 @@ export const Toolbar_NetworkStatus: Component = () => {
   // Relative times in the tooltip are refreshed when the pointer arrives, rather than by a timer.
   const [hoverNowMs, setHoverNowMs] = createSignal(Date.now());
   const summary = () => networkStatusSummary(store, hoverNowMs());
-  const style = () => LEVEL_STYLE[summary().level];
 
   const handleClick = () => {
     store.overlay.networkOverlayVisible.set(!store.overlay.networkOverlayVisible.get());
   };
 
   return (
-    <div class="w-[21px] h-[21px] inline-block ml-[7px] mr-[-2px] relative">
-      {/* Not a <button>: a click would focus it, and a later Space would toggle the dialog. */}
-      <div role="button" id={NETWORK_STATUS_INDICATOR_ID}
-        class="w-[19px] h-[19px] mt-[7px] rounded border-slate-500 border cursor-pointer flex items-center justify-center"
-        style={`background-color: ${style().background};`}
-        title={summary().sentence}
-        aria-label={`Network status: ${summary().sentence}`}
-        onMouseEnter={() => setHoverNowMs(Date.now())}
-        onClick={handleClick}>
-        <LevelGlyph level={summary().level} color={style().glyph} />
-      </div>
+    // Sized and styled like InfuIconButton, the other toolbar icons. Not a <button>: a click would focus it, and a
+    // later Space would toggle the dialog.
+    <div role="button" id={NETWORK_STATUS_INDICATOR_ID}
+      class="hover:border rounded w-[21px] h-[21px] inline-flex items-center justify-center align-middle cursor-pointer ml-[3px] hover:bg-slate-300 relative"
+      title={summary().sentence}
+      aria-label={`Network status: ${summary().sentence}`}
+      onMouseEnter={() => setHoverNowMs(Date.now())}
+      onClick={handleClick}>
+      <NetworkStatusIcon level={summary().level} sizePx={20} />
     </div>
   );
 }
@@ -108,6 +130,14 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const nowTimer = window.setInterval(() => setNowMs(Date.now()), 1000);
   onCleanup(() => window.clearInterval(nowTimer));
   const ago = (ms: number) => formatAgo(ms, nowMs());
+
+  // An error message from before the dialog opened would cover its top, and says what the dialog shows anyway.
+  // showFailedMutationMessage shows none while it is open.
+  onMount(() => {
+    if (store.overlay.toolbarTransientMessage.get()?.type == TransientMessageType.Error) {
+      store.overlay.toolbarTransientMessage.set(null);
+    }
+  });
 
   const summary = () => networkStatusSummary(store, nowMs());
   const pendingSaves = () => store.textEdit.pendingSaves();
@@ -259,10 +289,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
       onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>
 
       <div class="flex items-start gap-2 mb-3">
-        <div class="w-[16px] h-[16px] mt-[1px] rounded border border-slate-500 flex items-center justify-center shrink-0"
-          style={`background-color: ${LEVEL_STYLE[summary().level].background};`}>
-          <LevelGlyph level={summary().level} color={LEVEL_STYLE[summary().level].glyph} sizePx={9} />
-        </div>
+        <div class="shrink-0 -mt-[1px]"><NetworkStatusIcon level={summary().level} sizePx={20} /></div>
         <div class="flex-1 text-sm font-medium">{summary().sentence}</div>
         <button onClick={handleClose} title="Close (Esc)"
           class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
