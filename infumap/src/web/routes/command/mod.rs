@@ -159,7 +159,9 @@ enum CommandErrorKind {
 
 fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKind {
   let msg = e.message();
-  if msg.contains("Not authorized") {
+  // "Session is required" is the error for a command sent without a valid session, e.g. after it expired. The web
+  // client relies on this to check whether the session has ended.
+  if msg.contains("Not authorized") || msg.contains("Session is required") || msg.contains("session is required") {
     CommandErrorKind::Auth
   } else if msg.contains("Invalid link URL") {
     CommandErrorKind::Client
@@ -1813,6 +1815,14 @@ mod tests {
     t.db.item.remove(&page).await.unwrap();
     let e = t.db.item.get(&page).unwrap_err();
     assert!(matches!(classify_command_error(&e), CommandErrorKind::NotFound));
+  }
+
+  #[test]
+  fn missing_session_errors_are_classified_as_auth() {
+    for msg in ["Session is required to update an item.", "A session is required to empty trash."] {
+      let e = infusdk::util::infu::InfuError::new(msg);
+      assert!(matches!(classify_command_error(&e), CommandErrorKind::Auth));
+    }
   }
 
   #[tokio::test]

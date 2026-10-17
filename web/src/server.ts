@@ -1507,7 +1507,8 @@ let sessionCheckInFlight = false;
 async function logoutIfSessionEnded(store: StoreContextModel): Promise<void> {
   const userId = store.user.getUserMaybe()?.userId;
   const logoutMaybe = logout;
-  if (sessionCheckInFlight || userId == null || logoutMaybe == null) {
+  // Once known to have ended, only recheckExpiredSession looks again.
+  if (sessionCheckInFlight || userId == null || logoutMaybe == null || store.general.sessionExpired()) {
     return;
   }
   // Held through the logout, which saves pending text edits: those fail too, and must not start another.
@@ -1516,10 +1517,36 @@ async function logoutIfSessionEnded(store: StoreContextModel): Promise<void> {
     const r = await post(null, "/account/validate-session", {});
     // A different user may have logged in, in another tab.
     if (r?.success === false || (r?.success === true && r.userId !== userId)) {
-      await logoutMaybe();
+      if (!await logoutMaybe()) {
+        // Unsaved text keeps the user here: to save it after logging in again in another tab, copy it, or discard it.
+        store.general.setSessionExpired(true);
+      }
     }
   } catch (_e) {
     // Without a response, whether the session has ended is unknown.
+  } finally {
+    sessionCheckInFlight = false;
+  }
+}
+
+/**
+ * After the session ended with text unsaved, checks whether the same user has logged in again (in another tab,
+ * sharing the session cookie), and if so saves the text.
+ */
+export async function recheckExpiredSession(store: StoreContextModel): Promise<void> {
+  const userId = store.user.getUserMaybe()?.userId;
+  if (!store.general.sessionExpired() || sessionCheckInFlight || userId == null) {
+    return;
+  }
+  sessionCheckInFlight = true;
+  try {
+    const r = await post(null, "/account/validate-session", {});
+    if (r?.success === true && r.userId === userId) {
+      store.general.setSessionExpired(false);
+      void store.textEdit.flush();
+    }
+  } catch (_e) {
+    // Try again on the next check.
   } finally {
     sessionCheckInFlight = false;
   }
@@ -1816,6 +1843,7 @@ export function startContainerSyncLoop(store: StoreContextModel): void {
 
   containerSyncVisibilityHandler = () => {
     if (!document.hidden) {
+      void recheckExpiredSession(store);
       requestContainerSyncSoon(store);
     }
   };

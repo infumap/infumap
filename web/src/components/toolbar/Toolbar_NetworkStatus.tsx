@@ -22,6 +22,9 @@ import { Component, For, Show, createSignal, onCleanup } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
 import { NETWORK_STATUS_IN_PROGRESS, NetworkFailureReason } from "../../store/StoreProvider_General";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
+import { commitActiveTextEdit } from "../../input/edit";
+import { recheckExpiredSession } from "../../server";
+import { logout } from "../Main";
 
 
 export const Toolbar_NetworkStatus: Component = () => {
@@ -115,6 +118,26 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     return `${req.description}${suffix}`;
   };
 
+  const [copied, setCopied] = createSignal(false);
+  const handleCopyUnsavedText = async () => {
+    try {
+      await navigator.clipboard.writeText(store.textEdit.unsavedText());
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error("Could not copy unsaved text:", e);
+    }
+  };
+
+  const handleDiscardAndLogout = () => {
+    const count = store.textEdit.unsavedCount();
+    if (!window.confirm(`Discard unsaved text in ${count == 1 ? "1 item" : `${count} items`} and log out?`)) { return; }
+    // End the edit first, so the logout doesn't capture the editor's text again.
+    commitActiveTextEdit(store);
+    store.textEdit.clear();
+    void logout!();
+  };
+
   const handleClose = () => {
     store.overlay.networkOverlayVisible.set(false);
   };
@@ -134,10 +157,27 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
         <Show when={store.textEdit.unsavedCount() > 0}>
           <div class="mb-3 text-sm px-2 py-2 bg-yellow-50 rounded">
             <div>{store.textEdit.unsavedCount()} item(s) with unsaved text changes</div>
-            <Show when={store.textEdit.failedSaveCount() > 0}>
-              <div class="text-xs text-red-700 mt-1">{failedSaveText()}</div>
-              <button onClick={() => { void store.textEdit.flush(); }}
-                class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer mt-1">Retry now</button>
+            <Show when={store.general.sessionExpired()} fallback={
+              <Show when={store.textEdit.failedSaveCount() > 0}>
+                <div class="text-xs text-red-700 mt-1">{failedSaveText()}</div>
+                <button onClick={() => { void store.textEdit.flush(); }}
+                  class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer mt-1">Retry now</button>
+              </Show>
+            }>
+              <div class="text-xs text-red-700 mt-1">
+                Your session has ended, so this can't be saved. Log in again in another tab, then come back to this
+                one to save it.
+              </div>
+              <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                <button onClick={() => { window.open("/login", "_blank"); }}
+                  class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Open login in new tab</button>
+                <button onClick={() => { void recheckExpiredSession(store); }}
+                  class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Retry now</button>
+                <button onClick={handleCopyUnsavedText}
+                  class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">{copied() ? "Copied" : "Copy unsaved text"}</button>
+                <button onClick={handleDiscardAndLogout}
+                  class="text-xs text-red-700 hover:text-red-900 cursor-pointer">Discard and log out</button>
+              </div>
             </Show>
           </div>
         </Show>

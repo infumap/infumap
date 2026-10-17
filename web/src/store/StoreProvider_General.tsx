@@ -126,6 +126,9 @@ export interface GeneralStoreContextModel {
   /** False after a request to the local server could not reach it, until one does. */
   serverReachable: Accessor<boolean>,
   setServerReachable: (reachable: boolean) => void,
+  /** The session ended, but unsaved text kept the user from being logged out. */
+  sessionExpired: Accessor<boolean>,
+  setSessionExpired: (expired: boolean) => void,
   clearNetworkHistory: () => void,
 
   /** Background container sync is not listed as requests; these summarize it instead. */
@@ -157,6 +160,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
   const [queuedNetworkRequests, setQueuedNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [networkProblems, setNetworkProblems] = createSignal<NetworkProblem[]>([]);
   const [serverReachable, setServerReachable] = createSignal<boolean>(true);
+  const [sessionExpired, setSessionExpired] = createSignal<boolean>(false);
   const [lastSyncOkMs, setLastSyncOkMs] = createSignal<number | null>(null);
   const [consecutiveSyncFailures, setConsecutiveSyncFailures] = createSignal<number>(0);
   const [syncPausedReason, setSyncPausedReason] = createSignal<SyncPausedReason | null>(null);
@@ -235,6 +239,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     setQueuedNetworkRequests([]);
     setNetworkProblems([]);
     setServerReachable(true);
+    setSessionExpired(false);
     setLastSyncOkMs(null);
     setConsecutiveSyncFailures(0);
     setSyncPausedReason(null);
@@ -321,7 +326,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     recentNetworkRequests, addRecentNetworkRequest,
     queuedNetworkRequests, setQueuedNetworkRequests,
     networkProblems, recordNetworkProblem, resolveNetworkProblems, dismissNetworkProblem, dismissAllNetworkProblems,
-    serverReachable, setServerReachable,
+    serverReachable, setServerReachable, sessionExpired, setSessionExpired,
     clearNetworkHistory,
     lastSyncOkMs, consecutiveSyncFailures, recordSyncResult, syncPausedReason, setSyncPausedReason,
   };

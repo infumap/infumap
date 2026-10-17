@@ -97,6 +97,8 @@ export interface TextEditStore {
   unsavedCount: Accessor<number>,
   failedSaveCount: Accessor<number>,
   failedSaves: Accessor<FailedTextSave[]>,
+  /** The text of every unsaved field, so it can be copied when it can't be saved. */
+  unsavedText: () => string,
   clear: () => void,
 }
 
@@ -174,7 +176,34 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     const delayMs = Math.min(RETRY_FIRST_DELAY_MS * 2 ** save.retryAttempt, RETRY_MAX_DELAY_MS);
     ++save.retryAttempt;
     save.retryAtMs = Date.now() + delayMs;
-    save.timer = setTimeout(() => { void savePending(id); }, delayMs);
+    save.timer = setTimeout(() => {
+      // Saving can't succeed until the user logs in again, and recheckExpiredSession saves then.
+      if (getStore().general.sessionExpired()) {
+        cancelTimer(save);
+        updateStatus();
+        return;
+      }
+      void savePending(id);
+    }, delayMs);
+  };
+
+  const unsavedText = (): string => {
+    const parts: string[] = [];
+    for (const [id, save] of pending) {
+      const item = itemState.get(id) ?? save.item;
+      for (const field of save.fields) {
+        if (field == "title") {
+          parts.push(asTitledItem(item).title);
+        } else if (field == "text") {
+          parts.push(asPasswordItem(item).text);
+        } else if (field.startsWith("column:")) {
+          const colNum = Number(field.substring("column:".length));
+          const columns = item.itemType == ItemType.Page ? asPageItem(item).tableColumns : asTableItem(item).tableColumns;
+          parts.push(columns[colNum]?.name ?? "");
+        }
+      }
+    }
+    return parts.filter(part => part != "").join("\n\n");
   };
 
   const savePending = (id: string): Promise<void> => {
@@ -443,6 +472,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     unsavedCount,
     failedSaveCount,
     failedSaves,
+    unsavedText,
     clear: () => {
       active = null;
       historyBefore = undefined;
