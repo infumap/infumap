@@ -28,6 +28,7 @@ pub use crate::providers::SearchResult;
 use crate::providers::diffbot::Diffbot;
 use crate::providers::duckduckgo::DuckDuckGo;
 use crate::providers::exa::Exa;
+use crate::providers::firecrawl::Firecrawl;
 use crate::providers::tavily::Tavily;
 use crate::providers::{SearchProvider, SearchRequest};
 use crate::router::{Backend, ProviderStatus, SearchRouter};
@@ -42,12 +43,13 @@ static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
   let config = config::search_config().map_err(|message| format!("Invalid web-search configuration: {message}"))?;
   // One store owns the directory lock; metered providers share it while keeping
   // independent provider/account entries in the existing ledger.
-  let store = if config.exa.is_some() || config.tavily.is_some() || config.diffbot.is_some() {
-    let directory = config.state_dir.as_ref().ok_or("Budget state directory is not configured.")?;
-    Some(BudgetStore::open(directory).map_err(|error| format!("Could not initialize search budgets: {error}"))?)
-  } else {
-    None
-  };
+  let store =
+    if config.exa.is_some() || config.tavily.is_some() || config.diffbot.is_some() || config.firecrawl.is_some() {
+      let directory = config.state_dir.as_ref().ok_or("Budget state directory is not configured.")?;
+      Some(BudgetStore::open(directory).map_err(|error| format!("Could not initialize search budgets: {error}"))?)
+    } else {
+      None
+    };
   let mut providers = Vec::new();
   if let Some(requests_per_minute) = NonZeroU32::new(config.duckduckgo_requests_per_minute) {
     providers.push(Backend::Unmetered { provider: Box::new(DuckDuckGo), requests_per_minute });
@@ -68,6 +70,12 @@ static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
     let provider = Diffbot::new(&diffbot.api_key, config.diffbot_requests_per_minute)
       .and_then(|adapter| budgeted_provider(adapter, diffbot, store.as_ref()))
       .map_err(|error| format!("Could not initialize Diffbot: {error}"))?;
+    providers.push(Backend::Metered(provider));
+  }
+  if let Some(firecrawl) = &config.firecrawl {
+    let provider = Firecrawl::new(&firecrawl.api_key, config.firecrawl_requests_per_minute)
+      .and_then(|adapter| budgeted_provider(adapter, firecrawl, store.as_ref()))
+      .map_err(|error| format!("Could not initialize Firecrawl: {error}"))?;
     providers.push(Backend::Metered(provider));
   }
   Ok(SearchRouter::new(providers))
@@ -106,6 +114,9 @@ pub async fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
   }
   if config.diffbot.is_none() {
     providers.push(ProviderStatus::unconfigured("diffbot", "DIFFBOT_API_KEY is not configured."));
+  }
+  if config.firecrawl.is_none() {
+    providers.push(ProviderStatus::unconfigured("firecrawl", "FIRECRAWL_API_KEY is not configured."));
   }
   if config.duckduckgo_requests_per_minute == 0 {
     providers.push(ProviderStatus::unconfigured(

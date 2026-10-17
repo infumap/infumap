@@ -17,6 +17,7 @@
 pub mod diffbot;
 pub mod duckduckgo;
 pub mod exa;
+pub mod firecrawl;
 pub mod tavily;
 
 use std::error::Error;

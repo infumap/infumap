@@ -94,7 +94,15 @@ async fn run_server() {
   if config.diffbot.is_some() {
     info!("Diffbot pacing: {} requests per minute, at most one request in flight", config.diffbot_requests_per_minute);
   }
-  for (name, settings) in [("Exa", &config.exa), ("Tavily", &config.tavily), ("Diffbot", &config.diffbot)] {
+  if config.firecrawl.is_some() {
+    info!(
+      "Firecrawl pacing: {} requests per minute, at most one request in flight",
+      config.firecrawl_requests_per_minute
+    );
+  }
+  for (name, settings) in
+    [("Exa", &config.exa), ("Tavily", &config.tavily), ("Diffbot", &config.diffbot), ("Firecrawl", &config.firecrawl)]
+  {
     let Some(settings) = settings else { continue };
     info!(
       "{name} monthly configuration: {} US cents free, reset day {} at 00:00 UTC",

@@ -1,7 +1,7 @@
 # Web search MCP server
 
 Streamable HTTP MCP server exposing Infumap's web-search and page-fetch tools.
-Bind is `127.0.0.1` by default. Exa, Tavily and Diffbot use configured free monthly
+Bind is `127.0.0.1` by default. Exa, Tavily, Diffbot and Firecrawl use configured free monthly
 allowances. DuckDuckGo needs no API key and is disabled until a positive request
 rate is configured. Search uses paced routing and bounded fallback.
 
@@ -208,6 +208,7 @@ Unset or whitespace-only values use the defaults below.
 | `EXA_API_KEY` | Unset | A nonempty API key configures Exa. No separate enable flag is needed. |
 | `TAVILY_API_KEY` | Unset | A nonempty API key configures Tavily. No separate enable flag is needed. |
 | `DIFFBOT_API_KEY` | Unset | A nonempty Diffbot token configures Diffbot Web Search. No separate enable flag is needed. |
+| `FIRECRAWL_API_KEY` | Unset | A nonempty API key configures Firecrawl Search. No separate enable flag is needed. |
 | `WEB_SEARCH_STATE_DIR` | See below | Absolute directory for persistent budget state. |
 | `WEB_SEARCH_EXA_MONTHLY_FREE_CREDITS_CENTS` | `0` | Monthly free allowance in integer US cents, not request counts. Zero means no assumed free capacity. |
 | `WEB_SEARCH_EXA_MONTHLY_RESET_DAY` | `1` | Day of month, from 1 through 31, when the configured budget resets at 00:00 UTC. Days beyond the end of a month mean that month's last day. |
@@ -216,6 +217,9 @@ Unset or whitespace-only values use the defaults below.
 | `WEB_SEARCH_DIFFBOT_MONTHLY_FREE_CREDITS_CENTS` | `0` | Free allowance normalized at $0.001 per search/credit: 10,000 searches = 1,000 cents. This is the ledger conversion rate, not the account's actual bill. No free capacity is assumed. |
 | `WEB_SEARCH_DIFFBOT_MONTHLY_RESET_DAY` | `1` | Monthly reset at 00:00 UTC, day 1–31; days beyond month-end use its last day. |
 | `WEB_SEARCH_DIFFBOT_REQUESTS_PER_MINUTE` | `5` | Positive integer local attempt rate, with at most one Diffbot request in flight. Match the token's actual limit; unset the key to disable Diffbot. |
+| `WEB_SEARCH_FIRECRAWL_MONTHLY_FREE_CREDITS_CENTS` | `0` | Free allowance normalized at $0.005 per Firecrawl credit: 1,000 credits = 500 accounting cents. Search costs two credits per ten requested results, rounded up. No free capacity is assumed. |
+| `WEB_SEARCH_FIRECRAWL_MONTHLY_RESET_DAY` | `1` | Monthly reset at 00:00 UTC, day 1–31; days beyond month-end use its last day. Match the account's renewal day. |
+| `WEB_SEARCH_FIRECRAWL_REQUESTS_PER_MINUTE` | `10` | Positive integer local attempt rate, with at most one Firecrawl request in flight. Match the account's actual limit; unset the key to disable Firecrawl. |
 
 Set the allowance and reset day to match the user's actual account. Advertised
 free-tier amounts are deliberately not built into the configuration. One-time
@@ -229,7 +233,7 @@ reset. Provider accounts must enforce their own free-only limit; the adapter
 cannot identify paid credits in an accepted request.
 
 Provider configuration, persistent accounting, routing and the common provider
-interface with DuckDuckGo, Exa, Tavily and Diffbot adapters are implemented. Startup
+interface with DuckDuckGo, Exa, Tavily, Diffbot and Firecrawl adapters are implemented. Startup
 prepares configured clients and validates credential header syntax locally,
 without contacting providers. The metered adapters use persistent budget
 accounting that reserves capacity before any metered request can be dispatched.
@@ -263,10 +267,10 @@ turn DuckDuckGo off. To run without any search provider even if the shell has AP
 keys:
 
 ```bash
-env -u EXA_API_KEY -u TAVILY_API_KEY -u DIFFBOT_API_KEY WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE=0 ./tools/mcp/web-search/run.sh
+env -u EXA_API_KEY -u TAVILY_API_KEY -u DIFFBOT_API_KEY -u FIRECRAWL_API_KEY WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE=0 ./tools/mcp/web-search/run.sh
 ```
 
-`web_search` returns a short unavailability error. `/status` shows all four
+`web_search` returns a short unavailability error. `/status` shows all five
 providers disabled, `search_available: false`, and a configuration error. No
 metered budget directory is created. Other malformed settings still prevent
 startup, even when their provider is disabled.
@@ -293,7 +297,7 @@ provider will accept a request; the actual Exa balance remains unknown.
 A key without a configured free allowance cannot spend credits.
 To use DuckDuckGo alongside Exa, set
 `WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE` to a positive integer before launch.
-Ready DuckDuckGo slots are preferred; Exa, Tavily and Diffbot absorb bursts or serve calls
+Ready DuckDuckGo slots are preferred; metered providers absorb bursts or serve calls
 while DuckDuckGo is busy, locally paced, or cooling down. Configuration changes
 require a server restart.
 
@@ -417,6 +421,66 @@ platform-gated sites such as Reddit and most social media. Keep other providers
 configured for broader coverage. Live search quality and account behavior have
 not been validated here.
 
+### Firecrawl configured
+
+Export `FIRECRAWL_API_KEY` through your environment or secret manager. As checked
+October 17, 2026, Firecrawl's [billing documentation](https://docs.firecrawl.dev/billing)
+confirms **1,000 free credits per month with no credit card required**. The pool
+is shared with other Firecrawl endpoints. Search costs **two credits per ten
+results, rounded up**: requests for 1–10 results reserve two credits, 11–20
+reserve four, and 21–30 reserve six. Thus 1,000 credits cover up to 500 searches
+requesting ten or fewer results, before other usage or uncertain failures.
+
+Following the other credit-based adapters, the shared ledger uses a fixed
+conversion of **$0.005 per credit (5,000 USD micros, or 0.5 cents)**, based on
+Firecrawl's published Hobby top-up rate of $5 per 1,000 credits. This is an
+accounting conversion, not the account's actual bill. For a confirmed monthly
+allowance of 1,000 credits dedicated to this process:
+
+```bash
+# Export FIRECRAWL_API_KEY separately through your environment/secret manager.
+export WEB_SEARCH_FIRECRAWL_MONTHLY_FREE_CREDITS_CENTS=500
+export WEB_SEARCH_FIRECRAWL_MONTHLY_RESET_DAY=1
+export WEB_SEARCH_FIRECRAWL_REQUESTS_PER_MINUTE=10
+./tools/mcp/web-search/run.sh
+```
+
+Set the reset day to the account's actual monthly renewal day; `1` is an example.
+Allowance defaults to zero, so a key alone cannot dispatch searches. Preserve
+the existing state directory across restarts and key rotation. Firecrawl has a
+separate balance in the existing ledger format. Valid integer `creditsUsed`
+from a successful search response settles the reservation at the same
+conversion rate, including zero. Missing, invalid or overflowing usage metadata
+retains the reserved estimate. Empty results and uncertain failures after
+dispatch also use that estimate unless a successful response reports usage.
+Account balance polling is not implemented; `usage.state` is `unsupported`
+after refresh and background polling makes no Firecrawl API calls. Consumption
+by other applications or other Firecrawl endpoints is not automatically known.
+
+The adapter uses authenticated
+[`POST https://api.firecrawl.dev/v2/search`](https://docs.firecrawl.dev/api-reference/endpoint/search)
+with `sources: ["web"]`. It omits `scrapeOptions`, disables generated highlights
+and domain tool discovery, and sends no enterprise options. This requests
+ordinary titles, URLs and descriptions without per-page scraping charges.
+Descriptions become snippets capped at 1,000 characters; HTTP(S) URLs are
+deduplicated and missing titles fall back to the URL. Malformed responses,
+missing web results and `success: false` are errors, not empty successes.
+Responses are bounded to 2 MiB. The API supports up to 100 results; the tool's
+existing 30-result cap still applies. Queries over 500 UTF-16 code units are
+rejected locally without dispatch or query truncation. No automatic retries,
+pagination, keyless requests or extra sources are used.
+
+The default pacing matches the documented
+[free-plan search limit](https://docs.firecrawl.dev/rate-limits): ten attempts per
+minute, with one request in flight and no burst accumulation. Pacing is
+process-local and resets on restart; unavailable slots allow immediate fallback.
+HTTP 401 disables the provider until restart, HTTP 402 persists quota exhaustion
+until the configured monthly reset, and HTTP 429 uses `Retry-After` or a
+60-second cooldown. Requests have a 20-second timeout inside the existing
+30-second overall search deadline. Credentials are marked sensitive, redirects
+are disabled, and errors omit provider bodies and keys. Live credentials,
+billing and search behavior have not been validated here.
+
 ### Exhausted credits and invalid credentials
 
 Inspect `/status` and server diagnostics to distinguish local budget limits from
@@ -434,7 +498,7 @@ a request for more results may need a larger budget.
 | Ledger is unreadable, invalid or already locked by another process | Initialization fails. Repair the storage or stop the other ledger owner, then restart while preserving accounting history. |
 | A ledger write fails during operation | Further metered dispatch is blocked. Status shows the persistence error; repair storage and restart. DuckDuckGo can still serve when its pacing and health allow. |
 
-There is no command to refresh an Exa, Tavily or Diffbot balance or clear a remote exhaustion cap
+There is no command to refresh a metered provider's balance or clear a remote exhaustion cap
 after topping up credits mid-period. This implementation continues honoring the
 cap until its configured reset. DuckDuckGo can serve as fallback in the meantime
 when enabled and locally eligible. Changing the reset day of an existing account is rejected.
@@ -452,15 +516,15 @@ internal.
 ### Provider selection and fallback
 
 Only configured providers participate. DuckDuckGo has short-lived paced capacity;
-Exa, Tavily and Diffbot have monthly free allowances. These capacities are deliberately
+Exa, Tavily, Diffbot and Firecrawl have monthly free allowances. These capacities are deliberately
 not compared as percentages of the same budget.
 
 Routing prefers a healthy, ready DuckDuckGo slot because that opportunity cannot
 be banked for a later burst. DuckDuckGo is skipped while its minimum interval is
-running or another DuckDuckGo request is in flight. Exa, Tavily and Diffbot absorb that
+running or another DuckDuckGo request is in flight. Metered providers absorb that
 traffic, choosing the highest remaining free allowance percentage; equal
-percentages use registration order: Exa, Tavily, then Diffbot. Diffbot is also
-skipped while paced or already in flight. Monthly providers are excluded when the entire
+percentages use registration order: Exa, Tavily, Diffbot, then Firecrawl. Diffbot
+and Firecrawl are also skipped while paced or already in flight. Monthly providers are excluded when the entire
 estimated request cost does not fit. Paid capacity is never eligible.
 
 For example, with a DuckDuckGo rate of six per minute, an isolated search uses
@@ -513,7 +577,7 @@ Providers without a known quota reset are disabled until restart after replenish
 DuckDuckGo provider failures (blocking, rate limiting, transient failures,
 unexpected responses and cancellation) impose at least a one-hour cooldown.
 A longer delta-seconds `Retry-After` extends it; a shorter one does not reduce it.
-Exa, Tavily and Diffbot rate limits use `Retry-After`, or 60 seconds when absent. Their
+Metered provider rate limits use `Retry-After`, or 60 seconds when absent. Their
 blocking defaults to 15 minutes. Transient failures back off from 2 seconds to
 5 minutes; unexpected responses use at least 15 seconds. A supplied `Retry-After`
 overrides those defaults, with a minimum of one second.
@@ -538,7 +602,7 @@ Inspect the running server without spending search credits:
 curl http://127.0.0.1:8791/status
 ```
 
-`GET /status` returns JSON showing all four supported providers, whether each is
+`GET /status` returns JSON showing all five supported providers, whether each is
 enabled, reasons it is unavailable, local budget balances, monthly boundaries,
 cooldowns, suspensions, requests in flight and usage-reporting state. Availability
 and `funding` are evaluated for a reference search requesting five results;
@@ -554,7 +618,7 @@ and outstanding reservations. `period_start`, `period_end`, `quota_resets_at`,
 `generated_at` and usage observation/reset times are Unix seconds in UTC.
 `cooldown_remaining_ms` is the remaining delay in milliseconds.
 
-DuckDuckGo's and Diffbot's `rate_limit` reports `requests_per_minute` and
+For DuckDuckGo, Diffbot and Firecrawl, `rate_limit` reports `requests_per_minute` and
 `next_request_in_ms`, the remaining minimum-interval delay rounded up to whole
 milliseconds. A zero delay does not override a request already in flight or a
 health cooldown; inspect `available` and `unavailable_reasons` too. Exa and
@@ -563,7 +627,7 @@ Tavily have `rate_limit: null`. Status reads never reserve a pacing slot.
 `usage.state` is `not_checked`, `unsupported`, `reported` or `error`.
 `usage.last_report`, when present, is the last provider observation, timestamped
 separately from the latest refresh attempt; it can be stale after a failure or
-monthly reset. Exa, Tavily, Diffbot and DuckDuckGo currently report `unsupported`, so
+monthly reset. All current adapters report `unsupported`, so
 their actual remaining account capacity is unknown. Local estimates are not reported balances.
 `budget.adjusted_remaining_cap_usd_micros` is a conservative cap reduced by local
 charges (or set to zero on remote exhaustion), before outstanding reservations
@@ -680,7 +744,7 @@ Optional provider usage reporting is polled every five minutes with a 20-second
 timeout. Supported reports can lower available capacity within the matching
 period; they never replenish uncertain charges or enlarge configured allowances.
 Pending requests remain reserved independently. Missing reporting leaves local
-estimates in place. Exa, Tavily and Diffbot currently return `None`, so their polls perform
+estimates in place. All current adapters return `None`, so their polls perform
 no HTTP requests and cannot discover actual account balances. Price changes, provider
 billing timing and usage outside this ledger can make local estimates differ
 from actual provider usage.

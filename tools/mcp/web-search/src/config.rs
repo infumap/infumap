@@ -28,6 +28,8 @@ pub struct SearchConfig {
   pub tavily: Option<MeteredConfig>,
   pub diffbot: Option<MeteredConfig>,
   pub diffbot_requests_per_minute: NonZeroU32,
+  pub firecrawl: Option<MeteredConfig>,
+  pub firecrawl_requests_per_minute: NonZeroU32,
   pub state_dir: Option<PathBuf>,
 }
 
@@ -60,6 +62,9 @@ impl SearchConfig {
     if self.diffbot.is_some() {
       providers.push("diffbot");
     }
+    if self.firecrawl.is_some() {
+      providers.push("firecrawl");
+    }
     providers
   }
 
@@ -74,6 +79,11 @@ impl SearchConfig {
       .ok()
       .and_then(NonZeroU32::new)
       .ok_or("WEB_SEARCH_DIFFBOT_REQUESTS_PER_MINUTE must be between 1 and 4294967295.")?;
+    let firecrawl = MeteredConfig::from_env("FIRECRAWL", "FIRECRAWL_API_KEY", "Firecrawl")?;
+    let firecrawl_requests_per_minute = u32::try_from(unsigned_env("WEB_SEARCH_FIRECRAWL_REQUESTS_PER_MINUTE", 10)?)
+      .ok()
+      .and_then(NonZeroU32::new)
+      .ok_or("WEB_SEARCH_FIRECRAWL_REQUESTS_PER_MINUTE must be between 1 and 4294967295.")?;
     let state_dir = if let Some(path) = optional_env("WEB_SEARCH_STATE_DIR")? {
       Some(PathBuf::from(path))
     } else if let Some(path) = optional_env("XDG_STATE_HOME")? {
@@ -94,8 +104,20 @@ impl SearchConfig {
       if diffbot.is_some() {
         return Err("Diffbot budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
       }
+      if firecrawl.is_some() {
+        return Err("Firecrawl budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
+      }
     }
-    Ok(Self { duckduckgo_requests_per_minute, exa, tavily, diffbot, diffbot_requests_per_minute, state_dir })
+    Ok(Self {
+      duckduckgo_requests_per_minute,
+      exa,
+      tavily,
+      diffbot,
+      diffbot_requests_per_minute,
+      firecrawl,
+      firecrawl_requests_per_minute,
+      state_dir,
+    })
   }
 }
 
