@@ -318,9 +318,14 @@ function focusNewItemTitleForEditing(el: HTMLElement): void {
   setCaretPosition(el, 0);
 }
 
-function scrollTableToIncludeRow(store: StoreContextModel, tableVe: VisualElement, rowNumber: number): void {
+/**
+ * Scroll so the row of a new item is visible. This is not necessarily the row it was inserted at: in a container
+ * ordered by title, its empty title puts it first (or last).
+ */
+function scrollTableToIncludeNewItemRow(store: StoreContextModel, tableVe: VisualElement, newItem: Item, insertRow: number): void {
+  const rowIdx = TableFns.tableVisibleRows(store, tableVe).findIndex(row => row.item.id == newItem.id);
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
-  const nextScrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, rowNumber);
+  const nextScrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, rowIdx >= 0 ? rowIdx : insertRow);
   if (nextScrollYPos != scrollYPos) {
     store.perItem.setTableScrollYPos(VeFns.veidFromVe(tableVe), nextScrollYPos);
   }
@@ -557,7 +562,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           RelationshipToParent.Child);
         addNewItemForCreation(store, newItem);
         store.overlay.contextMenuInfo.set(null);
-        scrollTableToIncludeRow(store, overElementVe, insertRow);
+        scrollTableToIncludeNewItemRow(store, overElementVe, newItem, insertRow);
         arrangeNow(store, "create-in-table-end");
         newItemPath = VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null}, VeFns.veToPath(overElementVe));
 

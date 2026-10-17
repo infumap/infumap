@@ -102,6 +102,21 @@ function tableRowAtOffsetBl(store: StoreContextModel, tableVe: VisualElement, of
     : tabularRowIndexAtOffsetBl(rows, offsetBl);
 }
 
+/**
+ * The height of the scrolled body of a table in blocks, which can be fractional, and the furthest it can be scrolled:
+ * to where the browser stops, with the last row at the bottom.
+ */
+function tableScrollViewportBl(store: StoreContextModel, tableVe: VisualElement): { rows: Array<TableVisibleRowInfo>, heightBl: number, maxScrollYPos: number } | null {
+  const block = tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx;
+  if (!block || block.h <= 0) { return null; }
+  const viewportPx = tableVe.tableBodyViewportBoundsPx ?? tableVe.viewportBoundsPx;
+  const heightBl = Math.max(1, viewportPx != null
+    ? viewportPx.h / block.h
+    : tableVe.boundsPx.h / block.h - tableHeaderHeightBl(asTableItem(tableVe.displayItem)));
+  const rows = tableVisibleRows(store, tableVe);
+  return { rows, heightBl, maxScrollYPos: Math.max(0, tabularRowsHeightBl(rows) - heightBl) };
+}
+
 function tabularViewItem(ve: VisualElement): TabularContainerItem {
   if (isTable(ve.displayItem)) { return asTableItem(ve.displayItem); }
   if (isTableView(ve) && isPage(ve.displayItem)) { return asPageItem(ve.displayItem); }
@@ -579,14 +594,11 @@ export const TableFns = {
    */
   scrollYPosToIncludeRow: (store: StoreContextModel, tableVe: VisualElement, rowIdx: number): number => {
     const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
-    const block = tableVe.tableRowBlockSizePx ?? tableVe.blockSizePx;
-    if (!block || block.h <= 0) { return scrollYPos; }
-    const visibleHeightBl = tableVe.tableBodyViewportBoundsPx != null
-      ? Math.max(1, Math.floor(tableVe.tableBodyViewportBoundsPx.h / block.h))
-      : Math.max(1, Math.floor(tableVe.boundsPx.h / block.h - tableHeaderHeightBl(asTableItem(tableVe.displayItem))));
+    const viewport = tableScrollViewportBl(store, tableVe);
+    if (viewport == null) { return scrollYPos; }
+    const visibleHeightBl = Math.max(1, Math.floor(viewport.heightBl));
     const firstVisibleBl = Math.floor(scrollYPos);
-    const rows = tableVisibleRows(store, tableVe);
-    const target = tabularRowSpanBl(rows, rowIdx);
+    const target = tabularRowSpanBl(viewport.rows, rowIdx);
 
     let nextScrollYPos = scrollYPos;
     if (target.offsetBl < firstVisibleBl) {
@@ -594,8 +606,26 @@ export const TableFns = {
     } else if (target.offsetBl + target.heightBl > firstVisibleBl + visibleHeightBl) {
       nextScrollYPos = target.offsetBl + target.heightBl - visibleHeightBl;
     }
-    const maxScrollYPos = Math.max(0, tabularRowsHeightBl(rows) - visibleHeightBl);
-    return Math.max(0, Math.min(nextScrollYPos, maxScrollYPos));
+    return Math.max(0, Math.min(nextScrollYPos, viewport.maxScrollYPos));
+  },
+
+  /**
+   * The scroll position (in blocks) to show row rowIdx after a jump to it from elsewhere: the current one if the row is
+   * fully visible, otherwise one with the row in the middle, so the rows around it are visible too. Whole blocks, as
+   * after a user scroll, except at the bottom.
+   */
+  scrollYPosToRevealRow: (store: StoreContextModel, tableVe: VisualElement, rowIdx: number): number => {
+    const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
+    const viewport = tableScrollViewportBl(store, tableVe);
+    if (viewport == null) { return scrollYPos; }
+    const target = tabularRowSpanBl(viewport.rows, rowIdx);
+    if (target.offsetBl >= scrollYPos && target.offsetBl + target.heightBl <= scrollYPos + viewport.heightBl) {
+      return scrollYPos;
+    }
+    const centeredScrollYPos = target.heightBl >= viewport.heightBl
+      ? target.offsetBl
+      : Math.round(target.offsetBl - (viewport.heightBl - target.heightBl) / 2);
+    return Math.max(0, Math.min(centeredScrollYPos, viewport.maxScrollYPos));
   },
 
   tableVisibleRows: (store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> => {

@@ -28,8 +28,10 @@ import { assert, panic } from "../util/lang";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid, isUid } from "../util/uid";
 import { arrangeNow } from "./arrange";
 import { groupPageIdMaybe, initiateLoadChildItemsMaybe, initiateLoadItemMaybe, InitiateLoadResult } from "./load";
-import { isEmptyVeid, VeFns, Veid, VisualElementPath } from "./visual-element";
+import { isEmptyVeid, isTableView, VeFns, Veid, VisualElementPath } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
+import { VesCache } from "./ves-cache";
+import { TableFns } from "../items/table-item";
 
 
 export function switchToNonPage(store: StoreContextModel, url: string) {
@@ -183,6 +185,7 @@ async function navigateToContainingPageOfItemWithOptions(
         }
       }
       switchToPage(store, pageVeid, true, false, false, focusPath);
+      await revealItemInTables(store, pageVeid, bottomUpItemChain);
       return true;
     }
 
@@ -195,6 +198,39 @@ async function navigateToContainingPageOfItemWithOptions(
     return fallbackToItem(store, targetItem);
   }
   panic(`navigateToContainingPageOfItem: could not find page after ${MAX_LEVELS} levels.`);
+}
+
+/**
+ * Scroll each table between a page and an item (the page itself, if it is arranged as a table) so the item's row, or
+ * that of the container it is in, is visible. A table may need to load its children first.
+ */
+async function revealItemInTables(store: StoreContextModel, pageVeid: Veid, bottomUpItemChain: Array<Veid>): Promise<void> {
+  const topDownItemChain = [...bottomUpItemChain].reverse();
+  let containerPath = VeFns.addVeidToPath(pageVeid, UMBRELLA_PAGE_UID);
+  for (let i = 0; i < topDownItemChain.length; ++i) {
+    const containerVe = VesCache.current.readNode(containerPath);
+    if (containerVe != null && isTableView(containerVe)) {
+      await initiateLoadChildItemsMaybe(store, VeFns.veidFromVe(containerVe));
+      const currentPageVeid = store.history.currentPageVeid();
+      if (currentPageVeid == null || VeFns.compareVeids(currentPageVeid, pageVeid) != 0) { return; }
+      const tableVe = VesCache.current.readNode(containerPath);
+      if (tableVe == null || !isTableView(tableVe)) { return; }
+      const rows = TableFns.tableVisibleRows(store, tableVe);
+      let rowIdx = -1;
+      for (let j = topDownItemChain.length - 1; j >= i && rowIdx < 0; --j) {
+        rowIdx = rows.findIndex(row => row.item.id == topDownItemChain[j].itemId);
+      }
+      if (rowIdx >= 0) {
+        const tableVeid = VeFns.veidFromVe(tableVe);
+        const scrollYPos = TableFns.scrollYPosToRevealRow(store, tableVe, rowIdx);
+        if (scrollYPos != store.perItem.getTableScrollYPos(tableVeid)) {
+          store.perItem.setTableScrollYPos(tableVeid, scrollYPos);
+          arrangeNow(store, "navigate-reveal-table-row");
+        }
+      }
+    }
+    containerPath = VeFns.addVeidToPath(topDownItemChain[i], containerPath);
+  }
 }
 
 export async function navigateToContainingPageOfItem(store: StoreContextModel, itemId: Uid): Promise<boolean> {
