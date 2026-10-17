@@ -40,13 +40,14 @@ export function formatAgo(ms: number, nowMs: number): string {
   return `${Math.round(minutes / 60)} h ago`;
 }
 
-export function failReasonText(reason: NetworkFailureReason | null): string {
+/** serverName names a remote host; the local server is "the server". */
+export function failReasonText(reason: NetworkFailureReason | null, serverName: string = "the server"): string {
   switch (reason) {
-    case "unreachable": return "the server can't be reached";
+    case "unreachable": return `${serverName} can't be reached`;
     case "auth": return "your session has ended";
-    case "not-found": return "the item no longer exists on the server";
-    case "client": return "the server rejected the change";
-    case "server": return "the server had an error";
+    case "not-found": return `the item no longer exists on ${serverName}`;
+    case "client": return `${serverName} rejected the change`;
+    case "server": return `${serverName} had an error`;
     default: return "an unknown error";
   }
 }
@@ -84,10 +85,12 @@ export function networkStatusSummary(store: StoreContextModel, nowMs: number): N
     };
   }
   if (writeProblems.length > 0) {
+    // A failed change is undone by re-fetching the item, which happens only for the local server.
+    const undone = writeProblems.every(p => p.host == null);
     return {
       level: "danger",
-      sentence: `${plural(writeProblems.length, "change")} could not be saved, and ` +
-        `${writeProblems.length == 1 ? "was" : "were"} undone.`,
+      sentence: `${plural(writeProblems.length, "change")} could not be saved` +
+        (undone ? `, and ${writeProblems.length == 1 ? "was" : "were"} undone.` : "."),
     };
   }
 

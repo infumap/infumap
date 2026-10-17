@@ -1296,6 +1296,9 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
         .catch((error) => {
           command.reject(error);
           trackNetworkCommandError(command, error);
+          if (isMutationCommand(command.command)) {
+            handleFailedRemoteMutation(command, error);
+          }
         })
         .finally(finalizeCommand);
 
@@ -1471,10 +1474,7 @@ function handleFailedMutation(command: ServerCommand, error: unknown): void {
     return;
   }
 
-  // A failing text save is retried on a timer, and the network status shows it, so only its first failure is shown.
-  const textSaveRetry = command.command == COMMAND_UPDATE_ITEM && typeof payload.id == "string" &&
-    store.textEdit.failedSaves().some(save => save.itemId == payload.id);
-  if (!textSaveRetry) {
+  if (!isTextSaveRetry(store, command)) {
     showFailedMutationMessage(store, error);
   }
   if (error instanceof CommandFailedError) {
@@ -1483,16 +1483,44 @@ function handleFailedMutation(command: ServerCommand, error: unknown): void {
   requestContainerSyncSoon(store);
 }
 
-function showFailedMutationMessage(store: StoreContextModel, error: unknown): void {
+/**
+ * Remote containers are not synced, so unlike handleFailedMutation this can't reconcile the item: the local copy
+ * keeps the change until the remote item is loaded again.
+ */
+function handleFailedRemoteMutation(command: ServerCommand, error: unknown): void {
+  const store = activeContainerSyncStore;
+  if (store == null || isTextSaveRetry(store, command)) {
+    return;
+  }
+  showFailedMutationMessage(store, error, command.host);
+}
+
+/** A failing text save is retried on a timer, and the network status shows it, so only its first failure is shown. */
+function isTextSaveRetry(store: StoreContextModel, command: ServerCommand): boolean {
+  const payload = command.payload as { id?: unknown };
+  return command.command == COMMAND_UPDATE_ITEM && typeof payload.id == "string" &&
+    store.textEdit.failedSaves().some(save => save.itemId == payload.id);
+}
+
+function hostLabel(host: string): string {
+  try {
+    return new URL(host).host;
+  } catch (_e) {
+    return host;
+  }
+}
+
+function showFailedMutationMessage(store: StoreContextModel, error: unknown, host: string | null = null): void {
   // The open network status dialog shows the failure, and the message would cover its top.
   if (store.overlay.networkOverlayVisible.get()) {
     return;
   }
+  const where = host == null ? "the server" : hostLabel(host);
   const text = !(error instanceof CommandFailedError)
-    ? "Couldn't save change: the server could not be reached."
+    ? `Couldn't save change: ${where} could not be reached.`
     : error.failReason == "not-found"
       ? "Couldn't save change: the item no longer exists."
-      : "Couldn't save change.";
+      : host == null ? "Couldn't save change." : `Couldn't save change on ${where}.`;
   const message = { text, type: TransientMessageType.Error };
   store.overlay.toolbarTransientMessage.set(message);
   window.setTimeout(() => {

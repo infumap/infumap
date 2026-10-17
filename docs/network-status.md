@@ -1,6 +1,6 @@
 # Network status
 
-Status: planned 2026-10-17. Steps 1–6 done 2026-10-17.
+Status: planned 2026-10-17. Steps 1–7 done 2026-10-17.
 
 This plan covers the toolbar network indicator and the dialog it opens
 ([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). It follows a design review
@@ -320,6 +320,21 @@ Done (2026-10-17):
   the change may not have been saved on the remote host.
 - **Check:** with a remote container open, abort the remote host's `/command`, move an item, and check that a toast
   and a write problem appear.
+
+Done (2026-10-17):
+
+- Recording the write problem was already done in step 2, because `trackNetworkCommandError` runs for the remote
+  queue too. Added: `handleFailedRemoteMutation`, which shows the toast unless it is a text-save retry (the check is
+  shared with `handleFailedMutation` as `isTextSaveRetry`). The toast names the host: "Couldn't save change:
+  127.0.0.1:8024 could not be reached."
+- Dialog row for a remote write problem: "Failed because 127.0.0.1:8024 can't be reached, so it is not saved there.
+  Reload to see what it has." For the local server it still says "Reverted to the server version."
+  `failReasonText` takes an optional server name, which remote read problems use too.
+- Summary: "…, and was undone." only when every write problem is local; otherwise "1 change could not be saved."
+- **Checked:** a write sent through `serverOrRemote.updateItem` for a note whose origin is `http://127.0.0.1:8024`,
+  where nothing listens. This gave the toast, the danger level, and the row, which stayed after local sync
+  succeeded. This exercises the remote queue's failure path. It was not the planned gesture of moving an item in a
+  real remote container, which would need a second server and a remote login.
 
 ### 8. Cleanup and docs
 
