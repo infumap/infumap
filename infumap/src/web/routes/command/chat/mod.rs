@@ -293,6 +293,22 @@ enum ChatRunMode {
   DeepResearch,
 }
 
+/// Host-provided execution context, separate from model-supplied tool arguments.
+/// One instance spans this user turn, including both deep-research tool stages.
+struct ChatToolContext {
+  mode: ChatRunMode,
+  call_counts: Mutex<HashMap<(String, String), usize>>,
+}
+
+impl ChatToolContext {
+  fn next_call_metadata(&self, target: &mcp::MappedMcpToolTarget) -> Value {
+    let mut counts = self.call_counts.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let count = counts.entry((target.server_id.clone(), target.mcp_name.clone())).or_default();
+    *count += 1;
+    serde_json::json!({ "infumap.com/toolCall": { "number": *count, "mode": self.mode } })
+  }
+}
+
 #[derive(Deserialize)]
 struct ChatRequest {
   #[serde(rename = "requestId", default)]
@@ -2572,6 +2588,7 @@ async fn execute_chat_tool_call_with_progress(
   approval_required: &HashSet<String>,
   round: usize,
   tool_call: OpenAiToolCall,
+  tool_context: &ChatToolContext,
   progress: &ChatProgressReporter,
 ) -> InfuResult<OpenAiChatMessage> {
   let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
@@ -2601,7 +2618,12 @@ async fn execute_chat_tool_call_with_progress(
 
   progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
   let started_at = Instant::now();
-  let tool_result = execute_chat_tool_call(db, session, config, &tool_call, infumap_data, name_map).await?;
+  let tool_result = if let Some(target) = name_map.get(&tool_call.function.name) {
+    let metadata = tool_context.next_call_metadata(target);
+    mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments.clone(), Some(metadata)).await?
+  } else {
+    execute_chat_tool_call(db, session, config, &tool_call, infumap_data, name_map).await?
+  };
   let duration_ms = started_at.elapsed().as_millis() as u64;
   let (summary, result_preview) = chat_tool_finished_activity(&tool_call.function.name, &arguments, &tool_result);
   progress
@@ -2622,6 +2644,7 @@ async fn execute_chat_tool_round(
   approval_required: &HashSet<String>,
   round: usize,
   tool_calls: Vec<OpenAiToolCall>,
+  tool_context: &ChatToolContext,
   progress: &ChatProgressReporter,
 ) -> InfuResult<Vec<OpenAiChatMessage>> {
   let mut tool_messages = Vec::with_capacity(tool_calls.len());
@@ -2638,6 +2661,7 @@ async fn execute_chat_tool_round(
           approval_required,
           round,
           tool_call,
+          tool_context,
           progress,
         )
         .await?,
@@ -2660,6 +2684,7 @@ async fn execute_chat_tool_round(
         approval_required,
         round,
         tool_call,
+        tool_context,
         progress,
       )
     }))
@@ -2682,6 +2707,7 @@ async fn run_chat_stage_with_tools(
   llm_turn: &mut usize,
   tool_rounds: &mut usize,
   max_tool_rounds: usize,
+  tool_context: &ChatToolContext,
   progress: &ChatProgressReporter,
 ) -> InfuResult<()> {
   loop {
@@ -2707,6 +2733,7 @@ async fn run_chat_stage_with_tools(
       approval_required,
       completed_round.number,
       completed_round.tool_calls,
+      tool_context,
       progress,
     )
     .await?;
@@ -2799,6 +2826,7 @@ async fn run_chat_with_tools(
   let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
+  let tool_context = ChatToolContext { mode: request.settings.mode, call_counts: Mutex::new(HashMap::new()) };
 
   if request.settings.mode == ChatRunMode::Chat {
     run_chat_stage_with_tools(
@@ -2814,6 +2842,7 @@ async fn run_chat_with_tools(
       &mut llm_turn,
       &mut tool_rounds,
       CHAT_MAX_TOOL_ROUNDS,
+      &tool_context,
       progress,
     )
     .await?;
@@ -2834,6 +2863,7 @@ async fn run_chat_with_tools(
     &mut llm_turn,
     &mut tool_rounds,
     CHAT_DEEP_RESEARCH_MAX_TOOL_ROUNDS,
+    &tool_context,
     progress,
   )
   .await?;
@@ -2853,6 +2883,7 @@ async fn run_chat_with_tools(
     &mut llm_turn,
     &mut tool_rounds,
     CHAT_DEEP_RESEARCH_MAX_TOOL_ROUNDS,
+    &tool_context,
     progress,
   )
   .await?;
@@ -2898,7 +2929,7 @@ async fn execute_chat_tool_call(
 ) -> InfuResult<String> {
   if let Some(target) = name_map.get(&tool_call.function.name) {
     let arguments = tool_call_arguments_value(tool_call).unwrap_or_else(|_| serde_json::json!({}));
-    return mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments).await;
+    return mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments, None).await;
   }
   match tool_call.function.name.as_str() {
     name @ ("infumap_search" | "infumap_get_fragment") => {

@@ -252,6 +252,7 @@ pub async fn call_mapped_tool(
   server_id: &str,
   mcp_name: &str,
   arguments: Value,
+  metadata: Option<Value>,
 ) -> InfuResult<String> {
   let by_id = servers_by_id(config)?;
   let Some(server) = by_id.get(server_id) else {
@@ -266,7 +267,7 @@ pub async fn call_mapped_tool(
       .to_string(),
     );
   };
-  match client::call_tool(server, &session, mcp_name, arguments).await {
+  match client::call_tool(server, &session, mcp_name, arguments, metadata).await {
     Ok(text) => Ok(if text.is_empty() { "{}".to_owned() } else { text }),
     Err(e) => Ok(serde_json::json!({ "error": e.to_string() }).to_string()),
   }
