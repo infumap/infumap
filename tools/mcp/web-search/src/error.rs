@@ -22,11 +22,20 @@ pub type InfuResult<T> = Result<T, InfuError>;
 #[derive(Debug)]
 pub struct InfuError {
   message: String,
+  http_status: Option<u16>,
 }
 
 impl InfuError {
   pub fn new(message: &str) -> InfuError {
-    InfuError { message: message.to_string() }
+    InfuError { message: message.to_string(), http_status: None }
+  }
+
+  pub fn from_http_status(status: u16) -> Self {
+    Self { message: format!("Failed to fetch URL: HTTP {status}"), http_status: Some(status) }
+  }
+
+  pub fn http_status(&self) -> Option<u16> {
+    self.http_status
   }
 }
 

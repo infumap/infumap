@@ -99,8 +99,11 @@ Unsafe sandbox/TLS launch flags are rejected by the internal helper.
 
 The overall request deadline includes queueing, startup, navigation, rendering
 and extraction. Caller cancellation or a timeout stops the worker and recycles
-the browser, including any context whose creation was interrupted. Other browser
-errors also recycle it. Cleanup can continue after the caller's deadline, while
+the browser, including any context whose creation was interrupted. HTTP 4xx/5xx
+responses retain a healthy browser only after context disposal succeeds and
+network forwarding has drained; other browser errors recycle it. Chrome stderr
+diagnostics remain in server logs and are not appended to model-facing errors.
+Cleanup can continue after the caller's deadline, while
 the worker retains its concurrency slot. A subsequent fetch cannot start until
 network forwarding and required browser cleanup have finished.
 

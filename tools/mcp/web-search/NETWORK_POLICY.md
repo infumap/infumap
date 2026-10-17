@@ -111,6 +111,8 @@ The browser is launched lazily into a unique temporary profile. Each fetch
 creates an isolated context with `disposeOnDetach` and denies downloads in that
 context. Successful/error paths dispose the context; cancellation, timeout,
 control-channel failure or uncertain context creation cause browser recycling.
+An ordinary HTTP 4xx/5xx response permits browser reuse only after successful
+context disposal, network forwarding revocation/drain and a local health check.
 One request deadline bounds queueing, startup and document work. Cleanup is
 outside the cancellable request future, so the browser slot remains held until
 its network/process work has stopped even if the caller has already timed out.

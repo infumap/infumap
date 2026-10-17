@@ -180,13 +180,18 @@ static check, and `not_launched`/`not_checked` explicitly mean unverified.
 and `network_confinement_required: false`.
 
 Browser stderr is drained for the helper's entire lifetime, including after
-DevTools connects. Failed fetches include the last 8 KiB of stderr in the
-returned error and server logs, along with the underlying control-connection
-error when available. This captures Chrome and sandbox diagnostics that would
-otherwise be lost after startup.
+DevTools connects. When a failed fetch requires browser recycling, the last
+8 KiB of stderr is written to server logs. It is never appended to the returned
+MCP error, keeping Chrome startup/shutdown diagnostics out of model context.
+The returned error retains the underlying operation or control-connection
+failure when available.
 The server logs `Browser fetch failed: ...` before cleanup, separately from
 `Fetch browser stderr after failure: ...`; the first identifies the operation
 that failed, while the stderr tail may also contain messages from shutdown.
+HTTP 4xx/5xx responses retain a healthy browser after the isolated context is
+successfully disposed and network forwarding has drained. These errors return
+the HTTP status without recycling Chrome. Context creation/disposal failures,
+timeouts, cancellation and control-connection failures still recycle it.
 Failed document requests report Chrome's network failure reason, such as
 `NameNotResolved` or `ConnectionRefused`, rather than a synthetic `HTTP 0`.
 

@@ -33,7 +33,7 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::{Mutex, Semaphore, mpsc, oneshot, watch};
 use tokio::time::{Instant, timeout, timeout_at};
 
-use crate::error::InfuResult;
+use crate::error::{InfuError, InfuResult};
 
 use super::config::FetchConfig;
 use super::http::{DocumentKind, DownloadedDocument, Validators, classify};
@@ -118,15 +118,24 @@ impl BrowserRenderer {
         // Log the operation error before cleanup adds unrelated Chrome exit
         // diagnostics. Operators may only have the server log, not MCP output.
         log::warn!("Browser fetch failed: {error}");
-        state.readiness.store(2, Ordering::Relaxed);
-        // This also disposes contexts whose creation was interrupted before a
-        // context ID arrived. Do not reuse an uncertain/unresponsive browser.
-        if let Some(mut browser) = owned.take() {
-          browser.stop().await;
-          let stderr = browser.stderr_tail();
-          if !stderr.is_empty() {
-            log::warn!("Fetch browser stderr after failure: {stderr}");
-            result = result.map_err(|error| format!("{error}\nBrowser stderr: {stderr}").into());
+        // A typed HTTP failure reaches here only after request() successfully
+        // disposes the isolated context and network forwarding has drained.
+        // Keep the browser for ordinary website refusals such as 403/404.
+        let reusable = error.http_status().is_some_and(|status| (400..600).contains(&status))
+          && owned.as_ref().is_some_and(OwnedBrowser::healthy);
+        if reusable {
+          log::debug!("Reusing fetch browser after HTTP response error and completed request cleanup");
+        } else {
+          state.readiness.store(2, Ordering::Relaxed);
+          // This also disposes contexts whose creation was interrupted before
+          // a context ID arrived. Never reuse uncertain browser state.
+          if let Some(mut browser) = owned.take() {
+            browser.stop().await;
+            let stderr = browser.stderr_tail();
+            if !stderr.is_empty() {
+              // Chrome diagnostics belong in operator logs, not model context.
+              log::warn!("Fetch browser stderr after failure: {stderr}");
+            }
           }
         }
       }
@@ -560,7 +569,8 @@ async fn intercept(
   let status = event.response_status_code.ok_or("Browser document response has no HTTP status code.")?;
   assert_public_destination(&url).await?;
   if !(200..300).contains(&status) {
-    return Err(format!("Failed to fetch URL: HTTP {status}").into());
+    let status = u16::try_from(status).map_err(|_| "Browser returned an invalid HTTP status code.")?;
+    return Err(InfuError::from_http_status(status));
   }
   let headers = event.response_headers.clone().unwrap_or_default();
   let content_type = headers
