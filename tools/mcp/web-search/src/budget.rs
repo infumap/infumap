@@ -17,6 +17,7 @@
 use std::collections::BTreeMap;
 use std::fs::{self, DirBuilder, File, OpenOptions};
 use std::io::{Read, Write};
+use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -541,6 +542,10 @@ impl BudgetedProvider {
 }
 
 impl SearchProvider for BudgetedProvider {
+  fn requests_per_minute(&self) -> Option<NonZeroU32> {
+    self.inner.requests_per_minute()
+  }
+
   fn name(&self) -> &'static str {
     self.inner.name()
   }

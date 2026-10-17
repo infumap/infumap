@@ -25,6 +25,7 @@ use crate::budget::{BudgetStore, BudgetedProvider};
 use crate::config;
 use crate::error::InfuResult;
 pub use crate::providers::SearchResult;
+use crate::providers::diffbot::Diffbot;
 use crate::providers::duckduckgo::DuckDuckGo;
 use crate::providers::exa::Exa;
 use crate::providers::tavily::Tavily;
@@ -39,9 +40,9 @@ pub const MAX_RESULTS_CAP: usize = 30;
 
 static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
   let config = config::search_config().map_err(|message| format!("Invalid web-search configuration: {message}"))?;
-  // One store owns the directory lock; both providers share it while keeping
+  // One store owns the directory lock; metered providers share it while keeping
   // independent provider/account entries in the existing ledger.
-  let store = if config.exa.is_some() || config.tavily.is_some() {
+  let store = if config.exa.is_some() || config.tavily.is_some() || config.diffbot.is_some() {
     let directory = config.state_dir.as_ref().ok_or("Budget state directory is not configured.")?;
     Some(BudgetStore::open(directory).map_err(|error| format!("Could not initialize search budgets: {error}"))?)
   } else {
@@ -61,6 +62,12 @@ static ROUTER: Lazy<InfuResult<SearchRouter>> = Lazy::new(|| {
     let provider = Tavily::new(&tavily.api_key)
       .and_then(|adapter| budgeted_provider(adapter, tavily, store.as_ref()))
       .map_err(|error| format!("Could not initialize Tavily: {error}"))?;
+    providers.push(Backend::Metered(provider));
+  }
+  if let Some(diffbot) = &config.diffbot {
+    let provider = Diffbot::new(&diffbot.api_key, config.diffbot_requests_per_minute)
+      .and_then(|adapter| budgeted_provider(adapter, diffbot, store.as_ref()))
+      .map_err(|error| format!("Could not initialize Diffbot: {error}"))?;
     providers.push(Backend::Metered(provider));
   }
   Ok(SearchRouter::new(providers))
@@ -96,6 +103,9 @@ pub async fn provider_status() -> InfuResult<Vec<ProviderStatus>> {
   }
   if config.tavily.is_none() {
     providers.push(ProviderStatus::unconfigured("tavily", "TAVILY_API_KEY is not configured."));
+  }
+  if config.diffbot.is_none() {
+    providers.push(ProviderStatus::unconfigured("diffbot", "DIFFBOT_API_KEY is not configured."));
   }
   if config.duckduckgo_requests_per_minute == 0 {
     providers.push(ProviderStatus::unconfigured(

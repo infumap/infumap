@@ -91,7 +91,10 @@ async fn run_server() {
       config.duckduckgo_requests_per_minute
     );
   }
-  for (name, settings) in [("Exa", &config.exa), ("Tavily", &config.tavily)] {
+  if config.diffbot.is_some() {
+    info!("Diffbot pacing: {} requests per minute, at most one request in flight", config.diffbot_requests_per_minute);
+  }
+  for (name, settings) in [("Exa", &config.exa), ("Tavily", &config.tavily), ("Diffbot", &config.diffbot)] {
     let Some(settings) = settings else { continue };
     info!(
       "{name} monthly configuration: {} US cents free, reset day {} at 00:00 UTC",

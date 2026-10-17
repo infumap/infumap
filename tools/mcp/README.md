@@ -12,6 +12,13 @@ Start web search:
 ./tools/mcp/web-search/run.sh
 ```
 
+Search supports DuckDuckGo, Exa, Tavily and Diffbot. Metered providers require
+their API key and an explicit monthly free allowance. Diffbot uses
+`DIFFBOT_API_KEY`, `WEB_SEARCH_DIFFBOT_MONTHLY_FREE_CREDITS_CENTS` (10,000 searches
+= 1,000 accounting cents), and optional reset-day and pacing settings. Its local
+rate defaults to five attempts per minute with one request in flight. Confirm
+your token's limits; see [provider configuration](web-search/README.md#diffbot-configured).
+
 `run.sh` resolves Chrome/Chromium or installs official Chrome for Testing in the
 user cache, once per wrapper invocation. Set `WEB_FETCH_BROWSER_PATH` for an
 explicit executable; use `./tools/mcp/web-search/run.sh --update-browser` for a

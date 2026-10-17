@@ -192,14 +192,15 @@ impl SearchRouter {
       providers: backends
         .into_iter()
         .map(|backend| {
-          let rate_limit = match &backend {
-            Backend::Unmetered { requests_per_minute, .. } => Some(RateLimit {
-              requests_per_minute: requests_per_minute.get(),
-              // Round up so fractional nanoseconds never exceed the set rate.
-              interval: Duration::from_nanos(60_000_000_000u64.div_ceil(u64::from(requests_per_minute.get()))),
-            }),
-            Backend::Metered(_) => None,
+          let requests_per_minute = match &backend {
+            Backend::Unmetered { requests_per_minute, .. } => Some(*requests_per_minute),
+            Backend::Metered(provider) => provider.requests_per_minute(),
           };
+          let rate_limit = requests_per_minute.map(|requests_per_minute| RateLimit {
+            requests_per_minute: requests_per_minute.get(),
+            // Round up so fractional nanoseconds never exceed the set rate.
+            interval: Duration::from_nanos(60_000_000_000u64.div_ceil(u64::from(requests_per_minute.get()))),
+          });
           let health = Health {
             failure_cooldown_floor: if backend.provider().name() == "duckduckgo" {
               DUCKDUCKGO_FAILURE_COOLDOWN
@@ -237,7 +238,7 @@ impl SearchRouter {
   async fn search_until(&self, request: SearchRequest<'_>, deadline: Instant) -> ProviderResult<Vec<SearchResult>> {
     if self.providers.is_empty() {
       return Err(internal(
-        "No search providers enabled. Configure Exa or Tavily with a free allowance, or set WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE to a positive integer.",
+        "No search providers enabled. Configure Exa, Tavily or Diffbot with a free allowance, or set WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE to a positive integer.",
       ));
     }
     let mut attempted = vec![false; self.providers.len()];

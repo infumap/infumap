@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+pub mod diffbot;
 pub mod duckduckgo;
 pub mod exa;
 pub mod tavily;
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::num::NonZeroU32;
 use std::time::{Duration, SystemTime};
 
 use futures_util::future::BoxFuture;
@@ -78,6 +80,12 @@ pub struct UsageSnapshot {
 /// Object-safe interface so the router can hold different provider adapters.
 pub trait SearchProvider: Send + Sync {
   fn name(&self) -> &'static str;
+
+  /// Optional local pacing, with at most one request in flight. Independent of
+  /// monthly budget accounting; unavailable slots allow immediate fallback.
+  fn requests_per_minute(&self) -> Option<NonZeroU32> {
+    None
+  }
 
   /// Local estimate only; this must not issue a request to the provider.
   fn estimate_cost(&self, request: &SearchRequest<'_>) -> ProviderResult<RequestCost>;

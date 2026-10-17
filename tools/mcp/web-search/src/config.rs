@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::env;
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 
 use once_cell::sync::Lazy;
@@ -25,6 +26,8 @@ pub struct SearchConfig {
   pub duckduckgo_requests_per_minute: u32,
   pub exa: Option<MeteredConfig>,
   pub tavily: Option<MeteredConfig>,
+  pub diffbot: Option<MeteredConfig>,
+  pub diffbot_requests_per_minute: NonZeroU32,
   pub state_dir: Option<PathBuf>,
 }
 
@@ -54,6 +57,9 @@ impl SearchConfig {
     if self.tavily.as_ref().is_some_and(|tavily| !tavily.api_key.is_empty()) {
       providers.push("tavily");
     }
+    if self.diffbot.is_some() {
+      providers.push("diffbot");
+    }
     providers
   }
 
@@ -63,6 +69,11 @@ impl SearchConfig {
         .map_err(|_| "WEB_SEARCH_DUCKDUCKGO_REQUESTS_PER_MINUTE exceeds the supported integer range.".to_owned())?;
     let exa = MeteredConfig::from_env("EXA", "EXA_API_KEY", "Exa")?;
     let tavily = MeteredConfig::from_env("TAVILY", "TAVILY_API_KEY", "Tavily")?;
+    let diffbot = MeteredConfig::from_env("DIFFBOT", "DIFFBOT_API_KEY", "Diffbot")?;
+    let diffbot_requests_per_minute = u32::try_from(unsigned_env("WEB_SEARCH_DIFFBOT_REQUESTS_PER_MINUTE", 5)?)
+      .ok()
+      .and_then(NonZeroU32::new)
+      .ok_or("WEB_SEARCH_DIFFBOT_REQUESTS_PER_MINUTE must be between 1 and 4294967295.")?;
     let state_dir = if let Some(path) = optional_env("WEB_SEARCH_STATE_DIR")? {
       Some(PathBuf::from(path))
     } else if let Some(path) = optional_env("XDG_STATE_HOME")? {
@@ -80,8 +91,11 @@ impl SearchConfig {
       if tavily.is_some() {
         return Err("Tavily budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
       }
+      if diffbot.is_some() {
+        return Err("Diffbot budget accounting requires WEB_SEARCH_STATE_DIR, XDG_STATE_HOME or HOME.".to_owned());
+      }
     }
-    Ok(Self { duckduckgo_requests_per_minute, exa, tavily, state_dir })
+    Ok(Self { duckduckgo_requests_per_minute, exa, tavily, diffbot, diffbot_requests_per_minute, state_dir })
   }
 }
 
