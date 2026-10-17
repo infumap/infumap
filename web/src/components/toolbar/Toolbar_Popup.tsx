@@ -493,7 +493,7 @@ export const Toolbar_Popup: Component = () => {
       handleTextChange();
       store.touchToolbar();
       if (isNote(getToolbarFocusItem(store))) {
-        serverOrRemote.updateItem(getToolbarFocusItem(store), store.general.networkStatus);
+        serverOrRemote.updateItem(getToolbarFocusItem(store));
         setTimeout(() => {
           store.overlay.toolbarPopupInfoMaybe.set(null);
           document.getElementById("noteEditOverlayTextArea")!.focus();
@@ -590,7 +590,7 @@ export const Toolbar_Popup: Component = () => {
     }
     pageItem().backgroundColorIndex = col;
     store.overlay.toolbarPopupInfoMaybe.set(store.overlay.toolbarPopupInfoMaybe.get());
-    serverOrRemote.updateItem(getToolbarFocusItem(store), store.general.networkStatus);
+    serverOrRemote.updateItem(getToolbarFocusItem(store));
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-page-color");
@@ -762,7 +762,7 @@ export const Toolbar_Popup: Component = () => {
         passwordItem().iconMode = ItemIconMode.None;
       }
     }
-    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    serverOrRemote.updateItem(focusItem);
     if (closePopup) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
     } else if (emojiInputElement != null) {
@@ -792,7 +792,7 @@ export const Toolbar_Popup: Component = () => {
       passwordItem().emoji = null;
       passwordItem().iconMode = ItemIconMode.Auto;
     }
-    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    serverOrRemote.updateItem(focusItem);
     if (closePopup) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
     } else if (emojiInputElement != null) {
@@ -814,7 +814,7 @@ export const Toolbar_Popup: Component = () => {
     if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Failed) {
       clearNoteFaviconStatus(NoteFns.faviconPath(noteItem()), noteItem().origin);
     }
-    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    serverOrRemote.updateItem(focusItem);
     if (closePopup) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
     }
@@ -905,7 +905,7 @@ export const Toolbar_Popup: Component = () => {
     setBacklinks(null);
     setBacklinksFailed(false);
     if (itemId == null) { return; }
-    server.getBacklinks(itemId, store.general.networkStatus)
+    server.getBacklinks(itemId)
       .then(response => {
         if (backlinksItemId() == itemId) { setBacklinks(response.backlinks); }
       })
@@ -1060,7 +1060,7 @@ export const Toolbar_Popup: Component = () => {
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     arrangeNow(store, "toolbar-popup-arrange-algorithm");
-    serverOrRemote.updateItem(targetPage, store.general.networkStatus);
+    serverOrRemote.updateItem(targetPage);
   }
 
   const focusIsQueriesPage = () => {
@@ -1139,7 +1139,7 @@ export const Toolbar_Popup: Component = () => {
       container.orderChildrenBy = order;
       itemState.sortChildren(container.id);
       requestArrange(store, "toolbar-popup-child-sort-order");
-      serverOrRemote.updateItem(container, store.general.networkStatus);
+      serverOrRemote.updateItem(container);
       store.touchToolbar();
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -1184,7 +1184,7 @@ export const Toolbar_Popup: Component = () => {
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     arrangeNow(store, "toolbar-popup-calendar-display-mode");
-    serverOrRemote.updateItem(targetPage, store.general.networkStatus);
+    serverOrRemote.updateItem(targetPage);
   };
   const calendarDisplayModeChoiceClass = (displayMode: PageCalendarDisplayMode): string =>
     toolbarMenuItemClass(calendarDisplayMode() == displayMode);
@@ -1192,7 +1192,7 @@ export const Toolbar_Popup: Component = () => {
     ratingItem().ratingType = newRatingType;
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-rating-type");
-    serverOrRemote.updateItem(ratingItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(ratingItem());
     store.overlay.toolbarPopupInfoMaybe.set(null);
   }
 

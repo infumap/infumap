@@ -154,7 +154,7 @@ export async function runQuerySearch(
   requestArrange(store, "query-search-start");
 
   const response = await server.search(
-    null, text, store.general.networkStatus, 1, getQueryRuntime(store, queryItem).configuration.scopeId,
+    null, text, 1, getQueryRuntime(store, queryItem).configuration.scopeId,
   );
   if (options.shouldApply && !options.shouldApply()) {
     return false;
@@ -190,7 +190,7 @@ export async function loadMoreQuerySearchResults(
   const loadedPageCount = getQuerySearchLoadedPageCount(store, queryItem);
   const nextPage = Math.max(1, loadedPageCount + 1);
   const response = await server.search(
-    null, requestedQuery, store.general.networkStatus, nextPage, getQueryRuntime(store, queryItem).configuration.scopeId,
+    null, requestedQuery, nextPage, getQueryRuntime(store, queryItem).configuration.scopeId,
   );
   if (options.shouldApply && !options.shouldApply()) {
     return false;

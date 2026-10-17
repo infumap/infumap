@@ -45,7 +45,7 @@ export const Toolbar_Image: Component = () => {
     }
     requestArrange(store, "toolbar-image-border");
     store.touchToolbar();
-    serverOrRemote.updateItem(item, store.general.networkStatus);
+    serverOrRemote.updateItem(item);
   }
 
   const borderVisible = () => {
@@ -61,7 +61,7 @@ export const Toolbar_Image: Component = () => {
     }
     requestArrange(store, "toolbar-image-crop");
     store.touchToolbar();
-    serverOrRemote.updateItem(item, store.general.networkStatus);
+    serverOrRemote.updateItem(item);
   }
 
   const shouldCropImage = () => {

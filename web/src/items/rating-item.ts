@@ -288,7 +288,7 @@ export const RatingFns = {
     requestArrange(store, "rating-click");
 
     function clickTimerHandler() {
-      serverOrRemote.updateItem(item, store.general.networkStatus);
+      serverOrRemote.updateItem(item);
       clickTimer = null;
     }
     if (clickTimer != null) { clearTimeout(clickTimer); }

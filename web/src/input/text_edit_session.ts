@@ -230,7 +230,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     // Freeze nested fields too: queued requests must represent this revision,
     // even when subsequent input changes the live item's column names or marks.
     const snapshot = ItemFns.fromObject(JSON.parse(JSON.stringify(ItemFns.toObject(save.item))), save.item.origin);
-    save.inFlight = serverOrRemote.updateItem(snapshot, getStore().general.networkStatus)
+    save.inFlight = serverOrRemote.updateItem(snapshot)
       .then(() => {
         save.failed = false;
         save.failReason = null;

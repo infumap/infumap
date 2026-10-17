@@ -387,7 +387,7 @@ export async function navigateToQueries(store: StoreContextModel): Promise<void>
   const queriesPage = asPageItem(queriesPageMaybe);
   if (queriesPage.title == "Searches") {
     queriesPage.title = "Queries";
-    void server.updateItem(queriesPage, store.general.networkStatus);
+    void server.updateItem(queriesPage);
   }
 
   const queryItemId = await ensureQueryItemUnderQueries(store, queriesPageId);

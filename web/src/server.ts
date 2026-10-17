@@ -21,11 +21,9 @@ import type { ChatBackendId, QueryChatSettings, QueryProfileOperation, QueryProf
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import {
-  NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkFailureReason, NetworkProblemReport, NetworkRequestInfo,
-  NetworkRequestKind, networkProblemKey,
+  NetworkFailureReason, NetworkProblemReport, NetworkRequestInfo, NetworkRequestKind, networkProblemKey,
 } from "./store/StoreProvider_General";
 import type { QueryChatActivityModelRound } from "./store/StoreProvider_PerItem";
-import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "./util/uid";
 import { StoreContextModel } from "./store/StoreProvider";
 import { VesCache } from "./layout/ves-cache";
@@ -49,6 +47,7 @@ interface NetworkRequestTracker {
   resolveNetworkProblems: (key: string) => void,
   setServerReachable: (reachable: boolean) => void,
   recordSyncResult: (ok: boolean) => void,
+  setNetworkActive: (active: boolean) => void,
 }
 
 // Global request tracking - will be set by store initialization
@@ -557,8 +556,8 @@ function hasAnyNetworkActivity(): boolean {
   return getInProgressCommands().length > 0 || getQueuedCommands().length > 0;
 }
 
-function syncBaseNetworkStatus(networkStatus: NumberSignal): void {
-  networkStatus.set(hasAnyNetworkActivity() ? NETWORK_STATUS_IN_PROGRESS : NETWORK_STATUS_OK);
+function syncBaseNetworkStatus(): void {
+  globalRequestTracker?.setNetworkActive(hasAnyNetworkActivity());
 }
 
 function syncGlobalRequestTracker(): void {
@@ -646,8 +645,8 @@ export function hasPendingLocalMutations(): boolean {
   return mutationsInFlight();
 }
 
-function serveWaiting(networkStatus: NumberSignal) {
-  syncBaseNetworkStatus(networkStatus);
+function serveWaiting() {
+  syncBaseNetworkStatus();
   syncGlobalRequestTracker();
 
   // If nothing local is queued and nothing local is running, we're done here.
@@ -662,7 +661,7 @@ function serveWaiting(networkStatus: NumberSignal) {
     if (next.command == COMMAND_SYNC_CONTAINERS && textEditInProgressForContainerSync(activeContainerSyncStore)) {
       const command = commandQueue.shift() as ServerCommand;
       command.resolve({ updates: [] });
-      syncBaseNetworkStatus(networkStatus);
+      syncBaseNetworkStatus();
       syncGlobalRequestTracker();
       continue;
     }
@@ -676,7 +675,7 @@ function serveWaiting(networkStatus: NumberSignal) {
       const command = commandQueue.shift() as ServerCommand;
       inProgressNonGet = command;
       startCommand(command);
-      syncBaseNetworkStatus(networkStatus);
+      syncBaseNetworkStatus();
       syncGlobalRequestTracker();
 
       const DEBUG = false;
@@ -685,7 +684,7 @@ function serveWaiting(networkStatus: NumberSignal) {
       const finalizeCommand = () => {
         inProgressNonGet = null;
         decrementPendingMutations(command.command);
-        serveWaiting(networkStatus);
+        serveWaiting();
       };
 
       sendCommand(command.host, command.command, command.payload, command.base64data)
@@ -713,7 +712,7 @@ function serveWaiting(networkStatus: NumberSignal) {
     const command = commandQueue.shift() as ServerCommand;
     inProgressReadCommands.push(command);
     startCommand(command);
-    syncBaseNetworkStatus(networkStatus);
+    syncBaseNetworkStatus();
     syncGlobalRequestTracker();
 
     const DEBUG = false;
@@ -725,7 +724,7 @@ function serveWaiting(networkStatus: NumberSignal) {
         inProgressReadCommands.splice(index, 1);
       }
       decrementPendingMutations(command.command);
-      serveWaiting(networkStatus);
+      serveWaiting();
     };
 
     sendCommand(command.host, command.command, command.payload, command.base64data)
@@ -747,8 +746,7 @@ function constructCommandPromise(
   host: string | null,
   command: string,
   payload: object,
-  base64data: string | null,
-  networkStatus: NumberSignal): Promise<any> {
+  base64data: string | null): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
       requestId: nextNetworkRequestId++,
@@ -757,13 +755,12 @@ function constructCommandPromise(
     };
     incrementPendingMutations(command);
     commandQueue.push(commandObj);
-    serveWaiting(networkStatus);
+    serveWaiting();
   })
 }
 
 async function streamChatCommand(
   payload: ChatRequest,
-  networkStatus: NumberSignal,
   onEvent: (event: ChatStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<ChatResponse> {
@@ -778,7 +775,7 @@ async function streamChatCommand(
   };
   startCommand(commandObj);
   inProgressStreamingCommands.push(commandObj);
-  syncBaseNetworkStatus(networkStatus);
+  syncBaseNetworkStatus();
   syncGlobalRequestTracker();
 
   let finalItems: Array<object> | null = null;
@@ -833,7 +830,7 @@ async function streamChatCommand(
     if (index !== -1) {
       inProgressStreamingCommands.splice(index, 1);
     }
-    syncBaseNetworkStatus(networkStatus);
+    syncBaseNetworkStatus();
     syncGlobalRequestTracker();
   }
 }
@@ -1045,33 +1042,33 @@ export const server = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
-  fetchItems: async (id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise(null, COMMAND_GET_ITEMS, { id, mode }, null, networkStatus)
+  fetchItems: async (id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
+    return constructCommandPromise(null, COMMAND_GET_ITEMS, { id, mode }, null)
       .then((response: any) => normalizeFetchedItemsResponse(id, mode, response));
   },
 
-  addItemFromPartialObject: async (item: object, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data, networkStatus)
+  addItemFromPartialObject: async (item: object, base64Data: string | null): Promise<object> => {
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, item, base64Data)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
         return extractMutationItem(response);
       });
   },
 
-  addItem: async (item: Item, base64Data: string | null, networkStatus: NumberSignal): Promise<object> => {
-    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data, networkStatus)
+  addItem: async (item: Item, base64Data: string | null): Promise<object> => {
+    return constructCommandPromise(null, COMMAND_ADD_ITEM, ItemFns.toObject(item), base64Data)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
         return extractMutationItem(response);
       });
   },
 
-  updateItem: async (item: Item, networkStatus: NumberSignal): Promise<void> => {
+  updateItem: async (item: Item): Promise<void> => {
     if (shouldSkipClientOnlyItemUpdate(item)) {
       console.warn(`Skipping update for client-only item '${item.id}'.`);
       return;
     }
-    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, networkStatus)
+    return constructCommandPromise(null, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
       });
@@ -1082,10 +1079,9 @@ export const server = {
     expectedItemType: "page" | "table",
     targetItemType: "page" | "table",
     defaultPageAspect: number | null,
-    networkStatus: NumberSignal,
   ): Promise<object> => {
     return constructCommandPromise(
-      null, COMMAND_CONVERT_PAGE_TABLE, { id, expectedItemType, targetItemType, defaultPageAspect }, null, networkStatus,
+      null, COMMAND_CONVERT_PAGE_TABLE, { id, expectedItemType, targetItemType, defaultPageAspect }, null,
     ).then((response: MutationCommandResponse) => {
       if (response?.item == null) {
         throw new Error(`Conversion of item '${id}' did not return the converted item.`);
@@ -1095,8 +1091,8 @@ export const server = {
     });
   },
 
-  deleteItem: async (id: Uid, networkStatus: NumberSignal): Promise<void> => {
-    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null, networkStatus)
+  deleteItem: async (id: Uid): Promise<void> => {
+    return constructCommandPromise(null, COMMAND_DELETE_ITEM, { id }, null)
       .then((response: MutationCommandResponse) => {
         applySyncAck(response?.syncAck);
       });
@@ -1105,30 +1101,28 @@ export const server = {
   search: async (
     pageIdMaybe: Uid | null,
     text: String,
-    networkStatus: NumberSignal,
     pageNum: number,
     scopeId: Uid | null,
   ): Promise<SearchResponse> => {
     return constructCommandPromise(null, COMMAND_SEARCH, {
       pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum, scopeId,
-    }, null, networkStatus).then((response: any) => normalizeSearchResponse(response));
+    }, null).then((response: any) => normalizeSearchResponse(response));
   },
 
   queryProfiles: async (
     operation: QueryProfileOperation,
-    networkStatus: NumberSignal,
     expectedUserId: Uid,
   ): Promise<QueryProfilesResponse> => {
-    return constructCommandPromise(null, COMMAND_QUERY_PROFILES, { ...operation, expectedUserId }, null, networkStatus);
+    return constructCommandPromise(null, COMMAND_QUERY_PROFILES, { ...operation, expectedUserId }, null);
   },
 
-  listScopes: async (networkStatus: NumberSignal): Promise<ListScopesResponse> => {
-    return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null, networkStatus);
+  listScopes: async (): Promise<ListScopesResponse> => {
+    return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null);
   },
 
-  ensureQueryEntry: async (firstTurnQueryItemId: Uid | null, networkStatus: NumberSignal): Promise<EnsureQueryEntryResponse> => {
+  ensureQueryEntry: async (firstTurnQueryItemId: Uid | null): Promise<EnsureQueryEntryResponse> => {
     return constructCommandPromise(
-      null, COMMAND_ENSURE_QUERY_ENTRY, { firstTurnQueryItemId }, null, networkStatus,
+      null, COMMAND_ENSURE_QUERY_ENTRY, { firstTurnQueryItemId }, null,
     ).then((response: EnsureQueryEntryResponse & { syncAck?: ContainerSyncAck }) => {
       applySyncAck(response.syncAck);
       return response;
@@ -1136,37 +1130,35 @@ export const server = {
   },
 
   /** A live chat's transcript, for the chat view. A query item without one loads as an empty chat. */
-  loadChat: async (queryItemId: Uid, networkStatus: NumberSignal): Promise<LoadChatResponse> => {
-    return constructCommandPromise(null, COMMAND_LOAD_CHAT, { queryItemId }, null, networkStatus);
+  loadChat: async (queryItemId: Uid): Promise<LoadChatResponse> => {
+    return constructCommandPromise(null, COMMAND_LOAD_CHAT, { queryItemId }, null);
   },
 
   /** A persisted chat's transcript, the content of a `.chat` text item, for its document page. */
-  loadPersistedChat: async (chatItemId: Uid, networkStatus: NumberSignal): Promise<LoadChatResponse> => {
-    return constructCommandPromise(null, COMMAND_LOAD_CHAT, { chatItemId }, null, networkStatus);
+  loadPersistedChat: async (chatItemId: Uid): Promise<LoadChatResponse> => {
+    return constructCommandPromise(null, COMMAND_LOAD_CHAT, { chatItemId }, null);
   },
 
   /** The text of an attachment of a live chat (`{ queryItemId }`) or a persisted chat (`{ chatItemId }`). */
   loadChatAttachment: async (
     chat: { queryItemId: Uid } | { chatItemId: Uid },
     attachmentId: Uid,
-    networkStatus: NumberSignal,
   ): Promise<string> => {
-    return constructCommandPromise(null, COMMAND_LOAD_CHAT_ATTACHMENT, { ...chat, attachmentId }, null, networkStatus)
+    return constructCommandPromise(null, COMMAND_LOAD_CHAT_ATTACHMENT, { ...chat, attachmentId }, null)
       .then((response: { text: string }) => response.text);
   },
 
   /** The user's links and notes that refer to an item they own. Local items only: backlinks are not tracked across servers. */
-  getBacklinks: async (itemId: Uid, networkStatus: NumberSignal): Promise<GetBacklinksResponse> => {
-    return constructCommandPromise(null, COMMAND_GET_BACKLINKS, { itemId }, null, networkStatus);
+  getBacklinks: async (itemId: Uid): Promise<GetBacklinksResponse> => {
+    return constructCommandPromise(null, COMMAND_GET_BACKLINKS, { itemId }, null);
   },
 
   chatStream: async (
     payload: ChatRequest,
-    networkStatus: NumberSignal,
     onEvent: (event: ChatStreamEvent) => void,
     signal?: AbortSignal,
   ): Promise<ChatResponse> => {
-    return streamChatCommand(payload, networkStatus, onEvent, signal);
+    return streamChatCommand(payload, onEvent, signal);
   },
 
   /**
@@ -1229,8 +1221,8 @@ export const server = {
     return submitChatToolApprovalCommand(payload);
   },
 
-  emptyTrash: async (networkStatus: NumberSignal): Promise<EmptyTrashResult> => {
-    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, {}, null, networkStatus)
+  emptyTrash: async (): Promise<EmptyTrashResult> => {
+    return constructCommandPromise(null, COMMAND_EMPTY_TRASH, {}, null)
       .then((response: EmptyTrashCommandResponse) => {
         applySyncAck(response?.syncAck);
         return {
@@ -1244,9 +1236,8 @@ export const server = {
 
   syncContainers: async (
     subscriptions: Array<SyncContainerSubscription>,
-    networkStatus: NumberSignal,
   ): Promise<Array<SyncContainerUpdate>> => {
-    return constructCommandPromise(null, COMMAND_SYNC_CONTAINERS, { subscriptions }, null, networkStatus)
+    return constructCommandPromise(null, COMMAND_SYNC_CONTAINERS, { subscriptions }, null)
       .then((response: { updates?: Array<SyncContainerUpdate> }) => response.updates ?? []);
   }
 }
@@ -1257,8 +1248,8 @@ const commandQueue_remote: Array<ServerCommand> = [];
 let inProgressNonGet_remote: ServerCommand | null = null; // any non-get-items command currently running remotely
 const inProgressGetItems_remote: Array<ServerCommand> = [];
 
-function serveWaiting_remote(networkStatus: NumberSignal) {
-  syncBaseNetworkStatus(networkStatus);
+function serveWaiting_remote() {
+  syncBaseNetworkStatus();
   syncGlobalRequestTracker();
 
   if (commandQueue_remote.length == 0 && inProgressNonGet_remote == null && inProgressGetItems_remote.length == 0) {
@@ -1276,7 +1267,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
       const command = commandQueue_remote.shift() as ServerCommand;
       inProgressNonGet_remote = command;
       startCommand(command);
-      syncBaseNetworkStatus(networkStatus);
+      syncBaseNetworkStatus();
       syncGlobalRequestTracker();
 
       const DEBUG = false;
@@ -1285,7 +1276,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
       const finalizeCommand = () => {
         inProgressNonGet_remote = null;
         decrementPendingMutations(command.command);
-        serveWaiting_remote(networkStatus);
+        serveWaiting_remote();
       };
 
       sendCommand(command.host, command.command, command.payload, command.base64data)
@@ -1312,7 +1303,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
     const command = commandQueue_remote.shift() as ServerCommand;
     inProgressGetItems_remote.push(command);
     startCommand(command);
-    syncBaseNetworkStatus(networkStatus);
+    syncBaseNetworkStatus();
     syncGlobalRequestTracker();
 
     const DEBUG = false;
@@ -1324,7 +1315,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
         inProgressGetItems_remote.splice(index, 1);
       }
       decrementPendingMutations(command.command);
-      serveWaiting_remote(networkStatus);
+      serveWaiting_remote();
     };
 
     sendCommand(command.host, command.command, command.payload, command.base64data)
@@ -1344,8 +1335,7 @@ function constructCommandPromise_remote(
   host: string | null,
   command: string,
   payload: object,
-  base64data: string | null,
-  networkStatus: NumberSignal): Promise<any> {
+  base64data: string | null): Promise<any> {
   return new Promise((resolve, reject) => { // called when the Promise is constructed.
     const commandObj: ServerCommand = {
       requestId: nextNetworkRequestId++,
@@ -1354,7 +1344,7 @@ function constructCommandPromise_remote(
     };
     incrementPendingMutations(command);
     commandQueue_remote.push(commandObj);
-    serveWaiting_remote(networkStatus);
+    serveWaiting_remote();
   })
 }
 
@@ -1362,31 +1352,31 @@ export const remote = {
   /**
    * fetch an item and/or it's children and their attachments.
    */
-  fetchItems: async (host: string, id: string, mode: string, networkStatus: NumberSignal): Promise<ItemsAndTheirAttachments> => {
-    return constructCommandPromise_remote(host, COMMAND_GET_ITEMS, { id, mode }, null, networkStatus)
+  fetchItems: async (host: string, id: string, mode: string): Promise<ItemsAndTheirAttachments> => {
+    return constructCommandPromise_remote(host, COMMAND_GET_ITEMS, { id, mode }, null)
       .then((response: any) => normalizeFetchedItemsResponse(id, mode, response, false));
   },
 
   /**
    * update an item
    */
-  updateItem: async (host: string, item: Item, networkStatus: NumberSignal): Promise<void> => {
+  updateItem: async (host: string, item: Item): Promise<void> => {
     if (shouldSkipClientOnlyItemUpdate(item)) {
       console.warn(`Skipping remote update for client-only item '${item.id}'.`);
       return;
     }
-    return constructCommandPromise_remote(host, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null, networkStatus);
+    return constructCommandPromise_remote(host, COMMAND_UPDATE_ITEM, ItemFns.toObject(item), null);
   },
 
 }
 
 
 export const serverOrRemote = {
-  updateItem: async (item: Item, networkStatus: NumberSignal) => {
+  updateItem: async (item: Item) => {
     if (item.origin == null) {
-      await server.updateItem(item, networkStatus);
+      await server.updateItem(item);
     } else {
-      await remote.updateItem(item.origin, item, networkStatus);
+      await remote.updateItem(item.origin, item);
     }
   }
 }
@@ -1592,7 +1582,7 @@ async function reconcileFailedItems(store: StoreContextModel): Promise<boolean> 
   const ids = [...itemsToReconcile];
   itemsToReconcile.clear();
   const results = await Promise.allSettled(ids.map(id =>
-    server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)));
+    server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)));
   if (textEditInProgressForContainerSync(store) || shouldRetryContainerSyncLater()) {
     ids.forEach(id => itemsToReconcile.add(id));
     return false;
@@ -1782,7 +1772,7 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
       return;
     }
 
-    const updates = await server.syncContainers(subscriptions, store.general.networkStatus);
+    const updates = await server.syncContainers(subscriptions);
     if (containerSyncPausedForTextEdit(store)) {
       return;
     }

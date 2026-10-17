@@ -6,6 +6,7 @@
 - [Configuration](configuration.md)
 - [Developer](developer.md)
 - [Integrations](integrations.md)
+- [Network status](network-status.md)
 - [Scopes](scopes.md)
 - Deployment
   - [Raspberry Pi (Common Setup)](deployment/raspberry-pi.md)

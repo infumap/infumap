@@ -63,14 +63,14 @@ export const Toolbar_Link: Component = () => {
     }
     if (previousLinkTo == newLinkTo) {
       requestArrange(store, "toolbar-link-target-change");
-      serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus);
+      serverOrRemote.updateItem(linkItemOnMount);
       return;
     }
 
     setLinkTo(newLinkTo);
     requestArrange(store, "toolbar-link-target-change");
     // the server rejects a target that is a link, which can't be checked here if the target is not loaded.
-    serverOrRemote.updateItem(linkItemOnMount, store.general.networkStatus).catch(() => {
+    serverOrRemote.updateItem(linkItemOnMount).catch(() => {
       if (linkItemOnMount.linkTo != newLinkTo) { return; }
       setLinkTo(previousLinkTo);
       requestArrange(store, "toolbar-link-target-revert");

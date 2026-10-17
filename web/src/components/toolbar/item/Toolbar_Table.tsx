@@ -57,7 +57,7 @@ export const Toolbar_Table: Component = () => {
     }
     itemState.sortChildren(tableItem().id);
     requestArrange(store, "toolbar-table-header-visibility");
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(tableItem());
     store.touchToolbar();
   }
 
@@ -79,7 +79,7 @@ export const Toolbar_Table: Component = () => {
       tableItem().flags |= TableFlags.HideTitle;
     }
     requestArrange(store, "toolbar-table-title-visibility");
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(tableItem());
     store.touchToolbar();
   }
 
@@ -91,7 +91,7 @@ export const Toolbar_Table: Component = () => {
   const handleChangeWrapRows = () => {
     tableItem().flags ^= TableFlags.WrapRows;
     requestArrange(store, "toolbar-table-wrap-rows");
-    serverOrRemote.updateItem(tableItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(tableItem());
     store.touchToolbar();
   }
 

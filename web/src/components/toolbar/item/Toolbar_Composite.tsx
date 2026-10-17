@@ -54,7 +54,7 @@ export const Toolbar_Composite: Component = () => {
       compositeItem().flags |= CompositeFlags.ShowTitle;
     }
     requestArrange(store, "toolbar-composite-title-visibility");
-    serverOrRemote.updateItem(compositeItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(compositeItem());
     store.touchToolbar();
   };
 

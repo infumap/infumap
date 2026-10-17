@@ -133,7 +133,7 @@ export function finishPendingClipboardTextItem(
   textItem.clipboardTextCreateState = "persisting";
 
   const base64Data = base64ArrayBuffer(exactArrayBuffer(bytes));
-  void server.addItem(textItem, base64Data, store.general.networkStatus)
+  void server.addItem(textItem, base64Data)
     .then(returnedItem => {
       const currentItem = itemState.get(textItem.id);
       if (currentItem != null && isClipboardTextCreateItem(currentItem)) {
@@ -155,7 +155,7 @@ export function finishPendingClipboardTextItem(
         // Flush the live object now so any move or edit made during that window is
         // persisted after the item exists, using the server-authoritative data
         // fields returned by add-item.
-        void server.updateItem(currentItem, store.general.networkStatus)
+        void server.updateItem(currentItem)
           .catch(error => console.warn("Failed to persist changes made while creating clipboard text item:", error));
       }
       requestArrange(store, "clipboard-text-persisted");

@@ -715,7 +715,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   createEffect(() => {
     // Items dragged onto the composer are attached (`attachDroppedItemToChatMaybe` in mouse_up.ts).
     const unregister = registerChatItemDropTarget(vePath(), (item) => {
-      void itemAttachment(draftAttachments(), item, store.general.networkStatus).then(attachment => {
+      void itemAttachment(draftAttachments(), item).then(attachment => {
         if (typeof attachment == "string") {
           showTransientMessage(attachment, TransientMessageType.Error);
           return;

@@ -254,6 +254,7 @@ export function StoreProvider(props: StoreContextProps) {
     resolveNetworkProblems: value.general.resolveNetworkProblems,
     setServerReachable: value.general.setServerReachable,
     recordSyncResult: value.general.recordSyncResult,
+    setNetworkActive: value.general.setNetworkActive,
   });
 
   return (

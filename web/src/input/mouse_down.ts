@@ -370,7 +370,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
     arrangeNow(store, "mouse-down-close-toolbar-popup");
     const toolbarFocusItem = getToolbarFocusItem(store);
     if (itemCanEdit(toolbarFocusItem)) {
-      serverOrRemote.updateItem(toolbarFocusItem, store.general.networkStatus);
+      serverOrRemote.updateItem(toolbarFocusItem);
     }
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
   }

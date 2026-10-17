@@ -82,7 +82,7 @@ function createNewItem(
 function addNewItemForCreation(store: StoreContextModel, newItem: PositionalItem): void {
   itemState.add(newItem);
   if (!isClipboardTextCreateItem(newItem)) {
-    server.addItem(newItem, null, store.general.networkStatus);
+    server.addItem(newItem, null);
   }
 }
 
@@ -516,7 +516,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
       overElementVe.displayItem.relationshipToParent);
 
     itemState.delete(overElementVe.displayItem.id);
-    server.deleteItem(overElementVe.displayItem.id, store.general.networkStatus);
+    server.deleteItem(overElementVe.displayItem.id);
     addNewItemForCreation(store, newItem);
 
     store.overlay.contextMenuInfo.set(null);
@@ -578,7 +578,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
         for (let i=0; i<numPlaceholdersToCreate; ++i) {
           const placeholderItem = PlaceholderFns.create(displayedChild.ownerId, displayedChild.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(displayedChild.id));
           itemState.add(placeholderItem);
-          server.addItem(placeholderItem, null, store.general.networkStatus);
+          server.addItem(placeholderItem, null);
         }
 
         newItem = createNewItem(
@@ -650,7 +650,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     addNewItemForCreation(store, newItem);
 
     link.linkTo = newItem.id;
-    serverOrRemote.updateItem(link, store.general.networkStatus);
+    serverOrRemote.updateItem(link);
 
     store.overlay.contextMenuInfo.set(null);
     arrangeNow(store, "create-from-link");

@@ -21,7 +21,6 @@ import { MAX_CLIPBOARD_TEXT_BYTES } from "../input/text_clipboard_create";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import type { LoadChatAttachment } from "../server";
 import { Vector } from "../util/geometry";
-import { NumberSignal } from "../util/signals";
 import { newUid, Uid } from "../util/uid";
 import { Item } from "./base/item";
 import { asNoteItem, isNote } from "./note-item";
@@ -169,7 +168,6 @@ export function createChatAttachmentItem(
 export async function itemAttachment(
   existing: Array<ChatDraftAttachment>,
   item: Item,
-  networkStatus: NumberSignal,
 ): Promise<ChatDraftAttachment | string> {
   if (!isText(item) && !isNote(item)) {
     return "Only text items and notes can be attached";
@@ -183,7 +181,7 @@ export async function itemAttachment(
   if (isText(item)) {
     const textItem = asTextItem(item);
     try {
-      text = await fetchTextItemContent(textItem, networkStatus);
+      text = await fetchTextItemContent(textItem);
     } catch (e) {
       console.error(`Could not read text item '${textItem.id}' to attach it:`, e);
       return `Could not read ${textItem.title}`;

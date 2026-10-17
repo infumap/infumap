@@ -10,7 +10,6 @@ import {
   type QueryConfiguration, type QueryModelFavorite, type QueryProfile,
   type QueryProfileCollection, type QueryProfileOperation, type QueryProfilesResponse,
 } from "../items/query-configuration";
-import type { NumberSignal } from "../util/signals";
 import type { Uid } from "../util/uid";
 
 export interface QueryProfilesStore {
@@ -32,7 +31,7 @@ export interface QueryProfilesStore {
   clear: () => void,
 }
 
-export function makeQueryProfilesStore(accountId: () => Uid | null, networkStatus: NumberSignal): QueryProfilesStore {
+export function makeQueryProfilesStore(accountId: () => Uid | null): QueryProfilesStore {
   const [storedCollection, setStoredCollection] = createSignal<QueryProfileCollection | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
@@ -71,7 +70,7 @@ export function makeQueryProfilesStore(accountId: () => Uid | null, networkStatu
     const owner = ownerId;
     const epoch = generation;
     setLoading(true);
-    const request = server.queryProfiles({ operation: "list" }, networkStatus, owner)
+    const request = server.queryProfiles({ operation: "list" }, owner)
       .then(response => acceptResponse(response, epoch, owner))
       .catch(error => {
         if (isCurrent(epoch, owner)) {
@@ -99,7 +98,7 @@ export function makeQueryProfilesStore(accountId: () => Uid | null, networkStatu
     const epoch = generation;
     const run = async () => {
       if (owner == null || !isCurrent(epoch, owner)) { throw new Error("Sign in to manage query profiles."); }
-      const response = await server.queryProfiles(operation, networkStatus, owner);
+      const response = await server.queryProfiles(operation, owner);
       acceptResponse(response, epoch, owner);
       if (response.error != null) { throw new Error(response.error); }
       return response;

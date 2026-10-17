@@ -57,7 +57,7 @@ export const TableColumnContextMenu: Component = () => {
   };
   const finishChange = (reason: string, item: TabularItem = tableItem()) => {
     requestArrange(store, reason);
-    serverOrRemote.updateItem(item, store.general.networkStatus);
+    serverOrRemote.updateItem(item);
     store.overlay.tableColumnContextMenuInfo.set(null);
     store.touchToolbar();
   };

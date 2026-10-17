@@ -1559,7 +1559,7 @@ export const PageFns = {
         popupPage.pendingPopupWidthGr = null;
       }
     }
-    serverOrRemote.updateItem(popupPage, store.general.networkStatus);
+    serverOrRemote.updateItem(popupPage);
     requestArrange(store, "page-popup-anchor-child");
   },
 
@@ -1595,7 +1595,7 @@ export const PageFns = {
       }
 
       for (const pageId of changedPageIds) {
-        serverOrRemote.updateItem(itemState.get(pageId)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(pageId)!);
       }
     } else {
       const currentPos = popupPage.pendingPopupPositionGr ?? popupPage.popupPositionGr ?? parentPageItem.defaultPopupPositionGr;
@@ -1620,11 +1620,11 @@ export const PageFns = {
       }
 
       for (const pageId of changedPageIds) {
-        serverOrRemote.updateItem(itemState.get(pageId)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(pageId)!);
       }
     }
 
-    serverOrRemote.updateItem(parentPageItem, store.general.networkStatus);
+    serverOrRemote.updateItem(parentPageItem);
     requestArrange(store, "page-popup-anchor-default");
   },
 

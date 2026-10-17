@@ -339,7 +339,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       composite.spatialWidthGr = spatialWidthGr;
       store.editorHistory.include(token, composite.id);
       itemState.add(composite);
-      store.editorHistory.track(server.addItem(composite, null, store.general.networkStatus));
+      store.editorHistory.track(server.addItem(composite, null));
       itemState.moveToNewParent(sourceNote, composite.id, RelationshipToParent.Child, newOrdering());
       sourceNote.title = split.beforeText;
       sourceNote.inlineMarks = split.beforeInlineMarks;
@@ -355,7 +355,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       NoteFns.ensureTitleUrl(note);
       store.editorHistory.include(token, note.id);
       itemState.add(note);
-      store.editorHistory.track(server.addItem(note, null, store.general.networkStatus));
+      store.editorHistory.track(server.addItem(note, null));
 
       arrangeNow(store, "note-enter-create-composite");
 

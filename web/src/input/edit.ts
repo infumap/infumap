@@ -527,7 +527,7 @@ function deleteEmptyDocumentNoteMaybe(store: StoreContextModel, context: LinearE
   // Move focus off the note before reactive reads occur.
   store.history.setFocus(target?.path ?? context.containerPath);
   itemState.delete(note.id);
-  store.editorHistory.track(server.deleteItem(note.id, store.general.networkStatus));
+  store.editorHistory.track(server.deleteItem(note.id));
   arrangeNow(store, "document-delete-empty-note");
   if (target != null) {
     focusTextEditPathInfo(store, { path: target.path, type: EditElementType.Title, colNumMaybe: null }, target.caretPosition);
@@ -689,7 +689,7 @@ function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: Linear
     const item = itemState.get(VeFns.veidFromPath(path).itemId);
     if (item == null) { continue; }
     itemState.delete(item.id);
-    store.editorHistory.track(server.deleteItem(item.id, store.general.networkStatus));
+    store.editorHistory.track(server.deleteItem(item.id));
   }
 
   arrangeNow(store, "linear-delete-selection");
@@ -929,7 +929,7 @@ export function splitDocumentTitleToFirstNote(
   );
   store.editorHistory.include(token, note.id);
   itemState.add(note);
-  store.editorHistory.track(server.addItem(note, null, store.general.networkStatus));
+  store.editorHistory.track(server.addItem(note, null));
   arrangeNow(store, "document-title-enter-create-first-note");
   focusItemInLinearContainer(store, VeFns.veToPath(documentPageVe), note.id, 0);
   store.editorHistory.commit(token);
@@ -964,7 +964,7 @@ export function appendEmptyNoteToDocumentPage(
   );
   store.editorHistory.include(token, note.id);
   itemState.add(note);
-  store.editorHistory.track(server.addItem(note, null, store.general.networkStatus));
+  store.editorHistory.track(server.addItem(note, null));
   arrangeNow(store, "document-append-empty-note");
   focusItemInLinearContainer(store, VeFns.veToPath(documentPageVe), note.id, 0);
   store.editorHistory.commit(token);
@@ -1187,7 +1187,7 @@ const joinItemsMaybeHandler = (store: StoreContextModel, backward: boolean): boo
   store.history.setFocus(leftPath);
   store.textEdit.saveItem(leftNote, true);
   itemState.delete(rightNote.id);
-  store.editorHistory.track(server.deleteItem(rightNote.id, store.general.networkStatus));
+  store.editorHistory.track(server.deleteItem(rightNote.id));
 
   if (isComposite(context.containerVe.displayItem)) {
     const compositeItem = asCompositeItem(itemState.get(context.containerVe.displayItem.id)!);
@@ -1210,10 +1210,10 @@ const joinItemsMaybeHandler = (store: StoreContextModel, backward: boolean): boo
       // Deleting the composite before that move reaches the server would fail
       // because the server would still see its surviving child inside it.
       store.textEdit.saveItem(leftNote, false);
-      const saveMove = server.updateItem(leftNote, store.general.networkStatus);
+      const saveMove = server.updateItem(leftNote);
       store.history.setFocus(compositeParentPath);
       itemState.delete(compositeItem.id);
-      void store.editorHistory.track(saveMove.then(() => server.deleteItem(compositeItem.id, store.general.networkStatus)))
+      void store.editorHistory.track(saveMove.then(() => server.deleteItem(compositeItem.id)))
         .catch(error => console.warn("Failed to persist composite collapse after joining notes:", error));
       arrangeNow(store, "join-items-collapse-composite");
       focusItemInLinearContainer(store, compositeParentPath, leftNote.id, joinOffset);
@@ -1266,7 +1266,7 @@ const enterKeyHandler = (store: StoreContextModel) => {
   NoteFns.ensureTitleUrl(note);
   store.editorHistory.include(token, note.id);
   itemState.add(note);
-  store.editorHistory.track(server.addItem(note, null, store.general.networkStatus));
+  store.editorHistory.track(server.addItem(note, null));
   arrangeNow(store, "enter-key-create-note");
 
   focusItemInLinearContainer(store, context.containerPath, note.id, 0);

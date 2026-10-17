@@ -252,16 +252,16 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
       composite.spatialPositionGr = spatialPositionGr;
       composite.spatialWidthGr = spatialWidthGr;
       itemState.add(composite);
-      server.addItem(composite, null, store.general.networkStatus);
+      server.addItem(composite, null);
       itemState.moveToNewParent(ve.displayItem, composite.id, RelationshipToParent.Child, newOrdering());
       asTextItem(ve.displayItem).title = beforeText;
-      serverOrRemote.updateItem(ve.displayItem, store.general.networkStatus);
+      serverOrRemote.updateItem(ve.displayItem);
 
       const ordering = itemState.newOrderingDirectlyAfterChild(composite.id, ve.displayItem.id);
       const note = NoteFns.create(ve.displayItem.ownerId, composite.id, RelationshipToParent.Child, "", ordering);
       note.title = afterText;
       itemState.add(note);
-      server.addItem(note, null, store.general.networkStatus);
+      server.addItem(note, null);
 
       arrangeNow(store, "text-enter-create-composite");
       const veid = { itemId: note.id, linkIdMaybe: null };

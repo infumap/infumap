@@ -485,7 +485,7 @@ function createAttachmentPlaceholder(parent: AttachmentsItem, store: StoreContex
     itemState.newOrderingAtEndOfAttachments(parent.id),
   );
   itemState.add(placeholderItem);
-  server.addItem(placeholderItem, null, store.general.networkStatus);
+  server.addItem(placeholderItem, null);
 }
 
 function prepareTableCellAttachmentOrdering(parent: AttachmentsItem, store: StoreContextModel, insertPosition: number): Uint8Array {
@@ -502,7 +502,7 @@ function prepareTableCellAttachmentOrdering(parent: AttachmentsItem, store: Stor
     if (isPlaceholder(placeholderToReplaceMaybe)) {
       const ordering = placeholderToReplaceMaybe.ordering;
       itemState.delete(placeholderToReplaceMaybe.id);
-      server.deleteItem(placeholderToReplaceMaybe.id, store.general.networkStatus);
+      server.deleteItem(placeholderToReplaceMaybe.id);
       return ordering;
     }
   }
@@ -518,7 +518,7 @@ function prepareAttachHitboxOrdering(parent: AttachmentsItem, store: StoreContex
       if (isPlaceholder(prevPlaceholderMaybe)) {
         const ordering = prevPlaceholderMaybe.ordering;
         itemState.delete(prevPlaceholderMaybe.id);
-        server.deleteItem(prevPlaceholderMaybe.id, store.general.networkStatus);
+        server.deleteItem(prevPlaceholderMaybe.id);
         return ordering;
       }
     }
@@ -530,7 +530,7 @@ function prepareAttachHitboxOrdering(parent: AttachmentsItem, store: StoreContex
   if (isPlaceholder(placeholderToReplaceMaybe)) {
     const ordering = placeholderToReplaceMaybe.ordering;
     itemState.delete(placeholderToReplaceMaybe.id);
-    server.deleteItem(placeholderToReplaceMaybe.id, store.general.networkStatus);
+    server.deleteItem(placeholderToReplaceMaybe.id);
     return ordering;
   }
 
@@ -540,7 +540,7 @@ function prepareAttachHitboxOrdering(parent: AttachmentsItem, store: StoreContex
     if (isPlaceholder(prevPlaceholderMaybe)) {
       const ordering = prevPlaceholderMaybe.ordering;
       itemState.delete(prevPlaceholderMaybe.id);
-      server.deleteItem(prevPlaceholderMaybe.id, store.general.networkStatus);
+      server.deleteItem(prevPlaceholderMaybe.id);
       return ordering;
     }
   }
@@ -689,7 +689,7 @@ async function uploadFilesToTarget(
     const requestStarted = performance.now();
 
     try {
-      const returnedItem = await server.addItemFromPartialObject(partialObject, base64Data, store.general.networkStatus);
+      const returnedItem = await server.addItemFromPartialObject(partialObject, base64Data);
       itemState.add(ItemFns.fromObject(returnedItem, null));
       requestArrange(store, isImageUpload ? "upload-image" : itemType == ItemType.Text ? "upload-text" : "upload-file");
       console.info(`Upload ${i + 1}/${files.length} (${file.size} bytes) completed: preparation ${preparationMs} ms, request ${Math.round(performance.now() - requestStarted)} ms`);
