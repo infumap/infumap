@@ -1,6 +1,6 @@
 # Network status
 
-Status: planned 2026-10-17. Steps 1–4 done 2026-10-17.
+Status: planned 2026-10-17. Steps 1–5 done 2026-10-17.
 
 This plan covers the toolbar network indicator and the dialog it opens
 ([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). It follows a design review
@@ -226,6 +226,36 @@ What was found and done (2026-10-17):
   remains.
 - **Check:** look at the four levels in screenshots. Typing turns the square busy, then ok about 1s after typing
   stops.
+
+Done (2026-10-17):
+
+- `networkStatusSummary(store, nowMs)`. `nowMs` is passed in: the toolbar refreshes it when the pointer enters the
+  square, and the dialog uses its 1s timer. The module also exports `formatAgo`, `failReasonText`,
+  `textSaveRetryText` and `plural`, which the dialog now uses instead of its own copies.
+- Sentences, for reference:
+  - "Session ended: 1 item not saved. Log in again to save."
+  - "1 item not saved: the server can't be reached. Retrying in 8s."
+  - "1 change could not be saved, and was undone."
+  - "Can't reach the server. Last synced 3s ago."
+  - "Loading content failed." or "2 requests failed."
+  - "Saving 1 item…"
+  - "Loading item…" or "Loading item… (+2 more)"
+  - "All changes saved · sync paused while editing"
+  - "All changes saved · synced 2s ago"
+- `store.general.networkBusy`: `networkStatus.set` starts a 300ms timer when the status becomes in-progress, and
+  clears it when the status leaves that state. Background sync was already left out of the status in step 1.
+- Colours: ok `#7bbb73`, busy `#babb73`, warn `#e0a040`, danger `#a12b2b`. Glyphs are dark on the first three
+  and white on danger. Warn and ok have about the same luminance, so the glyph is what tells them apart.
+- The square stays a `div`, now with `role="button"`. A real `<button>` would be focused by a click, and a later
+  Space would toggle the dialog.
+- **Checked:**
+  - Screenshots of all four levels.
+  - A fast reload never showed busy. A `get-items` delayed by 1.5s showed busy about 0.3s after it was sent.
+  - Typing showed "Saving 1 item…" and was back to ok 0.66s after typing started.
+  - Blocking `/command` gave warn. A failed write gave danger, which stayed after `/command` was restored.
+- Testing note: `server.*` calls made in the page with a dummy `networkStatus` don't update the real indicator,
+  because the queue sets the signal that the call passes in. Test busy with real app requests. Step 8's removal of
+  the parameter would fix this.
 
 ### 6. Dialog rewrite
 
