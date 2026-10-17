@@ -1144,7 +1144,7 @@ async function submitQueryChatTurn(
         ? attachments.map(({ id, title, mimeType, text }) => ({ id, title, mimeType, text }))
         : undefined,
       ...settings,
-    }, store.general.networkStatus, (event) => {
+    }, (event) => {
       if (event.type == "turn_accepted") {
         accepted = true;
         setQueryChatRevision(store, queryItem, event.revision);
@@ -1284,7 +1284,7 @@ async function loadQueryChat(store: StoreContextModel, queryItem: QueryItem, gen
     (queryChatGenerations.get(queryItem.id) ?? 0) == generation;
   updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, loadState: "loading" } }));
   try {
-    const response = await server.loadChat(queryItem.id, store.general.networkStatus);
+    const response = await server.loadChat(queryItem.id);
     if (isCurrent()) {
       applyLoadedQueryChat(store, queryItem, response);
     }
@@ -1310,7 +1310,7 @@ export async function refreshQueryChatRunningElsewhere(store: StoreContextModel,
   const generation = queryChatGenerations.get(queryItem.id) ?? 0;
   const accountId = store.user.getUserMaybe()?.userId;
   try {
-    const response = await server.loadChat(queryItem.id, store.general.networkStatus);
+    const response = await server.loadChat(queryItem.id);
     if (response.running || accountId != store.user.getUserMaybe()?.userId || generation != (queryChatGenerations.get(queryItem.id) ?? 0)) { return; }
     const current = getQueryRuntime(store, queryItem).chat;
     if (!current.runningElsewhere || current.requestId != null || activeQueryChatRequestByQueryId.has(queryItem.id)) { return; }

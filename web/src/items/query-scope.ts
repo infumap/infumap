@@ -60,7 +60,7 @@ export function refreshQueryScopes(store: StoreContextModel): Promise<void> {
     setScopeListLoading(true);
     const generation = scopeListGeneration;
     const isCurrent = () => generation == scopeListGeneration && accountId == (store.user.getUserMaybe()?.userId ?? null);
-    scopeListRequest = server.listScopes(store.general.networkStatus)
+    scopeListRequest = server.listScopes()
       .then(response => {
         if (!isCurrent()) { return; }
         setScopeList(response);

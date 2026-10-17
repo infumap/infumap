@@ -153,7 +153,6 @@ export async function convertPageTableAtPath(
     isPage(source) ? "page" : "table",
     targetType,
     targetType == "page" && asTableItem(source).savedPageSettings == null ? autoPageAspect(store) : null,
-    store.general.networkStatus,
   );
   const returned = convertedObject as { id?: unknown, itemType?: unknown, parentId?: unknown, ownerId?: unknown };
   if (returned.id != source.id || returned.itemType != targetType ||

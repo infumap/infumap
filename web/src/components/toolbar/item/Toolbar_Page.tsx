@@ -208,7 +208,7 @@ export const Toolbar_Page: Component = () => {
     }
     pageItem().flags ^= PageFlags.ShowTableColHeader;
     requestArrange(store, "toolbar-page-table-header-visibility");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
 
@@ -220,7 +220,7 @@ export const Toolbar_Page: Component = () => {
   const handleToggleTableWrapRows = () => {
     pageItem().flags ^= PageFlags.TableWrapRows;
     requestArrange(store, "toolbar-page-table-wrap-rows");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
 
@@ -318,7 +318,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().permissionFlags |= PermissionFlags.Public;
     }
     requestArrange(store, "toolbar-page-permissions");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
 
@@ -329,7 +329,7 @@ export const Toolbar_Page: Component = () => {
       pageItem().flags |= PageFlags.EmbeddedInteractive;
     }
     requestArrange(store, "toolbar-page-interactive");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
 
@@ -348,7 +348,7 @@ export const Toolbar_Page: Component = () => {
     if (isVirtualTextDocumentPage(pageItem().id)) {
       persistVirtualTextDocumentPageOptions(store, pageItem());
     } else {
-      serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+      serverOrRemote.updateItem(pageItem());
     }
     store.touchToolbar();
   }
@@ -365,14 +365,14 @@ export const Toolbar_Page: Component = () => {
       pageItem().flags |= PageFlags.HideEmbeddedInteractiveTitle;
     }
     requestArrange(store, "toolbar-page-toggle-embedded-interactive-title");
-    serverOrRemote.updateItem(pageItem(), store.general.networkStatus);
+    serverOrRemote.updateItem(pageItem());
     store.touchToolbar();
   }
 
   const emptyTrashHandler = async () => {
     store.overlay.emptyTrashInProgress.set(true);
     try {
-      const r = await server.emptyTrash(store.general.networkStatus);
+      const r = await server.emptyTrash();
       console.debug(r);
 
       // Remove deleted items from client-side state. This includes items loaded

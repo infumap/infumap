@@ -161,9 +161,9 @@ export const Main: Component = () => {
       let result: ItemsAndTheirAttachments
       try {
         if (origin != null) {
-          result = await remote.fetchItems(origin, id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, store.general.networkStatus);
+          result = await remote.fetchItems(origin, id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS);
         } else {
-          result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS, store.general.networkStatus);
+          result = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS);
         }
       } catch (e: any) {
         if (!isCurrent()) { return; }

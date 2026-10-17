@@ -78,7 +78,7 @@ export const Toolbar_ItemOrdering: Component = () => {
     focusItem.ordering = itemState.newOrderingAtEndOfChildren(parentId);
     itemState.sortChildren(parentId);
     requestArrange(store, "toolbar-item-ordering-top");
-    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    serverOrRemote.updateItem(focusItem);
     store.touchToolbar();
   };
 
@@ -92,7 +92,7 @@ export const Toolbar_ItemOrdering: Component = () => {
     focusItem.ordering = itemState.newOrderingAtBeginningOfChildren(parentId);
     itemState.sortChildren(parentId);
     requestArrange(store, "toolbar-item-ordering-bottom");
-    serverOrRemote.updateItem(focusItem, store.general.networkStatus);
+    serverOrRemote.updateItem(focusItem);
     store.touchToolbar();
   };
 

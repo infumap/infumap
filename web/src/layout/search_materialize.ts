@@ -119,9 +119,9 @@ export async function materializeSearchResults(
   requestArrange(store, "search-materialize-local");
 
   try {
-    await server.addItem(page, null, store.general.networkStatus);
+    await server.addItem(page, null);
     for (const link of createdLinks) {
-      await server.addItem(link, null, store.general.networkStatus);
+      await server.addItem(link, null);
     }
     resetQuerySearchSession(store, queryItem);
     requestArrange(store, "search-materialize-complete");

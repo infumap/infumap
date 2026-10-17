@@ -274,9 +274,9 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
       if (isStructural) {
         // Persist first. UI mutations are held while the asynchronous operation runs.
         persisting = true;
-        for (const value of additions) { await server.addItem(ItemFns.fromObject(value.data, value.origin), null, store.general.networkStatus); }
-        for (const value of updates) { await serverOrRemote.updateItem(ItemFns.fromObject(value.data, value.origin), store.general.networkStatus); }
-        for (const value of removals) { await server.deleteItem(value.data.id, store.general.networkStatus); }
+        for (const value of additions) { await server.addItem(ItemFns.fromObject(value.data, value.origin), null); }
+        for (const value of updates) { await serverOrRemote.updateItem(ItemFns.fromObject(value.data, value.origin)); }
+        for (const value of removals) { await server.deleteItem(value.data.id); }
         persisting = false;
         if (epoch !== startedEpoch) { return; }
       }

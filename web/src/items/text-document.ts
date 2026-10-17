@@ -45,7 +45,6 @@ import { TableFns, TableItem } from "./table-item";
 import { TableColumn } from "./base/tabular-item";
 import { asTextItem, isText, type ChatAttachmentSource, type TextItem } from "./text-item";
 import { createChatAttachmentItem } from "./chat-attachment";
-import { NumberSignal } from "../util/signals";
 import { base64ArrayBuffer } from "../util/base64ArrayBuffer";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -269,14 +268,14 @@ async function fetchLocalFileText(itemId: string): Promise<string> {
   return response.text();
 }
 
-export async function fetchTextItemContent(textItem: TextItem, networkStatus: NumberSignal): Promise<string> {
+export async function fetchTextItemContent(textItem: TextItem): Promise<string> {
   const key = sourceKey(textItem);
   const existing = textContentPromises.get(key);
   if (existing) { return existing; }
 
   const attachment = textItem.chatAttachmentSource;
   const promise = (attachment != null
-    ? server.loadChatAttachment(attachment.chat, attachment.attachmentId, networkStatus)
+    ? server.loadChatAttachment(attachment.chat, attachment.attachmentId)
     : textItem.origin == null
       ? fetchLocalFileText(textItem.id)
       : fetchRemoteFileText(textItem.origin, textItem.id))
@@ -297,11 +296,11 @@ export function seedChatAttachmentContent(source: ChatAttachmentSource, text: st
  * The base64 content to add an item with, if it is a copy of a chat attachment, which becomes an ordinary text item
  * with its own content; otherwise null. The copy no longer refers to the chat afterwards.
  */
-export async function chatAttachmentCopyData(item: Item, networkStatus: NumberSignal): Promise<string | null> {
+export async function chatAttachmentCopyData(item: Item): Promise<string | null> {
   if (!isText(item)) { return null; }
   const textItem = asTextItem(item);
   if (textItem.chatAttachmentSource == null) { return null; }
-  const text = await fetchTextItemContent(textItem, networkStatus);
+  const text = await fetchTextItemContent(textItem);
   delete textItem.chatAttachmentSource;
   // Copied, because base64ArrayBuffer encodes the whole buffer.
   return base64ArrayBuffer(new TextEncoder().encode(text).slice().buffer);
@@ -2059,10 +2058,10 @@ function upsertVirtualChatProjection(textItem: TextItem, chat: LoadChatResponse)
 /** Builds the virtual document page for a text item from its content: a chat for a persisted chat, else its text. */
 async function projectVirtualTextDocument(store: StoreContextModel, textItem: TextItem): Promise<() => PageItem> {
   if (isChatTextItem(textItem)) {
-    const chat = await server.loadPersistedChat(textItem.id, store.general.networkStatus);
+    const chat = await server.loadPersistedChat(textItem.id);
     return () => upsertVirtualChatProjection(textItem, chat);
   }
-  const text = await fetchTextItemContent(textItem, store.general.networkStatus);
+  const text = await fetchTextItemContent(textItem);
   return () => upsertVirtualProjection(textItem, parseTextDocumentBlocks(text, isMarkdownTextItem(textItem)));
 }
 
@@ -2093,10 +2092,10 @@ export async function createMaterializedTextDocumentItems(
   page: PageItem,
 ): Promise<Array<Item>> {
   if (isChatTextItem(textItem)) {
-    const chat = await server.loadPersistedChat(textItem.id, store.general.networkStatus);
+    const chat = await server.loadPersistedChat(textItem.id);
     return createChatDocumentItems(textItem, page.ownerId, page, chat, false).allItems;
   }
-  const text = await fetchTextItemContent(textItem, store.general.networkStatus);
+  const text = await fetchTextItemContent(textItem);
   const blocks = parseTextDocumentBlocks(text, isMarkdownTextItem(textItem));
   return createTextDocumentItems(textItem, page.ownerId, page, blocks, false).allItems;
 }
@@ -2121,7 +2120,7 @@ export function isMarkdownTextDocumentPage(pageId: Uid): boolean {
 export function openTextItemFileInNewTab(store: StoreContextModel, textItem: TextItem): void {
   if (textItem.chatAttachmentSource != null) {
     // A chat attachment is not a file on the server: open its text from here.
-    void fetchTextItemContent(textItem, store.general.networkStatus)
+    void fetchTextItemContent(textItem)
       .then(text => {
         const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
         window.open(url, "_blank", "noopener");
@@ -2151,7 +2150,7 @@ export function persistVirtualTextDocumentPageOptions(store: StoreContextModel, 
   if (source == null) { return; }
   source.documentWidthBl = page.docWidthBl;
   source.documentShowTitle = !(page.flags & PageFlags.HideDocumentTitle);
-  void serverOrRemote.updateItem(source, store.general.networkStatus)
+  void serverOrRemote.updateItem(source)
     .catch((e) => {
       console.error("Failed to persist text document page options:", e);
       setTransientMessage(store, "could not save text document settings", TransientMessageType.Error);
@@ -2263,9 +2262,9 @@ export async function materializeTextDocumentPage(store: StoreContextModel, text
   requestArrange(store, "text-document-materialize-local");
 
   try {
-    await server.addItem(page, null, store.general.networkStatus);
+    await server.addItem(page, null);
     for (const item of generatedItems) {
-      await server.addItem(item, await chatAttachmentCopyData(item, store.general.networkStatus), store.general.networkStatus);
+      await server.addItem(item, await chatAttachmentCopyData(item));
     }
     requestArrange(store, "text-document-materialize-complete");
     return page.id;

@@ -644,7 +644,7 @@ export const ImageFns = {
     }
 
     if (needsUpdate) {
-      serverOrRemote.updateItem(imageItem, store.general.networkStatus);
+      serverOrRemote.updateItem(imageItem);
     }
     requestArrange(store, "image-popup-anchor-default");
   }

@@ -132,8 +132,8 @@ const App: Component = () => {
   const loadHistoryItem = async (requestItemId: string, origin: string | null, navigationRequestId: number): Promise<string | null> => {
     const mode = GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS;
     const result = origin == null
-      ? await server.fetchItems(requestItemId, mode, store.general.networkStatus)
-      : await remote.fetchItems(origin, requestItemId, mode, store.general.networkStatus);
+      ? await server.fetchItems(requestItemId, mode)
+      : await remote.fetchItems(origin, requestItemId, mode);
     if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return null; }
 
     const itemId = (result.item as { id: string }).id;

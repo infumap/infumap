@@ -672,13 +672,13 @@ export const TableFns = {
         const ordering = newOrdering();
         const placeholderItem = PlaceholderFns.create(child.ownerId, child.id, RelationshipToParent.Attachment, ordering);
         itemState.add(placeholderItem);
-        server.addItem(placeholderItem, null, store.general.networkStatus);
+        server.addItem(placeholderItem, null);
         continue;
       }
       const ordering = itemState.newOrderingAtAttachmentsPosition(child.id, colPos);
       const placeholderItem = PlaceholderFns.create(child.ownerId, child.id, RelationshipToParent.Attachment, ordering);
       itemState.add(placeholderItem);
-      server.addItem(placeholderItem, null, store.general.networkStatus);
+      server.addItem(placeholderItem, null);
     }
     return true;
   },
@@ -691,7 +691,7 @@ export const TableFns = {
       const attachments = child.computed_attachments;
       const attachmentId = attachments[colPos];
       itemState.delete(attachmentId);
-      server.deleteItem(attachmentId, store.general.networkStatus);
+      server.deleteItem(attachmentId);
     }
     return true;
   },

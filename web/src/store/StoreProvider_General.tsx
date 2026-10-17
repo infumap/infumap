@@ -16,19 +16,15 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Accessor, Setter, createSignal } from "solid-js";
+import { Accessor, createSignal } from "solid-js";
 import { ChatBackends, post, server } from "../server";
 import type { QueryProfile } from "../items/query-configuration";
 import { makeQueryProfilesStore, type QueryProfilesStore } from "./StoreProvider_QueryProfiles";
-import { NumberSignal, createNumberSignal } from "../util/signals";
 import type { Uid } from "../util/uid";
 
 
 const LOCALSTORAGE_KEY_NAME = "infudata";
 
-export const NETWORK_STATUS_OK = 0;
-export const NETWORK_STATUS_IN_PROGRESS = 1;
-export const NETWORK_STATUS_ERROR = 2;
 const RECENT_NETWORK_REQUEST_TTL_MS = 9000;
 const NETWORK_BUSY_DELAY_MS = 300;
 
@@ -111,7 +107,8 @@ export interface GeneralStoreContextModel {
   queryInputMode: () => QueryInputMode,
   setQueryInputMode: (mode: QueryInputMode) => void,
 
-  networkStatus: NumberSignal,
+  /** Called by the request queues whenever a listed (non-sync) request starts or the last one finishes. */
+  setNetworkActive: (active: boolean) => void,
   /** True once a listed request has been running for NETWORK_BUSY_DELAY_MS, so short ones don't flicker. */
   networkBusy: Accessor<boolean>,
   inProgressNetworkRequests: Accessor<NetworkRequestInfo[]>,
@@ -153,35 +150,29 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
   const [chatBackendsRefreshing, setChatBackendsRefreshing] = createSignal<boolean>(false);
   let inProgressChatBackendsRequest: Promise<void> | null = null;
 
-  const networkStatusSignal = createNumberSignal(NETWORK_STATUS_OK);
   const [networkBusy, setNetworkBusy] = createSignal<boolean>(false);
-  // Kept apart from the signal, so that setting the status from a computation doesn't subscribe it to networkBusy.
+  // Kept apart from the signal, so that a call from a computation doesn't subscribe it to networkBusy.
   let networkBusyValue = false;
   let networkBusyTimeoutId: number | null = null;
-  const networkStatus: NumberSignal = {
-    get: networkStatusSignal.get,
-    set: ((value: Parameters<Setter<number>>[0]) => {
-      const next = networkStatusSignal.set(value);
-      if (next == NETWORK_STATUS_IN_PROGRESS) {
-        if (networkBusyTimeoutId == null && !networkBusyValue) {
-          networkBusyTimeoutId = window.setTimeout(() => {
-            networkBusyTimeoutId = null;
-            networkBusyValue = true;
-            setNetworkBusy(true);
-          }, NETWORK_BUSY_DELAY_MS);
-        }
-      } else {
-        if (networkBusyTimeoutId != null) {
-          window.clearTimeout(networkBusyTimeoutId);
+  const setNetworkActive = (active: boolean) => {
+    if (active) {
+      if (networkBusyTimeoutId == null && !networkBusyValue) {
+        networkBusyTimeoutId = window.setTimeout(() => {
           networkBusyTimeoutId = null;
-        }
-        networkBusyValue = false;
-        setNetworkBusy(false);
+          networkBusyValue = true;
+          setNetworkBusy(true);
+        }, NETWORK_BUSY_DELAY_MS);
       }
-      return next;
-    }) as Setter<number>,
+      return;
+    }
+    if (networkBusyTimeoutId != null) {
+      window.clearTimeout(networkBusyTimeoutId);
+      networkBusyTimeoutId = null;
+    }
+    networkBusyValue = false;
+    setNetworkBusy(false);
   };
-  const queryProfiles = makeQueryProfilesStore(accountId, networkStatus);
+  const queryProfiles = makeQueryProfilesStore(accountId);
   const defaultQueryProfile = queryProfiles.defaultProfile;
   const setDefaultQueryProfile = queryProfiles.setDefault;
 
@@ -273,7 +264,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     setLastSyncOkMs(null);
     setConsecutiveSyncFailures(0);
     setSyncPausedReason(null);
-    networkStatus.set(NETWORK_STATUS_OK);
+    setNetworkActive(false);
   };
 
   const retrieveInstallationState = async () => {
@@ -351,7 +342,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
     queryInputMode, setQueryInputMode,
-    networkStatus, networkBusy,
+    setNetworkActive, networkBusy,
     inProgressNetworkRequests, setInProgressNetworkRequests,
     recentNetworkRequests, addRecentNetworkRequest,
     queuedNetworkRequests, setQueuedNetworkRequests,

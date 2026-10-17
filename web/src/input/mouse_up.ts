@@ -383,7 +383,7 @@ function enqueueTextDocumentMaterializationIfPending(
     }
     for (let i = serverAddedIds.length - 1; i >= 0; --i) {
       try {
-        await server.deleteItem(serverAddedIds[i], store.general.networkStatus);
+        await server.deleteItem(serverAddedIds[i]);
       } catch (error) {
         console.error("Text document materialization cleanup failed.", error);
       }
@@ -393,14 +393,14 @@ function enqueueTextDocumentMaterializationIfPending(
   ops.push({
     apply: async () => {
       try {
-        await server.addItem(pageSnapshot, null, store.general.networkStatus);
+        await server.addItem(pageSnapshot, null);
         serverAddedIds.push(pageSnapshot.id);
 
         const generatedItems = await createMaterializedTextDocumentItems(store, pending.sourceTextItem, pageSnapshot);
         for (const item of generatedItems) {
           itemState.add(item);
           localItemIds.push(item.id);
-          await server.addItem(item, await chatAttachmentCopyData(item, store.general.networkStatus), store.general.networkStatus);
+          await server.addItem(item, await chatAttachmentCopyData(item));
           serverAddedIds.push(item.id);
         }
       } catch (error) {
@@ -426,20 +426,20 @@ function enqueueUpdateItem(
     const descendantIds = [...itemCopyMove.pendingDescendantIds];
     const deleteFromServer = async (ids: Array<string>) => {
       for (const id of [...ids].reverse()) {
-        await server.deleteItem(id, store.general.networkStatus).catch(e => console.error(`Could not delete copy '${id}':`, e));
+        await server.deleteItem(id).catch(e => console.error(`Could not delete copy '${id}':`, e));
       }
     };
     ops.push({
       apply: async () => {
         const added: Array<string> = [];
         try {
-          await server.addItem(snapshot, await chatAttachmentCopyData(item, store.general.networkStatus), store.general.networkStatus);
+          await server.addItem(snapshot, await chatAttachmentCopyData(item));
           added.push(snapshot.id);
           for (const id of descendantIds) {
             const descendant = itemState.get(id);
             if (descendant == null) { continue; }
-            const data = await chatAttachmentCopyData(descendant, store.general.networkStatus);
-            await server.addItem(cloneItemSnapshot(descendant), data, store.general.networkStatus);
+            const data = await chatAttachmentCopyData(descendant);
+            await server.addItem(cloneItemSnapshot(descendant), data);
             added.push(id);
           }
         } catch (e) {
@@ -474,10 +474,10 @@ function enqueueUpdateItem(
 
   const snapshot = cloneItemSnapshot(item);
   ops.push({
-    apply: () => serverOrRemote.updateItem(snapshot, store.general.networkStatus),
+    apply: () => serverOrRemote.updateItem(snapshot),
     rollback: rollbackSnapshot == null
       ? undefined
-      : () => serverOrRemote.updateItem(cloneItemSnapshot(rollbackSnapshot), store.general.networkStatus),
+      : () => serverOrRemote.updateItem(cloneItemSnapshot(rollbackSnapshot)),
   });
 }
 
@@ -565,8 +565,8 @@ function enqueueChatContinueIfDropped(ops: Array<MovePersistOperation>, store: S
 function enqueueAddItem(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): void {
   const snapshot = cloneItemSnapshot(item);
   ops.push({
-    apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
-    rollback: () => server.deleteItem(snapshot.id, store.general.networkStatus),
+    apply: () => server.addItem(snapshot, null).then(() => undefined),
+    rollback: () => server.deleteItem(snapshot.id),
   });
 }
 
@@ -577,10 +577,10 @@ function enqueueDeleteItem(
   rollbackSnapshot?: Item | null,
 ): void {
   ops.push({
-    apply: () => server.deleteItem(id, store.general.networkStatus),
+    apply: () => server.deleteItem(id),
     rollback: rollbackSnapshot == null
       ? undefined
-      : () => server.addItem(cloneItemSnapshot(rollbackSnapshot), null, store.general.networkStatus).then(() => undefined),
+      : () => server.addItem(cloneItemSnapshot(rollbackSnapshot), null).then(() => undefined),
   });
 }
 
@@ -662,7 +662,7 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
   if (context.activeTreeItemId != null && !rollbackIds.has(context.activeTreeItemId) && itemState.get(context.activeTreeItemId) != null) {
     itemState.delete(context.activeTreeItemId);
     if (deleteCreatedTreeItemOnServer) {
-      void server.deleteItem(context.activeTreeItemId, store.general.networkStatus).catch((error) => {
+      void server.deleteItem(context.activeTreeItemId).catch((error) => {
         console.error("Rollback cleanup failed while deleting dragged item:", error);
       });
     }
@@ -804,9 +804,9 @@ function buildCleanupPersistedPlaceholderOperations(
   if (newPlaceholderItem != null) {
     const snapshot = cloneItemSnapshot(newPlaceholderItem);
     ops.push({
-      apply: () => server.addItem(snapshot, null, store.general.networkStatus).then(() => undefined),
+      apply: () => server.addItem(snapshot, null).then(() => undefined),
       rollback: async () => {
-        await server.deleteItem(snapshot.id, store.general.networkStatus);
+        await server.deleteItem(snapshot.id);
       },
     });
   }
@@ -830,14 +830,14 @@ function buildCleanupPersistedPlaceholderOperations(
   for (const placeholderSnapshot of placeholderSnapshotsToDelete) {
     ops.push({
       apply: async () => {
-        await server.deleteItem(placeholderSnapshot.id, store.general.networkStatus);
+        await server.deleteItem(placeholderSnapshot.id);
         if (itemState.get(placeholderSnapshot.id) != null) {
           itemState.delete(placeholderSnapshot.id);
         }
       },
       rollback: async () => {
         restoreDeletedItemSnapshot(placeholderSnapshot);
-        await server.addItem(cloneItemSnapshot(placeholderSnapshot), null, store.general.networkStatus).then(() => undefined);
+        await server.addItem(cloneItemSnapshot(placeholderSnapshot), null).then(() => undefined);
       },
     });
   }
@@ -879,7 +879,7 @@ function buildCleanupCollapsedCompositeOperation(
           requestArrange(store, "mouse-up-cleanup-empty-composite-local");
         }
         try {
-          await server.deleteItem(compositeItem.id, store.general.networkStatus);
+          await server.deleteItem(compositeItem.id);
         } catch (error) {
           if (deletedLocally && itemState.get(compositeSnapshot.id) == null) {
             const compositeRestore = asCompositeItem(cloneItemSnapshot(compositeSnapshot));
@@ -895,7 +895,7 @@ function buildCleanupCollapsedCompositeOperation(
           compositeRestore.computed_children = [];
           itemState.add(compositeRestore);
         }
-        await server.addItem(cloneItemSnapshot(compositeSnapshot), null, store.general.networkStatus).then(() => undefined);
+        await server.addItem(cloneItemSnapshot(compositeSnapshot), null).then(() => undefined);
       },
     });
     return;
@@ -922,8 +922,8 @@ function buildCleanupCollapsedCompositeOperation(
   childSnapshot.ordering = new Uint8Array(compositeItem.ordering);
   ops.push({
     apply: async () => {
-      await serverOrRemote.updateItem(childSnapshot, store.general.networkStatus);
-      await server.deleteItem(compositeItem.id, store.general.networkStatus);
+      await serverOrRemote.updateItem(childSnapshot);
+      await server.deleteItem(compositeItem.id);
       asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
       if (child.parentId != compositeItem.parentId || child.relationshipToParent != RelationshipToParent.Child) {
         itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
@@ -944,8 +944,8 @@ function buildCleanupCollapsedCompositeOperation(
         itemState.add(compositeRestore);
       }
       restorePositionalItemSnapshot(childOriginalSnapshot);
-      await server.addItem(cloneItemSnapshot(compositeSnapshot), null, store.general.networkStatus).then(() => undefined);
-      await serverOrRemote.updateItem(cloneItemSnapshot(childOriginalSnapshot), store.general.networkStatus);
+      await server.addItem(cloneItemSnapshot(compositeSnapshot), null).then(() => undefined);
+      await serverOrRemote.updateItem(cloneItemSnapshot(childOriginalSnapshot));
     },
   });
 }
@@ -1015,7 +1015,7 @@ async function rollbackMoveServerState(
     itemState.get(rollbackContext.activeTreeItemId) == null
   ) {
     try {
-      await server.deleteItem(rollbackContext.activeTreeItemId, store.general.networkStatus);
+      await server.deleteItem(rollbackContext.activeTreeItemId);
     } catch (error) {
       console.error("Rollback failed while deleting created dragged item on server.", error);
       failures.push(`delete created dragged item '${rollbackContext.activeTreeItemId}': ${describeRollbackError(error)}`);
@@ -1029,7 +1029,7 @@ async function rollbackMoveServerState(
       continue;
     }
     try {
-      await serverOrRemote.updateItem(cloneItemSnapshot(item), store.general.networkStatus);
+      await serverOrRemote.updateItem(cloneItemSnapshot(item));
     } catch (error) {
       console.error(`Rollback failed while restoring item '${entry.id}' on the server.`, error);
       failures.push(`restore item '${entry.id}' on server: ${describeRollbackError(error)}`);
@@ -1319,7 +1319,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
           const parentPage = asPageItem(parentVe.displayItem);
           ImageFns.handleAnchorChildClick(imageItem, parentPage, store);
-          serverOrRemote.updateItem(imageItem, store.general.networkStatus);
+          serverOrRemote.updateItem(imageItem);
         }
         break;
       }
@@ -1349,7 +1349,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       const noteExplicitHeightSized = isNote(resizeActiveItem) && (asNoteItem(resizeActiveItem).flags & NoteFlags.ExplicitHeight) && MouseActionState.getStartHeightBl()! * GRID_SIZE != asNoteItem(resizeActiveItem).spatialHeightGr;
       const linkDisplayHeightPersistCase = isLink(resizeActiveItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem));
       if (xsized || ysized || noteExplicitHeightSized || linkDisplayHeightPersistCase) {
-        serverOrRemote.updateItem(itemState.get(resizeActiveItem.id)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(resizeActiveItem.id)!);
       }
       // mouseActionState.activeVisualElement.update(ve => {
       //   ve.resizingFromBoundsPx = null;
@@ -1359,9 +1359,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
     case MouseAction.ResizingPopup: {
       if (activeVisualElement.actualLinkItemMaybe) {
-        serverOrRemote.updateItem(itemState.get(activeVisualElement.actualLinkItemMaybe.id)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.actualLinkItemMaybe.id)!);
       } else {
-        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
       }
       DoubleClickState.preventDoubleClick();
       break;
@@ -1377,7 +1377,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         : asTableItem(activeVisualElement.displayItem).tableColumns[hitMeta.colNum!].widthGr;
       // Column resize is allowed on read-only tables, but only as a local view change.
       if (MouseActionState.getStartWidthBl()! * GRID_SIZE != widthGr && itemCanEdit(activeVisualElement.displayItem)) {
-        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
       }
       break;
 
@@ -1393,14 +1393,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     case MouseAction.ResizingDockItem:
       DoubleClickState.preventDoubleClick();
       if (MouseActionState.getStartViewportBoundsPx()!.h != activeVisualElement.viewportBoundsPx!.h) {
-        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
       }
       break;
 
     case MouseAction.ResizingListPageColumn:
       const newWidthGr = asPageItem(activeVisualElement.displayItem).listWidthGr;
       if (MouseActionState.getStartWidthBl()! * GRID_SIZE != newWidthGr) {
-        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!, store.general.networkStatus);
+        serverOrRemote.updateItem(itemState.get(activeVisualElement.displayItem.id)!);
       }
       break;
 
@@ -1414,7 +1414,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       const resizeState = MouseActionState.getCalendarRangeResize();
       const item = resizeState == null ? null : itemState.get(resizeState.itemId);
       if (resizeState != null && item != null && item.endDateTime != resizeState.originalEndDateTime) {
-        serverOrRemote.updateItem(item, store.general.networkStatus);
+        serverOrRemote.updateItem(item);
       }
       document.body.style.cursor = "";
       mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
@@ -1448,7 +1448,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
           const parentVe = MouseActionState.readVisualElement(activeVisualElement.parentPath)!;
           const parentPage = asPageItem(parentVe.displayItem);
           ImageFns.handleAnchorChildClick(imageItem, parentPage, store);
-          serverOrRemote.updateItem(imageItem, store.general.networkStatus);
+          serverOrRemote.updateItem(imageItem);
         }
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorDefault)) {
@@ -2553,7 +2553,7 @@ async function maybeDeleteComposite(store: StoreContextModel) {
   }
   if (compositeItem.computed_children.length == 0) {
     itemState.delete(compositeItem.id);
-    server.deleteItem(compositeItem.id, store.general.networkStatus);
+    server.deleteItem(compositeItem.id);
     MouseActionState.setStartCompositeItem(null);
     return;
   }
@@ -2574,8 +2574,8 @@ async function maybeDeleteComposite(store: StoreContextModel) {
   itemState.delete(compositeItem.id);
   itemState.sortChildren(compositeItemParent.id);
 
-  serverOrRemote.updateItem(child, store.general.networkStatus);
-  server.deleteItem(compositeItem.id, store.general.networkStatus);
+  serverOrRemote.updateItem(child);
+  server.deleteItem(compositeItem.id);
 }
 
 
@@ -2584,7 +2584,7 @@ function cleanupAndPersistPlaceholders(store: StoreContextModel) {
   if (MouseActionState.getStartAttachmentsItem() == null) { return; }
 
   if (MouseActionState.getNewPlaceholderItem() != null) {
-    server.addItem(MouseActionState.getNewPlaceholderItem()!, null, store.general.networkStatus);
+    server.addItem(MouseActionState.getNewPlaceholderItem()!, null);
   }
 
   const placeholderParent = MouseActionState.getStartAttachmentsItem()!;
@@ -2598,7 +2598,7 @@ function cleanupAndPersistPlaceholders(store: StoreContextModel) {
     if (!isPlaceholder(attachment)) {
       break;
     }
-    server.deleteItem(attachment.id, store.general.networkStatus);
+    server.deleteItem(attachment.id);
     itemState.delete(attachment.id);
   }
 

@@ -1,22 +1,152 @@
 # Network status
 
-Status: planned 2026-10-17. Steps 1–7 done 2026-10-17.
+Status: done 2026-10-17 (steps 1–8). Planned the same day, after a design review of the old dialog.
 
-This plan covers the toolbar network indicator and the dialog it opens
-([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). It follows a design review
-from the same date.
-
-## Goal
-
-The indicator answers one question: **is my work safe, and am I looking at current data?** In priority order:
+The toolbar has a small square that shows the network status, and clicking it opens a dialog
+([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). Both answer one question:
+**is my work safe, and am I looking at current data?** In priority order:
 
 1. Are all my changes saved? If not: which items, why, and what can I do about it?
 2. Is the server reachable, and is sync working? When did the last sync succeed?
 3. For debugging only: which requests are running or queued?
 
-Today the dialog is mostly the third thing, a request log, with the first added on top and the second missing.
+## How it works
 
-## Problems being fixed
+### Requests
+
+All commands go through the request queues in [server.ts](../web/src/server.ts): one for the local server, and one
+for remote hosts. Each tracked request has a kind, which `commandKind` derives from the command:
+
+| kind    | commands |
+|---------|----------|
+| `write` | `MUTATION_COMMANDS`, plus `query-profiles` when the operation is not `list` |
+| `read`  | `get-items`, `search`, `list-scopes`, `query-profiles` list, `load-chat`, `load-chat-attachment`, `get-backlinks` |
+| `sync`  | `sync-containers` |
+| `chat`  | `chat` (streamed) |
+
+- **Background sync** runs every 2s, so it is never listed as a request and never makes the square busy. It is
+  summarized in `store.general` instead, as `lastSyncOkMs`, `consecutiveSyncFailures` and `syncPausedReason`.
+  Sync pauses (`"text-edit"`) while text is being edited or is unsaved, so that it can't overwrite that text.
+- **Other requests** are reported to `store.general` through the tracker that `setGlobalRequestTracker` installs:
+  - in progress and queued, each with `startedMs`;
+  - finished, kept for 9s as "recent", with `endedMs` and `outcome` (`done`, or `cancelled` for an aborted chat).
+- **Busy:** the queues call `setNetworkActive(active)` whenever the set of listed requests changes.
+  `store.general.networkBusy` turns true only after a request has run for 300ms, so short requests don't flicker.
+  This status is global: no `server.*` function takes a status parameter.
+
+### Problems
+
+A failed request becomes a `NetworkProblem` in `store.general.networkProblems`. Repeated failures of the same request
+merge into one problem, with a count and first and last times. The key is `host|command|itemId`
+(`networkProblemKey`), so failed searches for different text share one problem.
+
+- **Read, sync and chat problems** clear automatically when the same request later succeeds.
+- **Write problems** stay until dismissed, because the change is lost:
+  - On the local server, `reconcileFailedItems` re-fetches the item, so the local copy goes back to the server's
+    version.
+  - On a remote host, which is not synced, the local copy keeps the change until the item is loaded again.
+- **Text-save exception:** an `update-item` failure on an item with a pending text save is not recorded. The pending
+  save holds the whole item and retries it, and reconciling waits for it, so nothing is lost. This doesn't apply to
+  `add-item`.
+- **`reason`** (`networkFailureReason`):
+  - A `CommandFailedError` gives the server's `failReason`: `auth`, `not-found`, `server` or `client`.
+  - A fetch `TypeError`, or a `SyntaxError` from a proxy's non-JSON error page, counts as `unreachable`.
+  - Anything else is `unknown`.
+- The server reports a command sent without a valid session ("Session is required…") as `auth`.
+
+### Text saves
+
+[text_edit_session.ts](../web/src/input/text_edit_session.ts) saves edited text 500ms after typing stops.
+
+- **Retries:** a save that fails as `unreachable`, `server` or `unknown` retries itself after 2s, 4s, 8s and so on,
+  up to 30s. Typing again, or `flush()` ("Retry now"), starts the delays over.
+- **No retry:** `auth`, `not-found` and `client` failures are not retried, because trying again can't help.
+- **State:** `pendingSaves()` lists every unsaved item, with its failure reason and next retry time.
+  `failedSaves()` is the failed subset.
+- **Toast:** the "Couldn't save change" toast is shown only for a save's first failure, not on every retry
+  (`isTextSaveRetry`).
+
+### Connection and session
+
+- `serverReachable` turns false when a request to the local server fails as `unreachable`, and true on any local
+  success.
+- **Session expiry:** a failed mutation checks the session (`logoutIfSessionEnded`).
+  - If the session has ended and there is no unsaved text, the user is logged out as before.
+  - If unsaved text keeps the user logged in, `sessionExpired` is set and the session isn't checked again on each
+    failure.
+  - `recheckExpiredSession` runs when the tab becomes visible, or on "Retry now". If the same user has logged in
+    again, for example in another tab (which shares the cookie), it clears `sessionExpired` and saves the text.
+
+### One status, two views
+
+`networkStatusSummary(store, nowMs)` in
+[networkStatusSummary.ts](../web/src/components/toolbar/networkStatusSummary.ts) returns `{ level, sentence }`. Both
+the toolbar square and the dialog header use it. The first matching row wins:
+
+| level    | when | example sentence |
+|----------|------|------------------|
+| `danger` | session expired | "Session ended: 1 item not saved. Log in again to save." |
+| `danger` | failed text saves | "1 item not saved: the server can't be reached. Retrying in 8s." |
+| `danger` | write problems | "1 change could not be saved, and was undone." (only "could not be saved." if a remote write is among them) |
+| `warn`   | server unreachable | "Can't reach the server. Last synced 3s ago." |
+| `warn`   | read, sync or chat problems | "Loading content failed." or "2 requests failed." |
+| `busy`   | unsaved text | "Saving 1 item…" |
+| `busy`   | `networkBusy` | "Loading item…" or "Loading item… (+2 more)" |
+| `ok`     | sync paused for editing | "All changes saved · sync paused while editing" |
+| `ok`     | otherwise | "All changes saved · synced 2s ago" |
+
+### Toolbar square
+
+- **Look:** each level has its own glyph and colour: ok ✓ on `#7bbb73`, busy dots on `#babb73`, warn `!` on
+  `#e0a040`, and danger × on `#a12b2b`. Ok and danger differ clearly in luminance. Warn and ok don't, so the glyph
+  is what tells them apart.
+- **Tooltip:** the sentence is the tooltip and the `aria-label`. Relative times in it are refreshed when the pointer
+  enters the square.
+- **Not a `<button>`:** the square is a `div` with `role="button"`. A real button would keep focus after a click, so
+  a later Space would toggle the dialog.
+
+### Dialog
+
+- **Header:** a small copy of the square, and the sentence.
+- **Not saved:**
+  - One row per pending text save ("saving…", or the failure reason).
+  - One row per write problem, which says the change was reverted (local) or is not saved on the host (remote).
+  - Then the retry countdown with "Retry now", or, when the session has expired: **Open login in new tab**,
+    **Retry now**, **Copy unsaved text** and **Discard and log out** (which asks for confirmation).
+  - Clicking an item's title calls `navigateToContainingPageOfItemAndFocus`.
+- **Problems:** read, sync and chat problems, with the reason in plain words, ×N and the time. The raw error message
+  is in the tooltip. Each row has a dismiss button, and there is "Dismiss all".
+- **Activity:**
+  - Collapsed by default. The expanded state is kept for the session.
+  - The background sync line is always shown.
+  - Expanded, it lists running requests with elapsed time, queued requests, and recent requests with their duration.
+- **Closing:**
+  - Escape closes the dialog ([key.ts](../web/src/input/key.ts)). If text is being edited, the first Escape leaves
+    the editor.
+  - A click outside does not close it, so it can stay open as a monitor.
+- **Toast:** while the dialog is open, `showFailedMutationMessage` shows no toast, because the dialog already shows
+  the failure.
+
+### Testing
+
+Use a throwaway server with Playwright. `page.route` aborting `/command` simulates an unreachable server. Remove the
+route with `page.unrouteAll()` afterwards. Calls to `server.*` made in the page through a dynamic import go through
+the app's own queues, so they update the indicator and the dialog like real requests do.
+
+## Known gaps
+
+- `cargo test` doesn't compile at present, because of unrelated stale chat-backend tests. So
+  `missing_session_errors_are_classified_as_auth` hasn't run. The behaviour was checked end to end.
+- **Unretried text saves:** a text save that fails as `not-found` or `client` stays unsaved, and sync stays paused,
+  until "Retry now". The dialog offers no way to discard it outside the session-expired case.
+- **Different user:** if another account logs in in another tab, the session stays expired, and the dialog doesn't
+  say that a different account is now logged in. This case hasn't been tested.
+- **Remote writes:** these were checked with a host that can't be reached, not by moving an item in a real remote
+  container.
+
+## Problems found in the review (2026-10-17)
+
+These are the problems the steps below fixed.
 
 - Container sync runs every 2s ([server.ts](../web/src/server.ts) `startContainerSyncLoop`). Finished requests stay
   listed for 9s. So the activity list is always 4–5 "Syncing containers" rows, the empty state almost never shows,
@@ -37,87 +167,10 @@ Today the dialog is mostly the third thing, a request log, with the first added 
   set. The `networkStatus` signal is passed through about 150 call sites, but its value comes from module-global
   queue state.
 
-## Design
-
-### Request kinds
-
-Each tracked request gets a kind, assigned in `toNetworkRequestInfo` from the command:
-
-| kind    | commands |
-|---------|----------|
-| `write` | `MUTATION_COMMANDS`, plus `query-profiles` when the operation is not `list` |
-| `read`  | `get-items`, `search`, `list-scopes`, `query-profiles` list, `load-chat`, `load-chat-attachment`, `get-backlinks` |
-| `sync`  | `sync-containers` |
-| `chat`  | `chat` (streamed) |
-
-`sync` requests never go into the activity lists. They update a sync summary instead:
-
-- `lastSyncOkMs`
-- `consecutiveSyncFailures`
-- `syncPausedReason: "text-edit" | null`. Text is being edited, or is unsaved. A hidden tab is not reported,
-  because the dialog can't be seen then.
-
-Every request also gets `startedMs`, and `endedMs` once it finishes. An aborted chat is recorded as `cancelled`,
-not as a success.
-
-### Problems replace errors
-
-`erroredNetworkRequests` and `hasUnacknowledgedNetworkErrors` are replaced by one list:
-
-```ts
-interface NetworkProblem {
-  key: string,               // host + command + itemId
-  kind: "write" | "read" | "sync" | "chat",
-  description: string,
-  itemId?: Uid,
-  host?: string | null,
-  reason: "unreachable" | "auth" | "not-found" | "server" | "client" | "unknown",
-  message: string,
-  firstMs: number,
-  lastMs: number,
-  count: number,
-}
-```
-
-- **read, sync and chat** problems clear automatically when a later request with the same key succeeds.
-- **write** problems mean a change was reverted to the server's version by `reconcileFailedItems`. They stay until
-  the user dismisses them, because the lost change does not come back.
-- An `update-item` failure on an item that has a pending text save is **not** recorded as a problem. The pending save holds
-  the item, and so the change; it retries with the whole current item; and reconciling is blocked until it
-  succeeds. Nothing is lost, so the "Not saved" row for that item is enough. This applies only to `update-item`: a
-  failed `add-item` means the item doesn't exist on the server, which a retried update can't fix.
-- `reason`: a `CommandFailedError` gives its `failReason`. A fetch `TypeError`, or a `SyntaxError` from a non-JSON
-  proxy error page in `post`, counts as `unreachable`. Anything else, such as a chat stream's HTTP status or a model
-  error, is `unknown`.
-- Key: `host|command|itemId` (`networkProblemKey`). A failed search and a later successful search for different text
-  share a key, which is accepted.
-
-### Connection state
-
-- `serverReachable` becomes false when a local request fails as `unreachable`. Any local success sets it to true.
-- `sessionExpired` is set when `logoutIfSessionEnded` finds the session has ended but cannot log out because
-  unsaved text remains.
-
-### One status, two views
-
-`networkStatusSummary(store)` returns `{ level, sentence }`. Both the toolbar square (its glyph and tooltip) and the
-dialog header use it. The first matching row wins:
-
-| level    | when | sentence (example) |
-|----------|------|--------------------|
-| `danger` | session expired with unsaved text | "Session expired: 1 unsaved note. Log in again to save it." |
-| `danger` | failed text saves, or write problems | "1 change not saved: server unreachable. Retrying in 8s." |
-| `warn`   | server unreachable, or read/sync problems | "Can't reach the server. Last synced 2 min ago." |
-| `busy`   | a non-sync request has been running for more than 300ms, or text saves are pending | "Saving 2 changes…" |
-| `ok`     | otherwise | "All changes saved · synced 2s ago" |
-
-The 300ms delay stops background sync and fast requests from making the square flicker.
-
 ## Steps
 
-Each step builds with `npm run typecheck` and can be committed on its own. For end-to-end checks, use a throwaway
-server with Playwright. Simulate failures with `page.route` aborting `/command`, and call `page.unrouteAll()`
-afterwards.
+The plan as it was carried out, with what was found and done in each step. "How it works" above describes the
+result.
 
 ### 1. Classify requests and remove sync from the lists
 
@@ -343,13 +396,26 @@ Done (2026-10-17):
   their about 150 call sites. It's a large mechanical diff with no behaviour change, so do it only if wanted.
 - Rewrite the top of this document as a description of how the feature works, and mark the steps done.
 
-## Open questions
+Done (2026-10-17):
 
-These have a default; change them before the step that depends on them.
+- `NETWORK_STATUS_OK`, `NETWORK_STATUS_IN_PROGRESS` and `NETWORK_STATUS_ERROR` are gone, along with the
+  `networkStatus` signal. The queues call `store.general.setNetworkActive(active)` through the request tracker, and
+  `networkBusy` is derived from that.
+- The optional part was done too: the `networkStatus` parameter was removed from every `server` and `remote` function
+  and from the about 150 call sites (41 files), and from the helpers that passed it on: `fetchTextItemContent`,
+  `chatAttachmentCopyData`, `itemAttachment`, and `makeQueryProfilesStore`. Calls made from test code now update the
+  indicator, which fixes the testing problem noted in step 5.
+- **Checked:**
+  - A slow request still shows busy after about 0.3s.
+  - A slow `listScopes()` called from test code now shows "Loading scopes…" too.
+  - A text save retried while `/command` was blocked was saved after it was restored.
 
-- **Session expiry (step 4):** guide the user to log in in another tab (the default), or add an in-place login
-  overlay like the one remote hosts use (`remoteLoginInfo`)? The overlay is a better experience, but a larger
-  change.
-- **Write problems:** keep them until dismissed (the default), or let them expire after a while, e.g. 1 hour?
-- **Click outside (step 6):** the default is that it doesn't close the dialog. Every other toolbar popup does close
-  on a click outside, so this is inconsistent.
+## Decisions
+
+These were open questions in the plan. The defaults were kept:
+
+- **Session expiry:** the user logs in again in another tab. An in-place login overlay, like the one remote hosts
+  use (`remoteLoginInfo`), would be a better experience, but is a larger change.
+- **Write problems** stay until dismissed. They don't expire.
+- **Click outside** doesn't close the dialog, so it can stay open as a monitor. Every other toolbar popup does close
+  on a click outside, so this is a deliberate inconsistency.

@@ -138,8 +138,8 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
   const origin = container.origin;
 
   const fetchPromise = origin == null
-    ? server.fetchItems(`${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus)
-    : remote.fetchItems(origin, `${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY, store.general.networkStatus);
+    ? server.fetchItems(`${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY)
+    : remote.fetchItems(origin, `${containerVeid.itemId}`, GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY);
 
   const loadPromise = fetchPromise
     .then(result => {
@@ -197,7 +197,7 @@ export const initiateLoadItemMaybe = (store: StoreContextModel, id: string, cont
   if (itemState.get(id) != null) { return Promise.resolve(InitiateLoadResult.InitiatedOrComplete); }
   itemLoadInitiatedOrComplete[id] = true;
 
-  const loadPromise = server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
+  const loadPromise = server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
     .then(result => {
       if (!itemLoadInitiatedOrComplete[id]) { return InitiateLoadResult.Failed; };
 
@@ -279,7 +279,7 @@ export const initiateLoadItemFromRemoteMaybe = (store: StoreContextModel, itemId
     } catch (_e) { }
   }
 
-  remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY, store.general.networkStatus)
+  remote.fetchItems(baseUrl, itemId, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY)
     .then(result => {
       if (itemLoadFromRemoteStatus[itemId] !== RemoteLoadStatus.Pending) { return; };
 

@@ -431,7 +431,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
         const pendingDescendantIds = cloneDescendantsForCopy(toClone, cloned);
         MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds });
       } else {
-        server.addItem(cloned, null, store.general.networkStatus);
+        server.addItem(cloned, null);
       }
 
       const activeParentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
@@ -477,7 +477,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
         }
       }
       itemState.add(link);
-      server.addItem(link, null, store.general.networkStatus);
+      server.addItem(link, null);
 
       const activeParentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
       const newLinkVeid = VeFns.veidFromId(link.id);
@@ -936,7 +936,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
       const pendingDescendantIds = cloneDescendantsForCopy(toClone, cloned);
       MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds });
     } else {
-      server.addItem(cloned, null, store.general.networkStatus);
+      server.addItem(cloned, null);
     }
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
@@ -952,7 +952,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
       link.spatialHeightGr = activeElement.linkItemMaybe.spatialHeightGr;
     }
     itemState.add(link);
-    server.addItem(link, null, store.general.networkStatus);
+    server.addItem(link, null);
     const newLinkVeid = { itemId: activeElement.displayItem.id, linkIdMaybe: link.id };
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, moveToPath));
     MouseActionState.setLinkCreatedOnMoveStart(true);
@@ -1070,7 +1070,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     cloned.parentId = moveToPage.id;
     prepareShiftDragClone(cloned, toClone);
     itemState.add(cloned);
-    server.addItem(cloned, null, store.general.networkStatus);
+    server.addItem(cloned, null);
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(clonedVeid, VeFns.veToPath(moveToPageVe)));
@@ -1084,7 +1084,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
       link.spatialHeightGr = activeVisualElement.linkItemMaybe.spatialHeightGr;
     }
     itemState.add(link);
-    server.addItem(link, null, store.general.networkStatus);
+    server.addItem(link, null);
     MouseActionState.setClickOffsetProp({ x: 0.0, y: 0.0 });
     const newLinkVeid = { itemId: activeVisualElement.displayItem.id, linkIdMaybe: link.id };
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(newLinkVeid, VeFns.veToPath(moveToPageVe)));

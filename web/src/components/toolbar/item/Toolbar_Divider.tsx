@@ -56,7 +56,7 @@ export const Toolbar_Divider: Component = () => {
     item.spatialWidthGr = item.spatialHeightGr;
     item.spatialHeightGr = oldWidthGr;
     requestArrange(store, "toolbar-divider-direction");
-    serverOrRemote.updateItem(item, store.general.networkStatus);
+    serverOrRemote.updateItem(item);
   };
 
   return (

@@ -233,7 +233,7 @@ export const SelectionGroupAction: Component = () => {
     const groupId = info.kind == "group" ? newUid() : null;
     for (const item of info.items) {
       item.groupId = groupId;
-      void serverOrRemote.updateItem(item, store.general.networkStatus);
+      void serverOrRemote.updateItem(item);
     }
 
     store.overlay.selectedVeids.set([...store.overlay.selectedVeids.get()]);

@@ -40,7 +40,7 @@ export async function ensureQueryEntryUnderQueries(
   }
 
   const queriesPage = asPageItem(queriesPageMaybe);
-  const response = await server.ensureQueryEntry(firstTurnQueryItemId, store.general.networkStatus);
+  const response = await server.ensureQueryEntry(firstTurnQueryItemId);
   const archivedQueryItemIds: Array<Uid> = [];
   for (const itemObject of [...response.archivedQueryItems, response.queryItem]) {
     const item = itemState.upsertItemFromServerObject(itemObject, null);
