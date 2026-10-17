@@ -57,6 +57,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     }
     return "[no title]";
   }
+  const titleIsBold = () => CompositeFns.showTitle(compositeItem()) && compositeItem().title != "";
   const openPopupBoundsPx = () => {
     const r = cloneBoundingBox(boundsPx())!;
     r.w = oneBlockWidthPx();
@@ -101,7 +102,7 @@ export const Composite_LineItem: Component<VisualElementProps> = (props: VisualE
     </div>;
 
   const renderText = () =>
-    <div class="absolute overflow-hidden whitespace-nowrap text-ellipsis"
+    <div class={`absolute overflow-hidden whitespace-nowrap text-ellipsis ${titleIsBold() ? "font-bold" : ""}`}
          style={`left: ${leftPx()}px; top: ${boundsPx().y}px; ` +
                 `width: ${lineItemTextClippedWidthCssPx(props.visualElement, widthPx(), scale())}px; height: ${boundsPx().h / scale()}px; ` +
                 `transform: scale(${scale()}); transform-origin: top left;`}>
