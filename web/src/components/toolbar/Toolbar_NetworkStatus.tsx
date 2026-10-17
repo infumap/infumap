@@ -42,10 +42,12 @@ const LEVEL_COLOR: { [level in NetworkStatusLevel]: string } = {
 };
 
 /**
- * A cloud, the usual sign for saved and synced: plain when ok, with dots cut out when busy, and amber with a slash
- * when the server can't be reached or a request is failing. Danger, when work is at risk, is the one loud state: a
+ * A cloud, the usual sign for saved and synced: an outline when ok, so it is the lightest icon in the toolbar, filled
+ * with dots cut out when busy, and amber with a slash when the server can't be reached or a request is failing. Danger, when work is at risk, is the one loud state: a
  * filled badge. Cut-outs use a mask, so they show whatever is behind the icon.
  */
+const CLOUD_OUTLINE_WIDTH = 1.9;
+
 const NetworkStatusIcon = (props: { level: NetworkStatusLevel, sizePx: number }): JSX.Element => {
   const maskId = createUniqueId();
   const color = () => LEVEL_COLOR[props.level];
@@ -55,6 +57,13 @@ const NetworkStatusIcon = (props: { level: NetworkStatusLevel, sizePx: number })
         <>
           <mask id={maskId}>
             <rect width="24" height="24" fill="white" />
+            <Show when={props.level == "ok"}>
+              {/* The same cloud, smaller by the line width, cut out to leave its outline. */}
+              <circle cx="8.5" cy="13.5" r={4.5 - CLOUD_OUTLINE_WIDTH} fill="black" />
+              <circle cx="13" cy="10.5" r={6 - CLOUD_OUTLINE_WIDTH} fill="black" />
+              <circle cx="18" cy="14.5" r={3.5 - CLOUD_OUTLINE_WIDTH} fill="black" />
+              <rect x="8.5" y="12" width="9.5" height={6 - CLOUD_OUTLINE_WIDTH} fill="black" />
+            </Show>
             <Show when={props.level == "busy"}>
               <circle cx="9.5" cy="14.6" r="1.35" fill="black" />
               <circle cx="13.25" cy="14.6" r="1.35" fill="black" />

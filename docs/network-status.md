@@ -102,13 +102,14 @@ the toolbar indicator and the dialog header use it. The first matching row wins:
 
   | level | icon |
   |---|---|
-  | ok | a plain cloud, in the dark grey of the other toolbar icons |
-  | busy | the same cloud, with three dots cut out |
+  | ok | an outline cloud, in the dark grey of the other toolbar icons: the lightest icon in the toolbar |
+  | busy | a filled cloud, with three dots cut out |
   | warn | an amber cloud with a slash |
   | danger | a filled red badge with "!", the only filled shape |
 
   The shape alone tells the levels apart, for colour-blind users. Cut-outs use an SVG mask, so they show the toolbar
-  behind them.
+  behind them. The cloud is a union of circles, so the outline is the filled cloud with the same shapes, shrunk by
+  the line width, cut out of it.
 - **Sizing:** it is sized and styled like `InfuIconButton`, including the hover background.
 - **Tooltip:** the sentence is the tooltip and the `aria-label`. Relative times in it are refreshed when the pointer
   enters the icon.
@@ -438,5 +439,6 @@ These were open questions in the plan. The defaults were kept:
     A click on a note closes the dialog and still starts editing the note.
 - **Indicator look:** step 5 made the indicator a coloured, bordered square with a glyph. In use it felt too
   conspicuous: it was as loud when all was well as when work was lost, and it looked like the page-colour swatch
-  next to it. On 2026-10-17 it became the cloud icon described under "Toolbar indicator".
+  next to it. On 2026-10-17 it became the cloud icon described under "Toolbar indicator", with an outline cloud for
+  ok, so that the normal state is the lightest icon in the toolbar.
   - Checked: screenshots of the four levels in the toolbar, and of the dialog header in the danger state.
