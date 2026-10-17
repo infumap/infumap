@@ -1,6 +1,6 @@
 # Network status
 
-Status: planned 2026-10-17. Step 1 done 2026-10-17.
+Status: planned 2026-10-17. Steps 1–2 done 2026-10-17.
 
 This plan covers the toolbar network indicator and the dialog it opens
 ([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). It follows a design review
@@ -82,11 +82,15 @@ interface NetworkProblem {
 - **read, sync and chat** problems clear automatically when a later request with the same key succeeds.
 - **write** problems mean a change was reverted to the server's version by `reconcileFailedItems`. They stay until
   the user dismisses them, because the lost change does not come back.
-- A write failure on an item that has a pending text save is **not** recorded as a problem. The pending save holds
+- An `update-item` failure on an item that has a pending text save is **not** recorded as a problem. The pending save holds
   the item, and so the change; it retries with the whole current item; and reconciling is blocked until it
-  succeeds. Nothing is lost, so the "Not saved" row for that item is enough.
-- `reason`: a `CommandFailedError` gives its `failReason`. Any other error (a fetch `TypeError`, or a non-JSON proxy
-  error page from `post`) counts as `unreachable`.
+  succeeds. Nothing is lost, so the "Not saved" row for that item is enough. This applies only to `update-item`: a
+  failed `add-item` means the item doesn't exist on the server, which a retried update can't fix.
+- `reason`: a `CommandFailedError` gives its `failReason`. A fetch `TypeError`, or a `SyntaxError` from a non-JSON
+  proxy error page in `post`, counts as `unreachable`. Anything else, such as a chat stream's HTTP status or a model
+  error, is `unknown`.
+- Key: `host|command|itemId` (`networkProblemKey`). A failed search and a later successful search for different text
+  share a key, which is accepted.
 
 ### Connection state
 
@@ -119,7 +123,7 @@ afterwards.
 
 - [server.ts](../web/src/server.ts): add `kind`, `startedMs` and `endedMs` to `NetworkRequestInfo`. Leave
   `sync-containers` out of what `syncGlobalRequestTracker` reports. Report sync results through a new tracker
-  callback, `recordSyncResult(ok)`. A failed sync is still listed as an error too, until step 2.
+  callback, `recordSyncResult(ok)`.
 - Record `syncPausedReason` at each text-edit guard on sync (`containerSyncPausedForTextEdit`). A successful sync
   clears it.
 - Leave sync out of the 300ms busy rule from the start, so the square stops turning yellow every 2s.
@@ -134,14 +138,19 @@ afterwards.
 ### 2. Problems model and connection state
 
 - [StoreProvider_General.tsx](../web/src/store/StoreProvider_General.tsx): replace `erroredNetworkRequests` and
-  `hasUnacknowledgedNetworkErrors` with `problems`, `dismissProblem(key)`, `dismissAllProblems()` and
-  `serverReachable`. `clearNetworkHistory` resets them all. (`lastSyncOkMs`, `consecutiveSyncFailures` and
-  `syncPausedReason` were added in step 1.)
-- server.ts: `trackNetworkCommandError` classifies the reason and records a problem. A new
-  `trackNetworkCommandSuccess` clears matching auto-clearing problems and sets `serverReachable`. Call both from the
-  local queue, the remote queue and `streamChatCommand`.
+  `hasUnacknowledgedNetworkErrors` with `networkProblems`, `recordNetworkProblem`, `resolveNetworkProblems(key)`,
+  `dismissNetworkProblem(key)`, `dismissAllNetworkProblems()` and `serverReachable`. `clearNetworkHistory` resets
+  them all. (`lastSyncOkMs`, `consecutiveSyncFailures` and `syncPausedReason` were added in step 1.)
+- server.ts: `trackNetworkCommandError` classifies the reason and records a problem. `trackNetworkCommandFinished`
+  (from step 1) clears matching auto-clearing problems and sets `serverReachable`. A cancelled chat does neither.
+  Both are already called from the local queue, the remote queue and `streamChatCommand`.
 - For the text-save exception, expose `store.textEdit.hasPending(id)` and check it when a write fails.
-- The old dialog reads `problems` until step 6.
+- The old dialog reads `problems` until step 6: a "Problems" list with ×count, time, a "Not saved" tag on write
+  rows, a per-row dismiss and "Dismiss all", plus a "Can't reach the server." line. The "Errors stay red" banner is
+  gone. The toolbar square is red while any problem or failed text save remains, until step 5.
+- Not exercised end to end: the text-save exception, because headless typing is unreliable.
+- Seen in passing: the toolbar's transient error message ("Couldn't save change…") covers the dialog's header.
+  Step 6 should handle this.
 - **Check:** abort `/command` for 5s and then restore it. The read/sync problem appears, then clears on its own after
   the next successful sync. A failed move of an item stays as a write problem until dismissed.
 

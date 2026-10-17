@@ -58,7 +58,32 @@ export interface NetworkRequestInfo {
   endedMs?: number,
   /** Set on finished requests that did not fail. */
   outcome?: "done" | "cancelled",
-  errorMessage?: string,
+}
+
+export type NetworkFailureReason = "unreachable" | "auth" | "not-found" | "server" | "client" | "unknown";
+
+/**
+ * A failed request, merged with earlier failures of the same request (see networkProblemKey). A read, sync or chat
+ * problem clears when the same request later succeeds. A write problem means a change was reverted to the server's
+ * version, which a later success does not undo, so it stays until dismissed.
+ */
+export interface NetworkProblem {
+  key: string,
+  kind: NetworkRequestKind,
+  description: string,
+  itemId?: string,
+  host?: string | null,
+  reason: NetworkFailureReason,
+  message: string,
+  firstMs: number,
+  lastMs: number,
+  count: number,
+}
+
+export type NetworkProblemReport = Omit<NetworkProblem, "firstMs" | "lastMs" | "count">;
+
+export function networkProblemKey(request: NetworkRequestInfo): string {
+  return `${request.host ?? ""}|${request.command}|${request.itemId ?? ""}`;
 }
 
 export interface GeneralStoreContextModel {
@@ -92,10 +117,15 @@ export interface GeneralStoreContextModel {
   addRecentNetworkRequest: (request: NetworkRequestInfo) => void,
   queuedNetworkRequests: Accessor<NetworkRequestInfo[]>,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
-  erroredNetworkRequests: Accessor<NetworkRequestInfo[]>,
-  hasUnacknowledgedNetworkErrors: Accessor<boolean>,
-  addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
-  acknowledgeNetworkErrors: () => void,
+  networkProblems: Accessor<NetworkProblem[]>,
+  recordNetworkProblem: (problem: NetworkProblemReport) => void,
+  /** Clears the read, sync and chat problems with this key, after the request succeeded. */
+  resolveNetworkProblems: (key: string) => void,
+  dismissNetworkProblem: (key: string) => void,
+  dismissAllNetworkProblems: () => void,
+  /** False after a request to the local server could not reach it, until one does. */
+  serverReachable: Accessor<boolean>,
+  setServerReachable: (reachable: boolean) => void,
   clearNetworkHistory: () => void,
 
   /** Background container sync is not listed as requests; these summarize it instead. */
@@ -125,8 +155,8 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
   const [inProgressNetworkRequests, setInProgressNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [recentNetworkRequests, setRecentNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [queuedNetworkRequests, setQueuedNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
-  const [erroredNetworkRequests, setErroredNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
-  const [hasUnacknowledgedNetworkErrors, setHasUnacknowledgedNetworkErrors] = createSignal<boolean>(false, { equals: false });
+  const [networkProblems, setNetworkProblems] = createSignal<NetworkProblem[]>([]);
+  const [serverReachable, setServerReachable] = createSignal<boolean>(true);
   const [lastSyncOkMs, setLastSyncOkMs] = createSignal<number | null>(null);
   const [consecutiveSyncFailures, setConsecutiveSyncFailures] = createSignal<number>(0);
   const [syncPausedReason, setSyncPausedReason] = createSignal<SyncPausedReason | null>(null);
@@ -160,17 +190,31 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     recentNetworkRequestTimeouts.set(request.requestId, timeoutId);
   };
 
-  const addErroredNetworkRequest = (request: NetworkRequestInfo) => {
-    setHasUnacknowledgedNetworkErrors(true);
-    setErroredNetworkRequests((current) => {
-      const deduped = current.filter(existing =>
-        existing.host !== request.host ||
-        existing.command !== request.command ||
-        existing.itemId !== request.itemId ||
-        existing.description !== request.description
-      );
-      return [...deduped, request];
+  const recordNetworkProblem = (problem: NetworkProblemReport) => {
+    const nowMs = Date.now();
+    setNetworkProblems((current) => {
+      const existing = current.find(p => p.key == problem.key);
+      if (existing == null) {
+        return [...current, { ...problem, firstMs: nowMs, lastMs: nowMs, count: 1 }];
+      }
+      return current.map(p => p === existing
+        ? { ...problem, firstMs: existing.firstMs, lastMs: nowMs, count: existing.count + 1 }
+        : p);
     });
+  };
+
+  const resolveNetworkProblems = (key: string) => {
+    // Called on every successful request, so leave the signal alone when there is nothing to clear.
+    if (!networkProblems().some(p => p.key == key && p.kind != "write")) { return; }
+    setNetworkProblems((current) => current.filter(p => p.key != key || p.kind == "write"));
+  };
+
+  const dismissNetworkProblem = (key: string) => {
+    setNetworkProblems((current) => current.filter(p => p.key != key));
+  };
+
+  const dismissAllNetworkProblems = () => {
+    setNetworkProblems([]);
   };
 
   const recordSyncResult = (ok: boolean) => {
@@ -183,19 +227,14 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     }
   };
 
-  const acknowledgeNetworkErrors = () => {
-    setHasUnacknowledgedNetworkErrors(false);
-    setErroredNetworkRequests([]);
-  };
-
   const clearNetworkHistory = () => {
     recentNetworkRequestTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
     recentNetworkRequestTimeouts.clear();
     setInProgressNetworkRequests([]);
     setRecentNetworkRequests([]);
     setQueuedNetworkRequests([]);
-    setErroredNetworkRequests([]);
-    setHasUnacknowledgedNetworkErrors(false);
+    setNetworkProblems([]);
+    setServerReachable(true);
     setLastSyncOkMs(null);
     setConsecutiveSyncFailures(0);
     setSyncPausedReason(null);
@@ -281,7 +320,9 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     inProgressNetworkRequests, setInProgressNetworkRequests,
     recentNetworkRequests, addRecentNetworkRequest,
     queuedNetworkRequests, setQueuedNetworkRequests,
-    erroredNetworkRequests, hasUnacknowledgedNetworkErrors, addErroredNetworkRequest, acknowledgeNetworkErrors, clearNetworkHistory,
+    networkProblems, recordNetworkProblem, resolveNetworkProblems, dismissNetworkProblem, dismissAllNetworkProblems,
+    serverReachable, setServerReachable,
+    clearNetworkHistory,
     lastSyncOkMs, consecutiveSyncFailures, recordSyncResult, syncPausedReason, setSyncPausedReason,
   };
 }

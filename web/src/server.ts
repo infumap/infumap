@@ -20,7 +20,10 @@ import { logout } from "./components/Main";
 import type { ChatBackendId, QueryChatSettings, QueryProfileOperation, QueryProfilesResponse } from "./items/query-configuration";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo, NetworkRequestKind } from "./store/StoreProvider_General";
+import {
+  NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkFailureReason, NetworkProblemReport, NetworkRequestInfo,
+  NetworkRequestKind, networkProblemKey,
+} from "./store/StoreProvider_General";
 import type { QueryChatActivityModelRound } from "./store/StoreProvider_PerItem";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "./util/uid";
@@ -42,7 +45,9 @@ interface NetworkRequestTracker {
   setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   addRecentNetworkRequest: (request: NetworkRequestInfo) => void,
-  addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
+  recordNetworkProblem: (problem: NetworkProblemReport) => void,
+  resolveNetworkProblems: (key: string) => void,
+  setServerReachable: (reachable: boolean) => void,
   recordSyncResult: (ok: boolean) => void,
 }
 
@@ -564,28 +569,64 @@ function syncGlobalRequestTracker(): void {
   globalRequestTracker.setQueuedNetworkRequests(getQueuedCommands().map(toNetworkRequestInfo));
 }
 
+const FAIL_REASONS = new Set<string>(["auth", "not-found", "server", "client"]);
+
+function networkFailureReason(error: unknown): NetworkFailureReason {
+  if (error instanceof CommandFailedError) {
+    return error.failReason != null && FAIL_REASONS.has(error.failReason)
+      ? error.failReason as NetworkFailureReason
+      : "unknown";
+  }
+  // fetch rejects with a TypeError when the server can't be reached, and a proxy's error page is not JSON.
+  if (error instanceof TypeError || error instanceof SyntaxError) {
+    return "unreachable";
+  }
+  return "unknown";
+}
+
 function trackNetworkCommandFinished(command: ServerCommand, outcome: "done" | "cancelled"): void {
   if (!globalRequestTracker) {
     return;
+  }
+  const info = toNetworkRequestInfo(command);
+  if (outcome == "done") {
+    globalRequestTracker.resolveNetworkProblems(networkProblemKey(info));
+    if (command.host == null) {
+      globalRequestTracker.setServerReachable(true);
+    }
   }
   if (command.command == COMMAND_SYNC_CONTAINERS) {
     globalRequestTracker.recordSyncResult(true);
     return;
   }
-  globalRequestTracker.addRecentNetworkRequest({ ...toNetworkRequestInfo(command), endedMs: Date.now(), outcome });
+  globalRequestTracker.addRecentNetworkRequest({ ...info, endedMs: Date.now(), outcome });
 }
 
 function trackNetworkCommandError(command: ServerCommand, error: any): void {
   if (!globalRequestTracker) {
     return;
   }
+  const info = toNetworkRequestInfo(command);
+  const reason = networkFailureReason(error);
+  if (command.host == null) {
+    globalRequestTracker.setServerReachable(reason != "unreachable");
+  }
   if (command.command == COMMAND_SYNC_CONTAINERS) {
     globalRequestTracker.recordSyncResult(false);
   }
-  globalRequestTracker.addErroredNetworkRequest({
-    ...toNetworkRequestInfo(command),
-    endedMs: Date.now(),
-    errorMessage: error?.message || String(error)
+  // The pending text save holds the whole item and retries it, and reconciling waits for it, so nothing is lost.
+  if (command.command == COMMAND_UPDATE_ITEM && info.itemId != null &&
+      activeContainerSyncStore?.textEdit.hasPending(info.itemId)) {
+    return;
+  }
+  globalRequestTracker.recordNetworkProblem({
+    key: networkProblemKey(info),
+    kind: info.kind,
+    description: info.description,
+    itemId: info.itemId,
+    host: info.host,
+    reason,
+    message: error?.message || String(error),
   });
 }
 
