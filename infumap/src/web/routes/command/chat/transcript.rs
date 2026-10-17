@@ -369,13 +369,26 @@ pub(super) async fn read_transcript(
   user_id: &Uid,
   query_item_id: &Uid,
 ) -> InfuResult<Option<Transcript>> {
+  match read_transcript_bytes(data_dir, user_id, query_item_id).await? {
+    Some(bytes) => parse_transcript(&bytes),
+    None => Ok(None),
+  }
+}
+
+/// A snapshot of the complete records, without taking the chat lock or changing the file.
+pub(super) async fn read_transcript_bytes(
+  data_dir: &str,
+  user_id: &Uid,
+  query_item_id: &Uid,
+) -> InfuResult<Option<Vec<u8>>> {
   let path = transcript_path(data_dir, user_id, query_item_id)?;
-  let bytes = match fs::read(&path).await {
+  let mut bytes = match fs::read(&path).await {
     Ok(bytes) => bytes,
     Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
     Err(e) => return Err(e.into()),
   };
-  parse_transcript(&bytes)
+  bytes.truncate(complete_len(&bytes));
+  Ok(Some(bytes))
 }
 
 type ChatLockKey = (Uid, Uid);

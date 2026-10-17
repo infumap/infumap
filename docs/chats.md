@@ -22,6 +22,10 @@ If you send a message in a chat that changed elsewhere since you last loaded it,
 chat is reloaded and your message is put back in the input for you to send again. Only one response runs in a chat
 at a time.
 
+To open a chat's transcript as text, select the chat and click **Open text file** in the toolbar. This works directly
+in the Queries page, without keeping the chat as a `.chat` item first. The file contains the recorded JSONL
+transcript, including attachments and model activity. While a response runs, it includes only records saved so far.
+
 ## Query profiles
 
 A profile saves **Scope**, **Model** (with its reasoning effort), **Tools** and **Tool approvals** under
