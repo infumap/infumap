@@ -20,7 +20,11 @@ import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "./toolbarPopupStyle";
 
 import { Component, For, JSX, Match, Show, Switch, createSignal, onCleanup } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
-import { NetworkStatusLevel, failReasonText, formatAgo, networkStatusSummary, textSaveRetryText } from "./networkStatusSummary";
+import type { NetworkProblem, NetworkRequestInfo } from "../../store/StoreProvider_General";
+import { itemState } from "../../store/ItemState";
+import { asTitledItem, isTitledItem } from "../../items/base/titled-item";
+import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation";
+import { NetworkStatusLevel, failReasonText, formatAgo, networkStatusSummary, plural, textSaveRetryText } from "./networkStatusSummary";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { commitActiveTextEdit } from "../../input/edit";
 import { recheckExpiredSession } from "../../server";
@@ -35,8 +39,8 @@ const LEVEL_STYLE: { [level in NetworkStatusLevel]: { background: string, glyph:
   danger: { background: "#a12b2b", glyph: "#ffffff" },
 };
 
-const LevelGlyph = (props: { level: NetworkStatusLevel, color: string }): JSX.Element => (
-  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke={props.color} stroke-width="1.8"
+const LevelGlyph = (props: { level: NetworkStatusLevel, color: string, sizePx?: number }): JSX.Element => (
+  <svg width={props.sizePx ?? 11} height={props.sizePx ?? 11} viewBox="0 0 12 12" fill="none" stroke={props.color} stroke-width="1.8"
     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <Switch>
       <Match when={props.level == "ok"}><path d="M2.5 6.5 L5 9 L9.5 3.5" /></Match>
@@ -83,19 +87,74 @@ export const Toolbar_NetworkStatus: Component = () => {
 }
 
 
+const MAX_TITLE_CHARS = 48;
+const LINK_CLASS = "text-xs text-blue-600 hover:text-blue-800 cursor-pointer";
+
+// Kept for the session, so the activity list stays open while debugging.
+let activityExpandedInitially = false;
+
+function formatDuration(ms: number): string {
+  return ms < 1000 ? `${Math.max(0, Math.round(ms))} ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
 export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const store = useStore();
-
-  const inProgressRequests = () => store.general.inProgressNetworkRequests();
-  const recentRequests = () => store.general.recentNetworkRequests();
-  const queuedRequests = () => store.general.queuedNetworkRequests();
-  const problems = () => store.general.networkProblems();
 
   const [nowMs, setNowMs] = createSignal(Date.now());
   const nowTimer = window.setInterval(() => setNowMs(Date.now()), 1000);
   onCleanup(() => window.clearInterval(nowTimer));
-
   const ago = (ms: number) => formatAgo(ms, nowMs());
+
+  const summary = () => networkStatusSummary(store, nowMs());
+  const pendingSaves = () => store.textEdit.pendingSaves();
+  const writeProblems = () => store.general.networkProblems().filter(p => p.kind == "write");
+  const otherProblems = () => store.general.networkProblems().filter(p => p.kind != "write");
+  const inProgressRequests = () => store.general.inProgressNetworkRequests();
+  const queuedRequests = () => store.general.queuedNetworkRequests();
+  const recentRequests = () => store.general.recentNetworkRequests();
+
+  const [activityExpanded, setActivityExpanded] = createSignal(activityExpandedInitially);
+  const toggleActivity = () => {
+    activityExpandedInitially = !activityExpanded();
+    setActivityExpanded(activityExpandedInitially);
+  };
+
+  /** The item's title, if it is loaded and has one. */
+  const itemTitle = (itemId: string | undefined): string | null => {
+    const item = itemId == null ? null : itemState.get(itemId);
+    if (item == null || !isTitledItem(item)) { return null; }
+    const title = asTitledItem(item).title.trim().replace(/\s+/g, " ");
+    if (title == "") { return "(untitled)"; }
+    return title.length > MAX_TITLE_CHARS ? title.substring(0, MAX_TITLE_CHARS - 1) + "…" : title;
+  };
+
+  const hostSuffix = (host: string | null | undefined): string => {
+    if (!host) { return ""; }
+    try {
+      return ` @ ${new URL(host).host}`;
+    } catch (_error) {
+      return ` @ ${host}`;
+    }
+  };
+
+  const requestLabel = (req: { description: string, itemId?: string, host?: string | null }) => {
+    const title = itemTitle(req.itemId);
+    return `${req.description}${title == null ? "" : ` · ${title}`}${hostSuffix(req.host)}`;
+  };
+
+  const goToItem = (itemId: string) => {
+    void navigateToContainingPageOfItemAndFocus(store, itemId);
+  };
+
+  const ItemTitle = (props: { itemId?: string, fallback: string }): JSX.Element => {
+    const title = () => itemTitle(props.itemId);
+    return (
+      <Show when={title() != null && props.itemId != null} fallback={<span class="font-medium">{props.fallback}</span>}>
+        <button onClick={() => goToItem(props.itemId!)} title="Show this item"
+          class="font-medium text-left hover:underline cursor-pointer">{title()}</button>
+      </Show>
+    );
+  };
 
   const syncStatus = () => {
     if (store.general.syncPausedReason() == "text-edit") { return "paused while editing text"; }
@@ -106,26 +165,12 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     return "not yet run";
   };
 
-  const failedSaveText = () => {
-    const failed = store.textEdit.failedSaves();
-    if (failed.length == 0) { return ""; }
-    const what = failed.length == 1 ? "1 item could not be saved" : `${failed.length} items could not be saved`;
-    return `${what}: ${failReasonText(failed[0].reason)}. ${textSaveRetryText(store, nowMs())}`;
-  };
-
-  const formatRequest = (req: { description: string, itemId?: string, host?: string | null }) => {
-    let suffix = "";
-    if (req.itemId) {
-      suffix = ` (${req.itemId.substring(0, 8)}...)`;
-    }
-    if (req.host) {
-      try {
-        suffix += ` @ ${new URL(req.host).host}`;
-      } catch (_error) {
-        suffix += ` @ ${req.host}`;
-      }
-    }
-    return `${req.description}${suffix}`;
+  const activityCounts = () => {
+    const parts = [];
+    if (inProgressRequests().length > 0) { parts.push(`${inProgressRequests().length} running`); }
+    if (queuedRequests().length > 0) { parts.push(`${queuedRequests().length} queued`); }
+    if (recentRequests().length > 0) { parts.push(`${recentRequests().length} recent`); }
+    return parts.join(" · ");
   };
 
   const [copied, setCopied] = createSignal(false);
@@ -141,7 +186,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
 
   const handleDiscardAndLogout = () => {
     const count = store.textEdit.unsavedCount();
-    if (!window.confirm(`Discard unsaved text in ${count == 1 ? "1 item" : `${count} items`} and log out?`)) { return; }
+    if (!window.confirm(`Discard unsaved text in ${plural(count, "item")} and log out?`)) { return; }
     // End the edit first, so the logout doesn't capture the editor's text again.
     commitActiveTextEdit(store);
     store.textEdit.clear();
@@ -152,132 +197,148 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     store.overlay.networkOverlayVisible.set(false);
   };
 
-  return (
-    <Show when={store.overlay.networkOverlayVisible.get()}>
-      <div class={TOOLBAR_POPUP_CLASS}
-        style={`top: ${toolbarPopupTopPx(store)}px; right: 5px; min-width: 300px; max-width: 400px; ` +
-          `padding: 12px 12px 9px 12px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
-        onMouseDown={(e: MouseEvent) => { e.stopPropagation(); }}
-        onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>
-        <div class="flex justify-between items-start mb-2">
-          <div class="font-bold text-sm">Network Status</div>
-          <button onClick={handleClose} class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
-        </div>
+  const SectionHeading = (props: { children: JSX.Element }): JSX.Element =>
+    <div class="text-xs text-slate-600 mb-1 flex justify-between items-center">{props.children}</div>;
 
-        <Show when={store.textEdit.unsavedCount() > 0}>
-          <div class="mb-3 text-sm px-2 py-2 bg-yellow-50 rounded">
-            <div>{store.textEdit.unsavedCount()} item(s) with unsaved text changes</div>
-            <Show when={store.general.sessionExpired()} fallback={
-              <Show when={store.textEdit.failedSaveCount() > 0}>
-                <div class="text-xs text-red-700 mt-1">{failedSaveText()}</div>
-                <button onClick={() => { void store.textEdit.flush(); }}
-                  class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer mt-1">Retry now</button>
-              </Show>
-            }>
-              <div class="text-xs text-red-700 mt-1">
-                Your session has ended, so this can't be saved. Log in again in another tab, then come back to this
-                one to save it.
+  const WriteProblemRow = (props: { problem: NetworkProblem }): JSX.Element => (
+    <div class="text-sm px-2 py-1 bg-red-50 rounded mb-1">
+      <div class="flex justify-between items-start gap-2">
+        <ItemTitle itemId={props.problem.itemId} fallback={props.problem.description} />
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="text-xs text-slate-500">{ago(props.problem.lastMs)}</span>
+          <button onClick={() => store.general.dismissNetworkProblem(props.problem.key)} title="Dismiss"
+            class="text-slate-500 hover:text-slate-700 leading-none cursor-pointer">&times;</button>
+        </span>
+      </div>
+      <div class="text-xs text-red-700" title={props.problem.message}>
+        {itemTitle(props.problem.itemId) == null ? "Failed" : `${props.problem.description} failed`} because{" "}
+        {failReasonText(props.problem.reason)}. Reverted to the server version.
+      </div>
+    </div>
+  );
+
+  const ProblemRow = (props: { problem: NetworkProblem }): JSX.Element => (
+    <div class="text-sm px-2 py-1 bg-amber-50 rounded mb-1">
+      <div class="flex justify-between items-start gap-2">
+        <span class="font-medium">{requestLabel(props.problem)}</span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="text-xs text-slate-500">
+            {props.problem.count > 1 ? `×${props.problem.count} · ` : ""}{ago(props.problem.lastMs)}
+          </span>
+          <button onClick={() => store.general.dismissNetworkProblem(props.problem.key)} title="Dismiss"
+            class="text-slate-500 hover:text-slate-700 leading-none cursor-pointer">&times;</button>
+        </span>
+      </div>
+      <div class="text-xs text-amber-800" title={props.problem.message}>
+        Failed because {failReasonText(props.problem.reason)}.
+      </div>
+    </div>
+  );
+
+  const ActivityRow = (props: { request: NetworkRequestInfo, detail: string, muted?: boolean }): JSX.Element => (
+    <div class={`text-xs flex justify-between gap-3 ${props.muted ? "text-slate-400" : "text-slate-700"}`}
+      title={props.request.itemId ?? ""}>
+      <span class="truncate">{requestLabel(props.request)}</span>
+      <span class="shrink-0">{props.detail}</span>
+    </div>
+  );
+
+  return (
+    <div class={TOOLBAR_POPUP_CLASS} role="dialog" aria-label="Network status"
+      style={`top: ${toolbarPopupTopPx(store)}px; right: 5px; width: 360px; max-width: calc(100vw - 10px); ` +
+        `padding: 10px 12px 9px 12px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+      onMouseDown={(e: MouseEvent) => { e.stopPropagation(); }}
+      onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>
+
+      <div class="flex items-start gap-2 mb-3">
+        <div class="w-[16px] h-[16px] mt-[1px] rounded border border-slate-500 flex items-center justify-center shrink-0"
+          style={`background-color: ${LEVEL_STYLE[summary().level].background};`}>
+          <LevelGlyph level={summary().level} color={LEVEL_STYLE[summary().level].glyph} sizePx={9} />
+        </div>
+        <div class="flex-1 text-sm font-medium">{summary().sentence}</div>
+        <button onClick={handleClose} title="Close (Esc)"
+          class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
+      </div>
+
+      <Show when={pendingSaves().length > 0 || writeProblems().length > 0}>
+        <div class="mb-3">
+          <SectionHeading><span>Not saved ({pendingSaves().length + writeProblems().length})</span></SectionHeading>
+          <For each={pendingSaves()}>
+            {(save) => (
+              <div class={`text-sm px-2 py-1 rounded mb-1 ${save.failed ? "bg-red-50" : "bg-slate-50"}`}>
+                <ItemTitle itemId={save.itemId} fallback="Text" />
+                <div class={`text-xs ${save.failed ? "text-red-700" : "text-slate-500"}`}>
+                  {save.failed ? `Text not saved yet: ${failReasonText(save.reason)}.` : "Text not saved yet: saving…"}
+                </div>
               </div>
-              <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-                <button onClick={() => { window.open("/login", "_blank"); }}
-                  class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Open login in new tab</button>
-                <button onClick={() => { void recheckExpiredSession(store); }}
-                  class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Retry now</button>
-                <button onClick={handleCopyUnsavedText}
-                  class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">{copied() ? "Copied" : "Copy unsaved text"}</button>
-                <button onClick={handleDiscardAndLogout}
-                  class="text-xs text-red-700 hover:text-red-900 cursor-pointer">Discard and log out</button>
+            )}
+          </For>
+          <For each={writeProblems()}>
+            {(problem) => <WriteProblemRow problem={problem} />}
+          </For>
+          <Show when={store.general.sessionExpired()} fallback={
+            <Show when={store.textEdit.failedSaveCount() > 0}>
+              <div class="flex items-baseline gap-2 mt-1">
+                <span class="text-xs text-slate-600">{textSaveRetryText(store, nowMs())}</span>
+                <button onClick={() => { void store.textEdit.flush(); }} class={LINK_CLASS}>Retry now</button>
               </div>
+            </Show>
+          }>
+            <div class="text-xs text-red-700 mt-1">
+              Your session has ended, so text can't be saved. Log in again in another tab, then come back to this
+              one to save it.
+            </div>
+            <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+              <button onClick={() => { window.open("/login", "_blank"); }} class={LINK_CLASS}>Open login in new tab</button>
+              <button onClick={() => { void recheckExpiredSession(store); }} class={LINK_CLASS}>Retry now</button>
+              <button onClick={handleCopyUnsavedText} class={LINK_CLASS}>{copied() ? "Copied" : "Copy unsaved text"}</button>
+              <button onClick={handleDiscardAndLogout}
+                class="text-xs text-red-700 hover:text-red-900 cursor-pointer">Discard and log out</button>
+            </div>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={otherProblems().length > 0}>
+        <div class="mb-3">
+          <SectionHeading>
+            <span>Problems ({otherProblems().length})</span>
+            <button onClick={() => { for (const p of otherProblems()) { store.general.dismissNetworkProblem(p.key); } }}
+              class={LINK_CLASS}>Dismiss all</button>
+          </SectionHeading>
+          <For each={otherProblems()}>
+            {(problem) => <ProblemRow problem={problem} />}
+          </For>
+        </div>
+      </Show>
+
+      <div>
+        <button onClick={toggleActivity} aria-expanded={activityExpanded()}
+          class="w-full flex justify-between items-center text-xs text-slate-600 hover:text-slate-800 cursor-pointer">
+          <span>{activityExpanded() ? "▾" : "▸"} Activity</span>
+          <span class="text-slate-400">{activityCounts()}</span>
+        </button>
+        <div class="text-xs text-slate-500 mt-0.5 pl-[11px]">Background sync: {syncStatus()}</div>
+        <Show when={activityExpanded()}>
+          <div class="mt-1 pl-[11px] max-h-[180px] overflow-y-auto flex flex-col gap-0.5">
+            <For each={inProgressRequests()}>
+              {(request) => <ActivityRow request={request}
+                detail={request.startedMs == null ? "" : formatDuration(nowMs() - request.startedMs)} />}
+            </For>
+            <For each={queuedRequests()}>
+              {(request) => <ActivityRow request={request} detail="queued" />}
+            </For>
+            <For each={recentRequests()}>
+              {(request) => <ActivityRow request={request} muted={true}
+                detail={request.outcome == "cancelled" ? "cancelled"
+                  : request.startedMs != null && request.endedMs != null ? formatDuration(request.endedMs - request.startedMs) : ""} />}
+            </For>
+            <Show when={inProgressRequests().length + queuedRequests().length + recentRequests().length == 0}>
+              <div class="text-xs text-slate-400">No requests in the last few seconds.</div>
             </Show>
           </div>
         </Show>
-
-        <Show when={!store.general.serverReachable()}>
-          <div class="mb-3 text-sm text-red-700 bg-red-50 rounded px-2 py-2">Can't reach the server.</div>
-        </Show>
-
-        <Show when={problems().length > 0}>
-          <div class="mb-3">
-            <div class="text-xs text-slate-600 mb-1 flex justify-between items-center">
-              <span>Problems ({problems().length}):</span>
-              <button onClick={() => store.general.dismissAllNetworkProblems()}
-                class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">Dismiss all</button>
-            </div>
-            <For each={problems()}>
-              {(problem) => (
-                <div class="text-sm px-2 py-1 bg-red-100 rounded mb-1">
-                  <div class="flex justify-between items-start gap-2">
-                    <span class="font-medium">{formatRequest(problem)}</span>
-                    <span class="flex items-center gap-2 shrink-0">
-                      <Show when={problem.kind == "write"}>
-                        <span class="text-[10px] uppercase tracking-[0.08em] text-red-700">Not saved</span>
-                      </Show>
-                      <span class="text-xs text-slate-500">
-                        {problem.count > 1 ? `×${problem.count} · ` : ""}{ago(problem.lastMs)}
-                      </span>
-                      <button onClick={() => store.general.dismissNetworkProblem(problem.key)}
-                        class="text-slate-500 hover:text-slate-700 leading-none cursor-pointer">&times;</button>
-                    </span>
-                  </div>
-                  <div class="text-xs text-red-700 mt-1">{problem.message}</div>
-                </div>
-              )}
-            </For>
-          </div>
-        </Show>
-
-        <Show when={inProgressRequests().length > 0}>
-          <div class="mb-3">
-            <div class="text-xs text-slate-600 mb-1">In progress ({inProgressRequests().length}):</div>
-            <div class="max-h-[132px] overflow-y-auto pr-1 flex flex-col gap-1">
-              <For each={inProgressRequests()}>
-                {(request) => (
-                  <div class="text-sm px-2 py-1 bg-slate-100 rounded border border-slate-200">
-                    {formatRequest(request)}
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
-        </Show>
-
-        <Show when={recentRequests().length > 0}>
-          <div class="mb-3">
-            <div class="text-xs text-slate-600 mb-1">Recent ({recentRequests().length}):</div>
-            <div class="max-h-[132px] overflow-y-auto pr-1 flex flex-col gap-1">
-              <For each={recentRequests()}>
-                {(request) => (
-                  <div class="text-sm px-2 py-1 bg-slate-50 text-slate-500 rounded border border-slate-200">
-                    <div class="flex justify-between items-center gap-3">
-                      <span>{formatRequest(request)}</span>
-                      <Show when={request.outcome == "cancelled"}>
-                        <span class="text-[10px] uppercase tracking-[0.08em] text-slate-400 shrink-0">Cancelled</span>
-                      </Show>
-                    </div>
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
-        </Show>
-
-        <Show when={queuedRequests().length > 0}>
-          <div class="mb-3">
-            <div class="text-xs text-slate-600 mb-1">Queue ({queuedRequests().length}):</div>
-            <For each={queuedRequests()}>
-              {(request) => (
-                <div class="text-sm px-2 py-1 bg-yellow-100 rounded mb-1">{formatRequest(request)}</div>
-              )}
-            </For>
-          </div>
-        </Show>
-
-        <Show when={store.textEdit.unsavedCount() === 0 && inProgressRequests().length === 0 && recentRequests().length === 0 && queuedRequests().length === 0 && problems().length === 0}>
-          <div class="text-sm text-slate-500 text-center py-2">All Operations Complete</div>
-        </Show>
-
-        <div class="text-xs text-slate-500">Background sync: {syncStatus()}</div>
       </div>
-    </Show>
+    </div>
   );
 }

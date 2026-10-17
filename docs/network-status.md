@@ -1,6 +1,6 @@
 # Network status
 
-Status: planned 2026-10-17. Steps 1–5 done 2026-10-17.
+Status: planned 2026-10-17. Steps 1–6 done 2026-10-17.
 
 This plan covers the toolbar network indicator and the dialog it opens
 ([Toolbar_NetworkStatus.tsx](../web/src/components/toolbar/Toolbar_NetworkStatus.tsx)). It follows a design review
@@ -149,7 +149,7 @@ afterwards.
   rows, a per-row dismiss and "Dismiss all", plus a "Can't reach the server." line. The "Errors stay red" banner is
   gone. The toolbar square is red while any problem or failed text save remains, until step 5.
 - Seen in passing: the toolbar's transient error message ("Couldn't save change…") covers the dialog's header.
-  Step 6 should handle this.
+  Step 6 handles this.
 - **Check:** abort `/command` for 5s and then restore it. The read/sync problem appears, then clears on its own after
   the next successful sync. A failed move of an item stays as a write problem until dismissed.
 
@@ -281,6 +281,37 @@ Also:
 - Remove the inner `<Show>`; the one in [Main.tsx](../web/src/components/Main.tsx) is enough.
 - **Check:** screenshots of the idle, saving, offline, lost-write and session-expired states, at the dialog's minimum
   and maximum widths.
+
+Done (2026-10-17):
+
+- **Header:** a small copy of the toolbar square, then the summary sentence. The "Network Status" title is gone; the
+  panel has `role="dialog"` and `aria-label="Network status"`.
+- **Not saved:**
+  - One row per pending text save (new `textEdit.pendingSaves()`; `failedSaves()` is now derived from it). The row
+    says "saving…" or gives the failure reason.
+  - One row per write problem: "Updating note failed because the server can't be reached. Reverted to the server
+    version."
+  - Below the rows: the retry countdown with "Retry now", or the session-expiry actions.
+  - Clicking a title calls `navigateToContainingPageOfItemAndFocus`, not `switchToItem`. `switchToItem` asserts that
+    the item is not a page and opens it on its own, while this shows the item where it is, focused.
+- **Problems:** amber rows with the item's title where known, "Failed because …", ×N and the time. The raw error
+  message is in the row's tooltip. "Dismiss all" clears only this section; write problems are dismissed one by one.
+- **Activity:** collapsed by default, and the expanded state is kept for the session. The heading shows counts ("2
+  running · 1 recent"). The background sync line is always shown. When expanded: running requests with elapsed time,
+  queued requests, and recent requests with their duration or "cancelled". Rows name the item's title instead of a
+  uid; the uid is in the tooltip. Scrolls beyond 180px.
+- **Width:** a fixed 360px (at most the viewport less 10px), instead of 300–400px, so the layout doesn't jump as rows
+  come and go.
+- **Escape:** [key.ts](../web/src/input/key.ts) closes the dialog after the text-edit and native-input handling, so
+  Escape while editing first leaves the editor and a second one closes the dialog.
+- **Toast:** `showFailedMutationMessage` shows nothing while the dialog is open, because the dialog already shows
+  the failure.
+- **Checked:**
+  - Screenshots of idle (collapsed and expanded), saving, offline, lost write, session expired, and lost write at a
+    380px viewport.
+  - Escape order, as above.
+  - No toast while the dialog is open.
+  - Clicking a title navigates without errors.
 
 ### 7. Remote write failures
 

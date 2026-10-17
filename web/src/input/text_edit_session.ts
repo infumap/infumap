@@ -73,8 +73,10 @@ interface PendingSave {
   retryAtMs: number | null,
 }
 
-export interface FailedTextSave {
+export interface TextSaveStatus {
   itemId: string,
+  /** The last attempt failed. */
+  failed: boolean,
   reason: NetworkFailureReason | null,
   /** Null when the save is not retried automatically. */
   retryAtMs: number | null,
@@ -96,7 +98,9 @@ export interface TextEditStore {
   hasPending: (itemId: string) => boolean,
   unsavedCount: Accessor<number>,
   failedSaveCount: Accessor<number>,
-  failedSaves: Accessor<FailedTextSave[]>,
+  /** Every item with unsaved text, including those still waiting for the save delay. */
+  pendingSaves: Accessor<TextSaveStatus[]>,
+  failedSaves: Accessor<TextSaveStatus[]>,
   /** The text of every unsaved field, so it can be copied when it can't be saved. */
   unsavedText: () => string,
   clear: () => void,
@@ -156,13 +160,15 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
   const pending = new Map<string, PendingSave>();
   const [unsavedCount, setUnsavedCount] = createSignal(0);
   const [failedSaveCount, setFailedSaveCount] = createSignal(0);
-  const [failedSaves, setFailedSaves] = createSignal<FailedTextSave[]>([]);
+  const [pendingSaves, setPendingSaves] = createSignal<TextSaveStatus[]>([]);
+  const failedSaves = () => pendingSaves().filter(save => save.failed);
 
   const updateStatus = () => {
     setUnsavedCount(pending.size);
     const failed = [...pending.entries()].filter(([_id, save]) => save.failed);
     setFailedSaveCount(failed.length);
-    setFailedSaves(failed.map(([itemId, save]) => ({ itemId, reason: save.failReason, retryAtMs: save.retryAtMs })));
+    setPendingSaves([...pending.entries()].map(([itemId, save]) =>
+      ({ itemId, failed: save.failed, reason: save.failReason, retryAtMs: save.retryAtMs })));
   };
 
   const cancelTimer = (save: PendingSave) => {
@@ -471,6 +477,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     hasPending: (itemId: string) => pending.has(itemId),
     unsavedCount,
     failedSaveCount,
+    pendingSaves,
     failedSaves,
     unsavedText,
     clear: () => {
