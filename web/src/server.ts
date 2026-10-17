@@ -20,7 +20,7 @@ import { logout } from "./components/Main";
 import type { ChatBackendId, QueryChatSettings, QueryProfileOperation, QueryProfilesResponse } from "./items/query-configuration";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
-import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo } from "./store/StoreProvider_General";
+import { NETWORK_STATUS_IN_PROGRESS, NETWORK_STATUS_OK, NetworkRequestInfo, NetworkRequestKind } from "./store/StoreProvider_General";
 import type { QueryChatActivityModelRound } from "./store/StoreProvider_PerItem";
 import { NumberSignal } from "./util/signals";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "./util/uid";
@@ -38,18 +38,18 @@ import { VeFns, Veid } from "./layout/visual-element";
 import { navigateToLocalRoot, switchToItem, switchToPage } from "./layout/navigation";
 import { initiateLoadChildItemsMaybe } from "./layout/load";
 
-// Global request tracking - will be set by store initialization
-let globalRequestTracker: {
+interface NetworkRequestTracker {
   setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
   setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
+  addRecentNetworkRequest: (request: NetworkRequestInfo) => void,
   addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
-} | null = null;
+  recordSyncResult: (ok: boolean) => void,
+}
 
-export function setGlobalRequestTracker(tracker: {
-  setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
-  setQueuedNetworkRequests: (requests: NetworkRequestInfo[]) => void,
-  addErroredNetworkRequest: (request: NetworkRequestInfo) => void,
-}) {
+// Global request tracking - will be set by store initialization
+let globalRequestTracker: NetworkRequestTracker | null = null;
+
+export function setGlobalRequestTracker(tracker: NetworkRequestTracker) {
   globalRequestTracker = tracker;
 }
 
@@ -387,6 +387,7 @@ interface ServerCommand {
   base64data: string | null,
   resolve: (response: any) => void,
   reject: (reason: any) => void,
+  startedMs?: number,
 }
 
 /** A command the server received but did not carry out. */
@@ -500,16 +501,34 @@ let activeContainerSyncStore: StoreContextModel | null = null;
 const isMutationCommand = (command: string): boolean => MUTATION_COMMANDS.has(command);
 const isParallelReadCommand = (command: string): boolean => PARALLEL_READ_COMMANDS.has(command);
 
+function commandKind(command: string, payload: any): NetworkRequestKind {
+  if (command == COMMAND_SYNC_CONTAINERS) { return "sync"; }
+  if (command == COMMAND_CHAT) { return "chat"; }
+  if (isMutationCommand(command)) { return "write"; }
+  if (command == COMMAND_QUERY_PROFILES && payload.operation != "list") { return "write"; }
+  return "read";
+}
+
 function toNetworkRequestInfo(command: ServerCommand): NetworkRequestInfo {
   const { description, itemId } = getCommandDescription(command.command, command.payload);
   return {
     requestId: command.requestId,
     host: command.host,
     command: command.command,
+    kind: commandKind(command.command, command.payload),
     description,
     itemId,
+    startedMs: command.startedMs,
   };
 }
+
+function startCommand(command: ServerCommand): void {
+  command.startedMs = Date.now();
+}
+
+// Background sync runs every few seconds, so it is summarized by recordSyncResult rather than listed or
+// shown as activity.
+const isListedCommand = (command: ServerCommand): boolean => command.command != COMMAND_SYNC_CONTAINERS;
 
 function getInProgressCommands(): Array<ServerCommand> {
   const active: Array<ServerCommand> = [];
@@ -522,11 +541,11 @@ function getInProgressCommands(): Array<ServerCommand> {
     active.push(inProgressNonGet_remote);
   }
   active.push(...inProgressGetItems_remote);
-  return active;
+  return active.filter(isListedCommand);
 }
 
 function getQueuedCommands(): Array<ServerCommand> {
-  return [...commandQueue, ...commandQueue_remote];
+  return [...commandQueue, ...commandQueue_remote].filter(isListedCommand);
 }
 
 function hasAnyNetworkActivity(): boolean {
@@ -545,13 +564,29 @@ function syncGlobalRequestTracker(): void {
   globalRequestTracker.setQueuedNetworkRequests(getQueuedCommands().map(toNetworkRequestInfo));
 }
 
-function trackNetworkCommandError(command: ServerCommand, error: any): void {
-  if (globalRequestTracker) {
-    globalRequestTracker.addErroredNetworkRequest({
-      ...toNetworkRequestInfo(command),
-      errorMessage: error?.message || String(error)
-    });
+function trackNetworkCommandFinished(command: ServerCommand, outcome: "done" | "cancelled"): void {
+  if (!globalRequestTracker) {
+    return;
   }
+  if (command.command == COMMAND_SYNC_CONTAINERS) {
+    globalRequestTracker.recordSyncResult(true);
+    return;
+  }
+  globalRequestTracker.addRecentNetworkRequest({ ...toNetworkRequestInfo(command), endedMs: Date.now(), outcome });
+}
+
+function trackNetworkCommandError(command: ServerCommand, error: any): void {
+  if (!globalRequestTracker) {
+    return;
+  }
+  if (command.command == COMMAND_SYNC_CONTAINERS) {
+    globalRequestTracker.recordSyncResult(false);
+  }
+  globalRequestTracker.addErroredNetworkRequest({
+    ...toNetworkRequestInfo(command),
+    endedMs: Date.now(),
+    errorMessage: error?.message || String(error)
+  });
 }
 
 const incrementPendingMutations = (command: string): void => {
@@ -599,6 +634,7 @@ function serveWaiting(networkStatus: NumberSignal) {
 
       const command = commandQueue.shift() as ServerCommand;
       inProgressNonGet = command;
+      startCommand(command);
       syncBaseNetworkStatus(networkStatus);
       syncGlobalRequestTracker();
 
@@ -614,6 +650,7 @@ function serveWaiting(networkStatus: NumberSignal) {
       sendCommand(command.host, command.command, command.payload, command.base64data)
         .then((resp: any) => {
           command.resolve(resp);
+          trackNetworkCommandFinished(command, "done");
         })
         .catch((error) => {
           command.reject(error);
@@ -634,6 +671,7 @@ function serveWaiting(networkStatus: NumberSignal) {
 
     const command = commandQueue.shift() as ServerCommand;
     inProgressReadCommands.push(command);
+    startCommand(command);
     syncBaseNetworkStatus(networkStatus);
     syncGlobalRequestTracker();
 
@@ -652,6 +690,7 @@ function serveWaiting(networkStatus: NumberSignal) {
     sendCommand(command.host, command.command, command.payload, command.base64data)
       .then((resp: any) => {
         command.resolve(resp);
+        trackNetworkCommandFinished(command, "done");
       })
       .catch((error) => {
         command.reject(error);
@@ -696,6 +735,7 @@ async function streamChatCommand(
     resolve: () => { },
     reject: () => { },
   };
+  startCommand(commandObj);
   inProgressStreamingCommands.push(commandObj);
   syncBaseNetworkStatus(networkStatus);
   syncGlobalRequestTracker();
@@ -735,9 +775,15 @@ async function streamChatCommand(
     if (finalAssistantText == null) {
       throw new Error("Chat stream ended without assistant text.");
     }
+    trackNetworkCommandFinished(commandObj, "done");
     return { items: finalItems, assistantText: finalAssistantText, messages: finalMessages };
   } catch (error) {
-    if (signal?.aborted !== true && !(error instanceof ChatTranscriptConflictError)) {
+    if (signal?.aborted === true) {
+      trackNetworkCommandFinished(commandObj, "cancelled");
+    } else if (error instanceof ChatTranscriptConflictError) {
+      // Not a failure: the chat reloads the newer transcript.
+      trackNetworkCommandFinished(commandObj, "done");
+    } else {
       trackNetworkCommandError(commandObj, error);
     }
     throw error;
@@ -1188,6 +1234,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
 
       const command = commandQueue_remote.shift() as ServerCommand;
       inProgressNonGet_remote = command;
+      startCommand(command);
       syncBaseNetworkStatus(networkStatus);
       syncGlobalRequestTracker();
 
@@ -1203,6 +1250,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
       sendCommand(command.host, command.command, command.payload, command.base64data)
         .then((resp: any) => {
           command.resolve(resp);
+          trackNetworkCommandFinished(command, "done");
         })
         .catch((error) => {
           command.reject(error);
@@ -1219,6 +1267,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
 
     const command = commandQueue_remote.shift() as ServerCommand;
     inProgressGetItems_remote.push(command);
+    startCommand(command);
     syncBaseNetworkStatus(networkStatus);
     syncGlobalRequestTracker();
 
@@ -1237,6 +1286,7 @@ function serveWaiting_remote(networkStatus: NumberSignal) {
     sendCommand(command.host, command.command, command.payload, command.base64data)
       .then((resp: any) => {
         command.resolve(resp);
+        trackNetworkCommandFinished(command, "done");
       })
       .catch((error) => {
         command.reject(error);
@@ -1307,6 +1357,13 @@ function textEditInProgressForContainerSync(store: StoreContextModel | null | un
   return store?.overlay.textEditInfo() != null || (store?.textEdit.unsavedCount() ?? 0) > 0 || (store?.editorHistory.busy() ?? false);
 }
 
+/** As textEditInProgressForContainerSync, also recording whether sync is paused for the network status. */
+function containerSyncPausedForTextEdit(store: StoreContextModel): boolean {
+  const paused = textEditInProgressForContainerSync(store);
+  store.general.setSyncPausedReason(paused ? "text-edit" : null);
+  return paused;
+}
+
 function clearContainerSyncRetryTimeout(): void {
   if (containerSyncRetryTimeoutId == null) {
     return;
@@ -1321,7 +1378,7 @@ export function requestContainerSyncSoon(store?: StoreContextModel): void {
     return;
   }
 
-  if (textEditInProgressForContainerSync(targetStore)) {
+  if (containerSyncPausedForTextEdit(targetStore)) {
     clearContainerSyncRetryTimeout();
     return;
   }
@@ -1334,7 +1391,7 @@ export function requestContainerSyncSoon(store?: StoreContextModel): void {
 }
 
 function scheduleContainerSyncRetry(store: StoreContextModel, delayMs: number): void {
-  if (textEditInProgressForContainerSync(store)) {
+  if (containerSyncPausedForTextEdit(store)) {
     return;
   }
   if (containerSyncRetryTimeoutId != null) {
@@ -1590,7 +1647,7 @@ function currentPageWithin(store: StoreContextModel, ids: Set<Uid>): boolean {
 }
 
 async function performContainerSync(store: StoreContextModel): Promise<void> {
-  if (textEditInProgressForContainerSync(store)) {
+  if (containerSyncPausedForTextEdit(store)) {
     return;
   }
 
@@ -1621,7 +1678,7 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
     }
 
     const updates = await server.syncContainers(subscriptions, store.general.networkStatus);
-    if (textEditInProgressForContainerSync(store)) {
+    if (containerSyncPausedForTextEdit(store)) {
       return;
     }
     if (shouldRetryContainerSyncLater()) {

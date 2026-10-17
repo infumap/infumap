@@ -249,7 +249,9 @@ export function StoreProvider(props: StoreContextProps) {
   setGlobalRequestTracker({
     setInProgressNetworkRequests: value.general.setInProgressNetworkRequests,
     setQueuedNetworkRequests: value.general.setQueuedNetworkRequests,
+    addRecentNetworkRequest: value.general.addRecentNetworkRequest,
     addErroredNetworkRequest: value.general.addErroredNetworkRequest,
+    recordSyncResult: value.general.recordSyncResult,
   });
 
   return (

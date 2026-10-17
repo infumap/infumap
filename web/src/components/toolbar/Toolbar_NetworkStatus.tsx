@@ -18,7 +18,7 @@
 
 import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "./toolbarPopupStyle";
 
-import { Component, For, Show } from "solid-js"
+import { Component, For, Show, createSignal, onCleanup } from "solid-js"
 import { useStore } from "../../store/StoreProvider";
 import { NETWORK_STATUS_IN_PROGRESS } from "../../store/StoreProvider_General";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
@@ -58,18 +58,26 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   const queuedRequests = () => store.general.queuedNetworkRequests();
   const erroredRequests = () => store.general.erroredNetworkRequests();
   const hasUnacknowledgedErrors = () => store.general.hasUnacknowledgedNetworkErrors();
-  const hasActivityRequests = () => inProgressRequests().length > 0 || recentRequests().length > 0;
-  const activityHeading = () => {
-    if (inProgressRequests().length > 0 && recentRequests().length > 0) {
-      return `In Progress (${inProgressRequests().length} active, ${recentRequests().length} recent):`;
-    }
-    if (recentRequests().length > 0) {
-      return `In Progress (${recentRequests().length} recent):`;
-    }
-    if (inProgressRequests().length > 0) {
-      return `In Progress (${inProgressRequests().length}):`;
-    }
-    return "In Progress:";
+
+  const [nowMs, setNowMs] = createSignal(Date.now());
+  const nowTimer = window.setInterval(() => setNowMs(Date.now()), 1000);
+  onCleanup(() => window.clearInterval(nowTimer));
+
+  const formatAgo = (ms: number) => {
+    const seconds = Math.max(0, Math.round((nowMs() - ms) / 1000));
+    if (seconds < 60) { return `${seconds}s ago`; }
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) { return `${minutes} min ago`; }
+    return `${Math.round(minutes / 60)} h ago`;
+  };
+
+  const syncStatus = () => {
+    if (store.general.syncPausedReason() == "text-edit") { return "paused while editing text"; }
+    const failures = store.general.consecutiveSyncFailures();
+    if (failures > 0) { return failures == 1 ? "failed" : `failed ${failures} times in a row`; }
+    const lastOkMs = store.general.lastSyncOkMs();
+    if (lastOkMs != null) { return `OK, ${formatAgo(lastOkMs)}`; }
+    return "not yet run";
   };
 
   const formatRequest = (req: { description: string, itemId?: string, host?: string | null }) => {
@@ -143,10 +151,10 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           </div>
         </Show>
 
-        <Show when={hasActivityRequests()}>
+        <Show when={inProgressRequests().length > 0}>
           <div class="mb-3">
-            <div class="text-xs text-slate-600 mb-1">{activityHeading()}</div>
-            <div class="min-h-[132px] max-h-[132px] overflow-y-auto pr-1 flex flex-col gap-1">
+            <div class="text-xs text-slate-600 mb-1">In progress ({inProgressRequests().length}):</div>
+            <div class="max-h-[132px] overflow-y-auto pr-1 flex flex-col gap-1">
               <For each={inProgressRequests()}>
                 {(request) => (
                   <div class="text-sm px-2 py-1 bg-slate-100 rounded border border-slate-200">
@@ -154,12 +162,22 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
                   </div>
                 )}
               </For>
+            </div>
+          </div>
+        </Show>
+
+        <Show when={recentRequests().length > 0}>
+          <div class="mb-3">
+            <div class="text-xs text-slate-600 mb-1">Recent ({recentRequests().length}):</div>
+            <div class="max-h-[132px] overflow-y-auto pr-1 flex flex-col gap-1">
               <For each={recentRequests()}>
                 {(request) => (
                   <div class="text-sm px-2 py-1 bg-slate-50 text-slate-500 rounded border border-slate-200">
                     <div class="flex justify-between items-center gap-3">
                       <span>{formatRequest(request)}</span>
-                      <span class="text-[10px] uppercase tracking-[0.08em] text-slate-400 shrink-0">Recent</span>
+                      <Show when={request.outcome == "cancelled"}>
+                        <span class="text-[10px] uppercase tracking-[0.08em] text-slate-400 shrink-0">Cancelled</span>
+                      </Show>
                     </div>
                   </div>
                 )}
@@ -182,6 +200,8 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
         <Show when={store.textEdit.unsavedCount() === 0 && inProgressRequests().length === 0 && recentRequests().length === 0 && queuedRequests().length === 0 && erroredRequests().length === 0}>
           <div class="text-sm text-slate-500 text-center py-2">All Operations Complete</div>
         </Show>
+
+        <div class="text-xs text-slate-500">Background sync: {syncStatus()}</div>
       </div>
     </Show>
   );
