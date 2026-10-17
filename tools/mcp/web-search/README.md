@@ -5,6 +5,20 @@ Bind is `127.0.0.1` by default. Exa and Tavily use configured free monthly
 allowances. DuckDuckGo needs no API key and is disabled until a positive request
 rate is configured. Search uses paced routing and bounded fallback.
 
+The search tool asks the model to search sequentially and stop once the evidence
+supports a useful answer. In ordinary chat, its fourth call in a user turn adds
+a one-time reminder to answer from the collected evidence unless a material gap
+remains. These are soft instructions, not execution limits.
+
+Infumap supplies optional `tools/call` request metadata:
+`_meta["infumap.com/toolCall"] = {"number": 4, "mode": "chat"}`.
+The host counts calls separately per server and tool, resets counts each user
+turn, and assigns numbers before dispatch so parallel calls have distinct counts.
+Calls include failures but exclude declined approvals. The service owns the
+reminder policy and keeps no chat state; clients without this metadata receive
+ordinary results. Deep-research calls use `mode: "deep_research"` and receive no
+reminder. The reminder is a `reminder` field in the existing JSON tool response.
+
 Browser-backed HTML, native-only PDF extraction and local browser setup are
 implemented. See [fetch operations](FETCHING.md) for browser installation and
 updates, GPU service configuration, cache controls and validation limits, and

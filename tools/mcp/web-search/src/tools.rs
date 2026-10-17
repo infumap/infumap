@@ -58,8 +58,10 @@ pub fn tools_list(tool: WebTool) -> Value {
       "title": "Search the web",
       "description": concat!(
         "Search the public web for URLs and snippets. ",
-        "Each call may consume limited provider credits; use focused queries and avoid repeating searches ",
-        "already answered by existing results."
+        "Search sequentially so results can guide the next query. ",
+        "Match search effort to the request. Stop when results support a useful answer. ",
+        "Search further only to resolve material gaps; prefer supported alternatives over repeatedly chasing ",
+        "unverified candidates."
       ),
       "inputSchema": {
         "type": "object",
@@ -123,6 +125,31 @@ fn tool_result(text: String, is_error: bool) -> Value {
     "content": [{ "type": "text", "text": text }],
     "isError": is_error
   })
+}
+
+/// Add search-specific guidance using host metadata, never model-supplied arguments.
+/// Other MCP clients can omit this optional context; no server-side counter is kept.
+pub async fn call_tool_with_metadata(name: &str, arguments: Value, metadata: Option<&Value>) -> Value {
+  let mut result = call_tool(name, arguments).await;
+  let context = metadata.and_then(|metadata| metadata.get("infumap.com/toolCall"));
+  let remind = name == "web_search"
+    && context.and_then(|context| context.get("number")).and_then(Value::as_u64) == Some(4)
+    && context.and_then(|context| context.get("mode")).and_then(Value::as_str) == Some("chat");
+  // Keep the response as one JSON object so result previews still parse it.
+  if remind
+    && let Some(text) = result["content"][0]["text"].as_str()
+    && let Ok(Value::Object(mut response)) = serde_json::from_str::<Value>(text)
+  {
+    response.insert(
+      "reminder".to_owned(),
+      json!(
+        "You have used four searches this turn. Answer from the evidence collected unless a specific \
+         unresolved issue materially affects correctness."
+      ),
+    );
+    result["content"][0]["text"] = Value::String(Value::Object(response).to_string());
+  }
+  result
 }
 
 /// Execute a named tool. Failures are returned as MCP `isError` results, not JSON-RPC errors.

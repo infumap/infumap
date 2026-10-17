@@ -27,7 +27,7 @@ use hyper::{Method, Request, Response, StatusCode};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::tools::{WebTool, call_tool, tools_list};
+use crate::tools::{WebTool, call_tool_with_metadata, tools_list};
 
 pub const PROTOCOL_VERSION_2025_06_18: &str = "2025-06-18";
 pub const PROTOCOL_VERSION_2025_11_25: &str = "2025-11-25";
@@ -198,7 +198,7 @@ async fn dispatch_method(tool: WebTool, method: &str, params: Value) -> Result<V
         None | Some(Value::Null) => json!({}),
         Some(value) => value.clone(),
       };
-      Ok(call_tool(name, arguments).await)
+      Ok(call_tool_with_metadata(name, arguments, params.get("_meta")).await)
     }
     _ => Err((-32601, "Method not found".to_owned())),
   }
