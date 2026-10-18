@@ -25,6 +25,7 @@ import { ROOT_USERNAME } from "../constants";
 import { useStore } from "../store/StoreProvider";
 import { RegisterResponse, Totp } from "../util/accountTypes";
 import { switchToNonPage } from "../layout/navigation";
+import { AuthCheckbox, AuthError, AuthField, AuthPage } from "./AuthPage";
 
 
 export const SignUp: Component = () => {
@@ -87,75 +88,57 @@ export const SignUp: Component = () => {
   });
 
   return (
-    <div class="border border-slate-700 m-auto w-96 mt-10 p-3 rounded-md">
-      <div class="mb-3 mt-1 text-xl">
-        <Show when={areSettingUp()} fallback={<b>Sign Up</b>}>
-          <b>Create Root User</b>
-        </Show>
-      </div>
-
+    <AuthPage title={areSettingUp() ? "Create Root User" : "Sign up"}>
       <Show when={!hadSuccess()}>
-        <div class="mb-3">
-          <div class="inline-block w-32">Username</div>
-          <Show when={!areSettingUp()} fallback={<InfuTextInput disabled={true} value={ROOT_USERNAME} />}>
-            <InfuTextInput onInput={(v) => { username = v; }} />
-          </Show>
-        </div>
-        <div class="mb-3">
-          <div class="inline-block w-32">Password</div>
-          <InfuTextInput onInput={(v) => { password = v; }} type="password" />
-        </div>
-        <div>
-          <div class="inline-block w-32"></div>
-          <input type="checkbox" id="nootp" name="nootp" value="noopt"
-                 checked={store.general.prefer2fa()}
-                 onclick={() => store.general.setPrefer2fa(!store.general.prefer2fa())} />
-          <div class="ml-2 mb-3 inline-block"><label for="nootp">Setup 2FA</label></div>
-        </div>
-        <Show when={store.general.prefer2fa()}>
-          <div class="mb-3">
-            <div class="inline-block w-32">6 Digit Token</div>
-            <InfuTextInput onInput={(v) => { totpToken = v; }} />
-          </div>
-        </Show>
-        <div class="mb-1">
-          <div class="inline-block w-32"></div>
-          <InfuButton text="Sign Up" onClick={handleSignupClick} />
-        </div>
-        <Show when={error() != null}>
-          <div class="mb-1">
-            <div class="inline-block w-32"></div>
-            <div class="text-red-700">{error()}</div>
-          </div>
-        </Show>
-        <Show when={store.general.prefer2fa()}>
-          <div class="mt-6">
+        <form onSubmit={(ev) => ev.preventDefault()}>
+          <AuthField label="Username" for="signup-username">
+            <Show when={!areSettingUp()} fallback={<InfuTextInput id="signup-username" disabled={true} value={ROOT_USERNAME} fullWidth={true} />}>
+              <InfuTextInput id="signup-username" autocomplete="username" fullWidth={true} onInput={(v) => { username = v; }} />
+            </Show>
+          </AuthField>
+          <AuthField label="Password" for="signup-password">
+            <InfuTextInput id="signup-password" autocomplete="new-password" type="password" fullWidth={true}
+              onInput={(v) => { password = v; }} />
+          </AuthField>
+          <AuthCheckbox id="signup-setup-2fa" label="Set up 2FA" checked={store.general.prefer2fa()}
+            onClick={() => store.general.setPrefer2fa(!store.general.prefer2fa())} />
+          <Show when={store.general.prefer2fa()}>
+            {/* Scanned before the token below can be entered. */}
             <Show when={totp() != null}>
-              <div class="absolute">Authenticator setup:</div>
-              <img style="padding-top: 10px" src={`data:image/png;base64, ${totp()!.qr}`} />
-              <div class="text-sm w-full text-center" style="margin-top: -20px;">
-                {totp()!.secret}
-                <i class="ml-1 fa fa-copy cursor-pointer" onclick={() => { navigator.clipboard.writeText(totp()!.secret); }} />
+              <div class="mb-4">
+                <div class="text-sm text-slate-700 mb-1">Scan with your authenticator app</div>
+                <img class="block mx-auto w-[200px] max-w-full" src={`data:image/png;base64, ${totp()!.qr}`} />
+                <div class="font-mono text-xs text-center break-all">
+                  {totp()!.secret}
+                  <i class="ml-1 fa fa-copy cursor-pointer" title="Copy" onclick={() => { navigator.clipboard.writeText(totp()!.secret); }} />
+                </div>
               </div>
             </Show>
-          </div>
-        </Show>
+            <AuthField label="6 digit token" for="signup-totp">
+              <InfuTextInput id="signup-totp" autocomplete="one-time-code" inputMode="numeric" fullWidth={true}
+                onInput={(v) => { totpToken = v; }} />
+            </AuthField>
+          </Show>
+          <InfuButton text="Sign up" onClick={handleSignupClick} fullWidth={true} />
+          <Show when={error() != null}>
+            <AuthError>{error()}</AuthError>
+          </Show>
+        </form>
         <Show when={!areSettingUp()}>
-          <div class="w-full text-center mt-5 text-sm">
-            Already have an account? <InfuLink href="/login" text="login instead" />
+          <div class="text-center mt-5 text-sm">
+            Already have an account? <InfuLink href="/login" text="Log in" />
           </div>
         </Show>
       </Show>
 
       <Show when={hadSuccess()}>
-        <p class="mb-2 mt-4">Success!</p>
+        <p class="mb-2">Success!</p>
         <p class="mb-5">
           You've been successfully added to the pending users list. You will be able to log in
           after your registration is approved by an administrator.
         </p>
-        <InfuButton text="Login" onClick={() => { switchToNonPage(store, "/login"); }} />
+        <InfuButton text="Log in" onClick={() => { switchToNonPage(store, "/login"); }} fullWidth={true} />
       </Show>
-
-    </div>
+    </AuthPage>
   );
 }

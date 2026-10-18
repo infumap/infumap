@@ -24,6 +24,7 @@ import { ROOT_USERNAME } from "../constants";
 import { useStore } from "../store/StoreProvider";
 import { switchToNonPage } from "../layout/navigation";
 import { HelpContent } from "./HelpContent";
+import { AuthCheckbox, AuthError, AuthField, AuthPage } from "./AuthPage";
 
 
 export const Login: Component = () => {
@@ -66,60 +67,50 @@ export const Login: Component = () => {
   }
 
   return (
-    <div class="absolute inset-0 overflow-y-auto">
-      <div class="border border-slate-700 m-auto w-96 mt-10 p-3 rounded-md">
-        <div class="mb-3 mt-1 text-xl">
-          <b>Login</b>
+    <AuthPage title="Log in" below={
+      <>
+        <div class="w-full max-w-sm mx-auto px-4 mt-4 text-sm text-slate-600 text-center">
+          Press <kbd class="px-[5px] font-mono text-[11px] border border-slate-300 rounded-sm bg-slate-50">?</kbd> when
+          logged in at any time to see help.
+          <div>
+            <span class="text-blue-800 hover:text-blue-400 cursor-pointer" onClick={() => setShowHelp(!showHelp())}>
+              {showHelp() ? "Hide help" : "Show help"}
+            </span>
+          </div>
         </div>
-        <div class="mb-3">
-          <div class="inline-block w-32">Username</div>
-          <InfuTextInput onInput={(v) => { username = v; setError(null); }} />
-        </div>
-        <div class="mb-3">
-          <div class="inline-block w-32">Password</div>
-          <form class="inline-block">
-            <InfuTextInput onInput={(v) => { password = v; setError(null); }} onEnterKeyDown={handleLoginClick} type="password" />
-          </form>
-        </div>
-        <div>
-          <div class="inline-block w-32"></div>
-          <input class="rounded-xs" type="checkbox" id="nootp" name="nootp" value="noopt" checked={store.general.prefer2fa()} onclick={toggle2fa} />
-          <div class="ml-2 mb-3 inline-block"><label for="nootp">Use 2FA</label></div>
-        </div>
+        <Show when={showHelp()}>
+          <div class="w-[calc(100%-32px)] max-w-[560px] mx-auto mt-4 p-4 border border-slate-300 rounded-md">
+            <HelpContent />
+          </div>
+        </Show>
+        <div class="h-10" />
+      </>
+    }>
+      {/* A form, so password managers recognise the fields. Submitting is done by the button and Enter handlers. */}
+      <form onSubmit={(ev) => ev.preventDefault()}>
+        <AuthField label="Username" for="login-username">
+          <InfuTextInput id="login-username" autocomplete="username" fullWidth={true}
+            onInput={(v) => { username = v; setError(null); }} onEnterKeyDown={handleLoginClick} />
+        </AuthField>
+        <AuthField label="Password" for="login-password">
+          <InfuTextInput id="login-password" autocomplete="current-password" type="password" fullWidth={true}
+            onInput={(v) => { password = v; setError(null); }} onEnterKeyDown={handleLoginClick} />
+        </AuthField>
+        <AuthCheckbox id="login-use-2fa" label="Use 2FA" checked={store.general.prefer2fa()} onClick={toggle2fa} />
         <Show when={store.general.prefer2fa()}>
-          <div class="mb-3">
-            <div class="inline-block w-32">6 Digit Token</div>
-            <InfuTextInput onInput={(v) => { totpToken = v; setError(null); }} onEnterKeyDown={handleLoginClick} />
-          </div>
+          <AuthField label="6 digit token" for="login-totp">
+            <InfuTextInput id="login-totp" autocomplete="one-time-code" inputMode="numeric" fullWidth={true}
+              onInput={(v) => { totpToken = v; setError(null); }} onEnterKeyDown={handleLoginClick} />
+          </AuthField>
         </Show>
-        <div class="mb-1">
-          <div class="inline-block w-32"></div>
-          <InfuButton text="Login" onClick={handleLoginClick} />
-        </div>
+        <InfuButton text="Log in" onClick={handleLoginClick} fullWidth={true} />
         <Show when={error() != null}>
-          <div class="mb-1">
-            <div class="inline-block w-32"></div>
-            <div class="text-red-700">{error()}</div>
-          </div>
+          <AuthError>{error()}</AuthError>
         </Show>
-        <div class="w-full text-center mt-5 text-sm">
-          Don't have an account? <InfuLink href="/signup" text="sign up instead" />
-        </div>
+      </form>
+      <div class="text-center mt-5 text-sm">
+        Don't have an account? <InfuLink href="/signup" text="Sign up" />
       </div>
-      <div class="m-auto w-96 mt-4 px-3 text-sm text-slate-600 text-center">
-        Press <kbd class="px-[5px] font-mono text-[11px] border border-slate-300 rounded-sm bg-slate-50">?</kbd> when
-        logged in at any time to see help.
-        <div>
-          <span class="text-blue-800 hover:text-blue-400 cursor-pointer" onClick={() => setShowHelp(!showHelp())}>
-            {showHelp() ? "Hide help" : "Show help"}
-          </span>
-        </div>
-      </div>
-      <Show when={showHelp()}>
-        <div class="m-auto mt-4 mb-10 p-4 border border-slate-300 rounded-md" style="width: 560px; max-width: calc(100% - 20px);">
-          <HelpContent />
-        </div>
-      </Show>
-    </div>
+    </AuthPage>
   );
 }

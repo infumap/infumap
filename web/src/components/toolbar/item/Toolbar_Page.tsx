@@ -43,6 +43,7 @@ import { VesCache } from "../../../layout/ves-cache";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
+import { TOOLBAR_INFO_DIVIDER_RIGHT_PX, TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX } from "../toolbarDividers";
 
 
 export const Toolbar_Page: Component = () => {
@@ -542,7 +543,7 @@ export const Toolbar_Page: Component = () => {
     </>
   );
 
-  const infoDividerRightPx = () => showVirtualDocumentButtons() ? 175 : 151;
+  const infoDividerRightPx = () => showVirtualDocumentButtons() ? TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX : TOOLBAR_INFO_DIVIDER_RIGHT_PX;
 
   return (
     <div id="toolbarItemOptionsDiv"

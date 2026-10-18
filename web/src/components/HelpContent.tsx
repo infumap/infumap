@@ -146,7 +146,7 @@ export const HelpContent: Component = () => {
       <For each={SECTIONS}>{section =>
         <div class="mb-4 last:mb-0">
           <SectionTitle>{section.title}</SectionTitle>
-          <div class="grid grid-cols-[minmax(0,10rem)_1fr] gap-x-3 gap-y-[5px] items-baseline">
+          <div class="grid grid-cols-[minmax(0,7.5rem)_1fr] sm:grid-cols-[minmax(0,10rem)_1fr] gap-x-3 gap-y-[5px] items-baseline">
             <For each={rows(section)}>{row =>
               <>
                 <Keys alternatives={row.keys} />

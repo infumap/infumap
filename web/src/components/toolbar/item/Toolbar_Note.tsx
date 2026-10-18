@@ -38,6 +38,7 @@ import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
 import { VeFns } from "../../../layout/visual-element";
 import { VesCache } from "../../../layout/ves-cache";
 import { noteEffectiveAlignFlag, noteInheritedAlignFlag } from "../../../layout/text";
+import { TOOLBAR_INFO_DIVIDER_RIGHT_PX } from "../toolbarDividers";
 
 
 export const Toolbar_Note: Component = () => {
@@ -293,7 +294,7 @@ export const Toolbar_Note: Component = () => {
       <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+      <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
 
       <Toolbar_InfoAndId />
 
@@ -328,7 +329,7 @@ export const Toolbar_Note: Component = () => {
       <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+      <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
 
       <Toolbar_InfoAndId />
 

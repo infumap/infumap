@@ -35,6 +35,6 @@ export const InfuLink: Component<InfuLinkProps> = (props: InfuLinkProps) => {
   }
 
   return (
-    <div class="text-blue-800 hover:text-blue-400 cursor-pointer" onMouseDown={handleMouseDown}>{props.text}</div>
+    <span class="text-blue-800 hover:text-blue-400 cursor-pointer" onMouseDown={handleMouseDown}>{props.text}</span>
   );
 }

@@ -27,6 +27,7 @@ import { requestArrange } from "../../../layout/arrange";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { getToolbarFocusItem } from "../toolbarFocus";
+import { TOOLBAR_INFO_DIVIDER_RIGHT_PX } from "../toolbarDividers";
 
 
 export const Toolbar_Image: Component = () => {
@@ -84,7 +85,7 @@ export const Toolbar_Image: Component = () => {
         <Toolbar_ItemOrdering />
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 151px; top: 7px;"></div>
+        <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
 
         <Toolbar_InfoAndId />
 

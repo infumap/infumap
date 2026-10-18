@@ -29,6 +29,11 @@ export type InfuTextInputProps = {
   onEnterKeyDown?: () => void,
   disabled?: boolean,
   focus?: boolean,
+  /** Fill the container's width, rather than the fixed default width. */
+  fullWidth?: boolean,
+  id?: string,
+  autocomplete?: string,
+  inputMode?: "text" | "numeric",
 };
 
 export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInputProps) => {
@@ -69,9 +74,11 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
 
   return (
     <input ref={textElement}
-           style="width: 195px"
-           class="border border-slate-300 p-2 rounded"
-           autocomplete="on"
+           id={props.id}
+           style={props.fullWidth ? "" : "width: 195px"}
+           class={`border border-slate-300 p-2 rounded ${props.fullWidth ? "w-full" : ""}`}
+           autocomplete={props.autocomplete ?? "on"}
+           inputmode={props.inputMode}
            value={props.value ? props.value : ""}
            type={props.type ? props.type : "text"}
            onMouseDown={mouseDownHandler}

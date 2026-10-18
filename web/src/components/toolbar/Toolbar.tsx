@@ -61,6 +61,7 @@ import { logout } from '../Main';
 import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chrome';
 import { getToolbarFocusItem } from './toolbarFocus';
 import { SOLO_ITEM_HOLDER_PAGE_UID } from '../../util/uid';
+import { TOOLBAR_RIGHT_DIVIDER_RIGHT_PX } from "./toolbarDividers";
 
 
 const TOOLBAR_LOGO_VISIBLE_SIZE_PX = 28 * 419 / 448;
@@ -384,7 +385,7 @@ export const Toolbar: Component = () => {
 
       <div class="grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 111px; top: 7px;"></div>
+        <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_RIGHT_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
       </div>
 
       <div class="grow-0 pr-[8px]" style="flex-order: 2;">
