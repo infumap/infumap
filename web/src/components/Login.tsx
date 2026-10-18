@@ -23,6 +23,7 @@ import { InfuTextInput } from "./library/InfuTextInput";
 import { ROOT_USERNAME } from "../constants";
 import { useStore } from "../store/StoreProvider";
 import { switchToNonPage } from "../layout/navigation";
+import { HelpContent } from "./HelpContent";
 
 
 export const Login: Component = () => {
@@ -33,6 +34,7 @@ export const Login: Component = () => {
   let totpToken: string = "";
 
   const [error, setError] = createSignal<string | null>(null, { equals: false });
+  const [showHelp, setShowHelp] = createSignal(false);
 
   const toggle2fa = () => {
     store.general.setPrefer2fa(!store.general.prefer2fa());
@@ -64,7 +66,7 @@ export const Login: Component = () => {
   }
 
   return (
-    <>
+    <div class="absolute inset-0 overflow-y-auto">
       <div class="border border-slate-700 m-auto w-96 mt-10 p-3 rounded-md">
         <div class="mb-3 mt-1 text-xl">
           <b>Login</b>
@@ -104,38 +106,20 @@ export const Login: Component = () => {
           Don't have an account? <InfuLink href="/signup" text="sign up instead" />
         </div>
       </div>
-      <div class="m-auto w-96 mt-10 p-3">
-        <div class="mb-3">
-          <b>Essential Usage</b>
-        </div>
-        <div class="mb-3">
-          "/" → create a new item at current location using context menu.
-        </div>
-        <div class="mb-3">
-          "n", "p", "t", "r", "w", "l", "d", "x" → create a specific item (note, page, table, rating, password, link, divider, text) at the current location.
-        </div>
-        <div class="mb-3">
-          arrow keys → move focus between items. enter → open / step into the focused item. space → open the focused item in a popup.
-        </div>
-        <div class="mb-3">
-          esc → exit editing, close popup, or move focus up a level.
-        </div>
-        <div class="mb-3">
-          ctrl/cmd+f → find. ctrl/cmd+shift+f → queries.
-        </div>
-        <div class="mb-3">
-          right mouse button → navigate back in history one step.
-        </div>
-        <div class="mb-3">
-          ctrl drag → create a link to an item.
-        </div>
-        <div class="mb-3">
-          shift drag → clone an item (does not clone children).
-        </div>
-        <div class="mb-3">
-          long left click on page → edit page title.
+      <div class="m-auto w-96 mt-4 px-3 text-sm text-slate-600 text-center">
+        Press <kbd class="px-[5px] font-mono text-[11px] border border-slate-300 rounded-sm bg-slate-50">?</kbd> when
+        logged in at any time to see help.
+        <div>
+          <span class="text-blue-800 hover:text-blue-400 cursor-pointer" onClick={() => setShowHelp(!showHelp())}>
+            {showHelp() ? "Hide help" : "Show help"}
+          </span>
         </div>
       </div>
-    </>
+      <Show when={showHelp()}>
+        <div class="m-auto mt-4 mb-10 p-4 border border-slate-300 rounded-md" style="width: 560px; max-width: calc(100% - 20px);">
+          <HelpContent />
+        </div>
+      </Show>
+    </div>
   );
 }

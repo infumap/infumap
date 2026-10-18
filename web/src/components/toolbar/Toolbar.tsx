@@ -109,6 +109,10 @@ export const Toolbar: Component = () => {
     window.location.pathname = "/login";
   }
 
+  const showHelp = () => {
+    store.overlay.helpOverlayVisible.set(true);
+  }
+
   const showUserSettings = () => {
     store.overlay.editUserSettingsInfo.set({ desktopBoundsPx: initialEditUserSettingsBounds(store) });
   }
@@ -380,7 +384,7 @@ export const Toolbar: Component = () => {
 
       <div class="grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style="height: 25px; right: 87px; top: 7px;"></div>
+        <div class="fixed border-r border-slate-300" style="height: 25px; right: 111px; top: 7px;"></div>
       </div>
 
       <div class="grow-0 pr-[8px]" style="flex-order: 2;">
@@ -390,6 +394,7 @@ export const Toolbar: Component = () => {
         <Show when={store.user.getUserMaybe()}>
           <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
         </Show>
+        <InfuIconButton icon="fa fa-question-circle" highlighted={false} clickHandler={showHelp} title="Help (?)" />
         <Toolbar_NetworkStatus />
         <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
       </div>

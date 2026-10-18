@@ -16,13 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Match, Show, Switch, onMount, createEffect, createMemo } from "solid-js";
+import { Component, For, Match, Show, Switch, onMount, onCleanup, createEffect, createMemo, createSignal } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Veid, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
-import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, Z_INDEX_GLOBAL_POPUP, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
+import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, Z_INDEX_GLOBAL_ITEMS, Z_INDEX_GLOBAL_POPUP, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -57,9 +57,13 @@ import { printScrollWritesSuppressed } from "../../print";
 import { printLayout } from "../../layout/print-bands";
 import { Page_PrintBands } from "./Page_PrintBands";
 import { PageAttachments } from "./PageAttachments";
+import { canCreateItemsOnCurrentPage } from "../../input/create";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
+
+/** Children are empty until they load, so the hint waits, rather than flashing on each navigation. */
+const EMPTY_PAGE_HINT_DELAY_MS = 600;
 
 export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualElementProps) => {
   const store = useStore();
@@ -82,6 +86,29 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     store.printMode.get() && (props.visualElement.flags & VisualElementFlags.TopLevelRoot)
       ? printLayout(props.visualElement, pageChildren())
       : null);
+
+  // A hint on an empty page the user can add to. Not for list, calendar or table pages, whose layout has no
+  // open background to centre it in.
+  const emptyPageHintWanted = () =>
+    !!(props.visualElement.flags & VisualElementFlags.TopLevelRoot) &&
+    !store.printMode.get() &&
+    props.visualElement.tableBodyViewportBoundsPx == null &&
+    pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List &&
+    pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar &&
+    pageChildren().length == 0 &&
+    store.history.currentPopupSpec() == null &&
+    !store.overlay.anOverlayIsVisible() &&
+    canCreateItemsOnCurrentPage(store);
+  const [showEmptyPageHint, setShowEmptyPageHint] = createSignal(false);
+  createEffect(() => {
+    if (!emptyPageHintWanted()) {
+      setShowEmptyPageHint(false);
+      return;
+    }
+    const timeoutId = window.setTimeout(() => setShowEmptyPageHint(true), EMPTY_PAGE_HINT_DELAY_MS);
+    onCleanup(() => window.clearTimeout(timeoutId));
+  });
+
   const documentTextEditIsActive = () => {
     if (!canEditPage() || !pageFns().isDocumentPage()) { return false; }
     const itemPath = store.overlay.textEditInfo()?.itemPath;
@@ -878,6 +905,17 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             {renderPage()}
           </Match>
         </Switch>
+        <Show when={showEmptyPageHint()}>
+          <div class="absolute flex items-center justify-center pointer-events-none select-none text-sm text-slate-400"
+            style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
+              `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+              `z-index: ${Z_INDEX_GLOBAL_ITEMS + 1};`}>
+            <span>
+              Press <b class="font-semibold text-slate-500">/</b> to add an item
+              &nbsp;·&nbsp; <b class="font-semibold text-slate-500">?</b> for help
+            </span>
+          </div>
+        </Show>
         {/* Above the popup (rendered in the viewport) and, for pages whose titles are in the toolbar, the toolbar. */}
         <Show when={!attachmentsAreRenderedByPopup()}>
           <PageAttachments visualElement={props.visualElement}

@@ -131,6 +131,7 @@ export interface OverlayStoreContextModel {
   toolbarPopupInfoMaybe: InfuSignal<ToolbarPopupInfo | null>,
   toolbarTransientMessage: InfuSignal<TransientMessage | null>,
   networkOverlayVisible: InfuSignal<boolean>,
+  helpOverlayVisible: InfuSignal<boolean>,
   autoFocusSearchInput: InfuSignal<boolean>,
   autoFocusChatInput: InfuSignal<boolean>,
   findOverlayVisible: InfuSignal<boolean>,
@@ -168,6 +169,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
   const autoFocusSearchInput = createInfuSignal<boolean>(false);
   const autoFocusChatInput = createInfuSignal<boolean>(false);
   const networkOverlayVisible = createInfuSignal<boolean>(false);
+  const helpOverlayVisible = createInfuSignal<boolean>(false);
   const findOverlayVisible = createInfuSignal<boolean>(false);
   const uploadOverlayInfo = createInfuSignal<UploadOverlayInfo | null>(null);
   const remoteLoginInfo = createInfuSignal<RemoteLoginInfo | null>(null);
@@ -190,6 +192,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     autoFocusSearchInput.set(false);
     autoFocusChatInput.set(false);
     findOverlayVisible.set(false);
+    helpOverlayVisible.set(false);
     uploadOverlayInfo.set(null);
     remoteLoginInfo.set(null);
     emptyTrashInProgress.set(false);
@@ -199,6 +202,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     return (
       textEditInfo_.get() != null ||
       findOverlayVisible.get() ||
+      helpOverlayVisible.get() ||
       editUserSettingsInfo.get() != null ||
       contextMenuInfo.get() != null ||
       tableColumnContextMenuInfo.get() != null ||
@@ -255,6 +259,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     autoFocusSearchInput,
     autoFocusChatInput,
     networkOverlayVisible,
+    helpOverlayVisible,
     findOverlayVisible,
     uploadOverlayInfo,
     remoteLoginInfo,

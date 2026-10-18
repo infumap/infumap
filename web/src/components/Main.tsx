@@ -64,6 +64,7 @@ import { isAttachmentsItem } from "../items/base/attachments-item";
 import { asTextItem, isText } from "../items/text-item";
 import { openTextDocumentProjection } from "../items/text-document";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
+import { HelpOverlay } from "./overlay/HelpOverlay";
 import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
 
 
@@ -764,6 +765,9 @@ export const Main: Component = () => {
           <RemoteLoginOverlay />
         </Show>
         <EmptyTrashOverlay />
+        <Show when={store.overlay.helpOverlayVisible.get()}>
+          <HelpOverlay />
+        </Show>
       </div>
 
     </div>

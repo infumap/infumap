@@ -90,6 +90,10 @@ function targetShouldKeepNativeTabBehavior(ev: KeyboardEvent): boolean {
     target instanceof HTMLAnchorElement;
 }
 
+function isHelpKey(ev: KeyboardEvent): boolean {
+  return ev.key == "?" && !ev.ctrlKey && !ev.metaKey && !ev.altKey;
+}
+
 function targetShouldKeepNativeKeyboardBehavior(ev: KeyboardEvent): boolean {
   const target = ev.target;
   if (!(target instanceof HTMLElement)) {
@@ -518,6 +522,15 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   // document-level handler reinterpret the same key as navigation.
   if (ev.defaultPrevented) { return; }
 
+  // The help overlay is modal: Esc or ? closes it, and other keys do nothing (any editor behind it keeps typing).
+  if (store.overlay.helpOverlayVisible.get()) {
+    if (ev.code == "Escape" || isHelpKey(ev)) {
+      ev.preventDefault();
+      store.overlay.helpOverlayVisible.set(false);
+    }
+    return;
+  }
+
   // IMPORTANT: keep these in sync with the code below.
 
   const recognizedKeys = [
@@ -595,6 +608,13 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   if (isReservedTabKey(ev) && !targetShouldKeepNativeTabBehavior(ev)) {
     ev.preventDefault();
+    return;
+  }
+
+  // ? is Shift+Slash on some layouts, so it is checked before the Slash key opens the context menu.
+  if (isHelpKey(ev)) {
+    ev.preventDefault();
+    store.overlay.helpOverlayVisible.set(true);
     return;
   }
 
