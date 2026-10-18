@@ -45,6 +45,8 @@ export function appendNewlineIfEmpty(text: string): string {
 }
 
 export function restoreContentEditablePlaceholderIfEmpty(el: HTMLElement): boolean {
+  // Note editors keep NBSP as text and own their placeholder (see reconcileNoteEditableDom).
+  if (el.hasAttribute("data-note-editor")) { return false; }
   if (trimNewline(el.innerText) != "") { return false; }
   if (el.textContent == EMPTY_CONTENT_EDITABLE_PLACEHOLDER) { return false; }
   el.textContent = EMPTY_CONTENT_EDITABLE_PLACEHOLDER;
