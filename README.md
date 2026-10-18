@@ -2,10 +2,10 @@
 
 Summary:
 - A secure, durable home for all of your information.
-- One unified workspace holds all of your information.
-  - Progressively add structure as your needs evolve.
-  - 8 page types, tables and more.
+- One unified workspace that holds everything:
+  - 8 page types, tables, notes, images, ratings and more.
   - Optimized for rapid navigation.
+  - Progressively add structure as your needs evolve.
 - Tight integration with AI Chat.
 
 <kbd>
@@ -17,17 +17,9 @@ Summary:
 > [!IMPORTANT]
 > The `master` branch is the active development branch and often includes work in progress between releases. For regular use, please prefer the latest tagged release.
 
-I use Infumap to manage all of my personal information and spend a significant part of almost every day using it. Time I spend developing it is generally directed towards features or bug fixes that I will personally benefit from.
+I use Infumap to manage all of my personal information and spend a significant part of almost every day using it. This daily use has shaped development and steadily refined the product over a number of years.
 
-My goals in developing Infumap, in order, are:
-
-1. Make something I want to use.
-2. Explore new ideas that I think are valuable.
-3. Hopefully end up with something that other people want to use as well.
-
-The first two goals mean that I've often been more inclined to add features than completely polish existing ones. As a result, there are many things that are currently a bit broken or not completely implemented. But nothing you can't work around.
-
-Going forward, I will continue to add features and polish existing ones as this aligns with my own needs. If I start to see other people finding value here (the simplest way you can demonstrate your interest is give the project a github star!), I'll be motivated to give the project a lot more time and prioritize more general purpose goals in addition to my own.
+Feedback, bug reports, and suggestions are welcome.
 
 *If you choose to use Infumap, please review [LICENSE.txt](LICENSE.txt).*
 
