@@ -2,10 +2,11 @@
 
 Summary:
 - A secure, durable home for all of your information.
-- Innovative UI:
+- One unified workspace holds all of your information.
   - Progressively add structure as your needs evolve.
+  - 8 page types, tables and more.
   - Optimized for rapid navigation.
-- In development: API for AI integration.
+- Tight integration with AI Chat.
 
 <kbd>
   <img src="screenshot.png" />
