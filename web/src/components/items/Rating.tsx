@@ -47,7 +47,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
   const widthScale = () => valueWidthPx() / naturalWidthPx();
   const heightScale = () => boundsPx().h / naturalHeightPx();
   const scale = () => Math.min(heightScale(), widthScale());
-  const starSizeProp = () => ratingItem().rating / 5 * 1.2;
+  const starScale = () => Math.max(0, Math.min(1, ratingItem().rating / 5));
   const ratingType = () => ratingItem().ratingType;
   const showTriangleDetail = () => (boundsPx().h / LINE_HEIGHT_PX) > 0.5;
 
@@ -87,9 +87,10 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
                     `width: ${valueWidthPx()-2}px; height: ${boundsPx().h-2}px; ` +
                     `text-align: center; vertical-align: bottom;`} />
         <div class={`fas fa-star text-yellow-400 absolute`}
-             style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${boundsPx().h}px; ` +
+             style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; ` +
                     `width: ${valueWidthPx()-2}px; height: ${boundsPx().h-2}px; ` +
-                    `text-align: center; vertical-align: bottom;`} />
+                    `text-align: center; vertical-align: bottom; ` +
+                    `transform: scale(${starScale()}); transform-origin: ${(valueWidthPx()-2)/2}px ${boundsPx().h/2}px;`} />
       </Show>
       <Show when={ratingType() == "Number"}>
         <div class="absolute rounded-full bg-slate-300 text-center text-gray-800"

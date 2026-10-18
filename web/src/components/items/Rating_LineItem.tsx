@@ -35,7 +35,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
 
   const ratingItem = () => asRatingItem(props.visualElement.displayItem);
   const vePath = () => VeFns.veToPath(props.visualElement);
-  const starSizeProp = () => ratingItem().rating / MAX_RATING * 1.2;
+  const starScale = () => Math.max(0, Math.min(1, ratingItem().rating / MAX_RATING));
   const ratingType = () => ratingItem().ratingType;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? 0;
   const boundsPx = () => props.visualElement.boundsPx;
@@ -84,9 +84,10 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
                     `width: ${glyphBoundsPx().w-2}px; height: ${glyphBoundsPx().h-2}px; ` +
                     `text-align: center; vertical-align: bottom;`} />
         <div class={`fas fa-star text-yellow-400 absolute`}
-             style={`font-size: ${FONT_SIZE_PX * starSizeProp() * scale()}px; line-height: ${glyphBoundsPx().h}px; ` +
+             style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${glyphBoundsPx().h}px; ` +
                     `width: ${glyphBoundsPx().w-2}px; height: ${glyphBoundsPx().h-2}px; ` +
-                    `text-align: center; vertical-align: bottom;`} />
+                    `text-align: center; vertical-align: bottom; ` +
+                    `transform: scale(${starScale()}); transform-origin: ${(glyphBoundsPx().w-2)/2}px ${glyphBoundsPx().h/2}px;`} />
       </Show>
 
       <Show when={ratingType() == "Number"}>
