@@ -36,9 +36,6 @@ Then point your web browser at `http://localhost:8000`.
 
 Default configuration and data directories will be created automatically.
 
-See [Chats](docs/chats.md) for the Queries page and
-[query profiles](docs/chats.md#query-profiles) for named scope, model and tool setups.
-
 You can use Infumap locally, or install it on a server on the internet in order to:
 - Access your information from anywhere.
 - Integrate with other services.
