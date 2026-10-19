@@ -22,12 +22,14 @@ import { type Item, ItemType } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { asTitledItem } from "../items/base/titled-item";
 import { asPageItem } from "../items/page-item";
-import { asTableItem } from "../items/table-item";
+import { asTableItem, TableFns } from "../items/table-item";
 import { asPasswordItem } from "../items/password-item";
 import { isClipboardTextCreateItem } from "../items/text-item";
 import { asNoteItem, concatNoteInlineMarks, concatNoteUrls, NoteFns, splitNoteInlineMarks, splitNoteUrls, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
 import { getQueryText, setQueryText } from "../items/query-item";
-import { VeFns } from "../layout/visual-element";
+import { requestArrange } from "../layout/arrange";
+import { VesCache } from "../layout/ves-cache";
+import { isTableView, VeFns, type VisualElement, type VisualElementPath } from "../layout/visual-element";
 import { networkFailureReason, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
@@ -145,6 +147,34 @@ function resyncPlainEditorDom(element: HTMLElement, text: string): void {
     if (child instanceof Text || (child instanceof HTMLElement && child.tagName == "BR")) { child.remove(); }
   }
   if (first.data != expected) { first.data = expected; }
+}
+
+/** The table showing the row at itemPath, and the index of that row in it. */
+function tableRowOfPath(store: StoreContextModel, itemPath: VisualElementPath): { tableVe: VisualElement, rowIdx: number } | null {
+  const parentPath = VeFns.parentPath(itemPath);
+  if (parentPath == "") { return null; }
+  const tableVe = VesCache.current.readNode(parentPath);
+  if (tableVe == null || !isTableView(tableVe)) { return null; }
+  const rowIdx = TableFns.tableVisibleRows(store, tableVe).findIndex(row => row.path == itemPath);
+  return rowIdx >= 0 ? { tableVe, rowIdx } : null;
+}
+
+/**
+ * Re-sort by the edited title. If that moves the row in a table, scroll the table as little as possible to keep the
+ * row visible, so it does not appear to vanish.
+ */
+function sortAfterTitleEdit(store: StoreContextModel, item: Item, itemPath: VisualElementPath): void {
+  const before = tableRowOfPath(store, itemPath);
+  itemState.sortParentChildrenIfTitleOrdered(item);
+  if (before == null) { return; }
+  const after = tableRowOfPath(store, itemPath);
+  if (after == null || after.rowIdx == before.rowIdx) { return; }
+  const tableVeid = VeFns.veidFromVe(after.tableVe);
+  const scrollYPos = TableFns.scrollYPosToIncludeRow(store, after.tableVe, after.rowIdx);
+  if (scrollYPos != store.perItem.getTableScrollYPos(tableVeid)) {
+    store.perItem.setTableScrollYPos(tableVeid, scrollYPos);
+    requestArrange(store, "text-edit-sorted-row-scroll");
+  }
 }
 
 /** Owns text-edit lifetime and pending saves independently of the rendered editor. */
@@ -345,7 +375,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     if (active == null) { return; }
     const item = itemState.get(active.itemId);
     if (item != null) {
-      itemState.sortParentChildrenIfTitleOrdered(item);
+      sortAfterTitleEdit(getStore(), item, active.info.itemPath);
       void savePending(item.id);
     }
   };
