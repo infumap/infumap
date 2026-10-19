@@ -66,6 +66,18 @@ merge into one problem, with a count and first and last times. The key is `host|
 - **Toast:** the "Couldn't save change" toast is shown only for a save's first failure, not on every retry
   (`isTextSaveRetry`).
 
+### Loading a page's children
+
+[load.ts](../web/src/layout/load.ts) records a failed load of a container's children (`childLoadFailure`).
+
+- **Retries:** an `unreachable`, `server` or `unknown` failure is retried after 2s, 4s, 8s and so on, up to 30s. The
+  retry is a re-arrange, so only containers that are still visible are loaded again. Other reasons are not retried.
+- **Sync:** container sync can deliver the children while the load is failing. That clears the failure
+  (`childrenLoadedBySync`).
+- **In the page:** a top-level page whose load failed shows "Couldn't load this page: <reason>." in place of the
+  empty-page hint. The hint is shown only when the children are known (`childrenAreKnown`), so not while they are
+  loading, or after a failure.
+
 ### Connection and session
 
 - `serverReachable` turns false when a request to the local server fails as `unreachable`, and true on any local

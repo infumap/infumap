@@ -37,7 +37,7 @@ import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./ut
 import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { VeFns, Veid } from "./layout/visual-element";
 import { navigateToLocalRoot, switchToItem, switchToPage } from "./layout/navigation";
-import { initiateLoadChildItemsMaybe } from "./layout/load";
+import { childrenLoadedBySync, initiateLoadChildItemsMaybe } from "./layout/load";
 
 interface NetworkRequestTracker {
   setInProgressNetworkRequests: (requests: NetworkRequestInfo[]) => void,
@@ -999,6 +999,9 @@ function applyContainerSyncUpdate(update: SyncContainerUpdate): boolean {
     changed = true;
   } else {
     changed = applyContainerSyncDelta(update);
+  }
+  if (itemState.getAsContainerItem(update.id)?.childrenLoaded) {
+    childrenLoadedBySync(update.id);
   }
 
   setLocalContainerSyncVersion(update.id as Uid, update.epoch, update.version, true);

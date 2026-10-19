@@ -20,6 +20,7 @@ import {
   GET_ITEMS_MODE__CHILDREN_AND_THEIR_ATTACHMENTS_ONLY,
   GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY,
   hasPendingLocalMutations,
+  networkFailureReason,
   remote,
   server,
 } from "../server";
@@ -37,6 +38,8 @@ import { TabularFns } from "../items/base/tabular-item";
 import { VesCache } from "./ves-cache";
 import { VisualElementSignal } from "../util/signals";
 import { RemoteSessions } from "../store/RemoteSessions";
+import { createSignal } from "solid-js";
+import { NetworkFailureReason } from "../store/StoreProvider_General";
 
 
 export function clearLoadState() {
@@ -48,6 +51,17 @@ export function clearLoadState() {
   for (let key in childLoadInFlight) {
     if (childLoadInFlight.hasOwnProperty(key)) {
       delete childLoadInFlight[key];
+    }
+  }
+  for (let key in childLoadFailures) {
+    if (childLoadFailures.hasOwnProperty(key)) {
+      delete childLoadFailures[key];
+    }
+  }
+  for (let key in childLoadRetryTimeout) {
+    if (childLoadRetryTimeout.hasOwnProperty(key)) {
+      window.clearTimeout(childLoadRetryTimeout[key]);
+      delete childLoadRetryTimeout[key];
     }
   }
   for (let key in childLoadDeferredRetryTimeout) {
@@ -81,6 +95,23 @@ export function markChildrenLoadAsInitiatedOrComplete(containerId: Uid) {
 
 const childrenLoadInitiatedOrComplete: { [id: Uid]: boolean } = {};
 const childLoadInFlight: { [id: Uid]: Promise<void> } = {};
+
+export interface ChildLoadFailure {
+  reason: NetworkFailureReason,
+  /** 0 for the first failure, counting failed retries after that. */
+  attempt: number,
+  /** When the load may be retried. Null if it is not retried, because trying again can't help. */
+  retryAtMs: number | null,
+}
+
+/** Kept until the load succeeds, so the failure is still shown while it is retried. */
+const childLoadFailures: { [id: Uid]: ChildLoadFailure } = {};
+const childLoadRetryTimeout: { [id: Uid]: number } = {};
+const CHILD_LOAD_RETRY_FIRST_DELAY_MS = 2000;
+const CHILD_LOAD_RETRY_MAX_DELAY_MS = 30000;
+const CHILD_LOAD_RETRYABLE_FAIL_REASONS = new Set<NetworkFailureReason>(["unreachable", "server", "unknown"]);
+/** Bumped when a children load settles, so that childrenAreKnown and childLoadFailure are reactive. */
+const [childLoadSettledCount, setChildLoadSettledCount] = createSignal(0);
 const childLoadDeferredRetryTimeout: { [id: Uid]: number } = {};
 const CHILD_LOAD_DEFERRED_RETRY_MS = 250;
 
@@ -111,6 +142,56 @@ function scheduleDeferredChildLoadRetry(store: StoreContextModel, containerVeid:
   }, CHILD_LOAD_DEFERRED_RETRY_MS);
 }
 
+/**
+ * Whether the children of a container are known: loaded, or created locally. Not while they are being fetched, or
+ * if fetching them failed, when the container may have children that are not held. Reactive.
+ */
+export function childrenAreKnown(containerId: Uid): boolean {
+  childLoadSettledCount();
+  const container = itemState.get(containerId);
+  if (container != null && isContainer(container) && asContainerItem(container).childrenLoaded) { return true; }
+  return !!childrenLoadInitiatedOrComplete[containerId] &&
+    childLoadInFlight[containerId] == null &&
+    childLoadDeferredRetryTimeout[containerId] == null &&
+    childLoadFailures[containerId] == null;
+}
+
+/** Why loading the children of a container failed, or null if it did not. Reactive. */
+export function childLoadFailure(containerId: Uid): ChildLoadFailure | null {
+  childLoadSettledCount();
+  return childLoadFailures[containerId] ?? null;
+}
+
+/** The children of a container were loaded other than by initiateLoadChildItemsMaybe: by container sync. */
+export function childrenLoadedBySync(containerId: Uid): void {
+  if (childLoadFailures[containerId] == null) { return; }
+  delete childLoadFailures[containerId];
+  window.clearTimeout(childLoadRetryTimeout[containerId]);
+  delete childLoadRetryTimeout[containerId];
+  childrenLoadInitiatedOrComplete[containerId] = true;
+  setChildLoadSettledCount(c => c + 1);
+}
+
+/**
+ * A failed load is retried by the arrange after the delay, so only containers that are still visible are retried.
+ * Until then, initiateLoadChildItemsMaybe does nothing for it.
+ */
+function recordChildLoadFailure(store: StoreContextModel, containerId: Uid, reason: NetworkFailureReason): void {
+  childrenLoadInitiatedOrComplete[containerId] = false;
+  const attempt = (childLoadFailures[containerId]?.attempt ?? -1) + 1;
+  if (!CHILD_LOAD_RETRYABLE_FAIL_REASONS.has(reason)) {
+    childLoadFailures[containerId] = { reason, attempt, retryAtMs: null };
+    return;
+  }
+  const delayMs = Math.min(CHILD_LOAD_RETRY_FIRST_DELAY_MS * 2 ** attempt, CHILD_LOAD_RETRY_MAX_DELAY_MS);
+  childLoadFailures[containerId] = { reason, attempt, retryAtMs: Date.now() + delayMs };
+  window.clearTimeout(childLoadRetryTimeout[containerId]);
+  childLoadRetryTimeout[containerId] = window.setTimeout(() => {
+    delete childLoadRetryTimeout[containerId];
+    requestArrange(store, "retry-load-child-items");
+  }, delayMs);
+}
+
 export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerVeid: Veid): Promise<void> => {
 
   if (containerVeid.itemId == SOLO_ITEM_HOLDER_PAGE_UID) { return Promise.resolve(); }
@@ -125,6 +206,11 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
     childrenLoadInitiatedOrComplete[containerVeid.itemId] = true;
     asContainerItem(container).childrenLoaded = true;
     PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
+    return Promise.resolve();
+  }
+
+  const failure = childLoadFailures[containerVeid.itemId];
+  if (failure != null && (failure.retryAtMs == null || Date.now() < failure.retryAtMs)) {
     return Promise.resolve();
   }
 
@@ -159,16 +245,22 @@ export const initiateLoadChildItemsMaybe = (store: StoreContextModel, containerV
         PageFns.setDefaultListPageSelectedItemMaybe(store, containerVeid);
         TabularFns.validateNumberOfVisibleColumnsMaybe(containerVeid.itemId);
         asContainerItem(itemState.get(containerVeid.itemId)!).childrenLoaded = true;
+        delete childLoadFailures[containerVeid.itemId];
         requestArrange(store, "load-child-items");
       } else {
+        recordChildLoadFailure(store, containerVeid.itemId, "unknown");
         console.error(`No items were fetched for '${containerVeid.itemId}'.`);
       }
     })
     .catch((e: any) => {
+      if (childrenLoadInitiatedOrComplete[containerVeid.itemId]) {
+        recordChildLoadFailure(store, containerVeid.itemId, networkFailureReason(e));
+      }
       console.error(`Error occurred fetching items for '${containerVeid.itemId}': ${e.message}.`);
     })
     .finally(() => {
       delete childLoadInFlight[containerVeid.itemId];
+      setChildLoadSettledCount(c => c + 1);
     });
 
   childLoadInFlight[containerVeid.itemId] = loadPromise;

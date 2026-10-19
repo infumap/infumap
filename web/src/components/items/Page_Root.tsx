@@ -58,6 +58,8 @@ import { printLayout } from "../../layout/print-bands";
 import { Page_PrintBands } from "./Page_PrintBands";
 import { PageAttachments } from "./PageAttachments";
 import { canCreateItemsOnCurrentPage } from "../../input/create";
+import { childLoadFailure, childrenAreKnown } from "../../layout/load";
+import { failReasonText } from "../toolbar/networkStatusSummary";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -87,8 +89,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       ? printLayout(props.visualElement, pageChildren())
       : null);
 
-  // A hint on an empty page the user can add to. Not for list, calendar or table pages, whose layout has no
-  // open background to centre it in.
+  // A hint on a page the user can add to, known to be empty (not if loading its children failed). Not for list,
+  // calendar or table pages, whose layout has no open background to centre it in.
   const emptyPageHintWanted = () =>
     !!(props.visualElement.flags & VisualElementFlags.TopLevelRoot) &&
     !store.printMode.get() &&
@@ -96,6 +98,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.List &&
     pageFns().pageItem().arrangeAlgorithm != ArrangeAlgorithm.Calendar &&
     pageChildren().length == 0 &&
+    childrenAreKnown(pageFns().pageItem().id) &&
     store.history.currentPopupSpec() == null &&
     !store.overlay.anOverlayIsVisible() &&
     canCreateItemsOnCurrentPage(store);
@@ -108,6 +111,16 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const timeoutId = window.setTimeout(() => setShowEmptyPageHint(true), EMPTY_PAGE_HINT_DELAY_MS);
     onCleanup(() => window.clearTimeout(timeoutId));
   });
+
+  // A line on a page whose children failed to load, which would otherwise look empty, or show only some of its items.
+  const loadFailedText = (): string | null => {
+    if (!(props.visualElement.flags & VisualElementFlags.TopLevelRoot) || store.printMode.get()) { return null; }
+    const failure = childLoadFailure(pageFns().pageItem().id);
+    if (failure == null) { return null; }
+    const origin = pageFns().pageItem().origin;
+    return `Couldn't load this page: ${failReasonText(failure.reason, origin ?? "the server")}.` +
+      (failure.retryAtMs != null ? " Retrying automatically." : "");
+  };
 
   const documentTextEditIsActive = () => {
     if (!canEditPage() || !pageFns().isDocumentPage()) { return false; }
@@ -914,6 +927,14 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               Press <b class="font-semibold text-slate-500">/</b> to add an item
               &nbsp;·&nbsp; <b class="font-semibold text-slate-500">?</b> for help
             </span>
+          </div>
+        </Show>
+        <Show when={loadFailedText()}>
+          <div class="absolute flex items-center justify-center pointer-events-none select-none text-sm"
+            style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
+              `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
+              `z-index: ${Z_INDEX_GLOBAL_ITEMS + 1};`}>
+            <span role="status" class="rounded bg-white/90 px-2 py-1 text-amber-700">{loadFailedText()}</span>
           </div>
         </Show>
         {/* Above the popup (rendered in the viewport) and, for pages whose titles are in the toolbar, the toolbar. */}
