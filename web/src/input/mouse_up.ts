@@ -49,7 +49,7 @@ import { switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, isEmptyVeid, isVeTranslucentPage, isTableView } from "../layout/visual-element";
+import { VisualElement, VeFns, VisualElementFlags, veFlagIsRoot, isEmptyVeid, isVeTranslucentPage, isTableView, listPageScrollVeid } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
@@ -1949,6 +1949,37 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
       ? "mouse-up-move-to-document-page"
       : "mouse-up-move-to-ordered-page",
   );
+
+  if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
+    scrollListPageToIncludeDroppedItem(store, path, activeItem.id);
+  }
+}
+
+/**
+ * Scroll a list page as little as possible to show the row of an item dropped into it, which in a sorted page need not
+ * be where it was dropped. This reads the arranged rows, so must be called after arranging.
+ */
+function scrollListPageToIncludeDroppedItem(store: StoreContextModel, pagePath: string, itemId: string): void {
+  const pageVe = VesCache.current.readNode(pagePath);
+  if (pageVe == null || !pageVe.listChildAreaBoundsPx || !pageVe.listViewportBoundsPx) { return; }
+  const rowVe = VesCache.current.readStructuralChildren(pagePath).find(ve =>
+    !!(ve.flags & VisualElementFlags.LineItem) && (ve.actualLinkItemMaybe?.id ?? ve.displayItem.id) == itemId);
+  // Rows pinned to the top or bottom are always visible.
+  if (rowVe == null || rowVe.listPageRowBand != "middle") { return; }
+  const viewportHeightPx = pageVe.listViewportBoundsPx.h;
+  const maxScrollPx = pageVe.listChildAreaBoundsPx.h - viewportHeightPx;
+  if (maxScrollPx <= 0) { return; }
+  const scrollVeid = listPageScrollVeid(store, pageVe);
+  const scrollPx = store.perItem.getPageScrollYProp(scrollVeid) * maxScrollPx;
+  let nextScrollPx = scrollPx;
+  if (rowVe.boundsPx.y < scrollPx) {
+    nextScrollPx = rowVe.boundsPx.y;
+  } else if (rowVe.boundsPx.y + rowVe.boundsPx.h > scrollPx + viewportHeightPx) {
+    nextScrollPx = rowVe.boundsPx.y + rowVe.boundsPx.h - viewportHeightPx;
+  }
+  if (nextScrollPx != scrollPx) {
+    store.perItem.setPageScrollYProp(scrollVeid, Math.max(0, Math.min(1, nextScrollPx / maxScrollPx)));
+  }
 }
 
 
@@ -2359,7 +2390,22 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
     enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
   }
 
+  scrollTableToIncludeDroppedItem(store, overContainerVe, activeItem.id);
   scheduleMoveCommit(store, ops, "mouse-up-move-to-table");
+}
+
+/**
+ * Scroll a table as little as possible to show the row of an item dropped into it, which in a sorted table need not be
+ * where it was dropped. This is before arranging, so the arrange includes the row.
+ */
+function scrollTableToIncludeDroppedItem(store: StoreContextModel, tableVe: VisualElement, itemId: string): void {
+  const rowIdx = TableFns.tableVisibleRows(store, tableVe).findIndex(row => row.item.id == itemId);
+  if (rowIdx < 0) { return; }
+  const tableVeid = VeFns.veidFromVe(tableVe);
+  const scrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, rowIdx);
+  if (scrollYPos != store.perItem.getTableScrollYPos(tableVeid)) {
+    store.perItem.setTableScrollYPos(tableVeid, scrollYPos);
+  }
 }
 
 
