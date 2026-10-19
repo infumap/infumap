@@ -45,48 +45,52 @@ const LEVEL_COLOR: { [level in NetworkStatusLevel]: string } = {
  * A cloud, the usual sign for saved and synced: an outline when ok, so it is the lightest icon in the toolbar, filled
  * with dots cut out when busy, and amber with a slash when the server can't be reached or a request is failing. Danger, when work is at risk, is the one loud state: a
  * filled badge. Cut-outs use a mask, so they show whatever is behind the icon.
+ *
+ * The viewBox is the badge's square, so sizePx is the badge's diameter, as it is for Font Awesome's circle icons. The
+ * cloud and slash are a little wider and overflow it. All of them are centred on (12, 12).
  */
 const CLOUD_OUTLINE_WIDTH = 1.9;
 
-const NetworkStatusIcon = (props: { level: NetworkStatusLevel, sizePx: number }): JSX.Element => {
+const NetworkStatusIcon = (props: { level: NetworkStatusLevel, sizePx: number, style?: string }): JSX.Element => {
   const maskId = createUniqueId();
   const color = () => LEVEL_COLOR[props.level];
   return (
-    <svg width={props.sizePx} height={props.sizePx} viewBox="0 0 24 24" aria-hidden="true">
+    <svg width={props.sizePx} height={props.sizePx} viewBox="3.6 3.6 16.8 16.8" aria-hidden="true"
+      style={`overflow: visible; ${props.style ?? ""}`}>
       <Show when={props.level == "danger"} fallback={
         <>
           <mask id={maskId}>
             <rect width="24" height="24" fill="white" />
             <Show when={props.level == "ok"}>
               {/* The same cloud, smaller by the line width, cut out to leave its outline. */}
-              <circle cx="8.5" cy="13.5" r={4.5 - CLOUD_OUTLINE_WIDTH} fill="black" />
-              <circle cx="13" cy="10.5" r={6 - CLOUD_OUTLINE_WIDTH} fill="black" />
-              <circle cx="18" cy="14.5" r={3.5 - CLOUD_OUTLINE_WIDTH} fill="black" />
-              <rect x="8.5" y="12" width="9.5" height={6 - CLOUD_OUTLINE_WIDTH} fill="black" />
+              <circle cx="8.5" cy="14.25" r={4.5 - CLOUD_OUTLINE_WIDTH} fill="black" />
+              <circle cx="13" cy="11.25" r={6 - CLOUD_OUTLINE_WIDTH} fill="black" />
+              <circle cx="18" cy="15.25" r={3.5 - CLOUD_OUTLINE_WIDTH} fill="black" />
+              <rect x="8.5" y="12.75" width="9.5" height={6 - CLOUD_OUTLINE_WIDTH} fill="black" />
             </Show>
             <Show when={props.level == "busy"}>
-              <circle cx="9.5" cy="14.6" r="1.35" fill="black" />
-              <circle cx="13.25" cy="14.6" r="1.35" fill="black" />
-              <circle cx="17" cy="14.6" r="1.35" fill="black" />
+              <circle cx="9.5" cy="15.35" r="1.35" fill="black" />
+              <circle cx="13.25" cy="15.35" r="1.35" fill="black" />
+              <circle cx="17" cy="15.35" r="1.35" fill="black" />
             </Show>
             <Show when={props.level == "warn"}>
-              <line x1="4" y1="3" x2="21" y2="20" stroke="black" stroke-width="4.5" stroke-linecap="round" />
+              <line x1="4" y1="3.5" x2="21" y2="20.5" stroke="black" stroke-width="4.5" stroke-linecap="round" />
             </Show>
           </mask>
           <g fill={color()} mask={`url(#${maskId})`}>
-            <circle cx="8.5" cy="13.5" r="4.5" />
-            <circle cx="13" cy="10.5" r="6" />
-            <circle cx="18" cy="14.5" r="3.5" />
-            <rect x="8.5" y="12" width="9.5" height="6" />
+            <circle cx="8.5" cy="14.25" r="4.5" />
+            <circle cx="13" cy="11.25" r="6" />
+            <circle cx="18" cy="15.25" r="3.5" />
+            <rect x="8.5" y="12.75" width="9.5" height="6" />
           </g>
           <Show when={props.level == "warn"}>
-            <line x1="4" y1="3" x2="21" y2="20" stroke={color()} stroke-width="2" stroke-linecap="round" />
+            <line x1="4" y1="3.5" x2="21" y2="20.5" stroke={color()} stroke-width="2" stroke-linecap="round" />
           </Show>
         </>
       }>
-        <circle cx="12" cy="12" r="9" fill={color()} />
-        <path d="M12 7 V13" stroke="white" stroke-width="2.4" stroke-linecap="round" />
-        <circle cx="12" cy="16.6" r="1.4" fill="white" />
+        <circle cx="12" cy="12" r="8.4" fill={color()} />
+        <path d="M12 7.4 V12.9" stroke="white" stroke-width="2.25" stroke-linecap="round" />
+        <circle cx="12" cy="16.3" r="1.3" fill="white" />
       </Show>
     </svg>
   );
@@ -108,14 +112,15 @@ export const Toolbar_NetworkStatus: Component = () => {
 
   return (
     // Sized and styled like InfuIconButton, the other toolbar icons. Not a <button>: a click would focus it, and a
-    // later Space would toggle the dialog.
+    // later Space would toggle the dialog. The icon is placed like a Font Awesome glyph: a 1em box on the text
+    // baseline, so it lines up with them whatever the font metrics.
     <div role="button" id={NETWORK_STATUS_INDICATOR_ID}
-      class="hover:border rounded w-[21px] h-[21px] inline-flex items-center justify-center align-middle cursor-pointer ml-[3px] hover:bg-slate-300 relative"
+      class="hover:border rounded w-[21px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-slate-300 relative"
       title={summary().sentence}
       aria-label={`Network status: ${summary().sentence}`}
       onMouseEnter={() => setHoverNowMs(Date.now())}
       onClick={handleClick}>
-      <NetworkStatusIcon level={summary().level} sizePx={20} />
+      <NetworkStatusIcon level={summary().level} sizePx={14} style="display: inline; vertical-align: -0.125em;" />
     </div>
   );
 }
@@ -298,7 +303,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
       onMouseMove={(e: MouseEvent) => { e.stopPropagation(); }}>
 
       <div class="flex items-start gap-2 mb-3">
-        <div class="shrink-0 -mt-[1px]"><NetworkStatusIcon level={summary().level} sizePx={20} /></div>
+        <div class="shrink-0 mt-[2px] mx-[3px]"><NetworkStatusIcon level={summary().level} sizePx={14} /></div>
         <div class="flex-1 text-sm font-medium">{summary().sentence}</div>
         <button onClick={handleClose} title="Close (Esc)"
           class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
