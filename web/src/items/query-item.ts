@@ -23,6 +23,7 @@ import type { Uid } from "../util/uid";
 import type { BoundingBox } from "../util/geometry";
 import { ArrangeAlgorithm, type ArrangeAlgorithm as ArrangeAlgorithmType } from "./page-item";
 import type { SearchItem, SearchMeasurable } from "./search-item";
+import type { TextItem } from "./text-item";
 import type { ItemTypeMixin } from "./base/item";
 import { SearchFlags } from "./base/flags-item";
 import {
@@ -69,6 +70,25 @@ export const QueryFns = {
   ...SearchFns,
   asQueryMeasurable: SearchFns.asSearchMeasurable,
 };
+
+/**
+ * The `.chat` text item each earlier chat whose persist is in flight is expected to become, by query item id. Until the
+ * server replies, the query item is measured and drawn as that item, without hitboxes, so it doesn't change size when
+ * the persisted item replaces it. See docs/persistent-chats.md.
+ */
+const chatPersistPreviews = new Map<Uid, TextItem>();
+
+export function chatPersistPreview(queryItemId: Uid): TextItem | null {
+  return chatPersistPreviews.get(queryItemId) ?? null;
+}
+
+export function setChatPersistPreview(queryItemId: Uid, preview: TextItem | null): void {
+  if (preview == null) {
+    chatPersistPreviews.delete(queryItemId);
+  } else {
+    chatPersistPreviews.set(queryItemId, preview);
+  }
+}
 
 export function queryIconClass(queryItem: QueryItem): string {
   return (queryItem.flags & SearchFlags.ListPagePinTop) != 0 ? "fas fa-search" : "far fa-comment";

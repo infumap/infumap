@@ -32,7 +32,7 @@ import { asFileItem, isFile } from "../items/file-item";
 import { TextFns, asTextItem, isText } from "../items/text-item";
 import { continuePersistedChat } from "../items/query";
 import { clearQueryChat } from "../items/chat";
-import { chatAttachmentCopyData, isChatTextItem } from "../items/text-document";
+import { CHAT_TRANSCRIPT_MIME_TYPE, chatAttachmentCopyData, isChatTextItem } from "../items/text-document";
 import { chatItemDropTargetAt, updateChatItemDropHover } from "../items/chat-attachment";
 import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
@@ -40,7 +40,7 @@ import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
-import { asQueryItem, isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
+import { asQueryItem, isQueryItem, isQuerySearchResultsPage, setChatPersistPreview } from "../items/query-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { getMovingDockItems } from "../layout/arrange/dock";
 import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
@@ -502,6 +502,10 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
   chatItem.dateTime = item.dateTime;
   chatItem.groupId = item.groupId;
   const chatItemObject = ItemFns.toObject(chatItem);
+  // Until the server replies, the chat is drawn as this item: the title is the server's unless it generates one now.
+  chatItem.title = `${queryItem.title.trim() == "" ? "Chat" : queryItem.title}.chat`;
+  chatItem.mimeType = CHAT_TRANSCRIPT_MIME_TYPE;
+  setChatPersistPreview(queryItem.id, chatItem);
   chatOperationHandlesDraggedItem = true;
   ops.push({
     apply: async () => {
@@ -510,6 +514,8 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
         response = await server.persistChat(queryItem.id, chatItemObject);
       } catch (e) {
         throw new MoveRejectedError(e instanceof Error ? e.message : "Couldn't keep the chat");
+      } finally {
+        setChatPersistPreview(queryItem.id, null);
       }
       // The server has persisted the chat, so nothing after this may fail the move: a rollback would undo it locally
       // only. A local error is logged, and syncing corrects the local state.
@@ -674,6 +680,8 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
 
   const parentsToSort = new Set<string>();
   for (const entry of context.snapshot) {
+    // A chat whose persist never ran, because the drop or an earlier operation failed, is drawn as a query again.
+    setChatPersistPreview(entry.id, null);
     const itemMaybe = itemState.get(entry.id);
     if (!itemMaybe || !isPositionalItem(itemMaybe)) { continue; }
     const item = asPositionalItem(itemMaybe);

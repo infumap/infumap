@@ -71,7 +71,11 @@ the per-chat lock, rejects a chat with a running turn, and then:
 3. deletes the query item
 4. removes the transcript file
 
-It returns the new item, and the client replaces the query item with it.
+It returns the new item, and the client replaces the query item with it. While the request is in flight, the query
+item stays at the drop location but is measured and drawn as the `.chat` item it is expected to become (its current
+title plus `.chat`), with no hitboxes, so it does not change size when it is replaced and can't be clicked until then
+(`chatPersistPreview` in [query-item.ts](../web/src/items/query-item.ts)). If the server generates a title during
+persist, the replacement can still differ.
 
 The MIME type is set explicitly, not detected. Detection from the bytes would give `text/plain` for JSONL
 (`detect_data_item_mime_type` in [item_ops.rs](../infumap/src/web/routes/command/item_ops.rs)), and the search

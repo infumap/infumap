@@ -43,9 +43,12 @@ import {
   desktopPopupIconTextIndentPx,
   getTextStyleForNote,
 } from "../../layout/text";
+import { TextFns } from "../../items/text-item";
+import { defaultTextIconClass } from "./text-icon";
 import {
   QueryFns,
   asQueryItem,
+  chatPersistPreview,
   QUERY_WORKSPACE_CONTROLS_GAP_PX,
   QUERY_WORKSPACE_CONTROLS_HEIGHT_PX,
   QUERY_PROFILE_ROW_HEIGHT_PX,
@@ -1083,7 +1086,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   const desktopTextStyle = () => getTextStyleForNote(0);
-  const desktopSizeBl = () => QueryFns.calcSpatialDimensionsBl(queryItem());
+  // Drawn as the `.chat` text item it will become while its persist is in flight, so nothing moves when it is replaced.
+  const persistPreview = () => chatPersistPreview(queryItem().id);
+  const desktopSizeBl = () => {
+    const preview = persistPreview();
+    return preview != null ? TextFns.calcSpatialDimensionsBl(preview) : QueryFns.calcSpatialDimensionsBl(queryItem());
+  };
   const desktopNaturalWidthPx = () => Math.max(desktopSizeBl().w * LINE_HEIGHT_PX - NOTE_PADDING_PX * 2, 0);
   const desktopNaturalHeightPx = () => Math.max(desktopSizeBl().h * LINE_HEIGHT_PX, 1);
   const desktopBlockSizePx = () => ({
@@ -1829,10 +1837,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         style={`left: 0px; top: ${desktopIconTopPx()}px; ` +
           `width: ${desktopBlockSizePx().w / desktopIconScale()}px; height: ${desktopBlockSizePx().h / desktopIconScale()}px; ` +
           `transform: scale(${desktopIconScale()}); transform-origin: top left;`}>
-        <i class={queryIconClass(queryItem())} />
+        <i class={persistPreview() != null ? defaultTextIconClass(persistPreview()!) : queryIconClass(queryItem())} />
       </div>
       <span
-        class={`absolute block pointer-events-none ${desktopTextStyle().alignClass}`}
+        class={`absolute block pointer-events-none ${desktopTextStyle().alignClass} ${persistPreview() != null ? "text-purple-800" : ""}`}
         style={`left: ${NOTE_PADDING_PX * desktopTextBlockScale()}px; top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * desktopTextBlockScale()}px; ` +
           `width: ${desktopNaturalWidthPx()}px; ` +
           `line-height: ${LINE_HEIGHT_PX * desktopLineHeightScale() * desktopTextStyle().lineHeightMultiplier}px; ` +
@@ -1841,8 +1849,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           `overflow-wrap: break-word; white-space: pre-wrap; text-indent: ${desktopTextIndentPx()}px; ` +
           `${desktopTextStyle().isBold ? "font-weight: bold; " : ""}` +
           `outline: 0px solid transparent; ` +
-          `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; text-overflow: ellipsis;`}>
-        {QueryFns.displayTitle(queryItem())}
+          (persistPreview() != null ? "" :
+            `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; text-overflow: ellipsis;`)}>
+        {persistPreview()?.title ?? QueryFns.displayTitle(queryItem())}
       </span>
       <Show when={canResize()}>
         <InfuResizeTriangle />

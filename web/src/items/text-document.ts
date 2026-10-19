@@ -1281,7 +1281,7 @@ function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): Markdo
 }
 
 /** The MIME type of a persisted chat, set by the server when a chat is moved out of the Queries page. */
-const CHAT_TRANSCRIPT_MIME_TYPE = "application/x-infumap-chat";
+export const CHAT_TRANSCRIPT_MIME_TYPE = "application/x-infumap-chat";
 
 /** A persisted chat: its content is a chat transcript, shown as the chat it was, not as text. */
 export function isChatTextItem(textItem: TextItem): boolean {

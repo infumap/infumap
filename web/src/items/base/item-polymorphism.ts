@@ -23,7 +23,7 @@ import { StoreContextModel } from '../../store/StoreProvider';
 import { ItemGeometry } from '../../layout/item-geometry';
 import { VisualElement } from '../../layout/visual-element';
 import { asFileItem, isFile, FileFns } from '../file-item';
-import { asTextItem, isText, TextFns } from '../text-item';
+import { asTextItem, isText, TextFns, TextItem } from '../text-item';
 import { asImageItem, isImage, ImageFns } from '../image-item';
 import { asLinkItem, isLink, LinkFns } from '../link-item';
 import { asNoteItem, isNote, NoteFns } from '../note-item';
@@ -34,7 +34,7 @@ import { EMPTY_ITEM, Item, Measurable, isEmptyItem } from './item';
 import { asPlaceholderItem, isPlaceholder, PlaceholderFns } from '../placeholder-item';
 import { asPasswordItem, isPassword, PasswordFns } from '../password-item';
 import { asCompositeItem, isComposite, CompositeFns } from '../composite-item';
-import { asQueryItem, isQueryItem, QueryFns } from '../query-item';
+import { asQueryItem, chatPersistPreview, isQueryItem, QueryFns } from '../query-item';
 import { asDividerItem, isDivider, DividerFns } from '../divider-item';
 import { calcGeometryOfEmptyItem_ListItem, isInsidePopupHierarchy } from './item-common-fns';
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
@@ -47,6 +47,17 @@ import { RelationshipToParent } from '../../layout/relationship-to-parent';
 
 
 // Poor man's polymorphism
+
+/** The `.chat` text item a query item is measured as while its persist is in flight. A measurable may have no id. */
+function chatPersistPreviewMaybe(measurable: Measurable): TextItem | null {
+  const id = (measurable as Partial<Item>).id;
+  return id == null ? null : chatPersistPreview(id);
+}
+
+/** Geometry for an item that can't be interacted with yet. */
+function withoutHitboxes(geometry: ItemGeometry): ItemGeometry {
+  return { ...geometry, hitboxes: [] };
+}
 
 export const ItemFns = {
 
@@ -62,7 +73,11 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcSpatialDimensionsBl(TextFns.asTextMeasurable(measurable)); }
     if (isPassword(measurable)) { return PasswordFns.calcSpatialDimensionsBl(PasswordFns.asPasswordMeasurable(measurable)); }
     if (isRating(measurable)) { return RatingFns.calcSpatialDimensionsBl(RatingFns.asRatingMeasurable(measurable)); }
-    if (isQueryItem(measurable)) { return QueryFns.calcSpatialDimensionsBl(QueryFns.asQueryMeasurable(measurable)); }
+    if (isQueryItem(measurable)) {
+      const preview = chatPersistPreviewMaybe(measurable);
+      if (preview != null) { return TextFns.calcSpatialDimensionsBl(preview); }
+      return QueryFns.calcSpatialDimensionsBl(QueryFns.asQueryMeasurable(measurable));
+    }
     if (isDivider(measurable)) { return DividerFns.calcSpatialDimensionsBl(DividerFns.asDividerMeasurable(measurable)); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcSpatialDimensionsBl(PlaceholderFns.asPlaceholderMeasurable(measurable)); }
     panic(`calcSpatialDimensionsBl: unknown item type: ${measurable.itemType}`);
@@ -90,7 +105,11 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_Spatial(TextFns.asTextMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_Spatial(PasswordFns.asPasswordMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_Spatial(RatingFns.asRatingMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
-    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_Spatial(QueryFns.asQueryMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
+    if (isQueryItem(measurable)) {
+      const preview = chatPersistPreviewMaybe(measurable);
+      if (preview != null) { return withoutHitboxes(TextFns.calcGeometry_Spatial(preview, containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes)); }
+      return QueryFns.calcGeometry_Spatial(QueryFns.asQueryMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes);
+    }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_Spatial(DividerFns.asDividerMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_Spatial(asLinkItem(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes, isPopup, hasChildChanges, hasDefaultChanges, editing, smallScreenMode, collapsedComposite); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_Spatial(PlaceholderFns.asPlaceholderMeasurable(measurable), containerBoundsPx, containerInnerSizeBl, parentIsPopup, emitHitboxes); }
@@ -140,7 +159,10 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_ListItem(TextFns.asTextMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable, isTableAttachment); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_ListItem(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable, inTable, isTableAttachment); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_ListItem(RatingFns.asRatingMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
-    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_ListItem(QueryFns.asQueryMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
+    if (isQueryItem(measurable)) {
+      const geometry = QueryFns.calcGeometry_ListItem(QueryFns.asQueryMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable);
+      return chatPersistPreviewMaybe(measurable) != null ? withoutHitboxes(geometry) : geometry;
+    }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_ListItem(DividerFns.asDividerMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_ListItem(asLinkItem(measurable), blockSizePx, row, col, widthBl, parentIsPopup, padTop, expandable, inTable, isTableAttachment); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_ListItem(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, row, col, widthBl, padTop, expandable); }
@@ -168,7 +190,11 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_InCell(TextFns.asTextMeasurable(measurable), cellBoundsPx, maximize); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InCell(PasswordFns.asPasswordMeasurable(measurable), cellBoundsPx, maximize); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InCell(RatingFns.asRatingMeasurable(measurable), cellBoundsPx, maximize); }
-    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_InCell(QueryFns.asQueryMeasurable(measurable), cellBoundsPx, maximize); }
+    if (isQueryItem(measurable)) {
+      const preview = chatPersistPreviewMaybe(measurable);
+      if (preview != null) { return withoutHitboxes(TextFns.calcGeometry_InCell(preview, cellBoundsPx, maximize)); }
+      return QueryFns.calcGeometry_InCell(QueryFns.asQueryMeasurable(measurable), cellBoundsPx, maximize);
+    }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_InCell(DividerFns.asDividerMeasurable(measurable), cellBoundsPx, parentIsDock); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InCell(asLinkItem(measurable), cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasChildChanges, hasDefaultChanges, maximize, ignoreCellHeight, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InCell(PlaceholderFns.asPlaceholderMeasurable(measurable), cellBoundsPx); }
@@ -211,7 +237,11 @@ export const ItemFns = {
     if (isText(measurable)) { return TextFns.calcGeometry_InComposite(TextFns.asTextMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isPassword(measurable)) { return PasswordFns.calcGeometry_InComposite(PasswordFns.asPasswordMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isRating(measurable)) { return RatingFns.calcGeometry_InComposite(RatingFns.asRatingMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
-    if (isQueryItem(measurable)) { return QueryFns.calcGeometry_InComposite(QueryFns.asQueryMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
+    if (isQueryItem(measurable)) {
+      const preview = chatPersistPreviewMaybe(measurable);
+      if (preview != null) { return withoutHitboxes(TextFns.calcGeometry_InComposite(preview, blockSizePx, compositeWidthBl, leftMarginBl, topPx)); }
+      return QueryFns.calcGeometry_InComposite(QueryFns.asQueryMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx);
+    }
     if (isDivider(measurable)) { return DividerFns.calcGeometry_InComposite(DividerFns.asDividerMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
     if (isLink(measurable)) { return LinkFns.calcGeometry_InComposite(asLinkItem(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode); }
     if (isPlaceholder(measurable)) { return PlaceholderFns.calcGeometry_InComposite(PlaceholderFns.asPlaceholderMeasurable(measurable), blockSizePx, compositeWidthBl, leftMarginBl, topPx); }
@@ -233,7 +263,10 @@ export const ItemFns = {
     if (isText(item)) { return TextFns.getFingerprint(asTextItem(item)); }
     if (isPassword(item)) { return PasswordFns.getFingerprint(asPasswordItem(item)); }
     if (isRating(item)) { return RatingFns.getFingerprint(asRatingItem(item)); }
-    if (isQueryItem(item)) { return QueryFns.getFingerprint(asQueryItem(item)); }
+    if (isQueryItem(item)) {
+      const preview = chatPersistPreview(item.id);
+      return QueryFns.getFingerprint(asQueryItem(item)) + (preview == null ? "" : `~~~!@#~~~${preview.title}`);
+    }
     if (isDivider(item)) { return DividerFns.getFingerprint(asDividerItem(item)); }
     if (isLink(item)) { return LinkFns.getFingerprint(asLinkItem(item)); }
     if (isPlaceholder(item)) { return PlaceholderFns.getFingerprint(asPlaceholderItem(item)); }
