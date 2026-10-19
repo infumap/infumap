@@ -17,7 +17,7 @@
 */
 
 import { LinkFns } from "../items/link-item";
-import { PageFns, asPageItem, isPage } from "../items/page-item";
+import { PageFns, applyAutoPageAspectToNewPage, asPageItem, isPage } from "../items/page-item";
 import {
   QueryItem,
   getQueryRuntime,
@@ -95,6 +95,7 @@ export async function materializeSearchResults(
     title,
     ordering,
   );
+  applyAutoPageAspectToNewPage(store, page);
   page.childrenLoaded = true;
   page.orderChildrenBy = "";
   page.arrangeAlgorithm = getQuerySearchArrangeAlgorithm(store, queryItem);

@@ -24,7 +24,7 @@ import { PositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
-import { PageFns, asPageItem, isPage, ArrangeAlgorithm } from "../items/page-item";
+import { PageFns, asPageItem, isPage, ArrangeAlgorithm, applyAutoPageAspectToNewPage } from "../items/page-item";
 import { PasswordFns } from "../items/password-item";
 import { DividerFns } from "../items/divider-item";
 import { calculateCalendarDateTime } from "../util/calendar-layout";
@@ -64,6 +64,7 @@ function createNewItem(
     newItem = NoteFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "page") {
     newItem = PageFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
+    applyAutoPageAspectToNewPage(store, newItem);
   } else if (type == "link")  {
     newItem = LinkFns.create(store.user.getUser().userId, parentId, relationship, "", ordering);
   } else if (type == "password")  {
@@ -257,26 +258,6 @@ function positionNewItemInPage(
   }
 }
 
-function applyNewPageDefaults(store: StoreContextModel, newItem: PositionalItem): void {
-  const naturalAspect = (store.desktopMainAreaBoundsPx().w / store.desktopMainAreaBoundsPx().h);
-
-  if (!isPage(newItem)) {
-    return;
-  }
-
-  const page = asPageItem(newItem);
-  page.naturalAspect = Math.round(naturalAspect * 1000) / 1000;
-  page.defaultPopupPositionGr = {
-    x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
-    y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.4 / GRID_SIZE) * GRID_SIZE
-  };
-  const widthCandidate1Gr = Math.floor((page.innerSpatialWidthGr / 2.0) / GRID_SIZE) * GRID_SIZE;
-  const parentInnerHeightGr = page.innerSpatialWidthGr / naturalAspect;
-  const heightCandidate = Math.floor((parentInnerHeightGr / 2.0) / GRID_SIZE) * GRID_SIZE;
-  const widthCandidate2Gr = Math.floor(heightCandidate * page.naturalAspect / GRID_SIZE) * GRID_SIZE;
-  page.defaultPopupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
-}
-
 function createItemInPage(
   store: StoreContextModel,
   type: string,
@@ -299,7 +280,6 @@ function createItemInPage(
     RelationshipToParent.Child);
 
   positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
-  applyNewPageDefaults(store, newItem);
 
   addNewItemForCreation(store, newItem);
 

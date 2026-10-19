@@ -85,6 +85,23 @@ export function autoPageAspect(store: StoreContextModel): number {
   return Math.round(bounds.w / bounds.h * 1000) / 1000;
 }
 
+/**
+ * Sets the aspect of a newly created page to match the current desktop area, and sizes the
+ * default popup to suit.
+ */
+export function applyAutoPageAspectToNewPage(store: StoreContextModel, page: PageItem): void {
+  page.naturalAspect = autoPageAspect(store);
+  page.defaultPopupPositionGr = {
+    x: Math.round((page.innerSpatialWidthGr / 2) / GRID_SIZE) * GRID_SIZE,
+    y: Math.round((page.innerSpatialWidthGr / page.naturalAspect) * 0.4 / GRID_SIZE) * GRID_SIZE
+  };
+  const widthCandidate1Gr = Math.floor((page.innerSpatialWidthGr / 2.0) / GRID_SIZE) * GRID_SIZE;
+  const parentInnerHeightGr = page.innerSpatialWidthGr / page.naturalAspect;
+  const heightCandidate = Math.floor((parentInnerHeightGr / 2.0) / GRID_SIZE) * GRID_SIZE;
+  const widthCandidate2Gr = Math.floor(heightCandidate * page.naturalAspect / GRID_SIZE) * GRID_SIZE;
+  page.defaultPopupWidthGr = Math.min(widthCandidate1Gr, widthCandidate2Gr);
+}
+
 export const DEFAULT_DOCUMENT_WIDTH_BL = 30;
 
 export function dockForcesEmbeddedInteractiveArrangeAlgorithm(arrangeAlgorithm: string): boolean {
