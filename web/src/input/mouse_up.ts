@@ -2390,21 +2390,24 @@ function mouseUpHandler_moving_toTable(store: StoreContextModel, activeItem: Pos
     enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!, null, overContainerVe);
   }
 
-  scrollTableToIncludeDroppedItem(store, overContainerVe, activeItem.id);
   scheduleMoveCommit(store, ops, "mouse-up-move-to-table");
+  scrollTableToIncludeDroppedItem(store, tablePath, activeItem.id);
 }
 
 /**
  * Scroll a table as little as possible to show the row of an item dropped into it, which in a sorted table need not be
- * where it was dropped. This is before arranging, so the arrange includes the row.
+ * where it was dropped. The moving item has no row until the move is finished, so this must be called after that.
  */
-function scrollTableToIncludeDroppedItem(store: StoreContextModel, tableVe: VisualElement, itemId: string): void {
+function scrollTableToIncludeDroppedItem(store: StoreContextModel, tablePath: string, itemId: string): void {
+  const tableVe = VesCache.current.readNode(tablePath);
+  if (tableVe == null || !isTableView(tableVe)) { return; }
   const rowIdx = TableFns.tableVisibleRows(store, tableVe).findIndex(row => row.item.id == itemId);
   if (rowIdx < 0) { return; }
   const tableVeid = VeFns.veidFromVe(tableVe);
   const scrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, rowIdx);
   if (scrollYPos != store.perItem.getTableScrollYPos(tableVeid)) {
     store.perItem.setTableScrollYPos(tableVeid, scrollYPos);
+    requestArrange(store, "mouse-up-move-to-table-scroll");
   }
 }
 
