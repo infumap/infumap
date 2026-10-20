@@ -297,6 +297,8 @@ enum ChatRunMode {
 /// One instance spans this user turn, including both deep-research tool stages.
 struct ChatToolContext {
   mode: ChatRunMode,
+  /// The provider's model id, so tool servers can attribute behaviour per model.
+  model: String,
   call_counts: Mutex<HashMap<(String, String), usize>>,
 }
 
@@ -305,7 +307,7 @@ impl ChatToolContext {
     let mut counts = self.call_counts.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let count = counts.entry((target.server_id.clone(), target.mcp_name.clone())).or_default();
     *count += 1;
-    serde_json::json!({ "infumap.com/toolCall": { "number": *count, "mode": self.mode } })
+    serde_json::json!({ "infumap.com/toolCall": { "number": *count, "mode": self.mode, "model": self.model } })
   }
 }
 
@@ -2862,7 +2864,11 @@ async fn run_chat_with_tools(
   let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
-  let tool_context = ChatToolContext { mode: request.settings.mode, call_counts: Mutex::new(HashMap::new()) };
+  let tool_context = ChatToolContext {
+    mode: request.settings.mode,
+    model: endpoint.model.clone(),
+    call_counts: Mutex::new(HashMap::new()),
+  };
 
   if request.settings.mode == ChatRunMode::Chat {
     run_chat_stage_with_tools(
