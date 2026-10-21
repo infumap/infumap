@@ -77,9 +77,9 @@
 
 # Optional MCP tool servers for Chat. Run each server separately; see
 # tools/mcp/ for the bundled web search and fetch server. Native PDF fetching
-# uses WEB_FETCH_GPU_TOOLS_URL and WEB_FETCH_TIMEOUT_SECS in that sidecar's
-# environment; timeout_secs here should exceed its whole fetch budget.
-# Browser setup and PDF caches are local to the user; web_fetch never uses OCR.
+# uses fetch.gpu_tools_url and fetch.timeout_secs in the sidecar's private
+# config.toml; timeout_secs here should exceed its whole fetch budget.
+# Browser and PDF cache paths are set in that file; web_fetch never uses OCR.
 #chat_tool_servers = [
 #  { id = "web_search", url = "http://127.0.0.1:8791/mcp/search" },
 #  { id = "web_fetch", url = "http://127.0.0.1:8791/mcp/fetch", timeout_secs = 330 },
