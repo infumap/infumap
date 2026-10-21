@@ -25,7 +25,7 @@ use infusdk::util::uid::Uid;
 use serde_json::{Map, Value};
 
 use super::user::User;
-use super::user_db::CURRENT_USER_LOG_VERSION;
+use super::user_db::{CURRENT_USER_LOG_VERSION, build_username_index, username_key};
 use crate::util::fs::expand_tilde;
 
 /// Db for User instances.
@@ -41,26 +41,25 @@ impl PendingUserDb {
     log_path.push("pending_users.json");
 
     let store: KVStore<User> = KVStore::init(log_path.as_path().to_str().unwrap(), CURRENT_USER_LOG_VERSION).await?;
-    let mut id_by_username = HashMap::new();
-    for (id, user) in store.get_iter() {
-      id_by_username.insert(user.username.clone(), id.clone());
-    }
-    Ok(PendingUserDb { store, id_by_lowercase_username: id_by_username })
+    let usernames = store.get_iter().map(|(id, user)| (user.username.clone(), id.clone())).collect();
+    Ok(PendingUserDb { store, id_by_lowercase_username: build_username_index(usernames) })
   }
 
   pub async fn add(&mut self, user: User) -> InfuResult<()> {
-    if self.id_by_lowercase_username.contains_key(&user.username.to_lowercase()) {
+    if self.id_by_lowercase_username.contains_key(&username_key(&user.username)) {
       return Err(format!("User with username '{}' already exists.", user.username).into());
     } else {
-      self.id_by_lowercase_username.insert(user.username.to_lowercase(), String::from(&user.id));
+      self.id_by_lowercase_username.insert(username_key(&user.username), String::from(&user.id));
     }
     self.store.add(user).await
   }
 
   pub async fn remove(&mut self, id: &Uid) -> InfuResult<User> {
     let user = self.store.remove(id).await?;
-    if self.id_by_lowercase_username.remove(&user.username).is_none() {
-      return Err("Inconsistency between pending user store and index by username".into());
+    // A user whose name collided with another by case at load time is not in the index.
+    let key = username_key(&user.username);
+    if self.id_by_lowercase_username.get(&key) == Some(&user.id) {
+      self.id_by_lowercase_username.remove(&key);
     }
     Ok(user)
   }
@@ -70,7 +69,7 @@ impl PendingUserDb {
   }
 
   pub fn get_by_username_case_insensitive(&self, username: &str) -> Option<&User> {
-    match self.id_by_lowercase_username.get(&username.to_lowercase()) {
+    match self.id_by_lowercase_username.get(&username_key(username)) {
       None => None,
       Some(id) => self.store.get(id),
     }

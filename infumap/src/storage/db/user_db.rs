@@ -22,6 +22,7 @@ use infusdk::util::uid::{Uid, is_uid};
 use log::{debug, warn};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, BufReader};
@@ -30,6 +31,33 @@ use super::user::User;
 use crate::util::fs::expand_tilde;
 
 pub const CURRENT_USER_LOG_VERSION: i64 = 8;
+
+/// Usernames are case insensitive: they are indexed and looked up by this key.
+pub fn username_key(username: &str) -> String {
+  username.to_lowercase()
+}
+
+/// Builds a username index from (username, id) pairs loaded from a log. Earlier versions could
+/// create users whose names differ only by case, and only one of them can be found by name. An
+/// already lowercase name is preferred so the outcome doesn't depend on directory iteration order.
+pub(super) fn build_username_index(mut usernames: Vec<(String, Uid)>) -> HashMap<String, Uid> {
+  usernames.sort_by_key(|(username, id)| (*username != username_key(username), id.clone()));
+  let mut index = HashMap::new();
+  for (username, id) in usernames {
+    match index.entry(username_key(&username)) {
+      Entry::Vacant(e) => {
+        e.insert(id);
+      }
+      Entry::Occupied(e) => warn!(
+        "Username '{}' (user '{}') differs only by case from that of user '{}'. It cannot be looked up by name.",
+        username,
+        id,
+        e.get()
+      ),
+    }
+  }
+  index
+}
 
 /// Db for managing User instances, assuming the mandated data folder hierarchy.
 /// Not thread safe.
@@ -41,7 +69,7 @@ pub struct UserDb {
 
 impl UserDb {
   pub async fn init(data_dir: &str) -> InfuResult<UserDb> {
-    let mut user_id_by_username = HashMap::new();
+    let mut usernames = vec![];
     let mut store_by_user_id = HashMap::new();
 
     let expanded_data_path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
@@ -96,34 +124,33 @@ impl UserDb {
             continue;
           }
           username = user.username.clone();
-          user_id_by_username.insert(username.clone(), uid.clone());
         }
       }
       if iter.next().is_some() {
         warn!("User store {} contains more than one user, one expected. Ignoring all of them.", log_path_str);
-        user_id_by_username.remove(&username);
         continue;
       }
 
+      usernames.push((username, String::from(dir_userid)));
       store_by_user_id.insert(String::from(dir_userid), store);
     }
 
     Ok(UserDb {
       data_dir: expanded_data_path,
       store_by_id: store_by_user_id,
-      id_by_lowercase_username: user_id_by_username,
+      id_by_lowercase_username: build_username_index(usernames),
     })
   }
 
   pub async fn add(&mut self, user: User) -> InfuResult<()> {
-    if self.id_by_lowercase_username.contains_key(&user.username.to_lowercase()) {
+    if self.id_by_lowercase_username.contains_key(&username_key(&user.username)) {
       return Err(format!("User with username '{}' already exists.", user.username).into());
     }
     if is_uid(&user.username) {
       return Err(format!("User has username '{}' which is a uid.", user.username).into());
     }
 
-    self.id_by_lowercase_username.insert(user.username.to_ascii_lowercase(), String::from(&user.id));
+    self.id_by_lowercase_username.insert(username_key(&user.username), String::from(&user.id));
 
     let mut dir = self.data_dir.clone();
     dir.push(format!("{}{}", String::from("user_"), &user.id));
@@ -141,7 +168,7 @@ impl UserDb {
   }
 
   pub fn get_by_username_case_insensitive(&self, username: &str) -> Option<&User> {
-    match self.id_by_lowercase_username.get(&username.to_lowercase()) {
+    match self.id_by_lowercase_username.get(&username_key(username)) {
       None => None,
       Some(uid) => match self.store_by_id.get(uid) {
         None => None,
@@ -309,6 +336,7 @@ pub fn migrate_record_v7_to_v8(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
 mod tests {
   use super::*;
   use crate::query_configuration::{QueryConfiguration, QueryProfile, QueryProfileCollection, QueryProfilePreferences};
+  use crate::storage::db::pending_user_db::PendingUserDb;
   use crate::storage::db::user::User;
   use infusdk::db::kv_store::JsonLogSerializable;
   use infusdk::util::uid::new_uid;
@@ -378,5 +406,71 @@ mod tests {
     let mut descriptor = Map::new();
     descriptor.insert("__recordType".to_owned(), Value::String("descriptor".to_owned()));
     assert!(migrate_record_v6_to_v7(&descriptor).is_err());
+  }
+
+  struct TempDir(PathBuf);
+
+  impl Drop for TempDir {
+    fn drop(&mut self) {
+      let _ = std::fs::remove_dir_all(&self.0);
+    }
+  }
+
+  fn temp_dir() -> TempDir {
+    let dir = TempDir(std::env::temp_dir().join(format!("infumap-user-db-test-{}", new_uid())));
+    std::fs::create_dir_all(&dir.0).unwrap();
+    dir
+  }
+
+  fn user_named(username: &str) -> User {
+    let mut u = user();
+    u.username = username.to_owned();
+    u
+  }
+
+  /// The index is rebuilt from the logs on every startup, so lookups must survive a reload.
+  #[tokio::test]
+  async fn mixed_case_username_is_found_case_insensitively_after_reload() {
+    let dir = temp_dir();
+    let path = dir.0.to_str().unwrap();
+    let matt = user_named("Matt");
+    UserDb::init(path).await.unwrap().add(matt.clone()).await.unwrap();
+
+    let mut db = UserDb::init(path).await.unwrap();
+    assert_eq!(db.get_by_username_case_insensitive("matt").unwrap().id, matt.id);
+    assert_eq!(db.get_by_username_case_insensitive("MATT").unwrap().id, matt.id);
+    assert!(db.add(user_named("matt")).await.is_err());
+  }
+
+  #[test]
+  fn username_index_prefers_lowercase_name_on_collision() {
+    let (upper, lower) = (new_uid(), new_uid());
+    for order in [vec![("Matt", &upper), ("matt", &lower)], vec![("matt", &lower), ("Matt", &upper)]] {
+      let index = build_username_index(order.into_iter().map(|(n, id)| (n.to_owned(), id.clone())).collect());
+      assert_eq!(index.len(), 1);
+      assert_eq!(index.get("matt"), Some(&lower));
+    }
+  }
+
+  #[tokio::test]
+  async fn mixed_case_pending_user_can_be_found_and_removed() {
+    let dir = temp_dir();
+    let path = dir.0.to_str().unwrap();
+
+    // Removed in the same run as added.
+    let mut db = PendingUserDb::init(path).await.unwrap();
+    let first = user_named("Matt");
+    db.add(first.clone()).await.unwrap();
+    assert!(db.add(user_named("matt")).await.is_err());
+    db.remove(&first.id).await.unwrap();
+    assert!(db.get_by_username_case_insensitive("matt").is_none());
+
+    // Removed after a reload.
+    let second = user_named("Matt");
+    db.add(second.clone()).await.unwrap();
+    let mut db = PendingUserDb::init(path).await.unwrap();
+    assert_eq!(db.get_by_username_case_insensitive("matt").unwrap().id, second.id);
+    db.remove(&second.id).await.unwrap();
+    assert!(db.get_by_username_case_insensitive("matt").is_none());
   }
 }

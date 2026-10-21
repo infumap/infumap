@@ -114,6 +114,8 @@ pub struct LoginResponse {
   pub session_id: Option<String>,
   #[serde(rename = "userId")]
   pub user_id: Option<String>,
+  #[serde(default)]
+  pub username: Option<String>,
   #[serde(rename = "homePageId")]
   pub home_page_id: Option<String>,
   #[serde(rename = "trashPageId")]
@@ -142,6 +144,7 @@ pub async fn login(
       success: false,
       session_id: None,
       user_id: None,
+      username: None,
       home_page_id: None,
       trash_page_id: None,
       dock_page_id: None,
@@ -252,6 +255,7 @@ pub async fn login(
         success: true,
         session_id: Some(session.id.clone()),
         user_id: Some(user.id),
+        username: Some(user.username),
         home_page_id: Some(user.home_page_id),
         trash_page_id: Some(user.trash_page_id),
         dock_page_id: Some(user.dock_page_id),
@@ -342,6 +346,21 @@ const RESERVED_NAMES: [&'static str; 21] = [
   "rating", "file", "blob", "about", "add", "delete", "remove", "update", "admin",
 ];
 
+/// Expects an already lowercased name. The character set keeps names unambiguous under case
+/// insensitive comparison and safe to use as a URL path segment.
+fn validate_new_username(username: &str) -> Result<(), &'static str> {
+  if username.len() < 3 {
+    return Err("username must be 3 or more characters");
+  }
+  if username.len() > 16 {
+    return Err("username must be 16 or fewer characters");
+  }
+  if !username.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_') {
+    return Err("username may only contain letters, digits, '-' and '_'");
+  }
+  Ok(())
+}
+
 pub async fn register(
   db: &Arc<Mutex<Db>>,
   req: Request<hyper::body::Incoming>,
@@ -356,11 +375,15 @@ pub async fn register(
     }
   };
 
-  if db.user.get_by_username_case_insensitive(&payload.username).is_some()
-    || db.pending_user.get_by_username_case_insensitive(&payload.username).is_some()
-    || is_uid(&payload.username)
-    || payload.username.len() > 16
-    || RESERVED_NAMES.contains(&payload.username.as_str())
+  // Usernames are case insensitive, and new ones are stored lowercase.
+  let username = payload.username.to_ascii_lowercase();
+  if let Err(msg) = validate_new_username(&username) {
+    return json_response(&RegisterResponse { success: false, err: Some(String::from(msg)) });
+  }
+  if db.user.get_by_username_case_insensitive(&username).is_some()
+    || db.pending_user.get_by_username_case_insensitive(&username).is_some()
+    || is_uid(&username)
+    || RESERVED_NAMES.contains(&username.as_str())
   {
     return json_response(&RegisterResponse { success: false, err: Some(String::from("username not available")) });
   }
@@ -369,12 +392,6 @@ pub async fn register(
   let page_size_px = sanitize_page_size(payload.page_width_px, payload.page_height_px);
   let page_width_bl = page_size_px.w / NATURAL_BLOCK_SIZE_PX;
   let natural_aspect = ((page_size_px.w as f64) / (page_size_px.h as f64) * 1000.0).round() / 1000.0;
-  if payload.username.len() < 3 {
-    return json_response(&RegisterResponse {
-      success: false,
-      err: Some(String::from("username must be 3 or more characters")),
-    });
-  }
   if let Err(msg) = validate_password_policy(&payload.password) {
     return json_response(&RegisterResponse { success: false, err: Some(String::from(msg)) });
   }
@@ -406,7 +423,7 @@ pub async fn register(
   let password_hash = match User::hash_password(&payload.password) {
     Ok(hash) => hash,
     Err(e) => {
-      error!("Error hashing password for new user '{}': {}", payload.username, e);
+      error!("Error hashing password for new user '{}': {}", username, e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
   };
@@ -414,7 +431,7 @@ pub async fn register(
   let user = User {
     query_profiles: None,
     id: user_id.clone(),
-    username: payload.username.clone(),
+    username: username.clone(),
     password_hash,
     password_salt,
     totp_secret: payload.totp_secret.clone(),
@@ -427,7 +444,7 @@ pub async fn register(
     object_encryption_key: generate_key(),
   };
 
-  if payload.username == ROOT_USER_NAME {
+  if username == ROOT_USER_NAME {
     if let Err(e) = db.user.add(user.clone()).await {
       error!("Error adding user: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
@@ -444,7 +461,7 @@ pub async fn register(
       error!("Error creating ingest session store for user '{}': {}", user.id, e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let home_page = default_home_page(user_id.as_str(), &payload.username, home_page_id, page_width_bl, natural_aspect);
+    let home_page = default_home_page(user_id.as_str(), &username, home_page_id, page_width_bl, natural_aspect);
     if let Err(e) = db.item.add(home_page).await {
       error!("Error adding default page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
@@ -482,7 +499,7 @@ pub async fn register(
       error!("Error adding user to pending user db: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    info!("Added pending user '{}'.", payload.username);
+    info!("Added pending user '{}'.", username);
   }
 
   json_response(&RegisterResponse { success: true, err: None })
@@ -1056,6 +1073,21 @@ pub async fn extra(db: &Arc<Mutex<Db>>, req: Request<hyper::body::Incoming>) -> 
         Some(s) => s.clone(),
       };
       json_response(&user_extra)
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn new_username_validation() {
+    for ok in ["matt", "m_t-2", "abc", "abcdefghijklmnop"] {
+      assert!(validate_new_username(ok).is_ok(), "{}", ok);
+    }
+    for bad in ["ab", "abcdefghijklmnopq", "Matt", "ma tt", "ma/tt", "ma%tt", "mätt", "\u{212A}elvin"] {
+      assert!(validate_new_username(bad).is_err(), "{}", bad);
     }
   }
 }

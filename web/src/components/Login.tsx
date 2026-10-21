@@ -54,10 +54,12 @@ export const Login: Component = () => {
       if (redirectPathMaybe && redirectPathMaybe.length > 0) {
         location.href = basePath + decodeURIComponent(redirectPathMaybe);
       } else {
-        if (username == ROOT_USERNAME) {
+        // The stored username, not as typed: lookup is case insensitive.
+        const storedUsername = store.user.getUser().username;
+        if (storedUsername == ROOT_USERNAME) {
           switchToNonPage(store, "/"); // TODO:
         } else {
-          switchToNonPage(store, `/${username}`); // TODO:
+          switchToNonPage(store, `/${storedUsername}`); // TODO:
         }
       }
     }

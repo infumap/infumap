@@ -99,8 +99,11 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     return Ok(());
   }
 
-  let session =
-    InfuSession { username, user_id: login_response.user_id.unwrap(), session_id: login_response.session_id.unwrap() };
+  let session = InfuSession {
+    username: login_response.username.unwrap_or(username),
+    user_id: login_response.user_id.unwrap(),
+    session_id: login_response.session_id.unwrap(),
+  };
 
   let named_session = NamedInfuSession { name: session_name.to_string(), session, url: url.to_string() };
 
