@@ -246,7 +246,6 @@ const CHAT_TOOL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 /// know how many it needs, and asks for the most it can.
 const CHAT_SEARCH_TOOL_PAGE_SIZE: i64 = 10;
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
-const CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS: usize = 280;
 const CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS: usize = 80;
 const CHAT_TOOL_SUMMARY_TITLE_COUNT: usize = 3;
 const LLM_LOG_PATH: &str = "/tmp/llm.txt";
@@ -3275,10 +3274,6 @@ fn json_object_string_raw(value: &Value, key: &str) -> Option<String> {
   value.get(key).and_then(Value::as_str).map(str::to_owned)
 }
 
-fn clipped_preview_text(text: &str) -> (String, bool) {
-  clamp_text_chars(text, CHAT_TOOL_PREVIEW_TEXT_MAX_CHARS)
-}
-
 fn chat_tool_finished_activity(name: &str, arguments: &Value, result_json: &str) -> (String, Value) {
   let parsed = serde_json::from_str::<Value>(result_json).ok();
   if let Some(error) = parsed.as_ref().and_then(|value| json_object_str(value, "error")).map(str::to_owned) {
@@ -3290,10 +3285,7 @@ fn chat_tool_finished_activity(name: &str, arguments: &Value, result_json: &str)
     "infumap_get_fragment" => get_fragment_tool_activity(result_json),
     "web_search" => web_search_tool_activity(arguments, parsed.as_ref()),
     "web_fetch" => fetch_page_tool_activity(parsed.as_ref()),
-    _ => (
-      "Completed".to_owned(),
-      parsed.unwrap_or_else(|| serde_json::json!({ "text": clipped_preview_text(result_json).0 })),
-    ),
+    _ => ("Completed".to_owned(), parsed.unwrap_or_else(|| serde_json::json!({ "text": result_json }))),
   }
 }
 
@@ -3320,9 +3312,7 @@ fn search_tool_activity(arguments: &Value, result: &str) -> (String, Value) {
     summary.push_str(" · more");
   }
 
-  let preview_results = lines.iter().map(|line| clipped_preview_text(line).0).collect::<Vec<_>>();
-
-  (summary, serde_json::json!({ "results": preview_results, "hasMore": has_more }))
+  (summary, serde_json::json!({ "results": lines, "hasMore": has_more }))
 }
 
 fn web_search_tool_activity(arguments: &Value, parsed: Option<&Value>) -> (String, Value) {
@@ -3376,7 +3366,6 @@ fn fetch_page_tool_activity(parsed: Option<&Value>) -> (String, Value) {
   let truncated = parsed.get("truncated").and_then(Value::as_bool).unwrap_or(false);
   let host_changed = parsed.get("hostChanged").and_then(Value::as_bool).unwrap_or(false);
   let text = parsed.get("text").and_then(Value::as_str).unwrap_or("");
-  let (clipped, clip_truncated) = clipped_preview_text(text);
 
   let mut summary = String::new();
   if !url.is_empty() {
@@ -3387,7 +3376,7 @@ fn fetch_page_tool_activity(parsed: Option<&Value>) -> (String, Value) {
   if host_changed {
     summary.push_str("host changed · ");
   }
-  if truncated || clip_truncated {
+  if truncated {
     summary.push_str("truncated");
   } else {
     summary.push_str("fetched");
@@ -3400,7 +3389,7 @@ fn fetch_page_tool_activity(parsed: Option<&Value>) -> (String, Value) {
       "finalUrl": parsed.get("finalUrl").cloned().unwrap_or(Value::Null),
       "truncated": truncated,
       "hostChanged": host_changed,
-      "text": clipped,
+      "text": text,
     }),
   )
 }
@@ -3435,7 +3424,7 @@ fn get_fragment_tool_activity(result: &str) -> (String, Value) {
   if result.contains(FRAGMENT_CUT_MARKER) {
     summary.push_str(", truncated");
   }
-  (summary, serde_json::json!({ "text": clipped_preview_text(result).0 }))
+  (summary, serde_json::json!({ "text": result }))
 }
 
 #[derive(Default)]
