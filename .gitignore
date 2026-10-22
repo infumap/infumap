@@ -18,3 +18,5 @@ run_with_env.sh
 /tools/mcp/web-search/config.toml
 /tools/mcp/web-search/state/
 /tools/mcp/web-search/cache/
+/tools/mcp/web-search/data/
+/tools/mcp/web-search/imsearch/
