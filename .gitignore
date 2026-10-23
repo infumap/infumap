@@ -20,3 +20,4 @@ run_with_env.sh
 /tools/mcp/web-search/cache/
 /tools/mcp/web-search/data/
 /tools/mcp/web-search/imsearch/
+/tools/mcp/web-search/imwebsearch/
