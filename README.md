@@ -3,10 +3,10 @@
 Summary:
 - A secure, durable home for all of your information.
 - One unified workspace that holds everything:
-  - 8 page types, tables, notes, images, ratings and more.
+  - Pages (8 arragement types), tables, notes, images, ratings and more.
   - Optimized for rapid navigation.
   - Progressively add structure as your needs evolve.
-- Tight integration with AI Chat.
+- Tight AI chat integration.
 
 <kbd>
   <img src="screenshot.png" />
@@ -17,7 +17,7 @@ Summary:
 > [!IMPORTANT]
 > The `master` branch is the active development branch and often includes work in progress between releases. For regular use, please prefer the latest tagged release.
 
-I use Infumap to manage all of my personal information and spend a significant part of almost every day using it. This daily use has shaped development and steadily refined the product over a number of years.
+Infumap is the how I always imagined a computer desktop should work. I spend a significant part of almost every day using it to manage all of my personal information. This daily use has shaped development and steadily refined the product. Product quality has now reached a point where I'm not embarassed to show it to others, though some rough edges remain.
 
 Feedback, bug reports, and suggestions are welcome.
 
