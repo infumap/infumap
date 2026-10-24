@@ -10,4 +10,6 @@
   lists, status notes and review findings out of it.
 - Put the reasoning behind a decision in a comment next to the code that makes it, especially where the obvious
   alternative was tried and failed. Don't point code comments at files in `docs/`.
-- Known gaps and follow-up work go in `TODO.md`.
+
+# Git
+- Never commit or push unless explicitly asked. Leave changes in the working tree for review.
