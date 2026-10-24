@@ -12,7 +12,7 @@ its submitted tool set; disabling a source keeps earlier tool results in the con
 missing or unavailable sources remain visible and must be explicitly disabled or restored before
 sending. The server rejects an unavailable selected source instead of silently omitting its tools.
 **Functions** and **Raw schema** in the picker show what each source exposes. Additional MCP sources
-are configured on the server; see [MCP tools](../tools/mcp/README.md).
+are configured on the server; see [configuration](configuration.md).
 
 The same tools can be called without an LLM using `infumap tool infumap_search "query"` or
 `infumap tool infumap_get_fragment infumap://<id>`. See [CLI commands](cli.md#tool) for options.

@@ -76,7 +76,7 @@
 # docs/configuration.md.
 
 # Optional MCP tool servers for Chat. Run each server separately; see
-# tools/mcp/ for the bundled web search and fetch server. Native PDF fetching
+# docs/configuration.md for the standalone IMWebSearch project. Native PDF fetching
 # uses fetch.gpu_tools_url and fetch.timeout_secs in the sidecar's private
 # config.toml; timeout_secs here should exceed its whole fetch budget.
 # Browser and PDF cache paths are set in that file; web_fetch never uses OCR.

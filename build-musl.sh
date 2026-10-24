@@ -19,5 +19,4 @@
 pushd "$(dirname "$0")"
 ./web/build.sh
 ./infumap/build-musl.sh
-./tools/mcp/web-search/build-musl.sh
 popd

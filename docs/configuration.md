@@ -73,10 +73,19 @@ export INFUMAP_CHAT_PROVIDERS='[{"id":"local","url":"http://127.0.0.1:8080/v1","
 export INFUMAP_CHAT_TOOL_SERVERS='[{"id":"web_search","url":"http://127.0.0.1:8791/mcp/search"},{"id":"web_fetch","url":"http://127.0.0.1:8791/mcp/fetch"}]'
 ```
 
-The bundled web MCP server exposes `web_search` at `/mcp/search` and
+The standalone IMWebSearch MCP server exposes `web_search` at `/mcp/search` and
 `web_fetch` at `/mcp/fetch`. Configure them as separate entries so search
 and fetch can each be selected or replaced independently. Each entry's stable `id` also serves as its
-display label; omit either entry if it is not needed. See [MCP tools](../tools/mcp/README.md).
+display label; omit either entry if it is not needed.
+
+IMWebSearch is a separate project, typically checked out alongside Infumap. Start it with
+`./run.sh` from its own directory; Infumap does not start it. See its
+[integration guide](../../imwebsearch/INFUMAP.md) for setup. Provider credentials, browser setup
+and native PDF extraction are configured in `~/.imwebsearch/config.toml`. Set Infumap's fetch
+`timeout_secs` above the whole IMWebSearch fetch budget, for example 330 seconds for a
+300-second sidecar budget.
+
+Deep research only receives MCP tools declaring `annotations.readOnlyHint: true`.
 
 Tool execution follows the query profile's **Tool approvals** policy. `automatic` asks before
 external requests when Infumap tools are enabled or the chat contains attachments;
