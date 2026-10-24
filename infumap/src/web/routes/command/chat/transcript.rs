@@ -15,8 +15,18 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Live chat transcripts: one JSONL file per query item in the Queries page, at
-//! `user_{id}/chats/{query_item_id}.chat`. The file is the authoritative transcript of the chat.
-//! See docs/persistent-chats.md.
+//! `user_{id}/chats/{query_item_id}.chat`. The file is the authoritative transcript of the chat: a request carries
+//! only the new message and the revision it expects, and the model history is built from the file. If the client
+//! sent the history, a reload, a second tab or a cancelled turn would leave two copies that disagree.
+//!
+//! A live chat is kept here rather than in the object store because object content is immutable. Rewriting a blob
+//! on every turn would need writes to every configured store with no atomicity across them, and would invalidate
+//! everything derived from the content by item id: fragments, the content index and the search startup check.
+//! Persisting a chat freezes the file into a `.chat` item. Unlike objects, these files are not backed up or
+//! encrypted, although they are primary data.
+//!
+//! JSONL rather than Markdown: a transcript holds tool calls, reasoning and activity, and Markdown can't be parsed
+//! back reliably, since separators such as `**You**` can appear in user text.
 //!
 //! Each append is one complete newline-terminated record, followed by a sync. A reader ignores an
 //! incomplete last line; taking the chat lock truncates it before anything else is appended.
@@ -78,14 +88,18 @@ pub(super) struct UserRecord {
   #[serde(rename = "startedAt")]
   pub(super) started_at: i64,
   pub(super) text: String,
-  /// Text attached to the message, sent to the model before it. See docs/chat-attachments.md.
+  /// Text attached to the message, sent to the model before it. Kept in the transcript rather than as text items,
+  /// which a live chat must not create, so that a persisted `.chat` item stays one self-contained blob.
   #[serde(default, skip_serializing_if = "Vec::is_empty")]
   pub(super) attachments: Vec<ChatAttachment>,
   pub(super) settings: TurnSettings,
 }
 
 impl UserRecord {
-  /// The user message the model gets: each attachment wrapped in `<attachment>` tags, then the text.
+  /// The user message the model gets: each attachment wrapped in `<attachment>` tags, then the text. Attachments are
+  /// inline rather than a reference to read with a tool, because weak models skip reads, and for a summary a part
+  /// left unread is the worst failure; they also work in a chat without tools. Nothing is cut to fit the context: a
+  /// summary of part of a text, presented as a summary of all of it, is worse than the backend's error.
   pub(super) fn model_content(&self) -> String {
     let mut parts = self
       .attachments
@@ -229,7 +243,9 @@ pub(super) enum TurnStatus {
 }
 
 impl Transcript {
-  /// The number of `user` records. Title changes and turn ends do not advance it.
+  /// The number of `user` records. Title changes and turn ends do not advance it. A request expecting another
+  /// revision is rejected, which also makes a retry after a dropped connection stale if the original was recorded;
+  /// request ids correlate stream events with a turn and are not used to deduplicate.
   pub(super) fn revision(&self) -> usize {
     self.turns.len()
   }
@@ -251,7 +267,10 @@ impl Transcript {
 
   /// The model history: the user message and added messages of completed turns only. An unsuccessful
   /// turn contributes nothing, not even its user message, so the history never has two user
-  /// messages in a row.
+  /// messages in a row, which some llama.cpp chat templates reject.
+  ///
+  /// Tool results stay whole for the rest of the chat. Replacing earlier turns' results with short stubs was tried:
+  /// weak models then answered follow-ups from the stubs instead of reading again, and made up what they had read.
   pub(super) fn history(&self) -> Vec<ChatHistoryMessage> {
     let mut messages = vec![];
     for turn in &self.turns {

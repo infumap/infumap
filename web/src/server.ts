@@ -129,13 +129,13 @@ export interface ChatRequest extends QueryChatSettings {
   requestId: string,
   /** The model history, for a chat without a transcript. Omitted for a live chat. */
   messages?: Array<ChatMessage>,
-  /** A query item in the Queries page whose transcript holds the chat. See docs/persistent-chats.md. */
+  /** A query item in the Queries page whose transcript holds the chat. */
   queryItemId?: Uid,
   /** For a live chat: the transcript revision last seen. A different revision rejects the request. */
   expectedRevision?: number,
   /** For a live chat: the new user message. */
   text?: string,
-  /** For a live chat: text attached to the new user message. See docs/chat-attachments.md. */
+  /** For a live chat: text attached to the new user message. */
   attachments?: Array<{ id: Uid, title: string, mimeType: string, text: string }>,
 }
 

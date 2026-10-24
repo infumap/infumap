@@ -5,7 +5,7 @@ const APPLICATION_OCTET_STREAM: &str = "application/octet-stream";
 const TEXT_PLAIN: &str = "text/plain";
 
 /// The MIME type of a persisted chat: a chat transcript (JSONL) in a `.chat` text item. Always set explicitly, since
-/// detection would give text/plain. See docs/persistent-chats.md.
+/// detection would give text/plain, and the raw JSONL would then be indexed as plain text.
 pub const CHAT_TRANSCRIPT_MIME_TYPE: &str = "application/x-infumap-chat";
 
 pub fn detect_mime_type(data: &[u8]) -> String {

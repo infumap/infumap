@@ -634,7 +634,7 @@ fn is_in_trash(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
 }
 
 /// An earlier chat in the Queries page moved into the trash, which is how a chat is deleted. The current (pinned) chat
-/// stays where it is. See docs/persistent-chats.md.
+/// stays where it is.
 fn is_chat_moved_to_trash(db: &MutexGuard<'_, Db>, old_item: &Item, new_item: &Item) -> bool {
   is_queries_page_query_item(db, old_item)
     && is_unpinned(old_item)

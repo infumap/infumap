@@ -29,7 +29,6 @@ import { asTextItem, ChatAttachmentSource, isText, TextFns, TextItem } from "./t
 
 /**
  * Text attached to a chat message that has not been sent yet. Sent with the message and kept in the chat's transcript.
- * See docs/chat-attachments.md.
  */
 export interface ChatDraftAttachment {
   id: Uid,

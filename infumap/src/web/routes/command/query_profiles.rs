@@ -20,7 +20,9 @@ struct ProfileRequest {
   operation: ProfileOperation,
 }
 
-/// Each operation states one intent and applies to the collection as it is when the request arrives.
+/// Each operation states one intent and applies to the collection as it is when the request arrives. None carries a
+/// whole list or profile, so concurrent changes from other tabs or devices can't overwrite each other, and no revision
+/// check is needed.
 #[derive(Deserialize)]
 #[serde(tag = "operation", rename_all = "camelCase", rename_all_fields = "camelCase", deny_unknown_fields)]
 enum ProfileOperation {

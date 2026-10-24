@@ -1,17 +1,24 @@
+
 # Infumap
 
-- [Backlinks](backlinks.md)
+## Using Infumap
+
 - [Chats](chats.md)
-- [CLI](cli.md)
-- [Configuration](configuration.md)
-- [Developer](developer.md)
-- [Integrations](integrations.md)
-- [Network status](network-status.md)
 - [Scopes](scopes.md)
+- [Backlinks](backlinks.md)
+- [Integrations](integrations.md)
+
+## Running Infumap
+
+- [Configuration](configuration.md)
+- [CLI](cli.md)
+- [Data](data.md)
+- [Security](security.md)
 - Deployment
   - [Raspberry Pi (Common Setup)](deployment/raspberry-pi.md)
   - [Raspberry Pi (Public Internet)](deployment/raspberry-pi-public-internet.md)
   - [Raspberry Pi (VPN-Only HTTPS)](deployment/raspberry-pi-vpn-only.md)
-- [Security](security.md)
-- [Data](data.md)
-- [Roadmap](roadmap.md)
+
+## Developing Infumap
+
+- [Developer](developer.md)

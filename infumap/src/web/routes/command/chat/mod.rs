@@ -245,6 +245,8 @@ const CHAT_TOOL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 /// Results per page of the search tool. The model pages for more rather than choosing a size: a weak model does not
 /// know how many it needs, and asks for the most it can.
 const CHAT_SEARCH_TOOL_PAGE_SIZE: i64 = 10;
+/// Text per infumap_get_fragment call. A call returns one fragment: given two in one result, a model used only the
+/// first.
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
 const CHAT_TOOL_SUMMARY_QUERY_MAX_CHARS: usize = 80;
 const CHAT_TOOL_SUMMARY_TITLE_COUNT: usize = 3;
@@ -318,7 +320,7 @@ struct ChatRequest {
   /// transcript and is filled in when its turn starts.
   #[serde(default)]
   messages: Vec<ChatHistoryMessage>,
-  /// A query item in the Queries page whose transcript holds the chat. See docs/persistent-chats.md.
+  /// A query item in the Queries page whose transcript holds the chat.
   #[serde(rename = "queryItemId", default)]
   query_item_id: Option<Uid>,
   /// For a live chat: the transcript revision the client last saw. A different revision rejects the request.
@@ -1304,7 +1306,7 @@ struct ChatPersistError {
 /// to the object store and commits the item, as adding any data item does; then deletes the query item; then removes
 /// the transcript file. A crash before the commit leaves the chat as it was and an unreferenced blob; between the
 /// commit and the delete, both a persisted copy and the live chat; after the delete, an orphan transcript that startup
-/// cleanup removes. Returns the add-item response, with the new item. See docs/persistent-chats.md.
+/// cleanup removes. Returns the add-item response, with the new item.
 async fn persist_live_chat(
   config: &Config,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -1440,7 +1442,10 @@ struct ChatContinueResponse {
 
 /// Continues a persisted chat as the newest history entry while leaving New Query pinned at the top. The `.chat` item
 /// stays where it is, or with `trash_original` goes to the trash. The transcript is written before its query item is
-/// added, so a crash leaves at worst an orphan transcript, which startup cleanup removes. See docs/persistent-chats.md.
+/// added, so a crash leaves at worst an orphan transcript, which startup cleanup removes.
+///
+/// The continued chat has a new uid, and persisting it again gives it another, because content under a uid never
+/// changes: browsers cache file responses, and the client and server cache text and derived artifacts, by item id.
 async fn continue_persisted_chat(
   db: &Arc<tokio::sync::Mutex<Db>>,
   object_store: Arc<object::ObjectStore>,
@@ -1807,7 +1812,8 @@ struct LoadChatAttachmentResponse {
   text: String,
 }
 
-/// The text of one attachment of a live or persisted chat, which `load-chat` leaves out. See docs/chat-attachments.md.
+/// The text of one attachment of a live or persisted chat. `load-chat` leaves it out, since it returns every turn
+/// whenever a chat is selected.
 pub(super) async fn handle_load_chat_attachment(
   db: &Arc<tokio::sync::Mutex<Db>>,
   object_store: Arc<object::ObjectStore>,
@@ -1856,7 +1862,7 @@ const CHAT_ATTACHMENT_MAX_BYTES: usize = 1024 * 1024;
 const CHAT_ATTACHMENT_TITLE_MAX_CHARS: usize = 200;
 
 /// Checks the attachments of a chat request, and makes their transcript records. Ids are checked against each other
-/// here, and against the transcript once it is locked. See docs/chat-attachments.md.
+/// here, and against the transcript once it is locked.
 fn chat_attachments_from_request(attachments: Vec<ChatAttachmentRequest>) -> Result<Vec<ChatAttachment>, String> {
   if attachments.len() > CHAT_ATTACHMENTS_MAX_COUNT {
     return Err(format!("A chat message can have at most {} attachments.", CHAT_ATTACHMENTS_MAX_COUNT));
@@ -2960,6 +2966,8 @@ fn execution_tool_calls(message: &OpenAiChatMessage, tool_round: usize) -> Vec<O
     .collect()
 }
 
+/// The Infumap tools return plain text, not JSON: Markdown escaped inside JSON strings is harder for small models to
+/// read, and they copy the escapes into answers. Errors are JSON, as for every other tool.
 async fn execute_chat_tool_call(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,

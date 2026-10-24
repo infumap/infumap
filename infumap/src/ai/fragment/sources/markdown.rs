@@ -330,7 +330,8 @@ mod tests {
   use super::*;
 
   #[test]
-  /// Attachment text is not indexed: see docs/chat-attachments.md.
+  /// Attachment text is not indexed: the answer usually says what an attachment was about, and copying an attachment
+  /// out of the chat makes it a searchable text item.
   fn chat_visible_text_is_the_questions_and_completed_answers() {
     let transcript = [
       r#"{"type":"header","version":1,"queryItemId":"q","createdAt":1}"#,

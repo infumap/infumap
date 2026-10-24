@@ -34,7 +34,7 @@ A (unique) backup encryption key is generated when a new `settings.toml` file is
 
 ### migrate
 
-Migrate an existing user or item log file to the next version. This may be required when upgrading to a new version of Infumap. Ultimately log migration will happen automatically on web server startup and this command will be an advanced feature, however this is not implemented yet.
+Migrate an existing user or item log file to the next version. It migrates one version at a time, so a log several versions behind needs one run per version. This may be required when upgrading to a new version of Infumap. Ultimately log migration will happen automatically on web server startup and this command will be an advanced feature, however this is not implemented yet.
 
 Options:
 - **-p --log-path:** The path to the user or item log file to migrate to the next version.
@@ -298,9 +298,13 @@ request; it never falls back to an unrestricted call.
 
 The tools use the same argument handling, access checks, and result formatting as chat. A result
 ending with a `The item continues.` or `For more results,` line has more: run the command again with
-`--fragment-ordinal` or `--page-num` set to the value it gives. See [chat-tools.md](chat-tools.md)
-for the tool behavior and result formats. The local `fragment` command builds artifacts and is
+`--fragment-ordinal` or `--page-num` set to the value it gives. The local `fragment` command builds artifacts and is
 separate from `tool infumap_get_fragment`, which reads them and renders live container contents.
+
+The command calls the server's `POST /chat/tool` endpoint, which can also be called directly with an authenticated
+session. It takes `{ "name": "infumap_search" | "infumap_get_fragment", "arguments": {…}, "scopeId": "<optional>" }`
+and returns the tool result as `text/plain`, or a JSON `error` with HTTP 400 for a tool error or invalid request and
+403 without a session. Requests are limited to 16 KiB.
 
 ### login
 

@@ -688,7 +688,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     window.setTimeout(() => chatTextarea?.focus(), 0);
   };
 
-  /** A long paste becomes an attachment of the message, not part of its text. See docs/chat-attachments.md. */
+  /** A long paste becomes an attachment of the message, not part of its text. */
   const attachPastedText = (ev: ClipboardEvent) => {
     const text = ev.clipboardData?.getData("text/plain") ?? "";
     if (!pastedTextIsAttachment(text)) {

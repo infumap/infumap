@@ -126,8 +126,7 @@ Users choose the default profile in **Profiles → Manage…**. New queries copy
 it once. Picking a different profile or changing the model, reasoning effort, scope or tools affects
 only that query; the last choice never automatically becomes the account default. Profiles and
 model favorites are saved with the account and included in account backups. See
-[Query profiles](chats.md#query-profiles) for the controls and
-[Query configuration and profiles](query-profiles.md) for the API.
+[Query profiles](chats.md#query-profiles) for the controls.
 
 Chat requests use the explicit saved provider ID, model ID and effort. With discovery disabled, the
 saved model ID is `model_name` (default `"default"`), and the provider resolves it to the actual model.

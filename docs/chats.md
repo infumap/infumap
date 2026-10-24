@@ -68,8 +68,20 @@ For sensitive text pasted directly into a message, select Always ask. Existing p
 chats retain Always ask after upgrading.
 
 Profiles, pins, ordering, the default and model favorites are saved with your account and included in
-account backups. Changes to a query's setup and unsent drafts are local. See
-[Query configuration and profiles](query-profiles.md) for the storage and request contract.
+account backups. Changes to a query's setup and unsent drafts are local.
+
+## What the model can read
+
+With the Infumap data source enabled in **Tools**, the model has two read-only tools:
+
+- `infumap_search` finds items by their titles and indexed text, 10 results at a time.
+- `infumap_get_fragment` reads an item about 2,500 characters at a time: a document, an image's description, a
+  note, or the items of a page, table or composite.
+
+Both are limited to the chat's [scope](scopes.md). Pages and tables are read as they are now, but search can lag
+recent edits (see [Data](data.md)). What the model reads stays in the chat for the rest of the conversation, so a
+long chat with many reads can outgrow a small model's context, and then fails with "The conversation is too long for
+the model's context window." To see what the model sees, run the same tools with [`infumap tool`](cli.md#tool).
 
 ## Attaching text
 
@@ -134,9 +146,9 @@ unchanged.
 - `.chat` items are searchable by their conversation: your messages and the responses. What the model read and its
   reasoning are not searched.
 - Chats in the Queries page are not found by search. Keep a chat to make it searchable.
-- Attachments are not searched, in `.chat` items either, and the model's `search` tool doesn't see them. To make an
+- Attachments are not searched, in `.chat` items either, and `infumap_search` doesn't see them. To make an
   attachment's text searchable, copy it out of the chat as a text item.
-- The chat's own `search` tool never returns `.chat` items, so a model does not find its earlier answers, including
+- `infumap_search` never returns `.chat` items, so a model does not find its earlier answers, including
   wrong ones, and cite them as sources.
 
 ## Things to know

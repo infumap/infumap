@@ -79,7 +79,7 @@ export interface QueryRuntime {
     outcomeRootIds: Array<Uid>,
     /**
      * The transcript revision to send with the next turn. The server's transcript holds the model history; the client
-     * keeps none. See docs/persistent-chats.md.
+     * keeps none.
      */
     revision: number,
     /** Whether the transcript has been loaded into the chat view since the chat was last cleared. */

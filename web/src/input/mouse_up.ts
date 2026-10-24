@@ -484,7 +484,7 @@ function enqueueUpdateItem(
 /**
  * An earlier chat dropped outside the Queries page, other than into the trash, is kept there as a `.chat` text item:
  * persist creates it in the chat's place and deletes the chat's query item. If it fails, the move is rolled back and
- * the chat stays in the Queries page. See docs/persistent-chats.md.
+ * the chat stays in the Queries page.
  */
 function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: StoreContextModel, item: Item): boolean {
   const user = store.user.getUserMaybe();
@@ -1185,7 +1185,7 @@ function currentDropTargetRejectionMessage(store: StoreContextModel): string | n
 /**
  * An earlier chat can't be reordered in the Queries page, attached to an item or dropped on another server's page.
  * Dropped into the trash it is deleted; dropped anywhere else it is persisted (`enqueueChatPersistIfDropped`). A
- * chat in the trash can only go back to the Queries page. See docs/persistent-chats.md.
+ * chat in the trash can only go back to the Queries page.
  */
 function chatDropRejectionMessage(store: StoreContextModel, targetVe: VisualElement): string | null {
   const user = store.user.getUserMaybe();
@@ -1649,7 +1649,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
 /**
  * An item dropped on a chat's composer goes back where it was, and a copy of its content is attached to the message
- * being written there. See docs/chat-attachments.md.
+ * being written there.
  */
 function attachDroppedItemToChatMaybe(store: StoreContextModel): boolean {
   updateChatItemDropHover(null);

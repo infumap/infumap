@@ -74,7 +74,7 @@ export const QueryFns = {
 /**
  * The `.chat` text item each earlier chat whose persist is in flight is expected to become, by query item id. Until the
  * server replies, the query item is measured and drawn as that item, without hitboxes, so it doesn't change size when
- * the persisted item replaces it. See docs/persistent-chats.md.
+ * the persisted item replaces it.
  */
 const chatPersistPreviews = new Map<Uid, TextItem>();
 

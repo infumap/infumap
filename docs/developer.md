@@ -120,8 +120,6 @@ For simplicity, we will take the approach of doing only a musl build for release
 
 # Iterative Development
 
-The built-in LLM tools and container fragments are documented in [Chat tools](chat-tools.md).
-
 From the repo `infumap` directory:
 
 ```
@@ -137,3 +135,7 @@ npm run start
 ```
 
 This will start a vite development server listening on port `3000`, serving the current state of `web`, with hot reload. Requests to the API (but not requests for client resources) will be forwarded to port `8000`.
+
+Set `INFUMAP_LLM_LOG=1` before starting the server to write each chat run's requests, responses and full tool results
+to `/tmp/llm.txt`. The file starts over for every message sent. The run's first request holds the whole conversation;
+later requests show messages already logged as `<messages 0–N unchanged since request K>`.
