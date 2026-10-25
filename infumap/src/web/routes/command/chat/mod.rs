@@ -245,6 +245,11 @@ const CHAT_TOOL_REQUEST_MAX_BYTES: usize = 16 * 1024;
 /// Results per page of the search tool. The model pages for more rather than choosing a size: a weak model does not
 /// know how many it needs, and asks for the most it can.
 const CHAT_SEARCH_TOOL_PAGE_SIZE: i64 = 10;
+const CHAT_WEB_SEARCH_MAX_RESULTS: i64 = 5;
+const CHAT_DEEP_RESEARCH_WEB_SEARCH_MAX_RESULTS: i64 = 10;
+const CHAT_WEB_SEARCH_REMINDER: &str = "\
+You have used four searches this turn. Answer from the evidence collected unless a specific \
+unresolved issue materially affects correctness.";
 /// Text per infumap_get_fragment call. A call returns one fragment: given two in one result, a model used only the
 /// first.
 const CHAT_FRAGMENT_TOOL_DEFAULT_MAX_CHARS: usize = 2_500;
@@ -294,21 +299,29 @@ enum ChatRunMode {
   DeepResearch,
 }
 
-/// Host-provided execution context, separate from model-supplied tool arguments.
+/// Host-owned execution policy and diagnostics; never sent as MCP metadata.
 /// One instance spans this user turn, including both deep-research tool stages.
 struct ChatToolContext {
   mode: ChatRunMode,
-  /// The provider's model id, so tool servers can attribute behaviour per model.
+  /// The provider's model id, for local tool-call diagnostics.
   model: String,
   call_counts: Mutex<HashMap<(String, String), usize>>,
 }
 
 impl ChatToolContext {
-  fn next_call_metadata(&self, target: &mcp::MappedMcpToolTarget) -> Value {
+  fn next_call_number(&self, target: &mcp::MappedMcpToolTarget) -> usize {
     let mut counts = self.call_counts.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let count = counts.entry((target.server_id.clone(), target.mcp_name.clone())).or_default();
     *count += 1;
-    serde_json::json!({ "infumap.com/toolCall": { "number": *count, "mode": self.mode, "model": self.model } })
+    *count
+  }
+
+  fn web_search_reminder_due(&self) -> bool {
+    if self.mode != ChatRunMode::Chat {
+      return false;
+    }
+    let counts = self.call_counts.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    counts.iter().filter(|((_, name), _)| name == "web_search").map(|(_, count)| *count).sum::<usize>() >= 4
   }
 }
 
@@ -2575,6 +2588,46 @@ fn chat_tool_specs(uses_infumap_data: bool, mcp_tools: &[mcp::MappedMcpTool]) ->
   tools
 }
 
+fn configure_web_search_tools(
+  mode: ChatRunMode,
+  tools: &mut [mcp::MappedMcpTool],
+  name_map: &mut HashMap<String, mcp::MappedMcpToolTarget>,
+) {
+  let max_results = match mode {
+    ChatRunMode::Chat => CHAT_WEB_SEARCH_MAX_RESULTS,
+    ChatRunMode::DeepResearch => CHAT_DEEP_RESEARCH_WEB_SEARCH_MAX_RESULTS,
+  };
+  for tool in tools {
+    let Some(target) = name_map.get_mut(&tool.openai_name) else { continue };
+    if target.mcp_name != "web_search" {
+      continue;
+    }
+    let Some(schema) = tool.parameters.get("properties").and_then(|properties| properties.get("maxResults")) else {
+      continue;
+    };
+    // Only supply arguments advertised by this server and within its declared bounds.
+    if schema.get("type").and_then(Value::as_str) != Some("integer")
+      || schema.get("minimum").and_then(Value::as_f64).is_some_and(|min| (max_results as f64) < min)
+      || schema.get("maximum").and_then(Value::as_f64).is_some_and(|max| (max_results as f64) > max)
+      || schema
+        .get("enum")
+        .and_then(Value::as_array)
+        .is_some_and(|values| !values.contains(&serde_json::json!(max_results)))
+      || schema.get("const").is_some_and(|value| value != &serde_json::json!(max_results))
+    {
+      continue;
+    }
+    target.argument_overrides.insert("maxResults".to_owned(), serde_json::json!(max_results));
+    // Infumap chooses search effort. Hiding this argument keeps the model from requesting the cap on every call.
+    if let Some(properties) = tool.parameters.get_mut("properties").and_then(Value::as_object_mut) {
+      properties.remove("maxResults");
+    }
+    if let Some(required) = tool.parameters.get_mut("required").and_then(Value::as_array_mut) {
+      required.retain(|name| name.as_str() != Some("maxResults"));
+    }
+  }
+}
+
 struct CompletedChatModelRound {
   number: usize,
   assistant_message: OpenAiChatMessage,
@@ -2634,7 +2687,12 @@ async fn execute_chat_tool_call_with_progress(
   tool_context: &ChatToolContext,
   progress: &ChatProgressReporter,
 ) -> InfuResult<OpenAiChatMessage> {
-  let arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
+  let mut arguments = tool_call_arguments_value(&tool_call).unwrap_or_else(|_| serde_json::json!({}));
+  if let Some(target) = name_map.get(&tool_call.function.name)
+    && let Some(arguments) = arguments.as_object_mut()
+  {
+    arguments.extend(target.argument_overrides.clone());
+  }
   if approval_required.contains(&tool_call.function.name) {
     let (query, url) = web_tool_approval_prompt(&tool_call.function.name, &arguments);
     let source = name_map.get(&tool_call.function.name).map_or("Infumap", |target| target.server_id.as_str());
@@ -2662,8 +2720,23 @@ async fn execute_chat_tool_call_with_progress(
   progress.tool_call_started(round, &tool_call.id, &tool_call.function.name, arguments.clone()).await;
   let started_at = Instant::now();
   let tool_result = if let Some(target) = name_map.get(&tool_call.function.name) {
-    let metadata = tool_context.next_call_metadata(target);
-    mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments.clone(), Some(metadata)).await?
+    let number = tool_context.next_call_number(target);
+    if *LLM_LOG_ENABLED {
+      append_llm_json_log_section(
+        "TOOL CALL CONTEXT",
+        &serde_json::json!({
+          "requestId": progress.request_id,
+          "callId": tool_call.id,
+          "server": target.server_id,
+          "tool": target.mcp_name,
+          "number": number,
+          "mode": tool_context.mode,
+          "model": tool_context.model,
+          "arguments": arguments,
+        }),
+      );
+    }
+    mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments.clone()).await?
   } else {
     execute_chat_tool_call(db, session, config, &tool_call, infumap_data, name_map).await?
   };
@@ -2753,6 +2826,7 @@ async fn run_chat_stage_with_tools(
   tool_context: &ChatToolContext,
   progress: &ChatProgressReporter,
 ) -> InfuResult<()> {
+  let mut search_reminder_sent = false;
   loop {
     let completed_round = run_chat_model_round(endpoint, messages, tools, *llm_turn, *tool_rounds, progress).await?;
     *llm_turn += 1;
@@ -2781,6 +2855,11 @@ async fn run_chat_stage_with_tools(
     )
     .await?;
     messages.extend(tool_messages);
+    if !search_reminder_sent && tool_context.web_search_reminder_due() {
+      // Host guidance follows the complete tool batch so it cannot interrupt tool-call/result pairing.
+      messages.push(OpenAiChatMessage::text("system", CHAT_WEB_SEARCH_REMINDER.to_owned()));
+      search_reminder_sent = true;
+    }
   }
 }
 
@@ -2826,6 +2905,7 @@ async fn prepare_chat_resources(
     let read_only_names: HashSet<&str> = mcp_tools.iter().map(|tool| tool.openai_name.as_str()).collect();
     name_map.retain(|name, _| read_only_names.contains(name.as_str()));
   }
+  configure_web_search_tools(request.settings.mode, &mut mcp_tools, &mut name_map);
   // Resolve before current attachments are moved into the transcript. The live-chat path also
   // protects retained attachments. Earlier Infumap retrieval deliberately does not affect this rule.
   let always_ask = request.settings.configuration.tool_approval == crate::query_configuration::ToolApproval::AlwaysAsk;
@@ -2978,7 +3058,7 @@ async fn execute_chat_tool_call(
 ) -> InfuResult<String> {
   if let Some(target) = name_map.get(&tool_call.function.name) {
     let arguments = tool_call_arguments_value(tool_call).unwrap_or_else(|_| serde_json::json!({}));
-    return mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments, None).await;
+    return mcp::call_mapped_tool(config, &target.server_id, &target.mcp_name, arguments).await;
   }
   match tool_call.function.name.as_str() {
     name @ ("infumap_search" | "infumap_get_fragment") => {

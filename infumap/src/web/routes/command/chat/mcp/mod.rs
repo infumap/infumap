@@ -63,6 +63,7 @@ pub struct MappedMcpToolTarget {
   pub server_id: String,
   pub mcp_name: String,
   pub read_only: bool,
+  pub argument_overrides: serde_json::Map<String, Value>,
 }
 
 #[derive(Clone)]
@@ -225,7 +226,12 @@ pub async fn mapped_tools_for_capabilities(
       let read_only = tool.annotations.as_ref().is_some_and(|annotations| annotations.read_only_hint);
       name_map.insert(
         openai_name.clone(),
-        MappedMcpToolTarget { server_id: server.id.clone(), mcp_name: mcp_name.to_owned(), read_only },
+        MappedMcpToolTarget {
+          server_id: server.id.clone(),
+          mcp_name: mcp_name.to_owned(),
+          read_only,
+          argument_overrides: serde_json::Map::new(),
+        },
       );
       mapped.push(MappedMcpTool { openai_name, description, parameters, read_only });
     }
@@ -252,7 +258,6 @@ pub async fn call_mapped_tool(
   server_id: &str,
   mcp_name: &str,
   arguments: Value,
-  metadata: Option<Value>,
 ) -> InfuResult<String> {
   let by_id = servers_by_id(config)?;
   let Some(server) = by_id.get(server_id) else {
@@ -267,7 +272,7 @@ pub async fn call_mapped_tool(
       .to_string(),
     );
   };
-  match client::call_tool(server, &session, mcp_name, arguments, metadata).await {
+  match client::call_tool(server, &session, mcp_name, arguments).await {
     Ok(text) => Ok(if text.is_empty() { "{}".to_owned() } else { text }),
     Err(e) => Ok(serde_json::json!({ "error": e.to_string() }).to_string()),
   }

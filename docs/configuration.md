@@ -78,6 +78,12 @@ The standalone IMWebSearch MCP server exposes `web_search` at `/mcp/search` and
 and fetch can each be selected or replaced independently. Each entry's stable `id` also serves as its
 display label; omit either entry if it is not needed.
 
+Infumap requests up to 5 web-search results in Chat and 10 in Deep research through the tool's
+advertised `maxResults` argument. Infumap supplies this argument itself; the model does not choose
+the result count. In Chat, Infumap adds a reminder after four web searches in a user turn, without
+enforcing a search limit. Call counts, mode and model stay in Infumap; no Infumap-specific MCP metadata
+is sent. With LLM logging enabled, tool-call context is recorded in `/tmp/llm.txt`.
+
 IMWebSearch is a separate project, typically checked out alongside Infumap. Start it with
 `./run.sh` from its own directory; Infumap does not start it. See its
 [integration guide](../../imwebsearch/INFUMAP.md) for setup. Provider credentials, browser setup

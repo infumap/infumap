@@ -361,13 +361,9 @@ pub async fn call_tool(
   session: &McpSession,
   name: &str,
   arguments: Value,
-  metadata: Option<Value>,
 ) -> InfuResult<String> {
   let client = http_client(server)?;
-  let mut params = json!({ "name": name, "arguments": arguments });
-  if let Some(metadata) = metadata {
-    params["_meta"] = metadata;
-  }
+  let params = json!({ "name": name, "arguments": arguments });
   let (_next_session, result) =
     rpc(&client, server, &session.protocol_version, session.session_id.as_deref(), 1, "tools/call", params).await?;
   tool_result_text(&result)
