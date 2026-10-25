@@ -15,11 +15,13 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
+use futures_util::FutureExt as _;
 use futures_util::future::join_all;
 use http_body_util::{BodyExt as _, StreamBody};
 use hyper::body::Frame;
 use std::collections::{HashMap, HashSet};
 use std::io::Write as _;
+use std::panic::AssertUnwindSafe;
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 use time::OffsetDateTime;
@@ -219,9 +221,9 @@ pub(crate) mod configuration;
 mod container_fragments;
 mod markdown;
 mod mcp;
+mod runs;
 mod search_results;
 mod transcript;
-use activity::ChatActivity;
 use backend::{ChatAdapter, ChatEndpoint, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends, resolve_chat_endpoint};
 pub(crate) use backend::{chat_providers_from_config, default_query_configuration, validate_chat_backend_config};
 use configuration::TurnSettings;
@@ -527,7 +529,6 @@ enum ChatStreamEventKind {
     items: Value,
     messages: Vec<ChatHistoryMessage>,
   },
-  #[allow(dead_code)] // Reserved for explicit server-originated cancellation.
   Cancelled,
   Error {
     message: String,
@@ -600,25 +601,32 @@ fn new_chat_request_id() -> String {
 #[derive(Clone)]
 struct ChatProgressReporter {
   request_id: String,
+  /// Direct output for one-shot streams. Live runs publish through their shared state instead.
   tx: mpsc::Sender<Result<Frame<Bytes>, hyper::Error>>,
-  /// For a live chat turn: collects the activity from the events as they are sent, for its transcript.
-  activity: Option<Arc<Mutex<ChatActivity>>>,
+  /// Activity collection and subscriber delivery share one ordering lock for a live run.
+  activity: Option<Arc<Mutex<runs::RunState>>>,
 }
 
 impl ChatProgressReporter {
+  fn unobserved(request_id: String) -> Self {
+    let (tx, rx) = mpsc::channel(1);
+    drop(rx);
+    Self { request_id, tx, activity: None }
+  }
+
+  fn for_live_run(request_id: String, activity: Arc<Mutex<runs::RunState>>) -> Self {
+    Self { activity: Some(activity), ..Self::unobserved(request_id) }
+  }
+
   async fn send(&self, kind: ChatStreamEventKind) {
     if let Some(activity) = &self.activity {
-      activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).apply(&kind);
+      activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).send(&self.request_id, kind);
+      // An upstream chunk can contain many deltas. Give healthy subscribers a chance to drain between them
+      // without waiting for a slow subscriber's capacity, and let cancellation run even while detached.
+      tokio::task::yield_now().await;
+      return;
     }
-    let event = ChatStreamEvent { request_id: self.request_id.clone(), kind };
-    let line = match serde_json::to_string(&event) {
-      Ok(line) => format!("{line}\n"),
-      Err(_) => format!(
-        "{{\"requestId\":{},\"type\":\"error\",\"message\":\"Could not serialize chat stream event.\"}}\n",
-        serde_json::to_string(&self.request_id).unwrap_or_else(|_| "\"\"".to_owned()),
-      ),
-    };
-    let _ = self.tx.send(Ok(Frame::data(Bytes::from(line)))).await;
+    let _ = self.tx.send(Ok(Frame::data(chat_stream_event_bytes(&self.request_id, kind)))).await;
   }
 
   async fn status(&self, text: &str) {
@@ -1016,60 +1024,125 @@ pub async fn serve_chat_stream_route(
     }
   }
 
-  let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(16);
-  let activity = live_turn.as_ref().map(|turn| turn.activity.clone());
-  let progress = ChatProgressReporter { request_id: stream_request_id, tx: tx.clone(), activity };
-  let disconnect = tx.clone();
+  let (progress, registration, response) = if let Some(turn) = live_turn.as_mut() {
+    let registered = runs::register(
+      session.user_id.clone(),
+      request.query_item_id.clone().unwrap(),
+      stream_request_id.clone(),
+      turn.activity.clone(),
+    );
+    let (registration, subscriber) = match registered {
+      Ok(registered) => registered,
+      Err(message) => {
+        if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.to_owned())).await {
+          warn!("Could not record the failure of chat request '{}': {}", stream_request_id, e);
+        }
+        return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(message));
+      }
+    };
+    (
+      ChatProgressReporter::for_live_run(stream_request_id, turn.activity.clone()),
+      Some(registration),
+      chat_stream_response(subscriber),
+    )
+  } else {
+    // Calls without a live transcript retain their connection-scoped lifetime.
+    let (tx, rx) = mpsc::channel(16);
+    (
+      ChatProgressReporter { request_id: stream_request_id, tx, activity: None },
+      None,
+      chat_stream_response(ReceiverStream::new(rx)),
+    )
+  };
   let user_id = session.user_id.clone();
   let db = db.clone();
 
   tokio::spawn(async move {
-    if let Some(turn) = &live_turn {
-      progress.send(ChatStreamEventKind::TurnAccepted { revision: turn.revision() }).await;
-    }
-    progress.status("Preparing request").await;
-    let result = tokio::select! {
-      _ = disconnect.closed() => {
-        debug!("Cancelling streaming chat request '{}' for user '{}' after the client disconnected.", progress.request_id, user_id);
-        cancel_pending_tool_approvals(&progress.request_id);
-        if let Some(turn) = live_turn.as_mut() {
-          if let Err(e) = turn.end(TurnOutcome::Cancelled, vec![], None).await {
-            warn!("Could not record the cancellation of chat request '{}' for user '{}': {}", progress.request_id, user_id, e);
+    // Keep the turn outside the caught future so a worker panic can still save its failure and partial activity.
+    // The registration guard also handles task drops, where no asynchronous cleanup can run.
+    let outcome = AssertUnwindSafe(async {
+      if let Some(turn) = &live_turn {
+        progress.send(ChatStreamEventKind::TurnAccepted { revision: turn.revision() }).await;
+      }
+      progress.status("Preparing request").await;
+      let cancellation = async {
+        match &registration {
+          Some(registration) => Some(registration.run.cancelled().await),
+          None => {
+            progress.tx.closed().await;
+            None
           }
         }
-        return;
-      }
-      result = run_chat_with_tools(config, &db, &session, &request, resources, &progress) => result,
-    };
-    cancel_pending_tool_approvals(&progress.request_id);
-    let result = match (result, live_turn.as_mut()) {
-      (Ok(result), Some(turn)) => turn.end_completed(result).await,
-      (result, _) => result,
-    };
-    match result {
-      Ok(result) => {
-        progress.send(ChatStreamEventKind::Materializing).await;
-        let response = chat_response_items_json(&user_id, &result.assistant_text);
-        let items = response.get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()));
-        progress.send(ChatStreamEventKind::final_items(items, &result.assistant_text, result.messages)).await;
-      }
-      Err(e) => {
-        warn!("An error occurred servicing a streaming chat request for user '{}': {}.", user_id, e);
-        let message = chat_failure_message(e.message());
-        if let Some(turn) = live_turn.as_mut().filter(|turn| !turn.ended) {
-          if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.clone())).await {
-            warn!(
-              "Could not record the failure of chat request '{}' for user '{}': {}",
-              progress.request_id, user_id, e
-            );
+      };
+      let result = tokio::select! {
+        reason = cancellation => {
+          let message = match reason {
+            Some(runs::RunCancellation::Detached) => {
+              info!("Stopping chat request '{}' for user '{}' after five minutes without a subscriber.", progress.request_id, user_id);
+              Some("The chat stopped after five minutes without a connected viewer.".to_owned())
+            }
+            Some(runs::RunCancellation::Requested) => {
+              debug!("Cancelling chat request '{}' for user '{}' by request.", progress.request_id, user_id);
+              None
+            }
+            None => {
+              debug!("Cancelling streaming chat request '{}' for user '{}' after the client disconnected.", progress.request_id, user_id);
+              None
+            }
+          };
+          cancel_pending_tool_approvals(&progress.request_id);
+          if let Some(turn) = live_turn.as_mut() {
+            if let Err(e) = turn.end(TurnOutcome::Cancelled, vec![], message).await {
+              warn!("Could not record the cancellation of chat request '{}' for user '{}': {}", progress.request_id, user_id, e);
+            }
           }
+          progress.send(ChatStreamEventKind::Cancelled).await;
+          return;
         }
-        progress.send(ChatStreamEventKind::error(&message)).await;
+        result = run_chat_with_tools(config, &db, &session, &request, resources, &progress) => result,
+      };
+      cancel_pending_tool_approvals(&progress.request_id);
+      let result = match (result, live_turn.as_mut()) {
+        (Ok(result), Some(turn)) => turn.end_completed(result).await,
+        (result, _) => result,
+      };
+      match result {
+        Ok(result) => {
+          progress.send(ChatStreamEventKind::Materializing).await;
+          let response = chat_response_items_json(&user_id, &result.assistant_text);
+          let items = response.get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()));
+          progress.send(ChatStreamEventKind::final_items(items, &result.assistant_text, result.messages)).await;
+        }
+        Err(e) => {
+          warn!("An error occurred servicing a streaming chat request '{}' for user '{}': {}.", progress.request_id, user_id, e);
+          let message = chat_failure_message(e.message());
+          if let Some(turn) = live_turn.as_mut().filter(|turn| !turn.ended) {
+            if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.clone())).await {
+              warn!(
+                "Could not record the failure of chat request '{}' for user '{}': {}",
+                progress.request_id, user_id, e
+              );
+            }
+          }
+          progress.send(ChatStreamEventKind::error(&message)).await;
+        }
       }
+    }).catch_unwind().await;
+    if outcome.is_err() {
+      error!("Chat worker '{}' for user '{}' panicked.", progress.request_id, user_id);
+      cancel_pending_tool_approvals(&progress.request_id);
+      let message = "The chat worker stopped unexpectedly.";
+      if let Some(turn) = live_turn.as_mut().filter(|turn| !turn.ended) {
+        if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.to_owned())).await {
+          warn!("Could not record the failure of chat request '{}' for user '{}': {}", progress.request_id, user_id, e);
+        }
+      }
+      progress.send(ChatStreamEventKind::error(message)).await;
     }
+    drop(registration);
   });
 
-  chat_stream_response(rx)
+  response
 }
 
 fn unix_now_millis() -> i64 {
@@ -1085,7 +1158,7 @@ struct LiveChatTurn {
   /// The number of history messages before this turn's user message.
   history_len: usize,
   /// Filled in by the turn's progress reporter.
-  activity: Arc<Mutex<ChatActivity>>,
+  activity: Arc<Mutex<runs::RunState>>,
   ended: bool,
 }
 
@@ -1240,10 +1313,7 @@ async fn generate_live_chat_title(
   let endpoint = resolve_chat_endpoint(config, selection)?;
   let mut messages = chat_title_input_messages(&transcript);
   messages.push(OpenAiChatMessage::text("user", CHAT_TITLE_PROMPT.to_owned()));
-  // Nobody reads this call's progress. A closed channel makes every send return at once.
-  let (tx, rx) = mpsc::channel(1);
-  drop(rx);
-  let progress = ChatProgressReporter { request_id: new_chat_request_id(), tx, activity: None };
+  let progress = ChatProgressReporter::unobserved(new_chat_request_id());
   let round = run_chat_model_round(&endpoint, &messages, &[], 1, 0, &progress).await?;
   let title = round
     .assistant_message
@@ -1985,7 +2055,7 @@ async fn start_live_chat_turn(
     request_id: request_id.to_owned(),
     started_at,
     history_len,
-    activity: Arc::new(Mutex::new(ChatActivity::default())),
+    activity: Arc::new(Mutex::new(runs::RunState::default())),
     ended: false,
   })
 }
@@ -2215,13 +2285,25 @@ fn single_chat_stream_event_response(
     let reporter = ChatProgressReporter { request_id, tx, activity: None };
     reporter.send(event).await;
   });
-  chat_stream_response(rx)
+  chat_stream_response(ReceiverStream::new(rx))
+}
+
+fn chat_stream_event_bytes(request_id: &str, kind: ChatStreamEventKind) -> Bytes {
+  let event = ChatStreamEvent { request_id: request_id.to_owned(), kind };
+  let line = match serde_json::to_string(&event) {
+    Ok(line) => format!("{line}\n"),
+    Err(_) => format!(
+      "{{\"requestId\":{},\"type\":\"error\",\"message\":\"Could not serialize chat stream event.\"}}\n",
+      serde_json::to_string(request_id).unwrap_or_else(|_| "\"\"".to_owned()),
+    ),
+  };
+  Bytes::from(line)
 }
 
 fn chat_stream_response(
-  rx: mpsc::Receiver<Result<Frame<Bytes>, hyper::Error>>,
+  stream: impl futures_util::Stream<Item = Result<Frame<Bytes>, hyper::Error>> + Send + Sync + 'static,
 ) -> Response<BoxBody<Bytes, hyper::Error>> {
-  let body = StreamBody::new(ReceiverStream::new(rx)).boxed();
+  let body = StreamBody::new(stream).boxed();
   Response::builder()
     .header(hyper::header::CONTENT_TYPE, "application/x-ndjson")
     .header(hyper::header::CACHE_CONTROL, "no-cache")
