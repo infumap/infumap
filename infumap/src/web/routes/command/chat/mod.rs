@@ -338,7 +338,8 @@ struct ChatRequest {
   /// A query item in the Queries page whose transcript holds the chat.
   #[serde(rename = "queryItemId", default)]
   query_item_id: Option<Uid>,
-  /// For a live chat: the transcript revision the client last saw. A different revision rejects the request.
+  /// For a new live turn: the transcript revision the client last saw. Existing request IDs recover their turn
+  /// before this revision or the submitted settings/text are checked again.
   #[serde(rename = "expectedRevision", default)]
   expected_revision: Option<usize>,
   /// For a live chat: the new user message.
@@ -430,13 +431,8 @@ struct ChatRunResult {
 }
 
 impl ChatRequest {
-  fn stream_request_id(&self) -> String {
-    self
-      .request_id
-      .as_ref()
-      .filter(|request_id| !request_id.trim().is_empty())
-      .cloned()
-      .unwrap_or_else(new_chat_request_id)
+  fn stream_request_id(&self, fallback: String) -> String {
+    self.request_id.as_ref().filter(|request_id| !request_id.trim().is_empty()).cloned().unwrap_or(fallback)
   }
 
   fn uses_infumap_data(&self) -> bool {
@@ -990,7 +986,41 @@ pub async fn serve_chat_stream_route(
     }
   };
 
-  let stream_request_id = request.stream_request_id();
+  // Use the header's identity when the body omits one; generating another ID here would defeat retries that
+  // deliberately reuse the header after losing the acceptance response.
+  let stream_request_id = request.stream_request_id(request_id);
+  let start_reservation = if let Some(query_item_id) = &request.query_item_id {
+    let reservation = runs::reserve_start(&session.user_id, query_item_id, &stream_request_id).await;
+    // A retry can wait for resource preparation. Authorize the chat after waiting, before exposing any output.
+    let data_dir = match live_chat_data_dir(db, &session, query_item_id).await {
+      Ok(data_dir) => data_dir,
+      Err(_) => return not_found_response(),
+    };
+    if let Some(run) = runs::find(&session.user_id, query_item_id, &stream_request_id) {
+      if let Some(subscriber) = run.subscribe() {
+        return chat_stream_response(subscriber);
+      }
+    }
+    let identity =
+      ChatRunControlRequest { query_item_id: query_item_id.clone(), request_id: stream_request_id.clone() };
+    match recover_chat_run(&data_dir, &session.user_id, &identity).await {
+      Ok(SavedChatRun::Snapshot(snapshot)) => {
+        return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::Snapshot { snapshot });
+      }
+      Ok(SavedChatRun::Busy) => return chat_busy_response(),
+      Ok(SavedChatRun::Missing) => {}
+      Err(e) => {
+        warn!("Could not look up chat request '{}' for user '{}': {}", stream_request_id, session.user_id, e);
+        return chat_tool_error_response(
+          hyper::StatusCode::INTERNAL_SERVER_ERROR,
+          "Could not read the saved chat response.",
+        );
+      }
+    }
+    Some(reservation)
+  } else {
+    None
+  };
   if let Err(error) = request.settings.normalize() {
     return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(error.message()));
   }
@@ -1150,6 +1180,9 @@ pub async fn serve_chat_stream_route(
     drop(registration);
   });
 
+  // The accepted worker is registered and spawned. Retries may now attach; do not hold the startup lock for
+  // inference. Every earlier rejection/drop releases the reservation without retaining a rejected request ID.
+  drop(start_reservation);
   response
 }
 
@@ -1203,6 +1236,9 @@ async fn serve_chat_run_control(
   if !is_uid(&request.query_item_id) || request.request_id.trim().is_empty() {
     return chat_tool_error_response(StatusCode::BAD_REQUEST, "A chat and request ID are required.");
   }
+  // Resume/Stop arriving before acceptance must wait for the matching startup to register or reject, rather
+  // than mistaking its not-yet-written user record for an unknown request.
+  let _start_reservation = runs::reserve_start(&session.user_id, &request.query_item_id, &request.request_id).await;
   // Check current ownership and location even when this request ID is still in the worker registry.
   let data_dir = match live_chat_data_dir(db, &session, &request.query_item_id).await {
     Ok(data_dir) => data_dir,
@@ -1227,14 +1263,7 @@ async fn serve_chat_run_control(
     Ok(SavedChatRun::Snapshot(snapshot)) => {
       single_chat_stream_event_response(request.request_id, ChatStreamEventKind::Snapshot { snapshot })
     }
-    Ok(SavedChatRun::Busy) => {
-      let mut response = json_response(&serde_json::json!({
-        "code": "chat_busy", "error": "The chat is changing. Retry this request."
-      }));
-      *response.status_mut() = StatusCode::CONFLICT;
-      response.headers_mut().insert(hyper::header::RETRY_AFTER, hyper::header::HeaderValue::from_static("1"));
-      response
-    }
+    Ok(SavedChatRun::Busy) => chat_busy_response(),
     Ok(SavedChatRun::Missing) => not_found_response(),
     Err(e) => {
       warn!("Could not recover chat request '{}' for user '{}': {}", request.request_id, session.user_id, e);
@@ -1249,6 +1278,15 @@ enum SavedChatRun {
   Missing,
 }
 
+fn chat_busy_response() -> Response<BoxBody<Bytes, hyper::Error>> {
+  let mut response = json_response(&serde_json::json!({
+    "code": "chat_busy", "error": "The chat is changing. Retry this request."
+  }));
+  *response.status_mut() = hyper::StatusCode::CONFLICT;
+  response.headers_mut().insert(hyper::header::RETRY_AFTER, hyper::header::HeaderValue::from_static("1"));
+  response
+}
+
 async fn recover_chat_run(data_dir: &str, user_id: &Uid, request: &ChatRunControlRequest) -> InfuResult<SavedChatRun> {
   // End records are immutable and synced before publication, so old completed requests can recover even while
   // a later turn holds the chat lock. A missing or unfinished record needs a locked reread to rule out startup.
@@ -1258,10 +1296,12 @@ async fn recover_chat_run(data_dir: &str, user_id: &Uid, request: &ChatRunContro
     if runs::find(user_id, &request.query_item_id, &request.request_id).is_some_and(|run| !run.is_finished()) {
       return Ok(SavedChatRun::Busy);
     }
-    if let Some(index) =
-      transcript.turns.iter().position(|turn| turn.user.request_id == request.request_id && turn.end.is_some())
-    {
-      return Ok(SavedChatRun::Snapshot(runs::RunSnapshot::recorded(user_id, &transcript, index)?));
+    if let Some(index) = transcript.request_index(&request.request_id) {
+      // An unfinished turn before a later user record is also permanently interrupted; it cannot be the turn
+      // holding the chat lock now, so recovering it need not wait for that later run to finish.
+      if transcript.turns[index].end.is_some() || index + 1 < transcript.turns.len() {
+        return Ok(SavedChatRun::Snapshot(runs::RunSnapshot::recorded(user_id, &transcript, index)?));
+      }
     }
   }
   let Some(locked) = try_lock_transcript(data_dir, user_id, &request.query_item_id).await? else {
@@ -1270,7 +1310,7 @@ async fn recover_chat_run(data_dir: &str, user_id: &Uid, request: &ChatRunContro
   let Some(transcript) = locked.transcript() else {
     return Ok(SavedChatRun::Missing);
   };
-  match transcript.turns.iter().position(|turn| turn.user.request_id == request.request_id) {
+  match transcript.request_index(&request.request_id) {
     Some(index) => Ok(SavedChatRun::Snapshot(runs::RunSnapshot::recorded(user_id, transcript, index)?)),
     None => Ok(SavedChatRun::Missing),
   }
@@ -2143,6 +2183,14 @@ async fn start_live_chat_turn(
     .await
     .map_err(transcript_error)?
     .ok_or_else(|| error("A response is already running in this chat."))?;
+  // Recheck under the transcript lock as the final gate before appending. This also protects callers that do
+  // not use the HTTP startup reservation, and never restarts a recorded request after a server crash.
+  if let Some(existing) = transcript.transcript() {
+    if let Some(index) = existing.request_index(request_id) {
+      let snapshot = runs::RunSnapshot::recorded(&session.user_id, existing, index).map_err(transcript_error)?;
+      return Err(ChatStreamEventKind::Snapshot { snapshot });
+    }
+  }
   let revision = transcript.transcript().map_or(0, Transcript::revision);
   if revision != expected_revision {
     return Err(ChatStreamEventKind::TranscriptConflict { revision });

@@ -31,7 +31,7 @@ use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::Uid;
 use serde::Serialize;
 use serde_json::Value;
-use tokio::sync::{Notify, mpsc};
+use tokio::sync::{Notify, OwnedMutexGuard, mpsc};
 use tokio::time::{Instant, Sleep, sleep, sleep_until};
 
 use super::activity::{ActivityPhase, ActivitySnapshot, ChatActivity};
@@ -55,6 +55,30 @@ struct RunKey {
 fn registry() -> &'static Mutex<HashMap<RunKey, Arc<ChatRun>>> {
   static RUNS: OnceLock<Mutex<HashMap<RunKey, Arc<ChatRun>>>> = OnceLock::new();
   RUNS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Serialize lookup through registration for one operation, not the whole chat or user. Waiting retries check
+/// the accepted operation before validating their stale revision or resolving resources again. Weak entries
+/// release the lock after startup/rejection and its waiters; later lookups prune dead entries instead of keeping
+/// a ledger of rejected requests.
+pub(super) async fn reserve_start(user_id: &Uid, query_item_id: &Uid, request_id: &str) -> OwnedMutexGuard<()> {
+  static STARTS: OnceLock<Mutex<HashMap<RunKey, Weak<tokio::sync::Mutex<()>>>>> = OnceLock::new();
+  let starts = STARTS.get_or_init(|| Mutex::new(HashMap::new()));
+  let key =
+    RunKey { user_id: user_id.clone(), query_item_id: query_item_id.clone(), request_id: request_id.to_owned() };
+  let lock = {
+    let mut starts = starts.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    starts.retain(|_, lock| lock.strong_count() > 0);
+    match starts.get(&key).and_then(Weak::upgrade) {
+      Some(lock) => lock,
+      None => {
+        let lock = Arc::new(tokio::sync::Mutex::new(()));
+        starts.insert(key, Arc::downgrade(&lock));
+        lock
+      }
+    }
+  };
+  lock.lock_owned().await
 }
 
 #[derive(Clone, Copy)]

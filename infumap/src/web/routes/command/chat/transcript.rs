@@ -243,11 +243,16 @@ pub(super) enum TurnStatus {
 }
 
 impl Transcript {
-  /// The number of `user` records. Title changes and turn ends do not advance it. A request expecting another
-  /// revision is rejected, which also makes a retry after a dropped connection stale if the original was recorded;
-  /// request ids correlate stream events with a turn and are not used to deduplicate.
+  /// The number of `user` records. Title changes and turn ends do not advance it. New request IDs must match
+  /// this revision; an existing ID recovers its original operation before the submitted revision is checked.
   pub(super) fn revision(&self) -> usize {
     self.turns.len()
+  }
+
+  /// Identity is scoped by the owning user and chat file. Keeping the first accepted user record authoritative
+  /// lets retries recover after registry cleanup or a restart without a separate durable idempotency store.
+  pub(super) fn request_index(&self, request_id: &str) -> Option<usize> {
+    self.turns.iter().position(|turn| turn.user.request_id == request_id)
   }
 
   /// `turn_running` is whether a turn holds the chat lock now. Only the last turn can be running;
