@@ -33,6 +33,7 @@ export async function ensureQueryEntryUnderQueries(
   store: StoreContextModel,
   queriesPageId: Uid,
   firstTurnQueryItemId: Uid | null = null,
+  isCurrent: () => boolean = () => true,
 ): Promise<QueryEntryResult | null> {
   const queriesPageMaybe = itemState.get(queriesPageId);
   if (!queriesPageMaybe || !isPage(queriesPageMaybe)) {
@@ -41,6 +42,8 @@ export async function ensureQueryEntryUnderQueries(
 
   const queriesPage = asPageItem(queriesPageMaybe);
   const response = await server.ensureQueryEntry(firstTurnQueryItemId);
+  // First-turn archiving can finish after its chat was cleared or its account logged out.
+  if (!isCurrent()) { return null; }
   const archivedQueryItemIds: Array<Uid> = [];
   for (const itemObject of [...response.archivedQueryItems, response.queryItem]) {
     const item = itemState.upsertItemFromServerObject(itemObject, null);

@@ -41,9 +41,12 @@ import {
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
 import { queryConfigurationUnavailableReason, refreshQueryConfigurationAvailability } from "./query-configuration-availability";
 import {
+  ChatStreamControl,
+  ChatSubmissionRejectedError,
   ChatTranscriptConflictError,
   server,
   type ChatModelSelection,
+  type ChatRequest,
   type ChatStreamEvent,
   type ChatStreamConnectionState,
   type ChatStreamPhase,
@@ -105,6 +108,7 @@ export interface ChatStreamingState {
   endedAt?: number | null,
   pendingApprovals?: Array<string>,
   cancellationRequested?: boolean,
+  recoveryError?: string,
 }
 
 const chatStreamingStateByQueryId = new Map<Uid, ChatStreamingState>();
@@ -113,8 +117,12 @@ const [chatStreamingStateRevision, setChatStreamingStateRevision] = createSignal
 interface ActiveQueryChatRequest {
   requestId: string,
   controller: AbortController,
+  control: ChatStreamControl,
+  approvals: Set<string>,
 }
 
+// Sessions belong to the query rather than a mounted Query component: navigation and another rendering of
+// the same item share its activity. Explicit view clearing/account teardown detaches; only Stop cancels.
 const activeQueryChatRequestByQueryId = new Map<Uid, ActiveQueryChatRequest>();
 
 interface BufferedChatTextDelta {
@@ -172,24 +180,70 @@ export function cancelQueryChatRequest(queryId: Uid): boolean {
     return false;
   }
 
-  flushBufferedChatTextDeltas(queryId, activeRequest.requestId);
-  const flushed = chatStreamingStateByQueryId.get(queryId);
-  if (flushed != null && flushed.requestId == activeRequest.requestId) {
-    setQueryChatStreamingState(queryId, reduceQueryChatStreamEvent(flushed, {
-      requestId: activeRequest.requestId,
-      type: "cancelled",
-    }));
-  }
-  activeRequest.controller.abort();
+  setQueryChatStreamingState(queryId, { ...current, cancellationRequested: true });
+  activeRequest.control.cancel();
   return true;
+}
+
+/** Clearing a view only detaches this viewer. Stop is a separate, explicit server operation. */
+function detachQueryChatRequest(queryId: Uid): void {
+  const active = activeQueryChatRequestByQueryId.get(queryId);
+  activeQueryChatRequestByQueryId.delete(queryId);
+  active?.controller.abort();
+  discardBufferedChatTextDeltas(queryId);
+}
+
+/** Store teardown precedes logout's HTTP acknowledgement; detach before the emptied store can be repopulated. */
+export function clearQueryChatSessions(): void {
+  const queryIds = new Set([...activeQueryChatRequestByQueryId.keys(), ...queryChatLoads.keys(), ...chatStreamingStateByQueryId.keys()]);
+  for (const queryId of queryIds) {
+    queryChatGenerations.set(queryId, (queryChatGenerations.get(queryId) ?? 0) + 1);
+    detachQueryChatRequest(queryId);
+    clearQueryChatStreamingState(queryId);
+  }
+  queryChatLoads.clear();
+}
+
+export function queryChatConnectionStatus(state: ChatStreamingState): string {
+  if (["complete", "cancelled", "error"].includes(state.phase)) { return state.statusText; }
+  if (state.cancellationRequested) {
+    return state.connectionState == "reconnecting" ? "Stop pending — reconnecting…" : "Stopping…";
+  }
+  if (state.recoveryError) { return `Unable to reconnect: ${state.recoveryError}. Retrying…`; }
+  if (state.connectionState == "reconnecting") { return "Reconnecting…"; }
+  if (state.connectionState == "connecting") { return "Connecting…"; }
+  return state.statusText;
 }
 
 export async function submitQueryChatToolApproval(
   requestId: string,
   callId: string,
   approved: boolean,
-): Promise<void> {
-  await server.submitChatToolApproval({ requestId, callId, approved });
+): Promise<boolean> {
+  const entry = [...activeQueryChatRequestByQueryId].find(([, active]) => active.requestId == requestId);
+  if (entry == null) { return false; }
+  const [queryId, active] = entry;
+  const state = chatStreamingStateByQueryId.get(queryId);
+  if (active.approvals.has(callId) || active.control.cancellationRequested ||
+      state?.connectionState != "connected" || !state.pendingApprovals?.includes(callId)) { return false; }
+  active.approvals.add(callId);
+  try {
+    // A lost acknowledgement says nothing about whether the decision was applied. Never resend it;
+    // reconnect and let an authoritative snapshot decide whether the buttons can become usable again.
+    try {
+      await server.submitChatToolApproval({ requestId, callId, approved },
+        AbortSignal.any([active.controller.signal, AbortSignal.timeout(45_000)]));
+    } catch (error) {
+      console.warn("Chat approval acknowledgement unavailable; refreshing the run:", error);
+    }
+    if (activeQueryChatRequestByQueryId.get(queryId) != active) { return false; }
+    await active.control.refresh();
+    const current = chatStreamingStateByQueryId.get(queryId);
+    return activeQueryChatRequestByQueryId.get(queryId) == active && !active.control.cancellationRequested &&
+      current?.pendingApprovals?.includes(callId) == true;
+  } finally {
+    active.approvals.delete(callId);
+  }
 }
 
 function chatStatusTextFromEvent(event: ChatStreamEvent): string {
@@ -304,7 +358,8 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
         endedAt: snapshot.endedAt,
         errorMessage: snapshot.errorMessage,
         pendingApprovals: snapshot.pendingApprovals,
-        cancellationRequested: snapshot.cancellationRequested,
+        cancellationRequested: current.cancellationRequested || snapshot.cancellationRequested,
+        recoveryError: undefined,
       };
     }
     case "status":
@@ -947,6 +1002,9 @@ function insertQueryChatAssistantTurn(
   itemObjects: Array<object>,
   turn: QueryChatAssistantTurn,
 ): Array<Item> {
+  if (getQueryRuntime(store, queryItem).chat.completedActivities.some(activity => activity.requestId == turn.requestId)) {
+    return [];
+  }
   const staged = stageServerReturnedQueryItems(store, queryItem, itemObjects);
   const previousRuntime = getQueryRuntime(store, queryItem);
   const previousRootIds = [...(previousRuntime.chat.rootItemIds ?? [])];
@@ -1065,14 +1123,15 @@ export async function generateQueryChatTitle(store: StoreContextModel, queryItem
 async function archiveQueryChatAfterFirstTurn(
   store: StoreContextModel,
   queryItemMaybeStale: QueryItem,
-): Promise<boolean> {
+  isCurrent: () => boolean,
+): Promise<void> {
   const user = store.user.getUserMaybe();
   if (user == null || !isLiveQueryChat(store, queryItemMaybeStale)) {
-    return false;
+    return;
   }
-  const result = await ensureQueryEntryUnderQueries(store, user.queriesPageId, queryItemMaybeStale.id);
+  await ensureQueryEntryUnderQueries(store, user.queriesPageId, queryItemMaybeStale.id, isCurrent);
+  if (!isCurrent()) { return; }
   requestArrange(store, "query-chat-new-query");
-  return result?.archivedQueryItemIds.includes(queryItemMaybeStale.id) ?? false;
 }
 
 /**
@@ -1094,11 +1153,14 @@ export async function submitQueryChatMessage(
   }
   const requestId = newUid();
   const accountId = store.user.getUserMaybe()?.userId ?? null;
+  const generation = queryChatGenerations.get(queryItem.id) ?? 0;
   updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, requestId } }));
   try {
     return await submitQueryChatTurn(store, queryItem, requestId, rawText, deepResearch, attachments);
   } finally {
-    if ((store.user.getUserMaybe()?.userId ?? null) == accountId && getQueryRuntime(store, queryItem).chat.requestId == requestId) {
+    if ((store.user.getUserMaybe()?.userId ?? null) == accountId &&
+        (queryChatGenerations.get(queryItem.id) ?? 0) == generation &&
+        getQueryRuntime(store, queryItem).chat.requestId == requestId) {
       updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, requestId: null } }));
     }
   }
@@ -1115,8 +1177,7 @@ async function submitQueryChatTurn(
   const text = rawText.trim();
   const accountId = store.user.getUserMaybe()?.userId ?? null;
   const generation = queryChatGenerations.get(queryItem.id) ?? 0;
-  let accountChanged = false;
-  const ownsChat = () => !accountChanged && (store.user.getUserMaybe()?.userId ?? null) == accountId &&
+  const ownsChat = () => (store.user.getUserMaybe()?.userId ?? null) == accountId &&
     (queryChatGenerations.get(queryItem.id) ?? 0) == generation;
   const isCurrent = () => ownsChat() && getQueryRuntime(store, queryItem).chat.requestId == requestId;
 
@@ -1157,7 +1218,40 @@ async function submitQueryChatTurn(
   );
   requestArrange(store, "query-chat-user-turn");
 
+  return followQueryChatRun(store, queryItem, requestId, {
+    submission: {
+      userTurnRootId: userTurnRoot.id,
+      payload: {
+        requestId, queryItemId: queryItem.id, expectedRevision, text,
+        attachments: attachments.length > 0
+          ? attachments.map(({ id, title, mimeType, text }) => ({ id, title, mimeType, text }))
+          : undefined,
+        ...settings,
+      },
+    },
+  });
+}
+
+/** Submission and attachment use the same event application, final insertion and account/teardown guards. */
+async function followQueryChatRun(
+  store: StoreContextModel,
+  queryItem: QueryItem,
+  requestId: Uid,
+  options: {
+    submission?: { payload: ChatRequest, userTurnRootId: Uid },
+    turn?: LoadChatTurn,
+    cancellationRequested?: boolean,
+  },
+): Promise<boolean> {
+  const accountId = store.user.getUserMaybe()?.userId ?? null;
+  const generation = queryChatGenerations.get(queryItem.id) ?? 0;
+  let accountChanged = false;
+  const ownsChat = () => !accountChanged && (store.user.getUserMaybe()?.userId ?? null) == accountId &&
+    (queryChatGenerations.get(queryItem.id) ?? 0) == generation;
+  const isCurrent = () => ownsChat() && getQueryRuntime(store, queryItem).chat.requestId == requestId;
   const controller = new AbortController();
+  const control = new ChatStreamControl();
+  if (options.cancellationRequested) { control.cancel(); }
   const disposeAccountWatch = createRoot(dispose => {
     createEffect(() => {
       if ((store.user.getUserMaybe()?.userId ?? null) != accountId) {
@@ -1173,40 +1267,34 @@ async function submitQueryChatTurn(
     controller.signal.throwIfAborted();
   };
   let accepted = false;
-  const firstTurnArchive: { promise: Promise<boolean> | null } = { promise: null };
+  const firstTurnArchive: { promise: Promise<void> | null } = { promise: null };
   const acceptTurn = (revision: number) => {
     const firstAcceptance = !accepted;
     accepted = true;
     setQueryChatRevision(store, queryItem, revision);
     if (firstAcceptance && revision == 1) {
-      firstTurnArchive.promise = archiveQueryChatAfterFirstTurn(store, queryItem);
+      firstTurnArchive.promise = archiveQueryChatAfterFirstTurn(store, queryItem, ownsChat);
     }
   };
   let clearStreamingStateOnExit = true;
   discardBufferedChatTextDeltas(queryItem.id);
-  activeQueryChatRequestByQueryId.set(queryItem.id, { requestId, controller });
+  activeQueryChatRequestByQueryId.set(queryItem.id, { requestId, controller, control, approvals: new Set() });
+  const previous = chatStreamingStateByQueryId.get(queryItem.id);
+  const restored = previous?.requestId == requestId ? previous : null;
   setQueryChatStreamingState(queryItem.id, {
     requestId,
-    phase: "submitted",
-    statusText: "Preparing request",
-    rounds: [],
-    answerPreview: "",
-    startedAt: Date.now(),
+    phase: options.turn == null ? "submitted" : "thinking",
+    statusText: options.turn == null ? "Preparing request" : "Restoring response",
+    rounds: restored?.rounds ?? options.turn?.rounds ?? [],
+    answerPreview: restored?.answerPreview ?? "",
+    startedAt: restored?.startedAt ?? options.turn?.startedAt ?? Date.now(),
     errorMessage: null,
     connectionState: "connecting",
     pendingApprovals: [],
+    cancellationRequested: control.cancellationRequested,
   });
   try {
-    const response = await server.chatStream({
-      requestId,
-      queryItemId: queryItem.id,
-      expectedRevision,
-      text,
-      attachments: attachments.length > 0
-        ? attachments.map(({ id, title, mimeType, text }) => ({ id, title, mimeType, text }))
-        : undefined,
-      ...settings,
-    }, (event) => {
+    const onEvent = (event: ChatStreamEvent) => {
       requireCurrent();
       if (event.type == "turn_accepted") {
         acceptTurn(event.revision);
@@ -1221,20 +1309,18 @@ async function submitQueryChatTurn(
         setQueryChatContextTokens(store, queryItem, event.tokens, event.exact);
       }
       applyQueryChatStreamEvent(queryItem.id, event);
-    }, controller.signal, connectionState => {
+    };
+    const onConnectionChange = (connectionState: ChatStreamConnectionState) => {
       requireCurrent();
       const current = chatStreamingStateByQueryId.get(queryItem.id);
       if (current?.requestId == requestId) {
         setQueryChatStreamingState(queryItem.id, { ...current, connectionState });
       }
-    });
+    };
+    const response = options.submission != null
+      ? await server.chatStream(options.submission.payload, onEvent, controller.signal, onConnectionChange, control)
+      : await server.resumeChatStream(queryItem.id, requestId, onEvent, controller.signal, onConnectionChange, control);
     if (!isCurrent()) { return true; }
-
-    if (controller.signal.aborted || chatStreamingStateByQueryId.get(queryItem.id)?.phase == "cancelled") {
-      clearStreamingStateOnExit = false;
-      addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("cancelled", null)!);
-      return true;
-    }
 
     flushBufferedChatTextDeltas(queryItem.id, requestId);
     const finalStreamingState = chatStreamingStateByQueryId.get(queryItem.id);
@@ -1261,53 +1347,49 @@ async function submitQueryChatTurn(
       return false;
     }
     const current = chatStreamingStateByQueryId.get(queryItem.id);
-    if (controller.signal.aborted || (current?.requestId == requestId && current.phase == "cancelled")) {
-      if (current?.requestId == requestId && current.phase != "cancelled") {
-        setQueryChatStreamingState(queryItem.id, reduceQueryChatStreamEvent(current, {
-          requestId,
-          type: "cancelled",
-        }));
-      }
+    if (current?.requestId == requestId && current.phase == "cancelled") {
       clearStreamingStateOnExit = false;
-      if (accepted) {
-        addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("cancelled", null)!);
-      } else {
-        removeQueryChatRoot(store, queryItem, userTurnRoot.id);
-        return false;
-      }
+      addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("cancelled", null)!);
       return true;
     }
     const message = e instanceof Error ? e.message : String(e);
-    if (!accepted) {
+    if (!accepted && options.submission != null && e instanceof ChatSubmissionRejectedError) {
       // The server refused the turn before recording it, for example because another response is running.
       console.warn("Chat message was not recorded:", message);
-      removeQueryChatRoot(store, queryItem, userTurnRoot.id);
+      removeQueryChatRoot(store, queryItem, options.submission.userTurnRootId);
       showChatMessage(store, message, TransientMessageType.Error);
       void refreshQueryConfigurationAvailability(store);
       return false;
     }
-    console.error("Failed to submit query chat message:", e);
+    console.error("Failed to follow query chat response:", e);
     if (current?.requestId == requestId) {
       if (current.phase != "error") {
+        // A transport/auth/protocol failure is not a saved run failure. Keep the composer locked and let
+        // transcript polling recover the outcome or attach again, retaining partial output in the meantime.
         setQueryChatStreamingState(queryItem.id, {
           ...current,
-          phase: "error",
-          statusText: "Chat failed",
-          rounds: completeStreamingModelRounds(current.rounds),
-          errorMessage: message,
+          connectionState: "reconnecting",
+          recoveryError: message,
         });
+        updateQueryRuntime(store, queryItem, runtime => ({
+          ...runtime, chat: { ...runtime.chat, runningElsewhere: true },
+        }));
+        clearStreamingStateOnExit = false;
+        return true;
       }
       clearStreamingStateOnExit = false;
     }
     addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("error", message)!);
     return true;
   } finally {
+    controller.abort();
     disposeAccountWatch();
-    if (!ownsChat()) { discardBufferedChatTextDeltas(queryItem.id, requestId); }
     if (firstTurnArchive.promise != null) {
       void firstTurnArchive.promise.then(
-        archived => {
-          if (archived && ownsChat()) {
+        () => {
+          // Reattachment may find the first turn already archived but its title generation unfinished.
+          // The title endpoint only replaces the original prompt-derived title.
+          if (ownsChat() && !getQueryRuntime(store, queryItem).chat.runningElsewhere) {
             void generateQueryChatTitle(store, queryItem.id);
           }
         },
@@ -1315,13 +1397,16 @@ async function submitQueryChatTurn(
       );
     }
     const activeRequest = activeQueryChatRequestByQueryId.get(queryItem.id);
-    if (activeRequest?.requestId == requestId) {
+    if (activeRequest?.controller == controller) {
       activeQueryChatRequestByQueryId.delete(queryItem.id);
-    }
-    if (clearStreamingStateOnExit) {
-      clearQueryChatStreamingState(queryItem.id, requestId);
+      if (clearStreamingStateOnExit || !ownsChat()) {
+        clearQueryChatStreamingState(queryItem.id, requestId);
+      }
     }
     if (ownsChat()) { requestArrange(store, "query-chat-request-ended"); }
+    if (isCurrent()) {
+      updateQueryRuntime(store, queryItem, runtime => ({ ...runtime, chat: { ...runtime.chat, requestId: null } }));
+    }
   }
 }
 
@@ -1377,7 +1462,7 @@ async function reloadQueryChat(store: StoreContextModel, queryItem: QueryItem): 
   requestArrange(store, "query-chat-reloaded");
 }
 
-/** A loaded chat may be running in another client. Refresh its transcript once that response ends. */
+/** Poll only while no stream is attached, including locks held by non-run operations such as persistence. */
 export async function refreshQueryChatRunningElsewhere(store: StoreContextModel, queryItem: QueryItem): Promise<void> {
   const chat = getQueryRuntime(store, queryItem).chat;
   if (!chat.runningElsewhere || chat.requestId != null || activeQueryChatRequestByQueryId.has(queryItem.id) || !isLiveQueryChat(store, queryItem)) { return; }
@@ -1385,11 +1470,19 @@ export async function refreshQueryChatRunningElsewhere(store: StoreContextModel,
   const accountId = store.user.getUserMaybe()?.userId;
   try {
     const response = await server.loadChat(queryItem.id);
-    if (response.running || accountId != store.user.getUserMaybe()?.userId || generation != (queryChatGenerations.get(queryItem.id) ?? 0)) { return; }
+    if (accountId != store.user.getUserMaybe()?.userId || generation != (queryChatGenerations.get(queryItem.id) ?? 0)) { return; }
     const current = getQueryRuntime(store, queryItem).chat;
     if (!current.runningElsewhere || current.requestId != null || activeQueryChatRequestByQueryId.has(queryItem.id)) { return; }
-    clearQueryChat(store, queryItem);
-    applyLoadedQueryChat(store, queryItem, response);
+    const runningTurn = response.turns.find(turn => turn.status == "running");
+    if (response.running && runningTurn == null) { return; }
+    const previous = chatStreamingStateByQueryId.get(queryItem.id);
+    const cancellationRequested = previous?.cancellationRequested;
+    if (runningTurn != null && previous?.requestId == runningTurn.requestId && current.revision == response.revision) {
+      attachLoadedQueryChatRun(store, queryItem, runningTurn, cancellationRequested);
+    } else {
+      clearQueryChat(store, queryItem);
+      applyLoadedQueryChat(store, queryItem, response, cancellationRequested);
+    }
   } catch {
     // Keep the running lock; the visible chat retries while the response is outstanding.
   }
@@ -1401,7 +1494,9 @@ export function isLiveQueryChat(store: StoreContextModel, queryItem: QueryItem):
   return user != null && queryItem.parentId == user.queriesPageId && queryItem.origin == null;
 }
 
-function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, response: LoadChatResponse): void {
+function applyLoadedQueryChat(
+  store: StoreContextModel, queryItem: QueryItem, response: LoadChatResponse, cancellationRequested = false,
+): void {
   batch(() => {
     const settings = response.lastSettings;
     if (settings != null) { restoreQueryConfiguration(store, queryItem, settings); }
@@ -1429,7 +1524,7 @@ function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, re
           startedAt: turn.startedAt,
           completedAt: turn.endedAt ?? turn.startedAt,
         });
-      } else {
+      } else if (turn.status != "running") {
         const outcome = queryChatOutcomeText(turn.status, turn.error);
         if (outcome != null) {
           addQueryChatOutcomeNote(store, queryItem, outcome);
@@ -1443,7 +1538,20 @@ function applyLoadedQueryChat(store: StoreContextModel, queryItem: QueryItem, re
       store.overlay.autoFocusChatInput.set(true);
     }
   });
+  const runningTurn = response.turns.find(turn => turn.status == "running");
+  if (runningTurn != null) { attachLoadedQueryChatRun(store, queryItem, runningTurn, cancellationRequested); }
   requestArrange(store, "query-chat-loaded");
+}
+
+function attachLoadedQueryChatRun(
+  store: StoreContextModel, queryItem: QueryItem, turn: LoadChatTurn, cancellationRequested = false,
+): void {
+  if (getQueryRuntime(store, queryItem).chat.requestId != null || activeQueryChatRequestByQueryId.has(queryItem.id) ||
+      !isLiveQueryChat(store, queryItem)) { return; }
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current, chat: { ...current.chat, requestId: turn.requestId, runningElsewhere: false },
+  }));
+  void followQueryChatRun(store, queryItem, turn.requestId, { turn, cancellationRequested });
 }
 
 export function queryChatHasContent(store: StoreContextModel, queryItem: QueryItem): boolean {
@@ -1461,7 +1569,7 @@ function showChatMessage(store: StoreContextModel, text: string, type: Transient
 }
 
 export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): void {
-  cancelQueryChatRequest(queryItem.id);
+  detachQueryChatRequest(queryItem.id);
   const runtime = getQueryRuntime(store, queryItem);
   const pageId = runtime.chat.pageId;
   if (pageId != null) {

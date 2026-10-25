@@ -94,6 +94,7 @@ import {
 } from "../../items/query";
 import {
   cancelQueryChatRequest,
+  queryChatConnectionStatus,
   chatStreamingStateForQuery,
   ensureQueryChatLoaded,
   isLiveQueryChat,
@@ -1182,7 +1183,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     };
     const chatRequestActive = queryRequestActive;
     const chatSettingsDisabled = () => chatRequestActive() || queryProfileBlockedReason() != null;
-    const chatRequestCanCancel = () => chatRequestActive() && activityIsRunning();
+    const chatRequestCanCancel = () => getQueryRuntime(store, queryItem()).chat.requestId != null && activityIsRunning();
+    const stopPending = () => activityIsRunning() && liveChatActivity()?.cancellationRequested == true;
     const stop = (ev: Event) => {
       if (ev instanceof MouseEvent && ev.button == MOUSE_RIGHT) {
         return;
@@ -1234,7 +1236,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 <i class="fa fa-circle-notch fa-spin" />
               </Show>
               <span class="min-w-0 grow truncate text-[13px] font-medium">
-                {liveChatActivity()!.statusText}
+                {queryChatConnectionStatus(liveChatActivity()!)}
               </span>
               <Show when={chatContextTokens()}>
                 {(display) =>
@@ -1273,7 +1275,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 errorMessage={() => liveChatActivity()!.errorMessage}
                 running={activityIsRunning}
                 pendingApprovals={() => liveChatActivity()?.pendingApprovals}
-                requestId={chatStreamingRequestId} />
+                requestId={() => liveChatActivity()?.connectionState == "connected" && !stopPending()
+                  ? chatStreamingRequestId() : null} />
             </div>
             <Show when={!chatActivityFollowingLatest()}>
               <button
@@ -1353,10 +1356,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              title={chatRequestCanCancel() ? "Stop generating" : configurationUnavailableReason() ?? (deepResearch() ? "Start deep research" : "Send")}
-              aria-label={chatRequestCanCancel() ? "Stop generating" : (deepResearch() ? "Start deep research" : "Send")}
+              title={stopPending() ? "Waiting for the server to confirm Stop" : chatRequestCanCancel() ? "Stop generating" : configurationUnavailableReason() ?? (deepResearch() ? "Start deep research" : "Send")}
+              aria-label={stopPending() ? "Stopping" : chatRequestCanCancel() ? "Stop generating" : (deepResearch() ? "Start deep research" : "Send")}
               disabled={chatRequestActive()
-                ? !chatRequestCanCancel()
+                ? !chatRequestCanCancel() || stopPending()
                 : configurationUnavailableReason() != null || (chatText().trim() == "" && draftAttachments().length == 0)}
               onClick={() => {
                 if (chatRequestCanCancel()) {
@@ -1385,13 +1388,13 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </Show>
             <Show when={liveChatActivity() != null && chatActivityPanelHeightPx() == 0}>
               <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;">
-                {liveChatActivity()!.statusText}
+                {queryChatConnectionStatus(liveChatActivity()!)}
               </div>
             </Show>
-            <Show when={getQueryRuntime(store, queryItem()).chat.runningElsewhere}>
+            <Show when={getQueryRuntime(store, queryItem()).chat.runningElsewhere && liveChatActivity() == null}>
               <div class="min-w-0 grow truncate" style="font-size: 12px; line-height: 20px;"
-                title="A response is running in another window. This chat will refresh when it finishes.">
-                Response running in another window…
+                title="The chat is busy. Its saved state will refresh automatically.">
+                Waiting for chat…
               </div>
             </Show>
             <div class="ml-auto flex min-w-0 items-center gap-2 pl-2">

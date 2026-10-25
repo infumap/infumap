@@ -238,6 +238,45 @@ export type ChatStreamPhase =
 
 export type ChatStreamConnectionState = "connecting" | "connected" | "reconnecting";
 
+class ChatStreamControlChanged extends Error {}
+
+/** Only a definite pre-acceptance refusal allows the composer to return the message as an unsent draft. */
+export class ChatSubmissionRejectedError extends Error {}
+
+/** Commands share the stream's retry loop, so Stop and snapshot refresh cannot race a second finalizer. */
+export class ChatStreamControl {
+  cancellationRequested = false;
+  onChange?: () => void;
+  private refreshWaiters: Array<{ resolve: () => void, reject: (error: unknown) => void }> = [];
+  private finished = false;
+  private failure?: unknown;
+
+  cancel(): void {
+    if (this.cancellationRequested) { return; }
+    this.cancellationRequested = true;
+    this.onChange?.();
+  }
+
+  refresh(): Promise<void> {
+    if (this.finished) { return this.failure == null ? Promise.resolve() : Promise.reject(this.failure); }
+    return new Promise((resolve, reject) => {
+      this.refreshWaiters.push({ resolve, reject });
+      this.onChange?.();
+    });
+  }
+
+  snapshotReceived(): void {
+    this.refreshWaiters.splice(0).forEach(waiter => waiter.resolve());
+  }
+
+  finish(error?: unknown): void {
+    this.finished = true;
+    this.failure = error;
+    this.onChange = undefined;
+    this.refreshWaiters.splice(0).forEach(waiter => error == null ? waiter.resolve() : waiter.reject(error));
+  }
+}
+
 export interface ChatRunSnapshot {
   revision: number,
   startedAt: number,
@@ -802,10 +841,12 @@ function constructCommandPromise(
 }
 
 async function streamChatCommand(
-  payload: ChatRequest,
+  payload: ChatRequest | { requestId: string, queryItemId: Uid },
   onEvent: (event: ChatStreamEvent) => void,
   signal?: AbortSignal,
   onConnectionChange?: (state: ChatStreamConnectionState) => void,
+  control?: ChatStreamControl,
+  resumeOnly = false,
 ): Promise<ChatResponse> {
   // Serialize once: profile edits and attachment changes while reconnecting must not change the operation.
   const startBody = JSON.stringify(payload);
@@ -833,24 +874,35 @@ async function streamChatCommand(
   syncBaseNetworkStatus();
   syncGlobalRequestTracker();
 
-  let accepted = false;
+  let accepted = resumeOnly;
+  let submissionUncertain = false;
   let attemptGeneration = 0;
   let failures = 0;
+  let interrupt: AbortController | null = null;
+  if (control != null) {
+    control.onChange = () => {
+      // Before acceptance, finish/retry the immutable start first. Otherwise an aborted start could arrive
+      // after a 404 cancel response and create work after Stop appeared to succeed.
+      if (accepted) { interrupt?.abort(new ChatStreamControlChanged()); }
+    };
+  }
   try {
     while (true) {
       signal?.throwIfAborted();
       const generation = ++attemptGeneration;
       const controller = new AbortController();
+      interrupt = controller;
       const abort = () => controller.abort(signal?.reason);
       signal?.addEventListener("abort", abort, { once: true });
       if (signal?.aborted) { abort(); }
       const startedAt = Date.now();
       let receivedEvent = false;
       const terminal: { response?: ChatResponse, error?: Error } = {};
+      const cancelling = accepted && queryItemId != null && control?.cancellationRequested;
       try {
         connectionChanged(failures == 0 ? "connecting" : "reconnecting");
         await sendChatStream(
-          accepted && queryItemId != null ? "/chat/resume" : "/chat/stream",
+          cancelling ? "/chat/cancel" : accepted && queryItemId != null ? "/chat/resume" : "/chat/stream",
           accepted && queryItemId != null ? resumeBody : startBody,
           requestId,
           queryItemId,
@@ -884,9 +936,14 @@ async function streamChatCommand(
             } else if (event.type == "cancelled") {
               terminal.error = new ChatStreamCancelledError();
             } else if (event.type == "error") {
-              terminal.error = new Error(event.message);
+              terminal.error = accepted ? new Error(event.message) : new ChatSubmissionRejectedError(event.message);
             } else if (event.type == "transcript_conflict") {
               terminal.error = new ChatTranscriptConflictError(event.revision);
+            }
+            if (event.type == "snapshot") { control?.snapshotReceived(); }
+            if (!cancelling && terminal.response == null && terminal.error == null && control?.cancellationRequested &&
+                (event.type == "turn_accepted" || event.type == "snapshot")) {
+              throw new ChatStreamControlChanged();
             }
             return terminal.response != null || terminal.error != null;
           },
@@ -898,12 +955,15 @@ async function streamChatCommand(
         if (terminal.error != null) { throw terminal.error; }
         if (terminal.response == null) { throw new Error("Chat stream returned no terminal outcome."); }
         trackNetworkCommandFinished(commandObj, "done");
+        control?.finish();
         return terminal.response;
       } catch (error) {
         signal?.throwIfAborted();
+        if (error instanceof ChatStreamControlChanged) { continue; }
         // Only live chats have server-side request deduplication. Retrying a stateless submission could execute
         // the model or tools again. EOF and network errors are retried; malformed events/callbacks never are.
         if (queryItemId == null || !isRetryableChatError(error)) { throw error; }
+        if (!accepted) { submissionUncertain = true; }
         if (receivedEvent && Date.now() - startedAt >= 30_000) { failures = 0; }
       } finally {
         ++attemptGeneration;
@@ -912,15 +972,32 @@ async function streamChatCommand(
       }
       connectionChanged("reconnecting");
       const delay = Math.min(30_000, Math.max(1_000, 1_000 * 2 ** Math.min(failures++, 5) * (0.75 + Math.random() * 0.5)));
-      await waitForChatRetry(delay, signal);
+      const retryController = new AbortController();
+      interrupt = retryController;
+      const abortRetry = () => retryController.abort(signal?.reason);
+      signal?.addEventListener("abort", abortRetry, { once: true });
+      try {
+        if (signal?.aborted) { abortRetry(); }
+        await waitForChatRetry(delay, retryController.signal);
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (!(error instanceof ChatStreamControlChanged)) { throw error; }
+      } finally {
+        signal?.removeEventListener("abort", abortRetry);
+      }
     }
   } catch (error) {
+    control?.finish(error);
     if (signal?.aborted || error instanceof ChatStreamCancelledError) {
       trackNetworkCommandFinished(commandObj, "cancelled");
     } else if (error instanceof ChatTranscriptConflictError) {
       trackNetworkCommandFinished(commandObj, "done");
     } else {
       trackNetworkCommandError(commandObj, error);
+    }
+    if (!accepted && !submissionUncertain && error instanceof ChatStreamHttpError &&
+        [400, 401, 403, 404, 409, 413, 422].includes(error.status)) {
+      throw new ChatSubmissionRejectedError(error.message);
     }
     throw error;
   } finally {
@@ -1259,8 +1336,20 @@ export const server = {
     onEvent: (event: ChatStreamEvent) => void,
     signal?: AbortSignal,
     onConnectionChange?: (state: ChatStreamConnectionState) => void,
+    control?: ChatStreamControl,
   ): Promise<ChatResponse> => {
-    return streamChatCommand(payload, onEvent, signal, onConnectionChange);
+    return streamChatCommand(payload, onEvent, signal, onConnectionChange, control);
+  },
+
+  resumeChatStream: async (
+    queryItemId: Uid,
+    requestId: string,
+    onEvent: (event: ChatStreamEvent) => void,
+    signal: AbortSignal,
+    onConnectionChange: (state: ChatStreamConnectionState) => void,
+    control: ChatStreamControl,
+  ): Promise<ChatResponse> => {
+    return streamChatCommand({ queryItemId, requestId }, onEvent, signal, onConnectionChange, control, true);
   },
 
   /**
@@ -1319,8 +1408,9 @@ export const server = {
 
   submitChatToolApproval: async (
     payload: { requestId: string, callId: string, approved: boolean },
+    signal?: AbortSignal,
   ): Promise<void> => {
-    return submitChatToolApprovalCommand(payload);
+    return submitChatToolApprovalCommand(payload, signal);
   },
 
   emptyTrash: async (): Promise<EmptyTrashResult> => {
@@ -2232,8 +2322,8 @@ async function sendChatStream(
   window.addEventListener("focus", armWatchdog);
   armWatchdog();
   try {
-    const response = await fetchResponse(path, body, "application/x-ndjson");
-    if (path == "/chat/resume" && response.status == 404 && queryItemId != null) {
+    const response = await fetchResponse(path, body, path == "/chat/cancel" ? "application/json" : "application/x-ndjson");
+    if ((path == "/chat/resume" || path == "/chat/cancel") && response.status == 404 && queryItemId != null) {
       // A missing run must never fall back to resubmitting an accepted prompt. Consult its saved transcript,
       // using this attempt's abort signal/watchdog so account changes also cancel reconciliation.
       void response.body?.cancel().catch(() => {});
@@ -2244,11 +2334,19 @@ async function sendChatStream(
       return;
     }
     if (!response.ok) { throw await chatHttpError(response, readText); }
+    if (path == "/chat/cancel") {
+      const snapshot = parseChatJson(await readText(response));
+      if (!validChatSnapshot(snapshot)) { throw new Error("Invalid chat cancellation outcome."); }
+      onConnected();
+      if (!onEvent({ requestId, type: "snapshot", snapshot })) {
+        throw new ChatStreamTransportError("Chat cancellation is still pending.");
+      }
+      return;
+    }
     if (!response.headers.get("Content-Type")?.toLowerCase().includes("application/x-ndjson") || !response.body) {
       void response.body?.cancel().catch(() => {});
       throw new Error("Chat stream response was not NDJSON. Check the server or proxy configuration.");
     }
-    onConnected();
     reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8", { fatal: true });
     let buffer = "";
@@ -2260,8 +2358,10 @@ async function sendChatStream(
       if (firstEvent && path == "/chat/resume" && event.type != "snapshot") {
         throw new Error("Resuming a chat requires an initial snapshot.");
       }
-      firstEvent = false;
-      return onEvent(event);
+      const terminal = onEvent(event);
+      // Until the first event (the snapshot on resume) is applied, old approval prompts must stay disabled.
+      if (firstEvent) { firstEvent = false; onConnected(); }
+      return terminal;
     };
     while (true) {
       const chunk = await readChunk(reader);
@@ -2314,6 +2414,7 @@ async function fetchChatBackends(): Promise<ChatBackends> {
 
 async function submitChatToolApprovalCommand(
   payload: { requestId: string, callId: string, approved: boolean },
+  signal?: AbortSignal,
 ): Promise<void> {
   const fetchResult = await fetch("/chat/tool-approval", {
     method: "POST",
@@ -2323,6 +2424,7 @@ async function submitChatToolApprovalCommand(
       "X-Infumap-Chat-Request-Id": payload.requestId,
     },
     body: JSON.stringify(payload),
+    signal,
   });
   if (!fetchResult.ok) {
     throw new Error(`Chat tool approval request failed: ${fetchResult.status}`);

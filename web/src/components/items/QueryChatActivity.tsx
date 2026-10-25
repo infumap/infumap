@@ -225,11 +225,12 @@ const QueryChatToolApproval: Component<{
     const approval = { requestId, callId: props.toolCall.callId };
     setSubmittingApproval(approval);
     try {
-      await submitQueryChatToolApproval(approval.requestId, approval.callId, approved);
-    } catch (e) {
-      if (submittingApproval() == approval) {
+      const stillPending = await submitQueryChatToolApproval(approval.requestId, approval.callId, approved);
+      if (stillPending && submittingApproval() == approval) {
         setSubmittingApproval(null);
       }
+    } catch (e) {
+      // Keep disabled until a later attachment supplies authoritative pending approvals.
       console.error("Failed to submit chat tool approval:", e);
     }
   };

@@ -30,6 +30,7 @@ import { makeHistoryStore, HistoryStoreContextModel } from "./StoreProvider_Hist
 import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Overlay";
 import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
 import { clearQueryScopes } from "../items/query-scope";
+import { clearQueryChatSessions } from "../items/chat";
 import { PerVeStoreContextModel, makePerVeStore } from "./StoreProvider_PerVe";
 import { FindStoreContextModel, makeFindStore } from "./StoreProvider_Find";
 import { setGlobalRequestTracker } from "../server";
@@ -181,6 +182,7 @@ export function StoreProvider(props: StoreContextProps) {
   const find = makeFindStore();
 
   const clear = (): void => {
+    clearQueryChatSessions();
     textEdit.clear();
     editorHistory.reset();
     currentVisiblePassword.set(null);
