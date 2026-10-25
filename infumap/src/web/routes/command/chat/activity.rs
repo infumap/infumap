@@ -18,15 +18,44 @@
 //! transcript records what the turn dropdown showed. This mirrors `reduceQueryChatStreamEvent` in the client's
 //! chat.ts; keep the two in step.
 
+use serde::Serialize;
 use serde_json::Value;
 
 use super::ChatStreamEventKind;
 use super::transcript::{ActivityRound, ActivityToolCall, ActivityToolCallStatus, ContextTokenCount};
 
+#[derive(Clone, Copy, Default, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum ActivityPhase {
+  #[default]
+  Submitted,
+  Thinking,
+  Answering,
+  AwaitingApproval,
+  UsingTools,
+  Materializing,
+  Complete,
+  Cancelled,
+  Error,
+  Interrupted,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ActivitySnapshot {
+  pub(super) phase: ActivityPhase,
+  pub(super) status_text: String,
+  pub(super) rounds: Vec<ActivityRound>,
+  pub(super) answer_preview: String,
+  pub(super) context_tokens: Option<ContextTokenCount>,
+}
+
 #[derive(Default)]
 pub(super) struct ChatActivity {
   rounds: Vec<ActivityRound>,
   context_tokens: Option<ContextTokenCount>,
+  phase: ActivityPhase,
+  status_text: String,
 }
 
 impl ChatActivity {
@@ -98,7 +127,41 @@ impl ChatActivity {
           None => round.tool_calls.push(completed),
         }
       }
+      ChatStreamEventKind::Materializing
+      | ChatStreamEventKind::FinalItems { .. }
+      | ChatStreamEventKind::Cancelled
+      | ChatStreamEventKind::Error { .. } => self.complete_rounds(),
       _ => {}
+    }
+    let status = match event {
+      ChatStreamEventKind::Status { text } => {
+        self.status_text = text.clone();
+        return;
+      }
+      ChatStreamEventKind::ModelRoundStarted { .. } => (ActivityPhase::Thinking, "Asking model".to_owned()),
+      ChatStreamEventKind::ReasoningDelta { .. } => (ActivityPhase::Thinking, "Thinking".to_owned()),
+      ChatStreamEventKind::AnswerDelta { .. } => (ActivityPhase::Answering, "Writing response".to_owned()),
+      ChatStreamEventKind::ToolApprovalRequired { .. } => {
+        (ActivityPhase::AwaitingApproval, "Waiting for approval".to_owned())
+      }
+      ChatStreamEventKind::ToolCallStarted { name, .. } => (ActivityPhase::UsingTools, format!("Running {name}")),
+      ChatStreamEventKind::ToolCallFinished { summary, .. } => (ActivityPhase::UsingTools, summary.clone()),
+      ChatStreamEventKind::Materializing => (ActivityPhase::Materializing, "Adding response".to_owned()),
+      ChatStreamEventKind::FinalItems { .. } => (ActivityPhase::Complete, "Chat complete".to_owned()),
+      ChatStreamEventKind::Cancelled => (ActivityPhase::Cancelled, "Chat cancelled".to_owned()),
+      ChatStreamEventKind::Error { .. } => (ActivityPhase::Error, "Chat failed".to_owned()),
+      _ => return,
+    };
+    (self.phase, self.status_text) = status;
+  }
+
+  pub(super) fn snapshot(&self) -> ActivitySnapshot {
+    ActivitySnapshot {
+      phase: self.phase,
+      status_text: if self.status_text.is_empty() { "Preparing request".to_owned() } else { self.status_text.clone() },
+      rounds: self.rounds.clone(),
+      answer_preview: self.rounds.last().map(|round| round.answer.clone()).unwrap_or_default(),
+      context_tokens: self.context_tokens,
     }
   }
 

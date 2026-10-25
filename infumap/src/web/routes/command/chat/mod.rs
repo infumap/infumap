@@ -466,6 +466,9 @@ struct ChatStreamEvent {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ChatStreamEventKind {
+  Snapshot {
+    snapshot: runs::RunSnapshot,
+  },
   Status {
     text: String,
   },
@@ -1090,7 +1093,7 @@ pub async fn serve_chat_stream_route(
               None
             }
           };
-          cancel_pending_tool_approvals(&progress.request_id);
+          cancel_pending_tool_approvals(&progress.request_id, &user_id);
           if let Some(turn) = live_turn.as_mut() {
             if let Err(e) = turn.end(TurnOutcome::Cancelled, vec![], message).await {
               warn!("Could not record the cancellation of chat request '{}' for user '{}': {}", progress.request_id, user_id, e);
@@ -1101,7 +1104,7 @@ pub async fn serve_chat_stream_route(
         }
         result = run_chat_with_tools(config, &db, &session, &request, resources, &progress) => result,
       };
-      cancel_pending_tool_approvals(&progress.request_id);
+      cancel_pending_tool_approvals(&progress.request_id, &user_id);
       let result = match (result, live_turn.as_mut()) {
         (Ok(result), Some(turn)) => turn.end_completed(result).await,
         (result, _) => result,
@@ -1130,14 +1133,19 @@ pub async fn serve_chat_stream_route(
     }).catch_unwind().await;
     if outcome.is_err() {
       error!("Chat worker '{}' for user '{}' panicked.", progress.request_id, user_id);
-      cancel_pending_tool_approvals(&progress.request_id);
+      cancel_pending_tool_approvals(&progress.request_id, &user_id);
       let message = "The chat worker stopped unexpectedly.";
+      let recorded = live_turn.as_ref().is_some_and(|turn| turn.ended);
       if let Some(turn) = live_turn.as_mut().filter(|turn| !turn.ended) {
         if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.to_owned())).await {
           warn!("Could not record the failure of chat request '{}' for user '{}': {}", progress.request_id, user_id, e);
         }
       }
-      progress.send(ChatStreamEventKind::error(message)).await;
+      // A panic while publishing/materializing an already saved result must not replace that outcome with an
+      // error event. Closing the connection lets resume recover the authoritative record instead.
+      if !recorded {
+        progress.send(ChatStreamEventKind::error(message)).await;
+      }
     }
     drop(registration);
   });
@@ -1147,6 +1155,125 @@ pub async fn serve_chat_stream_route(
 
 fn unix_now_millis() -> i64 {
   std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |duration| duration.as_millis() as i64)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatRunControlRequest {
+  query_item_id: Uid,
+  request_id: String,
+}
+
+/// POST {queryItemId, requestId}: a snapshot followed by live NDJSON, or a single terminal snapshot.
+pub async fn serve_chat_resume_route(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  serve_chat_run_control(db, request, false).await
+}
+
+/// POST {queryItemId, requestId}: request cancellation and return the authoritative terminal snapshot as JSON.
+pub async fn serve_chat_cancel_route(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: Request<hyper::body::Incoming>,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  serve_chat_run_control(db, request, true).await
+}
+
+async fn serve_chat_run_control(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  request: Request<hyper::body::Incoming>,
+  cancel: bool,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  use hyper::StatusCode;
+
+  if request.method() == "OPTIONS" {
+    return cors_response();
+  }
+  if request.method() != "POST" {
+    return chat_tool_error_response(StatusCode::METHOD_NOT_ALLOWED, "Use POST for chat resume or cancellation.");
+  }
+  let Some(session) = get_and_validate_session(&request, db).await else {
+    return chat_tool_error_response(StatusCode::FORBIDDEN, "A valid Infumap session is required.");
+  };
+  let request: ChatRunControlRequest = match incoming_json_with_limit(request, CHAT_TOOL_REQUEST_MAX_BYTES).await {
+    Ok(request) => request,
+    Err(_) => return chat_tool_error_response(StatusCode::BAD_REQUEST, "Invalid chat control request."),
+  };
+  if !is_uid(&request.query_item_id) || request.request_id.trim().is_empty() {
+    return chat_tool_error_response(StatusCode::BAD_REQUEST, "A chat and request ID are required.");
+  }
+  // Check current ownership and location even when this request ID is still in the worker registry.
+  let data_dir = match live_chat_data_dir(db, &session, &request.query_item_id).await {
+    Ok(data_dir) => data_dir,
+    Err(_) => return not_found_response(),
+  };
+  if let Some(run) = runs::find(&session.user_id, &request.query_item_id, &request.request_id) {
+    if cancel {
+      run.cancel();
+      // An acknowledgement means a saved outcome, not just delivery of a cancellation signal. Completion may
+      // win this race; report its saved result instead of relabeling it as cancelled.
+      run.finished().await;
+    } else if let Some(subscriber) = run.subscribe() {
+      return chat_stream_response(subscriber);
+    }
+  }
+  // Cancellation can wait on a worker. Recheck access before returning any saved output.
+  if live_chat_data_dir(db, &session, &request.query_item_id).await.is_err() {
+    return not_found_response();
+  }
+  match recover_chat_run(&data_dir, &session.user_id, &request).await {
+    Ok(SavedChatRun::Snapshot(snapshot)) if cancel => json_response(&snapshot),
+    Ok(SavedChatRun::Snapshot(snapshot)) => {
+      single_chat_stream_event_response(request.request_id, ChatStreamEventKind::Snapshot { snapshot })
+    }
+    Ok(SavedChatRun::Busy) => {
+      let mut response = json_response(&serde_json::json!({
+        "code": "chat_busy", "error": "The chat is changing. Retry this request."
+      }));
+      *response.status_mut() = StatusCode::CONFLICT;
+      response.headers_mut().insert(hyper::header::RETRY_AFTER, hyper::header::HeaderValue::from_static("1"));
+      response
+    }
+    Ok(SavedChatRun::Missing) => not_found_response(),
+    Err(e) => {
+      warn!("Could not recover chat request '{}' for user '{}': {}", request.request_id, session.user_id, e);
+      chat_tool_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Could not read the saved chat response.")
+    }
+  }
+}
+
+enum SavedChatRun {
+  Snapshot(runs::RunSnapshot),
+  Busy,
+  Missing,
+}
+
+async fn recover_chat_run(data_dir: &str, user_id: &Uid, request: &ChatRunControlRequest) -> InfuResult<SavedChatRun> {
+  // End records are immutable and synced before publication, so old completed requests can recover even while
+  // a later turn holds the chat lock. A missing or unfinished record needs a locked reread to rule out startup.
+  if let Some(transcript) = read_transcript(data_dir, user_id, &request.query_item_id).await? {
+    // A worker may have registered after the route's first lookup. Do not expose a just-written end record
+    // while that worker is still syncing it or preparing its authoritative terminal event.
+    if runs::find(user_id, &request.query_item_id, &request.request_id).is_some_and(|run| !run.is_finished()) {
+      return Ok(SavedChatRun::Busy);
+    }
+    if let Some(index) =
+      transcript.turns.iter().position(|turn| turn.user.request_id == request.request_id && turn.end.is_some())
+    {
+      return Ok(SavedChatRun::Snapshot(runs::RunSnapshot::recorded(user_id, &transcript, index)?));
+    }
+  }
+  let Some(locked) = try_lock_transcript(data_dir, user_id, &request.query_item_id).await? else {
+    return Ok(SavedChatRun::Busy);
+  };
+  let Some(transcript) = locked.transcript() else {
+    return Ok(SavedChatRun::Missing);
+  };
+  match transcript.turns.iter().position(|turn| turn.user.request_id == request.request_id) {
+    Some(index) => Ok(SavedChatRun::Snapshot(runs::RunSnapshot::recorded(user_id, transcript, index)?)),
+    None => Ok(SavedChatRun::Missing),
+  }
 }
 
 /// A turn of a live chat. It holds the chat lock from its start until the stream task ends, so a second turn, a
@@ -2050,14 +2177,9 @@ async fn start_live_chat_turn(
     tool_calls: None,
   });
   request.messages = messages;
-  Ok(LiveChatTurn {
-    transcript,
-    request_id: request_id.to_owned(),
-    started_at,
-    history_len,
-    activity: Arc::new(Mutex::new(runs::RunState::default())),
-    ended: false,
-  })
+  let activity =
+    Arc::new(Mutex::new(runs::RunState::new(transcript.transcript().map_or(0, Transcript::revision), started_at)));
+  Ok(LiveChatTurn { transcript, request_id: request_id.to_owned(), started_at, history_len, activity, ended: false })
 }
 
 #[derive(Deserialize)]
@@ -2081,23 +2203,36 @@ enum ToolApprovalDecision {
 }
 
 struct PendingToolApproval {
-  user_id: Uid,
   tx: oneshot::Sender<bool>,
+  expires_at: tokio::time::Instant,
 }
 
-fn pending_tool_approvals() -> &'static Mutex<HashMap<(String, String), PendingToolApproval>> {
-  static PENDING: OnceLock<Mutex<HashMap<(String, String), PendingToolApproval>>> = OnceLock::new();
+type ToolApprovalKey = (Uid, String, String);
+
+fn pending_tool_approvals() -> &'static Mutex<HashMap<ToolApprovalKey, PendingToolApproval>> {
+  static PENDING: OnceLock<Mutex<HashMap<ToolApprovalKey, PendingToolApproval>>> = OnceLock::new();
   PENDING.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn lock_pending_tool_approvals() -> std::sync::MutexGuard<'static, HashMap<(String, String), PendingToolApproval>> {
+fn lock_pending_tool_approvals() -> std::sync::MutexGuard<'static, HashMap<ToolApprovalKey, PendingToolApproval>> {
   pending_tool_approvals().lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-fn cancel_pending_tool_approvals(request_id: &str) {
+fn pending_tool_approval_ids(request_id: &str, user_id: &Uid) -> HashSet<String> {
+  let now = tokio::time::Instant::now();
+  lock_pending_tool_approvals()
+    .iter()
+    .filter(|((owner, request, _), approval)| {
+      owner == user_id && request == request_id && approval.expires_at > now && !approval.tx.is_closed()
+    })
+    .map(|((_, _, call_id), _)| call_id.clone())
+    .collect()
+}
+
+fn cancel_pending_tool_approvals(request_id: &str, user_id: &Uid) {
   let mut pending = lock_pending_tool_approvals();
-  let keys: Vec<(String, String)> =
-    pending.keys().filter(|(pending_request_id, _)| pending_request_id == request_id).cloned().collect();
+  let keys =
+    pending.keys().filter(|(owner, request, _)| owner == user_id && request == request_id).cloned().collect::<Vec<_>>();
   for key in keys {
     if let Some(approval) = pending.remove(&key) {
       let _ = approval.tx.send(false);
@@ -2107,49 +2242,47 @@ fn cancel_pending_tool_approvals(request_id: &str) {
 
 fn register_tool_approval(request_id: &str, call_id: &str, user_id: &Uid) -> oneshot::Receiver<bool> {
   let (tx, rx) = oneshot::channel();
+  let expires_at = tokio::time::Instant::now() + Duration::from_secs(CHAT_TOOL_APPROVAL_TIMEOUT_SECS);
+  let mut pending = lock_pending_tool_approvals();
+  if let Some(previous) =
+    pending.insert((user_id.clone(), request_id.to_owned(), call_id.to_owned()), PendingToolApproval { tx, expires_at })
   {
-    let mut pending = lock_pending_tool_approvals();
-    if let Some(previous) =
-      pending.insert((request_id.to_owned(), call_id.to_owned()), PendingToolApproval { user_id: user_id.clone(), tx })
-    {
-      let _ = previous.tx.send(false);
-    }
+    let _ = previous.tx.send(false);
   }
   rx
 }
 
-async fn wait_for_tool_approval(request_id: &str, call_id: &str, rx: oneshot::Receiver<bool>) -> ToolApprovalDecision {
-  let decision = match tokio::time::timeout(Duration::from_secs(CHAT_TOOL_APPROVAL_TIMEOUT_SECS), rx).await {
+async fn wait_for_tool_approval(
+  request_id: &str,
+  call_id: &str,
+  user_id: &Uid,
+  rx: oneshot::Receiver<bool>,
+) -> ToolApprovalDecision {
+  let key = (user_id.clone(), request_id.to_owned(), call_id.to_owned());
+  let expires_at = lock_pending_tool_approvals()
+    .get(&key)
+    .map(|approval| approval.expires_at)
+    .unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(CHAT_TOOL_APPROVAL_TIMEOUT_SECS));
+  let decision = match tokio::time::timeout_at(expires_at, rx).await {
     Ok(Ok(true)) => ToolApprovalDecision::Approved,
     Ok(Ok(false)) | Ok(Err(_)) => ToolApprovalDecision::Denied,
     Err(_) => ToolApprovalDecision::TimedOut,
   };
-  lock_pending_tool_approvals().remove(&(request_id.to_owned(), call_id.to_owned()));
+  lock_pending_tool_approvals().remove(&key);
   decision
 }
 
-enum ToolApprovalResolveError {
-  NotFound,
-  Forbidden,
-}
-
-fn resolve_pending_tool_approval(
-  request_id: &str,
-  call_id: &str,
-  user_id: &Uid,
-  approved: bool,
-) -> Result<(), ToolApprovalResolveError> {
+fn resolve_pending_tool_approval(request_id: &str, call_id: &str, user_id: &Uid, approved: bool) -> bool {
+  let key = (user_id.clone(), request_id.to_owned(), call_id.to_owned());
   let mut pending = lock_pending_tool_approvals();
-  match pending.remove(&(request_id.to_owned(), call_id.to_owned())) {
-    None => Err(ToolApprovalResolveError::NotFound),
-    Some(approval) if approval.user_id != *user_id => {
-      pending.insert((request_id.to_owned(), call_id.to_owned()), approval);
-      Err(ToolApprovalResolveError::Forbidden)
-    }
-    Some(approval) => {
-      let _ = approval.tx.send(approved);
-      Ok(())
-    }
+  // Let the original timeout resolve an expired approval as timed out, rather than dropping its sender and
+  // incorrectly recording a denial when a stale browser submits a decision.
+  if !pending.get(&key).is_some_and(|approval| approval.expires_at > tokio::time::Instant::now()) {
+    return false;
+  }
+  match pending.remove(&key) {
+    Some(approval) => approval.tx.send(approved).is_ok(),
+    _ => false,
   }
 }
 
@@ -2250,10 +2383,10 @@ pub async fn serve_chat_tool_approval_route(
     return not_found_response();
   }
 
-  match resolve_pending_tool_approval(&request.request_id, &request.call_id, &session.user_id, request.approved) {
-    Ok(()) => json_response(&ChatToolApprovalResponse { ok: true }),
-    Err(ToolApprovalResolveError::Forbidden) => forbidden_response(),
-    Err(ToolApprovalResolveError::NotFound) => not_found_response(),
+  if resolve_pending_tool_approval(&request.request_id, &request.call_id, &session.user_id, request.approved) {
+    json_response(&ChatToolApprovalResponse { ok: true })
+  } else {
+    not_found_response()
   }
 }
 
@@ -2306,7 +2439,8 @@ fn chat_stream_response(
   let body = StreamBody::new(stream).boxed();
   Response::builder()
     .header(hyper::header::CONTENT_TYPE, "application/x-ndjson")
-    .header(hyper::header::CACHE_CONTROL, "no-cache")
+    .header(hyper::header::CACHE_CONTROL, "no-cache, no-transform")
+    .header("x-accel-buffering", "no")
     .header(hyper::header::X_CONTENT_TYPE_OPTIONS, "nosniff")
     .body(body)
     .unwrap_or_else(|_| Response::builder().status(500).body(empty_body()).unwrap())
@@ -2782,7 +2916,7 @@ async fn execute_chat_tool_call_with_progress(
     progress
       .tool_approval_required(round, &tool_call.id, &tool_call.function.name, source, query, url, arguments.clone())
       .await;
-    match wait_for_tool_approval(&progress.request_id, &tool_call.id, decision).await {
+    match wait_for_tool_approval(&progress.request_id, &tool_call.id, &session.user_id, decision).await {
       ToolApprovalDecision::Approved => {}
       decision => {
         let tool_result = tool_error_json(match decision {

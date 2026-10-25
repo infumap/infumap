@@ -1957,6 +1957,11 @@ async function sendChatStream(
     ) {
       throw new Error("Chat stream returned a malformed event.");
     }
+    // Fresh submissions receive ordinary acceptance/activity after the initial snapshot. Snapshot restoration
+    // belongs to the resumable transport; keep this submission-only reader from applying it as a text delta.
+    if (parsed.type == "snapshot") {
+      return;
+    }
     onEvent(parsed as ChatStreamEvent);
   };
 
