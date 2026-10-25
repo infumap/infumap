@@ -277,6 +277,7 @@ export const QueryChatActivityRounds: Component<{
   errorMessage?: () => string | null,
   running: () => boolean,
   requestId?: () => string | null,
+  pendingApprovals?: () => Array<string> | undefined,
 }> = (props) => {
   const visibleRoundCount = () => props.rounds().filter(queryChatRoundHasContent).length;
   const errorMessage = () => props.errorMessage?.() ?? null;
@@ -325,7 +326,8 @@ export const QueryChatActivityRounds: Component<{
                   <div class="font-medium text-slate-600">{queryChatToolDisplayName(toolCall().name)}</div>
                   <Show when={toolCall().status == "awaiting_approval"}>
                     <QueryChatToolApproval
-                      requestId={props.running() ? (props.requestId?.() ?? null) : null}
+                      requestId={props.running() && (props.pendingApprovals?.()?.includes(toolCall().callId) ?? true)
+                        ? (props.requestId?.() ?? null) : null}
                       toolCall={toolCall()} />
                   </Show>
                   <Show when={toolCall().status != "awaiting_approval" && queryChatToolCallHeadline(toolCall()) != null}>

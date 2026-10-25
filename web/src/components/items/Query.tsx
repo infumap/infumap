@@ -1272,6 +1272,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 rounds={() => liveChatActivity()!.rounds}
                 errorMessage={() => liveChatActivity()!.errorMessage}
                 running={activityIsRunning}
+                pendingApprovals={() => liveChatActivity()?.pendingApprovals}
                 requestId={chatStreamingRequestId} />
             </div>
             <Show when={!chatActivityFollowingLatest()}>

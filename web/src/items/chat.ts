@@ -19,7 +19,7 @@
 import { requestArrange } from "../layout/arrange";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { batch, createSignal } from "solid-js";
+import { batch, createEffect, createRoot, createSignal } from "solid-js";
 import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { CompositeFlags, PageFlags } from "./base/flags-item";
@@ -45,6 +45,7 @@ import {
   server,
   type ChatModelSelection,
   type ChatStreamEvent,
+  type ChatStreamConnectionState,
   type ChatStreamPhase,
   type LoadChatAttachment,
   type LoadChatResponse,
@@ -100,6 +101,10 @@ export interface ChatStreamingState {
   answerPreview: string,
   startedAt: number,
   errorMessage: string | null,
+  connectionState?: ChatStreamConnectionState,
+  endedAt?: number | null,
+  pendingApprovals?: Array<string>,
+  cancellationRequested?: boolean,
 }
 
 const chatStreamingStateByQueryId = new Map<Uid, ChatStreamingState>();
@@ -189,6 +194,8 @@ export async function submitQueryChatToolApproval(
 
 function chatStatusTextFromEvent(event: ChatStreamEvent): string {
   switch (event.type) {
+    case "snapshot":
+      return event.snapshot.statusText;
     case "status":
       return event.text;
     case "model_round_started":
@@ -285,6 +292,21 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
   const statusText = chatStatusTextFromEvent(event);
   let next: ChatStreamingState;
   switch (event.type) {
+    case "snapshot": {
+      const snapshot = event.snapshot;
+      return {
+        ...current,
+        phase: snapshot.phase == "interrupted" ? "error" : snapshot.phase,
+        statusText: snapshot.statusText,
+        rounds: snapshot.rounds,
+        answerPreview: snapshot.answerPreview,
+        startedAt: snapshot.startedAt,
+        endedAt: snapshot.endedAt,
+        errorMessage: snapshot.errorMessage,
+        pendingApprovals: snapshot.pendingApprovals,
+        cancellationRequested: snapshot.cancellationRequested,
+      };
+    }
     case "status":
       next = { ...current, statusText };
       break;
@@ -432,6 +454,11 @@ function reduceQueryChatStreamEvent(current: ChatStreamingState, event: ChatStre
       };
       break;
   }
+  if (event.type == "tool_approval_required") {
+    next.pendingApprovals = [...(current.pendingApprovals ?? []).filter(id => id != event.callId), event.callId];
+  } else if (event.type == "tool_call_started" || event.type == "tool_call_finished") {
+    next.pendingApprovals = current.pendingApprovals?.filter(id => id != event.callId);
+  }
   return next;
 }
 
@@ -488,6 +515,14 @@ function applyQueryChatStreamEvent(queryId: Uid, event: ChatStreamEvent): void {
     throw new Error("Received a chat stream event without a matching active request.");
   }
   if (event.type == "context_tokens" || event.type == "turn_accepted" || event.type == "transcript_conflict") {
+    return;
+  }
+
+  if (event.type == "snapshot") {
+    // The snapshot already includes deltas queued by the previous connection. Flushing those animation frames
+    // after replacement would append old text twice, so discard them before applying authoritative state.
+    discardBufferedChatTextDeltas(queryId, event.requestId);
+    setQueryChatStreamingState(queryId, reduceQueryChatStreamEvent(current, event));
     return;
   }
 
@@ -1079,8 +1114,11 @@ async function submitQueryChatTurn(
 ): Promise<boolean> {
   const text = rawText.trim();
   const accountId = store.user.getUserMaybe()?.userId ?? null;
-  const isCurrent = () => (store.user.getUserMaybe()?.userId ?? null) == accountId &&
-    getQueryRuntime(store, queryItem).chat.requestId == requestId;
+  const generation = queryChatGenerations.get(queryItem.id) ?? 0;
+  let accountChanged = false;
+  const ownsChat = () => !accountChanged && (store.user.getUserMaybe()?.userId ?? null) == accountId &&
+    (queryChatGenerations.get(queryItem.id) ?? 0) == generation;
+  const isCurrent = () => ownsChat() && getQueryRuntime(store, queryItem).chat.requestId == requestId;
 
   await ensureQueryChatLoaded(store, queryItem);
   if (!isCurrent()) { return false; }
@@ -1120,8 +1158,30 @@ async function submitQueryChatTurn(
   requestArrange(store, "query-chat-user-turn");
 
   const controller = new AbortController();
+  const disposeAccountWatch = createRoot(dispose => {
+    createEffect(() => {
+      if ((store.user.getUserMaybe()?.userId ?? null) != accountId) {
+        accountChanged = true;
+        controller.abort();
+        discardBufferedChatTextDeltas(queryItem.id, requestId);
+      }
+    });
+    return dispose;
+  });
+  const requireCurrent = () => {
+    if (!isCurrent()) { controller.abort(); }
+    controller.signal.throwIfAborted();
+  };
   let accepted = false;
   const firstTurnArchive: { promise: Promise<boolean> | null } = { promise: null };
+  const acceptTurn = (revision: number) => {
+    const firstAcceptance = !accepted;
+    accepted = true;
+    setQueryChatRevision(store, queryItem, revision);
+    if (firstAcceptance && revision == 1) {
+      firstTurnArchive.promise = archiveQueryChatAfterFirstTurn(store, queryItem);
+    }
+  };
   let clearStreamingStateOnExit = true;
   discardBufferedChatTextDeltas(queryItem.id);
   activeQueryChatRequestByQueryId.set(queryItem.id, { requestId, controller });
@@ -1133,6 +1193,8 @@ async function submitQueryChatTurn(
     answerPreview: "",
     startedAt: Date.now(),
     errorMessage: null,
+    connectionState: "connecting",
+    pendingApprovals: [],
   });
   try {
     const response = await server.chatStream({
@@ -1145,19 +1207,28 @@ async function submitQueryChatTurn(
         : undefined,
       ...settings,
     }, (event) => {
+      requireCurrent();
       if (event.type == "turn_accepted") {
-        accepted = true;
-        setQueryChatRevision(store, queryItem, event.revision);
-        if (event.revision == 1) {
-          firstTurnArchive.promise = archiveQueryChatAfterFirstTurn(store, queryItem);
-        }
+        acceptTurn(event.revision);
         return;
+      }
+      if (event.type == "snapshot") {
+        acceptTurn(event.snapshot.revision);
+        const context = event.snapshot.contextTokens;
+        if (context != null) { setQueryChatContextTokens(store, queryItem, context.tokens, context.exact); }
       }
       if (event.type == "context_tokens") {
         setQueryChatContextTokens(store, queryItem, event.tokens, event.exact);
       }
       applyQueryChatStreamEvent(queryItem.id, event);
-    }, controller.signal);
+    }, controller.signal, connectionState => {
+      requireCurrent();
+      const current = chatStreamingStateByQueryId.get(queryItem.id);
+      if (current?.requestId == requestId) {
+        setQueryChatStreamingState(queryItem.id, { ...current, connectionState });
+      }
+    });
+    if (!isCurrent()) { return true; }
 
     if (controller.signal.aborted || chatStreamingStateByQueryId.get(queryItem.id)?.phase == "cancelled") {
       clearStreamingStateOnExit = false;
@@ -1175,11 +1246,12 @@ async function submitQueryChatTurn(
       assistantText: response.assistantText,
       rounds: finalStreamingState.rounds,
       startedAt: finalStreamingState.startedAt,
-      completedAt: Date.now(),
+      completedAt: finalStreamingState.endedAt ?? Date.now(),
     });
     requestArrange(store, "query-chat-assistant-turn");
     return true;
   } catch (e) {
+    if (!isCurrent()) { return true; }
     flushBufferedChatTextDeltas(queryItem.id, requestId);
     if (e instanceof ChatTranscriptConflictError) {
       // Nothing was recorded. Show the chat as it now is, and give the message back as a draft.
@@ -1230,10 +1302,12 @@ async function submitQueryChatTurn(
     addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("error", message)!);
     return true;
   } finally {
+    disposeAccountWatch();
+    if (!ownsChat()) { discardBufferedChatTextDeltas(queryItem.id, requestId); }
     if (firstTurnArchive.promise != null) {
       void firstTurnArchive.promise.then(
         archived => {
-          if (archived) {
+          if (archived && ownsChat()) {
             void generateQueryChatTitle(store, queryItem.id);
           }
         },
@@ -1247,7 +1321,7 @@ async function submitQueryChatTurn(
     if (clearStreamingStateOnExit) {
       clearQueryChatStreamingState(queryItem.id, requestId);
     }
-    requestArrange(store, "query-chat-request-ended");
+    if (ownsChat()) { requestArrange(store, "query-chat-request-ended"); }
   }
 }
 
