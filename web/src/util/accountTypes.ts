@@ -58,4 +58,6 @@ export type User = {
   dockPageId: Uid,
   queriesPageId: Uid,
   hasTotp: boolean,
+  /** Whether the workspace had few pages when the session was validated, for showing getting-started hints. */
+  fewPages?: boolean,
 }

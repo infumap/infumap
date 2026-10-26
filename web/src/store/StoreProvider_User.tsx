@@ -31,6 +31,7 @@ interface ValidateSessionResponse {
   dockPageId?: string | null,
   queriesPageId?: string | null,
   hasTotp?: boolean | null,
+  fewPages?: boolean | null,
 }
 
 export interface UserStoreContextModel {
@@ -73,6 +74,7 @@ export function makeUserStore(): UserStoreContextModel {
       dockPageId: responseObj.dockPageId,
       queriesPageId: responseObj.queriesPageId,
       hasTotp: responseObj.hasTotp,
+      fewPages: responseObj.fewPages ?? false,
     };
   };
 

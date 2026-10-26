@@ -99,7 +99,7 @@ const SECTIONS: Array<HelpSection> = [
 ];
 
 
-const Key: Component<{ children: JSX.Element }> = (props) =>
+export const Key: Component<{ children: JSX.Element }> = (props) =>
   <kbd class="inline-block min-w-[20px] px-[5px] text-center text-[11px] leading-[18px] font-mono text-slate-700 bg-slate-50 border border-slate-300 rounded-sm shadow-[0_1px_0_#cbd5e1] whitespace-nowrap">
     {props.children}
   </kbd>;

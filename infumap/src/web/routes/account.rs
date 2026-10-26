@@ -59,6 +59,8 @@ const LOGIN_RATE_MAX_ATTEMPTS_PER_IP: u32 = 20;
 const LOGIN_RATE_MAX_ATTEMPTS_PER_USERNAME: u32 = 8;
 const LOGIN_RATE_KEY_MAX_LEN: usize = 80;
 const UNKNOWN_LOGIN_PRINCIPAL: &str = "unknown";
+/// Below this many pages, the web client shows getting-started hints.
+const FEW_PAGES_LIMIT: usize = 10;
 
 const MIN_PASSWORD_LENGTH: usize = 10;
 const MAX_PASSWORD_LENGTH: usize = 256;
@@ -126,6 +128,8 @@ pub struct LoginResponse {
   pub queries_page_id: Option<String>,
   #[serde(rename = "hasTotp")]
   pub has_totp: bool,
+  #[serde(rename = "fewPages", default)]
+  pub few_pages: bool,
 }
 
 pub async fn login(
@@ -150,6 +154,7 @@ pub async fn login(
       dock_page_id: None,
       queries_page_id: None,
       has_totp: false,
+      few_pages: false,
       err: Some(String::from(msg)),
     });
   }
@@ -232,7 +237,7 @@ pub async fn login(
     info!("TOTP check bypassed for user '{}' due to configuration.", payload.username);
   }
 
-  let created_session = {
+  let (created_session, few_pages) = {
     let mut db = db.lock().await;
     let new_session_result = db.session.create_session(&user.id, &user.username).await;
     if let (Ok(new_session), Some(existing_session_id)) = (&new_session_result, &existing_session_id_maybe) {
@@ -245,7 +250,7 @@ pub async fn login(
         }
       }
     }
-    new_session_result
+    (new_session_result, db.item.user_page_count_up_to(&user, FEW_PAGES_LIMIT) < FEW_PAGES_LIMIT)
   };
 
   match created_session {
@@ -261,6 +266,7 @@ pub async fn login(
         dock_page_id: Some(user.dock_page_id),
         queries_page_id: Some(user.queries_page_id),
         has_totp: user.totp_secret.is_some(),
+        few_pages,
         err: None,
       };
       let mut response = json_response(&result);
@@ -1008,6 +1014,8 @@ pub struct ValidateResponse {
   pub queries_page_id: Option<String>,
   #[serde(rename = "hasTotp")]
   pub has_totp: Option<bool>,
+  #[serde(rename = "fewPages")]
+  pub few_pages: Option<bool>,
 }
 
 pub async fn validate(
@@ -1026,13 +1034,16 @@ pub async fn validate(
         dock_page_id: None,
         queries_page_id: None,
         has_totp: None,
+        few_pages: None,
       });
     }
   };
 
-  let user = {
+  let (user, few_pages) = {
     let db = db.lock().await;
-    db.user.get(&session.user_id).cloned()
+    let user = db.user.get(&session.user_id).cloned();
+    let few_pages = user.as_ref().map(|u| db.item.user_page_count_up_to(u, FEW_PAGES_LIMIT) < FEW_PAGES_LIMIT);
+    (user, few_pages.unwrap_or(false))
   };
 
   match user {
@@ -1047,6 +1058,7 @@ pub async fn validate(
         dock_page_id: None,
         queries_page_id: None,
         has_totp: None,
+        few_pages: None,
       })
     }
     Some(user) => json_response(&ValidateResponse {
@@ -1058,6 +1070,7 @@ pub async fn validate(
       dock_page_id: Some(user.dock_page_id),
       queries_page_id: Some(user.queries_page_id),
       has_totp: Some(user.totp_secret.is_some()),
+      few_pages: Some(few_pages),
     }),
   }
 }

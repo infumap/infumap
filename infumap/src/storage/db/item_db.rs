@@ -975,6 +975,18 @@ impl ItemDb {
     result
   }
 
+  /// The number of pages the user has made, not counting their home, trash, dock and queries pages, counted only up
+  /// to `limit`. This runs on every session validation, and callers only need to know whether there are few.
+  pub fn user_page_count_up_to(&self, user: &User, limit: usize) -> usize {
+    let Some(store) = self.store_by_user_id.get(&user.id) else { return 0 };
+    let system_page_ids = [&user.home_page_id, &user.trash_page_id, &user.dock_page_id, &user.queries_page_id];
+    store
+      .get_iter()
+      .filter(|(id, item)| item.item_type == ItemType::Page && !system_page_ids.contains(id))
+      .take(limit)
+      .count()
+  }
+
   /// Include account preference updates in the next user backup, even without an item edit.
   pub fn mark_user_dirty(&mut self, user_id: &Uid) {
     self.dirty_user_ids.insert(user_id.clone());

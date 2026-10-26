@@ -60,6 +60,7 @@ import { PageAttachments } from "./PageAttachments";
 import { canCreateItemsOnCurrentPage } from "../../input/create";
 import { childLoadFailure, childrenAreKnown } from "../../layout/load";
 import { failReasonText } from "../toolbar/networkStatusSummary";
+import { Key } from "../HelpContent";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -90,8 +91,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       : null);
 
   // A hint on a page the user can add to, known to be empty (not if loading its children failed). Not for list,
-  // calendar or table pages, whose layout has no open background to centre it in.
+  // calendar or table pages, whose layout has no open background to centre it in. Only while the workspace is new
+  // (few pages), since by then the user knows what to do.
   const emptyPageHintWanted = () =>
+    !!store.user.getUserMaybe()?.fewPages &&
     !!(props.visualElement.flags & VisualElementFlags.TopLevelRoot) &&
     !store.printMode.get() &&
     props.visualElement.tableBodyViewportBoundsPx == null &&
@@ -102,6 +105,11 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     store.history.currentPopupSpec() == null &&
     !store.overlay.anOverlayIsVisible() &&
     canCreateItemsOnCurrentPage(store);
+  // Right-click goes back, or else up, which does nothing on the home page reached without history.
+  const rightClickGoesSomewhere = () =>
+    store.history.peekPrevPageVeid() != null ||
+    pageFns().pageItem().origin != null ||
+    pageFns().pageItem().id != store.user.getUserMaybe()?.homePageId;
   const [showEmptyPageHint, setShowEmptyPageHint] = createSignal(false);
   createEffect(() => {
     if (!emptyPageHintWanted()) {
@@ -919,14 +927,22 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           </Match>
         </Switch>
         <Show when={showEmptyPageHint()}>
-          <div class="absolute flex items-center justify-center pointer-events-none select-none text-sm text-slate-400"
+          {/* Above centre (spacers 2:3), where the eye lands on an empty page. Keys are styled as in the help. */}
+          <div class="absolute flex flex-col items-center pointer-events-none select-none text-sm text-slate-400"
             style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
               `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
               `z-index: ${Z_INDEX_GLOBAL_ITEMS + 1};`}>
-            <span>
-              Press <b class="font-semibold text-slate-500">/</b> to add an item
-              &nbsp;·&nbsp; <b class="font-semibold text-slate-500">?</b> for help
-            </span>
+            <div class="flex-[2]" />
+            <div class="flex items-center gap-x-[6px] whitespace-nowrap">
+              <Key>/</Key><span>add an item</span>
+              <span class="mx-[6px]">·</span>
+              <Key>?</Key><span>help</span>
+              <Show when={rightClickGoesSomewhere()}>
+                <span class="mx-[6px]">·</span>
+                <span class="text-[13px] italic text-slate-500">Right-click</span><span>go back</span>
+              </Show>
+            </div>
+            <div class="flex-[3]" />
           </div>
         </Show>
         <Show when={loadFailedText()}>
