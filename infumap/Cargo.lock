@@ -1642,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "infumap"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -1690,7 +1690,7 @@ dependencies = [
 
 [[package]]
 name = "infusdk"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "bitflags",
  "bytes",

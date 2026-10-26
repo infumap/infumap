@@ -32,7 +32,7 @@ use std::env;
 #[tokio::main]
 async fn main() {
   let arg_matches = Command::new("Infumap")
-    .version("0.8.0")
+    .version("0.9.0")
     .subcommand(cli::compact::make_clap_subcommand())
     .subcommand(cli::emergency::make_clap_subcommand())
     .subcommand(cli::keygen::make_clap_subcommand())
