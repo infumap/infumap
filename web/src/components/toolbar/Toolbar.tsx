@@ -62,6 +62,7 @@ import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chr
 import { getToolbarFocusItem } from './toolbarFocus';
 import { SOLO_ITEM_HOLDER_PAGE_UID } from '../../util/uid';
 import { TOOLBAR_RIGHT_DIVIDER_RIGHT_PX } from "./toolbarDividers";
+import { IS_MAC } from '../../util/platform';
 
 
 const TOOLBAR_LOGO_VISIBLE_SIZE_PX = 28 * 419 / 448;
@@ -397,7 +398,7 @@ export const Toolbar: Component = () => {
         </Show>
         <InfuIconButton icon="fa fa-question-circle" highlighted={false} clickHandler={showHelp} title="Help (?)" />
         <Toolbar_NetworkStatus />
-        <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} title="Hide toolbar" />
+        <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} title={IS_MAC ? "Hide toolbar (⌘+Enter)" : "Hide toolbar"} />
       </div>
 
     </div>;
@@ -500,10 +501,14 @@ export const Toolbar: Component = () => {
       </Show>
     </>;
 
+  // Cmd+Enter (input/key.ts) shows the toolbar only when the dock is hidden too. Otherwise it hides the dock.
+  const showToolbarTitle = () =>
+    IS_MAC && !store.dockVisible.get() ? "Show toolbar (⌘+Enter)" : "Show toolbar";
+
   const showToolbarButton = () =>
     <div class="absolute print:hidden"
       style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER}; ` +
-        `right: 6px; top: -3px;`} onmousedown={showToolbar} title="Show toolbar">
+        `right: 6px; top: -3px;`} onmousedown={showToolbar} title={showToolbarTitle()}>
       <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
     </div>;
 

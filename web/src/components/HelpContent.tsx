@@ -17,15 +17,11 @@
 */
 
 import { Component, For, JSX, Show } from "solid-js";
+import { IS_MAC, MOD } from "../util/platform";
 
 
 // Shown in the help overlay and on the login page. Keep in sync with input/key.ts, input/mouse_*.ts and the
 // keyboard listeners in Main.tsx.
-
-const IS_MAC = typeof navigator != "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
-
-/** The primary modifier: Cmd on a Mac, Ctrl elsewhere. Drag modifiers read ctrlKey, so they are Ctrl everywhere. */
-const MOD = IS_MAC ? "⌘" : "Ctrl";
 
 interface HelpRow {
   /** Alternative ways to do the same thing. Each is a list of keys pressed together. */

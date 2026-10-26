@@ -19,6 +19,7 @@
 import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { navigateBack, navigateToLocalRoot, navigateToQueries, navigateUp } from '../../layout/navigation';
+import { MOD } from '../../util/platform';
 import { InfuIconButton } from "../library/InfuIconButton";
 
 
@@ -42,9 +43,9 @@ export const Toolbar_Navigation: Component = () => {
       <Show when={store.user.getUserMaybe()}>
         <InfuIconButton icon="fa fa-home" highlighted={false} clickHandler={handleHome} title="Home" />
       </Show>
-      <InfuIconButton icon="fa fa-search" highlighted={false} clickHandler={handleSearchClick} title="Search" />
+      <InfuIconButton icon="fa fa-search" highlighted={false} clickHandler={handleSearchClick} title={`Search (${MOD}+Shift+F)`} />
       <InfuIconButton icon="fa fa-arrow-circle-up" highlighted={false} clickHandler={handleUp} title="Up" />
-      <InfuIconButton icon="fa fa-arrow-circle-left" highlighted={false} clickHandler={handleBack} title="Back" />
+      <InfuIconButton icon="fa fa-arrow-circle-left" highlighted={false} clickHandler={handleBack} title="Back (right-click)" />
     </div>
   )
 }
