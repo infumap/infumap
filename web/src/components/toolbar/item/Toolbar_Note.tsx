@@ -238,6 +238,7 @@ export const Toolbar_Note: Component = () => {
       class="inline-block w-[70px] border border-slate-400 rounded-md ml-[3px] cursor-pointer"
       style={`font-size: 13px;`}>
       <div class="inline-block w-[68px] pl-[6px] hover:bg-slate-300"
+        title="Text style"
         onClick={textStyleButtonHandler}
         onMouseDown={handleTextStyleDown}>
         {textStyleText()}
@@ -249,6 +250,7 @@ export const Toolbar_Note: Component = () => {
       <div ref={indentDiv}
         class="inline-block w-[45px] border border-slate-400 rounded-md ml-[6px] cursor-pointer hover:bg-slate-300"
         style={`font-size: 13px;`}
+        title="Indent level"
         onClick={indentButtonHandler}
         onMouseDown={handleIndentDown}>
         <i class="bi-text-indent-left ml-[4px]" />
@@ -267,26 +269,26 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
         <InfuIconButton icon="fa fa-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />
         <div class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon="fa fa-align-left" highlighted={alignmentHighlighted(NoteFlags.AlignLeft)} clickHandler={selectAlignLeft} />
-        <InfuIconButton icon="fa fa-align-center" highlighted={alignmentHighlighted(NoteFlags.AlignCenter)} clickHandler={selectAlignCenter} />
-        <InfuIconButton icon="fa fa-align-right" highlighted={alignmentHighlighted(NoteFlags.AlignRight)} clickHandler={selectAlignRight} />
-        <InfuIconButton icon="fa fa-align-justify" highlighted={alignmentHighlighted(NoteFlags.AlignJustify)} clickHandler={selectAlignJustify} />
+        <InfuIconButton icon="fa fa-align-left" highlighted={alignmentHighlighted(NoteFlags.AlignLeft)} clickHandler={selectAlignLeft} title="Align left" />
+        <InfuIconButton icon="fa fa-align-center" highlighted={alignmentHighlighted(NoteFlags.AlignCenter)} clickHandler={selectAlignCenter} title="Align center" />
+        <InfuIconButton icon="fa fa-align-right" highlighted={alignmentHighlighted(NoteFlags.AlignRight)} clickHandler={selectAlignRight} title="Align right" />
+        <InfuIconButton icon="fa fa-align-justify" highlighted={alignmentHighlighted(NoteFlags.AlignJustify)} clickHandler={selectAlignJustify} title="Justify" />
         <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
         <div ref={urlDiv} class="inline-block"
           onMouseDown={handleUrlDown}>
-          <InfuIconButton icon="fa fa-link" highlighted={noteUrlHighlighted()} clickHandler={urlButtonHandler} />
+          <InfuIconButton icon="fa fa-link" highlighted={noteUrlHighlighted()} clickHandler={urlButtonHandler} title="Link URL" />
         </div>
         <Show when={isInTable()}>
-          <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} title="Show copy button" />
         </Show>
         <div ref={popupIconDiv} class="inline-block"
           onMouseDown={handlePopupIconDown}>
           <InfuIconButton icon="fa fa-icons" highlighted={popupIconVisible()} clickHandler={popupIconButtonHandler} title="Item icon" />
         </div>
         <Show when={!isInTable()}>
-          <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} title="Show border" />
           <Show when={!isInDocumentPage()}>
-            <InfuIconButton icon="fa fa-arrows-v" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} />
+            <InfuIconButton icon="fa fa-arrows-v" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} title="Fixed height" />
           </Show>
         </Show>
       </Show>
@@ -309,20 +311,20 @@ export const Toolbar_Note: Component = () => {
         <InfuIconButton icon="fa fa-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
         <InfuIconButton icon="fa fa-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />
         <div class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon="fa fa-align-left" highlighted={alignmentHighlighted(NoteFlags.AlignLeft)} clickHandler={selectAlignLeft} />
-        <InfuIconButton icon="fa fa-align-center" highlighted={alignmentHighlighted(NoteFlags.AlignCenter)} clickHandler={selectAlignCenter} />
-        <InfuIconButton icon="fa fa-align-right" highlighted={alignmentHighlighted(NoteFlags.AlignRight)} clickHandler={selectAlignRight} />
-        <InfuIconButton icon="fa fa-align-justify" highlighted={alignmentHighlighted(NoteFlags.AlignJustify)} clickHandler={selectAlignJustify} />
+        <InfuIconButton icon="fa fa-align-left" highlighted={alignmentHighlighted(NoteFlags.AlignLeft)} clickHandler={selectAlignLeft} title="Align left" />
+        <InfuIconButton icon="fa fa-align-center" highlighted={alignmentHighlighted(NoteFlags.AlignCenter)} clickHandler={selectAlignCenter} title="Align center" />
+        <InfuIconButton icon="fa fa-align-right" highlighted={alignmentHighlighted(NoteFlags.AlignRight)} clickHandler={selectAlignRight} title="Align right" />
+        <InfuIconButton icon="fa fa-align-justify" highlighted={alignmentHighlighted(NoteFlags.AlignJustify)} clickHandler={selectAlignJustify} title="Justify" />
         <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
         <div ref={urlDiv} class="inline-block"
           onMouseDown={handleUrlDown}>
-          <InfuIconButton icon="fa fa-link" highlighted={noteUrlHighlighted()} clickHandler={urlButtonHandler} />
+          <InfuIconButton icon="fa fa-link" highlighted={noteUrlHighlighted()} clickHandler={urlButtonHandler} title="Link URL" />
         </div>
         <Show when={isInTable()}>
-          <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} />
+          <InfuIconButton icon="fa fa-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} title="Show copy button" />
         </Show>
         <div class="inline-block">
-          <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+          <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} title="Show border" />
         </div>
       </Show>
 

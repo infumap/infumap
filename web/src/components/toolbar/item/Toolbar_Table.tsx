@@ -121,6 +121,7 @@ export const Toolbar_Table: Component = () => {
         <div ref={numColsDiv}
           class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] mr-[10px] hover:bg-slate-300 cursor-pointer"
           style={`font-size: 13px;`}
+          title="Visible columns"
           onClick={handleNumColsClick}
           onMouseDown={handleNumColsDown}>
           <i class="bi-layout-three-columns ml-[4px]" />

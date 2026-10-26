@@ -528,11 +528,12 @@ export const Toolbar_Page: Component = () => {
   const documentControls = () => (
     <>
       <div class="inline-block ml-[10px]">
-        <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} />
+        <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} title="Show document title" />
       </div>
       <div ref={docWidthDiv}
         class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
         style={`font-size: 13px;`}
+        title="Document width"
         onClick={handleDocWidthBlClick}
         onMouseDown={handlePageDocWidthDown}>
         <i class="bi-arrows ml-[4px]" />
@@ -551,6 +552,7 @@ export const Toolbar_Page: Component = () => {
       <Show when={showEmptyTrash()}>
         <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
           style={`font-size: 13px;`}
+          title="Permanently delete everything in the trash"
           onClick={emptyTrashHandler}>
           empty trash
         </div>
@@ -563,6 +565,7 @@ export const Toolbar_Page: Component = () => {
           <div ref={widthDiv}
             class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
+            title="Inner block width"
             onClick={handleWidthClick}
             onMouseDown={handleWidthDown}>
             <i class="bi-arrows ml-[4px]" />
@@ -575,6 +578,7 @@ export const Toolbar_Page: Component = () => {
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
+            title="Page aspect ratio"
             onClick={handleAspectClick}
             onMouseDown={handleAspectDown}>
             <i class="bi-aspect-ratio ml-[4px]" />
@@ -587,6 +591,7 @@ export const Toolbar_Page: Component = () => {
           <div ref={cellAspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
+            title="Cell aspect ratio"
             onClick={handleCellAspectClick}
             onMouseDown={handleCellAspectDown}>
             <i class="bi-aspect-ratio ml-[4px]" />
@@ -599,6 +604,7 @@ export const Toolbar_Page: Component = () => {
           <div ref={numColsDiv}
             class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
+            title="Number of columns"
             onClick={handleNumColsClick}
             onMouseDown={handleNumColsDown}>
             <i class="bi-layout-three-columns ml-[4px]" />
@@ -611,6 +617,7 @@ export const Toolbar_Page: Component = () => {
           <div ref={numColsDiv}
             class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style="font-size: 13px;"
+            title="Visible columns"
             onClick={handleTableNumColsClick}
             onMouseDown={handleNumColsDown}>
             <i class="bi-layout-three-columns ml-[4px]" />
@@ -625,6 +632,7 @@ export const Toolbar_Page: Component = () => {
           <div ref={justifiedRowAspectDiv}
             class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
+            title="Row aspect ratio"
             onClick={handleJustifiedRowAspectClick}
             onMouseDown={handleJustifiedRowAspectDown}>
             <i class="bi-aspect-ratio ml-[4px]" />
@@ -638,6 +646,7 @@ export const Toolbar_Page: Component = () => {
             class="inline-block w-[88px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
             style={`font-size: 13px;`}>
             <div class="inline-block w-[86px] pl-[6px] hover:bg-slate-300"
+              title="Calendar view"
               onClick={handleCalendarDisplayModeClick}
               onMouseDown={handleCalendarDisplayModeDown}>
               {calendarDisplayModeText()}
@@ -657,6 +666,7 @@ export const Toolbar_Page: Component = () => {
             class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
             style={`font-size: 13px;`}>
             <div class="inline-block w-[74px] pl-[6px] hover:bg-slate-300"
+              title="Arrangement"
               onClick={handleArrangeAlgoClick}
               onMouseDown={handleArrangeAlgoDown}>
               {arrangeAlgoText()}
@@ -666,11 +676,11 @@ export const Toolbar_Page: Component = () => {
         <Show when={!isQueriesPage()}>
           <div ref={divBeforeColorSelect} class="inline-block ml-0" />
           <div ref={colorSelectDiv} class="inline-block h-[22px] mt-[2px] ml-[12px] mr-[4px] align-middle" onMouseDown={handleColorDown}>
-            <InfuColorButton col={colorNumber()} onClick={handleColorClick} />
+            <InfuColorButton col={colorNumber()} onClick={handleColorClick} title="Page color" />
           </div>
         </Show>
         <Show when={showMakePublicButton()}>
-          <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} />
+          <InfuIconButton icon="bi-globe-americas" highlighted={isPublic()} clickHandler={handleChangePermissions} title="Public" />
         </Show>
         <Show when={showInteractiveButton()}>
           <Show when={isInteractive() && pageItem().arrangeAlgorithm != ArrangeAlgorithm.Document}>
@@ -680,7 +690,7 @@ export const Toolbar_Page: Component = () => {
               clickHandler={handleToggleEmbeddedInteractiveTitle}
               title="Show embedded title" />
           </Show>
-          <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} />
+          <InfuIconButton icon="bi-mouse2" highlighted={isInteractive()} clickHandler={handleChangeInteractive} title="Interactive when embedded" />
         </Show>
       </Show>
 

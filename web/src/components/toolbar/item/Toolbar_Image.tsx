@@ -75,10 +75,10 @@ export const Toolbar_Image: Component = () => {
       <div class="inline-block">
         <Show when={canEdit()}>
           <div class="pl-[4px] inline-block">
-            <InfuIconButton icon="bi-crop" highlighted={shouldCropImage()} clickHandler={cropHandler} />
+            <InfuIconButton icon="bi-crop" highlighted={shouldCropImage()} clickHandler={cropHandler} title="Crop to fit" />
           </div>
           <div class="inline-block">
-            <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} />
+            <InfuIconButton icon="fa fa-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} title="Show border" />
           </div>
         </Show>
 

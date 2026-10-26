@@ -295,7 +295,7 @@ export const Toolbar: Component = () => {
           <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
             <Show when={store.getCurrentDockWidthPx() > NATURAL_BLOCK_SIZE_PX.w}>
               <div class="align-middle inline-block" style="margin-top: 2px; margin-left: 2px; flex-grow: 0; flex-basis: 28px; flex-shrink: 0;">
-                <a href="/" onClick={handleLogoClick}>
+                <a href="/" onClick={handleLogoClick} title="Home">
                   <img
                     src={imgUrl}
                     class="inline-block"
@@ -390,14 +390,14 @@ export const Toolbar: Component = () => {
 
       <div class="grow-0 pr-[8px]" style="flex-order: 2;">
         <Show when={!store.user.getUserMaybe()}>
-          <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} />
+          <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} title="Log in" />
         </Show>
         <Show when={store.user.getUserMaybe()}>
-          <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} />
+          <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} title="User settings" />
         </Show>
         <InfuIconButton icon="fa fa-question-circle" highlighted={false} clickHandler={showHelp} title="Help (?)" />
         <Toolbar_NetworkStatus />
-        <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} />
+        <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} title="Hide toolbar" />
       </div>
 
     </div>;
@@ -503,7 +503,7 @@ export const Toolbar: Component = () => {
   const showToolbarButton = () =>
     <div class="absolute print:hidden"
       style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER}; ` +
-        `right: 6px; top: -3px;`} onmousedown={showToolbar}>
+        `right: 6px; top: -3px;`} onmousedown={showToolbar} title="Show toolbar">
       <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
     </div>;
 

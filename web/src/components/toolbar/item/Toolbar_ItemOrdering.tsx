@@ -102,8 +102,8 @@ export const Toolbar_ItemOrdering: Component = () => {
         <div class="inline-block align-middle border-r border-slate-300 mr-[7px]"
           style="height: 25px;" />
         <div class="inline-block align-middle">
-          <InfuIconButton icon="bi-layer-forward" highlighted={false} clickHandler={moveFocusedItemToTop} />
-          <InfuIconButton icon="bi-layer-backward" highlighted={false} clickHandler={moveFocusedItemToBottom} />
+          <InfuIconButton icon="bi-layer-forward" highlighted={false} clickHandler={moveFocusedItemToTop} title="Bring to front" />
+          <InfuIconButton icon="bi-layer-backward" highlighted={false} clickHandler={moveFocusedItemToBottom} title="Send to back" />
         </div>
       </div>
     </Show>

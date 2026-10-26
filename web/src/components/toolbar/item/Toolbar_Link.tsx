@@ -105,6 +105,7 @@ export const Toolbar_Link: Component = () => {
                    class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-slate-800 font-mono text-sm"
                    type="text"
                    spellcheck={false}
+                   title="Id of the item to link to"
                    onKeyDown={keyEventHandler}
                    onKeyUp={keyEventHandler}
                    onKeyPress={keyEventHandler} />

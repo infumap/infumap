@@ -48,6 +48,7 @@ export const Toolbar_Rating: Component = () => {
           <div class="inline-block w-[115px] border border-slate-400 rounded-md ml-[10px] mr-[4px] cursor-pointer"
             style={`font-size: 13px;`}>
             <div class="inline-block w-[113px] pl-[6px] hover:bg-slate-300"
+              title="Rating type"
               onClick={(e) => {
                 if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.RatingType) {
                   store.overlay.toolbarPopupInfoMaybe.set(null);
