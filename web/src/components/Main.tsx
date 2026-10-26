@@ -482,8 +482,8 @@ export const Main: Component = () => {
 
   const afterPrintListener = () => { exitPrintMode(store); };
 
-  const contextMenuListener = (ev: Event) => {
-    if (shouldOpenNativeTextContextMenu(store, ev.target)) { return; }
+  const contextMenuListener = (ev: MouseEvent) => {
+    if (shouldOpenNativeTextContextMenu(store, ev)) { return; }
     ev.stopPropagation();
     ev.preventDefault();
   };
@@ -580,7 +580,7 @@ export const Main: Component = () => {
       return;
     }
     CursorEventState.setFromMouseEvent(ev);
-    if (ev.button == MOUSE_RIGHT && shouldOpenNativeTextContextMenu(store, ev.target)) { return; }
+    if (ev.button == MOUSE_RIGHT && shouldOpenNativeTextContextMenu(store, ev)) { return; }
     let flags = await mouseDownHandler(store, ev.button);
     if (flags & MouseEventActionFlags.PreventDefault) {
       ev.preventDefault();

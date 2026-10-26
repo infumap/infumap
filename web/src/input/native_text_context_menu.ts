@@ -21,8 +21,16 @@ import { textEditElementId } from "./text_edit_session";
 
 const TEXT_INPUT_TYPES = new Set(["text", "search", "email", "url", "tel", "password"]);
 
-/** A right click inside the active text editor belongs to the browser; elsewhere it means Back. */
-export function shouldOpenNativeTextContextMenu(store: StoreContextModel, target: EventTarget | null): boolean {
+/**
+ * Shift+right-click inside the active text editor belongs to the browser (spelling, paste); any other right click
+ * means Back. Giving every unmodified right click to the browser inside the editor meant having to think about
+ * where the pointer was before going back. A long hold can't select instead: Linux and macOS browsers fire
+ * contextmenu on mousedown, so whether to prevent it is decided before the hold length is known, and the native
+ * menu can't be opened later from script. Ctrl is avoided because Ctrl+click is itself a right click on macOS.
+ */
+export function shouldOpenNativeTextContextMenu(store: StoreContextModel, ev: MouseEvent): boolean {
+  if (!ev.shiftKey) { return false; }
+  const target = ev.target;
   if (!(target instanceof Node)) { return false; }
   const activeElement = document.activeElement;
   if (!(activeElement instanceof HTMLElement) || !activeElement.contains(target)) { return false; }

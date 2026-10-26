@@ -58,7 +58,7 @@ const SECTIONS: Array<HelpSection> = [
   {
     title: "Navigate",
     rows: [
-      { keys: [["Right-click"]], text: "Go back. It doesn't open a menu, except in text you are editing." },
+      { keys: [["Right-click"]], text: "Go back. It doesn't open a menu." },
       { keys: [["← ↑ → ↓"]], text: "Move focus between items" },
       { keys: [["Enter"]], text: "Open or step into the focused item" },
       { keys: [["Space"]], text: "Open the focused item in a popup" },
@@ -73,6 +73,7 @@ const SECTIONS: Array<HelpSection> = [
       { keys: [["Esc"]], text: "Stop editing" },
       { keys: [["Long press"]], text: "Edit a page's title" },
       { keys: [[MOD, "Z"], [MOD, "Shift", "Z"]], text: "Undo / redo text edits" },
+      { keys: [["Shift", "Right-click"]], text: "Browser menu for the text you are editing (spelling, paste)" },
     ],
   },
   {
