@@ -48,10 +48,6 @@
   page at position `(0, 0)`. Put them in a dedicated recovery page so they can be inspected without piling up over
   existing content ([item_db.rs](infumap/src/storage/db/item_db.rs)).
 
-- Review and finish [security.md](docs/security.md): it explicitly marks itself as rough and potentially flawed,
-  contains an unfinished reverse-proxy sentence, and makes unsupported claims about obscurity, TOTP and password
-  protection. Replace those with guidance grounded in the actual implementation and complete the deployment links.
-
 - Text saves that fail as `not-found` or `client` aren't retried, and stay unsaved with sync paused until "Retry now".
   The network status dialog offers no way to discard them, except when the session has expired
   ([text_edit_session.ts](web/src/input/text_edit_session.ts)).

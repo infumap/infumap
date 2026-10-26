@@ -158,7 +158,7 @@ unchanged.
   settings is this reminder. Surviving a reload does not mean a chat
   is safe. Keep a chat to store it with your items: its content is then held in the object store like any other file.
 - **Chats in the Queries page are not encrypted on disk.** Unlike your files in the object store, they are stored as
-  plain text in the data directory. See [Security](security.md).
+  plain text in the data directory. See [Data](data.md#chats).
 - **A scope limits what the model can find, not what is already in a chat.** Continuing a chat under a different
   [scope](scopes.md) keeps the earlier answers and everything the model read for them. A `.chat` item is searched
   according to where it is, not where the items it quotes are: an answer can repeat text from items outside the

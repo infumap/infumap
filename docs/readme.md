@@ -13,7 +13,6 @@
 - [Configuration](configuration.md)
 - [CLI](cli.md)
 - [Data](data.md)
-- [Security](security.md)
 - Deployment
   - [Raspberry Pi (Common Setup)](deployment/raspberry-pi.md)
   - [Raspberry Pi (Public Internet)](deployment/raspberry-pi-public-internet.md)
