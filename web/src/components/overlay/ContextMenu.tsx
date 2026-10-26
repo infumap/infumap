@@ -16,13 +16,14 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component } from "solid-js";
+import { Component, For, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Vector } from "../../util/geometry";
 import { HitInfo } from "../../input/hit";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { newItemInContext } from "../../input/create";
+import { CREATE_KEYS, Key } from "../HelpContent";
 
 
 type ContextMenuProps = {
@@ -31,50 +32,37 @@ type ContextMenuProps = {
 };
 
 
+// Image and File have no type argument: they are added by dropping files, so they are listed but disabled.
+const MENU_ENTRIES: Array<{ type: string | null, label: string, icon: string }> = [
+  { type: "note", label: "Note", icon: "fa fa-sticky-note" },
+  { type: "page", label: "Page", icon: "fa fa-folder" },
+  { type: "table", label: "Table", icon: "fa fa-table" },
+  { type: "rating", label: "Rating", icon: "fa fa-star" },
+  { type: "link", label: "Link", icon: "fa fa-link" },
+  { type: "password", label: "Password", icon: "fa fa-eye-slash" },
+  { type: "divider", label: "Divider", icon: "fa fa-arrows-h" },
+  { type: null, label: "Image", icon: "fa fa-image" },
+  { type: "text", label: "Text", icon: "far fa-file-lines" },
+  { type: null, label: "File", icon: "fa fa-file" },
+];
+
+const createKeyFor = (type: string | null): string | null =>
+  CREATE_KEYS.find(([_, name]) => name == type)?.[0] ?? null;
+
+
 export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) => {
   const store = useStore();
 
-  const newPageInContext = () => newItemInContext(store, "page", props.hitInfo, props.desktopPosPx);
-  const newNoteInContext = () => newItemInContext(store, "note", props.hitInfo, props.desktopPosPx);
-  const newTableInContext = () => newItemInContext(store, "table", props.hitInfo, props.desktopPosPx);
-  const newRatingInContext = () => newItemInContext(store, "rating", props.hitInfo, props.desktopPosPx);
-  const newLinkInContext = () => newItemInContext(store, "link", props.hitInfo, props.desktopPosPx);
-  const newPasswordInContext = () => newItemInContext(store, "password", props.hitInfo, props.desktopPosPx);
-  const newDividerInContext = () => newItemInContext(store, "divider", props.hitInfo, props.desktopPosPx);
-  const newTextInContext = () => newItemInContext(store, "text", props.hitInfo, props.desktopPosPx);
-
   return (
-    <div class="border rounded w-[115px] h-[262px] bg-slate-50 mb-1 shadow-lg">
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newNoteInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-sticky-note" /></div> Note
-      </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newPageInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-folder" /></div> Page
-      </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newTableInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-table" /></div> Table
-      </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newRatingInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-star" /></div> Rating
-      </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newLinkInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-link" /></div> Link
-      </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newPasswordInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-eye-slash" /></div> Password
-      </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newDividerInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-arrows-h" /></div> Divider
-      </div>
-      <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-image" /></div> Image
-      </div>
-      <div class="text-sm hover:bg-slate-300 ml-[3px] mr-[5px] p-[3px]" onClick={newTextInContext}>
-        <div class="inline-block text-center w-[18px]"><i class="far fa-file-lines" /></div> Text
-      </div>
-      <div class="text-sm ml-[3px] mr-[5px] p-[3px] text-slate-500">
-        <div class="inline-block text-center w-[18px]"><i class="fa fa-file" /></div> File
-      </div>
+    <div class="border rounded w-[140px] bg-slate-50 mb-1 shadow-lg pt-[3px] pb-[3px]">
+      <For each={MENU_ENTRIES}>{entry =>
+        <div class={`flex items-center text-sm ml-[3px] mr-[5px] p-[3px] ${entry.type ? "hover:bg-slate-300" : "text-slate-500"}`}
+             onClick={() => { if (entry.type) { newItemInContext(store, entry.type, props.hitInfo, props.desktopPosPx); } }}>
+          <div class="inline-block text-center w-[18px] mr-[4px]"><i class={entry.icon} /></div>
+          <span class="flex-1">{entry.label}</span>
+          <Show when={createKeyFor(entry.type)}>{k => <Key>{k()}</Key>}</Show>
+        </div>
+      }</For>
     </div>
   );
 }

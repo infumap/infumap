@@ -44,7 +44,8 @@ interface HelpSection {
 /** Mouse actions, shown as words rather than key caps. */
 const MOUSE_ACTIONS = new Set(["Drop files", "Right-click", "Long press", "Drag", "Drag background"]);
 
-const CREATE_KEYS: Array<[string, string]> = [
+/** Also shown next to each entry in the / menu (ContextMenu.tsx). Names match newItemInContext's type argument. */
+export const CREATE_KEYS: Array<[string, string]> = [
   ["N", "note"], ["P", "page"], ["T", "table"], ["X", "text"],
   ["R", "rating"], ["W", "password"], ["L", "link"], ["D", "divider"],
 ];
