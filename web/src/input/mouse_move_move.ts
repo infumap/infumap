@@ -58,7 +58,7 @@ import { newUid } from "../util/uid";
 import { isDataItem } from "../items/base/data-item";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { justifiedInsertionFromDesktopPx } from "../layout/justified-insertion";
-import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
+import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
 import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 
@@ -1163,17 +1163,7 @@ function updatePageMoveOverIndex(
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    const lineChildren = VesCache.render.getLineChildren(VeFns.veToPath(inElementVe))()
-      .map(childVe => childVe.get());
-    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
-    const scrollVeid = VeFns.actualVeidFromVe(inElementVe);
-    const scrollYPx = Math.max(
-      0,
-      (inElementVe.listChildAreaBoundsPx?.h ?? inElementVe.childAreaBoundsPx!.h) -
-      (inElementVe.listViewportBoundsPx?.h ?? inElementVe.viewportBoundsPx!.h),
-    ) * store.perItem.getPageScrollYProp(scrollVeid);
-    const childAreaYPx = desktopPosPx.y - viewportBoundsPx.y + scrollYPx;
-    const moveOverIndex = stackedInsertionIndexFromChildAreaPx(lineChildren, childAreaYPx);
+    const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, PageFns.listPageInsertionRowVes(inElementVe), desktopPosPx);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
   }
 

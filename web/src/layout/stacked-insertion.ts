@@ -95,13 +95,6 @@ export function stackedInsertionIndexFromDesktopPx(
     VeFns.veBoundsRelativeToDesktopPx(store, childVe), desktopPx.y);
 }
 
-export function stackedInsertionIndexFromChildAreaPx(
-  childVes: Array<VisualElement>,
-  childAreaYPx: number,
-): number {
-  return stackedInsertionIndexFromChildBoundsPx(childVes, (childVe) => childVe.boundsPx, childAreaYPx);
-}
-
 function stackedInsertionIndexFromChildBoundsPx(
   childVes: Array<VisualElement>,
   childBoundsPxFn: (childVe: VisualElement) => BoundingBox,

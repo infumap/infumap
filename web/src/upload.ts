@@ -22,7 +22,7 @@ import { clearMouseOverState } from "./input/mouse_move";
 import { HitboxFlags } from "./layout/hitbox";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { JustifiedInsertion, justifiedInsertionFromDesktopPx } from "./layout/justified-insertion";
-import { stackedInsertionIndexFromChildAreaPx, stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
+import { stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
 import { asAttachmentsItem, AttachmentsItem, attachmentAnchorRightPxForVe, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
@@ -267,17 +267,7 @@ function orderedPageInsertIndexFromDesktopPx(
       }
 
       {
-        const pagePath = VeFns.veToPath(pageVe);
-        const childVes = VesCache.render.getLineChildren(pagePath)().map((childVe) => childVe.get());
-        const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
-        const scrollVeid = VeFns.actualVeidFromVe(pageVe);
-        const scrollYPx = Math.max(
-          0,
-          (pageVe.listChildAreaBoundsPx?.h ?? pageVe.childAreaBoundsPx.h) -
-          (pageVe.listViewportBoundsPx?.h ?? pageVe.viewportBoundsPx.h),
-        ) * store.perItem.getPageScrollYProp(scrollVeid);
-        const childAreaYPx = desktopPx.y - viewportBoundsPx.y + scrollYPx;
-        return stackedInsertionIndexFromChildAreaPx(childVes, childAreaYPx);
+        return stackedInsertionIndexFromDesktopPx(store, PageFns.listPageInsertionRowVes(pageVe), desktopPx);
       }
 
     case ArrangeAlgorithm.Catalog:

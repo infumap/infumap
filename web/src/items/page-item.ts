@@ -1894,14 +1894,23 @@ export const PageFns = {
   getListPageVisibleRows: getListPageVisibleRowsImpl,
 
   /**
-   * Resolve a list page insertion index (a position among its line item rows, which include the rows of expanded
+   * The rows of a list page that list page insertion indexes count: those in the scrolling middle band. Rows pinned to
+   * the top or bottom band are not drop positions, and the middle band's row bounds are relative to that band.
+   */
+  listPageInsertionRowVes: (listPageVe: VisualElement): Array<VisualElement> =>
+    VesCache.render.getLineChildren(VeFns.veToPath(listPageVe))()
+      .map(ve => ve.get())
+      .filter(ve => (ve.listPageRowBand ?? "middle") == "middle"),
+
+  /**
+   * Resolve a list page insertion index (a position among its middle band line item rows, which include the rows of expanded
    * containers) to the container and child index to insert at. As for tables, the position directly below an
    * expanded container is the first position in it, and the position below the last row is after that row in its
    * container. insertIndex indexes computed_children with ignoreId removed.
    */
   listPageInsertionTarget: (listPageVe: VisualElement, moveOverIndex: number, ignoreId: Uid | null): { parentContainer: ContainerItem, insertIndex: number } => {
     const page = asPageItem(listPageVe.displayItem);
-    const rowVes = VesCache.render.getLineChildren(VeFns.veToPath(listPageVe))().map(ve => ve.get());
+    const rowVes = PageFns.listPageInsertionRowVes(listPageVe);
     const targetAtRow = (rowVe: VisualElement, offset: number) => {
       const treeItem = VeFns.treeItem(rowVe);
       const parentContainer = asContainerItem(itemState.get(treeItem.parentId)!);

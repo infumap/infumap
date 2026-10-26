@@ -54,18 +54,6 @@ import { calcBoundsInCellFromSizeBl } from "../../items/base/item-common-fns";
 import { isLinkInTrash } from "../../items/trash-link";
 
 
-function listPageScrollOffsetPx(
-  store: StoreContextModel,
-  pageVeid: Veid,
-  listChildAreaBoundsPx: BoundingBox,
-  listViewportBoundsPx: BoundingBox,
-): { x: number, y: number } {
-  return {
-    x: Math.max(0, listChildAreaBoundsPx.w - listViewportBoundsPx.w) * store.perItem.getPageScrollXProp(pageVeid),
-    y: Math.max(0, listChildAreaBoundsPx.h - listViewportBoundsPx.h) * store.perItem.getPageScrollYProp(pageVeid) - listViewportBoundsPx.y,
-  };
-}
-
 const MIN_RENDERED_NESTED_LIST_WIDTH_PX = 30;
 
 interface ListPageArrangedRow {
@@ -462,17 +450,15 @@ export function arrange_list_page(
     const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-    const scrollVeid = flags & ArrangeItemFlags.IsPopupRoot
-      ? currentPopupSpec!.actualVeid
-      : listPageActualVeid;
-    const scrollOffsetPx = listPageScrollOffsetPx(store, scrollVeid, listChildAreaBoundsPx, listViewportBoundsPx);
     const currentPageVe = VesCache.current.readNode(pageWithChildrenVePath);
+    // The moving item is drawn over the page viewport (by MovingItemsOverlay, or outside the list bands), not in the
+    // scrolled middle band, so neither the list scroll nor the pinned top band offset its position.
     const cellBoundsPx = (() => {
       if (currentPageVe != null) {
         const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, currentPageVe);
         return {
-          x: mouseDesktopPosPx.x - viewportBoundsPx.x + scrollOffsetPx.x,
-          y: mouseDesktopPosPx.y - viewportBoundsPx.y + scrollOffsetPx.y,
+          x: mouseDesktopPosPx.x - viewportBoundsPx.x,
+          y: mouseDesktopPosPx.y - viewportBoundsPx.y,
           w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
           h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
         };
@@ -481,8 +467,8 @@ export function arrange_list_page(
       if (flags & ArrangeItemFlags.IsPopupRoot) {
         const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
         return {
-          x: mouseDesktopPosPx.x - geometry.viewportBoundsPx!.x - adjX + scrollOffsetPx.x,
-          y: mouseDesktopPosPx.y - geometry.viewportBoundsPx!.y + scrollOffsetPx.y,
+          x: mouseDesktopPosPx.x - geometry.viewportBoundsPx!.x - adjX,
+          y: mouseDesktopPosPx.y - geometry.viewportBoundsPx!.y,
           w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
           h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
         };
@@ -492,8 +478,8 @@ export function arrange_list_page(
       // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.
       const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
       return {
-        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + scrollOffsetPx.x,
-        y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + scrollOffsetPx.y,
+        x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX,
+        y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx,
         w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
         h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
       };

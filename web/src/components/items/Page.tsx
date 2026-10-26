@@ -311,7 +311,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         return null;
       }
 
-      const childVes = pageFns.lineChildrenForListBand("middle").map(childVe => childVe.get());
+      const childVes = PageFns.listPageInsertionRowVes(props.visualElement);
       const widthPx = props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx();
       if (childVes.length === 0) {
         return {
@@ -797,8 +797,10 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         const topPx = containerRowsBoundsPx?.y ?? 0;
         const leftPx = 0;
         const widthPx = props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx();
+        // Drawn in the scrolling middle band, so it spans that band's child area (at least the viewport height), not
+        // just the viewport, which would scroll away with the rows.
         const heightPx = containerRowsBoundsPx?.h ??
-          props.visualElement.listViewportBoundsPx?.h ?? props.visualElement.viewportBoundsPx!.h;
+          props.visualElement.listChildAreaBoundsPx?.h ?? props.visualElement.viewportBoundsPx!.h;
         return (
           <div class="absolute pointer-events-none"
             style={`background-color: #0044ff0a; ` +
