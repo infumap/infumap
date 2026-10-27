@@ -38,7 +38,7 @@ import { ItemType } from "../../items/base/item";
 import { VisualElement_Desktop } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { VesCache } from "../../layout/ves-cache";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_GLOBAL_APP_OVERLAY, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import {
   desktopPopupIconTextIndentPx,
   getTextStyleForNote,
@@ -131,6 +131,16 @@ import {
 import { clearExternalUploadHover, dataTransferContainsFiles } from "../../upload";
 import { formatBytes } from "../../util/item-metadata";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
+import {
+  addQueryScopeItem,
+  parseQueryScopeItemInput,
+  queryScopeItemIds,
+  queryScopeItemTitle,
+  rememberQueryScopeItemTitle,
+  removeQueryScopeItem,
+} from "../../items/query-scope";
+import { ItemCandidatesPopup, createItemCandidateSearch } from "../library/ItemCandidates";
+import type { Uid } from "../../util/uid";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").trim();
@@ -159,6 +169,8 @@ const QUERY_CHAT_ACTIVITY_EXPANDED_TOP_INSET_PX = 12;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX = 30;
 const QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX = 6;
+const QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX = 30;
+const QUERY_SCOPE_ITEMS_ROW_GAP_PX = 6;
 
 
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -173,6 +185,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatText, setChatText] = createSignal("");
   /** Attachments of the message being written, in the chat composer or in the query input in chat mode. */
   const [draftAttachments, setDraftAttachments] = createSignal<Array<ChatDraftAttachment>>([]);
+  /** Whether the input for adding items to the chat's scope is shown. */
+  const [scopeEntryOpen, setScopeEntryOpen] = createSignal(false);
   const [deepResearch, setDeepResearch] = createSignal(false);
   const [isSendingChat, setIsSendingChat] = createSignal(false);
   const [queryTextareaHeightPx, setQueryTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
@@ -190,6 +204,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryToolsButton: HTMLButtonElement | undefined;
   let queryProfileBar: HTMLDivElement | undefined;
   let queryAttachButton: HTMLButtonElement | undefined;
+  let queryScopeAddButton: HTMLButtonElement | undefined;
+  let scopeItemInput: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let attachFileInput: HTMLInputElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
@@ -207,6 +223,13 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const chatContextTokens = () => queryChatContextTokenDisplay(store, queryItem(), chatText(), draftAttachments());
   const draftAttachmentsRowPx = () => draftAttachments().length > 0
     ? QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX + QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX
+    : 0;
+  const scopeItems = () => queryScopeItemIds(store, queryItem());
+  /** In the chat composer, or the query input in chat mode, while adding items or once there are any. */
+  const scopeItemsRowShown = () =>
+    (isChatMode() || selectedInputMode() == "chat") && (scopeEntryOpen() || scopeItems().length > 0);
+  const scopeItemsRowPx = () => scopeItemsRowShown()
+    ? QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX + QUERY_SCOPE_ITEMS_ROW_GAP_PX
     : 0;
   const chatActivityHeaderVisible = () => liveChatActivity() != null && chatActivityPanelHeightPx() > 0;
   const chatActivityContentRevision = createMemo(() => {
@@ -233,6 +256,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         QUERY_CHAT_SETTINGS_HEIGHT_PX +
         chatTextareaHeightPx() +
         draftAttachmentsRowPx() +
+        scopeItemsRowPx() +
         QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
       return Math.max(
         headersPx,
@@ -244,6 +268,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       QUERY_CHAT_SETTINGS_HEIGHT_PX +
       chatTextareaHeightPx() +
       draftAttachmentsRowPx() +
+      scopeItemsRowPx() +
       QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX;
     const availablePx = Math.max(0, boundsPx().h - reservedWithoutActivityPx - 80);
     const preferredPx = Math.max(QUERY_CHAT_ACTIVITY_MIN_HEIGHT_PX, Math.round(boundsPx().h * 0.34));
@@ -374,6 +399,65 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }, 1500);
   };
 
+  const scopeItemsInUse = () => queryChatUsesInfumapData(store, queryItem());
+  const scopeItemsLocked = () => queryRequestActive() || queryProfileBlockedReason() != null;
+  const scopeItemCandidates = createItemCandidateSearch({
+    anchor: () => scopeItemInput,
+    onPick: candidate => {
+      rememberQueryScopeItemTitle(candidate.id, candidate.title);
+      addScopeItem(candidate.id);
+    },
+  });
+
+  /** Clears the input once the item is added, so the next can be typed. */
+  const addScopeItem = (itemId: Uid) => {
+    try {
+      const reason = addQueryScopeItem(store, queryItem(), itemId);
+      if (reason != null) {
+        showTransientMessage(reason, TransientMessageType.Error);
+        return;
+      }
+      if (scopeItemInput) { scopeItemInput.value = ""; }
+    } catch (error) {
+      showTransientMessage(error instanceof Error ? error.message : String(error), TransientMessageType.Error);
+    }
+  };
+
+  const removeScopeItem = (itemId: Uid) => {
+    try {
+      removeQueryScopeItem(store, queryItem(), itemId);
+    } catch (error) {
+      showTransientMessage(error instanceof Error ? error.message : String(error), TransientMessageType.Error);
+    }
+  };
+
+  const openScopeEntry = () => {
+    setScopeEntryOpen(true);
+    // The input exists once the row is drawn.
+    window.requestAnimationFrame(() => scopeItemInput?.focus());
+  };
+
+  const closeScopeEntry = () => {
+    scopeItemCandidates.close();
+    setScopeEntryOpen(false);
+    if (isChatMode()) { chatTextarea?.focus(); } else { focusQueryInputControl(); }
+  };
+
+  /** Enter without a candidate chosen: the input is an id or link. Enter in an empty input closes it. */
+  const commitScopeItemInput = () => {
+    const text = scopeItemInput?.value ?? "";
+    if (text.trim() == "") {
+      closeScopeEntry();
+      return;
+    }
+    const parsed = parseQueryScopeItemInput(text);
+    if ("error" in parsed) {
+      showTransientMessage(parsed.error, TransientMessageType.Error);
+      return;
+    }
+    addScopeItem(parsed.itemId);
+  };
+
   const setQuerySearchArrangeAlgorithmForItem = (arrangeAlgorithm: ArrangeAlgorithm) => {
     const nextArrangeAlgorithm = arrangeAlgorithm == ArrangeAlgorithm.Grid
       ? ArrangeAlgorithm.Grid
@@ -493,7 +577,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "scope" | "model" | "tools" | `profile:${number}`;
+  type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "scope" | "scopeAdd" | "model" | "tools" | `profile:${number}`;
 
   const queryProfileButtons = () => Array.from(queryProfileBar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []).filter(button => button.isConnected);
 
@@ -505,6 +589,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       case "send": return querySendButton;
       case "discard": return queryDiscardButton;
       case "scope": return queryScopeButton;
+      case "scopeAdd": return queryScopeAddButton;
       case "model": return queryModelButton;
       case "tools": return queryToolsButton;
       default: return undefined;
@@ -518,6 +603,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     controls.unshift(...queryProfileButtons().map((_, index): QueryControlName => `profile:${index}`));
     if (hasSubmittedQuery()) { controls.push("discard"); }
     if (queryScopeButton?.isConnected && !queryScopeButton.disabled) { controls.push("scope"); }
+    if (queryScopeAddButton?.isConnected && !queryScopeAddButton.disabled) { controls.push("scopeAdd"); }
     if (selectedInputMode() == "chat") {
       if (queryModelButton?.isConnected && !queryModelButton.disabled) { controls.push("model"); }
       if (queryToolsButton?.isConnected && !queryToolsButton.disabled) { controls.push("tools"); }
@@ -547,7 +633,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     } else if (control == "discard") {
       focusDiscardButton();
     } else {
-      const button = control == "scope" ? queryScopeButton : control == "model" ? queryModelButton : queryToolsButton;
+      const button = queryControlButton(control);
       if (button?.isConnected && !button.disabled) { button.focus(); }
       else { focusQueryInputControl(); }
     }
@@ -945,11 +1031,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   createEffect(() => {
-    // The transcript ends above the composer: the input and any attachments of the message being written.
+    // The transcript ends above the composer: the input, any attachments of the message being written, and any
+    // items chosen as the scope.
     if (!isChatMode()) {
       return;
     }
-    const nextHeightPx = chatTextareaHeightPx() + draftAttachmentsRowPx();
+    const nextHeightPx = chatTextareaHeightPx() + draftAttachmentsRowPx() + scopeItemsRowPx();
     if (getQueryRuntime(store, queryItem()).chat.composerHeightPx == nextHeightPx) {
       return;
     }
@@ -1117,6 +1204,100 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const desktopTextIndentPx = () => desktopPopupIconTextIndentPx(desktopSizeBl().w);
 
   /** The attachments of the message being written, as chips, each of which can be removed or inserted as text. */
+  /** Items chosen as the chat's scope, and the input for adding more. Unlike attachments, nothing is sent from them. */
+  const renderScopeItemsRow = () => (
+    <div class="flex items-center overflow-x-auto overflow-y-hidden text-[#555]"
+      classList={{ "opacity-60": !scopeItemsInUse() }}
+      style={`height: ${QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX}px; gap: 6px; font-size: 13px; line-height: 20px;`}
+      title={scopeItemsInUse()
+        ? "Infumap search is limited to these items and everything inside them."
+        : "Not used: Infumap tools are off."}
+      onMouseDown={ev => ev.stopPropagation()}
+      onMouseUp={ev => ev.stopPropagation()}
+      onClick={ev => ev.stopPropagation()}>
+      <span class="flex shrink-0 items-center gap-1" style="font-size: 12px;">
+        <i class="bi-funnel" />Search limited to
+      </span>
+      <For each={scopeItems()}>{itemId =>
+        <div class="flex min-w-0 shrink-0 items-center rounded-full border border-slate-300 bg-slate-100 pl-2.5 text-slate-800"
+          style="height: 24px; max-width: 240px;"
+          title={`${queryScopeItemTitle(itemId)}\n${itemId}`}>
+          <span class="min-w-0 truncate">{queryScopeItemTitle(itemId)}</span>
+          <button type="button"
+            class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center rounded-r-full text-slate-500 hover:text-black disabled:cursor-default disabled:opacity-50"
+            title="Remove"
+            aria-label={`Remove ${queryScopeItemTitle(itemId)} from the scope`}
+            disabled={scopeItemsLocked()}
+            onMouseDown={ev => ev.preventDefault()}
+            onClick={ev => { ev.stopPropagation(); removeScopeItem(itemId); }}>
+            <i class="bi-x" />
+          </button>
+        </div>
+      }</For>
+      <Show when={scopeEntryOpen()}>
+        <input ref={scopeItemInput} type="text" spellcheck={false}
+          class="min-w-[200px] grow rounded-xs border border-[#999] bg-white px-2 text-black outline-hidden focus:border-blue-500"
+          style="height: 24px; font-size: 13px; user-select: text;"
+          placeholder="Search titles, or paste an item link"
+          aria-label="Add an item to the scope"
+          disabled={scopeItemsLocked()}
+          onInput={ev => scopeItemCandidates.search(ev.currentTarget.value)}
+          onPaste={ev => {
+            // A link pasted on its own is added at once.
+            if (ev.currentTarget.value.trim() != "") { return; }
+            const parsed = parseQueryScopeItemInput(ev.clipboardData?.getData("text/plain") ?? "");
+            if ("itemId" in parsed) {
+              ev.preventDefault();
+              addScopeItem(parsed.itemId);
+            }
+          }}
+          onKeyDown={ev => {
+            ev.stopPropagation();
+            if (scopeItemCandidates.keyDown(ev) || ev.isComposing) { return; }
+            if (ev.key == "Enter") {
+              ev.preventDefault();
+              commitScopeItemInput();
+            } else if (ev.key == "Escape") {
+              ev.preventDefault();
+              closeScopeEntry();
+            }
+          }}
+          onKeyUp={ev => ev.stopPropagation()}
+          onBlur={ev => {
+            scopeItemCandidates.close();
+            if (ev.currentTarget.value.trim() == "") { setScopeEntryOpen(false); }
+          }} />
+      </Show>
+      {/* Above the input: the chat composer is at the bottom of the page. */}
+      <ItemCandidatesPopup search={scopeItemCandidates}
+        class="border border-slate-400 rounded bg-white shadow-sm py-[3px] overflow-hidden"
+        style={`position: fixed; left: ${scopeItemCandidates.anchorBoundsPx()?.x ?? 0}px; ` +
+          `bottom: ${window.innerHeight - (scopeItemCandidates.anchorBoundsPx()?.top ?? 0) + 2}px; ` +
+          `width: ${Math.max(320, scopeItemCandidates.anchorBoundsPx()?.width ?? 0)}px; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 1};`} />
+    </div>
+  );
+
+  /** Beside the scope picker, while the chat uses Infumap tools. */
+  const renderScopeAddButton = () => (
+    <Show when={scopeItemsInUse() && (isChatMode() || selectedInputMode() == "chat")}>
+      <button ref={el => { queryScopeAddButton = el; }} type="button"
+        class="flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#d6d6d6] bg-white text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"
+        style="font-size: 12px;"
+        title="Limit Infumap search to chosen items"
+        aria-label="Limit Infumap search to chosen items"
+        disabled={scopeItemsLocked()}
+        onMouseDown={ev => ev.stopPropagation()}
+        onMouseUp={ev => ev.stopPropagation()}
+        onClick={ev => { ev.stopPropagation(); openScopeEntry(); }}
+        onKeyDown={ev => {
+          ev.stopPropagation();
+          if (ev.key == "Tab" && !isChatMode()) { handleQueryControlTab(ev, "scopeAdd"); }
+        }}>
+        <i class="bi-plus-lg" />
+      </button>
+    </Show>
+  );
+
   const renderDraftAttachments = () => {
     const stopMouse = (ev: MouseEvent) => {
       // Keeps the focus, and the caret, in the input.
@@ -1177,7 +1358,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     );
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
     const wrapperHeightPx = () => QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
-      chatTextareaHeightPx() + draftAttachmentsRowPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
+      chatTextareaHeightPx() + draftAttachmentsRowPx() + scopeItemsRowPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
     const activityBottomPx = () =>
       QUERY_CHAT_COMPOSER_BOTTOM_PX + wrapperHeightPx() + QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
     const activityIsRunning = () => {
@@ -1310,6 +1491,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             <QueryProfileBar queryItem={queryItem} searchMode={() => false} disabled={chatRequestActive}
               blockedReason={queryProfileBlockedReason} />
           </div>
+          <Show when={scopeItemsRowShown()}>
+            <div style={`margin-bottom: ${QUERY_SCOPE_ITEMS_ROW_GAP_PX}px;`}>
+              {renderScopeItemsRow()}
+            </div>
+          </Show>
           <Show when={draftAttachments().length > 0}>
             <div style={`margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px;`}>
               {renderDraftAttachments()}
@@ -1428,6 +1614,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </div>
               <QueryScopePicker
                 queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote} />
+              {renderScopeAddButton()}
               <QueryModelPicker queryItem={queryItem} disabled={chatSettingsDisabled} note={chatSettingsNote} />
               <QueryToolsPicker queryItem={queryItem} locked={chatSettingsDisabled} note={chatSettingsNote}
                 lockedReason={queryProfileBlockedReason() ?? "Wait for the current response to finish."} />
@@ -1461,7 +1648,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const showMoreButton = () => searchHasMoreResults();
     const initialControlsTopPx = () => {
       const aboveInputPx = QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
-        (showDraftAttachments() ? draftAttachmentsRowPx() : 0);
+        (showDraftAttachments() ? draftAttachmentsRowPx() : 0) + scopeItemsRowPx();
       const groupHeightPx = aboveInputPx + queryTextareaHeightPx() +
         QUERY_WORKSPACE_SETTINGS_ROW_GAP_PX + QUERY_WORKSPACE_SETTINGS_ROW_HEIGHT_PX;
       const preferredTopPx = Math.round(boundsPx().h * 0.45 - aboveInputPx - queryTextareaHeightPx() / 2);
@@ -1479,6 +1666,13 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             blockedReason={queryProfileBlockedReason}
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
             barRef={el => { queryProfileBar = el; }} onTabKey={handleQueryProfileTab} />
+        </div>
+      </Show>
+      <Show when={scopeItemsRowShown()}>
+        <div
+          style={`width: ${inputShellWidthPx()}px; margin-bottom: ${QUERY_SCOPE_ITEMS_ROW_GAP_PX}px; ` +
+            `margin-left: ${showModeSelector() ? QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0}px;`}>
+          {renderScopeItemsRow()}
         </div>
       </Show>
       <Show when={showDraftAttachments()}>
@@ -1692,6 +1886,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
           onChange={() => { if (isSearchMode()) { void runSearch(false); } }}
           buttonRef={el => { queryScopeButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "scope")} />
+        {renderScopeAddButton()}
         <Show when={selectedInputMode() == "chat"}>
           <QueryModelPicker queryItem={queryItem} disabled={queryRequestActive}
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}

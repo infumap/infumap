@@ -19,7 +19,11 @@
 import { createSignal } from "solid-js";
 import { ListScopesResponse, ScopeProblem, ScopeSummary, server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Uid } from "../util/uid";
+import { Uid, isUid } from "../util/uid";
+import { itemState } from "../store/ItemState";
+import { itemIdFromInfumapUrl } from "../layout/navigation";
+import { asLinkItem, isLink } from "./link-item";
+import { asTitledItem, isTitledItem } from "./base/titled-item";
 import { QueryItem, getQueryRuntime } from "./query-item";
 import { updateQueryConfiguration, updateQueryScopeItemIds } from "./query-configuration-state";
 
@@ -109,6 +113,39 @@ export function removeQueryScopeItem(store: StoreContextModel, queryItem: QueryI
 /** Removing the items restores the selected scope. */
 export function clearQueryScopeItems(store: StoreContextModel, queryItem: QueryItem): void {
   updateQueryScopeItemIds(store, queryItem, []);
+}
+
+// Titles of items picked from search candidates, which may not be loaded.
+const [scopeItemTitles, setScopeItemTitles] = createSignal<ReadonlyMap<Uid, string>>(new Map());
+
+export function rememberQueryScopeItemTitle(itemId: Uid, title: string): void {
+  setScopeItemTitles(new Map(scopeItemTitles()).set(itemId, title));
+}
+
+/** A link shows its target's title. An item whose title is not known here shows the start of its id. */
+export function queryScopeItemTitle(itemId: Uid): string {
+  const remembered = scopeItemTitles().get(itemId);
+  if (remembered != null) { return remembered; }
+  let item = itemState.get(itemId);
+  if (item != null && isLink(item)) { item = itemState.get(asLinkItem(item).linkTo); }
+  const title = item != null && isTitledItem(item) ? asTitledItem(item).title.trim() : "";
+  return title != "" ? title : `Item ${itemId.slice(0, 8)}…`;
+}
+
+/** An id, an infumap:// link, or a URL of an item on this host, as pasted or typed. */
+export function parseQueryScopeItemInput(text: string): { itemId: Uid } | { error: string } {
+  const trimmed = text.trim();
+  if (isUid(trimmed)) { return { itemId: trimmed }; }
+  const linked = itemIdFromInfumapUrl(trimmed);
+  if (linked != null) { return { itemId: linked }; }
+  try {
+    const url = new URL(trimmed);
+    const id = url.pathname.replace(/^\/+|\/+$/g, "");
+    if ((url.protocol == "http:" || url.protocol == "https:") && isUid(id)) {
+      return url.host == window.location.host ? { itemId: id } : { error: "Items on another Infumap host cannot be in scope." };
+    }
+  } catch (_e) { }
+  return { error: "Choose an item from the list, or paste an item link or id." };
 }
 
 /** The summary for a scope id: null for no scope or a scope that no longer exists, undefined while loading. */
