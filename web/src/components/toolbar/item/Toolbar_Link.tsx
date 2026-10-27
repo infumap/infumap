@@ -100,12 +100,13 @@ export const Toolbar_Link: Component = () => {
       <div class="inline-block">
         <Show when={canEdit()}>
           <div class="inline-block ml-[8px]">
-            <span class="mr-[6px]">link to:</span>
+            <span class="mr-[6px]">link to item:</span>
             <input ref={linkResourceInput}
-                   class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-slate-800 font-mono text-sm"
+                   class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-slate-800 font-mono text-sm placeholder:text-slate-400"
                    type="text"
                    spellcheck={false}
-                   title="Id of the item to link to"
+                   placeholder="id, or http(s)://<host>/<id>"
+                   title="Id of the item to link to, or https://<host>/<id> for an item on another Infumap instance"
                    onKeyDown={keyEventHandler}
                    onKeyUp={keyEventHandler}
                    onKeyPress={keyEventHandler} />
