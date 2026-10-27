@@ -4,6 +4,7 @@
 */
 
 import type { StoreContextModel } from "../store/StoreProvider";
+import type { Uid } from "../util/uid";
 import { getQueryRuntime, updateQueryRuntime, type QueryItem } from "./query-item";
 import {
   cloneQueryConfiguration,
@@ -96,6 +97,12 @@ export function setQueryConfigurationCapability(
   updateQueryConfiguration(store, queryItem, { capabilities: [...capabilities] });
 }
 
+/** Changes only this query's next turn. Duplicates are dropped, keeping the first. */
+export function updateQueryScopeItemIds(store: StoreContextModel, queryItem: QueryItem, scopeItemIds: Array<Uid>): void {
+  assertQueryConfigurationEditable(store, queryItem);
+  updateQueryRuntime(store, queryItem, current => ({ ...current, scopeItemIds: [...new Set(scopeItemIds)] }));
+}
+
 /** The saved profile this query's setup came from, as it is saved now. Null once that profile is deleted. */
 export function appliedSavedProfile(store: StoreContextModel, queryItem: QueryItem): QueryProfile | null {
   const applied = getQueryRuntime(store, queryItem).appliedProfile;
@@ -119,6 +126,7 @@ export function restoreQueryConfiguration(
     ...current,
     configuration: cloneQueryConfiguration(settings.configuration),
     appliedProfile: settings.appliedProfile == null ? null : snapshotQueryProfile(settings.appliedProfile),
+    scopeItemIds: [...(settings.scopeItemIds ?? [])],
     configurationInitialized: true,
   }));
 }
@@ -136,6 +144,7 @@ export function snapshotQueryChatSettings(
   return {
     configuration: cloneQueryConfiguration(runtime.configuration),
     appliedProfile: runtime.appliedProfile == null ? null : snapshotQueryProfile(runtime.appliedProfile),
+    scopeItemIds: [...runtime.scopeItemIds],
     mode,
   };
 }

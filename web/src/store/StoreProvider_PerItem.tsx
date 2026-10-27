@@ -66,6 +66,8 @@ export interface QueryRuntime {
   configurationInitialized: boolean,
   /** The profile as applied, kept separately from editable conversation settings. */
   appliedProfile: QueryProfile | null,
+  /** Items chosen in the chat as its scope, in the order added. Applying a profile leaves them unchanged. */
+  scopeItemIds: Array<Uid>,
   search: {
     resultsPageId: Uid | null,
     resultLinkIds: Array<Uid>,
@@ -176,6 +178,7 @@ export function makePerItemStore(
         : cloneQueryConfiguration(profile.configuration),
       configurationInitialized: profile != null,
       appliedProfile: profile == null ? null : snapshotQueryProfile(profile),
+      scopeItemIds: [],
       search: {
         resultsPageId: null,
         resultLinkIds: [],

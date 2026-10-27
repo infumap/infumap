@@ -288,8 +288,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   /** Search mode hides the mode selector, so a submit from there always refines the search. */
   const selectedInputMode = (): QueryInputMode =>
     isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
-  const configurationUnavailableReason = () => getQueryRuntime(store, queryItem()).configurationInitialized
-    ? queryConfigurationUnavailableReason(store, getQueryRuntime(store, queryItem()).configuration, selectedInputMode()) : null;
+  const configurationUnavailableReason = () => {
+    const runtime = getQueryRuntime(store, queryItem());
+    return runtime.configurationInitialized
+      ? queryConfigurationUnavailableReason(store, runtime.configuration, selectedInputMode(), runtime.scopeItemIds) : null;
+  };
   const sendButtonTitle = () => selectedInputMode() == "chat"
     ? (deepResearch() ? "Start deep research" : "Send chat")
     : "Run search";

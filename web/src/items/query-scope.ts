@@ -21,7 +21,10 @@ import { ListScopesResponse, ScopeProblem, ScopeSummary, server } from "../serve
 import { StoreContextModel } from "../store/StoreProvider";
 import { Uid } from "../util/uid";
 import { QueryItem, getQueryRuntime } from "./query-item";
-import { updateQueryConfiguration } from "./query-configuration-state";
+import { updateQueryConfiguration, updateQueryScopeItemIds } from "./query-configuration-state";
+
+/** The most items a chat can be limited to, as the server allows. */
+export const MAX_QUERY_SCOPE_ITEMS = 32;
 
 
 const [scopeList, setScopeList] = createSignal<ListScopesResponse | null>(null);
@@ -83,6 +86,29 @@ export function queryScopeId(store: StoreContextModel, queryItem: QueryItem): Ui
 
 export function setQueryScopeId(store: StoreContextModel, queryItem: QueryItem, scopeId: Uid | null): void {
   updateQueryConfiguration(store, queryItem, { scopeId });
+}
+
+/** Items chosen in the chat as its scope. While there are any, they are used in place of the scope. */
+export function queryScopeItemIds(store: StoreContextModel, queryItem: QueryItem): Array<Uid> {
+  return getQueryRuntime(store, queryItem).scopeItemIds;
+}
+
+/** Adds an item to the end. Returns why it was not added, or null. Adding one already there changes nothing. */
+export function addQueryScopeItem(store: StoreContextModel, queryItem: QueryItem, itemId: Uid): string | null {
+  const current = queryScopeItemIds(store, queryItem);
+  if (current.includes(itemId)) { return null; }
+  if (current.length >= MAX_QUERY_SCOPE_ITEMS) { return `At most ${MAX_QUERY_SCOPE_ITEMS} items can be in scope.`; }
+  updateQueryScopeItemIds(store, queryItem, [...current, itemId]);
+  return null;
+}
+
+export function removeQueryScopeItem(store: StoreContextModel, queryItem: QueryItem, itemId: Uid): void {
+  updateQueryScopeItemIds(store, queryItem, queryScopeItemIds(store, queryItem).filter(id => id != itemId));
+}
+
+/** Removing the items restores the selected scope. */
+export function clearQueryScopeItems(store: StoreContextModel, queryItem: QueryItem): void {
+  updateQueryScopeItemIds(store, queryItem, []);
 }
 
 /** The summary for a scope id: null for no scope or a scope that no longer exists, undefined while loading. */

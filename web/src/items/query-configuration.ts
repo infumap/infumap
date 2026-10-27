@@ -92,6 +92,12 @@ export type ChatRunMode = "chat" | "deep_research";
 /** Per-turn settings. Resource configuration and profile provenance are independent of execution mode. */
 export interface QueryChatSettings {
   configuration: QueryConfiguration,
+  /**
+   * Items chosen in the chat, each covering itself and its descendants. When there are any, they limit Infumap tools
+   * in place of `configuration.scopeId`, which stays selected for when they are removed. Not part of the
+   * configuration, so profiles never carry them. The server omits an empty list.
+   */
+  scopeItemIds?: Array<Uid>,
   appliedProfile: QueryProfile | null,
   mode: ChatRunMode,
 }

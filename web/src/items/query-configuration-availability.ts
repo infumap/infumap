@@ -1,6 +1,7 @@
 /* Copyright (C) The Infumap Authors. SPDX-License-Identifier: AGPL-3.0-or-later */
 
 import type { StoreContextModel } from "../store/StoreProvider";
+import type { Uid } from "../util/uid";
 import type { ChatModelSelection, QueryConfiguration } from "./query-configuration";
 import { queryModelRouteLabel, queryProviderLabel } from "./query-configuration-labels";
 import { queryScopeName, queryScopeProblemText, queryScopeSummary, queryScopesError, queryScopesLoading, refreshQueryScopes } from "./query-scope";
@@ -47,14 +48,18 @@ export function queryModelIssues(store: StoreContextModel, selection: ChatModelS
   return [];
 }
 
-/** Reports facts from discovery without substituting or deleting any saved resource. */
+/**
+ * Reports facts from discovery without substituting or deleting any saved resource. In a chat, items chosen as its
+ * scope replace the selected scope, so that scope's issues are inactive while there are any. Search ignores them.
+ */
 export function queryConfigurationIssues(
   store: StoreContextModel,
   configuration: QueryConfiguration,
   mode: "search" | "chat",
+  scopeItemIds: Array<Uid> = [],
 ): QueryConfigurationIssue[] {
   const issues: QueryConfigurationIssue[] = [];
-  const scopeActive = mode == "search" || configuration.capabilities.includes("infumap_data");
+  const scopeActive = mode == "search" || (configuration.capabilities.includes("infumap_data") && scopeItemIds.length == 0);
   if (configuration.scopeId != null) {
     const summary = queryScopeSummary(configuration.scopeId);
     if (summary === undefined || queryScopesError() != null) {
@@ -86,8 +91,10 @@ export function queryConfigurationIssues(
   return issues;
 }
 
-export function queryConfigurationUnavailableReason(store: StoreContextModel, configuration: QueryConfiguration, mode: "search" | "chat"): string | null {
-  const messages = queryConfigurationIssues(store, configuration, mode).filter(issue => issue.active && issue.status == "unavailable").map(issue => issue.message);
+export function queryConfigurationUnavailableReason(
+  store: StoreContextModel, configuration: QueryConfiguration, mode: "search" | "chat", scopeItemIds: Array<Uid> = [],
+): string | null {
+  const messages = queryConfigurationIssues(store, configuration, mode, scopeItemIds).filter(issue => issue.active && issue.status == "unavailable").map(issue => issue.message);
   return messages.length == 0 ? null : messages.join("\n");
 }
 

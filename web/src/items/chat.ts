@@ -1196,7 +1196,7 @@ async function submitQueryChatTurn(
   }
   if (!isCurrent()) { return false; }
   const settings = snapshotQueryChatSettings(store, queryItem, deepResearch ? "deep_research" : "chat");
-  const unavailable = queryConfigurationUnavailableReason(store, settings.configuration, "chat");
+  const unavailable = queryConfigurationUnavailableReason(store, settings.configuration, "chat", settings.scopeItemIds);
   if (unavailable != null) {
     showChatMessage(store, unavailable, TransientMessageType.Error);
     return false;
