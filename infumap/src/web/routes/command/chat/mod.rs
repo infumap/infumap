@@ -29,7 +29,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
-use super::scope::{ResolvedScope, resolve_scope};
+use super::scope::{ResolvedScope, ScopeSource, resolve_scope};
 use crate::web::LLM_LOG_ENABLED;
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
@@ -2548,11 +2548,12 @@ fn chat_utc_today_line() -> String {
 }
 
 fn chat_system_prompt(infumap_data: Option<&InfumapData>, has_plugin_tools: bool, mode: ChatRunMode) -> String {
-  let scope_part = infumap_data.and_then(InfumapData::scope).map(|scope| {
-    format!(
+  let scope_part = infumap_data.and_then(InfumapData::scope).and_then(|scope| match &scope.source {
+    ScopeSource::Named { name, .. } => Some(format!(
       "The tools only see the scope {}; an item not found may lie outside it.",
-      serde_json::Value::String(scope.name.clone())
-    )
+      serde_json::Value::String(name.clone())
+    )),
+    ScopeSource::Items(_) => None,
   });
   let mut parts = vec![if infumap_data.is_some() { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT }];
   if let Some(scope_part) = &scope_part {

@@ -22,6 +22,9 @@
 //! attachments, never link targets), minus the exclude roots and their descendants. Exclusion
 //! wins over inclusion. A scope with no include links covers the user's home page tree; a scope
 //! whose include links all fail to resolve covers nothing.
+//!
+//! A chat can instead be limited to items chosen in it, without a scope page. Each covers itself and its
+//! descendants, as an include link would, and nothing is excluded.
 
 use super::*;
 
@@ -40,6 +43,9 @@ pub(super) enum ScopeProblem {
   MultipleExcludeContainers,
   /// The scope has include links, but none of them resolve, so it covers nothing.
   NoResolvedIncludes,
+  /// An item chosen in a chat is missing or unreadable, or is a link to another link.
+  #[serde(rename_all = "camelCase")]
+  UnresolvedItem { item_id: Uid },
 }
 
 #[derive(Serialize)]
@@ -60,9 +66,17 @@ struct ListScopesResponse<'a> {
   scopes: Vec<ScopeSummary<'a>>,
 }
 
+/// What a scope was resolved from.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum ScopeSource {
+  /// A scope page, named by its title.
+  Named { id: Uid, name: String },
+  /// Items chosen in a chat: each one that resolved, a link as its target, in the order chosen.
+  Items(Vec<Uid>),
+}
+
 pub(super) struct ResolvedScope {
-  pub id: Uid,
-  pub name: String,
+  pub source: ScopeSource,
   home_page_id: Uid,
   /// None means the home page tree.
   include_roots: Option<HashSet<Uid>>,
@@ -188,12 +202,15 @@ fn list_scopes_json(db: &Db, user_id: &Uid) -> InfuResult<String> {
     scopes_page_id: scopes_page_id(user_id),
     scopes: scopes
       .iter()
-      .map(|scope| ScopeSummary {
-        id: &scope.id,
-        name: &scope.name,
-        include_count: scope.include_root_count(),
-        exclude_count: scope.exclude_root_count(),
-        problems: &scope.problems,
+      .filter_map(|scope| match &scope.source {
+        ScopeSource::Named { id, name } => Some(ScopeSummary {
+          id,
+          name,
+          include_count: scope.include_root_count(),
+          exclude_count: scope.exclude_root_count(),
+          problems: &scope.problems,
+        }),
+        ScopeSource::Items(_) => None,
       })
       .collect(),
   };
@@ -281,11 +298,38 @@ fn resolve_scope_page(db: &Db, user_id: &Uid, scope_page: &Item) -> InfuResult<R
   }
 
   Ok(ResolvedScope {
-    id: scope_page.id.clone(),
-    name: scope_page.title.clone().unwrap_or_default(),
+    source: ScopeSource::Named { id: scope_page.id.clone(), name: scope_page.title.clone().unwrap_or_default() },
     home_page_id: user.home_page_id.clone(),
     include_roots,
     exclude_roots,
+    problems,
+  })
+}
+
+/// The scope of items chosen in a chat. An item that does not resolve is reported as a problem; if none
+/// resolve, this is an error for the user, since the chat would otherwise search nothing without saying so.
+pub(super) fn resolve_item_scope(db: &Db, user_id: &Uid, item_ids: &[Uid]) -> InfuResult<ResolvedScope> {
+  let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
+  let mut problems = Vec::new();
+  let mut roots = Vec::new();
+  for item_id in item_ids {
+    match db.item.get(item_id).ok().and_then(|item| resolve_content(db, item, user_id)) {
+      Some(target) => {
+        if !roots.contains(&target.id) {
+          roots.push(target.id.clone());
+        }
+      }
+      None => problems.push(ScopeProblem::UnresolvedItem { item_id: item_id.clone() }),
+    }
+  }
+  if roots.is_empty() {
+    return Err("None of the items in scope exist any more. Remove them or add others.".into());
+  }
+  Ok(ResolvedScope {
+    include_roots: Some(roots.iter().cloned().collect()),
+    source: ScopeSource::Items(roots),
+    home_page_id: user.home_page_id.clone(),
+    exclude_roots: HashSet::new(),
     problems,
   })
 }
@@ -491,7 +535,7 @@ mod tests {
     t.link(&scope, &projects).await;
 
     let resolved = t.resolve(&scope);
-    assert_eq!(resolved.name, "Work");
+    assert_eq!(resolved.source, ScopeSource::Named { id: scope.clone(), name: "Work".to_owned() });
     assert_eq!(resolved.include_root_count(), Some(1));
     assert!(resolved.problems.is_empty());
     assert!(t.contains(&resolved, &projects));
@@ -665,10 +709,70 @@ mod tests {
     let second = t.page(&scopes_id, "Second").await;
 
     let listed = list_scopes(&t.db, &t.user_id).unwrap();
-    assert_eq!(listed.iter().map(|scope| scope.id.clone()).collect::<Vec<_>>(), vec![first, second]);
+    assert_eq!(
+      listed.iter().map(|scope| scope.source.clone()).collect::<Vec<_>>(),
+      vec![
+        ScopeSource::Named { id: first, name: "First".to_owned() },
+        ScopeSource::Named { id: second, name: "Second".to_owned() },
+      ]
+    );
     assert!(resolve_scope(&t.db, &t.user_id, &not_a_scope).is_err());
     assert!(resolve_scope(&t.db, &t.user_id, &new_uid()).is_err());
     assert!(resolve_scope(&t.db, &t.user_id, &scopes_id).is_err());
+  }
+
+  #[tokio::test]
+  async fn chosen_items_cover_their_descendants_and_links_resolve_to_their_targets() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let projects = t.page(&home, "Projects").await;
+    let plan = t.note(&projects, "plan", RelationshipToParent::Child).await;
+    let attachment = t.note(&plan, "attached", RelationshipToParent::Attachment).await;
+    let reading = t.page(&home, "Reading").await;
+    let book = t.note(&reading, "book", RelationshipToParent::Child).await;
+    let other = t.page(&home, "Other").await;
+    let link_to_reading = t.link(&other, &reading).await;
+
+    // The link and its target are the same root, and the first occurrence keeps its place.
+    let resolved =
+      resolve_item_scope(&t.db, &t.user_id, &[link_to_reading.clone(), projects.clone(), reading.clone()]).unwrap();
+    assert_eq!(resolved.source, ScopeSource::Items(vec![reading.clone(), projects.clone()]));
+    assert_eq!(resolved.include_root_count(), Some(2));
+    assert_eq!(resolved.exclude_root_count(), 0);
+    assert!(resolved.problems.is_empty());
+    for inside in [&projects, &plan, &attachment, &reading, &book] {
+      assert!(t.contains(&resolved, inside));
+    }
+    assert!(!t.contains(&resolved, &other), "the link's parent is not chosen");
+    assert!(!t.contains(&resolved, &link_to_reading));
+    assert!(!t.contains(&resolved, &home));
+    t.assert_consistent(&resolved);
+  }
+
+  #[tokio::test]
+  async fn chosen_items_that_do_not_resolve_are_reported_and_none_resolving_is_an_error() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let a = t.page(&home, "A").await;
+    let b = t.page(&home, "B").await;
+    let link_to_a = t.link(&home, &a).await;
+    let link_to_link = t.link(&home, &link_to_a).await;
+    let missing = new_uid();
+
+    let resolved = resolve_item_scope(&t.db, &t.user_id, &[missing.clone(), a.clone(), link_to_link.clone()]).unwrap();
+    assert_eq!(resolved.source, ScopeSource::Items(vec![a.clone()]));
+    assert_eq!(
+      resolved.problems,
+      vec![
+        ScopeProblem::UnresolvedItem { item_id: missing.clone() },
+        ScopeProblem::UnresolvedItem { item_id: link_to_link.clone() }
+      ]
+    );
+    assert!(t.contains(&resolved, &a));
+    assert!(!t.contains(&resolved, &b));
+
+    assert!(resolve_item_scope(&t.db, &t.user_id, &[missing, link_to_link]).is_err());
+    assert!(resolve_item_scope(&t.db, &t.user_id, &[]).is_err());
   }
 
   #[tokio::test]
