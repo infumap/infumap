@@ -160,6 +160,21 @@ export interface ListScopesResponse {
   scopes: Array<ScopeSummary>,
 }
 
+/** An item chosen as a chat's scope, as it resolves now: a link is described as its target. */
+export interface ScopeItemDescription {
+  id: Uid,
+  /** False if the item is missing or unreadable, or is a link to another link: it would be left out of the scope. */
+  resolved: boolean,
+  /** The first line of the title. Null when untitled or unresolved. */
+  title: string | null,
+  itemType: string | null,
+}
+
+export interface DescribeScopeItemsResponse {
+  /** In the order requested. */
+  items: Array<ScopeItemDescription>,
+}
+
 /** One of the user's links to an item, or one of their notes with an infumap:// url to it. */
 export interface Backlink {
   /** The link or note. */
@@ -508,6 +523,7 @@ const COMMAND_CONVERT_PAGE_TABLE = "convert-page-table";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_SCOPES = "list-scopes";
+const COMMAND_DESCRIBE_SCOPE_ITEMS = "describe-scope-items";
 const COMMAND_QUERY_PROFILES = "query-profiles";
 const COMMAND_LOAD_CHAT = "load-chat";
 const COMMAND_LOAD_CHAT_ATTACHMENT = "load-chat-attachment";
@@ -553,6 +569,9 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_LIST_SCOPES:
       description = "Loading scopes";
+      break;
+    case COMMAND_DESCRIBE_SCOPE_ITEMS:
+      description = "Loading scope items";
       break;
     case COMMAND_QUERY_PROFILES:
       description = payload.operation == "list" ? "Loading query profiles" : "Saving query profiles";
@@ -1314,6 +1333,11 @@ export const server = {
 
   listScopes: async (): Promise<ListScopesResponse> => {
     return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null);
+  },
+
+  /** At most 32 items. */
+  describeScopeItems: async (itemIds: Array<Uid>): Promise<DescribeScopeItemsResponse> => {
+    return constructCommandPromise(null, COMMAND_DESCRIBE_SCOPE_ITEMS, { itemIds }, null);
   },
 
   ensureQueryEntry: async (firstTurnQueryItemId: Uid | null): Promise<EnsureQueryEntryResponse> => {

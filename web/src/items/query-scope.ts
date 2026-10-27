@@ -17,7 +17,7 @@
 */
 
 import { createSignal } from "solid-js";
-import { ListScopesResponse, ScopeProblem, ScopeSummary, server } from "../server";
+import { ListScopesResponse, ScopeItemDescription, ScopeProblem, ScopeSummary, server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { Uid, isUid } from "../util/uid";
 import { itemState } from "../store/ItemState";
@@ -115,21 +115,60 @@ export function clearQueryScopeItems(store: StoreContextModel, queryItem: QueryI
   updateQueryScopeItemIds(store, queryItem, []);
 }
 
-// Titles of items picked from search candidates, which may not be loaded.
+// Titles of items picked from search candidates, shown until the server describes them.
 const [scopeItemTitles, setScopeItemTitles] = createSignal<ReadonlyMap<Uid, string>>(new Map());
+// The server's descriptions of items chosen as scopes, for every query. Items are edited elsewhere, so these are
+// fetched again whenever a scope picker opens.
+const [scopeItemDescriptions, setScopeItemDescriptions] = createSignal<ReadonlyMap<Uid, ScopeItemDescription>>(new Map());
+const scopeItemDescriptionRequests = new Set<Uid>();
 
 export function rememberQueryScopeItemTitle(itemId: Uid, title: string): void {
   setScopeItemTitles(new Map(scopeItemTitles()).set(itemId, title));
 }
 
+/**
+ * Fetches descriptions of the items, or of those not yet described unless `refresh`. A failure leaves the titles
+ * known here, and is shown in the network status.
+ */
+export async function describeQueryScopeItems(itemIds: Array<Uid>, refresh: boolean = false): Promise<void> {
+  const wanted = itemIds.filter(id => !scopeItemDescriptionRequests.has(id) && (refresh || !scopeItemDescriptions().has(id)));
+  if (wanted.length == 0) { return; }
+  wanted.forEach(id => scopeItemDescriptionRequests.add(id));
+  try {
+    const response = await server.describeScopeItems(wanted);
+    const descriptions = new Map(scopeItemDescriptions());
+    response.items.forEach(item => descriptions.set(item.id, item));
+    setScopeItemDescriptions(descriptions);
+  } catch (e) {
+    console.error("Could not describe scope items:", e);
+  } finally {
+    wanted.forEach(id => scopeItemDescriptionRequests.delete(id));
+  }
+}
+
+/** False once the server reports the item would be left out of the scope; true while that is not known. */
+export function queryScopeItemResolved(itemId: Uid): boolean {
+  return scopeItemDescriptions().get(itemId)?.resolved ?? true;
+}
+
 /** A link shows its target's title. An item whose title is not known here shows the start of its id. */
 export function queryScopeItemTitle(itemId: Uid): string {
+  const description = scopeItemDescriptions().get(itemId);
+  if (description != null) {
+    if (!description.resolved) { return "Missing item"; }
+    return description.title ?? `untitled ${description.itemType}`;
+  }
   const remembered = scopeItemTitles().get(itemId);
   if (remembered != null) { return remembered; }
   let item = itemState.get(itemId);
   if (item != null && isLink(item)) { item = itemState.get(asLinkItem(item).linkTo); }
   const title = item != null && isTitledItem(item) ? asTitledItem(item).title.trim() : "";
   return title != "" ? title : `Item ${itemId.slice(0, 8)}…`;
+}
+
+/** "3 items", for labels. */
+export function queryScopeItemsLabel(count: number): string {
+  return `${count} item${count == 1 ? "" : "s"}`;
 }
 
 /** An id, an infumap:// link, or a URL of an item on this host, as pasted or typed. */

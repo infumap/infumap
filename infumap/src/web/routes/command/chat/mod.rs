@@ -29,7 +29,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
-use super::scope::{ResolvedScope, ScopeSource, resolve_item_scope, resolve_scope};
+use super::scope::{MAX_SCOPE_ITEMS, ResolvedScope, ScopeSource, resolve_item_scope, resolve_scope};
 use crate::web::LLM_LOG_ENABLED;
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
@@ -2375,7 +2375,7 @@ pub async fn serve_chat_tool_route(
   if !matches!(request.name.as_str(), "infumap_search" | "infumap_get_fragment") {
     return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Unknown built-in tool '{}'.", request.name));
   }
-  if request.scope_item_ids.len() > configuration::MAX_SCOPE_ITEMS {
+  if request.scope_item_ids.len() > MAX_SCOPE_ITEMS {
     return chat_tool_error_response(StatusCode::BAD_REQUEST, "Too many scope items.");
   }
   let scope = if !request.scope_item_ids.is_empty() {

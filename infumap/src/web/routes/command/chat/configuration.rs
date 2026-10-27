@@ -1,14 +1,12 @@
 // Copyright (C) The Infumap Authors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use super::super::scope::MAX_SCOPE_ITEMS;
 use super::ChatRunMode;
 pub use crate::query_configuration::{QueryConfiguration, QueryProfile};
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{Uid, is_uid};
 use serde::{Deserialize, Serialize};
-
-/// The most items a turn can limit Infumap tools to.
-pub(super) const MAX_SCOPE_ITEMS: usize = 32;
 
 /// Settings captured for one chat turn; mode and profile provenance are separate from resources.
 #[derive(Clone, Deserialize, Serialize)]

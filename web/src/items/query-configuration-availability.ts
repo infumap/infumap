@@ -4,7 +4,10 @@ import type { StoreContextModel } from "../store/StoreProvider";
 import type { Uid } from "../util/uid";
 import type { ChatModelSelection, QueryConfiguration } from "./query-configuration";
 import { queryModelRouteLabel, queryProviderLabel } from "./query-configuration-labels";
-import { queryScopeName, queryScopeProblemText, queryScopeSummary, queryScopesError, queryScopesLoading, refreshQueryScopes } from "./query-scope";
+import {
+  queryScopeItemResolved, queryScopeName, queryScopeProblemText, queryScopeSummary, queryScopesError, queryScopesLoading,
+  refreshQueryScopes,
+} from "./query-scope";
 
 export interface QueryConfigurationIssue {
   resource: "scope" | "model" | "tools",
@@ -72,6 +75,18 @@ export function queryConfigurationIssues(
     } else {
       const problem = queryScopeProblemText(summary.problems);
       if (problem != null) { issues.push({ resource: "scope", status: "warning", active: scopeActive, subject: queryScopeName(configuration.scopeId), message: `${queryScopeName(configuration.scopeId)}: ${problem}.` }); }
+    }
+  }
+  if (mode == "chat" && scopeItemIds.length > 0) {
+    // The server leaves out items that do not resolve, and refuses a chat whose items all fail to.
+    const missing = scopeItemIds.filter(id => !queryScopeItemResolved(id)).length;
+    const active = configuration.capabilities.includes("infumap_data");
+    if (missing == scopeItemIds.length) {
+      issues.push({ resource: "scope", status: "unavailable", active, subject: "Scope items",
+        message: "None of the items in scope exist any more. Remove them or add others." });
+    } else if (missing > 0) {
+      issues.push({ resource: "scope", status: "warning", active, subject: "Scope items",
+        message: `${missing} of the items in scope no longer ${missing == 1 ? "exists" : "exist"} and will be left out.` });
     }
   }
   issues.push(...queryModelIssues(store, configuration.model).map(issue => ({ ...issue, active: mode == "chat" })));

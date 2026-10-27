@@ -133,8 +133,10 @@ import { formatBytes } from "../../util/item-metadata";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
 import {
   addQueryScopeItem,
+  describeQueryScopeItems,
   parseQueryScopeItemInput,
   queryScopeItemIds,
+  queryScopeItemResolved,
   queryScopeItemTitle,
   rememberQueryScopeItemTitle,
   removeQueryScopeItem,
@@ -231,6 +233,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const scopeItemsRowPx = () => scopeItemsRowShown()
     ? QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX + QUERY_SCOPE_ITEMS_ROW_GAP_PX
     : 0;
+  createEffect(() => {
+    // Titles of items added by id, or restored with the chat, are not known here.
+    const itemIds = scopeItems();
+    if (itemIds.length > 0) { void describeQueryScopeItems(itemIds); }
+  });
   const chatActivityHeaderVisible = () => liveChatActivity() != null && chatActivityPanelHeightPx() > 0;
   const chatActivityContentRevision = createMemo(() => {
     const live = liveChatActivity();
@@ -1219,9 +1226,15 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <i class="bi-funnel" />Search limited to
       </span>
       <For each={scopeItems()}>{itemId =>
-        <div class="flex min-w-0 shrink-0 items-center rounded-full border border-slate-300 bg-slate-100 pl-2.5 text-slate-800"
+        <div class="flex min-w-0 shrink-0 items-center rounded-full border pl-2.5"
+          classList={{
+            "border-slate-300 bg-slate-100 text-slate-800": queryScopeItemResolved(itemId),
+            "border-amber-400 bg-amber-50 text-amber-800": !queryScopeItemResolved(itemId),
+          }}
           style="height: 24px; max-width: 240px;"
-          title={`${queryScopeItemTitle(itemId)}\n${itemId}`}>
+          title={queryScopeItemResolved(itemId)
+            ? `${queryScopeItemTitle(itemId)}\n${itemId}`
+            : `This item no longer exists and will be left out.\n${itemId}`}>
           <span class="min-w-0 truncate">{queryScopeItemTitle(itemId)}</span>
           <button type="button"
             class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center rounded-r-full text-slate-500 hover:text-black disabled:cursor-default disabled:opacity-50"
@@ -1613,7 +1626,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 }}</For>
               </div>
               <QueryScopePicker
-                queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote} />
+                queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote}
+                usesScopeItems={() => true} />
               {renderScopeAddButton()}
               <QueryModelPicker queryItem={queryItem} disabled={chatSettingsDisabled} note={chatSettingsNote} />
               <QueryToolsPicker queryItem={queryItem} locked={chatSettingsDisabled} note={chatSettingsNote}
@@ -1883,6 +1897,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <QueryScopePicker
           queryItem={queryItem} disabled={queryRequestActive}
           inUse={() => selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}
+          usesScopeItems={() => selectedInputMode() == "chat"}
           beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
           onChange={() => { if (isSearchMode()) { void runSearch(false); } }}
           buttonRef={el => { queryScopeButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "scope")} />

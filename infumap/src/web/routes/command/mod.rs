@@ -246,6 +246,7 @@ pub async fn serve_command_route(
     "sync-containers" => handle_sync_containers(db, &request.json_data, &session_maybe).await,
     "search" => search::handle_search(db, &request.json_data, &session_maybe).await,
     "list-scopes" => scope::handle_list_scopes(db, &session_maybe).await,
+    "describe-scope-items" => scope::handle_describe_scope_items(db, &request.json_data, &session_maybe).await,
     "query-profiles" => query_profiles::handle_query_profiles(config, db, &request.json_data, &session_maybe).await,
     "load-chat" => chat::handle_load_chat(db, object_store.clone(), &request.json_data, &session_maybe).await,
     "load-chat-attachment" => {

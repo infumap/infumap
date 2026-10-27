@@ -29,6 +29,9 @@
 use super::*;
 
 const EXCLUDE_CONTAINER_TITLE: &str = "exclude";
+/// The most items a chat can be limited to.
+pub(super) const MAX_SCOPE_ITEMS: usize = 32;
+const SCOPE_ITEM_TITLE_MAX_CHARS: usize = 120;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -215,6 +218,66 @@ fn list_scopes_json(db: &Db, user_id: &Uid) -> InfuResult<String> {
       .collect(),
   };
   Ok(serde_json::to_string(&response)?)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct DescribeScopeItemsRequest {
+  item_ids: Vec<Uid>,
+}
+
+/// An item chosen as a chat's scope, as it resolves now: a link is described as its target.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScopeItemDescription {
+  id: Uid,
+  /// False if the item is missing or unreadable, or is a link to another link: it would be left out of the scope.
+  resolved: bool,
+  /// The first line of the title. None when untitled or unresolved.
+  title: Option<String>,
+  item_type: Option<String>,
+}
+
+#[derive(Serialize)]
+struct DescribeScopeItemsResponse {
+  items: Vec<ScopeItemDescription>,
+}
+
+/// Titles and availability of items chosen as a chat's scope, which the client may not have loaded.
+pub(super) async fn handle_describe_scope_items(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to describe scope items.")?;
+  let request: DescribeScopeItemsRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  if request.item_ids.len() > MAX_SCOPE_ITEMS {
+    return Err(format!("At most {MAX_SCOPE_ITEMS} scope items can be described.").into());
+  }
+  let items = describe_scope_items(&*db.lock().await, &session.user_id, &request.item_ids);
+  debug!("Executed 'describe-scope-items' command for user '{}'.", session.user_id);
+  Ok(Some(serde_json::to_string(&DescribeScopeItemsResponse { items })?))
+}
+
+/// In the order given, with the same resolution as `resolve_item_scope`.
+fn describe_scope_items(db: &Db, user_id: &Uid, item_ids: &[Uid]) -> Vec<ScopeItemDescription> {
+  item_ids
+    .iter()
+    .map(|item_id| match db.item.get(item_id).ok().and_then(|item| resolve_content(db, item, user_id)) {
+      Some(target) => ScopeItemDescription {
+        id: item_id.clone(),
+        resolved: true,
+        title: target
+          .title
+          .as_deref()
+          .and_then(|title| title.lines().map(str::trim).find(|line| !line.is_empty()))
+          .map(|line| line.chars().take(SCOPE_ITEM_TITLE_MAX_CHARS).collect()),
+        item_type: Some(target.item_type.as_str().to_owned()),
+      },
+      None => ScopeItemDescription { id: item_id.clone(), resolved: false, title: None, item_type: None },
+    })
+    .collect()
 }
 
 fn is_scope_page(item: &Item, user_id: &Uid) -> bool {
@@ -773,6 +836,36 @@ mod tests {
 
     assert!(resolve_item_scope(&t.db, &t.user_id, &[missing, link_to_link]).is_err());
     assert!(resolve_item_scope(&t.db, &t.user_id, &[]).is_err());
+  }
+
+  #[tokio::test]
+  async fn scope_items_are_described_in_order_as_they_resolve() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let projects = t.page(&home, "  Projects\nsecond line").await;
+    let untitled = t.note(&home, "", RelationshipToParent::Child).await;
+    let link = t.link(&home, &projects).await;
+    let link_to_link = t.link(&home, &link).await;
+    let missing = new_uid();
+
+    let described =
+      describe_scope_items(&t.db, &t.user_id, &[link.clone(), untitled.clone(), missing.clone(), link_to_link.clone()]);
+    let page = |id: &Uid| ScopeItemDescription {
+      id: id.clone(),
+      resolved: true,
+      title: Some("Projects".to_owned()),
+      item_type: Some("page".to_owned()),
+    };
+    let unresolved = |id: &Uid| ScopeItemDescription { id: id.clone(), resolved: false, title: None, item_type: None };
+    assert_eq!(
+      described,
+      vec![
+        page(&link),
+        ScopeItemDescription { id: untitled, resolved: true, title: None, item_type: Some("note".to_owned()) },
+        unresolved(&missing),
+        unresolved(&link_to_link),
+      ]
+    );
   }
 
   #[tokio::test]
