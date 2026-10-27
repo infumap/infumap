@@ -1124,11 +1124,17 @@ export function edit_tableTabKeyHandler(store: StoreContextModel, ev: KeyboardEv
   ev.preventDefault();
   ev.stopPropagation();
 
+  // Finish the edit first. In a table ordered by title that re-sorts and may scroll, which renders the row in another
+  // element, so the target cell is read after that or the new editor would be focused in an element that is replaced.
+  commitActiveTextEdit(store, false, "table-tab-exit-edit");
+  const arrangedRowVe = VesCache.current.readNode(rowPath!);
+  if (arrangedRowVe == null) { return true; }
+
   const attachmentPos = targetCol - 1;
-  const targetId = asAttachmentsItem(rowVe.displayItem).computed_attachments[attachmentPos];
+  const targetId = asAttachmentsItem(arrangedRowVe.displayItem).computed_attachments[attachmentPos];
   const targetItem = targetId == null ? null : itemState.get(targetId);
   if (targetItem == null || isPlaceholder(targetItem)) {
-    createNoteInTableCellAndEdit(store, rowVe, attachmentPos);
+    createNoteInTableCellAndEdit(store, arrangedRowVe, attachmentPos);
     return true;
   }
 
@@ -1137,7 +1143,6 @@ export function edit_tableTabKeyHandler(store: StoreContextModel, ev: KeyboardEv
   if (isNote(targetVe.displayItem)) {
     NoteFns.handleClick(targetVe, store, true, true);
   } else {
-    commitActiveTextEdit(store, false, "table-tab-exit-edit", false);
     store.history.setFocus(VeFns.veToPath(targetVe));
     arrangeNow(store, "table-tab-focus");
   }
