@@ -610,16 +610,20 @@ export const TableFns = {
   },
 
   /**
-   * The scroll position (in blocks) to show row rowIdx after a jump to it from elsewhere: the current one if the row is
-   * fully visible, otherwise one with the row in the middle, so the rows around it are visible too. Whole blocks, as
-   * after a user scroll, except at the bottom.
+   * The scroll position (in blocks) to show row rowIdx after a jump to it from elsewhere: the current one if the row and
+   * its neighbours (where there are any) are fully visible, otherwise one with the row in the middle, so the rows around
+   * it are visible too. Whole blocks, as after a user scroll, except at the bottom.
    */
   scrollYPosToRevealRow: (store: StoreContextModel, tableVe: VisualElement, rowIdx: number): number => {
     const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
     const viewport = tableScrollViewportBl(store, tableVe);
     if (viewport == null) { return scrollYPos; }
     const target = tabularRowSpanBl(viewport.rows, rowIdx);
-    if (target.offsetBl >= scrollYPos && target.offsetBl + target.heightBl <= scrollYPos + viewport.heightBl) {
+    const above = viewport.rows[rowIdx - 1];
+    const below = viewport.rows[rowIdx + 1];
+    const contextTopBl = above != null ? above.offsetBl : target.offsetBl;
+    const contextBottomBl = below != null ? below.offsetBl + below.heightBl : target.offsetBl + target.heightBl;
+    if (contextTopBl >= scrollYPos && contextBottomBl <= scrollYPos + viewport.heightBl) {
       return scrollYPos;
     }
     const centeredScrollYPos = target.heightBl >= viewport.heightBl

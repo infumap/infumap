@@ -160,8 +160,8 @@ function tableRowOfPath(store: StoreContextModel, itemPath: VisualElementPath): 
 }
 
 /**
- * Re-sort by the edited title. If that moves the row in a table, scroll the table as little as possible to keep the
- * row visible, so it does not appear to vanish.
+ * Re-sort by the edited title. If that moves the row in a table, reveal it as after a jump, so it does not appear to
+ * vanish and the rows either side of it are visible too.
  */
 function sortAfterTitleEdit(store: StoreContextModel, item: Item, itemPath: VisualElementPath): void {
   const before = tableRowOfPath(store, itemPath);
@@ -170,7 +170,7 @@ function sortAfterTitleEdit(store: StoreContextModel, item: Item, itemPath: Visu
   const after = tableRowOfPath(store, itemPath);
   if (after == null || after.rowIdx == before.rowIdx) { return; }
   const tableVeid = VeFns.veidFromVe(after.tableVe);
-  const scrollYPos = TableFns.scrollYPosToIncludeRow(store, after.tableVe, after.rowIdx);
+  const scrollYPos = TableFns.scrollYPosToRevealRow(store, after.tableVe, after.rowIdx);
   if (scrollYPos != store.perItem.getTableScrollYPos(tableVeid)) {
     store.perItem.setTableScrollYPos(tableVeid, scrollYPos);
     requestArrange(store, "text-edit-sorted-row-scroll");
