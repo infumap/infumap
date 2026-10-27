@@ -32,6 +32,10 @@ import { ItemCandidatesPopup, createItemCandidateSearch } from "../../library/It
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../../constants";
 import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "../toolbarPopupStyle";
 
+// Set from the ref: as static attributes, the compiler's HTML check reads <host> and <id> as tags.
+const LINK_INPUT_PLACEHOLDER = "search titles, or id / http(s)://<host>/<id>";
+const LINK_INPUT_TITLE = "Type to search your items by title, or enter the id of the item to link to, or http(s)://<host>/<id> for an item on another Infumap instance";
+
 export const Toolbar_Link: Component = () => {
   const store = useStore();
 
@@ -129,12 +133,10 @@ export const Toolbar_Link: Component = () => {
         <Show when={canEdit()}>
           <div class="inline-block ml-[8px]">
             <span class="mr-[6px]">link to item:</span>
-            <input ref={linkResourceInput}
+            <input ref={el => { linkResourceInput = el; el.placeholder = LINK_INPUT_PLACEHOLDER; el.title = LINK_INPUT_TITLE; }}
                    class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-slate-800 font-mono text-sm placeholder:text-slate-400"
                    type="text"
                    spellcheck={false}
-                   placeholder="search titles, or id / http(s)://<host>/<id>"
-                   title="Type to search your items by title, or enter the id of the item to link to, or http(s)://<host>/<id> for an item on another Infumap instance"
                    onInput={inputHandler}
                    onBlur={candidateSearch.close}
                    onKeyDown={keyDownHandler}
