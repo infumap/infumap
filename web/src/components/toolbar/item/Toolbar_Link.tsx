@@ -45,8 +45,8 @@ export const Toolbar_Link: Component = () => {
   const linkItemOnMount = linkItem();
   const canEditOnMount = itemCanEdit(linkItemOnMount);
   const canEdit = () => itemCanEdit(linkItem());
-  // candidates are the user's own items, so are not offered for a link on a remote page.
-  const canFindTargetsOnMount = canEditOnMount && linkItemOnMount.origin == null;
+  // candidates are the user's own items. These are what a bare id resolves to, even in a link served by a remote host.
+  const canFindTargetsOnMount = canEditOnMount;
 
   const [candidates, setCandidates] = createSignal<Array<LinkTargetCandidate>>([]);
   const [selectedCandidateIdx, setSelectedCandidateIdx] = createSignal(0);
