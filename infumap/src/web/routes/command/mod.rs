@@ -89,6 +89,7 @@ use std::collections::{HashMap, HashSet};
 mod backlinks;
 mod chat;
 mod item_ops;
+mod link_targets;
 mod query_profiles;
 mod scope;
 mod search;
@@ -254,6 +255,9 @@ pub async fn serve_command_route(
       chat::handle_ensure_query_entry(db, object_store.clone(), &request.json_data, &session_maybe).await
     }
     "get-backlinks" => backlinks::handle_get_backlinks(db, &request.json_data, &session_maybe).await,
+    "link-target-candidates" => {
+      link_targets::handle_link_target_candidates(db, &request.json_data, &session_maybe).await
+    }
     "empty-trash" => item_ops::handle_empty_trash(db, object_store.clone(), image_cache, &session_maybe).await,
     "reprocess-item" => item_ops::handle_reprocess_item(db, &request.json_data, &session_maybe).await,
     _ => {

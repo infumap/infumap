@@ -975,6 +975,11 @@ impl ItemDb {
     result
   }
 
+  /// All items owned by the user, in no particular order. Empty if the user's item store is not loaded.
+  pub fn user_items(&self, user_id: &Uid) -> impl Iterator<Item = &Item> {
+    self.store_by_user_id.get(user_id).into_iter().flat_map(|store| store.get_iter().map(|(_, item)| item))
+  }
+
   /// The number of pages the user has made, not counting their home, trash, dock and queries pages, counted only up
   /// to `limit`. This runs on every session validation, and callers only need to know whether there are few.
   pub fn user_page_count_up_to(&self, user: &User, limit: usize) -> usize {
