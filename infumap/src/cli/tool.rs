@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use clap::{Arg, ArgMatches, Command, value_parser};
+use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use infusdk::util::infu::InfuResult;
 use serde_json::{Value, json};
 
@@ -34,6 +34,13 @@ pub fn make_clap_subcommand() -> Command {
         .help("The name of the Infumap CLI session to use."),
     )
     .arg(Arg::new("scope").long("scope").global(true).help("Scope id limiting what the tool can search or read."))
+    .arg(
+      Arg::new("scope-item")
+        .long("scope-item")
+        .global(true)
+        .action(ArgAction::Append)
+        .help("Item id limiting the tool to it and its descendants, in place of --scope. Repeatable."),
+    )
     .subcommand(
       Command::new("infumap_search")
         .about("Search item titles and indexed document text.")
@@ -87,6 +94,9 @@ pub async fn execute(matches: &ArgMatches) -> InfuResult<()> {
   let mut request = json!({ "name": name, "arguments": arguments });
   if let Some(scope) = matches.get_one::<String>("scope") {
     request["scopeId"] = json!(scope);
+  }
+  if let Some(items) = matches.get_many::<String>("scope-item") {
+    request["scopeItemIds"] = json!(items.collect::<Vec<_>>());
   }
   let response = client.post(url).json(&request).send().await.map_err(|e| format!("Could not call tool: {e}"))?;
   named_session.update_from_response(&response).await?;

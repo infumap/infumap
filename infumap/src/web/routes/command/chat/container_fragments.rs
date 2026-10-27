@@ -791,7 +791,7 @@ pub(super) fn item_label(item: &Item) -> String {
   }
 }
 
-fn item_link(item: &Item) -> String {
+pub(super) fn item_link(item: &Item) -> String {
   format!("[{}]({})", escape_label(&item_label(item)), link_url(item))
 }
 

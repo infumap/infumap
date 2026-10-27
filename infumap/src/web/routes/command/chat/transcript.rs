@@ -868,8 +868,11 @@ mod tests {
       panic!("expected a user record");
     };
     assert!(user.attachments.is_empty());
+    assert!(user.settings.scope_item_ids.is_empty());
     assert_eq!(user.model_content(), "q");
-    assert!(!record_line(&TranscriptRecord::User(user)).unwrap().contains("attachments"));
+    let line = record_line(&TranscriptRecord::User(user)).unwrap();
+    assert!(!line.contains("attachments"));
+    assert!(!line.contains("scopeItemIds"));
   }
 
   #[tokio::test]

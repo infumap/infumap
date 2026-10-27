@@ -29,7 +29,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
-use super::scope::{ResolvedScope, ScopeSource, resolve_scope};
+use super::scope::{ResolvedScope, ScopeSource, resolve_item_scope, resolve_scope};
 use crate::web::LLM_LOG_ENABLED;
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
@@ -2340,6 +2340,9 @@ struct ChatToolRequest {
   arguments: Value,
   #[serde(rename = "scopeId", default)]
   scope_id: Option<Uid>,
+  /// Items limiting the tools in place of the scope, as in a chat.
+  #[serde(rename = "scopeItemIds", default)]
+  scope_item_ids: Vec<Uid>,
 }
 
 fn chat_tool_error_response(status: hyper::StatusCode, message: &str) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -2372,12 +2375,22 @@ pub async fn serve_chat_tool_route(
   if !matches!(request.name.as_str(), "infumap_search" | "infumap_get_fragment") {
     return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Unknown built-in tool '{}'.", request.name));
   }
-  let scope = match request.scope_id {
-    Some(scope_id) => match resolve_scope(&*db.lock().await, &session.user_id, &scope_id) {
+  if request.scope_item_ids.len() > configuration::MAX_SCOPE_ITEMS {
+    return chat_tool_error_response(StatusCode::BAD_REQUEST, "Too many scope items.");
+  }
+  let scope = if !request.scope_item_ids.is_empty() {
+    match resolve_item_scope(&*db.lock().await, &session.user_id, &request.scope_item_ids) {
       Ok(scope) => Some(scope),
       Err(e) => return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Could not resolve scope: {e}")),
-    },
-    None => None,
+    }
+  } else {
+    match request.scope_id {
+      Some(scope_id) => match resolve_scope(&*db.lock().await, &session.user_id, &scope_id) {
+        Ok(scope) => Some(scope),
+        Err(e) => return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Could not resolve scope: {e}")),
+      },
+      None => None,
+    }
   };
   let infumap_data = InfumapData { scope };
   let tool_call = OpenAiToolCall {
@@ -2547,13 +2560,31 @@ fn chat_utc_today_line() -> String {
   format!("Today is {}, {:04}-{:02}-{:02} (UTC).", now.weekday(), now.year(), u8::from(now.month()), now.day())
 }
 
-fn chat_system_prompt(infumap_data: Option<&InfumapData>, has_plugin_tools: bool, mode: ChatRunMode) -> String {
+/// The database is read for the titles of items chosen as the scope.
+fn chat_system_prompt(
+  db: &Db,
+  infumap_data: Option<&InfumapData>,
+  has_plugin_tools: bool,
+  mode: ChatRunMode,
+) -> String {
   let scope_part = infumap_data.and_then(InfumapData::scope).and_then(|scope| match &scope.source {
     ScopeSource::Named { name, .. } => Some(format!(
       "The tools only see the scope {}; an item not found may lie outside it.",
       serde_json::Value::String(name.clone())
     )),
-    ScopeSource::Items(_) => None,
+    // The user chose these for this question, so the model is told where to start, not only what it cannot see.
+    ScopeSource::Items(item_ids) => {
+      let links =
+        item_ids.iter().filter_map(|id| db.item.get(id).ok()).map(container_fragments::item_link).collect::<Vec<_>>();
+      (!links.is_empty()).then(|| {
+        format!(
+          "The user has limited the Infumap tools to these items and everything inside them: {}. Start with them: \
+          read them with infumap_get_fragment or search within them, and prefer them to other tools, which are for \
+          what they do not cover. An item not found may lie outside them.",
+          links.join(", ")
+        )
+      })
+    }
   });
   let mut parts = vec![if infumap_data.is_some() { CHAT_INFUMAP_SYSTEM_PROMPT } else { CHAT_GENERAL_SYSTEM_PROMPT }];
   if let Some(scope_part) = &scope_part {
@@ -3148,13 +3179,22 @@ async fn prepare_chat_resources(
   let endpoint =
     backend::resolve_validated_chat_endpoint(config, selection).await.map_err(|error| error.message().to_owned())?;
   let infumap_data = if request.uses_infumap_data() {
-    let scope = match &request.settings.configuration.scope_id {
-      // A missing scope page is the only failure for a signed-in user.
-      Some(scope_id) => Some(
-        resolve_scope(&*db.lock().await, &session.user_id, scope_id)
-          .map_err(|_| "The selected scope no longer exists. Choose another scope.")?,
-      ),
-      None => None,
+    let scope_item_ids = &request.settings.scope_item_ids;
+    let scope = if !scope_item_ids.is_empty() {
+      // Items chosen in the chat replace the selected scope, which stays selected for when they are removed.
+      Some(
+        resolve_item_scope(&*db.lock().await, &session.user_id, scope_item_ids)
+          .map_err(|error| error.message().to_owned())?,
+      )
+    } else {
+      match &request.settings.configuration.scope_id {
+        // A missing scope page is the only failure for a signed-in user.
+        Some(scope_id) => Some(
+          resolve_scope(&*db.lock().await, &session.user_id, scope_id)
+            .map_err(|_| "The selected scope no longer exists. Choose another scope.")?,
+        ),
+        None => None,
+      }
     };
     Some(InfumapData { scope })
   } else {
@@ -3208,7 +3248,7 @@ async fn run_chat_with_tools(
     0,
     OpenAiChatMessage::text(
       "system",
-      chat_system_prompt(infumap_data.as_ref(), !mcp_tools.is_empty(), request.settings.mode),
+      chat_system_prompt(&*db.lock().await, infumap_data.as_ref(), !mcp_tools.is_empty(), request.settings.mode),
     ),
   );
   let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
@@ -4460,10 +4500,31 @@ mod tests {
   #[tokio::test]
   async fn system_prompt_names_the_active_scope() {
     let f = fixture().await;
-    let scoped = chat_system_prompt(Some(&f.infumap_data(true).await), false, ChatRunMode::Chat);
+    let (scoped, unscoped) = (f.infumap_data(true).await, f.infumap_data(false).await);
+    let db = f.db.lock().await;
+    let scoped = chat_system_prompt(&db, Some(&scoped), false, ChatRunMode::Chat);
     assert!(scoped.contains("only see the scope \"Work\""));
-    let unscoped = chat_system_prompt(Some(&f.infumap_data(false).await), false, ChatRunMode::DeepResearch);
+    let unscoped = chat_system_prompt(&db, Some(&unscoped), false, ChatRunMode::DeepResearch);
     assert!(!unscoped.contains("only see the scope"));
+    assert!(!unscoped.contains("limited the Infumap tools"));
+  }
+
+  #[tokio::test]
+  async fn system_prompt_links_chosen_items_and_says_to_start_with_them() {
+    let f = fixture().await;
+    let db = f.db.lock().await;
+    let scope = resolve_item_scope(&db, &f.session.user_id, &[f.x.clone(), f.link_to_b.clone()]).unwrap();
+    let prompt = chat_system_prompt(&db, Some(&InfumapData { scope: Some(scope) }), false, ChatRunMode::Chat);
+    let b = db.item.get(&f.link_to_b).unwrap().link_to.clone().unwrap();
+    assert!(
+      prompt.contains(&format!(
+        "limited the Infumap tools to these items and everything inside them: [X](infumap://{}), [B](infumap://{b}). \
+         Start with them",
+        f.x
+      )),
+      "{prompt}"
+    );
+    assert!(!prompt.contains("only see the scope"));
   }
 
   #[tokio::test]
@@ -4489,6 +4550,30 @@ mod tests {
       let (config, db, session) = (&config, &f.db, &f.session);
       async move { prepare_chat_resources(config, db, session, &request).await.err() }
     };
+    let with_items = |items: &[&Uid], capabilities: Value| -> ChatRequest {
+      let mut request = request(llama.clone(), &new_uid(), capabilities);
+      request.settings.scope_item_ids = items.iter().map(|id| (*id).clone()).collect();
+      request
+    };
+
+    // Chosen items replace the selected scope, here one that no longer exists.
+    let chosen = prepare_chat_resources(
+      &config,
+      &f.db,
+      &f.session,
+      &with_items(&[&f.x, &f.a1], serde_json::json!(["infumap_data"])),
+    )
+    .await
+    .ok()
+    .unwrap();
+    let scope = chosen.infumap_data.unwrap().scope.unwrap();
+    assert_eq!(scope.source, ScopeSource::Items(vec![f.x.clone(), f.a1.clone()]));
+    assert_eq!(
+      prepare(with_items(&[&new_uid()], serde_json::json!(["infumap_data"]))).await.as_deref(),
+      Some("None of the items in scope exist any more. Remove them or add others.")
+    );
+    // Unused items are not checked: Infumap tools are off.
+    assert!(prepare(with_items(&[&new_uid()], serde_json::json!([]))).await.is_none());
 
     let ready = prepare_chat_resources(
       &config,
