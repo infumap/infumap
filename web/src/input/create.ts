@@ -38,6 +38,7 @@ import { VesCache } from "../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, isTableView } from "../layout/visual-element";
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
+import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { setCaretPosition } from "../util/caret";
 import { isInside, Vector } from "../util/geometry";
@@ -296,6 +297,39 @@ function focusNewItemTitleForEditing(el: HTMLElement): void {
   restoreContentEditablePlaceholderIfEmpty(el);
   el.focus();
   setCaretPosition(el, 0);
+}
+
+/**
+ * Create an empty note in the attachment cell attachmentPos of the table row rowVe and edit it. The cell must be empty:
+ * a placeholder there is replaced, and placeholders are added before it if the row has fewer attachments.
+ */
+export function createNoteInTableCellAndEdit(store: StoreContextModel, rowVe: VisualElement, attachmentPos: number): boolean {
+  if (!isAttachmentsItem(rowVe.displayItem)) { return false; }
+  const row = asAttachmentsItem(rowVe.displayItem);
+  if (!parentChainAllowsNewChild(row.id)) { return false; }
+
+  let ordering: Uint8Array;
+  const existingId = row.computed_attachments[attachmentPos];
+  if (existingId != null) {
+    const existing = itemState.get(existingId);
+    if (existing == null || !isPlaceholder(existing)) { return false; }
+    ordering = existing.ordering;
+    itemState.delete(existing.id);
+    server.deleteItem(existing.id);
+  } else {
+    for (let i = row.computed_attachments.length; i < attachmentPos; ++i) {
+      const placeholderItem = PlaceholderFns.create(row.ownerId, row.id, RelationshipToParent.Attachment, itemState.newOrderingAtEndOfAttachments(row.id));
+      itemState.add(placeholderItem);
+      server.addItem(placeholderItem, null);
+    }
+    ordering = itemState.newOrderingAtEndOfAttachments(row.id);
+  }
+
+  const newItem = createNewItem(store, ItemType.Note, row.id, ordering, RelationshipToParent.Attachment);
+  addNewItemForCreation(store, newItem);
+  arrangeNow(store, "create-in-table-cell");
+  focusNewItemForEditing(store, ItemType.Note, newItem, VeFns.addVeidToPath({ itemId: newItem.id, linkIdMaybe: null }, VeFns.veToPath(rowVe)));
+  return true;
 }
 
 /**

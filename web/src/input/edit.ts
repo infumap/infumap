@@ -45,11 +45,14 @@ import { asPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
-import { isTable } from "../items/table-item";
+import { isTable, TableFns } from "../items/table-item";
 import { closestCaretPositionToClientPx, EditElementType, type EditPathInfo, editPathInfoToDomId, getCurrentCaretVePath_title as getCurrentCaretVeInfo, getCaretLineRect, getCaretPosition, getEditPathInfoForNode, getTextOffsetWithinElement, setCaretPosition, setDirectionalTextSelection, textSelectionOffsets } from "../util/caret";
 import { asCompositeItem, CompositeFns, isComposite } from "../items/composite-item";
 import { itemState } from "../store/ItemState";
-import { VeFns, VisualElement } from "../layout/visual-element";
+import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
+import { isPlaceholder } from "../items/placeholder-item";
+import { createNoteInTableCellAndEdit } from "./create";
+import { isTableView, VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { asTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
@@ -1094,6 +1097,51 @@ export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteI
   arrangeNow(store, "toolbar-note-inline-mark");
   restoreNoteTextSelection(store, target.itemPath, selectionInfo.start, selectionInfo.end, false, backward);
   store.editorHistory.commit(token);
+}
+
+/**
+ * Tab while editing a note in a table (a row, or an attachment of a row) moves to the cell to the right, if that
+ * column is shown. An empty cell gets a new note.
+ */
+export function edit_tableTabKeyHandler(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (ev.key != "Tab" || ev.shiftKey || ev.ctrlKey || ev.metaKey || ev.altKey) { return false; }
+  const info = store.overlay.textEditInfo();
+  if (info == null || info.itemType != ItemType.Note || info.colNum != null) { return false; }
+  const editingVe = VesCache.current.readNode(info.itemPath);
+  if (editingVe == null || !(editingVe.flags & VisualElementFlags.InsideTable) || editingVe.col == null) { return false; }
+
+  const rowPath = editingVe.flags & VisualElementFlags.Attachment ? editingVe.parentPath : info.itemPath;
+  const rowVe = rowPath ? VesCache.current.readNode(rowPath) : null;
+  if (rowVe == null || !isAttachmentsItem(rowVe.displayItem)) { return false; }
+  let tableVe: VisualElement | null = rowVe;
+  while (tableVe != null && !isTableView(tableVe)) {
+    tableVe = tableVe.parentPath ? VesCache.current.readNode(tableVe.parentPath) ?? null : null;
+  }
+  if (tableVe == null) { return false; }
+
+  const targetCol = editingVe.col + 1;
+  if (targetCol >= TableFns.visibleColumnCount(tableVe)) { return false; }
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  const attachmentPos = targetCol - 1;
+  const targetId = asAttachmentsItem(rowVe.displayItem).computed_attachments[attachmentPos];
+  const targetItem = targetId == null ? null : itemState.get(targetId);
+  if (targetItem == null || isPlaceholder(targetItem)) {
+    createNoteInTableCellAndEdit(store, rowVe, attachmentPos);
+    return true;
+  }
+
+  const targetVe = VesCache.current.readAttachments(rowPath!).find(ve => ve.col == targetCol);
+  if (targetVe == null) { return true; }
+  if (isNote(targetVe.displayItem)) {
+    NoteFns.handleClick(targetVe, store, true, true);
+  } else {
+    commitActiveTextEdit(store, false, "table-tab-exit-edit", false);
+    store.history.setFocus(VeFns.veToPath(targetVe));
+    arrangeNow(store, "table-tab-focus");
+  }
+  return true;
 }
 
 export const edit_keyUpHandler = (store: StoreContextModel, ev: KeyboardEvent) => {

@@ -45,7 +45,7 @@ import { itemState } from "../../store/ItemState";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteInlineText } from "./NoteInlineText";
-import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
+import { edit_beforeInputHandler, edit_inputListener, edit_tableTabKeyHandler } from "../../input/edit";
 import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
 
 
@@ -195,6 +195,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
+    if (edit_tableTabKeyHandler(store, ev)) { return; }
     handleLineItemTitleKeyDown(store, ev);
   }
 

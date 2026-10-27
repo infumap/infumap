@@ -57,7 +57,7 @@ import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
 import { initiateLoadItemMaybe, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
-import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnWidthBl, tabularInsertionTarget, tabularRowBoundaryNearestOffsetBl, tabularRowIndexAtOffsetBl, tabularRowSpanBl, tabularRowsHeightBl, tabularRowsHeightBlForItems, tabularVisibleRows } from "../layout/tabular";
+import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnLayouts, tabularColumnWidthBl, tabularInsertionTarget, tabularRowBoundaryNearestOffsetBl, tabularRowIndexAtOffsetBl, tabularRowSpanBl, tabularRowsHeightBl, tabularRowsHeightBlForItems, tabularVisibleRows } from "../layout/tabular";
 import { asPageItem, isPage } from "./page-item";
 import { SavedPageSettings } from "./base/conversion-settings";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
@@ -626,6 +626,12 @@ export const TableFns = {
       ? target.offsetBl
       : Math.round(target.offsetBl - (viewport.heightBl - target.heightBl) / 2);
     return Math.max(0, Math.min(centeredScrollYPos, viewport.maxScrollYPos));
+  },
+
+  /** The number of columns shown, including the row item column. Columns past the table width are not shown. */
+  visibleColumnCount: (tableVe: VisualElement): number => {
+    const widthBl = tableVe.tableWidthBl ?? tableVisualDimensionsBl(tableVe).w;
+    return tabularColumnLayouts(tabularViewItem(tableVe), widthBl).length;
   },
 
   tableVisibleRows: (store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> => {
