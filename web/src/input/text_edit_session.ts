@@ -21,7 +21,7 @@ import { itemCanEdit } from "../items/base/capabilities-item";
 import { type Item, ItemType } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { asTitledItem } from "../items/base/titled-item";
-import { asPageItem } from "../items/page-item";
+import { asPageItem, PageFns } from "../items/page-item";
 import { asTableItem, TableFns } from "../items/table-item";
 import { asPasswordItem } from "../items/password-item";
 import { isClipboardTextCreateItem } from "../items/text-item";
@@ -159,13 +159,34 @@ function tableRowOfPath(store: StoreContextModel, itemPath: VisualElementPath): 
   return rowIdx >= 0 ? { tableVe, rowIdx } : null;
 }
 
+/** The list page showing the row at itemPath, and that row. */
+function listPageRowOfPath(itemPath: VisualElementPath): { pageVe: VisualElement, rowVe: VisualElement } | null {
+  const parentPath = VeFns.parentPath(itemPath);
+  if (parentPath == "") { return null; }
+  const pageVe = VesCache.current.readNode(parentPath);
+  const rowVe = VesCache.current.readNode(itemPath);
+  if (pageVe == null || rowVe == null || rowVe.listPageRowBand == null) { return null; }
+  return { pageVe, rowVe };
+}
+
 /**
- * Re-sort by the edited title. If that moves the row in a table, reveal it as after a jump, so it does not appear to
- * vanish and the rows either side of it are visible too.
+ * Re-sort by the edited title. If that moves the row in a table or list page, reveal it as after a jump, so it does
+ * not appear to vanish and the rows either side of it are visible too.
  */
 function sortAfterTitleEdit(store: StoreContextModel, item: Item, itemPath: VisualElementPath): void {
+  const listRowYPxBefore = listPageRowOfPath(itemPath)?.rowVe.boundsPx.y ?? null;
   const before = tableRowOfPath(store, itemPath);
   itemState.sortParentChildrenIfTitleOrdered(item);
+  if (listRowYPxBefore != null) {
+    // List rows are positioned by arranging. Microtasks run in order, so this one runs after the requested arrange.
+    requestArrange(store, "text-edit-sorted-list-row");
+    queueMicrotask(() => {
+      const after = listPageRowOfPath(itemPath);
+      if (after == null || after.rowVe.boundsPx.y == listRowYPxBefore) { return; }
+      PageFns.revealListPageRow(store, after.pageVe, after.rowVe);
+    });
+    return;
+  }
   if (before == null) { return; }
   const after = tableRowOfPath(store, itemPath);
   if (after == null || after.rowIdx == before.rowIdx) { return; }

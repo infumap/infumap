@@ -31,7 +31,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage, isTableView } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage, isTableView, listPageScrollVeid } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
 import { VisualElementSignal } from '../util/signals';
 import { NoteFns, isNote } from './note-item';
@@ -1965,6 +1965,29 @@ export const PageFns = {
     const nextSelectedVeid = PageFns.resolveListPageSelectedItem(page, childVeid, childId, childOriginalOrderingMaybe);
     for (const pageVeid of targetPageVeids) {
       store.perItem.setSelectedListPageItem(pageVeid, nextSelectedVeid);
+    }
+  },
+
+  /**
+   * Scroll list page pageVe to show its row rowVe after a jump to it: not at all if the row and the rows either side of
+   * it (where there are any) are fully visible, otherwise so the row is in the middle. Rows pinned to the top or bottom
+   * are always visible. This reads the arranged rows, so must be called after arranging.
+   */
+  revealListPageRow: (store: StoreContextModel, pageVe: VisualElement, rowVe: VisualElement): void => {
+    if (!pageVe.listChildAreaBoundsPx || !pageVe.listViewportBoundsPx || rowVe.listPageRowBand != "middle") { return; }
+    const viewportHeightPx = pageVe.listViewportBoundsPx.h;
+    const maxScrollPx = pageVe.listChildAreaBoundsPx.h - viewportHeightPx;
+    if (maxScrollPx <= 0) { return; }
+    const scrollVeid = listPageScrollVeid(store, pageVe);
+    const scrollPx = store.perItem.getPageScrollYProp(scrollVeid) * maxScrollPx;
+    const rowHeightPx = rowVe.boundsPx.h;
+    // List rows are all the same height, so the neighbours span one row height either side.
+    const contextTopPx = Math.max(0, rowVe.boundsPx.y - rowHeightPx);
+    const contextBottomPx = Math.min(pageVe.listChildAreaBoundsPx.h, rowVe.boundsPx.y + 2 * rowHeightPx);
+    if (contextTopPx >= scrollPx && contextBottomPx <= scrollPx + viewportHeightPx) { return; }
+    const nextScrollPx = Math.max(0, Math.min(maxScrollPx, rowVe.boundsPx.y - (viewportHeightPx - rowHeightPx) / 2));
+    if (nextScrollPx != scrollPx) {
+      store.perItem.setPageScrollYProp(scrollVeid, nextScrollPx / maxScrollPx);
     }
   },
 
