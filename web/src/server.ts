@@ -174,6 +174,19 @@ export interface GetBacklinksResponse {
   backlinks: Array<Backlink>,
 }
 
+export interface LinkTargetCandidate {
+  id: Uid,
+  itemType: string,
+  title: string,
+  /** The containers from a root page down to the item's parent. */
+  path: Array<SearchPathElement>,
+}
+
+export interface LinkTargetCandidatesResponse {
+  /** Best first. Excludes links, passwords, untitled items and items in the trash. */
+  candidates: Array<LinkTargetCandidate>,
+}
+
 export interface ChatModelInfo {
   id: string,
   name: string,
@@ -500,6 +513,7 @@ const COMMAND_LOAD_CHAT = "load-chat";
 const COMMAND_LOAD_CHAT_ATTACHMENT = "load-chat-attachment";
 const COMMAND_ENSURE_QUERY_ENTRY = "ensure-query-entry";
 const COMMAND_GET_BACKLINKS = "get-backlinks";
+const COMMAND_LINK_TARGET_CANDIDATES = "link-target-candidates";
 const COMMAND_CHAT = "chat";
 const COMMAND_EMPTY_TRASH = "empty-trash";
 const COMMAND_SYNC_CONTAINERS = "sync-containers";
@@ -507,6 +521,7 @@ const COMMAND_SYNC_CONTAINERS = "sync-containers";
 const PARALLEL_READ_COMMANDS = new Set<string>([
   COMMAND_GET_ITEMS,
   COMMAND_SYNC_CONTAINERS,
+  COMMAND_LINK_TARGET_CANDIDATES,
 ]);
 
 function getCommandDescription(command: string, payload: any): { description: string, itemId?: string } {
@@ -544,6 +559,9 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_GET_BACKLINKS:
       description = "Loading links";
+      break;
+    case COMMAND_LINK_TARGET_CANDIDATES:
+      description = "Finding link targets";
       break;
     case COMMAND_CHAT:
       description = "Generating query response";
@@ -1329,6 +1347,14 @@ export const server = {
   /** The user's links and notes that refer to an item they own. Local items only: backlinks are not tracked across servers. */
   getBacklinks: async (itemId: Uid): Promise<GetBacklinksResponse> => {
     return constructCommandPromise(null, COMMAND_GET_BACKLINKS, { itemId }, null);
+  },
+
+  /**
+   * The user's items whose title words start with the words of the text, best first. Local items only. The server
+   * returns at most 20, and nothing for text with fewer than 2 letters or digits.
+   */
+  linkTargetCandidates: async (text: string, limit: number): Promise<LinkTargetCandidatesResponse> => {
+    return constructCommandPromise(null, COMMAND_LINK_TARGET_CANDIDATES, { text, limit }, null);
   },
 
   chatStream: async (
