@@ -4228,15 +4228,15 @@ mod tests {
     let get = |item_id: &Uid| serde_json::json!({ "link": format!("infumap://{item_id}"), "fragmentOrdinal": 0 });
 
     for excluded in [&f.x1, &f.x, &f.link_to_b] {
-      let result = f.call(Some(&scoped), "get_fragment", get(excluded)).await;
+      let result = f.call(Some(&scoped), "infumap_get_fragment", get(excluded)).await;
       assert_eq!(error_of(&result).as_deref(), Some("Item was not found."));
     }
-    let included = f.call(Some(&scoped), "get_fragment", get(&f.a1)).await;
+    let included = f.call(Some(&scoped), "infumap_get_fragment", get(&f.a1)).await;
     assert_eq!(
       included,
       format!("<fragment>\n[a1](infumap://{}) (note) in test › [A](infumap://{})\na1\n</fragment>", f.a1, f.a)
     );
-    let text = f.call(Some(&scoped), "get_fragment", get(&f.a)).await;
+    let text = f.call(Some(&scoped), "infumap_get_fragment", get(&f.a)).await;
     assert!(text.contains("[a1]") && !text.contains("[X]"), "{text}");
   }
 
@@ -4257,10 +4257,10 @@ mod tests {
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let get = serde_json::json!({ "link": format!("infumap://{group_id}") });
 
-    let text = call_tool(&db, &session, Some(&InfumapData { scope: None }), "get_fragment", get.clone()).await;
+    let text = call_tool(&db, &session, Some(&InfumapData { scope: None }), "infumap_get_fragment", get.clone()).await;
     assert!(text.starts_with(&format!("<fragment>\n[group](infumap://{group_id}) (group, 2 items) in ")), "{text}");
     assert!(text.contains("- [first]") && text.contains("- [second]"), "{text}");
-    let scoped = call_tool(&db, &session, Some(&InfumapData { scope: Some(scope) }), "get_fragment", get).await;
+    let scoped = call_tool(&db, &session, Some(&InfumapData { scope: Some(scope) }), "infumap_get_fragment", get).await;
     assert_eq!(error_of(&scoped).as_deref(), Some("Item was not found."));
   }
 
@@ -4289,7 +4289,7 @@ mod tests {
     let session = test_session(&t.user_id);
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let infumap_data = InfumapData { scope: None };
-    let get = |arguments: Value| call_tool(&db, &session, Some(&infumap_data), "get_fragment", arguments);
+    let get = |arguments: Value| call_tool(&db, &session, Some(&infumap_data), "infumap_get_fragment", arguments);
 
     // A container is read in full by following the more line, a fragment a call, each header saying which of the
     // page's items it holds.
@@ -4355,8 +4355,8 @@ mod tests {
     assert_eq!(error_of(&pending).as_deref(), Some("This item has no readable text yet."));
 
     let read = "<fragment>\n[Notes](infumap://n) (page, list layout) in [test](infumap://h) · fragment 3 of 0–6\nab\n\
-                </fragment>\n\nThe item continues. For the next fragment, call get_fragment again with fragmentOrdinal 4.";
-    let (summary, _) = chat_tool_finished_activity("get_fragment", &Value::Null, read);
+                </fragment>\n\nThe item continues. For the next fragment, call infumap_get_fragment again with fragmentOrdinal 4.";
+    let (summary, _) = chat_tool_finished_activity("infumap_get_fragment", &Value::Null, read);
     assert_eq!(summary, format!("\"Notes\" · fragment 3 of 0–6 · {} chars", read.chars().count()));
   }
 
@@ -4367,7 +4367,7 @@ mod tests {
     let session = test_session(&t.user_id);
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let get = serde_json::json!({ "link": format!("infumap://{note}") });
-    let result = call_tool(&db, &session, Some(&InfumapData { scope: None }), "get_fragment", get).await;
+    let result = call_tool(&db, &session, Some(&InfumapData { scope: None }), "infumap_get_fragment", get).await;
     assert!(result.ends_with("\nbefore <\\/fragment> after\n</fragment>"), "{result}");
     assert_eq!(result.matches("</fragment>").count(), 1);
   }
@@ -4381,7 +4381,7 @@ mod tests {
     let session = test_session(&t.user_id);
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let get = serde_json::json!({ "link": format!("infumap://{plans}") });
-    let result = call_tool(&db, &session, Some(&InfumapData { scope: None }), "get_fragment", get).await;
+    let result = call_tool(&db, &session, Some(&InfumapData { scope: None }), "infumap_get_fragment", get).await;
     let expected = format!(
       "<fragment>\n[Plans](infumap://{plans}) (note) in [test](infumap://{home})\nattached: urgent\nPlans\n</fragment>"
     );
@@ -4397,11 +4397,12 @@ mod tests {
       stream_options: None,
       tools: vec![get_fragment_tool_spec()],
       reasoning: None,
+      reasoning_effort: None,
     };
     let run = new_uid();
     let first = llm_request_log_value(&request(&["a", "b"]), &run, 1);
     assert_eq!(first["messages"].as_array().unwrap().len(), 2, "the first request is logged in full");
-    assert_eq!(first["tools"], "<omitted: get_fragment>");
+    assert_eq!(first["tools"], "<omitted: infumap_get_fragment>");
 
     let grown = llm_request_log_value(&request(&["a", "b", "c"]), &run, 2);
     assert_eq!(grown["messages"][0], "<messages 0–1 unchanged since request 1>");
@@ -4451,7 +4452,7 @@ mod tests {
   #[tokio::test]
   async fn infumap_tools_are_refused_when_infumap_data_is_off() {
     let f = fixture().await;
-    let result = f.call(None, "get_fragment", serde_json::json!({ "link": f.a })).await;
+    let result = f.call(None, "infumap_get_fragment", serde_json::json!({ "link": f.a })).await;
     assert_eq!(error_of(&result).as_deref(), Some("Infumap data is not enabled for this chat."));
   }
 
@@ -4469,7 +4470,7 @@ mod tests {
     let f = fixture().await;
     let config = config::Config::builder()
       .add_source(config::File::from_str(
-        "[[llama_server]]\nname = \"a\"\nurl = \"http://127.0.0.1:9\"",
+        "[[chat_providers]]\nid = \"a\"\nurl = \"http://127.0.0.1:9/v1\"\ndiscover_models = false",
         config::FileFormat::Toml,
       ))
       .build()
@@ -4482,7 +4483,7 @@ mod tests {
       }))
       .unwrap()
     };
-    let llama = serde_json::json!({ "backend": "llama:a", "model": null, "reasoningEffort": null });
+    let llama = serde_json::json!({ "backend": "a", "model": "default", "reasoningEffort": null });
     let prepare = |request: ChatRequest| {
       let (config, db, session) = (&config, &f.db, &f.session);
       async move { prepare_chat_resources(config, db, session, &request).await.err() }
@@ -4503,15 +4504,15 @@ mod tests {
       prepare(request(Value::Null, &f.scope_id, serde_json::json!([]))).await.as_deref(),
       Some("Choose a model and provider for Chat.")
     );
-    let unknown = serde_json::json!({ "backend": "llama:b", "model": null, "reasoningEffort": null });
+    let unknown = serde_json::json!({ "backend": "b", "model": "default", "reasoningEffort": null });
     assert_eq!(
       prepare(request(unknown, &f.scope_id, serde_json::json!([]))).await.as_deref(),
-      Some("Provider 'llama:b' is not configured on this server. Choose another provider.")
+      Some("Provider 'b' is not configured on this server. Choose another provider.")
     );
-    let openrouter = serde_json::json!({ "backend": "openrouter", "model": "x/y", "reasoningEffort": null });
+    let no_model = serde_json::json!({ "backend": "a", "model": null, "reasoningEffort": null });
     assert_eq!(
-      prepare(request(openrouter, &f.scope_id, serde_json::json!([]))).await.as_deref(),
-      Some("OpenRouter is not configured on this server. Choose another provider.")
+      prepare(request(no_model, &f.scope_id, serde_json::json!([]))).await.as_deref(),
+      Some("Selected model is missing. Choose an explicit model.")
     );
     assert_eq!(
       prepare(request(llama.clone(), &new_uid(), serde_json::json!(["infumap_data"]))).await.as_deref(),
@@ -5029,6 +5030,7 @@ mod live_chat_tests {
           capabilities: vec![],
           tool_approval: crate::query_configuration::ToolApproval::Automatic,
         },
+        scope_item_ids: vec![],
         applied_profile: None,
         mode: ChatRunMode::Chat,
       },

@@ -541,13 +541,16 @@ mod tests {
     let titles = HashMap::new();
     assert_eq!(
       report(Stage::ContentIndex, Some(Duration::from_secs(492))).render(&titles),
-      "Search progress: Content indexing: 2 queued for batched index commit in 8m12s"
+      "Background search processing: Content indexing: 2 queued for batched index commit in 8m12s"
     );
     assert_eq!(
       report(Stage::Title, None).render(&titles),
-      "Search progress: Title indexing: 2 queued for next batched index commit"
+      "Background search processing: Title indexing: 2 queued for next batched index commit"
     );
-    assert_eq!(report(Stage::Fragments, None).render(&titles), "Search progress: Content preparation: 2 queued");
+    assert_eq!(
+      report(Stage::Fragments, None).render(&titles),
+      "Background search processing: Content preparation: 2 queued"
+    );
   }
 
   #[test]

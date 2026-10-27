@@ -53,7 +53,8 @@ use crate::util::fs::expand_tilde;
 /// converted. From version 2 on, a format change must stay backwards compatible for reading: saved
 /// `.chat` items live in the object store and in backups and are never rewritten, so there is no
 /// migration pass. Bump the version and have `parse_transcript` read every earlier version, mapping
-/// old records to something sensible. The turn settings embed `QueryConfiguration` and `QueryProfile`
+/// old records to something sensible. An added field that defaults when absent, such as attachments or scope items,
+/// reads in every version and needs no bump. The turn settings embed `QueryConfiguration` and `QueryProfile`
 /// from `query_configuration.rs`, so changing those types is a transcript format change too.
 pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 3;
 const CHATS_DIR_NAME: &str = "chats";
@@ -689,6 +690,7 @@ mod tests {
           capabilities: vec![],
           tool_approval: crate::query_configuration::ToolApproval::Automatic,
         },
+        scope_item_ids: vec![],
         applied_profile: None,
         mode: ChatRunMode::Chat,
       },

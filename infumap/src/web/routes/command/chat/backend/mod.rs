@@ -226,53 +226,53 @@ mod tests {
     Config::builder().add_source(File::from_str(toml, FileFormat::Toml)).build().unwrap()
   }
 
-  const TWO_SERVERS: &str = r#"
-[[llama_server]]
-name = "a"
-url = "http://127.0.0.1:8080"
+  const TWO_PROVIDERS: &str = r#"
+[[chat_providers]]
+id = "a"
+url = "http://127.0.0.1:8080/v1"
+discover_models = false
 
-[[llama_server]]
-name = "b"
-url = "http://127.0.0.1:8081"
+[[chat_providers]]
+id = "b"
+url = "http://127.0.0.1:8081/v1/chat/completions"
+discover_models = false
+model_name = "qwen"
 "#;
 
-  fn default_id(toml: &str) -> Option<String> {
-    let config = config(toml);
-    default_target(&config, &llama_servers_from_config(&config).unwrap()).map(|target| target.id())
+  fn selection(backend: &str, model: Option<&str>) -> ChatModelSelection {
+    ChatModelSelection { backend: backend.to_owned(), model: model.map(str::to_owned), reasoning_effort: None }
   }
 
-  #[test]
-  fn default_follows_chat_default_backend() {
-    assert_eq!(default_id(TWO_SERVERS).as_deref(), Some("llama:a"));
-    assert_eq!(default_id(&format!("chat_default_backend = \"llama:b\"\n{TWO_SERVERS}")).as_deref(), Some("llama:b"));
-    // OpenRouter is not configured, so a llama server stands in.
-    assert_eq!(
-      default_id(&format!("chat_default_backend = \"openrouter\"\n{TWO_SERVERS}")).as_deref(),
-      Some("llama:a")
-    );
-    assert_eq!(default_id("openrouter_api_key = \"k\"").as_deref(), Some("openrouter"));
-    assert_eq!(default_id(""), None);
+  #[tokio::test]
+  async fn the_default_configuration_uses_the_first_provider_and_model() {
+    let configuration = default_query_configuration(&config(TWO_PROVIDERS)).await.unwrap();
+    assert_eq!(configuration.model, Some(selection("a", Some("default"))));
+    assert_eq!(configuration.capabilities, ["infumap_data"]);
+    assert_eq!(default_query_configuration(&config("")).await.unwrap().model, None);
   }
 
   #[test]
   fn an_explicit_request_is_never_substituted() {
-    let config = config(TWO_SERVERS);
-    let servers = llama_servers_from_config(&config).unwrap();
-    assert_eq!(requested_target(&servers, "llama:b").unwrap().id(), "llama:b");
-    // The first-server alias would change meaning if the configured servers were reordered.
-    assert!(requested_target(&servers, "llama").is_err());
-    assert!(requested_target(&servers, "llama:c").is_err());
-    assert!(requested_target(&servers, "other").is_err());
+    let config = config(TWO_PROVIDERS);
+    let endpoint = resolve_chat_endpoint(&config, &selection("b", Some("qwen"))).unwrap();
+    assert_eq!((endpoint.label.as_str(), endpoint.model.as_str()), ("b", "qwen"));
+    assert_eq!(endpoint.url.as_str(), "http://127.0.0.1:8081/v1/chat/completions");
+    assert!(resolve_chat_endpoint(&config, &selection("c", Some("qwen"))).is_err());
+    // The provider's configured model is not used in place of another or a missing one.
+    assert!(resolve_chat_endpoint(&config, &selection("b", Some("default"))).is_err());
+    assert!(resolve_chat_endpoint(&config, &selection("b", None)).is_err());
   }
 
   #[test]
-  fn validation_rejects_a_default_naming_a_missing_server() {
+  fn validation_rejects_invalid_providers() {
+    assert!(validate_chat_backend_config(&config(TWO_PROVIDERS)).is_ok());
+    assert!(validate_chat_backend_config(&config("[[chat_providers]]\nid = \"a b\"\nurl = \"http://x/v1\"")).is_err());
+    assert!(validate_chat_backend_config(&config("[[chat_providers]]\nid = \"a\"\nurl = \"ftp://x/v1\"")).is_err());
     assert!(
-      validate_chat_backend_config(&config(&format!("chat_default_backend = \"llama:b\"\n{TWO_SERVERS}"))).is_ok()
+      validate_chat_backend_config(&config(
+        "[[chat_providers]]\nid = \"or\"\nurl = \"https://x/v1\"\nadapter = \"openrouter\"\nmodel_name = \"m\""
+      ))
+      .is_err()
     );
-    assert!(
-      validate_chat_backend_config(&config(&format!("chat_default_backend = \"llama:c\"\n{TWO_SERVERS}"))).is_err()
-    );
-    assert!(validate_chat_backend_config(&config("chat_default_backend = \"other\"")).is_err());
   }
 }
