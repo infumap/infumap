@@ -16,25 +16,21 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show, createSignal, onCleanup, onMount } from "solid-js";
-import { Portal } from "solid-js/web";
+import { Component, Show, onCleanup, onMount } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { asLinkItem, isLink } from "../../../items/link-item";
 import { requestArrange } from "../../../layout/arrange";
-import { LinkTargetCandidate, server, serverOrRemote } from "../../../server";
+import { serverOrRemote } from "../../../server";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { getToolbarFocusItem } from "../toolbarFocus";
 import { itemState } from "../../../store/ItemState";
 import { TOOLBAR_INFO_DIVIDER_RIGHT_PX } from "../toolbarDividers";
-import { isUid } from "../../../util/uid";
+import { ItemCandidatesPopup, createItemCandidateSearch } from "../../library/ItemCandidates";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../../constants";
 import { TOOLBAR_POPUP_CLASS, toolbarPopupTopPx } from "../toolbarPopupStyle";
-
-const LINK_TARGET_CANDIDATES_LIMIT = 10;
-const LINK_TARGET_CANDIDATES_DEBOUNCE_MS = 150;
 
 export const Toolbar_Link: Component = () => {
   const store = useStore();
@@ -48,14 +44,13 @@ export const Toolbar_Link: Component = () => {
   // candidates are the user's own items. These are what a bare id resolves to, even in a link served by a remote host.
   const canFindTargetsOnMount = canEditOnMount;
 
-  const [candidates, setCandidates] = createSignal<Array<LinkTargetCandidate>>([]);
-  const [selectedCandidateIdx, setSelectedCandidateIdx] = createSignal(0);
-  // true once a response for the input arrives, so that no matches can be shown as such.
-  const [candidatesShown, setCandidatesShown] = createSignal(false);
-  const [candidatesBoundsPx, setCandidatesBoundsPx] = createSignal({ x: 0, w: 0 });
-  // incremented on each input, so responses to earlier input are dropped.
-  let candidatesRequestNumber = 0;
-  let candidatesDebounceTimeout: number | null = null;
+  const candidateSearch = createItemCandidateSearch({
+    anchor: () => linkResourceInput,
+    onPick: candidate => {
+      linkResourceInput!.value = candidate.id;
+      commitLinkTo();
+    },
+  });
 
   onMount(() => {
     if (!canEditOnMount || !linkResourceInput) {
@@ -66,66 +61,14 @@ export const Toolbar_Link: Component = () => {
   });
 
   onCleanup(() => {
-    cancelCandidatesRequest();
     commitLinkTo();
   });
 
-  const cancelCandidatesRequest = () => {
-    candidatesRequestNumber += 1;
-    if (candidatesDebounceTimeout != null) {
-      clearTimeout(candidatesDebounceTimeout);
-      candidatesDebounceTimeout = null;
-    }
-  }
-
-  const clearCandidates = () => {
-    setCandidatesShown(false);
-    setCandidates([]);
-    setSelectedCandidateIdx(0);
-  }
-
-  const pickCandidate = (candidate: LinkTargetCandidate) => {
-    cancelCandidatesRequest();
-    clearCandidates();
-    linkResourceInput!.value = candidate.id;
-    commitLinkTo();
-  }
-
-  const blurHandler = () => {
-    cancelCandidatesRequest();
-    clearCandidates();
-  }
-
-  // the current candidates stay shown until the response for the new input arrives, so they don't flicker while typing.
   const inputHandler = () => {
     if (!canFindTargetsOnMount || !linkResourceInput) {
       return;
     }
-    cancelCandidatesRequest();
-    const text = linkResourceInput.value.trim();
-    // the server returns nothing for fewer than 2 characters.
-    if (text.length < 2 || isUid(text) || text.toLowerCase().startsWith("http")) {
-      clearCandidates();
-      return;
-    }
-    const requestNumber = candidatesRequestNumber;
-    candidatesDebounceTimeout = window.setTimeout(() => {
-      candidatesDebounceTimeout = null;
-      server.linkTargetCandidates(text, LINK_TARGET_CANDIDATES_LIMIT)
-        .then((response) => {
-          if (requestNumber != candidatesRequestNumber || !linkResourceInput) { return; }
-          const inputBounds = linkResourceInput.getBoundingClientRect();
-          setCandidatesBoundsPx({ x: inputBounds.x, w: inputBounds.width });
-          setCandidates(response.candidates);
-          setSelectedCandidateIdx(0);
-          setCandidatesShown(true);
-        })
-        .catch(() => {
-          // the failure is shown in the network status.
-          if (requestNumber != candidatesRequestNumber) { return; }
-          clearCandidates();
-        });
-    }, LINK_TARGET_CANDIDATES_DEBOUNCE_MS);
+    candidateSearch.search(linkResourceInput.value);
   }
 
   // commits the target in the input. Does nothing if it is unchanged, so it can run before the toolbar closes.
@@ -176,25 +119,7 @@ export const Toolbar_Link: Component = () => {
   const keyEventHandler = (_ev: KeyboardEvent) => { }
 
   const keyDownHandler = (ev: KeyboardEvent) => {
-    // Enter confirms an IME composition.
-    if (!candidatesShown() || ev.isComposing) {
-      return;
-    }
-    const count = candidates().length;
-    if (ev.code == "ArrowDown" && count > 0) {
-      ev.preventDefault();
-      setSelectedCandidateIdx(Math.min(selectedCandidateIdx() + 1, count - 1));
-    } else if (ev.code == "ArrowUp" && count > 0) {
-      ev.preventDefault();
-      setSelectedCandidateIdx(Math.max(selectedCandidateIdx() - 1, 0));
-    } else if ((ev.code == "Enter" || ev.code == "NumpadEnter") && count > 0) {
-      ev.preventDefault();
-      pickCandidate(candidates()[selectedCandidateIdx()]);
-    } else if (ev.code == "Escape") {
-      ev.preventDefault();
-      cancelCandidatesRequest();
-      clearCandidates();
-    }
+    candidateSearch.keyDown(ev);
   }
 
   return (
@@ -211,41 +136,17 @@ export const Toolbar_Link: Component = () => {
                    placeholder="search titles, or id / http(s)://<host>/<id>"
                    title="Type to search your items by title, or enter the id of the item to link to, or http(s)://<host>/<id> for an item on another Infumap instance"
                    onInput={inputHandler}
-                   onBlur={blurHandler}
+                   onBlur={candidateSearch.close}
                    onKeyDown={keyDownHandler}
                    onKeyUp={keyEventHandler}
                    onKeyPress={keyEventHandler} />
           </div>
         </Show>
 
-        <Show when={candidatesShown()}>
-          {/* in the body, so it is drawn over the page's items. Mouse events are stopped so the desktop does not handle them. */}
-          <Portal mount={document.body}>
-            <div class={`${TOOLBAR_POPUP_CLASS} py-[3px] overflow-hidden`}
-                 style={`position: fixed; left: ${candidatesBoundsPx().x}px; top: ${toolbarPopupTopPx(store)}px; ` +
-                   `width: ${candidatesBoundsPx().w}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY};`}
-                 onMouseDown={ev => { ev.preventDefault(); ev.stopPropagation(); }}
-                 onMouseUp={ev => ev.stopPropagation()}
-                 onClick={ev => ev.stopPropagation()}>
-              <Show when={candidates().length > 0}
-                    fallback={<div class="px-[7px] py-[3px] text-sm text-slate-500">no matching items</div>}>
-                <For each={candidates()}>{(candidate, idx) =>
-                  <div class={`px-[7px] py-[3px] cursor-pointer ${idx() == selectedCandidateIdx() ? "bg-slate-300" : ""}`}
-                       onMouseEnter={() => setSelectedCandidateIdx(idx())}
-                       onMouseDown={ev => { ev.preventDefault(); ev.stopPropagation(); pickCandidate(candidate); }}>
-                    <div class="flex flex-row items-baseline text-sm text-slate-800">
-                      <span class="truncate">{candidate.title}</span>
-                      <span class="ml-auto pl-[8px] shrink-0 text-xs text-slate-500">{candidate.itemType}</span>
-                    </div>
-                    <div class="truncate text-xs text-slate-500">
-                      {candidate.path.map(element => element.title ?? "").join(" › ")}
-                    </div>
-                  </div>
-                }</For>
-              </Show>
-            </div>
-          </Portal>
-        </Show>
+        <ItemCandidatesPopup search={candidateSearch}
+                             class={`${TOOLBAR_POPUP_CLASS} py-[3px] overflow-hidden`}
+                             style={`position: fixed; left: ${candidateSearch.anchorBoundsPx()?.x ?? 0}px; top: ${toolbarPopupTopPx(store)}px; ` +
+                               `width: ${candidateSearch.anchorBoundsPx()?.width ?? 0}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY};`} />
 
         <Toolbar_ItemOrdering />
 
