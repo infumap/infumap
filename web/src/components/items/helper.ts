@@ -20,7 +20,7 @@ import { ArrangeAlgorithm } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { isEmptyVeid, isVeTranslucentPage, VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
-import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler, edit_tableTabKeyHandler } from "../../input/edit";
 import { isArrowKey } from "../../input/key";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
@@ -354,6 +354,8 @@ export const handleLineItemTitleKeyDown = (
   ev: KeyboardEvent,
   visualElementMaybe?: VisualElement,
 ): boolean => {
+  if (edit_tableTabKeyHandler(store, ev)) { return true; }
+
   if (ev.key == "Enter") {
     ev.preventDefault();
     ev.stopPropagation();

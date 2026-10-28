@@ -53,7 +53,7 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { isPlaceholder } from "../items/placeholder-item";
 import { createNoteInTableCellAndEdit } from "./create";
 import { isTableView, VeFns, VisualElement, VisualElementFlags } from "../layout/visual-element";
-import { asTitledItem } from "../items/base/titled-item";
+import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { itemCanAcceptManualChildren, NoteFlags, PageFlags } from "../items/base/flags-item";
@@ -1100,15 +1100,16 @@ export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteI
 }
 
 /**
- * Tab while editing a note in a table (a row, or an attachment of a row) moves to the cell to the right, if that
+ * Tab while editing an item title in a table (a row, or an attachment of a row) moves to the cell to the right, if that
  * column is shown. An empty cell gets a new note.
  */
 export function edit_tableTabKeyHandler(store: StoreContextModel, ev: KeyboardEvent): boolean {
   if (ev.key != "Tab" || ev.shiftKey || ev.ctrlKey || ev.metaKey || ev.altKey) { return false; }
   const info = store.overlay.textEditInfo();
-  if (info == null || info.itemType != ItemType.Note || info.colNum != null) { return false; }
+  if (info == null || info.colNum != null) { return false; }
   const editingVe = VesCache.current.readNode(info.itemPath);
-  if (editingVe == null || !(editingVe.flags & VisualElementFlags.InsideTable) || editingVe.col == null) { return false; }
+  if (editingVe == null || !isTitledItem(editingVe.displayItem) ||
+      !(editingVe.flags & VisualElementFlags.InsideTable) || editingVe.col == null) { return false; }
 
   const rowPath = editingVe.flags & VisualElementFlags.Attachment ? editingVe.parentPath : info.itemPath;
   const rowVe = rowPath ? VesCache.current.readNode(rowPath) : null;
