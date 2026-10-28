@@ -20,7 +20,7 @@ import { ArrangeAlgorithm } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { isEmptyVeid, isVeTranslucentPage, VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
-import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler, edit_tableTabKeyHandler } from "../../input/edit";
+import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler, edit_tableTabKeyHandler, selectEditedListPageLineItemMaybe } from "../../input/edit";
 import { isArrowKey } from "../../input/key";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
@@ -306,47 +306,16 @@ export const createPageTitleEditHandlers = (
   };
 }
 
-function selectEditedPageLineItemMaybe(
-  store: StoreContextModel,
-  visualElementMaybe?: VisualElement,
-): string | null {
-  const textEditInfo = store.overlay.textEditInfo();
-  const itemPath = visualElementMaybe ? VeFns.veToPath(visualElementMaybe) : textEditInfo?.itemPath;
-  if (!itemPath) { return null; }
-
-  const lineItemVe = visualElementMaybe ?? VesCache.current.readNode(itemPath);
-  if (!lineItemVe ||
-    !(lineItemVe.flags & VisualElementFlags.LineItem) ||
-    !isPage(lineItemVe.displayItem)) {
-    return null;
-  }
-
-  const parentPath = lineItemVe.parentPath ?? VeFns.parentPath(itemPath);
-  if (!parentPath) { return null; }
-
-  const parentVe = VesCache.current.readNode(parentPath);
-  if (!parentVe ||
-    (parentVe.flags & VisualElementFlags.DockItem) ||
-    !isPage(parentVe.displayItem) ||
-    asPageItem(parentVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
-    return null;
-  }
-
-  store.perItem.setSelectedListPageItem(
-    VeFns.actualVeidFromVe(parentVe),
-    VeFns.veidFromVe(lineItemVe),
-  );
-  return parentPath;
-}
-
-function focusSelectedInnerPageMaybe(store: StoreContextModel, listPagePath: string | null): void {
-  if (listPagePath == null) { return; }
-
+function focusAfterListPageLineItemEnter(store: StoreContextModel, listPagePath: string): void {
+  // Enter on a page row opens it: focus moves into the page shown in the main area.
   const selectedVe = VesCache.current.readSelected(listPagePath);
-  if (!selectedVe || !isPage(selectedVe.displayItem)) { return; }
-
-  store.history.setFocus(VeFns.veToPath(selectedVe));
-  arrangeNow(store, "line-item-enter-focus-selected-page");
+  const focusPath = selectedVe && isPage(selectedVe.displayItem) ? VeFns.veToPath(selectedVe) : null;
+  if (focusPath != null) {
+    store.history.setFocus(focusPath);
+  } else {
+    store.history.setFocus(listPagePath, true);
+  }
+  arrangeNow(store, "line-item-enter-focus-list-page-selection");
 }
 
 export const handleLineItemTitleKeyDown = (
@@ -359,9 +328,10 @@ export const handleLineItemTitleKeyDown = (
   if (ev.key == "Enter") {
     ev.preventDefault();
     ev.stopPropagation();
-    const listPagePath = selectEditedPageLineItemMaybe(store, visualElementMaybe);
-    if (commitActiveTextEdit(store, false, "line-item-enter-exit-edit")) {
-      focusSelectedInnerPageMaybe(store, listPagePath);
+    const itemPath = visualElementMaybe ? VeFns.veToPath(visualElementMaybe) : store.overlay.textEditInfo()?.itemPath;
+    const listPagePath = itemPath ? selectEditedListPageLineItemMaybe(store, itemPath) : null;
+    if (commitActiveTextEdit(store, false, "line-item-enter-exit-edit") && listPagePath != null) {
+      focusAfterListPageLineItemEnter(store, listPagePath);
     }
     return true;
   }

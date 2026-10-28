@@ -212,6 +212,39 @@ function persistCurrentEditTarget(store: StoreContextModel) {
   store.textEdit.flushActive();
 }
 
+/**
+ * If the item at itemPath is a row of a (non-docked) list page, selects it in that list and returns the list page
+ * path, else returns null.
+ *
+ * In a list page the row cursor is the list's selection, and keyboard focus belongs to the list page itself (shown by
+ * the dark selection highlight). So when a title edit on a list row ends, focus goes to the list page, not the row: a
+ * focus ring on a row would be a third cursor that list keyboard navigation doesn't follow. Tables have no selection,
+ * so their rows keep focus instead.
+ */
+export function selectEditedListPageLineItemMaybe(store: StoreContextModel, itemPath: string): string | null {
+  const lineItemVe = VesCache.current.readNode(itemPath);
+  if (!lineItemVe || !(lineItemVe.flags & VisualElementFlags.LineItem)) { return null; }
+  if (itemState.get(lineItemVe.displayItem.id) == null) { return null; }
+
+  const parentPath = lineItemVe.parentPath ?? VeFns.parentPath(itemPath);
+  if (!parentPath) { return null; }
+
+  const parentVe = VesCache.current.readNode(parentPath);
+  // Clicking a row of a docked list page switches page rather than selecting, so its rows are not a selection.
+  if (!parentVe ||
+    (parentVe.flags & VisualElementFlags.DockItem) ||
+    !isPage(parentVe.displayItem) ||
+    asPageItem(parentVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.List) {
+    return null;
+  }
+
+  store.perItem.setSelectedListPageItem(
+    VeFns.actualVeidFromVe(parentVe),
+    VeFns.veidFromVe(lineItemVe),
+  );
+  return parentPath;
+}
+
 export function commitActiveTextEdit(
   store: StoreContextModel,
   preserveFocus: boolean = false,
@@ -222,8 +255,13 @@ export function commitActiveTextEdit(
   if (textEditInfo == null) { return false; }
 
   const element = document.getElementById(textEditElementId(textEditInfo));
+  const listPagePath = preserveFocus ? selectEditedListPageLineItemMaybe(store, textEditInfo.itemPath) : null;
   // setTextEditInfo owns the commit, including any final DOM input and pending save.
   store.overlay.setTextEditInfo(store.history, null, preserveFocus);
+  if (listPagePath != null) {
+    // As for selecting a row by mouse, the list page has focus without a ring.
+    store.history.setFocus(listPagePath, true);
+  }
   store.overlay.toolbarPopupInfoMaybe.set(null);
   if (element?.parentElement) { element.parentElement.scrollLeft = 0; }
   if (document.activeElement instanceof HTMLElement) {
