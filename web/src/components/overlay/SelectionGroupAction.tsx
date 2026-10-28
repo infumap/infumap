@@ -22,7 +22,7 @@ import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { Item } from "../../items/base/item";
 import { GroupFns } from "../../items/base/group-item";
-import { isPage } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, Veid, VisualElement, VisualElementFlags } from "../../layout/visual-element";
@@ -130,6 +130,11 @@ export const SelectionGroupAction: Component = () => {
     const parentId = items[0].parentId;
     const parentItem = itemState.get(parentId);
     if (parentItem == null || !isPage(parentItem)) {
+      return null;
+    }
+    // Rows selected in a list or table page (shift + up/down) are selected to be moved together, not grouped.
+    const parentArrangeAlgorithm = asPageItem(parentItem).arrangeAlgorithm;
+    if (parentArrangeAlgorithm == ArrangeAlgorithm.List || parentArrangeAlgorithm == ArrangeAlgorithm.Table) {
       return null;
     }
 

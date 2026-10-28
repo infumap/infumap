@@ -33,6 +33,7 @@ import { Hitbox, HitboxFlags, HitboxFns } from "./hitbox";
 import { initiateLoadChildItemsMaybe } from "./load";
 import { VeFns, VisualElementPath } from "./visual-element";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./arrange/util";
+import { orderedGroupMoveItems } from "../input/move_group";
 import { linkHasTriangle } from "./link-triangle";
 
 export type TabularContainerItem = ContainerItem & TabularItem;
@@ -149,7 +150,9 @@ export function walkTabularRows(
   // Like an item dragged out of a table, a moving direct child has no row until it is dropped: it is
   // drawn under the pointer instead. This includes an item dragged out of an attachment cell, which
   // is parented here during the move - showing it would add a row (or shift sorted rows).
+  // The same goes for the rest of a group moving with it.
   const movingItem = getMovingTreeItemInParentMaybe(container.id);
+  const movingIds = movingItem == null ? null : new Set(orderedGroupMoveItems(movingItem).map(item => item.id));
 
   while (iterIndices.length > 0) {
     const depth = iterIndices.length - 1;
@@ -162,7 +165,7 @@ export function walkTabularRows(
     }
 
     const itemId = parentContainer.computed_children[indexInParent];
-    if (depth == 0 && movingItem != null && itemId == movingItem.id) {
+    if (depth == 0 && movingIds != null && movingIds.has(itemId)) {
       iterIndices[depth] = indexInParent + 1;
       continue;
     }

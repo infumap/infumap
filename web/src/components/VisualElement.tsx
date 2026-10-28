@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, Match, Switch } from "solid-js";
+import { Component, Match, Show, Switch } from "solid-js";
 import { isFile } from "../items/file-item";
 import { isText } from "../items/text-item";
 import { isImage } from "../items/image-item";
@@ -62,6 +62,8 @@ import { isDivider } from "../items/divider-item";
 import { TrashLink_Desktop, TrashLink_LineItem } from "./items/TrashLink";
 import { isLinkInTrash } from "../items/trash-link";
 import { useStore } from "../store/StoreProvider";
+import { createHighlightBoundsPxFn, highlightStyle } from "./items/helper";
+import { Z_INDEX_LOCAL_HIGHLIGHT } from "../constants";
 
 
 export interface VisualElementProps {
@@ -103,7 +105,7 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
     !(props.visualElement.flags & VisualElementFlags.Popup) &&
     isLinkInTrash(props.visualElement.actualLinkItemMaybe ?? props.visualElement.linkItemMaybe,
       store.user.getUserMaybe()?.trashPageId);
-  return (
+  const lineItem = (
     <Switch fallback={<div>VisualElement_LineItem: unknown display item type '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
       <Match when={(props.visualElement.flags & VisualElementFlags.LineItemOutline) && lineItemHasTextOutline(props.visualElement.displayItem)}>
@@ -125,5 +127,19 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
       <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_LineItem {...props} /></Match>
       <Match when={props.visualElement.displayItem == EMPTY_ITEM()}><></></Match> {/* generated only for the hitboxes. */}
     </Switch>
+  );
+  // Rows selected together (shift + up/down) in a list page or table. A trash link draws its own.
+  const selectionHighlightBoundsPx = createHighlightBoundsPxFn(() => props.visualElement);
+  return (
+    <>
+      {lineItem}
+      <Show when={(props.visualElement.flags & VisualElementFlags.SelectionHighlighted) && !isTrashLink()}>
+        <div class="absolute pointer-events-none"
+          style={`left: ${selectionHighlightBoundsPx().x}px; top: ${selectionHighlightBoundsPx().y}px; ` +
+            `width: ${selectionHighlightBoundsPx().w}px; height: ${selectionHighlightBoundsPx().h}px; ` +
+            `${highlightStyle(props.visualElement.flags)}` +
+            `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
+      </Show>
+    </>
   );
 }

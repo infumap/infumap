@@ -69,7 +69,7 @@ import {
 } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown, resolveActiveTreeItemForResize } from "./mouse_move";
-import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, orderedGroupMoveItems } from "./move_group";
+import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, orderedGroupMoveItems, placeItemsAtChildrenPosition } from "./move_group";
 import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
 import { NativeTextSelectionState } from "./native_text_selection";
@@ -1855,34 +1855,20 @@ function moveSelectedGroupToTableMaybe(
   const activeVe = MouseActionState.getActiveVisualElement();
   if (!activeVe) { return false; }
 
-  const groupEntries = getGroupMoveEntriesInParent(MouseActionState.getGroupMoveItems(), activeItem.parentId);
-  if (groupEntries.length == 0) { return false; }
-
-  const activeVeid = VeFns.veidFromVe(activeVe);
-  const sortedEntries = groupEntries.slice().sort((a, b) => {
-    const dy = a.entry.startPosGr.y - b.entry.startPosGr.y;
-    if (dy != 0) { return dy; }
-    return a.entry.startPosGr.x - b.entry.startPosGr.x;
-  });
-  const activeSortedIndex = sortedEntries.findIndex(({ entry }) =>
-    entry.veid.itemId == activeVeid.itemId && entry.veid.linkIdMaybe == activeVeid.linkIdMaybe);
-  if (activeSortedIndex < 0) { return false; }
+  const movingItems = orderedGroupMoveItems(activeItem).map(item => asPositionalItem(item));
+  if (movingItems.length < 2) { return false; }
+  const movingIds = new Set(movingItems.map(item => item.id));
 
   const anchorIndex = Math.max(0, store.perVe.getMoveOverRowNumber(VeFns.veToPath(tableVe)));
   const insertionTarget = TableFns.tableInsertionTarget(store, tableVe, anchorIndex);
-  const targetParentId = insertionTarget.parentContainer.id;
-  const startIndex = Math.max(0, insertionTarget.insertIndex - activeSortedIndex);
-
-  for (let i = 0; i < sortedEntries.length; ++i) {
-    const { item } = sortedEntries[i];
-    const ordering = itemState.newOrderingAtChildrenPosition(targetParentId, startIndex + i, item.id);
-    if (item.parentId != targetParentId) {
-      itemState.moveToNewParent(item, targetParentId, RelationshipToParent.Child, ordering);
-    } else {
-      item.ordering = ordering;
-      itemState.sortChildren(targetParentId);
-    }
-  }
+  const targetParent = insertionTarget.parentContainer;
+  // insertIndex indexes all the children, including any of the group being reordered within their own parent.
+  const insertIndexAmongOthers = targetParent.computed_children
+    .slice(0, insertionTarget.insertIndex)
+    .filter(id => !movingIds.has(id))
+    .length;
+  // As in a list page, the whole group goes in at the insertion line, in order.
+  placeItemsAtChildrenPosition(targetParent, movingItems, insertIndexAmongOthers);
   return true;
 }
 
@@ -1925,24 +1911,7 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
     pageItem.arrangeAlgorithm != ArrangeAlgorithm.Document && moveToParent.orderChildrenBy
       ? 0
       : insertionTarget.insertIndex;
-  const orderings = moveToParent.computed_children
-    .filter(id => !movingIds.includes(id))
-    .map(id => itemState.get(id)!.ordering);
-  let orderingIndex = Math.max(0, Math.min(insertIndex, orderings.length));
-  for (const item of movingItems) {
-    const ordering = orderingIndex == 0
-      ? newOrderingAtBeginning(orderings)
-      : orderingIndex == orderings.length
-        ? newOrderingAtEnd(orderings)
-        : newOrderingBetween(orderings[orderingIndex - 1], orderings[orderingIndex]);
-    orderings.splice(orderingIndex++, 0, ordering);
-    if (item.parentId != moveToParent.id) {
-      itemState.moveToNewParent(item, moveToParent.id, RelationshipToParent.Child, ordering);
-    } else {
-      item.ordering = ordering;
-    }
-  }
-  itemState.sortChildren(moveToParent.id);
+  placeItemsAtChildrenPosition(moveToParent, movingItems, insertIndex);
 
   if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
     const activeVe = MouseActionState.getActiveVisualElement();

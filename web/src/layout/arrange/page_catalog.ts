@@ -32,7 +32,7 @@ import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes,
 import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem, arrangeItemPath, arrangePreviewChildPath, getCommonVisualElementFlags, pageIsPreview } from "./item";
+import { ArrangeItemFlags, arrangeItem, arrangeItemPath, arrangePreviewChildPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageIsPreview } from "./item";
 import { calcCatalogLayout } from "../catalog";
 import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
@@ -105,15 +105,8 @@ export function arrange_catalog_page(
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
-  const isSelectionHighlighted = (() => {
-    const sel = store.overlay.selectedVeids.get();
-    if (!sel || sel.length === 0) { return false; }
-    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
-    for (let i = 0; i < sel.length; ++i) {
-      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
-    }
-    return false;
-  })();
+  const isSelectionHighlighted = arrangedItemIsInOverlaySelection(
+    store, VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren), linkItemMaybe_pageWithChildren);
 
   const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,

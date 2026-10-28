@@ -29,7 +29,7 @@ import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../uti
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, arrangePreviewChildPath, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, arrangePreviewChildPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags } from "./item";
 import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
@@ -77,15 +77,8 @@ export function arrange_spatial_page(
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
-  const isSelectionHighlighted = (() => {
-    const sel = store.overlay.selectedVeids.get();
-    if (!sel || sel.length === 0) { return false; }
-    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
-    for (let i = 0; i < sel.length; ++i) {
-      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
-    }
-    return false;
-  })();
+  const isSelectionHighlighted = arrangedItemIsInOverlaySelection(
+    store, VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren), linkItemMaybe_pageWithChildren);
 
   const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,

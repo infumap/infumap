@@ -43,7 +43,7 @@ import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isTableView } from "../visual-element";
 
 import { arrangeItemAttachments } from "./attachments";
-import { ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
 
@@ -74,15 +74,7 @@ export const arrangeTable = (
   const highlightedPath = store.find.highlightedPath.get();
   const isTableHighlighted = highlightedPath !== null && highlightedPath === tableVePath;
 
-  const isSelectionHighlighted = (() => {
-    const sel = store.overlay.selectedVeids.get();
-    if (!sel || sel.length === 0) { return false; }
-    const veid = VeFns.veidFromItems(displayItem_Table, actualLinkItemMaybe_Table);
-    for (let i = 0; i < sel.length; ++i) {
-      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
-    }
-    return false;
-  })();
+  const isSelectionHighlighted = arrangedItemIsInOverlaySelection(store, VeFns.veidFromItems(displayItem_Table, actualLinkItemMaybe_Table), linkItemMaybe_Table);
 
   const tableSpec: VisualElementSpec = {
     displayItem: displayItem_Table,
@@ -705,6 +697,8 @@ function buildTableRowRenderPlan(
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === tableChildVePath;
 
+  const isSelectionHighlighted = store.overlay.selectedVeids.get().some(veid => VeFns.compareVeids(veid, childVeid) == 0);
+
   const rowFlags = tableRowsAreOutlines(di_Table, blockSizePx) ? VisualElementFlags.LineItemOutline : VisualElementFlags.None;
 
   const tableChildVeSpec: VisualElementSpec = {
@@ -712,7 +706,8 @@ function buildTableRowRenderPlan(
     linkItemMaybe: linkItemMaybe_childItem,
     actualLinkItemMaybe: linkItemMaybe_childItem,
     flags: VisualElementFlags.LineItem | VisualElementFlags.InsideTable | rowFlags |
-      (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None),
+      (isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+      (isSelectionHighlighted ? VisualElementFlags.SelectionHighlighted : VisualElementFlags.None),
     _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     boundsPx: geometry.boundsPx,
     tableDimensionsPx,

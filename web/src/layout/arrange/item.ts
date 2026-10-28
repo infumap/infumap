@@ -25,7 +25,7 @@ import { itemState } from "../../store/ItemState";
 import { asTableItem, isTable } from "../../items/table-item";
 import { isImage } from "../../items/image-item";
 import { asQueryItem, isQueryItem } from "../../items/query-item";
-import { VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, VeFns } from "../visual-element";
+import { VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, VeFns, Veid } from "../visual-element";
 import { VisualElementSignal } from "../../util/signals";
 import { LinkItem, isLink } from "../../items/link-item";
 import { panic } from "../../util/lang";
@@ -40,6 +40,7 @@ import { MouseAction, MouseActionState } from "../../input/state";
 import { arrangeTable } from "./table";
 import { arrangeComposite } from "./composite";
 import { arrangePageWithChildren } from "./page";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "./page_list";
 import { asAttachmentsItem, isAttachmentsItem } from "../../items/base/attachments-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { arrangeQueryWorkspacePathMaybe } from "./search";
@@ -83,6 +84,19 @@ export function pageIsPreview(page: PageItem, parentPath: VisualElementPath, fla
   }
   const isEmbeddedInteractive = !!(page.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
   return !isEmbeddedInteractive && !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null);
+}
+
+/**
+ * Whether the item arranged as veid, via linkItemMaybe, is in the overlay selection. A list page's selected item, shown
+ * beside its rows (via LIST_PAGE_MAIN_ITEM_LINK_ITEM), is not: its row is what is selected.
+ */
+export function arrangedItemIsInOverlaySelection(
+  store: StoreContextModel,
+  veid: Veid,
+  linkItemMaybe: LinkItem | null,
+): boolean {
+  if (linkItemMaybe?.id == LIST_PAGE_MAIN_ITEM_LINK_ITEM) { return false; }
+  return store.overlay.selectedVeids.get().some(selectedVeid => VeFns.compareVeids(selectedVeid, veid) == 0);
 }
 
 export function getCommonVisualElementFlags(flags: ArrangeItemFlags): VisualElementFlags {
@@ -298,16 +312,7 @@ export const arrangeItemNoChildren = (
     parentPath: parentVePath,
   };
 
-  const isInOverlaySelection = (() => {
-    const sel = store.overlay.selectedVeids.get();
-    if (!sel || sel.length === 0) { return false; }
-    const veid = VeFns.veidFromItems(displayItem, actualLinkItemMaybe);
-    for (let i = 0; i < sel.length; ++i) {
-      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
-    }
-    return false;
-  })();
-  if (isInOverlaySelection) {
+  if (arrangedItemIsInOverlaySelection(store, VeFns.veidFromItems(displayItem, actualLinkItemMaybe), linkItemMaybe)) {
     itemVisualElementSpec.flags = (itemVisualElementSpec.flags || VisualElementFlags.None) | VisualElementFlags.SelectionHighlighted;
   }
 

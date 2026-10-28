@@ -29,7 +29,7 @@ import { panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags } from "./item";
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTargetRowHeightPx } from "./justified_metrics";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
@@ -98,15 +98,8 @@ export function arrange_justified_page(
 
   const highlightedPath = store.find.highlightedPath.get();
   const isHighlighted = highlightedPath !== null && highlightedPath === pageWithChildrenVePath;
-  const isSelectionHighlighted = (() => {
-    const sel = store.overlay.selectedVeids.get();
-    if (!sel || sel.length === 0) { return false; }
-    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
-    for (let i = 0; i < sel.length; ++i) {
-      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
-    }
-    return false;
-  })();
+  const isSelectionHighlighted = arrangedItemIsInOverlaySelection(
+    store, VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren), linkItemMaybe_pageWithChildren);
 
   const pageSpec: VisualElementSpec = {
     displayItem: displayItem_pageWithChildren,

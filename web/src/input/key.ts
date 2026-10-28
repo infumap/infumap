@@ -43,6 +43,7 @@ import { serverOrRemote } from "../server";
 import { ItemType } from "../items/base/item";
 import { HitInfoFns } from "./hit";
 import { EMPTY_UID, UMBRELLA_PAGE_UID } from "../util/uid";
+import { clearRowRangeSelectionMaybe, extendRowRangeSelection } from "./row_selection";
 import { asContainerItem } from "../items/base/container-item";
 import { MOUSE_RIGHT, mouseDownHandler } from "./mouse_down";
 import { CompositeFns, isComposite } from "../items/composite-item";
@@ -653,6 +654,11 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       return;
     }
     if (handleSearchWorkspaceEscapeMaybe(store)) {
+      return;
+    }
+    if (store.overlay.selectedVeids.get().length > 0) {
+      store.overlay.selectedVeids.set([]);
+      arrangeNow(store, "key-escape-clear-selection");
       return;
     }
     const popupSpec = store.history.currentPopupSpec();
@@ -1347,6 +1353,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     return;
   }
 
+  if (handleTableRowRangeSelectionMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleTableRootPageHorizontalNavigationMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
@@ -1589,6 +1596,49 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   }
 }
 
+/**
+ * Shift + up/down from a table row (of a table or table page) with the focus ring: select a range of rows, moving
+ * focus with it. A row has the focus ring when focused, and also when open in a popup, which this closes.
+ */
+function handleTableRowRangeSelectionMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (!ev.shiftKey || (ev.code != "ArrowUp" && ev.code != "ArrowDown")) { return false; }
+  const popupSpec = store.history.currentPopupSpec();
+  const focusPath = popupSpec != null ? popupSpec.vePath : store.history.getFocusPath();
+  if (focusPath == null) { return false; }
+  const focusVe = VesCache.current.readNode(focusPath);
+  if (!focusVe) { return false; }
+  if (!(focusVe.flags & VisualElementFlags.InsideTable)) { return false; }
+  if (focusVe.flags & VisualElementFlags.Attachment) { return false; }
+  if (focusVe.row == null || focusVe.parentPath == null) { return false; }
+  const tableVe = VesCache.current.readNode(focusVe.parentPath);
+  if (!tableVe || !isTableView(tableVe)) { return false; }
+
+  if (popupSpec != null) {
+    store.history.popPopup();
+    store.history.setFocus(focusPath);
+  }
+
+  const rows = TableFns.tableVisibleRows(store, tableVe);
+  const cursorRow = extendRowRangeSelection(
+    store,
+    rows.map(row => ({ veid: VeFns.veidFromPath(row.path), parentId: row.item.parentId })),
+    VeFns.veidFromPath(focusPath),
+    ev.code == "ArrowUp" ? -1 : 1);
+  if (cursorRow != null) {
+    const targetRow = rows.findIndex(row => VeFns.compareVeids(VeFns.veidFromPath(row.path), cursorRow.veid) == 0);
+    const tableVeid = VeFns.veidFromVe(tableVe);
+    const nextScrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, targetRow);
+    if (nextScrollYPos !== store.perItem.getTableScrollYPos(tableVeid)) {
+      store.perItem.setTableScrollYPos(tableVeid, nextScrollYPos);
+      arrangeNow(store, "key-table-extend-row-selection-scroll");
+    }
+    store.history.setFocus(rows[targetRow].path);
+  }
+  // At either end, this does nothing, rather than navigating out of the table as up/down does.
+  arrangeNow(store, "key-table-extend-row-selection");
+  return true;
+}
+
 function handleVirtualizedTableVerticalNavigationMaybe(
   store: StoreContextModel,
   focusPath: string,
@@ -1598,6 +1648,7 @@ function handleVirtualizedTableVerticalNavigationMaybe(
   if (direction != FindDirection.Up && direction != FindDirection.Down) { return false; }
   if (!(focusVe.flags & VisualElementFlags.InsideTable)) { return false; }
   if (focusVe.row == null) { return false; }
+  clearRowRangeSelectionMaybe(store);
 
   const isAttachment = !!(focusVe.flags & VisualElementFlags.Attachment);
   const rowPath = isAttachment ? focusVe.parentPath : focusPath;
@@ -1786,6 +1837,18 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
       arrangeNow(store, "key-list-page-set-default-selection");
       return true;
     }
+    if (ev.shiftKey) {
+      // At either end, this does nothing, rather than navigating in the parent as up/down does.
+      const rows = orderedListPageLineChildrenForKeyNavigation(focusPagePath)
+        .map(ve => ({ veid: VeFns.veidFromVe(ve), parentId: VeFns.treeItem(ve).parentId }));
+      const cursorRow = extendRowRangeSelection(store, rows, selectedVeid, ev.code == "ArrowUp" ? -1 : 1);
+      if (cursorRow != null) {
+        store.perItem.setSelectedListPageItem(focusPageVeid, cursorRow.veid);
+      }
+      arrangeNow(store, "key-list-page-extend-row-selection");
+      return true;
+    }
+    clearRowRangeSelectionMaybe(store);
     const direction = findDirectionFromKeyCode(ev.code);
     if (!moveListPageSelectionInRenderedOrderMaybe(store, focusPagePath, focusPageVeid, selectedVeid, direction)) {
       // At boundary (topmost/bottommost item) - fall through to parent context navigation

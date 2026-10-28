@@ -17,7 +17,7 @@ Summary:
 > [!IMPORTANT]
 > The `master` branch is the active development branch and often includes work in progress between releases. For regular use, please prefer the latest tagged release.
 
-Infumap is the how I always imagined a computer desktop should work. I spend a significant part of almost every day using it to manage all of my personal information. This daily use has shaped development and steadily refined the product. Product quality has now reached a point where I'm not embarassed to show it to others, though some rough edges remain.
+Infumap is the how I have long imagined a computer desktop should work. I spend a significant part of almost every day using it to manage all of my personal information. This daily use has shaped development and steadily refined the product. Product quality has now reached a point where I'm not embarassed to show it to others, though some rough edges remain.
 
 Feedback, bug reports, and suggestions are welcome.
 

@@ -45,7 +45,7 @@ import { initiateLoadChildItemsMaybe } from "../load";
 import { RelationshipToParent } from "../relationship-to-parent";
 import { VesCache } from "../ves-cache";
 import { isEmptyVeid, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, type ListPageRowBand } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, arrangeItemPath, getCommonVisualElementFlags, pageIsPreview } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemNoChildren, arrangeItemPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageIsPreview } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem, previewChildIsDetailed, scaleGeometry } from "./util";
 import { isImage } from "../../items/image-item";
@@ -240,15 +240,8 @@ export function arrange_list_page(
   const listWidthBl = displayItem_pageWithChildren.listWidthGr / GRID_SIZE;
 
   // Mark page as selection-highlighted when included in overlay selection
-  const isSelectionHighlighted = (() => {
-    const sel = store.overlay.selectedVeids.get();
-    if (!sel || sel.length === 0) { return false; }
-    const veid = VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren);
-    for (let i = 0; i < sel.length; ++i) {
-      if (sel[i].itemId === veid.itemId && sel[i].linkIdMaybe === veid.linkIdMaybe) { return true; }
-    }
-    return false;
-  })();
+  const isSelectionHighlighted = arrangedItemIsInOverlaySelection(
+    store, VeFns.veidFromItems(displayItem_pageWithChildren, actualLinkItemMaybe_pageWithChildren), linkItemMaybe_pageWithChildren);
 
   // Snap the scaled list width so translucent/nested separators land on whole pixels.
   const configuredListWidthPx = Math.round(LINE_HEIGHT_PX * listWidthBl * listScale);
@@ -402,6 +395,7 @@ export function arrange_list_page(
   };
 
   if (shouldArrangeListContents) {
+    const overlaySelectedVeids = store.overlay.selectedVeids.get();
     for (const row of arrangedRows) {
       const listItemGeometry = ItemFns.calcGeometry_ListItem(
         row.displayItem,
@@ -429,6 +423,9 @@ export function arrange_list_page(
             ? (isFocusPage ? VisualElementFlags.FocusPageSelected | VisualElementFlags.Selected : VisualElementFlags.Selected)
             : VisualElementFlags.None) |
           (row.isHighlighted ? VisualElementFlags.FindHighlighted : VisualElementFlags.None) |
+          (overlaySelectedVeids.some(veid => VeFns.compareVeids(veid, row.childVeid) == 0)
+            ? VisualElementFlags.SelectionHighlighted
+            : VisualElementFlags.None) |
           (renderRowsAsOutline ? VisualElementFlags.LineItemOutline : VisualElementFlags.None),
         _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
         boundsPx: listItemGeometry.boundsPx,
@@ -521,7 +518,7 @@ export function arrange_list_page(
 export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
 
 /** The gap between the moving items stacked under the cursor, at scale 1, as between the items in the dock. */
-const MOVING_STACK_GAP_PX = LIST_PAGE_TOP_PADDING_PX;
+export const MOVING_STACK_GAP_PX = LIST_PAGE_TOP_PADDING_PX;
 
 /**
  * Arrange the items moving in list page pagePath (orderedItems, from orderedGroupMoveItems) stacked in the order a drop

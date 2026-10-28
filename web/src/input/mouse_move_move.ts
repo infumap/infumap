@@ -42,7 +42,7 @@ import { arrangeNow } from "../layout/arrange";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, isTableView } from "../layout/visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, isTableView } from "../layout/visual-element";
 import { server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
@@ -59,7 +59,7 @@ import { isDataItem } from "../items/base/data-item";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { justifiedInsertionFromDesktopPx } from "../layout/justified-insertion";
 import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
-import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
+import { GroupMoveItem, calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, stackedGroupMoveStartPositionsGr } from "./move_group";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 
 
@@ -362,6 +362,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     );
   }
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
+    // A copy or link is made of the active item only.
+    MouseActionState.setGroupMoveItems(shouldCreateLink || shouldClone
+      ? undefined
+      : groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem));
     if (!moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone)) { return; }
     MouseActionState.setAction(MouseAction.Moving); // arrange must treat the re-parented item as moving.
     arrangeNow(store, "moving-init-out-of-table");
@@ -385,37 +389,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       y: activeItem.spatialPositionGr.y / GRID_SIZE
     });
 
-    // Setup group move if the active item is part of the current selection set
-    const selected = store.overlay.selectedVeids.get();
-    if (selected && selected.length > 0) {
-      const isActiveSelected = selected.some(v => {
-        const veid = VeFns.veidFromVe(activeVisualElement);
-        return v.itemId === veid.itemId && v.linkIdMaybe === veid.linkIdMaybe;
-      });
-      if (isActiveSelected) {
-        const group = selected
-          .map(v => ({ veid: v, item: itemState.get(v.linkIdMaybe ? v.linkIdMaybe : v.itemId)! }))
-          .filter(e => isPositionalItem(e.item))
-          .map(e => ({
-            veid: e.veid,
-            startPosGr: (() => {
-              const renderedVe = VesCache.current.findNodes(e.veid)[0];
-              const renderedPosBl = renderedVe ? spatialStartPosBlFromRenderedVe(renderedVe) : null;
-              return renderedPosBl
-                // Rendered bounds can drift off the persisted half-block grid due to scaling.
-                // Snap them back before using them as the basis for a persisted group move.
-                ? quantizeSpatialPosGr({ x: renderedPosBl.x * GRID_SIZE, y: renderedPosBl.y * GRID_SIZE })
-                : quantizeSpatialPosGr((e.item as PositionalItem).spatialPositionGr);
-            })(),
-            parentId: (e.item as PositionalItem).parentId,
-          }));
-        MouseActionState.setGroupMoveItems(group);
-      } else {
-        MouseActionState.setGroupMoveItems(undefined);
-      }
-    } else {
-      MouseActionState.setGroupMoveItems(undefined);
-    }
+    MouseActionState.setGroupMoveItems(groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem));
 
     if (shouldClone) {
       const toClone = activeVisualElement.displayItem;
@@ -533,6 +507,50 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       MouseActionState.setActiveElementPath(activeElementPath);
     }
   }
+}
+
+/**
+ * The group moving with activeVisualElement, if it is part of the current selection set: the selected items, with
+ * their start positions.
+ */
+function groupMoveItemsFromSelectionMaybe(
+  store: StoreContextModel,
+  activeVisualElement: VisualElement,
+  parentItem: Item,
+): Array<GroupMoveItem> | undefined {
+  const selected = store.overlay.selectedVeids.get();
+  const activeVeid = VeFns.veidFromVe(activeVisualElement);
+  if (!selected.some(v => VeFns.compareVeids(v, activeVeid) == 0)) { return undefined; }
+
+  const entries = selected
+    .map(veid => ({ veid, item: itemState.get(veid.linkIdMaybe ? veid.linkIdMaybe : veid.itemId) }))
+    .filter((e): e is { veid: Veid, item: PositionalItem } => e.item != null && isPositionalItem(e.item));
+
+  // Rows of a list page or table are selected in the order they are shown (see extendRowRangeSelection), and their
+  // spatial positions don't relate to that order.
+  const selectedAsRows = !!(activeVisualElement.flags & VisualElementFlags.LineItem) ||
+    isTable(parentItem) ||
+    (isPage(parentItem) &&
+      (asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List ||
+        asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Table));
+  if (selectedAsRows) {
+    const startPositionsGr = stackedGroupMoveStartPositionsGr(entries.map(e => e.item));
+    return entries.map((e, i) => ({ veid: e.veid, startPosGr: startPositionsGr[i], parentId: e.item.parentId }));
+  }
+
+  return entries.map(e => ({
+    veid: e.veid,
+    startPosGr: (() => {
+      const renderedVe = VesCache.current.findNodes(e.veid)[0];
+      const renderedPosBl = renderedVe ? spatialStartPosBlFromRenderedVe(renderedVe) : null;
+      return renderedPosBl
+        // Rendered bounds can drift off the persisted half-block grid due to scaling.
+        // Snap them back before using them as the basis for a persisted group move.
+        ? quantizeSpatialPosGr({ x: renderedPosBl.x * GRID_SIZE, y: renderedPosBl.y * GRID_SIZE })
+        : quantizeSpatialPosGr(e.item.spatialPositionGr);
+    })(),
+    parentId: e.item.parentId,
+  }));
 }
 
 function shouldArrangeDocumentPageMoveOutOnStart(parentItem: Item, activeVisualElement: VisualElement): boolean {
@@ -1091,8 +1109,17 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     MouseActionState.setLinkCreatedOnMoveStart(true);
 
   } else {
-    activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
-    itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
+    const movedGroupIds = moveGroupToChildParentPreservingOffsets(
+      MouseActionState.getGroupMoveItems(),
+      VeFns.veidFromVe(activeVisualElement),
+      activeItem.parentId,
+      moveToPage.id,
+      itemPosInPageQuantizedGr,
+    );
+    if (movedGroupIds.length == 0) {
+      activeItem.spatialPositionGr = itemPosInPageQuantizedGr;
+      itemState.moveToNewParent(activeItem, moveToPage.id, RelationshipToParent.Child);
+    }
     // Set active element to the moved item within the new page path
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(VeFns.veidFromVe(activeVisualElement), VeFns.veToPath(moveToPageVe)));
   }

@@ -27,11 +27,13 @@ import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VeFns, Veid, VisualElement } from "../layout/visual-element";
 import { Item } from "../items/base/item";
+import { ContainerItem } from "../items/base/container-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { MouseActionState } from "./state";
 import { Dimensions, Vector, vectorSubtract } from "../util/geometry";
 import { panic } from "../util/lang";
+import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 
 export interface GroupMoveItem {
   veid: Veid,
@@ -203,6 +205,50 @@ export function groupMoveStackWindow(orderedItems: Array<Item>, activeItemId: st
     activeIndex: activeIndex - start,
     hiddenCount: orderedItems.length - count,
   };
+}
+
+/**
+ * Start positions for a group move selected from rows (of a list page, table or table page), where the items' own
+ * spatial positions say nothing about how they are laid out: stacked top to bottom in the order of items, as they are
+ * dropped into a spatial page. orderedGroupMoveItems then sorts the group back into that order.
+ */
+export function stackedGroupMoveStartPositionsGr(items: Array<PositionalItem>): Array<Vector> {
+  let yGr = 0;
+  return items.map(item => {
+    const posGr = { x: 0, y: yGr };
+    yGr += ItemFns.calcSpatialDimensionsBl(item).h * GRID_SIZE;
+    return posGr;
+  });
+}
+
+/**
+ * Give items, in order, orderings that put them together at indexAmongOthers among the children of parent that are
+ * not in items, moving any that aren't children of parent into it.
+ */
+export function placeItemsAtChildrenPosition(
+  parent: ContainerItem,
+  items: Array<PositionalItem>,
+  indexAmongOthers: number,
+): void {
+  const ids = items.map(item => item.id);
+  const orderings = parent.computed_children
+    .filter(id => !ids.includes(id))
+    .map(id => itemState.get(id)!.ordering);
+  let orderingIndex = Math.max(0, Math.min(indexAmongOthers, orderings.length));
+  for (const item of items) {
+    const ordering = orderingIndex == 0
+      ? newOrderingAtBeginning(orderings)
+      : orderingIndex == orderings.length
+        ? newOrderingAtEnd(orderings)
+        : newOrderingBetween(orderings[orderingIndex - 1], orderings[orderingIndex]);
+    orderings.splice(orderingIndex++, 0, ordering);
+    if (item.parentId != parent.id) {
+      itemState.moveToNewParent(item, parent.id, RelationshipToParent.Child, ordering);
+    } else {
+      item.ordering = ordering;
+    }
+  }
+  itemState.sortChildren(parent.id);
 }
 
 export function moveGroupToChildParentPreservingOffsets(

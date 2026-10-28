@@ -154,9 +154,9 @@ function movingOverlayVisualElements(store: StoreContextModel): Array<VisualElem
 }
 
 /**
- * Over a list page or the dock, at most GROUP_MOVE_STACK_MAX_ITEMS of a group move are drawn, stacked under the cursor
- * (see groupMoveStackWindow), and by the page itself rather than here. This is where the badge counting the rest goes:
- * the bottom right of the stack.
+ * Over a list page, table page or the dock, at most GROUP_MOVE_STACK_MAX_ITEMS of a group move are drawn, stacked under
+ * the cursor (see groupMoveStackWindow), and by the page itself rather than here. This is where the badge counting the
+ * rest goes: the bottom right of the stack.
  */
 function movingOverlayStackBadgeMaybe(store: StoreContextModel): { x: number, y: number, hiddenCount: number } | null {
   if (!store.anItemIsMoving.get()) { return null; }
@@ -169,9 +169,11 @@ function movingOverlayStackBadgeMaybe(store: StoreContextModel): { x: number, y:
     .map(veSignal => veSignal.get())
     .filter(ve => !!(ve.flags & VisualElementFlags.Moving));
   const parentVisualElement = VesCache.render.getNode(parentPath)?.get() ?? VesCache.current.readNode(parentPath) ?? null;
-  // listViewportBoundsPx is set for exactly the list pages.
+  // listViewportBoundsPx is set for exactly the list pages, and tableBodyViewportBoundsPx for the table pages.
   if (stackVes.length == 0 || parentVisualElement == null ||
-    !((parentVisualElement.flags & VisualElementFlags.IsDock) || parentVisualElement.listViewportBoundsPx != null)) {
+    !((parentVisualElement.flags & VisualElementFlags.IsDock) ||
+      parentVisualElement.listViewportBoundsPx != null ||
+      parentVisualElement.tableBodyViewportBoundsPx != null)) {
     return null;
   }
 

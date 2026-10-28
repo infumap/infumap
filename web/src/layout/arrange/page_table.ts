@@ -29,11 +29,13 @@ import { ItemGeometry } from "../item-geometry";
 import { tabularColumnHitboxes } from "../tabular";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isVeTranslucentPage } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem, getCommonVisualElementFlags, pageIsPreview } from "./item";
+import { ArrangeItemFlags, arrangeItem, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageIsPreview } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeTabularChildren } from "./table";
 import { getMovingTreeItemInParentMaybe } from "./util";
+import { MOVING_STACK_GAP_PX } from "./page_list";
+import { groupMoveStackWindow, orderedGroupMoveItems } from "../../input/move_group";
 
 export function arrange_table_page(
   store: StoreContextModel,
@@ -96,9 +98,7 @@ export function arrange_table_page(
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(bodyViewportPx);
   childAreaBoundsPx.h = rowsExtent.heightBl * rowBlockSizePx.h;
   const highlightedPath = store.find.highlightedPath.get();
-  const selectedVeids = store.overlay.selectedVeids.get();
-  const actualVeid = VeFns.veidFromItems(page, actualLinkItemMaybe);
-  const isSelectionHighlighted = !!selectedVeids?.some(veid => VeFns.compareVeids(veid, actualVeid) == 0);
+  const isSelectionHighlighted = arrangedItemIsInOverlaySelection(store, VeFns.veidFromItems(page, actualLinkItemMaybe), linkItemMaybe);
   const isEmbeddedInteractive =
     !!(flags & ArrangeItemFlags.IsDockRoot) ||
     (!!(page.flags & PageFlags.EmbeddedInteractive) &&
@@ -136,10 +136,11 @@ export function arrange_table_page(
     childrenVes: windowState.childrenVes,
   };
 
-  // The item has no row until it is dropped (see walkTabularRows). Arrange it under the cursor, for MovingItemsOverlay.
+  // The moving items have no rows until they are dropped (see walkTabularRows). Arrange them under the cursor, for
+  // MovingItemsOverlay.
   const movingItem = getMovingTreeItemInParentMaybe(page.id);
   if (movingItem != null) {
-    relationships.childrenVes!.push(arrangeMovingItem(
+    relationships.childrenVes!.push(...arrangeMovingStack(
       store, pagePath, geometry, contentViewportPx, rowBlockSizePx, movingItem, flags));
   }
 
@@ -153,38 +154,55 @@ export function arrange_table_page(
 }
 
 /**
- * Arrange the moving item as it would be rendered spatially (with its attachments), under the cursor
- * and relative to the page viewport (not the scrolled table body). It is not part of the row window.
+ * Arrange the moving items as they would be rendered spatially (with their attachments): activeItem under the cursor,
+ * where it was grabbed, and the rest of a group moving with it stacked above and below it in the order a drop inserts
+ * them, as in a list page (at most GROUP_MOVE_STACK_MAX_ITEMS, badged by MovingItemsOverlay with the count of the
+ * rest). They are relative to the page viewport (not the scrolled table body) and not part of the row window.
  */
-function arrangeMovingItem(
+function arrangeMovingStack(
   store: StoreContextModel,
   pagePath: VisualElementPath,
   pageGeometry: ItemGeometry,
   contentViewportPx: BoundingBox,
   blockSizePx: Dimensions,
-  movingItem: Item,
+  activeItem: Item,
   flags: ArrangeItemFlags,
-): VisualElementSignal {
+): Array<VisualElementSignal> {
   const parentIsPopup = !!(flags & ArrangeItemFlags.ParentIsPopup);
-  const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-  const cellBoundsPx = movingItemCellBoundsInPagePx(
+  const stack = groupMoveStackWindow(orderedGroupMoveItems(activeItem), activeItem.id);
+  const sizesPx = stack.items.map(item => {
+    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(item);
+    return { w: dimensionsBl.w * blockSizePx.w, h: dimensionsBl.h * blockSizePx.h };
+  });
+  const activeCellBoundsPx = movingItemCellBoundsInPagePx(
     store,
     pagePath,
     pageGeometry,
     zeroBoundingBoxTopLeft(contentViewportPx),
     VeFns.veidFromPath(pagePath),
-    { w: dimensionsBl.w * blockSizePx.w, h: dimensionsBl.h * blockSizePx.h },
+    sizesPx[stack.activeIndex],
     flags,
   );
-  const cellGeometry = ItemFns.calcGeometry_InCell(
-    movingItem, cellBoundsPx, false, parentIsPopup, false, false, false, false, false, false, store.smallScreenMode());
-  return arrangeItem(
-    store,
-    pagePath,
-    ArrangeAlgorithm.Grid,
-    movingItem,
-    isLink(movingItem) ? asLinkItem(movingItem) : null,
-    cellGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None),
-  );
+  const gapPx = MOVING_STACK_GAP_PX * blockSizePx.h / LINE_HEIGHT_PX;
+  let yPx = activeCellBoundsPx.y -
+    sizesPx.slice(0, stack.activeIndex).reduce((heightPx, sizePx) => heightPx + sizePx.h + gapPx, 0);
+
+  const result: Array<VisualElementSignal> = [];
+  for (let i = 0; i < stack.items.length; ++i) {
+    const item = stack.items[i];
+    const cellBoundsPx = { x: activeCellBoundsPx.x, y: yPx, w: sizesPx[i].w, h: sizesPx[i].h };
+    yPx += sizesPx[i].h + gapPx;
+    const cellGeometry = ItemFns.calcGeometry_InCell(
+      item, cellBoundsPx, false, parentIsPopup, false, false, false, false, false, false, store.smallScreenMode());
+    result.push(arrangeItem(
+      store,
+      pagePath,
+      ArrangeAlgorithm.Grid,
+      item,
+      isLink(item) ? asLinkItem(item) : null,
+      cellGeometry,
+      ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None),
+    ));
+  }
+  return result;
 }
