@@ -755,7 +755,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (page.arrangeAlgorithm != ArrangeAlgorithm.List || moveOverIndex < 0) {
         return page;
       }
-      return PageFns.listPageInsertionTarget(props.visualElement, moveOverIndex, null).parentContainer;
+      return PageFns.listPageInsertionTarget(props.visualElement, moveOverIndex, []).parentContainer;
     },
 
     // The bounds of the rows of an expanded container in a list page: the container's own row and those of its

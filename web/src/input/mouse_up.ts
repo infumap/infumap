@@ -42,7 +42,6 @@ import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
 import { asQueryItem, isQueryItem, isQuerySearchResultsPage, setChatPersistPreview } from "../items/query-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
-import { getMovingDockItems } from "../layout/arrange/dock";
 import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 import { arrangeNow, requestArrange } from "../layout/arrange";
 import { switchToPage } from "../layout/navigation";
@@ -70,7 +69,7 @@ import {
 } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown, resolveActiveTreeItemForResize } from "./mouse_move";
-import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds } from "./move_group";
+import { calculateMoveToPagePositionGr, getGroupMoveEntriesInParent, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, orderedGroupMoveItems } from "./move_group";
 import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
 import { NativeTextSelectionState } from "./native_text_selection";
@@ -1768,7 +1767,7 @@ function mouseUpHandler_moving_groupAware(store: StoreContextModel, activeItem: 
     const pageItem = asPageItem(overContainerVe.displayItem);
     if (overContainerVe.flags & VisualElementFlags.IsDock) {
       const ip = store.perVe.getMoveOverIndexAndPosition(VeFns.veToPath(overContainerVe));
-      const movingItems = getMovingDockItems(activeItem);
+      const movingItems = orderedGroupMoveItems(activeItem);
       const movingIds = new Set(movingItems.map(item => item.id));
       const orderings = pageItem.computed_children
         .filter(id => !movingIds.has(id))
@@ -1895,13 +1894,19 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
   const pageItem = asPageItem(overContainerVe.displayItem);
   const path = VeFns.veToPath(overContainerVe);
   const idx = store.perVe.getMoveOverIndex(path);
+  // A list page draws a group move stacked in order under the cursor, so a drop inserts the whole group there, in that
+  // order. Other ordered pages take just the active item.
+  const movingItems = pageItem.arrangeAlgorithm == ArrangeAlgorithm.List
+    ? orderedGroupMoveItems(activeItem).map(item => asPositionalItem(item))
+    : [activeItem];
+  const movingIds = movingItems.map(item => item.id);
   // In a list page, the insertion point may be inside an expanded container.
   const insertionTarget = pageItem.arrangeAlgorithm == ArrangeAlgorithm.List
-    ? PageFns.listPageInsertionTarget(overContainerVe, idx, activeItem.id)
+    ? PageFns.listPageInsertionTarget(overContainerVe, idx, movingIds)
     : { parentContainer: pageItem, insertIndex: idx };
   const moveToParent = insertionTarget.parentContainer;
   if (moveToParent.id != pageItem.id) {
-    if (wouldCreateRelationshipCycle(activeItem.id, moveToParent.id)) {
+    if (movingItems.some(item => wouldCreateRelationshipCycle(item.id, moveToParent.id))) {
       rollbackInvalidMove(store);
       showMoveDropRejectedMessage(store, "Can't move an item into itself");
       MouseActionState.set(null);
@@ -1920,14 +1925,24 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
     pageItem.arrangeAlgorithm != ArrangeAlgorithm.Document && moveToParent.orderChildrenBy
       ? 0
       : insertionTarget.insertIndex;
-  const moveToOrdering = itemState.newOrderingAtChildrenPosition(moveToParent.id, insertIndex, activeItem.id);
-
-  if (activeItem.parentId != moveToParent.id) {
-    itemState.moveToNewParent(activeItem, moveToParent.id, RelationshipToParent.Child, moveToOrdering);
-  } else {
-    activeItem.ordering = moveToOrdering;
-    itemState.sortChildren(moveToParent.id);
+  const orderings = moveToParent.computed_children
+    .filter(id => !movingIds.includes(id))
+    .map(id => itemState.get(id)!.ordering);
+  let orderingIndex = Math.max(0, Math.min(insertIndex, orderings.length));
+  for (const item of movingItems) {
+    const ordering = orderingIndex == 0
+      ? newOrderingAtBeginning(orderings)
+      : orderingIndex == orderings.length
+        ? newOrderingAtEnd(orderings)
+        : newOrderingBetween(orderings[orderingIndex - 1], orderings[orderingIndex]);
+    orderings.splice(orderingIndex++, 0, ordering);
+    if (item.parentId != moveToParent.id) {
+      itemState.moveToNewParent(item, moveToParent.id, RelationshipToParent.Child, ordering);
+    } else {
+      item.ordering = ordering;
+    }
   }
+  itemState.sortChildren(moveToParent.id);
 
   if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
     const activeVe = MouseActionState.getActiveVisualElement();

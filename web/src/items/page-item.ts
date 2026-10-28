@@ -1906,15 +1906,15 @@ export const PageFns = {
    * Resolve a list page insertion index (a position among its middle band line item rows, which include the rows of expanded
    * containers) to the container and child index to insert at. As for tables, the position directly below an
    * expanded container is the first position in it, and the position below the last row is after that row in its
-   * container. insertIndex indexes computed_children with ignoreId removed.
+   * container. insertIndex indexes computed_children with ignoreIds removed.
    */
-  listPageInsertionTarget: (listPageVe: VisualElement, moveOverIndex: number, ignoreId: Uid | null): { parentContainer: ContainerItem, insertIndex: number } => {
+  listPageInsertionTarget: (listPageVe: VisualElement, moveOverIndex: number, ignoreIds: ReadonlyArray<Uid>): { parentContainer: ContainerItem, insertIndex: number } => {
     const page = asPageItem(listPageVe.displayItem);
     const rowVes = PageFns.listPageInsertionRowVes(listPageVe);
     const targetAtRow = (rowVe: VisualElement, offset: number) => {
       const treeItem = VeFns.treeItem(rowVe);
       const parentContainer = asContainerItem(itemState.get(treeItem.parentId)!);
-      const siblingIds = parentContainer.computed_children.filter(id => id != ignoreId);
+      const siblingIds = parentContainer.computed_children.filter(id => !ignoreIds.includes(id));
       return { parentContainer, insertIndex: siblingIds.indexOf(treeItem.id) + offset };
     };
     if (moveOverIndex < rowVes.length) {
@@ -1934,7 +1934,7 @@ export const PageFns = {
     if (lastRowVe != null && VeFns.treeItem(lastRowVe).parentId != page.id) {
       return targetAtRow(lastRowVe, 1);
     }
-    return { parentContainer: page, insertIndex: page.computed_children.filter(id => id != ignoreId).length };
+    return { parentContainer: page, insertIndex: page.computed_children.filter(id => !ignoreIds.includes(id)).length };
   },
 
   moveListPageSelectionOffChild: (

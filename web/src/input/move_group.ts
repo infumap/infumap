@@ -26,8 +26,10 @@ import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { PageFns, asPageItem, isPage } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VeFns, Veid, VisualElement } from "../layout/visual-element";
+import { Item } from "../items/base/item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { MouseActionState } from "./state";
 import { Dimensions, Vector, vectorSubtract } from "../util/geometry";
 import { panic } from "../util/lang";
 
@@ -164,6 +166,43 @@ export function getGroupMoveEntriesInParent(
     result.push({ entry, item });
   }
   return result;
+}
+
+/**
+ * All items moving with activeItem, in the order they go into an ordered page (list, dock): their reading order, top
+ * to bottom then left to right, where the drag started. Just activeItem when it isn't part of a group move.
+ */
+export function orderedGroupMoveItems(activeItem: Item): Array<Item> {
+  const entries = getGroupMoveEntriesInParent(MouseActionState.getGroupMoveItems(), activeItem.parentId);
+  if (!entries.some(({ item }) => item.id == activeItem.id)) {
+    return [activeItem];
+  }
+  return entries
+    .sort((a, b) => a.entry.startPosGr.y - b.entry.startPosGr.y || a.entry.startPosGr.x - b.entry.startPosGr.x)
+    .map(({ item }) => item);
+}
+
+/** The most items of a group move drawn stacked under the cursor over an ordered page. A badge counts the rest. */
+export const GROUP_MOVE_STACK_MAX_ITEMS = 5;
+
+/**
+ * The run of orderedItems (from orderedGroupMoveItems) drawn stacked under the cursor over an ordered page: at most
+ * GROUP_MOVE_STACK_MAX_ITEMS, with the active item as near the middle as the ends allow, so it stays under the cursor
+ * with its neighbours either side of it.
+ */
+export function groupMoveStackWindow(orderedItems: Array<Item>, activeItemId: string): {
+  items: Array<Item>,
+  activeIndex: number,
+  hiddenCount: number,
+} {
+  const activeIndex = Math.max(0, orderedItems.findIndex(item => item.id == activeItemId));
+  const count = Math.min(orderedItems.length, GROUP_MOVE_STACK_MAX_ITEMS);
+  const start = Math.max(0, Math.min(activeIndex - Math.floor(count / 2), orderedItems.length - count));
+  return {
+    items: orderedItems.slice(start, start + count),
+    activeIndex: activeIndex - start,
+    hiddenCount: orderedItems.length - count,
+  };
 }
 
 export function moveGroupToChildParentPreservingOffsets(

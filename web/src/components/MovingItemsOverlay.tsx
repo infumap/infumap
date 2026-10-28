@@ -16,8 +16,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, createMemo, For, Show } from "solid-js";
 import { Z_INDEX_GLOBAL_MOVING } from "../constants";
+import { groupMoveStackWindow, orderedGroupMoveItems } from "../input/move_group";
 import { MouseAction, MouseActionState } from "../input/state";
 import { isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
@@ -152,8 +153,43 @@ function movingOverlayVisualElements(store: StoreContextModel): Array<VisualElem
   return movingElements;
 }
 
+/**
+ * Over a list page or the dock, at most GROUP_MOVE_STACK_MAX_ITEMS of a group move are drawn, stacked under the cursor
+ * (see groupMoveStackWindow), and by the page itself rather than here. This is where the badge counting the rest goes:
+ * the bottom right of the stack.
+ */
+function movingOverlayStackBadgeMaybe(store: StoreContextModel): { x: number, y: number, hiddenCount: number } | null {
+  if (!store.anItemIsMoving.get()) { return null; }
+  const activeElementPath = MouseActionState.getActiveElementPath();
+  if (activeElementPath == null) { return null; }
+  // Reading the parent's children re-runs this as they are arranged, including when the moving items move to another
+  // parent, which mouse action state alone would not.
+  const parentPath = VeFns.parentPath(activeElementPath);
+  const stackVes = VesCache.render.getChildren(parentPath)()
+    .map(veSignal => veSignal.get())
+    .filter(ve => !!(ve.flags & VisualElementFlags.Moving));
+  const parentVisualElement = VesCache.render.getNode(parentPath)?.get() ?? VesCache.current.readNode(parentPath) ?? null;
+  // listViewportBoundsPx is set for exactly the list pages.
+  if (stackVes.length == 0 || parentVisualElement == null ||
+    !((parentVisualElement.flags & VisualElementFlags.IsDock) || parentVisualElement.listViewportBoundsPx != null)) {
+    return null;
+  }
+
+  const activeItem = VeFns.treeItemFromPath(activeElementPath);
+  if (activeItem == null) { return null; }
+  const { hiddenCount } = groupMoveStackWindow(orderedGroupMoveItems(activeItem), activeItem.id);
+  if (hiddenCount == 0) { return null; }
+  const stackBoundsPx = stackVes.map(ve => movingOverlayBoundsPx(store, ve));
+  return {
+    x: Math.max(...stackBoundsPx.map(boundsPx => boundsPx.x + boundsPx.w)),
+    y: Math.max(...stackBoundsPx.map(boundsPx => boundsPx.y + boundsPx.h)),
+    hiddenCount,
+  };
+}
+
 export const MovingItemsOverlay: Component = () => {
   const store = useStore();
+  const stackBadge = createMemo(() => movingOverlayStackBadgeMaybe(store));
 
   return (
     <Show when={store.anItemIsMoving.get()}>
@@ -166,6 +202,12 @@ export const MovingItemsOverlay: Component = () => {
             <VisualElement_LineItem visualElement={visualElement} />
           </Show>
         }</For>
+        <Show when={stackBadge()}>{badge =>
+          <div class="absolute rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 shadow-sm whitespace-nowrap"
+            style={`left: ${badge().x}px; top: ${badge().y}px; transform: translate(-50%, -50%);`}>
+            +{badge().hiddenCount}
+          </div>
+        }</Show>
       </div>
     </Show>
   );

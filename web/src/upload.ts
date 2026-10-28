@@ -337,7 +337,7 @@ function resolveExternalUploadTarget(
 
       const orderedPage = asPageItem(orderedPageTargetVeMaybe.displayItem);
       if (orderedPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
-        const insertionTarget = PageFns.listPageInsertionTarget(orderedPageTargetVeMaybe, insertIndex, null);
+        const insertionTarget = PageFns.listPageInsertionTarget(orderedPageTargetVeMaybe, insertIndex, []);
         return {
           kind: "container-row",
           parentId: insertionTarget.parentContainer.id,

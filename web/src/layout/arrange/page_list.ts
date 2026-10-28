@@ -18,6 +18,7 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, MIN_DETAILED_CHILD_SCALE, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
+import { groupMoveStackWindow, orderedGroupMoveItems } from "../../input/move_group";
 import { PageFlags, itemCanExpandInLineItem, itemIsListPagePinnedBottom, itemIsListPagePinnedTop } from "../../items/base/flags-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { Item } from "../../items/base/item";
@@ -34,7 +35,7 @@ import { asTextItem, isText } from "../../items/text-item";
 import { virtualTextDocumentPage } from "../../items/text-document";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, Vector, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { newOrdering } from "../../util/ordering";
 import { VisualElementSignal } from "../../util/signals";
 import { newUid } from "../../util/uid";
@@ -146,6 +147,8 @@ export function arrange_list_page(
     }
     return getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
   })();
+  const movingItemsInThisPage = movingItemInThisPage ? orderedGroupMoveItems(movingItemInThisPage) : [];
+  const movingIds = new Set(movingItemsInThisPage.map(item => item.id));
   const activeMovingOriginalOrdering = activeMovingChildId
     ? MouseActionState.getMoveRollback()?.find(entry => entry.id == activeMovingChildId)?.ordering ?? null
     : null;
@@ -307,9 +310,9 @@ export function arrange_list_page(
       const childPath = VeFns.addVeidToPath(childVeid, pageWithChildrenVePath);
 
       if (movingItemInThisPage &&
-        (row.treeItemId == movingItemInThisPage.id ||
+        (movingIds.has(row.treeItemId) ||
           row.displayItem.id == movingItemInThisPage.id ||
-          row.ancestorIds.includes(movingItemInThisPage.id))) {
+          row.ancestorIds.some(id => movingIds.has(id)))) {
         continue;
       }
 
@@ -447,21 +450,14 @@ export function arrange_list_page(
   const activeElementPath = MouseActionState.getActiveElementPath();
   const movingItemIsArrangedHere = activeElementPath == null || VeFns.parentPath(activeElementPath) == pageWithChildrenVePath;
   if (movingItemInThisPage && movingItemIsArrangedHere && shouldArrangeListContents && !isBackgroundRenderOfPopupPage) {
-    const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
-    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
     const currentPageVe = VesCache.current.readNode(pageWithChildrenVePath);
-    // The moving item is drawn over the page viewport (by MovingItemsOverlay, or outside the list bands), not in the
-    // scrolled middle band, so neither the list scroll nor the pinned top band offset its position.
-    const cellBoundsPx = (() => {
+    // The moving items are drawn over the page viewport (by MovingItemsOverlay, or outside the list bands), not in the
+    // scrolled middle band, so neither the list scroll nor the pinned top band offset their position.
+    const mousePosPx = (() => {
       if (currentPageVe != null) {
         const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, currentPageVe);
-        return {
-          x: mouseDesktopPosPx.x - viewportBoundsPx.x,
-          y: mouseDesktopPosPx.y - viewportBoundsPx.y,
-          w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
-          h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
-        };
+        return { x: mouseDesktopPosPx.x - viewportBoundsPx.x, y: mouseDesktopPosPx.y - viewportBoundsPx.y };
       }
 
       if (flags & ArrangeItemFlags.IsPopupRoot) {
@@ -469,8 +465,6 @@ export function arrange_list_page(
         return {
           x: mouseDesktopPosPx.x - geometry.viewportBoundsPx!.x - adjX,
           y: mouseDesktopPosPx.y - geometry.viewportBoundsPx!.y,
-          w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
-          h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
         };
       }
 
@@ -480,17 +474,11 @@ export function arrange_list_page(
       return {
         x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX,
         y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx,
-        w: dimensionsBl.w * LINE_HEIGHT_PX * listScale,
-        h: dimensionsBl.h * LINE_HEIGHT_PX * listScale,
       };
     })();
 
-    const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
-    cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
-    cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
-    const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, insidePopup, false, false, false, false, false, false, store.smallScreenMode());
-    listChildPaths.push(arrangeItemPath(
-      store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
+    listChildPaths.push(...arrangeMovingStack(
+      store, pageWithChildrenVePath, movingItemsInThisPage, movingItemInThisPage, mousePosPx, listScale, insidePopup,
       ArrangeItemFlags.RenderChildrenAsFull |
       ArrangeItemFlags.IsMoving |
       (insidePopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
@@ -531,6 +519,50 @@ export function arrange_list_page(
 
 
 export const LIST_PAGE_MAIN_ITEM_LINK_ITEM = newUid();
+
+/** The gap between the moving items stacked under the cursor, at scale 1, as between the items in the dock. */
+const MOVING_STACK_GAP_PX = LIST_PAGE_TOP_PADDING_PX;
+
+/**
+ * Arrange the items moving in list page pagePath (orderedItems, from orderedGroupMoveItems) stacked in the order a drop
+ * inserts them, with activeItem under the cursor at mousePosPx (relative to the page viewport) where it was grabbed.
+ * Each is drawn at its spatial size, scaled by scale. At most GROUP_MOVE_STACK_MAX_ITEMS are drawn, and
+ * MovingItemsOverlay badges the stack with the count of the rest.
+ */
+function arrangeMovingStack(
+  store: StoreContextModel,
+  pagePath: VisualElementPath,
+  orderedItems: Array<Item>,
+  activeItem: Item,
+  mousePosPx: Vector,
+  scale: number,
+  insidePopup: boolean,
+  flags: ArrangeItemFlags,
+): Array<VisualElementPath> {
+  const stack = groupMoveStackWindow(orderedItems, activeItem.id);
+  const sizesPx = stack.items.map(item => {
+    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(item);
+    return { w: dimensionsBl.w * LINE_HEIGHT_PX * scale, h: dimensionsBl.h * LINE_HEIGHT_PX * scale };
+  });
+  const clickOffsetProp = MouseActionState.getClickOffsetProp() ?? { x: 0, y: 0 };
+  const activeSizePx = sizesPx[stack.activeIndex];
+  const gapPx = MOVING_STACK_GAP_PX * scale;
+  const xPx = mousePosPx.x - clickOffsetProp.x * activeSizePx.w;
+  let yPx = mousePosPx.y - clickOffsetProp.y * activeSizePx.h -
+    sizesPx.slice(0, stack.activeIndex).reduce((heightPx, sizePx) => heightPx + sizePx.h + gapPx, 0);
+
+  const paths: Array<VisualElementPath> = [];
+  for (let i = 0; i < stack.items.length; ++i) {
+    const item = stack.items[i];
+    const cellBoundsPx = { x: xPx, y: yPx, w: sizesPx[i].w, h: sizesPx[i].h };
+    yPx += sizesPx[i].h + gapPx;
+    const cellGeometry = ItemFns.calcGeometry_InCell(item, cellBoundsPx, false, insidePopup, false, false, false, false, false, false, store.smallScreenMode());
+    paths.push(arrangeItemPath(
+      store, pagePath, ArrangeAlgorithm.Grid, item, isLink(item) ? asLinkItem(item) : null, cellGeometry, flags));
+  }
+  return paths;
+}
+
 
 /**
  * The moving element's actual veid, read from the active path. Arrange must not resolve the active
@@ -750,6 +782,8 @@ export function arrange_dock_list_page(
     }
     return getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
   })();
+  const movingItemsInThisPage = movingItemInThisPage ? orderedGroupMoveItems(movingItemInThisPage) : [];
+  const movingIds = new Set(movingItemsInThisPage.map(item => item.id));
 
   let listChildPaths: Array<VisualElementPath> = [];
   let skippedCount = 0;
@@ -766,7 +800,7 @@ export function arrange_dock_list_page(
     }
     const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, childItem);
 
-    if (movingItemInThisPage && childItem.id == movingItemInThisPage.id) {
+    if (movingIds.has(childItem.id)) {
       skippedCount += 1;
       continue;
     }
@@ -804,23 +838,14 @@ export function arrange_dock_list_page(
   }
 
   if (movingItemInThisPage) {
-    const actualMovingItemLinkItemMaybe = isLink(movingItemInThisPage) ? asLinkItem(movingItemInThisPage) : null;
-    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
     const titleHeightPx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
-    const cellBoundsPx = {
+    const mousePosPx = {
       x: mouseDesktopPosPx.x - geometry.boundsPx.x,
       y: mouseDesktopPosPx.y - geometry.boundsPx.y - titleHeightPx,
-      w: dimensionsBl.w * LINE_HEIGHT_PX,
-      h: dimensionsBl.h * LINE_HEIGHT_PX,
     };
-
-    const clickOffsetProp = MouseActionState.getClickOffsetProp() ?? { x: 0, y: 0 };
-    cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
-    cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
-    const cellGeometry = ItemFns.calcGeometry_InCell(movingItemInThisPage, cellBoundsPx, false, false, false, false, false, false, false, false, store.smallScreenMode());
-    listChildPaths.push(arrangeItemPath(
-      store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItemInThisPage, actualMovingItemLinkItemMaybe, cellGeometry,
+    listChildPaths.push(...arrangeMovingStack(
+      store, pageWithChildrenVePath, movingItemsInThisPage, movingItemInThisPage, mousePosPx, 1.0, false,
       ArrangeItemFlags.RenderChildrenAsFull |
       ArrangeItemFlags.IsMoving));
   }
