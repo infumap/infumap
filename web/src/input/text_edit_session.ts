@@ -25,7 +25,7 @@ import { asPageItem, PageFns } from "../items/page-item";
 import { asTableItem, TableFns } from "../items/table-item";
 import { asPasswordItem } from "../items/password-item";
 import { isClipboardTextCreateItem } from "../items/text-item";
-import { asNoteItem, concatNoteInlineMarks, concatNoteUrls, NoteFns, splitNoteInlineMarks, splitNoteUrls, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
+import { asNoteItem, concatNoteInlineMarks, concatNoteUrls, NoteFns, noteUrlForInsertedText, splitNoteInlineMarks, splitNoteUrls, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
 import { getQueryText, setQueryText } from "../items/query-item";
 import { requestArrange } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
@@ -481,7 +481,12 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
         ? [{ start: 0, end: text.length, flags: typingFlags }] : [];
       const prefixMarks = concatNoteInlineMarks(splitNoteInlineMarks(note.inlineMarks, oldText, start)[0], prefix, insertedMarks, text);
       note.inlineMarks = concatNoteInlineMarks(prefixMarks, prefix + text, splitNoteInlineMarks(note.inlineMarks, oldText, end)[1], suffix);
-      note.urls = concatNoteUrls(splitNoteUrls(note.urls, oldText, start)[0], prefix + text, splitNoteUrls(note.urls, oldText, end)[1], suffix);
+      // Paste inherits links using the same rule as typing, at the actual selection.
+      const insertedUrl = noteUrlForInsertedText(note.urls, oldText, start, end);
+      const insertedUrls = text.length > 0 && insertedUrl != null
+        ? [{ start: 0, end: text.length, url: insertedUrl }] : [];
+      const prefixUrls = concatNoteUrls(splitNoteUrls(note.urls, oldText, start)[0], prefix, insertedUrls, text);
+      note.urls = concatNoteUrls(prefixUrls, prefix + text, splitNoteUrls(note.urls, oldText, end)[1], suffix);
       note.title = prefix + text + suffix;
       NoteFns.ensureTitleUrl(note);
       session.lastText = note.title;

@@ -240,15 +240,16 @@ function urlForInterval(urls: Array<NoteUrl>, start: number, end: number): strin
   return null;
 }
 
-function urlForInsertedText(urls: Array<NoteUrl>, start: number, end: number): string | null {
+export function noteUrlForInsertedText(urls: Array<NoteUrl>, text: string, start: number, end: number): string | null {
+  const normalized = normalizeNoteUrls(urls, text);
   if (start == end) {
-    // Text typed at either edge of a link is not part of the link.
-    for (const url of urls) {
+    // Text inserted at either edge of a link is not part of the link.
+    for (const url of normalized) {
       if (url.start < start && start < url.end) { return url.url; }
     }
     return null;
   }
-  return urlForInterval(urls, start, end);
+  return urlForInterval(normalized, start, end);
 }
 
 export function noteInlineFlagsAtPosition(inlineMarks: Array<NoteInlineMark>, text: string, position: number): number {
@@ -528,7 +529,7 @@ export function updateNoteUrlsForTextChange(
     }
   }
 
-  const insertedUrl = urlForInsertedText(normalized, oldRangeStart, oldRangeEnd);
+  const insertedUrl = noteUrlForInsertedText(normalized, oldText, oldRangeStart, oldRangeEnd);
   if (insertedUrl != null && newRangeStart < newRangeEnd) {
     result.push({ start: newRangeStart, end: newRangeEnd, url: insertedUrl });
   }
