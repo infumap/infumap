@@ -278,6 +278,9 @@ export const Main: Component = () => {
     window.addEventListener('beforeinput', structuralBeforeInputListener, true);
     window.addEventListener('cut', structuralClipboardListener, true);
     window.addEventListener('paste', structuralClipboardListener, true);
+    // On document, not #main: with an item focused but nothing being edited, the paste target is <body>, which is
+    // above #main, so a listener on #main never sees it.
+    document.addEventListener('paste', pasteListener);
     window.addEventListener('drop', structuralDropListener, true);
     document.addEventListener('keyup', keyUpListener);
     window.addEventListener('resize', windowResizeListener);
@@ -318,6 +321,7 @@ export const Main: Component = () => {
     window.removeEventListener('beforeinput', structuralBeforeInputListener, true);
     window.removeEventListener('cut', structuralClipboardListener, true);
     window.removeEventListener('paste', structuralClipboardListener, true);
+    document.removeEventListener('paste', pasteListener);
     window.removeEventListener('drop', structuralDropListener, true);
     document.removeEventListener('keyup', keyUpListener);
     window.removeEventListener('resize', windowResizeListener);
@@ -737,7 +741,6 @@ export const Main: Component = () => {
       onmousedown={mouseDownListener}
       onmousemove={mouseMoveListener}
       onmouseleave={mouseLeaveListener}
-      onpaste={pasteListener}
       ondblclick={mouseDoubleClickListener}
       onmouseup={mouseUpListener}>
 
