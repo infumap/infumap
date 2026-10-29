@@ -2562,6 +2562,7 @@ function handleSelectionMouseUp(store: StoreContextModel) {
     for (const child of VesCache.render.getChildren(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
     for (const att of VesCache.render.getAttachments(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
   }
+  store.overlay.selectionRootPath.set(rootPath);
   store.overlay.selectedVeids.set(selected);
   arrangeNow(store, "mouse-up-finish-selection");
 }

@@ -122,6 +122,11 @@ export interface OverlayStoreContextModel {
   tableColumnContextMenuInfo: InfuSignal<TableColumnContextMenuInfo | null>,
   selectionMarqueePx: InfuSignal<BoundingBox | null>,
   selectedVeids: InfuSignal<Array<Veid>>,
+  /**
+   * The container a marquee selection was made in. selectedVeids alone can't say which rendering of an item was
+   * selected when the same page is shown twice (e.g. a translucent dock page that is also open as a popup).
+   */
+  selectionRootPath: InfuSignal<VisualElementPath | null>,
   hoveredGroup: InfuSignal<GroupInspection | null>,
   focusedGroup: InfuSignal<GroupInspection | null>,
   /** A group shown after navigating to it, cleared after a few seconds. */
@@ -160,6 +165,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
   const tableColumnContextMenuInfo = createInfuSignal<TableColumnContextMenuInfo | null>(null);
   const selectionMarqueePx = createInfuSignal<BoundingBox | null>(null);
   const selectedVeids = createInfuSignal<Array<Veid>>([]);
+  const selectionRootPath = createInfuSignal<VisualElementPath | null>(null);
   const hoveredGroup = createInfuSignal<GroupInspection | null>(null);
   const focusedGroup = createInfuSignal<GroupInspection | null>(null);
   const highlightedGroup = createInfuSignal<GroupInspection | null>(null);
@@ -186,6 +192,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     tableColumnContextMenuInfo.set(null);
     selectionMarqueePx.set(null);
     selectedVeids.set([]);
+    selectionRootPath.set(null);
     hoveredGroup.set(null);
     focusedGroup.set(null);
     highlightedGroup.set(null);
@@ -248,6 +255,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     tableColumnContextMenuInfo,
     selectionMarqueePx,
     selectedVeids,
+    selectionRootPath,
     hoveredGroup,
     focusedGroup,
     highlightedGroup,

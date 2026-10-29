@@ -25,7 +25,7 @@ import { GroupFns } from "../../items/base/group-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { VesCache } from "../../layout/ves-cache";
-import { VeFns, Veid, VisualElement, VisualElementFlags } from "../../layout/visual-element";
+import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath } from "../../layout/visual-element";
 import { serverOrRemote } from "../../server";
 import { useStore } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
@@ -87,11 +87,15 @@ function unionBounds(bounds: Array<BoundingBox>): BoundingBox | null {
   };
 }
 
-function selectedVisualElement(veid: Veid): VisualElement | null {
+function selectedVisualElement(veid: Veid, selectionRootPath: VisualElementPath | null): VisualElement | null {
   const candidates = VesCache.render.find(veid).map(ves => ves.get());
   if (candidates.length == 0) { return null; }
 
+  // The same item can be rendered in more than one place (e.g. a translucent dock page also open as a popup), and
+  // every rendering is selection highlighted, so anchor to the one inside the container the marquee was drawn in.
+  const rootSuffix = selectionRootPath == null ? null : "-" + selectionRootPath;
   return candidates.find(ve => !!(ve.flags & VisualElementFlags.Moving)) ??
+    (rootSuffix == null ? undefined : candidates.find(ve => VeFns.veToPath(ve).endsWith(rootSuffix))) ??
     candidates.find(ve => !!(ve.flags & VisualElementFlags.SelectionHighlighted)) ??
     candidates.find(ve => !(ve.flags & VisualElementFlags.Popup)) ??
     candidates[0];
@@ -189,8 +193,9 @@ export const SelectionGroupAction: Component = () => {
       return null;
     }
 
+    const selectionRootPath = store.overlay.selectionRootPath.get();
     const boundsPx = unionBounds(store.overlay.selectedVeids.get()
-      .map(selectedVisualElement)
+      .map(veid => selectedVisualElement(veid, selectionRootPath))
       .filter((ve): ve is VisualElement => ve != null)
       .map(ve => VeFns.veBoundsRelativeToDesktopPx(store, ve)));
     if (boundsPx == null) {
