@@ -30,6 +30,8 @@ import { asCompositeItem, isComposite } from "../items/composite-item";
 import { asFileItem, isFile } from "../items/file-item";
 import { asTextItem, isChatAttachmentItem, isText, type TextItem } from "../items/text-item";
 import { updateChatItemDropHover } from "../items/chat-attachment";
+import { createQueryChatTurnMarkdownItem } from "../items/chat-turn-markdown";
+import { queryChatCompletedActivityPlacementForComposite } from "../items/query-chat-activity-ui";
 import { createPendingTextDocumentPage, isMarkdownTextDocumentPage } from "../items/text-document";
 import { LinkFns, isLink } from "../items/link-item";
 import { asNoteItem, isNote } from "../items/note-item";
@@ -176,7 +178,7 @@ function cloneDescendantsForCopy(source: Item, cloned: Item): Array<string> {
 
 /**
  * A copy of a chat attachment refers to the same attachment until it is added, when it is given the attachment's text
- * (`chatAttachmentCopyData`). The reference is client only, so `toObject` leaves it out.
+ * (`clientTextCopyData`). The reference is client only, so `toObject` leaves it out.
  */
 function keepChatAttachmentSource(source: Item, copy: Item): void {
   if (isChatAttachmentItem(source)) {
@@ -330,6 +332,55 @@ function initiateTextDocumentMaterializeMove(
 }
 
 
+/**
+ * Starts a drag of a chat turn's answer as a new markdown text item, from the "as markdown" button in the header of
+ * the turn's composite `compositeVe`. As with a copy out of the chat, the item is added only where it is dropped.
+ */
+export function moving_initiateQueryChatTurnMarkdown(store: StoreContextModel, compositeVe: VisualElement, desktopPosPx: Vector): void {
+  const user = store.user.getUserMaybe();
+  if (user == null) { return; }
+  const composite = compositeVe.displayItem;
+  const placement = queryChatCompletedActivityPlacementForComposite(store, composite.id, composite.parentId);
+  if (placement == null) { return; }
+  const startPageVe = resolveMoveTargetPageVe(compositeVe);
+  if (!pageCanHostPendingCopy(startPageVe)) { return; }
+
+  const startPage = asPageItem(startPageVe.displayItem);
+  const item = createQueryChatTurnMarkdownItem(
+    user.userId, startPage.id, itemState.newOrderingAtEndOfChildren(startPage.id), placement.activity, placement.turnNumber);
+  itemState.add(item);
+
+  // Held by its icon, rather than where the composite was pressed.
+  const clickOffsetProp = { x: 0.05, y: 0.5 };
+  MouseActionState.setClickOffsetProp(clickOffsetProp);
+  const { activePosGr, startPosBl, moveToPageInnerSizeBl } = calculateMoveToPagePositionGr(
+    store,
+    startPageVe,
+    desktopPosPx,
+    item,
+    RelationshipToParent.Child,
+    clickOffsetProp,
+  );
+  item.spatialPositionGr = activePosGr;
+
+  const startPagePath = VeFns.veToPath(startPageVe);
+  MouseActionState.setMoveRollback([]);
+  MouseActionState.setItemCopyMove({ pendingItemId: item.id, pendingDescendantIds: [] });
+  MouseActionState.setGroupMoveItems(undefined);
+  MouseActionState.setStartPx(desktopPosPx);
+  MouseActionState.setStartPosBl(startPosBl);
+  MouseActionState.setOnePxSizeBl({
+    x: moveToPageInnerSizeBl.w / startPageVe.childAreaBoundsPx!.w,
+    y: moveToPageInnerSizeBl.h / startPageVe.childAreaBoundsPx!.h,
+  });
+  MouseActionState.setScaleDefiningElementPath(startPagePath);
+  MouseActionState.setActiveElementPath(VeFns.addVeidToPath(VeFns.veidFromId(item.id), startPagePath));
+  MouseActionState.setLinkCreatedOnMoveStart(false);
+  store.anItemIsMoving.set(true);
+  MouseActionState.setAction(MouseAction.Moving);
+  arrangeNow(store, "moving-init-query-chat-turn-markdown");
+}
+
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
   activeVisualElement = normalizeMovingListPageSelectedMainVe(store, activeVisualElement, desktopPosPx);
   activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
@@ -346,7 +397,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     return;
   }
   const isActiveLinkItem = isLink(activeItem);
-  // A data item's copy would need its content; a chat attachment's is in its chat (`chatAttachmentCopyData`).
+  // A data item's copy would need its content; a chat attachment's is in its chat (`clientTextCopyData`).
   const shiftWantsClone = CursorEventState.get().shiftDown &&
     (!isDataItem(activeVisualElement.displayItem) || isChatAttachmentItem(activeVisualElement.displayItem));
   const shouldCreateLink = CursorEventState.get().ctrlDown || (shiftWantsClone && isActiveLinkItem);

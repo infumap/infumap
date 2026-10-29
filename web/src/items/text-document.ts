@@ -269,6 +269,7 @@ async function fetchLocalFileText(itemId: string): Promise<string> {
 }
 
 export async function fetchTextItemContent(textItem: TextItem): Promise<string> {
+  if (textItem.clientText != null) { return textItem.clientText; }
   const key = sourceKey(textItem);
   const existing = textContentPromises.get(key);
   if (existing) { return existing; }
@@ -293,15 +294,17 @@ export function seedChatAttachmentContent(source: ChatAttachmentSource, text: st
 }
 
 /**
- * The base64 content to add an item with, if it is a copy of a chat attachment, which becomes an ordinary text item
- * with its own content; otherwise null. The copy no longer refers to the chat afterwards.
+ * The base64 content to add an item with, if it is a text item whose text is only in the client: a copy of a chat
+ * attachment, or an item with `clientText`. It becomes an ordinary text item with its own content; otherwise null. The
+ * copy no longer refers to the chat afterwards.
  */
-export async function chatAttachmentCopyData(item: Item): Promise<string | null> {
+export async function clientTextCopyData(item: Item): Promise<string | null> {
   if (!isText(item)) { return null; }
   const textItem = asTextItem(item);
-  if (textItem.chatAttachmentSource == null) { return null; }
+  if (textItem.chatAttachmentSource == null && textItem.clientText == null) { return null; }
   const text = await fetchTextItemContent(textItem);
   delete textItem.chatAttachmentSource;
+  delete textItem.clientText;
   // Copied, because base64ArrayBuffer encodes the whole buffer.
   return base64ArrayBuffer(new TextEncoder().encode(text).slice().buffer);
 }
@@ -2264,7 +2267,7 @@ export async function materializeTextDocumentPage(store: StoreContextModel, text
   try {
     await server.addItem(page, null);
     for (const item of generatedItems) {
-      await server.addItem(item, await chatAttachmentCopyData(item));
+      await server.addItem(item, await clientTextCopyData(item));
     }
     requestArrange(store, "text-document-materialize-complete");
     return page.id;

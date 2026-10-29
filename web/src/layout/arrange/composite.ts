@@ -26,7 +26,12 @@ import { isNote, NoteFns } from "../../items/note-item";
 import { asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
-import { queryChatCompositeActivityLayoutPx } from "../../items/query-chat-activity-ui";
+import {
+  QUERY_CHAT_ACTIVITY_ABOVE_GAP_PX,
+  queryChatCompletedActivityPlacementForComposite,
+  queryChatCompositeActivityLayoutPx,
+  queryChatTurnMarkdownButtonBoundsPx,
+} from "../../items/query-chat-activity-ui";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
@@ -68,6 +73,22 @@ export const arrangeComposite = (
   };
   let childAreaBoundsPx = zeroBoundingBoxTopLeft(viewportBoundsPx);
 
+  // The "as markdown" button in a chat turn's activity header is drawn in the DOM, but it is pressed and dragged as an
+  // item is, so has a hitbox here. It is first so its meta is the one found where the button overlaps other hitboxes.
+  let hitboxes = compositeGeometry.hitboxes;
+  if (!compositeIsCollapsed &&
+      queryChatCompletedActivityPlacementForComposite(store, displayItem_Composite.id, displayItem_Composite.parentId) != null) {
+    const titleHeightPx = CompositeFns.showTitle(displayItem_Composite) ? compositeGeometry.blockSizePx.h : 0.0;
+    const buttonBoundsPx = queryChatTurnMarkdownButtonBoundsPx(compositeGeometry.boundsPx.w);
+    hitboxes = [
+      HitboxFns.create(HitboxFlags.Click, {
+        ...buttonBoundsPx,
+        y: titleHeightPx + QUERY_CHAT_ACTIVITY_ABOVE_GAP_PX + buttonBoundsPx.y,
+      }, { queryChatTurnMarkdown: true }),
+      ...hitboxes,
+    ];
+  }
+
   const compositeSpec: VisualElementSpec = {
     displayItem: displayItem_Composite,
     linkItemMaybe: linkItemMaybe_Composite,
@@ -78,7 +99,7 @@ export const arrangeComposite = (
     boundsPx: compositeGeometry.boundsPx,
     childAreaBoundsPx,
     viewportBoundsPx,
-    hitboxes: compositeGeometry.hitboxes,
+    hitboxes,
     blockSizePx: flags & ArrangeItemFlags.InsideCompositeOrDoc ? compositeGeometry.blockSizePx : undefined,
     row: compositeGeometry.row,
     col: compositeGeometry.col,

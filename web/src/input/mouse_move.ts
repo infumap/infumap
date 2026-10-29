@@ -39,7 +39,7 @@ import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState 
 import { arrangeNow } from "../layout/arrange";
 import { catalogResultControlsTopInsetPx, hasCatalogResultContext } from "../layout/catalog-display";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
-import { mouseAction_moving, moving_initiate } from "./mouse_move_move";
+import { mouseAction_moving, moving_initiate, moving_initiateQueryChatTurnMarkdown } from "./mouse_move_move";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
@@ -516,7 +516,10 @@ function changeMouseActionStateMaybe(
   let activeVisualElement = activeVisualElementSignal.get();
   let activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
 
-  if (MouseActionState.hitboxTypeIncludes(HitboxFlags.CalendarRangeResize)) {
+  if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) {
+    moving_initiateQueryChatTurnMarkdown(store, activeVisualElement, desktopPosPx);
+
+  } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.CalendarRangeResize)) {
     const rangeItemId = MouseActionState.getHitMeta()?.calendarRangeItemId ?? null;
     const rangeItem = rangeItemId == null ? null : itemState.get(rangeItemId);
     if (rangeItem == null || !itemCanEdit(rangeItem) ||

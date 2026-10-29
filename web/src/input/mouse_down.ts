@@ -842,6 +842,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   longHoldTimeoutId = setTimeout(() => {
     if (MouseActionState.empty()) { return; }
     if (!MouseActionState.isAction(MouseAction.Ambiguous)) { return; }
+    if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) { return; }
     if (isPage(overDisplayItem) &&
       (hitVe.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(overDisplayItem).arrangeAlgorithm) == ArrangeAlgorithm.Calendar &&
       hitVe.calendarMiniDayLayouts.length > 0 &&

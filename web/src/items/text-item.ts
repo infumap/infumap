@@ -52,6 +52,8 @@ export interface TextItem extends TextMeasurable, XSizableItem, AttachmentsItem,
   clipboardTextContent?: string | null,
   /** Client only. Set on a chat attachment shown as a text item, whose text is in a chat's transcript. */
   chatAttachmentSource?: ChatAttachmentSource,
+  /** Client only. The text of an item made in the client, such as a chat turn as markdown, that the server lacks. */
+  clientText?: string,
 }
 
 /** Where a chat attachment's text is: a live chat (its query item) or a persisted `.chat` item. */
@@ -377,8 +379,12 @@ export const TextFns = {
     return asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.List || isTableView(parentVe);
   },
 
-  openDocumentPopup: async (visualElement: VisualElement, store: StoreContextModel): Promise<void> => {
-    const textItem = asTextItem(visualElement.displayItem);
+  /** `textItem` is shown, from `visualElement`: by default its display item. */
+  openDocumentPopup: async (
+    visualElement: VisualElement,
+    store: StoreContextModel,
+    textItem: TextItem = asTextItem(visualElement.displayItem),
+  ): Promise<void> => {
     const navigationRequestId = store.history.beginNavigationRequest();
     try {
       const page = await prepareTextDocumentProjection(store, textItem, navigationRequestId);

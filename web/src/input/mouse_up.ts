@@ -32,8 +32,9 @@ import { asFileItem, isFile } from "../items/file-item";
 import { TextFns, asTextItem, isText } from "../items/text-item";
 import { continuePersistedChat } from "../items/query";
 import { clearQueryChat } from "../items/chat";
-import { CHAT_TRANSCRIPT_MIME_TYPE, chatAttachmentCopyData, isChatTextItem } from "../items/text-document";
+import { CHAT_TRANSCRIPT_MIME_TYPE, clientTextCopyData, isChatTextItem } from "../items/text-document";
 import { chatItemDropTargetAt, updateChatItemDropHover } from "../items/chat-attachment";
+import { openQueryChatTurnMarkdownPopup } from "../items/chat-turn-markdown";
 import { asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
@@ -399,7 +400,7 @@ function enqueueTextDocumentMaterializationIfPending(
         for (const item of generatedItems) {
           itemState.add(item);
           localItemIds.push(item.id);
-          await server.addItem(item, await chatAttachmentCopyData(item));
+          await server.addItem(item, await clientTextCopyData(item));
           serverAddedIds.push(item.id);
         }
       } catch (error) {
@@ -432,12 +433,12 @@ function enqueueUpdateItem(
       apply: async () => {
         const added: Array<string> = [];
         try {
-          await server.addItem(snapshot, await chatAttachmentCopyData(item));
+          await server.addItem(snapshot, await clientTextCopyData(item));
           added.push(snapshot.id);
           for (const id of descendantIds) {
             const descendant = itemState.get(id);
             if (descendant == null) { continue; }
-            const data = await chatAttachmentCopyData(descendant);
+            const data = await clientTextCopyData(descendant);
             await server.addItem(cloneItemSnapshot(descendant), data);
             added.push(id);
           }
@@ -1446,7 +1447,11 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         }
       }
 
-      if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorChild)) {
+      if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) {
+        DoubleClickState.preventDoubleClick();
+        openQueryChatTurnMarkdownPopup(store, activeVisualElement);
+
+      } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorChild)) {
         DoubleClickState.preventDoubleClick();
         if (isPage(activeVisualElement.displayItem)) {
           PageFns.handleAnchorChildClick(activeVisualElement, store);

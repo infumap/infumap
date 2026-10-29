@@ -23,6 +23,7 @@ import { PageItem, asPageItem, isPage } from "./page-item";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import type { QueryChatCompletedActivity } from "../store/StoreProvider_PerItem";
+import { BoundingBox } from "../util/geometry";
 import { Uid } from "../util/uid";
 
 export const QUERY_CHAT_ACTIVITY_HEADER_HEIGHT_PX = 36;
@@ -30,6 +31,23 @@ export const QUERY_CHAT_ACTIVITY_MIN_HEIGHT_PX = 140;
 export const QUERY_CHAT_ACTIVITY_MAX_HEIGHT_PX = 300;
 export const QUERY_CHAT_ACTIVITY_ABOVE_GAP_PX = 8;
 export const QUERY_CHAT_ACTIVITY_BELOW_GAP_PX = 16;
+
+const TURN_MARKDOWN_BUTTON_SIZE_PX = 24;
+/** The header's right padding, then the chevron, then the gap before the button. */
+const TURN_MARKDOWN_BUTTON_RIGHT_PX = 12 + 16 + 8;
+
+/**
+ * Where a completed turn's "as markdown" button is in the turn's activity trace. The trace draws the button here, and
+ * its composite has a hitbox here (layout/arrange/composite.ts), as the button is pressed and dragged as an item is.
+ */
+export function queryChatTurnMarkdownButtonBoundsPx(traceWidthPx: number): BoundingBox {
+  return {
+    x: traceWidthPx - TURN_MARKDOWN_BUTTON_RIGHT_PX - TURN_MARKDOWN_BUTTON_SIZE_PX,
+    y: (QUERY_CHAT_ACTIVITY_HEADER_HEIGHT_PX - TURN_MARKDOWN_BUTTON_SIZE_PX) / 2,
+    w: TURN_MARKDOWN_BUTTON_SIZE_PX,
+    h: TURN_MARKDOWN_BUTTON_SIZE_PX,
+  };
+}
 
 const [completedActivityUiRevision, setCompletedActivityUiRevision] =
   createSignal(0, { equals: false });

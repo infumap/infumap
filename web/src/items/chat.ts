@@ -989,6 +989,7 @@ function cloneCompletedRounds(rounds: Array<ChatStreamingModelRound>): Array<Cha
 
 interface QueryChatAssistantTurn {
   requestId: string,
+  promptText: string,
   assistantText: string,
   rounds: Array<ChatStreamingModelRound>,
   startedAt: number,
@@ -1027,6 +1028,7 @@ function insertQueryChatAssistantTurn(
       const completedActivity: QueryChatCompletedActivity = {
         requestId: turn.requestId,
         assistantRootIds: [...staged.rootIds],
+        promptText: turn.promptText,
         assistantText: turn.assistantText,
         rounds: cloneCompletedRounds(turn.rounds),
         startedAt: turn.startedAt,
@@ -1329,6 +1331,7 @@ async function followQueryChatRun(
     }
     insertQueryChatAssistantTurn(store, queryItem, response.items, {
       requestId,
+      promptText: options.submission?.payload.text ?? options.turn?.text ?? "",
       assistantText: response.assistantText,
       rounds: finalStreamingState.rounds,
       startedAt: finalStreamingState.startedAt,
@@ -1519,6 +1522,7 @@ function applyLoadedQueryChat(
       if (turn.status == "completed" && turn.items != null && turn.assistantText != null) {
         insertQueryChatAssistantTurn(store, queryItem, turn.items, {
           requestId: turn.requestId,
+          promptText: turn.text,
           assistantText: turn.assistantText,
           rounds: turn.rounds,
           startedAt: turn.startedAt,

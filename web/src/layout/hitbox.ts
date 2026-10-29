@@ -95,6 +95,8 @@ export interface HitboxMeta {
   calendarRangeItemId?: Uid,
   calendarRangeOccurrenceItemId?: Uid,
   calendarRangeStartDateTime?: number,
+  /** A chat turn's "as markdown" button, on the turn's composite: click opens the markdown, drag copies it out. */
+  queryChatTurnMarkdown?: boolean,
 }
 
 export const HitboxFns = {
@@ -170,6 +172,9 @@ export const HitboxFns = {
     if (typeof (meta.calendarRangeStartDateTime) != 'undefined') {
       result.calendarRangeStartDateTime = meta.calendarRangeStartDateTime;
     }
+    if (typeof (meta.queryChatTurnMarkdown) != 'undefined') {
+      result.queryChatTurnMarkdown = meta.queryChatTurnMarkdown;
+    }
     return result;
   },
 
@@ -182,6 +187,7 @@ export const HitboxFns = {
       if (a.meta.calendarRangeItemId != b.meta.calendarRangeItemId) { return 1; }
       if (a.meta.calendarRangeOccurrenceItemId != b.meta.calendarRangeOccurrenceItemId) { return 1; }
       if (a.meta.calendarRangeStartDateTime != b.meta.calendarRangeStartDateTime) { return 1; }
+      if (a.meta.queryChatTurnMarkdown != b.meta.queryChatTurnMarkdown) { return 1; }
     }
     return compareBoundingBox(a.boundsPx, b.boundsPx);
   },
@@ -216,6 +222,7 @@ export const HitboxFns = {
       (meta.calendarDividerMonth ? meta.calendarDividerMonth : "undefined") + ", calendarRangeItemId: " +
       (meta.calendarRangeItemId ? meta.calendarRangeItemId : "undefined") + ", calendarRangeOccurrenceItemId: " +
       (meta.calendarRangeOccurrenceItemId ? meta.calendarRangeOccurrenceItemId : "undefined") + ", calendarRangeStartDateTime: " +
-      (meta.calendarRangeStartDateTime ?? "undefined") + "]";
+      (meta.calendarRangeStartDateTime ?? "undefined") + ", queryChatTurnMarkdown: " +
+      (meta.queryChatTurnMarkdown ?? "undefined") + "]";
   }
 }

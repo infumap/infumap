@@ -30,6 +30,7 @@ import {
   QUERY_CHAT_ACTIVITY_MAX_HEIGHT_PX,
   isQueryChatCompletedActivityExpanded,
   queryChatCompletedActivityReservePx,
+  queryChatTurnMarkdownButtonBoundsPx,
   setQueryChatCompletedActivityBodyHeightPx,
   toggleQueryChatCompletedActivityExpanded,
 } from "../../items/query-chat-activity-ui";
@@ -408,6 +409,20 @@ export const QueryChatCompletedActivityTrace: Component<{
     onCleanup(() => window.cancelAnimationFrame(raf));
   });
 
+  let markdownButton: HTMLDivElement | undefined;
+  const isMarkdownButtonEvent = (ev: Event) =>
+    markdownButton != null && ev.target instanceof Node && markdownButton.contains(ev.target);
+  // The markdown button is pressed and dragged as an item is, by the desktop's handlers (its hitbox is on the turn's
+  // composite), and a drag can end over the trace, so those go on to them.
+  const stopEvent = (ev: Event) => {
+    if (ev instanceof MouseEvent && (isMarkdownButtonEvent(ev) || store.anItemIsMoving.get())) {
+      return;
+    }
+    stopQueryChatActivityEvent(ev);
+  };
+  // Inside the 1px border, which the bounds (the composite's hitbox) are not.
+  const markdownButtonBoundsPx = () => queryChatTurnMarkdownButtonBoundsPx(props.boundsPx.w);
+
   return (
     <div
       class="absolute flex flex-col overflow-hidden rounded-xs border bg-white pointer-events-auto"
@@ -416,9 +431,9 @@ export const QueryChatCompletedActivityTrace: Component<{
         `border-color: ${LIGHT_BORDER_COLOR};`}
       role="region"
       aria-label={`Turn ${props.turnNumber} assistant activity`}
-      onMouseDown={stopQueryChatActivityEvent}
-      onMouseUp={stopQueryChatActivityEvent}
-      onClick={stopQueryChatActivityEvent}
+      onMouseDown={stopEvent}
+      onMouseUp={stopEvent}
+      onClick={stopEvent}
       onKeyDown={stopQueryChatActivityEvent}
       onKeyUp={stopQueryChatActivityEvent}>
       <div
@@ -426,6 +441,7 @@ export const QueryChatCompletedActivityTrace: Component<{
         style={`background-color: #fafafa; border-color: ${LIGHT_BORDER_COLOR};`}
         aria-expanded={expanded()}
         onClick={(ev) => {
+          if (isMarkdownButtonEvent(ev)) { return; }
           ev.stopPropagation();
           toggleQueryChatCompletedActivityExpanded(props.queryId, props.activity.requestId);
           requestArrange(store, "query-chat-completed-activity-toggle");
@@ -437,7 +453,20 @@ export const QueryChatCompletedActivityTrace: Component<{
         <span class="shrink-0 text-[11px] tabular-nums text-slate-500">
           {formatChatActivityElapsed(props.activity.startedAt, props.activity.completedAt)}
         </span>
-        <i class={expanded() ? "bi-chevron-down" : "bi-chevron-right"} />
+        <span class="shrink-0" style={`width: ${markdownButtonBoundsPx().w}px;`} />
+        <span class="flex w-4 shrink-0 justify-center">
+          <i class={expanded() ? "bi-chevron-down" : "bi-chevron-right"} />
+        </span>
+      </div>
+      <div
+        ref={markdownButton}
+        class="absolute flex cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+        style={`left: ${markdownButtonBoundsPx().x - 1}px; top: ${markdownButtonBoundsPx().y - 1}px; ` +
+          `width: ${markdownButtonBoundsPx().w}px; height: ${markdownButtonBoundsPx().h}px;`}
+        role="button"
+        title="Open as markdown, or drag out as a markdown text item"
+        aria-label="Open as markdown">
+        <i class="bi bi-filetype-md" />
       </div>
       <Show when={expanded()}>
         <div class="min-h-0 grow overflow-y-auto">

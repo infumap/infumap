@@ -50,6 +50,8 @@ export interface QueryChatActivityModelRound {
 export interface QueryChatCompletedActivity {
   requestId: string,
   assistantRootIds: Array<Uid>,
+  /** The user's message the turn answers. */
+  promptText: string,
   assistantText: string,
   rounds: Array<QueryChatActivityModelRound>,
   startedAt: number,
