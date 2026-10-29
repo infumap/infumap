@@ -48,6 +48,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const tableItem = () => asTableItem(props.visualElement.displayItem);
   const canEdit = () => itemCanEdit(tableItem());
+  // The title sits in a pointer-events-none layer. While editing it must take pointer events itself, or clicks land
+  // on the item below: the caret is lost on a second click, double-click can't select a word, and Shift+right-click
+  // gets no native menu.
+  const isEditingTitle = () =>
+    canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null;
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const vePath = () => VeFns.veToPath(props.visualElement);
   const showTitle = () => tableTitleHeaderHeightBl(tableItem()) > 0;
@@ -266,15 +271,15 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 2;`}>
         <Show when={showTitle()}>
           <div id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={`absolute font-bold`}
+            class={`absolute font-bold ${isEditingTitle() ? "pointer-events-auto select-text cursor-text" : ""}`}
             style={`left: 0px; top: 0px; ` +
               `width: ${boundsPx().w / scale()}px; height: ${titleHeaderHeightPx() / scale()}px; ` +
               `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
               `transform: scale(${scale()}); transform-origin: top left; ` +
               `overflow-wrap: break-word; ` +
               `outline: 0px solid transparent;`}
-            contentEditable={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null}
-            spellcheck={canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null}
+            contentEditable={isEditingTitle()}
+            spellcheck={isEditingTitle()}
             onKeyDown={keyDownHandler}
             onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev, false); }}>
             {tableItem().title}
