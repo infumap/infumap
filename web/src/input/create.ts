@@ -336,7 +336,7 @@ export function createNoteInTableCellAndEdit(store: StoreContextModel, rowVe: Vi
  * Scroll so the row of a new item is visible. This is not necessarily the row it was inserted at: in a container
  * ordered by title, its empty title puts it first (or last).
  */
-function scrollTableToIncludeNewItemRow(store: StoreContextModel, tableVe: VisualElement, newItem: Item, insertRow: number): void {
+export function scrollTableToIncludeNewItemRow(store: StoreContextModel, tableVe: VisualElement, newItem: Item, insertRow: number): void {
   const rowIdx = TableFns.tableVisibleRows(store, tableVe).findIndex(row => row.item.id == newItem.id);
   const scrollYPos = store.perItem.getTableScrollYPos(VeFns.veidFromVe(tableVe));
   const nextScrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, rowIdx >= 0 ? rowIdx : insertRow);

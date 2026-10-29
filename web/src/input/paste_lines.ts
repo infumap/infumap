@@ -18,17 +18,32 @@
 
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { ContainerItem, asContainerItem } from "../items/base/container-item";
+import { NoteFns, NoteItem } from "../items/note-item";
 import { TableFns } from "../items/table-item";
+import { arrangeNow } from "../layout/arrange";
+import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VisualElementFlags, isTableView } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, isTableView } from "../layout/visual-element";
+import { server } from "../server";
+import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { normalizeClipboardLineEndings } from "../util/editable_text";
 import { Uid } from "../util/uid";
-import { parentChainAllowsNewChild } from "./create";
+import { parentChainAllowsNewChild, scrollTableToIncludeNewItemRow } from "./create";
+import { clearRowRangeSelectionMaybe } from "./row_selection";
 
 
 const BULLET_MARKER = /^[-*•]\s+(?=\S)/;
 const NUMBERED_MARKER = /^\d+[.)]\s+(?=\S)/;
+
+/** Pasting more lines than this asks first. */
+const CONFIRM_LINE_COUNT = 50;
+/**
+ * Pasting more lines than this is refused. Each note is its own add-item request, undo deletes them one at a time,
+ * and the undo entry holds a snapshot of every note (undo history is capped at 8 MB).
+ */
+const MAX_LINE_COUNT = 1000;
 
 /**
  * Split pasted plain text into the titles of the notes to create, one per line.
@@ -101,4 +116,57 @@ export function pasteLinesTargetMaybe(store: StoreContextModel): PasteLinesTarge
     return null;
   }
   return target;
+}
+
+/**
+ * Add a note for each line to target, in order, as one undo step, and focus the last of them. Above CONFIRM_LINE_COUNT
+ * lines this asks first, and above MAX_LINE_COUNT it refuses. Returns whether the notes were added.
+ *
+ * In a container sorted by title, the notes are added at the end of its orderings and the sort places them. Inserting
+ * them after a row there would mean finding a gap between orderings that are not in the order of its children.
+ */
+export function pasteLinesIntoContainer(store: StoreContextModel, target: PasteLinesTarget, lines: Array<string>): boolean {
+  if (lines.length == 0) { return false; }
+  if (lines.length > MAX_LINE_COUNT) {
+    showMessage(store, `Can't paste ${lines.length} lines: the limit is ${MAX_LINE_COUNT}.`);
+    return false;
+  }
+  if (lines.length > CONFIRM_LINE_COUNT && !window.confirm(`Add ${lines.length} rows?`)) { return false; }
+
+  const parentId = target.parentContainer.id;
+  const tablePath = VeFns.veToPath(target.tableVe);
+  const inOrderingOrder = itemState.childrenAreInOrderingOrder(parentId);
+  const ownerId = store.user.getUser().userId;
+
+  store.textEdit.flushActive();
+  const token = store.editorHistory.begin([parentId], lines.length == 1 ? "Paste line" : `Paste ${lines.length} lines`);
+  let afterId = inOrderingOrder ? target.afterItemId : null;
+  let lastNote: NoteItem | null = null;
+  for (const line of lines) {
+    const ordering = afterId == null
+      ? itemState.newOrderingAtEndOfChildren(parentId)
+      : itemState.newOrderingDirectlyAfterChild(parentId, afterId);
+    const note = NoteFns.create(ownerId, parentId, RelationshipToParent.Child, line, ordering);
+    NoteFns.ensureTitleUrl(note);
+    store.editorHistory.include(token, note.id);
+    itemState.add(note);
+    store.editorHistory.track(server.addItem(note, null));
+    if (inOrderingOrder) { afterId = note.id; }
+    lastNote = note;
+  }
+
+  clearRowRangeSelectionMaybe(store);
+  scrollTableToIncludeNewItemRow(store, target.tableVe, lastNote!, 0);
+  store.history.setFocus(VeFns.addVeidToPath({ itemId: lastNote!.id, linkIdMaybe: null }, tablePath));
+  arrangeNow(store, "paste-lines-create-notes");
+  store.editorHistory.commit(token);
+  return true;
+}
+
+function showMessage(store: StoreContextModel, text: string): void {
+  const message = { text, type: TransientMessageType.Info };
+  store.overlay.toolbarTransientMessage.set(message);
+  setTimeout(() => {
+    if (store.overlay.toolbarTransientMessage.get() === message) { store.overlay.toolbarTransientMessage.set(null); }
+  }, 4500);
 }

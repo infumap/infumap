@@ -233,9 +233,15 @@ export const itemState = {
     items.set(holderPage.id, holderPage);
   },
 
+  /** Whether the children of a container are in the order of their orderings, rather than sorted by title. */
+  childrenAreInOrderingOrder: (parentId: Uid): boolean => {
+    const container = asContainerItem(itemState.get(parentId)!);
+    return container.orderChildrenBy == "" || (isPage(container) && asPageItem(container).arrangeAlgorithm == ArrangeAlgorithm.Document);
+  },
+
   sortChildren: (parentId: Uid): void => {
     const container = asContainerItem(itemState.get(parentId)!);
-    if (container.orderChildrenBy == "" || (isPage(container) && asPageItem(container).arrangeAlgorithm == ArrangeAlgorithm.Document)) {
+    if (itemState.childrenAreInOrderingOrder(parentId)) {
       container.computed_children.sort((a, b) => {
         const cmp = compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering);
         if (cmp !== 0) { return cmp; }
