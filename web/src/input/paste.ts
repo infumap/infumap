@@ -21,13 +21,18 @@ import { acceptClipboardTextForPendingTextItem } from "./text_clipboard_create";
 import { edit_replaceNoteSelection, edit_structuralClipboardGuard } from "./edit";
 import { clipboardTextForSingleLine, normalizeClipboardLineEndings } from "../util/editable_text";
 import { textEditElementId } from "./text_edit_session";
+import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe } from "./paste_lines";
 
 
 export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
   if (ev.defaultPrevented) { return; }
   const target = ev.target;
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
-      !(target instanceof HTMLElement) || !target.isContentEditable) {
+      !(target instanceof HTMLElement)) {
+    return;
+  }
+  if (!target.isContentEditable) {
+    pasteLinesMaybe(store, ev);
     return;
   }
   if (edit_structuralClipboardGuard(store, ev)) { return; }
@@ -52,4 +57,19 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
 
   if (edit_replaceNoteSelection(store, ev, normalizeClipboardLineEndings(clipboardText), "Paste")) { return; }
   document.execCommand("insertText", false, clipboardTextForSingleLine(clipboardText));
+}
+
+/**
+ * Outside a text editor, plain text pasted into a focused table becomes one row per line. Anything else, including
+ * clipboard contents with no plain text, is left alone and the event is not prevented.
+ */
+function pasteLinesMaybe(store: StoreContextModel, ev: ClipboardEvent): void {
+  const clipboardData = ev.clipboardData;
+  if (clipboardData == null || !clipboardData.types.includes("text/plain")) { return; }
+  const target = pasteLinesTargetMaybe(store);
+  if (target == null) { return; }
+  const lines = parsePastedLines(clipboardData.getData("text/plain"));
+  if (lines.length == 0) { return; }
+  ev.preventDefault();
+  pasteLinesIntoContainer(store, target, lines);
 }
