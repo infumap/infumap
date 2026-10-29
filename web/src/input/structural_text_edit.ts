@@ -27,7 +27,8 @@ import { VeFns, type VisualElement } from "../layout/visual-element";
 import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
 
-function locallyEditable(store: StoreContextModel, item: Item | null): item is Item {
+/** Owned by the signed in user, saved on this server, and editable: the server accepts new children and changes. */
+export function locallyEditable(store: StoreContextModel, item: Item | null): item is Item {
   return item != null && item.origin == null && item.clientOnly !== true &&
     item.ownerId == store.user.getUserMaybe()?.userId && itemCanEdit(item);
 }

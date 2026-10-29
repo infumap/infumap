@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { itemCanEdit } from "../items/base/capabilities-item";
 import { ContainerItem, asContainerItem } from "../items/base/container-item";
 import { NoteFns, NoteItem } from "../items/note-item";
 import { TableFns } from "../items/table-item";
@@ -32,6 +31,7 @@ import { normalizeClipboardLineEndings } from "../util/editable_text";
 import { Uid } from "../util/uid";
 import { parentChainAllowsNewChild, scrollTableToIncludeNewItemRow } from "./create";
 import { clearRowRangeSelectionMaybe } from "./row_selection";
+import { locallyEditable } from "./structural_text_edit";
 
 
 const BULLET_MARKER = /^[-*•]\s+(?=\S)/;
@@ -85,8 +85,9 @@ export interface PasteLinesTarget {
  * not the table when the row is in an expanded container.
  *
  * Null when there is nowhere to paste: no table or row is focused, text is being edited, a popup or another overlay is
- * open, undo or redo is running, or the container can't get new items. That includes remote containers: the new notes
- * would be saved to this server, and undo refuses structural changes to them.
+ * open, undo or redo is running, or the container can't get new items. That includes a container the user doesn't own,
+ * which is all of them while signed out (a public page): the server refuses to add children to it. And it includes
+ * remote containers: the new notes would be saved to this server, and undo refuses structural changes to them.
  */
 export function pasteLinesTargetMaybe(store: StoreContextModel): PasteLinesTarget | null {
   if (store.overlay.anOverlayIsVisible() || store.history.currentPopupSpec() != null || store.editorHistory.busy()) {
@@ -111,10 +112,7 @@ export function pasteLinesTargetMaybe(store: StoreContextModel): PasteLinesTarge
   if (target == null) { return null; }
 
   const parent = target.parentContainer;
-  if (parent.clientOnly === true || parent.origin != null || !itemCanEdit(parent) ||
-      !parentChainAllowsNewChild(parent.id)) {
-    return null;
-  }
+  if (!locallyEditable(store, parent) || !parentChainAllowsNewChild(parent.id)) { return null; }
   return target;
 }
 
