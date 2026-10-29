@@ -92,7 +92,7 @@ function itemAllowsNewChild(item: Item | null): boolean {
   return item != null && item.clientOnly !== true && itemCanEdit(item) && itemCanAcceptManualChildren(item);
 }
 
-function parentChainAllowsNewChild(parentId: Uid): boolean {
+export function parentChainAllowsNewChild(parentId: Uid): boolean {
   let current = itemState.get(parentId);
   while (current != null) {
     if (isPage(current)) {

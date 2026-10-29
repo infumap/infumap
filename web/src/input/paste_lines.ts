@@ -16,7 +16,15 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { itemCanEdit } from "../items/base/capabilities-item";
+import { ContainerItem, asContainerItem } from "../items/base/container-item";
+import { TableFns } from "../items/table-item";
+import { VesCache } from "../layout/ves-cache";
+import { VisualElement, VisualElementFlags, isTableView } from "../layout/visual-element";
+import { StoreContextModel } from "../store/StoreProvider";
 import { normalizeClipboardLineEndings } from "../util/editable_text";
+import { Uid } from "../util/uid";
+import { parentChainAllowsNewChild } from "./create";
 
 
 const BULLET_MARKER = /^[-*•]\s+(?=\S)/;
@@ -44,4 +52,53 @@ export function parsePastedLines(text: string): Array<string> {
     }
   }
   return lines;
+}
+
+/** Where pasted lines go. */
+export interface PasteLinesTarget {
+  /** The table view the lines are pasted into. */
+  tableVe: VisualElement,
+  /** Gets the new notes as children. */
+  parentContainer: ContainerItem,
+  /** The child of parentContainer (a row's item, or its link) the new notes follow, or null to add them at the end. */
+  afterItemId: Uid | null,
+}
+
+/**
+ * Where to paste lines, from the keyboard focus. A focused table view (a table, or a page arranged as one) gets them at
+ * the end. A focused row, or a cell of one, gets them after the row, in the container the row is a child of: that is
+ * not the table when the row is in an expanded container.
+ *
+ * Null when there is nowhere to paste: no table or row is focused, text is being edited, a popup or another overlay is
+ * open, undo or redo is running, or the container can't get new items. That includes remote containers: the new notes
+ * would be saved to this server, and undo refuses structural changes to them.
+ */
+export function pasteLinesTargetMaybe(store: StoreContextModel): PasteLinesTarget | null {
+  if (store.overlay.anOverlayIsVisible() || store.history.currentPopupSpec() != null || store.editorHistory.busy()) {
+    return null;
+  }
+  const focusPath = store.history.getFocusPathMaybe();
+  const focusVe = focusPath == null ? null : VesCache.current.readNode(focusPath);
+  if (focusVe == null) { return null; }
+
+  let target: PasteLinesTarget | null = null;
+  if (isTableView(focusVe)) {
+    target = { tableVe: focusVe, parentContainer: asContainerItem(focusVe.displayItem), afterItemId: null };
+  } else if (focusVe.flags & VisualElementFlags.InsideTable) {
+    const rowPath = focusVe.flags & VisualElementFlags.Attachment ? focusVe.parentPath : focusPath;
+    const rowVe = rowPath == null ? null : VesCache.current.readNode(rowPath);
+    const tableVe = rowVe?.parentPath == null ? null : VesCache.current.readNode(rowVe.parentPath);
+    if (tableVe == null || !isTableView(tableVe)) { return null; }
+    const row = TableFns.tableVisibleRows(store, tableVe).find(row => row.path == rowPath);
+    if (row == null) { return null; }
+    target = { tableVe, parentContainer: row.parentContainer, afterItemId: row.item.id };
+  }
+  if (target == null) { return null; }
+
+  const parent = target.parentContainer;
+  if (parent.clientOnly === true || parent.origin != null || !itemCanEdit(parent) ||
+      !parentChainAllowsNewChild(parent.id)) {
+    return null;
+  }
+  return target;
 }
