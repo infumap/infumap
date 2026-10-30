@@ -88,7 +88,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   };
   let noteRequest = 0;
   onCleanup(() => noteRequest++);
-  const fillBoilerplate = async (profile: QueryProfile) => {
+  const fillQueryTemplate = async (profile: QueryProfile) => {
     const request = ++noteRequest;
     const noteId = profile.queryNoteId;
     if (noteId == null || props.composerText().trim() != "") { return; }
@@ -103,7 +103,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
       if (stillSelected() && props.composerText().trim() == "") { props.onApplyQuery(text); }
     } catch {
       if (stillSelected() && props.composerText().trim() == "") {
-        showError("Could not read the boilerplate note. It may have been deleted or be inaccessible.");
+        showError("Could not read the template note. It may have been deleted or be inaccessible.");
       }
     }
   };
@@ -114,7 +114,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     if (initializedDrafts.has(itemId) || !current.configurationInitialized) { return; }
     initializedDrafts.add(itemId);
     if (current.mode == null && current.appliedProfile != null) {
-      untrack(() => { void fillBoilerplate(current.appliedProfile!); });
+      untrack(() => { void fillQueryTemplate(current.appliedProfile!); });
     }
   });
   createEffect(() => {
@@ -131,7 +131,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     const previousScope = runtime().configuration.scopeId;
     props.beforeChange?.();
     applyQueryProfile(store, props.queryItem(), profile);
-    void fillBoilerplate(profile);
+    void fillQueryTemplate(profile);
     props.onChange?.(previousScope != profile.configuration.scopeId);
   };
   /** A saved setup becomes this query's applied profile, unless the query changed while saving. */
@@ -216,7 +216,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     profile.name,
     `Scope: ${queryScopeName(profile.configuration.scopeId)}`,
     ...(props.searchMode() ? [] : [`Model: ${queryModelRouteLabel(store, profile.configuration.model)}`, `Tools: ${queryToolsLabel(profile.configuration.capabilities)}`]),
-    profile.queryNoteId ? `Boilerplate note: ${queryScopeItemTitle(profile.queryNoteId)}` : null,
+    profile.queryNoteId ? `Template note: ${queryScopeItemTitle(profile.queryNoteId)}` : null,
     ...unavailable(profile).map(issue => issue.message),
     isActive(profile) && modified() ? "Modified in this query. Click to restore the saved settings." : null,
     reason(),
@@ -257,7 +257,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
       <div class="min-w-0 grow">
         <div class="truncate text-[13px]">{profile.name}<Show when={isActive(profile) && modified()}><span class="text-slate-500"> · modified</span></Show></div>
         <div class="truncate text-[11px] text-slate-500">{queryConfigurationSummary(store, profile.configuration)}</div>
-        <Show when={profile.queryNoteId}>{id => <div class="truncate text-[11px] text-slate-500" title={id()}>Note: {queryScopeItemTitle(id())}</div>}</Show>
+        <Show when={profile.queryNoteId}>{id => <div class="truncate text-[11px] text-slate-500" title={id()}>Template: {queryScopeItemTitle(id())}</div>}</Show>
         <Show when={unavailable(profile).length > 0}>
           <div class="truncate text-[11px] text-amber-700" title={unavailable(profile).map(issue => issue.message).join("\n")}>
             <i class="bi-exclamation-triangle mr-1" />Unavailable: {unavailable(profile).map(issue => issue.subject).join(", ")}

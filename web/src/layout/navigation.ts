@@ -21,12 +21,15 @@ import { requestContainerSyncSoon, server } from "../server";
 import { Item } from "../items/base/item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { ensureQueryEntryUnderQueries } from "../items/query-entry";
+import { asQueryItem, isQueryItem } from "../items/query-item";
+import { SearchFlags } from "../items/base/flags-item";
+import { queryChatHasContent } from "../items/chat";
 import { sourceTextItemForVirtualTextDocumentPage, textDocumentUrl } from "../items/text-document";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { assert, panic } from "../util/lang";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid, isUid } from "../util/uid";
-import { arrangeNow } from "./arrange";
+import { arrangeNow, requestArrange } from "./arrange";
 import { groupPageIdMaybe, initiateLoadChildItemsMaybe, initiateLoadItemMaybe, InitiateLoadResult } from "./load";
 import { isEmptyVeid, isTableView, VeFns, Veid, VisualElementPath } from "./visual-element";
 import { RelationshipToParent } from "./relationship-to-parent";
@@ -366,31 +369,83 @@ export async function preloadQueries(store: StoreContextModel): Promise<void> {
     return;
   }
 
-  await initiateLoadChildItemsMaybe(store, { itemId: queriesPageId, linkIdMaybe: null });
-}
-
-export async function navigateToQueries(store: StoreContextModel): Promise<void> {
-  const userMaybe = store.user.getUserMaybe();
-  if (!userMaybe) { return; }
-  store.history.beginNavigationRequest();
-  store.overlay.autoFocusSearchInput.set(false);
-  store.overlay.autoFocusChatInput.set(false);
-
-  const queriesPageId = userMaybe.queriesPageId;
-  await preloadQueries(store);
-  const queriesPageMaybe = itemState.get(queriesPageId);
-
-  if (!queriesPageMaybe || !isPage(queriesPageMaybe)) {
-    return;
-  }
-
   const queriesPage = asPageItem(queriesPageMaybe);
   if (queriesPage.title == "Searches") {
     queriesPage.title = "Queries";
     void server.updateItem(queriesPage);
   }
 
+  await initiateLoadChildItemsMaybe(store, { itemId: queriesPageId, linkIdMaybe: null });
+}
+
+/**
+ * The pinned New Query already in the loaded Queries page, if it has no chat yet. Normally there is one: the first
+ * turn of a chat archives it and pins a new one (see archiveQueryChatAfterFirstTurn).
+ */
+function loadedBlankQueryEntryId(store: StoreContextModel, queriesPageId: Uid): Uid | null {
+  const queriesPageMaybe = itemState.get(queriesPageId);
+  if (!queriesPageMaybe || !isPage(queriesPageMaybe) || !asPageItem(queriesPageMaybe).childrenLoaded) { return null; }
+  for (const childId of asPageItem(queriesPageMaybe).computed_children) {
+    const child = itemState.get(childId);
+    if (child != null && isQueryItem(child) && (child.flags & SearchFlags.ListPagePinTop) != 0) {
+      return queryChatHasContent(store, asQueryItem(child)) ? null : child.id;
+    }
+  }
+  return null;
+}
+
+export async function navigateToQueries(store: StoreContextModel): Promise<void> {
+  const userMaybe = store.user.getUserMaybe();
+  if (!userMaybe) { return; }
+  const navigationRequestId = store.history.beginNavigationRequest();
+  store.overlay.autoFocusSearchInput.set(false);
+  store.overlay.autoFocusChatInput.set(false);
+
+  const queriesPageId = userMaybe.queriesPageId;
+
+  // Show the loaded New Query at once and let the server confirm it afterwards. Awaiting ensureQueryEntry first made
+  // the shortcut wait behind every queued mutation plus a transcript read, and repeated presses then landed after
+  // the user had navigated elsewhere.
+  const loadedQueryItemId = loadedBlankQueryEntryId(store, queriesPageId);
+  if (loadedQueryItemId != null) {
+    showQueryEntry(store, queriesPageId, loadedQueryItemId);
+    void confirmQueryEntry(store, queriesPageId, loadedQueryItemId);
+    return;
+  }
+
+  await preloadQueries(store);
+  if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
+  const queriesPageMaybe = itemState.get(queriesPageId);
+
+  if (!queriesPageMaybe || !isPage(queriesPageMaybe)) {
+    return;
+  }
+
   const queryItemId = await ensureQueryItemUnderQueries(store, queriesPageId);
+  if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
+  showQueryEntry(store, queriesPageId, queryItemId);
+}
+
+/** Another tab may have used the shown New Query. Moves to the server's one only if the user is still on the shown one. */
+async function confirmQueryEntry(store: StoreContextModel, queriesPageId: Uid, shownQueryItemId: Uid): Promise<void> {
+  const queryItemId = await ensureQueryItemUnderQueries(store, queriesPageId);
+  const queriesPageVeid = { itemId: queriesPageId, linkIdMaybe: null };
+  const currentPageVeid = store.history.currentPageVeid();
+  const selectedVeid = store.perItem.getSelectedListPageItem(queriesPageVeid);
+  if (currentPageVeid?.itemId != queriesPageId || currentPageVeid.linkIdMaybe != null ||
+    store.history.currentPopupSpec() != null ||
+    selectedVeid.itemId != shownQueryItemId || selectedVeid.linkIdMaybe != null) {
+    return;
+  }
+  if (queryItemId != null && queryItemId != shownQueryItemId) {
+    store.perItem.setSelectedListPageItem(queriesPageVeid, { itemId: queryItemId, linkIdMaybe: null });
+    store.overlay.autoFocusSearchInput.set(true);
+  }
+  // The reply may also have added chats archived elsewhere. Buffered presses share one arrange.
+  requestArrange(store, "navigate-to-queries-confirmed");
+}
+
+function showQueryEntry(store: StoreContextModel, queriesPageId: Uid, queryItemId: Uid | null): void {
   if (queryItemId != null) {
     store.perItem.setSelectedListPageItem({ itemId: queriesPageId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
   }

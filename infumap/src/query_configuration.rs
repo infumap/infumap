@@ -107,7 +107,7 @@ pub struct QueryProfile {
   pub id: Uid,
   pub name: String,
   pub configuration: QueryConfiguration,
-  /// The note whose current text supplies composer boilerplate. Older snapshots have no reference.
+  /// The note whose current text supplies the query template. Older snapshots have no reference.
   #[serde(rename = "queryNoteId", default, skip_serializing_if = "Option::is_none")]
   pub query_note_id: Option<Uid>,
 }
@@ -121,7 +121,7 @@ impl QueryProfile {
     self.name = self.name.trim().to_owned();
     validate_text(&self.name, "profile name", MAX_PROFILE_NAME_BYTES)?;
     if self.query_note_id.as_ref().is_some_and(|id| !is_uid(id)) {
-      return Err("Invalid boilerplate note ID.".into());
+      return Err("Invalid template note ID.".into());
     }
     self.configuration.normalize()
   }

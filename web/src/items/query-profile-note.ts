@@ -10,7 +10,7 @@ export async function readQueryProfileNote(id: Uid): Promise<string> {
   const response = await server.fetchItems(id, GET_ITEMS_MODE__ITEM_AND_ATTACHMENTS_ONLY);
   const item = response.item as { id?: string, itemType?: string, title?: string } | null;
   if (response.groupId != null || item?.id != id || item.itemType != ItemType.Note || typeof item.title != "string") {
-    throw new Error("The boilerplate item must be a note.");
+    throw new Error("The query template must be a note.");
   }
   rememberQueryScopeItemTitle(id, item.title.split("\n")[0].trim() || "Untitled note");
   return item.title;

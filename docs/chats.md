@@ -32,11 +32,11 @@ the search provider supplies one. Snippet availability and content vary by provi
 ## Query profiles
 
 A profile saves **Scope**, **Model** (with its reasoning effort), **Tools**, **Tool approvals** and an optional
-reference to a boilerplate note under a name. Pinned profiles are shortcuts above the input: click one to
+reference to a template note under a name. Pinned profiles are shortcuts above the input: click one to
 apply its complete setup. The **Profiles** menu at
 the end of the row lists every profile, including shortcuts that do not fit. Selecting a profile leaves
 existing draft, attachments and Chat / Deep research mode unchanged. If the composer is empty, the referenced
-note's current text fills it, ready to edit and send. Editing the note changes the boilerplate for future
+note's current text fills it, ready to edit and send. Editing the note changes the query template for future
 profile selections; drafts and messages already populated keep their text. Search uses only the scope, so the
 shortcuts are hidden there.
 
@@ -44,11 +44,11 @@ New queries start with your default profile. Changing Scope, Model or Tools affe
 query: the applied profile's shortcut then shows a dot. Click that profile again, in the row or the
 **Profiles** menu, to restore its saved settings. To update the saved profile, open **Profiles → Save
 changes to “Profile name”**. To keep a setup under a new name, use **Profiles → Save as new…**;
-the new profile is pinned. Optionally choose a boilerplate note by searching its text or pasting its item link.
-In **Profiles → Manage…**, click **Choose boilerplate note…** or a profile's existing note reference to
+the new profile is pinned. Optionally choose a template note by searching its text or pasting its item link.
+In **Profiles → Manage…**, click **Choose template note…** or **Change template note…** to
 change or remove it. Edit the query text in the note itself. Managing profiles also orders, renames,
 pins, duplicates and deletes profiles and chooses the default. New queries read the default profile's
-boilerplate note when present. A missing or inaccessible note leaves the composer empty and shows an error.
+template note when present. A missing or inaccessible note leaves the composer empty and shows an error.
 Deleting the default makes the first remaining profile the default, and at
 least one profile must remain. Saving or managing profiles leaves other chats and their recorded turns
 unchanged.

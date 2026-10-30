@@ -26,7 +26,7 @@ const iconButtonClass = "flex h-7 w-7 shrink-0 cursor-pointer items-center justi
 const moveButtonClass = "flex h-[14px] w-6 cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent";
 const textButtonClass = "rounded border border-slate-300 px-2 py-1 text-[12px] hover:bg-slate-100 disabled:cursor-default disabled:opacity-40";
 
-/** Account profile management, including optional boilerplate queries. Queries keep their setups. */
+/** Account profile management, including optional query templates. Queries keep their setups. */
 export function QueryProfileManager(props: { onClose: () => void }) {
   const store = useStore();
   const ownerId = store.user.getUserMaybe()?.userId ?? null;
@@ -138,10 +138,18 @@ export function QueryProfileManager(props: { onClose: () => void }) {
             </form>
           </Show>
           <div class="truncate px-1 text-[11px] text-slate-500">{queryConfigurationSummary(store, profile.configuration)}</div>
-          <button type="button" class="block max-w-full cursor-pointer truncate rounded px-1 text-left text-[11px] text-slate-500 hover:bg-slate-100"
-            title={profile.queryNoteId ?? "Choose a boilerplate note"} disabled={busy()} onClick={() => startQueryEdit(profile)}>
-            {profile.queryNoteId ? `Note: ${queryScopeItemTitle(profile.queryNoteId)}` : "Choose boilerplate note…"}
-          </button>
+          <div class="mt-2 px-1">
+            <button type="button"
+              class="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-xs border border-[#999] bg-white px-2 py-1 text-left text-[12px] text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-40"
+              title={`Choose a query template for ${profile.name}`} aria-expanded={editingQuery() == profile.id}
+              aria-controls={`profile-template-${profile.id}`} disabled={busy()} onClick={() => startQueryEdit(profile)}>
+              <i class="bi-card-text shrink-0" aria-hidden="true" />
+              <span class="truncate">{profile.queryNoteId ? "Change template note…" : "Choose template note…"}</span>
+            </button>
+            <Show when={profile.queryNoteId}>{id =>
+              <div class="mt-1 truncate text-[11px] text-slate-500" title={id()}>Template: {queryScopeItemTitle(id())}</div>
+            }</Show>
+          </div>
         </div>
         <button type="button" class={iconButtonClass} aria-pressed={isPinned(profile.id)}
           aria-label={`${isPinned(profile.id) ? "Unpin" : "Pin"} ${profile.name}`}
@@ -178,10 +186,10 @@ export function QueryProfileManager(props: { onClose: () => void }) {
       </div>
     </Show>
     <Show when={editingQuery() == profile.id}>
-      <form class="mt-2 space-y-2" onSubmit={ev => submitQuery(ev, profile)}>
+      <form id={`profile-template-${profile.id}`} class="mt-2 space-y-2" onSubmit={ev => submitQuery(ev, profile)}>
         <QueryProfileNotePicker value={queryNoteId} onChange={setQueryNoteId} disabled={busy} onBusyChange={setNoteLoading} />
         <div class="flex gap-2">
-          <button type="submit" class={textButtonClass} disabled={busy() || noteLoading()}>Save note reference</button>
+          <button type="submit" class={textButtonClass} disabled={busy() || noteLoading()}>Save template</button>
           <button type="button" class={textButtonClass} disabled={busy()} onClick={() => setEditingQuery(null)}>Cancel</button>
         </div>
       </form>

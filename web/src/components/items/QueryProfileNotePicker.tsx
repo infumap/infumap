@@ -58,18 +58,18 @@ export function QueryProfileNotePicker(props: {
   };
 
   return <div class="space-y-1 text-[12px]">
-    <div class="text-slate-700">Boilerplate note (optional)</div>
+    <div class="text-slate-700">Template note (optional)</div>
     <Show when={props.value()}>{id =>
       <div class="flex min-w-0 items-center gap-2 rounded-xs border border-slate-300 bg-slate-50 pl-2">
         <i class="bi-card-text shrink-0 text-slate-500" />
         <span class="min-w-0 grow truncate" title={id()}>{queryScopeItemTitle(id())}</span>
         <button type="button" class="h-6 w-6 shrink-0 text-slate-500 hover:text-black disabled:opacity-40"
-          aria-label="Remove boilerplate note" title="Remove boilerplate note" disabled={props.disabled() || busy()}
+          aria-label="Remove template note" title="Remove template note" disabled={props.disabled() || busy()}
           onClick={() => { props.onChange(null); setError(null); }}><i class="bi-x" /></button>
       </div>
     }</Show>
     <div class="flex gap-2">
-      <input ref={input} type="text" aria-label="Boilerplate note" spellcheck={false}
+      <input ref={input} type="text" aria-label="Template note" spellcheck={false}
         class="min-w-0 grow rounded-xs border border-slate-400 px-2 py-1 text-[13px] outline-hidden focus:border-slate-600"
         placeholder="Search notes, or paste a note link"
         disabled={props.disabled() || busy()}
