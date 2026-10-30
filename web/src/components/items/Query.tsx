@@ -1226,7 +1226,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <i class="bi-funnel" />Search limited to
       </span>
       <For each={scopeItems()}>{itemId =>
-        <div class="flex min-w-0 shrink-0 items-center rounded-full border pl-2.5"
+        <div class="flex min-w-0 shrink-0 items-center rounded-xs border pl-2.5"
           classList={{
             "border-slate-300 bg-slate-100 text-slate-800": queryScopeItemResolved(itemId),
             "border-amber-400 bg-amber-50 text-amber-800": !queryScopeItemResolved(itemId),
@@ -1237,7 +1237,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             : `This item no longer exists and will be left out.\n${itemId}`}>
           <span class="min-w-0 truncate">{queryScopeItemTitle(itemId)}</span>
           <button type="button"
-            class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center rounded-r-full text-slate-500 hover:text-black disabled:cursor-default disabled:opacity-50"
+            class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center rounded-r-xs text-slate-500 hover:text-black disabled:cursor-default disabled:opacity-50"
             title="Remove"
             aria-label={`Remove ${queryScopeItemTitle(itemId)} from the scope`}
             disabled={scopeItemsLocked()}
@@ -1502,7 +1502,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onKeyUp={stop}>
           <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
             <QueryProfileBar queryItem={queryItem} searchMode={() => false} disabled={chatRequestActive}
-              blockedReason={queryProfileBlockedReason} />
+              blockedReason={queryProfileBlockedReason} composerText={chatText}
+              onApplyQuery={query => { setChatText(query); resizeChatTextareaSoon(); }} />
           </div>
           <Show when={scopeItemsRowShown()}>
             <div style={`margin-bottom: ${QUERY_SCOPE_ITEMS_ROW_GAP_PX}px;`}>
@@ -1679,6 +1680,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <QueryProfileBar queryItem={queryItem} searchMode={() => selectedInputMode() == "search"} disabled={queryRequestActive}
             blockedReason={queryProfileBlockedReason}
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
+            composerText={() => readQueryTextFromDom()}
+            onApplyQuery={query => setQueryText(store, queryItem(), query)}
             barRef={el => { queryProfileBar = el; }} onTabKey={handleQueryProfileTab} />
         </div>
       </Show>

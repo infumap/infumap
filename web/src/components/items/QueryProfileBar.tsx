@@ -1,6 +1,6 @@
 /* Copyright (C) The Infumap Authors. SPDX-License-Identifier: AGPL-3.0-or-later */
 
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from "solid-js";
 import { getQueryRuntime, QUERY_PROFILE_ROW_HEIGHT_PX, type QueryItem } from "../../items/query-item";
 import { cloneQueryConfiguration, queryConfigurationsEqual, type QueryConfiguration, type QueryProfile } from "../../items/query-configuration";
 import {
@@ -8,11 +8,14 @@ import {
 } from "../../items/query-configuration-state";
 import { queryConfigurationIssues } from "../../items/query-configuration-availability";
 import { queryConfigurationSummary, queryModelRouteLabel, queryToolsLabel } from "../../items/query-configuration-labels";
-import { queryScopeName, queryScopes, refreshQueryScopes } from "../../items/query-scope";
+import { describeQueryScopeItems, queryScopeItemTitle, queryScopeName, queryScopes, refreshQueryScopes } from "../../items/query-scope";
+import { readQueryProfileNote } from "../../items/query-profile-note";
 import { useStore } from "../../store/StoreProvider";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { QueryPickerPopover, stopQueryPickerEvent } from "./QueryPickerPopover";
 import { QueryProfileManager, profileNameProblem } from "./QueryProfileManager";
+import { QueryProfileNotePicker } from "./QueryProfileNotePicker";
+import type { Uid } from "../../util/uid";
 
 interface QueryProfileBarProps {
   queryItem: () => QueryItem,
@@ -21,6 +24,8 @@ interface QueryProfileBarProps {
   disabled?: () => boolean,
   blockedReason?: () => string | null,
   beforeChange?: () => void,
+  composerText: () => string,
+  onApplyQuery: (query: string) => void,
   onChange?: (scopeChanged: boolean) => void,
   barRef?: (el: HTMLDivElement) => void,
   onTabKey?: (ev: KeyboardEvent) => void,
@@ -43,6 +48,8 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   const [busy, setBusy] = createSignal(false);
   const [naming, setNaming] = createSignal(false);
   const [newName, setNewName] = createSignal("");
+  const [newQueryNoteId, setNewQueryNoteId] = createSignal<Uid | null>(null);
+  const [noteLoading, setNoteLoading] = createSignal(false);
   const [rowWidth, setRowWidth] = createSignal(0);
   const [widths, setWidths] = createSignal<{ chips: Map<string, number>, menu: number }>({ chips: new Map(), menu: 0 });
 
@@ -79,6 +86,40 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     store.overlay.toolbarTransientMessage.set({ text, type: TransientMessageType.Error });
     window.setTimeout(() => { if (store.overlay.toolbarTransientMessage.get()?.text == text) { store.overlay.toolbarTransientMessage.set(null); } }, 3000);
   };
+  let noteRequest = 0;
+  onCleanup(() => noteRequest++);
+  const fillBoilerplate = async (profile: QueryProfile) => {
+    const request = ++noteRequest;
+    const noteId = profile.queryNoteId;
+    if (noteId == null || props.composerText().trim() != "") { return; }
+    const owner = store.user.getUserMaybe()?.userId;
+    const itemId = props.queryItem().id;
+    const stillSelected = () => request == noteRequest && props.queryItem().id == itemId &&
+      store.user.getUserMaybe()?.userId == owner && runtime().appliedProfile?.id == profile.id &&
+      runtime().appliedProfile?.queryNoteId == noteId && reason() == null;
+    try {
+      const text = await readQueryProfileNote(noteId);
+      // Reading a note is asynchronous. A late response must not replace typing or a newer selection.
+      if (stillSelected() && props.composerText().trim() == "") { props.onApplyQuery(text); }
+    } catch {
+      if (stillSelected() && props.composerText().trim() == "") {
+        showError("Could not read the boilerplate note. It may have been deleted or be inaccessible.");
+      }
+    }
+  };
+  const initializedDrafts = new Set<Uid>();
+  createEffect(() => {
+    const current = runtime();
+    const itemId = props.queryItem().id;
+    if (initializedDrafts.has(itemId) || !current.configurationInitialized) { return; }
+    initializedDrafts.add(itemId);
+    if (current.mode == null && current.appliedProfile != null) {
+      untrack(() => { void fillBoilerplate(current.appliedProfile!); });
+    }
+  });
+  createEffect(() => {
+    void describeQueryScopeItems(profiles().flatMap(profile => profile.queryNoteId == null ? [] : [profile.queryNoteId]));
+  });
   const run = async (action: () => Promise<void>) => {
     if (busy()) { return; }
     setBusy(true);
@@ -90,6 +131,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     const previousScope = runtime().configuration.scopeId;
     props.beforeChange?.();
     applyQueryProfile(store, props.queryItem(), profile);
+    void fillBoilerplate(profile);
     props.onChange?.(previousScope != profile.configuration.scopeId);
   };
   /** A saved setup becomes this query's applied profile, unless the query changed while saving. */
@@ -111,10 +153,11 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     ev.preventDefault();
     const problem = profileNameProblem(newName());
     if (problem != null) { showError(problem); return; }
-    if (saveBlockedReason() != null) { return; }
+    if (saveBlockedReason() != null || noteLoading()) { return; }
     const configuration = cloneQueryConfiguration(runtime().configuration);
+    const queryNoteId = newQueryNoteId();
     void run(async () => {
-      const profile = await store.general.queryProfiles.create(newName().trim(), configuration);
+      const profile = await store.general.queryProfiles.create(newName().trim(), configuration, queryNoteId);
       await store.general.queryProfiles.setPinned(profile.id, true);
       setNaming(false);
       close();
@@ -173,6 +216,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     profile.name,
     `Scope: ${queryScopeName(profile.configuration.scopeId)}`,
     ...(props.searchMode() ? [] : [`Model: ${queryModelRouteLabel(store, profile.configuration.model)}`, `Tools: ${queryToolsLabel(profile.configuration.capabilities)}`]),
+    profile.queryNoteId ? `Boilerplate note: ${queryScopeItemTitle(profile.queryNoteId)}` : null,
     ...unavailable(profile).map(issue => issue.message),
     isActive(profile) && modified() ? "Modified in this query. Click to restore the saved settings." : null,
     reason(),
@@ -213,6 +257,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
       <div class="min-w-0 grow">
         <div class="truncate text-[13px]">{profile.name}<Show when={isActive(profile) && modified()}><span class="text-slate-500"> · modified</span></Show></div>
         <div class="truncate text-[11px] text-slate-500">{queryConfigurationSummary(store, profile.configuration)}</div>
+        <Show when={profile.queryNoteId}>{id => <div class="truncate text-[11px] text-slate-500" title={id()}>Note: {queryScopeItemTitle(id())}</div>}</Show>
         <Show when={unavailable(profile).length > 0}>
           <div class="truncate text-[11px] text-amber-700" title={unavailable(profile).map(issue => issue.message).join("\n")}>
             <i class="bi-exclamation-triangle mr-1" />Unavailable: {unavailable(profile).map(issue => issue.subject).join(", ")}
@@ -274,7 +319,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
               }</Show>
               <button type="button" class={actionClass}
                 disabled={collection() == null || saveBlockedReason() != null || busy()} title={saveBlockedReason() ?? "Save this query's scope, model and tools as a new profile"}
-                onClick={() => { setNewName(""); setNaming(true); }}>
+                onClick={() => { props.beforeChange?.(); setNewName(""); setNewQueryNoteId(active()?.queryNoteId ?? null); setNaming(true); }}>
                 <i class="bi-plus-lg w-3 shrink-0 text-slate-500" aria-hidden="true" />
                 <span>Save as new…</span>
               </button>
@@ -285,14 +330,17 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
               </button>
             </div>
           }>
-            <form class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-2 text-[12px]" onSubmit={ev => saveAsNew(ev, close)}>
-              <input ref={el => queueMicrotask(() => el.focus())} aria-label="New profile name" placeholder="Profile name"
-                class="min-w-0 grow rounded border border-slate-400 px-2 py-1 text-[13px] outline-hidden focus:border-slate-600"
-                value={newName()} disabled={busy()} onInput={ev => setNewName(ev.currentTarget.value)}
-                onKeyDown={ev => { if (ev.key == "Escape") { ev.preventDefault(); ev.stopPropagation(); setNaming(false); } }} />
-              <button type="submit" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
-                disabled={busy() || profileNameProblem(newName()) != null}>Save</button>
-              <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100" onClick={() => setNaming(false)}>Cancel</button>
+            <form class="shrink-0 space-y-2 border-t border-slate-200 px-3 py-2 text-[12px]" onSubmit={ev => saveAsNew(ev, close)}>
+              <div class="flex items-center gap-2">
+                <input ref={el => queueMicrotask(() => el.focus())} aria-label="New profile name" placeholder="Profile name"
+                  class="min-w-0 grow rounded border border-slate-400 px-2 py-1 text-[13px] outline-hidden focus:border-slate-600"
+                  value={newName()} disabled={busy()} onInput={ev => setNewName(ev.currentTarget.value)}
+                  onKeyDown={ev => { if (ev.key == "Escape") { ev.preventDefault(); ev.stopPropagation(); setNaming(false); } }} />
+                <button type="submit" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+                  disabled={busy() || noteLoading() || profileNameProblem(newName()) != null}>Save</button>
+                <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100" onClick={() => setNaming(false)}>Cancel</button>
+              </div>
+              <QueryProfileNotePicker value={newQueryNoteId} onChange={setNewQueryNoteId} disabled={busy} onBusyChange={setNoteLoading} />
             </form>
           </Show>
         </>}

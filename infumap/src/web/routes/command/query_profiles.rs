@@ -27,9 +27,10 @@ struct ProfileRequest {
 #[serde(tag = "operation", rename_all = "camelCase", rename_all_fields = "camelCase", deny_unknown_fields)]
 enum ProfileOperation {
   List,
-  Create { name: String, configuration: QueryConfiguration },
+  Create { name: String, configuration: QueryConfiguration, query_note_id: Option<Uid> },
   Rename { id: Uid, name: String },
   SetConfiguration { id: Uid, configuration: QueryConfiguration },
+  SetQueryNote { id: Uid, query_note_id: Option<Uid> },
   Duplicate { id: Uid },
   Delete { id: Uid },
   Move { id: Uid, to_index: usize },
@@ -126,9 +127,9 @@ fn duplicate_name(collection: &QueryProfileCollection, name: &str) -> String {
 fn apply(candidate: &mut QueryProfileCollection, operation: ProfileOperation) -> InfuResult<Option<Uid>> {
   match operation {
     ProfileOperation::List => Ok(None),
-    ProfileOperation::Create { name, configuration } => {
+    ProfileOperation::Create { name, configuration, query_note_id } => {
       let id = new_uid();
-      candidate.profiles.push(QueryProfile { id: id.clone(), name, configuration });
+      candidate.profiles.push(QueryProfile { id: id.clone(), name, configuration, query_note_id });
       Ok(Some(id))
     }
     ProfileOperation::Rename { id, name } => {
@@ -139,6 +140,11 @@ fn apply(candidate: &mut QueryProfileCollection, operation: ProfileOperation) ->
     ProfileOperation::SetConfiguration { id, configuration } => {
       let index = profile_index(candidate, &id)?;
       candidate.profiles[index].configuration = configuration;
+      Ok(Some(id))
+    }
+    ProfileOperation::SetQueryNote { id, query_note_id } => {
+      let index = profile_index(candidate, &id)?;
+      candidate.profiles[index].query_note_id = query_note_id;
       Ok(Some(id))
     }
     ProfileOperation::Duplicate { id } => {
@@ -200,7 +206,7 @@ fn initial_collection(configuration: QueryConfiguration) -> QueryProfileCollecti
   let id = new_uid();
   QueryProfileCollection {
     revision: 0,
-    profiles: vec![QueryProfile { id: id.clone(), name: "Default".to_owned(), configuration }],
+    profiles: vec![QueryProfile { id: id.clone(), name: "Default".to_owned(), configuration, query_note_id: None }],
     preferences: QueryProfilePreferences {
       default_profile_id: id.clone(),
       pinned_profile_ids: vec![id],
@@ -278,7 +284,12 @@ mod tests {
   fn collection() -> QueryProfileCollection {
     let profiles: Vec<QueryProfile> = ["A", "B", "C"]
       .iter()
-      .map(|name| QueryProfile { id: new_uid(), name: (*name).to_owned(), configuration: configuration() })
+      .map(|name| QueryProfile {
+        id: new_uid(),
+        name: (*name).to_owned(),
+        configuration: configuration(),
+        query_note_id: None,
+      })
       .collect();
     QueryProfileCollection {
       revision: 0,
@@ -340,7 +351,10 @@ mod tests {
       run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "  Bee  ".to_owned() }).unwrap();
     assert_eq!(order(&renamed), ["A", "Bee", "C"]);
     assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "c".to_owned() }).is_err());
-    assert!(run(&c, ProfileOperation::Create { name: "a".to_owned(), configuration: configuration() }).is_err());
+    assert!(
+      run(&c, ProfileOperation::Create { name: "a".to_owned(), configuration: configuration(), query_note_id: None })
+        .is_err()
+    );
     assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: " ".to_owned() }).is_err());
     assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "a\nb".to_owned() }).is_err());
   }
@@ -376,7 +390,12 @@ mod tests {
 
     let mut full = collection();
     full.profiles = (0..MAX_PROFILES)
-      .map(|n| QueryProfile { id: new_uid(), name: format!("P{n}"), configuration: configuration() })
+      .map(|n| QueryProfile {
+        id: new_uid(),
+        name: format!("P{n}"),
+        configuration: configuration(),
+        query_note_id: None,
+      })
       .collect();
     full.preferences = QueryProfilePreferences {
       default_profile_id: full.profiles[0].id.clone(),
@@ -384,7 +403,11 @@ mod tests {
       model_favorites: vec![],
     };
     assert!(
-      run(&full, ProfileOperation::Create { name: "One more".to_owned(), configuration: configuration() }).is_err()
+      run(
+        &full,
+        ProfileOperation::Create { name: "One more".to_owned(), configuration: configuration(), query_note_id: None }
+      )
+      .is_err()
     );
   }
 

@@ -5,9 +5,11 @@
 //! Search/chat/deep-research mode is deliberately stored separately.
 //!
 //! These types are persisted in two places with different compatibility rules. Profiles are in the
-//! user log: a change needs a new user log version and a migration. Transcript turns embed them in
-//! `.chat` files: a change needs a new transcript format version that still reads the old ones (see
-//! `TRANSCRIPT_FORMAT_VERSION`).
+//! user log: changes requiring record conversion need a new user log version and a migration. The
+//! optional note reference defaults when absent, so existing user records need no conversion.
+//! Transcript turns embed these types in `.chat` files: a required-field or semantic change needs a
+//! new transcript format version that still reads the old ones. Optional fields can default when
+//! absent (see `TRANSCRIPT_FORMAT_VERSION`).
 
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{Uid, is_uid};
@@ -105,16 +107,22 @@ pub struct QueryProfile {
   pub id: Uid,
   pub name: String,
   pub configuration: QueryConfiguration,
+  /// The note whose current text supplies composer boilerplate. Older snapshots have no reference.
+  #[serde(rename = "queryNoteId", default, skip_serializing_if = "Option::is_none")]
+  pub query_note_id: Option<Uid>,
 }
 
 impl QueryProfile {
-  /// Validates the ID and configuration, and trims and validates the name.
+  /// Validates the ID, configuration and optional note reference, and trims and validates the name.
   pub fn normalize(&mut self) -> InfuResult<()> {
     if !is_uid(&self.id) {
       return Err("Invalid profile ID.".into());
     }
     self.name = self.name.trim().to_owned();
     validate_text(&self.name, "profile name", MAX_PROFILE_NAME_BYTES)?;
+    if self.query_note_id.as_ref().is_some_and(|id| !is_uid(id)) {
+      return Err("Invalid boilerplate note ID.".into());
+    }
     self.configuration.normalize()
   }
 }

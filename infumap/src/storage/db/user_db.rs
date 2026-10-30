@@ -366,6 +366,7 @@ mod tests {
       profiles: vec![QueryProfile {
         id: id.clone(),
         name: "Default".to_owned(),
+        query_note_id: None,
         configuration: QueryConfiguration {
           scope_id: None,
           model: None,

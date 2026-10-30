@@ -35,6 +35,7 @@ const MAX_CANDIDATES: usize = 20;
 struct LinkTargetCandidatesRequest {
   text: String,
   limit: usize,
+  item_type: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -67,8 +68,11 @@ pub(super) async fn handle_link_target_candidates(
 fn link_target_candidates_json(db: &Db, user_id: &Uid, json_data: &str) -> InfuResult<String> {
   let request: LinkTargetCandidatesRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
-  let response =
-    LinkTargetCandidatesResponse { candidates: link_target_candidates(db, user_id, &request.text, request.limit)? };
+  let candidates = match request.item_type.as_deref() {
+    None => link_target_candidates(db, user_id, &request.text, request.limit)?,
+    item_type => link_target_candidates_matching_type(db, user_id, &request.text, request.limit, item_type)?,
+  };
+  let response = LinkTargetCandidatesResponse { candidates };
   Ok(serde_json::to_string(&response)?)
 }
 
@@ -121,6 +125,16 @@ pub(super) fn link_target_candidates(
   text: &str,
   limit: usize,
 ) -> InfuResult<Vec<LinkTargetCandidate>> {
+  link_target_candidates_matching_type(db, user_id, text, limit, None)
+}
+
+fn link_target_candidates_matching_type(
+  db: &Db,
+  user_id: &Uid,
+  text: &str,
+  limit: usize,
+  item_type: Option<&str>,
+) -> InfuResult<Vec<LinkTargetCandidate>> {
   let query = words(text);
   let limit = limit.min(MAX_CANDIDATES);
   if limit == 0 || query.iter().map(|w| w.chars().count()).sum::<usize>() < MIN_QUERY_CHARS {
@@ -131,6 +145,10 @@ pub(super) fn link_target_candidates(
   // A max-heap on rank, so the worst of the best `limit` so far is the one dropped.
   let mut best = BinaryHeap::<RankKey>::with_capacity(limit + 1);
   for item in db.item.user_items(user_id) {
+    // Filter before ranking and limiting, so other item types cannot crowd out matching notes.
+    if item_type.is_some_and(|wanted| item.item_type.as_str() != wanted) {
+      continue;
+    }
     // passwords cannot have a title, but are excluded explicitly in case that changes.
     if matches!(item.item_type, ItemType::Link | ItemType::Password) {
       continue;

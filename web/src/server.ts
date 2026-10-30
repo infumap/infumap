@@ -1377,8 +1377,8 @@ export const server = {
    * The user's items whose title words start with the words of the text, best first. Local items only. The server
    * returns at most 20, and nothing for text with fewer than 2 letters or digits.
    */
-  linkTargetCandidates: async (text: string, limit: number): Promise<LinkTargetCandidatesResponse> => {
-    return constructCommandPromise(null, COMMAND_LINK_TARGET_CANDIDATES, { text, limit }, null);
+  linkTargetCandidates: async (text: string, limit: number, itemType?: string): Promise<LinkTargetCandidatesResponse> => {
+    return constructCommandPromise(null, COMMAND_LINK_TARGET_CANDIDATES, { text, limit, itemType }, null);
   },
 
   chatStream: async (

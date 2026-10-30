@@ -33,6 +33,7 @@ export interface ItemCandidateSearch {
 export function createItemCandidateSearch(options: {
   anchor: () => HTMLElement | undefined,
   onPick: (candidate: LinkTargetCandidate) => void,
+  itemType?: string,
 }): ItemCandidateSearch {
   const [candidates, setCandidates] = createSignal<Array<LinkTargetCandidate>>([]);
   const [selectedIdx, setSelectedIdx] = createSignal(0);
@@ -75,7 +76,7 @@ export function createItemCandidateSearch(options: {
     const number = requestNumber;
     debounceTimeout = window.setTimeout(() => {
       debounceTimeout = null;
-      server.linkTargetCandidates(text, ITEM_CANDIDATES_LIMIT)
+      server.linkTargetCandidates(text, ITEM_CANDIDATES_LIMIT, options.itemType)
         .then((response) => {
           const anchor = options.anchor();
           if (number != requestNumber || !anchor) { return; }

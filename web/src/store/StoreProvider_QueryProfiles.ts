@@ -19,9 +19,10 @@ export interface QueryProfilesStore {
   loading: Accessor<boolean>,
   retrieve: () => Promise<void>,
   refresh: () => Promise<void>,
-  create: (name: string, configuration: QueryConfiguration) => Promise<QueryProfile>,
+  create: (name: string, configuration: QueryConfiguration, queryNoteId?: Uid | null) => Promise<QueryProfile>,
   rename: (id: Uid, name: string) => Promise<QueryProfile>,
   setConfiguration: (id: Uid, configuration: QueryConfiguration) => Promise<QueryProfile>,
+  setQueryNote: (id: Uid, queryNoteId: Uid | null) => Promise<QueryProfile>,
   duplicate: (id: Uid) => Promise<QueryProfile>,
   delete: (id: Uid) => Promise<void>,
   move: (id: Uid, toIndex: number) => Promise<void>,
@@ -141,11 +142,12 @@ export function makeQueryProfilesStore(accountId: () => Uid | null): QueryProfil
     error: () => { synchronizeAccount(); return error(); },
     loading: () => { synchronizeAccount(); return loading(); },
     retrieve, refresh, clear,
-    create: (name, configuration) => mutate({ operation: "create", name, configuration: cloneQueryConfiguration(configuration) })
+    create: (name, configuration, queryNoteId = null) => mutate({ operation: "create", name, configuration: cloneQueryConfiguration(configuration), queryNoteId })
       .then(profileFromResponse),
     rename: (id, name) => mutate({ operation: "rename", id, name }).then(profileFromResponse),
     setConfiguration: (id, configuration) => mutate({ operation: "setConfiguration", id, configuration: cloneQueryConfiguration(configuration) })
       .then(profileFromResponse),
+    setQueryNote: (id, queryNoteId) => mutate({ operation: "setQueryNote", id, queryNoteId }).then(profileFromResponse),
     duplicate: id => mutate({ operation: "duplicate", id }).then(profileFromResponse),
     delete: async id => { await mutate({ operation: "delete", id }); },
     move: async (id, toIndex) => { await mutate({ operation: "move", id, toIndex }); },
