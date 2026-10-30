@@ -335,7 +335,7 @@ export type ChatStreamEvent = ChatStreamEventBase & (
   { type: "tool_call_finished", round: number, callId: string, name: string, summary: string, durationMs?: number, resultPreview?: unknown } |
   { type: "materializing" } |
   { type: "context_tokens", tokens: number, exact: boolean } |
-  { type: "turn_accepted", revision: number } |
+  { type: "turn_accepted", revision: number, scopeAttachments?: Array<LoadChatAttachment> } |
   { type: "transcript_conflict", revision: number } |
   { type: "final_items", text: string, items: Array<object>, messages?: Array<ChatMessage> } |
   { type: "cancelled" } |
@@ -2237,6 +2237,10 @@ function parseChatStreamEvent(value: unknown): ChatStreamEvent {
         (value.type != "tool_call_finished" || (typeof value.summary == "string" && chatNumber(value.durationMs)));
       break;
     case "turn_accepted":
+      valid = chatNumber(value.revision) && (value.scopeAttachments == null || (Array.isArray(value.scopeAttachments) &&
+        value.scopeAttachments.every(attachment => isChatRecord(attachment) && typeof attachment.id == "string" &&
+          typeof attachment.title == "string" && typeof attachment.mimeType == "string" && chatNumber(attachment.sizeBytes))));
+      break;
     case "transcript_conflict": valid = chatNumber(value.revision); break;
     case "context_tokens": valid = chatNumber(value.tokens) && typeof value.exact == "boolean"; break;
     case "final_items":

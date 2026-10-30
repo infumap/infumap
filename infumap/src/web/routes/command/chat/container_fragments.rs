@@ -343,6 +343,8 @@ pub(super) struct ContainerOutline {
   units: Vec<Unit>,
   rows: Vec<(Vec<Uid>, Pieces)>,
   data_item_ids: HashSet<Uid>,
+  /// The items whose text the listing cuts or leaves out, in listing order.
+  untold_item_ids: Vec<Uid>,
 }
 
 struct Unit {
@@ -433,6 +435,30 @@ pub(super) async fn group_fragments(
   };
   let counts = data_fragment_counts(&data_dir, access.user_id, &outline.data_item_ids).await;
   Ok(outline.fragments(&counts))
+}
+
+/// A container's listing in one piece, for an item chosen as the chat's scope, and the items in it whose text the
+/// listing cuts or leaves out: notes cut short and data items, in listing order. Nothing below its direct children is
+/// read, as for fragments.
+pub(super) async fn whole_container(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  access: &Access<'_>,
+  container_id: &Uid,
+) -> InfuResult<(String, Vec<Uid>)> {
+  let (outline, data_dir) = {
+    let db = db.lock().await;
+    (container_outline(&db, access, container_id)?, db.item.data_dir().to_owned())
+  };
+  let counts = data_fragment_counts(&data_dir, access.user_id, &outline.data_item_ids).await;
+  let mut text = format!("{}{}", outline.heading, outline.location);
+  if let Some(preamble) = &outline.preamble {
+    text.push('\n');
+    text.push_str(preamble);
+  }
+  let units = outline.units.iter().map(|unit| unit.pieces.render(&counts)).collect::<Vec<_>>();
+  text.push('\n');
+  text.push_str(if units.is_empty() { "(empty)".to_owned() } else { units.join(outline.separator) }.as_str());
+  Ok((text, outline.untold_item_ids))
 }
 
 /// Stored fragment counts. Items without fragments, or whose manifest cannot be read, are left out.
@@ -593,9 +619,13 @@ pub(super) fn item_heading(db: &Db, access: &Access, content: &Item) -> (String,
 
 /// A note's text, with its URLs as Markdown links, split into fragments. An empty note has none.
 pub(super) fn note_fragments(note: &Item) -> Vec<String> {
-  let text = note_markdown(note.title.as_deref().unwrap_or(""), note_urls(note));
-  let text = text.trim();
-  if text.is_empty() { Vec::new() } else { split_text(text, FRAGMENT_MAX_CHARS) }
+  let text = note_text(note);
+  if text.is_empty() { Vec::new() } else { split_text(&text, FRAGMENT_MAX_CHARS) }
+}
+
+/// A note's text, with its URLs as Markdown links.
+pub(super) fn note_text(note: &Item) -> String {
+  note_markdown(note.title.as_deref().unwrap_or(""), note_urls(note)).trim().to_owned()
 }
 
 /// The start of `text` where split_text would first cut it, and whether anything was left out. Only that cut is
@@ -1094,6 +1124,8 @@ struct Renderer<'a, 'b> {
   /// Containers being expanded, so a link cannot expand a composite inside itself.
   active: HashSet<Uid>,
   data_item_ids: HashSet<Uid>,
+  /// Notes cut short and data items, whose text is only in their own fragments, in the order they are rendered.
+  untold_item_ids: Vec<Uid>,
   /// Labels search results: pages and tables give their fragment counts, rather than their items or rows.
   search_labels: bool,
   /// Pages and tables whose fragment counts the labels need.
@@ -1112,6 +1144,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       access,
       active: HashSet::new(),
       data_item_ids: HashSet::new(),
+      untold_item_ids: Vec::new(),
       search_labels: false,
       container_item_ids: HashSet::new(),
       query_terms: Vec::new(),
@@ -1200,6 +1233,13 @@ impl<'a, 'b> Renderer<'a, 'b> {
       units,
       rows: self.rows,
       data_item_ids: self.data_item_ids,
+      untold_item_ids: self.untold_item_ids,
+    }
+  }
+
+  fn untold(&mut self, content: &Item) {
+    if !self.untold_item_ids.contains(&content.id) {
+      self.untold_item_ids.push(content.id.clone());
     }
   }
 
@@ -1262,6 +1302,9 @@ impl<'a, 'b> Renderer<'a, 'b> {
         if content.item_type == ItemType::Note {
           let (label, link_urls) = plain_label(content.title.as_deref().unwrap_or(""));
           let (text, cut) = clamp_text_chars(&label, CELL_MAX_CHARS);
+          if cut {
+            self.untold(content);
+          }
           let text = if cut { format!("{}…", text.trim_end()) } else { text };
           row_pieces.text(&format!("[{}]({})", escape_cell(&escape_label(&text)), link_url(content)));
           // A cut label leaves its links' URLs to the note's own text.
@@ -1302,6 +1345,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
         let (text, truncated) = excerpt(&single_line(&text), CELL_MAX_CHARS);
         pieces.text(&escape_cell(&text));
         if truncated {
+          self.untold(content);
           pieces.text(&format!("… [more]({})", link_url(content)));
         }
       }
@@ -1349,6 +1393,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
           let label = escape_label(&clamp_label(&line, NOTE_LABEL_MAX_CHARS));
           pieces.text(&format!("[{label}]({}){}: {body}", link_url(content), note_kind(top_level)));
           if truncated {
+            self.untold(content);
             let count = note_fragments(content).len();
             pieces.text(&format!("… (truncated; full text in {count} fragment{})", if count == 1 { "" } else { "s" }));
           }
@@ -1623,6 +1668,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       }
       ItemType::File | ItemType::Text | ItemType::Image => {
         self.data_item_ids.insert(content.id.clone());
+        self.untold(content);
         pieces.text(&format!("{} ({}", item_link(content), content.item_type.as_str()));
         if content.item_type == ItemType::File
           && let Some(mime_type) = content.mime_type.as_deref().filter(|mime_type| !mime_type.is_empty())

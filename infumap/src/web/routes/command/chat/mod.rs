@@ -222,6 +222,7 @@ mod container_fragments;
 mod markdown;
 mod mcp;
 mod runs;
+mod scope_attachments;
 mod search_results;
 mod transcript;
 use backend::{ChatAdapter, ChatEndpoint, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends, resolve_chat_endpoint};
@@ -514,6 +515,9 @@ enum ChatStreamEventKind {
   /// A live chat's user message was recorded; the transcript is now at this revision.
   TurnAccepted {
     revision: usize,
+    /// The items in scope attached to the message by the server, which the client did not send.
+    #[serde(rename = "scopeAttachments", skip_serializing_if = "Vec::is_empty")]
+    scope_attachments: Vec<LoadChatAttachment>,
   },
   /// A live chat's transcript is not at the expected revision, so nothing was recorded.
   TranscriptConflict {
@@ -1035,8 +1039,9 @@ pub async fn serve_chat_stream_route(
     Ok(resources) => resources,
     Err(message) => return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(&message)),
   };
+  let chosen_scope = resources.infumap_data.as_ref().and_then(InfumapData::scope);
   let mut live_turn = match request.query_item_id.is_some() {
-    true => match start_live_chat_turn(db, &session, &mut request, &stream_request_id).await {
+    true => match start_live_chat_turn(db, &session, &mut request, &stream_request_id, chosen_scope).await {
       Ok(turn) => Some(turn),
       Err(event) => return single_chat_stream_event_response(stream_request_id, event),
     },
@@ -1095,7 +1100,8 @@ pub async fn serve_chat_stream_route(
     // The registration guard also handles task drops, where no asynchronous cleanup can run.
     let outcome = AssertUnwindSafe(async {
       if let Some(turn) = &live_turn {
-        progress.send(ChatStreamEventKind::TurnAccepted { revision: turn.revision() }).await;
+        let scope_attachments = turn.scope_attachments();
+        progress.send(ChatStreamEventKind::TurnAccepted { revision: turn.revision(), scope_attachments }).await;
       }
       progress.status("Preparing request").await;
       let cancellation = async {
@@ -1332,6 +1338,17 @@ struct LiveChatTurn {
 impl LiveChatTurn {
   fn revision(&self) -> usize {
     self.transcript.transcript().map_or(0, Transcript::revision)
+  }
+
+  /// The attachments of this turn's message made from items in scope.
+  fn scope_attachments(&self) -> Vec<LoadChatAttachment> {
+    let user = self.transcript.transcript().and_then(|transcript| transcript.turns.last()).map(|turn| &turn.user);
+    user
+      .map_or(&[][..], |user| &user.attachments[..])
+      .iter()
+      .filter(|attachment| attachment.item_id.is_some())
+      .map(LoadChatAttachment::from)
+      .collect()
   }
 
   async fn end(
@@ -1961,6 +1978,17 @@ struct LoadChatAttachment {
   size_bytes: usize,
 }
 
+impl From<&ChatAttachment> for LoadChatAttachment {
+  fn from(attachment: &ChatAttachment) -> Self {
+    LoadChatAttachment {
+      id: attachment.id.clone(),
+      title: attachment.title.clone(),
+      mime_type: attachment.mime_type.clone(),
+      size_bytes: attachment.size_bytes,
+    }
+  }
+}
+
 fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: bool) -> LoadChatResponse {
   let Some(transcript) = transcript else {
     return LoadChatResponse { revision: 0, running, last_settings: None, context_tokens: None, turns: vec![] };
@@ -1987,17 +2015,7 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
         started_at: turn.user.started_at,
         ended_at: end.map(|end| end.ended_at),
         error: end.and_then(|end| end.error.clone()),
-        attachments: turn
-          .user
-          .attachments
-          .iter()
-          .map(|attachment| LoadChatAttachment {
-            id: attachment.id.clone(),
-            title: attachment.title.clone(),
-            mime_type: attachment.mime_type.clone(),
-            size_bytes: attachment.size_bytes,
-          })
-          .collect(),
+        attachments: turn.user.attachments.iter().map(LoadChatAttachment::from).collect(),
         assistant_text,
         items,
         rounds: end.map(|end| end.rounds.clone()).unwrap_or_default(),
@@ -2142,6 +2160,7 @@ fn chat_attachments_from_request(attachments: Vec<ChatAttachmentRequest>) -> Res
       }
       Ok(ChatAttachment {
         id: attachment.id,
+        item_id: None,
         title,
         mime_type: attachment.mime_type,
         size_bytes: attachment.text.len(),
@@ -2153,11 +2172,13 @@ fn chat_attachments_from_request(attachments: Vec<ChatAttachmentRequest>) -> Res
 
 /// Starts a turn of a live chat: checks the query item and the expected revision, records the user message, and
 /// replaces the request's messages with the history from the transcript. On failure, returns the event to send.
+/// `scope` is the run's resolved scope, if it uses Infumap data.
 async fn start_live_chat_turn(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   request: &mut ChatRequest,
   request_id: &str,
+  scope: Option<&ResolvedScope>,
 ) -> Result<LiveChatTurn, ChatStreamEventKind> {
   let error = |message: &str| ChatStreamEventKind::error(message);
   let query_item_id = request.query_item_id.clone().ok_or_else(|| error("Chat request has no query item id."))?;
@@ -2165,7 +2186,8 @@ async fn start_live_chat_turn(
     return Err(error("A chat request with a query item id must not include messages."));
   }
   let text = request.text.as_deref().map(str::trim).unwrap_or("").to_owned();
-  let attachments = chat_attachments_from_request(std::mem::take(&mut request.attachments)).map_err(|e| error(&e))?;
+  let mut attachments =
+    chat_attachments_from_request(std::mem::take(&mut request.attachments)).map_err(|e| error(&e))?;
   if text.is_empty() && attachments.is_empty() {
     return Err(error("Chat request did not contain any message text."));
   }
@@ -2199,6 +2221,22 @@ async fn start_live_chat_turn(
     && attachments.iter().any(|attachment| existing.has_attachment(&attachment.id))
   {
     return Err(error("An attachment of this message is already in the chat."));
+  }
+  // Items chosen as the scope go before the user's own attachments, the first time each is in scope. One whose turn
+  // did not complete is not in the history, so it is attached again.
+  if let Some(scope) = scope
+    && let ScopeSource::Items(item_ids) = &scope.source
+  {
+    let existing = transcript.transcript();
+    let new_item_ids = item_ids
+      .iter()
+      .filter(|item_id| !existing.is_some_and(|existing| existing.has_item_in_history(item_id)))
+      .cloned()
+      .collect::<Vec<_>>();
+    let mut scope_attachments =
+      scope_attachments::scope_item_attachments(db, &session.user_id, scope, &new_item_ids).await;
+    scope_attachments.append(&mut attachments);
+    attachments = scope_attachments;
   }
   if transcript.transcript().is_none() {
     let header = TranscriptHeader {
@@ -2578,9 +2616,11 @@ fn chat_system_prompt(
         item_ids.iter().filter_map(|id| db.item.get(id).ok()).map(container_fragments::item_link).collect::<Vec<_>>();
       (!links.is_empty()).then(|| {
         format!(
-          "The user has limited the Infumap tools to these items and everything inside them: {}. Start with them: \
-          read them with infumap_get_fragment or search within them, and prefer them to other tools, which are for \
-          what they do not cover. An item not found may lie outside them.",
+          "The user has limited the Infumap tools to these items and everything inside them: {}. Each is attached to \
+          the message in which it was chosen: a note or file in full, a page or table as its listing with the full \
+          text of the notes and files in it. Start with them. Read what the attachments leave out, such as the pages \
+          and tables inside them, with infumap_get_fragment, or search within them, and prefer them to other tools, \
+          which are for what they do not cover. An item not found may lie outside them.",
           links.join(", ")
         )
       })
@@ -4519,11 +4559,12 @@ mod tests {
     assert!(
       prompt.contains(&format!(
         "limited the Infumap tools to these items and everything inside them: [X](infumap://{}), [B](infumap://{b}). \
-         Start with them",
+         Each is attached to the message in which it was chosen",
         f.x
       )),
       "{prompt}"
     );
+    assert!(prompt.contains("Start with them."), "{prompt}");
     assert!(!prompt.contains("only see the scope"));
   }
 
@@ -4727,7 +4768,7 @@ mod live_chat_tests {
 
   impl Fixture {
     async fn start(&self, request: &mut ChatRequest, request_id: &str) -> Result<LiveChatTurn, ChatStreamEventKind> {
-      start_live_chat_turn(&self.db, &self.session, request, request_id).await
+      start_live_chat_turn(&self.db, &self.session, request, request_id, None).await
     }
 
     /// Runs a turn whose model answers `answer`, recording it as completed.
@@ -4742,6 +4783,50 @@ mod live_chat_tests {
     async fn transcript(&self) -> Transcript {
       transcript::read_transcript(&self.data_dir, &self.session.user_id, &self.query_item_id).await.unwrap().unwrap()
     }
+  }
+
+  #[tokio::test]
+  async fn items_in_scope_are_attached_until_a_turn_with_them_completes() {
+    let f = fixture().await;
+    let scope = resolve_item_scope(&*f.db.lock().await, &f.session.user_id, &[f.note_id.clone()]).unwrap();
+    let start = |revision: usize, text: &'static str| {
+      let f = &f;
+      let scope = &scope;
+      async move {
+        let mut request = request(&f.query_item_id, revision, text);
+        let turn = start_live_chat_turn(&f.db, &f.session, &mut request, &format!("r-{text}"), Some(scope)).await;
+        (turn.ok().unwrap(), request)
+      }
+    };
+    let attached_item_ids = |turn: &LiveChatTurn| {
+      let user = &turn.transcript.transcript().unwrap().turns.last().unwrap().user;
+      user.attachments.iter().map(|attachment| attachment.item_id.clone().unwrap()).collect::<Vec<_>>()
+    };
+    let note_link = format!("(infumap://{}) (note)", f.note_id);
+
+    // A failed turn is not in the history, so the next turn attaches the item again.
+    let (mut turn, request) = start(0, "first").await;
+    assert_eq!(attached_item_ids(&turn), vec![f.note_id.clone()]);
+    assert_eq!(turn.scope_attachments().len(), 1);
+    let content = request.messages.last().unwrap().content.clone().unwrap();
+    assert!(content.starts_with("<attachment name=\"note\">\n[note]") && content.contains(&note_link), "{content}");
+    assert!(content.ends_with("</attachment>\n\nfirst"), "{content}");
+    turn.end(TurnOutcome::Error, vec![], Some("failed".to_owned())).await.unwrap();
+    drop(turn);
+
+    let (mut turn, request) = start(1, "second").await;
+    assert_eq!(attached_item_ids(&turn), vec![f.note_id.clone()]);
+    let mut messages = request.messages.clone();
+    messages.push(message("assistant", "answer"));
+    turn.end_completed(ChatRunResult { assistant_text: "answer".to_owned(), messages }).await.ok().unwrap();
+    drop(turn);
+
+    let (turn, request) = start(2, "third").await;
+    assert!(attached_item_ids(&turn).is_empty());
+    assert!(turn.scope_attachments().is_empty());
+    assert_eq!(request.messages.last().unwrap().content.as_deref(), Some("third"));
+    // The item's content stays in the history from the turn that completed.
+    assert!(request.messages[0].content.as_deref().unwrap().contains(&note_link));
   }
 
   #[tokio::test]
@@ -4827,7 +4912,7 @@ mod live_chat_tests {
     }
     let other_user = Session { user_id: new_uid(), ..f.session.clone() };
     let mut request = request(&f.query_item_id, 0, "q");
-    assert!(start_live_chat_turn(&f.db, &other_user, &mut request, "r").await.is_err());
+    assert!(start_live_chat_turn(&f.db, &other_user, &mut request, "r", None).await.is_err());
   }
 
   #[tokio::test]

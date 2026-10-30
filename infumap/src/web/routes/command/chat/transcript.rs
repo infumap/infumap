@@ -124,8 +124,11 @@ impl UserRecord {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub(super) struct ChatAttachment {
-  /// A uid made by the client, unique within the transcript.
+  /// A uid made by the client, or by the server for an item in scope, unique within the transcript.
   pub(super) id: Uid,
+  /// The item in the chat's scope whose content this is, read when the turn started. None for text the user attached.
+  #[serde(rename = "itemId", default, skip_serializing_if = "Option::is_none")]
+  pub(super) item_id: Option<Uid>,
   pub(super) title: String,
   #[serde(rename = "mimeType")]
   pub(super) mime_type: String,
@@ -294,6 +297,15 @@ impl Transcript {
       messages.extend(end.messages.iter().cloned());
     }
     messages
+  }
+
+  /// Whether the content of this scope item is in the model history: attached to the message of a completed turn.
+  pub(super) fn has_item_in_history(&self, item_id: &str) -> bool {
+    self
+      .turns
+      .iter()
+      .filter(|turn| turn.end.as_ref().is_some_and(|end| end.outcome == TurnOutcome::Completed))
+      .any(|turn| turn.user.attachments.iter().any(|attachment| attachment.item_id.as_deref() == Some(item_id)))
   }
 
   /// Whether an attachment with this id is in any turn.
@@ -700,6 +712,7 @@ mod tests {
   fn attachment(title: &str, text: &str) -> ChatAttachment {
     ChatAttachment {
       id: new_uid(),
+      item_id: None,
       title: title.to_owned(),
       mime_type: "text/plain".to_owned(),
       size_bytes: text.len(),

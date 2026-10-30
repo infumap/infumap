@@ -838,18 +838,7 @@ function addLocalQueryUserTurn(
   makeQueryChatTurnCopyable(composite);
   const items: Array<Item> = [composite];
   for (const attachment of attachments) {
-    const attachmentItem = createChatAttachmentItem(
-      queryItem.ownerId,
-      composite.id,
-      itemState.newOrderingAtEndOfChildren(composite.id),
-      attachment,
-      { queryItemId: queryItem.id },
-    );
-    attachmentItem.clientOnly = true;
-    makeQueryChatItemReadOnly(attachmentItem);
-    makeQueryChatTurnCopyable(attachmentItem);
-    itemState.add(attachmentItem);
-    items.push(attachmentItem);
+    items.push(addLocalQueryAttachment(queryItem, composite.id, itemState.newOrderingAtEndOfChildren(composite.id), attachment));
   }
   if (text != "") {
     items.push(createTurnNote(
@@ -862,6 +851,28 @@ function addLocalQueryUserTurn(
   }
   setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), composite.id]);
   return items;
+}
+
+function addLocalQueryAttachment(
+  queryItem: QueryItem, compositeId: Uid, ordering: Uint8Array, attachment: LoadChatAttachment,
+): Item {
+  const attachmentItem = createChatAttachmentItem(queryItem.ownerId, compositeId, ordering, attachment, { queryItemId: queryItem.id });
+  attachmentItem.clientOnly = true;
+  makeQueryChatItemReadOnly(attachmentItem);
+  makeQueryChatTurnCopyable(attachmentItem);
+  itemState.add(attachmentItem);
+  return attachmentItem;
+}
+
+/** The server attaches the items in scope to the message when it accepts the turn; they go before the user's own. */
+function addScopeAttachmentsToLocalUserTurn(
+  store: StoreContextModel, queryItem: QueryItem, compositeId: Uid, attachments: Array<LoadChatAttachment>,
+): void {
+  if (attachments.length == 0 || itemState.get(compositeId) == null) { return; }
+  for (const attachment of [...attachments].reverse()) {
+    addLocalQueryAttachment(queryItem, compositeId, itemState.newOrderingAtBeginningOfChildren(compositeId), attachment);
+  }
+  requestArrange(store, "query-chat-scope-attachments");
 }
 
 function prepareReturnedItem(item: Item, clientOnly: boolean): void {
@@ -1299,6 +1310,9 @@ async function followQueryChatRun(
     const onEvent = (event: ChatStreamEvent) => {
       requireCurrent();
       if (event.type == "turn_accepted") {
+        if (!accepted && options.submission != null) {
+          addScopeAttachmentsToLocalUserTurn(store, queryItem, options.submission.userTurnRootId, event.scopeAttachments ?? []);
+        }
         acceptTurn(event.revision);
         return;
       }
