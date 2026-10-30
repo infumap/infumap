@@ -30,8 +30,4 @@ allow-registry = [
   "https://github.com/rust-lang/crates.io-index",
   "sparse+https://index.crates.io/",
 ]
-allow-git = [
-  # Temporary reqwest 0.12 compatibility patch for rust-s3 0.37.1.
-  # Remove once a fixed crates.io release is available and the patch is dropped.
-  "https://github.com/infumap/rust-s3",
-]
+allow-git = []

@@ -14,14 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::uid::Uid;
-use log::debug;
+use log::{debug, warn};
 use s3::creds::Credentials;
+use s3::error::S3Error;
+use s3::request::ResponseData;
 use s3::{Bucket, Region};
 use tokio_stream::StreamExt;
 
@@ -33,8 +36,8 @@ use super::object::IndividualObjectStore;
 /// duration, the request is considered failed (likely a connectivity/routing issue).
 const FIRST_BYTE_TIMEOUT_SECS: u64 = 10;
 
-/// Timeout for receiving subsequent chunks after the first byte. This is more generous
-/// since we know the connection is working at that point.
+/// Total timeout for each S3 HTTP request attempt, including its response body.
+/// Also bounds the wait for subsequent download chunks after the first byte.
 const FULL_TRANSFER_TIMEOUT_SECS: u64 = 120;
 
 /// A couple of quick retries absorb transient transport issues without adding
@@ -242,11 +245,39 @@ fn is_retryable_get_error_message(message: &str) -> bool {
     || lower.contains("timed out")
 }
 
+// rust-s3 0.38 no longer retries ordinary PUTs or DELETEs. Preserve the previous
+// single retry with the same key and bytes. A second failure must propagate through
+// the normal command error response.
+async fn retry_write_once<F, Fut>(operation_name: &str, path: &str, mut operation: F) -> Result<ResponseData, S3Error>
+where
+  F: FnMut() -> Fut,
+  Fut: Future<Output = Result<ResponseData, S3Error>>,
+{
+  match operation().await {
+    Ok(response) => Ok(response),
+    Err(error) => {
+      warn!("S3 {} for '{}' failed; retrying once in 1 second: {}", operation_name, path, error);
+      tokio::time::sleep(Duration::from_secs(1)).await;
+      let result = operation().await;
+      if let Err(error) = &result {
+        warn!("S3 {} for '{}' failed after two attempts: {}", operation_name, path, error);
+      }
+      result
+    }
+  }
+}
+
+pub(super) async fn put_object_with_retry(bucket: &Bucket, path: &str, val: &[u8]) -> Result<ResponseData, S3Error> {
+  retry_write_once("PUT", path, || bucket.put_object(path, val)).await
+}
+
+pub(super) async fn delete_object_with_retry(bucket: &Bucket, path: &str) -> Result<ResponseData, S3Error> {
+  retry_write_once("DELETE", path, || bucket.delete_object(path)).await
+}
+
 pub async fn put(s3_store: Arc<S3Store>, user_id: Uid, id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()> {
   let s3_path = format!("{}_{}", user_id, id);
-  let result = s3_store
-    .bucket
-    .put_object(s3_path, val.as_slice())
+  let result = put_object_with_retry(&s3_store.bucket, &s3_path, val.as_slice())
     .await
     .map_err(|e| format!("Error occurred putting S3 object: {}", e))?;
   if result.status_code() != 200 {
@@ -257,8 +288,9 @@ pub async fn put(s3_store: Arc<S3Store>, user_id: Uid, id: Uid, val: Arc<Vec<u8>
 
 pub async fn delete(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<()> {
   let s3_path = format!("{}_{}", user_id, id);
-  let result =
-    s3_store.bucket.delete_object(s3_path).await.map_err(|e| format!("Error occurred deleting S3 object: {}", e))?;
+  let result = delete_object_with_retry(&s3_store.bucket, &s3_path)
+    .await
+    .map_err(|e| format!("Error occurred deleting S3 object: {}", e))?;
   if result.status_code() != 204 {
     return Err(format!("Unexpected status code deleting S3 object: {}", result.status_code()).into());
   }

@@ -19,7 +19,7 @@ use std::{collections::HashMap, sync::Arc};
 use infusdk::util::{infu::InfuResult, uid::Uid};
 use s3::Bucket;
 
-use super::s3::init_bucket;
+use super::s3::{delete_object_with_retry, init_bucket, put_object_with_retry};
 
 pub struct BackupStore {
   bucket: Bucket,
@@ -52,9 +52,7 @@ pub fn format_backup_filename(user_id: &str, timestamp: u64) -> String {
 }
 
 pub async fn put(backup_store: Arc<BackupStore>, backup_filename: &str, backup_bytes: Vec<u8>) -> InfuResult<()> {
-  let result = backup_store
-    .bucket
-    .put_object(backup_filename, &backup_bytes.as_slice())
+  let result = put_object_with_retry(&backup_store.bucket, backup_filename, backup_bytes.as_slice())
     .await
     .map_err(|e| format!("Error occurred putting backup in S3: {}", e))?;
   if result.status_code() != 200 {
@@ -78,9 +76,7 @@ pub async fn get(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) 
 
 pub async fn delete(backup_store: Arc<BackupStore>, user_id: &str, timestamp: u64) -> InfuResult<()> {
   let s3_path = format_backup_filename(user_id, timestamp);
-  let result = backup_store
-    .bucket
-    .delete_object(s3_path)
+  let result = delete_object_with_retry(&backup_store.bucket, &s3_path)
     .await
     .map_err(|e| format!("Error occurred deleting backup S3 object: {}", e))?;
   if result.status_code() != 204 {
