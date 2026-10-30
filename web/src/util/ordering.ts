@@ -94,10 +94,11 @@ export function newOrderingBetween(p1: Uint8Array, p2: Uint8Array): Uint8Array {
     let b = i < p2.length ? p2[i] : 256;
     let n = Math.floor((a + b) / 2);
     if (halveNext) {
+      // No room above 255 at this position, so carry on to the next. Returning [.., 255, 128] here ignored the rest of
+      // p1, giving p1 itself (or less) when p1 continued with 128 or more, and duplicate orderings from then on.
       if (a == 255) {
         r.push(255);
-        r.push(128);
-        return new Uint8Array(r);
+        continue;
       }
       n = Math.floor((a + 256) / 2);
       r.push(n);
