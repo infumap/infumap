@@ -54,7 +54,7 @@ use super::{NamedInfuSession, build_http_client, build_session_headers};
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("upload")
-    .about("Bulk upload all files in a local directory to an Infumap container.")
+    .about("Bulk upload files in a local directory to an Infumap container, skipping hidden entries by default.")
     .arg(Arg::new("container_id")
       .short('c')
       .long("container_id")
@@ -64,9 +64,13 @@ pub fn make_clap_subcommand() -> Command {
     .arg(Arg::new("directory")
       .short('d')
       .long("directory")
-      .help("The path of the directory to upload all files from. This directory must only contain regular files (no links or directories).")
+      .help("The path of the directory to upload files from. Entries not skipped must be regular files (no links or directories). Uploads are not recursive.")
       .num_args(1)
       .required(true))
+    .arg(Arg::new("include_hidden")
+      .long("include-hidden")
+      .help("Include hidden entries (names beginning with a dot). Hidden directories and links are rejected like other directories and links.")
+      .action(ArgAction::SetTrue))
     .arg(Arg::new("session")
       .short('s')
       .long("session")
@@ -95,6 +99,7 @@ pub fn make_clap_subcommand() -> Command {
 pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let resuming = sub_matches.get_flag("resume");
   let additional = sub_matches.get_flag("additional");
+  let include_hidden = sub_matches.get_flag("include_hidden");
 
   // Validate directory.
   let local_path = match sub_matches.get_one::<String>("directory") {
@@ -106,11 +111,18 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let local_path = PathBuf::from(expand_tilde(local_path).ok_or(format!("Could not interpret path."))?);
   let mut iter = fs::read_dir(&local_path).await?;
   let mut local_filenames = vec![];
+  let mut num_hidden_skipped = 0;
   loop {
     let next_entry = iter.next_entry().await?;
     let Some(entry) = next_entry else {
       break;
     };
+    let entry_name = entry.file_name();
+    // Filter before type validation so hidden directories and links are skipped too.
+    if !include_hidden && entry_name.as_encoded_bytes().starts_with(b".") {
+      num_hidden_skipped += 1;
+      continue;
+    }
     let file_type = entry.file_type().await?;
     if file_type.is_dir() {
       return Err("Source directory must not contain other directories.".into());
@@ -121,7 +133,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     if !file_type.is_file() {
       return Err("Source directory must only contain regular files.".into());
     }
-    let entry_name = entry.file_name();
     let filename = match entry_name.to_str() {
       None => return Err(format!("Could not interpret filename: {:?}", entry.file_name()).into()),
       Some(filename) => filename.to_owned(),
@@ -129,6 +140,9 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     local_filenames.push(filename);
   }
   local_filenames.sort();
+  if num_hidden_skipped > 0 {
+    println!("Skipped {} hidden entries; use --include-hidden to include them.", num_hidden_skipped);
+  }
 
   // Validate container.
   let container_id = match sub_matches.get_one::<String>("container_id") {
