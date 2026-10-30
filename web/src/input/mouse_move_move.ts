@@ -780,6 +780,18 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
     }
 
     if (tableMoveTargetPath != null) {
+      // Over a table, the item stays in its page until it is dropped. If the pointer got to the table without crossing
+      // the page the table is in (e.g. a fast drag from a page in the dock to a table page popup), the item is still in
+      // a page it has left, which keeps it inside its bounds and at its scale. Move it to the table's page, as crossing
+      // that page would have.
+      const tableHostPageVe = tableHostPageVeMaybe(tableContainerVeMaybe!);
+      if (tableHostPageVe != null &&
+        VeFns.veToPath(tableHostPageVe) != MouseActionState.getScaleDefiningElementPath() &&
+        moving_activeItemToPage(store, tableHostPageVe, desktopPosPx, RelationshipToParent.Child, false, false)) {
+        arrangeNow(store, "moving-enter-table-host-page");
+        moving_handleOverTable(store, tableContainerVeMaybe!, desktopPosPx, tableChildContainerDropTargetPath);
+        return;
+      }
       moving_handleOverTable(store, tableContainerVeMaybe!, desktopPosPx, tableChildContainerDropTargetPath);
     } else {
       clearTableChildContainerDropTarget(store, tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null);
@@ -911,6 +923,21 @@ function clearMoveOverTargetState(store: StoreContextModel): void {
 function clearTableChildContainerDropTarget(store: StoreContextModel, tablePath: VisualElementPath | null): void {
   if (tablePath == null) { return; }
   store.perVe.setMoveOverChildContainerPath(tablePath, null);
+}
+
+/**
+ * The page a moving item over tableVe would be in had it crossed the page to get there: the nearest page above the
+ * table, if it can host the item spatially. A table page's popup is above the page it pops up from.
+ */
+function tableHostPageVeMaybe(tableVe: VisualElement): VisualElement | null {
+  let ve = MouseActionState.readVisualElement(tableVe.parentPath);
+  while (ve != null && !isPage(ve.displayItem)) {
+    ve = MouseActionState.readVisualElement(ve.parentPath);
+  }
+  if (ve == null || isTableView(ve) || (ve.flags & VisualElementFlags.IsDock) || !pageCanHostLiveMovingItem(ve)) {
+    return null;
+  }
+  return ve;
 }
 
 function moving_handleOverTable(
