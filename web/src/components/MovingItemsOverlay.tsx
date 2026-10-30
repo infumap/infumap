@@ -23,7 +23,7 @@ import { MouseAction, MouseActionState } from "../input/state";
 import { isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { VesCache } from "../layout/ves-cache";
-import { isTableView, isVeTranslucentPage, VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
+import { isVeTranslucentPage, VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
 import { StoreContextModel, useStore } from "../store/StoreProvider";
 import { BoundingBox } from "../util/geometry";
 import { VisualElement_Desktop, VisualElement_LineItem } from "./VisualElement";
@@ -80,17 +80,6 @@ function movingOverlayShouldYieldToTranslucentPage(visualElement: VisualElement)
   return true;
 }
 
-/** Table pages render their moving item themselves (Page_TableContent), like translucent pages. */
-function movingOverlayShouldYieldToTablePage(visualElement: VisualElement): boolean {
-  if (!visualElement.parentPath) { return false; }
-  const parentVisualElement = VesCache.render.getNode(visualElement.parentPath)?.get() ??
-    VesCache.current.readNode(visualElement.parentPath) ??
-    null;
-  return parentVisualElement != null &&
-    isPage(parentVisualElement.displayItem) &&
-    isTableView(parentVisualElement);
-}
-
 function movingOverlayPath(visualElement: VisualElement): string {
   return VeFns.veToPath(visualElement);
 }
@@ -118,17 +107,20 @@ function addMovingOverlayVisualElementsForVeid(
 }
 
 function movingOverlayVisualElements(store: StoreContextModel): Array<VisualElement> {
-  if (!store.anItemIsMoving.get() || !MouseActionState.isAction(MouseAction.Moving)) {
-    return [];
-  }
+  if (!store.anItemIsMoving.get()) { return []; }
+  // Reading the parent's children re-runs this as they are arranged. Mouse action state is not reactive, and the
+  // active visual element signal is not enough: when a table page row starts moving, its signal is replaced by the
+  // moving item's.
+  const activeElementPath = MouseActionState.getActiveElementPath();
+  if (activeElementPath != null) { VesCache.render.getChildren(VeFns.parentPath(activeElementPath))(); }
+  if (!MouseActionState.isAction(MouseAction.Moving)) { return []; }
 
   const movingElements: Array<VisualElement> = [];
   const seenPaths = new Set<string>();
   const seenVeids = new Set<string>();
 
   const activeVisualElement = MouseActionState.getActiveVisualElement();
-  if (activeVisualElement &&
-    (movingOverlayShouldYieldToTranslucentPage(activeVisualElement) || movingOverlayShouldYieldToTablePage(activeVisualElement))) {
+  if (activeVisualElement && movingOverlayShouldYieldToTranslucentPage(activeVisualElement)) {
     return [];
   }
 

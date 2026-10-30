@@ -133,9 +133,13 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   };
 
   const rows = () => VesCache.render.getNonMovingChildren(pagePath())();
-  // A moving item has no row. It is rendered here (MovingItemsOverlay yields to table pages), relative to the page viewport.
-  const movingItems = () => VesCache.render.getChildren(pagePath())()
-    .filter(childVe => !!(childVe.get().flags & VisualElementFlags.Moving));
+  // A moving item has no row. MovingItemsOverlay draws it, except for a translucent page, which it yields to, so it is
+  // drawn here relative to the page viewport. Drawing it here for other table pages too hid it under a popup: an item
+  // dragged from a table page over a table in a popup stays a child of the page until it is dropped.
+  const movingItems = () => !isTranslucent()
+    ? []
+    : VesCache.render.getChildren(pagePath())()
+      .filter(childVe => !!(childVe.get().flags & VisualElementFlags.Moving));
 
   return (
     <div class="absolute bg-white"
