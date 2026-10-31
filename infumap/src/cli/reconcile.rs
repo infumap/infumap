@@ -41,7 +41,7 @@ enum ObjectStoreName {
 }
 
 impl ObjectStoreName {
-  pub fn _as_str(&self) -> &'static str {
+  pub fn as_str(&self) -> &'static str {
     match self {
       ObjectStoreName::S3_1 => "s3_1",
       ObjectStoreName::S3_2 => "s3_2",
@@ -184,12 +184,20 @@ pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuR
     },
   };
 
-  println!("Retrieving source file list...");
+  println!("Source (-a):      {}", describe_store(&a, config));
+  println!("Destination (-b): {}", describe_store(&b, config));
+  if copying {
+    println!("Mode:             copy missing files to {}\n", b.as_str());
+  } else {
+    println!("Mode:             list only (pass --copy to copy)\n");
+  }
+
+  println!("Retrieving {} file list...", a.as_str());
   let source_files = source_store.list().await?;
-  println!("Number of source files: {}.", source_files.len());
-  println!("Retrieving destination file list...");
+  println!("Number of files in {}: {}.", a.as_str(), source_files.len());
+  println!("Retrieving {} file list...", b.as_str());
   let destination_files = HashSet::<ItemAndUserId>::from_iter(destination_store.list().await?.iter().cloned());
-  println!("Number of destination files: {}.", destination_files.len());
+  println!("Number of files in {}: {}.", b.as_str(), destination_files.len());
 
   let mut missing_cnt = 0;
   for s_file in &source_files {
@@ -197,7 +205,7 @@ pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuR
       missing_cnt += 1;
     }
   }
-  println!("Number of source files missing in destination: {}.\n", missing_cnt);
+  println!("Number of files in {} that are missing from {}: {}.\n", a.as_str(), b.as_str(), missing_cnt);
 
   let mut cnt = 0;
   for s_file in &source_files {
@@ -249,11 +257,13 @@ pub async fn execute_orphaned(sub_matches: &ArgMatches, config: &Config) -> Infu
     },
   };
 
+  println!("Object store (-o): {}\n", describe_store(&o, config));
+
   let mut db = create_db(config).await?;
 
   println!("Retrieving db file list...");
   let db_files = HashSet::<ItemAndUserId>::from_iter(list_all_db_files(&mut db).await?.iter().cloned());
-  println!("Retrieving source file list...");
+  println!("Retrieving {} file list...", o.as_str());
   let source_files = source_store.list().await?;
 
   println!("Orphaned files:");
@@ -267,6 +277,25 @@ pub async fn execute_orphaned(sub_matches: &ArgMatches, config: &Config) -> Infu
   println!("Number of orphaned files: {}.", cnt);
 
   Ok(())
+}
+
+/// Where a store's files live, from the settings, so the user can confirm which buckets a command is reading and writing.
+fn describe_store(store: &ObjectStoreName, config: &Config) -> String {
+  let (bucket_key, endpoint_key, region_key) = match store {
+    ObjectStoreName::S3_1 => (CONFIG_S3_1_BUCKET, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_REGION),
+    ObjectStoreName::S3_2 => (CONFIG_S3_2_BUCKET, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_REGION),
+    ObjectStoreName::Local => {
+      let data_dir = config.get_string(CONFIG_DATA_DIR).unwrap_or_else(|_| "?".to_owned());
+      return format!("local: data dir '{}'", data_dir);
+    }
+  };
+  let bucket = config.get_string(bucket_key).unwrap_or_else(|_| "?".to_owned());
+  let location = match (config.get_string(endpoint_key).ok(), config.get_string(region_key).ok()) {
+    (Some(endpoint), _) => format!(" at {}", endpoint),
+    (None, Some(region)) => format!(" in region {}", region),
+    (None, None) => String::new(),
+  };
+  format!("{}: bucket '{}'{}", store.as_str(), bucket, location)
 }
 
 fn create_s3_1_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storage_s3::S3Store>>> {
