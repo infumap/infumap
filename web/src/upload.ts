@@ -41,11 +41,17 @@ import { StoreContextModel } from "./store/StoreProvider";
 import { TransientMessageType } from "./store/StoreProvider_Overlay";
 import { base64ArrayBuffer } from "./util/base64ArrayBuffer";
 import { Vector } from "./util/geometry";
+import { formatBytes } from "./util/item-metadata";
 import { sanitizeOriginalCreationDate } from "./util/time";
 
 
 const EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD = 10;
+const EXTERNAL_UPLOAD_CONFIRMATION_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_EXTERNAL_UPLOAD_FILES = 100;
+// Files are sent base64 encoded in a JSON command, which the server caps at 256 MiB (COMMAND_REQUEST_MAX_BYTES).
+// Refusing larger files up front avoids reading and encoding them only to be rejected, and keeps the base64 string
+// well below the browser's maximum string length, which would otherwise throw part way through a drop.
+const MAX_EXTERNAL_UPLOAD_FILE_BYTES = 190 * 1024 * 1024;
 const TEXT_UPLOAD_MIME_TYPES = new Set(["text/plain", "text/markdown", "text/x-markdown"]);
 const TEXT_UPLOAD_EXTENSIONS = new Set(["txt", "md", "markdown"]);
 
@@ -435,12 +441,21 @@ function waitForBrowserAfterDrop(): Promise<void> {
   });
 }
 
-function confirmLargeExternalUploadMaybe(fileCount: number): boolean {
-  if (fileCount <= EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD) {
+/** Must be called while the drop event is being dispatched: the items can't be read after it returns. */
+function dataTransferContainsDirectory(dataTransfer: DataTransfer): boolean {
+  return Array.from(dataTransfer.items).some(item =>
+    item.kind == "file" && item.webkitGetAsEntry?.()?.isDirectory == true);
+}
+
+function confirmLargeExternalUploadMaybe(files: ReadonlyArray<File>): boolean {
+  const hasLargeFile = files.some(file => file.size > EXTERNAL_UPLOAD_CONFIRMATION_FILE_BYTES);
+  if (files.length <= EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD && !hasLargeFile) {
     return true;
   }
 
-  return window.confirm(`Upload ${fileCount} files? This may take a while.`);
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  const what = files.length == 1 ? `"${files[0].name}"` : `${files.length} files`;
+  return window.confirm(`Upload ${what} (${formatBytes(totalBytes)})? This may take a while.`);
 }
 
 function uploadPositionForPage(
@@ -650,49 +665,64 @@ async function uploadFilesToTarget(
     });
   }
 
-  for (let i = 0; i < files.length; ++i) {
-    const file = files[i];
-    const uploadStarted = performance.now();
-    const placement = placementForUploadTarget(store, target, i);
-    const posPx = placement.pageParentMaybe != null
-      ? uploadPositionForPage(store, desktopPx, placement.pageParentMaybe, placement.useDropPosition)
-      : { x: 0.0, y: 0.0 };
+  // The overlay blocks all interaction, so it must be cleared however the loop ends.
+  try {
+    for (let i = 0; i < files.length; ++i) {
+      const file = files[i];
+      const uploadStarted = performance.now();
 
-    store.overlay.uploadOverlayInfo.set({
-      currentFile: i + 1,
-      totalFiles: files.length,
-      currentFileName: file.name,
-    });
+      store.overlay.uploadOverlayInfo.set({
+        currentFile: i + 1,
+        totalFiles: files.length,
+        currentFileName: file.name,
+      });
 
-    const base64Data = base64ArrayBuffer(await file.arrayBuffer());
-    const itemType = uploadItemTypeForFile(file);
-    const isImageUpload = itemType == ItemType.Image;
-    const defaultWidthGr = isImageUpload ? 4.0 * GRID_SIZE : 8.0 * GRID_SIZE;
-    const spatialWidthGr = spatialWidthGrForUpload(
-      placement.pageParentMaybe,
-      placement.useDropPosition,
-      posPx,
-      defaultWidthGr,
-    );
-    const partialObject = makeUploadPartialObject(file, placement, posPx, spatialWidthGr, itemType);
-    const preparationMs = Math.round(performance.now() - uploadStarted);
-    const requestStarted = performance.now();
+      // Read before computing the placement, which can replace attachment placeholders: a file that can't be read
+      // (a folder the drop checks didn't catch, or one moved or deleted since the drag started) changes nothing.
+      let base64Data: string;
+      try {
+        base64Data = base64ArrayBuffer(await file.arrayBuffer());
+      } catch (error) {
+        console.warn(`Failed to read ${file.name}:`, error);
+        showTransientMessage(store, `Couldn't read ${file.name}`, TransientMessageType.Error, 5000);
+        continue;
+      }
 
-    try {
-      const returnedItem = await server.addItemFromPartialObject(partialObject, base64Data);
-      itemState.add(ItemFns.fromObject(returnedItem, null));
-      requestArrange(store, isImageUpload ? "upload-image" : itemType == ItemType.Text ? "upload-text" : "upload-file");
-      console.info(`Upload ${i + 1}/${files.length} (${file.size} bytes) completed: preparation ${preparationMs} ms, request ${Math.round(performance.now() - requestStarted)} ms`);
-    } catch (error) {
-      console.warn(`Failed to add ${file.name}:`, error);
-      console.info(`Upload ${i + 1}/${files.length} (${file.size} bytes) failed: preparation ${preparationMs} ms, request ${Math.round(performance.now() - requestStarted)} ms`);
-      showTransientMessage(store, `Couldn't upload ${file.name}`, TransientMessageType.Error, 5000);
+      let preparationMs = 0;
+      let requestStarted = performance.now();
+      try {
+        const placement = placementForUploadTarget(store, target, i);
+        const posPx = placement.pageParentMaybe != null
+          ? uploadPositionForPage(store, desktopPx, placement.pageParentMaybe, placement.useDropPosition)
+          : { x: 0.0, y: 0.0 };
+        const itemType = uploadItemTypeForFile(file);
+        const isImageUpload = itemType == ItemType.Image;
+        const defaultWidthGr = isImageUpload ? 4.0 * GRID_SIZE : 8.0 * GRID_SIZE;
+        const spatialWidthGr = spatialWidthGrForUpload(
+          placement.pageParentMaybe,
+          placement.useDropPosition,
+          posPx,
+          defaultWidthGr,
+        );
+        const partialObject = makeUploadPartialObject(file, placement, posPx, spatialWidthGr, itemType);
+        preparationMs = Math.round(performance.now() - uploadStarted);
+        requestStarted = performance.now();
+
+        const returnedItem = await server.addItemFromPartialObject(partialObject, base64Data);
+        itemState.add(ItemFns.fromObject(returnedItem, null));
+        requestArrange(store, isImageUpload ? "upload-image" : itemType == ItemType.Text ? "upload-text" : "upload-file");
+        console.info(`Upload ${i + 1}/${files.length} (${file.size} bytes) completed: preparation ${preparationMs} ms, request ${Math.round(performance.now() - requestStarted)} ms`);
+      } catch (error) {
+        console.warn(`Failed to add ${file.name}:`, error);
+        console.info(`Upload ${i + 1}/${files.length} (${file.size} bytes) failed: preparation ${preparationMs} ms, request ${Math.round(performance.now() - requestStarted)} ms`);
+        showTransientMessage(store, `Couldn't upload ${file.name}`, TransientMessageType.Error, 5000);
+      }
     }
+  } finally {
+    setTimeout(() => {
+      store.overlay.uploadOverlayInfo.set(null);
+    }, 300);
   }
-
-  setTimeout(() => {
-    store.overlay.uploadOverlayInfo.set(null);
-  }, 300);
 }
 
 export function clearExternalUploadHover(store: StoreContextModel): void {
@@ -727,6 +757,7 @@ export async function handleExternalUploadDrop(
   desktopPx: Vector,
 ): Promise<void> {
   const files = Array.from(dataTransfer.files);
+  const containsDirectory = dataTransferContainsDirectory(dataTransfer);
   const target = externalUploadDropTarget ?? resolveExternalUploadTarget(store, desktopPx, false);
 
   try {
@@ -735,6 +766,17 @@ export async function handleExternalUploadDrop(
     const fileCount = files.length;
     if (fileCount > MAX_EXTERNAL_UPLOAD_FILES) {
       showTransientMessage(store, `Can only drop up to ${MAX_EXTERNAL_UPLOAD_FILES} files at once`);
+      return;
+    }
+
+    if (containsDirectory) {
+      showTransientMessage(store, "Folders can't be uploaded");
+      return;
+    }
+
+    const tooLargeFile = files.find(file => file.size > MAX_EXTERNAL_UPLOAD_FILE_BYTES);
+    if (tooLargeFile != null) {
+      showTransientMessage(store, `${tooLargeFile.name} is too large to upload (max ${formatBytes(MAX_EXTERNAL_UPLOAD_FILE_BYTES)})`, TransientMessageType.Error, 5000);
       return;
     }
 
@@ -758,7 +800,7 @@ export async function handleExternalUploadDrop(
       return;
     }
 
-    if (!confirmLargeExternalUploadMaybe(fileCount)) {
+    if (!confirmLargeExternalUploadMaybe(files)) {
       return;
     }
 
