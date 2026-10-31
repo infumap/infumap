@@ -94,6 +94,9 @@ type UploadPlacement = {
 let externalUploadMoveOverContainerPath: VisualElementPath | null = null;
 let externalUploadAttachHitboxPath: VisualElementPath | null = null;
 let externalUploadDropTarget: UploadTarget | null = null;
+// The upload overlay is outside the desktop, so a drop on it still reaches the window drop listener. A second batch
+// running alongside the first would share (and prematurely clear) the overlay, so drops are refused until it is done.
+let externalUploadInProgress = false;
 
 
 function showTransientMessage(
@@ -720,7 +723,10 @@ async function uploadFilesToTarget(
     }
   } finally {
     setTimeout(() => {
-      store.overlay.uploadOverlayInfo.set(null);
+      // A drop accepted during this delay owns the overlay now.
+      if (!externalUploadInProgress) {
+        store.overlay.uploadOverlayInfo.set(null);
+      }
     }, 300);
   }
 }
@@ -739,7 +745,7 @@ export function updateExternalUploadHover(
   dataTransfer: DataTransfer,
   desktopPx: Vector,
 ): void {
-  if (!dataTransferContainsFiles(dataTransfer)) {
+  if (!dataTransferContainsFiles(dataTransfer) || externalUploadInProgress) {
     clearExternalUploadHover(store);
     return;
   }
@@ -756,6 +762,14 @@ export async function handleExternalUploadDrop(
   dataTransfer: DataTransfer,
   desktopPx: Vector,
 ): Promise<void> {
+  if (externalUploadInProgress) {
+    clearExternalUploadHover(store);
+    showTransientMessage(store, "Wait for the current upload to finish");
+    return;
+  }
+  // Set before the first await, so a drop that arrives while this one is still being checked is refused too.
+  externalUploadInProgress = true;
+
   const files = Array.from(dataTransfer.files);
   const containsDirectory = dataTransferContainsDirectory(dataTransfer);
   const target = externalUploadDropTarget ?? resolveExternalUploadTarget(store, desktopPx, false);
@@ -806,6 +820,7 @@ export async function handleExternalUploadDrop(
 
     await uploadFilesToTarget(store, files, desktopPx, target);
   } finally {
+    externalUploadInProgress = false;
     clearExternalUploadHover(store);
   }
 }
