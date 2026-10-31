@@ -309,18 +309,27 @@ pub fn create_image_placeholder(img: &DynamicImage) -> InfuResult<Vec<u8>> {
   Ok(result)
 }
 
+/// Converts img to RGB, compositing any alpha onto white. Dropping alpha instead would expose whatever color is
+/// stored in fully transparent pixels, which is commonly black.
+pub fn flatten_onto_white(img: &DynamicImage) -> RgbImage {
+  if !img.color().has_alpha() {
+    return img.to_rgb8();
+  }
+  let rgba = img.to_rgba8();
+  RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
+    let p = rgba.get_pixel(x, y).0;
+    let a = p[3] as u32;
+    Rgb([0, 1, 2].map(|c| ((p[c] as u32 * a + 255 * (255 - a) + 127) / 255) as u8))
+  })
+}
+
 fn encode_image_placeholder_jpeg(img: &DynamicImage) -> InfuResult<Vec<u8>> {
   let max = IMAGE_PLACEHOLDER_MAX_DIMENSION_PX;
   // thumbnail averages all source pixels contributing to each target pixel (box filter), which is fast and
   // appropriate for a large reduction. It would scale up small images, so don't use it for those.
   let small = if img.width() > max || img.height() > max { img.thumbnail(max, max) } else { img.clone() };
-  // Always encode 3 channels, so the header is the same for all images. Flatten any alpha onto white.
-  let rgba = small.to_rgba8();
-  let rgb = RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
-    let p = rgba.get_pixel(x, y).0;
-    let a = p[3] as u32;
-    Rgb([0, 1, 2].map(|c| ((p[c] as u32 * a + 255 * (255 - a) + 127) / 255) as u8))
-  });
+  // Always encode 3 channels, so the header is the same for all images.
+  let rgb = flatten_onto_white(&small);
   let mut jpeg = Vec::new();
   JpegEncoder::new_with_quality(&mut jpeg, IMAGE_PLACEHOLDER_JPEG_QUALITY)
     .encode_image(&rgb)

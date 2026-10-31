@@ -16,6 +16,7 @@
 
 use std::io::Cursor;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::time::UNIX_EPOCH;
@@ -43,6 +44,14 @@ use crate::util::image::get_exif_orientation;
 use crate::util::mime::mime_type_from_title_extension;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
+
+// Kept in step with IMAGE_UPLOAD_MIME_TYPES in web/src/upload.ts.
+fn is_image_filename(filename: &str) -> bool {
+  matches!(
+    Path::new(filename).extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref(),
+    Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp")
+  )
+}
 
 fn is_text_or_markdown_filename(filename: &str) -> bool {
   matches!(mime_type_from_title_extension(filename).as_deref(), Some("text/plain" | "text/markdown"))
@@ -273,10 +282,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     item.insert("originalCreationDate".to_owned(), Value::Number(sanitized_creation_time.into()));
     item.insert("fileSizeBytes".to_owned(), Value::Number(metadata.len().into()));
 
-    if filename.to_lowercase().ends_with(".png")
-      || filename.to_lowercase().ends_with(".jpg")
-      || filename.to_lowercase().ends_with(".jpeg")
-    {
+    if is_image_filename(filename) {
       let file_cursor = Cursor::new(buffer.clone());
       let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
       match file_reader.decode() {

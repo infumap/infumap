@@ -53,7 +53,9 @@ use crate::storage::cache as storage_cache;
 use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
-use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, adjust_image_for_exif_orientation, get_exif_orientation};
+use crate::util::image::{
+  IMAGE_PROCESSING_SEMAPHORE, adjust_image_for_exif_orientation, flatten_onto_white, get_exif_orientation,
+};
 use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
 use crate::web::serve::{
   cors_response, forbidden_response, full_body, internal_server_error_response, not_found_response,
@@ -722,8 +724,8 @@ fn resize_image_to_jpeg(
 
   // Using Langczos3 for down scaling, as recommended by: https://crates.io/crates/resize
   img = img.resize(requested_width, requested_height, FilterType::Lanczos3);
-  // Throw away alpha channel, if it exists.
-  let img = img.to_rgb8();
+  // JPEG has no alpha channel.
+  let img = flatten_onto_white(&img);
 
   let buf = Vec::new();
   let mut cursor = Cursor::new(buf);

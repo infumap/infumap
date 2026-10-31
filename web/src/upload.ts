@@ -57,6 +57,9 @@ const MAX_EXTERNAL_UPLOAD_FILES = 100;
 const MAX_EXTERNAL_UPLOAD_FILE_BYTES = 190 * 1024 * 1024;
 const TEXT_UPLOAD_MIME_TYPES = new Set(["text/plain", "text/markdown", "text/x-markdown"]);
 const TEXT_UPLOAD_EXTENSIONS = new Set(["txt", "md", "markdown"]);
+// Formats the server can decode (to make resized renditions) and browsers can display (the original is served when
+// shown at full size). TIFF and HEIC decode on the server, but most browsers can't display them.
+const IMAGE_UPLOAD_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"]);
 
 function normalizedUploadMimeType(file: File): string {
   return file.type.trim().toLowerCase().split(";")[0];
@@ -69,7 +72,7 @@ function uploadExtension(file: File): string {
 
 function uploadItemTypeForFile(file: File): ItemType {
   const mimeType = normalizedUploadMimeType(file);
-  if (mimeType == "image/jpeg" || mimeType == "image/png") {
+  if (IMAGE_UPLOAD_MIME_TYPES.has(mimeType)) {
     return ItemType.Image;
   }
   if (TEXT_UPLOAD_MIME_TYPES.has(mimeType) || TEXT_UPLOAD_EXTENSIONS.has(uploadExtension(file))) {
