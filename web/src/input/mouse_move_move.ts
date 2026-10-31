@@ -589,6 +589,16 @@ function groupMoveItemsFromSelectionMaybe(
     return entries.map((e, i) => ({ veid: e.veid, startPosGr: startPositionsGr[i], parentId: e.item.parentId }));
   }
 
+  // Dock items' spatial positions are unused, and a marquee selects them in no particular order: stack them in the
+  // order they appear in the dock.
+  const parentVe = activeVisualElement.parentPath ? VesCache.current.readNode(activeVisualElement.parentPath) : null;
+  if (parentVe && (parentVe.flags & VisualElementFlags.IsDock) && isPage(parentItem)) {
+    const dockOrder = asPageItem(parentItem).computed_children;
+    entries.sort((a, b) => dockOrder.indexOf(a.item.id) - dockOrder.indexOf(b.item.id));
+    const startPositionsGr = stackedGroupMoveStartPositionsGr(entries.map(e => e.item));
+    return entries.map((e, i) => ({ veid: e.veid, startPosGr: startPositionsGr[i], parentId: e.item.parentId }));
+  }
+
   return entries.map(e => ({
     veid: e.veid,
     startPosGr: (() => {
