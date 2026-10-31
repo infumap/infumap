@@ -36,15 +36,43 @@ pushd "$(dirname "$0")"
 
 EXPECTED_NODE_VERSION="$(tr -d '[:space:]' < ../.nvmrc)"
 
+print_node_setup() {
+  echo ""
+  echo "This checkout requires Node.js $EXPECTED_NODE_VERSION (from .nvmrc). Node.js includes npm."
+  cat <<'EOF'
+
+If you already have a Node version manager, run from the repository root:
+  nvm install && nvm use
+  # or:
+  fnm install && fnm use
+
+On macOS with Homebrew and zsh, you can set up fnm with:
+  brew install fnm
+  eval "$(fnm env --use-on-cd --shell zsh)"
+  fnm install && fnm use
+Add the eval line to ~/.zshrc as well so fnm works in future terminals.
+
+Need to install Homebrew or use another setup? Follow the official instructions:
+  Homebrew: https://brew.sh/
+  fnm:      https://github.com/Schniz/fnm#installation
+  nvm:      https://github.com/nvm-sh/nvm#installing-and-updating
+
+Then retry your build from the repository root.
+See docs/developer.md for build prerequisites and setup details.
+EOF
+}
+
 if ! command -v node >/dev/null 2>&1; then
-  echo "Error: Node.js is required to build web assets. From the repo root, install and use the Node version in .nvmrc (e.g. 'nvm install && nvm use' or 'fnm install && fnm use')."
+  echo "Error: Node.js was not found on PATH; it is required to build web assets."
+  print_node_setup
   exit 1
 fi
 
 PACKAGE_NODE_VERSION="$(node -p "const pkg = require('./package.json'); pkg.engines && pkg.engines.node ? pkg.engines.node : ''")"
 
 if ! command -v npm >/dev/null 2>&1; then
-  echo "Error: npm is required to build web assets. From the repo root, install and use the Node version in .nvmrc (e.g. 'nvm install && nvm use' or 'fnm install && fnm use'), then retry the build."
+  echo "Error: npm was not found on PATH; it is required to build web assets."
+  print_node_setup
   exit 1
 fi
 
@@ -63,7 +91,7 @@ fi
 
 if [[ "$ACTIVE_NODE_VERSION" != "$EXPECTED_NODE_VERSION" ]]; then
   echo "Error: expected Node.js $EXPECTED_NODE_VERSION from .nvmrc, but found $ACTIVE_NODE_VERSION."
-  echo "From the repo root, install and use the Node version in .nvmrc (e.g. 'nvm install && nvm use' or 'fnm install && fnm use'), then retry the build."
+  print_node_setup
   exit 1
 fi
 

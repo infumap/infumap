@@ -1,5 +1,39 @@
 # Building
 
+## Prerequisites
+
+The build requires Node.js with npm, Python 3, and Rust with Cargo and a native compiler toolchain. For Rust installation, follow the [official Rust setup instructions](https://www.rust-lang.org/tools/install). On macOS, install Apple's Command Line Tools with `xcode-select --install` if they are missing.
+
+### Node.js and npm
+
+The required Node.js version is recorded in the repository root's `.nvmrc`. Use a Node version manager to install that version, rather than installing whichever Node release is newest. Node.js includes npm; the build automatically uses the npm version specified in `web/package.json`.
+
+On macOS with zsh, one option is [fnm](https://github.com/Schniz/fnm#installation) via [Homebrew](https://brew.sh/). If `brew` is unavailable, install Homebrew using its official instructions and complete its shell setup first. Then, from the repository root:
+
+```sh
+brew install fnm
+eval "$(fnm env --use-on-cd --shell zsh)"
+fnm install
+fnm use
+```
+
+Add the following line once to `~/.zshrc` so fnm is initialized in future terminals and selects the repository's Node version when you enter its directory:
+
+```sh
+eval "$(fnm env --use-on-cd --shell zsh)"
+```
+
+If you already use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating), keep using it. From the repository root:
+
+```sh
+nvm install
+nvm use
+```
+
+For other operating systems or shells, follow the version manager's official installation and shell setup instructions linked above. If you have installed a manager but its command is unavailable, open a new terminal after completing its shell setup.
+
+## Run the build
+
 Execute the build script in the repo root:
 
 ```
@@ -61,16 +95,9 @@ Explicitly build it rather than use the image on docker hub to:
 1. Ensure the latest version of rust is used.
 2. Be extra confident it's malware free.
 
-Install node with `nvm`, then use the repo-pinned version from `.nvmrc`:
+Install and initialize `nvm` using its [official instructions](https://github.com/nvm-sh/nvm#installing-and-updating), then use the repo-pinned version from `.nvmrc` (see [Node.js and npm](#nodejs-and-npm) above):
 
 ```
-cd ~/git/infumap
-curl -fsSLo /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh
-less /tmp/nvm-install.sh
-bash /tmp/nvm-install.sh
-rm /tmp/nvm-install.sh
-
-# Open a new login shell, then:
 cd ~/git/infumap
 nvm install
 nvm use
