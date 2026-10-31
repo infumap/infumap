@@ -60,6 +60,9 @@ import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayM
 import { VesCache } from "../../layout/ves-cache";
 import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../items/text-document";
 import { convertPageTableAtPath, pageTableConversionEligibility } from "../../items/page-table-conversion";
+import { convertPageCompositeAtPath, pageCompositeConversionEligibility } from "../../items/page-composite-conversion";
+import { ContainerConversionRefused } from "../../items/container-conversion";
+import { VisualElementPath } from "../../layout/visual-element";
 
 
 const EMOJI_CATEGORIES = [
@@ -314,9 +317,31 @@ function infoPopupHeightPx(store: StoreContextModel): number {
   return 2 * INFO_ROWS_PADDING_Y_PX + numRows * INFO_ROW_HEIGHT_PX + 2 * TOOLBAR_POPUP_BORDER_PX;
 }
 
+/** The conversion available for the item at focusPath, if any. No item is eligible for both. */
+function itemConversionMaybe(
+  store: StoreContextModel,
+  focusPath: VisualElementPath | null,
+): { label: string, convert: (focusPath: VisualElementPath) => Promise<unknown> } | null {
+  const pageTable = pageTableConversionEligibility(store, focusPath);
+  if (pageTable.allowed) {
+    return {
+      label: pageTable.targetType == "table" ? "Convert to table item" : "Convert to page",
+      convert: path => convertPageTableAtPath(store, path),
+    };
+  }
+  const pageComposite = pageCompositeConversionEligibility(store, focusPath);
+  if (pageComposite.allowed) {
+    return {
+      label: pageComposite.targetType == "composite" ? "Convert to composite" : "Convert to document page",
+      convert: path => convertPageCompositeAtPath(store, path),
+    };
+  }
+  return null;
+}
+
 function moreActionsRows(store: StoreContextModel): number {
   const focusPath = getToolbarFocusPathMaybe(store);
-  return (pageTableConversionEligibility(store, focusPath).allowed ? 1 : 0) +
+  return (itemConversionMaybe(store, focusPath) != null ? 1 : 0) +
     (toolbarFocusIsCurrentPage(store) ? 1 : 0);
 }
 
@@ -936,12 +961,7 @@ export const Toolbar_Popup: Component = () => {
     }
   };
 
-  const conversionEligibility = () => pageTableConversionEligibility(store, getToolbarFocusPathMaybe(store));
-  const conversionLabel = () => {
-    const eligibility = conversionEligibility();
-    if (!eligibility.allowed) { return ""; }
-    return eligibility.targetType == "table" ? "Convert to table item" : "Convert to page";
-  };
+  const conversion = () => itemConversionMaybe(store, getToolbarFocusPathMaybe(store));
 
   const dismissMoreActions = () => {
     const openPopup = store.overlay.toolbarPopupInfoMaybe.get();
@@ -952,7 +972,8 @@ export const Toolbar_Popup: Component = () => {
 
   const handleConversionClick = async (): Promise<void> => {
     const focusPath = getToolbarFocusPathMaybe(store);
-    if (focusPath == null || !conversionEligibility().allowed) {
+    const conversionMaybe = conversion();
+    if (focusPath == null || conversionMaybe == null) {
       dismissMoreActions();
       return;
     }
@@ -962,10 +983,12 @@ export const Toolbar_Popup: Component = () => {
       await Promise.resolve();
     }
     try {
-      await convertPageTableAtPath(store, focusPath);
+      await conversionMaybe.convert(focusPath);
     } catch (e) {
-      console.error("Page/table conversion failed:", e);
-      const errorMessage = { text: "could not convert item; refresh and try again", type: TransientMessageType.Error };
+      const refused = e instanceof ContainerConversionRefused;
+      if (!refused) { console.error("Item conversion failed:", e); }
+      const text = refused ? e.message : "could not convert item; refresh and try again";
+      const errorMessage = { text, type: TransientMessageType.Error };
       store.overlay.toolbarTransientMessage.set(errorMessage);
       setTimeout(() => {
         if (store.overlay.toolbarTransientMessage.get() === errorMessage) {
@@ -1430,11 +1453,11 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <Show when={conversionEligibility().allowed}>
+            <Show when={conversion() != null}>
               <button ref={conversionButton} type="button"
                 class={toolbarMenuItemClass()}
                 onClick={event => { event.stopPropagation(); void handleConversionClick(); }}>
-                {conversionLabel()}
+                {conversion()?.label}
               </button>
             </Show>
             <Show when={toolbarFocusIsCurrentPage(store)}>

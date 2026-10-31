@@ -22,6 +22,7 @@ import { InfuIconButton } from "../../library/InfuIconButton";
 import { asCompositeItem } from "../../../items/composite-item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
+import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 import { getToolbarFocusItem } from "../toolbarFocus";
 import { CompositeFlags } from "../../../items/base/flags-item";
 import { ItemType } from "../../../items/base/item";
@@ -65,6 +66,7 @@ export const Toolbar_Composite: Component = () => {
         <Show when={canEdit()}>
           <InfuIconButton icon="bi-type" highlighted={showTitle()} clickHandler={handleToggleTitle} title="Show composite title" />
         </Show>
+        <Toolbar_MoreActions />
         <Toolbar_ItemOrdering />
 
         <Toolbar_InfoAndId infoClass="inline-block pl-[5px]" />

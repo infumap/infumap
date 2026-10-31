@@ -22,9 +22,9 @@ use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::ImageReader;
 use infusdk::item::{
-  ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, LIST_PAGE_PIN_TOP_FLAG,
-  PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG, PAGE_TABLE_FLAG_PAIRS, PermissionFlags, RelationshipToParent,
-  SavedPageSettings, SavedTableSettings, TableColumn, embedded_table_size_from_page,
+  ArrangeAlgorithm, CompositeFlags, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, LIST_PAGE_PIN_TOP_FLAG, NoteFlags,
+  PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG, PAGE_HIDE_DOCUMENT_TITLE_FLAG, PAGE_TABLE_FLAG_PAIRS, PermissionFlags,
+  RelationshipToParent, SavedPageSettings, SavedTableSettings, TableColumn, embedded_table_size_from_page,
   is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type,
   is_image_item, is_link_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item,
   page_width_from_table,
@@ -240,6 +240,7 @@ pub async fn serve_command_route(
     }
     "update-item" => item_ops::handle_update_item(db, &request.json_data, &session_maybe).await,
     "convert-page-table" => item_ops::handle_convert_page_table(db, &request.json_data, &session_maybe).await,
+    "convert-page-composite" => item_ops::handle_convert_page_composite(db, &request.json_data, &session_maybe).await,
     "delete-item" => {
       item_ops::handle_delete_item(db, object_store.clone(), image_cache, &request.json_data, &session_maybe).await
     }

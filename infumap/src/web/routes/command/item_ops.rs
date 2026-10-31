@@ -769,31 +769,8 @@ pub(super) async fn handle_convert_page_table(
   }
 
   let mut db = db.lock().await;
-  let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
-  let protected_ids =
-    [user.home_page_id.clone(), user.trash_page_id.clone(), user.dock_page_id.clone(), user.queries_page_id.clone()];
-  if protected_ids.contains(&request.id)
-    || request.id == scopes_page_id(&session.user_id)
-    || search_status_page_kind_for_id(&session.user_id, &request.id).is_some()
-  {
-    return Err(format!("Special page '{}' cannot be converted.", request.id).into());
-  }
-
-  let source = db.item.get(&request.id)?.clone();
-  if source.owner_id != session.user_id || source.item_type != expected_type {
-    return Err(format!("Item '{}' is not an owned '{}' item.", request.id, request.expected_item_type).into());
-  }
-  if source.relationship_to_parent != RelationshipToParent::Child {
-    return Err(format!("Item '{}' must be an ordinary child to be converted.", request.id).into());
-  }
-  let parent_id = source.parent_id.as_ref().ok_or(format!("Item '{}' has no parent.", request.id))?;
-  if protected_ids[1..].contains(parent_id) {
-    return Err(format!("Item '{}' is inside a special page and cannot be converted.", request.id).into());
-  }
-  let parent = db.item.get(parent_id)?.clone();
-  if parent.item_type != ItemType::Page || parent.owner_id != session.user_id {
-    return Err(format!("Item '{}' must have an owned page as its parent.", request.id).into());
-  }
+  let (source, parent) = convertible_source_and_parent(&db, session, &request.id, expected_type)?;
+  let parent_id = &parent.id;
   if source.item_type == ItemType::Page {
     if source.arrange_algorithm != Some(ArrangeAlgorithm::Table) {
       return Err(format!("Page '{}' must use table arrangement before conversion.", request.id).into());
@@ -822,6 +799,223 @@ pub(super) async fn handle_convert_page_table(
   json_with_sync_ack(sync_ack, Some(item_json))
 }
 
+/// The source of a container type conversion and its parent page, both owned by the session user.
+fn convertible_source_and_parent(
+  db: &MutexGuard<'_, Db>,
+  session: &Session,
+  id: &Uid,
+  expected_type: ItemType,
+) -> InfuResult<(Item, Item)> {
+  let user = db.user.get(&session.user_id).ok_or(format!("Unknown user '{}'.", session.user_id))?;
+  let protected_ids =
+    [user.home_page_id.clone(), user.trash_page_id.clone(), user.dock_page_id.clone(), user.queries_page_id.clone()];
+  if protected_ids.contains(id)
+    || *id == scopes_page_id(&session.user_id)
+    || search_status_page_kind_for_id(&session.user_id, id).is_some()
+  {
+    return Err(format!("Special page '{}' cannot be converted.", id).into());
+  }
+
+  let source = db.item.get(id)?.clone();
+  if source.owner_id != session.user_id || source.item_type != expected_type {
+    return Err(format!("Item '{}' is not an owned '{}' item.", id, expected_type).into());
+  }
+  if source.relationship_to_parent != RelationshipToParent::Child {
+    return Err(format!("Item '{}' must be an ordinary child to be converted.", id).into());
+  }
+  let parent_id = source.parent_id.as_ref().ok_or(format!("Item '{}' has no parent.", id))?;
+  if protected_ids[1..].contains(parent_id) {
+    return Err(format!("Item '{}' is inside a special page and cannot be converted.", id).into());
+  }
+  let parent = db.item.get(parent_id)?.clone();
+  if parent.item_type != ItemType::Page || parent.owner_id != session.user_id {
+    return Err(format!("Item '{}' must have an owned page as its parent.", id).into());
+  }
+  Ok((source, parent))
+}
+
+/// Width of a composite made from a document page: 2.5 times the default note width. The page's document width
+/// isn't used, because it reflects reading the page full width, not as one item among others in the parent.
+const COMPOSITE_FROM_PAGE_WIDTH_BL: i64 = 25;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ConvertPageCompositeRequest {
+  id: Uid,
+  expected_item_type: String,
+  target_item_type: String,
+  default_page_aspect: Option<f64>,
+}
+
+/// Converts a composite that has grown too big into a document page in its place, or a document page that has become
+/// short back into a composite. Children are kept as they are; only the container's type changes.
+pub(super) async fn handle_convert_page_composite(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to convert an item.")?;
+  let request: ConvertPageCompositeRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("Could not parse page/composite conversion request: {}", e))?;
+  let expected_type = ItemType::from_str(&request.expected_item_type)?;
+  let target_type = ItemType::from_str(&request.target_item_type)?;
+  if !matches!(
+    (expected_type, target_type),
+    (ItemType::Page, ItemType::Composite) | (ItemType::Composite, ItemType::Page)
+  ) {
+    return Err("Page/composite conversion requires opposite page and composite types.".into());
+  }
+
+  let mut db = db.lock().await;
+  let (source, parent) = convertible_source_and_parent(&db, session, &request.id, expected_type)?;
+  let mut converted = source.clone();
+  converted.last_modified_date = unix_now_secs_i64()?.max(source.last_modified_date.saturating_add(1));
+  let mut promoted_note = None;
+  match target_type {
+    ItemType::Page => {
+      promoted_note = promotable_heading_note(&db, &source)?;
+      let aspect = validated_default_page_aspect(request.default_page_aspect)?;
+      convert_composite_to_page(&source, &parent, promoted_note.as_ref(), &mut converted, aspect)?;
+    }
+    ItemType::Composite => {
+      if source.arrange_algorithm != Some(ArrangeAlgorithm::Document) {
+        return Err(format!("Page '{}' must use document arrangement before conversion.", request.id).into());
+      }
+      // Composites can't have attachments or contain composites, and an empty one has nothing to show.
+      if !db.item.get_attachments(&source.id)?.is_empty() {
+        return Err(format!("Page '{}' has attachments and cannot be converted to a composite.", request.id).into());
+      }
+      let children = db.item.get_children(&source.id)?;
+      if children.is_empty() {
+        return Err(format!("Page '{}' is empty and cannot be converted to a composite.", request.id).into());
+      }
+      if children.iter().any(|child| is_composite_item(child)) {
+        return Err(format!("Page '{}' contains a composite and cannot be converted to one.", request.id).into());
+      }
+      convert_page_to_composite(&source, &mut converted)?;
+    }
+    _ => unreachable!(),
+  }
+
+  // Validate the complete destination and prepare the response before persisting.
+  let mut result = serde_json::Map::new();
+  result.insert(String::from("item"), Value::from(item_to_api_json_map(&converted)?));
+  let parent_delta = build_child_upsert_delta(&db, &converted)?;
+  db.item.replace_type(&converted).await?;
+  let mut deltas_by_container = HashMap::new();
+  merge_container_delta(&mut deltas_by_container, &parent.id, parent_delta);
+
+  // The note goes after the page holds its title, so a failure here leaves the heading twice rather than not at all.
+  // As a note, it has no object or image cache entries to delete.
+  if let Some(note) = &promoted_note {
+    let data_dir = db.item.data_dir().to_owned();
+    dequeue_document_fragment_item_if_active(&note.id);
+    delete_item_text_dir(&data_dir, &note.owner_id, &note.id).await?;
+    delete_item_image_tag_dir(&data_dir, &note.owner_id, &note.id).await?;
+    delete_item_geo_artifacts(&data_dir, &note.owner_id, &note.id).await?;
+    delete_item_fragment_artifacts(&data_dir, &note.owner_id, &note.id).await?;
+    enqueue_item_search_index_removal(&note.owner_id, &note.id);
+    db.item.remove(&note.id).await?;
+    let mut delta = ContainerSyncDelta::default();
+    delta.add_child_delete(&note.id);
+    merge_container_delta(&mut deltas_by_container, &source.id, delta);
+    result.insert(String::from("removedItemId"), Value::String(note.id.clone()));
+  }
+  let sync_ack = flush_container_sync_changes(&mut db, &source.owner_id, deltas_by_container, HashSet::new());
+
+  debug!("Executed 'convert-page-composite' command for item '{}'.", source.id);
+  drop(db);
+  enqueue_item_title_index_update(&source.owner_id, &source.id);
+  insert_sync_ack(&mut result, sync_ack)?;
+  Ok(Some(serde_json::to_string(&result)?))
+}
+
+/// The composite's first child, when it is a plain heading note that can become the title of the page the composite
+/// is converted to. A big composite usually starts with such a heading, and keeping it would repeat the page title
+/// directly beneath itself. Notes that would lose something when removed are left alone.
+fn promotable_heading_note(db: &MutexGuard<'_, Db>, composite: &Item) -> InfuResult<Option<Item>> {
+  if composite.title.as_deref().unwrap_or("").trim() != "" {
+    return Ok(None);
+  }
+  // Only in ordering order is the first child by ordering the one shown first.
+  if composite.order_children_by.as_deref().unwrap_or("") != "" {
+    return Ok(None);
+  }
+  let children = db.item.get_children(&composite.id)?;
+  let first = match children.into_iter().min_by(|a, b| a.ordering.cmp(&b.ordering).then_with(|| a.id.cmp(&b.id))) {
+    Some(first) => first,
+    None => return Ok(None),
+  };
+  let heading_flags = (NoteFlags::Heading1 | NoteFlags::Heading2 | NoteFlags::Heading3 | NoteFlags::Heading4).bits();
+  let promotable = first.item_type == ItemType::Note
+    && first.owner_id == composite.owner_id
+    && first.flags.unwrap_or(0) & heading_flags != 0
+    && first.title.as_deref().unwrap_or("").trim() != ""
+    && first.url.as_deref().unwrap_or("") == ""
+    && first.urls.as_ref().is_none_or(|urls| urls.is_empty())
+    && db.item.get_attachments(&first.id)?.is_empty()
+    && db.item.get_linked_from_ids(&first.id).is_empty();
+  Ok(if promotable { Some(first.clone()) } else { None })
+}
+
+fn convert_composite_to_page(
+  composite: &Item,
+  parent: &Item,
+  promoted_note: Option<&Item>,
+  page: &mut Item,
+  natural_aspect: f64,
+) -> InfuResult<()> {
+  let composite_flags = composite.flags.ok_or("Composite has no flags.")?;
+  let composite_title = composite.title.clone().unwrap_or_default();
+  let title = match promoted_note {
+    Some(note) => note.title.clone().unwrap_or_default().trim().to_owned(),
+    None => composite_title.clone(),
+  };
+  let mut flags = composite_flags & (LIST_PAGE_PIN_TOP_FLAG | LIST_PAGE_PIN_BOTTOM_FLAG);
+  // A title the composite deliberately hid stays hidden.
+  if composite_title.trim() != "" && composite_flags & CompositeFlags::ShowTitle.bits() == 0 {
+    flags |= PAGE_HIDE_DOCUMENT_TITLE_FLAG;
+  }
+  let mut settings = default_converted_page_settings(natural_aspect);
+  // Children of a composite are visible exactly when its parent page is. Carry that over to the new page.
+  settings.permission_flags = parent.permission_flags.ok_or("Parent page has no permissionFlags.")?;
+
+  page.item_type = ItemType::Page;
+  page.title = Some(title);
+  page.spatial_width_gr = Some(settings.spatial_width_gr);
+  page.spatial_height_gr = None;
+  page.flags = Some(flags);
+  page.table_columns = Some(vec![TableColumn { width_gr: 8 * GRID_SIZE, name: String::from("Title"), align: None }]);
+  page.number_of_visible_columns = Some(1);
+  page.saved_page_settings = None;
+  page.saved_table_settings = None;
+  set_page_fields(page, settings, ArrangeAlgorithm::Document);
+  Ok(())
+}
+
+fn convert_page_to_composite(page: &Item, composite: &mut Item) -> InfuResult<()> {
+  let page_flags = page.flags.ok_or("Page has no flags.")?;
+  let title = page.title.clone().unwrap_or_default();
+  let mut flags = page_flags & (LIST_PAGE_PIN_TOP_FLAG | LIST_PAGE_PIN_BOTTOM_FLAG);
+  if title.trim() != "" && page_flags & PAGE_HIDE_DOCUMENT_TITLE_FLAG == 0 {
+    flags |= CompositeFlags::ShowTitle.bits();
+  }
+
+  composite.item_type = ItemType::Composite;
+  composite.title = Some(title);
+  composite.spatial_width_gr = Some(COMPOSITE_FROM_PAGE_WIDTH_BL * GRID_SIZE);
+  composite.spatial_height_gr = None;
+  composite.flags = Some(flags);
+  // A document lays out its children in ordering order whatever its sort setting, so the composite must too.
+  composite.order_children_by = Some(String::new());
+  composite.table_columns = None;
+  composite.number_of_visible_columns = None;
+  composite.saved_page_settings = None;
+  composite.saved_table_settings = None;
+  clear_page_fields(composite);
+  Ok(())
+}
+
 fn convert_page_to_table(page: &Item, parent: &Item, table: &mut Item) -> InfuResult<()> {
   let size = embedded_table_size_from_page(page, parent)?;
   let saved_page = SavedPageSettings::from_page(page)?;
@@ -840,25 +1034,7 @@ fn convert_page_to_table(page: &Item, parent: &Item, table: &mut Item) -> InfuRe
   table.flags = Some(flags);
   table.saved_page_settings = Some(saved_page);
   table.saved_table_settings = None;
-  table.permission_flags = None;
-  table.background_color_index = None;
-  table.natural_aspect = None;
-  table.inner_spatial_width_gr = None;
-  table.list_width_gr = None;
-  table.arrange_algorithm = None;
-  table.default_popup_position_gr = None;
-  table.default_popup_width_gr = None;
-  table.popup_position_gr = None;
-  table.popup_width_gr = None;
-  table.default_cell_popup_position_norm = None;
-  table.default_cell_popup_width_norm = None;
-  table.cell_popup_position_norm = None;
-  table.cell_popup_width_norm = None;
-  table.grid_number_of_columns = None;
-  table.grid_cell_aspect = None;
-  table.doc_width_bl = None;
-  table.justified_row_aspect = None;
-  table.calendar_day_row_height_bl = None;
+  clear_page_fields(table);
   Ok(())
 }
 
@@ -867,11 +1043,7 @@ fn convert_table_to_page(table: &Item, page: &mut Item, default_page_aspect: Opt
   let saved_page = if let Some(settings) = &table.saved_page_settings {
     settings.clone()
   } else {
-    let aspect = default_page_aspect.ok_or("A screen aspect is required to convert a table without saved page settings.")?;
-    if !aspect.is_finite() || aspect <= 0.0 {
-      return Err("Page/table conversion requires a positive screen aspect.".into());
-    }
-    default_converted_page_settings(aspect)
+    default_converted_page_settings(validated_default_page_aspect(default_page_aspect)?)
   };
   let mut flags = saved_page.flags;
   for (page_flag, table_flag) in PAGE_TABLE_FLAG_PAIRS {
@@ -888,26 +1060,61 @@ fn convert_table_to_page(table: &Item, page: &mut Item, default_page_aspect: Opt
   page.flags = Some(flags);
   page.saved_page_settings = None;
   page.saved_table_settings = Some(saved_table);
-  page.permission_flags = Some(saved_page.permission_flags);
-  page.background_color_index = Some(saved_page.background_color_index);
-  page.natural_aspect = Some(saved_page.natural_aspect);
-  page.inner_spatial_width_gr = Some(saved_page.inner_spatial_width_gr);
-  page.list_width_gr = saved_page.list_width_gr;
-  page.arrange_algorithm = Some(ArrangeAlgorithm::Table);
-  page.default_popup_position_gr = Some(saved_page.default_popup_position_gr);
-  page.default_popup_width_gr = Some(saved_page.default_popup_width_gr);
-  page.popup_position_gr = saved_page.popup_position_gr;
-  page.popup_width_gr = saved_page.popup_width_gr;
-  page.default_cell_popup_position_norm = saved_page.default_cell_popup_position_norm;
-  page.default_cell_popup_width_norm = saved_page.default_cell_popup_width_norm;
-  page.cell_popup_position_norm = saved_page.cell_popup_position_norm;
-  page.cell_popup_width_norm = saved_page.cell_popup_width_norm;
-  page.grid_number_of_columns = Some(saved_page.grid_number_of_columns);
-  page.grid_cell_aspect = Some(saved_page.grid_cell_aspect);
-  page.doc_width_bl = Some(saved_page.doc_width_bl);
-  page.justified_row_aspect = Some(saved_page.justified_row_aspect);
-  page.calendar_day_row_height_bl = saved_page.calendar_day_row_height_bl;
+  set_page_fields(page, saved_page, ArrangeAlgorithm::Table);
   Ok(())
+}
+
+fn validated_default_page_aspect(default_page_aspect: Option<f64>) -> InfuResult<f64> {
+  let aspect = default_page_aspect.ok_or("A screen aspect is required to convert to a page without saved settings.")?;
+  if !aspect.is_finite() || aspect <= 0.0 {
+    return Err("Conversion to a page requires a positive screen aspect.".into());
+  }
+  Ok(aspect)
+}
+
+/// Page-only fields, other than spatial width and flags, which every conversion sets separately.
+fn set_page_fields(page: &mut Item, settings: SavedPageSettings, arrange_algorithm: ArrangeAlgorithm) {
+  page.permission_flags = Some(settings.permission_flags);
+  page.background_color_index = Some(settings.background_color_index);
+  page.natural_aspect = Some(settings.natural_aspect);
+  page.inner_spatial_width_gr = Some(settings.inner_spatial_width_gr);
+  page.list_width_gr = settings.list_width_gr;
+  page.arrange_algorithm = Some(arrange_algorithm);
+  page.default_popup_position_gr = Some(settings.default_popup_position_gr);
+  page.default_popup_width_gr = Some(settings.default_popup_width_gr);
+  page.popup_position_gr = settings.popup_position_gr;
+  page.popup_width_gr = settings.popup_width_gr;
+  page.default_cell_popup_position_norm = settings.default_cell_popup_position_norm;
+  page.default_cell_popup_width_norm = settings.default_cell_popup_width_norm;
+  page.cell_popup_position_norm = settings.cell_popup_position_norm;
+  page.cell_popup_width_norm = settings.cell_popup_width_norm;
+  page.grid_number_of_columns = Some(settings.grid_number_of_columns);
+  page.grid_cell_aspect = Some(settings.grid_cell_aspect);
+  page.doc_width_bl = Some(settings.doc_width_bl);
+  page.justified_row_aspect = Some(settings.justified_row_aspect);
+  page.calendar_day_row_height_bl = settings.calendar_day_row_height_bl;
+}
+
+fn clear_page_fields(item: &mut Item) {
+  item.permission_flags = None;
+  item.background_color_index = None;
+  item.natural_aspect = None;
+  item.inner_spatial_width_gr = None;
+  item.list_width_gr = None;
+  item.arrange_algorithm = None;
+  item.default_popup_position_gr = None;
+  item.default_popup_width_gr = None;
+  item.popup_position_gr = None;
+  item.popup_width_gr = None;
+  item.default_cell_popup_position_norm = None;
+  item.default_cell_popup_width_norm = None;
+  item.cell_popup_position_norm = None;
+  item.cell_popup_width_norm = None;
+  item.grid_number_of_columns = None;
+  item.grid_cell_aspect = None;
+  item.doc_width_bl = None;
+  item.justified_row_aspect = None;
+  item.calendar_day_row_height_bl = None;
 }
 
 fn default_converted_page_settings(natural_aspect: f64) -> SavedPageSettings {

@@ -18,6 +18,7 @@
 
 import { Component, Show } from "solid-js";
 import { ClickState } from "../../../input/state";
+import { pageCompositeConversionEligibility } from "../../../items/page-composite-conversion";
 import { pageTableConversionEligibility } from "../../../items/page-table-conversion";
 import { useStore } from "../../../store/StoreProvider";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
@@ -33,7 +34,9 @@ export const Toolbar_MoreActions: Component = () => {
     // The focused page can change before its visual element reaches the current scene.
     // topTitledPages updates after scene promotion, when eligibility can be checked again.
     store.topTitledPages.get();
-    return pageTableConversionEligibility(store, getToolbarFocusPathMaybe(store)).allowed;
+    const focusPath = getToolbarFocusPathMaybe(store);
+    return pageTableConversionEligibility(store, focusPath).allowed ||
+      pageCompositeConversionEligibility(store, focusPath).allowed;
   };
 
   const handleClick = () => {

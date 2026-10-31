@@ -470,6 +470,8 @@ interface ContainerSyncAck {
 
 interface MutationCommandResponse {
   item?: object,
+  /** An item the mutation deleted as part of it. */
+  removedItemId?: Uid,
   syncAck?: ContainerSyncAck,
 }
 
@@ -520,6 +522,7 @@ const COMMAND_GET_ITEMS = "get-items";
 const COMMAND_ADD_ITEM = "add-item";
 const COMMAND_UPDATE_ITEM = "update-item";
 const COMMAND_CONVERT_PAGE_TABLE = "convert-page-table";
+const COMMAND_CONVERT_PAGE_COMPOSITE = "convert-page-composite";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_SCOPES = "list-scopes";
@@ -559,6 +562,7 @@ function getCommandDescription(command: string, payload: any): { description: st
       description = `Updating ${payload.itemType || 'item'}`;
       break;
     case COMMAND_CONVERT_PAGE_TABLE:
+    case COMMAND_CONVERT_PAGE_COMPOSITE:
       description = `Converting ${payload.expectedItemType} to ${payload.targetItemType}`;
       break;
     case COMMAND_DELETE_ITEM:
@@ -607,7 +611,8 @@ let inProgressNonGet: ServerCommand | null = null; // any non-read command curre
 const inProgressReadCommands: Array<ServerCommand> = [];
 const inProgressStreamingCommands: Array<ServerCommand> = [];
 const MUTATION_COMMANDS = new Set<string>([
-  COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_CONVERT_PAGE_TABLE, COMMAND_DELETE_ITEM, COMMAND_EMPTY_TRASH,
+  COMMAND_ADD_ITEM, COMMAND_UPDATE_ITEM, COMMAND_CONVERT_PAGE_TABLE, COMMAND_CONVERT_PAGE_COMPOSITE, COMMAND_DELETE_ITEM,
+  COMMAND_EMPTY_TRASH,
   COMMAND_ENSURE_QUERY_ENTRY,
 ]);
 let pendingMutationCommands = 0;
@@ -1303,6 +1308,24 @@ export const server = {
       }
       applySyncAck(response.syncAck);
       return response.item;
+    });
+  },
+
+  /** Also returns the id of the composite's heading note, if it was made the page's title and deleted. */
+  convertPageComposite: async (
+    id: Uid,
+    expectedItemType: "page" | "composite",
+    targetItemType: "page" | "composite",
+    defaultPageAspect: number | null,
+  ): Promise<{ item: object, removedItemId: Uid | null }> => {
+    return constructCommandPromise(
+      null, COMMAND_CONVERT_PAGE_COMPOSITE, { id, expectedItemType, targetItemType, defaultPageAspect }, null,
+    ).then((response: MutationCommandResponse) => {
+      if (response?.item == null) {
+        throw new Error(`Conversion of item '${id}' did not return the converted item.`);
+      }
+      applySyncAck(response.syncAck);
+      return { item: response.item, removedItemId: response.removedItemId ?? null };
     });
   },
 

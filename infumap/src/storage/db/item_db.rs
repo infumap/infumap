@@ -863,7 +863,10 @@ impl ItemDb {
       .clone();
     if !matches!(
       (old_item.item_type, item.item_type),
-      (ItemType::Page, ItemType::Table) | (ItemType::Table, ItemType::Page)
+      (ItemType::Page, ItemType::Table)
+        | (ItemType::Table, ItemType::Page)
+        | (ItemType::Page, ItemType::Composite)
+        | (ItemType::Composite, ItemType::Page)
     ) || old_item.owner_id != item.owner_id
       || old_item.parent_id != item.parent_id
       || old_item.relationship_to_parent != item.relationship_to_parent
