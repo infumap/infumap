@@ -56,15 +56,15 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      // Only files can be dropped. Anything else (text, links, html) is refused here, which shows the no-drop cursor
-      // and means no drop event follows. This includes editable fields on the desktop, which the window level guard
-      // in Main leaves to the browser.
-      ev.dataTransfer.dropEffect = dataTransferContainsFiles(ev.dataTransfer) ? "copy" : "none";
       if (clearExternalUploadHoverTimeoutId != null) {
         clearTimeout(clearExternalUploadHoverTimeoutId);
         clearExternalUploadHoverTimeoutId = null;
       }
-      updateExternalUploadHover(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
+      // Refused drags (anything but files, or files where they can't go) show the no-drop cursor and get no drop
+      // event. This includes text drags over editable fields on the desktop, which the window level guard in Main
+      // leaves to the browser.
+      const accepted = updateExternalUploadHover(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
+      ev.dataTransfer.dropEffect = accepted ? "copy" : "none";
     }
   };
 

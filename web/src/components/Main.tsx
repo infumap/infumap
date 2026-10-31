@@ -415,14 +415,11 @@ export const Main: Component = () => {
     }
 
     ev.preventDefault();
-    if (ev.dataTransfer) {
-      ev.dataTransfer.dropEffect = "copy";
-    }
-
     if (ev.type == "dragenter" || ev.type == "dragover") {
       cancelExternalFileDragLeaveClear();
       CursorEventState.setFromMouseEvent(ev);
-      updateExternalUploadHover(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
+      const accepted = updateExternalUploadHover(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
+      ev.dataTransfer.dropEffect = accepted ? "copy" : "none";
     }
   };
 

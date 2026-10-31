@@ -832,6 +832,20 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     attachFileInput?.click();
   };
 
+  /**
+   * Claims a file drag over the message being written, so the page under it neither shows where the files would go
+   * nor refuses them, which would prevent the drop (e.g. on the queries workspace, which items can't be added to).
+   */
+  const dragOverFilesToAttach = (ev: DragEvent) => {
+    if (!dataTransferContainsFiles(ev.dataTransfer)) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    ev.dataTransfer.dropEffect = "copy";
+    clearExternalUploadHover(store);
+  };
+
   /** Files dropped on the message being written are attached to it, not uploaded to the page under it. */
   const dropFilesToAttach = (ev: DragEvent) => {
     if (!dataTransferContainsFiles(ev.dataTransfer)) {
@@ -1494,6 +1508,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           style={`left: ${contentLeftPx()}px; bottom: ${QUERY_CHAT_COMPOSER_BOTTOM_PX}px; ` +
             `width: ${contentWidthPx()}px; height: ${wrapperHeightPx()}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}
           {...{ [CHAT_ITEM_DROP_ATTRIBUTE]: vePath() }}
+          onDragOver={dragOverFilesToAttach}
           onDrop={dropFilesToAttach}
           onMouseDown={stop}
           onMouseUp={stop}
@@ -1935,6 +1950,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   : initialControlsTopPx()}px; ` +
                 `width: ${controlsWidthPx()}px;`}
               {...{ [CHAT_ITEM_DROP_ATTRIBUTE]: selectedInputMode() == "chat" ? vePath() : undefined }}
+              onDragOver={(ev) => {
+                if (selectedInputMode() == "chat") {
+                  dragOverFilesToAttach(ev);
+                }
+              }}
               onDrop={(ev) => {
                 if (selectedInputMode() == "chat") {
                   dropFilesToAttach(ev);

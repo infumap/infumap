@@ -727,21 +727,31 @@ export function clearExternalUploadHover(store: StoreContextModel): void {
   externalUploadDropTarget = null;
 }
 
+/**
+ * Whether a drop at the position would be accepted, so the drag can show it before it's let go. A refused drag gets
+ * no drop event, so says nothing more. Checks that need the files themselves (folders, sizes) can only be made on drop.
+ */
 export function updateExternalUploadHover(
   store: StoreContextModel,
   dataTransfer: DataTransfer,
   desktopPx: Vector,
-): void {
+): boolean {
   if (!dataTransferContainsFiles(dataTransfer) || externalUploadInProgress) {
     clearExternalUploadHover(store);
-    return;
+    return false;
   }
 
   const target = resolveExternalUploadTarget(store, desktopPx, true);
-  externalUploadDropTarget = target != null && uploadTargetAcceptsManualChildAdd(target) ? target : null;
-  if (target != null && externalUploadDropTarget == null) {
+  // The number of files is known while dragging, though not the files. Zero means it isn't (see the drop handler).
+  const dragFileCount = Array.from(dataTransfer.items).filter(item => item.kind == "file").length;
+  const accepted = target != null &&
+    uploadTargetAcceptsManualChildAdd(target) &&
+    !(isAttachmentTarget(target) && dragFileCount > 1);
+  externalUploadDropTarget = accepted ? target : null;
+  if (target != null && !accepted) {
     clearExternalUploadHover(store);
   }
+  return accepted;
 }
 
 export async function handleExternalUploadDrop(
