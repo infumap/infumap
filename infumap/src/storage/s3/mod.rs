@@ -21,7 +21,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use infusdk::util::infu::{InfuError, InfuResult};
 use infusdk::util::uid::Uid;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use s3::creds::Credentials;
 use s3::error::S3Error;
 use s3::request::ResponseData;
@@ -309,7 +309,6 @@ pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
     return Err(format!("Expected list_page status code to be 200, not {}", lb_rs.1).into());
   }
   loop {
-    debug!("Retrieved {} filenames", lb_rs.0.contents.len());
     for c in lb_rs.0.contents {
       let mut parts = c.key.split("_");
       let user_id = parts.next().ok_or(format!("Unexpected object filename {}", c.key))?;
@@ -319,6 +318,8 @@ pub async fn list(s3_store: Arc<S3Store>) -> InfuResult<Vec<ItemAndUserId>> {
       }
       result.push(ItemAndUserId { user_id: String::from(user_id), item_id: String::from(item_id) });
     }
+    // Listing a large bucket takes minutes (one request per 1000 objects), so report progress.
+    info!("Listed {} objects so far.", result.len());
     if let Some(ct) = lb_rs.0.next_continuation_token {
       lb_rs = s3_store
         .bucket
