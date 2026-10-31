@@ -268,6 +268,23 @@ pub async fn execute<'a>(sub_matches: &ArgMatches) -> InfuResult<()> {
 
   let port = sub_matches.get_one::<String>("port").map(|s| s.parse::<u16>().unwrap_or(8042)).unwrap_or(8042);
 
+  // The existing user data directory is replaced below. If it has a local object store, that may hold a full download
+  // of the user's files (e.g. via `reconcile missing --copy`), which would be very costly to lose, so refuse instead.
+  // Checked before anything is fetched or written, so a refusal leaves the recovery directory untouched.
+  let mut existing_files_dir = expand_tilde(recovery_dir).ok_or("Could not expand settings path.")?;
+  existing_files_dir.push("data");
+  existing_files_dir.push(format!("user_{}", user_id));
+  existing_files_dir.push("files");
+  if std::fs::symlink_metadata(&existing_files_dir).is_ok() {
+    return Err(
+      format!(
+        "{:?} exists and would be deleted. Use a different --recovery-dir, or move it out of the way first.",
+        existing_files_dir
+      )
+      .into(),
+    );
+  }
+
   info!("fetching list of backup files.");
   let bs = crate::storage::backup::new(
     s3_backup_region,
