@@ -53,6 +53,12 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
   // gets no native menu.
   const isEditingTitle = () =>
     canEdit() && store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == null;
+  let titleDiv: HTMLDivElement | undefined;
+  // Editing a long title scrolls it horizontally to follow the caret. The ellipsis is laid out against the unscrolled
+  // box, so a leftover scroll offset after editing shifts the truncated text out of view.
+  createEffect(() => {
+    if (!isEditingTitle() && titleDiv != null) { titleDiv.scrollLeft = 0; }
+  });
   const isPopup = () => !(!(props.visualElement.flags & VisualElementFlags.Popup));
   const vePath = () => VeFns.veToPath(props.visualElement);
   const showTitle = () => tableTitleHeaderHeightBl(tableItem()) > 0;
@@ -270,13 +276,13 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <div class={`absolute pointer-events-none ${!props.suppressLocalShadow && store.perVe.getMouseIsOver(vePath()) ? 'shadow-md' : ''}`}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 2;`}>
         <Show when={showTitle()}>
-          <div id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={`absolute font-bold ${isEditingTitle() ? "pointer-events-auto select-text cursor-text" : ""}`}
+          <div ref={titleDiv} id={VeFns.veToPath(props.visualElement) + ":title"}
+            class={`absolute font-bold overflow-hidden whitespace-nowrap ` +
+              (isEditingTitle() ? "pointer-events-auto select-text cursor-text" : "text-ellipsis")}
             style={`left: 0px; top: 0px; ` +
               `width: ${boundsPx().w / scale()}px; height: ${titleHeaderHeightPx() / scale()}px; ` +
               `line-height: ${LINE_HEIGHT_PX * TABLE_TITLE_HEADER_HEIGHT_BL}px; ` +
               `transform: scale(${scale()}); transform-origin: top left; ` +
-              `overflow-wrap: break-word; ` +
               `outline: 0px solid transparent;`}
             contentEditable={isEditingTitle()}
             spellcheck={isEditingTitle()}
