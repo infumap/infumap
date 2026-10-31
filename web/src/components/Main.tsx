@@ -398,7 +398,19 @@ export const Main: Component = () => {
   };
 
   const externalFileDragGuardListener = (ev: DragEvent) => {
+    // Not narrowed by the type guard below, which would make it `never` in the non-file branch.
+    const dataTransfer: DataTransfer | null = ev.dataTransfer;
     if (!dataTransferContainsFiles(ev.dataTransfer)) {
+      // Only files can be dropped. Refuse anything else (text, links, html) so it shows the no-drop cursor and
+      // the browser doesn't act on it, e.g. by navigating to a dropped link. Editable fields keep the browser's
+      // text drop, unless on the desktop, which refuses these itself.
+      const target = ev.target;
+      const isEditableTarget = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (ev.type != "drop" && !isEditableTarget) {
+        ev.preventDefault();
+        if (dataTransfer) { dataTransfer.dropEffect = "none"; }
+      }
       return;
     }
 

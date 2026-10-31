@@ -425,19 +425,6 @@ function resolveExternalUploadTarget(
   return target;
 }
 
-function handleStringTypeDataMaybe(dataTransfer: DataTransfer, desktopPx: Vector): void {
-  for (let item of dataTransfer.items) {
-    if (item.kind != "string") {
-      continue;
-    }
-    if (item.type == "text/html") {
-      item.getAsString((txt) => {
-        console.debug("TODO: upload clippings", txt, desktopPx);
-      });
-    }
-  }
-}
-
 function waitForBrowserAfterDrop(): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, 0);
@@ -762,6 +749,13 @@ export async function handleExternalUploadDrop(
   dataTransfer: DataTransfer,
   desktopPx: Vector,
 ): Promise<void> {
+  // Other drags are refused on dragover, so shouldn't get here, but if one does it must not look like it worked.
+  if (!dataTransferContainsFiles(dataTransfer)) {
+    clearExternalUploadHover(store);
+    showTransientMessage(store, "Only files can be dropped here");
+    return;
+  }
+
   if (externalUploadInProgress) {
     clearExternalUploadHover(store);
     showTransientMessage(store, "Wait for the current upload to finish");
@@ -778,6 +772,13 @@ export async function handleExternalUploadDrop(
     await waitForBrowserAfterDrop();
 
     const fileCount = files.length;
+    // The drag said it had files, but the browser didn't provide any, e.g. if the source only offers to create them
+    // on request (macOS file promises).
+    if (fileCount == 0) {
+      showTransientMessage(store, "Couldn't get any files from this drop");
+      return;
+    }
+
     if (fileCount > MAX_EXTERNAL_UPLOAD_FILES) {
       showTransientMessage(store, `Can only drop up to ${MAX_EXTERNAL_UPLOAD_FILES} files at once`);
       return;
@@ -823,19 +824,4 @@ export async function handleExternalUploadDrop(
     externalUploadInProgress = false;
     clearExternalUploadHover(store);
   }
-}
-
-export async function handleUpload(
-  store: StoreContextModel,
-  dataTransfer: DataTransfer,
-  desktopPx: Vector,
-  parent: PageItem) {
-
-  handleStringTypeDataMaybe(dataTransfer, desktopPx);
-  await waitForBrowserAfterDrop();
-  if (!uploadTargetAcceptsManualChildAdd({ kind: "page-background", parent })) {
-    showTransientMessage(store, "Can't add items to this page");
-    return;
-  }
-  await uploadFilesToTarget(store, Array.from(dataTransfer.files), desktopPx, { kind: "page-background", parent });
 }

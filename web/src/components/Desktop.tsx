@@ -19,17 +19,13 @@
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { useStore } from "../store/StoreProvider";
 import { ContextMenu } from "./overlay/ContextMenu";
-import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, handleUpload, updateExternalUploadHover } from "../upload";
-import { HitboxFlags } from "../layout/hitbox";
-import { asPageItem, isPage } from "../items/page-item";
+import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
-import { HitInfoFns } from "../input/hit";
 import { CursorEventState } from "../input/state";
 import { EditUserSettings } from "./overlay/UserSettings";
 import { Panic } from "./overlay/Panic";
 import { TableColumnContextMenu } from "./overlay/TableColumnContextMenu";
-import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { SELECTION_MARQUEE_FILL_COLOR, SELECTION_MARQUEE_BORDER_COLOR } from "../style";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../constants";
 import { MovingItemsOverlay } from "./MovingItemsOverlay";
@@ -51,27 +47,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         clearTimeout(clearExternalUploadHoverTimeoutId);
         clearExternalUploadHoverTimeoutId = null;
       }
-      if (dataTransferContainsFiles(ev.dataTransfer)) {
-        await handleExternalUploadDrop(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
-        return;
-      }
-      let hitInfo = HitInfoFns.hitForDrop(store, CursorEventState.getLatestDesktopPx(store), [], false);
-      if (hitInfo.hitboxType != HitboxFlags.None) {
-        store.overlay.toolbarTransientMessage.set({ text: "Must upload on background", type: TransientMessageType.Error });
-        setTimeout(() => {
-          store.overlay.toolbarTransientMessage.set(null);
-        }, 3000);
-        return;
-      }
-      let item = HitInfoFns.getHitVe(hitInfo).displayItem;
-      if (!isPage(item)) {
-        store.overlay.toolbarTransientMessage.set({ text: "Must upload on page", type: TransientMessageType.Error });
-        setTimeout(() => {
-          store.overlay.toolbarTransientMessage.set(null);
-        }, 3000);
-        return;
-      }
-      await handleUpload(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store), asPageItem(item));
+      await handleExternalUploadDrop(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
     }
   };
 
@@ -80,7 +56,10 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.dataTransfer) {
-      ev.dataTransfer.dropEffect = "copy";
+      // Only files can be dropped. Anything else (text, links, html) is refused here, which shows the no-drop cursor
+      // and means no drop event follows. This includes editable fields on the desktop, which the window level guard
+      // in Main leaves to the browser.
+      ev.dataTransfer.dropEffect = dataTransferContainsFiles(ev.dataTransfer) ? "copy" : "none";
       if (clearExternalUploadHoverTimeoutId != null) {
         clearTimeout(clearExternalUploadHoverTimeoutId);
         clearExternalUploadHoverTimeoutId = null;
