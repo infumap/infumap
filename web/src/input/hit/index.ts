@@ -379,8 +379,10 @@ export function getHitInfo(
   // offsets, which can otherwise turn toolbar positions into hits on hidden items.
   if (posOnDesktopPx.y < 0) {
     const pageVes = VesCache.render.getChildren(VeFns.veToPath(umbrellaVe))()[0];
+    // Relative to the page, which starts right of the dock, as in determineTopLevelRoot.
+    const posRelativeToPagePx = { x: posOnDesktopPx.x - store.getCurrentDockWidthPx(), y: posOnDesktopPx.y };
     return new HitBuilder(null, pageVes).over(pageVes)
-      .pos(posOnDesktopPx).createdAt("above-desktop").build();
+      .pos(posRelativeToPagePx).createdAt("above-desktop").build();
   }
   let rootInfo = determineTopLevelRoot(store, umbrellaVe, posOnDesktopPx, hitboxOptions);
   const popupTitleHit = hitRenderedPopupTitleMaybe(store, posOnDesktopPx, canHitEmbeddedInteractive, hitboxOptions);
