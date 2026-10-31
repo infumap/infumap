@@ -419,11 +419,10 @@ pub(super) async fn add_item_for_user_with_mime_type(
     let object_encryption_key = object_encryption_key_maybe
       .as_ref()
       .ok_or("Internal error: encryption key should have been set for data item.")?;
-    let storage_started = Instant::now();
-    object::put(object_store.clone(), &session_user_id, &item.id, &decoded, object_encryption_key).await?;
-    storage_ms = storage_started.elapsed().as_millis();
 
-    if is_image_item(&item) {
+    // Images are validated before their data is stored, so one that can't be decoded doesn't leave an orphaned
+    // object behind.
+    let decoded = if is_image_item(&item) {
       let image_started = Instant::now();
       let title = match &item.title {
         Some(title) => title,
@@ -440,23 +439,23 @@ pub(super) async fn add_item_for_user_with_mime_type(
         .map_err(|e| format!("Image processing semaphore closed: {}", e))?;
       let item_id = item.id.clone();
       let title = title.clone();
-      let (width, height, placeholder) = tokio::task::spawn_blocking(move || -> InfuResult<(u32, u32, Vec<u8>)> {
-        let _permit = permit;
-        // TODO (LOW): clone here seems a bit excessive.
-        let exif_orientation = get_exif_orientation(decoded.clone(), &title);
-        let file_cursor = Cursor::new(decoded);
-        let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
-        let img = file_reader.decode().ok().ok_or(format!(
-          "Could not add new image item '{}' - could not interpret base64 data as an image.",
-          item_id
-        ))?;
-        let img = adjust_image_for_exif_orientation(img, exif_orientation, &title);
-        let placeholder = create_image_placeholder(&img)
-          .map_err(|e| format!("An error occurred creating the placeholder for new image '{}': {}.", item_id, e))?;
-        Ok((img.width(), img.height(), placeholder))
-      })
-      .await
-      .map_err(|e| format!("Image processing task for new image '{}' failed: {}", item.id, e))??;
+      let (width, height, placeholder, decoded) =
+        tokio::task::spawn_blocking(move || -> InfuResult<(u32, u32, Vec<u8>, Vec<u8>)> {
+          let _permit = permit;
+          // TODO (LOW): clone here seems a bit excessive.
+          let exif_orientation = get_exif_orientation(decoded.clone(), &title);
+          let file_reader = ImageReader::new(Cursor::new(decoded.as_slice())).with_guessed_format()?;
+          let img = file_reader.decode().ok().ok_or(format!(
+            "Could not add new image item '{}' - could not interpret base64 data as an image.",
+            item_id
+          ))?;
+          let img = adjust_image_for_exif_orientation(img, exif_orientation, &title);
+          let placeholder = create_image_placeholder(&img)
+            .map_err(|e| format!("An error occurred creating the placeholder for new image '{}': {}.", item_id, e))?;
+          Ok((img.width(), img.height(), placeholder, decoded))
+        })
+        .await
+        .map_err(|e| format!("Image processing task for new image '{}' failed: {}", item.id, e))??;
 
       let thumbnail_base64 = general_purpose::STANDARD.encode(placeholder);
       if item.thumbnail.unwrap() != "" {
@@ -488,7 +487,14 @@ pub(super) async fn add_item_for_user_with_mime_type(
       }
       item.image_size_px = Some(Dimensions { w: width as i64, h: height as i64 });
       image_ms = image_started.elapsed().as_millis();
-    }
+      decoded
+    } else {
+      decoded
+    };
+
+    let storage_started = Instant::now();
+    object::put(object_store.clone(), &session_user_id, &item.id, &decoded, object_encryption_key).await?;
+    storage_ms = storage_started.elapsed().as_millis();
   } else {
     if base64_data_maybe.is_some() {
       return Err("Add item request has base64 data, when this is not expected.".into());
