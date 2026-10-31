@@ -47,6 +47,9 @@ import { sanitizeOriginalCreationDate } from "./util/time";
 
 const EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD = 10;
 const EXTERNAL_UPLOAD_CONFIRMATION_FILE_BYTES = 10 * 1024 * 1024;
+// Text files become text items, which are shown in full when opened. Pasted text is capped at this size
+// (MAX_CLIPBOARD_TEXT_BYTES); a dropped file isn't, as it is stored unmodified, but larger ones need confirming.
+const TEXT_UPLOAD_CONFIRMATION_FILE_BYTES = 1024 * 1024;
 const MAX_EXTERNAL_UPLOAD_FILES = 100;
 // Files are sent base64 encoded in a JSON command, which the server caps at 256 MiB (COMMAND_REQUEST_MAX_BYTES).
 // Refusing larger files up front avoids reading and encoding them only to be rejected, and keeps the base64 string
@@ -438,14 +441,25 @@ function dataTransferContainsDirectory(dataTransfer: DataTransfer): boolean {
 }
 
 function confirmLargeExternalUploadMaybe(files: ReadonlyArray<File>): boolean {
-  const hasLargeFile = files.some(file => file.size > EXTERNAL_UPLOAD_CONFIRMATION_FILE_BYTES);
-  if (files.length <= EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD && !hasLargeFile) {
+  const isSlowUpload = files.length > EXTERNAL_UPLOAD_CONFIRMATION_FILE_THRESHOLD ||
+    files.some(file => file.size > EXTERNAL_UPLOAD_CONFIRMATION_FILE_BYTES);
+  const largeTextFiles = files.filter(file =>
+    uploadItemTypeForFile(file) == ItemType.Text && file.size > TEXT_UPLOAD_CONFIRMATION_FILE_BYTES);
+  if (!isSlowUpload && largeTextFiles.length == 0) {
     return true;
   }
 
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
   const what = files.length == 1 ? `"${files[0].name}"` : `${files.length} files`;
-  return window.confirm(`Upload ${what} (${formatBytes(totalBytes)})? This may take a while.`);
+  let message = `Upload ${what} (${formatBytes(totalBytes)})?`;
+  if (largeTextFiles.length > 0) {
+    const which = largeTextFiles.length == 1 && files.length > 1 ? ` "${largeTextFiles[0].name}" is` : files.length == 1 ? " It is" : " Some are";
+    message += `${which} over ${formatBytes(TEXT_UPLOAD_CONFIRMATION_FILE_BYTES)} of text, which may be slow to open as a text item.`;
+  }
+  if (isSlowUpload) {
+    message += " This may take a while.";
+  }
+  return window.confirm(message);
 }
 
 function uploadPositionForPage(
