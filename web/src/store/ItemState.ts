@@ -236,7 +236,14 @@ export const itemState = {
   /** Whether the children of a container are in the order of their orderings, rather than sorted by title. */
   childrenAreInOrderingOrder: (parentId: Uid): boolean => {
     const container = asContainerItem(itemState.get(parentId)!);
-    return container.orderChildrenBy == "" || (isPage(container) && asPageItem(container).arrangeAlgorithm == ArrangeAlgorithm.Document);
+    if (container.orderChildrenBy == "") { return true; }
+    if (!isPage(container)) { return false; }
+    // Spatial child order is z-order, which bring to front / send to back and item creation control via
+    // `ordering`. New pages default to title[ASC] and the sort control is hidden for spatial pages, so
+    // honoring orderChildrenBy here silently stacked items by title. It's kept for when the page is
+    // switched to a title-sortable arrangement.
+    const arrangeAlgorithm = asPageItem(container).arrangeAlgorithm;
+    return arrangeAlgorithm == ArrangeAlgorithm.Document || arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
   },
 
   sortChildren: (parentId: Uid): void => {
