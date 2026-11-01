@@ -23,8 +23,7 @@ import { VisualElementPath, VeFns } from "../layout/visual-element";
 import { server, type ContinueChatResponse } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { ensureQueryConfigurationReady } from "./query-configuration-state";
-import { queryConfigurationUnavailableReason } from "./query-configuration-availability";
+import { querySearchUnavailableReason } from "./query-configuration-availability";
 import type { ChatDraftAttachment } from "./chat-attachment";
 import { asContainerItem, isContainer } from "./base/container-item";
 import type { Uid } from "../util/uid";
@@ -146,15 +145,15 @@ export async function runQuerySearch(
     return true;
   }
 
-  await ensureQueryConfigurationReady(store, queryItem);
-  const unavailable = queryConfigurationUnavailableReason(store, getQueryRuntime(store, queryItem).configuration, "search");
+  const scopeId = store.general.searchScopeId();
+  const unavailable = querySearchUnavailableReason(scopeId);
   if (unavailable != null) { throw new Error(unavailable); }
   setQueryMode(store, queryItem, "search");
   setQuerySearchArrangeAlgorithm(store, queryItem, store.general.searchResultsArrangeAlgorithm());
   requestArrange(store, "query-search-start");
 
   const response = await server.search(
-    null, text, 1, getQueryRuntime(store, queryItem).configuration.scopeId,
+    null, text, 1, scopeId,
   );
   if (options.shouldApply && !options.shouldApply()) {
     return false;
@@ -184,13 +183,13 @@ export async function loadMoreQuerySearchResults(
     return false;
   }
 
-  await ensureQueryConfigurationReady(store, queryItem);
-  const unavailable = queryConfigurationUnavailableReason(store, getQueryRuntime(store, queryItem).configuration, "search");
+  const scopeId = store.general.searchScopeId();
+  const unavailable = querySearchUnavailableReason(scopeId);
   if (unavailable != null) { throw new Error(unavailable); }
   const loadedPageCount = getQuerySearchLoadedPageCount(store, queryItem);
   const nextPage = Math.max(1, loadedPageCount + 1);
   const response = await server.search(
-    null, requestedQuery, nextPage, getQueryRuntime(store, queryItem).configuration.scopeId,
+    null, requestedQuery, nextPage, scopeId,
   );
   if (options.shouldApply && !options.shouldApply()) {
     return false;

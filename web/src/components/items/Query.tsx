@@ -30,7 +30,7 @@ import { QueryToolsPicker } from "./QueryToolsPicker";
 import { QueryScopePicker } from "./QueryScopePicker";
 import { QueryProfileBar } from "./QueryProfileBar";
 import { initializeQueryConfiguration, queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
-import { queryConfigurationUnavailableReason } from "../../items/query-configuration-availability";
+import { queryConfigurationUnavailableReason, querySearchUnavailableReason } from "../../items/query-configuration-availability";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -321,6 +321,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const selectedInputMode = (): QueryInputMode =>
     isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
   const configurationUnavailableReason = () => {
+    if (selectedInputMode() == "search") { return querySearchUnavailableReason(store.general.searchScopeId()); }
     const runtime = getQueryRuntime(store, queryItem());
     return runtime.configurationInitialized
       ? queryConfigurationUnavailableReason(store, runtime.configuration, selectedInputMode(), runtime.scopeItemIds) : null;
@@ -1915,6 +1916,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <QueryScopePicker
           queryItem={queryItem} disabled={queryRequestActive}
           inUse={() => selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}
+          searchScope={() => selectedInputMode() == "search"}
           usesScopeItems={() => selectedInputMode() == "chat"}
           beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
           onChange={() => { if (isSearchMode()) { void runSearch(false); } }}

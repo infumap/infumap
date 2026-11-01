@@ -49,8 +49,10 @@ The **Scope** control sits below the query input, on the search results border, 
 independent **Model** and **Tools** controls in chat. Its list shows each scope's coverage and problems
 with its definition, such as a link to a deleted item or a container that is not named Exclude. **Edit scopes** opens the Scopes page.
 
-New queries copy the scope from the default [query profile](chats.md#query-profiles). Changing the scope affects only that query;
-it does not change the default profile or other queries.
+Search remembers the last scope you chose for it, separately for each account in each browser. Until you choose
+one, search covers everything. Chats instead copy the scope from the default [query profile](chats.md#query-profiles).
+Changing a chat's scope affects only that chat; it does not change the default profile or other queries. On New Query,
+switching between Search and Chat switches the scope shown.
 
 In a chat, changing the scope applies from the next message. Earlier answers keep what they found.
 Items you add to a chat's context yourself are always sent, whatever the scope.

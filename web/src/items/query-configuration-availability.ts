@@ -51,6 +51,22 @@ export function queryModelIssues(store: StoreContextModel, selection: ChatModelS
   return [];
 }
 
+function queryScopeIssues(scopeId: Uid | null): ResourceIssue[] {
+  if (scopeId == null) { return []; }
+  const summary = queryScopeSummary(scopeId);
+  if (summary === undefined || queryScopesError() != null) {
+    const checking = queryScopesLoading() && queryScopesError() == null;
+    return [{ resource: "scope", status: checking ? "checking" : "unverified", subject: "Scope",
+      message: checking ? "Checking the saved scope's availability…" : "Could not verify the saved scope." }];
+  }
+  if (summary == null) {
+    return [{ resource: "scope", status: "unavailable", subject: "Scope",
+      message: `Scope ${scopeId} no longer exists or is not accessible. Choose another scope.` }];
+  }
+  const problem = queryScopeProblemText(summary.problems);
+  return problem == null ? [] : [{ resource: "scope", status: "warning", subject: queryScopeName(scopeId), message: `${queryScopeName(scopeId)}: ${problem}.` }];
+}
+
 /**
  * Reports facts from discovery without substituting or deleting any saved resource. In a chat, items chosen as its
  * scope replace the selected scope, so that scope's issues are inactive while there are any. Search ignores them.
@@ -63,20 +79,7 @@ export function queryConfigurationIssues(
 ): QueryConfigurationIssue[] {
   const issues: QueryConfigurationIssue[] = [];
   const scopeActive = mode == "search" || (configuration.capabilities.includes("infumap_data") && scopeItemIds.length == 0);
-  if (configuration.scopeId != null) {
-    const summary = queryScopeSummary(configuration.scopeId);
-    if (summary === undefined || queryScopesError() != null) {
-      const checking = queryScopesLoading() && queryScopesError() == null;
-      issues.push({ resource: "scope", status: checking ? "checking" : "unverified", active: scopeActive, subject: "Scope",
-        message: checking ? "Checking the saved scope's availability…" : "Could not verify the saved scope." });
-    } else if (summary == null) {
-      issues.push({ resource: "scope", status: "unavailable", active: scopeActive, subject: "Scope",
-        message: `Scope ${configuration.scopeId} no longer exists or is not accessible. Choose another scope.` });
-    } else {
-      const problem = queryScopeProblemText(summary.problems);
-      if (problem != null) { issues.push({ resource: "scope", status: "warning", active: scopeActive, subject: queryScopeName(configuration.scopeId), message: `${queryScopeName(configuration.scopeId)}: ${problem}.` }); }
-    }
-  }
+  issues.push(...queryScopeIssues(configuration.scopeId).map(issue => ({ ...issue, active: scopeActive })));
   if (mode == "chat" && scopeItemIds.length > 0) {
     // The server leaves out items that do not resolve, and refuses a chat whose items all fail to.
     const missing = scopeItemIds.filter(id => !queryScopeItemResolved(id)).length;
@@ -111,6 +114,11 @@ export function queryConfigurationUnavailableReason(
 ): string | null {
   const messages = queryConfigurationIssues(store, configuration, mode, scopeItemIds).filter(issue => issue.active && issue.status == "unavailable").map(issue => issue.message);
   return messages.length == 0 ? null : messages.join("\n");
+}
+
+/** Search uses the scope remembered for search, not the query's configuration. */
+export function querySearchUnavailableReason(scopeId: Uid | null): string | null {
+  return queryScopeIssues(scopeId).find(issue => issue.status == "unavailable")?.message ?? null;
 }
 
 export async function refreshQueryConfigurationAvailability(store: StoreContextModel): Promise<void> {

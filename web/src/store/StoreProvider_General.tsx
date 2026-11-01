@@ -35,6 +35,8 @@ interface InstallationState {
 interface LocalStorageData {
   prefer2fa?: boolean,
   searchResultsArrangeAlgorithm?: string,
+  /** By account id. An account without an entry searches everything. */
+  searchScopeIds?: { [accountId: string]: Uid },
 }
 
 export type QueryInputMode = "search" | "chat";
@@ -103,6 +105,13 @@ export interface GeneralStoreContextModel {
 
   searchResultsArrangeAlgorithm: () => string,
   setSearchResultsArrangeAlgorithm: (arrangeAlgorithm: string) => void,
+
+  /**
+   * The scope search uses, remembered per account in this browser. Kept apart from the query configuration, which
+   * comes from the chat profile, so that a new query and a reload search where the last search did. Null is everything.
+   */
+  searchScopeId: () => Uid | null,
+  setSearchScopeId: (scopeId: Uid | null) => void,
 
   queryInputMode: () => QueryInputMode,
   setQueryInputMode: (mode: QueryInputMode) => void,
@@ -331,6 +340,21 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
       searchResultsArrangeAlgorithm: normalizedArrangeAlgorithm,
     });
   };
+  const searchScopeId = (): Uid | null => {
+    const id = accountId();
+    if (id == null) { return null; }
+    const scopeId = readLocalStorageData().searchScopeIds?.[id];
+    return typeof scopeId == "string" ? scopeId : null;
+  };
+  const setSearchScopeId = (scopeId: Uid | null) => {
+    const id = accountId();
+    if (id == null || searchScopeId() == scopeId) { return; }
+    const data = readLocalStorageData();
+    const searchScopeIds = { ...data.searchScopeIds };
+    if (scopeId == null) { delete searchScopeIds[id]; }
+    else { searchScopeIds[id] = scopeId; }
+    writeLocalStorageData({ ...data, searchScopeIds });
+  };
   const setQueryInputMode = (mode: QueryInputMode) => {
     setQueryInputModeSignal(normalizeQueryInputMode(mode));
   };
@@ -341,6 +365,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     defaultQueryProfile, setDefaultQueryProfile, queryProfiles,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
+    searchScopeId, setSearchScopeId,
     queryInputMode, setQueryInputMode,
     setNetworkActive, networkBusy,
     inProgressNetworkRequests, setInProgressNetworkRequests,

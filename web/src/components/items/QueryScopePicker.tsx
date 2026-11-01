@@ -34,6 +34,8 @@ interface QueryScopePickerProps extends QueryPickerProps {
   inUse?: () => boolean,
   note?: () => string | null,
   onChange?: () => void,
+  /** Search uses the scope remembered for search, which no query or profile owns, in place of this query's. */
+  searchScope?: () => boolean,
   /** Chat: items chosen as the scope replace the selected one while there are any. Search ignores them. */
   usesScopeItems?: () => boolean,
 }
@@ -44,7 +46,9 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
     void store.general.queryProfiles.retrieve();
     if (queryScopes() == null) { void refreshQueryScopes(store); }
   });
-  const selectedId = () => queryScopeId(store, props.queryItem());
+  const searchScope = () => props.searchScope?.() == true;
+  const selectedId = () => searchScope() ? store.general.searchScopeId() : queryScopeId(store, props.queryItem());
+  const blockedReason = () => searchScope() ? null : queryConfigurationChangeBlockedReason(store, props.queryItem());
   const selectedSummary = () => queryScopeSummary(selectedId());
   const missing = () => selectedId() != null && selectedSummary() === null && queryScopesError() == null;
   const inUse = () => props.inUse?.() != false;
@@ -53,8 +57,8 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
   const missingItemCount = () => scopeItems().filter(id => !queryScopeItemResolved(id)).length;
   const missingItemsText = () => missingItemCount() == 0 ? null
     : `${missingItemCount()} of the items no longer ${missingItemCount() == 1 ? "exists" : "exist"} and will be left out.`;
-  const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
-  const disabled = () => props.disabled?.() == true || queryConfigurationChangeBlockedReason(store, props.queryItem()) != null || !ready() || !inUse();
+  const ready = () => searchScope() || getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
+  const disabled = () => props.disabled?.() == true || blockedReason() != null || !ready() || !inUse();
   const label = () => !inUse() ? "Not used" : itemsActive() ? queryScopeItemsLabel(scopeItems().length) : selectedSummary() === undefined
     ? queryScopesError() == null ? "Loading…" : "Unverified" : selectedSummary() == null && selectedId() != null && queryScopesError() != null ? "Unverified" : queryScopeName(selectedId());
   const warning = () => {
@@ -63,8 +67,7 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
     return inUse() && selectedId() != null && (missing() || queryScopesError() != null || (summary != null && queryScopeProblemText(summary.problems) != null));
   };
   const title = () => {
-    const blockedReason = queryConfigurationChangeBlockedReason(store, props.queryItem());
-    if (blockedReason != null) { return blockedReason; }
+    if (blockedReason() != null) { return blockedReason()!; }
     if (!inUse()) { return `Scope is not used because Infumap tools are off. Saved scope: ${queryScopeName(selectedId())}.`; }
     if (!ready()) { return store.general.queryProfiles.error() ?? "Loading the default query profile…"; }
     if (itemsActive()) {
@@ -83,7 +86,8 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
     close();
     if (id == selectedId()) { return; }
     props.beforeChange?.();
-    setQueryScopeId(store, props.queryItem(), id);
+    if (searchScope()) { store.general.setSearchScopeId(id); }
+    else { setQueryScopeId(store, props.queryItem(), id); }
     props.onChange?.();
   };
   // A change is blocked when the picker is disabled, so there is nothing to report here.

@@ -37,8 +37,8 @@ apply its complete setup. The **Profiles** menu at
 the end of the row lists every profile, including shortcuts that do not fit. Selecting a profile leaves
 existing draft, attachments and Chat / Deep research mode unchanged. If the composer is empty, the referenced
 note's current text fills it, ready to edit and send. Editing the note changes the query template for future
-profile selections; drafts and messages already populated keep their text. Search uses only the scope, so the
-shortcuts are hidden there.
+profile selections; drafts and messages already populated keep their text. Search uses only a scope, and
+remembers its own ([Choosing a scope](scopes.md#choosing-a-scope)), so the shortcuts are hidden there.
 
 New queries start with your default profile. Changing Scope, Model or Tools affects only the current
 query: the applied profile's shortcut then shows a dot. Click that profile again, in the row or the
