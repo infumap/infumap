@@ -21,7 +21,7 @@ import { VeFns, VisualElementPath } from "../layout/visual-element";
 import { VesCache } from "../layout/ves-cache";
 import { requestArrange } from "../layout/arrange";
 import { initiateLoadChildItemsMaybe } from "../layout/load";
-import { switchToPage } from "../layout/navigation";
+import { navigateToLocalRoot, switchToPage } from "../layout/navigation";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "../util/uid";
@@ -103,8 +103,8 @@ export function containerConversionSource(
     source.parentId == null || source.parentId == EMPTY_UID) {
     return { allowed: false, reason: "not-page-child" };
   }
-  if (source.parentId == user.trashPageId || source.parentId == user.dockPageId ||
-    source.parentId == user.queriesPageId) {
+  // The dock is not excluded: its children are ordinary pages, tables and composites.
+  if (source.parentId == user.trashPageId || source.parentId == user.queriesPageId) {
     return { allowed: false, reason: "special-page" };
   }
   const parent = itemState.get(source.parentId);
@@ -141,7 +141,11 @@ export async function applyConvertedItem(
   }
   const converted = itemState.upsertItemFromServerObject(convertedObject, null);
 
-  if (isPage(source) && store.history.currentPageVeid()?.itemId == source.id) {
+  if (isPage(source) && store.history.currentPageVeid()?.itemId == source.id &&
+    parent.id == store.user.getUserMaybe()?.dockPageId) {
+    // The dock is never navigated to as a page (see navigateUp), so go home, where the dock is still shown.
+    await navigateToLocalRoot(store);
+  } else if (isPage(source) && store.history.currentPageVeid()?.itemId == source.id) {
     switchToPage(store, VeFns.veidFromId(parent.id), true, true, false);
     await initiateLoadChildItemsMaybe(store, VeFns.veidFromId(parent.id));
     const parentPath = store.history.currentPagePath();

@@ -824,7 +824,8 @@ fn convertible_source_and_parent(
     return Err(format!("Item '{}' must be an ordinary child to be converted.", id).into());
   }
   let parent_id = source.parent_id.as_ref().ok_or(format!("Item '{}' has no parent.", id))?;
-  if protected_ids[1..].contains(parent_id) {
+  // The dock is not excluded: its children are ordinary pages, tables and composites.
+  if *parent_id == user.trash_page_id || *parent_id == user.queries_page_id {
     return Err(format!("Item '{}' is inside a special page and cannot be converted.", id).into());
   }
   let parent = db.item.get(parent_id)?.clone();
