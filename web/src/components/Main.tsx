@@ -37,7 +37,7 @@ import {
   markChildrenLoadAsInitiatedOrComplete,
 } from "../layout/load";
 import { itemState } from "../store/ItemState";
-import { ensureQueryItemUnderQueries, highlightGroup, navigateToQueries, preloadQueries, replaceUrlWithCurrentPage, switchToItem, switchToNonPage, switchToPage } from "../layout/navigation";
+import { ensureQueryItemUnderQueries, highlightGroup, navigateToLocalRoot, navigateToQueries, preloadQueries, replaceUrlWithCurrentPage, switchToItem, switchToNonPage, switchToPage } from "../layout/navigation";
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -356,11 +356,18 @@ export const Main: Component = () => {
 
   const captureKeyDownListener = (ev: KeyboardEvent) => {
     if (edit_structuralKeyDownGuard(store, ev) || ev.defaultPrevented) { return; }
-    // Capture the Queries shortcut even while a search or chat input has focus.
+    // Capture the Queries and Home shortcuts even while a search or chat input has focus.
     if (ev.code == "KeyF" && (ev.ctrlKey || ev.metaKey) && ev.shiftKey && !ev.altKey && store.user.getUserMaybe()) {
       ev.preventDefault();
       ev.stopPropagation();
       void navigateToQueries(store);
+      return;
+    }
+    // Same chord as Home in macOS Finder, Safari and Chrome, so it's what the hand already expects.
+    if (ev.code == "KeyH" && (ev.ctrlKey || ev.metaKey) && ev.shiftKey && !ev.altKey && store.user.getUserMaybe()) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      void navigateToLocalRoot(store);
     }
   };
   const compositionKeyUpListener = (ev: KeyboardEvent) => { edit_compositionKeyGuard(store, ev); };

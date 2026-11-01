@@ -41,7 +41,7 @@ export const Toolbar_Navigation: Component = () => {
   return (
     <div class="inline-block p-[4px]" style="height: 30px; overflow-y: hidden;">
       <Show when={store.user.getUserMaybe()}>
-        <InfuIconButton icon="fa fa-home" highlighted={false} clickHandler={handleHome} title="Home" />
+        <InfuIconButton icon="fa fa-home" highlighted={false} clickHandler={handleHome} title={`Home (${MOD}+Shift+H)`} />
       </Show>
       <InfuIconButton icon="fa fa-search" highlighted={false} clickHandler={handleSearchClick} title={`Search (${MOD}+Shift+F)`} />
       <InfuIconButton icon="fa fa-arrow-circle-up" highlighted={false} clickHandler={handleUp} title="Up" />

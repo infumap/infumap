@@ -58,6 +58,7 @@ const SECTIONS: Array<HelpSection> = [
   {
     title: "Navigate",
     rows: [
+      { keys: [[MOD, "Shift", "H"]], text: "Go to your home page" },
       { keys: [["Right-click"]], text: "Go back. It doesn't open a menu." },
       { keys: [["← ↑ → ↓"]], text: "Move focus between items" },
       { keys: [["Enter"]], text: "Open or step into the focused item" },
