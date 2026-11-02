@@ -45,19 +45,17 @@ import {
 } from "../../layout/text";
 import { HitboxFlags } from "../../layout/hitbox";
 import { useStore } from "../../store/StoreProvider";
-import { CompositeFns, isComposite } from "../../items/composite-item";
+import { isComposite } from "../../items/composite-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { VesCache } from "../../layout/ves-cache";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { arrangeNow } from "../../layout/arrange";
-import { setCaretPosition } from "../../util/caret";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 
 import { server } from "../../server";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
-import { newOrdering } from "../../util/ordering";
 import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
@@ -67,6 +65,7 @@ import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler, prepareNoteParagraphSplit } from "../../input/edit";
 import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
+import { editNoteInNewComposite, wrapNoteInNewComposite } from "../../input/note_composite";
 import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
 
@@ -332,17 +331,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       const token = store.editorHistory.begin([sourceNote.id, sourceNote.parentId], "Split paragraph");
       // Finish the old edit before moving the note into a new composite.
       store.overlay.setTextEditInfo(store.history, null);
-      const spatialPositionGr = sourceNote.spatialPositionGr;
-      const spatialWidthGr = sourceNote.spatialWidthGr;
-      const composite = CompositeFns.create(sourceNote.ownerId, sourceNote.parentId, sourceNote.relationshipToParent, sourceNote.ordering);
-      // The composite takes the note's place, pin included.
-      composite.pinnedTo = sourceNote.pinnedTo;
-      composite.spatialPositionGr = spatialPositionGr;
-      composite.spatialWidthGr = spatialWidthGr;
-      store.editorHistory.include(token, composite.id);
-      itemState.add(composite);
-      store.editorHistory.track(server.addItem(composite, null));
-      itemState.moveToNewParent(sourceNote, composite.id, RelationshipToParent.Child, newOrdering());
+      const composite = wrapNoteInNewComposite(store, sourceNote, token);
       sourceNote.title = split.beforeText;
       sourceNote.inlineMarks = split.beforeInlineMarks;
       sourceNote.urls = split.beforeUrls;
@@ -360,43 +349,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       store.editorHistory.track(server.addItem(note, null));
 
       arrangeNow(store, "note-enter-create-composite");
-
-      // If in a popup context, redirect the popup to show the composite
-      if (isPopup()) {
-        const compositeVeid = { itemId: composite.id, linkIdMaybe: null };
-        store.history.replacePopup({
-          actualVeid: compositeVeid,
-          vePath: VeFns.addVeidToPath(compositeVeid, ve.parentPath!)
-        });
-        arrangeNow(store, "note-enter-redirect-popup");
-      }
-
-      const veid = { itemId: note.id, linkIdMaybe: null };
-
-      const pagePath = store.history.currentPagePath();
-      const attemptToSetEditFocus = (attempt: number = 0) => {
-        if (itemState.get(note.id) == null || store.editorHistory.busy() || store.history.currentPagePath() != pagePath) { return; }
-        const foundVes = VesCache.render.find(veid);
-        if (foundVes.length > 0) {
-          store.overlay.setTextEditInfo(store.history, { itemPath: VeFns.veToPath(foundVes[0].get()), itemType: ItemType.Note });
-          let editingDomId = store.overlay.textEditInfo()!.itemPath + ":title";
-          let textElement = document.getElementById(editingDomId);
-          if (textElement) {
-            setCaretPosition(textElement, 0);
-            textElement.focus();
-          }
-        } else if (attempt < 3) {
-          // Retry with another arrange - needed for popups
-          setTimeout(() => {
-            arrangeNow(store, "note-enter-retry-find-new-editor");
-            attemptToSetEditFocus(attempt + 1);
-          }, 10);
-        }
-      };
-
-      attemptToSetEditFocus();
-      const compositePath = VeFns.addVeidToPath({ itemId: composite.id, linkIdMaybe: null }, ve.parentPath!);
-      const notePath = VeFns.addVeidToPath(veid, compositePath);
+      const notePath = editNoteInNewComposite(store, ve, composite.id, note.id, 0);
       store.editorHistory.commit(token, historyCaret({ itemPath: notePath, itemType: ItemType.Note }, 0));
     }
   }
