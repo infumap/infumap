@@ -516,6 +516,43 @@ export function documentPageChildClickIsInsideVisibleBounds(
 }
 
 
+/**
+ * Scroll the band of list page pageVe that its row rowVe is in (the list, or a pinned band, which scrolls when it is
+ * full) to the position nextScrollPx gives, from the current position, the band's viewport height, and the extent of
+ * the row and the rows either side of it.
+ */
+function scrollListPageRowBand(
+  store: StoreContextModel,
+  pageVe: VisualElement,
+  rowVe: VisualElement,
+  nextScrollPx: (scrollPx: number, viewportHeightPx: number, contextTopPx: number, contextBottomPx: number) => number,
+): void {
+  if (!pageVe.listChildAreaBoundsPx || !pageVe.listViewportBoundsPx || rowVe.listPageRowBand == null) { return; }
+  const band = rowVe.listPageRowBand;
+  const scrollVeid = listPageScrollVeid(store, pageVe);
+  const [viewportHeightPx, contentHeightPx] =
+    band == "top" ? [pageVe.listPagePinnedTopHeightPx, pageVe.listPagePinnedTopContentHeightPx] :
+      band == "bottom" ? [pageVe.listPagePinnedBottomHeightPx, pageVe.listPagePinnedBottomContentHeightPx] :
+        [pageVe.listViewportBoundsPx.h, pageVe.listChildAreaBoundsPx.h];
+  const maxScrollPx = contentHeightPx - viewportHeightPx;
+  if (maxScrollPx <= 0) { return; }
+  const scrollProp = band == "middle"
+    ? store.perItem.getPageScrollYProp(scrollVeid)
+    : store.perItem.getListPageBandScrollYProp(scrollVeid, band);
+  const scrollPx = scrollProp * maxScrollPx;
+  const rowHeightPx = rowVe.boundsPx.h;
+  // List rows are all the same height, so the neighbours span one row height either side.
+  const contextTopPx = Math.max(0, rowVe.boundsPx.y - rowHeightPx);
+  const contextBottomPx = Math.min(contentHeightPx, rowVe.boundsPx.y + 2 * rowHeightPx);
+  const nextPx = Math.max(0, Math.min(maxScrollPx, nextScrollPx(scrollPx, viewportHeightPx, contextTopPx, contextBottomPx)));
+  if (nextPx == scrollPx) { return; }
+  if (band == "middle") {
+    store.perItem.setPageScrollYProp(scrollVeid, nextPx / maxScrollPx);
+  } else {
+    store.perItem.setListPageBandScrollYProp(scrollVeid, band, nextPx / maxScrollPx);
+  }
+}
+
 export const PageFns = {
   findOutermostListPage: (visualElement: VisualElement): VisualElement => {
     let targetVe = visualElement;
@@ -2021,31 +2058,23 @@ export const PageFns = {
    * arranging.
    */
   revealListPageRow: (store: StoreContextModel, pageVe: VisualElement, rowVe: VisualElement): void => {
-    if (!pageVe.listChildAreaBoundsPx || !pageVe.listViewportBoundsPx || rowVe.listPageRowBand == null) { return; }
-    const band = rowVe.listPageRowBand;
-    const scrollVeid = listPageScrollVeid(store, pageVe);
-    const [viewportHeightPx, contentHeightPx] =
-      band == "top" ? [pageVe.listPagePinnedTopHeightPx, pageVe.listPagePinnedTopContentHeightPx] :
-        band == "bottom" ? [pageVe.listPagePinnedBottomHeightPx, pageVe.listPagePinnedBottomContentHeightPx] :
-          [pageVe.listViewportBoundsPx.h, pageVe.listChildAreaBoundsPx.h];
-    const getScrollProp = () => band == "middle"
-      ? store.perItem.getPageScrollYProp(scrollVeid)
-      : store.perItem.getListPageBandScrollYProp(scrollVeid, band);
-    const setScrollProp = (prop: number) => band == "middle"
-      ? store.perItem.setPageScrollYProp(scrollVeid, prop)
-      : store.perItem.setListPageBandScrollYProp(scrollVeid, band, prop);
-    const maxScrollPx = contentHeightPx - viewportHeightPx;
-    if (maxScrollPx <= 0) { return; }
-    const scrollPx = getScrollProp() * maxScrollPx;
-    const rowHeightPx = rowVe.boundsPx.h;
-    // List rows are all the same height, so the neighbours span one row height either side.
-    const contextTopPx = Math.max(0, rowVe.boundsPx.y - rowHeightPx);
-    const contextBottomPx = Math.min(contentHeightPx, rowVe.boundsPx.y + 2 * rowHeightPx);
-    if (contextTopPx >= scrollPx && contextBottomPx <= scrollPx + viewportHeightPx) { return; }
-    const nextScrollPx = Math.max(0, Math.min(maxScrollPx, rowVe.boundsPx.y - (viewportHeightPx - rowHeightPx) / 2));
-    if (nextScrollPx != scrollPx) {
-      setScrollProp(nextScrollPx / maxScrollPx);
-    }
+    scrollListPageRowBand(store, pageVe, rowVe, (scrollPx, viewportHeightPx, contextTopPx, contextBottomPx) => {
+      if (contextTopPx >= scrollPx && contextBottomPx <= scrollPx + viewportHeightPx) { return scrollPx; }
+      return rowVe.boundsPx.y - (viewportHeightPx - rowVe.boundsPx.h) / 2;
+    });
+  },
+
+  /**
+   * Scroll list page pageVe as little as shows its row rowVe and the rows either side of it (where there are any), as
+   * the selection moves a row at a time. Centering it, as after a jump, would move the list half a page each time the
+   * selection reached its edge. This reads the arranged rows, so must be called after arranging.
+   */
+  scrollListPageRowIntoView: (store: StoreContextModel, pageVe: VisualElement, rowVe: VisualElement): void => {
+    scrollListPageRowBand(store, pageVe, rowVe, (scrollPx, viewportHeightPx, contextTopPx, contextBottomPx) => {
+      if (contextTopPx < scrollPx) { return contextTopPx; }
+      if (contextBottomPx > scrollPx + viewportHeightPx) { return contextBottomPx - viewportHeightPx; }
+      return scrollPx;
+    });
   },
 
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {

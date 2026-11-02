@@ -1757,6 +1757,19 @@ function orderedListPageLineChildrenForKeyNavigation(focusPagePath: VisualElemen
   return result;
 }
 
+/**
+ * Scroll the selected row of the focussed list page into view, after keyboard navigation moved the selection. This
+ * reads the arranged rows, so must be called after arranging.
+ */
+function scrollSelectedListPageRowIntoView(store: StoreContextModel, focusPagePath: VisualElementPath, focusPageVeid: Veid): void {
+  const pageVe = VesCache.current.readNode(focusPagePath);
+  if (pageVe == null) { return; }
+  const selectedVeid = store.perItem.getSelectedListPageItem(focusPageVeid);
+  const rowVe = orderedListPageLineChildrenForKeyNavigation(focusPagePath)
+    .find(ve => VeFns.compareVeids(VeFns.veidFromVe(ve), selectedVeid) == 0);
+  if (rowVe != null) { PageFns.scrollListPageRowIntoView(store, pageVe, rowVe); }
+}
+
 function moveListPageSelectionInRenderedOrderMaybe(
   store: StoreContextModel,
   focusPagePath: VisualElementPath,
@@ -1783,6 +1796,7 @@ function moveListPageSelectionInRenderedOrderMaybe(
 
   store.perItem.setSelectedListPageItem(focusPageVeid, VeFns.veidFromVe(lineChildren[nextIdx]));
   arrangeNow(store, "key-list-page-move-selection");
+  scrollSelectedListPageRowIntoView(store, focusPagePath, focusPageVeid);
   return true;
 }
 
@@ -1835,6 +1849,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
     if (isEmptyVeid(selectedVeid)) {
       PageFns.setDefaultListPageSelectedItemMaybe(store, focusPageVeid);
       arrangeNow(store, "key-list-page-set-default-selection");
+      scrollSelectedListPageRowIntoView(store, focusPagePath, focusPageVeid);
       return true;
     }
     if (ev.shiftKey) {
@@ -1846,6 +1861,7 @@ function handleArrowKeyListPageChangeMaybe(store: StoreContextModel, ev: Keyboar
         store.perItem.setSelectedListPageItem(focusPageVeid, cursorRow.veid);
       }
       arrangeNow(store, "key-list-page-extend-row-selection");
+      scrollSelectedListPageRowIntoView(store, focusPagePath, focusPageVeid);
       return true;
     }
     clearRowRangeSelectionMaybe(store);
