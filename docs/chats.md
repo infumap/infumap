@@ -31,25 +31,18 @@ the search provider supplies one. Snippet availability and content vary by provi
 
 ## Query profiles
 
-A profile saves **Scope**, **Model** (with its reasoning effort), **Tools**, **Tool approvals** and an optional
-reference to a template note under a name. Pinned profiles are shortcuts above the input: click one to
-apply its complete setup. The **Profiles** menu at
-the end of the row lists every profile, including shortcuts that do not fit. Selecting a profile leaves
-existing draft, attachments and Chat / Deep research mode unchanged. If the composer is empty, the referenced
-note's current text fills it, ready to edit and send. Editing the note changes the query template for future
-profile selections; drafts and messages already populated keep their text. Search uses only a scope, and
+A profile saves **Scope**, **Model** (with its reasoning effort), **Tools** and **Tool approvals** under a
+name. Pinned profiles are shortcuts above the input: click one to apply its complete setup. The **Profiles**
+menu at the end of the row lists every profile, including shortcuts that do not fit. Selecting a profile
+leaves the draft, attachments and Chat / Deep research mode unchanged. Search uses only a scope, and
 remembers its own ([Choosing a scope](scopes.md#choosing-a-scope)), so the shortcuts are hidden there.
 
 New queries start with your default profile. Changing Scope, Model or Tools affects only the current
 query: the applied profile's shortcut then shows a dot. Click that profile again, in the row or the
 **Profiles** menu, to restore its saved settings. To update the saved profile, open **Profiles → Save
 changes to “Profile name”**. To keep a setup under a new name, use **Profiles → Save as new…**;
-the new profile is pinned. Optionally choose a template note by searching its text or pasting its item link.
-In **Profiles → Manage…**, click **Choose template note…** or **Change template note…** to
-change or remove it. Edit the query text in the note itself. Managing profiles also orders, renames,
-pins, duplicates and deletes profiles and chooses the default. New queries read the default profile's
-template note when present. A missing or inaccessible note leaves the composer empty and shows an error.
-Deleting the default makes the first remaining profile the default, and at
+the new profile is pinned. **Profiles → Manage…** orders, renames, pins, duplicates and deletes profiles
+and chooses the default. Deleting the default makes the first remaining profile the default, and at
 least one profile must remain. Saving or managing profiles leaves other chats and their recorded turns
 unchanged.
 
@@ -89,6 +82,35 @@ Both are limited to the chat's [scope](scopes.md). Pages and tables are read as 
 recent edits (see [Data](data.md)). What the model reads stays in the chat for the rest of the conversation, so a
 long chat with many reads can outgrow a small model's context, and then fails with "The conversation is too long for
 the model's context window." To see what the model sees, run the same tools with [`infumap tool`](cli.md#tool).
+
+## Prompts
+
+Text you send often, such as "Summarize the attached", can be kept as a prompt and put into a message without
+typing it. Prompts live in the **Prompts** page, at the bottom of the Queries page above Scopes. It is created
+automatically and cannot be moved or deleted, but it can be renamed.
+
+Each note directly inside Prompts is a prompt, and so is each composite, which is what longer text pasted as Markdown
+becomes. A link to a note or composite kept elsewhere is a prompt too. Anything else on the page is ignored. Prompts
+are listed in the order the page shows them, each named by the first line of its first note.
+
+In the chat input, or in New Query with Chat or Deep research selected, there are two ways to use one:
+
+- **Type `/`** as the first character of the message, then some of the prompt's name or text. ↑ and ↓ choose,
+  Enter replaces the message with the prompt, and Esc hides the list. The list only appears while something
+  matches, so a message that happens to start with `/` can still be sent.
+- **Click the prompts button** next to +, type to filter if you like, and choose one. It goes in where the cursor
+  is.
+
+Either way, the prompt only fills the input: edit it or send it as it is. Prompts work with attachments, so to
+summarize something new, drop it onto the input, then type `/sum` in the input and press Enter twice.
+
+A prompt's formatting comes with it as Markdown: a heading note becomes a `#` heading, a bullet `- item`, a code note
+a fenced block, and the notes of a composite are separated by blank lines. Edit a prompt on the Prompts page or by
+**Edit prompts** in the list. The next use has the new text; messages already written are unchanged. A prompt over
+64 KB is listed but can't be inserted.
+
+Profiles could once name a template note that filled an empty input. They no longer can; put such a note on the
+Prompts page, or link to it from there.
 
 ## Attaching text
 
