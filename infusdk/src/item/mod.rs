@@ -138,6 +138,32 @@ impl Clone for RelationshipToParent {
   }
 }
 
+/// The edge of its parent a child is pinned to, out of the parent's ordered or sorted children. Like groupId (and
+/// unlike flags, whose bits mean different things for each item type), this places the child in its parent, so it
+/// applies to every item type and is only valid for children.
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum PinnedTo {
+  Top,
+  Bottom,
+}
+
+impl PinnedTo {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      PinnedTo::Top => "top",
+      PinnedTo::Bottom => "bottom",
+    }
+  }
+
+  pub fn from_str(s: &str) -> InfuResult<PinnedTo> {
+    match s {
+      "top" => Ok(PinnedTo::Top),
+      "bottom" => Ok(PinnedTo::Bottom),
+      other => Err(format!("Invalid PinnedTo value: '{}'.", other).into()),
+    }
+  }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ArrangeAlgorithm {
   SpatialStretch,
@@ -592,7 +618,7 @@ pub fn is_popup_positionable_item_type(item_type: ItemType) -> bool {
   item_type == ItemType::Page || item_type == ItemType::Image
 }
 
-const ALL_JSON_FIELDS: [&'static str; 58] = [
+const ALL_JSON_FIELDS: [&'static str; 59] = [
   "__recordType",
   "itemType",
   "ownerId",
@@ -600,6 +626,7 @@ const ALL_JSON_FIELDS: [&'static str; 58] = [
   "parentId",
   "relationshipToParent",
   "groupId",
+  "pinnedTo",
   "creationDate",
   "lastModifiedDate",
   "dateTime",
@@ -671,6 +698,7 @@ pub struct Item {
   pub parent_id: Option<Uid>,
   pub relationship_to_parent: RelationshipToParent,
   pub group_id: Option<Uid>,
+  pub pinned_to: Option<PinnedTo>,
   pub creation_date: i64,
   pub last_modified_date: i64,
   pub datetime: i64,
@@ -779,6 +807,7 @@ impl Clone for Item {
       parent_id: self.parent_id.clone(),
       relationship_to_parent: self.relationship_to_parent.clone(),
       group_id: self.group_id.clone(),
+      pinned_to: self.pinned_to.clone(),
       creation_date: self.creation_date.clone(),
       last_modified_date: self.last_modified_date.clone(),
       datetime: self.datetime.clone(),
@@ -1093,6 +1122,12 @@ impl JsonLogSerializable<Item> for Item {
         result.insert(String::from("groupId"), Value::String(new_group_id.clone()));
       }
       _ => {}
+    }
+    if old.pinned_to != new.pinned_to {
+      result.insert(
+        String::from("pinnedTo"),
+        new.pinned_to.map(|p| Value::String(p.as_str().to_owned())).unwrap_or(Value::Null),
+      );
     }
     if old.creation_date != new.creation_date {
       cannot_modify_err("creationDate", &old.id)?;
@@ -1768,6 +1803,12 @@ impl JsonLogSerializable<Item> for Item {
     if self.group_id.is_some() && self.relationship_to_parent != RelationshipToParent::Child {
       return Err(format!("Item '{}' has groupId set, but its relationshipToParent is not 'child'.", self.id).into());
     }
+    if map.contains_key("pinnedTo") {
+      self.pinned_to = json::get_string_field(map, "pinnedTo")?.map(|s| PinnedTo::from_str(&s)).transpose()?;
+    }
+    if self.pinned_to.is_some() && self.relationship_to_parent != RelationshipToParent::Child {
+      return Err(format!("Item '{}' has pinnedTo set, but its relationshipToParent is not 'child'.", self.id).into());
+    }
     if json::get_integer_field(map, "creationDate")?.is_some() {
       cannot_update_err("creationDate", &self.id)?;
     }
@@ -2178,6 +2219,9 @@ fn to_json(item: &Item) -> InfuResult<serde_json::Map<String, serde_json::Value>
     .insert(String::from("relationshipToParent"), Value::String(String::from(item.relationship_to_parent.as_str())));
   if let Some(group_id) = &item.group_id {
     result.insert(String::from("groupId"), Value::String(group_id.clone()));
+  }
+  if let Some(pinned_to) = item.pinned_to {
+    result.insert(String::from("pinnedTo"), Value::String(pinned_to.as_str().to_owned()));
   }
   result.insert(String::from("creationDate"), Value::Number(item.creation_date.into()));
   result.insert(String::from("lastModifiedDate"), Value::Number(item.last_modified_date.into()));
@@ -2593,6 +2637,10 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
       return Err(format!("Item '{}' has groupId set, but its relationshipToParent is not 'child'.", id).into());
     }
   }
+  let pinned_to = json::get_string_field(map, "pinnedTo")?.map(|s| PinnedTo::from_str(&s)).transpose()?;
+  if pinned_to.is_some() && relationship_to_parent != RelationshipToParent::Child {
+    return Err(format!("Item '{}' has pinnedTo set, but its relationshipToParent is not 'child'.", id).into());
+  }
 
   let datetime = json::get_integer_field(map, "dateTime")?.ok_or("'dateTime' field was missing.")?;
   let end_datetime = json::get_integer_field(map, "endDateTime")?;
@@ -2605,6 +2653,7 @@ fn from_json(map: &serde_json::Map<String, serde_json::Value>) -> InfuResult<Ite
     parent_id,
     relationship_to_parent,
     group_id,
+    pinned_to,
     creation_date: json::get_integer_field(map, "creationDate")?.ok_or("'creationDate' field was missing.")?,
     last_modified_date: json::get_integer_field(map, "lastModifiedDate")?
       .ok_or("'lastModifiedDate' field was missing.")?,
@@ -3357,6 +3406,7 @@ impl Item {
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
       group_id: None,
+      pinned_to: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3427,6 +3477,7 @@ impl Item {
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
       group_id: None,
+      pinned_to: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3501,6 +3552,7 @@ impl Item {
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
       group_id: None,
+      pinned_to: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3563,6 +3615,7 @@ impl Item {
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: RelationshipToParent::Attachment,
       group_id: None,
+      pinned_to: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3631,6 +3684,7 @@ impl Item {
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
       group_id: None,
+      pinned_to: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3711,6 +3765,7 @@ impl Item {
       parent_id: Some(parent_id.to_owned()),
       relationship_to_parent: relationship,
       group_id: None,
+      pinned_to: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3802,6 +3857,7 @@ impl Item {
       parent_id: parent_id.map(|id| id.to_owned()),
       relationship_to_parent: relationship,
       group_id: None,
+      pinned_to: None,
       creation_date: unix_now_secs_i64().unwrap(),
       last_modified_date: unix_now_secs_i64().unwrap(),
       datetime: unix_now_secs_i64().unwrap(),
@@ -3873,6 +3929,9 @@ impl Item {
     hashes.push(hash_string_to_uid(self.relationship_to_parent.as_str()));
     if let Some(group_id) = &self.group_id {
       hashes.push(hash_string_to_uid(group_id));
+    }
+    if let Some(pinned_to) = self.pinned_to {
+      hashes.push(hash_string_to_uid(pinned_to.as_str()));
     }
     hashes.push(hash_i64_to_uid(self.creation_date));
     hashes.push(hash_i64_to_uid(self.last_modified_date));
@@ -4155,5 +4214,42 @@ mod tests {
     assert_eq!(from_json(&to_json(&new).unwrap()).unwrap().title.as_deref(), Some("Rust lifetimes"));
     let update = Item::create_json_update(&old, &new).unwrap();
     assert_eq!(update.get("title"), Some(&Value::String("Rust lifetimes".to_owned())));
+  }
+
+  #[test]
+  fn pinned_to_round_trips_updates_and_clears() {
+    let old = query_item();
+    assert!(!to_json(&old).unwrap().contains_key("pinnedTo"));
+
+    let mut pinned = old.clone();
+    pinned.pinned_to = Some(PinnedTo::Bottom);
+    assert_eq!(from_json(&to_json(&pinned).unwrap()).unwrap().pinned_to, Some(PinnedTo::Bottom));
+    let update = Item::create_json_update(&old, &pinned).unwrap();
+    assert_eq!(update.get("pinnedTo"), Some(&Value::String("bottom".to_owned())));
+    let mut applied = old.clone();
+    applied.apply_json_update(&update).unwrap();
+    assert_eq!(applied.pinned_to, Some(PinnedTo::Bottom));
+
+    let clear = Item::create_json_update(&pinned, &old).unwrap();
+    assert_eq!(clear.get("pinnedTo"), Some(&Value::Null));
+    applied.apply_json_update(&clear).unwrap();
+    assert_eq!(applied.pinned_to, None);
+  }
+
+  #[test]
+  fn pinned_to_is_rejected_unless_child_or_valid() {
+    let mut map = to_json(&query_item()).unwrap();
+    map.insert(String::from("pinnedTo"), Value::String("middle".to_owned()));
+    assert!(from_json(&map).is_err());
+
+    map.insert(String::from("pinnedTo"), Value::String("top".to_owned()));
+    map.insert(String::from("relationshipToParent"), Value::String("attachment".to_owned()));
+    assert!(from_json(&map).is_err());
+
+    let mut item = query_item();
+    item.pinned_to = Some(PinnedTo::Top);
+    let mut update = Map::new();
+    update.insert(String::from("relationshipToParent"), Value::String("attachment".to_owned()));
+    assert!(item.apply_json_update(&update).is_err());
   }
 }

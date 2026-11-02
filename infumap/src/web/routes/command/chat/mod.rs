@@ -1787,6 +1787,7 @@ async fn continue_persisted_chat(
       chat_item.parent_id = Some(trash_page_id);
       chat_item.relationship_to_parent = RelationshipToParent::Child;
       chat_item.ordering = new_ordering_at_end(trash_orderings);
+      chat_item.pinned_to = None;
       chat_item
     };
     let json = serde_json::to_string(&chat_item.to_api_json()?)?;

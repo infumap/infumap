@@ -455,6 +455,7 @@ impl ItemDb {
       let mut item = store.get(item_id).unwrap().clone();
       item.parent_id = Some(user.home_page_id.clone());
       item.spatial_position_gr = Some(Vector { x: 0, y: 0 });
+      item.pinned_to = None;
       write_item(&mut writer, &mut written_ids, &item).await?;
     }
     let mut compacted_container_ids = store

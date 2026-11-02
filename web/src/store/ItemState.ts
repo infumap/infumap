@@ -539,7 +539,8 @@ export const itemState = {
 
   /**
    * The item's groupId is cleared if it leaves its parent, unless keepGroupId is set (because its
-   * entire group is moving with it) and it remains a child of a page.
+   * entire group is moving with it) and it remains a child of a page. Its pinnedTo is always cleared if it
+   * leaves its parent: a caller pinning it in the new parent sets it again.
    */
   moveToNewParent: (item: Item, moveToParentId: Uid, newRelationshipToParent: string, ordering?: Uint8Array, keepGroupId: boolean = false) => {
     if (wouldCreateRelationshipCycle(item.id, moveToParentId)) {
@@ -558,6 +559,9 @@ export const itemState = {
       isPage(itemState.get(moveToParentId));
     if ((newRelationshipToParent != RelationshipToParent.Child || prevParentId != moveToParentId) && !groupIdCanBeKept) {
       item.groupId = null;
+    }
+    if (newRelationshipToParent != RelationshipToParent.Child || prevParentId != moveToParentId) {
+      item.pinnedTo = null;
     }
     if (ordering) {
       item.ordering = ordering;

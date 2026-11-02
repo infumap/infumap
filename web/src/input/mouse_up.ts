@@ -707,6 +707,7 @@ function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, de
       item.ordering = new Uint8Array(entry.ordering);
     }
     item.groupId = entry.groupId;
+    item.pinnedTo = entry.pinnedTo;
   }
 
   for (const parentId of parentsToSort) {
@@ -742,6 +743,7 @@ function restorePositionalItemSnapshot(snapshot: PositionalItem): void {
   } else {
     item.ordering = new Uint8Array(snapshot.ordering);
   }
+  item.pinnedTo = snapshot.pinnedTo;
 
   if (snapshot.relationshipToParent == RelationshipToParent.Child) {
     itemState.sortChildren(snapshot.parentId);
@@ -928,6 +930,7 @@ function buildCleanupCollapsedCompositeOperation(
   childSnapshot.parentId = compositeItem.parentId;
   childSnapshot.spatialPositionGr = { ...compositeItem.spatialPositionGr };
   childSnapshot.ordering = new Uint8Array(compositeItem.ordering);
+  childSnapshot.pinnedTo = compositeItem.pinnedTo;
   ops.push({
     apply: async () => {
       await serverOrRemote.updateItem(childSnapshot);
@@ -935,8 +938,10 @@ function buildCleanupCollapsedCompositeOperation(
       asPositionalItem(child).spatialPositionGr = { ...compositeItem.spatialPositionGr };
       if (child.parentId != compositeItem.parentId || child.relationshipToParent != RelationshipToParent.Child) {
         itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
+        child.pinnedTo = compositeItem.pinnedTo;
       } else {
         child.ordering = new Uint8Array(compositeItem.ordering);
+        child.pinnedTo = compositeItem.pinnedTo;
         if (!compositeItemParent.computed_children.includes(child.id)) {
           compositeItemParent.computed_children.push(child.id);
         }
@@ -2600,6 +2605,7 @@ async function maybeDeleteComposite(store: StoreContextModel) {
   const child = itemState.get(compositeItem.computed_children[0])!;
   if (!isPositionalItem(child)) { panic("maybeDeleteComposite: child is not positional."); }
   child.parentId = compositeItem.parentId;
+  child.pinnedTo = compositeItem.pinnedTo;
   asPositionalItem(child).spatialPositionGr = compositeItem.spatialPositionGr;
   compositeItem.computed_children = [];
   compositeItemParent.computed_children.push(child.id);

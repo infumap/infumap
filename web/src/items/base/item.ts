@@ -61,6 +61,18 @@ export const ClientOnlyItemKind = {
 export type ClientOnlyItemKind = typeof ClientOnlyItemKind[keyof typeof ClientOnlyItemKind];
 
 
+/**
+ * The edge of its parent a child is pinned to, out of the parent's ordered or sorted children. This places the child
+ * in its parent (like groupId), so it is cleared when the child leaves its parent.
+ */
+export const PinnedTo = {
+  Top: "top",
+  Bottom: "bottom",
+} as const;
+
+export type PinnedTo = typeof PinnedTo[keyof typeof PinnedTo];
+
+
 export interface ItemTypeMixin {
   itemType: string,
 }
@@ -77,6 +89,7 @@ export interface Item extends ItemTypeMixin {
   parentId: Uid,
   relationshipToParent: string,
   groupId: Uid | null,
+  pinnedTo: PinnedTo | null,
   creationDate: number,
   lastModifiedDate: number,
   dateTime: number,
@@ -93,6 +106,7 @@ export const EMPTY_ITEM = () => ({
   parentId: EMPTY_UID,
   relationshipToParent: RelationshipToParent.Child,
   groupId: null,
+  pinnedTo: null,
   creationDate: 0,
   lastModifiedDate: 0,
   dateTime: 0,
@@ -109,6 +123,7 @@ export const uniqueEmptyItem = () => ({
   parentId: EMPTY_UID,
   relationshipToParent: RelationshipToParent.Child,
   groupId: null,
+  pinnedTo: null,
   creationDate: 0,
   lastModifiedDate: 0,
   dateTime: 0,

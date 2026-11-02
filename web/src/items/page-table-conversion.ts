@@ -90,6 +90,7 @@ export function pageTableConversionSharedState(source: PageTableConvertibleItem)
     parentId: source.parentId,
     relationshipToParent: source.relationshipToParent,
     groupId: source.groupId,
+    pinnedTo: source.pinnedTo,
     creationDate: source.creationDate,
     dateTime: source.dateTime,
     endDateTime: source.endDateTime,

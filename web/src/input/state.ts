@@ -17,6 +17,7 @@
 */
 
 import { AttachmentsItem } from "../items/base/attachments-item";
+import { PinnedTo } from "../items/base/item";
 import { CompositeItem } from "../items/composite-item";
 import { PlaceholderItem } from "../items/placeholder-item";
 import { HitboxMeta, HitboxFlags } from "../layout/hitbox";
@@ -59,6 +60,7 @@ export interface MoveRollbackSnapshotEntry {
   dateTime: number,
   endDateTime: number | null,
   groupId: string | null,
+  pinnedTo: PinnedTo | null,
   rollbackFlags?: number | null,
 }
 

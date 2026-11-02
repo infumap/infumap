@@ -96,6 +96,7 @@ function captureMoveRollbackSnapshot(store: StoreContextModel, activeVisualEleme
       dateTime: item.dateTime,
       endDateTime: item.endDateTime,
       groupId: item.groupId,
+      pinnedTo: item.pinnedTo,
       rollbackFlags: isNote(item)
         ? asNoteItem(item).flags
         : isFile(item)
@@ -138,6 +139,8 @@ function prepareShiftDragClone(cloned: Item, source: Item): void {
   // One item is cloned, never a whole group (which has at least two members), so the clone leaves the group.
   // Otherwise clones of two members dropped on another page would form a second group with the same id.
   cloned.groupId = null;
+  // Where the clone is dropped decides whether it is pinned.
+  cloned.pinnedTo = null;
   appendCopySuffixToTextLikeClone(cloned);
 }
 
