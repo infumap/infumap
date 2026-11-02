@@ -2649,9 +2649,10 @@ pub fn migrate_record_v39_to_v40(
   {
     "descriptor" => migrate_descriptor(kvs, 39),
 
-    "entry" => {
+    // A replace record is a complete value, as an entry record is.
+    "entry" | "replace" => {
       let mut result = kvs.clone();
-      let item_id = json::get_string_field(kvs, "id")?.ok_or("Entry record is missing id.")?;
+      let item_id = json::get_string_field(kvs, "id")?.ok_or("Entry or replace record is missing id.")?;
       let is_child = json::get_string_field(kvs, "relationshipToParent")?.as_deref() == Some("child");
       let flags_pin = take_pin_from_flags(&mut result)?.flatten();
       let pinned_to = flags_pin.filter(|_| is_child);
@@ -2789,6 +2790,30 @@ mod tests {
     // An update leaving the pin as it was does not mention it.
     let restyle = v39_record(serde_json::json!({ "__recordType": "update", "id": "b", "flags": 0x4 }));
     assert!(!migrate_record_v39_to_v40(&restyle, &mut state).unwrap().contains_key("pinnedTo"));
+  }
+
+  #[test]
+  fn v39_to_v40_migrates_replace_records_as_complete_values() {
+    let mut state = HashMap::new();
+    let entry = v39_record(serde_json::json!({
+      "__recordType": "entry", "id": "a", "relationshipToParent": "child", "flags": 0x200000
+    }));
+    migrate_record_v39_to_v40(&entry, &mut state).unwrap();
+    let pinned = v39_record(serde_json::json!({
+      "__recordType": "replace", "id": "a", "relationshipToParent": "child", "flags": 0x100000 | 0x4
+    }));
+    let migrated = migrate_record_v39_to_v40(&pinned, &mut state).unwrap();
+    assert_eq!(migrated.get("__recordType"), Some(&Value::from("replace")));
+    assert_eq!(migrated.get("flags"), Some(&Value::from(0x4)));
+    assert_eq!(migrated.get("pinnedTo"), Some(&Value::from("top")));
+
+    // Unpinned by a replace record without the bits, so a later update leaving flags alone leaves it unpinned.
+    let unpinned = v39_record(serde_json::json!({
+      "__recordType": "replace", "id": "a", "relationshipToParent": "child", "flags": 0
+    }));
+    assert!(!migrate_record_v39_to_v40(&unpinned, &mut state).unwrap().contains_key("pinnedTo"));
+    let retitled = v39_record(serde_json::json!({ "__recordType": "update", "id": "a", "title": "x" }));
+    assert!(!migrate_record_v39_to_v40(&retitled, &mut state).unwrap().contains_key("pinnedTo"));
   }
 
   #[test]
