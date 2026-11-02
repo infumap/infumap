@@ -19,6 +19,8 @@ interface PopoverProps {
   title: string,
   ariaLabel: string,
   buttonClass?: string,
+  /** Replaces the pill style, and its chevron, for a button that sits among other buttons rather than pills. */
+  buttonAppearance?: { class: string, style: string },
   width?: number,
   disabled?: boolean,
   buttonRef?: (el: HTMLButtonElement) => void,
@@ -112,8 +114,8 @@ export function QueryPickerPopover(props: PopoverProps) {
   return <>
     <button
       ref={el => { button = el; props.buttonRef?.(el); }} type="button" disabled={props.disabled}
-      class={`flex h-[22px] min-w-0 items-center gap-1 overflow-hidden rounded-md border border-[#d6d6d6] bg-white px-2 text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50 ${props.buttonClass ?? ""}`}
-      style="font-size: 12px; line-height: 18px;" title={props.title}
+      class={props.buttonAppearance?.class ?? `flex h-[22px] min-w-0 items-center gap-1 overflow-hidden rounded-md border border-[#d6d6d6] bg-white px-2 text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50 ${props.buttonClass ?? ""}`}
+      style={props.buttonAppearance?.style ?? "font-size: 12px; line-height: 18px;"} title={props.title}
       aria-label={props.ariaLabel} aria-haspopup="dialog" aria-expanded={open()}
       onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent}
       onClick={ev => {
@@ -122,7 +124,7 @@ export function QueryPickerPopover(props: PopoverProps) {
         else { updateAnchor(); props.onOpen?.(); setOpen(true); }
       }}
       onKeyDown={ev => { ev.stopPropagation(); if (ev.key == "Tab" && !open()) { props.onTabKey?.(ev); } }}>
-      {props.label}<i class="bi-chevron-expand ml-auto shrink-0 text-[10px]" />
+      {props.label}<Show when={props.buttonAppearance == null}><i class="bi-chevron-expand ml-auto shrink-0 text-[10px]" /></Show>
     </button>
     <Show when={open()}>
       <Portal mount={document.body}>

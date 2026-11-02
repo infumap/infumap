@@ -1,10 +1,12 @@
 /* Copyright (C) The Infumap Authors. SPDX-License-Identifier: AGPL-3.0-or-later */
 
-import { For, Show, createEffect, createSignal, on, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
+import { Portal } from "solid-js/web";
+import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { filterQueryPrompts, queryPromptPreview, queryPrompts, queryPromptsError, refreshQueryPrompts } from "../../items/query-prompt";
 import { switchToPage } from "../../layout/navigation";
 import type { PromptSummary } from "../../server";
-import { useStore } from "../../store/StoreProvider";
+import { type StoreContextModel, useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover } from "./QueryPickerPopover";
 
 const TOO_LONG_TEXT = "Too long to insert. Shorten it to under 64 KB.";
@@ -71,6 +73,7 @@ export function QueryPromptList(props: QueryPromptListProps) {
 }
 
 interface QueryPromptPickerProps {
+  buttonAppearance: { class: string, style: string },
   disabled?: () => boolean,
   /** Called once the picker has closed and returned focus to its button. */
   onChoose: (text: string) => void,
@@ -88,8 +91,8 @@ export function QueryPromptPicker(props: QueryPromptPickerProps) {
   onMount(() => { if (queryPrompts() == null) { void refreshQueryPrompts(store); } });
 
   return <QueryPickerPopover width={360} disabled={props.disabled?.() == true} buttonRef={props.buttonRef} onTabKey={props.onTabKey}
-    buttonClass="shrink-0 cursor-pointer" ariaLabel="Insert a prompt" title="Insert a prompt from the Prompts page"
-    label={<><i class="bi-card-text shrink-0 text-[11px]" /><span>Prompts</span></>}
+    buttonAppearance={props.buttonAppearance} ariaLabel="Insert a prompt" title="Insert a prompt (or type / at the start of the message)"
+    label={<i class="bi-journal-text" />}
     onOpen={() => { setFilter(""); setActive(0); void refreshQueryPrompts(store); }}>
     {close => {
       const choose = (prompt: PromptSummary) => {
@@ -105,7 +108,7 @@ export function QueryPromptPicker(props: QueryPromptPickerProps) {
             <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close prompts" onClick={close}><i class="bi-x-lg" /></button>
           </div>
           <input type="text" class="mt-1.5 w-full rounded border border-slate-300 px-2 py-1 text-[13px] outline-none focus:border-slate-500"
-            placeholder="Filter prompts" aria-label="Filter prompts" role="combobox" aria-expanded="true" aria-controls={listId}
+            placeholder="Filter prompts" aria-label="Filter prompts" role="combobox" data-picker-autofocus aria-expanded="true" aria-controls={listId}
             aria-activedescendant={prompts().length > 0 ? `${listId}-${Math.min(active(), prompts().length - 1)}` : undefined}
             value={filter()} onInput={ev => { setFilter(ev.currentTarget.value); setActive(0); }}
             onKeyDown={ev => { queryPromptListKeyDown(ev, prompts(), active(), setActive, choose); }} />
@@ -126,4 +129,99 @@ export function QueryPromptPicker(props: QueryPromptPickerProps) {
       </>;
     }}
   </QueryPickerPopover>;
+}
+
+/** The filter typed after a "/" that starts a message of one line, or null when the message is not one. */
+export function queryPromptSlashFilter(text: string): string | null {
+  return /^\/[^\n]*$/.test(text) ? text.slice(1) : null;
+}
+
+export interface QueryPromptSuggestions {
+  open: () => boolean,
+  prompts: () => Array<PromptSummary>,
+  active: () => number,
+  setActive: (index: number) => void,
+  /** Handles a key pressed in the message while the suggestions are open. Returns true if it was used. */
+  keyDown: (ev: KeyboardEvent, choose: (prompt: PromptSummary) => void) => boolean,
+}
+
+/**
+ * Prompts suggested while a message is "/" and a filter. They are shown only while some match, so a message that
+ * merely starts with "/" is not in the way, and Escape hides them until the message stops starting with "/".
+ */
+export function createQueryPromptSuggestions(store: StoreContextModel, filter: () => string | null): QueryPromptSuggestions {
+  const [active, setActive] = createSignal(0);
+  const [dismissed, setDismissed] = createSignal(false);
+  const prompts = createMemo(() => {
+    const current = filter();
+    return current == null ? [] : filterQueryPrompts(queryPrompts()?.prompts ?? [], current);
+  });
+  createEffect(on(filter, current => { setActive(0); if (current == null) { setDismissed(false); } }));
+  createEffect(on(() => filter() != null, started => { if (started) { void refreshQueryPrompts(store); } }));
+  const open = () => {
+    const current = filter();
+    return current != null && !dismissed() && (current.trim() == "" || prompts().length > 0);
+  };
+  const keyDown = (ev: KeyboardEvent, choose: (prompt: PromptSummary) => void) => {
+    if (!open()) { return false; }
+    if (ev.key == "Escape") { ev.preventDefault(); setDismissed(true); return true; }
+    return queryPromptListKeyDown(ev, prompts(), active(), setActive, choose);
+  };
+  return { open, prompts, active, setActive, keyDown };
+}
+
+interface QueryPromptSuggestionListProps {
+  suggestions: QueryPromptSuggestions,
+  /** The message input: the list opens above or below it, wherever there is more room. */
+  anchor: () => HTMLElement | undefined,
+  onChoose: (prompt: PromptSummary) => void,
+}
+
+/** The suggested prompts beside the message input, which keeps focus. */
+export function QueryPromptSuggestionList(props: QueryPromptSuggestionListProps) {
+  const store = useStore();
+  const listId = `query-prompts-${nextListId++}`;
+  const [anchorRect, setAnchorRect] = createSignal<DOMRect | null>(null);
+  const update = () => setAnchorRect(props.anchor()?.getBoundingClientRect() ?? null);
+  createEffect(() => {
+    if (!props.suggestions.open()) { return; }
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    onCleanup(() => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    });
+  });
+  const style = () => {
+    const rect = anchorRect();
+    if (rect == null) { return "display: none;"; }
+    const margin = 8;
+    const gap = 4;
+    const width = Math.min(Math.max(rect.width, 280), 420, window.innerWidth - margin * 2);
+    const above = rect.top - margin - gap;
+    const below = window.innerHeight - rect.bottom - margin - gap;
+    const height = Math.max(0, Math.min(320, Math.max(above, below)));
+    const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin));
+    const vertical = above > below ? `bottom: ${window.innerHeight - rect.top + gap}px;` : `top: ${rect.bottom + gap}px;`;
+    return `left: ${left}px; ${vertical} width: ${width}px; max-height: ${height}px; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 1};`;
+  };
+  return <Show when={props.suggestions.open()}>
+    <Portal mount={document.body}>
+      <div class="fixed flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-black shadow-lg" style={style()}
+        onMouseDown={ev => { ev.preventDefault(); ev.stopPropagation(); }} onMouseUp={ev => ev.stopPropagation()} onClick={ev => ev.stopPropagation()}>
+        <div class="min-h-0 grow overflow-y-auto">
+          <QueryPromptList listId={listId} prompts={props.suggestions.prompts} filtered={() => false}
+            active={props.suggestions.active} setActive={props.suggestions.setActive} onChoose={props.onChoose} />
+        </div>
+        <div class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-500">
+          <span class="min-w-0 truncate">↑↓ choose · Enter insert · Esc dismiss</span>
+          <button type="button" class="ml-auto shrink-0 text-[12px] text-blue-700 hover:underline" onClick={() => {
+            const pageId = queryPrompts()?.promptsPageId;
+            if (pageId != null) { switchToPage(store, { itemId: pageId, linkIdMaybe: null }, true, false, false); }
+          }}>Edit prompts</button>
+        </div>
+      </div>
+    </Portal>
+  </Show>;
 }

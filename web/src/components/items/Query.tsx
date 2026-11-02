@@ -28,6 +28,10 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { QueryModelPicker } from "./QueryModelPicker";
 import { QueryToolsPicker } from "./QueryToolsPicker";
 import { QueryScopePicker } from "./QueryScopePicker";
+import {
+  QueryPromptPicker, QueryPromptSuggestionList, createQueryPromptSuggestions, queryPromptSlashFilter,
+} from "./QueryPromptPicker";
+import type { PromptSummary } from "../../server";
 import { QueryProfileBar } from "./QueryProfileBar";
 import { initializeQueryConfiguration, queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
 import { queryConfigurationUnavailableReason, querySearchUnavailableReason } from "../../items/query-configuration-availability";
@@ -197,7 +201,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatActivityFollowingLatest, setChatActivityFollowingLatest] = createSignal(true);
   const [chatActivityExpanded, setChatActivityExpanded] = createSignal(false);
   const [moreButtonHost, setMoreButtonHost] = createSignal<HTMLElement | null>(null);
+  const [chatTextareaFocused, setChatTextareaFocused] = createSignal(false);
+  const [queryInputFocused, setQueryInputFocused] = createSignal(false);
+  /** The query input's text as typed. It is not committed while it is edited, so `queryText` lags behind it. */
+  const [queryInputText, setQueryInputText] = createSignal("");
   let queryInput: HTMLTextAreaElement | undefined;
+  let queryInputShell: HTMLDivElement | undefined;
   const queryModeButtons: Partial<Record<QueryInputModeOption, HTMLButtonElement>> = {};
   let querySendButton: HTMLButtonElement | undefined;
   let queryDiscardButton: HTMLButtonElement | undefined;
@@ -206,6 +215,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryToolsButton: HTMLButtonElement | undefined;
   let queryProfileBar: HTMLDivElement | undefined;
   let queryAttachButton: HTMLButtonElement | undefined;
+  let queryPromptsButton: HTMLButtonElement | undefined;
   let queryScopeAddButton: HTMLButtonElement | undefined;
   let scopeItemInput: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
@@ -585,7 +595,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  type QueryControlName = "mode" | "attach" | "input" | "send" | "discard" | "scope" | "scopeAdd" | "model" | "tools" | `profile:${number}`;
+  type QueryControlName = "mode" | "attach" | "prompts" | "input" | "send" | "discard" | "scope" | "scopeAdd" | "model" | "tools" | `profile:${number}`;
 
   const queryProfileButtons = () => Array.from(queryProfileBar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []).filter(button => button.isConnected);
 
@@ -594,6 +604,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     switch (control) {
       case "mode": return queryModeButtons[selectedInputModeOption()];
       case "attach": return queryAttachButton;
+      case "prompts": return queryPromptsButton;
       case "send": return querySendButton;
       case "discard": return queryDiscardButton;
       case "scope": return queryScopeButton;
@@ -607,7 +618,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = isSearchMode()
       ? ["input", "send"]
-      : selectedInputMode() == "chat" ? ["mode", "attach", "input", "send"] : ["mode", "input", "send"];
+      : selectedInputMode() == "chat" ? ["mode", "attach", "prompts", "input", "send"] : ["mode", "input", "send"];
     controls.unshift(...queryProfileButtons().map((_, index): QueryControlName => `profile:${index}`));
     if (hasSubmittedQuery()) { controls.push("discard"); }
     if (queryScopeButton?.isConnected && !queryScopeButton.disabled) { controls.push("scope"); }
@@ -884,13 +895,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setDraftAttachments(draftAttachments().filter(a => a.id != attachment.id));
   };
 
-  /** Puts an attachment's text into the message at the caret, as a plain paste would have, in place of the attachment. */
-  const insertDraftAttachmentAsText = (attachment: ChatDraftAttachment) => {
-    removeDraftAttachment(attachment);
+  /** Puts text into the message at the caret, as a plain paste would have. */
+  const insertMessageText = (text: string) => {
     if (isChatMode()) {
       if (chatTextarea == null) { return; }
       chatTextarea.focus();
-      chatTextarea.setRangeText(attachment.text, chatTextarea.selectionStart, chatTextarea.selectionEnd, "end");
+      chatTextarea.setRangeText(text, chatTextarea.selectionStart, chatTextarea.selectionEnd, "end");
       setChatText(chatTextarea.value);
       resizeChatTextarea(chatTextarea);
       return;
@@ -898,12 +908,46 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     // The query input's text is read from the DOM while it is edited, and committed when editing ends.
     if (isEditing() && queryInput != null) {
       queryInput.focus();
-      queryInput.setRangeText(attachment.text, queryInput.selectionStart, queryInput.selectionEnd, "end");
+      queryInput.setRangeText(text, queryInput.selectionStart, queryInput.selectionEnd, "end");
+      setQueryInputText(queryInput.value);
       resizeQueryTextarea(queryInput);
       return;
     }
     const current = queryText();
-    setQueryText(store, queryItem(), current == "" ? attachment.text : current + "\n" + attachment.text);
+    setQueryText(store, queryItem(), current == "" ? text : current + "\n" + text);
+  };
+
+  /** Puts an attachment's text into the message at the caret, in place of the attachment. */
+  const insertDraftAttachmentAsText = (attachment: ChatDraftAttachment) => {
+    removeDraftAttachment(attachment);
+    insertMessageText(attachment.text);
+  };
+
+  /** A prompt chosen with the prompts button goes in at the caret, which replaces an empty message. */
+  const insertPromptText = (text: string) => {
+    const wasEditing = isEditing();
+    insertMessageText(text);
+    if (!isChatMode() && !wasEditing) { focusQueryInputControl(); }
+  };
+
+  // A prompt chosen by typing "/" replaces the "/" and its filter, which are all of the message.
+  const chatPromptSuggestions = createQueryPromptSuggestions(store,
+    () => chatTextareaFocused() ? queryPromptSlashFilter(chatText()) : null);
+  const queryPromptSuggestions = createQueryPromptSuggestions(store,
+    () => selectedInputMode() == "chat" && isEditing() && queryInputFocused() ? queryPromptSlashFilter(queryInputText()) : null);
+  const chooseChatSlashPrompt = (prompt: PromptSummary) => {
+    if (prompt.text == null || chatTextarea == null) { return; }
+    setChatText(prompt.text);
+    chatTextarea.value = prompt.text;
+    chatTextarea.setSelectionRange(prompt.text.length, prompt.text.length);
+    resizeChatTextarea(chatTextarea);
+  };
+  const chooseQuerySlashPrompt = (prompt: PromptSummary) => {
+    if (prompt.text == null || queryInput == null) { return; }
+    queryInput.value = prompt.text;
+    queryInput.setSelectionRange(prompt.text.length, prompt.text.length);
+    setQueryInputText(prompt.text);
+    resizeQueryTextarea(queryInput);
   };
 
   const sendChatMessage = async () => {
@@ -1010,6 +1054,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const keyDownHandler = (ev: KeyboardEvent) => {
+    if (queryPromptSuggestions.keyDown(ev, chooseQuerySlashPrompt)) {
+      ev.stopPropagation();
+      return;
+    }
     switch (ev.key) {
       case "Enter":
         if (ev.shiftKey) {
@@ -1423,6 +1471,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     };
     const chatKeyDown = (ev: KeyboardEvent) => {
       ev.stopPropagation();
+      if (chatPromptSuggestions.keyDown(ev, chooseChatSlashPrompt)) { return; }
       if (ev.key == "Escape") {
         ev.preventDefault();
         chatTextarea?.blur();
@@ -1558,6 +1607,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               onClick={openAttachFilePicker}>
               <i class="bi-plus-lg" />
             </button>
+            <QueryPromptPicker disabled={chatRequestActive} onChoose={insertPromptText}
+              buttonAppearance={{
+                class: "flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40",
+                style: `width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`,
+              }} />
+            <QueryPromptSuggestionList suggestions={chatPromptSuggestions} anchor={() => chatTextarea} onChoose={chooseChatSlashPrompt} />
             <div
               class="min-w-0 grow overflow-hidden rounded-xs border bg-white"
               classList={{ "border-[#999]": !itemDropHover(), "border-blue-500": itemDropHover() }}
@@ -1572,8 +1627,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 spellcheck={false}
                 placeholder="Ask"
                 disabled={chatRequestActive()}
-                onFocus={(ev) => { ev.currentTarget.spellcheck = true; }}
-                onBlur={(ev) => { ev.currentTarget.spellcheck = false; }}
+                onFocus={(ev) => { ev.currentTarget.spellcheck = true; setChatTextareaFocused(true); }}
+                onBlur={(ev) => { ev.currentTarget.spellcheck = false; setChatTextareaFocused(false); }}
                 onInput={(ev) => {
                   const el = ev.currentTarget as HTMLTextAreaElement;
                   setChatText(el.value);
@@ -1791,7 +1846,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </div>
           </div>
         </Show>
-        <div
+        <div ref={queryInputShell}
           class="border rounded-xs bg-white overflow-hidden"
           classList={{ "border-[#999]": !itemDropHover(), "border-blue-500": itemDropHover() }}
           style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;` +
@@ -1830,6 +1885,13 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 }}>
                 <i class="bi-plus-lg" />
               </button>
+              <QueryPromptPicker disabled={() => queryRequestActive() || !canEdit()} onChoose={insertPromptText}
+                buttonRef={el => { queryPromptsButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "prompts")}
+                buttonAppearance={{
+                  class: "mb-[4px] mr-[6px] flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40",
+                  style: `width: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px;`,
+                }} />
+              <QueryPromptSuggestionList suggestions={queryPromptSuggestions} anchor={() => queryInputShell} onChoose={chooseQuerySlashPrompt} />
             </Show>
             <textarea id={editingDomId()}
               ref={queryInput}
@@ -1842,6 +1904,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               spellcheck={canEdit() && isEditing()}
               onMouseDown={queryInputMouseDown}
               onKeyDown={keyDownHandler}
+              onFocus={(ev) => { setQueryInputFocused(true); setQueryInputText(ev.currentTarget.value); }}
+              onBlur={() => setQueryInputFocused(false)}
               onPaste={(ev) => {
                 if (selectedInputMode() == "chat" && isEditing()) {
                   attachPastedText(ev);
@@ -1849,6 +1913,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               }}
               onInput={(ev) => {
                 inputListener(ev);
+                setQueryInputText(ev.currentTarget.value);
                 resizeQueryTextarea(ev.currentTarget);
               }} />
             <button
