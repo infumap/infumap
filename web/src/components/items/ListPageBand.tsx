@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, JSX, createEffect } from "solid-js";
+import { Component, JSX, Show, createEffect } from "solid-js";
 
 import { VisualElement, listPageBandScrollYPx, listPageScrollVeid } from "../../layout/visual-element";
 import { printScrollWritesSuppressed } from "../../print";
@@ -68,5 +68,37 @@ export const ListPageBand: Component<{
       ondblclick={props.ondblclick}>
       {props.children}
     </div>
+  );
+};
+
+
+/**
+ * Faint lines between the list of a list page and its pinned bands, where it has them. They are drawn over the bands,
+ * rather than as borders of them, so they don't take a pixel from a band, which would put its rows out of line with
+ * where hit testing has them.
+ */
+export const ListPageBandSeparators: Component<{
+  pageVisualElement: VisualElement,
+  /** Positioning class, as for the bands. */
+  class: string,
+  widthPx: number,
+  /** The height the bands are laid out in. */
+  heightPx: number,
+  /** Any further style, e.g. the z-index the bands have. */
+  style?: string,
+}> = (props) => {
+  const lineStyle = (topPx: number) =>
+    `left: 0px; top: ${topPx}px; width: ${props.widthPx}px; height: 1px; pointer-events: none; ${props.style ?? ""}`;
+  return (
+    <>
+      <Show when={props.pageVisualElement.listPagePinnedTopHeightPx > 0}>
+        <div class={`${props.class} bg-slate-300`}
+          style={lineStyle(props.pageVisualElement.listPagePinnedTopHeightPx - 1)} />
+      </Show>
+      <Show when={props.pageVisualElement.listPagePinnedBottomHeightPx > 0}>
+        <div class={`${props.class} bg-slate-300`}
+          style={lineStyle(props.heightPx - props.pageVisualElement.listPagePinnedBottomHeightPx)} />
+      </Show>
+    </>
   );
 };

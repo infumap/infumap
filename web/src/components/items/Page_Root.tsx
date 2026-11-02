@@ -50,7 +50,7 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
-import { ListPageBand } from "./ListPageBand";
+import { ListPageBand, ListPageBandSeparators } from "./ListPageBand";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
@@ -451,6 +451,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         {renderListBand("top")}
         {renderListBand("middle")}
         {renderListBand("bottom")}
+        <ListPageBandSeparators pageVisualElement={props.visualElement} class="absolute"
+          widthPx={pageFns().listViewportWidthPx()} heightPx={pageFns().viewportBoundsPx().h} />
         <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />

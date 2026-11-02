@@ -57,7 +57,7 @@ import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
-import { ListPageBand } from "./ListPageBand";
+import { ListPageBand, ListPageBandSeparators } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
@@ -460,6 +460,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         {renderListBand("top")}
         {renderListBand("middle")}
         {renderListBand("bottom")}
+        <ListPageBandSeparators pageVisualElement={props.visualElement} class="absolute"
+          widthPx={pageFns().listViewportWidthPx()} heightPx={pageFns().viewportBoundsPx().h}
+          style={VeFns.zIndexStyle(props.visualElement)} />
         <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
         <For each={pageFns().desktopChildren()}>{childVe =>
           <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />

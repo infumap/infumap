@@ -39,7 +39,7 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { VisualElementSignal } from "../../util/signals";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { PageGroupBoxes } from "./PageGroupBoxes";
-import { ListPageBand } from "./ListPageBand";
+import { ListPageBand, ListPageBandSeparators } from "./ListPageBand";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
@@ -426,6 +426,9 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       {renderListBand("top")}
       {renderListBand("middle")}
       {renderListBand("bottom")}
+      <ListPageBandSeparators pageVisualElement={props.visualElement}
+        class={props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}
+        widthPx={pageFns().listViewportWidthPx()} heightPx={pageFns().viewportBoundsPx().h} />
       <VisualElement_DesktopShadowLayer visualElementSignals={visibleDesktopChildren()} />
       <For each={visibleDesktopChildren()}>{childVe =>
         <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />

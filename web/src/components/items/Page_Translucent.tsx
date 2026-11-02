@@ -51,7 +51,7 @@ import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
-import { ListPageBand } from "./ListPageBand";
+import { ListPageBand, ListPageBandSeparators } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
 import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
@@ -314,6 +314,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           {renderListBand("top")}
           {renderListBand("middle")}
           {renderListBand("bottom")}
+          <ListPageBandSeparators pageVisualElement={props.visualElement} class="absolute"
+            widthPx={pageFns().listViewportWidthPx()} heightPx={pageFns().boundsPx().h} />
         </Show>
         <div
           class={`absolute`}
