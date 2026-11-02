@@ -63,7 +63,7 @@ const HIT_BACKLINKS_MAX: usize = 3;
 const HIT_ANCESTOR_BACKLINKS_MAX: usize = 2;
 
 /// What the chat tools may read: the user's readable items, limited to the chat's scope if it has one.
-pub(super) struct Access<'a> {
+pub(in crate::web::routes::command) struct Access<'a> {
   pub user_id: &'a str,
   pub scope: Option<&'a ResolvedScope>,
 }
@@ -986,6 +986,39 @@ fn note_markdown(text: &str, urls: &[NoteUrl]) -> String {
   result
 }
 
+/// A note as one block of Markdown, as a document page shows it: its heading, list or code formatting, and its links.
+pub(in crate::web::routes::command) fn document_note_markdown(note: &Item) -> String {
+  let text = note.title.as_deref().unwrap_or("");
+  let flags = NoteFlags::from_bits_truncate(note.flags.unwrap_or(0));
+  if flags.contains(NoteFlags::Code) {
+    return format!("```\n{text}\n```");
+  }
+  let indent = if flags.contains(NoteFlags::Indent2) {
+    "    "
+  } else if flags.contains(NoteFlags::Indent1) {
+    "  "
+  } else {
+    ""
+  };
+  let marker = if flags.contains(NoteFlags::Heading1) {
+    "# "
+  } else if flags.contains(NoteFlags::Heading2) {
+    "## "
+  } else if flags.contains(NoteFlags::Heading3) {
+    "### "
+  } else if flags.contains(NoteFlags::Heading4) {
+    "#### "
+  } else if flags.contains(NoteFlags::Bullet1) {
+    "- "
+  } else if flags.contains(NoteFlags::Numbered) {
+    "1. "
+  } else {
+    ""
+  };
+  let indent = if marker.starts_with('#') { "" } else { indent };
+  format!("{indent}{marker}{}", note_markdown(text, note_urls(note)))
+}
+
 fn note_urls(note: &Item) -> &[NoteUrl] {
   note.urls.as_deref().unwrap_or(&[])
 }
@@ -1118,6 +1151,59 @@ fn entries<'a>(children: Vec<&'a Item>) -> Vec<Entry<'a>> {
   entries
 }
 
+/// Readable children in the order the container displays them.
+pub(in crate::web::routes::command) fn readable_children_in_display_order<'a>(
+  db: &'a Db,
+  access: &Access,
+  container: &Item,
+) -> InfuResult<Vec<&'a Item>> {
+  let mut items = db.item.get_children(&container.id)?;
+  items.retain(|item| access.can_read(db, item));
+  let by_ordering = |a: &&Item, b: &&Item| a.ordering.cmp(&b.ordering).then_with(|| a.id.cmp(&b.id));
+  match container.arrange_algorithm.filter(|_| container.item_type == ItemType::Page) {
+    Some(ArrangeAlgorithm::Document) => items.sort_by(by_ordering),
+    Some(ArrangeAlgorithm::SpatialStretch) => items.sort_by_key(|item| {
+      let position = item.spatial_position_gr.as_ref().map_or((0, 0), |position| (position.y, position.x));
+      (position, item.id.clone())
+    }),
+    Some(ArrangeAlgorithm::Calendar) => {
+      items.sort_by(|a, b| a.datetime.cmp(&b.datetime).then_with(|| by_ordering(a, b)))
+    }
+    _ => match container.order_children_by.as_deref() {
+      Some(order @ ("title[ASC]" | "title[DESC]")) => {
+        let descending = order == "title[DESC]";
+        items.sort_by_cached_key(|item| {
+          let content = access.content(db, item);
+          let title = content.and_then(|content| content.title.as_deref()).unwrap_or("").to_lowercase();
+          (content.is_none(), title, item.id.clone())
+        });
+        if descending {
+          // Unresolved links stay last, as they do on screen.
+          let resolved = items.iter().take_while(|item| access.content(db, item).is_some()).count();
+          items[..resolved].reverse();
+        }
+      }
+      _ => items.sort_by(by_ordering),
+    },
+  }
+  // A list page shows its pinned children in bands above and below the others, in the order the user put them
+  // whatever the page is sorted by. Pins mean nothing in other layouts. The sort is stable, so the others keep
+  // their order.
+  if container.item_type == ItemType::Page && container.arrange_algorithm == Some(ArrangeAlgorithm::List) {
+    let band = |item: &Item| match item.pinned_to {
+      Some(PinnedTo::Top) => 0,
+      None => 1,
+      Some(PinnedTo::Bottom) => 2,
+    };
+    items.sort_by(|a, b| {
+      band(a)
+        .cmp(&band(b))
+        .then_with(|| if a.pinned_to.is_some() { by_ordering(a, b) } else { std::cmp::Ordering::Equal })
+    });
+  }
+  Ok(items)
+}
+
 struct Renderer<'a, 'b> {
   db: &'a Db,
   access: &'b Access<'b>,
@@ -1165,51 +1251,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
 
   /// Readable children in the order the container displays them.
   fn children(&self, container: &Item) -> InfuResult<Vec<&'a Item>> {
-    let mut items = self.db.item.get_children(&container.id)?;
-    items.retain(|item| self.access.can_read(self.db, item));
-    let by_ordering = |a: &&Item, b: &&Item| a.ordering.cmp(&b.ordering).then_with(|| a.id.cmp(&b.id));
-    match container.arrange_algorithm.filter(|_| container.item_type == ItemType::Page) {
-      Some(ArrangeAlgorithm::Document) => items.sort_by(by_ordering),
-      Some(ArrangeAlgorithm::SpatialStretch) => items.sort_by_key(|item| {
-        let position = item.spatial_position_gr.as_ref().map_or((0, 0), |position| (position.y, position.x));
-        (position, item.id.clone())
-      }),
-      Some(ArrangeAlgorithm::Calendar) => {
-        items.sort_by(|a, b| a.datetime.cmp(&b.datetime).then_with(|| by_ordering(a, b)))
-      }
-      _ => match container.order_children_by.as_deref() {
-        Some(order @ ("title[ASC]" | "title[DESC]")) => {
-          let descending = order == "title[DESC]";
-          items.sort_by_cached_key(|item| {
-            let content = self.access.content(self.db, item);
-            let title = content.and_then(|content| content.title.as_deref()).unwrap_or("").to_lowercase();
-            (content.is_none(), title, item.id.clone())
-          });
-          if descending {
-            // Unresolved links stay last, as they do on screen.
-            let resolved = items.iter().take_while(|item| self.access.content(self.db, item).is_some()).count();
-            items[..resolved].reverse();
-          }
-        }
-        _ => items.sort_by(by_ordering),
-      },
-    }
-    // A list page shows its pinned children in bands above and below the others, in the order the user put them
-    // whatever the page is sorted by. Pins mean nothing in other layouts. The sort is stable, so the others keep
-    // their order.
-    if container.item_type == ItemType::Page && container.arrange_algorithm == Some(ArrangeAlgorithm::List) {
-      let band = |item: &Item| match item.pinned_to {
-        Some(PinnedTo::Top) => 0,
-        None => 1,
-        Some(PinnedTo::Bottom) => 2,
-      };
-      items.sort_by(|a, b| {
-        band(a)
-          .cmp(&band(b))
-          .then_with(|| if a.pinned_to.is_some() { by_ordering(a, b) } else { std::cmp::Ordering::Equal })
-      });
-    }
-    Ok(items)
+    readable_children_in_display_order(self.db, self.access, container)
   }
 
   /// Attachments in slot order. Unreadable ones are kept so table cells stay under their columns.
@@ -1454,38 +1496,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       return Ok(());
     };
     match content.item_type {
-      ItemType::Note => {
-        let text = content.title.as_deref().unwrap_or("");
-        let flags = NoteFlags::from_bits_truncate(content.flags.unwrap_or(0));
-        if flags.contains(NoteFlags::Code) {
-          pieces.text(&format!("```\n{text}\n```"));
-        } else {
-          let indent = if flags.contains(NoteFlags::Indent2) {
-            "    "
-          } else if flags.contains(NoteFlags::Indent1) {
-            "  "
-          } else {
-            ""
-          };
-          let marker = if flags.contains(NoteFlags::Heading1) {
-            "# "
-          } else if flags.contains(NoteFlags::Heading2) {
-            "## "
-          } else if flags.contains(NoteFlags::Heading3) {
-            "### "
-          } else if flags.contains(NoteFlags::Heading4) {
-            "#### "
-          } else if flags.contains(NoteFlags::Bullet1) {
-            "- "
-          } else if flags.contains(NoteFlags::Numbered) {
-            "1. "
-          } else {
-            ""
-          };
-          let indent = if marker.starts_with('#') { "" } else { indent };
-          pieces.text(&format!("{indent}{marker}{}", note_markdown(text, note_urls(content))));
-        }
-      }
+      ItemType::Note => pieces.text(&document_note_markdown(content)),
       ItemType::Divider => pieces.text("---"),
       ItemType::Composite if self.active.insert(content.id.clone()) => {
         for (index, member) in self.children(content)?.into_iter().enumerate() {
