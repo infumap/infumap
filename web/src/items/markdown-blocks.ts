@@ -1187,7 +1187,34 @@ function lastMarkdownListTextBlock(blocks: Array<TextDocumentBlock>): TextDocume
   return block;
 }
 
-export function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): Array<TextDocumentBlock> {
+type TextDocumentBlockOptions = {
+  /** Each non-blank line is its own paragraph, instead of consecutive lines joining into one. */
+  linePerParagraph: boolean,
+  /** A leading `---` block is front matter, made into a key/value table. */
+  frontMatter: boolean,
+};
+
+const TEXT_FILE_BLOCK_OPTIONS: TextDocumentBlockOptions = { linePerParagraph: false, frontMatter: true };
+
+/**
+ * The blocks of markdown pasted into a note.
+ *
+ * Each line is its own paragraph. Joining consecutive lines, as markdown does, suits hard-wrapped prose, but pasted
+ * text is more often a list of lines without markers (names, urls, items), and joining would make them one note. An
+ * indented line under a list item still joins the item: the indent says it belongs there.
+ *
+ * Front matter is off: pasted text that starts with a `---` line is far more likely to be anything else than the start
+ * of a markdown file, and reading it as front matter would turn the lines up to the next `---` into a table.
+ */
+export function parsePastedMarkdownBlocks(text: string): Array<TextDocumentBlock> {
+  return parseTextDocumentBlocks(text, true, { linePerParagraph: true, frontMatter: false });
+}
+
+export function parseTextDocumentBlocks(
+  text: string,
+  parseMarkdown: boolean,
+  options: TextDocumentBlockOptions = TEXT_FILE_BLOCK_OPTIONS,
+): Array<TextDocumentBlock> {
   const lines = linesWithOffsets(text);
   const blocks: Array<TextDocumentBlock> = [];
   let paragraphLines: Array<TextLine> = [];
@@ -1223,7 +1250,7 @@ export function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): A
   for (let i = 0; i < lines.length; ++i) {
     const line = lines[i];
 
-    const frontMatter = parseMarkdown ? parseMarkdownFrontMatterAt(lines, i) : null;
+    const frontMatter = parseMarkdown && options.frontMatter ? parseMarkdownFrontMatterAt(lines, i) : null;
     if (frontMatter != null) {
       flushParagraph();
       listStack = [];
@@ -1330,6 +1357,7 @@ export function parseTextDocumentBlocks(text: string, parseMarkdown: boolean): A
 
     listStack = [];
     paragraphLines.push(line);
+    if (options.linePerParagraph) { flushParagraph(); }
   }
   flushParagraph();
 
