@@ -57,6 +57,7 @@ import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
+import { ListPageBand } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
@@ -438,11 +439,11 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
       return (
         <Show when={bandHeightPx() > 0}>
-          <div
+          <ListPageBand pageVisualElement={props.visualElement} band={band}
             class="absolute border-r border-slate-300"
-            style={`${commonStyle()} overflow: hidden;`}>
+            style={commonStyle()}>
             {inner}
-          </div>
+          </ListPageBand>
         </Show>
       );
     };

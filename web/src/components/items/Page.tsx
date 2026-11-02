@@ -346,8 +346,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
         ...base,
         y: 0,
         h: band == "top"
-          ? props.visualElement.listPagePinnedTopHeightPx
-          : props.visualElement.listPagePinnedBottomHeightPx,
+          ? props.visualElement.listPagePinnedTopContentHeightPx
+          : props.visualElement.listPagePinnedBottomContentHeightPx,
       };
     },
 

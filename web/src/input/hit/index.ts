@@ -24,7 +24,7 @@ import { isContainer } from "../../items/base/container-item";
 import { HitboxFlags, HitboxFns, HitboxMeta } from "../../layout/hitbox";
 import { getDockScrollYPx } from "../../layout/arrange/dock";
 import { VesCache } from "../../layout/ves-cache";
-import { VisualElement, VisualElementFlags, VeFns, isTableView } from "../../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns, isTableView, listPageBandScrollYPx } from "../../layout/visual-element";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Vector, getBoundingBoxTopLeft, isInside, vectorAdd, vectorSubtract } from "../../util/geometry";
 import { assert, panic } from "../../util/lang";
@@ -210,12 +210,16 @@ function listPageLineItemHitPosPx(
   }
 
   if (childVe.listPageRowBand == "top") {
-    return posRelativeToRootVeViewportPx;
+    return {
+      x: posRelativeToRootVeViewportPx.x,
+      y: posRelativeToRootVeViewportPx.y + listPageBandScrollYPx(store, rootVe, "top"),
+    };
   }
   if (childVe.listPageRowBand == "bottom") {
     return {
       x: posRelativeToRootVeViewportPx.x,
-      y: posRelativeToRootVeViewportPx.y - (rootVe.viewportBoundsPx.h - rootVe.listPagePinnedBottomHeightPx),
+      y: posRelativeToRootVeViewportPx.y - (rootVe.viewportBoundsPx.h - rootVe.listPagePinnedBottomHeightPx) +
+        listPageBandScrollYPx(store, rootVe, "bottom"),
     };
   }
 
@@ -232,8 +236,8 @@ function listPageLineItemHitPosPx(
 }
 
 /**
- * Whether a middle band list page line item is scrolled out of the middle band at the position, so is hidden by
- * (or beyond) the pinned top / bottom bands and must not be hit.
+ * Whether a list page line item is scrolled out of its band at the position, so is hidden (by another band, or beyond
+ * the page) and must not be hit.
  */
 function listPageLineItemIsClippedAt(
   rootVe: VisualElement,
@@ -243,12 +247,14 @@ function listPageLineItemIsClippedAt(
   if (!(childVe.flags & VisualElementFlags.LineItem) ||
     (rootVe.flags & VisualElementFlags.IsDock) ||
     !isListPageVe(rootVe) ||
-    !rootVe.viewportBoundsPx ||
-    (childVe.listPageRowBand ?? "middle") != "middle") {
+    !rootVe.viewportBoundsPx) {
     return false;
   }
-  return posRelativeToRootVeViewportPx.y < rootVe.listPagePinnedTopHeightPx ||
-    posRelativeToRootVeViewportPx.y >= rootVe.viewportBoundsPx.h - rootVe.listPagePinnedBottomHeightPx;
+  const y = posRelativeToRootVeViewportPx.y;
+  const bottomBandTopPx = rootVe.viewportBoundsPx.h - rootVe.listPagePinnedBottomHeightPx;
+  if (childVe.listPageRowBand == "top") { return y >= rootVe.listPagePinnedTopHeightPx; }
+  if (childVe.listPageRowBand == "bottom") { return y < bottomBandTopPx; }
+  return y < rootVe.listPagePinnedTopHeightPx || y >= bottomBandTopPx;
 }
 
 function popupListTitleTargetPathMaybe(rootVe: VisualElement, titleLocalPos: Vector): string | null {

@@ -167,6 +167,15 @@ export function listPageScrollVeid(store: StoreContextModel, pageVe: VisualEleme
     : VeFns.actualVeidFromVe(pageVe);
 }
 
+/** How far the pinned top or bottom band of list page pageVe is scrolled, in px. */
+export function listPageBandScrollYPx(store: StoreContextModel, pageVe: VisualElement, band: "top" | "bottom"): number {
+  const scrollableHeightPx = band == "top"
+    ? pageVe.listPagePinnedTopContentHeightPx - pageVe.listPagePinnedTopHeightPx
+    : pageVe.listPagePinnedBottomContentHeightPx - pageVe.listPagePinnedBottomHeightPx;
+  if (scrollableHeightPx <= 0) { return 0; }
+  return scrollableHeightPx * store.perItem.getListPageBandScrollYProp(listPageScrollVeid(store, pageVe), band);
+}
+
 function listPageScrollOffsetPxForDescendant(
   store: StoreContextModel,
   pageVe: VisualElement,
@@ -186,12 +195,12 @@ function listPageScrollOffsetPxForDescendant(
   }
 
   if (descendantVe.listPageRowBand == "top") {
-    return { x: 0, y: 0 };
+    return { x: 0, y: listPageBandScrollYPx(store, pageVe, "top") };
   }
   if (descendantVe.listPageRowBand == "bottom") {
     return {
       x: 0,
-      y: -(pageVe.viewportBoundsPx!.h - pageVe.listPagePinnedBottomHeightPx),
+      y: listPageBandScrollYPx(store, pageVe, "bottom") - (pageVe.viewportBoundsPx!.h - pageVe.listPagePinnedBottomHeightPx),
     };
   }
 
@@ -331,8 +340,12 @@ export interface VisualElement {
   listChildAreaBoundsPx: BoundingBox | null,
 
   listPageRowBand: ListPageRowBand | null,
+  /** The heights of the pinned top / bottom band viewports of a list page, capped so they don't crowd out the list. */
   listPagePinnedTopHeightPx: number,
   listPagePinnedBottomHeightPx: number,
+  /** The heights of the pinned top / bottom band contents. A band scrolls when this exceeds its viewport height. */
+  listPagePinnedTopContentHeightPx: number,
+  listPagePinnedBottomContentHeightPx: number,
 
   /**
    * The bounds of the table the element is inside, if it's inside a table.
@@ -505,6 +518,8 @@ export const NONE_VISUAL_ELEMENT: VisualElement = {
   listPageRowBand: null,
   listPagePinnedTopHeightPx: 0,
   listPagePinnedBottomHeightPx: 0,
+  listPagePinnedTopContentHeightPx: 0,
+  listPagePinnedBottomContentHeightPx: 0,
   blockSizePx: null,
   lineItemTextRightPaddingPx: 0,
   col: null,
@@ -551,6 +566,8 @@ export interface VisualElementSpec {
   listPageRowBand?: ListPageRowBand | null,
   listPagePinnedTopHeightPx?: number,
   listPagePinnedBottomHeightPx?: number,
+  listPagePinnedTopContentHeightPx?: number,
+  listPagePinnedBottomContentHeightPx?: number,
   tableDimensionsPx?: Dimensions,
   indentBl?: number,
   tableColumnAlign?: TableColumnAlign | null,
@@ -622,6 +639,8 @@ export const VeFns = {
       listPageRowBand: null,
       listPagePinnedTopHeightPx: 0,
       listPagePinnedBottomHeightPx: 0,
+      listPagePinnedTopContentHeightPx: 0,
+      listPagePinnedBottomContentHeightPx: 0,
       indentBl: null,
       tableColumnAlign: null,
       tableWidthBl: null,
@@ -673,6 +692,8 @@ export const VeFns = {
     ve.listPageRowBand = null;
     ve.listPagePinnedTopHeightPx = 0;
     ve.listPagePinnedBottomHeightPx = 0;
+    ve.listPagePinnedTopContentHeightPx = 0;
+    ve.listPagePinnedBottomContentHeightPx = 0;
     ve.tableDimensionsPx = null;
     ve.indentBl = null;
     ve.tableColumnAlign = null;
@@ -1302,6 +1323,8 @@ function overrideVeFields(result: VisualElement, override: VisualElementSpec) {
   if (typeof (override.listPageRowBand) != 'undefined') { result.listPageRowBand = override.listPageRowBand; }
   if (typeof (override.listPagePinnedTopHeightPx) != 'undefined') { result.listPagePinnedTopHeightPx = override.listPagePinnedTopHeightPx; }
   if (typeof (override.listPagePinnedBottomHeightPx) != 'undefined') { result.listPagePinnedBottomHeightPx = override.listPagePinnedBottomHeightPx; }
+  if (typeof (override.listPagePinnedTopContentHeightPx) != 'undefined') { result.listPagePinnedTopContentHeightPx = override.listPagePinnedTopContentHeightPx; }
+  if (typeof (override.listPagePinnedBottomContentHeightPx) != 'undefined') { result.listPagePinnedBottomContentHeightPx = override.listPagePinnedBottomContentHeightPx; }
   if (typeof (override.tableDimensionsPx) != 'undefined') { result.tableDimensionsPx = override.tableDimensionsPx; }
   if (typeof (override.indentBl) != 'undefined') { result.indentBl = override.indentBl; }
   if (typeof (override.tableColumnAlign) != 'undefined') { result.tableColumnAlign = override.tableColumnAlign; }

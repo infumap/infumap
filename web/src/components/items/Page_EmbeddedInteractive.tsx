@@ -39,6 +39,7 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { VisualElementSignal } from "../../util/signals";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { PageGroupBoxes } from "./PageGroupBoxes";
+import { ListPageBand } from "./ListPageBand";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
@@ -405,11 +406,12 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
 
     return (
       <Show when={bandHeightPx() > 0}>
-        <div class={bandClass()}
-          style={`${commonStyle()} overflow: hidden;`}
+        <ListPageBand pageVisualElement={props.visualElement} band={band}
+          class={bandClass()}
+          style={commonStyle()}
           ondblclick={backgroundDoubleClickHandler}>
           {inner}
-        </div>
+        </ListPageBand>
       </Show>
     );
   };

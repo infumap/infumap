@@ -50,6 +50,7 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
+import { ListPageBand } from "./ListPageBand";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
@@ -431,11 +432,11 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
 
       return (
         <Show when={bandHeightPx() > 0}>
-          <div
+          <ListPageBand pageVisualElement={props.visualElement} band={band}
             class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
-            style={`${commonStyle()} overflow: hidden;`}>
+            style={commonStyle()}>
             {inner}
-          </div>
+          </ListPageBand>
         </Show>
       );
     };

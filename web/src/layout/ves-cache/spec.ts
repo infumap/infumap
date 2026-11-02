@@ -171,6 +171,11 @@ export function visualElementMatchesPreparedSpec(preparedSpec: VisualElementSpec
   if (compareDimensions(existingVe.tableRowBlockSizePx, specValueOrDefault(preparedSpec.tableRowBlockSizePx, NONE_VISUAL_ELEMENT.tableRowBlockSizePx)) !== 0) { return false; }
   if (compareBoundingBox(existingVe.listViewportBoundsPx, specValueOrDefault(preparedSpec.listViewportBoundsPx, NONE_VISUAL_ELEMENT.listViewportBoundsPx)) !== 0) { return false; }
   if (compareBoundingBox(existingVe.listChildAreaBoundsPx, specValueOrDefault(preparedSpec.listChildAreaBoundsPx, NONE_VISUAL_ELEMENT.listChildAreaBoundsPx)) !== 0) { return false; }
+  if ((existingVe.listPageRowBand ?? null) !== (specValueOrDefault(preparedSpec.listPageRowBand, NONE_VISUAL_ELEMENT.listPageRowBand) ?? null)) { return false; }
+  if (existingVe.listPagePinnedTopHeightPx !== specValueOrDefault(preparedSpec.listPagePinnedTopHeightPx, NONE_VISUAL_ELEMENT.listPagePinnedTopHeightPx)) { return false; }
+  if (existingVe.listPagePinnedBottomHeightPx !== specValueOrDefault(preparedSpec.listPagePinnedBottomHeightPx, NONE_VISUAL_ELEMENT.listPagePinnedBottomHeightPx)) { return false; }
+  if (existingVe.listPagePinnedTopContentHeightPx !== specValueOrDefault(preparedSpec.listPagePinnedTopContentHeightPx, NONE_VISUAL_ELEMENT.listPagePinnedTopContentHeightPx)) { return false; }
+  if (existingVe.listPagePinnedBottomContentHeightPx !== specValueOrDefault(preparedSpec.listPagePinnedBottomContentHeightPx, NONE_VISUAL_ELEMENT.listPagePinnedBottomContentHeightPx)) { return false; }
   if (compareDimensions(existingVe.tableDimensionsPx, specValueOrDefault(preparedSpec.tableDimensionsPx, NONE_VISUAL_ELEMENT.tableDimensionsPx)) !== 0) { return false; }
   if ((existingVe.indentBl ?? null) !== (specValueOrDefault(preparedSpec.indentBl, NONE_VISUAL_ELEMENT.indentBl) ?? null)) { return false; }
   if ((existingVe.tableColumnAlign ?? null) !== (specValueOrDefault(preparedSpec.tableColumnAlign, NONE_VISUAL_ELEMENT.tableColumnAlign) ?? null)) { return false; }

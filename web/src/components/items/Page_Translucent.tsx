@@ -51,6 +51,7 @@ import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
+import { ListPageBand } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
 import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
@@ -295,10 +296,11 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
       return (
         <Show when={bandHeightPx() > 0}>
-          <div class="absolute"
-            style={`${commonStyle()} overflow: hidden;`}>
+          <ListPageBand pageVisualElement={props.visualElement} band={band}
+            class="absolute"
+            style={commonStyle()}>
             {inner}
-          </div>
+          </ListPageBand>
         </Show>
       );
     };

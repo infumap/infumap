@@ -1973,24 +1973,35 @@ export const PageFns = {
 
   /**
    * Scroll list page pageVe to show its row rowVe after a jump to it: not at all if the row and the rows either side of
-   * it (where there are any) are fully visible, otherwise so the row is in the middle. Rows pinned to the top or bottom
-   * are always visible. This reads the arranged rows, so must be called after arranging.
+   * it (where there are any) are fully visible, otherwise so the row is in the middle. The row's band (the list, or a
+   * pinned band, which scrolls when it is full) is scrolled. This reads the arranged rows, so must be called after
+   * arranging.
    */
   revealListPageRow: (store: StoreContextModel, pageVe: VisualElement, rowVe: VisualElement): void => {
-    if (!pageVe.listChildAreaBoundsPx || !pageVe.listViewportBoundsPx || rowVe.listPageRowBand != "middle") { return; }
-    const viewportHeightPx = pageVe.listViewportBoundsPx.h;
-    const maxScrollPx = pageVe.listChildAreaBoundsPx.h - viewportHeightPx;
-    if (maxScrollPx <= 0) { return; }
+    if (!pageVe.listChildAreaBoundsPx || !pageVe.listViewportBoundsPx || rowVe.listPageRowBand == null) { return; }
+    const band = rowVe.listPageRowBand;
     const scrollVeid = listPageScrollVeid(store, pageVe);
-    const scrollPx = store.perItem.getPageScrollYProp(scrollVeid) * maxScrollPx;
+    const [viewportHeightPx, contentHeightPx] =
+      band == "top" ? [pageVe.listPagePinnedTopHeightPx, pageVe.listPagePinnedTopContentHeightPx] :
+        band == "bottom" ? [pageVe.listPagePinnedBottomHeightPx, pageVe.listPagePinnedBottomContentHeightPx] :
+          [pageVe.listViewportBoundsPx.h, pageVe.listChildAreaBoundsPx.h];
+    const getScrollProp = () => band == "middle"
+      ? store.perItem.getPageScrollYProp(scrollVeid)
+      : store.perItem.getListPageBandScrollYProp(scrollVeid, band);
+    const setScrollProp = (prop: number) => band == "middle"
+      ? store.perItem.setPageScrollYProp(scrollVeid, prop)
+      : store.perItem.setListPageBandScrollYProp(scrollVeid, band, prop);
+    const maxScrollPx = contentHeightPx - viewportHeightPx;
+    if (maxScrollPx <= 0) { return; }
+    const scrollPx = getScrollProp() * maxScrollPx;
     const rowHeightPx = rowVe.boundsPx.h;
     // List rows are all the same height, so the neighbours span one row height either side.
     const contextTopPx = Math.max(0, rowVe.boundsPx.y - rowHeightPx);
-    const contextBottomPx = Math.min(pageVe.listChildAreaBoundsPx.h, rowVe.boundsPx.y + 2 * rowHeightPx);
+    const contextBottomPx = Math.min(contentHeightPx, rowVe.boundsPx.y + 2 * rowHeightPx);
     if (contextTopPx >= scrollPx && contextBottomPx <= scrollPx + viewportHeightPx) { return; }
     const nextScrollPx = Math.max(0, Math.min(maxScrollPx, rowVe.boundsPx.y - (viewportHeightPx - rowHeightPx) / 2));
     if (nextScrollPx != scrollPx) {
-      store.perItem.setPageScrollYProp(scrollVeid, nextScrollPx / maxScrollPx);
+      setScrollProp(nextScrollPx / maxScrollPx);
     }
   },
 

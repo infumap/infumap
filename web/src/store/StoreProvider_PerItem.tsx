@@ -115,6 +115,10 @@ export interface PerItemStoreContextModel {
   getPageScrollYProp: (veid: Veid) => number,
   setPageScrollYProp: (veid: Veid, prop: number) => void,
 
+  /** The scroll position of a pinned top / bottom band of a list page, as for the list itself (getPageScrollYProp). */
+  getListPageBandScrollYProp: (veid: Veid, band: "top" | "bottom") => number,
+  setListPageBandScrollYProp: (veid: Veid, band: "top" | "bottom", prop: number) => void,
+
   getCompositeIsCollapsed: (veid: Veid) => boolean,
   setCompositeIsCollapsed: (veid: Veid, collapsed: boolean) => void,
 
@@ -156,6 +160,7 @@ export function makePerItemStore(
   const tableScrollPositions = new Map<string, NumberSignal>();
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
+  const listPageBandScrollYProps = new Map<string, NumberSignal>();
   const compositeCollapsedStates = new Map<string, BooleanSignal>();
   const selectedItems = new Map<string, InfuSignal<Veid>>();
   const focusedItems = new Map<string, InfuSignal<Veid>>();
@@ -268,6 +273,23 @@ export function makePerItemStore(
       return;
     }
     pageScrollYPxs.get(key)!.set(prop);
+  };
+
+  const getListPageBandScrollYProp = (veid: Veid, band: "top" | "bottom"): number => {
+    const key = veidKey(veid) + "/" + band;
+    if (!listPageBandScrollYProps.get(key)) {
+      listPageBandScrollYProps.set(key, createNumberSignal(0.0));
+    }
+    return listPageBandScrollYProps.get(key)!.get();
+  };
+
+  const setListPageBandScrollYProp = (veid: Veid, band: "top" | "bottom", prop: number): void => {
+    const key = veidKey(veid) + "/" + band;
+    if (!listPageBandScrollYProps.get(key)) {
+      listPageBandScrollYProps.set(key, createNumberSignal(prop));
+      return;
+    }
+    listPageBandScrollYProps.get(key)!.set(prop);
   };
 
   const getCompositeIsCollapsed = (veid: Veid): boolean => {
@@ -435,6 +457,7 @@ export function makePerItemStore(
     tableScrollPositions.clear();
     pageScrollXPxs.clear();
     pageScrollYPxs.clear();
+    listPageBandScrollYProps.clear();
     compositeCollapsedStates.clear();
     selectedItems.clear();
     focusedItems.clear();
@@ -453,6 +476,7 @@ export function makePerItemStore(
     getTableScrollYPos, setTableScrollYPos,
     getPageScrollXProp, setPageScrollXProp,
     getPageScrollYProp, setPageScrollYProp,
+    getListPageBandScrollYProp, setListPageBandScrollYProp,
     getCompositeIsCollapsed, setCompositeIsCollapsed,
     getSearchQuery, setSearchQuery,
     getQueryMode, setQueryMode,

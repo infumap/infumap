@@ -261,6 +261,8 @@ export function arrange_list_page(
   let arrangedRows: Array<ListPageArrangedRow> = [];
   let topPinnedHeightPx = 0;
   let bottomPinnedHeightPx = 0;
+  let topPinnedContentHeightPx = 0;
+  let bottomPinnedContentHeightPx = 0;
 
   if (shouldArrangeListContents) {
     const rowCounts: Record<ListPageRowBand, number> = {
@@ -338,8 +340,12 @@ export function arrange_list_page(
     }
 
     const rowHeightPx = LINE_HEIGHT_PX * listScale;
-    topPinnedHeightPx = listPageBandContentHeightPx(rowCounts.top, rowHeightPx);
-    bottomPinnedHeightPx = listPageBandContentHeightPx(rowCounts.bottom, rowHeightPx);
+    topPinnedContentHeightPx = listPageBandContentHeightPx(rowCounts.top, rowHeightPx);
+    bottomPinnedContentHeightPx = listPageBandContentHeightPx(rowCounts.bottom, rowHeightPx);
+    // Each band takes at most a third of the page and scrolls beyond that, so the list always keeps a third.
+    const maxPinnedHeightPx = Math.floor(geometry.viewportBoundsPx!.h / 3);
+    topPinnedHeightPx = Math.min(topPinnedContentHeightPx, maxPinnedHeightPx);
+    bottomPinnedHeightPx = Math.min(bottomPinnedContentHeightPx, maxPinnedHeightPx);
     listViewportBoundsPx.y = topPinnedHeightPx;
     listViewportBoundsPx.h = Math.max(0, geometry.viewportBoundsPx!.h - topPinnedHeightPx - bottomPinnedHeightPx);
     listChildAreaBoundsPx.y = 0;
@@ -371,6 +377,8 @@ export function arrange_list_page(
     listChildAreaBoundsPx,
     listPagePinnedTopHeightPx: topPinnedHeightPx,
     listPagePinnedBottomHeightPx: bottomPinnedHeightPx,
+    listPagePinnedTopContentHeightPx: topPinnedContentHeightPx,
+    listPagePinnedBottomContentHeightPx: bottomPinnedContentHeightPx,
     blockSizePx,
     hitboxes,
     parentPath,
