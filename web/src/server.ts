@@ -160,6 +160,22 @@ export interface ListScopesResponse {
   scopes: Array<ScopeSummary>,
 }
 
+/** A note or composite on the prompts page, or a link to one. */
+export interface PromptSummary {
+  /** The item on the prompts page, which may be a link to the prompt. */
+  id: Uid,
+  /** The first line of the first note. */
+  name: string,
+  /** Markdown. Absent when the prompt is too long. */
+  text?: string,
+  tooLong?: boolean,
+}
+
+export interface ListPromptsResponse {
+  promptsPageId: Uid,
+  prompts: Array<PromptSummary>,
+}
+
 /** An item chosen as a chat's scope, as it resolves now: a link is described as its target. */
 export interface ScopeItemDescription {
   id: Uid,
@@ -526,6 +542,7 @@ const COMMAND_CONVERT_PAGE_COMPOSITE = "convert-page-composite";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_SCOPES = "list-scopes";
+const COMMAND_LIST_PROMPTS = "list-prompts";
 const COMMAND_DESCRIBE_SCOPE_ITEMS = "describe-scope-items";
 const COMMAND_QUERY_PROFILES = "query-profiles";
 const COMMAND_LOAD_CHAT = "load-chat";
@@ -573,6 +590,9 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_LIST_SCOPES:
       description = "Loading scopes";
+      break;
+    case COMMAND_LIST_PROMPTS:
+      description = "Loading prompts";
       break;
     case COMMAND_DESCRIBE_SCOPE_ITEMS:
       description = "Loading scope items";
@@ -1356,6 +1376,10 @@ export const server = {
 
   listScopes: async (): Promise<ListScopesResponse> => {
     return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null);
+  },
+
+  listPrompts: async (): Promise<ListPromptsResponse> => {
+    return constructCommandPromise(null, COMMAND_LIST_PROMPTS, {}, null);
   },
 
   /** At most 32 items. */
