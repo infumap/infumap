@@ -1281,7 +1281,9 @@ function updatePageMoveOverIndex(
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.List) {
-    const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, PageFns.listPageInsertionRowVes(inElementVe), desktopPosPx);
+    const band = PageFns.listPageMoveOverBand(store, inElementVe, desktopPosPx);
+    store.perVe.setMoveOverListBand(VeFns.veToPath(inElementVe), band);
+    const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, PageFns.listPageInsertionRowVes(inElementVe, band), desktopPosPx);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
   }
 

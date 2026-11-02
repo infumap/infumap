@@ -23,7 +23,7 @@ import { GroupFns } from "../items/base/group-item";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
-import { PageFns, asPageItem, isPage } from "../items/page-item";
+import { PageFns, PageItem, asPageItem, isPage } from "../items/page-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VeFns, Veid, VisualElement } from "../layout/visual-element";
 import { Item } from "../items/base/item";
@@ -249,6 +249,37 @@ export function placeItemsAtChildrenPosition(
     }
   }
   itemState.sortChildren(parent.id);
+}
+
+/**
+ * Pin items to band of list page page, at indexAmongOthers among the other children pinned there. Their orderings are
+ * placed among those children only. In a page sorted by title, the children next to the band in computed_children
+ * may be unpinned, with orderings that have nothing to do with the band's.
+ */
+export function placeItemsInListPageBand(
+  page: PageItem,
+  items: Array<PositionalItem>,
+  band: "top" | "bottom",
+  indexAmongOthers: number,
+): void {
+  const ids = items.map(item => item.id);
+  const orderings = PageFns.listPagePinnedChildIds(page, band, ids).map(id => itemState.get(id)!.ordering);
+  let orderingIndex = Math.max(0, Math.min(indexAmongOthers, orderings.length));
+  for (const item of items) {
+    const ordering = orderingIndex == 0
+      ? newOrderingAtBeginning(orderings)
+      : orderingIndex == orderings.length
+        ? newOrderingAtEnd(orderings)
+        : newOrderingBetween(orderings[orderingIndex - 1], orderings[orderingIndex]);
+    orderings.splice(orderingIndex++, 0, ordering);
+    if (item.parentId != page.id || item.relationshipToParent != RelationshipToParent.Child) {
+      itemState.moveToNewParent(item, page.id, RelationshipToParent.Child, ordering);
+    } else {
+      item.ordering = ordering;
+    }
+    item.pinnedTo = band;
+  }
+  itemState.sortChildren(page.id);
 }
 
 export function moveGroupToChildParentPreservingOffsets(

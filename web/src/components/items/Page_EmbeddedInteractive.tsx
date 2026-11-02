@@ -39,7 +39,7 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { VisualElementSignal } from "../../util/signals";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { PageGroupBoxes } from "./PageGroupBoxes";
-import { ListPageBand, ListPageBandSeparators } from "./ListPageBand";
+import { ListPageBand, ListPageBandOverlays } from "./ListPageBand";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
@@ -387,9 +387,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <For each={childVes()}>{childVe =>
           <VisualElement_LineItem visualElement={childVe.get()} />
         }</For>
-        <Show when={band == "middle"}>
-          {pageFns().renderMoveOverAnnotationMaybe()}
-        </Show>
+        {pageFns().renderMoveOverAnnotationMaybe(band)}
       </div>;
 
     if (band == "middle") {
@@ -426,7 +424,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
       {renderListBand("top")}
       {renderListBand("middle")}
       {renderListBand("bottom")}
-      <ListPageBandSeparators pageVisualElement={props.visualElement}
+      <ListPageBandOverlays pageVisualElement={props.visualElement}
         class={props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"}
         widthPx={pageFns().listViewportWidthPx()} heightPx={pageFns().viewportBoundsPx().h} />
       <VisualElement_DesktopShadowLayer visualElementSignals={visibleDesktopChildren()} />

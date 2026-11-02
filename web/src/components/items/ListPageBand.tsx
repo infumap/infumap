@@ -18,7 +18,7 @@
 
 import { Component, JSX, Show, createEffect } from "solid-js";
 
-import { VisualElement, listPageBandScrollYPx, listPageScrollVeid } from "../../layout/visual-element";
+import { VeFns, VisualElement, listPageBandScrollYPx, listPageScrollVeid } from "../../layout/visual-element";
 import { printScrollWritesSuppressed } from "../../print";
 import { useStore } from "../../store/StoreProvider";
 
@@ -73,11 +73,12 @@ export const ListPageBand: Component<{
 
 
 /**
- * Faint lines between the list of a list page and its pinned bands, where it has them. They are drawn over the bands,
- * rather than as borders of them, so they don't take a pixel from a band, which would put its rows out of line with
- * where hit testing has them.
+ * Drawn over the bands of a list page: faint lines between its list and its pinned bands, and while an item is moved,
+ * the labels of the strips to drop it on to pin it, which empty bands are then (see page_list.ts). The lines are drawn
+ * over the bands, rather than as borders of them, so they don't take a pixel from a band, which would put its rows out
+ * of line with where hit testing has them.
  */
-export const ListPageBandSeparators: Component<{
+export const ListPageBandOverlays: Component<{
   pageVisualElement: VisualElement,
   /** Positioning class, as for the bands. */
   class: string,
@@ -87,17 +88,38 @@ export const ListPageBandSeparators: Component<{
   /** Any further style, e.g. the z-index the bands have. */
   style?: string,
 }> = (props) => {
+  const store = useStore();
+  const pageVe = () => props.pageVisualElement;
+  const isDropStrip = (band: "top" | "bottom") => band == "top"
+    ? pageVe().listPagePinnedTopHeightPx > 0 && pageVe().listPagePinnedTopContentHeightPx == 0
+    : pageVe().listPagePinnedBottomHeightPx > 0 && pageVe().listPagePinnedBottomContentHeightPx == 0;
+  const dropStripIsActive = (band: "top" | "bottom") =>
+    store.perVe.getMovingItemIsOver(VeFns.veToPath(pageVe())) &&
+    store.perVe.getMoveOverListBand(VeFns.veToPath(pageVe())) == band;
   const lineStyle = (topPx: number) =>
     `left: 0px; top: ${topPx}px; width: ${props.widthPx}px; height: 1px; pointer-events: none; ${props.style ?? ""}`;
+  const renderDropStrip = (band: "top" | "bottom") => {
+    const heightPx = () => band == "top" ? pageVe().listPagePinnedTopHeightPx : pageVe().listPagePinnedBottomHeightPx;
+    return (
+      <div class={`${props.class} flex items-center justify-center text-slate-500`}
+        style={`left: 0px; top: ${band == "top" ? 0 : props.heightPx - heightPx()}px; ` +
+          `width: ${props.widthPx}px; height: ${heightPx()}px; pointer-events: none; ` +
+          `font-size: ${Math.min(12, Math.round(heightPx() / 2))}px; white-space: nowrap; overflow: hidden; ` +
+          `background-color: ${dropStripIsActive(band) ? "#0044ff1f" : "#0044ff0a"}; ${props.style ?? ""}`}>
+        {band == "top" ? "Pin to top" : "Pin to bottom"}
+      </div>
+    );
+  };
   return (
     <>
-      <Show when={props.pageVisualElement.listPagePinnedTopHeightPx > 0}>
-        <div class={`${props.class} bg-slate-300`}
-          style={lineStyle(props.pageVisualElement.listPagePinnedTopHeightPx - 1)} />
+      <Show when={isDropStrip("top")}>{renderDropStrip("top")}</Show>
+      <Show when={isDropStrip("bottom")}>{renderDropStrip("bottom")}</Show>
+      <Show when={pageVe().listPagePinnedTopHeightPx > 0}>
+        <div class={`${props.class} bg-slate-300`} style={lineStyle(pageVe().listPagePinnedTopHeightPx - 1)} />
       </Show>
-      <Show when={props.pageVisualElement.listPagePinnedBottomHeightPx > 0}>
+      <Show when={pageVe().listPagePinnedBottomHeightPx > 0}>
         <div class={`${props.class} bg-slate-300`}
-          style={lineStyle(props.heightPx - props.pageVisualElement.listPagePinnedBottomHeightPx)} />
+          style={lineStyle(props.heightPx - pageVe().listPagePinnedBottomHeightPx)} />
       </Show>
     </>
   );

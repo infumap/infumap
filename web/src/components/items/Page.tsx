@@ -305,14 +305,14 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return stackedInsertionLineBoundsPx(childVes, pageFns.childAreaBoundsPx().w, moveOverIndex);
     },
 
-    listMoveOverInsertLineBoundsPx: (): BoundingBox | null => {
+    listMoveOverInsertLineBoundsPx: (band: ListPageRowBand = "middle"): BoundingBox | null => {
       const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
       if (moveOverIndex < 0) {
         return null;
       }
 
-      const childVes = PageFns.listPageInsertionRowVes(props.visualElement);
-      const widthPx = props.visualElement.listChildAreaBoundsPx?.w ?? pageFns.listViewportWidthPx();
+      const childVes = PageFns.listPageInsertionRowVes(props.visualElement, band);
+      const widthPx = pageFns.listBandChildAreaBoundsPx(band).w;
       if (childVes.length === 0) {
         return {
           x: 0,
@@ -727,9 +727,21 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Show>;
     },
 
-    renderMoveOverAnnotationMaybe: () => {
+    /** For a list page, band is the band this is drawn in. It is drawn there if that is where the item would go. */
+    renderMoveOverAnnotationMaybe: (band: ListPageRowBand = "middle") => {
       if (!store.perVe.getMovingItemIsOver(pageFns.vePath())) {
         return <></>;
+      }
+      if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
+        if (store.perVe.getMoveOverListBand(pageFns.vePath()) != band) {
+          return <></>;
+        }
+        // Pinned children are in the order the user put them, so a drop in a pinned band goes where the line is. An
+        // empty band is a drop strip, which shows it is the target itself.
+        if (band != "middle") {
+          if (PageFns.listPageInsertionRowVes(props.visualElement, band).length == 0) { return <></>; }
+          return pageFns.renderListMoveOverLineMaybe(band);
+        }
       }
       if (store.perVe.getMovingItemIsOver(pageFns.vePath()) && pageFns.moveOverTargetIsOrdered()) {
         return pageFns.renderMoveOverSortedMaybe();
@@ -755,7 +767,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       if (page.arrangeAlgorithm != ArrangeAlgorithm.List || moveOverIndex < 0) {
         return page;
       }
-      return PageFns.listPageInsertionTarget(props.visualElement, moveOverIndex, []).parentContainer;
+      return PageFns.listPageInsertionTarget(
+        props.visualElement, moveOverIndex, [], store.perVe.getMoveOverListBand(pageFns.vePath())).parentContainer;
     },
 
     // The bounds of the rows of an expanded container in a list page: the container's own row and those of its
@@ -854,14 +867,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             style={`left: ${lineBoundsPx.x + pageFns.catalogContentLeftPx()}px; top: ${lineBoundsPx.y - 1}px; width: ${lineBoundsPx.w}px; height: 2px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
-        const lineBoundsPx = pageFns.listMoveOverInsertLineBoundsPx();
-        if (!lineBoundsPx) {
-          return <></>;
-        }
-        return (
-          <div class="absolute pointer-events-none bg-black"
-            style={`left: ${lineBoundsPx.x}px; top: ${lineBoundsPx.y}px; width: ${lineBoundsPx.w}px; height: 1px;`} />
-        );
+        return pageFns.renderListMoveOverLineMaybe("middle");
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document) {
         const lineBoundsPx = pageFns.documentMoveOverInsertLineBoundsPx();
         if (!lineBoundsPx) {
@@ -895,6 +901,17 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       } else {
         return <></>;
       }
+    },
+
+    renderListMoveOverLineMaybe: (band: ListPageRowBand) => {
+      const lineBoundsPx = pageFns.listMoveOverInsertLineBoundsPx(band);
+      if (!lineBoundsPx) {
+        return <></>;
+      }
+      return (
+        <div class="absolute pointer-events-none bg-black"
+          style={`left: ${lineBoundsPx.x}px; top: ${lineBoundsPx.y}px; width: ${lineBoundsPx.w}px; height: 1px;`} />
+      );
     },
 
     renderJustifiedMoveOverHighlight: () => {

@@ -57,7 +57,7 @@ import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
-import { ListPageBand, ListPageBandSeparators } from "./ListPageBand";
+import { ListPageBand, ListPageBandOverlays } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
@@ -415,9 +415,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           <For each={childVes()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
-          <Show when={band == "middle"}>
-            {pageFns().renderMoveOverAnnotationMaybe()}
-          </Show>
+          {pageFns().renderMoveOverAnnotationMaybe(band)}
         </div>;
       const commonStyle = () =>
         `left: 0px; top: ${bandTopPx()}px; ` +
@@ -460,7 +458,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         {renderListBand("top")}
         {renderListBand("middle")}
         {renderListBand("bottom")}
-        <ListPageBandSeparators pageVisualElement={props.visualElement} class="absolute"
+        <ListPageBandOverlays pageVisualElement={props.visualElement} class="absolute"
           widthPx={pageFns().listViewportWidthPx()} heightPx={pageFns().viewportBoundsPx().h}
           style={VeFns.zIndexStyle(props.visualElement)} />
         <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />

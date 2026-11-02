@@ -70,7 +70,7 @@ import {
 } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
 import { mouseMove_handleNoButtonDown, resolveActiveTreeItemForResize } from "./mouse_move";
-import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, orderedGroupMoveItems, placeItemsAtChildrenPosition } from "./move_group";
+import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, orderedGroupMoveItems, placeItemsAtChildrenPosition, placeItemsInListPageBand } from "./move_group";
 import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
 import { NativeTextSelectionState } from "./native_text_selection";
@@ -1897,9 +1897,11 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
     ? orderedGroupMoveItems(activeItem).map(item => asPositionalItem(item))
     : [activeItem];
   const movingIds = movingItems.map(item => item.id);
+  const acceptsPins = PageFns.listPageAcceptsPins(store, pageItem);
+  const band = acceptsPins ? store.perVe.getMoveOverListBand(path) : "middle";
   // In a list page, the insertion point may be inside an expanded container.
   const insertionTarget = pageItem.arrangeAlgorithm == ArrangeAlgorithm.List
-    ? PageFns.listPageInsertionTarget(overContainerVe, idx, movingIds)
+    ? PageFns.listPageInsertionTarget(overContainerVe, idx, movingIds, band)
     : { parentContainer: pageItem, insertIndex: idx };
   const moveToParent = insertionTarget.parentContainer;
   if (moveToParent.id != pageItem.id) {
@@ -1918,11 +1920,19 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
       return;
     }
   }
-  const insertIndex =
-    pageItem.arrangeAlgorithm != ArrangeAlgorithm.Document && moveToParent.orderChildrenBy
-      ? 0
-      : insertionTarget.insertIndex;
-  placeItemsAtChildrenPosition(moveToParent, movingItems, insertIndex);
+  if (moveToParent.id == pageItem.id && band != "middle") {
+    placeItemsInListPageBand(pageItem, movingItems, band, insertionTarget.insertIndex);
+  } else {
+    if (acceptsPins && moveToParent.id == pageItem.id) {
+      // Dropped in the list, so unpinned if it was pinned.
+      for (const item of movingItems) { item.pinnedTo = null; }
+    }
+    const insertIndex =
+      pageItem.arrangeAlgorithm != ArrangeAlgorithm.Document && moveToParent.orderChildrenBy
+        ? 0
+        : insertionTarget.insertIndex;
+    placeItemsAtChildrenPosition(moveToParent, movingItems, insertIndex);
+  }
 
   if (pageItem.arrangeAlgorithm == ArrangeAlgorithm.List) {
     const activeVe = MouseActionState.getActiveVisualElement();

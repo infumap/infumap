@@ -344,8 +344,19 @@ export function arrange_list_page(
     bottomPinnedContentHeightPx = listPageBandContentHeightPx(rowCounts.bottom, rowHeightPx);
     // Each band takes at most a third of the page and scrolls beyond that, so the list always keeps a third.
     const maxPinnedHeightPx = Math.floor(geometry.viewportBoundsPx!.h / 3);
-    topPinnedHeightPx = Math.min(topPinnedContentHeightPx, maxPinnedHeightPx);
-    bottomPinnedHeightPx = Math.min(bottomPinnedContentHeightPx, maxPinnedHeightPx);
+    // While an item is moved, an empty band is a strip one row high to drop it on, to pin it. This is from the start of
+    // the move, not once it is over the page, so the rows don't jump under the pointer as it arrives. Strips drawn
+    // over the list instead would hide the position above its first row. Only in pages that are worked in: a strip
+    // in every miniature list page on a desktop would make them all jump at the start of any move.
+    const dropStripHeightPx =
+      store.anItemIsMoving.get() && PageFns.listPageAcceptsPins(store, displayItem_pageWithChildren) &&
+        (isEmbeddedInteractive ||
+          (flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot)))
+        ? Math.min(rowHeightPx, maxPinnedHeightPx)
+        : 0;
+    topPinnedHeightPx = rowCounts.top > 0 ? Math.min(topPinnedContentHeightPx, maxPinnedHeightPx) : dropStripHeightPx;
+    bottomPinnedHeightPx =
+      rowCounts.bottom > 0 ? Math.min(bottomPinnedContentHeightPx, maxPinnedHeightPx) : dropStripHeightPx;
     listViewportBoundsPx.y = topPinnedHeightPx;
     listViewportBoundsPx.h = Math.max(0, geometry.viewportBoundsPx!.h - topPinnedHeightPx - bottomPinnedHeightPx);
     listChildAreaBoundsPx.y = 0;

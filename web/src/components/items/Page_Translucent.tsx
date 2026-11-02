@@ -51,7 +51,7 @@ import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
-import { ListPageBand, ListPageBandSeparators } from "./ListPageBand";
+import { ListPageBand, ListPageBandOverlays } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
 import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
@@ -272,9 +272,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           <For each={childVes()}>{childVe =>
             <VisualElement_LineItem visualElement={childVe.get()} />
           }</For>
-          <Show when={band == "middle"}>
-            {pageFns().renderMoveOverAnnotationMaybe()}
-          </Show>
+          {pageFns().renderMoveOverAnnotationMaybe(band)}
         </div>;
       const commonStyle = () =>
         `width: ${pageFns().listViewportWidthPx()}px; ` +
@@ -314,7 +312,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           {renderListBand("top")}
           {renderListBand("middle")}
           {renderListBand("bottom")}
-          <ListPageBandSeparators pageVisualElement={props.visualElement} class="absolute"
+          <ListPageBandOverlays pageVisualElement={props.visualElement} class="absolute"
             widthPx={pageFns().listViewportWidthPx()} heightPx={pageFns().boundsPx().h} />
         </Show>
         <div

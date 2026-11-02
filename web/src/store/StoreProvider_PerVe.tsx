@@ -17,7 +17,7 @@
 */
 
 import { untrack } from "solid-js";
-import { VeFns, VisualElementPath } from "../layout/visual-element";
+import { ListPageRowBand, VeFns, VisualElementPath } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import {
   decodeCalendarMonthIndex,
@@ -60,6 +60,10 @@ export interface PerVeStoreContextModel {
 
   getMoveOverIndex: (vePath: VisualElementPath) => number, // for grid pages
   setMoveOverIndex: (vePath: VisualElementPath, index: number) => void,
+
+  /** For list pages: the band moveOverIndex indexes the rows of. */
+  getMoveOverListBand: (vePath: VisualElementPath) => ListPageRowBand,
+  setMoveOverListBand: (vePath: VisualElementPath, band: ListPageRowBand) => void,
 
   getMoveOverIndexAndPosition: (vePath: VisualElementPath) => IndexAndPosition, // dock: position is indicator y px. justified: position 1 => indicator after child index-1, else before child index.
   setMoveOverIndexAndPosition: (vePath: VisualElementPath, index: IndexAndPosition) => void,
@@ -107,6 +111,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
   const moveOverChildContainerPath = new Map<string, InfuSignal<VisualElementPath | null>>();
   const moveOverAttachmentIndex = new Map<string, NumberSignal>();
   const moveOverIndex = new Map<string, NumberSignal>();
+  const moveOverListBand = new Map<string, InfuSignal<ListPageRowBand>>();
   const moveOverIndexAndPosition = new Map<string, InfuSignal<IndexAndPosition>>();
   const isExpanded = new Map<string, BooleanSignal>();
   const calendarMonthIndex = new Map<string, NumberSignal>();
@@ -127,6 +132,7 @@ export function makePerVeStore(): PerVeStoreContextModel {
     moveOverChildContainerPath.clear();
     moveOverAttachmentIndex.clear();
     moveOverIndex.clear();
+    moveOverListBand.clear();
     moveOverIndexAndPosition.clear();
     isExpanded.clear();
     calendarMonthIndex.clear();
@@ -268,6 +274,23 @@ export function makePerVeStore(): PerVeStoreContextModel {
       return;
     }
     moveOverIndex.get(vePath)!.set(index);
+  };
+
+  const getMoveOverListBand = (vePath: VisualElementPath): ListPageRowBand => {
+    if (!moveOverListBand.get(vePath)) {
+      moveOverListBand.set(vePath, createInfuSignal<ListPageRowBand>("middle"));
+    }
+    return moveOverListBand.get(vePath)!.get();
+  };
+
+  const setMoveOverListBand = (vePath: VisualElementPath, band: ListPageRowBand): void => {
+    if (!moveOverListBand.get(vePath)) {
+      moveOverListBand.set(vePath, createInfuSignal<ListPageRowBand>(band));
+      return;
+    }
+    if (untrack(() => moveOverListBand.get(vePath)!.get()) != band) {
+      moveOverListBand.get(vePath)!.set(band);
+    }
   };
 
   const getMoveOverIndexAndPosition = (vePath: VisualElementPath): IndexAndPosition => {
@@ -457,6 +480,8 @@ export function makePerVeStore(): PerVeStoreContextModel {
     getMoveOverIndex,
     setMoveOverIndex,
 
+    getMoveOverListBand,
+    setMoveOverListBand,
     getMoveOverIndexAndPosition,
     setMoveOverIndexAndPosition,
 

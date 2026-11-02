@@ -31,7 +31,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage, isTableView, listPageScrollVeid } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage, isTableView, listPageScrollVeid, type ListPageRowBand } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
 import { VisualElementSignal } from '../util/signals';
 import { NoteFns, isNote } from './note-item';
@@ -1897,36 +1897,50 @@ export const PageFns = {
   getListPageVisibleRows: getListPageVisibleRowsImpl,
 
   /**
-   * The rows of a list page that list page insertion indexes count: those in the scrolling middle band. Rows pinned to
-   * the top or bottom band are not drop positions, and the middle band's row bounds are relative to that band.
+   * The rows of band of a list page that list page insertion indexes count. Row bounds are relative to the band.
    */
-  listPageInsertionRowVes: (listPageVe: VisualElement): Array<VisualElement> =>
+  listPageInsertionRowVes: (listPageVe: VisualElement, band: ListPageRowBand = "middle"): Array<VisualElement> =>
     VesCache.render.getLineChildren(VeFns.veToPath(listPageVe))()
       .map(ve => ve.get())
-      .filter(ve => (ve.listPageRowBand ?? "middle") == "middle"),
+      .filter(ve => (ve.listPageRowBand ?? "middle") == band),
 
   /**
-   * Resolve a list page insertion index (a position among its middle band line item rows, which include the rows of expanded
-   * containers) to the container and child index to insert at. As for tables, the position directly below an
+   * Resolve a list page insertion index (a position among the line item rows of band, which include the rows of
+   * expanded containers) to the container and child index to insert at. As for tables, the position directly below an
    * expanded container is the first position in it, and the position below the last row is after that row in its
-   * container. insertIndex indexes computed_children with ignoreIds removed.
+   * container. insertIndex indexes the container's computed_children with ignoreIds removed, except at the page
+   * itself in a pinned band, where it indexes the page's children pinned to that band: they are in the order the user
+   * put them, whatever the page is sorted by.
    */
-  listPageInsertionTarget: (listPageVe: VisualElement, moveOverIndex: number, ignoreIds: ReadonlyArray<Uid>): { parentContainer: ContainerItem, insertIndex: number } => {
+  listPageInsertionTarget: (
+    listPageVe: VisualElement,
+    moveOverIndex: number,
+    ignoreIds: ReadonlyArray<Uid>,
+    band: ListPageRowBand = "middle",
+  ): { parentContainer: ContainerItem, insertIndex: number } => {
     const page = asPageItem(listPageVe.displayItem);
-    const rowVes = PageFns.listPageInsertionRowVes(listPageVe);
+    const rowVes = PageFns.listPageInsertionRowVes(listPageVe, band);
+    const pageSiblingIds = () => band == "middle"
+      ? page.computed_children.filter(id => !ignoreIds.includes(id))
+      : PageFns.listPagePinnedChildIds(page, band, ignoreIds);
     const targetAtRow = (rowVe: VisualElement, offset: number) => {
       const treeItem = VeFns.treeItem(rowVe);
       const parentContainer = asContainerItem(itemState.get(treeItem.parentId)!);
-      const siblingIds = parentContainer.computed_children.filter(id => !ignoreIds.includes(id));
+      const siblingIds = parentContainer.id == page.id
+        ? pageSiblingIds()
+        : parentContainer.computed_children.filter(id => !ignoreIds.includes(id));
       return { parentContainer, insertIndex: siblingIds.indexOf(treeItem.id) + offset };
     };
+    // Whether a position among a container's children has no meaning, because they are sorted.
+    const isSorted = (container: ContainerItem) =>
+      container.orderChildrenBy != "" && (container.id != page.id || band == "middle");
     if (moveOverIndex < rowVes.length) {
       const target = targetAtRow(rowVes[Math.max(0, moveOverIndex)], 0);
       // The position directly below the last row of an expanded container is also the position after that row in its
-      // container. Where the row below is in an ordered container, a position there has no meaning, so prefer the
+      // container. Where the row below is in a sorted container, a position there has no meaning, so prefer the
       // expanded container.
       const prevRowVe = moveOverIndex > 0 ? rowVes[moveOverIndex - 1] : null;
-      if (prevRowVe != null && target.parentContainer.orderChildrenBy &&
+      if (prevRowVe != null && isSorted(target.parentContainer) &&
         VeFns.treeItem(prevRowVe).parentId != target.parentContainer.id &&
         VeFns.treeItem(prevRowVe).id != target.parentContainer.id) {
         return targetAtRow(prevRowVe, 1);
@@ -1937,7 +1951,36 @@ export const PageFns = {
     if (lastRowVe != null && VeFns.treeItem(lastRowVe).parentId != page.id) {
       return targetAtRow(lastRowVe, 1);
     }
-    return { parentContainer: page, insertIndex: page.computed_children.filter(id => !ignoreIds.includes(id)).length };
+    return { parentContainer: page, insertIndex: pageSiblingIds().length };
+  },
+
+  /** The children of page pinned to band, in the order the user put them, without ignoreIds. */
+  listPagePinnedChildIds: (page: PageItem, band: "top" | "bottom", ignoreIds: ReadonlyArray<Uid> = []): Array<Uid> =>
+    page.computed_children
+      .filter(id => !ignoreIds.includes(id) && itemState.get(id)?.pinnedTo == band)
+      .sort((a, b) => compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering)),
+
+  /**
+   * Whether children can be pinned to the top or bottom of list page page by dropping them there. Not in the Queries
+   * page, whose pins the server manages, the dock or the trash.
+   */
+  listPageAcceptsPins: (store: StoreContextModel, page: Item): boolean => {
+    if (!isPage(page) || asPageItem(page).arrangeAlgorithm != ArrangeAlgorithm.List) { return false; }
+    if (page.clientOnly === true || !itemCanEdit(page)) { return false; }
+    const user = store.user.getUserMaybe();
+    return user != null && page.id != user.queriesPageId && page.id != user.trashPageId && page.id != user.dockPageId;
+  },
+
+  /**
+   * The band of list page pageVe an item moved to desktopPosPx would be dropped in. While an item is moved, an empty
+   * band is a strip to drop it on (see page_list.ts), so is included.
+   */
+  listPageMoveOverBand: (store: StoreContextModel, pageVe: VisualElement, desktopPosPx: Vector): ListPageRowBand => {
+    if (!pageVe.viewportBoundsPx || !PageFns.listPageAcceptsPins(store, pageVe.displayItem)) { return "middle"; }
+    const yPx = desktopPosPx.y - VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe).y;
+    if (yPx < pageVe.listPagePinnedTopHeightPx) { return "top"; }
+    if (yPx >= pageVe.viewportBoundsPx.h - pageVe.listPagePinnedBottomHeightPx) { return "bottom"; }
+    return "middle";
   },
 
   moveListPageSelectionOffChild: (
