@@ -177,6 +177,15 @@ const QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX = 30;
 const QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX = 6;
 const QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX = 30;
 const QUERY_SCOPE_ITEMS_ROW_GAP_PX = 6;
+/**
+ * Attach and prompts sit at the start of the settings row under the message rather than beside it, so a message that
+ * wraps uses the full width instead of being indented under the buttons all the way down. Attach shows a paperclip
+ * because a "+" in that row already adds items to the scope.
+ */
+const QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE = {
+  class: "flex h-[22px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#d6d6d6] bg-white text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50",
+  style: "font-size: 13px; line-height: 18px;",
+};
 
 
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
@@ -616,11 +625,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const queryControlOrder = (): Array<QueryControlName> => {
-    const controls: Array<QueryControlName> = isSearchMode()
-      ? ["input", "send"]
-      : selectedInputMode() == "chat" ? ["mode", "attach", "prompts", "input", "send"] : ["mode", "input", "send"];
+    const controls: Array<QueryControlName> = isSearchMode() ? ["input", "send"] : ["mode", "input", "send"];
     controls.unshift(...queryProfileButtons().map((_, index): QueryControlName => `profile:${index}`));
     if (hasSubmittedQuery()) { controls.push("discard"); }
+    if (selectedInputMode() == "chat") { controls.push("attach", "prompts"); }
     if (queryScopeButton?.isConnected && !queryScopeButton.disabled) { controls.push("scope"); }
     if (queryScopeAddButton?.isConnected && !queryScopeAddButton.disabled) { controls.push("scopeAdd"); }
     if (selectedInputMode() == "chat") {
@@ -1595,22 +1603,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </Show>
           <div class="flex items-end"
             style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
-            {renderAttachFileInput()}
-            <button
-              class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
-              style={`width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
-              type="button"
-              title="Attach text files"
-              aria-label="Attach text files"
-              disabled={chatRequestActive()}
-              onClick={openAttachFilePicker}>
-              <i class="bi-plus-lg" />
-            </button>
-            <QueryPromptPicker disabled={chatRequestActive} onChoose={insertPromptText}
-              buttonAppearance={{
-                class: "flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40",
-                style: `width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`,
-              }} />
             <QueryPromptSuggestionList suggestions={chatPromptSuggestions} anchor={() => chatTextarea} onChoose={chooseChatSlashPrompt} />
             <div
               class="min-w-0 grow overflow-hidden rounded-xs border bg-white"
@@ -1659,8 +1651,23 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </button>
           </div>
           <div
-            class="flex items-center gap-3 pl-1 text-[#555]"
+            class="flex items-center gap-3 text-[#555]"
             style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px;`}>
+            <div class="flex shrink-0 items-center gap-2">
+              {renderAttachFileInput()}
+              <button
+                class={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE.class}
+                style={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE.style}
+                type="button"
+                title="Attach text files"
+                aria-label="Attach text files"
+                disabled={chatRequestActive()}
+                onClick={openAttachFilePicker}>
+                <i class="bi-paperclip" />
+              </button>
+              <QueryPromptPicker disabled={chatRequestActive} onChoose={insertPromptText}
+                buttonAppearance={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE} />
+            </div>
             <Show when={!chatActivityHeaderVisible() && chatContextTokens()}>
               {(display) =>
                 <span
@@ -1849,45 +1856,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;` +
             (itemDropHover() ? " box-shadow: 0 0 0 2px rgb(59 130 246 / 0.35);" : "")}
           onMouseDown={queryInputMouseDown}>
-          <div class="relative flex items-end h-full overflow-hidden pr-[4px]"
-            classList={{ "pl-2.5": selectedInputMode() != "chat", "pl-[4px]": selectedInputMode() == "chat" }}
+          <div class="relative flex items-end h-full overflow-hidden pl-2.5 pr-[4px]"
             style="font-size: 16px;">
             <Show when={selectedInputMode() == "chat"}>
-              {renderAttachFileInput()}
-              <button
-                ref={queryAttachButton}
-                class="mb-[4px] mr-[6px] flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
-                style={`width: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px;`}
-                type="button"
-                title="Attach text files"
-                aria-label="Attach text files"
-                disabled={queryRequestActive() || !canEdit()}
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                }}
-                onMouseUp={(ev) => {
-                  ev.preventDefault();
-                  ev.stopPropagation();
-                }}
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  openAttachFilePicker();
-                }}
-                onKeyDown={(ev) => {
-                  ev.stopPropagation();
-                  if (ev.key == "Tab") {
-                    handleQueryControlTab(ev, "attach");
-                  }
-                }}>
-                <i class="bi-plus-lg" />
-              </button>
-              <QueryPromptPicker disabled={() => queryRequestActive() || !canEdit()} onChoose={insertPromptText}
-                buttonRef={el => { queryPromptsButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "prompts")}
-                buttonAppearance={{
-                  class: "mb-[4px] mr-[6px] flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40",
-                  style: `width: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_SEND_BUTTON_WIDTH_PX}px;`,
-                }} />
               <QueryPromptSuggestionList suggestions={queryPromptSuggestions} anchor={() => queryInputShell} onChoose={chooseQuerySlashPrompt} />
             </Show>
             <textarea id={editingDomId()}
@@ -1989,6 +1960,42 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         onMouseDown={(ev) => ev.stopPropagation()}
         onMouseUp={(ev) => ev.stopPropagation()}
         onClick={(ev) => ev.stopPropagation()}>
+        <Show when={selectedInputMode() == "chat"}>
+          <div class="mr-auto flex shrink-0 items-center gap-2">
+            {renderAttachFileInput()}
+            <button
+              ref={queryAttachButton}
+              class={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE.class}
+              style={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE.style}
+              type="button"
+              title="Attach text files"
+              aria-label="Attach text files"
+              disabled={queryRequestActive() || !canEdit()}
+              onMouseDown={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+              }}
+              onMouseUp={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+              }}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                openAttachFilePicker();
+              }}
+              onKeyDown={(ev) => {
+                ev.stopPropagation();
+                if (ev.key == "Tab") {
+                  handleQueryControlTab(ev, "attach");
+                }
+              }}>
+              <i class="bi-paperclip" />
+            </button>
+            <QueryPromptPicker disabled={() => queryRequestActive() || !canEdit()} onChoose={insertPromptText}
+              buttonRef={el => { queryPromptsButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "prompts")}
+              buttonAppearance={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE} />
+          </div>
+        </Show>
         <QueryScopePicker
           queryItem={queryItem} disabled={queryRequestActive}
           inUse={() => selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}
