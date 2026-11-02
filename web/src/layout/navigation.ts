@@ -393,7 +393,11 @@ function loadedBlankQueryEntryId(store: StoreContextModel, queriesPageId: Uid): 
   return null;
 }
 
-export async function navigateToQueries(store: StoreContextModel): Promise<void> {
+/**
+ * Shows New Query in the Queries page. discardSearch discards a search it is showing, as its X button does, so the
+ * shortcut always lands on a fresh input.
+ */
+export async function navigateToQueries(store: StoreContextModel, discardSearch: boolean = false): Promise<void> {
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) { return; }
   const navigationRequestId = store.history.beginNavigationRequest();
@@ -407,7 +411,7 @@ export async function navigateToQueries(store: StoreContextModel): Promise<void>
   // the user had navigated elsewhere.
   const loadedQueryItemId = loadedBlankQueryEntryId(store, queriesPageId);
   if (loadedQueryItemId != null) {
-    showQueryEntry(store, queriesPageId, loadedQueryItemId);
+    showQueryEntry(store, queriesPageId, loadedQueryItemId, discardSearch);
     void confirmQueryEntry(store, queriesPageId, loadedQueryItemId);
     return;
   }
@@ -422,7 +426,7 @@ export async function navigateToQueries(store: StoreContextModel): Promise<void>
 
   const queryItemId = await ensureQueryItemUnderQueries(store, queriesPageId);
   if (!store.history.isNavigationRequestCurrent(navigationRequestId)) { return; }
-  showQueryEntry(store, queriesPageId, queryItemId);
+  showQueryEntry(store, queriesPageId, queryItemId, discardSearch);
 }
 
 /** Another tab may have used the shown New Query. Moves to the server's one only if the user is still on the shown one. */
@@ -444,9 +448,10 @@ async function confirmQueryEntry(store: StoreContextModel, queriesPageId: Uid, s
   requestArrange(store, "navigate-to-queries-confirmed");
 }
 
-function showQueryEntry(store: StoreContextModel, queriesPageId: Uid, queryItemId: Uid | null): void {
+function showQueryEntry(store: StoreContextModel, queriesPageId: Uid, queryItemId: Uid | null, discardSearch: boolean): void {
   if (queryItemId != null) {
     store.perItem.setSelectedListPageItem({ itemId: queriesPageId, linkIdMaybe: null }, { itemId: queryItemId, linkIdMaybe: null });
+    if (discardSearch) { store.overlay.discardQuerySearchRequest.set(queryItemId); }
   }
 
   const currentPageVeid = store.history.currentPageVeid();

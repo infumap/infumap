@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { Component, For, Show, createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
@@ -729,6 +729,20 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     clearQuerySearch(store, queryItem(), "query-search-discard");
     focusNewQueryInput();
   };
+
+  createEffect(() => {
+    if (!isListPageMainRoot() || store.overlay.discardQuerySearchRequest.get() != queryItem().id) {
+      return;
+    }
+    store.overlay.discardQuerySearchRequest.set(null);
+    // As the X button, which is shown only once a query is submitted and is disabled while a request runs. A chat has
+    // no search to discard.
+    untrack(() => {
+      if (isSearchMode() && !queryRequestActive()) {
+        discardCurrentSearch();
+      }
+    });
+  });
 
   const materializeCurrentResults = async (editingElMaybe?: HTMLElement | null) => {
     const title = commitEditingQuery(editingElMaybe);

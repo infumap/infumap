@@ -139,6 +139,11 @@ export interface OverlayStoreContextModel {
   helpOverlayVisible: InfuSignal<boolean>,
   autoFocusSearchInput: InfuSignal<boolean>,
   autoFocusChatInput: InfuSignal<boolean>,
+  /**
+   * The query item whose search should be discarded, as by its X button, when it next shows as the Queries page's
+   * main item. The X also resets state local to the Query component, so the component does the discard.
+   */
+  discardQuerySearchRequest: InfuSignal<Uid | null>,
   findOverlayVisible: InfuSignal<boolean>,
   uploadOverlayInfo: InfuSignal<UploadOverlayInfo | null>,
   remoteLoginInfo: InfuSignal<RemoteLoginInfo | null>,
@@ -174,6 +179,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
   const toolbarTransientMessage = createInfuSignal<TransientMessage | null>(null);
   const autoFocusSearchInput = createInfuSignal<boolean>(false);
   const autoFocusChatInput = createInfuSignal<boolean>(false);
+  const discardQuerySearchRequest = createInfuSignal<Uid | null>(null);
   const networkOverlayVisible = createInfuSignal<boolean>(false);
   const helpOverlayVisible = createInfuSignal<boolean>(false);
   const findOverlayVisible = createInfuSignal<boolean>(false);
@@ -198,6 +204,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     highlightedGroup.set(null);
     autoFocusSearchInput.set(false);
     autoFocusChatInput.set(false);
+    discardQuerySearchRequest.set(null);
     findOverlayVisible.set(false);
     helpOverlayVisible.set(false);
     uploadOverlayInfo.set(null);
@@ -266,6 +273,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     toolbarTransientMessage,
     autoFocusSearchInput,
     autoFocusChatInput,
+    discardQuerySearchRequest,
     networkOverlayVisible,
     helpOverlayVisible,
     findOverlayVisible,

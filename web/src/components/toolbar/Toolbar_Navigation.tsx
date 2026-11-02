@@ -35,7 +35,7 @@ export const Toolbar_Navigation: Component = () => {
   const handleUp = async () => { await navigateUp(store); };
 
   const handleSearchClick = async () => {
-    await navigateToQueries(store);
+    await navigateToQueries(store, true);
   };
 
   return (

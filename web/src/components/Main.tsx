@@ -360,7 +360,7 @@ export const Main: Component = () => {
     if (ev.code == "KeyF" && (ev.ctrlKey || ev.metaKey) && ev.shiftKey && !ev.altKey && store.user.getUserMaybe()) {
       ev.preventDefault();
       ev.stopPropagation();
-      void navigateToQueries(store);
+      void navigateToQueries(store, true);
       return;
     }
     // Same chord as Home in macOS Finder, Safari and Chrome, so it's what the hand already expects.

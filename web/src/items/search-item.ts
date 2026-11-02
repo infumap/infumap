@@ -327,7 +327,14 @@ export const SearchFns = {
   },
 
   handleClick: (visualElement: VisualElement, store: StoreContextModel): void => {
-    if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
+    if (handleListPageLineItemClickMaybe(visualElement, store)) {
+      // Clicking New Query starts afresh, as the Queries shortcut does (see navigateToQueries).
+      const search = asSearchItem(visualElement.displayItem);
+      if (search.pinnedTo == PinnedTo.Top && search.parentId == store.user.getUserMaybe()?.queriesPageId) {
+        store.overlay.discardQuerySearchRequest.set(search.id);
+      }
+      return;
+    }
     store.history.setFocus(VeFns.veToPath(visualElement));
     arrangeNow(store, "search-click");
   },

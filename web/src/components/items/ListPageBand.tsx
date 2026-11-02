@@ -18,6 +18,7 @@
 
 import { Component, JSX, Show, createEffect } from "solid-js";
 
+import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
 import { VeFns, VisualElement, listPageBandScrollYPx, listPageScrollVeid } from "../../layout/visual-element";
 import { printScrollWritesSuppressed } from "../../print";
 import { useStore } from "../../store/StoreProvider";
@@ -96,6 +97,19 @@ export const ListPageBandOverlays: Component<{
   const dropStripIsActive = (band: "top" | "bottom") =>
     store.perVe.getMovingItemIsOver(VeFns.veToPath(pageVe())) &&
     store.perVe.getMoveOverListBand(VeFns.veToPath(pageVe())) == band;
+  // Rows touch, and each band starts with top padding, which is the gap between sections: the list's below the top
+  // band (when the list is scrolled to the top) and the bottom band's own below the list (when it is scrolled to the
+  // bottom). A line is centred in that gap, so it is half the padding below the section edge, except at a drop strip,
+  // which has no rows, where it is on the strip's edge. The page's block width is its row height.
+  const gapCentrePx = () =>
+    LIST_PAGE_TOP_PADDING_PX * ((pageVe().blockSizePx?.w ?? LINE_HEIGHT_PX) / LINE_HEIGHT_PX) / 2;
+  const topLinePx = () => isDropStrip("top")
+    ? pageVe().listPagePinnedTopHeightPx - 1
+    : Math.round(pageVe().listPagePinnedTopHeightPx + gapCentrePx() - 0.5);
+  const bottomLinePx = () => {
+    const bottomBandTopPx = props.heightPx - pageVe().listPagePinnedBottomHeightPx;
+    return isDropStrip("bottom") ? bottomBandTopPx : Math.round(bottomBandTopPx + gapCentrePx() - 0.5);
+  };
   const lineStyle = (topPx: number) =>
     `left: 0px; top: ${topPx}px; width: ${props.widthPx}px; height: 1px; pointer-events: none; ${props.style ?? ""}`;
   const renderDropStrip = (band: "top" | "bottom") => {
@@ -115,11 +129,10 @@ export const ListPageBandOverlays: Component<{
       <Show when={isDropStrip("top")}>{renderDropStrip("top")}</Show>
       <Show when={isDropStrip("bottom")}>{renderDropStrip("bottom")}</Show>
       <Show when={pageVe().listPagePinnedTopHeightPx > 0}>
-        <div class={`${props.class} bg-slate-300`} style={lineStyle(pageVe().listPagePinnedTopHeightPx - 1)} />
+        <div class={`${props.class} bg-slate-300`} style={lineStyle(topLinePx())} />
       </Show>
       <Show when={pageVe().listPagePinnedBottomHeightPx > 0}>
-        <div class={`${props.class} bg-slate-300`}
-          style={lineStyle(props.heightPx - pageVe().listPagePinnedBottomHeightPx)} />
+        <div class={`${props.class} bg-slate-300`} style={lineStyle(bottomLinePx())} />
       </Show>
     </>
   );
