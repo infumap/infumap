@@ -53,7 +53,7 @@ import { shouldOpenNativeTextContextMenu } from "../input/native_text_context_me
 import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
 import { MouseEventActionFlags } from "../input/enums";
-import { pasteHandler } from "../input/paste";
+import { pasteHandler, pasteKeyDownListener } from "../input/paste";
 import { commitActiveTextEdit, edit_compositionEndHandler, edit_compositionKeyGuard, edit_compositionStartHandler, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
 import { commitActiveToolbarTitleEdit } from "../input/toolbar_title";
 import { Toolbar_NetworkStatus_Overlay } from "./toolbar/Toolbar_NetworkStatus";
@@ -355,6 +355,7 @@ export const Main: Component = () => {
   };
 
   const captureKeyDownListener = (ev: KeyboardEvent) => {
+    pasteKeyDownListener(ev);
     if (edit_structuralKeyDownGuard(store, ev) || ev.defaultPrevented) { return; }
     // Capture the Queries and Home shortcuts even while a search or chat input has focus.
     if (ev.code == "KeyF" && (ev.ctrlKey || ev.metaKey) && ev.shiftKey && !ev.altKey && store.user.getUserMaybe()) {

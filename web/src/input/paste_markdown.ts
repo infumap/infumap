@@ -68,16 +68,17 @@ type PasteTarget =
   { kind: "spatial", noteVe: VisualElement };
 
 /**
- * Paste text into the note being edited as a note for each block of markdown in it: headings, list items, code blocks
- * and lines. The note keeps the text before the caret, followed by the first block. The text after the caret follows the
- * last block, and the caret ends up between them. A note in a composite or document page gets the new items after it.
- * Any other note is first put into a new composite, as Enter does.
+ * Paste text into the note being edited as a note for each paragraph in it. With parseMarkdown, the paragraphs are the
+ * blocks of markdown in the text: headings, list items, code blocks and lines. Without it, they are its lines as they
+ * are. The note keeps the text before the caret, followed by the first paragraph. The text after the caret follows the
+ * last paragraph, and the caret ends up between them. A note in a composite or document page gets the new items after
+ * it. Any other note is first put into a new composite, as Enter does.
  *
- * Returns false, having changed nothing, when the paste is the caller's to make: the text is one block, the note is a
- * code note (pasted code stays together), or the note is somewhere a paragraph can't be split, such as a table, a link,
- * a list page line, a group or an attachment.
+ * Returns false, having changed nothing, when the paste is the caller's to make: the text is one paragraph, the note is
+ * a code note (pasted code stays together), or the note is somewhere a paragraph can't be split, such as a table, a
+ * link, a list page line, a group or an attachment.
  */
-export function pasteMarkdownIntoNote(store: StoreContextModel, element: HTMLElement, text: string): boolean {
+export function pasteParagraphsIntoNote(store: StoreContextModel, element: HTMLElement, text: string, parseMarkdown: boolean): boolean {
   const info = store.overlay.textEditInfo();
   if (info?.itemType != ItemType.Note || info.colNum != null) { return false; }
   const noteVe = VesCache.current.readNode(info.itemPath);
@@ -86,7 +87,7 @@ export function pasteMarkdownIntoNote(store: StoreContextModel, element: HTMLEle
   const note = asNoteItem(item);
   if (note.flags & NoteFlags.Code) { return false; }
 
-  const pieces = piecesFromBlocks(parsePastedMarkdownBlocks(text));
+  const pieces = parseMarkdown ? piecesFromBlocks(parsePastedMarkdownBlocks(text)) : piecesFromLines(text);
   if (pieces.length < 2) { return false; }
   const target = pasteTargetMaybe(store, note, noteVe);
   if (target == null) { return false; }
@@ -209,6 +210,14 @@ function piecesFromBlocks(blocks: Array<TextDocumentBlock>): Array<PastedPiece> 
   while (pieces.length > 0 && pieces[0].kind == "divider") { pieces.shift(); }
   while (pieces.length > 0 && pieces[pieces.length - 1].kind == "divider") { pieces.pop(); }
   return pieces;
+}
+
+/** A note for each line that isn't blank, trimmed. */
+function piecesFromLines(text: string): Array<PastedPiece> {
+  return text.split(/[\n\u2028\u2029]/)
+    .map(line => line.trim())
+    .filter(line => line != "")
+    .map(title => ({ kind: "note", title, inlineMarks: [], urls: [], flags: NoteFlags.None }));
 }
 
 function noteFromTableCells(cells: Array<TextDocumentInlineText>): PastedNote {

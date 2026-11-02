@@ -22,10 +22,30 @@ import { edit_replaceNoteSelection, edit_structuralClipboardGuard } from "./edit
 import { clipboardTextForSingleLine, normalizeClipboardLineEndings } from "../util/editable_text";
 import { textEditElementId } from "./text_edit_session";
 import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe } from "./paste_lines";
-import { pasteMarkdownIntoNote } from "./paste_markdown";
+import { pasteParagraphsIntoNote } from "./paste_markdown";
 
+
+/**
+ * Ctrl/Cmd+Shift+V is the browser's paste as plain text. Its paste event can't be told from an ordinary paste's, so the
+ * key down is noted here, and the paste that follows within PLAIN_PASTE_WINDOW_MS takes it. The window is short so that
+ * the shortcut pressed with nothing to paste doesn't apply to a later Ctrl+V.
+ */
+let plainPasteKeyDownMs: number | null = null;
+const PLAIN_PASTE_WINDOW_MS = 1000;
+
+/** Called on every key down, before any handler can stop it. */
+export function pasteKeyDownListener(ev: KeyboardEvent): void {
+  if (ev.code == "KeyV" && (ev.ctrlKey || ev.metaKey) && ev.shiftKey) { plainPasteKeyDownMs = performance.now(); }
+}
+
+function takePlainPasteRequest(): boolean {
+  const requested = plainPasteKeyDownMs != null && performance.now() - plainPasteKeyDownMs < PLAIN_PASTE_WINDOW_MS;
+  plainPasteKeyDownMs = null;
+  return requested;
+}
 
 export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
+  const plain = takePlainPasteRequest();
   if (ev.defaultPrevented) { return; }
   const target = ev.target;
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
@@ -54,7 +74,7 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
     if (acceptClipboardTextForPendingTextItem(store, editInfo.itemPath, clipboardText)) {
       return;
     }
-    if (pasteMarkdownIntoNote(store, editingElement, normalizeClipboardLineEndings(clipboardText))) { return; }
+    if (pasteParagraphsIntoNote(store, editingElement, normalizeClipboardLineEndings(clipboardText), !plain)) { return; }
   }
 
   if (edit_replaceNoteSelection(store, ev, normalizeClipboardLineEndings(clipboardText), "Paste")) { return; }
