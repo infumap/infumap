@@ -939,6 +939,7 @@ function buildCleanupCollapsedCompositeOperation(
       if (child.parentId != compositeItem.parentId || child.relationshipToParent != RelationshipToParent.Child) {
         itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, new Uint8Array(compositeItem.ordering));
         child.pinnedTo = compositeItem.pinnedTo;
+        itemState.sortChildren(compositeItemParent.id);
       } else {
         child.ordering = new Uint8Array(compositeItem.ordering);
         child.pinnedTo = compositeItem.pinnedTo;

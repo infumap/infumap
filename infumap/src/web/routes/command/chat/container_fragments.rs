@@ -1194,6 +1194,21 @@ impl<'a, 'b> Renderer<'a, 'b> {
         _ => items.sort_by(by_ordering),
       },
     }
+    // A list page shows its pinned children in bands above and below the others, in the order the user put them
+    // whatever the page is sorted by. Pins mean nothing in other layouts. The sort is stable, so the others keep
+    // their order.
+    if container.item_type == ItemType::Page && container.arrange_algorithm == Some(ArrangeAlgorithm::List) {
+      let band = |item: &Item| match item.pinned_to {
+        Some(PinnedTo::Top) => 0,
+        None => 1,
+        Some(PinnedTo::Bottom) => 2,
+      };
+      items.sort_by(|a, b| {
+        band(a)
+          .cmp(&band(b))
+          .then_with(|| if a.pinned_to.is_some() { by_ordering(a, b) } else { std::cmp::Ordering::Equal })
+      });
+    }
     Ok(items)
   }
 
@@ -2257,6 +2272,14 @@ mod tests {
     assert!(!calendar_text.contains("UTC"), "{calendar_text}");
     assert_eq!(body(calendar_text).lines().next().unwrap().split(": ").next().unwrap(), "- 2026-01-01 Thu");
     assert_eq!(titles(calendar_text), ["earlier", "later"]);
+
+    let pinned = t.arranged_page(&home, "Pinned", ArrangeAlgorithm::List, "title[ASC]").await;
+    // Added in ordering order, which the pinned ones keep against their titles.
+    let (top, bottom) = (Some(PinnedTo::Top), Some(PinnedTo::Bottom));
+    for (title, pinned_to) in [("m", None), ("top z", top), ("top a", top), ("a bottom", bottom), ("b", None)] {
+      t.note_with(&pinned, title, |item| item.pinned_to = pinned_to).await;
+    }
+    assert_eq!(titles(&t.texts(&pinned)[0]), ["top z", "top a", "b", "m", "a bottom"]);
   }
 
   #[tokio::test]

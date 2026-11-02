@@ -193,7 +193,7 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
   };
 
   const structural = (entry: Entry) => entry.changes.some(c => !c.before || !c.after ||
-    c.fields.some(key => ["parentId", "relationshipToParent", "ordering"].includes(key)) || !equal(c.before.children, c.after.children));
+    c.fields.some(key => ["parentId", "relationshipToParent", "ordering", "pinnedTo"].includes(key)) || !equal(c.before.children, c.after.children));
   const matches = (entry: Entry, forward: boolean): boolean => {
     const store = getStore();
     const isStructural = structural(entry);
@@ -291,12 +291,15 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
       for (const value of updates) {
         const item = itemState.get(value.id)!;
         const parsed = ItemFns.fromObject(value.data, value.origin);
-        if (item.parentId !== parsed.parentId || item.relationshipToParent !== parsed.relationshipToParent) {
+        const moved = item.parentId !== parsed.parentId || item.relationshipToParent !== parsed.relationshipToParent;
+        if (moved) {
           itemState.moveToNewParent(item, parsed.parentId, parsed.relationshipToParent, parsed.ordering);
+          // Which clears the pin, though it may be the same in both.
+          item.pinnedTo = parsed.pinnedTo;
         }
         for (const field of value.fields) { (item as any)[field] = (parsed as any)[field]; }
         itemState.sortParentChildrenIfTitleOrdered(item);
-        if (value.fields.includes("ordering")) { itemState.sortChildren(item.parentId); }
+        if (moved || value.fields.includes("ordering") || value.fields.includes("pinnedTo")) { itemState.sortChildren(item.parentId); }
         if (!isStructural) { store.textEdit.saveItem(item, true); }
       }
       for (const value of removals) { itemState.delete(value.data.id); }

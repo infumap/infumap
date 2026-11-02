@@ -72,27 +72,15 @@ interface ListPageArrangedRow {
   expandable: boolean;
 }
 
-function listPageRowBandForItem(item: Item | null): ListPageRowBand | null {
-  return item?.pinnedTo ?? null;
-}
-
-function listPageRowBandForVisibleRow(
-  row: ListPageVisibleRow,
-  displayItem: Item,
-): ListPageRowBand {
-  const directBand = listPageRowBandForItem(displayItem) ?? listPageRowBandForItem(itemState.get(row.treeItemId));
-  if (directBand != null) {
-    return directBand;
-  }
-
-  for (let i = row.ancestorIds.length - 1; i >= 0; --i) {
-    const ancestorBand = listPageRowBandForItem(itemState.get(row.ancestorIds[i]));
-    if (ancestorBand != null) {
-      return ancestorBand;
-    }
-  }
-
-  return "middle";
+/**
+ * A row is in the band its page's child is pinned to: the row's own item, or for the rows of an expanded container,
+ * the page's child they are under. Only that child is consulted. The pin of a linked to item places it in its own
+ * parent, not in the pages that link to it, and the pins of the children of an expanded container are in that
+ * container, not this page.
+ */
+function listPageRowBandForVisibleRow(row: ListPageVisibleRow): ListPageRowBand {
+  const pageChildId = row.depth == 0 ? row.treeItemId : row.ancestorIds[0];
+  return itemState.get(pageChildId)?.pinnedTo ?? "middle";
 }
 
 function listPageBandContentHeightPx(rowCount: number, rowHeightPx: number): number {
@@ -324,7 +312,7 @@ export function arrange_list_page(
         }
       }
 
-      const band = listPageRowBandForVisibleRow(row, displayItem);
+      const band = listPageRowBandForVisibleRow(row);
       const displayRowIdx = rowCounts[band];
       rowCounts[band] += 1;
       const blockSizePx = { w: LINE_HEIGHT_PX * listScale, h: LINE_HEIGHT_PX * listScale };

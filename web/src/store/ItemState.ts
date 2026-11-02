@@ -18,7 +18,7 @@
 
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
-import { Item } from "../items/base/item";
+import { Item, PinnedTo } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { TabularFns } from "../items/base/tabular-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
@@ -215,6 +215,11 @@ export const itemState = {
     }
     preserveUnsavedTextFields(newItem);
     items.set(newItem.id, newItem);
+    // A changed pin moves the item between the bands of a sorted list page.
+    if (existingItem && existingItem.pinnedTo != newItem.pinnedTo &&
+      newItem.relationshipToParent == RelationshipToParent.Child && items.get(newItem.parentId) != null) {
+      itemState.sortChildren(newItem.parentId);
+    }
     TabularFns.validateNumberOfVisibleColumnsMaybe(newItem.id);
     return newItem;
   },
@@ -256,9 +261,24 @@ export const itemState = {
       });
     } else if (container.orderChildrenBy == "title[ASC]" || container.orderChildrenBy == "title[DESC]") {
       const descending = container.orderChildrenBy == "title[DESC]";
+      // The sort order is for the children that aren't pinned. The pinned ones are in the top and bottom bands of a
+      // list page, in the order the user put them (their ordering). Elsewhere pins mean nothing, so are ignored: a
+      // grid sorted by title stays sorted by title.
+      const pinsApply = isPage(container) && asPageItem(container).arrangeAlgorithm == ArrangeAlgorithm.List;
+      const bandRank = (item: Item): number =>
+        !pinsApply || item.pinnedTo == null ? 1 : item.pinnedTo == PinnedTo.Top ? 0 : 2;
       container.computed_children.sort((a, b) => {
         const aItemOriginal = itemState.get(a)!;
         const bItemOriginal = itemState.get(b)!;
+
+        const aBandRank = bandRank(aItemOriginal);
+        const bBandRank = bandRank(bItemOriginal);
+        if (aBandRank != bBandRank) { return aBandRank - bBandRank; }
+        if (aBandRank != 1) {
+          const cmp = compareOrderings(aItemOriginal.ordering, bItemOriginal.ordering);
+          if (cmp !== 0) { return cmp; }
+          return a < b ? -1 : (a > b ? 1 : 0);
+        }
 
         const aLinkTargetId = isLink(aItemOriginal) ? LinkFns.getLinkToId(asLinkItem(aItemOriginal)) : EMPTY_UID;
         const bLinkTargetId = isLink(bItemOriginal) ? LinkFns.getLinkToId(asLinkItem(bItemOriginal)) : EMPTY_UID;

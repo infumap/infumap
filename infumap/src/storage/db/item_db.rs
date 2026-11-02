@@ -2665,7 +2665,8 @@ pub fn migrate_record_v39_to_v40(
     "update" => {
       let mut result = kvs.clone();
       let item_id = json::get_string_field(kvs, "id")?.ok_or("Update record is missing id.")?;
-      let state = state_by_id.get_mut(&item_id).ok_or(format!("Update record has id '{}', but this is unknown.", item_id))?;
+      let state =
+        state_by_id.get_mut(&item_id).ok_or(format!("Update record has id '{}', but this is unknown.", item_id))?;
       if let Some(relationship_to_parent) = json::get_string_field(kvs, "relationshipToParent")? {
         state.is_child = relationship_to_parent == "child";
       }
@@ -2811,7 +2812,8 @@ mod tests {
     let child_again = v39_record(serde_json::json!({
       "__recordType": "update", "id": "b", "relationshipToParent": "child"
     }));
-    assert_eq!(migrate_record_v39_to_v40(&child_again, &mut state).unwrap().get("pinnedTo"), Some(&Value::from("bottom")));
+    let migrated = migrate_record_v39_to_v40(&child_again, &mut state).unwrap();
+    assert_eq!(migrated.get("pinnedTo"), Some(&Value::from("bottom")));
   }
 
   /// Removes the data directory when dropped.
