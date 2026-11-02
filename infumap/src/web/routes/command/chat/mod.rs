@@ -132,7 +132,7 @@ async fn ensure_query_entry_locked(
         let db = db.lock().await;
         db.item.get(&id)?.clone()
       };
-      item.flags = Some((item.flags.unwrap_or(0) & !LIST_PAGE_PIN_BOTTOM_FLAG) | LIST_PAGE_PIN_TOP_FLAG);
+      item.pinned_to = Some(PinnedTo::Top);
       let json = serde_json::to_string(&item.to_api_json()?)?;
       super::item_ops::handle_update_item(db, &json, &Some(session.clone())).await?;
       id
@@ -180,7 +180,7 @@ async fn archive_used_query_entry(
   let was_pinned = !super::is_unpinned(&item);
   let was_untitled = item.title.as_deref().unwrap_or("").is_empty();
   if was_pinned {
-    item.flags = Some(item.flags.unwrap_or(0) & !LIST_PAGE_PIN_TOP_FLAG);
+    item.pinned_to = None;
   }
   if was_untitled {
     item.title = Some(title_from_prompt(&first_turn.user));
@@ -207,7 +207,7 @@ async fn add_empty_query_entry(
     RelationshipToParent::Child,
   );
   item.owner_id = session.user_id.clone();
-  item.flags = Some(LIST_PAGE_PIN_TOP_FLAG);
+  item.pinned_to = Some(PinnedTo::Top);
   item.title = Some(String::new());
   let id = item.id.clone();
   let json = serde_json::to_string(&item.to_api_json()?)?;

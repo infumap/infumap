@@ -18,11 +18,10 @@
 
 import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
-import { Item } from "../items/base/item";
+import { Item, PinnedTo } from "../items/base/item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { ensureQueryEntryUnderQueries } from "../items/query-entry";
 import { asQueryItem, isQueryItem } from "../items/query-item";
-import { SearchFlags } from "../items/base/flags-item";
 import { queryChatHasContent } from "../items/chat";
 import { sourceTextItemForVirtualTextDocumentPage, textDocumentUrl } from "../items/text-document";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -387,7 +386,7 @@ function loadedBlankQueryEntryId(store: StoreContextModel, queriesPageId: Uid): 
   if (!queriesPageMaybe || !isPage(queriesPageMaybe) || !asPageItem(queriesPageMaybe).childrenLoaded) { return null; }
   for (const childId of asPageItem(queriesPageMaybe).computed_children) {
     const child = itemState.get(childId);
-    if (child != null && isQueryItem(child) && (child.flags & SearchFlags.ListPagePinTop) != 0) {
+    if (child != null && isQueryItem(child) && child.pinnedTo == PinnedTo.Top) {
       return queryChatHasContent(store, asQueryItem(child)) ? null : child.id;
     }
   }

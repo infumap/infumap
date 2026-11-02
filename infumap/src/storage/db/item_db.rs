@@ -41,7 +41,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 39;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 40;
 
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
@@ -2608,6 +2608,93 @@ pub fn migrate_record_v38_to_v39(kvs: &Map<String, Value>) -> InfuResult<Map<Str
   }
 }
 
+/// Flag bits that pinned a child to the top / bottom of a list page before version 40, when this moved to the
+/// pinnedTo field. They meant the same for every flags item type, unlike the other bits.
+const V39_LIST_PAGE_PIN_TOP_FLAG: i64 = 0x100000;
+const V39_LIST_PAGE_PIN_BOTTOM_FLAG: i64 = 0x200000;
+
+/// What migrate_record_v39_to_v40 needs to know about an item from its earlier records.
+#[derive(Clone, Default)]
+pub struct PinnedToMigrationState {
+  is_child: bool,
+  /// The pin the item's flag bits give it.
+  flags_pin: Option<&'static str>,
+  /// The pin the migrated records give it: flags_pin while it is a child.
+  pinned_to: Option<&'static str>,
+}
+
+/// Takes the pin flag bits out of flags, into pinnedTo. An update record setting flags sets the item's pin, as the
+/// bits did. pinnedTo is only valid for a child, where the bits were allowed on any item (and only meant something for
+/// a child), so the item is unpinned while it is not a child, and pinned again by its bits if it becomes one again.
+/// This needs each item's state from its earlier records.
+pub fn migrate_record_v39_to_v40(
+  kvs: &Map<String, Value>,
+  state_by_id: &mut HashMap<String, PinnedToMigrationState>,
+) -> InfuResult<Map<String, Value>> {
+  fn take_pin_from_flags(result: &mut Map<String, Value>) -> InfuResult<Option<Option<&'static str>>> {
+    let Some(flags) = json::get_integer_field(result, "flags")? else { return Ok(None) };
+    let pinned_to = if flags & V39_LIST_PAGE_PIN_TOP_FLAG != 0 {
+      Some("top")
+    } else if flags & V39_LIST_PAGE_PIN_BOTTOM_FLAG != 0 {
+      Some("bottom")
+    } else {
+      None
+    };
+    let flags = flags & !(V39_LIST_PAGE_PIN_TOP_FLAG | V39_LIST_PAGE_PIN_BOTTOM_FLAG);
+    result.insert(String::from("flags"), Value::Number(flags.into()));
+    Ok(Some(pinned_to))
+  }
+
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 39),
+
+    "entry" => {
+      let mut result = kvs.clone();
+      let item_id = json::get_string_field(kvs, "id")?.ok_or("Entry record is missing id.")?;
+      let is_child = json::get_string_field(kvs, "relationshipToParent")?.as_deref() == Some("child");
+      let flags_pin = take_pin_from_flags(&mut result)?.flatten();
+      let pinned_to = flags_pin.filter(|_| is_child);
+      if let Some(pinned_to) = pinned_to {
+        result.insert(String::from("pinnedTo"), Value::String(pinned_to.to_owned()));
+      }
+      state_by_id.insert(item_id, PinnedToMigrationState { is_child, flags_pin, pinned_to });
+      Ok(result)
+    }
+
+    "update" => {
+      let mut result = kvs.clone();
+      let item_id = json::get_string_field(kvs, "id")?.ok_or("Update record is missing id.")?;
+      let state = state_by_id.get_mut(&item_id).ok_or(format!("Update record has id '{}', but this is unknown.", item_id))?;
+      if let Some(relationship_to_parent) = json::get_string_field(kvs, "relationshipToParent")? {
+        state.is_child = relationship_to_parent == "child";
+      }
+      if let Some(flags_pin) = take_pin_from_flags(&mut result)? {
+        state.flags_pin = flags_pin;
+      }
+      let pinned_to = state.flags_pin.filter(|_| state.is_child);
+      if pinned_to != state.pinned_to {
+        result.insert(
+          String::from("pinnedTo"),
+          pinned_to.map(|p| Value::String(p.to_owned())).unwrap_or(Value::Null),
+        );
+        state.pinned_to = pinned_to;
+      }
+      Ok(result)
+    }
+
+    "delete" => {
+      let item_id = json::get_string_field(kvs, "id")?.ok_or("Delete record is missing id.")?;
+      state_by_id.remove(&item_id);
+      Ok(kvs.clone())
+    }
+
+    "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
 fn is_legacy_text_file_entry(kvs: &Map<String, Value>) -> InfuResult<bool> {
   let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
   if item_type != "file" {
@@ -2669,6 +2756,63 @@ mod tests {
   use crate::web::routes::default_home_page;
   use infusdk::item::{NoteFlags, NoteUrl};
   use infusdk::util::uid::{EMPTY_UID, new_uid};
+
+  fn v39_record(record: Value) -> Map<String, Value> {
+    record.as_object().unwrap().clone()
+  }
+
+  #[test]
+  fn v39_to_v40_moves_pin_flag_bits_into_pinned_to() {
+    let mut state = HashMap::new();
+    let pinned_entry = v39_record(serde_json::json!({
+      "__recordType": "entry", "id": "a", "relationshipToParent": "child", "flags": 0x100000 | 0x2
+    }));
+    let migrated = migrate_record_v39_to_v40(&pinned_entry, &mut state).unwrap();
+    assert_eq!(migrated.get("flags"), Some(&Value::from(0x2)));
+    assert_eq!(migrated.get("pinnedTo"), Some(&Value::from("top")));
+
+    let unpinned_entry = v39_record(serde_json::json!({
+      "__recordType": "entry", "id": "b", "relationshipToParent": "child", "flags": 0
+    }));
+    assert!(!migrate_record_v39_to_v40(&unpinned_entry, &mut state).unwrap().contains_key("pinnedTo"));
+
+    // Setting flags sets the pin, as the bits did.
+    let repin = v39_record(serde_json::json!({ "__recordType": "update", "id": "a", "flags": 0x200000 }));
+    let migrated = migrate_record_v39_to_v40(&repin, &mut state).unwrap();
+    assert_eq!(migrated.get("flags"), Some(&Value::from(0)));
+    assert_eq!(migrated.get("pinnedTo"), Some(&Value::from("bottom")));
+
+    let unpin = v39_record(serde_json::json!({ "__recordType": "update", "id": "a", "flags": 0 }));
+    assert_eq!(migrate_record_v39_to_v40(&unpin, &mut state).unwrap().get("pinnedTo"), Some(&Value::Null));
+
+    // An update leaving the pin as it was does not mention it.
+    let restyle = v39_record(serde_json::json!({ "__recordType": "update", "id": "b", "flags": 0x4 }));
+    assert!(!migrate_record_v39_to_v40(&restyle, &mut state).unwrap().contains_key("pinnedTo"));
+  }
+
+  #[test]
+  fn v39_to_v40_drops_pins_of_items_that_are_not_children() {
+    let mut state = HashMap::new();
+    let attachment = v39_record(serde_json::json!({
+      "__recordType": "entry", "id": "a", "relationshipToParent": "attachment", "flags": 0x100000
+    }));
+    let migrated = migrate_record_v39_to_v40(&attachment, &mut state).unwrap();
+    assert_eq!(migrated.get("flags"), Some(&Value::from(0)));
+    assert!(!migrated.contains_key("pinnedTo"));
+
+    let child = v39_record(serde_json::json!({
+      "__recordType": "entry", "id": "b", "relationshipToParent": "child", "flags": 0x200000
+    }));
+    migrate_record_v39_to_v40(&child, &mut state).unwrap();
+    let attached = v39_record(serde_json::json!({
+      "__recordType": "update", "id": "b", "relationshipToParent": "attachment"
+    }));
+    assert_eq!(migrate_record_v39_to_v40(&attached, &mut state).unwrap().get("pinnedTo"), Some(&Value::Null));
+    let child_again = v39_record(serde_json::json!({
+      "__recordType": "update", "id": "b", "relationshipToParent": "child"
+    }));
+    assert_eq!(migrate_record_v39_to_v40(&child_again, &mut state).unwrap().get("pinnedTo"), Some(&Value::from("bottom")));
+  }
 
   /// Removes the data directory when dropped.
   struct TempDir(PathBuf);

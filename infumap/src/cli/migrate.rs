@@ -186,6 +186,7 @@ fn migrate_item_log(
 
   let mut mime_type_migration_state_by_id = std::collections::HashMap::new();
   let mut mime_type_migration_stats = crate::storage::db::item_db::MimeTypeMigrationStats::default();
+  let mut pinned_to_migration_state_by_id = std::collections::HashMap::new();
 
   for item in iterator {
     match item? {
@@ -245,6 +246,7 @@ fn migrate_item_log(
           36 => crate::storage::db::item_db::migrate_record_v36_to_v37(&kvs)?,
           37 => crate::storage::db::item_db::migrate_record_v37_to_v38(&kvs)?,
           38 => crate::storage::db::item_db::migrate_record_v38_to_v39(&kvs)?,
+          39 => crate::storage::db::item_db::migrate_record_v39_to_v40(&kvs, &mut pinned_to_migration_state_by_id)?,
           _ => {
             return Err(format!("Unexpected item log version: {}.", from_version).into());
           }

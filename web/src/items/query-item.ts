@@ -24,8 +24,7 @@ import type { BoundingBox } from "../util/geometry";
 import { ArrangeAlgorithm, type ArrangeAlgorithm as ArrangeAlgorithmType } from "./page-item";
 import type { SearchItem, SearchMeasurable } from "./search-item";
 import type { TextItem } from "./text-item";
-import type { ItemTypeMixin } from "./base/item";
-import { SearchFlags } from "./base/flags-item";
+import { PinnedTo, type ItemTypeMixin } from "./base/item";
 import {
   SearchFns,
   asSearchItem,
@@ -91,7 +90,7 @@ export function setChatPersistPreview(queryItemId: Uid, preview: TextItem | null
 }
 
 export function queryIconClass(queryItem: QueryItem): string {
-  return (queryItem.flags & SearchFlags.ListPagePinTop) != 0 ? "fas fa-search" : "far fa-comment";
+  return queryItem.pinnedTo == PinnedTo.Top ? "fas fa-search" : "far fa-comment";
 }
 
 export function asQueryItem(item: ItemTypeMixin): QueryItem {

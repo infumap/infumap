@@ -19,7 +19,7 @@
 import { GRID_SIZE, LINE_HEIGHT_PX, LINK_TRIANGLE_SIZE_PX, LIST_PAGE_TOP_PADDING_PX, MIN_DETAILED_CHILD_SCALE, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX } from "../../constants";
 import { CursorEventState, MouseAction, MouseActionState } from "../../input/state";
 import { groupMoveStackWindow, orderedGroupMoveItems } from "../../input/move_group";
-import { PageFlags, itemCanExpandInLineItem, itemIsListPagePinnedBottom, itemIsListPagePinnedTop } from "../../items/base/flags-item";
+import { PageFlags, itemCanExpandInLineItem } from "../../items/base/flags-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { Item } from "../../items/base/item";
 import { isAttachmentsItem } from "../../items/base/attachments-item";
@@ -73,9 +73,7 @@ interface ListPageArrangedRow {
 }
 
 function listPageRowBandForItem(item: Item | null): ListPageRowBand | null {
-  if (itemIsListPagePinnedTop(item)) { return "top"; }
-  if (itemIsListPagePinnedBottom(item)) { return "bottom"; }
-  return null;
+  return item?.pinnedTo ?? null;
 }
 
 function listPageRowBandForVisibleRow(

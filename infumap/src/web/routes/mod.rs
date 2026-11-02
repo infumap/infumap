@@ -16,8 +16,7 @@
 
 use infusdk::{
   item::{
-    ArrangeAlgorithm, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, LIST_PAGE_PIN_TOP_FLAG, RelationshipToParent,
-    TableColumn,
+    ArrangeAlgorithm, Item, ItemType, PinnedTo, RelationshipToParent, TableColumn,
   },
   util::{
     geometry::{GRID_SIZE, Vector},
@@ -181,7 +180,7 @@ pub fn default_query_item(owner_id: &str, queries_page_id: &Uid, query_item_id: 
 
   item.owner_id = String::from(owner_id);
   item.id = query_item_id;
-  item.flags = Some(item.flags.unwrap_or(0) | LIST_PAGE_PIN_TOP_FLAG);
+  item.pinned_to = Some(PinnedTo::Top);
 
   item
 }
@@ -230,7 +229,7 @@ pub fn default_scopes_page(owner_id: &str, queries_page_id: &Uid, ordering: Vec<
 
   item.owner_id = String::from(owner_id);
   item.id = scopes_page_id(owner_id);
-  item.flags = Some(item.flags.unwrap_or(0) | LIST_PAGE_PIN_BOTTOM_FLAG);
+  item.pinned_to = Some(PinnedTo::Bottom);
 
   item
 }
@@ -274,7 +273,6 @@ mod tests {
     assert!(is_scopes_page_item(&page));
     assert_eq!(page.parent_id.as_ref(), Some(&queries_page_id));
     assert_eq!(page.title.as_deref(), Some("Scopes"));
-    assert_ne!(page.flags.unwrap_or(0) & LIST_PAGE_PIN_BOTTOM_FLAG, 0);
-    assert_eq!(page.flags.unwrap_or(0) & LIST_PAGE_PIN_TOP_FLAG, 0);
+    assert_eq!(page.pinned_to, Some(PinnedTo::Bottom));
   }
 }

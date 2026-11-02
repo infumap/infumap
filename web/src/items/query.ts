@@ -29,7 +29,7 @@ import { asContainerItem, isContainer } from "./base/container-item";
 import type { Uid } from "../util/uid";
 import { ensureQueryItemUnderQueries, navigateToQueries } from "../layout/navigation";
 import { ItemFns } from "./base/item-polymorphism";
-import { SearchFlags } from "./base/flags-item";
+import { PinnedTo } from "./base/item";
 import {
   clearQueryChat,
   ensureTemporaryQueryChatPage,
@@ -256,7 +256,7 @@ async function applyContinuedChat(
   if (response.unpinnedQueryItemId != null) {
     const unpinned = itemState.get(response.unpinnedQueryItemId);
     if (unpinned != null && isQueryItem(unpinned)) {
-      asQueryItem(unpinned).flags &= ~SearchFlags.ListPagePinTop;
+      unpinned.pinnedTo = null;
       unpinned.capabilities = { resize: false };
     }
     void generateQueryChatTitle(store, response.unpinnedQueryItemId);
@@ -290,5 +290,5 @@ async function applyContinuedChat(
 
 /** Whether a query item is a chat in the Queries history rather than New Query. */
 export function isQueryChatHistoryEntry(store: StoreContextModel, queryItem: QueryItem): boolean {
-  return isLiveQueryChat(store, queryItem) && (queryItem.flags & SearchFlags.ListPagePinTop) == 0;
+  return isLiveQueryChat(store, queryItem) && queryItem.pinnedTo != PinnedTo.Top;
 }

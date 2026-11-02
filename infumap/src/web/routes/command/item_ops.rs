@@ -972,7 +972,7 @@ fn convert_composite_to_page(
     Some(note) => note.title.clone().unwrap_or_default().trim().to_owned(),
     None => composite_title.clone(),
   };
-  let mut flags = composite_flags & (LIST_PAGE_PIN_TOP_FLAG | LIST_PAGE_PIN_BOTTOM_FLAG);
+  let mut flags = 0;
   // A title the composite deliberately hid stays hidden.
   if composite_title.trim() != "" && composite_flags & CompositeFlags::ShowTitle.bits() == 0 {
     flags |= PAGE_HIDE_DOCUMENT_TITLE_FLAG;
@@ -997,7 +997,7 @@ fn convert_composite_to_page(
 fn convert_page_to_composite(page: &Item, composite: &mut Item) -> InfuResult<()> {
   let page_flags = page.flags.ok_or("Page has no flags.")?;
   let title = page.title.clone().unwrap_or_default();
-  let mut flags = page_flags & (LIST_PAGE_PIN_TOP_FLAG | LIST_PAGE_PIN_BOTTOM_FLAG);
+  let mut flags = 0;
   if title.trim() != "" && page_flags & PAGE_HIDE_DOCUMENT_TITLE_FLAG == 0 {
     flags |= CompositeFlags::ShowTitle.bits();
   }

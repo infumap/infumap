@@ -22,12 +22,11 @@ use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::ImageReader;
 use infusdk::item::{
-  ArrangeAlgorithm, CompositeFlags, Item, ItemType, LIST_PAGE_PIN_BOTTOM_FLAG, LIST_PAGE_PIN_TOP_FLAG, NoteFlags,
-  PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG, PAGE_HIDE_DOCUMENT_TITLE_FLAG, PAGE_TABLE_FLAG_PAIRS, PermissionFlags,
-  RelationshipToParent, SavedPageSettings, SavedTableSettings, TableColumn, embedded_table_size_from_page,
-  is_attachments_item_type, is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type,
-  is_image_item, is_link_item, is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item,
-  page_width_from_table,
+  ArrangeAlgorithm, CompositeFlags, Item, ItemType, NoteFlags, PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG,
+  PAGE_HIDE_DOCUMENT_TITLE_FLAG, PAGE_TABLE_FLAG_PAIRS, PermissionFlags, PinnedTo, RelationshipToParent,
+  SavedPageSettings, SavedTableSettings, TableColumn, embedded_table_size_from_page, is_attachments_item_type,
+  is_composite_item, is_container_item_type, is_data_item_type, is_flags_item_type, is_image_item, is_link_item,
+  is_page_item, is_permission_flags_item_type, is_positionable_type, is_table_item, page_width_from_table,
 };
 use infusdk::util::geometry::{Dimensions, GRID_SIZE, Vector};
 use infusdk::util::infu::InfuResult;
@@ -629,7 +628,7 @@ fn is_queries_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
 }
 
 fn is_unpinned(item: &Item) -> bool {
-  item.flags.unwrap_or(0) & LIST_PAGE_PIN_TOP_FLAG == 0
+  item.pinned_to != Some(PinnedTo::Top)
 }
 
 fn is_in_trash(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
@@ -691,7 +690,7 @@ fn scopes_page_update_disallowed(old_item: &Item, new_item: &Item) -> bool {
   old_item.item_type != new_item.item_type
     || old_item.parent_id != new_item.parent_id
     || old_item.relationship_to_parent != new_item.relationship_to_parent
-    || new_item.flags.unwrap_or(0) & LIST_PAGE_PIN_BOTTOM_FLAG == 0
+    || new_item.pinned_to != Some(PinnedTo::Bottom)
 }
 
 fn item_to_api_json_map_with_capabilities(
@@ -1612,7 +1611,10 @@ fn virtual_search_status_page(
     SearchStatusPageKind::Attention => search_attention_page_id(user_id),
     SearchStatusPageKind::Processing => search_processing_page_id(user_id),
   };
-  item.flags = Some(item.flags.unwrap_or(0) | LIST_PAGE_PIN_BOTTOM_FLAG | PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG);
+  item.flags = Some(item.flags.unwrap_or(0) | PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG);
+  if item.relationship_to_parent == RelationshipToParent::Child {
+    item.pinned_to = Some(PinnedTo::Bottom);
+  }
   item
 }
 
@@ -1737,7 +1739,7 @@ mod tests {
     assert!(scopes_page_update_disallowed(&old_item, &moved));
 
     let mut unpinned = old_item.clone();
-    unpinned.flags = Some(unpinned.flags.unwrap_or(0) & !LIST_PAGE_PIN_BOTTOM_FLAG);
+    unpinned.pinned_to = None;
     assert!(scopes_page_update_disallowed(&old_item, &unpinned));
   }
 
@@ -1745,7 +1747,7 @@ mod tests {
   async fn earlier_chats_move_only_to_and_from_the_trash() {
     let mut t = TestDb::new().await;
     let user = t.db.user.get(&t.user_id).unwrap().clone();
-    let query = |flags: i64| {
+    let query = |pinned_to: Option<PinnedTo>| {
       let mut item = Item::new_query(
         &user.queries_page_id,
         vec![],
@@ -1753,11 +1755,11 @@ mod tests {
         queries_page_query_item_width_gr(),
         RelationshipToParent::Child,
       );
-      item.flags = Some(flags);
+      item.pinned_to = pinned_to;
       item
     };
-    let pinned_id = t.add(query(LIST_PAGE_PIN_TOP_FLAG)).await;
-    let earlier_id = t.add(query(0)).await;
+    let pinned_id = t.add(query(Some(PinnedTo::Top))).await;
+    let earlier_id = t.add(query(None)).await;
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let session = Some(Session {
       id: new_uid(),
@@ -1806,13 +1808,13 @@ mod tests {
     assert_eq!(get(&earlier_id).await.parent_id.as_ref(), Some(&user.trash_page_id));
     assert!(update(moved_to(get(&earlier_id).await, &user.home_page_id)).await.is_err(), "trash to elsewhere");
     let mut restored_pinned = moved_to(get(&earlier_id).await, &user.queries_page_id);
-    restored_pinned.flags = Some(LIST_PAGE_PIN_TOP_FLAG);
+    restored_pinned.pinned_to = Some(PinnedTo::Top);
     assert!(update(restored_pinned).await.is_err(), "restored as a second current chat");
     update(moved_to(get(&earlier_id).await, &user.queries_page_id)).await.unwrap();
     assert_eq!(get(&earlier_id).await.parent_id.as_ref(), Some(&user.queries_page_id));
 
     let mut unpinned = get(&pinned_id).await;
-    unpinned.flags = Some(0);
+    unpinned.pinned_to = None;
     update(unpinned).await.unwrap();
   }
 

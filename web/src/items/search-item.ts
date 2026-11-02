@@ -30,7 +30,7 @@ import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
 import { normalizeItemCapabilities } from "./base/capabilities-item";
 import { FlagsMixin, SearchFlags } from "./base/flags-item";
 import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
-import { ClientOnlyItemKind, Item, ItemType, ItemTypeMixin, LEGACY_SEARCH_ITEM_TYPE } from "./base/item";
+import { ClientOnlyItemKind, Item, ItemType, ItemTypeMixin, LEGACY_SEARCH_ITEM_TYPE, PinnedTo } from "./base/item";
 import { PositionalMixin } from "./base/positional-item";
 import { TitledMixin } from "./base/titled-item";
 import { XSizableMixin } from "./base/x-sizeable-item";
@@ -350,7 +350,7 @@ export const SearchFns = {
   },
 
   getFingerprint: (searchItem: SearchItem): string => {
-    return `${searchItem.flags}~~~!@#~~~${searchItem.title}`;
+    return `${searchItem.flags}~~~!@#~~~${searchItem.pinnedTo}~~~!@#~~~${searchItem.title}`;
   },
 
   /** The title shown for the item, which is a placeholder until it has one. */
@@ -358,7 +358,7 @@ export const SearchFns = {
     if (searchItem.title != "") {
       return searchItem.title;
     }
-    return (searchItem.flags & SearchFlags.ListPagePinTop) != 0
+    return searchItem.pinnedTo == PinnedTo.Top
       ? NEW_QUERY_DISPLAY_TITLE
       : UNTITLED_QUERY_DISPLAY_TITLE;
   },
