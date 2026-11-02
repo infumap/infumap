@@ -33,8 +33,6 @@ export interface QueryProfile {
   id: Uid,
   name: string,
   configuration: QueryConfiguration,
-  /** The note whose current text fills an empty composer when this profile is selected. */
-  queryNoteId?: Uid | null,
 }
 
 export interface QueryModelFavorite {
@@ -58,10 +56,9 @@ export interface QueryProfileCollection {
 /** Each mutation states one intent and applies to the saved collection as it is when it arrives. */
 export type QueryProfileOperation =
   | { operation: "list" }
-  | { operation: "create", name: string, configuration: QueryConfiguration, queryNoteId: Uid | null }
+  | { operation: "create", name: string, configuration: QueryConfiguration }
   | { operation: "rename", id: Uid, name: string }
   | { operation: "setConfiguration", id: Uid, configuration: QueryConfiguration }
-  | { operation: "setQueryNote", id: Uid, queryNoteId: Uid | null }
   | { operation: "duplicate", id: Uid }
   | { operation: "delete", id: Uid }
   | { operation: "move", id: Uid, toIndex: number }
@@ -121,7 +118,6 @@ export function snapshotQueryProfile(profile: QueryProfile): QueryProfile {
     id: profile.id,
     name: profile.name,
     configuration: cloneQueryConfiguration(profile.configuration),
-    ...(profile.queryNoteId == null ? {} : { queryNoteId: profile.queryNoteId }),
   };
 }
 

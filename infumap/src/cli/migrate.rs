@@ -302,6 +302,7 @@ fn migrate_user_log(
           5 => crate::storage::db::user_db::migrate_record_v5_to_v6(&kvs)?,
           6 => crate::storage::db::user_db::migrate_record_v6_to_v7(&kvs)?,
           7 => crate::storage::db::user_db::migrate_record_v7_to_v8(&kvs)?,
+          8 => crate::storage::db::user_db::migrate_record_v8_to_v9(&kvs)?,
           _ => {
             return Err(format!("Unexpected user log version: {}.", from_version).into());
           }

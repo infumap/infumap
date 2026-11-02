@@ -378,22 +378,35 @@ pub(super) fn parse_transcript(bytes: &[u8]) -> InfuResult<Option<Transcript>> {
   Ok(Some(transcript))
 }
 
+/// A profile applied before template notes were removed names its note: `"queryNoteId":"<id>"`.
+const LEGACY_QUERY_NOTE_KEY: &[u8] = b"\"queryNoteId\"";
+
 /// Version 2 has no approval setting. Preserve its conservative behavior without rewriting saved
 /// chats. A live version 2 file can contain new turns too; explicitly recorded policies are retained.
+///
+/// A profile in any version may name a template note, from before prompts replaced them. The reference is dropped
+/// on reading, with no version bump: nothing else changed, so files written since are still version 3. Only lines
+/// that mention it take the slower path through `Value`.
 fn parse_transcript_record(line: &[u8], version: u32) -> InfuResult<TranscriptRecord> {
-  if version != 2 {
+  let legacy_query_note = line.windows(LEGACY_QUERY_NOTE_KEY.len()).any(|window| window == LEGACY_QUERY_NOTE_KEY);
+  if version != 2 && !legacy_query_note {
     return Ok(serde_json::from_slice(line)?);
   }
   let mut record: Value = serde_json::from_slice(line)?;
   if record.get("type").and_then(Value::as_str) == Some("user") {
     let settings = record.get_mut("settings").ok_or("Transcript settings are missing.")?;
-    crate::query_configuration::upgrade_legacy_configuration(
-      settings.get_mut("configuration").ok_or("Transcript configuration is missing.")?,
-    )?;
-    if let Some(profile) = settings.get_mut("appliedProfile").filter(|profile| !profile.is_null()) {
+    if version == 2 {
       crate::query_configuration::upgrade_legacy_configuration(
-        profile.get_mut("configuration").ok_or("Profile configuration is missing.")?,
+        settings.get_mut("configuration").ok_or("Transcript configuration is missing.")?,
       )?;
+      if let Some(profile) = settings.get_mut("appliedProfile").filter(|profile| !profile.is_null()) {
+        crate::query_configuration::upgrade_legacy_configuration(
+          profile.get_mut("configuration").ok_or("Profile configuration is missing.")?,
+        )?;
+      }
+    }
+    if let Some(profile) = settings.get_mut("appliedProfile").and_then(Value::as_object_mut) {
+      profile.remove("queryNoteId");
     }
   }
   Ok(serde_json::from_value(record)?)
@@ -872,6 +885,26 @@ mod tests {
         { "role": "assistant", "content": "ok" },
       ])
     );
+  }
+
+  /// Chats saved while profiles had template notes must still open, whatever their version.
+  #[test]
+  fn a_profile_naming_a_template_note_still_reads() {
+    let (query_item_id, profile_id, note_id) = (new_uid(), new_uid(), new_uid());
+    for (version, configuration) in [
+      (2, r#"{"scopeId":null,"model":null,"capabilities":[]}"#),
+      (3, r#"{"toolApproval":"automatic","scopeId":null,"model":null,"capabilities":[]}"#),
+    ] {
+      let header = format!(r#"{{"type":"header","version":{version},"queryItemId":"{query_item_id}","createdAt":1}}"#);
+      let user = format!(
+        r#"{{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{{"configuration":{configuration},"appliedProfile":{{"id":"{profile_id}","name":"P","configuration":{configuration},"queryNoteId":"{note_id}"}},"mode":"chat"}}}}"#
+      );
+      let transcript = parse_transcript(format!("{header}\n{user}\n").as_bytes()).unwrap().unwrap();
+      let profile = transcript.turns[0].user.settings.applied_profile.as_ref().unwrap();
+      assert_eq!((profile.id.as_str(), profile.name.as_str()), (profile_id.as_str(), "P"), "version {version}");
+      let line = record_line(&TranscriptRecord::User(transcript.turns[0].user.clone())).unwrap();
+      assert!(!line.contains("queryNoteId"));
+    }
   }
 
   #[test]

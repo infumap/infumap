@@ -30,7 +30,7 @@ use tokio::io::{AsyncReadExt, BufReader};
 use super::user::User;
 use crate::util::fs::expand_tilde;
 
-pub const CURRENT_USER_LOG_VERSION: i64 = 8;
+pub const CURRENT_USER_LOG_VERSION: i64 = 9;
 
 /// Usernames are case insensitive: they are indexed and looked up by this key.
 pub fn username_key(username: &str) -> String {
@@ -332,6 +332,25 @@ pub fn migrate_record_v7_to_v8(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
   }
 }
 
+/// Version 9 removes the template note reference from saved profiles. Prompts on the prompts page replaced it.
+pub fn migrate_record_v8_to_v9(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "entry" | "update" => {
+      let mut result = kvs.clone();
+      if let Some(collection) = result.get_mut("queryProfiles").filter(|collection| !collection.is_null()) {
+        let profiles = collection.get_mut("profiles").and_then(Value::as_array_mut).ok_or("Invalid query profiles.")?;
+        for profile in profiles {
+          profile.as_object_mut().ok_or("Invalid query profile.")?.remove("queryNoteId");
+        }
+      }
+      Ok(result)
+    }
+    "delete" => Ok(kvs.clone()),
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -366,7 +385,6 @@ mod tests {
       profiles: vec![QueryProfile {
         id: id.clone(),
         name: "Default".to_owned(),
-        query_note_id: None,
         configuration: QueryConfiguration {
           scope_id: None,
           model: None,
@@ -407,6 +425,32 @@ mod tests {
     let mut descriptor = Map::new();
     descriptor.insert("__recordType".to_owned(), Value::String("descriptor".to_owned()));
     assert!(migrate_record_v6_to_v7(&descriptor).is_err());
+  }
+
+  #[test]
+  fn v8_records_lose_their_template_notes() {
+    let mut with = user();
+    with.query_profiles = Some(profiles());
+    let mut entry = with.to_json().unwrap();
+    entry["queryProfiles"]["profiles"][0]
+      .as_object_mut()
+      .unwrap()
+      .insert("queryNoteId".to_owned(), Value::String(new_uid()));
+    assert!(User::from_json(&entry).is_err(), "a current reader rejects the old field");
+    let migrated = migrate_record_v8_to_v9(&entry).unwrap();
+    assert_eq!(User::from_json(&migrated).unwrap().query_profiles, with.query_profiles);
+
+    let without = User { query_profiles: None, ..with.clone() };
+    let update = User::create_json_update(&without, &with).unwrap();
+    let mut old_update = update.clone();
+    old_update["queryProfiles"]["profiles"][0]
+      .as_object_mut()
+      .unwrap()
+      .insert("queryNoteId".to_owned(), Value::String(new_uid()));
+    assert_eq!(migrate_record_v8_to_v9(&old_update).unwrap(), update);
+    let mut delete = Map::new();
+    delete.insert("__recordType".to_owned(), Value::String("delete".to_owned()));
+    assert_eq!(migrate_record_v8_to_v9(&delete).unwrap(), delete);
   }
 
   struct TempDir(PathBuf);

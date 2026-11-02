@@ -1581,8 +1581,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onKeyUp={stop}>
           <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
             <QueryProfileBar queryItem={queryItem} searchMode={() => false} disabled={chatRequestActive}
-              blockedReason={queryProfileBlockedReason} composerText={chatText}
-              onApplyQuery={query => { setChatText(query); resizeChatTextareaSoon(); }} />
+              blockedReason={queryProfileBlockedReason} />
           </div>
           <Show when={scopeItemsRowShown()}>
             <div style={`margin-bottom: ${QUERY_SCOPE_ITEMS_ROW_GAP_PX}px;`}>
@@ -1765,8 +1764,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <QueryProfileBar queryItem={queryItem} searchMode={() => selectedInputMode() == "search"} disabled={queryRequestActive}
             blockedReason={queryProfileBlockedReason}
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
-            composerText={() => readQueryTextFromDom()}
-            onApplyQuery={query => setQueryText(store, queryItem(), query)}
             barRef={el => { queryProfileBar = el; }} onTabKey={handleQueryProfileTab} />
         </div>
       </Show>

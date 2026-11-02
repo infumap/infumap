@@ -5,11 +5,9 @@ import { Portal } from "solid-js/web";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import type { QueryProfile } from "../../items/query-configuration";
 import { queryConfigurationSummary } from "../../items/query-configuration-labels";
-import { describeQueryScopeItems, queryScopeItemTitle } from "../../items/query-scope";
 import { useStore } from "../../store/StoreProvider";
 import type { Uid } from "../../util/uid";
 import { stopQueryPickerEvent } from "./QueryPickerPopover";
-import { QueryProfileNotePicker } from "./QueryProfileNotePicker";
 
 const nameEncoder = new TextEncoder();
 
@@ -26,7 +24,7 @@ const iconButtonClass = "flex h-7 w-7 shrink-0 cursor-pointer items-center justi
 const moveButtonClass = "flex h-[14px] w-6 cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent";
 const textButtonClass = "rounded border border-slate-300 px-2 py-1 text-[12px] hover:bg-slate-100 disabled:cursor-default disabled:opacity-40";
 
-/** Account profile management, including optional query templates. Queries keep their setups. */
+/** Account profile management. Queries keep their setups. */
 export function QueryProfileManager(props: { onClose: () => void }) {
   const store = useStore();
   const ownerId = store.user.getUserMaybe()?.userId ?? null;
@@ -35,18 +33,11 @@ export function QueryProfileManager(props: { onClose: () => void }) {
   const [error, setError] = createSignal<string | null>(null);
   const [renaming, setRenaming] = createSignal<Uid | null>(null);
   const [name, setName] = createSignal("");
-  const [editingQuery, setEditingQuery] = createSignal<Uid | null>(null);
-  const [queryNoteId, setQueryNoteId] = createSignal<Uid | null>(null);
-  const [noteLoading, setNoteLoading] = createSignal(false);
   const [deleting, setDeleting] = createSignal<Uid | null>(null);
   const collection = () => store.general.queryProfiles.collection();
   const profiles = () => collection()?.profiles ?? [];
   const isDefault = (id: Uid) => collection()?.preferences.defaultProfileId == id;
   const isPinned = (id: Uid) => collection()?.preferences.pinnedProfileIds.includes(id) == true;
-  createEffect(() => {
-    void describeQueryScopeItems(profiles().flatMap(profile => profile.queryNoteId == null ? [] : [profile.queryNoteId]));
-  });
-
   createEffect(() => {
     if ((store.user.getUserMaybe()?.userId ?? null) != ownerId) { props.onClose(); }
   });
@@ -57,7 +48,6 @@ export function QueryProfileManager(props: { onClose: () => void }) {
       if (ev.key != "Escape") { return; }
       ev.preventDefault(); ev.stopImmediatePropagation();
       if (renaming() != null) { setRenaming(null); }
-      else if (editingQuery() != null) { setEditingQuery(null); }
       else if (deleting() != null) { setDeleting(null); }
       else { props.onClose(); }
     };
@@ -73,7 +63,7 @@ export function QueryProfileManager(props: { onClose: () => void }) {
     finally { setBusy(false); }
   };
   const startRename = (profile: QueryProfile) => {
-    setDeleting(null); setEditingQuery(null); setError(null);
+    setDeleting(null); setError(null);
     setName(profile.name);
     setRenaming(profile.id);
   };
@@ -83,19 +73,6 @@ export function QueryProfileManager(props: { onClose: () => void }) {
     if (problem != null) { setError(problem); return; }
     if (name().trim() == profile.name) { setRenaming(null); return; }
     void run(async () => { await store.general.queryProfiles.rename(profile.id, name().trim()); setRenaming(null); });
-  };
-  const startQueryEdit = (profile: QueryProfile) => {
-    setRenaming(null); setDeleting(null); setError(null);
-    setQueryNoteId(profile.queryNoteId ?? null);
-    setEditingQuery(profile.id);
-  };
-  const submitQuery = (ev: SubmitEvent, profile: QueryProfile) => {
-    ev.preventDefault();
-    if (noteLoading()) { return; }
-    void run(async () => {
-      await store.general.queryProfiles.setQueryNote(profile.id, queryNoteId());
-      setEditingQuery(null);
-    });
   };
   /** Deleting the default makes the first remaining profile the default. */
   const nextDefault = (deleted: QueryProfile) =>
@@ -138,18 +115,6 @@ export function QueryProfileManager(props: { onClose: () => void }) {
             </form>
           </Show>
           <div class="truncate px-1 text-[11px] text-slate-500">{queryConfigurationSummary(store, profile.configuration)}</div>
-          <div class="mt-2 px-1">
-            <button type="button"
-              class="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-xs border border-[#999] bg-white px-2 py-1 text-left text-[12px] text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-40"
-              title={`Choose a query template for ${profile.name}`} aria-expanded={editingQuery() == profile.id}
-              aria-controls={`profile-template-${profile.id}`} disabled={busy()} onClick={() => startQueryEdit(profile)}>
-              <i class="bi-card-text shrink-0" aria-hidden="true" />
-              <span class="truncate">{profile.queryNoteId ? "Change template note…" : "Choose template note…"}</span>
-            </button>
-            <Show when={profile.queryNoteId}>{id =>
-              <div class="mt-1 truncate text-[11px] text-slate-500" title={id()}>Template: {queryScopeItemTitle(id())}</div>
-            }</Show>
-          </div>
         </div>
         <button type="button" class={iconButtonClass} aria-pressed={isPinned(profile.id)}
           aria-label={`${isPinned(profile.id) ? "Unpin" : "Pin"} ${profile.name}`}
@@ -170,7 +135,7 @@ export function QueryProfileManager(props: { onClose: () => void }) {
           <i class="bi-copy" /></button>
         <button type="button" class={iconButtonClass} aria-label={`Delete ${profile.name}`}
           title={profiles().length <= 1 ? "The last profile cannot be deleted" : "Delete"}
-          disabled={busy() || profiles().length <= 1} onClick={() => { setRenaming(null); setEditingQuery(null); setError(null); setDeleting(profile.id); }}>
+          disabled={busy() || profiles().length <= 1} onClick={() => { setRenaming(null); setError(null); setDeleting(profile.id); }}>
           <i class="bi-trash" /></button>
       </div>
     }>
@@ -184,15 +149,6 @@ export function QueryProfileManager(props: { onClose: () => void }) {
           onClick={() => void run(async () => { await store.general.queryProfiles.delete(profile.id); setDeleting(null); })}>Delete</button>
         <button type="button" class={textButtonClass} disabled={busy()} onClick={() => setDeleting(null)}>Cancel</button>
       </div>
-    </Show>
-    <Show when={editingQuery() == profile.id}>
-      <form id={`profile-template-${profile.id}`} class="mt-2 space-y-2" onSubmit={ev => submitQuery(ev, profile)}>
-        <QueryProfileNotePicker value={queryNoteId} onChange={setQueryNoteId} disabled={busy} onBusyChange={setNoteLoading} />
-        <div class="flex gap-2">
-          <button type="submit" class={textButtonClass} disabled={busy() || noteLoading()}>Save template</button>
-          <button type="button" class={textButtonClass} disabled={busy()} onClick={() => setEditingQuery(null)}>Cancel</button>
-        </div>
-      </form>
     </Show>
   </div>;
 
