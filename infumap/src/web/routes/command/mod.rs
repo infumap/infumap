@@ -80,7 +80,7 @@ use crate::util::image::{
 };
 use crate::util::mime::{detect_mime_type, mime_type_from_title_extension};
 use crate::util::ordering::{new_ordering, new_ordering_after, new_ordering_at_end};
-use crate::web::routes::{is_scopes_page_item, scopes_page_id};
+use crate::web::routes::{is_queries_subpage_item, queries_subpage_name};
 use crate::web::serve::{cors_response, incoming_json_with_limit, json_response};
 use crate::web::session::get_and_validate_session;
 use std::collections::{HashMap, HashSet};
@@ -693,8 +693,8 @@ fn queries_page_arrange_algorithm_allowed(item: &Item) -> bool {
   item.arrange_algorithm.as_ref() == Some(&ArrangeAlgorithm::List)
 }
 
-/// The scopes page may be renamed or rearranged, but must stay pinned to the bottom of the queries page.
-fn scopes_page_update_disallowed(old_item: &Item, new_item: &Item) -> bool {
+/// The scopes and prompts pages may be renamed or rearranged, but must stay pinned to the bottom of the queries page.
+fn queries_subpage_update_disallowed(old_item: &Item, new_item: &Item) -> bool {
   old_item.item_type != new_item.item_type
     || old_item.parent_id != new_item.parent_id
     || old_item.relationship_to_parent != new_item.relationship_to_parent
@@ -712,7 +712,7 @@ fn item_to_api_json_map_with_capabilities(
   if is_queries_page_query_item(db, item) && is_unpinned(item) {
     // An earlier chat can be dragged, to the trash only; the update guard rejects any other move.
     item_json.insert(String::from("capabilities"), non_resizable_item_capabilities_json());
-  } else if is_queries_page_query_item(db, item) || is_scopes_page_item(item) {
+  } else if is_queries_page_query_item(db, item) || is_queries_subpage_item(item) {
     item_json.insert(String::from("capabilities"), non_movable_item_capabilities_json());
   }
   if is_queries_page_query_item(db, item) {
@@ -1729,8 +1729,9 @@ fn virtual_search_status_page_child_items(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::util::ordering::new_ordering_before;
   use crate::web::routes::command::scope::test_db::TestDb;
-  use crate::web::routes::default_scopes_page;
+  use crate::web::routes::{default_scopes_page, ensure_prompts_page, prompts_page_id, scopes_page_id};
 
   #[test]
   fn scopes_page_update_allows_rename_but_not_move_or_unpin() {
@@ -1740,15 +1741,70 @@ mod tests {
 
     let mut renamed = old_item.clone();
     renamed.title = Some("My scopes".to_owned());
-    assert!(!scopes_page_update_disallowed(&old_item, &renamed));
+    assert!(!queries_subpage_update_disallowed(&old_item, &renamed));
 
     let mut moved = old_item.clone();
     moved.parent_id = Some("00000000000000000000000000000002".to_owned());
-    assert!(scopes_page_update_disallowed(&old_item, &moved));
+    assert!(queries_subpage_update_disallowed(&old_item, &moved));
 
     let mut unpinned = old_item.clone();
     unpinned.pinned_to = None;
-    assert!(scopes_page_update_disallowed(&old_item, &unpinned));
+    assert!(queries_subpage_update_disallowed(&old_item, &unpinned));
+  }
+
+  #[tokio::test]
+  async fn prompts_page_is_added_directly_above_the_scopes_page_and_stays_there() {
+    let mut t = TestDb::new().await;
+    let user = t.db.user.get(&t.user_id).unwrap().clone();
+    let (prompts_id, scopes_id) = (prompts_page_id(&user.id), scopes_page_id(&user.id));
+    let order = |db: &Db| -> Vec<Uid> {
+      let mut children = db.item.get_children(&user.queries_page_id).unwrap();
+      children.sort_by(|a, b| a.ordering.cmp(&b.ordering));
+      children.iter().map(|item| item.id.clone()).collect()
+    };
+    let ids = order(&t.db);
+    assert_eq!(ids[ids.len() - 2..], [prompts_id.clone(), scopes_id.clone()]);
+
+    // An existing user, with a page of their own pinned directly above the scopes page.
+    t.db.item.remove(&prompts_id).await.unwrap();
+    let mine_id = t.page(&user.queries_page_id, "Mine").await;
+    let mut mine = t.db.item.get(&mine_id).unwrap().clone();
+    mine.ordering = new_ordering_before(&t.db.item.get(&scopes_id).unwrap().ordering);
+    mine.pinned_to = Some(PinnedTo::Bottom);
+    t.db.item.update(&mine).await.unwrap();
+    assert!(ensure_prompts_page(&mut t.db, &user.id).await.unwrap());
+    assert!(!ensure_prompts_page(&mut t.db, &user.id).await.unwrap());
+    let ids = order(&t.db);
+    assert_eq!(ids[ids.len() - 3..], [mine_id, prompts_id.clone(), scopes_id]);
+
+    let db = Arc::new(tokio::sync::Mutex::new(t.db));
+    let session = Some(Session {
+      id: new_uid(),
+      user_id: user.id.clone(),
+      expires: 0,
+      issued_at: 0,
+      username: String::new(),
+      successor_id: None,
+      predecessor_id: None,
+    });
+    let prompts = db.lock().await.item.get(&prompts_id).unwrap().clone();
+    let update = |item: Item| {
+      let db = db.clone();
+      let session = session.clone();
+      async move {
+        let json = serde_json::to_string(&item.to_api_json().unwrap()).unwrap();
+        item_ops::handle_update_item(&db, &json, &session).await
+      }
+    };
+    let mut moved = prompts.clone();
+    moved.parent_id = Some(user.home_page_id.clone());
+    assert!(update(moved).await.is_err(), "moved out of the queries page");
+    let mut unpinned = prompts.clone();
+    unpinned.pinned_to = None;
+    assert!(update(unpinned).await.is_err(), "unpinned");
+    let mut renamed = prompts.clone();
+    renamed.title = Some("My prompts".to_owned());
+    update(renamed).await.unwrap();
   }
 
   #[tokio::test]

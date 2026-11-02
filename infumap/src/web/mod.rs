@@ -58,7 +58,7 @@ use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::tokiort::TokioIo;
 use crate::util::crypto::{decrypt_file_data, encrypt_file_data};
 use crate::util::fs::expand_tilde;
-use crate::web::routes::ensure_scopes_page;
+use crate::web::routes::{ensure_prompts_page, ensure_scopes_page};
 
 use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
@@ -236,6 +236,9 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
       db.item.load_user_items(&user_id, false).await?;
       if ensure_scopes_page(&mut db, &user_id).await? {
         info!("Created scopes page for user '{}'.", user_id);
+      }
+      if ensure_prompts_page(&mut db, &user_id).await? {
+        info!("Created prompts page for user '{}'.", user_id);
       }
       let loaded_epoch = db.item.loaded_log_epoch_for_user(&user_id);
       let loaded_versions = db.item.loaded_container_versions_for_user(&user_id);

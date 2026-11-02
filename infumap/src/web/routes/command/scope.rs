@@ -27,6 +27,7 @@
 //! descendants, as an include link would, and nothing is excluded.
 
 use super::*;
+use crate::web::routes::scopes_page_id;
 
 const EXCLUDE_CONTAINER_TITLE: &str = "exclude";
 /// The most items a chat can be limited to.
@@ -403,7 +404,8 @@ pub(super) mod test_db {
   use super::*;
   use crate::storage::db::user::User;
   use crate::web::routes::{
-    default_dock_page, default_home_page, default_queries_page, default_trash_page, ensure_scopes_page,
+    default_dock_page, default_home_page, default_queries_page, default_trash_page, ensure_prompts_page,
+    ensure_scopes_page,
   };
   use infusdk::item::NoteFlags;
   use std::path::PathBuf;
@@ -452,6 +454,7 @@ pub(super) mod test_db {
       db.item.add(default_dock_page(&user.id, user.dock_page_id.clone(), 2.0)).await.unwrap();
       db.item.add(default_queries_page(&user.id, user.queries_page_id.clone(), 2.0)).await.unwrap();
       ensure_scopes_page(&mut db, &user.id).await.unwrap();
+      ensure_prompts_page(&mut db, &user.id).await.unwrap();
       TestDb {
         db,
         user_id: user.id.clone(),
