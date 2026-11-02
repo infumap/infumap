@@ -618,6 +618,14 @@ fn is_queries_page_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
   item.item_type == ItemType::Page && db.user.get(&item.owner_id).is_some_and(|user| user.queries_page_id == item.id)
 }
 
+fn is_queries_page_child(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
+  item.relationship_to_parent == RelationshipToParent::Child
+    && item
+      .parent_id
+      .as_ref()
+      .is_some_and(|parent_id| db.user.get(&item.owner_id).is_some_and(|user| &user.queries_page_id == parent_id))
+}
+
 fn is_queries_page_query_item(db: &MutexGuard<'_, Db>, item: &Item) -> bool {
   item.item_type == ItemType::Search
     && item.relationship_to_parent == RelationshipToParent::Child
@@ -1815,7 +1823,14 @@ mod tests {
 
     let mut unpinned = get(&pinned_id).await;
     unpinned.pinned_to = None;
-    update(unpinned).await.unwrap();
+    assert!(update(unpinned.clone()).await.is_err(), "current chat unpinned by a client");
+    let mut pinned_earlier = get(&earlier_id).await;
+    pinned_earlier.pinned_to = Some(PinnedTo::Top);
+    assert!(update(pinned_earlier).await.is_err(), "earlier chat pinned by a client");
+    // As when the current chat is archived.
+    let json = serde_json::to_string(&unpinned.to_api_json().unwrap()).unwrap();
+    item_ops::update_item_for_server(&db, &json, &session).await.unwrap();
+    assert_eq!(get(&pinned_id).await.pinned_to, None);
   }
 
   #[tokio::test]

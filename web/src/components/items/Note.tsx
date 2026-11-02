@@ -335,6 +335,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       const spatialPositionGr = sourceNote.spatialPositionGr;
       const spatialWidthGr = sourceNote.spatialWidthGr;
       const composite = CompositeFns.create(sourceNote.ownerId, sourceNote.parentId, sourceNote.relationshipToParent, sourceNote.ordering);
+      // The composite takes the note's place, pin included.
+      composite.pinnedTo = sourceNote.pinnedTo;
       composite.spatialPositionGr = spatialPositionGr;
       composite.spatialWidthGr = spatialWidthGr;
       store.editorHistory.include(token, composite.id);

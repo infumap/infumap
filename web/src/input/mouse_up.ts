@@ -501,6 +501,7 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
   chatItem.spatialPositionGr = { ...queryItem.spatialPositionGr };
   chatItem.dateTime = item.dateTime;
   chatItem.groupId = item.groupId;
+  chatItem.pinnedTo = item.pinnedTo;
   const chatItemObject = ItemFns.toObject(chatItem);
   // Until the server replies, the chat is drawn as this item: the title is the server's unless it generates one now.
   chatItem.title = `${queryItem.title.trim() == "" ? "Chat" : queryItem.title}.chat`;
@@ -2054,6 +2055,8 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
     if (!isComposite(activeItem)) {
       const attachToItemSnapshot = cloneItemSnapshot(attachToItem);
       const compositeItem = CompositeFns.create(activeItem.ownerId, prevParentId, RelationshipToParent.Child, attachToItem.ordering);
+      // The composite takes the place of the item attached to, pin included.
+      compositeItem.pinnedTo = attachToItem.pinnedTo;
       compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
       if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
       itemState.add(compositeItem);

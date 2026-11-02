@@ -2255,6 +2255,8 @@ export async function materializeTextDocumentPage(store: StoreContextModel, text
   page.relationshipToParent = textItem.relationshipToParent;
   page.parentId = textItem.parentId;
   page.ordering = ordering;
+  // Directly after the text item, so in its band if it is pinned.
+  page.pinnedTo = textItem.relationshipToParent == RelationshipToParent.Child ? textItem.pinnedTo : null;
   page.capabilities = null;
 
   itemState.add(page);

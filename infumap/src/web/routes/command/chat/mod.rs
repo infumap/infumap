@@ -134,7 +134,7 @@ async fn ensure_query_entry_locked(
       };
       item.pinned_to = Some(PinnedTo::Top);
       let json = serde_json::to_string(&item.to_api_json()?)?;
-      super::item_ops::handle_update_item(db, &json, &Some(session.clone())).await?;
+      super::item_ops::update_item_for_server(db, &json, &Some(session.clone())).await?;
       id
     } else {
       add_empty_query_entry(db, object_store.clone(), session, &queries_page_id, ordering).await?
@@ -187,7 +187,7 @@ async fn archive_used_query_entry(
   }
   if was_pinned || was_untitled {
     let json = serde_json::to_string(&item.to_api_json()?)?;
-    super::item_ops::handle_update_item(db, &json, &Some(session.clone())).await?;
+    super::item_ops::update_item_for_server(db, &json, &Some(session.clone())).await?;
   }
   Ok(true)
 }

@@ -234,6 +234,8 @@ export const File: Component<VisualElementProps> = (props: VisualElementProps) =
       const spatialPositionGr = asPositionalItem(ve.displayItem).spatialPositionGr;
       const spatialWidthGr = asXSizableItem(ve.displayItem).spatialWidthGr;
       const composite = CompositeFns.create(ve.displayItem.ownerId, ve.displayItem.parentId, ve.displayItem.relationshipToParent, ve.displayItem.ordering);
+      // The composite takes the item's place, pin included.
+      composite.pinnedTo = ve.displayItem.pinnedTo;
       composite.spatialPositionGr = spatialPositionGr;
       composite.spatialWidthGr = spatialWidthGr;
       itemState.add(composite);

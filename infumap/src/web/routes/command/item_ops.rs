@@ -596,10 +596,30 @@ pub(super) async fn set_item_title_if_unchanged(
   Ok(title.to_owned())
 }
 
+/// An update requested by a client.
 pub(super) async fn handle_update_item(
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
   session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  update_item(db, json_data, session_maybe, true).await
+}
+
+/// An update made by the server itself, which may change what a client may not, e.g. which chat is pinned as the
+/// current one in the Queries page.
+pub(super) async fn update_item_for_server(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  update_item(db, json_data, session_maybe, false).await
+}
+
+async fn update_item(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+  client_request: bool,
 ) -> InfuResult<Option<String>> {
   let mut db = db.lock().await;
 
@@ -633,6 +653,13 @@ pub(super) async fn handle_update_item(
     && !queries_page_arrange_algorithm_allowed(&item)
   {
     return Err(format!("Queries page '{}' must use list arrangement.", item.id).into());
+  }
+  // The server pins the current chat and the scopes page in the Queries page, and nothing else is pinned there.
+  if client_request
+    && old_item.pinned_to != item.pinned_to
+    && (is_queries_page_child(&db, &old_item) || is_queries_page_child(&db, &item))
+  {
+    return Err(format!("Item '{}' cannot be pinned or unpinned in the Queries page.", item.id).into());
   }
   let chat_moved_to_trash = is_chat_moved_to_trash(&db, &old_item, &item);
   let chat_restored_from_trash = is_chat_restored_from_trash(&db, &old_item, &item);
