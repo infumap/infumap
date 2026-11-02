@@ -38,12 +38,12 @@ const BULLET_MARKER = /^[-*•]\s+(?=\S)/;
 const NUMBERED_MARKER = /^\d+[.)]\s+(?=\S)/;
 
 /** Pasting more lines than this asks first. */
-const CONFIRM_LINE_COUNT = 50;
+export const CONFIRM_LINE_COUNT = 50;
 /**
  * Pasting more lines than this is refused. Each note is its own add-item request, undo deletes them one at a time,
  * and the undo entry holds a snapshot of every note (undo history is capped at 8 MB).
  */
-const MAX_LINE_COUNT = 1000;
+export const MAX_LINE_COUNT = 1000;
 
 /**
  * Split pasted plain text into the titles of the notes to create, one per line.
@@ -126,7 +126,7 @@ export function pasteLinesTargetMaybe(store: StoreContextModel): PasteLinesTarge
 export function pasteLinesIntoContainer(store: StoreContextModel, target: PasteLinesTarget, lines: Array<string>): boolean {
   if (lines.length == 0) { return false; }
   if (lines.length > MAX_LINE_COUNT) {
-    showMessage(store, `Can't paste ${lines.length} lines: the limit is ${MAX_LINE_COUNT}.`);
+    showPasteMessage(store, `Can't paste ${lines.length} lines: the limit is ${MAX_LINE_COUNT}.`);
     return false;
   }
   if (lines.length > CONFIRM_LINE_COUNT && !window.confirm(`Add ${lines.length} rows?`)) { return false; }
@@ -161,7 +161,7 @@ export function pasteLinesIntoContainer(store: StoreContextModel, target: PasteL
   return true;
 }
 
-function showMessage(store: StoreContextModel, text: string): void {
+export function showPasteMessage(store: StoreContextModel, text: string): void {
   const message = { text, type: TransientMessageType.Info };
   store.overlay.toolbarTransientMessage.set(message);
   setTimeout(() => {

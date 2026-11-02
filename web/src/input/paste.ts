@@ -22,6 +22,7 @@ import { edit_replaceNoteSelection, edit_structuralClipboardGuard } from "./edit
 import { clipboardTextForSingleLine, normalizeClipboardLineEndings } from "../util/editable_text";
 import { textEditElementId } from "./text_edit_session";
 import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe } from "./paste_lines";
+import { pasteMarkdownIntoNote } from "./paste_markdown";
 
 
 export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
@@ -53,6 +54,7 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
     if (acceptClipboardTextForPendingTextItem(store, editInfo.itemPath, clipboardText)) {
       return;
     }
+    if (pasteMarkdownIntoNote(store, editingElement, normalizeClipboardLineEndings(clipboardText))) { return; }
   }
 
   if (edit_replaceNoteSelection(store, ev, normalizeClipboardLineEndings(clipboardText), "Paste")) { return; }

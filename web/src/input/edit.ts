@@ -77,7 +77,7 @@ type LinearBoundaryNavigationModifiers = {
   ctrlKey: boolean,
   metaKey: boolean,
 };
-type LinearEditContext = {
+export type LinearEditContext = {
   containerVe: VisualElement,
   containerPath: string,
   editingVe: VisualElement,
@@ -96,7 +96,7 @@ type LinearSelectionDeleteSpec = {
   endIndex: number,
 };
 
-function visualAncestorPageIsClientOnly(path: string): boolean {
+export function visualAncestorPageIsClientOnly(path: string): boolean {
   let currentPath: string | null = path;
   while (currentPath != null && currentPath != "") {
     const currentVe = VesCache.current.readNode(currentPath);
@@ -349,7 +349,7 @@ function editingLinearContainerVeMaybe(store: StoreContextModel): VisualElement 
   return parentVe;
 }
 
-function currentLinearEditContext(store: StoreContextModel): LinearEditContext | null {
+export function currentLinearEditContext(store: StoreContextModel): LinearEditContext | null {
   const textEditInfo = store.overlay.textEditInfo();
   if (textEditInfo == null) { return null; }
 
@@ -912,7 +912,7 @@ function itemPathInLinearContainer(itemId: string, containerPath: string): strin
   return targetVe ? VeFns.veToPath(targetVe) : null;
 }
 
-function focusItemInLinearContainer(
+export function focusItemInLinearContainer(
   store: StoreContextModel,
   containerPath: string,
   itemId: string,
