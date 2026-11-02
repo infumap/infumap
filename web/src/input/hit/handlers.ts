@@ -21,7 +21,7 @@ import { TableFlags } from "../../items/base/flags-item";
 import { isComposite } from "../../items/composite-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
-import { getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy } from "../../util/geometry";
+import { Vector, getBoundingBoxTopLeft, isInside, offsetBoundingBoxTopLeftBy } from "../../util/geometry";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, isTableView, isVeTranslucentPage } from "../../layout/visual-element";
 import { VisualElementSignal } from "../../util/signals";
@@ -38,6 +38,14 @@ function lastResizeHitboxMaybe(ve: VisualElement) {
   return hitbox?.type == HitboxFlags.Resize ? hitbox : null;
 }
 
+function widthResizeHitboxAtMaybe(ve: VisualElement, posRelativeToRootVeViewportPx: Vector) {
+  const hitbox = ve.hitboxes.find(hb => hb.type == HitboxFlags.WidthResize);
+  if (hitbox == null) { return null; }
+  return isInside(posRelativeToRootVeViewportPx, offsetBoundingBoxTopLeftBy(hitbox.boundsPx, getBoundingBoxTopLeft(ve.boundsPx)))
+    ? hitbox
+    : null;
+}
+
 export const HitHandlers: Array<HitHandler> = [];
 
 const _tableHandler: HitHandler = {
@@ -48,6 +56,11 @@ const _tableHandler: HitHandler = {
     if (!isInsideBoundsOrAllowedHitbox(childVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(childVe.boundsPx), allowOutsideBoundsHitboxes, hitboxOptions)) { return null; }
     const tableVes = childVes;
     const tableVe = childVe;
+    // Above the header and rows, which extend to the right edge.
+    const widthResizeHitbox = widthResizeHitboxAtMaybe(tableVe, posRelativeToRootVeViewportPx);
+    if (widthResizeHitbox != null) {
+      return new HitBuilder(parentRootVe, rootVes).over(tableVes).hitboxes(HitboxFlags.WidthResize, HitboxFlags.None).meta(widthResizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("table-handler-width-resize").build();
+    }
     if (tableVe.tableBodyViewportBoundsPx != null) {
       const { flags, meta } = scanHitboxes(tableVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(tableVe.boundsPx), hitboxOptions);
       if (flags != HitboxFlags.None &&
@@ -158,6 +171,11 @@ const _compositeHandler: HitHandler = {
       posRelativeToRootVeViewportPx,
       offsetBoundingBoxTopLeftBy(resizeHitbox.boundsPx, getBoundingBoxTopLeft(compositeVe.boundsPx!)))) {
       return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.Resize, HitboxFlags.None).meta(resizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-resize").build();
+    }
+    // Above the children, as the move-out hit areas of some reach into the strip (though not their drawn grips).
+    const widthResizeHitbox = widthResizeHitboxAtMaybe(compositeVe, posRelativeToRootVeViewportPx);
+    if (widthResizeHitbox != null) {
+      return new HitBuilder(parentRootVe, rootVes).over(compositeVes).hitboxes(HitboxFlags.WidthResize, HitboxFlags.None).meta(widthResizeHitbox.meta).pos(posRelativeToRootVeViewportPx).allowEmbeddedInteractive(false).createdAt("composite-handler-width-resize").build();
     }
     const { flags: compositeHitboxType, meta: compositeMeta } = scanHitboxes(compositeVe, posRelativeToRootVeViewportPx, getBoundingBoxTopLeft(compositeVe.boundsPx!), hitboxOptions);
     const compositeParentVe = parentVe(compositeVe);

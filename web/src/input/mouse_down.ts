@@ -140,6 +140,7 @@ function noteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoF
   const blockedHitboxes =
     HitboxFlags.Move |
     HitboxFlags.Resize |
+    HitboxFlags.WidthResize |
     HitboxFlags.OpenPopup |
     HitboxFlags.OpenAttachment |
     HitboxFlags.TriangleLinkSettings;
@@ -512,7 +513,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       if (editingDomEl && isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl.getBoundingClientRect())!) &&
         buttonNumber == MOUSE_LEFT) {
         const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
-        if (!(hitInfo.hitboxType & HitboxFlags.Resize)) {
+        if (!(hitInfo.hitboxType & (HitboxFlags.Resize | HitboxFlags.WidthResize))) {
           store.anItemIsMoving.set(false);
           store.anItemIsResizing.set(false);
           MouseActionState.set(null);
@@ -596,6 +597,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
 
     return !(hitInfo.hitboxType & (
       HitboxFlags.Resize |
+      HitboxFlags.WidthResize |
       HitboxFlags.HorizontalResize |
       HitboxFlags.VerticalResize |
       HitboxFlags.ContentEditable

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX, WIDTH_RESIZE_STRIP_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -26,6 +26,7 @@ import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage, pageUsesEmbedd
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
@@ -171,6 +172,7 @@ export function arrange_spatial_page(
       false,
       store.smallScreenMode(),
       compositeIsCollapsed);
+    addWidthResizeHitboxMaybe(itemGeometry);
     const { geometry: visibleItemGeometry, wasAutoMoved } = keepGeometryInsideScrollableArea(itemGeometry);
     let childPath: VisualElementPath;
     if (renderChildrenAsFull) {
@@ -221,4 +223,24 @@ export function arrange_spatial_page(
   }
 
   return { spec: pageSpec, relationships: pageRelationships };
+}
+
+
+/**
+ * Adds a strip inside the right edge of a resizable item that resizes its width. An item taller than its page has its
+ * bottom right resize corner clipped, and a page child's width is all the corner changes in most cases anyway.
+ */
+function addWidthResizeHitboxMaybe(geometry: ItemGeometry) {
+  const hitboxes = geometry.hitboxes;
+  const resizeIdx = hitboxes.findIndex(hb => hb.type == HitboxFlags.Resize);
+  if (resizeIdx == -1) { return; }
+  const { w, h } = geometry.boundsPx;
+  // Stops above the corner so the corner keeps resizing both dimensions. Inserted before the corner, as the table
+  // and composite hit handlers expect it to be the last hitbox.
+  hitboxes.splice(resizeIdx, 0, HitboxFns.create(HitboxFlags.WidthResize, {
+    x: w - WIDTH_RESIZE_STRIP_PX,
+    y: 0,
+    w: WIDTH_RESIZE_STRIP_PX,
+    h: Math.max(0, h - RESIZE_BOX_SIZE_PX),
+  }));
 }

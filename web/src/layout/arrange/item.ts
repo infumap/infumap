@@ -284,7 +284,7 @@ export const arrangeItemNoChildren = (
     (flags & ArrangeItemFlags.IsListPageMainRoot ? null : linkItemMaybe);
   const shallowTrashLink = !(flags & (ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsTopRoot)) &&
     isLinkInTrash(trashLink, store.user.getUserMaybe()?.trashPageId);
-  const safeTrashLinkHitboxFlags = HitboxFlags.Click | HitboxFlags.Move | HitboxFlags.Resize |
+  const safeTrashLinkHitboxFlags = HitboxFlags.Click | HitboxFlags.Move | HitboxFlags.Resize | HitboxFlags.WidthResize |
     HitboxFlags.OpenPopup | HitboxFlags.ShowPointer | HitboxFlags.TriangleLinkSettings | HitboxFlags.ShiftLeft;
   const hitboxes = shallowTrashLink
     ? itemGeometry.hitboxes.flatMap(hitbox => {

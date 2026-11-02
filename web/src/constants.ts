@@ -24,6 +24,10 @@ export const TOP_TOOLBAR_HEIGHT_PX = 40;
 
 export const RESIZE_BOX_SIZE_PX = 10;
 
+// Width of the right edge resize strip of items in spatial pages. Narrow enough to sit inside note padding and
+// clear of the dot grip of composite children's move-out handles.
+export const WIDTH_RESIZE_STRIP_PX = 4;
+
 export const ATTACH_AREA_SIZE_PX = 10;
 
 export const LINK_TRIANGLE_SIZE_PX = 10;

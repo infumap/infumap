@@ -80,7 +80,7 @@ function isCopyOnlyMoveHover(hitInfo: ReturnType<typeof HitInfoFns.hit>): boolea
   if (!CursorEventState.get().shiftDown || !(hitInfo.hitboxType & HitboxFlags.Move)) {
     return false;
   }
-  if (hitInfo.hitboxType & (HitboxFlags.Resize | HitboxFlags.HorizontalResize | HitboxFlags.VerticalResize)) {
+  if (hitInfo.hitboxType & (HitboxFlags.Resize | HitboxFlags.WidthResize | HitboxFlags.HorizontalResize | HitboxFlags.VerticalResize)) {
     return false;
   }
 
@@ -539,7 +539,7 @@ function changeMouseActionStateMaybe(
     store.anItemIsResizing.set(true);
     MouseActionState.setAction(MouseAction.ResizingCalendarRange);
 
-  } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize)) {
+  } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize | HitboxFlags.WidthResize)) {
     activeItem = resolveActiveTreeItemForResize(activeVisualElement);
     if (!itemCanResize(activeItem)) {
       store.anItemIsResizing.set(false);
@@ -882,9 +882,10 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   const activeItem = resolveActiveTreeItemForResize(activeVisualElement);
 
   const onePxSizeBl = MouseActionState.getOnePxSizeBl()!;
+  const widthOnly = !MouseActionState.hitboxTypeIncludes(HitboxFlags.Resize);
   const deltaBl = {
     x: deltaPx.x * onePxSizeBl.x,
-    y: deltaPx.y * onePxSizeBl.y
+    y: widthOnly ? 0 : deltaPx.y * onePxSizeBl.y
   };
 
   const maxWidthBl = maxInsideCompositeOrDocumentWidthBl(activeVisualElement);
@@ -1600,7 +1601,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "ns-resize";
     } else if ((hitInfo.hitboxType & HitboxFlags.Resize) && hitInfoCanResize(hitInfo)) {
       document.body.style.cursor = "nwse-resize";
-    } else if ((hitInfo.hitboxType & HitboxFlags.HorizontalResize) && hitInfoCanResize(hitInfo)) {
+    } else if ((hitInfo.hitboxType & (HitboxFlags.WidthResize | HitboxFlags.HorizontalResize)) && hitInfoCanResize(hitInfo)) {
       document.body.style.cursor = "ew-resize";
     } else if ((hitInfo.hitboxType & HitboxFlags.VerticalResize) && hitInfoCanResize(hitInfo)) {
       document.body.style.cursor = "ns-resize";

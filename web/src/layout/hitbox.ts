@@ -40,6 +40,8 @@ export enum HitboxFlags {
   TableColumnContextMenu = 0x004000,
   VerticalResize = 0x008000,
   ShowPointer = 0x010000,
+  // Resizes the width of an item (not a table column), keeping its height.
+  WidthResize = 0x020000,
   AnchorDefault = 0x040000,
   CalendarRangeResize = 0x080000,
 }
@@ -52,6 +54,7 @@ export function hitboxFlagsToString(flags: HitboxFlags): string {
   if (flags & HitboxFlags.OpenPopup) { result += "OpenPopup "; }
   if (flags & HitboxFlags.Attach) { result += "Attach "; }
   if (flags & HitboxFlags.HorizontalResize) { result += "HorizontalResize "; }
+  if (flags & HitboxFlags.WidthResize) { result += "WidthResize "; }
   if (flags & HitboxFlags.VerticalResize) { result += "VerticalResize "; }
   if (flags & HitboxFlags.OpenAttachment) { result += "OpenAttachment "; }
   if (flags & HitboxFlags.AttachComposite) { result += "AttachComposite "; }
