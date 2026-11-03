@@ -145,7 +145,7 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
       : "Make the rows as large as possible with every item in view at full screen";
 
   return (
-    <div ref={toolbarDialogContentRef} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
+    <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
       <ToolbarDialogHeader title="Justified layout" onClose={close}
         description="Items keep their shape and fill rows the width of the page, which scrolls down. Row height sets how big they are." />
 

@@ -219,7 +219,7 @@ export const Toolbar_PageSizePopup: Component = () => {
   });
 
   return (
-    <div ref={toolbarDialogContentRef} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
+    <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
       <ToolbarDialogHeader title="Page size" onClose={close}
         description="In blocks: one block is the height of a line of text. Drag the outline to resize." />
 

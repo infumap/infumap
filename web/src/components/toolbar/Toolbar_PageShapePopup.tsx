@@ -21,7 +21,7 @@ export const Toolbar_PageShapePopup: Component = () => {
   const arrangement = pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar ? "calendar" : "list";
 
   return (
-    <div ref={toolbarDialogContentRef} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
+    <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
       <ToolbarDialogHeader title="Page shape" onClose={close}
         description={`The shape of this page in popups and where it is embedded. The ${arrangement} itself fills the width of where it is shown.`} />
       <div class="px-3 py-3">
