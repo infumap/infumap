@@ -45,7 +45,7 @@ import { HitInfoFns } from "./hit";
 import { EMPTY_UID, UMBRELLA_PAGE_UID } from "../util/uid";
 import { clearRowRangeSelectionMaybe, extendRowRangeSelection } from "./row_selection";
 import { asContainerItem } from "../items/base/container-item";
-import { MOUSE_RIGHT, mouseDownHandler } from "./mouse_down";
+import { MOUSE_RIGHT, focusPathInPopupForBackMaybe, mouseDownHandler } from "./mouse_down";
 import { CompositeFns, isComposite } from "../items/composite-item";
 import { FileFns, isFile } from "../items/file-item";
 import { TextFns, isText } from "../items/text-item";
@@ -667,6 +667,14 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     if (store.overlay.selectedVeids.get().length > 0) {
       store.overlay.selectedVeids.set([]);
       arrangeNow(store, "key-escape-clear-selection");
+      return;
+    }
+    // Like right click, Escape on a focused item inside a popup first returns focus to the popup (or the innermost
+    // page nested in it) rather than closing the popup.
+    const popupFocusPath = focusPathInPopupForBackMaybe(store);
+    if (popupFocusPath != null) {
+      store.history.setFocus(popupFocusPath);
+      arrangeNow(store, "key-escape-focus-popup-from-item");
       return;
     }
     const popupSpec = store.history.currentPopupSpec();
