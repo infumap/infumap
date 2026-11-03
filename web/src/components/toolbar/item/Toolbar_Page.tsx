@@ -42,7 +42,7 @@ import { VesCache } from "../../../layout/ves-cache";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
-import { gridCellShapeLabel } from "../Toolbar_PageGridLayoutPopup";
+import { cellShapeLabel } from "../toolbarCellShape";
 import { justifiedRowSizeWord } from "../Toolbar_PageJustifiedLayoutPopup";
 import { TOOLBAR_INFO_DIVIDER_RIGHT_PX, TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX } from "../toolbarDividers";
 
@@ -55,7 +55,7 @@ export const Toolbar_Page: Component = () => {
   let sizeDiv: HTMLDivElement | undefined;
   let docWidthDiv: HTMLDivElement | undefined;
   let aspectDiv: HTMLDivElement | undefined;
-  let cellAspectDiv: HTMLDivElement | undefined;
+  let catalogLayoutDiv: HTMLDivElement | undefined;
   let gridLayoutDiv: HTMLDivElement | undefined;
   let arrangeAlgoDiv: HTMLDivElement | undefined;
   let calendarDisplayModeDiv: HTMLDivElement | undefined;
@@ -181,7 +181,9 @@ export const Toolbar_Page: Component = () => {
       pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
-  const showCellAspectButton = () => {
+  // Catalog pages set their preview shape and their aspect (which only applies where they are shown in something
+  // else) together in one dialog.
+  const showCatalogLayoutButton = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog;
   }
@@ -299,9 +301,9 @@ export const Toolbar_Page: Component = () => {
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
   }
 
-  const cellAspectText = () => {
+  const catalogLayoutText = () => {
     store.touchToolbarDependency();
-    return Math.round(pageItem().gridCellAspect * 1000.0) / 1000.0;
+    return cellShapeLabel(pageItem().gridCellAspect);
   }
 
   const justifiedLayoutText = () => {
@@ -311,7 +313,7 @@ export const Toolbar_Page: Component = () => {
 
   const gridLayoutText = () => {
     store.touchToolbarDependency();
-    return `${pageItem().gridNumberOfColumns} cols · ${gridCellShapeLabel(pageItem().gridCellAspect)}`;
+    return `${pageItem().gridNumberOfColumns} cols · ${cellShapeLabel(pageItem().gridCellAspect)}`;
   }
 
   const tableNumColsText = () => {
@@ -423,17 +425,17 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(aspectDiv!.getBoundingClientRect());
   };
 
-  // Cell Aspect
-  const handleCellAspectClick = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCellAspect) {
+  // Catalog Layout
+  const handleCatalogLayoutClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageCatalogLayout) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: cellAspectDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageCellAspect });
+      { topLeftPx: { x: catalogLayoutDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageCatalogLayout });
   };
-  const handleCellAspectDown = () => {
-    ClickState.setButtonClickBoundsPx(cellAspectDiv!.getBoundingClientRect());
+  const handleCatalogLayoutDown = () => {
+    ClickState.setButtonClickBoundsPx(catalogLayoutDiv!.getBoundingClientRect());
   };
 
   // Justified Layout
@@ -595,7 +597,7 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{gridLayoutText()}</span>
           </div>
         </Show>
-        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton()}>
+        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton()}>
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
@@ -608,17 +610,15 @@ export const Toolbar_Page: Component = () => {
             </div>
           </div>
         </Show>
-        <Show when={showCellAspectButton()}>
-          <div ref={cellAspectDiv}
-            class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+        <Show when={showCatalogLayoutButton()}>
+          <div ref={catalogLayoutDiv}
+            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
-            title="Cell aspect ratio"
-            onClick={handleCellAspectClick}
-            onMouseDown={handleCellAspectDown}>
-            <i class="bi-aspect-ratio ml-[4px]" />
-            <div class="inline-block w-[40px] pl-[6px] text-right">
-              {cellAspectText()}
-            </div>
+            title="Catalog layout"
+            onClick={handleCatalogLayoutClick}
+            onMouseDown={handleCatalogLayoutDown}>
+            <i class="bi-card-list" />
+            <span class="pl-[6px]">{catalogLayoutText()}</span>
           </div>
         </Show>
         <Show when={showTableButtons()}>

@@ -66,6 +66,7 @@ import { VisualElementPath } from "../../layout/visual-element";
 import { PAGE_SIZE_POPUP_HEIGHT_PX, Toolbar_PageSizePopup } from "./Toolbar_PageSizePopup";
 import { PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageGridLayoutPopup } from "./Toolbar_PageGridLayoutPopup";
 import { PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageJustifiedLayoutPopup } from "./Toolbar_PageJustifiedLayoutPopup";
+import { PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageCatalogLayoutPopup } from "./Toolbar_PageCatalogLayoutPopup";
 import { TOOLBAR_DIALOG_CLASS } from "./toolbarDialog";
 
 
@@ -359,7 +360,7 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.TableNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.PageTableNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
-  if (overlayType == ToolbarPopupType.PageCellAspect) { return 60; }
+  if (overlayType == ToolbarPopupType.PageCatalogLayout) { return PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX; }
   if (overlayType == ToolbarPopupType.PageJustifiedLayout) { return PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX; }
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return toolbarMenuHeightPx(5); }
   if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(3); }
@@ -535,8 +536,6 @@ export const Toolbar_Popup: Component = () => {
   const handleTextChange = () => {
     if (overlayTypeConst == ToolbarPopupType.PageAspect) {
       pageItem().naturalAspect = parseFloat(textElement!.value);
-    } else if (overlayTypeConst == ToolbarPopupType.PageCellAspect) {
-      pageItem().gridCellAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
       const note = noteItem();
       const selection = noteUrlSelection();
@@ -566,7 +565,6 @@ export const Toolbar_Popup: Component = () => {
   const inputWidthPx = (): number => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return 262; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
-    if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
     if (overlayType() == ToolbarPopupType.PageTableNumCols) { return 190; }
@@ -600,6 +598,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.NoteIndent &&
       overlayType() != ToolbarPopupType.PageGridLayout &&
       overlayType() != ToolbarPopupType.PageJustifiedLayout &&
+      overlayType() != ToolbarPopupType.PageCatalogLayout &&
       overlayType() != ToolbarPopupType.PageSize &&
       overlayType() != ToolbarPopupType.RatingType) {
       textElement!.focus();
@@ -622,7 +621,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return NoteFns.urlForToolbarEdit(noteItem(), noteUrlSelection()); }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
-    if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     return "[unknown]";
   }
 
@@ -633,13 +631,11 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageTableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.NoteIndent) { return "Indent"; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
-    if (overlayType() == ToolbarPopupType.PageCellAspect) { return "Cell Aspect"; }
     return "[unknown]";
   }
 
   const tooltip = (): string | null => {
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
-    if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the height of one line of normal sized text."; }
     return null;
   }
@@ -1570,6 +1566,14 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Toolbar_PageJustifiedLayoutPopup />
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.PageCatalogLayout}>
+          <div class={TOOLBAR_DIALOG_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <Toolbar_PageCatalogLayoutPopup />
           </div>
         </Match>
         <Match when={true}>
