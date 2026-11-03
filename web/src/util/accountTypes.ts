@@ -57,6 +57,8 @@ export type User = {
   trashPageId: Uid,
   dockPageId: Uid,
   queriesPageId: Uid,
+  /** Hidden from the queries page, so reached from the scope picker. */
+  scopesPageId: Uid,
   hasTotp: boolean,
   /** Whether the workspace had few pages when the session was validated, for showing getting-started hints. */
   fewPages?: boolean,

@@ -139,6 +139,7 @@ export function arrange_list_page(
     ? MouseActionState.getMoveRollback()?.find(entry => entry.id == activeMovingChildId)?.ordering ?? null
     : null;
   let selectedVeid = PageFns.resolveListPageSelectedItem(
+    store,
     displayItem_pageWithChildren,
     store.perItem.getSelectedListPageItem(listPageActualVeid),
     movingItemInThisPage?.id ?? null,
@@ -149,6 +150,7 @@ export function arrange_list_page(
   );
   if (activeMovingVeid && VeFns.compareVeids(selectedVeid, activeMovingVeid) == 0) {
     selectedVeid = PageFns.resolveListPageSelectedItem(
+      store,
       displayItem_pageWithChildren,
       selectedVeid,
       activeMovingChildId,

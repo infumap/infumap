@@ -5,8 +5,9 @@ keep a journal out of chat, or search only a project's pages.
 
 ## Defining a scope
 
-Scopes live in the **Scopes** page, at the bottom of the Queries page. It is created automatically
-and cannot be moved or deleted, but it can be renamed.
+Scopes live in the **Scopes** page. It belongs to the Queries page but isn't listed there: open it
+with **Edit scopes** in the scope picker. It is created automatically and cannot be moved or deleted,
+but it can be renamed.
 
 Each page directly inside Scopes is one scope, and its title is the scope's name. Inside a scope page:
 

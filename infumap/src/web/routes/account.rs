@@ -43,7 +43,7 @@ use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
 use crate::web::routes::{
   default_dock_page, default_home_page, default_queries_page, default_query_item, default_trash_page,
-  ensure_prompts_page, ensure_scopes_page,
+  ensure_prompts_page, ensure_scopes_page, scopes_page_id,
 };
 use crate::web::serve::{cors_response, forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
@@ -126,6 +126,8 @@ pub struct LoginResponse {
   pub dock_page_id: Option<String>,
   #[serde(rename = "queriesPageId")]
   pub queries_page_id: Option<String>,
+  #[serde(rename = "scopesPageId", default)]
+  pub scopes_page_id: Option<String>,
   #[serde(rename = "hasTotp")]
   pub has_totp: bool,
   #[serde(rename = "fewPages", default)]
@@ -153,6 +155,7 @@ pub async fn login(
       trash_page_id: None,
       dock_page_id: None,
       queries_page_id: None,
+      scopes_page_id: None,
       has_totp: false,
       few_pages: false,
       err: Some(String::from(msg)),
@@ -258,6 +261,8 @@ pub async fn login(
       clear_login_failures_for_username(&username_key).await;
       let result = LoginResponse {
         success: true,
+        // Before user.id is moved below.
+        scopes_page_id: Some(scopes_page_id(&user.id)),
         session_id: Some(session.id.clone()),
         user_id: Some(user.id),
         username: Some(user.username),
@@ -1016,6 +1021,8 @@ pub struct ValidateResponse {
   pub dock_page_id: Option<String>,
   #[serde(rename = "queriesPageId")]
   pub queries_page_id: Option<String>,
+  #[serde(rename = "scopesPageId")]
+  pub scopes_page_id: Option<String>,
   #[serde(rename = "hasTotp")]
   pub has_totp: Option<bool>,
   #[serde(rename = "fewPages")]
@@ -1037,6 +1044,7 @@ pub async fn validate(
         trash_page_id: None,
         dock_page_id: None,
         queries_page_id: None,
+        scopes_page_id: None,
         has_totp: None,
         few_pages: None,
       });
@@ -1061,12 +1069,15 @@ pub async fn validate(
         trash_page_id: None,
         dock_page_id: None,
         queries_page_id: None,
+        scopes_page_id: None,
         has_totp: None,
         few_pages: None,
       })
     }
     Some(user) => json_response(&ValidateResponse {
       success: true,
+      // Before user.id is moved below.
+      scopes_page_id: Some(scopes_page_id(&user.id)),
       username: Some(user.username),
       user_id: Some(user.id),
       home_page_id: Some(user.home_page_id),

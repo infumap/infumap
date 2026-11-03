@@ -86,7 +86,7 @@ the model's context window." To see what the model sees, run the same tools with
 ## Prompts
 
 Text you send often, such as "Summarize the attached", can be kept as a prompt and put into a message without
-typing it. Prompts live in the **Prompts** page, at the bottom of the Queries page above Scopes. It is created
+typing it. Prompts live in the **Prompts** page, at the bottom of the Queries page. It is created
 automatically and cannot be moved or deleted, but it can be renamed.
 
 Each note directly inside Prompts is a prompt, and so is each composite, which is what longer text pasted as Markdown
