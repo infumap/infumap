@@ -540,6 +540,10 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyD", "KeyE", "KeyF", "KeyX",
   ];
 
+  const plainShortcutKeys = [
+    "Slash", "KeyN", "KeyP", "KeyT", "KeyR", "KeyW", "KeyL", "KeyD", "KeyE", "KeyX",
+  ];
+
   if (document.activeElement!.id.includes('toolbarTitleDiv')) {
     if (!(document.activeElement instanceof HTMLElement) || !document.activeElement.isContentEditable) {
       return;
@@ -620,6 +624,10 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   }
 
   if (!recognizedKeys.find(a => a == ev.code)) { return; }
+
+  // The create keys and "/" are unmodified shortcuts. With Ctrl/Cmd/Alt they belong to the browser (e.g. Cmd+R
+  // reload, Ctrl+L address bar, Ctrl+D bookmark), so leave them alone rather than creating an item.
+  if (plainShortcutKeys.find(a => a == ev.code) && (ev.ctrlKey || ev.metaKey || ev.altKey)) { return; }
 
   const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
 
@@ -823,7 +831,6 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   }
 
   else if (ev.code == "KeyX") {
-    if (ev.ctrlKey || ev.metaKey || ev.altKey) { return; }
     ev.preventDefault();
     newItemInContext(store, "text", hitInfo, CursorEventState.getLatestDesktopPx(store));
   }
