@@ -278,7 +278,7 @@ pub async fn delete(object_store: Arc<ObjectStore>, user_id: &Uid, id: &Uid) -> 
   }
 }
 
-fn filename(user_id: &Uid, id: &Uid) -> String {
+pub fn filename(user_id: &Uid, id: &Uid) -> String {
   format!("{}_{}", user_id, id)
 }
 

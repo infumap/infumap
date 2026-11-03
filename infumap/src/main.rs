@@ -43,6 +43,7 @@ async fn main() {
     .subcommand(cli::note::make_clap_subcommand())
     .subcommand(cli::pending::make_clap_subcommand())
     .subcommand(cli::reconcile::make_clap_subcommand())
+    .subcommand(cli::rekey::make_clap_subcommand())
     .subcommand(cli::reprocess::make_clap_subcommand())
     .subcommand(cli::restore::make_clap_subcommand())
     .subcommand(cli::rebuild_search_index::make_clap_subcommand())
@@ -71,6 +72,7 @@ async fn main() {
         "note" => cli::note::execute(&arg_sub_matches).await,
         "pending" => cli::pending::execute(&arg_sub_matches).await,
         "reconcile" => cli::reconcile::execute(&arg_sub_matches).await,
+        "rekey" => cli::rekey::execute(&arg_sub_matches),
         "reprocess" => cli::reprocess::execute(&arg_sub_matches).await,
         "restore" => cli::restore::execute(&arg_sub_matches).await,
         "rebuild-search-index" => cli::rebuild_search_index::execute(&arg_sub_matches).await,
