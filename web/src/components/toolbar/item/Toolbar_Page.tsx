@@ -42,6 +42,7 @@ import { VesCache } from "../../../layout/ves-cache";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
+import { gridCellShapeLabel } from "../Toolbar_PageGridLayoutPopup";
 import { TOOLBAR_INFO_DIVIDER_RIGHT_PX, TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX } from "../toolbarDividers";
 
 
@@ -54,6 +55,7 @@ export const Toolbar_Page: Component = () => {
   let docWidthDiv: HTMLDivElement | undefined;
   let aspectDiv: HTMLDivElement | undefined;
   let cellAspectDiv: HTMLDivElement | undefined;
+  let gridLayoutDiv: HTMLDivElement | undefined;
   let arrangeAlgoDiv: HTMLDivElement | undefined;
   let calendarDisplayModeDiv: HTMLDivElement | undefined;
   let justifiedRowAspectDiv: HTMLDivElement | undefined;
@@ -180,11 +182,12 @@ export const Toolbar_Page: Component = () => {
 
   const showCellAspectButton = () => {
     store.touchToolbarDependency();
-    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-      pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog;
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog;
   }
 
-  const showGridButtons = () => {
+  // Grid pages set columns, cell shape and their aspect (which only applies where they are shown in something
+  // else) together in one dialog.
+  const showGridLayoutButton = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
   }
@@ -303,9 +306,9 @@ export const Toolbar_Page: Component = () => {
     return Math.round(pageItem().justifiedRowAspect * 10.0) / 10.0;
   }
 
-  const numColsText = () => {
+  const gridLayoutText = () => {
     store.touchToolbarDependency();
-    return pageItem().gridNumberOfColumns;
+    return `${pageItem().gridNumberOfColumns} cols · ${gridCellShapeLabel(pageItem().gridCellAspect)}`;
   }
 
   const tableNumColsText = () => {
@@ -469,15 +472,20 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(docWidthDiv!.getBoundingClientRect());
   };
 
-  // Num Cols
-  const handleNumColsClick = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageNumCols) {
+  // Grid Layout
+  const handleGridLayoutClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageGridLayout) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageNumCols });
+      { topLeftPx: { x: gridLayoutDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageGridLayout });
   };
+  const handleGridLayoutDown = () => {
+    ClickState.setButtonClickBoundsPx(gridLayoutDiv!.getBoundingClientRect());
+  };
+
+  // Num Cols
   const handleNumColsDown = () => {
     ClickState.setButtonClickBoundsPx(numColsDiv!.getBoundingClientRect());
   };
@@ -573,7 +581,18 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{sizeText()}</span>
           </div>
         </Show>
-        <Show when={!isQueriesPage() && !showPageSizeButton()}>
+        <Show when={showGridLayoutButton()}>
+          <div ref={gridLayoutDiv}
+            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            style={`font-size: 13px;`}
+            title="Grid layout"
+            onClick={handleGridLayoutClick}
+            onMouseDown={handleGridLayoutDown}>
+            <i class="bi-grid-3x3-gap" />
+            <span class="pl-[6px]">{gridLayoutText()}</span>
+          </div>
+        </Show>
+        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton()}>
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
@@ -596,19 +615,6 @@ export const Toolbar_Page: Component = () => {
             <i class="bi-aspect-ratio ml-[4px]" />
             <div class="inline-block w-[40px] pl-[6px] text-right">
               {cellAspectText()}
-            </div>
-          </div>
-        </Show>
-        <Show when={showGridButtons()}>
-          <div ref={numColsDiv}
-            class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-            style={`font-size: 13px;`}
-            title="Number of columns"
-            onClick={handleNumColsClick}
-            onMouseDown={handleNumColsDown}>
-            <i class="bi-layout-three-columns ml-[4px]" />
-            <div class="inline-block w-[20px] pl-[6px] text-right">
-              {numColsText()}
             </div>
           </div>
         </Show>

@@ -33,7 +33,7 @@ export enum ToolbarPopupType {
   PageColor = "color",
   PageAspect = "aspect",
   PageSize = "size",
-  PageNumCols = "numcols",
+  PageGridLayout = "gridlayout",
   PageTableNumCols = "pagetablenumcols",
   PageDocWidth = "docwidth",
   PageCellAspect = "cellaspect",

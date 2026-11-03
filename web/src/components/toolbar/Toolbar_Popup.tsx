@@ -63,7 +63,9 @@ import { convertPageTableAtPath, pageTableConversionEligibility } from "../../it
 import { convertPageCompositeAtPath, pageCompositeConversionEligibility } from "../../items/page-composite-conversion";
 import { ContainerConversionRefused } from "../../items/container-conversion";
 import { VisualElementPath } from "../../layout/visual-element";
-import { PAGE_SIZE_POPUP_CLASS, PAGE_SIZE_POPUP_HEIGHT_PX, Toolbar_PageSizePopup } from "./Toolbar_PageSizePopup";
+import { PAGE_SIZE_POPUP_HEIGHT_PX, Toolbar_PageSizePopup } from "./Toolbar_PageSizePopup";
+import { PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageGridLayoutPopup } from "./Toolbar_PageGridLayoutPopup";
+import { TOOLBAR_DIALOG_CLASS } from "./toolbarDialog";
 
 
 const EMOJI_CATEGORIES = [
@@ -352,7 +354,7 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.ItemIcon) { return 292; }
   if (overlayType == ToolbarPopupType.PageSize) { return PAGE_SIZE_POPUP_HEIGHT_PX; }
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
-  if (overlayType == ToolbarPopupType.PageNumCols) { return 36; }
+  if (overlayType == ToolbarPopupType.PageGridLayout) { return PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX; }
   if (overlayType == ToolbarPopupType.TableNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.PageTableNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
@@ -465,11 +467,9 @@ export const Toolbar_Popup: Component = () => {
       ? asPageItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
       : isTable(getToolbarFocusItem(store))
         ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
-        : isPage(getToolbarFocusItem(store))
-          ? asPageItem(getToolbarFocusItem(store)).gridNumberOfColumns.toString()
-          : isNote(getToolbarFocusItem(store))
-            ? (getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString()
-            : "1"
+        : isNote(getToolbarFocusItem(store))
+          ? (getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString()
+          : "1"
   );
   const [itemIconVisible, setItemIconVisible] = createSignal(
     overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(getToolbarFocusItem(store))
@@ -568,7 +568,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return 262; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
-    if (overlayType() == ToolbarPopupType.PageNumCols) { return 260; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return 230; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
@@ -601,7 +600,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.TableNumCols &&
       overlayType() != ToolbarPopupType.PageTableNumCols &&
       overlayType() != ToolbarPopupType.NoteIndent &&
-      overlayType() != ToolbarPopupType.PageNumCols &&
+      overlayType() != ToolbarPopupType.PageGridLayout &&
       overlayType() != ToolbarPopupType.PageSize &&
       overlayType() != ToolbarPopupType.RatingType) {
       textElement!.focus();
@@ -623,7 +622,6 @@ export const Toolbar_Popup: Component = () => {
   const textEntryValue = (): string | null => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return NoteFns.urlForToolbarEdit(noteItem(), noteUrlSelection()); }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
-    if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "" + pageItem().gridCellAspect; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "" + pageItem().justifiedRowAspect; }
@@ -633,7 +631,6 @@ export const Toolbar_Popup: Component = () => {
   const label = (): string | null => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return "Url"; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
-    if (overlayType() == ToolbarPopupType.PageNumCols) { return "Num Cols"; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.PageTableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.NoteIndent) { return "Indent"; }
@@ -1248,8 +1245,6 @@ export const Toolbar_Popup: Component = () => {
       while (pageItem().tableColumns.length < newValue) {
         pageItem().tableColumns.push({ name: `col ${pageItem().tableColumns.length}`, widthGr: 120 });
       }
-    } else if (overlayTypeConst == ToolbarPopupType.PageNumCols) {
-      pageItem().gridNumberOfColumns = newValue;
     } else if (overlayTypeConst == ToolbarPopupType.NoteIndent) {
       const note = noteItem();
       applyEditorFormatCommand(store, [note], "Change indent", () => { setNoteIndentLevel(note, newValue - 1); }, "indent");
@@ -1558,11 +1553,19 @@ export const Toolbar_Popup: Component = () => {
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageSize}>
-          <div class={PAGE_SIZE_POPUP_CLASS}
+          <div class={TOOLBAR_DIALOG_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Toolbar_PageSizePopup />
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.PageGridLayout}>
+          <div class={TOOLBAR_DIALOG_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <Toolbar_PageGridLayoutPopup />
           </div>
         </Match>
         <Match when={true}>
@@ -1571,7 +1574,7 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Show when={label() != null}>
-              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageTableNumCols || overlayType() == ToolbarPopupType.PageNumCols || overlayType() == ToolbarPopupType.NoteIndent
+              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageTableNumCols || overlayType() == ToolbarPopupType.NoteIndent
                 ? <div class="flex items-center mt-[7px]">
                   <div class="text-sm ml-2 mr-2">{label()}</div>
                   <input ref={textElement}

@@ -7,14 +7,14 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { asPositionalItem, isPositionalItem } from "../../items/base/positional-item";
 import { itemState } from "../../store/ItemState";
 import { GRID_SIZE } from "../../constants";
-import { arrangeNow, requestArrange } from "../../layout/arrange";
+import { requestArrange } from "../../layout/arrange";
 import { SPATIAL_SCROLL_X_ASPECT_RATIO, SPATIAL_SCROLL_Y_ASPECT_RATIO } from "../../layout/arrange/page_spatial";
 import { serverOrRemote } from "../../server";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { getToolbarFocusItem } from "./toolbarFocus";
+import { TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, closeToolbarDialog, toolbarDialogButtonClass } from "./toolbarDialog";
 
 
-export const PAGE_SIZE_POPUP_CLASS = "absolute flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-black shadow-lg";
 export const PAGE_SIZE_POPUP_HEIGHT_PX = 362;
 
 const SCHEMATIC_W_PX = 306;
@@ -119,12 +119,7 @@ export const Toolbar_PageSizePopup: Component = () => {
 
   const save = () => { serverOrRemote.updateItem(pageItem()); };
 
-  const close = () => {
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    store.touchToolbar();
-    arrangeNow(store, "toolbar-page-size-close");
-    save();
-  };
+  const close = () => closeToolbarDialog(store);
 
   // Drag
 
@@ -241,17 +236,10 @@ export const Toolbar_PageSizePopup: Component = () => {
     onPointerCancel: handlePointerUp,
   });
 
-  const inputClass = "w-[64px] rounded border border-slate-300 px-[6px] py-[1px] text-[13px] text-black focus:border-blue-500 focus:outline-none";
-  const buttonClass = "h-[24px] rounded-md border border-[#d6d6d6] bg-white px-2 text-[12px] text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50";
-
   return (
     <div class="flex h-full flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <div class="shrink-0 border-b border-slate-200 px-3 py-2">
-        <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Page size
-          <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close page size" onClick={close}><i class="bi-x-lg" /></button>
-        </div>
-        <div class="mt-[2px] text-[11px] text-slate-500">In blocks: one block is the height of a line of text. Drag the outline to resize.</div>
-      </div>
+      <ToolbarDialogHeader title="Page size" onClose={close}
+        description="In blocks: one block is the height of a line of text. Drag the outline to resize." />
 
       <div class="grow px-3 pt-3">
         <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
@@ -270,12 +258,12 @@ export const Toolbar_PageSizePopup: Component = () => {
 
         <div class="mt-[10px] flex items-center gap-2 text-[12px] text-slate-600">
           <label class="flex items-center gap-[6px]">Width
-            <input class={inputClass} type="number" min={minSizeBl.w} max={MAX_SIZE_BL} step="1" value={sizeBl().w}
+            <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={minSizeBl.w} max={MAX_SIZE_BL} step="1" value={sizeBl().w}
               onChange={handleInputChange("w")} onKeyDown={handleInputKeyDown("w")} />
           </label>
           <span class="text-slate-400">×</span>
           <label class="flex items-center gap-[6px]">Height
-            <input class={inputClass} type="number" min={minSizeBl.h} max={MAX_SIZE_BL} step="1" value={sizeBl().h}
+            <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={minSizeBl.h} max={MAX_SIZE_BL} step="1" value={sizeBl().h}
               onChange={handleInputChange("h")} onKeyDown={handleInputKeyDown("h")} />
           </label>
         </div>
@@ -292,9 +280,9 @@ export const Toolbar_PageSizePopup: Component = () => {
       </div>
 
       <div class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-2">
-        <button type="button" class={buttonClass} disabled={childRects.length == 0}
+        <button type="button" class={toolbarDialogButtonClass()} disabled={childRects.length == 0}
           title="Size the page to its items, plus a block of margin" onClick={handleFitToItems}>Fit to items</button>
-        <button type="button" class={buttonClass}
+        <button type="button" class={toolbarDialogButtonClass()}
           title="Keep the width and set the height so the page fills the window without stretching" onClick={handleMatchWindow}>Match window</button>
       </div>
     </div>
