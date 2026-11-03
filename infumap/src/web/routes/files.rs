@@ -238,6 +238,18 @@ fn response_content_headers_for_generated_item_text(filename: &str, mime_type: &
   (content_type, content_disposition)
 }
 
+/// Browsers decode text served without a charset as windows-1252, which garbles UTF-8 (’ shows as â€™). The client
+/// reads text files as UTF-8, so declare it for an uploaded text file that is valid UTF-8. A file in another encoding
+/// is left for the browser to decode as before.
+fn with_utf8_charset_if_text(content_type: String, data: &[u8]) -> String {
+  match content_type.as_str() {
+    "text/plain" | "text/markdown" | "text/csv" if std::str::from_utf8(data).is_ok() => {
+      format!("{}; charset=utf-8", content_type)
+    }
+    _ => content_type,
+  }
+}
+
 fn parse_resized_image_name(name: &str) -> Option<(&str, u32)> {
   let (uid, width) = name.split_once('_')?;
   if !is_uid(uid) {
@@ -774,6 +786,7 @@ async fn get_file(
   METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_FULL]).inc();
 
   let (content_type, content_disposition) = response_content_headers(&filename, mime_type_string);
+  let content_type = with_utf8_charset_if_text(content_type, &data);
 
   Ok(
     Response::builder()
@@ -1128,6 +1141,14 @@ mod tests {
   use super::*;
   use std::sync::atomic::{AtomicUsize, Ordering};
   use tokio::sync::oneshot;
+
+  #[test]
+  fn utf8_charset_only_for_valid_utf8_text() {
+    let utf8 = "Shareholders\u{2019} equity".as_bytes();
+    assert_eq!(with_utf8_charset_if_text("text/markdown".to_owned(), utf8), "text/markdown; charset=utf-8");
+    assert_eq!(with_utf8_charset_if_text("text/markdown".to_owned(), b"caf\xe9"), "text/markdown");
+    assert_eq!(with_utf8_charset_if_text("application/pdf".to_owned(), utf8), "application/pdf");
+  }
 
   fn job_count(jobs: &Arc<ImageJobs>) -> usize {
     jobs.jobs.lock().unwrap().len()
