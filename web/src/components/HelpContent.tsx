@@ -53,6 +53,7 @@ const SECTIONS: Array<HelpSection> = [
     rows: [
       { keys: [["/"]], text: "Add an item at the cursor, choosing its type" },
       { keys: [["Drop files"]], text: "Upload files to where you drop them" },
+      { keys: [[MOD, "V"]], text: "Upload a copied image or file to the pointer, e.g. after Copy image in a browser" },
     ],
   },
   {

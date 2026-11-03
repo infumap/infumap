@@ -19,6 +19,7 @@
 import { GRID_SIZE } from "./constants";
 import { HitInfoFns } from "./input/hit";
 import { clearMouseOverState } from "./input/mouse_move";
+import { CursorEventState } from "./input/state";
 import { HitboxFlags } from "./layout/hitbox";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { JustifiedInsertion, justifiedInsertionFromDesktopPx } from "./layout/justified-insertion";
@@ -104,6 +105,11 @@ let externalUploadDropTarget: UploadTarget | null = null;
 // running alongside the first would share (and prematurely clear) the overlay, so drops are refused until it is done.
 let externalUploadInProgress = false;
 
+// Added to drags that start in this page, so they aren't taken for drags from another page.
+const PAGE_DRAG_TYPE = "application/x-infumap-page-drag";
+const WEB_PAGE_DRAG_MESSAGE_INTERVAL_MS = 3000;
+let lastWebPageDragMessageMs = -Infinity;
+
 
 function showTransientMessage(
   store: StoreContextModel,
@@ -111,9 +117,11 @@ function showTransientMessage(
   type: TransientMessageType = TransientMessageType.Error,
   durationMs: number = 3000,
 ): void {
-  store.overlay.toolbarTransientMessage.set({ text, type });
+  const message = { text, type };
+  store.overlay.toolbarTransientMessage.set(message);
+  // By identity, so the timer of an earlier showing of the same text doesn't cut a later one short.
   setTimeout(() => {
-    if (store.overlay.toolbarTransientMessage.get()?.text == text) {
+    if (store.overlay.toolbarTransientMessage.get() === message) {
       store.overlay.toolbarTransientMessage.set(null);
     }
   }, durationMs);
@@ -127,6 +135,36 @@ export function dataTransferContainsFiles(dataTransfer: DataTransfer | null): da
   return Array.from(dataTransfer.types).includes("Files") ||
     Array.from(dataTransfer.items).some(item => item.kind == "file") ||
     dataTransfer.files.length > 0;
+}
+
+/** Called on dragstart, which fires only for drags that start in this page. */
+export function markPageDrag(dataTransfer: DataTransfer | null): void {
+  dataTransfer?.setData(PAGE_DRAG_TYPE, "");
+}
+
+/**
+ * A drag of an image (or link) from another web page has its URL, not its data. The data can only be fetched from the
+ * page if the image's server allows it (CORS), which few do. Fetching it on the server was tried, but bot protection
+ * (e.g. Cloudflare) and hotlink checks made that unreliable, so these drags are refused, and this says how to copy and
+ * paste the image instead, which does give the page its data (see pasteFilesMaybe).
+ */
+export function showWebPageDragMessageMaybe(store: StoreContextModel, dataTransfer: DataTransfer): void {
+  const types = Array.from(dataTransfer.types);
+  if (!types.includes("text/uri-list") || types.includes(PAGE_DRAG_TYPE) || dataTransferContainsFiles(dataTransfer)) {
+    return;
+  }
+  // Called on every dragover. Shown again before it expires, so it stays up for as long as the drag is over the page.
+  const nowMs = performance.now();
+  if (nowMs - lastWebPageDragMessageMs < WEB_PAGE_DRAG_MESSAGE_INTERVAL_MS) {
+    return;
+  }
+  lastWebPageDragMessageMs = nowMs;
+  showTransientMessage(
+    store,
+    "Can't drop from web pages. To add an image, right-click it, choose Copy image, and paste here",
+    TransientMessageType.Info,
+    WEB_PAGE_DRAG_MESSAGE_INTERVAL_MS + 1500,
+  );
 }
 
 function isAttachmentTarget(target: UploadTarget): boolean {
@@ -798,57 +836,103 @@ export async function handleExternalUploadDrop(
   try {
     await waitForBrowserAfterDrop();
 
-    const fileCount = files.length;
     // The drag said it had files, but the browser didn't provide any, e.g. if the source only offers to create them
     // on request (macOS file promises).
-    if (fileCount == 0) {
+    if (files.length == 0) {
       showTransientMessage(store, "Couldn't get any files from this drop");
       return;
     }
 
-    if (fileCount > MAX_EXTERNAL_UPLOAD_FILES) {
-      showTransientMessage(store, `Can only drop up to ${MAX_EXTERNAL_UPLOAD_FILES} files at once`);
-      return;
-    }
-
-    if (containsDirectory) {
-      showTransientMessage(store, "Folders can't be uploaded");
-      return;
-    }
-
-    const tooLargeFile = files.find(file => file.size > MAX_EXTERNAL_UPLOAD_FILE_BYTES);
-    if (tooLargeFile != null) {
-      showTransientMessage(store, `${tooLargeFile.name} is too large to upload (max ${formatBytes(MAX_EXTERNAL_UPLOAD_FILE_BYTES)})`, TransientMessageType.Error, 5000);
-      return;
-    }
-
-    if (target == null) {
-      const hitInfo = HitInfoFns.hitForDrop(store, desktopPx, [], false);
-      if (hitInfo.hitboxType != HitboxFlags.None) {
-        showTransientMessage(store, "Must upload on background");
-      } else {
-        showTransientMessage(store, "Must upload on page");
-      }
-      return;
-    }
-
-    if (!uploadTargetAcceptsManualChildAdd(target)) {
-      showTransientMessage(store, "Can't add items to this page");
-      return;
-    }
-
-    if (isAttachmentTarget(target) && fileCount != 1) {
-      showTransientMessage(store, "Attachment drops only support a single file");
-      return;
-    }
-
-    if (!confirmLargeExternalUploadMaybe(files)) {
-      return;
-    }
-
-    await uploadFilesToTarget(store, files, desktopPx, target);
+    await checkAndUploadFiles(store, files, containsDirectory, desktopPx, target, () =>
+      HitInfoFns.hitForDrop(store, desktopPx, [], false).hitboxType != HitboxFlags.None
+        ? "Must upload on background"
+        : "Must upload on page");
   } finally {
     externalUploadInProgress = false;
     clearExternalUploadHover(store);
   }
+}
+
+/**
+ * Uploads the files to the target, if they can be: if not, says why. The caller must hold externalUploadInProgress.
+ * noTargetMessage is what's said if there is no target where the files were put.
+ */
+async function checkAndUploadFiles(
+  store: StoreContextModel,
+  files: ReadonlyArray<File>,
+  containsDirectory: boolean,
+  desktopPx: Vector,
+  target: UploadTarget | null,
+  noTargetMessage: () => string,
+): Promise<void> {
+  const fileCount = files.length;
+  if (fileCount > MAX_EXTERNAL_UPLOAD_FILES) {
+    showTransientMessage(store, `Can only drop up to ${MAX_EXTERNAL_UPLOAD_FILES} files at once`);
+    return;
+  }
+
+  if (containsDirectory) {
+    showTransientMessage(store, "Folders can't be uploaded");
+    return;
+  }
+
+  const tooLargeFile = files.find(file => file.size > MAX_EXTERNAL_UPLOAD_FILE_BYTES);
+  if (tooLargeFile != null) {
+    showTransientMessage(store, `${tooLargeFile.name} is too large to upload (max ${formatBytes(MAX_EXTERNAL_UPLOAD_FILE_BYTES)})`, TransientMessageType.Error, 5000);
+    return;
+  }
+
+  if (target == null) {
+    showTransientMessage(store, noTargetMessage());
+    return;
+  }
+
+  if (!uploadTargetAcceptsManualChildAdd(target)) {
+    showTransientMessage(store, "Can't add items to this page");
+    return;
+  }
+
+  if (isAttachmentTarget(target) && fileCount != 1) {
+    showTransientMessage(store, "Attachment drops only support a single file");
+    return;
+  }
+
+  if (!confirmLargeExternalUploadMaybe(files)) {
+    return;
+  }
+
+  await uploadFilesToTarget(store, files, desktopPx, target);
+}
+
+/**
+ * Files on the clipboard, e.g. from a browser's Copy image, are uploaded to where the pointer is, as if dropped there.
+ * Returns whether the paste was taken.
+ */
+export function pasteFilesMaybe(store: StoreContextModel, ev: ClipboardEvent): boolean {
+  const clipboardData = ev.clipboardData;
+  if (clipboardData == null || clipboardData.files.length == 0 || store.overlay.anOverlayIsVisible()) {
+    return false;
+  }
+  ev.preventDefault();
+
+  if (externalUploadInProgress) {
+    showTransientMessage(store, "Wait for the current upload to finish");
+    return true;
+  }
+  externalUploadInProgress = true;
+
+  // Read now: like a drop's, the clipboard's items can't be read after the event returns.
+  const files = Array.from(clipboardData.files);
+  const containsDirectory = dataTransferContainsDirectory(clipboardData);
+  const desktopPx = CursorEventState.getLatestDesktopPx(store);
+  const target = resolveExternalUploadTarget(store, desktopPx, false);
+  void (async () => {
+    try {
+      await checkAndUploadFiles(store, files, containsDirectory, desktopPx, target, () =>
+        "Point at an empty part of a page to paste there");
+    } finally {
+      externalUploadInProgress = false;
+    }
+  })();
+  return true;
 }

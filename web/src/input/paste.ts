@@ -21,8 +21,9 @@ import { acceptClipboardTextForPendingTextItem } from "./text_clipboard_create";
 import { edit_replaceNoteSelection, edit_structuralClipboardGuard } from "./edit";
 import { clipboardTextForSingleLine, normalizeClipboardLineEndings } from "../util/editable_text";
 import { textEditElementId } from "./text_edit_session";
-import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe } from "./paste_lines";
+import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe, showPasteMessage } from "./paste_lines";
 import { pasteParagraphsIntoNote } from "./paste_markdown";
+import { pasteFilesMaybe } from "../upload";
 
 
 /**
@@ -53,7 +54,9 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
     return;
   }
   if (!target.isContentEditable) {
+    // Rows first: a copy from a spreadsheet can have an image of the cells as well as their text.
     pasteLinesMaybe(store, ev);
+    if (!ev.defaultPrevented) { pasteFilesMaybe(store, ev); }
     return;
   }
   if (edit_structuralClipboardGuard(store, ev)) { return; }
@@ -63,7 +66,10 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
   // Do not let HTML-only or image clipboard contents replace selected text.
   // Native inputs/textareas above continue to own their clipboard behaviour.
   ev.preventDefault();
-  if (!clipboardData.types.includes("text/plain")) { return; }
+  if (!clipboardData.types.includes("text/plain")) {
+    if (clipboardData.files.length > 0) { showPasteMessage(store, "To paste a file or image, first stop editing (Esc)"); }
+    return;
+  }
   const clipboardText = clipboardData.getData("text/plain");
   if (clipboardText.length == 0) { return; }
   const editInfo = store.overlay.textEditInfo();

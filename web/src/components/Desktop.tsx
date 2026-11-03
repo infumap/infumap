@@ -19,7 +19,7 @@
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { useStore } from "../store/StoreProvider";
 import { ContextMenu } from "./overlay/ContextMenu";
-import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
+import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, showWebPageDragMessageMaybe, updateExternalUploadHover } from "../upload";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { CursorEventState } from "../input/state";
@@ -65,6 +65,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
       // leaves to the browser.
       const accepted = updateExternalUploadHover(store, ev.dataTransfer, CursorEventState.getLatestDesktopPx(store));
       ev.dataTransfer.dropEffect = accepted ? "copy" : "none";
+      if (!accepted) { showWebPageDragMessageMaybe(store, ev.dataTransfer); }
     }
   };
 

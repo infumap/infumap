@@ -65,7 +65,7 @@ import { asTextItem, isText } from "../items/text-item";
 import { openTextDocumentProjection } from "../items/text-document";
 import { RemoteLoginOverlay } from "./overlay/RemoteLogin";
 import { HelpOverlay } from "./overlay/HelpOverlay";
-import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, updateExternalUploadHover } from "../upload";
+import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, markPageDrag, updateExternalUploadHover } from "../upload";
 
 
 /** Resolves false, leaving the user logged in, when unsaved text could not be saved first. */
@@ -291,6 +291,7 @@ export const Main: Component = () => {
     document.addEventListener('visibilitychange', textEditVisibilityListener);
     window.addEventListener('online', retryTextSaves);
     window.addEventListener('beforeunload', textEditBeforeUnloadListener);
+    window.addEventListener('dragstart', pageDragStartListener, true);
     window.addEventListener('dragenter', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.addEventListener('dragover', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.addEventListener('drop', externalFileDragGuardListener, externalFileDragListenerOptions);
@@ -332,6 +333,7 @@ export const Main: Component = () => {
     document.removeEventListener('visibilitychange', textEditVisibilityListener);
     window.removeEventListener('online', retryTextSaves);
     window.removeEventListener('beforeunload', textEditBeforeUnloadListener);
+    window.removeEventListener('dragstart', pageDragStartListener, true);
     window.removeEventListener('dragenter', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.removeEventListener('dragover', externalFileDragGuardListener, externalFileDragListenerOptions);
     window.removeEventListener('drop', externalFileDragGuardListener, externalFileDragListenerOptions);
@@ -430,6 +432,8 @@ export const Main: Component = () => {
       ev.dataTransfer.dropEffect = accepted ? "copy" : "none";
     }
   };
+
+  const pageDragStartListener = (ev: DragEvent) => { markPageDrag(ev.dataTransfer); };
 
   const externalFileDropFallbackListener = async (ev: DragEvent) => {
     if (!dataTransferContainsFiles(ev.dataTransfer)) {
