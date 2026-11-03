@@ -35,7 +35,8 @@ import { TextFns, isClipboardTextCreateItem } from "../items/text-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementFlags, isTableView } from "../layout/visual-element";
+import { VeFns, VisualElement, VisualElementFlags, isTableView, isVeTranslucentPage } from "../layout/visual-element";
+import { isQueryItem } from "../items/query-item";
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -124,6 +125,29 @@ function findContainingPageVe(candidate: VisualElement | null): VisualElement | 
   return null;
 }
 
+/**
+ * Translucent pages are previews that can only be opened, so items are not created in them. Nested calendars are
+ * exempt: they map the position to a day, and the new item is editable there. Query result workspaces are exempt as
+ * in isInsideTranslucentPage.
+ */
+function isCreateBlockingTranslucentPage(ve: VisualElement): boolean {
+  if (!isVeTranslucentPage(ve)) { return false; }
+  const arrangeAlgorithm = ve.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(ve.displayItem).arrangeAlgorithm;
+  if (arrangeAlgorithm == ArrangeAlgorithm.Calendar) { return false; }
+  const parentVe = ve.parentPath ? VesCache.current.readNode(ve.parentPath) ?? null : null;
+  return parentVe == null || !isQueryItem(parentVe.displayItem);
+}
+
+function outermostCreateBlockingTranslucentPageMaybe(ve: VisualElement): VisualElement | null {
+  let result: VisualElement | null = null;
+  let current: VisualElement | null = ve;
+  while (current) {
+    if (isCreateBlockingTranslucentPage(current)) { result = current; }
+    current = current.parentPath ? VesCache.current.readNode(current.parentPath) ?? null : null;
+  }
+  return result;
+}
+
 function resolvePageCreateContext(store: StoreContextModel, hitInfo: HitInfo): VisualElement | null {
   const currentPagePath = store.history.currentPagePath();
   return findContainingPageVe(hitInfo.overPositionableVe) ??
@@ -150,7 +174,8 @@ function calculatePagePositionGr(store: StoreContextModel, pageVe: VisualElement
 function focusedListPageCreateTarget(store: StoreContextModel, desktopPosPx: Vector): VisualElement | null {
   const focusPath = store.history.getFocusPathMaybe();
   const focusVe = focusPath ? VesCache.current.readNode(focusPath) : null;
-  if (!focusVe || !isPage(focusVe.displayItem) || !(focusVe.flags & VisualElementFlags.ShowChildren)) {
+  if (!focusVe || !isPage(focusVe.displayItem) || !(focusVe.flags & VisualElementFlags.ShowChildren) ||
+      isCreateBlockingTranslucentPage(focusVe)) {
     return null;
   }
 
@@ -490,6 +515,8 @@ function focusNewItemForEditing(
         titleElementIsEditable: candidate.titleElement?.isContentEditable ?? false,
       })),
     });
+    // Edit state was set above in anticipation. Left on, it makes the global key handler ignore every shortcut.
+    store.overlay.setTextEditInfo(store.history, null, true);
     return;
   }
 
@@ -510,11 +537,26 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     overElementVe = tableViewVe;
   }
   const focusedListPageVe = focusedListPageCreateTarget(store, desktopPosPx);
+  const translucentPageVe = outermostCreateBlockingTranslucentPageMaybe(overElementVe);
 
   let newItem;
   let newItemPath;
 
-  if (type != ItemType.Text && isPlaceholder(overElementVe.displayItem)) {
+  if (translucentPageVe != null) {
+    // As over an opaque page, create in the containing page at the cursor.
+    const containingPageVe = translucentPageVe.parentPath
+      ? findContainingPageVe(VesCache.current.readNode(translucentPageVe.parentPath) ?? null)
+      : null;
+    if (!containingPageVe) {
+      store.overlay.contextMenuInfo.set(null);
+      return;
+    }
+    const created = createItemInPage(store, type, containingPageVe, desktopPosPx, "create-beside-translucent-page");
+    if (created == null) { return; }
+    ({ newItem, newItemPath } = created);
+  }
+
+  else if (type != ItemType.Text && isPlaceholder(overElementVe.displayItem)) {
     if (!parentChainAllowsNewChild(overElementVe.displayItem.parentId)) {
       store.overlay.contextMenuInfo.set(null);
       return;
