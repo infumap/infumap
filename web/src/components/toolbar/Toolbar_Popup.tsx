@@ -68,6 +68,7 @@ import { PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageGridLayoutPopup } from ".
 import { PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageJustifiedLayoutPopup } from "./Toolbar_PageJustifiedLayoutPopup";
 import { PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageCatalogLayoutPopup } from "./Toolbar_PageCatalogLayoutPopup";
 import { PAGE_SHAPE_POPUP_HEIGHT_PX, Toolbar_PageShapePopup } from "./Toolbar_PageShapePopup";
+import { PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageTableLayoutPopup } from "./Toolbar_PageTableLayoutPopup";
 import { TOOLBAR_DIALOG_CLASS, toolbarDialogHeightPx } from "./toolbarDialog";
 
 
@@ -359,7 +360,7 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
   if (overlayType == ToolbarPopupType.PageGridLayout) { return toolbarDialogHeightPx(PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.TableNumCols) { return 36; }
-  if (overlayType == ToolbarPopupType.PageTableNumCols) { return 36; }
+  if (overlayType == ToolbarPopupType.PageTableLayout) { return toolbarDialogHeightPx(PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
   if (overlayType == ToolbarPopupType.PageCatalogLayout) { return toolbarDialogHeightPx(PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageShape) { return toolbarDialogHeightPx(PAGE_SHAPE_POPUP_HEIGHT_PX); }
@@ -387,7 +388,7 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.PageCalendarDisplayMode &&
     popupType != ToolbarPopupType.RatingType) {
     const popupWidth = popupType == ToolbarPopupType.MoreActions ? 220
-      : popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.PageTableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300
+      : popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300
         : popupType == ToolbarPopupType.ItemIcon ? 334
           : popupType == ToolbarPopupType.Info || popupType == ToolbarPopupType.Backlinks ? INFO_POPUP_WIDTH_PX
             : popupType == ToolbarPopupType.Id ? ID_POPUP_WIDTH_PX : 330;
@@ -467,13 +468,11 @@ export const Toolbar_Popup: Component = () => {
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()?.type ?? overlayTypeConst;
   const [sliderValue, setSliderValue] = createSignal(
-    overlayTypeConst == ToolbarPopupType.PageTableNumCols
-      ? asPageItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
-      : isTable(getToolbarFocusItem(store))
-        ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
-        : isNote(getToolbarFocusItem(store))
-          ? (getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString()
-          : "1"
+    isTable(getToolbarFocusItem(store))
+      ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
+      : isNote(getToolbarFocusItem(store))
+        ? (getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString()
+        : "1"
   );
   const [itemIconVisible, setItemIconVisible] = createSignal(
     overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(getToolbarFocusItem(store))
@@ -569,7 +568,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
-    if (overlayType() == ToolbarPopupType.PageTableNumCols) { return 190; }
     if (overlayType() == ToolbarPopupType.NoteIndent) { return 190; }
     return 200;
   }
@@ -579,8 +577,6 @@ export const Toolbar_Popup: Component = () => {
   onMount(() => {
     if (overlayType() == ToolbarPopupType.TableNumCols) {
       setSliderValue(asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString());
-    } else if (overlayType() == ToolbarPopupType.PageTableNumCols) {
-      setSliderValue(asPageItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString());
     } else if (overlayType() == ToolbarPopupType.NoteIndent) {
       setSliderValue((getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString());
     }
@@ -596,7 +592,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.ChildSortOrder &&
       overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
       overlayType() != ToolbarPopupType.TableNumCols &&
-      overlayType() != ToolbarPopupType.PageTableNumCols &&
+      overlayType() != ToolbarPopupType.PageTableLayout &&
       overlayType() != ToolbarPopupType.NoteIndent &&
       overlayType() != ToolbarPopupType.PageGridLayout &&
       overlayType() != ToolbarPopupType.PageJustifiedLayout &&
@@ -631,7 +627,6 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return "Url"; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
-    if (overlayType() == ToolbarPopupType.PageTableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.NoteIndent) { return "Indent"; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     return "[unknown]";
@@ -1235,11 +1230,6 @@ export const Toolbar_Popup: Component = () => {
       while (tableItem().tableColumns.length < newValue) {
         tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
       }
-    } else if (overlayTypeConst == ToolbarPopupType.PageTableNumCols) {
-      pageItem().numberOfVisibleColumns = newValue;
-      while (pageItem().tableColumns.length < newValue) {
-        pageItem().tableColumns.push({ name: `col ${pageItem().tableColumns.length}`, widthGr: 120 });
-      }
     } else if (overlayTypeConst == ToolbarPopupType.NoteIndent) {
       const note = noteItem();
       applyEditorFormatCommand(store, [note], "Change indent", () => { setNoteIndentLevel(note, newValue - 1); }, "indent");
@@ -1587,13 +1577,21 @@ export const Toolbar_Popup: Component = () => {
             <Toolbar_PageShapePopup />
           </div>
         </Match>
+        <Match when={overlayType() == ToolbarPopupType.PageTableLayout}>
+          <div class={TOOLBAR_DIALOG_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <Toolbar_PageTableLayoutPopup />
+          </div>
+        </Match>
         <Match when={true}>
           <div class={TOOLBAR_POPUP_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Show when={label() != null}>
-              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.PageTableNumCols || overlayType() == ToolbarPopupType.NoteIndent
+              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.NoteIndent
                 ? <div class="flex items-center mt-[7px]">
                   <div class="text-sm ml-2 mr-2">{label()}</div>
                   <input ref={textElement}

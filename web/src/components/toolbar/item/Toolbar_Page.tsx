@@ -48,6 +48,8 @@ import { justifiedRowSizeWord } from "../Toolbar_PageJustifiedLayoutPopup";
 import { TOOLBAR_INFO_DIVIDER_RIGHT_PX, TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX } from "../toolbarDividers";
 
 
+const columnsText = (n: number): string => `${n} col${n == 1 ? "" : "s"}`;
+
 export const Toolbar_Page: Component = () => {
   const store = useStore();
 
@@ -62,7 +64,7 @@ export const Toolbar_Page: Component = () => {
   let arrangeAlgoDiv: HTMLDivElement | undefined;
   let calendarDisplayModeDiv: HTMLDivElement | undefined;
   let justifiedLayoutDiv: HTMLDivElement | undefined;
-  let numColsDiv: HTMLDivElement | undefined;
+  let tableLayoutDiv: HTMLDivElement | undefined;
   let openTextFileDiv: HTMLDivElement | undefined;
   let continueChatDiv: HTMLDivElement | undefined;
 
@@ -204,39 +206,11 @@ export const Toolbar_Page: Component = () => {
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
   }
 
-  const showTableButtons = () => {
+  // Table pages set their columns, how their rows are drawn and their aspect (which only applies where they are
+  // shown in something else) together in one dialog.
+  const showTableLayoutButton = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Table;
-  }
-
-  const showTableHeader = () => {
-    store.touchToolbarDependency();
-    return !!(pageItem().flags & PageFlags.ShowTableColHeader);
-  }
-
-  const handleToggleTableHeader = () => {
-    if ((pageItem().flags & PageFlags.ShowTableColHeader) &&
-      store.overlay.textEditInfo()?.itemType == ItemType.Page &&
-      store.overlay.textEditInfo()?.itemPath == getToolbarFocusPathMaybe(store) &&
-      store.overlay.textEditInfo()?.colNum != null) {
-      store.overlay.setTextEditInfo(store.history, null, true);
-    }
-    pageItem().flags ^= PageFlags.ShowTableColHeader;
-    requestArrange(store, "toolbar-page-table-header-visibility");
-    serverOrRemote.updateItem(pageItem());
-    store.touchToolbar();
-  }
-
-  const tableWrapRows = () => {
-    store.touchToolbarDependency();
-    return !!(pageItem().flags & PageFlags.TableWrapRows);
-  }
-
-  const handleToggleTableWrapRows = () => {
-    pageItem().flags ^= PageFlags.TableWrapRows;
-    requestArrange(store, "toolbar-page-table-wrap-rows");
-    serverOrRemote.updateItem(pageItem());
-    store.touchToolbar();
   }
 
   // Justified pages set their row height and their aspect (which only applies where they are shown in something
@@ -327,12 +301,12 @@ export const Toolbar_Page: Component = () => {
 
   const gridLayoutText = () => {
     store.touchToolbarDependency();
-    return `${pageItem().gridNumberOfColumns} cols · ${cellShapeLabel(pageItem().gridCellAspect)}`;
+    return `${columnsText(pageItem().gridNumberOfColumns)} · ${cellShapeLabel(pageItem().gridCellAspect)}`;
   }
 
-  const tableNumColsText = () => {
+  const tableLayoutText = () => {
     store.touchToolbarDependency();
-    return pageItem().numberOfVisibleColumns;
+    return columnsText(pageItem().numberOfVisibleColumns);
   }
 
   const handleChangePermissions = () => {
@@ -517,20 +491,17 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(gridLayoutDiv!.getBoundingClientRect());
   };
 
-  // Num Cols
-  const handleNumColsDown = () => {
-    ClickState.setButtonClickBoundsPx(numColsDiv!.getBoundingClientRect());
-  };
-
-  const handleTableNumColsClick = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.PageTableNumCols) {
+  // Table Layout
+  const handleTableLayoutClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.PageTableLayout) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
-    store.overlay.toolbarPopupInfoMaybe.set({
-      topLeftPx: { x: numColsDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) },
-      type: ToolbarPopupType.PageTableNumCols,
-    });
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: tableLayoutDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageTableLayout });
+  };
+  const handleTableLayoutDown = () => {
+    ClickState.setButtonClickBoundsPx(tableLayoutDiv!.getBoundingClientRect());
   };
 
   const handleOpenTextFile = () => {
@@ -635,7 +606,7 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{pageShapeText()}</span>
           </div>
         </Show>
-        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton() && !showPageShapeButton()}>
+        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton() && !showPageShapeButton() && !showTableLayoutButton()}>
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
@@ -659,20 +630,16 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{catalogLayoutText()}</span>
           </div>
         </Show>
-        <Show when={showTableButtons()}>
-          <div ref={numColsDiv}
-            class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
-            style="font-size: 13px;"
-            title="Visible columns"
-            onClick={handleTableNumColsClick}
-            onMouseDown={handleNumColsDown}>
-            <i class="bi-layout-three-columns ml-[4px]" />
-            <div class="inline-block w-[20px] pl-[6px] text-right">
-              {tableNumColsText()}
-            </div>
+        <Show when={showTableLayoutButton()}>
+          <div ref={tableLayoutDiv}
+            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            style={`font-size: 13px;`}
+            title="Table layout"
+            onClick={handleTableLayoutClick}
+            onMouseDown={handleTableLayoutDown}>
+            <i class="bi-table" />
+            <span class="pl-[6px]">{tableLayoutText()}</span>
           </div>
-          <InfuIconButton icon="bi-table" highlighted={showTableHeader()} clickHandler={handleToggleTableHeader} title="Show column headers" />
-          <InfuIconButton icon="bi-text-wrap" highlighted={tableWrapRows()} clickHandler={handleToggleTableWrapRows} title="Wrap row text" />
         </Show>
         <Show when={showJustifiedLayoutButton()}>
           <div ref={justifiedLayoutDiv}
