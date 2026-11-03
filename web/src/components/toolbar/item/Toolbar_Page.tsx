@@ -43,7 +43,7 @@ import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
 import { gridCellShapeLabel } from "../Toolbar_PageGridLayoutPopup";
-import { justifiedItemsPerRowText } from "../Toolbar_PageJustifiedLayoutPopup";
+import { justifiedRowSizeWord } from "../Toolbar_PageJustifiedLayoutPopup";
 import { TOOLBAR_INFO_DIVIDER_RIGHT_PX, TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX } from "../toolbarDividers";
 
 
@@ -306,8 +306,7 @@ export const Toolbar_Page: Component = () => {
 
   const justifiedLayoutText = () => {
     store.touchToolbarDependency();
-    const perRow = justifiedItemsPerRowText(store, pageItem());
-    return perRow == null ? "no items" : `≈${perRow} per row`;
+    return `${justifiedRowSizeWord(pageItem().justifiedRowAspect)} rows`;
   }
 
   const gridLayoutText = () => {
@@ -641,7 +640,7 @@ export const Toolbar_Page: Component = () => {
           <div ref={justifiedLayoutDiv}
             class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
-            title="Justified layout: about this many items fit in a row"
+            title="Justified layout"
             onClick={handleJustifiedLayoutClick}
             onMouseDown={handleJustifiedLayoutDown}>
             <i class="bi-columns-gap" />

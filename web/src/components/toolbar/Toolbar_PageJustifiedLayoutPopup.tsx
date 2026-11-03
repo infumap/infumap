@@ -15,7 +15,7 @@ import {
 } from "./toolbarDialog";
 
 
-export const PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX = 410;
+export const PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX = 420;
 
 const SCHEMATIC_W_PX = 306;
 const SCHEMATIC_H_PX = 150;
@@ -41,17 +41,6 @@ function rowCount(layout: { boxes: Array<{ top: number }> }): number {
   return new Set(layout.boxes.map(box => Math.round(box.top))).size;
 }
 
-/**
- * The average number of items in a row of a justified page at full screen, or null if it has no items. This is what
- * the toolbar shows: unlike the number of rows, which goes up as rows get larger, it goes down with row size.
- */
-export function justifiedItemsPerRowText(store: StoreContextModel, page: PageItem): string | null {
-  const dims = childDims(page);
-  if (dims.length == 0) { return null; }
-  const perRow = dims.length / rowCount(createJustifiedLayout(dims, createJustifyOptions(store.desktopMainAreaBoundsPx().w, page.justifiedRowAspect)));
-  return String(perRow < 10 ? Math.round(perRow * 10) / 10 : Math.round(perRow));
-}
-
 /** About how many rows of a justified page with this row aspect fit in the window, at full screen. */
 function justifiedRowsPerWindow(store: StoreContextModel, rowAspect: number): number {
   const windowPx = store.desktopMainAreaBoundsPx();
@@ -72,6 +61,17 @@ const sliderFromRowAspect = (rowAspect: number): number =>
   Math.round(SLIDER_STEPS * Math.log(MAX_ROW_ASPECT / rowAspect) / Math.log(MAX_ROW_ASPECT / MIN_ROW_ASPECT));
 const rowAspectFromSlider = (value: number): number =>
   MAX_ROW_ASPECT * Math.pow(MIN_ROW_ASPECT / MAX_ROW_ASPECT, value / SLIDER_STEPS);
+
+const ROW_SIZE_WORDS = ["tiny", "small", "medium", "large", "huge"];
+
+/**
+ * The row height of a justified page as a word, from equal parts of the slider. It is what the toolbar shows: no
+ * number (rows in the page or the window, items per row) reads well there, and this doesn't depend on the window.
+ */
+export function justifiedRowSizeWord(rowAspect: number): string {
+  const part = Math.floor(sliderFromRowAspect(rowAspect) * ROW_SIZE_WORDS.length / (SLIDER_STEPS + 1));
+  return ROW_SIZE_WORDS[Math.max(0, Math.min(ROW_SIZE_WORDS.length - 1, part))];
+}
 
 /**
  * Sets the row height of a justified page, previewed as one window's worth of the page laid out with its own items,
@@ -167,7 +167,9 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
         <div class="mt-1 text-[11px] leading-[16px] text-slate-500">{statusText()}</div>
 
         <div class="mt-3 flex items-center gap-2">
-          <div class="w-[72px] shrink-0 text-[12px] text-slate-600">Row height</div>
+          <div class="w-[72px] shrink-0 text-[12px] leading-[15px] text-slate-600">Row height
+            <div class="text-[11px] text-slate-500">{justifiedRowSizeWord(rowAspect())}</div>
+          </div>
           <i class="bi-grid-3x3-gap text-[11px] text-slate-400" title="Smaller" />
           <input class="min-w-0 grow accent-slate-600" type="range" min="0" max={SLIDER_STEPS} step="1" aria-label="Row height"
             value={sliderFromRowAspect(rowAspect())}
