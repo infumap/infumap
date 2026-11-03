@@ -131,21 +131,19 @@ function resolvePageCreateContext(store: StoreContextModel, hitInfo: HitInfo): V
     (currentPagePath ? VesCache.current.readNode(currentPagePath) ?? null : null);
 }
 
-function calculatePagePositionGr(pageVe: VisualElement, desktopPosPx: Vector): Vector {
-  const page = asPageItem(pageVe.displayItem);
-  const viewportBoundsPx = pageVe.viewportBoundsPx ?? pageVe.boundsPx;
-  const childAreaBoundsPx = pageVe.childAreaBoundsPx ?? viewportBoundsPx;
-
-  if (childAreaBoundsPx.w <= 0 || childAreaBoundsPx.h <= 0) {
+// pageVe.viewportBoundsPx is relative to the parent, not the desktop, and excludes scroll, so using it directly only
+// works for an unscrolled top-level page. desktopPxToPageGr resolves the page's desktop position and scroll.
+function calculatePagePositionGr(store: StoreContextModel, pageVe: VisualElement, desktopPosPx: Vector): Vector {
+  if (!pageVe.childAreaBoundsPx || pageVe.childAreaBoundsPx.w <= 0 || pageVe.childAreaBoundsPx.h <= 0) {
     return { x: 0.0, y: 0.0 };
   }
-
-  const propX = (desktopPosPx.x - viewportBoundsPx.x) / childAreaBoundsPx.w;
-  const propY = (desktopPosPx.y - viewportBoundsPx.y) / childAreaBoundsPx.h;
-
+  const posGr = VeFns.desktopPxToPageGr(store, pageVe, desktopPosPx);
+  if (posGr == null) {
+    return { x: 0.0, y: 0.0 };
+  }
   return {
-    x: Math.round(propX * page.innerSpatialWidthGr / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
-    y: Math.round(propY * page.innerSpatialWidthGr / page.naturalAspect / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
+    x: Math.round(posGr.x / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
+    y: Math.round(posGr.y / (GRID_SIZE / 2.0)) * (GRID_SIZE / 2.0),
   };
 }
 
@@ -247,7 +245,7 @@ function positionNewItemInPage(
     return;
   }
 
-  const positionGr = positionGrMaybe ?? calculatePagePositionGr(pageVe, desktopPosPx);
+  const positionGr = positionGrMaybe ?? calculatePagePositionGr(store, pageVe, desktopPosPx);
   newItem.spatialPositionGr = positionGr;
 
   if (isXSizableItem(newItem)) {
