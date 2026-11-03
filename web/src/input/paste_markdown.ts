@@ -82,6 +82,15 @@ type PasteTarget =
  * as a table, a link, a list page line, a group or an attachment.
  */
 export function pasteParagraphsIntoNote(store: StoreContextModel, element: HTMLElement, text: string, parseMarkdown: boolean): boolean {
+  return pastePiecesIntoNote(store, element, parseMarkdown ? piecesFromBlocks(parsePastedMarkdownBlocks(text)) : piecesFromLines(text));
+}
+
+/** As pasteParagraphsIntoNote, for blocks already parsed, e.g. from pasted html. */
+export function pasteBlocksIntoNote(store: StoreContextModel, element: HTMLElement, blocks: Array<TextDocumentBlock>): boolean {
+  return pastePiecesIntoNote(store, element, piecesFromBlocks(blocks));
+}
+
+function pastePiecesIntoNote(store: StoreContextModel, element: HTMLElement, pieces: Array<PastedPiece>): boolean {
   const info = store.overlay.textEditInfo();
   if (info?.itemType != ItemType.Note || info.colNum != null) { return false; }
   const noteVe = VesCache.current.readNode(info.itemPath);
@@ -90,7 +99,6 @@ export function pasteParagraphsIntoNote(store: StoreContextModel, element: HTMLE
   const note = asNoteItem(item);
   if (note.flags & NoteFlags.Code) { return false; }
 
-  const pieces = parseMarkdown ? piecesFromBlocks(parsePastedMarkdownBlocks(text)) : piecesFromLines(text);
   if (pieces.length < 2 && !pieces.some(piece => piece.kind == "table")) { return false; }
   const target = pasteTargetMaybe(store, note, noteVe);
   if (target == null) { return false; }

@@ -22,7 +22,8 @@ import { edit_replaceNoteSelection, edit_structuralClipboardGuard } from "./edit
 import { clipboardTextForSingleLine, normalizeClipboardLineEndings } from "../util/editable_text";
 import { textEditElementId } from "./text_edit_session";
 import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe, showPasteMessage } from "./paste_lines";
-import { pasteParagraphsIntoNote } from "./paste_markdown";
+import { pasteBlocksIntoNote, pasteParagraphsIntoNote } from "./paste_markdown";
+import { parsePastedHtmlBlocks } from "./paste_html";
 import { pasteFilesMaybe } from "../upload";
 
 
@@ -80,6 +81,11 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
     if (acceptClipboardTextForPendingTextItem(store, editInfo.itemPath, clipboardText)) {
       return;
     }
+    // A copy from a web page, Google Docs etc. has html too, with the structure its plain text has lost.
+    const htmlBlocks = plain || !clipboardData.types.includes("text/html")
+      ? null
+      : parsePastedHtmlBlocks(clipboardData.getData("text/html"));
+    if (htmlBlocks != null && pasteBlocksIntoNote(store, editingElement, htmlBlocks)) { return; }
     if (pasteParagraphsIntoNote(store, editingElement, normalizeClipboardLineEndings(clipboardText), !plain)) { return; }
   }
 
