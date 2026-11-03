@@ -228,20 +228,25 @@ function isRenderableListPageSelectedVeid(veid: Veid): boolean {
 }
 
 /**
- * The child of list page page that has no row in it: the scopes page in the queries page, which is reached from the
- * scope picker instead. Scopes are sometimes used to keep material out of answers, and a row directly under Prompts,
- * which is clicked often, made them more discoverable than they should be. Links to the scopes page still have rows.
+ * The children of list page page that have no row in it: the scopes, prompts and search status pages in the queries
+ * page, which leaves it a list of queries. They are reached from the scope and prompt pickers and from icons on an
+ * empty query instead. Scopes are sometimes used to keep material out of answers, and a row made them more
+ * discoverable than they should be. Prompts were opened from a chat by selecting their row, so right click then left
+ * the queries page instead of returning to the chat; the pickers' Edit links navigate to them, so right click goes
+ * back. Links to these pages still have rows.
  */
-function listPageHiddenChildIdMaybe(store: StoreContextModel, page: PageItem): Uid | null {
+function listPageHiddenChildIds(store: StoreContextModel, page: PageItem): ReadonlyArray<Uid> {
   const user = store.user.getUserMaybe();
-  return user != null && page.id == user.queriesPageId ? user.scopesPageId : null;
+  return user != null && page.id == user.queriesPageId
+    ? [user.scopesPageId, user.promptsPageId, user.searchAttentionPageId, user.searchProcessingPageId]
+    : [];
 }
 
 function getDirectListPageVisibleRows(store: StoreContextModel, page: PageItem): Array<ListPageVisibleRow> {
   const rows: Array<ListPageVisibleRow> = [];
-  const hiddenChildIdMaybe = listPageHiddenChildIdMaybe(store, page);
+  const hiddenChildIds = listPageHiddenChildIds(store, page);
   for (const childId of page.computed_children) {
-    if (childId == hiddenChildIdMaybe) { continue; }
+    if (hiddenChildIds.includes(childId)) { continue; }
     const row = getListPageVisibleRowMaybe(childId, 0, page.id, []);
     if (row != null) {
       rows.push(row);
@@ -256,11 +261,11 @@ function getListPageVisibleRowsImpl(
   listPagePath: VisualElementPath,
 ): Array<ListPageVisibleRow> {
   const rows: Array<ListPageVisibleRow> = [];
-  const hiddenChildIdMaybe = listPageHiddenChildIdMaybe(store, page);
+  const hiddenChildIds = listPageHiddenChildIds(store, page);
 
   const walk = (container: ContainerItem, depth: number, ancestorIds: Array<Uid>) => {
     for (const childId of container.computed_children) {
-      if (depth == 0 && childId == hiddenChildIdMaybe) { continue; }
+      if (depth == 0 && hiddenChildIds.includes(childId)) { continue; }
       const row = getListPageVisibleRowMaybe(childId, depth, container.id, ancestorIds);
       if (row == null) { continue; }
 

@@ -220,7 +220,7 @@ Index files have these roles:
 
 Normal item additions, changes, and deletions update only the affected lexical documents. To limit disk activity, they are committed in batches, at most once every 10 minutes per user (sooner for very large batches), so changes can take up to 10 minutes to reach search. Deleted items never appear in results, even before their entries are removed. This still uses BM25: corpus statistics are evaluated from the current Tantivy index at query time, so adding an item does not require rebuilding old documents. Removed documents leave internal tombstones that can make corpus statistics slightly approximate until they are merged away. The web server merges index segments in the background about once a day, so running this command is not needed for routine upkeep.
 
-This is a repair tool: routine additions and regenerated content become searchable through the web server's background workers without it. The `Search processing` and `Search needs attention` pages under the user's Queries page reflect live processing activity and do not depend on this command.
+This is a repair tool: routine additions and regenerated content become searchable through the web server's background workers without it. The `Search processing` and `Search needs attention` pages, opened from the icons at the bottom right of a new query, reflect live processing activity and do not depend on this command.
 
 Example:
 

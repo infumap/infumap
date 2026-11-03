@@ -86,8 +86,9 @@ the model's context window." To see what the model sees, run the same tools with
 ## Prompts
 
 Text you send often, such as "Summarize the attached", can be kept as a prompt and put into a message without
-typing it. Prompts live in the **Prompts** page, at the bottom of the Queries page. It is created
-automatically and cannot be moved or deleted, but it can be renamed.
+typing it. Prompts live in the **Prompts** page. It belongs to the Queries page but isn't listed there: open it
+with **Edit prompts** in the list of prompts (see below). It is created automatically and cannot be moved or deleted,
+but it can be renamed.
 
 Each note directly inside Prompts is a prompt, and so is each composite, which is what longer text pasted as Markdown
 becomes. A link to a note or composite kept elsewhere is a prompt too. Anything else on the page is ignored. Prompts
@@ -105,9 +106,9 @@ Either way, the prompt only fills the input: edit it or send it as it is. Prompt
 summarize something new, drop it onto the input, then type `/sum` in the input and press Enter twice.
 
 A prompt's formatting comes with it as Markdown: a heading note becomes a `#` heading, a bullet `- item`, a code note
-a fenced block, and the notes of a composite are separated by blank lines. Edit a prompt on the Prompts page or by
-**Edit prompts** in the list. The next use has the new text; messages already written are unchanged. A prompt over
-64 KB is listed but can't be inserted.
+a fenced block, and the notes of a composite are separated by blank lines. Edit a prompt on the Prompts page, which
+**Edit prompts** opens. Right click there returns to the chat. The next use has the new text; messages already written
+are unchanged. A prompt over 64 KB is listed but can't be inserted.
 
 Profiles could once name a template note that filled an empty input. They no longer can; put such a note on the
 Prompts page, or link to it from there.

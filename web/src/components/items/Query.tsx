@@ -33,6 +33,7 @@ import {
 } from "./QueryPromptPicker";
 import type { PromptSummary } from "../../server";
 import { QueryProfileBar } from "./QueryProfileBar";
+import { QuerySearchStatusLinks } from "./QuerySearchStatusLinks";
 import { initializeQueryConfiguration, queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
 import { queryConfigurationUnavailableReason, querySearchUnavailableReason } from "../../items/query-configuration-availability";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
@@ -2051,6 +2052,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
         <Show when={isChatMode()}>
           {renderQueryChatSurface()}
+        </Show>
+        <Show when={!hasSubmittedQuery() && queryItem().parentId == store.user.getUserMaybe()?.queriesPageId}>
+          <QuerySearchStatusLinks style="right: 12px; bottom: 8px;" />
         </Show>
         {/* Results stay visible but faded while a new search runs. The delay avoids a flicker for fast searches. */}
         <div style={isSearchMode() && isSearching()

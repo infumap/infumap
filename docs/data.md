@@ -32,7 +32,7 @@ Do not edit or delete them while the server runs. At startup, a file whose query
 
 ### Deleting derived files
 
-Stop the web server before deleting or editing these files. On the next start, Infumap notices what is missing or changed, removes stale search entries, and regenerates in the background. Progress is shown on the `Search processing` page under Queries.
+Stop the web server before deleting or editing these files. On the next start, Infumap notices what is missing or changed, removes stale search entries, and regenerates in the background. Progress is shown on the `Search processing` page, opened from the hourglass icon at the bottom right of a new query.
 
 When a new version changes how the indexes store text, as when stemming was added, indexes built by an older version are removed at startup and rebuilt in the same way. Search returns nothing until the rebuild completes.
 

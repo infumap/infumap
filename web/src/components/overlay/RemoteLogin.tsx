@@ -84,6 +84,9 @@ export const RemoteLoginOverlay: Component = () => {
           dockPageId: response.dockPageId,
           queriesPageId: response.queriesPageId,
           scopesPageId: response.scopesPageId,
+          promptsPageId: response.promptsPageId,
+          searchAttentionPageId: response.searchAttentionPageId,
+          searchProcessingPageId: response.searchProcessingPageId,
           sessionId: response.sessionId,
           hasTotp: response.hasTotp,
         });
