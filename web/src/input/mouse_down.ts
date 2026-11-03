@@ -27,7 +27,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VisualElementPath, VeFns, veFlagIsRoot } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { BoundingBox, boundingBoxFromDOMRect, isInside } from "../util/geometry";
@@ -611,7 +611,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   if (isLink(store.history.getFocusItem()) ||
     isRating(store.history.getFocusItem())) {
     if (buttonNumber != MOUSE_LEFT) {
-      store.history.setFocus(store.history.currentPagePath()!);
+      store.history.setFocus(rightClickFocusPathInPopupMaybe(store) ?? store.history.currentPagePath()!);
     }
     defaultResult = MouseEventActionFlags.None;
     if (buttonNumber != MOUSE_LEFT) { return defaultResult; } // finished handling in the case of right click.
@@ -962,6 +962,31 @@ function calcStartTableAttachmentsItemMaybe(activeItem: Item): AttachmentsItem |
 }
 
 
+/**
+ * If focus is on an item inside the open popup, the path right click should move focus to: the innermost page
+ * containing the item, which is the popup itself unless pages are nested inside it. Null if focus is not inside a popup.
+ */
+function rightClickFocusPathInPopupMaybe(store: StoreContextModel): VisualElementPath | null {
+  const popupSpec = store.history.currentPopupSpec();
+  if (popupSpec == null || popupSpec.vePath == null) { return null; }
+  const focusPath = store.history.getFocusPathMaybe();
+  const focusVe = focusPath ? VesCache.current.readNode(focusPath) : null;
+  if (!focusVe || (focusVe.flags & VisualElementFlags.Popup)) { return null; }
+
+  let innermostPageVe: VisualElement | null = null;
+  let ve: VisualElement | null = focusVe.parentPath ? VesCache.current.readNode(focusVe.parentPath) ?? null : null;
+  while (ve) {
+    if (ve.flags & VisualElementFlags.Popup) {
+      // Popup focus is held on the popup source item path, as pushPopup sets it.
+      return innermostPageVe == null ? popupSpec.vePath : VeFns.veToPath(innermostPageVe);
+    }
+    if (innermostPageVe == null && isPage(ve.displayItem)) { innermostPageVe = ve; }
+    ve = ve.parentPath ? VesCache.current.readNode(ve.parentPath) ?? null : null;
+  }
+  return null;
+}
+
+
 export async function mouseRightDownHandler(store: StoreContextModel) {
   // Always clear current selection set if present
   if (store.overlay.selectedVeids.get() && store.overlay.selectedVeids.get()!.length > 0) {
@@ -1063,6 +1088,15 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     store.history.peekPrevPageVeid() != null) {
     if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
     await navigateBack(store);
+    return;
+  }
+
+  // The focus steps below and in mouseDownHandler are skipped while a popup is open, so without this right click on a
+  // focused item inside a popup fell through to navigateBack and closed the popup.
+  const popupFocusPath = rightClickFocusPathInPopupMaybe(store);
+  if (popupFocusPath != null) {
+    store.history.setFocus(popupFocusPath);
+    arrangeNow(store, "mouse-right-focus-popup-from-item");
     return;
   }
 
