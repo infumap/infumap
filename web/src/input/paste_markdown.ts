@@ -18,16 +18,18 @@
 
 import { GRID_SIZE } from "../constants";
 import { itemCanMove } from "../items/base/capabilities-item";
+import { asContainerItem } from "../items/base/container-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { GroupFns } from "../items/base/group-item";
 import { Item, ItemType } from "../items/base/item";
-import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
+import { asXSizableItem } from "../items/base/x-sizeable-item";
 import { DividerFns } from "../items/divider-item";
-import { parsePastedMarkdownBlocks, type TextDocumentBlock, type TextDocumentInlineText } from "../items/markdown-blocks";
+import { parsePastedMarkdownBlocks, type TextDocumentBlock, type TextDocumentTableBlock } from "../items/markdown-blocks";
 import {
-  NoteFns, NoteInlineMark, NoteInlineMarkFlags, NoteItem, NoteUrl, asNoteItem, concatNoteInlineMarks, concatNoteUrls, isNote,
+  NoteFns, NoteInlineMark, NoteItem, NoteUrl, asNoteItem, concatNoteInlineMarks, concatNoteUrls, isNote,
 } from "../items/note-item";
 import { asPageItem, isPage } from "../items/page-item";
+import { createMarkdownTableItems } from "../items/text-document";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -51,8 +53,6 @@ import { locallyEditable, structuralTextNote } from "./structural_text_edit";
 const BLOCK_STYLE_FLAGS = NoteFlags.Heading1 | NoteFlags.Heading2 | NoteFlags.Heading3 | NoteFlags.Heading4 |
   NoteFlags.Bullet1 | NoteFlags.Numbered | NoteFlags.Indent1 | NoteFlags.Indent2 | NoteFlags.Code;
 
-const TABLE_CELL_SEPARATOR = " | ";
-
 type PastedNote = {
   kind: "note",
   title: string,
@@ -61,7 +61,7 @@ type PastedNote = {
   flags: number,
 };
 
-type PastedPiece = PastedNote | { kind: "divider" };
+type PastedPiece = PastedNote | { kind: "divider" } | { kind: "table", block: TextDocumentTableBlock };
 
 type PasteTarget =
   { kind: "linear", context: LinearEditContext } |
@@ -69,14 +69,17 @@ type PasteTarget =
 
 /**
  * Paste text into the note being edited as a note for each paragraph in it. With parseMarkdown, the paragraphs are the
- * blocks of markdown in the text: headings, list items, code blocks and lines. Without it, they are its lines as they
- * are. The note keeps the text before the caret, followed by the first paragraph. The text after the caret follows the
- * last paragraph, and the caret ends up between them. A note in a composite or document page gets the new items after
- * it. Any other note is first put into a new composite, as Enter does.
+ * blocks of markdown in the text: headings, list items, code blocks, dividers, tables and lines. Without it, they are its
+ * lines as they are. The note keeps the text before the caret, followed by the first paragraph. The text after the caret
+ * follows the last paragraph, and the caret ends up between them. A divider or table can't hold text, so at the start
+ * of the paste it follows the text before the caret, and at the end it is followed by a note with the text after the
+ * caret, which holds the caret. With no text before the caret, the note gives up its place to a leading divider or table
+ * rather than staying empty above it. A note in a composite or document page gets the new items next to it. Any other
+ * note is first put into a new composite, as Enter does.
  *
- * Returns false, having changed nothing, when the paste is the caller's to make: the text is one paragraph, the note is
- * a code note (pasted code stays together), or the note is somewhere a paragraph can't be split, such as a table, a
- * link, a list page line, a group or an attachment.
+ * Returns false, having changed nothing, when the paste is the caller's to make: the text is one paragraph that isn't a
+ * table, the note is a code note (pasted code stays together), or the note is somewhere a paragraph can't be split, such
+ * as a table, a link, a list page line, a group or an attachment.
  */
 export function pasteParagraphsIntoNote(store: StoreContextModel, element: HTMLElement, text: string, parseMarkdown: boolean): boolean {
   const info = store.overlay.textEditInfo();
@@ -88,21 +91,41 @@ export function pasteParagraphsIntoNote(store: StoreContextModel, element: HTMLE
   if (note.flags & NoteFlags.Code) { return false; }
 
   const pieces = parseMarkdown ? piecesFromBlocks(parsePastedMarkdownBlocks(text)) : piecesFromLines(text);
-  if (pieces.length < 2) { return false; }
+  if (pieces.length < 2 && !pieces.some(piece => piece.kind == "table")) { return false; }
   const target = pasteTargetMaybe(store, note, noteVe);
   if (target == null) { return false; }
   // Read the selection before a confirm dialog takes the focus.
   const split = prepareNoteParagraphSplit(store, element);
   if (split == null || split.note.id != note.id) { return false; }
 
-  if (pieces.length > MAX_LINE_COUNT) {
-    showPasteMessage(store, `Can't paste ${pieces.length} paragraphs: the limit is ${MAX_LINE_COUNT}.`);
+  const paragraphCount = pieces.reduce((count, piece) => count + (piece.kind == "table" ? piece.block.rows.length + 1 : 1), 0);
+  if (paragraphCount > MAX_LINE_COUNT) {
+    showPasteMessage(store, `Can't paste ${paragraphCount} paragraphs: the limit is ${MAX_LINE_COUNT}.`);
     return true;
   }
-  if (pieces.length > CONFIRM_LINE_COUNT && !window.confirm(`Add ${pieces.length} paragraphs?`)) { return true; }
+  if (paragraphCount > CONFIRM_LINE_COUNT && !window.confirm(`Add ${paragraphCount} paragraphs?`)) { return true; }
 
-  // piecesFromBlocks never starts or ends with a divider.
-  const first = pieces[0] as PastedNote;
+  // The pieces with the text before and after the caret joined to them, or as notes of their own.
+  const before: PastedNote = { kind: "note", title: split.beforeText, inlineMarks: split.beforeInlineMarks, urls: split.beforeUrls, flags: NoteFlags.None };
+  const after: PastedNote = { kind: "note", title: split.afterText, inlineMarks: split.afterInlineMarks, urls: split.afterUrls, flags: NoteFlags.None };
+  const all = [...pieces];
+  if (all[0].kind == "note") {
+    all[0] = joinedNotes(before, all[0], all[0].flags);
+  } else if (before.title != "") {
+    all.unshift(before);
+  }
+  const lastPiece = all[all.length - 1];
+  let caretPosition = 0;
+  if (lastPiece.kind == "note") {
+    caretPosition = lastPiece.title.length;
+    all[all.length - 1] = joinedNotes(lastPiece, after, lastPiece.flags);
+  } else {
+    all.push(after);
+  }
+  // The note becomes the first note, and the pieces before it go above it. There is always one: the paste ends with one.
+  const noteIndex = all.findIndex(piece => piece.kind == "note");
+  const notePiece = all[noteIndex] as PastedNote;
+
   const token = store.editorHistory.begin(
     [note.id, target.kind == "linear" ? target.context.containerVe.displayItem.id : note.parentId], "Paste");
   // Finish the old edit before changing the note, or moving it into a new composite.
@@ -112,46 +135,35 @@ export function pasteParagraphsIntoNote(store: StoreContextModel, element: HTMLE
     : wrapNoteInNewComposite(store, note, token).id;
 
   // A heading or list item pasted at the start of a note makes the note one too.
-  if (split.beforeText == "" && (first.flags & BLOCK_STYLE_FLAGS) != 0) {
-    note.flags = (note.flags & ~BLOCK_STYLE_FLAGS) | first.flags;
+  if (split.beforeText == "" && (notePiece.flags & BLOCK_STYLE_FLAGS) != 0) {
+    note.flags = (note.flags & ~BLOCK_STYLE_FLAGS) | notePiece.flags;
   }
-  note.inlineMarks = concatNoteInlineMarks(split.beforeInlineMarks, split.beforeText, first.inlineMarks, first.title);
-  note.urls = concatNoteUrls(split.beforeUrls, split.beforeText, first.urls, first.title);
-  note.title = split.beforeText + first.title;
+  note.inlineMarks = notePiece.inlineMarks;
+  note.urls = notePiece.urls;
+  note.title = notePiece.title;
   NoteFns.ensureTitleUrl(note);
   store.textEdit.saveItem(note, true);
 
-  let previousId = note.id;
-  let caretPosition = 0;
-  for (let i = 1; i < pieces.length; ++i) {
-    const piece = pieces[i];
-    const ordering = itemState.newOrderingDirectlyAfterChild(parentId, previousId);
-    let newItem: Item;
-    if (piece.kind == "divider") {
-      const divider = DividerFns.create(note.ownerId, parentId, RelationshipToParent.Child, ordering, "horizontal");
-      divider.spatialWidthGr = dividerWidthGr(parentId, divider.spatialWidthGr);
-      divider.spatialHeightGr = GRID_SIZE;
-      newItem = divider;
-    } else {
-      const afterText = i == pieces.length - 1 ? split.afterText : "";
-      const afterInlineMarks = i == pieces.length - 1 ? split.afterInlineMarks : [];
-      const afterUrls = i == pieces.length - 1 ? split.afterUrls : [];
-      const newNote = NoteFns.create(note.ownerId, parentId, RelationshipToParent.Child, piece.title + afterText, ordering);
-      // A plain line continues the list the note is in, as if typed followed by Enter.
-      newNote.flags = (piece.flags & BLOCK_STYLE_FLAGS) != 0 ? piece.flags : split.continuationFlags;
-      newNote.inlineMarks = concatNoteInlineMarks(piece.inlineMarks, piece.title, afterInlineMarks, afterText);
-      newNote.urls = concatNoteUrls(piece.urls, piece.title, afterUrls, afterText);
-      NoteFns.ensureTitleUrl(newNote);
-      caretPosition = piece.title.length;
-      newItem = newNote;
+  const addItems = (newItems: Array<Item>): void => {
+    for (const newItem of newItems) {
+      store.editorHistory.include(token, newItem.id);
+      itemState.add(newItem);
+      store.editorHistory.track(server.addItem(newItem, null));
     }
-    store.editorHistory.include(token, newItem.id);
-    itemState.add(newItem);
-    store.editorHistory.track(server.addItem(newItem, null));
-    previousId = newItem.id;
+  };
+  for (let i = 0; i < noteIndex; ++i) {
+    const position = asContainerItem(itemState.get(parentId)!).computed_children.indexOf(note.id);
+    addItems(itemsForPiece(note, parentId, all[i], itemState.newOrderingAtChildrenPosition(parentId, position, null), split.continuationFlags));
+  }
+  let previousId = note.id;
+  for (let i = noteIndex + 1; i < all.length; ++i) {
+    const newItems = itemsForPiece(note, parentId, all[i], itemState.newOrderingDirectlyAfterChild(parentId, previousId), split.continuationFlags);
+    addItems(newItems);
+    previousId = newItems[0].id;
   }
 
   arrangeNow(store, "paste-markdown-create-items");
+  // The last piece is always a note, which has the caret.
   if (target.kind == "linear") {
     focusItemInLinearContainer(store, target.context.containerPath, previousId, caretPosition);
     store.editorHistory.commit(token);
@@ -160,6 +172,38 @@ export function pasteParagraphsIntoNote(store: StoreContextModel, element: HTMLE
     store.editorHistory.commit(token, historyCaret({ itemPath: notePath, itemType: ItemType.Note }, caretPosition));
   }
   return true;
+}
+
+/**
+ * The new items for a piece pasted next to note in parentId, first the item to put at ordering, then any it contains.
+ * A plain line continues the list the note is in, as if typed followed by Enter.
+ */
+function itemsForPiece(note: NoteItem, parentId: Uid, piece: PastedPiece, ordering: Uint8Array, continuationFlags: number): Array<Item> {
+  if (piece.kind == "divider") {
+    const divider = DividerFns.create(note.ownerId, parentId, RelationshipToParent.Child, ordering, "horizontal");
+    divider.spatialWidthGr = pastedItemWidthGr(parentId);
+    divider.spatialHeightGr = GRID_SIZE;
+    return [divider];
+  }
+  if (piece.kind == "table") {
+    return createMarkdownTableItems(note.ownerId, parentId, pastedItemWidthGr(parentId), piece.block, ordering);
+  }
+  const newNote = NoteFns.create(note.ownerId, parentId, RelationshipToParent.Child, piece.title, ordering);
+  newNote.flags = (piece.flags & BLOCK_STYLE_FLAGS) != 0 ? piece.flags : continuationFlags;
+  newNote.inlineMarks = piece.inlineMarks;
+  newNote.urls = piece.urls;
+  NoteFns.ensureTitleUrl(newNote);
+  return [newNote];
+}
+
+function joinedNotes(a: PastedNote, b: PastedNote, flags: number): PastedNote {
+  return {
+    kind: "note",
+    title: a.title + b.title,
+    inlineMarks: concatNoteInlineMarks(a.inlineMarks, a.title, b.inlineMarks, b.title),
+    urls: concatNoteUrls(a.urls, a.title, b.urls, b.title),
+    flags,
+  };
 }
 
 function pasteTargetMaybe(store: StoreContextModel, note: NoteItem, noteVe: VisualElement): PasteTarget | null {
@@ -183,33 +227,13 @@ function pasteTargetMaybe(store: StoreContextModel, note: NoteItem, noteVe: Visu
   return { kind: "spatial", noteVe };
 }
 
-/**
- * The notes and dividers to make from the pasted blocks. Dividers at either end are dropped: they can't hold the text
- * before or after the caret, and a pasted selection that starts or ends on a rule rarely means to add one.
- */
+/** The notes, dividers and tables to make from the pasted blocks. */
 function piecesFromBlocks(blocks: Array<TextDocumentBlock>): Array<PastedPiece> {
-  const pieces: Array<PastedPiece> = [];
-  for (const block of blocks) {
-    if (block.kind == "divider") {
-      pieces.push({ kind: "divider" });
-    } else if (block.kind == "table") {
-      // Each row is a note with its cells side by side, and the header row is bold.
-      const header = block.columns.join(TABLE_CELL_SEPARATOR);
-      pieces.push({
-        kind: "note",
-        title: header,
-        inlineMarks: [{ start: 0, end: header.length, flags: NoteInlineMarkFlags.Bold }],
-        urls: [],
-        flags: NoteFlags.None,
-      });
-      for (const row of block.rows) { pieces.push(noteFromTableCells(row.cells)); }
-    } else {
-      pieces.push({ kind: "note", title: block.title, inlineMarks: block.inlineMarks, urls: block.urls, flags: block.noteFlags });
-    }
-  }
-  while (pieces.length > 0 && pieces[0].kind == "divider") { pieces.shift(); }
-  while (pieces.length > 0 && pieces[pieces.length - 1].kind == "divider") { pieces.pop(); }
-  return pieces;
+  return blocks.map((block): PastedPiece => {
+    if (block.kind == "divider") { return { kind: "divider" }; }
+    if (block.kind == "table") { return { kind: "table", block }; }
+    return { kind: "note", title: block.title, inlineMarks: block.inlineMarks, urls: block.urls, flags: block.noteFlags };
+  });
 }
 
 /** A note for each line that isn't blank, trimmed. */
@@ -220,23 +244,8 @@ function piecesFromLines(text: string): Array<PastedPiece> {
     .map(title => ({ kind: "note", title, inlineMarks: [], urls: [], flags: NoteFlags.None }));
 }
 
-function noteFromTableCells(cells: Array<TextDocumentInlineText>): PastedNote {
-  let title = "";
-  let inlineMarks: Array<NoteInlineMark> = [];
-  let urls: Array<NoteUrl> = [];
-  for (const [i, cell] of cells.entries()) {
-    const prefix = i == 0 ? "" : title + TABLE_CELL_SEPARATOR;
-    inlineMarks = concatNoteInlineMarks(inlineMarks, prefix, cell.inlineMarks, cell.title);
-    urls = concatNoteUrls(urls, prefix, cell.urls, cell.title);
-    title = prefix + cell.title;
-  }
-  return { kind: "note", title, inlineMarks, urls, flags: NoteFlags.None };
-}
-
-/** A divider spans the document page or composite it is pasted into. */
-function dividerWidthGr(parentId: Uid, defaultWidthGr: number): number {
-  const parent = itemState.get(parentId);
-  if (parent != null && isPage(parent)) { return asPageItem(parent).docWidthBl * GRID_SIZE; }
-  if (parent != null && isXSizableItem(parent)) { return asXSizableItem(parent).spatialWidthGr; }
-  return defaultWidthGr;
+/** Dividers and tables span the document page or composite they are pasted into. */
+function pastedItemWidthGr(parentId: Uid): number {
+  const parent = itemState.get(parentId)!;
+  return isPage(parent) ? asPageItem(parent).docWidthBl * GRID_SIZE : asXSizableItem(parent).spatialWidthGr;
 }

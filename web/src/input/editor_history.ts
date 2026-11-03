@@ -30,7 +30,9 @@ import { server, serverOrRemote } from "../server";
 import { EditElementType, editPathInfoToDomId, getEditPathInfoForNode, getTextOffsetWithinElement, resolveTextRangePosition, type EditPathInfo } from "../util/caret";
 
 // History is deliberately bounded and page-local. Assets and arbitrary item
-// deletion are not history operations; only notes/composites may be recreated.
+// deletion are not history operations; only items with nothing but their fields
+// to them may be recreated: notes, composites, and the dividers and tables (with
+// their cell placeholders) a paste adds.
 const MAX_ENTRIES = 100;
 const MAX_BYTES = 8 * 1024 * 1024;
 const GROUP_DELAY_MS = 900;
@@ -48,6 +50,7 @@ type Entry = { changes: Change[], before: EditorSelection, after: EditorSelectio
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const dataKeys = (data: Data) => Object.keys(data).filter(key => key !== "lastModifiedDate");
+const RECREATABLE_ITEM_TYPES: string[] = [ItemType.Note, ItemType.Composite, ItemType.Divider, ItemType.Table, ItemType.Placeholder];
 
 function snapshot(id: string): Snapshot | null {
   const item = itemState.get(id);
@@ -214,8 +217,10 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
       }
       if (!expected || !target) {
         const value = expected ?? target;
-        if (!value || ![ItemType.Note, ItemType.Composite].includes(value.data.itemType) || value.origin != null ||
-            value.data.ownerId !== store.user.getUserMaybe()?.userId || (value.attachments?.length ?? 0) > 0) { return false; }
+        // Attachments are recreated or deleted only along with their item, as a pasted table row's cells are.
+        if (!value || !RECREATABLE_ITEM_TYPES.includes(value.data.itemType) || value.origin != null ||
+            value.data.ownerId !== store.user.getUserMaybe()?.userId ||
+            (value.attachments ?? []).some(id => !entry.changes.some(other => other.id === id))) { return false; }
       }
       if (target && (!expected || c.fields.includes("parentId") || c.fields.includes("relationshipToParent"))) {
         const parentChange = entry.changes.find(other => other.id === target.data.parentId);

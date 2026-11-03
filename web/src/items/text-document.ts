@@ -275,20 +275,19 @@ function applyMarkdownLinkIconHint(
 }
 
 function createNoteForBlock(
-  textItem: TextItem,
+  virtualSource: TextItem | null,
   ownerId: Uid,
   pageId: Uid,
   block: TextDocumentTextBlock,
   ordering: Uint8Array,
-  virtual: boolean,
 ): NoteItem {
   const note = NoteFns.create(ownerId, pageId, RelationshipToParent.Child, block.title, ordering);
   note.inlineMarks = block.inlineMarks;
   note.urls = block.urls;
   applyMarkdownLinkIconHint(note, block);
-  if (virtual) {
+  if (virtualSource != null) {
     markClientOnly(note);
-    note.id = stableUid(`text-document-block:${textItem.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
+    note.id = stableUid(`text-document-block:${virtualSource.id}:${block.kind}:${block.start}:${block.end}:${block.ordinal}`);
     note.capabilities = readonlyCopyableCapabilities;
   }
   note.flags = block.noteFlags;
@@ -303,29 +302,28 @@ function tableColumnForBlock(block: TextDocumentTableBlock, index: number, width
 }
 
 function createNoteForTableRow(
-  textItem: TextItem,
+  virtualSource: TextItem | null,
   ownerId: Uid,
   tableId: Uid,
   block: TextDocumentTableBlock,
   row: TextDocumentTableRow,
   ordering: Uint8Array,
-  virtual: boolean,
 ): NoteItem {
   const firstCell = row.cells[0] ?? { title: "", inlineMarks: [], urls: [], linkIconHints: [] };
   const note = NoteFns.create(ownerId, tableId, RelationshipToParent.Child, firstCell.title, ordering);
   note.inlineMarks = firstCell.inlineMarks;
   note.urls = firstCell.urls;
   applyMarkdownLinkIconHint(note, firstCell);
-  if (virtual) {
+  if (virtualSource != null) {
     markClientOnly(note);
-    note.id = stableUid(`text-document-table-row:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}`);
+    note.id = stableUid(`text-document-table-row:${virtualSource.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}`);
     note.capabilities = readonlyCopyableCapabilities;
   }
   return note;
 }
 
 function createNoteForTableCell(
-  textItem: TextItem,
+  virtualSource: TextItem | null,
   ownerId: Uid,
   rowId: Uid,
   block: TextDocumentTableBlock,
@@ -333,33 +331,31 @@ function createNoteForTableCell(
   cellIndex: number,
   cell: TextDocumentInlineText,
   ordering: Uint8Array,
-  virtual: boolean,
 ): NoteItem {
   const note = NoteFns.create(ownerId, rowId, RelationshipToParent.Attachment, cell.title, ordering);
   note.inlineMarks = cell.inlineMarks;
   note.urls = cell.urls;
   applyMarkdownLinkIconHint(note, cell);
-  if (virtual) {
+  if (virtualSource != null) {
     markClientOnly(note);
-    note.id = stableUid(`text-document-table-cell:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
+    note.id = stableUid(`text-document-table-cell:${virtualSource.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
     note.capabilities = readonlyCopyableCapabilities;
   }
   return note;
 }
 
 function createDividerForBlock(
-  textItem: TextItem,
+  virtualSource: TextItem | null,
   ownerId: Uid,
   pageId: Uid,
   pageWidthBl: number,
   block: TextDocumentDividerBlock,
   ordering: Uint8Array,
-  virtual: boolean,
 ): Item {
   const divider = DividerFns.create(ownerId, pageId, RelationshipToParent.Child, ordering, "horizontal");
-  if (virtual) {
+  if (virtualSource != null) {
     markClientOnly(divider);
-    divider.id = stableUid(`text-document-divider:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
+    divider.id = stableUid(`text-document-divider:${virtualSource.id}:${block.start}:${block.end}:${block.ordinal}`);
     divider.capabilities = readonlyCopyableCapabilities;
   }
   divider.spatialWidthGr = Math.max(1, pageWidthBl) * GRID_SIZE;
@@ -368,19 +364,18 @@ function createDividerForBlock(
 }
 
 function createPlaceholderForTableCell(
-  textItem: TextItem,
+  virtualSource: TextItem | null,
   ownerId: Uid,
   rowId: Uid,
   block: TextDocumentTableBlock,
   row: TextDocumentTableRow,
   cellIndex: number,
   ordering: Uint8Array,
-  virtual: boolean,
 ): Item {
   const placeholder = PlaceholderFns.create(ownerId, rowId, RelationshipToParent.Attachment, ordering);
-  if (virtual) {
+  if (virtualSource != null) {
     markClientOnly(placeholder);
-    placeholder.id = stableUid(`text-document-table-cell-placeholder:${textItem.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
+    placeholder.id = stableUid(`text-document-table-cell-placeholder:${virtualSource.id}:${block.start}:${row.start}:${row.end}:${row.ordinal}:${cellIndex}`);
     placeholder.capabilities = readonlyCapabilities;
   }
   return placeholder;
@@ -436,21 +431,19 @@ function generatedTableColumnWidthsGr(totalWidthGr: number, block: TextDocumentT
 }
 
 function createTableForBlock(
-  textItem: TextItem,
+  virtualSource: TextItem | null,
   ownerId: Uid,
-  pageId: Uid,
-  pageWidthBl: number,
+  parentId: Uid,
+  tableWidthGr: number,
   block: TextDocumentTableBlock,
   ordering: Uint8Array,
-  virtual: boolean,
 ): TableItem {
-  const table = TableFns.create(ownerId, pageId, RelationshipToParent.Child, "", ordering);
-  if (virtual) {
+  const table = TableFns.create(ownerId, parentId, RelationshipToParent.Child, "", ordering);
+  if (virtualSource != null) {
     markClientOnly(table);
-    table.id = stableUid(`text-document-table:${textItem.id}:${block.start}:${block.end}:${block.ordinal}`);
+    table.id = stableUid(`text-document-table:${virtualSource.id}:${block.start}:${block.end}:${block.ordinal}`);
     table.capabilities = readonlyCopyableCapabilities;
   }
-  const tableWidthGr = generatedTableWidthGr(pageWidthBl);
   const columnWidthsGr = generatedTableColumnWidthsGr(tableWidthGr, block);
   table.tableColumns = block.columns.map((_, i) => tableColumnForBlock(block, i, columnWidthsGr[i]));
   table.numberOfVisibleColumns = table.tableColumns.length;
@@ -461,12 +454,60 @@ function createTableForBlock(
   return table;
 }
 
+/** A table for a markdown table block: a row note per row, with the cells after the first as its attachments. */
+function createTableItemsForBlock(
+  virtualSource: TextItem | null,
+  ownerId: Uid,
+  parentId: Uid,
+  tableWidthGr: number,
+  block: TextDocumentTableBlock,
+  ordering: Uint8Array,
+): { table: TableItem, rows: Array<{ item: Item, attachments: Array<Item> }> } {
+  const table = createTableForBlock(virtualSource, ownerId, parentId, tableWidthGr, block, ordering);
+  const rows: Array<{ item: Item, attachments: Array<Item> }> = [];
+  const rowOrderings: Array<Uint8Array> = [];
+  for (const row of block.rows) {
+    const rowOrdering = newOrderingAtEnd(rowOrderings);
+    rowOrderings.push(rowOrdering);
+    const rowNote = createNoteForTableRow(virtualSource, ownerId, table.id, block, row, rowOrdering);
+
+    const attachments: Array<Item> = [];
+    const attachmentOrderings: Array<Uint8Array> = [];
+    const lastCellIndex = lastNonEmptyAttachmentCellIndex(row);
+    for (let cellIndex = 1; cellIndex <= lastCellIndex; ++cellIndex) {
+      const attachmentOrdering = newOrderingAtEnd(attachmentOrderings);
+      attachmentOrderings.push(attachmentOrdering);
+      const cell = row.cells[cellIndex] ?? { title: "", inlineMarks: [], urls: [], linkIconHints: [] };
+      attachments.push(cell.title.trim() == ""
+        ? createPlaceholderForTableCell(virtualSource, ownerId, rowNote.id, block, row, cellIndex, attachmentOrdering)
+        : createNoteForTableCell(virtualSource, ownerId, rowNote.id, block, row, cellIndex, cell, attachmentOrdering));
+    }
+    rows.push({ item: rowNote, attachments });
+  }
+  TableFns.fitGeneratedTableHeight(table, rows);
+  return { table, rows };
+}
+
+/**
+ * The items of a new table for a markdown table block, tableWidthGr wide and as tall as its rows, up to a limit. The
+ * table comes first, and each row before its attachments.
+ */
+export function createMarkdownTableItems(
+  ownerId: Uid,
+  parentId: Uid,
+  tableWidthGr: number,
+  block: TextDocumentTableBlock,
+  ordering: Uint8Array,
+): Array<Item> {
+  const { table, rows } = createTableItemsForBlock(null, ownerId, parentId, tableWidthGr, block, ordering);
+  return [table, ...rows.flatMap(row => [row.item, ...row.attachments])];
+}
+
 function createTextDocumentItems(
-  textItem: TextItem,
+  virtualSource: TextItem | null,
   ownerId: Uid,
   page: PageItem,
   blocks: Array<TextDocumentBlock>,
-  virtual: boolean,
 ): TextDocumentGeneratedItems {
   const result: TextDocumentGeneratedItems = {
     rootChildren: [],
@@ -480,51 +521,28 @@ function createTextDocumentItems(
     rootOrderings.push(ordering);
 
     if (block.kind == "divider") {
-      const divider = createDividerForBlock(textItem, ownerId, page.id, page.docWidthBl, block, ordering, virtual);
+      const divider = createDividerForBlock(virtualSource, ownerId, page.id, page.docWidthBl, block, ordering);
       result.rootChildren.push(divider);
       result.allItems.push(divider);
       continue;
     }
 
     if (block.kind != "table") {
-      const note = createNoteForBlock(textItem, ownerId, page.id, block, ordering, virtual);
+      const note = createNoteForBlock(virtualSource, ownerId, page.id, block, ordering);
       result.rootChildren.push(note);
       result.allItems.push(note);
       continue;
     }
 
-    const table = createTableForBlock(textItem, ownerId, page.id, page.docWidthBl, block, ordering, virtual);
+    const { table, rows } = createTableItemsForBlock(
+      virtualSource, ownerId, page.id, generatedTableWidthGr(page.docWidthBl), block, ordering);
     result.rootChildren.push(table);
     result.allItems.push(table);
-
-    const tableChildren: Array<Item> = [];
-    result.tableChildrenByTableId[table.id] = tableChildren;
-    const rowsWithAttachments: Array<{ item: Item, attachments: Array<Item> }> = [];
-    const rowOrderings: Array<Uint8Array> = [];
-    for (const row of block.rows) {
-      const rowOrdering = newOrderingAtEnd(rowOrderings);
-      rowOrderings.push(rowOrdering);
-      const rowNote = createNoteForTableRow(textItem, ownerId, table.id, block, row, rowOrdering, virtual);
-      tableChildren.push(rowNote);
-      result.allItems.push(rowNote);
-
-      const attachmentItems: Array<Item> = [];
-      result.attachmentsByParentId[rowNote.id] = attachmentItems;
-      rowsWithAttachments.push({ item: rowNote, attachments: attachmentItems });
-      const attachmentOrderings: Array<Uint8Array> = [];
-      const lastCellIndex = lastNonEmptyAttachmentCellIndex(row);
-      for (let cellIndex = 1; cellIndex <= lastCellIndex; ++cellIndex) {
-        const attachmentOrdering = newOrderingAtEnd(attachmentOrderings);
-        attachmentOrderings.push(attachmentOrdering);
-        const cell = row.cells[cellIndex] ?? { title: "", inlineMarks: [], urls: [], linkIconHints: [] };
-        const attachment = cell.title.trim() == ""
-          ? createPlaceholderForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, attachmentOrdering, virtual)
-          : createNoteForTableCell(textItem, ownerId, rowNote.id, block, row, cellIndex, cell, attachmentOrdering, virtual);
-        attachmentItems.push(attachment);
-        result.allItems.push(attachment);
-      }
+    result.tableChildrenByTableId[table.id] = rows.map(row => row.item);
+    for (const row of rows) {
+      result.allItems.push(row.item, ...row.attachments);
+      result.attachmentsByParentId[row.item.id] = row.attachments;
     }
-    TableFns.fitGeneratedTableHeight(table, rowsWithAttachments);
   }
   return result;
 }
@@ -569,7 +587,7 @@ function upsertVirtualPageShell(textItem: TextItem): PageItem {
 function upsertVirtualProjection(textItem: TextItem, blocks: Array<TextDocumentBlock>): PageItem {
   const storedPage = upsertVirtualPageShell(textItem);
 
-  const generated = createTextDocumentItems(textItem, textItem.ownerId, storedPage, blocks, true);
+  const generated = createTextDocumentItems(textItem, textItem.ownerId, storedPage, blocks);
   const attachmentServerObjectsByParentId = toVirtualServerObjectMap(generated.attachmentsByParentId);
   itemState.applyContainerSnapshotFromServerObjects(storedPage.id, toVirtualServerObjects(generated.rootChildren), {}, null);
   for (const tableId of Object.keys(generated.tableChildrenByTableId)) {
@@ -787,7 +805,7 @@ export async function createMaterializedTextDocumentItems(
   }
   const text = await fetchTextItemContent(textItem);
   const blocks = parseTextDocumentBlocks(text, isMarkdownTextItem(textItem));
-  return createTextDocumentItems(textItem, page.ownerId, page, blocks, false).allItems;
+  return createTextDocumentItems(null, page.ownerId, page, blocks).allItems;
 }
 
 export function isVirtualTextDocumentPage(pageId: Uid): boolean {
