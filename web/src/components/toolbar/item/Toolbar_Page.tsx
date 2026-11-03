@@ -20,13 +20,12 @@ import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 import { Component, Show, createEffect } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
-import { ArrangeAlgorithm, asPageItem, pageUsesEmbeddedInteractiveMode } from "../../../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, pageUsesEmbeddedInteractiveMode } from "../../../items/page-item";
 import { itemState } from "../../../store/ItemState";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { InfuColorButton } from "../../library/InfuColorButton";
 import { panic } from "../../../util/lang";
 import { requestArrange } from "../../../layout/arrange";
-import { GRID_SIZE } from "../../../constants";
 import { server, serverOrRemote } from "../../../server";
 import { PermissionFlags } from "../../../items/base/permission-flags-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
@@ -51,7 +50,7 @@ export const Toolbar_Page: Component = () => {
 
   let divBeforeColorSelect: HTMLDivElement | undefined;
   let colorSelectDiv: HTMLDivElement | undefined;
-  let widthDiv: HTMLDivElement | undefined;
+  let sizeDiv: HTMLDivElement | undefined;
   let docWidthDiv: HTMLDivElement | undefined;
   let aspectDiv: HTMLDivElement | undefined;
   let cellAspectDiv: HTMLDivElement | undefined;
@@ -245,7 +244,8 @@ export const Toolbar_Page: Component = () => {
     return isVirtualTextDocumentPage(pageItem().id) && pageItem().arrangeAlgorithm == ArrangeAlgorithm.Document;
   }
 
-  const showInnerBlockWidthButton = () => {
+  // Spatial pages have a width in blocks as well as an aspect, set together in one dialog.
+  const showPageSizeButton = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
   }
@@ -267,9 +267,10 @@ export const Toolbar_Page: Component = () => {
     return pageItem().backgroundColorIndex;
   }
 
-  const widthText = () => {
+  const sizeText = () => {
     store.touchToolbarDependency();
-    return pageItem().innerSpatialWidthGr / GRID_SIZE;
+    const sizeBl = PageFns.calcInnerSpatialDimensionsBl(pageItem());
+    return `${sizeBl.w} × ${sizeBl.h}`;
   }
 
   const docWidthBlText = () => {
@@ -442,17 +443,17 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(justifiedRowAspectDiv!.getBoundingClientRect());
   };
 
-  // Width
-  const handleWidthClick = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageWidth) {
+  // Size
+  const handleSizeClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageSize) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: widthDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageWidth });
+      { topLeftPx: { x: sizeDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageSize });
   };
-  const handleWidthDown = () => {
-    ClickState.setButtonClickBoundsPx(widthDiv!.getBoundingClientRect());
+  const handleSizeDown = () => {
+    ClickState.setButtonClickBoundsPx(sizeDiv!.getBoundingClientRect());
   };
 
   // Doc Width Bl
@@ -561,20 +562,18 @@ export const Toolbar_Page: Component = () => {
         {documentControls()}
       </Show>
       <Show when={canEdit()}>
-        <Show when={showInnerBlockWidthButton()}>
-          <div ref={widthDiv}
-            class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+        <Show when={showPageSizeButton()}>
+          <div ref={sizeDiv}
+            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
-            title="Inner block width"
-            onClick={handleWidthClick}
-            onMouseDown={handleWidthDown}>
-            <i class="bi-arrows ml-[4px]" />
-            <div class="inline-block w-[30px] pl-[6px] text-right">
-              {widthText()}
-            </div>
+            title="Page size"
+            onClick={handleSizeClick}
+            onMouseDown={handleSizeDown}>
+            <i class="bi-aspect-ratio" />
+            <span class="pl-[6px]">{sizeText()}</span>
           </div>
         </Show>
-        <Show when={!isQueriesPage()}>
+        <Show when={!isQueriesPage() && !showPageSizeButton()}>
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}

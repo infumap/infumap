@@ -32,7 +32,7 @@ export enum ToolbarPopupType {
   ItemIcon = "itemicon",
   PageColor = "color",
   PageAspect = "aspect",
-  PageWidth = "width",
+  PageSize = "size",
   PageNumCols = "numcols",
   PageTableNumCols = "pagetablenumcols",
   PageDocWidth = "docwidth",

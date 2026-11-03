@@ -22,7 +22,7 @@ import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, autoPageAspect, isPage, PageItem } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
 import { BoundingBox } from "../../util/geometry";
-import { GRID_SIZE, Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
+import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { ToolbarPopupType, TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { itemState } from "../../store/ItemState";
@@ -63,6 +63,7 @@ import { convertPageTableAtPath, pageTableConversionEligibility } from "../../it
 import { convertPageCompositeAtPath, pageCompositeConversionEligibility } from "../../items/page-composite-conversion";
 import { ContainerConversionRefused } from "../../items/container-conversion";
 import { VisualElementPath } from "../../layout/visual-element";
+import { PAGE_SIZE_POPUP_CLASS, PAGE_SIZE_POPUP_HEIGHT_PX, Toolbar_PageSizePopup } from "./Toolbar_PageSizePopup";
 
 
 const EMOJI_CATEGORIES = [
@@ -349,7 +350,7 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
   if (overlayType == ToolbarPopupType.NoteIndent) { return 36; }
   if (overlayType == ToolbarPopupType.ItemIcon) { return 292; }
-  if (overlayType == ToolbarPopupType.PageWidth) { return 74; }
+  if (overlayType == ToolbarPopupType.PageSize) { return PAGE_SIZE_POPUP_HEIGHT_PX; }
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
   if (overlayType == ToolbarPopupType.PageNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.TableNumCols) { return 36; }
@@ -531,9 +532,7 @@ export const Toolbar_Popup: Component = () => {
   const handleKeyPress = (ev: KeyboardEvent) => { ev.stopPropagation(); }
 
   const handleTextChange = () => {
-    if (overlayTypeConst == ToolbarPopupType.PageWidth) {
-      pageItem().innerSpatialWidthGr = Math.round(parseFloat(textElement!.value)) * GRID_SIZE;
-    } else if (overlayTypeConst == ToolbarPopupType.PageAspect) {
+    if (overlayTypeConst == ToolbarPopupType.PageAspect) {
       pageItem().naturalAspect = parseFloat(textElement!.value);
     } else if (overlayTypeConst == ToolbarPopupType.PageCellAspect) {
       pageItem().gridCellAspect = parseFloat(textElement!.value);
@@ -567,7 +566,6 @@ export const Toolbar_Popup: Component = () => {
 
   const inputWidthPx = (): number => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return 262; }
-    if (overlayType() == ToolbarPopupType.PageWidth) { return 196; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return 238; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return 260; }
@@ -604,6 +602,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.PageTableNumCols &&
       overlayType() != ToolbarPopupType.NoteIndent &&
       overlayType() != ToolbarPopupType.PageNumCols &&
+      overlayType() != ToolbarPopupType.PageSize &&
       overlayType() != ToolbarPopupType.RatingType) {
       textElement!.focus();
     }
@@ -623,7 +622,6 @@ export const Toolbar_Popup: Component = () => {
 
   const textEntryValue = (): string | null => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return NoteFns.urlForToolbarEdit(noteItem(), noteUrlSelection()); }
-    if (overlayType() == ToolbarPopupType.PageWidth) { return "" + pageItem().innerSpatialWidthGr / GRID_SIZE; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "" + pageItem().gridNumberOfColumns; }
     if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
@@ -634,7 +632,6 @@ export const Toolbar_Popup: Component = () => {
 
   const label = (): string | null => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return "Url"; }
-    if (overlayType() == ToolbarPopupType.PageWidth) { return "Inner Block Width"; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
     if (overlayType() == ToolbarPopupType.PageNumCols) { return "Num Cols"; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
@@ -647,7 +644,6 @@ export const Toolbar_Popup: Component = () => {
   }
 
   const tooltip = (): string | null => {
-    if (overlayType() == ToolbarPopupType.PageWidth) { return "The width of the page in 'blocks'. One block is equal to the height of one line of normal sized text."; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
     if (overlayType() == ToolbarPopupType.PageCellAspect) { return "The aspect ratio (width / height) of a grid cell."; }
     if (overlayType() == ToolbarPopupType.PageJustifiedRowAspect) { return "The aspect ratio (width / height) of one row of items."; }
@@ -1559,6 +1555,14 @@ export const Toolbar_Popup: Component = () => {
                 </div>
               </Show>
             </div>
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.PageSize}>
+          <div class={PAGE_SIZE_POPUP_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <Toolbar_PageSizePopup />
           </div>
         </Match>
         <Match when={true}>

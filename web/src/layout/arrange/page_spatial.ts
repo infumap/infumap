@@ -35,6 +35,13 @@ import { arrangeCellPopupPath, calcSpatialPopupGeometry } from "./popup";
 import { getVePropertiesForItem } from "./util";
 
 
+// A spatial page is stretched to fill its viewport unless its aspect differs from the viewport's by more than these
+// ratios, beyond which it keeps its aspect and scrolls.
+// TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
+export const SPATIAL_SCROLL_X_ASPECT_RATIO = 1.3;
+export const SPATIAL_SCROLL_Y_ASPECT_RATIO = 0.7;
+
+
 export function arrange_spatial_page(
   store: StoreContextModel,
   parentPath: VisualElementPath,
@@ -58,11 +65,10 @@ export function arrange_spatial_page(
     const aspect = geometry.viewportBoundsPx!.w / geometry.viewportBoundsPx!.h;
     const pageAspect = displayItem_pageWithChildren.naturalAspect;
     let result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
-    // TODO (MEDIUM): make these cutoff aspect ratios configurable in user settings.
-    if (pageAspect / aspect > 1.3) {
+    if (pageAspect / aspect > SPATIAL_SCROLL_X_ASPECT_RATIO) {
       // page to scroll horizontally.
       result.w = Math.round(result.h * pageAspect);
-    } else if (pageAspect / aspect < 0.7) {
+    } else if (pageAspect / aspect < SPATIAL_SCROLL_Y_ASPECT_RATIO) {
       // page needs to scroll vertically.
       result.h = Math.round(result.w / pageAspect);
     }
