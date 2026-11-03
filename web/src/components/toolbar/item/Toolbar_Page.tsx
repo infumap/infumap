@@ -56,7 +56,7 @@ export const Toolbar_Page: Component = () => {
   let divBeforeColorSelect: HTMLDivElement | undefined;
   let colorSelectDiv: HTMLDivElement | undefined;
   let sizeDiv: HTMLDivElement | undefined;
-  let docWidthDiv: HTMLDivElement | undefined;
+  let documentLayoutDiv: HTMLDivElement | undefined;
   let aspectDiv: HTMLDivElement | undefined;
   let catalogLayoutDiv: HTMLDivElement | undefined;
   let pageShapeDiv: HTMLDivElement | undefined;
@@ -185,11 +185,11 @@ export const Toolbar_Page: Component = () => {
       pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
-  // List pages only have their aspect to set, which only applies where they are shown in something else: the list
-  // column is resized on the page.
+  // List and calendar pages only have their aspect to set here, which only applies where they are shown in something
+  // else: a list's column is resized on the page, and a calendar's view has its own menu.
   const showPageShapeButton = () => {
     store.touchToolbarDependency();
-    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List || pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar;
   }
 
   // Catalog pages set their preview shape and their aspect (which only applies where they are shown in something
@@ -264,9 +264,9 @@ export const Toolbar_Page: Component = () => {
     return `${sizeBl.w} × ${sizeBl.h}`;
   }
 
-  const docWidthBlText = () => {
+  const documentLayoutText = () => {
     store.touchToolbarDependency();
-    return pageItem().docWidthBl;
+    return `${pageItem().docWidthBl} wide`;
   }
 
   const showTitleInDocument = () => {
@@ -465,17 +465,17 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(sizeDiv!.getBoundingClientRect());
   };
 
-  // Doc Width Bl
-  const handleDocWidthBlClick = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageDocWidth) {
+  // Document Layout
+  const handleDocumentLayoutClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageDocumentLayout) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: docWidthDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageDocWidth });
+      { topLeftPx: { x: documentLayoutDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageDocumentLayout });
   };
-  const handlePageDocWidthDown = () => {
-    ClickState.setButtonClickBoundsPx(docWidthDiv!.getBoundingClientRect());
+  const handleDocumentLayoutDown = () => {
+    ClickState.setButtonClickBoundsPx(documentLayoutDiv!.getBoundingClientRect());
   };
 
   // Grid Layout
@@ -537,21 +537,21 @@ export const Toolbar_Page: Component = () => {
   };
 
 
+  // Document pages set their text width and their aspect (which only applies where they are shown in something else)
+  // together in one dialog. Showing the title is a toggle of its own. Also shown for the document pages of text files.
   const documentControls = () => (
     <>
       <div class="inline-block ml-[10px]">
         <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} title="Show document title" />
       </div>
-      <div ref={docWidthDiv}
-        class="inline-block w-[55px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+      <div ref={documentLayoutDiv}
+        class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
         style={`font-size: 13px;`}
-        title="Document width"
-        onClick={handleDocWidthBlClick}
-        onMouseDown={handlePageDocWidthDown}>
-        <i class="bi-arrows ml-[4px]" />
-        <div class="inline-block w-[30px] pl-[6px] text-right">
-          {docWidthBlText()}
-        </div>
+        title="Document layout"
+        onClick={handleDocumentLayoutClick}
+        onMouseDown={handleDocumentLayoutDown}>
+        <i class="bi-file-text" />
+        <span class="pl-[6px]">{documentLayoutText()}</span>
       </div>
     </>
   );
@@ -606,7 +606,7 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{pageShapeText()}</span>
           </div>
         </Show>
-        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton() && !showPageShapeButton() && !showTableLayoutButton()}>
+        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton() && !showPageShapeButton() && !showTableLayoutButton() && !showDocumentButtons()}>
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}

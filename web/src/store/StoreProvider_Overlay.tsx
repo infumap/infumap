@@ -35,7 +35,7 @@ export enum ToolbarPopupType {
   PageSize = "size",
   PageGridLayout = "gridlayout",
   PageTableLayout = "tablelayout",
-  PageDocWidth = "docwidth",
+  PageDocumentLayout = "documentlayout",
   PageCatalogLayout = "cataloglayout",
   PageShape = "shape",
   PageJustifiedLayout = "justifiedlayout",

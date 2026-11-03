@@ -58,7 +58,7 @@ import { printCurrentPage } from "../../print";
 import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
-import { isVirtualTextDocumentPage, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../items/text-document";
+import { isVirtualTextDocumentPage, sourceTextItemForVirtualTextDocumentPage } from "../../items/text-document";
 import { convertPageTableAtPath, pageTableConversionEligibility } from "../../items/page-table-conversion";
 import { convertPageCompositeAtPath, pageCompositeConversionEligibility } from "../../items/page-composite-conversion";
 import { ContainerConversionRefused } from "../../items/container-conversion";
@@ -69,6 +69,7 @@ import { PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageJustifiedLayoutPopup
 import { PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageCatalogLayoutPopup } from "./Toolbar_PageCatalogLayoutPopup";
 import { PAGE_SHAPE_POPUP_HEIGHT_PX, Toolbar_PageShapePopup } from "./Toolbar_PageShapePopup";
 import { PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageTableLayoutPopup } from "./Toolbar_PageTableLayoutPopup";
+import { PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageDocumentLayoutPopup } from "./Toolbar_PageDocumentLayoutPopup";
 import { TOOLBAR_DIALOG_CLASS, toolbarDialogHeightPx } from "./toolbarDialog";
 
 
@@ -361,7 +362,7 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.PageGridLayout) { return toolbarDialogHeightPx(PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.TableNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.PageTableLayout) { return toolbarDialogHeightPx(PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX); }
-  if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
+  if (overlayType == ToolbarPopupType.PageDocumentLayout) { return toolbarDialogHeightPx(PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageCatalogLayout) { return toolbarDialogHeightPx(PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageShape) { return toolbarDialogHeightPx(PAGE_SHAPE_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageJustifiedLayout) { return toolbarDialogHeightPx(PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX); }
@@ -542,13 +543,6 @@ export const Toolbar_Popup: Component = () => {
       const selection = noteUrlSelection();
       const url = textElement!.value;
       applyEditorFormatCommand(store, [note], "Edit link", () => { NoteFns.setUrlForToolbarEdit(note, selection, url); });
-    } else if (overlayTypeConst == ToolbarPopupType.PageDocWidth) {
-      const docWidthBl = Math.round(parseFloat(textElement!.value));
-      if (!Number.isFinite(docWidthBl)) { return; }
-      pageItem().docWidthBl = Math.max(1, docWidthBl);
-      if (isVirtualTextDocumentPage(pageItem().id)) {
-        persistVirtualTextDocumentPageOptions(store, pageItem());
-      }
     } else if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
       panic("unexpected overlay type in handleTextChange: " + overlayTypeConst);
     }
@@ -566,7 +560,6 @@ export const Toolbar_Popup: Component = () => {
   const inputWidthPx = (): number => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return 262; }
     if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
-    if (overlayType() == ToolbarPopupType.PageDocWidth) { return 162; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
     if (overlayType() == ToolbarPopupType.NoteIndent) { return 190; }
     return 200;
@@ -593,6 +586,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
       overlayType() != ToolbarPopupType.TableNumCols &&
       overlayType() != ToolbarPopupType.PageTableLayout &&
+      overlayType() != ToolbarPopupType.PageDocumentLayout &&
       overlayType() != ToolbarPopupType.NoteIndent &&
       overlayType() != ToolbarPopupType.PageGridLayout &&
       overlayType() != ToolbarPopupType.PageJustifiedLayout &&
@@ -619,7 +613,6 @@ export const Toolbar_Popup: Component = () => {
   const textEntryValue = (): string | null => {
     if (overlayType() == ToolbarPopupType.NoteUrl) { return NoteFns.urlForToolbarEdit(noteItem(), noteUrlSelection()); }
     if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
-    if (overlayType() == ToolbarPopupType.PageDocWidth) { return "" + pageItem().docWidthBl; }
     return "[unknown]";
   }
 
@@ -628,13 +621,11 @@ export const Toolbar_Popup: Component = () => {
     if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
     if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
     if (overlayType() == ToolbarPopupType.NoteIndent) { return "Indent"; }
-    if (overlayType() == ToolbarPopupType.PageDocWidth) { return "Document Block Width"; }
     return "[unknown]";
   }
 
   const tooltip = (): string | null => {
     if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
-    if (overlayType() == ToolbarPopupType.PageDocWidth) { return "The width of the document area in 'blocks'. One block is equal to the height of one line of normal sized text."; }
     return null;
   }
 
@@ -1583,6 +1574,14 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Toolbar_PageTableLayoutPopup />
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.PageDocumentLayout}>
+          <div class={TOOLBAR_DIALOG_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <Toolbar_PageDocumentLayoutPopup />
           </div>
         </Match>
         <Match when={true}>
