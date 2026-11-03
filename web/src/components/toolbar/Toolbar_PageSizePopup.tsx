@@ -12,7 +12,7 @@ import { SPATIAL_SCROLL_X_ASPECT_RATIO, SPATIAL_SCROLL_Y_ASPECT_RATIO } from "..
 import { serverOrRemote } from "../../server";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { getToolbarFocusItem } from "./toolbarFocus";
-import { TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, closeToolbarDialog, toolbarDialogButtonClass } from "./toolbarDialog";
+import { TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, closeToolbarDialog, toolbarDialogButtonClass, toolbarDialogNumberInput } from "./toolbarDialog";
 
 
 export const PAGE_SIZE_POPUP_HEIGHT_PX = 362;
@@ -152,30 +152,10 @@ export const Toolbar_PageSizePopup: Component = () => {
 
   // Typed values
 
-  const handleInputChange = (dim: "w" | "h") => (ev: Event) => {
-    const input = ev.currentTarget as HTMLInputElement;
-    const value = parseFloat(input.value);
-    if (Number.isFinite(value)) {
-      if (dim == "w") { setSize(value, sizeBl().h); } else { setSize(sizeBl().w, value); }
-      save();
-    }
-    // The signal may not change (e.g. the typed value was clamped back to the current one), so set this directly.
-    input.value = String(sizeBl()[dim]);
-  };
-
-  const handleInputKeyDown = (dim: "w" | "h") => (ev: KeyboardEvent) => {
-    ev.stopPropagation();
-    if (ev.key == "Escape") { ev.preventDefault(); close(); return; }
-    if (ev.key == "Enter") { handleInputChange(dim)(ev); (ev.currentTarget as HTMLInputElement).select(); return; }
-    if (ev.key == "ArrowUp" || ev.key == "ArrowDown") {
-      // Handled here rather than by the number input, which would apply the change without a change event.
-      ev.preventDefault();
-      const delta = (ev.key == "ArrowUp" ? 1 : -1) * (ev.shiftKey ? 10 : 1);
-      if (dim == "w") { setSize(sizeBl().w + delta, sizeBl().h); } else { setSize(sizeBl().w, sizeBl().h + delta); }
-      (ev.currentTarget as HTMLInputElement).value = String(sizeBl()[dim]);
-      save();
-    }
-  };
+  const sizeInput = (dim: "w" | "h") => toolbarDialogNumberInput(store, () => sizeBl()[dim], value => {
+    if (dim == "w") { setSize(value, sizeBl().h); } else { setSize(sizeBl().w, value); }
+    save();
+  }, 1);
 
   // Presets
 
@@ -259,12 +239,12 @@ export const Toolbar_PageSizePopup: Component = () => {
         <div class="mt-[10px] flex items-center gap-2 text-[12px] text-slate-600">
           <label class="flex items-center gap-[6px]">Width
             <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={minSizeBl.w} max={MAX_SIZE_BL} step="1" value={sizeBl().w}
-              onChange={handleInputChange("w")} onKeyDown={handleInputKeyDown("w")} />
+              {...sizeInput("w")} />
           </label>
           <span class="text-slate-400">×</span>
           <label class="flex items-center gap-[6px]">Height
             <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={minSizeBl.h} max={MAX_SIZE_BL} step="1" value={sizeBl().h}
-              onChange={handleInputChange("h")} onKeyDown={handleInputKeyDown("h")} />
+              {...sizeInput("h")} />
           </label>
         </div>
 

@@ -37,7 +37,7 @@ export enum ToolbarPopupType {
   PageTableNumCols = "pagetablenumcols",
   PageDocWidth = "docwidth",
   PageCellAspect = "cellaspect",
-  PageJustifiedRowAspect = "justifiedrowaspect",
+  PageJustifiedLayout = "justifiedlayout",
   PageArrangeAlgorithm = "arrangealgorithm",
   ChildSortOrder = "childsortorder",
   PageCalendarDisplayMode = "calendardisplaymode",

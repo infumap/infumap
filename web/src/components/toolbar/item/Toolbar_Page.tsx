@@ -43,6 +43,7 @@ import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
 import { gridCellShapeLabel } from "../Toolbar_PageGridLayoutPopup";
+import { justifiedItemsPerRowText } from "../Toolbar_PageJustifiedLayoutPopup";
 import { TOOLBAR_INFO_DIVIDER_RIGHT_PX, TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX } from "../toolbarDividers";
 
 
@@ -58,7 +59,7 @@ export const Toolbar_Page: Component = () => {
   let gridLayoutDiv: HTMLDivElement | undefined;
   let arrangeAlgoDiv: HTMLDivElement | undefined;
   let calendarDisplayModeDiv: HTMLDivElement | undefined;
-  let justifiedRowAspectDiv: HTMLDivElement | undefined;
+  let justifiedLayoutDiv: HTMLDivElement | undefined;
   let numColsDiv: HTMLDivElement | undefined;
   let openTextFileDiv: HTMLDivElement | undefined;
   let continueChatDiv: HTMLDivElement | undefined;
@@ -227,7 +228,9 @@ export const Toolbar_Page: Component = () => {
     store.touchToolbar();
   }
 
-  const showJustifiedButtons = () => {
+  // Justified pages set their row height and their aspect (which only applies where they are shown in something
+  // else) together in one dialog.
+  const showJustifiedLayoutButton = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
@@ -301,9 +304,10 @@ export const Toolbar_Page: Component = () => {
     return Math.round(pageItem().gridCellAspect * 1000.0) / 1000.0;
   }
 
-  const justifiedAspectText = () => {
+  const justifiedLayoutText = () => {
     store.touchToolbarDependency();
-    return Math.round(pageItem().justifiedRowAspect * 10.0) / 10.0;
+    const perRow = justifiedItemsPerRowText(store, pageItem());
+    return perRow == null ? "no items" : `≈${perRow} per row`;
   }
 
   const gridLayoutText = () => {
@@ -433,17 +437,17 @@ export const Toolbar_Page: Component = () => {
     ClickState.setButtonClickBoundsPx(cellAspectDiv!.getBoundingClientRect());
   };
 
-  // Justified Row Aspect
-  const handleJustifiedRowAspectClick = () => {
-    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageJustifiedRowAspect) {
+  // Justified Layout
+  const handleJustifiedLayoutClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageJustifiedLayout) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
     store.overlay.toolbarPopupInfoMaybe.set(
-      { topLeftPx: { x: justifiedRowAspectDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageJustifiedRowAspect });
+      { topLeftPx: { x: justifiedLayoutDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageJustifiedLayout });
   };
-  const handleJustifiedRowAspectDown = () => {
-    ClickState.setButtonClickBoundsPx(justifiedRowAspectDiv!.getBoundingClientRect());
+  const handleJustifiedLayoutDown = () => {
+    ClickState.setButtonClickBoundsPx(justifiedLayoutDiv!.getBoundingClientRect());
   };
 
   // Size
@@ -592,7 +596,7 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{gridLayoutText()}</span>
           </div>
         </Show>
-        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton()}>
+        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton()}>
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
@@ -633,17 +637,15 @@ export const Toolbar_Page: Component = () => {
           <InfuIconButton icon="bi-table" highlighted={showTableHeader()} clickHandler={handleToggleTableHeader} title="Show column headers" />
           <InfuIconButton icon="bi-text-wrap" highlighted={tableWrapRows()} clickHandler={handleToggleTableWrapRows} title="Wrap row text" />
         </Show>
-        <Show when={showJustifiedButtons()}>
-          <div ref={justifiedRowAspectDiv}
-            class="inline-block w-[50px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
+        <Show when={showJustifiedLayoutButton()}>
+          <div ref={justifiedLayoutDiv}
+            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
-            title="Row aspect ratio"
-            onClick={handleJustifiedRowAspectClick}
-            onMouseDown={handleJustifiedRowAspectDown}>
-            <i class="bi-aspect-ratio ml-[4px]" />
-            <div class="inline-block w-[25px] pl-[6px] text-right">
-              {justifiedAspectText()}
-            </div>
+            title="Justified layout: about this many items fit in a row"
+            onClick={handleJustifiedLayoutClick}
+            onMouseDown={handleJustifiedLayoutDown}>
+            <i class="bi-columns-gap" />
+            <span class="pl-[6px]">{justifiedLayoutText()}</span>
           </div>
         </Show>
         <Show when={showCalendarButtons()}>

@@ -2,15 +2,16 @@
 
 import { Component, For, Index, Show, createSignal } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { asPageItem, autoPageAspect } from "../../items/page-item";
+import { asPageItem } from "../../items/page-item";
 import { asImageItem, isImage } from "../../items/image-item";
 import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { itemState } from "../../store/ItemState";
-import { requestArrange } from "../../layout/arrange";
-import { serverOrRemote } from "../../server";
 import { Item } from "../../items/base/item";
 import { getToolbarFocusItem } from "./toolbarFocus";
-import { TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, closeToolbarDialog, toolbarDialogButtonClass } from "./toolbarDialog";
+import {
+  TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, roundAspect, toolbarDialogButtonClass,
+  toolbarDialogNumberInput, toolbarDialogPageChanged,
+} from "./toolbarDialog";
 
 
 export const PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX = 436;
@@ -32,8 +33,6 @@ const CELL_SHAPES: Array<{ label: string, aspect: number }> = [
   { label: "3:4", aspect: 3 / 4 },
   { label: "2:3", aspect: 2 / 3 },
 ];
-
-const roundAspect = (aspect: number): number => Math.round(aspect * 100) / 100;
 
 const shapeMatches = (a: number, b: number): boolean => Math.abs(a - b) < 0.005;
 
@@ -73,17 +72,12 @@ export const Toolbar_PageGridLayoutPopup: Component = () => {
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const [columns, setColumns] = createSignal(pageItem().gridNumberOfColumns);
   const [cellAspect, setCellAspect] = createSignal(pageItem().gridCellAspect);
-  const [pageAspect, setPageAspect] = createSignal(pageItem().naturalAspect);
 
   // Children don't change while the popup is open: anywhere else they could be changed from closes it.
   const itemCount = pageItem().computed_children.length;
   const imageAspects = childImageAspects(pageItem().id);
 
-  const changed = (reason: string) => {
-    store.touchToolbar();
-    requestArrange(store, reason);
-    serverOrRemote.updateItem(pageItem());
-  };
+  const changed = (reason: string) => toolbarDialogPageChanged(store, pageItem(), reason);
 
   const applyColumns = (requested: number) => {
     const value = Math.max(MIN_COLUMNS, Math.min(MAX_COLUMNS, Math.round(requested)));
@@ -101,47 +95,7 @@ export const Toolbar_PageGridLayoutPopup: Component = () => {
     changed("toolbar-grid-cell-aspect");
   };
 
-  const applyPageAspect = (requested: number) => {
-    const value = Math.max(MIN_ASPECT, Math.min(MAX_ASPECT, requested));
-    setPageAspect(value);
-    if (pageItem().naturalAspect == value) { return; }
-    pageItem().naturalAspect = value;
-    changed("toolbar-grid-page-aspect");
-  };
-
   const close = () => closeToolbarDialog(store);
-
-  // Number inputs apply on Enter or when left, and step with the arrow keys (by 10x with shift).
-  const numberInputHandlers = (current: () => number, apply: (value: number) => void, step: number, format: (value: number) => string) => {
-    const show = (input: HTMLInputElement) => { input.value = format(current()); };
-    return {
-      onChange: (ev: Event) => {
-        const input = ev.currentTarget as HTMLInputElement;
-        const value = parseFloat(input.value);
-        if (Number.isFinite(value)) { apply(value); }
-        // The signal may not change (e.g. the value was clamped back to the current one), so set this directly.
-        show(input);
-      },
-      onKeyDown: (ev: KeyboardEvent) => {
-        ev.stopPropagation();
-        const input = ev.currentTarget as HTMLInputElement;
-        if (ev.key == "Escape") { ev.preventDefault(); close(); return; }
-        if (ev.key == "Enter") {
-          const value = parseFloat(input.value);
-          if (Number.isFinite(value)) { apply(value); }
-          show(input);
-          input.select();
-          return;
-        }
-        if (ev.key == "ArrowUp" || ev.key == "ArrowDown") {
-          // Handled here rather than by the number input, which would apply the change without a change event.
-          ev.preventDefault();
-          apply(current() + (ev.key == "ArrowUp" ? step : -step) * (ev.shiftKey ? 10 : 1));
-          show(input);
-        }
-      },
-    };
-  };
 
   // Schematic: the grid at the width of the schematic, with one cell per item.
 
@@ -194,7 +148,7 @@ export const Toolbar_PageGridLayoutPopup: Component = () => {
           <button type="button" class={stepperButtonClass} aria-label="Fewer columns" disabled={columns() <= MIN_COLUMNS}
             onClick={() => applyColumns(columns() - 1)}><i class="bi-dash" /></button>
           <input class={`${TOOLBAR_DIALOG_INPUT_CLASS} !w-[44px] text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`} type="number" min={MIN_COLUMNS} max={MAX_COLUMNS} step="1"
-            aria-label="Columns" value={columns()} {...numberInputHandlers(columns, applyColumns, 1, String)} />
+            aria-label="Columns" value={columns()} {...toolbarDialogNumberInput(store, columns, applyColumns, 1)} />
           <button type="button" class={stepperButtonClass} aria-label="More columns" disabled={columns() >= MAX_COLUMNS}
             onClick={() => applyColumns(columns() + 1)}><i class="bi-plus" /></button>
         </div>
@@ -210,24 +164,14 @@ export const Toolbar_PageGridLayoutPopup: Component = () => {
         <div class="mt-2 flex items-center gap-2">
           <label class="flex items-center gap-[6px] text-[12px] text-slate-600">Aspect
             <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_ASPECT} max={MAX_ASPECT} step="0.01"
-              value={roundAspect(cellAspect())} {...numberInputHandlers(cellAspect, applyCellAspect, 0.01, v => String(roundAspect(v)))} />
+              value={roundAspect(cellAspect())} {...toolbarDialogNumberInput(store, cellAspect, applyCellAspect, 0.01, v => String(roundAspect(v)))} />
           </label>
           <button type="button" class={toolbarDialogButtonClass()} disabled={imageAspects.length == 0}
             title={matchImagesTitle()} onClick={() => applyCellAspect(roundAspect(median(imageAspects)))}>Match images</button>
         </div>
       </div>
 
-      <div class="shrink-0 border-t border-slate-200 px-3 py-2">
-        <div class="text-[11px] leading-[16px] text-slate-500">Shape of this page in popups and where it is embedded</div>
-        <div class="mt-[6px] flex items-center gap-2">
-          <label class="flex items-center gap-[6px] text-[12px] text-slate-600">Aspect
-            <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_ASPECT} max={MAX_ASPECT} step="0.01"
-              value={roundAspect(pageAspect())} {...numberInputHandlers(pageAspect, applyPageAspect, 0.01, v => String(roundAspect(v)))} />
-          </label>
-          <button type="button" class={toolbarDialogButtonClass()}
-            title="Use the shape of the window" onClick={() => applyPageAspect(autoPageAspect(store))}>Match window</button>
-        </div>
-      </div>
+      <ToolbarDialogPageShapeSection page={pageItem} />
     </div>
   );
 }
