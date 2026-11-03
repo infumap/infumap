@@ -1131,10 +1131,22 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     }
   }
 
+  if (focusPageIdx > 0 && store.history.currentPopupSpec() == null) {
+    // Focus moves out one titled page at a time, as it does for items that aren't pages above. Navigating up from the
+    // root page here instead was tried: right click then acted on the root rather than the focused page, and skipped
+    // the pages between them.
+    const newFocusPath = topPagePaths[focusPageIdx] == focusPath
+      ? topPagePaths[focusPageIdx - 1]
+      : topPagePaths[focusPageIdx];
+    store.history.setFocus(newFocusPath);
+    arrangeNow(store, "mouse-right-focus-outer-titled-page");
+    return;
+  }
+
   if (focusPageIdx > 0) {
     if (clearCalendarMonthResizeBeforeBackMaybe()) { return; }
 
-    // Save the focused page before navigating up, so it can be restored when clicking back in.
+    // Save the focused page before closing the popup, so it can be restored when clicking back in.
     const currentPageVeid = store.history.currentPageVeid();
     if (currentPageVeid) {
       const focusVe = VesCache.current.readNode(focusPath);
@@ -1144,11 +1156,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
       }
     }
 
-    if (store.history.currentPopupSpec() != null) {
-      await closePopupAndMaybeFocusParent();
-      return;
-    }
-    await navigateUp(store);
+    await closePopupAndMaybeFocusParent();
     return;
   }
 
