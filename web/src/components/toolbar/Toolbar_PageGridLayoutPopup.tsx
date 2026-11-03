@@ -6,7 +6,7 @@ import { asPageItem } from "../../items/page-item";
 import { getToolbarFocusItem } from "./toolbarFocus";
 import {
   TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogNumberInput,
-  toolbarDialogPageChanged,
+  toolbarDialogContentRef, toolbarDialogPageChanged,
 } from "./toolbarDialog";
 import { ToolbarDialogCellShapeSection, childImageAspects } from "./toolbarCellShape";
 
@@ -82,11 +82,11 @@ export const Toolbar_PageGridLayoutPopup: Component = () => {
   const stepperButtonClass = "h-[24px] w-[24px] rounded-md border border-[#d6d6d6] bg-white text-[12px] text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50";
 
   return (
-    <div class="flex h-full flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
+    <div ref={toolbarDialogContentRef} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
       <ToolbarDialogHeader title="Grid layout" onClose={close}
         description="The grid fills the width of the page and scrolls down. Columns and cell shape set how big the cells are." />
 
-      <div class="grow px-3 pt-3">
+      <div class="px-3 py-3">
         <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
           <Index each={cellIndexes()}>{i =>

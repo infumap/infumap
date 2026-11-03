@@ -5,7 +5,7 @@ import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { CATALOG_DETAIL_COLUMN_PADDING_PX, calcCatalogLayout } from "../../layout/catalog";
 import { getToolbarFocusItem } from "./toolbarFocus";
-import { ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogPageChanged } from "./toolbarDialog";
+import { ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogContentRef, toolbarDialogPageChanged } from "./toolbarDialog";
 import { ToolbarDialogCellShapeSection, childImageAspects } from "./toolbarCellShape";
 
 
@@ -89,11 +89,11 @@ export const Toolbar_PageCatalogLayoutPopup: Component = () => {
   };
 
   return (
-    <div class="flex h-full flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
+    <div ref={toolbarDialogContentRef} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
       <ToolbarDialogHeader title="Catalog layout" onClose={close}
         description="One item per row: a preview, with its details beside it. The preview shape sets how tall the rows are." />
 
-      <div class="grow px-3 pt-3">
+      <div class="px-3 py-3">
         <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
           <div class="absolute overflow-hidden border border-slate-400 bg-white" style={frameStyle} title="The window, at full screen">

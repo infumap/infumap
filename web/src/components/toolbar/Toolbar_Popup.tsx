@@ -67,7 +67,8 @@ import { PAGE_SIZE_POPUP_HEIGHT_PX, Toolbar_PageSizePopup } from "./Toolbar_Page
 import { PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageGridLayoutPopup } from "./Toolbar_PageGridLayoutPopup";
 import { PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageJustifiedLayoutPopup } from "./Toolbar_PageJustifiedLayoutPopup";
 import { PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageCatalogLayoutPopup } from "./Toolbar_PageCatalogLayoutPopup";
-import { TOOLBAR_DIALOG_CLASS } from "./toolbarDialog";
+import { PAGE_SHAPE_POPUP_HEIGHT_PX, Toolbar_PageShapePopup } from "./Toolbar_PageShapePopup";
+import { TOOLBAR_DIALOG_CLASS, toolbarDialogHeightPx } from "./toolbarDialog";
 
 
 const EMOJI_CATEGORIES = [
@@ -354,14 +355,15 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
   if (overlayType == ToolbarPopupType.NoteIndent) { return 36; }
   if (overlayType == ToolbarPopupType.ItemIcon) { return 292; }
-  if (overlayType == ToolbarPopupType.PageSize) { return PAGE_SIZE_POPUP_HEIGHT_PX; }
+  if (overlayType == ToolbarPopupType.PageSize) { return toolbarDialogHeightPx(PAGE_SIZE_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
-  if (overlayType == ToolbarPopupType.PageGridLayout) { return PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX; }
+  if (overlayType == ToolbarPopupType.PageGridLayout) { return toolbarDialogHeightPx(PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.TableNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.PageTableNumCols) { return 36; }
   if (overlayType == ToolbarPopupType.PageDocWidth) { return 74; }
-  if (overlayType == ToolbarPopupType.PageCatalogLayout) { return PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX; }
-  if (overlayType == ToolbarPopupType.PageJustifiedLayout) { return PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX; }
+  if (overlayType == ToolbarPopupType.PageCatalogLayout) { return toolbarDialogHeightPx(PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX); }
+  if (overlayType == ToolbarPopupType.PageShape) { return toolbarDialogHeightPx(PAGE_SHAPE_POPUP_HEIGHT_PX); }
+  if (overlayType == ToolbarPopupType.PageJustifiedLayout) { return toolbarDialogHeightPx(PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return toolbarMenuHeightPx(5); }
   if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(3); }
   if (overlayType == ToolbarPopupType.MoreActions) { return toolbarMenuHeightPx(moreActionsRows(store)); }
@@ -599,6 +601,7 @@ export const Toolbar_Popup: Component = () => {
       overlayType() != ToolbarPopupType.PageGridLayout &&
       overlayType() != ToolbarPopupType.PageJustifiedLayout &&
       overlayType() != ToolbarPopupType.PageCatalogLayout &&
+      overlayType() != ToolbarPopupType.PageShape &&
       overlayType() != ToolbarPopupType.PageSize &&
       overlayType() != ToolbarPopupType.RatingType) {
       textElement!.focus();
@@ -1574,6 +1577,14 @@ export const Toolbar_Popup: Component = () => {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
             <Toolbar_PageCatalogLayoutPopup />
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.PageShape}>
+          <div class={TOOLBAR_DIALOG_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <Toolbar_PageShapePopup />
           </div>
         </Match>
         <Match when={true}>

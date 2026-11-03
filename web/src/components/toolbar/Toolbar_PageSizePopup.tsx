@@ -12,7 +12,9 @@ import { SPATIAL_SCROLL_X_ASPECT_RATIO, SPATIAL_SCROLL_Y_ASPECT_RATIO } from "..
 import { serverOrRemote } from "../../server";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { getToolbarFocusItem } from "./toolbarFocus";
-import { TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, closeToolbarDialog, toolbarDialogButtonClass, toolbarDialogNumberInput } from "./toolbarDialog";
+import {
+  TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, closeToolbarDialog, toolbarDialogButtonClass, toolbarDialogContentRef, toolbarDialogNumberInput,
+} from "./toolbarDialog";
 
 
 export const PAGE_SIZE_POPUP_HEIGHT_PX = 362;
@@ -217,11 +219,11 @@ export const Toolbar_PageSizePopup: Component = () => {
   });
 
   return (
-    <div class="flex h-full flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
+    <div ref={toolbarDialogContentRef} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
       <ToolbarDialogHeader title="Page size" onClose={close}
         description="In blocks: one block is the height of a line of text. Drag the outline to resize." />
 
-      <div class="grow px-3 pt-3">
+      <div class="px-3 py-3">
         <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
           <div class="absolute border border-slate-400 bg-white" style={boxStyle(pageRectPx())} />

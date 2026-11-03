@@ -43,6 +43,7 @@ import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
 import { cellShapeLabel } from "../toolbarCellShape";
+import { roundAspect } from "../toolbarDialog";
 import { justifiedRowSizeWord } from "../Toolbar_PageJustifiedLayoutPopup";
 import { TOOLBAR_INFO_DIVIDER_RIGHT_PX, TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX } from "../toolbarDividers";
 
@@ -56,6 +57,7 @@ export const Toolbar_Page: Component = () => {
   let docWidthDiv: HTMLDivElement | undefined;
   let aspectDiv: HTMLDivElement | undefined;
   let catalogLayoutDiv: HTMLDivElement | undefined;
+  let pageShapeDiv: HTMLDivElement | undefined;
   let gridLayoutDiv: HTMLDivElement | undefined;
   let arrangeAlgoDiv: HTMLDivElement | undefined;
   let calendarDisplayModeDiv: HTMLDivElement | undefined;
@@ -181,6 +183,13 @@ export const Toolbar_Page: Component = () => {
       pageItem().arrangeAlgorithm == ArrangeAlgorithm.Justified;
   }
 
+  // List pages only have their aspect to set, which only applies where they are shown in something else: the list
+  // column is resized on the page.
+  const showPageShapeButton = () => {
+    store.touchToolbarDependency();
+    return pageItem().arrangeAlgorithm == ArrangeAlgorithm.List;
+  }
+
   // Catalog pages set their preview shape and their aspect (which only applies where they are shown in something
   // else) together in one dialog.
   const showCatalogLayoutButton = () => {
@@ -299,6 +308,11 @@ export const Toolbar_Page: Component = () => {
   const aspectText = () => {
     store.touchToolbarDependency();
     return Math.round(pageItem().naturalAspect * 1000.0) / 1000.0;
+  }
+
+  const pageShapeText = () => {
+    store.touchToolbarDependency();
+    return roundAspect(pageItem().naturalAspect);
   }
 
   const catalogLayoutText = () => {
@@ -423,6 +437,19 @@ export const Toolbar_Page: Component = () => {
   };
   const handleAspectDown = () => {
     ClickState.setButtonClickBoundsPx(aspectDiv!.getBoundingClientRect());
+  };
+
+  // Page Shape
+  const handlePageShapeClick = () => {
+    if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.PageShape) {
+      store.overlay.toolbarPopupInfoMaybe.set(null);
+      return;
+    }
+    store.overlay.toolbarPopupInfoMaybe.set(
+      { topLeftPx: { x: pageShapeDiv!.getBoundingClientRect().x, y: toolbarPopupTopPx(store) }, type: ToolbarPopupType.PageShape });
+  };
+  const handlePageShapeDown = () => {
+    ClickState.setButtonClickBoundsPx(pageShapeDiv!.getBoundingClientRect());
   };
 
   // Catalog Layout
@@ -597,7 +624,18 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{gridLayoutText()}</span>
           </div>
         </Show>
-        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton()}>
+        <Show when={showPageShapeButton()}>
+          <div ref={pageShapeDiv}
+            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            style={`font-size: 13px;`}
+            title="Page shape"
+            onClick={handlePageShapeClick}
+            onMouseDown={handlePageShapeDown}>
+            <i class="bi-aspect-ratio" />
+            <span class="pl-[6px]">{pageShapeText()}</span>
+          </div>
+        </Show>
+        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton() && !showPageShapeButton()}>
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}

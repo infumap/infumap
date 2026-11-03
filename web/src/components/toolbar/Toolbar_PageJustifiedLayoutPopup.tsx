@@ -11,7 +11,7 @@ import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTar
 import { getToolbarFocusItem } from "./toolbarFocus";
 import {
   TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogButtonClass,
-  toolbarDialogNumberInput, toolbarDialogPageChanged,
+  toolbarDialogContentRef, toolbarDialogNumberInput, toolbarDialogPageChanged,
 } from "./toolbarDialog";
 
 
@@ -145,11 +145,11 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
       : "Make the rows as large as possible with every item in view at full screen";
 
   return (
-    <div class="flex h-full flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
+    <div ref={toolbarDialogContentRef} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
       <ToolbarDialogHeader title="Justified layout" onClose={close}
         description="Items keep their shape and fill rows the width of the page, which scrolls down. Row height sets how big they are." />
 
-      <div class="grow px-3 pt-3">
+      <div class="px-3 py-3">
         <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
           <div class="absolute overflow-hidden border border-slate-400 bg-white" style={frameStyle} title="The window, at full screen">
